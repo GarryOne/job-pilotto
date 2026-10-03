@@ -309,6 +309,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/apply-batch-claude.sh` — apply-batch-claude.sh — open one new Terminal window per job, each running its own
 - `tools/apply-batch-codex-terminal.sh` — Open one Codex CLI session per application in Terminal, using Playwright MCP's
 - `tools/benchmark-apply-runs.py` — Score local browser-run reports against human-checked, unsubmitted ATS forms.
+- `tools/beta-approve.sh` — Mark a pre-release as approved for beta testers: it passed the unit suites and every end-to-end suite on its own commit.
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
 - `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
 - `tools/check.py` — Run consistent fast, area or full project verification with supported runtimes and actionable failures."""

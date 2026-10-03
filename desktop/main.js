@@ -141,10 +141,11 @@ let staleWarned = '';  // the extension version already reported as stale in the
 // Running from source (npm start): never offer or install an update. It would quit the dev app and open the
 // downloaded one in its place. From source, updating is `git pull` + restart.
 const FROM_SOURCE = !app.isPackaged;
+const betaOn = () => storage.settings().betaChannel === true;   // opt-in, off by default (Settings → Diagnostics → Beta)
 async function checkForUpdate(asked = false) {
   if (FROM_SOURCE) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
   try {
-    updateOffer = await updater.check(app.getVersion());
+    updateOffer = await updater.check(app.getVersion(), {channel: betaOn() ? 'beta' : 'stable'});
     updateCheckedAt = new Date().toISOString();
     if (updateOffer) { appLog('update', `available: ${updateOffer.version}`); toWindow('update', updateOffer); }
     return {ok: true, offer: updateOffer, current: app.getVersion()};
@@ -1361,6 +1362,38 @@ function handlers() {
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
   ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, fromSource: FROM_SOURCE}));
   ipcMain.handle('updateInstall', () => installUpdate());
+  // Beta (Settings → Diagnostics → Beta). Asked here, in the main process: only a click on this dialog turns it on, never a script in the window.
+  // Beta builds are only the ones the release gate approved (tools/beta-approve.sh); "Back to stable" installs the latest stable release even though it is older.
+  const parentWindow = () => (window && !window.isDestroyed() ? window : undefined);
+  ipcMain.handle('betaState', async () => {
+    const stable = FROM_SOURCE ? null : await updater.stableRelease(app.getVersion()).catch(() => null);
+    return {on: betaOn(), current: app.getVersion(), stable: stable?.version || '', ahead: !!stable?.ahead, fromSource: FROM_SOURCE};
+  });
+  ipcMain.handle('betaSet', async (_, want) => {
+    if (DEMO || FROM_SOURCE) return {ok: false, text: 'Not in demo mode or when running from source.'};
+    if (want) {
+      const {response} = await dialog.showMessageBox(parentWindow(), {type: 'question', message: 'Get the beta version?', buttons: ['Join the beta', 'Not now'], defaultId: 1, cancelId: 1,
+        detail: 'Be the first to test new features. Beta versions pass our automatic checks, but can still have bugs. Job Pilotto will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version any time: Settings → Diagnostics → Beta → Back to stable.'});
+      if (response !== 0) return {ok: false, cancelled: true};
+    }
+    storage.saveSettings({betaChannel: !!want});
+    appLog('update', `beta channel ${want ? 'on' : 'off'}`, {version: app.getVersion()});
+    checkForUpdate();
+    return {ok: true, on: !!want};
+  });
+  ipcMain.handle('betaRollback', async () => {
+    if (DEMO || FROM_SOURCE) return {ok: false, text: 'Not in demo mode or when running from source.'};
+    const stable = await updater.stableRelease(app.getVersion()).catch(error => ({error}));
+    if (stable?.error) return {ok: false, text: `Couldn't reach GitHub: ${stable.error.message}`};
+    if (!stable?.ahead) return {ok: false, text: 'You are not ahead of the stable version.'};
+    const {response} = await dialog.showMessageBox(parentWindow(), {type: 'question', message: `Go back to stable ${stable.version}?`, buttons: ['Go back to stable', 'Cancel'], defaultId: 0, cancelId: 1,
+      detail: `You have ${app.getVersion()}. The app closes, installs the stable version and opens again. Your jobs and answers are in Notion and stay as they are. The beta is switched off; you can join again any time.`});
+    if (response !== 0) return {ok: false, cancelled: true};
+    storage.saveSettings({betaChannel: false});
+    updateOffer = stable;
+    appLog('update', `back to stable: ${app.getVersion()} -> ${stable.version}`);
+    return installUpdate();
+  });
   // Why setup stopped (the quit question or "Stuck? Tell us"): a setup report; typed words also reach the owner.
   ipcMain.handle('leaveReason', async (_, answer = {}) => {
     const event = answer.reason ? setupFunnel.stopped(answer, storage.settings()) : null;

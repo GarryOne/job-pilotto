@@ -13,3 +13,14 @@ test('Updates line: available, up to date (with when it was checked), or not che
 test('from source: says git pull, never offers', () => {
   assert.deepEqual(updateText({fromSource: true, offer: {version: '9'}}), {latest: true, text: 'Running from source: update with git pull'});
 });
+
+test('Settings → Beta says what is on, and shows "Back to stable" only while the install is ahead of stable', async () => {
+  const {betaText} = await import('../renderer/update-text.js');
+  assert.deepEqual(betaText({on: false, current: '0.4.0-alpha.252', stable: '0.4.0-alpha.252', ahead: false}), {text: 'Off · you get stable versions only', toggle: 'Get the beta version', back: false});
+  assert.equal(betaText({on: true, current: '0.4.0-alpha.252', stable: '0.4.0-alpha.252', ahead: false}).toggle, 'Turn off');
+  const ahead = betaText({on: true, current: '0.4.0-alpha.255', stable: '0.4.0-alpha.252', ahead: true});
+  assert.equal(ahead.back, true);
+  assert.match(ahead.text, /ahead of stable 0\.4\.0-alpha\.252/);
+  assert.equal(betaText({on: false, current: '0.4.0-alpha.255', stable: '0.4.0-alpha.252', ahead: true}).back, true, 'turning the beta off does not roll anyone back by itself');
+  assert.equal(betaText({fromSource: true}).toggle, '');
+});

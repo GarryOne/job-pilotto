@@ -1,7 +1,7 @@
 // Settings: its sub-pages.
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
-import {updateText} from '../update-text.js';
+import {betaText, updateText} from '../update-text.js';
 import {shared} from './shared.js';
 import {$, aiReady, show} from './core.js';
 import {extensionState} from '../service-status.js';
@@ -197,6 +197,7 @@ function renderServices(status) {
   renderConnections(status);
   renderDiagnostics(status);
   renderUpdate();
+  renderBeta();
   showAlert('ov', missing);
   $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
     const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
@@ -257,6 +258,17 @@ async function renderUpdate() {
   $('diag-update-text').className = `service-state${latest ? ' is-on' : ''}`;
 }
 
+// Beta: opt-in, off by default. Joining asks in a native dialog (main.js); "Back to stable" shows while this install is ahead of the stable version.
+async function renderBeta() {
+  const state = await window.pilot.betaState().catch(() => ({fromSource: true}));
+  const {text, toggle, back} = betaText(state);
+  $('diag-beta-text').textContent = text;
+  $('diag-beta-toggle').textContent = toggle;
+  $('diag-beta-toggle').hidden = !toggle;
+  $('diag-beta-toggle').dataset.on = state.on ? '1' : '';
+  $('diag-beta-back').hidden = !back;
+}
+
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   $('diag-update-check').addEventListener('click', async () => {
@@ -267,6 +279,17 @@ export async function init() {
     button.disabled = false;
     if (result?.ok === false) { $('diag-update-text').textContent = result.text; return; }
     renderUpdate();
+  });
+  $('diag-beta-toggle').addEventListener('click', async () => {
+    const button = $('diag-beta-toggle');
+    button.disabled = true;
+    const result = await window.pilot.betaSet(!button.dataset.on).catch(error => ({ok: false, text: error.message}));
+    button.disabled = false;
+    if (result?.ok === false && result.text) $('diag-beta-text').textContent = result.text; else renderBeta();
+  });
+  $('diag-beta-back').addEventListener('click', async () => {
+    const result = await window.pilot.betaRollback().catch(error => ({ok: false, text: error.message}));
+    if (result?.ok === false && result.text) $('diag-beta-text').textContent = result.text;
   });
   document.addEventListener('click', event => {
     const go = event.target.closest('[data-settings-go]');

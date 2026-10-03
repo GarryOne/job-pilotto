@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {asset, check, install, macSwapScript, newer, windowsUpdateScript} from '../lib/updater.js';
+import {asset, check, install, macSwapScript, newer, stableRelease, windowsUpdateScript} from '../lib/updater.js';
 
 test('versions compare as releases do: numbers, then a release beats its pre-releases', () => {
   assert.ok(newer('0.4.0-alpha.41', '0.4.0-alpha.39'));
@@ -69,4 +69,43 @@ test('installing on Windows downloads the installer, runs PowerShell on the scri
   assert.match(written, /-ArgumentList '\/S' -Wait/);
   assert.match(written, /Start-Process -FilePath 'C:\\Programs\\Job Pilotto\\Job Pilotto\.exe'/);
   assert.deepEqual(steps, ['Downloading…', 'Installing and restarting…']);
+});
+
+// Beta: only for people who switched it on, and only builds the release gate approved.
+const release = (n, {prerelease = true, body = '', assets} = {}) => ({tag_name: `desktop-v0.4.0-alpha.${n}`, name: `Alpha ${n}`, prerelease, draft: false, body, html_url: `https://github.com/x/${n}`,
+  assets: assets || [{name: `Job-Pilotto-0.4.0-alpha.${n}-arm64.zip`, browser_download_url: `https://dl/${n}.zip`, size: 9},
+    {name: `Job-Pilotto-0.4.0-alpha.${n}-x64.exe`, browser_download_url: `https://dl/${n}.exe`}, {name: 'Job-Pilotto-windows-x64.exe', browser_download_url: 'https://dl/generic.exe'}]});
+const APPROVED = 'Beta-approved: unit suites and every end-to-end suite passed on commit abc1234 (2026-10-04)';
+const listOf = items => async () => ({ok: true, json: async () => items});
+
+test('a beta tester is offered the newest approved pre-release, never an unapproved one', async () => {
+  const items = [release(54), release(53, {body: APPROVED}), release(52, {prerelease: false}), release(51)];
+  const offer = await check('0.4.0-alpha.52', {channel: 'beta', fetcher: listOf(items), platform: 'darwin'});
+  assert.equal(offer.version, '0.4.0-alpha.53');
+  assert.equal(offer.beta, true);
+  assert.equal(await check('0.4.0-alpha.53', {channel: 'beta', fetcher: listOf(items), platform: 'darwin'}), null, 'alpha.54 is unapproved');
+});
+
+test('the stable channel asks only for the latest stable release', async () => {
+  const fetcher = async url => { assert.match(url, /releases\/latest$/); return {ok: true, json: async () => release(52, {prerelease: false})}; };
+  assert.equal((await check('0.4.0-alpha.50', {fetcher, platform: 'darwin'})).version, '0.4.0-alpha.52');
+});
+
+test('a beta tester is offered a newer stable release too: the newest approved or stable wins', async () => {
+  const items = [release(53, {body: APPROVED}), release(55, {prerelease: false})];
+  assert.equal((await check('0.4.0-alpha.50', {channel: 'beta', fetcher: listOf(items), platform: 'darwin'})).version, '0.4.0-alpha.55');
+});
+
+test('a beta or a rollback on Windows takes the build\'s own installer, not the generic one a failed build leaves behind', () => {
+  const noOwn = release(53, {body: APPROVED, assets: [{name: 'Job-Pilotto-windows-x64.exe', browser_download_url: 'https://dl/generic.exe'}]});
+  assert.equal(asset(noOwn, 'win32'), noOwn.assets[0], 'stable keeps its fallback');
+  assert.equal(asset(noOwn, 'win32', {own: true}), null);
+  assert.equal(asset(release(53), 'win32', {own: true}).browser_download_url, 'https://dl/53.exe');
+});
+
+test('"Back to stable" offers the latest stable release even though it is older, and says the install is ahead of it', async () => {
+  const fetcher = listOf(release(52, {prerelease: false}));
+  const back = await stableRelease('0.4.0-alpha.54', {fetcher, platform: 'darwin'});
+  assert.deepEqual([back.version, back.rollback, back.ahead], ['0.4.0-alpha.52', true, true]);
+  assert.equal((await stableRelease('0.4.0-alpha.52', {fetcher, platform: 'darwin'})).ahead, false, 'already on stable');
 });

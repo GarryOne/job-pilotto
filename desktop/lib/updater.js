@@ -28,10 +28,15 @@ export function newer(a, b) {
   return false;
 }
 
-// The download for this computer in a release, or null.
-export function asset(release, platform = process.platform) {
+// A pre-release is offered to beta testers only after tools/beta-approve.sh wrote this line in its notes: the unit suites and every end-to-end suite passed on it.
+export const BETA_MARK = /^Beta-approved:/m;
+
+// The download for this computer in a release, or null. `own`: only this build's own installer (a beta or a rollback never takes the generic Windows
+// installer, which a failed Windows build leaves as the PREVIOUS release's: tools/release-stable.sh guards stable the same way).
+export function asset(release, platform = process.platform, {own = false} = {}) {
+  const version = String(release?.tag_name || '').replace(/^desktop-v/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const names = platform === 'darwin' ? [/^Job-Pilotto-[\d.]+.*-arm64\.zip$/, /^Job-Pilotto-mac-arm64\.zip$/]
-    : platform === 'win32' ? [/^Job-Pilotto-windows-x64\.exe$/, /^Job-Pilotto-.*-x64\.exe$/] : [];
+    : platform === 'win32' ? [new RegExp(`^Job-Pilotto-${version}-x64\\.exe$`), ...(own ? [] : [/^Job-Pilotto-windows-x64\.exe$/, /^Job-Pilotto-.*-x64\.exe$/])] : [];
   for (const pattern of names) {
     const found = (release?.assets || []).find(item => pattern.test(item.name));
     if (found) return found;
@@ -39,16 +44,37 @@ export function asset(release, platform = process.platform) {
   return null;
 }
 
-// -> {version, name, notes, url} when the latest stable release is newer than `current`, else null.
-export async function check(current, {fetcher = globalThis.fetch, platform = process.platform} = {}) {
-  const response = await fetcher(`https://api.github.com/repos/${REPO}/releases/latest`, {headers: {Accept: 'application/vnd.github+json'}});
-  if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-  const release = await response.json();
-  const version = String(release.tag_name || '').replace(/^desktop-v/, '');
-  const download = asset(release, platform);
-  if (!version || !download || !newer(version, current)) return null;
+const offerOf = (release, platform, extra = {}) => {
+  const version = String(release?.tag_name || '').replace(/^desktop-v/, '');
+  const download = asset(release, platform, {own: !!extra.beta || !!extra.rollback});
+  if (!version || !download) return null;
   return {version, name: release.name || version, notes: String(release.body || '').slice(0, 2000), url: release.html_url,
-    download: download.browser_download_url, size: download.size};
+    download: download.browser_download_url, size: download.size, ...extra};
+};
+const getJson = async (fetcher, url) => {
+  const response = await fetcher(url, {headers: {Accept: 'application/vnd.github+json'}});
+  if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+  return response.json();
+};
+
+// -> {version, name, notes, url} when a newer release is on offer, else null. Stable (the default): the latest stable release, if newer than `current`.
+// channel 'beta' (the person switched it on, Settings → Diagnostics → Beta): also pre-releases carrying the beta-approved line; the newest of them all wins.
+export async function check(current, {channel = 'stable', fetcher = globalThis.fetch, platform = process.platform} = {}) {
+  if (channel === 'beta') {
+    const list = await getJson(fetcher, `https://api.github.com/repos/${REPO}/releases?per_page=30`);
+    const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || BETA_MARK.test(release.body || '')))
+      .map(release => offerOf(release, platform, {beta: !!release.prerelease})).filter(Boolean);
+    const best = open.reduce((top, offer) => (!top || newer(offer.version, top.version) ? offer : top), null);
+    return best && newer(best.version, current) ? best : null;
+  }
+  const offer = offerOf(await getJson(fetcher, `https://api.github.com/repos/${REPO}/releases/latest`), platform);
+  return offer && newer(offer.version, current) ? offer : null;
+}
+
+// -> the latest stable release as an offer even when it is OLDER than `current` ("Back to stable"), or null. `ahead`: this install is newer than it.
+export async function stableRelease(current, {fetcher = globalThis.fetch, platform = process.platform} = {}) {
+  const offer = offerOf(await getJson(fetcher, `https://api.github.com/repos/${REPO}/releases/latest`), platform, {rollback: true});
+  return offer && {...offer, ahead: newer(current, offer.version)};
 }
 
 // The Mac swap, run after the app quits: wait for it, put the new .app in its place, open it.
