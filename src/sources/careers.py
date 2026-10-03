@@ -20,7 +20,7 @@ from . import ats
 MAX_BYTES = 2_000_000
 MAX_JOB_PAGES = 40       # job pages read when the listing carries no data itself
 CAREER_WORDS = re.compile(r'career|karriere|carri[eè]re|jobs?\b|stellen|offene.?stellen|vacanc|join.?us|work.?with.?us|emploi|recrut|lavora', re.I)
-JOB_PATH = re.compile(r'/(?:job|jobs|stelle|stellen|vacanc\w*|position|positions|offre|offres|emploi|posting|opening|openings|career|careers|karriere)/[^/?#]+', re.I)
+JOB_PATH = re.compile(r'/(?:job|jobs|stelle|stellen|vacanc\w*|position|positions|offre|offres|emploi|posting|opening|openings|career|careers|karriere|job-advertisement|advertisement)/[^/?#]+', re.I)
 COUNTRIES = {'CH': 'Switzerland', 'DE': 'Germany', 'AT': 'Austria', 'FR': 'France', 'IT': 'Italy', 'GB': 'United Kingdom', 'UK': 'United Kingdom',
              'NL': 'Netherlands', 'IE': 'Ireland', 'ES': 'Spain', 'PT': 'Portugal', 'PL': 'Poland', 'SE': 'Sweden', 'US': 'United States'}
 
@@ -104,21 +104,44 @@ def embedded_system(markup):
     return None
 
 
+STRONG_WORDS = re.compile(r'offene.?stellen|stellenangebot|stellenmarkt|stellenportal|open.?positions?|openings|vacanc|job.?overview|jobportal|all.?jobs|alle.?jobs|'
+                          r'current.?jobs|aktuelle.?stellen|offres?.?d.?emploi|postes?.?ouverts|\bjobs\b|\bstellen\b', re.I)
+JOB_HOST = re.compile(r'(?:^|[.-])(?:jobs?|stellen|karriere|careers?|jobportal|recruiting|bewerbung|emploi)(?:[.-]|$)', re.I)
+NOT_JOBS = re.compile(r'benefit|news|blog|press|presse|medien|event|impressum|datenschutz|privacy|cookie|kontakt|contact|lehre|ausbildung|praktik|'
+                      r'studium|bewerbungsprozess|application-process|erfahrungsberichte|mitarbeiterstimmen|login|logout', re.I)
+
+
+def registrable(host):
+    """The last two labels of a host name (karriere.acme.ch -> acme.ch): enough to tell a company's own subdomains apart from other sites."""
+    labels = (host or '').lower().removeprefix('www.').split('.')
+    return '.'.join(labels[-2:])
+
+
 def careers_links(markup, base):
-    """Links that look like the company's careers page: on the same site, or a job system's address."""
+    """Links that look like the company's list of jobs, best first: a job system's address, a "jobs / open positions" link, then a general
+    "careers" link. On the company's own site (any subdomain), or on a host that is named like a job site (stellen.lu.ch, jobs.acme.com)."""
     host = urllib.parse.urlsplit(base).hostname or ''
     scored = []
     for url, text in links(markup, base):
         parts = urllib.parse.urlsplit(url)
-        if parts.scheme not in ('http', 'https'):
+        if parts.scheme not in ('http', 'https') or re.search(r'\.(pdf|jpe?g|png|zip|docx?)$', parts.path, re.I):
             continue
-        same_site = (parts.hostname or '').removeprefix('www.') == host.removeprefix('www.')
         if ats.detect(url):
             if CAREER_WORDS.search(text):   # a job system link counts when it is worded as the careers link, not as any partner or widget
                 scored.append((0, url))
-        elif same_site and (CAREER_WORDS.search(text) or CAREER_WORDS.search(parts.path)) and not re.search(r'\.(pdf|jpe?g|png|zip)$', parts.path, re.I):
-            scored.append((1 if CAREER_WORDS.search(parts.path) else 2, url))
-    return [url for _, url in sorted(dict.fromkeys(scored))][:4]
+            continue
+        own = registrable(parts.hostname) == registrable(host)
+        named = bool(JOB_HOST.search(parts.hostname or ''))
+        if not (own or named) or NOT_JOBS.search(parts.path):
+            continue
+        strong = STRONG_WORDS.search(text) or STRONG_WORDS.search(parts.path) or (named and not own)
+        weak = CAREER_WORDS.search(text) or CAREER_WORDS.search(parts.path) or named
+        if strong:
+            scored.append((1, url))
+        elif weak:
+            scored.append((2, url))
+    ordered = [url for _, url in sorted(dict.fromkeys(scored), key=lambda item: item[0])]
+    return list(dict.fromkeys(ordered))[:5]
 
 
 def _walk(value):
@@ -167,6 +190,31 @@ def jsonld_jobs(markup, url):
     return jobs
 
 
+def _places():
+    """Your places as one pattern (config/search.json), to find where a job page says the job is."""
+    from ..paths import keyword_regex, load_search_config
+    groups = (load_search_config().get('locations') or {})
+    return keyword_regex([*groups.get('top_tier', []), *groups.get('country_wide', []), *groups.get('abroad', [])] or [r'(?!x)x'])
+
+
+def job_from_page(markup, url):
+    """A job from a page with no job data: the main heading is the title, the page text the description, the place is any of your places
+    the text names. Rough on purpose: the crawl's title filter keeps only the roles you look for, and a page that is not a job is dropped by it."""
+    heading = re.search(r'<h1[^>]*>(.*?)</h1>', markup, re.S | re.I)
+    title = ats.plain(heading.group(1) if heading else (re.search(r'<title[^>]*>(.*?)</title>', markup, re.S | re.I) or [None, ''])[1])
+    title = re.split(r'\s+[|\u2013\u2014-]\s+', title)[0].strip()
+    if not 4 <= len(title) <= 120:
+        return None
+    body = re.sub(r'<(script|style|noscript|nav|header|footer)\b.*?</\1>', ' ', markup, flags=re.S | re.I)
+    text = ats.plain(body)
+    found = []
+    for match in _places().finditer(text[:6000]):
+        word = match.group(0).strip().title()
+        if word not in found:
+            found.append(word)
+    return ats._job(url, title, ', '.join(found[:3]), url, '', text, bool(re.search(r'\bremote\b|home.?office', text[:3000], re.I)))
+
+
 def job_links(markup, base):
     """Links on a listing page that look like single job pages of the same site."""
     host = (urllib.parse.urlsplit(base).hostname or '').removeprefix('www.')
@@ -182,17 +230,112 @@ def job_links(markup, base):
 def read_page(url, fetch=get_text):
     """Jobs a careers page publishes: its own data, or the data of the job pages it links to. Raises when the page cannot be read."""
     markup = fetch(url)
-    return jsonld_jobs(markup, url) or read_page_from(markup, url, fetch)
+    jobs = jsonld_jobs(markup, url) or read_page_from(markup, url, fetch)
+    return _asked(url, markup, jobs)
 
 
 def fetch(slug):
-    """The ats 'careers' feed: the jobs on the page this slug stands for."""
-    return read_page(decode(slug))
+    """The ats 'careers' feed: the jobs on the page this slug stands for; read again through the browser when the plain page has none."""
+    url = decode(slug)
+    jobs = read_page(url)
+    show = renderer() if not jobs else None
+    return read_page(url, show) if show else jobs
+
+
+READER = 'auto'   # 'auto': Claude reads pages the rules cannot (ai/page_reader.py) when an AI is available; None: never; or a function (url, html) -> jobs (tests)
+
+
+def reader():
+    if READER != 'auto':
+        return READER
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):
+        return None
+    from ..ai import page_reader
+    return page_reader.read if page_reader.usable() else None
+
+
+def _asked(url, markup, jobs):
+    """Rules' jobs, unless they look like menu entries (none matches a role you look for) and a model can read the page: then its answer."""
+    read = reader()
+    if not read:
+        return jobs
+    if jobs:
+        from ..ai import page_reader
+        if page_reader.plausible(jobs):
+            return jobs
+    answer = read(url, markup)
+    return jobs if answer is None else answer
+
+
+RENDER = 'auto'   # 'auto': the headless browser (render.py) when Playwright is installed; None: never; or a function url -> html (tests)
+
+
+def renderer():
+    """The function that reads a page after its scripts ran, or None. Off with JOB_PILOTTO_RENDER=0 and in the end-to-end fixtures."""
+    if RENDER != 'auto':
+        return RENDER
+    if os.getenv('JOB_PILOTTO_RENDER') == '0' or os.getenv('JOB_PILOTTO_FIXTURE_DIR'):
+        return None
+    from . import render
+    return render.render if render.available() else None
+
+
+def _look(page, link, fetch_page):
+    """What one careers page offers: {'ats', 'slug'}, {'ats': 'careers', 'jobs'} (slug added by the caller), or None."""
+    found = embedded_system(page)
+    if found:
+        return {'ats': found[0], 'slug': found[1]}
+    jobs = jsonld_jobs(page, link) or read_page_from(page, link, fetch_page)
+    if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
+        jobs = []   # that link is one job's page, not the list of jobs
+    jobs = _asked(link, page, jobs)
+    return {'ats': 'careers', 'jobs': jobs} if jobs else None
+
+
+def _shell(markup):
+    """The page is mostly an empty frame that scripts fill in: little text, or a single-page-app marker."""
+    text = re.sub(r'<[^>]+>', ' ', re.sub(r'<(script|style)\b.*?</\1>', ' ', markup, flags=re.S | re.I))
+    return len(re.sub(r'\s+', ' ', text).strip()) < 800 or bool(re.search(r'id="(root|__next|app)"|__NEXT_DATA__|ng-version|data-reactroot', markup))
+
+
+def _explore(start, home, fetch_page, show=None):
+    """The careers links of a page, then (one level deeper) the job-list links of the best of them."""
+    seen, queue = set(), [(link, 0) for link in careers_links(home, start)]
+    while queue and len(seen) < 8:
+        link, depth = queue.pop(0)
+        if link in seen:
+            continue
+        seen.add(link)
+        found = ats.detect(link)
+        if found:
+            return {'ats': found[0], 'slug': found[1]}
+        try:
+            page = fetch_page(link)
+        except Exception:  # noqa: BLE001
+            continue
+        result = _look(page, link, fetch_page)
+        if not result and show and _shell(page):   # the plain page is an empty frame: read this one page again after its scripts ran
+            try:
+                page = show(link)
+                result = _look(page, link, show)
+            except Exception:  # noqa: BLE001 — refused or no browser: nothing more to do
+                pass
+        if result:
+            if result['ats'] == 'careers':
+                try:
+                    result['slug'] = encode(link)
+                except ValueError:
+                    continue
+            return result
+        if depth == 0:   # a general careers page: the list of jobs is usually one link further
+            queue += [(deeper, 1) for deeper in careers_links(page, link) if deeper not in seen][:3]
+    return None
 
 
 def discover(website, fetch_page=get_text):
-    """What a company website offers: {'ats', 'slug'} for an embedded job system, {'ats': 'careers', 'slug', 'jobs'} for a page with job
-    data, or None. One request for the home page and at most a few more for the careers pages it links to."""
+    """What a company website offers: {'ats', 'slug'} for an embedded job system, {'ats': 'careers', 'slug', 'jobs'} for a page with jobs,
+    or None. Home page, the careers links on it, and one level deeper. A page that is only a shell (its jobs appear after scripts run) is
+    read again through the browser when RENDER is set; a site that refuses is left alone."""
     if not own_site(website):
         return None
     website = website if '//' in website else f'https://{website}'
@@ -201,35 +344,25 @@ def discover(website, fetch_page=get_text):
     except Exception:  # noqa: BLE001 — a site that is down or refuses is just "nothing found"
         return None
     # Only a link that looks like the careers link counts as the company's job system: a stray widget or partner link on the home page is not.
-    for link in careers_links(home, website):
-        found = ats.detect(link)
-        if found:
-            return {'ats': found[0], 'slug': found[1]}
-        try:
-            page = fetch_page(link)
-            found = embedded_system(page)
-            if found:
-                return {'ats': found[0], 'slug': found[1]}
-            jobs = jsonld_jobs(page, link) or read_page_from(page, link, fetch_page)
-        except Exception:  # noqa: BLE001
-            continue
-        if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
-            continue   # that link is one job's page, not the list of jobs
-        if jobs:
-            try:
-                return {'ats': 'careers', 'slug': encode(link), 'jobs': jobs}
-            except ValueError:
-                continue
-    return None
+    show = renderer() if fetch_page is get_text else None
+    found = _explore(website, home, fetch_page, show)
+    if found or show is None:
+        return found
+    try:
+        shown = show(website)
+    except Exception:  # noqa: BLE001 — refused, not allowed or no browser: nothing more to do
+        return None
+    return _explore(website, shown, show)
 
 
 def read_page_from(markup, url, fetch_page):
-    """read_page for a page already fetched."""
+    """read_page for a page already fetched: the data of the job pages it links to, or (a page of plain text) the pages' own headings."""
     def one(link):
         try:
-            return jsonld_jobs(fetch_page(link), link)
+            page = fetch_page(link)
         except Exception:  # noqa: BLE001
             return []
+        return jsonld_jobs(page, link) or [job for job in [job_from_page(page, link)] if job]
     with ThreadPoolExecutor(max_workers=6) as pool:
         found = [job for result in pool.map(one, job_links(markup, url)) for job in result]
     return list({job['url']: job for job in found}.values())

@@ -9,7 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import scout  # noqa: E402
-from src.sources import ats, careers  # noqa: E402
+from src.sources import ats, careers, render  # noqa: E402
 
 POSTING = {'@context': 'https://schema.org', '@type': 'JobPosting', 'title': 'Site Reliability Engineer', 'datePosted': '2026-10-01',
            'description': '<p>Run our <b>Kubernetes</b> platform.</p>', 'url': '/jobs/sre-1',
@@ -196,3 +196,81 @@ class FindFeedTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReaderTests(unittest.TestCase):
+    """The AI reader takes over only where the rules found nothing that looks like a role you look for (fake reader, no model)."""
+
+    def setUp(self):
+        self.saved = careers.READER
+        self.calls = []
+
+    def tearDown(self):
+        careers.READER = self.saved
+
+    def reader(self, answer):
+        def read(url, markup):
+            self.calls.append(url)
+            return answer
+        careers.READER = read
+
+    PAGES = {'https://acme.ch': '<a href="/jobs">Offene Stellen</a>',
+             'https://acme.ch/jobs': '<h1>Jobs</h1><a href="/jobs/about">About us</a><p>We hire a Site Reliability Engineer</p>',
+             'https://acme.ch/jobs/about': '<h1>About us</h1><p>We are a company</p>'}
+
+    def test_menu_entries_are_replaced_by_what_the_reader_finds(self):
+        self.reader([ats._job('https://acme.ch/jobs#1', 'Site Reliability Engineer', 'Zürich', 'https://acme.ch/jobs')])
+        found = careers.discover('acme.ch', site(self.PAGES))
+        self.assertEqual([j['title'] for j in found['jobs']], ['Site Reliability Engineer'])
+        self.assertEqual(self.calls, ['https://acme.ch/jobs'])
+
+    def test_a_reader_that_was_not_asked_leaves_the_rules_result(self):
+        self.reader(None)
+        found = careers.discover('acme.ch', site(self.PAGES))
+        self.assertEqual([j['title'] for j in found['jobs']], ['About us'])
+
+    def test_a_reader_that_finds_no_jobs_means_no_feed(self):
+        self.reader([])
+        self.assertIsNone(careers.discover('acme.ch', site(self.PAGES)))
+
+    def test_no_reader_no_change(self):
+        careers.READER = None
+        self.assertEqual(len(careers.discover('acme.ch', site(self.PAGES))['jobs']), 1)
+
+
+class ShellTests(unittest.TestCase):
+    """A careers page that is an empty frame is read again through the browser; one that is not is never sent there."""
+
+    def setUp(self):
+        self.saved = (careers.RENDER, careers.READER)
+        careers.READER = None
+
+    def tearDown(self):
+        careers.RENDER, careers.READER = self.saved
+
+    def test_an_empty_frame_is_rendered_and_its_jobs_read(self):
+        shown = []
+
+        def show(url):
+            shown.append(url)
+            return page(POSTING)
+        careers.RENDER = show
+        pages = {'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<div id="root"></div><script src="app.js"></script>'}
+        with mock.patch.object(careers, 'get_text', site(pages)):
+            found = careers.discover('acme.ch', careers.get_text)
+        self.assertEqual((found['ats'], len(found['jobs'])), ('careers', 1))
+        self.assertEqual(shown, ['https://acme.ch/jobs'], 'only the shell page goes to the browser, not the home page')
+
+    def test_a_page_with_text_never_goes_to_the_browser(self):
+        careers.RENDER = lambda url: self.fail('not a shell')
+        pages = {'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<p>' + 'Wir haben keine offenen Stellen. ' * 40 + '</p>'}
+        with mock.patch.object(careers, 'get_text', site(pages)):
+            self.assertIsNone(careers.discover('acme.ch', careers.get_text))
+
+    def test_a_refusing_browser_leaves_the_page_unread(self):
+        def refuse(url):
+            raise render.Refused('HTTP 403')
+        careers.RENDER = refuse
+        pages = {'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<div id="root"></div>'}
+        with mock.patch.object(careers, 'get_text', site(pages)):
+            self.assertIsNone(careers.discover('acme.ch', careers.get_text))

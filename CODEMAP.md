@@ -244,6 +244,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
+- `src/ai/page_reader.py` — Claude reads a careers page that has no machine-readable jobs and lists the jobs on it.
 - `src/ai/passwords.py` — Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.
 - `src/ai/prep.py` — Interview prep kit: how to prepare for one interview, from the job's description, your Profile and how your past
 - `src/ai/provenance.py` — Which inputs produced a kit, so the app can say whether it's still current.
@@ -289,6 +290,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/google_jobs.py` — Google Jobs through SerpApi's paid API (engine=google_jobs). Python 3.10+, no dependencies.
 - `src/sources/google_setup.py` — Guided setup of your own Google app for Job Pilotto (`python -m src.sources.google setup`).
 - `src/sources/google.py` — Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).
+- `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
 - `src/tz.py` — The user's own time zone: JOB_PILOTTO_TZ (the desktop app sets it from the computer), else the machine's, else UTC.

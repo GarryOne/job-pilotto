@@ -57,6 +57,10 @@ FEATURES = (
             'free', 'Settings → Help the pool grow (the app sets JOB_PILOTTO_SHARE_EMPLOYERS=1); `python -m src contribute --show` prints what is sent'),
     Feature('scout_ai', 'Scout ideas: Claude proposes employers and company lists to look at, learning from what was found', (AI,), 'paid',
             'on with the AI key (a few cents every third day); JOB_PILOTTO_DISABLE=scout_ai turns it off'),
+    Feature('render', 'Headless browser for careers pages that only exist after JavaScript runs (optional add-on)', (), 'free',
+            'pip install -r requirements-render.txt && playwright install chromium; JOB_PILOTTO_RENDER=0 turns it off'),
+    Feature('page_reader', 'Claude reads careers pages that list jobs as plain text (cached until the page changes)', (AI,), 'paid',
+            'on with the AI key (Haiku, a fraction of a cent per changed page); JOB_PILOTTO_DISABLE=page_reader turns it off'),
 )
 BY_NAME = {f.name: f for f in FEATURES}
 

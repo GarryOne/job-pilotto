@@ -1,0 +1,2 @@
+# Optional: a headless browser for careers pages built in the browser (src/sources/render.py). Then: playwright install chromium
+playwright>=1.47

@@ -69,6 +69,8 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | `auto_kits` | cover letter + form answers for top matches | + `JOB_PILOTTO_AUTO_KIT_MAX`, Notion | ~$0.04/kit | 2 min |
 | `insights` | daily insight + Monday weekly report | + `JOB_PILOTTO_INSIGHT_MODEL`, Notion | ~$0.03/day | 2 min |
 | `scout_ai` | Claude proposes new employers and company lists to look at, and learns from what the probes found | the AI key | ~$0.05 every third day | on with the AI key |
+| `page_reader` | Claude reads careers pages that list jobs as plain text (cached until the page changes) | the AI key | a fraction of a cent per changed page | on with the AI key |
+| `render` | headless browser for careers pages built in the browser (public pages only; honours robots.txt, stops at any refusal) | `pip install -r requirements-render.txt` + `playwright install chromium` | free | 5 min |
 | `google_jobs` | Google Jobs listings via [SerpApi](https://serpapi.com) | `SERPAPI_API_KEY` | free plan: 250 searches/month | 5 min |
 | `mail` | Gmail + Calendar update your applications | Google OAuth client + sign-in, Notion, Anthropic | a few cents/day | 15 min |
 | Mac app | guided setup, job list, Apply / Prepare / Tailor CV buttons, schedules, notifications | a Mac (Apple silicon) | free | 10 min |
