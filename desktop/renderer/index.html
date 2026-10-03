@@ -790,6 +790,24 @@
               <span class="small cv-card-links"><button class="link with-icon" id="cv-import"><i data-icon="refresh"></i><span>Read my CV PDF</span></button><button class="link with-icon" id="cv-folder"><i data-icon="folder"></i><span>CV folder</span></button></span>
             </div>
           </div>
+          <div class="setting panel cvc" id="setting-cvcheck" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head"><i data-icon="scale"></i><h3>CV check</h3></div>
+              <div class="panel-actions"><span class="synced" id="cvc-state">Not checked yet</span></div></div>
+            <p class="muted panel-lead">How a hiring system reads this CV, before any tailoring. Most of them turn a CV into fields that recruiters search, so a CV they cannot read cleanly never turns up.
+              It is a readiness check, not a score from a real hiring system (they do not publish one).</p>
+            <div class="cvc-result" id="cvc-result" hidden>
+              <div class="cvc-head"><span class="cvc-score" id="cvc-score"></span><div><b id="cvc-verdict"></b><span class="muted small" id="cvc-sub"></span></div></div>
+              <ul class="cvc-checks" id="cvc-checks"></ul>
+              <details class="cvc-text"><summary>What a parser reads, in order</summary><pre id="cvc-text"></pre></details>
+            </div>
+            <div class="cvc-result" id="cvc-ai" hidden>
+              <div class="cvc-head"><span class="cvc-score" id="cvc-ai-score"></span><div><b>Content review</b><span class="muted small" id="cvc-ai-sub"></span></div></div>
+              <div id="cvc-ai-parts"></div>
+            </div>
+            <div class="inline spaced"><button class="secondary" id="cvc-run">Check my CV (free)</button>
+              <button class="secondary" id="cvc-ai-run" hidden>Add the content review (~5¢)</button></div>
+            <p class="message" id="cvc-message"></p>
+          </div>
           <div class="stale-draft" id="cv-changed" data-profile-panel="details" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">

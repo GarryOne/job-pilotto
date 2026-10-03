@@ -50,7 +50,7 @@ export const BLOCKED = ['notionConnect', 'notionOAuth', 'saveSecret', 'startTria
   'telegramCloudOn', 'telegramCloudOff', 'telegramConnect', 'googleConnect', 'licenseRemove', 'applyWithClaude', 'apply',
   'applyOne', 'sessionRestart', 'sessionResume', 'updateInstall', 'updateCheck', 'resetProfile', 'importProfile', 'importCv',
   'backupNow', 'refresh', 'firstSearch', 'checkMail', 'command', 'rescorePrevious', 'prepareKit', 'tailorCv', 'ivRecordStart',
-  'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'saveStrategy', 'setStatus',
+  'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'cvCheckRun', 'cvCheckAi', 'saveStrategy', 'setStatus',
   'setAutomation', 'lookAround'];
 export function blocked(name) {
   if (name === 'saveSecret') throw new Error(TEXT);  // its callers expect the keys back, or an error
@@ -94,3 +94,21 @@ export function leadProposal(target = '', kind = process.env.JOB_PILOTTO_DEMO_LE
     label: existing ? 'Northwind AI — Platform Engineer' : 'Example Robotics — Senior SRE',
     item: {platform: 'LinkedIn', summary: 'Fictional demo reading'}, job: null, fields, stats: {}};
 }
+
+// The Profile → CV check as it looks with a real result (fictional CV): the parser check and the content review.
+export const cvCheck = {hash: 'demo', at: '2026-10-02T09:00:00.000Z',
+  ats: {score: 82, verdict: 'Mostly readable', pages: 3, text: 'Alex Morgan\nPlatform engineer\nExperience\nSenior Platform Engineer\nMar 2023 – Present',
+    checks: [
+      {id: 'text', label: 'Real, selectable text', status: 'pass', detail: '2,310 characters of text a parser can read.', fix: '', penalty: 0},
+      {id: 'columns', label: 'One column of text', status: 'pass', detail: 'Sentences run down one column, in reading order.', fix: '', penalty: 0},
+      {id: 'experience', label: 'An "Experience" heading', status: 'pass', detail: 'Parsers use it to find your jobs.', fix: '', penalty: 0},
+      {id: 'education', label: 'An "Education" heading', status: 'warn', detail: 'No Education heading. Some systems leave the education field empty without one.', fix: 'Add an Education section, even a short one.', penalty: 5},
+      {id: 'images', label: 'Pictures are ignored by parsers', status: 'warn', detail: 'a photo and a full-width banner: invisible to a parser, so keep nothing important in them.', fix: 'Check that your target market expects a photo; otherwise remove it.', penalty: 6},
+      {id: 'length', label: 'Length', status: 'warn', detail: '3 pages. Recruiters spend about a minute on a first look; the top of page 1 has to carry it.', fix: 'Trim to 2 pages, or make sure page 1 stands alone.', penalty: 5}]},
+  ai: {score: 74, usd: 0.05, components: [{name: 'Keywords for your target roles', score: 70, note: 'Kubernetes and Terraform are clear; SLOs and incident response are only implied.'},
+      {name: 'Evidence', score: 78, note: 'Several bullets carry numbers; the first two roles list duties only.'}, {name: 'Clarity', score: 80, note: 'Short bullets that start with a verb.'},
+      {name: 'Seniority signal', score: 68, note: 'Team size and ownership are visible in only one role.'}],
+    strengths: ['Concrete platform results with numbers', 'Consistent, short bullets'],
+    fixes: [{where: 'Experience · first role', issue: 'A search for "incident response" would not find you.', suggestion: 'State the on-call and incident work you did in plain words (only if true).', impact: 'high'},
+      {where: 'Summary', issue: 'It does not name the roles you want.', suggestion: 'Start with the title you are applying for.', impact: 'medium'}],
+    missing_keywords: ['SLO', 'incident response', 'Prometheus']}};

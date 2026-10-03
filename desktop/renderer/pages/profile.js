@@ -124,7 +124,64 @@ function renderNotionLinks() {
   }
 }
 
+// ---------- Profile → CV: the CV check (lib/cv-check.js) ----------
+const STATUS_ICON = {pass: '✓', warn: '!', fail: '✕'};
+function showCvCheck(data) {
+  const ats = data?.ats, ai = data?.ai;
+  show($('cvc-result'), !!ats);
+  show($('cvc-ai'), !!ai);
+  show($('cvc-ai-run'), !!ats);
+  $('cvc-run').textContent = ats ? 'Check again' : 'Check my CV (free)';
+  $('cvc-ai-run').textContent = ai ? 'Review again (~5¢)' : 'Add the content review (~5¢)';
+  $('cvc-state').textContent = ats ? `Checked ${runWhen(data.at)}` : 'Not checked yet';
+  if (ats) {
+    $('cvc-score').textContent = ats.score;
+    $('cvc-score').className = `cvc-score ${ats.score >= 90 ? 'good' : ats.score >= 75 ? 'ok' : 'low'}`;
+    $('cvc-verdict').textContent = `How a parser reads it: ${ats.verdict}`;
+    $('cvc-sub').textContent = `${ats.pages} page${ats.pages === 1 ? '' : 's'} · ${ats.checks.filter(c => c.status !== 'pass').length} to look at`;
+    $('cvc-checks').replaceChildren(...[...ats.checks].sort((a, b) => (a.status === 'pass') - (b.status === 'pass')).map(item => {
+      const row = el('li', `cvc-check is-${item.status}`);
+      const body = el('div');
+      body.append(el('b', '', item.label), el('span', 'muted small', item.detail));
+      if (item.fix) body.append(el('span', 'cvc-fix', `Fix: ${item.fix}`));
+      row.append(el('span', 'cvc-mark', STATUS_ICON[item.status]), body);
+      return row;
+    }));
+    $('cvc-text').textContent = ats.text;
+  }
+  if (ai) {
+    $('cvc-ai-score').textContent = ai.score;
+    $('cvc-ai-score').className = `cvc-score ${ai.score >= 85 ? 'good' : ai.score >= 70 ? 'ok' : 'low'}`;
+    $('cvc-ai-sub').textContent = `${ai.fixes.length} suggestion${ai.fixes.length === 1 ? '' : 's'} · $${(ai.usd || 0).toFixed(2)}`;
+    const parts = [];
+    parts.push(...ai.components.map(item => { const row = el('div', 'cvc-comp'); row.append(el('b', '', `${item.name} · ${item.score}`), el('span', 'muted small', item.note)); return row; }));
+    if (ai.strengths.length) { const row = el('div', 'cvc-comp'); row.append(el('b', '', 'Working well'), el('span', 'muted small', ai.strengths.join(' · '))); parts.push(row); }
+    parts.push(...ai.fixes.map(item => {
+      const row = el('div', `cvc-fixrow impact-${item.impact}`);
+      const body = el('div');
+      body.append(el('b', '', item.where), el('span', 'muted small', item.issue), el('span', 'cvc-fix', item.suggestion));
+      row.append(pill(item.impact, item.impact === 'high' ? 'bad' : item.impact === 'medium' ? 'warn' : 'neutral'), body);
+      return row;
+    }));
+    if (ai.missing_keywords.length) { const row = el('div', 'cvc-comp'); row.append(el('b', '', 'Terms the target roles ask for that the CV never states'), el('span', 'muted small', `${ai.missing_keywords.join(', ')}. Add one only if it is true.`)); parts.push(row); }
+    $('cvc-ai-parts').replaceChildren(...parts);
+  }
+}
+export async function loadCvCheck() { showCvCheck(await window.pilot.cvCheckStatus().catch(() => null)); }
+async function cvCheckAction(button, working, run) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = working;
+  message('cvc-message', '');
+  const result = await run();
+  button.disabled = false;
+  button.textContent = label;
+  if (!result.ok) return message('cvc-message', result.error, 'error');
+  showCvCheck(result);
+}
+
 export async function loadCvSetting() {
+  loadCvCheck();
   const status = await window.pilot.cvStatus();
   // One glance: ready (and which design), or not read yet. ✂️ Tailor CV on a job uses it.
   $('cv-state').textContent = status.base ? `· ready · ${status.custom ? 'your design' : 'default design'}` : '· not read yet: it happens on your first Tailor CV';
@@ -210,6 +267,8 @@ export async function init() {
     $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : result.error;
     loadCvSetting();
   });
+  $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));
+  $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi()));
   $('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());
   $('set-telegram-save').addEventListener('click', async () => {
     const value = $('set-telegram').value.trim();

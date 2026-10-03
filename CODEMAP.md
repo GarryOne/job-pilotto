@@ -32,6 +32,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/control-events.js` — How the form reader and the generic operators fared, as reports for the product (docs: Notion "Self-improving form filling").
 - `desktop/lib/cover-letter.js` — The user's general cover letter (Settings → Profile → Cover letter): drafted once by the AI from the CV, the Profile and
 - `desktop/lib/cv-change.js` — A replaced CV after setup (Strategy → Replace CV…): what follows it and what doesn't.
+- `desktop/lib/cv-check.js` — CV check: how well a hiring system can read the CV the person uploaded, before any tailoring.
 - `desktop/lib/cv-look.js` — Keeps the look of the person's own CV PDF: where its photo, contact icons, employer logos, bottom banner and page breaks sit, cut out of
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),
 - `desktop/lib/demo.js` — "Look around first": the app restarts on a fresh copy of the fictional demo data (demo/) and back to the user's

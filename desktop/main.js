@@ -11,6 +11,7 @@ import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycl
 import {registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
 import * as cvLook from './lib/cv-look.js';
+import * as cvCheck from './lib/cv-check.js';
 import * as letters from './lib/cover-letter.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
@@ -1470,6 +1471,30 @@ function handlers() {
   });
   ipcMain.handle('openTailoredCv', (_, code) => openTailoredCv(code));
   // The base CV the tailoring starts from: import it from the CV PDF (again), see it, or edit its files.
+  // CV check (Profile → CV): how a parser reads the uploaded PDF (free), then one AI review of what it says (a few cents). A cache of the PDF: cv/check.json.
+  ipcMain.handle('cvCheckStatus', () => (DEMO ? demo.cvCheck : cvCheck.saved(storage)));
+  ipcMain.handle('cvCheckRun', async () => {
+    if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
+    let probe;
+    try {
+      probe = await cvLook.probeWindow(BrowserWindow, storage.path('cv.pdf'));
+      const result = cvCheck.analyse(await probe.scan());
+      appLog('cv', 'parser check', {score: result.score, pages: result.pages, issues: result.checks.filter(c => c.status !== 'pass').map(c => c.id)});
+      return {ok: true, ...cvCheck.save(storage, {ats: result})};
+    } catch (error) { return {ok: false, error: `The CV could not be read: ${error.message}`}; } finally { probe?.close(); }
+  });
+  ipcMain.handle('cvCheckAi', async () => {
+    const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
+    if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
+    const ats = cvCheck.saved(storage)?.ats;
+    if (!ats) return {ok: false, error: 'Check the CV first.'};
+    try {
+      const {profile} = await strategy.profileTexts(storage).catch(() => ({profile: ''}));
+      const result = await cvCheck.review(storage, key, ats.text, {client: ai, profile});
+      appLog('cv', 'content review', {score: result.score, fixes: result.fixes.length, usd: result.usd});
+      return {ok: true, ...cvCheck.save(storage, {ai: result})};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('cvStatus', () => ({base: !!cvlib.baseCv(storage), custom: fs.existsSync(path.join(cvlib.dir(storage), 'style.css')) || cvlib.baseCv(storage)?.look === 'rich'}));
   ipcMain.handle('importCv', async () => {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
