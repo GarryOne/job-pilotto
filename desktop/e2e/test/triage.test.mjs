@@ -20,7 +20,8 @@ test('layout-check findings count as high or medium; AI findings rated low are n
 test('an issue is ready only after two sightings, for a kind a UI fix can address, with no pull request already open', () => {
   assert.equal(pickCandidate([issue(1, 'a')]), null, 'one sighting is not enough');
   assert.equal(pickCandidate([issue(1, 'a', {comments: 1})])?.number, 1);
-  assert.equal(pickCandidate([issue(1, 'a', {comments: 1, kind: 'functionality'})]), null, 'functionality needs a person');
+  assert.equal(pickCandidate([issue(1, 'a', {comments: 1, kind: 'functionality'})]), null, 'a logic finding seen twice is still not confirmed');
+  assert.equal(pickCandidate([issue(1, 'a', {kind: 'crash', labels: ['confirmed']})])?.number, 1, 'a confirmed logic finding (verdict pass or a person) is fixable since 4 Oct 2026');
   assert.equal(pickCandidate([issue(1, 'a', {comments: 1})], {openBranches: ['auto-fix/a']}), null);
   assert.equal(pickCandidate([issue(1, 'a', {comments: 1, labels: ['wontfix-auto']})]), null, 'a false positive stays closed');
   assert.equal(pickCandidate([issue(1, 'a', {comments: 1, labels: ['needs-human']})]), null);
@@ -32,12 +33,15 @@ test('the most critical goes first: severity times how often it came back (old r
   assert.equal(picked.number, 1);   // 2 x 6 = 12, 3 x 4 = 12, 3 x 2 = 6: the tie goes to the older issue
 });
 
-test('a fix may only touch the window and its tests, and must come with a test', () => {
-  assert.equal(allowedPath('desktop/renderer/pages/jobs.js'), true);
-  assert.equal(allowedPath('desktop/test/jobs-view.test.js'), true);
-  for (const file of ['desktop/main.js', 'desktop/lib/notion.js', 'src/ai/score.py', '.github/workflows/e2e.yml', 'site/src/index.js', 'desktop/renderer/../main.js', 'desktop/test/helper.js']) assert.equal(allowedPath(file), false, file);
+test('a fix may touch the window, the app logic or the engine with a test of its side; never workflows, main.js or secrets', () => {
+  for (const file of ['desktop/renderer/pages/jobs.js', 'desktop/test/jobs-view.test.js', 'src/sources/careers.py', 'tests/test_careers.py', 'desktop/lib/run-history.js']) assert.equal(allowedPath(file), true, file);
+  for (const file of ['desktop/main.js', 'src/secret_store.py', 'desktop/lib/notion-oauth.js', 'src/licensing/license.py', '.github/workflows/e2e.yml', 'site/src/index.js', 'tools/x.sh',
+    'extension/content.js', 'desktop/e2e/lib/triage.mjs', 'desktop/renderer/../main.js', 'desktop/test/helper.js', 'tests/helper.py']) assert.equal(allowedPath(file), false, file);
   assert.equal(checkChange(['desktop/renderer/pages/jobs.js']).ok, false);
   assert.equal(checkChange(['desktop/renderer/pages/jobs.js', 'desktop/test/jobs-view.test.js']).ok, true);
+  assert.equal(checkChange(['src/sources/careers.py', 'tests/test_careers.py']).ok, true);
+  assert.match(checkChange(['src/sources/careers.py', 'desktop/test/a.test.js']).why, /engine fix must come with a test in tests/, 'a Python fix needs a Python test');
+  assert.match(checkChange(['desktop/lib/run-history.js', 'tests/test_x.py']).why, /must come with a test/);
   assert.match(checkChange(['desktop/main.js', 'desktop/test/a.test.js']).why, /outside/);
 });
 

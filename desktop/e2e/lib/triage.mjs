@@ -9,11 +9,15 @@ export const CONFIRMED = 'confirmed';   // a person looked at the finding and sa
 export const NOT_SEEN = 'not-seen-latest';   // the page was photographed and reviewed again and the finding did not come back
 export const SEEN_AGAIN = 'seen-again';   // seen on two or more commits (sightings()): reproduced, not a one-off
 export const SIGHTINGS_NEEDED = 2;   // a finding must show in two runs before anyone (or anything) acts on it: one-off flakes and model noise drop out
+export const LOGIC_KINDS = ['functionality', 'crash'];   // fixable since 4 Oct 2026, only when confirmed (notReadyReason)
 export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill', 'dead-control', 'expand-broken', 'no-loading-state'];
 
 // Allowed edits of an automatic fix: the window's pages, styles and their tests. Nothing that touches data, Notion, secrets, the engine, the site or workflows.
-export const ALLOWED = [/^desktop\/renderer\/[^\n]+$/, /^desktop\/test\/[^\n]+\.test\.js$/];
-export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) && !file.includes('..');
+// Since 4 Oct 2026 also the engine (src/*.py) and the app's own logic (desktop/lib/*.js), with their tests: confirmed logic bugs from the AI code review (#109, #110)
+// had to be fixed by hand. Never: workflows, tools, the extension, packaging, the e2e harness, main.js, or anything about secrets, licences, sign-in or tokens.
+export const ALLOWED = [/^desktop\/renderer\/[^\n]+$/, /^desktop\/test\/[^\n]+\.test\.js$/, /^src\/[^\n]+\.py$/, /^tests\/test_[^\n/]+\.py$/, /^desktop\/lib\/[^\n]+\.js$/];
+const SENSITIVE = /secret|keychain|licen[cs]e|oauth|token|credential|crash_reporting/i;
+export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) && !file.includes('..') && !SENSITIVE.test(file);
 
 // ui-findings.json (deterministic) + ai-findings.json (vision) -> one list: {id, view, severity, kind, title, detail, suggestion, source}.
 // AI findings rated "low" are noise by experience (about 1 in 16 was real) and are not filed; deterministic "severe" counts as high, "warning" as medium.
@@ -333,7 +337,8 @@ export const NOT_READY = {
   clean: {why: 'Clean in the latest run (`not-seen-latest`): waiting to close', next: 'Nothing: it closes by itself after another clean run'},
   'pr-open': {why: 'A fix pull request is already open', next: 'Review the pull request: merge it, or close it to let the fixer try again'},
   once: {why: `Seen fewer than ${SIGHTINGS_NEEDED} times this week, and not \`confirmed\` by a person`, next: 'Label it `confirmed` if it is real (`gh issue edit N --add-label confirmed`), or wait for the next sighting'},
-  kind: {why: 'A kind a UI change cannot fix (a crashed test step, a console error, a wrong result in the data)', next: 'Fix it by hand: the fixer only edits the window\'s code'},
+  kind: {why: 'A kind the fixer does not take (a crashed test step, a console error)', next: 'Fix it by hand, or let its suite tell what failed'},
+  unconfirmed: {why: 'A logic finding (a wrong result, a crash) not confirmed yet', next: 'The verdict pass or a person labels it confirmed; then the fixer takes it'},
 };
 export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}) {
   const labels = (issue.labels || []).map(label => label.name || label);
@@ -344,6 +349,8 @@ export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}
   if (openBranches.includes(`auto-fix/${id.slice(3)}`)) return 'pr-open';
   if (recentSightings(issue, now) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return 'once';
   const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  // A wrong result or a crash is fixed only once someone (the verdict pass or a person) said it is real: two sightings of a logic claim prove nothing.
+  if (LOGIC_KINDS.includes(kind)) return labels.includes(CONFIRMED) ? '' : 'unconfirmed';
   return FIX_KINDS.includes(kind) ? '' : 'kind';
 }
 
@@ -379,7 +386,7 @@ export function readinessSummary(issues, {openBranches = [], now = Date.now(), c
     '<details><summary>The rules</summary>', '',
     `- A finding is ready when it is open, not parked (\`needs-human\`, \`wontfix-auto\`), not clean in the latest run, has no fix pull request open,`,
     `  was seen on at least ${SIGHTINGS_NEEDED} commits in the last 7 days (or a person labelled it \`confirmed\`), and is a kind a UI change can fix.`,
-    `- Kinds it fixes: ${FIX_KINDS.join(', ')}.`,
+    `- Kinds it fixes: ${FIX_KINDS.join(', ')}; and, once confirmed, ${LOGIC_KINDS.join(', ')} (the engine in src/ and the app's logic in desktop/lib/ too).`,
     '- The most critical ready one goes first: severity (high 3, medium 2, low 1) × sightings this week, doubled by `confirmed`; then the oldest.',
     '- At most 4 automatic fix pull requests wait for review at once; one fix per run.', '', '</details>', ''].join('\n');
 }
@@ -388,7 +395,10 @@ export function readinessSummary(issues, {openBranches = [], now = Date.now(), c
 export function checkChange(files) {
   const bad = files.filter(file => !allowedPath(file));
   if (bad.length) return {ok: false, why: `edits outside the allowed folders: ${bad.join(', ')}`};
-  if (!files.some(file => /^desktop\/test\//.test(file))) return {ok: false, why: 'a fix must come with a test'};
+  // A fix comes with a test of its own side: Python with a tests/test_*.py, the window or the app's logic with a desktop/test/*.test.js.
+  if (files.some(file => /^src\//.test(file)) && !files.some(file => /^tests\/test_/.test(file))) return {ok: false, why: 'an engine fix must come with a test in tests/'};
+  if (files.some(file => /^desktop\/(renderer|lib)\//.test(file)) && !files.some(file => /^desktop\/test\//.test(file))) return {ok: false, why: 'a fix must come with a test'};
+  if (!files.some(file => /^(desktop\/test|tests)\//.test(file))) return {ok: false, why: 'a fix must come with a test'};
   return {ok: true, why: ''};
 }
 

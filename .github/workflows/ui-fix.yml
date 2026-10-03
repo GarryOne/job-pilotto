@@ -61,6 +61,15 @@ jobs:
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         working-directory: desktop
         run: npm ci
+      # The engine's tests too: since 4 Oct 2026 a confirmed logic bug in src/ or desktop/lib/ is fixable, and its fix must pass the whole Python suite.
+      - uses: actions/setup-python@v6
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install the engine's dependencies (for its tests)
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        run: pip install -r requirements.txt
       - name: Claude Code fixes the problem (files only)
         id: claude
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
@@ -71,7 +80,7 @@ jobs:
           # Least privilege: read and edit files, run the desktop tests, read-only git. No push, no gh, no network.
           claude_args: >-
             --model claude-sonnet-5-5 --max-turns 50
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(git diff:*),Bash(git status:*)"
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(python3 -m unittest:*),Bash(git diff:*),Bash(git status:*)"
           prompt: Read .heal/prompt.md and follow it exactly.
       - name: Keep Claude's transcript (to see where its turns went)
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
@@ -146,8 +155,9 @@ jobs:
           # a regenerated file (#99, 3 Oct 2026: a good fix, lost). Claude may not run it, so the workflow does, after the guard has checked what Claude touched.
           (cd desktop && node scripts/codemap.mjs > /dev/null)
           changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v -E '^(\.heal/|e2e-artifacts/)' || true)
-          if ! (cd desktop && npm test); then
-            gh issue comment "$number" --repo "$REPO" --body "A fix was tried, but the desktop tests failed, so no pull request was opened. See the run: $RUN_URL"
+          # Every suite and the lint, whatever the fix touched: a fix that breaks anything else never becomes a pull request.
+          if ! (cd desktop && npm test && npm run lint) || ! python3 -m unittest discover -s tests; then
+            gh issue comment "$number" --repo "$REPO" --body "A fix was tried, but the tests or the lint failed, so no pull request was opened. See the run: $RUN_URL"
             exit 1
           fi
           # At most 72 BYTES, cut at a word: the title becomes the commit subject, and the repo's push hook counts bytes (a "⋯" is 3), so PR #85's 72-character title was refused and re-committed by hand.

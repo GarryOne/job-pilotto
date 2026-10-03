@@ -114,7 +114,8 @@ test('a human can confirm a finding: it is ready without a second sighting; a pa
   const real = openIssue(38, '[auto-ui] focus: x', 'text', [CONFIRMED]);
   assert.equal(pickCandidate([real])?.number, 38);
   assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'text', [CONFIRMED, 'needs-human'])]), null);
-  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'functionality', [CONFIRMED])]), null, 'only kinds a UI change can fix');
+  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'functionality', [CONFIRMED])])?.number, 38, 'a confirmed logic finding is fixable since 4 Oct 2026 (engine scope)');
+  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'test-failure', [CONFIRMED])]), null, 'a failed test step is still not the fixer\'s');
   assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'text')]), null, 'unconfirmed with one sighting');
   assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'text', [CONFIRMED, 'not-seen-latest'])]), null, 'a finding that no longer shows is not fixed');
 });

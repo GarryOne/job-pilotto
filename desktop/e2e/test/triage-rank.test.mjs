@@ -55,7 +55,7 @@ test('the fixer\'s summary says how many findings are open, which are ready, why
   assert.match(text, /Ready \(most critical first\) \| 1 \| #1 \|/);
   assert.match(text, /Seen fewer than 2 times this week[^|]*\| 1 \| #2 \|/);
   assert.match(text, /Clean in the latest run[^|]*\| 1 \| #3 \|/);
-  assert.match(text, /cannot fix[^|]*\| 1 \| #4 \|/);
+  assert.match(text, /does not take[^|]*\| 1 \| #4 \|/);
   assert.match(text, /Parked[^|]*\| 1 \| #5 \|/);
   assert.match(text, /The rules[\s\S]*at least 2 commits in the last 7 days/);
   assert.doesNotMatch(text, /To have one fixed now/, 'a fix is under way: no suggestions');
