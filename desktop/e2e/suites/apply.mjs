@@ -263,7 +263,7 @@ export async function run(ctx) {
     if (!files) throw new Error('the tailored CV is not on the job\'s row in Notion (column "Tailored CV")');
     const {tab, state} = await apply(form, {viaApi: true});
     if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
-    fail(cvProblems(await readForm(tab), {name: cv.name, size}));   // the tailored file's bytes, under the CV's usual name
+    fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Greenhouse_Labs.pdf', size}));   // the tailored file's bytes, under its own name: the form shows which CV it got
   }, {needs: ctx.needs});
 
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {

@@ -10,6 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {isFormOf} from './apply.js';
 import {render} from '../cv/template.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
@@ -268,7 +269,8 @@ export function forUrl(storage, url) {
     try {
       const record = JSON.parse(fs.readFileSync(path.join(tailoredDir(storage), name), 'utf8'));
       if (!fs.existsSync(file(storage, record.job.code, 'pdf'))) continue;
-      if (pageKey(record.job?.url) === key) return record;
+      // The posting, or its form: Ashby, Lever and Workable open the application at <posting>/application (or /apply), another address.
+      if (pageKey(record.job?.url) === key || isFormOf(key, record.job?.url)) return record;
       if (NO_POSTING_LINK.test(record.job?.url || '') && slug(record.job?.company).length >= 4 && address.includes(slug(record.job.company))) ours.push(record);
     } catch {}
   }
@@ -278,10 +280,12 @@ export function forUrl(storage, url) {
 
 // The review page: the tailored CV with its changes marked, the reasons, and a switch to see it clean.
 // The clean PDF under a name a person can send: CV_<Name>_<Company>.pdf, next to the internal <code>.pdf (rewritten from it each time).
-export function finalCopy(storage, record) {
+export function finalName(storage, record) {
   const word = text => String(text || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const name = ['CV', word(baseCv(storage)?.name), word(record.job?.company)].filter(Boolean).join('_').slice(0, 90) + '.pdf';
-  const target = path.join(tailoredDir(storage), name);
+  return ['CV', word(baseCv(storage)?.name), word(record.job?.company)].filter(Boolean).join('_').slice(0, 90) + '.pdf';
+}
+export function finalCopy(storage, record) {
+  const target = path.join(tailoredDir(storage), finalName(storage, record));
   fs.copyFileSync(pdfPath(storage, record.job.code), target);
   return target;
 }

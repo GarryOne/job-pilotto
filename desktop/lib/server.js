@@ -231,7 +231,8 @@ export async function me(storage, url = '') {
   const tailored = url ? cv.forUrl(storage, url) : null;
   try {
     const data = fs.readFileSync(tailored ? cv.pdfPath(storage, tailored.job.code) : storage.path('cv.pdf'));
-    resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
+    // A tailored CV goes up under its own name (CV_<Name>_<Company>.pdf), so the form shows which one it got.
+    resume = {name: tailored ? cv.finalName(storage, tailored) : settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
   } catch {}
   // The approved general cover letter as a file, for forms that ask to upload one (Profile → Cover letter).
   let coverLetterFile = null;
