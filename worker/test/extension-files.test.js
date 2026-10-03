@@ -120,6 +120,8 @@ test('a kit fill starts at once: kit and contact details prefetched, no fixed wa
   assert.match(background, /const data = await prefetch\(config, /);  // the panel's first look fetches both
   assert.match(background, /fillOpenedTab\(sender\.tab, url, !!message\.force, \{fast: true\}\)/);
   assert.match(background, /if \(!fast\) await new Promise/);
+  // Your CV is read again when the prefetch is a few seconds old: a CV tailored after the form was first seen must be the one attached.
+  assert.match(background, /Date\.now\(\) - ready\.meAt > ME_FRESH_MS/);
   const flow = read('extension/flow.js');
   assert.match(flow, /const me = early \|\| await api\(/);
   assert.match(flow, /limit = 1500; waited < limit; waited \+= 100/);

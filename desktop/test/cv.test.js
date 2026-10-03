@@ -136,6 +136,14 @@ test('the extension gets the tailored CV on that job\'s page and the base CV els
   assert.equal(onJob.resume.tailored, true);
   assert.equal(Buffer.from((await me(storage, 'https://other.example/jobs/2')).resume.data, 'base64').toString(), 'BASE');
   assert.equal(Buffer.from((await me(storage)).resume.data, 'base64').toString(), 'BASE');
+  // A job from a LinkedIn chat has no posting link: the employer's form is found by the company's name in its address.
+  cv.save(storage, 'cc00dd11', {job: {code: 'cc00dd11', url: 'https://www.linkedin.com/messaging/#jp-abc', title: 'Principal SRE', company: 'Kestrel Agency'},
+    createdAt: new Date().toISOString(), model: cv.MODEL, usd: 0.05, changes: [], warnings: [], cv: tailored, review}, Buffer.from('FOR KESTREL'));
+  assert.equal(cv.forUrl(storage, 'https://careers.kestrelagency.com/apply/42').job.code, 'cc00dd11');
+  assert.equal(cv.forUrl(storage, 'https://careers.unrelated.com/apply/42'), null);
+  cv.save(storage, 'ee22ff33', {job: {code: 'ee22ff33', url: 'https://mail.google.com/mail/u/0/#all/xyz', title: 'Staff SRE', company: 'Kestrel Agency'},
+    createdAt: new Date().toISOString(), model: cv.MODEL, usd: 0.05, changes: [], warnings: [], cv: tailored, review}, Buffer.from('ANOTHER'));
+  assert.equal(cv.forUrl(storage, 'https://careers.kestrelagency.com/apply/42'), null, 'two tailored CVs for one employer: the base CV, not a guess');
   const page = fs.readFileSync(cv.reviewPage(storage, cv.load(storage, 'ab12cd34')), 'utf8');
   assert.match(page, /What changed and why/);
   assert.match(page, /Hide highlights/);

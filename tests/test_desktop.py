@@ -87,6 +87,31 @@ class DesktopTests(unittest.TestCase):
         self.assertFalse(refused['ok'])
         self.assertIn('already in process', refused['error'])
 
+    def test_a_job_kept_only_in_notion_tailors_from_the_description_on_its_page(self):
+        url = 'https://www.linkedin.com/messaging/#jp-abc'
+        code = desktop.job_code(url)
+
+        class Tracker:
+            def __init__(self, page):
+                self.page = page
+
+            def notion_jobs(self):
+                return [{'url': url, 'title': 'Principal SRE', 'company': '', 'via': 'Kestrel Agency', 'location': 'Remote, Europe'}]
+
+            def find(self, wanted):
+                return {'id': 'p1', 'properties': {'Job URL': {'url': wanted}}} if wanted == url else None
+
+            def page_text(self, page_id):
+                return self.page
+        long = '# 🧾 Job description\n' + 'Lead the reliability of a Kubernetes platform on AWS, own SLOs and on-call, mentor four engineers. ' * 3
+        found = desktop.notion_posting(Tracker(long), code)
+        self.assertEqual((found['ok'], found['title'], found['company']), (True, 'Principal SRE', 'Kestrel Agency'))
+        self.assertIn('Kubernetes', found['description'])
+        # a page with only a greeting says what is missing, instead of "job not found"
+        empty = desktop.notion_posting(Tracker('# 📥 Logged\nHi, are you open to talk?'), code)
+        self.assertEqual((empty['ok'], empty['error']), (False, desktop.NO_POSTING))
+        self.assertEqual(desktop.notion_posting(Tracker(long), 'nope'), {'ok': False, 'error': 'job not found'})
+
     def test_a_status_notion_rejects_changes_nothing(self):
         class Down:
             def mark(self, job, stage):

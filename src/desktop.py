@@ -11,6 +11,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+import sys
 
 from . import digest, store
 from .ai import provenance, score
@@ -127,6 +128,25 @@ def posting(db, code):
             return {'ok': True, 'code': code, 'title': row['title'], 'company': row['company'], 'url': row['url'],
                     'location': row['location'] or '', 'description': row['description'] or ''}
     return {'ok': False, 'error': 'job not found'}
+
+
+NO_POSTING = 'This job has no description yet. Add it first (⋯ → Log job activity, or paste it in the job page), then tailor.'
+MIN_POSTING = 200  # characters that really describe the role (prep.about_role): a Teams invite or a greeting is not a posting
+
+
+def notion_posting(tracker, code):
+    """A job that only exists in Notion (a recruiter's message, a LinkedIn chat pasted as screenshots, Add details): its
+    posting is the description saved on its page (inbox.py / prep.py). {'ok': False, 'error'} says what is missing."""
+    from .ai import prep
+    item = next((j for j in tracker.notion_jobs() if j.get('url') and job_code(j['url']) == code), None)
+    row = tracker.find(item['url']) if item else None
+    if not row:
+        return {'ok': False, 'error': 'job not found'}
+    text = prep.role_text(tracker, row)
+    if prep.about_role(text) < MIN_POSTING:
+        return {'ok': False, 'error': NO_POSTING}
+    return {'ok': True, 'code': code, 'title': item['title'], 'company': item.get('company') or item.get('via') or '', 'url': item['url'],
+            'location': item.get('location') or '', 'description': text}
 
 
 NOTION_STAGES = {'saved': 'Saved', 'applied': 'Applied', 'dismissed': 'Dismissed'}
@@ -311,7 +331,15 @@ def main(argv=None):
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
         if args.command == 'posting':
-            print(json.dumps(posting(db, args.code), ensure_ascii=False))
+            found = posting(db, args.code)
+            if not found['ok']:  # not in the crawl: a job kept only in Notion
+                try:
+                    from .notion.client import Tracker
+                    tracker = Tracker.from_env()
+                    found = notion_posting(tracker, args.code) if tracker else found
+                except Exception as error:  # noqa: BLE001 — the first answer ("job not found") stays when Notion can't be read
+                    print(f'Notion posting not read: {type(error).__name__}: {error}', file=sys.stderr)
+            print(json.dumps(found, ensure_ascii=False))
             return 0
         if args.command == 'coverage':
             from . import coverage

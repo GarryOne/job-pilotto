@@ -386,10 +386,11 @@ async function ineligibleNote(tabId, reason) {
 // Kept 10 minutes (an edited kit or profile shows up after that, or at the next page load).
 const early = new Map();  // job url -> {at, kit: Promise, me: Promise}
 const FRESH_MS = 10 * 60 * 1000;
+const ME_FRESH_MS = 5000;
 function prefetch(config, url) {
   const known = early.get(url);
   if (known && Date.now() - known.at < FRESH_MS) return known;
-  const entry = {at: Date.now(),
+  const entry = {at: Date.now(), meAt: Date.now(),
     kit: api(config, `/extension/kit?url=${encodeURIComponent(url)}`),
     me: api(config, `/extension/me?url=${encodeURIComponent(url)}`)};
   entry.kit.catch(() => early.delete(url));
@@ -453,6 +454,9 @@ async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = fal
       if (!error.status) throw new Error(NO_APP);
       return {};
     });
+    // Your details and CV are read again when the prefetch is more than a few seconds old: a CV tailored (or a detail edited) since the form
+    // was first seen must be the one attached, not the copy kept for 10 minutes (found by the e2e apply suite, 3 Oct 2026).
+    if (Date.now() - ready.meAt > ME_FRESH_MS) { ready.me = api(config, `/extension/me?url=${encodeURIComponent(url)}`); ready.meAt = Date.now(); }
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});

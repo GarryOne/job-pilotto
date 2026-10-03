@@ -251,18 +251,26 @@ export function save(storage, code, record, pdf) {
 
 // The tailored CV for a job page, if there is one (the extension uploads it instead of the base CV).
 const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
+// A job with no posting link of its own (a recruiter's message, a LinkedIn chat: its "URL" is the conversation) can't be matched by page. The
+// employer's form is then recognised by the company's name in its address (careers.kestrel.com, boards.greenhouse.io/kestrel/...).
+const NO_POSTING_LINK = /mail\.google|linkedin\.com\/messaging|jobpilotto\.workers\.dev\/lead/;
+const slug = text => String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 export function forUrl(storage, url) {
   const key = pageKey(url);
   if (!key) return null;
   let names = [];
   try { names = fs.readdirSync(tailoredDir(storage)).filter(n => n.endsWith('.json')); } catch { return null; }
+  const address = slug(key.replace(/^https?:\/\//, '')), ours = [];
   for (const name of names) {
     try {
       const record = JSON.parse(fs.readFileSync(path.join(tailoredDir(storage), name), 'utf8'));
-      if (pageKey(record.job?.url) === key && fs.existsSync(file(storage, record.job.code, 'pdf'))) return record;
+      if (!fs.existsSync(file(storage, record.job.code, 'pdf'))) continue;
+      if (pageKey(record.job?.url) === key) return record;
+      if (NO_POSTING_LINK.test(record.job?.url || '') && slug(record.job?.company).length >= 4 && address.includes(slug(record.job.company))) ours.push(record);
     } catch {}
   }
-  return null;
+  // One candidate only: two tailored CVs for the same employer would be a guess, so the base CV goes (never the wrong one).
+  return ours.length === 1 ? ours[0] : null;
 }
 
 // The review page: the tailored CV with its changes marked, the reasons, and a switch to see it clean.

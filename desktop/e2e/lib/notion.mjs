@@ -247,7 +247,7 @@ export const createRowIn = (token, databaseId, properties) => call(token, 'POST'
 
 // A job on the Jobs list with a drafted kit, written the way the app writes one (src/ai/kit.py): an Applications row at Stage "Kit ready" and, on its page,
 // the toggle "📝 Application kit" holding the kit JSON in a code block. `kit` = {answers: [{field, question, answer, needs_review}], cover_letter}.
-export async function addKitJob(token, {title, company, url, kit, fit = 80}) {
+export async function addKitJob(token, {title, company, url, kit, fit = 80, description = ''}) {
   const db = await findDatabase(token, 'Job Tracker');
   if (!db) throw new Error('the Job Tracker database is not in this Notion page');
   const text = content => [{type: 'text', text: {content: String(content).slice(0, 1900)}}];
@@ -255,7 +255,10 @@ export async function addKitJob(token, {title, company, url, kit, fit = 80}) {
     Job: {title: text(title)}, Company: {rich_text: text(company)}, 'Job URL': {url}, Stage: {select: {name: 'Kit ready'}},
     'Next step': {rich_text: text('📝 Kit ready: review it, then apply')}, 'Fit score': {number: fit}, Location: {rich_text: text('Zurich, Switzerland')}},
   children: [{object: 'block', type: 'heading_3', heading_3: {rich_text: text('📝 Application kit'), is_toggleable: true,
-    children: [{object: 'block', type: 'code', code: {language: 'json', rich_text: text(JSON.stringify(kit))}}]}}]});
+    children: [{object: 'block', type: 'code', code: {language: 'json', rich_text: text(JSON.stringify(kit))}}]}},
+    // What a pasted message or "Add details" leaves on the job's page (src/ai/inbox.py): the posting a tailored CV is written from.
+    ...(description ? [{object: 'block', type: 'heading_3', heading_3: {rich_text: text('🧾 Job description')}},
+      {object: 'block', type: 'paragraph', paragraph: {rich_text: text(description)}}] : [])]});
 }
 
 // Every Job Tracker row whose Job URL is one of `urls` goes to the trash (a suite resets only the rows it wrote). Returns how many.
@@ -276,6 +279,14 @@ export async function stageOf(token, url) {
   if (!db) return '';
   const found = await call(token, 'POST', `databases/${db.id}/query`, {filter: {property: 'Job URL', url: {equals: url}}, page_size: 5});
   return found.results.find(row => !row.archived)?.properties?.Stage?.select?.name || '';
+}
+
+// How many files the row's "Tailored CV" column holds (the app uploads a tailored CV there).
+export async function tailoredFiles(token, url) {
+  const db = await findDatabase(token, 'Job Tracker');
+  if (!db) return 0;
+  const found = await call(token, 'POST', `databases/${db.id}/query`, {filter: {property: 'Job URL', url: {equals: url}}, page_size: 5});
+  return found.results.find(row => !row.archived)?.properties?.['Tailored CV']?.files?.length || 0;
 }
 
 // Every live page next to `siblingId` (same parent) with this title, ignoring the leading emoji (the app keeps it as the page icon): a duplicate shows up

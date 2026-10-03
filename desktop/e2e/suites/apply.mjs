@@ -3,11 +3,12 @@
 // person's to decide, and never submits. Starts from a set-up install; writes and removes only its own jobs in its Notion page. The forms are local
 // (lib/forms.mjs, behind the real job-site host names), the AI answer is canned, so the suite costs nothing and no employer site is contacted.
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
-import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
+import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 12;
@@ -19,6 +20,16 @@ const CONTACT = {first_name: 'Ada', last_name: 'Tester', full_name: 'Ada Tester'
 const OPEN_ANSWER = 'Because the platform work here is about reliability at scale, which is what I have done for eight years.';
 
 const expectedOf = form => Object.fromEntries(form.kit.filter(item => !form.legal.includes(item.field)).map(item => [item.field, item.answer]));
+const POSTING = 'Lead the reliability of a Kubernetes platform on AWS: own the SLOs, the on-call rota and incident reviews, and mentor four engineers. '.repeat(3);
+// What the stand-in AI hands back for the CV import and the tailoring (the schemas of lib/cv.js): a one-job CV, then the same CV reworded.
+const BASE_CV = {name: 'Ada Tester', location: 'Zurich', summary: 'Site Reliability Engineer with eight years of platform work.', links: [],
+  jobs: [{company: 'Acme', href: '', roles: [{title: 'Site Reliability Engineer', period: 'Jan 2020 – Present', place: 'Zurich', intro: '',
+    bullets: ['Ran the on-call rota for a payments platform.', 'Moved 40 services to Kubernetes.', 'Wrote the incident reviews.'], skills: 'Kubernetes, AWS'}]}],
+  education: [], skills: '', languages: ''};
+const tailoredFrom = numbered => ({summary: 'Site Reliability Engineer who owns SLOs and incident reviews on Kubernetes.',
+  jobs: numbered.jobs.map(job => ({company: job.company, roles: job.roles.map(role => ({title: role.title, skills: role.skills,
+    bullets: [...role.bullets].reverse().map(bullet => ({source: bullet.index, text: bullet.text}))}))})),
+  changes: [{where: 'Summary', change: 'Leads with SLOs and incident reviews', why: 'The posting asks for both'}]});
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function run(ctx) {
@@ -31,10 +42,12 @@ export async function run(ctx) {
   await ctx.run('the app has an applicant, four jobs with drafted kits, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of [...Object.values(FORMS), CHAIN]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}});
+    for (const form of [...Object.values(FORMS), CHAIN]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
+      if (Array.isArray(content) && content.some(part => part.type === 'document')) return JSON.stringify(BASE_CV);   // the CV import (lib/cv.js)
+      if (typeof content === 'string' && content.startsWith('<cv>')) return JSON.stringify(tailoredFrom(JSON.parse(/<cv>\n([\s\S]*?)\n<\/cv>/.exec(content)[1])));   // the tailoring
       // The page after a Submit (lib/confirmation.js): the stand-in answers like a model that reads the words, so the suite proves the chain around it.
       const text = typeof content === 'string' ? content : (content || []).map(part => part.text || '').join('');
       if (/^URL path:/m.test(text) && /^Page:/m.test(text)) return JSON.stringify({confirmation: /successfully submitted|received your application/i.test(text) && !/must be completed|required/i.test(text)});
@@ -62,10 +75,12 @@ export async function run(ctx) {
     console.log(`  extension state at the failure: ${JSON.stringify(inside)}`);
   }
   // The person's click on a job's Apply button; the form opens in the browser with the extension, which fills it by itself. -> the tab, once the fill is over.
-  async function apply(form) {
+  async function apply(form, {viaApi = false} = {}) {
     const opened = ctx.browser.opened.length;
     await page.click('.nav[data-view="jobs"]');
-    await page.locator('article.job-row').filter({hasText: form.company}).first().locator('.row-main').click();
+    // viaApi: the same call the button makes ("Fill in Chrome" in the ⋯ menu), for a job whose button now says "View session".
+    if (viaApi) await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: 'Zurich, Switzerland', workMode: ''}), form);
+    else await page.locator('article.job-row').filter({hasText: form.company}).first().locator('.row-main').click();
     const deadline = Date.now() + 30000;
     while (ctx.browser.opened.length === opened && Date.now() < deadline) await pause(250);
     if (ctx.browser.opened.length === opened) throw new Error(`Apply did not open ${form.title} in the browser (the app's open command was never called)`);
@@ -222,6 +237,33 @@ export async function run(ctx) {
     if (!result?.ok) throw new Error(`the app refused: ${result?.error}`);
     await until('"I submitted it" left the job\'s session on the list', async () => !(await sessionsOf(CHAIN.url)).length, 30000);
     if ((await stageOf(NOTION, CHAIN.url)) !== 'Applied') throw new Error('the Notion row is not Applied');
+  }, {needs: ctx.needs});
+
+  await ctx.run('Tailor CV on a job writes a CV from its posting: the PDF on this Mac, the file on the job in Notion, and the extension attaches it, not the base CV', async () => {
+    const form = FORMS.greenhouse;
+    const code = crypto.createHash('sha1').update(form.url.trim()).digest('hex').slice(0, 8);
+    const tailoredPdf = path.join(ctx.profile, 'cv', 'tailored', `${code}.pdf`);
+    await page.click('.nav[data-view="jobs"]');
+    // The list redraws while sessions update, which closes an open ⋯ menu: open it again until the item is there.
+    let items = [];
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await page.locator('article.job-row').filter({hasText: form.company}).first().getByRole('button', {name: 'More actions'}).click();
+      await pause(600);
+      items = await page.getByRole('menuitem').allInnerTexts();
+      if (items.some(text => /Tailor CV/.test(text))) break;
+    }
+    if (!items.some(text => /Tailor CV/.test(text))) throw new Error(`the ⋯ menu of ${form.company} has no Tailor CV (it lists: ${items.join(' | ') || 'nothing'})`);
+    await page.getByRole('menuitem', {name: /Tailor CV/}).click();
+    for (let waited = 0; !fs.existsSync(tailoredPdf) && waited < 120000; waited += 1000) await pause(1000);
+    if (!fs.existsSync(tailoredPdf)) throw new Error('Tailor CV wrote no PDF within two minutes (see the "Tailoring failed" toast)');
+    const size = fs.statSync(tailoredPdf).size;
+    if (size === cv.size) throw new Error('the tailored PDF is the size of the base CV: it was not written from the posting');
+    let files = 0;
+    for (let i = 0; i < 10 && !files; i++) { files = await tailoredFiles(NOTION, form.url); if (!files) await pause(3000); }
+    if (!files) throw new Error('the tailored CV is not on the job\'s row in Notion (column "Tailored CV")');
+    const {tab, state} = await apply(form, {viaApi: true});
+    if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
+    fail(cvProblems(await readForm(tab), {name: cv.name, size}));   // the tailored file's bytes, under the CV's usual name
   }, {needs: ctx.needs});
 
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
