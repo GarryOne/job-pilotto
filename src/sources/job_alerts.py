@@ -104,7 +104,7 @@ def extract(client, email_text, pairs, site):
         raise RuntimeError(f'stopped with {response.stop_reason}')
     offered = {url for _, url in pairs}
     jobs = []
-    for item in json.loads(next(block.text for block in response.content if block.type == 'text'))['jobs']:
+    for item in json.loads(next(block.text for block in response.content if block.type == 'text'))['jobs'][:MAX_JOBS]:
         link = canonical(item.get('link', '')) if item.get('link') in offered else ''
         title = re.sub(r'\s+', ' ', str(item.get('role') or '')).strip()
         if link and site in link and 3 <= len(title) <= 140:

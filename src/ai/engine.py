@@ -84,9 +84,18 @@ def client(env=None, action=''):
     return _api(action) if action else _api()
 
 
+def without_limits(schema):
+    """The schema without `maxItems`/`minItems`: the API rejects them in structured output (400, 3 Oct 2026), so callers cap the lists themselves."""
+    if isinstance(schema, dict):
+        return {k: without_limits(v) for k, v in schema.items() if k not in ('maxItems', 'minItems')}
+    if isinstance(schema, list):
+        return [without_limits(v) for v in schema]
+    return schema
+
+
 def structured(schema, model, effort='medium'):
     """The `output_config` of a schema-constrained call: the JSON schema, and the effort setting for the models that have one (Haiku 4.5 rejects it with a 400)."""
-    config = {'format': {'type': 'json_schema', 'schema': schema}}
+    config = {'format': {'type': 'json_schema', 'schema': without_limits(schema)}}
     if not model.startswith('claude-haiku'):
         config['effort'] = effort
     return config

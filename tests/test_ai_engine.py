@@ -352,5 +352,16 @@ class BillingTests(unittest.TestCase):
         self.assertEqual(info['spent'], 1.5)
 
 
+class StructuredSchemaTests(unittest.TestCase):
+    def test_no_array_limits_are_sent(self):
+        from src.ai import engine, page_reader, scout_ideas
+        from src.sources import job_alerts
+        for schema in (page_reader.SCHEMA, page_reader.CHOOSE_SCHEMA, scout_ideas.IDEAS_SCHEMA, job_alerts.SCHEMA):
+            sent = json.dumps(engine.structured(schema, 'claude-haiku-4-5')['format']['schema'])
+            self.assertNotIn('maxItems', sent)
+            self.assertNotIn('minItems', sent)
+            self.assertIn('maxItems', json.dumps(schema).replace('minItems', 'maxItems'))  # the originals keep their limits
+
+
 if __name__ == '__main__':
     unittest.main()

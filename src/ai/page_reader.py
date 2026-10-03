@@ -108,7 +108,7 @@ def read(url, markup, client=None, db=None):
         cost.side(MODEL, response.usage)
         if response.stop_reason != 'end_turn':
             raise RuntimeError(f'stopped with {response.stop_reason}')
-        found = json.loads(next(block.text for block in response.content if block.type == 'text'))['jobs']
+        found = json.loads(next(block.text for block in response.content if block.type == 'text'))['jobs'][:MAX_JOBS]
         db.execute('INSERT OR REPLACE INTO page_reads (url, digest, jobs_json, read_at) VALUES (?, ?, ?, ?)',
                    (url, digest, json.dumps(found, ensure_ascii=False), datetime.now(timezone.utc).isoformat(timespec='seconds')))
         db.commit()
@@ -164,7 +164,7 @@ def choose_links(site, markup, client=None, db=None):
             cost.side(MODEL, response.usage)
             if response.stop_reason != 'end_turn':
                 raise RuntimeError(f'stopped with {response.stop_reason}')
-            picked = json.loads(next(block.text for block in response.content if block.type == 'text'))['links']
+            picked = json.loads(next(block.text for block in response.content if block.type == 'text'))['links'][:3]
             db.execute('INSERT OR REPLACE INTO link_choices (site, digest, links_json, read_at) VALUES (?, ?, ?, ?)',
                        (site, digest, json.dumps(picked), datetime.now(timezone.utc).isoformat(timespec='seconds')))
             db.commit()
