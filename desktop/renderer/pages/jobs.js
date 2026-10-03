@@ -17,6 +17,7 @@ import {outcomeChoices} from '../outcome-tap.js';
 import {hostStats, scoreBucket, snapshot} from '../intel.js';
 let benchmarkText = {};   // url -> the board's typical reply line (lib/benchmarks.js), refreshed with the jobs list
 import {askWhy} from './dismiss-reason.js';
+import {openMatchCheck} from './match-check.js';
 import {searchSelect} from '../search-select.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
@@ -360,12 +361,16 @@ export function renderJobs() {
     }
     if (job.code) {
       // A CV tailored to this posting (reworded, reordered bullets from your own CV; the extension uploads it here).
+      const tailorNow = () => background('✂️ Tailoring CV…', async () => {
+        const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
+        if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
+      });
       menu.push({icon: 'scissors', label: job.tailored ? 'Re-tailor CV' : 'Tailor CV',
         title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, ~10–15¢)',
-        run: () => background('✂️ Tailoring CV…', async () => {
-          const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
-          if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
-        })});
+        run: tailorNow});
+      // Which terms the posting asks for the CV states, and which requirements could be a yes/no question on the form (a dialog: nothing added to the list).
+      menu.push({icon: 'scale', label: 'Check CV match', title: 'Compare your CV with this posting: stated, implied and missing terms, and the requirements that could be knockout questions (about 30 s, ~5¢)',
+        run: () => openMatchCheck(job, {tailor: tailorNow})});
     }
     // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,
     // by job board and days only, when Technical reports are on. It is how Job Pilotto learns which applications get answers.

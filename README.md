@@ -102,7 +102,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ## 🧠 AI at every step
 
-Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 28 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
+Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 29 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
 **Find: Finds what is worth your time**
@@ -120,6 +120,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - **A CV tailored to each job** *(new)*: Bullets reordered and reworded toward the posting, using only facts from your CV. Numbers are checked by code, unknown tools are flagged, and the page keeps the look of your own CV.
 - **A preview of what changed** *(new)*: Every edit marked and explained next to a clean final PDF. You see what moved and why before you send it.
 - **A check of your own CV** *(new)*: How cleanly a hiring system can read it (free rules on the PDF), then an AI review of keywords, evidence and clarity. Not a score from a real hiring system: they publish none.
+- **CV against this posting** *(new)*: Which terms the posting asks for your CV states, only implies or never mentions, and which requirements could be yes/no questions on the form. A grade that is a sort order, not a verdict.
 - **Application kit**: A cover letter and an answer for each form question, drafted per job from your Profile. It also checks visa and language eligibility.
 - **Your general cover letter**: Drafted once from your CV and Profile, approved by you, attached whenever a form asks for a file.
 - **Profile that follows your CV**: Replace your CV and Claude suggests only the Profile lines to change. You pick which.

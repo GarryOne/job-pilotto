@@ -914,6 +914,12 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .ss-before-row small { display: block; color: var(--ink-2); font-size: var(--fs-sm); }
 .ss-before-row button { flex: none; }
 .ss-before-mark { flex: none; width: 22px; text-align: center; }
+#match-result { margin-top: var(--sp-5); }
+#match-advice .cvc-fix { margin: 0 0 var(--sp-2); }
+.match-h { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-md); }
+.match-note { margin: var(--sp-3) 0 0; }
+.cvc-check .ui-pill { flex: none; min-width: 104px; justify-content: center; }
+.ss-before-row .secondary + .secondary { margin-left: var(--sp-2); }
 .cv-kits-card { margin-top: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .cv-kits-head { display: flex; align-items: center; gap: var(--sp-2); }
 .cv-kits-head .muted { margin-left: auto; }

@@ -440,7 +440,7 @@
             <div class="ss-before" id="ss-before" hidden>
               <div class="ss-before-row" id="ss-before-knock" hidden><span class="ss-before-mark">⛔</span><div><b id="ss-before-knock-title"></b><small id="ss-before-knock-list"></small></div></div>
               <div class="ss-before-row" id="ss-before-cv" hidden><span class="ss-before-mark" id="ss-before-cv-mark"></span><div><b id="ss-before-cv-title"></b><small id="ss-before-cv-sub"></small></div>
-                <button class="secondary" id="ss-before-cv-btn" hidden>Tailor my CV (~12¢)</button></div>
+                <button class="secondary" id="ss-before-match-btn" hidden>Check match</button><button class="secondary" id="ss-before-cv-btn" hidden>Tailor my CV (~12¢)</button></div>
             </div>
             <details class="ss-form-more" id="ss-form-more">
               <summary><span id="ss-form-summary"></span><span class="ss-form-where" id="ss-form-where"></span></summary>
@@ -1360,6 +1360,26 @@
   </section>
   <p class="cv-unchanged"><i data-icon="info"></i>Search preferences, match scores and applications already sent are unchanged (they keep the CV you sent).</p>
   <div class="dialog-foot"><span class="muted small">You can review draft kits later.</span><button class="primary" id="cv-done">Done</button></div>
+</dialog>
+
+<!-- CV match: this job's posting against the CV (lib/match-check.js) -->
+<dialog id="match-dialog" class="save-dialog panel-dialog cv-dialog">
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="scale"></i></span>
+    <div class="cv-head"><h2>CV match</h2><p class="dialog-lead" id="match-job"></p></div>
+    <button class="ghost icon-btn" id="match-close" aria-label="Close"><i data-icon="close"></i></button></div>
+  <div class="cvc-result" id="match-result" hidden>
+    <div class="cvc-head"><span class="cvc-score" id="match-grade"></span><div><b id="match-summary"></b><span class="muted small" id="match-sub"></span></div></div>
+    <h3 class="match-h">What the posting asks for</h3>
+    <ul class="cvc-checks" id="match-musts"></ul>
+    <h3 class="match-h" id="match-knock-h">Could be a yes/no question on the form</h3>
+    <ul class="cvc-checks" id="match-knocks"></ul>
+    <h3 class="match-h" id="match-advice-h">What to do</h3>
+    <div id="match-advice"></div>
+    <p class="muted small match-note">A grade is a sort order that recruiters override, not a verdict. Facts only: add a missing term only if it is true.</p>
+  </div>
+  <p class="message" id="match-message"></p>
+  <div class="dialog-foot"><span class="muted small" id="match-cost"></span>
+    <span class="inline"><button class="secondary" id="match-run">Check the match (~5¢)</button><button class="primary" id="match-tailor" hidden>Tailor my CV for this job</button></span></div>
 </dialog>
 
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->

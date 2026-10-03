@@ -55,6 +55,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 40 applications
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
+- `desktop/lib/match-check.js` — CV match: one CV against one job posting, the way a recruiter's search and a hiring system's match grade meet them.
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 - `desktop/lib/misses.js` — Controls the form reader could not read, kept on this Mac (extension/review.js -> /extension/misses): the first step of
 - `desktop/lib/needs-you.js` — Telegram, notification and toast for "Claude needs your input" (main.js sessionNeedsYou): once per question. A session
@@ -124,6 +125,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/interviews.js` — Interviews page.
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
+- `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
 - `desktop/renderer/pages/notion-connect.js` — Connecting Notion from anywhere in the window (Notion later: the app only tries until it is connected): the dialog with the
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.

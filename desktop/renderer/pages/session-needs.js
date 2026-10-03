@@ -13,6 +13,7 @@ import {richText} from './rich-text.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
 import {firstLine, renderDock, sessionCompany, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
+import {openMatchCheck} from './match-check.js';
 
 // Something only you can do, with its most likely action one click away: a judgement call (Claude's proposed
 // answer, or another you saved for the same question) or an agreement (open the form to tick it).
@@ -155,6 +156,9 @@ function showBefore(item, left) {
     $('ss-before-cv-title').textContent = info.tailored ? 'A CV tailored to this job is ready' : info.working ? 'Tailoring your CV for this job…' : 'This form gets your general CV';
     $('ss-before-cv-sub').textContent = info.tailored ? 'Press Fill again on the form if it still shows your general CV.' : info.working ? 'About 1–2 minutes. Then fill the form again.'
       : 'A CV written for the job gets noticeably more replies than a general one.';
+    const compare = $('ss-before-match-btn');
+    show(compare, !!job?.code);
+    compare.onclick = () => openMatchCheck(job);
     const button = $('ss-before-cv-btn');
     show(button, !info.tailored && !info.working && !!job?.code);
     button.disabled = false;

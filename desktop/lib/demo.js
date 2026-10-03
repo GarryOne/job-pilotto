@@ -50,7 +50,7 @@ export const BLOCKED = ['notionConnect', 'notionOAuth', 'saveSecret', 'startTria
   'telegramCloudOn', 'telegramCloudOff', 'telegramConnect', 'googleConnect', 'licenseRemove', 'applyWithClaude', 'apply',
   'applyOne', 'sessionRestart', 'sessionResume', 'updateInstall', 'updateCheck', 'betaSet', 'betaRollback', 'resetProfile', 'importProfile', 'importCv',
   'backupNow', 'refresh', 'firstSearch', 'checkMail', 'command', 'rescorePrevious', 'prepareKit', 'tailorCv', 'ivRecordStart',
-  'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'cvCheckRun', 'cvCheckAi', 'saveStrategy', 'setStatus',
+  'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'cvCheckRun', 'cvCheckAi', 'matchCheck', 'saveStrategy', 'setStatus',
   'setAutomation', 'lookAround'];
 export function blocked(name) {
   if (name === 'saveSecret') throw new Error(TEXT);  // its callers expect the keys back, or an error
@@ -112,3 +112,12 @@ export const cvCheck = {hash: 'demo', at: '2026-10-02T09:00:00.000Z',
     fixes: [{where: 'Experience · first role', issue: 'A search for "incident response" would not find you.', suggestion: 'State the on-call and incident work you did in plain words (only if true).', impact: 'high'},
       {where: 'Summary', issue: 'It does not name the roles you want.', suggestion: 'Start with the title you are applying for.', impact: 'medium'}],
     missing_keywords: ['SLO', 'incident response', 'Prometheus']}};
+
+// The CV match dialog with a real answer (fictional job and CV).
+export const matchSaved = {at: '2026-10-02T09:00:00.000Z', stale: false, job: {title: 'Platform Engineer', company: 'Northwind Robotics'}, result: {grade: 'B', usd: 0.06,
+  summary: 'Most of the platform work is stated; observability and the on-site days need a look.',
+  musts: [{term: 'Kubernetes', status: 'found', evidence: 'Moved 40 services to Kubernetes'}, {term: 'Terraform', status: 'found', evidence: 'Skills: Kubernetes, Terraform'},
+    {term: 'Prometheus', status: 'implied', evidence: 'Built alerting on the platform'}, {term: 'SLOs', status: 'missing', evidence: ''}],
+  knockouts: [{requirement: 'Right to work in Switzerland', status: 'ok', note: 'The Profile says you hold a Swiss permit.'}, {requirement: 'Three days a week on site in Zurich', status: 'check', note: 'Neither the CV nor the Profile says if that suits you.'},
+    {requirement: 'Fluent German', status: 'conflict', note: 'The CV lists German as basic.'}],
+  advice: ['Say SLOs plainly in the role where you owned them, only if it is true.', 'Confirm the on-site days before you answer that question.']}};

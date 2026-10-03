@@ -12,6 +12,7 @@ import {registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
 import * as cvLook from './lib/cv-look.js';
 import * as cvCheck from './lib/cv-check.js';
+import * as matchCheck from './lib/match-check.js';
 import * as letters from './lib/cover-letter.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
@@ -1492,6 +1493,25 @@ function handlers() {
     }
   };
   ipcMain.handle('tailorCv', (_, code, name) => tailorCv(code, name));
+  // CV match (Jobs ⋯ and the session card): this job's posting against the CV, on request. The last answer is kept per job for the CV it was made with.
+  ipcMain.handle('matchSaved', (_, code) => { if (DEMO) return demo.matchSaved; const cv = cvlib.baseCv(storage); return cv ? matchCheck.saved(storage, String(code), cv) : null; });
+  ipcMain.handle('matchCheck', async (_, code) => {
+    const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
+    if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
+    try {
+      let cost = 0;
+      if (!cvlib.baseCv(storage)) {
+        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
+        cost += (await cvlib.importPdf(storage, key, ai, {look: keepLook})).usd;
+      }
+      const job = await pipeline.posting(storage, String(code));
+      if (!job.ok) return {ok: false, error: job.error};
+      const cv = cvlib.baseCv(storage), {profile} = await strategy.profileTexts(storage).catch(() => ({profile: ''}));
+      const result = await matchCheck.check(storage, key, {job, cv, profile, client: ai});
+      appLog('cv', 'match check', {grade: result.grade, musts: result.musts.length, knockouts: result.knockouts.length, usd: result.usd});
+      return {ok: true, ...matchCheck.save(storage, String(code), cv, job, {...result, usd: Math.round((result.usd + cost) * 100) / 100})};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('cvOf', (_, url) => cvOf(String(url || '')));   // the session card: tailored for this job already, or being tailored now
   // The form panel's "Tailor my CV for this job": the person's own click, the same work as the menu's Tailor CV.
   server.setTailorHandler(async event => {

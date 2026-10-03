@@ -1,0 +1,75 @@
+// CV match: one CV against one job posting, the way a recruiter's search and a hiring system's match grade meet them.
+// Which terms the posting asks for does the CV state (found), only suggest (implied) or never mention (missing); which requirements of the posting
+// a screening question could turn into a yes/no (work permit, place and office days, language, licence, clearance), and whether the CV and the Profile support
+// them. A grade is a sort order that recruiters override, not a verdict (docs/research/ats-reddit-2026-10.md). Facts only: a missing term is "add it only if
+// it is true". On request (a few cents); the last answer for a job is kept in cv/match/<code>.json, for the CV it was made with.
+import Anthropic from '@anthropic-ai/sdk';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';
+const PRICE = {input: 2, output: 10};  // USD per million tokens
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);
+
+const string = {type: 'string'};
+export const SCHEMA = {type: 'object', additionalProperties: false, required: ['grade', 'summary', 'musts', 'knockouts', 'advice'], properties: {
+  grade: {type: 'string', enum: ['A', 'B', 'C', 'D']},
+  summary: string,
+  musts: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['term', 'status', 'evidence'], properties: {
+    term: string, status: {type: 'string', enum: ['found', 'implied', 'missing']}, evidence: string}}},
+  knockouts: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['requirement', 'status', 'note'], properties: {
+    requirement: string, status: {type: 'string', enum: ['ok', 'check', 'conflict']}, note: string}}},
+  advice: {type: 'array', items: string}}};
+
+const INSTRUCTIONS = `You compare one CV with one job posting, the way a recruiter searching applicants and a hiring system's match grade meet them.
+grade: A = the CV states most of what the posting asks for, B = most, with gaps, C = partly, D = little. It is a sort order, not a verdict. summary: one sentence.
+musts: at most 10 skills, tools, methods or titles the posting asks for, most important first. status: found = the CV states it plainly (evidence = a short phrase from the
+CV), implied = the CV's work suggests it without saying it (evidence = that work, or ""), missing = the CV never mentions it (evidence = "").
+knockouts: at most 8 requirements in the posting that an application form could turn into a yes/no question: work authorisation or visa, place and office days,
+language, security clearance, a licence or certification, years of experience, notice or start date. status: ok = the CV or the Profile supports it, check = neither says,
+so the person must confirm it, conflict = the CV or the Profile contradicts it. note: one short sentence. Never claim an employer will reject: say "can" or "may".
+advice: at most 4 short, concrete points. Hard rules: use only what the CV, the Profile and the posting say. Never suggest adding a tool, number or experience the CV does
+not state; for a missing term say "add it only if it is true". Keep every sentence short and plain.`;
+
+// The CV as text for the model: what a recruiter's search would run over.
+export function cvText(cv) {
+  const lines = [cv.summary || ''];
+  for (const job of cv.jobs || []) for (const role of job.roles || []) {
+    lines.push(`${role.title} · ${job.company} · ${role.period || ''} · ${role.place || ''}`, ...(role.bullets || []).map(bullet => `- ${bullet}`));
+    if (role.skills) lines.push(`Skills: ${role.skills}`);
+  }
+  if (cv.skills) lines.push(`Skills: ${cv.skills}`);
+  if (cv.languages) lines.push(`Languages: ${cv.languages}`);
+  return lines.filter(Boolean).join('\n').replace(/\*\*/g, '');
+}
+
+export async function check(storage, apiKey, {job, cv, profile = '', client = null}) {
+  const anthropic = client || new Anthropic({apiKey});
+  const response = await anthropic.messages.create({
+    model: MODEL, max_tokens: 5000, system: INSTRUCTIONS,
+    messages: [{role: 'user', content: `<cv>\n${cvText(cv).slice(0, 30000)}\n</cv>\n\n<profile>\n${(profile || '(none)').slice(0, 8000)}\n</profile>\n\n` +
+      `<posting>\n${job.title} at ${job.company}${job.location ? ` (${job.location})` : ''}\n\n${(job.description || '(no description stored)').slice(0, 30000)}\n</posting>`}],
+    output_config: {format: {type: 'json_schema', schema: SCHEMA}},
+  });
+  if (response.stop_reason === 'refusal') throw new Error('Claude declined to compare this CV and posting');
+  const result = JSON.parse(response.content.find(block => block.type === 'text').text);
+  return {...result, musts: result.musts.slice(0, 10), knockouts: result.knockouts.slice(0, 8), advice: result.advice.slice(0, 4), usd: usd(response.usage)};
+}
+
+// ---------- the last answer per job (cv/match/<code>.json), for the CV it was made with ----------
+const folder = storage => path.join(storage.path('cv'), 'match');
+const safe = code => String(code).replace(/[^A-Za-z0-9_-]/g, '');
+export const cvHash = cv => crypto.createHash('sha256').update(cvText(cv)).digest('hex').slice(0, 16);
+export function saved(storage, code, cv) {
+  try {
+    const data = JSON.parse(fs.readFileSync(path.join(folder(storage), `${safe(code)}.json`), 'utf8'));
+    return cv && data.cvHash !== cvHash(cv) ? {...data, stale: true} : data;   // a CV changed since: shown, but said to be old
+  } catch { return null; }
+}
+export function save(storage, code, cv, job, result) {
+  fs.mkdirSync(folder(storage), {recursive: true});
+  const data = {at: new Date().toISOString(), cvHash: cvHash(cv), job: {title: job.title, company: job.company}, result};
+  fs.writeFileSync(path.join(folder(storage), `${safe(code)}.json`), JSON.stringify(data, null, 1), {mode: 0o600});
+  return data;
+}
