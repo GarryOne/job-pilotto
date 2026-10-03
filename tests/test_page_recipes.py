@@ -63,6 +63,12 @@ class RecipeTests(unittest.TestCase):
             self.assertEqual(page_recipes.load(BASE, db), {'kind': 'links', 'prefix': '/de/jobs'})
 
 
+class NoCacheTests(unittest.TestCase):
+    def test_a_cache_that_cannot_be_opened_means_no_recipe_not_a_crash(self):
+        with mock.patch.object(page_recipes, '_db', side_effect=sqlite3.OperationalError('unable to open database file')):
+            self.assertIsNone(page_recipes.load('https://nowhere.example/jobs'))
+
+
 class ReadingWithRecipesTests(unittest.TestCase):
     def setUp(self):
         saved = careers.READER, careers.RENDER, careers.CHOOSER

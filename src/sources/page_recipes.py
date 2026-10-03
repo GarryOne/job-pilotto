@@ -114,6 +114,7 @@ def _db(db=None):
         db.execute(TABLE)
         return db, False
     from ..paths import JOBS_DB
+    JOBS_DB.parent.mkdir(parents=True, exist_ok=True)   # a fresh checkout or runner has no data/ folder yet
     db = sqlite3.connect(JOBS_DB, timeout=30)
     db.execute(TABLE)
     return db, True
@@ -143,13 +144,17 @@ def forget(url, db=None):
 
 
 def load(url, db=None):
-    """The recipe for this page: learned here, else one the employer index carries for it, else None."""
-    db, own = _db(db)
+    """The recipe for this page: learned here, else one the employer index carries for it, else None. Never raises: a cache that
+    cannot be opened (no data folder, locked by another run) means no recipe, and the page is read the usual way."""
     try:
-        row = db.execute('SELECT recipe_json FROM page_recipes WHERE url = ?', (url,)).fetchone()
-    finally:
-        if own:
-            db.close()
+        db, own = _db(db)
+        try:
+            row = db.execute('SELECT recipe_json FROM page_recipes WHERE url = ?', (url,)).fetchone()
+        finally:
+            if own:
+                db.close()
+    except sqlite3.Error:
+        row = None
     if row:
         recipe = json.loads(row[0])
         return recipe if valid(recipe) else None

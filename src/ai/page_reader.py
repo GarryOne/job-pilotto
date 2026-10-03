@@ -78,6 +78,7 @@ def clean(items, base):
 
 def _db():
     from ..paths import JOBS_DB
+    JOBS_DB.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(JOBS_DB, timeout=30)
     db.execute('CREATE TABLE IF NOT EXISTS page_reads (url TEXT PRIMARY KEY, digest TEXT NOT NULL, jobs_json TEXT NOT NULL, read_at TEXT NOT NULL)')
     return db
