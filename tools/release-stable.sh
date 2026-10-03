@@ -63,3 +63,4 @@ fi
 if [ "${DRY_RUN:-0}" = 1 ]; then echo "Dry run: would make $tag stable (its Windows installer is its own, the end-to-end gate holds)."; exit 0; fi
 gh release edit "$tag" -R "$repo" --prerelease=false --latest
 echo "Stable: $tag (friends' apps offer it within 10 minutes, or at their next start)"
+python3 "$here/sync_release_labels.py" || echo "(release labels not refreshed: run tools/sync_release_labels.py)"   # the list says STABLE / BETA / Build; best effort, never fails a promotion

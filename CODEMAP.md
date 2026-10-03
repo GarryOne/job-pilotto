@@ -341,5 +341,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/send-to-chatgpt.sh` — send-to-chatgpt.sh — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
 - `tools/site-shots.mjs` — The website as visitors see it, for the product brain (.github/workflows/product-brain.yml): a desktop and a
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the
+- `tools/sync_release_labels.py` — Make the release list readable: every release's title says what it IS, and a pinned issue names the ones that matter.
 - `tools/wait-and-mark-applied.sh` — wait-and-mark-applied.sh <job URL> — wait until that job's application is submitted, then mark
 - `tools/worktree.sh` — One worktree per task (AGENTS.md → Working with git), ready to test at once: the packages installed in the main

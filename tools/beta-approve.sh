@@ -13,3 +13,4 @@ sha=$(gh api "repos/$repo/commits/$tag" -q '.sha[0:7]')
 line="$marker unit suites and every end-to-end suite passed on commit $sha ($(date -u +%Y-%m-%d))"
 gh release edit "$tag" -R "$repo" --notes "$(printf '%s\n\n%s' "$body" "$line")"
 echo "$tag: $line"
+python3 "$(dirname "${BASH_SOURCE[0]}")/sync_release_labels.py" || echo "(release labels not refreshed: run tools/sync_release_labels.py)"

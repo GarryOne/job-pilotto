@@ -105,3 +105,6 @@ jobs:
                 --body $'It will be dropped at 7 days. Why it waits is in the latest run of the "Release · Soak and promote" workflow.\n\nOptions: wait; promote it by hand with force_tag and force_reason (hot path); or drop it.'
             fi
           fi
+      - name: Label the releases (STABLE / BETA / Build / Previous stable) and update the pinned "Release channels" issue
+        if: always()
+        run: python3 tools/sync_release_labels.py || echo "labels not refreshed"
