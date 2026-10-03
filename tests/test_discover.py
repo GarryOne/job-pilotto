@@ -3,7 +3,30 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from src.sources.boards import parse_jobs, city, mode, platform, useful_links, parse_tree, swiss_places
+from src.sources.boards import parse_jobs, city, mode, platform, useful_links, parse_tree, parse_swissdevjobs, swiss_places
+
+SDJ = {'jobUrl': 'Acme-AG-Site-Reliability-Engineer', 'name': 'Site Reliability Engineer', 'company': 'Acme AG', 'actualCity': 'Zürich', 'workplace': 'hybrid',
+       'expLevel': 'Senior', 'jobType': 'Full-Time', 'technologies': ['Kubernetes', 'Terraform'], 'language': 'English', 'hasVisaSponsorship': 'No',
+       'annualSalaryFrom': 120000, 'annualSalaryTo': 150000, 'activeFrom': '2026-10-02T00:00:00.000+02:00', 'companyWebsiteLink': 'acme.example', 'isPaused': False}
+
+
+class SwissDevJobsTests(unittest.TestCase):
+    def test_a_listed_job_becomes_a_job_with_a_description_written_from_its_facts(self):
+        job, = parse_swissdevjobs([SDJ])
+        self.assertEqual((job['company'], job['title'], job['source']), ('Acme AG', 'Site Reliability Engineer', 'SwissDevJobs'))
+        self.assertEqual(job['url'], 'https://swissdevjobs.ch/jobs/Acme-AG-Site-Reliability-Engineer')
+        self.assertEqual((job['location'], job['city'], job['work_mode'], job['date_posted']), ('Zürich, Switzerland', 'Zurich', 'Hybrid (stated)', '2026-10-02'))
+        self.assertEqual(job['salary'], {'currency': 'CHF', 'min': 120000, 'max': 150000})
+        for fact in ('Level: Senior', 'Technologies: Kubernetes, Terraform', 'Working language: English', 'Visa sponsorship: No', 'Annual salary (CHF): 120000 to 150000'):
+            self.assertIn(fact, job['description'])
+
+    def test_paused_jobs_other_roles_and_junk_are_left_out(self):
+        listing = [{**SDJ, 'isPaused': True}, {**SDJ, 'name': 'Office Manager', 'jobUrl': 'x'}, {**SDJ, 'jobUrl': ''}, 'junk', None]
+        self.assertEqual(parse_swissdevjobs(listing), [])
+        self.assertEqual(parse_swissdevjobs({'error': 'x'}), [])
+        self.assertEqual(parse_swissdevjobs([SDJ], wanted=lambda title: 'backend' in title.lower()), [])   # the crawl passes the search's own roles
+        self.assertIsNone(parse_swissdevjobs([{**SDJ, 'annualSalaryFrom': None, 'annualSalaryTo': None}])[0]['salary'])
+
 
 class DiscoveryTests(unittest.TestCase):
     def test_swiss_jobs_and_expiry(self):

@@ -17,6 +17,7 @@ import os
 from urllib.request import Request, urlopen
 
 from ..paths import DATA, REPORTS, keyword_regex, load_search_config
+from .feeds import wanted_title
 _SEARCH = load_search_config()
 ROLE = keyword_regex(_SEARCH['board_discovery_keywords'])
 CAREER = re.compile(r'career|karriere|carrière|carriere|stellen|vacanc|recruit|join.?us|offene.?jobs|work.with.us|/jobs(?:/|$)', re.I)
@@ -111,6 +112,30 @@ def parse_jobs(source, source_url, label):
             'city':city(', '.join(swiss)), 'work_mode':mode(j['title']+' '+str(j.get('jobLocationType',''))),
             'url':urljoin(source_url,j.get('url',source_url)), 'source':label,
             'date_posted':j.get('datePosted',''), 'evidence':'Listed on job board; employer vacancy not independently confirmed'})
+    return result
+
+
+def parse_swissdevjobs(listing, wanted=None):
+    """SwissDevJobs' public JSON list (/api/jobsLight), one dict per open job: the same job shape as parse_jobs.
+    The list has no description, so one is written from its structured fields (level, technologies, language, visa, salary):
+    facts the board states, nothing invented. `wanted(title)` picks the roles to keep (default: the board-discovery keywords; the
+    crawl passes the search's own role keywords, so a "backend" job is not read and scored for an SRE search)."""
+    wanted=wanted or (lambda title:bool(ROLE.search(title)))
+    result=[]
+    for j in listing if isinstance(listing,list) else []:
+        if not isinstance(j,dict) or j.get('isPaused') or not j.get('jobUrl') or not wanted(j.get('name') or ''): continue
+        place=text(j.get('actualCity') or j.get('cityCategory') or '') or 'Switzerland'
+        facts=[('Level',j.get('expLevel')),('Type',j.get('jobType')),('Workplace',j.get('workplace')),('Technologies',', '.join(j.get('technologies') or [])),
+               ('Working language',j.get('language')),('Visa sponsorship',j.get('hasVisaSponsorship')),('Company type',j.get('companyType')),('Company size',j.get('companySize'))]
+        low,high=j.get('annualSalaryFrom'),j.get('annualSalaryTo')
+        if low or high: facts.append(('Annual salary (CHF)',f'{low or "?"} to {high or "?"}'))
+        description='\n'.join(f'{label}: {value}' for label,value in facts if value)
+        website=j.get('companyWebsiteLink') or ''
+        result.append({'company':j.get('company') or 'Unknown employer','profile':'','website':f'https://{website}' if website and '//' not in website else website,
+            'title':j['name'],'location':f'{place}, Switzerland','city':city(place),'work_mode':mode(f"{j.get('workplace') or ''} {j['name']}"),
+            'url':f"https://swissdevjobs.ch/jobs/{j['jobUrl']}",'source':'SwissDevJobs','date_posted':str(j.get('activeFrom') or '')[:10],
+            'description':description,'salary':{'currency':'CHF','min':low,'max':high} if low or high else None,
+            'evidence':'Listed on SwissDevJobs; employer vacancy not independently confirmed'})
     return result
 
 
@@ -222,9 +247,10 @@ def main():
                 result=client.get(url);found=parse_jobs(result['html'],url,'jobs.ch');jobs.extend(found)
                 sources.append({'source':url,'status':f'{len(found)} Swiss software matches' if found else 'No parsed Swiss software matches; page may be empty or format changed'})
             except Exception as e:sources.append({'source':url,'status':str(e)})
-    for label,url in [('SwissDevJobs','https://swissdevjobs.ch/'),('TechTree','https://jobs.techtree.dev/')]:
+    for label,url in [('SwissDevJobs','https://swissdevjobs.ch/api/jobsLight'),('TechTree','https://jobs.techtree.dev/')]:
         try:
-            page=client.get(url)['html'];found=parse_tree(page) if label=='TechTree' else parse_jobs(page,url,label);jobs.extend(found)
+            page=client.get(url)['html']
+            found=parse_tree(page) if label=='TechTree' else parse_swissdevjobs(json.loads(page),wanted_title);jobs.extend(found)
             sources.append({'source':label,'status':f'{len(found)} matching listings on fetched page' if found else 'No compatible listings parsed; requires another adapter'})
         except Exception as e:sources.append({'source':label,'status':f'Unavailable: {e}'})
     groups={};seen=set()
