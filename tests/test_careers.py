@@ -349,3 +349,22 @@ class ReadMoreSitesTests(unittest.TestCase):
     def test_swiss_job_portals_built_by_scripts_count_as_careers_links(self):
         home = '<a href="https://app.jobportal.abaservices.ch/job-overview/x/de">Offene Stellen</a><a href="https://direktlink.prospective.ch/?view=1">Jobs</a>'
         self.assertEqual(len(careers.careers_links(home, 'https://acme.ch')), 2)
+
+
+class HeadingTests(unittest.TestCase):
+    """#110: words that mark a career page's own headings (search, Europe, graduate, talent) also occur in real job titles."""
+
+    def test_real_titles_with_heading_words_are_jobs(self):
+        for title in ['Senior Search Engineer', 'Site Reliability Engineer, Europe', 'Cloud Engineer - Asia Pacific', 'Graduate Software Engineer',
+                      'Talent Acquisition Manager', 'Platform Engineer (m/w/d) EMEA']:
+            self.assertFalse(careers._heading(title), title)
+
+    def test_page_headings_and_menu_entries_are_not_jobs(self):
+        for title in ['Careers', 'Search Swiss Re Careers', 'Early talent opportunities', 'Europe, Middle East & Africa', 'Life at Acme', 'Students', 'Benefits']:
+            self.assertTrue(careers._heading(title), title)
+
+    def test_asked_keeps_a_real_job_whose_title_has_a_heading_word(self):
+        jobs = [{'title': 'Senior Search Engineer', 'url': 'https://acme.example/jobs/1'}, {'title': 'Careers', 'url': 'https://acme.example/careers'}]
+        with mock.patch('src.ai.page_reader.plausible', return_value=True):
+            kept = careers._asked('https://acme.example/careers', '<html></html>', jobs)
+        self.assertEqual([job['title'] for job in kept], ['Senior Search Engineer'])

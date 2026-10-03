@@ -272,9 +272,15 @@ NOT_A_JOB = re.compile(r'career|karriere|carri[eè]re|talent|opportunit|\bsearch
                        r'europe|americas|asia|africa|middle east|emea|apac', re.I)
 
 
+def _heading(title):
+    """A career page's own heading or menu entry, never a job: it uses those words and has no role noun. "Senior Search Engineer",
+    "Site Reliability Engineer, Europe" and "Graduate Software Engineer" are jobs (#110, 3 Oct 2026: NOT_A_JOB alone dropped them)."""
+    return bool(NOT_A_JOB.search(title)) and not TITLE_LIKE.search(title)
+
+
 def _plausible(jobs):
     """Rules found jobs: do they look like job titles (or roles you look for)? If not, the links were probably menu entries."""
-    jobs = [job for job in jobs if not NOT_A_JOB.search(job['title'])]
+    jobs = [job for job in jobs if not _heading(job['title'])]
     if not jobs:
         return False
     from ..ai import page_reader
@@ -310,7 +316,7 @@ def _from_recipe(url, markup, fetch_page):
 def _asked(url, markup, jobs, fetch_page=None):
     """Rules' jobs when they look like jobs; else a recipe learned earlier (no AI); else, when a model can read the page, its answer,
     and a recipe derived from that answer so the next read needs no model."""
-    jobs = [job for job in jobs if not NOT_A_JOB.search(job['title'])]   # career-page headings are never jobs
+    jobs = [job for job in jobs if not _heading(job['title'])]   # career-page headings are never jobs
     if _plausible(jobs):
         return jobs
     fetch_page = fetch_page or get_text
