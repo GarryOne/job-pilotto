@@ -136,3 +136,13 @@ test('a CV tailored after the first fill replaces the one the extension attached
   assert.match(review, /ready && !filling && !readyNow/);                       // and the Fill button stays to attach it
   assert.match(read('extension/background.js'), /type: 'tailor-cv'/);
 });
+
+test('the form panel marks the questions a hiring system can reject on, first', () => {
+  const review = read('extension/review.js');
+  assert.match(review, /const KNOCKOUT = /);
+  assert.match(review, /KNOCKOUT\.test\(b\.label\) - KNOCKOUT\.test\(a\.label\)/);   // knockouts sorted to the top
+  const KNOCKOUT = new RegExp(review.match(/const KNOCKOUT = \/(.*)\/i;/)[1], 'i');
+  for (const label of ['Are you authorized to work in the country where the job is located?', 'Will you now or in the future require sponsorship for employment visa status in this country?',
+    'Are you able to work from our US office three days per week?', 'Do you hold a valid driving licence?']) assert.ok(KNOCKOUT.test(label), label);
+  for (const label of ['Preferred name', 'Why do you want to work here?', 'LinkedIn profile']) assert.ok(!KNOCKOUT.test(label), label);
+});

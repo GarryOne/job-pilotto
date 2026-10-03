@@ -19,6 +19,9 @@
 
   const MIN_FIELDS = 3;
   const SKIP = ['hidden', 'submit', 'button', 'reset', 'search', 'image'];
+  // Questions a hiring system can be set to reject on by themselves (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or
+  // office attendance, a required licence or language). Marked first, because a wrong or rushed answer here decides more than anything else on the form.
+  const KNOCKOUT = /authori[sz]ed to work|authori[sz]ation|right to work|legally (eligible|entitled)|sponsor|visa|work permit|citizen|relocat|willing(ness)? to (work|commute|come|travel)|on-?site|in[- ]office|office (days|attendance)|days (a|per) week|reside|currently located|security clearance|licen[sc]e/i;
   const AGREE = /agree|consent|acknowledg|terms|privacy|policy|arbitrat|certif|attest|pledge/i;
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\s*\*\s*$/, '').trim();
   const norm = text => clean(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -237,6 +240,7 @@
     .foot { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
     .foot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
     .foot.on::before { background: var(--good); }
+    .knock { margin: 0 0 8px; padding: 7px 9px; border-radius: 7px; background: #fff3e0; color: #7a4a00; font-size: 12px; line-height: 1.4; }
     .tailor { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 10px 0 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); font-size: 12.5px; color: var(--ink); }
     .tailor .secondary { padding: 5px 9px; }
     [hidden] { display: none !important; }
@@ -251,7 +255,7 @@
         <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job (~12¢)</button></div>
-        <div class="left" hidden><h4>Left for you</h4><div class="list"></div></div>
+        <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
         <div class="actions">
           <button class="secondary take-over" hidden title="Claude drives this application in Chrome, from where you are now. It never clicks Submit.">Take over with Claude</button>
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
@@ -313,9 +317,13 @@
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
     $('.left').hidden = !left || busy || !over;
-    $('.list').replaceChildren(...shown.slice(0, 30).map(field => {
+    const ranked = [...shown].sort((a, b) => KNOCKOUT.test(b.label) - KNOCKOUT.test(a.label));
+    const knockouts = ranked.filter(field => KNOCKOUT.test(field.label)).length;
+    $('.knock').hidden = !knockouts;
+    $('.knock').textContent = 'Some of these can reject an application automatically (work permit, sponsorship, location, office days). Answer them truthfully: they decide more than the CV.';
+    $('.list').replaceChildren(...ranked.slice(0, 30).map(field => {
       const row = Object.assign(document.createElement('button'), {className: 'item'});
-      row.append(Object.assign(document.createElement('i'), {textContent: AGREE.test(field.label) ? '⚖️' : '○'}),
+      row.append(Object.assign(document.createElement('i'), {textContent: KNOCKOUT.test(field.label) ? '⛔' : AGREE.test(field.label) ? '⚖️' : '○'}),
         Object.assign(document.createElement('span'), {textContent: field.label.slice(0, 120) || 'A required field'}),
         Object.assign(document.createElement('span'), {className: 'go', textContent: '›'}));
       row.onclick = () => flash(field.el);

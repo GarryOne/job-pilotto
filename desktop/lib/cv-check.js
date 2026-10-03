@@ -59,8 +59,8 @@ export function analyse(pages) {
     for (const row of rows.values()) { row.sort((a, b) => a.x - b.x); if (row.some((a, i) => row.slice(i + 1).some(b => b.x > a.x + a.w + 5 && a.w > page.width * 0.2 && b.w > page.width * 0.2))) side++; }
   }
   checks.push(side < 4 ? check('columns', 'One column of text', 'pass', 'Sentences run down one column, in reading order.')
-    : check('columns', 'One column of text', 'warn', `${side} lines have text side by side: parsers read straight across and mix the two.`,
-      'Put experience in a single column; keep side panels to short labels.', 15));
+    : check('columns', 'One column of text', 'warn', `${side} lines have text side by side: some parsers read straight across and mix the two (reported by a scanner developer, not confirmed by recruiters).`,
+      'Put experience in a single column; keep side panels to short labels.', 10));
 
   // 3. Contact details in the body text.
   const email = /[\w.+-]+@[\w-]+\.[\w.-]+/.test(text), phone = /\+?\d[\d\s().-]{7,}\d/.test(text);
@@ -91,8 +91,8 @@ export function analyse(pages) {
   const photo = seen.some(image => image.page === 1 && image.w >= 20 && image.w <= 110 && Math.abs(image.w - image.h) < image.w * 0.2 && image.y < 140 && image.x > W / 2);
   const banner = seen.some(image => image.w >= W * 0.9);
   checks.push(!photo && !banner ? check('images', 'No decorative images', 'pass', seen.length ? 'Small icons only: harmless.' : 'No images.')
-    : check('images', 'Pictures are ignored by parsers', 'warn', `${[photo ? 'a photo' : '', banner ? 'a full-width banner' : ''].filter(Boolean).join(' and ')}: invisible to a parser, so keep nothing important in them.` +
-      (photo ? ' In the US, UK and Canada a photo is usually left out.' : ''), photo ? 'Check that your target market expects a photo; otherwise remove it.' : 'Keep the banner decorative.', photo && banner ? 6 : 3));
+    : check('images', 'Pictures are ignored by parsers', 'warn', `${[photo ? 'a photo' : '', banner ? 'a full-width banner' : ''].filter(Boolean).join(' and ')}: a parser cannot read them, so keep nothing important in them.` +
+      ' No recruiter we found reports a photo breaking a parse; it is a market habit (in the US, UK and Canada a photo is usually left out).', photo ? 'Check that your target market expects a photo; otherwise remove it.' : 'Keep the banner decorative.', photo && banner ? 3 : 2));
 
   // 7. Length.
   const n = pages.length;
