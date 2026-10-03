@@ -118,6 +118,10 @@ them from colliding in one checkout:
 - Read-only work and Notion-only updates don't need a worktree.
 
 ### Commit messages
+- **Every fix leaves a permanent check** (3 Oct 2026). A commit that says `Fixes #N` also adds the test that would have caught the bug: a unit test, an e2e unit test,
+  or a step in an e2e suite (for a bug that only shows in a state, like the AI failing, the step puts the app in that state). Scripted checks found 17 of the first 36
+  tracked bugs, nearly all the severe ones; a fix without one can come back unnoticed. The pre-push hook refuses a `Fixes #N` commit with no test unless its message
+  has a `No-test: <why>` line.
 - **Commit subject: one line, at most 72 characters** (GitHub cuts the list at about that, 2 Oct 2026: subjects of 150+ characters
   with version numbers and reasons made the history unreadable). Imperative, what changed: `Extension: drop "Use on this tab"`.
   No version number, no reasons, no "because…" in the subject; those go in the body (blank line, then wrapped text).

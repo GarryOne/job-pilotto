@@ -48,6 +48,24 @@ case "$command" in *COMMIT_LONG_OK=1*) ;; *)
   fi ;;
 esac
 
+# Every fix leaves a permanent check (3 Oct 2026: the method with the best record is the scripted check, and a bug fixed without one can come back
+# unnoticed). A commit whose message says "Fixes #N" (or Closes/Resolves) must also change a test: tests/, desktop/test/, desktop/e2e/test/ or an e2e
+# suite step. A fix that truly cannot have one says why in a "No-test: <reason>" line of its message.
+untested=""
+for sha in $(git -C "$repo" log origin/main..HEAD --no-merges --format='%H' 2>/dev/null); do
+  message="$(git -C "$repo" log -1 --format='%B' "$sha")"
+  echo "$message" | grep -qiE '\b(fix(es|ed)?|close[sd]?|resolve[sd]?)\b:?[[:space:]]+#[0-9]+' || continue
+  echo "$message" | grep -qiE '^No-test:[[:space:]]*[^[:space:]]' && continue
+  git -C "$repo" show --name-only --format='' "$sha" | grep -qE '^(tests/|desktop/test/|desktop/e2e/test/|desktop/e2e/suites/)' && continue
+  untested="$untested$(git -C "$repo" log -1 --format='%h %s' "$sha")"$'\n'
+done
+if [ -n "$untested" ]; then
+  echo "Push blocked: a commit fixes an issue but changes no test (every fix leaves a permanent check):" >&2
+  printf '%s' "$untested" | cut -c1-110 >&2
+  echo "Add the test that would have caught it, or a line 'No-test: <why>' in the commit message." >&2
+  exit 2
+fi
+
 failed=()
 log="$(mktemp)"
 run() {  # name, then the command
