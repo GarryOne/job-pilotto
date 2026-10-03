@@ -227,7 +227,10 @@ export async function run(ctx) {
           expected++;
           if (result.musts.some(must => must.term.toLowerCase().includes(term) && must.status === 'found')) got++;
         }
-        for (const must of result.musts) if (must.status === 'found' && !text.includes(must.term.toLowerCase())) throw new Error(`"${item.title}": "${must.term}" is marked found, but the CV never says it`);
+        // The product's rule (match-check.js guard): "found" needs the term OR the model's quoted evidence in the CV ("Kubernetes on AWS", evidence "Kubernetes (AWS EKS)": run 37136327455).
+        const words = value => ` ${String(value || '').toLowerCase().replace(/[^\p{L}\p{N}+#.]+/gu, ' ').replace(/\s+/g, ' ').trim()} `;
+        const stated = phrase => words(phrase).trim().length >= 2 && words(text).includes(words(phrase));
+        for (const must of result.musts) if (must.status === 'found' && !stated(must.term) && !stated(must.evidence)) throw new Error(`"${item.title}": "${must.term}" is marked found, but the CV states neither it nor its evidence ("${must.evidence || ''}")`);
       }
       console.log(`  CV match: ${got}/${expected} required terms found, ${corrected} claim(s) corrected by the guard`);
       if (expected && got / expected < 0.7) throw new Error(`only ${got} of ${expected} terms that the posting and the CV both state came back as found`);
