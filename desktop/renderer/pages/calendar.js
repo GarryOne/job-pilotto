@@ -86,6 +86,9 @@ export function render() {
   const jobs = Array.isArray(shared.allJobs) ? shared.allJobs : [];
   const list = visible(cal.meetings(jobs, recordings, {zone: ZONE}));
   const today = cal.dayKey(new Date(), ZONE);
+  // Today greys out while the grid already shows this month: pressed there it rightly did nothing, which read as a broken button (#83).
+  const now = new Date();
+  $('cal-today').disabled = month.year === now.getFullYear() && month.month === now.getMonth();
   $('cal-title').textContent = monthName(month);
   const weeks = cal.monthGrid(month.year, month.month, list, today);
   const head = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => el('span', 'cal-dow', day));

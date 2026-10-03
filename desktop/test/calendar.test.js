@@ -61,3 +61,10 @@ test('"Today" moves the grid to this month at once, without re-reading Notion (#
   assert.match(handler, /render\(\)/);
   assert.doesNotMatch(handler, /loadCalendar|pilot\./);
 });
+
+test('"Today" is disabled while the grid shows this month (#83: pressed there it did nothing)', async () => {
+  const fs = await import('node:fs');
+  const page = fs.readFileSync(new URL('../renderer/pages/calendar.js', import.meta.url), 'utf8');
+  const body = page.slice(page.indexOf('export function render()'), page.indexOf('export async function loadCalendar'));
+  assert.match(body, /\$\('cal-today'\)\.disabled = month\.year === now\.getFullYear\(\) && month\.month === now\.getMonth\(\);\n  \$\('cal-title'\)/);
+});
