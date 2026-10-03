@@ -139,7 +139,10 @@ jobs:
       - name: Run the ${{ matrix.suite }} suite
         working-directory: desktop/e2e
         timeout-minutes: 25   # a hung suite stops here, not after the job's limit
-        run: node suite.mjs ${{ matrix.suite }}
+        run: |
+          # A run on an older commit (target_ref: the stable canary, a release candidate) plans with main's suite list; a suite added since does not exist in that build.
+          if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node suite.mjs ${{ matrix.suite }}
       - name: AI review of the screenshots
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # the costly part: only when the UI or its tests changed, or a finding waits
         working-directory: desktop/e2e
