@@ -72,7 +72,9 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     const items = withDir(file, read(file) || []);
     if (!items.length) continue;
     const dir = path.dirname(file), suite = items[0].suite;
-    const logs = `${tail(path.join(dir, 'logs', 'engine.log'), 400, 40000)}\n${tail(path.join(dir, 'logs', 'app.log'), 400, 40000)}`;
+    // The WHOLE logs are searched for the limit, not their tails: a long log pushed the message out of the last 40 kB.
+    const whole = file => { try { return fs.readFileSync(file, 'utf8').slice(-4e6); } catch { return ''; } };
+    const logs = `${whole(path.join(dir, 'logs', 'engine.log'))}\n${whole(path.join(dir, 'logs', 'app.log'))}`;
     if (items.some(item => NO_CREDIT.test(item.message || '')) || (!LIMIT_TESTED.includes(suite) && NO_CREDIT.test(logs))) { skipped.push({suite, why: 'the AI had no credit'}); continue; }
     suiteFailures.push({...items[0], also: items.slice(1).map(item => item.step)});
   }
@@ -83,7 +85,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
   // Only this platform's issues are matched, marked "not seen" and closed here (the ranking below reads them all again).
   let issues = list().filter(issue => platformOf(issue) === platform);
-  const out = {filed: [], again: [], gone: [], closed: [], skipped, candidate: null};
+  const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
   // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
   const tested = appVersionAt(testedSha(build), {gh, repo});
@@ -99,7 +101,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 
   // 2. a finding that was open, whose page was photographed and reviewed again in this run and did not come back: it is "not seen" (a fix, or a one-off).
   const reviewed = {ai: new Set(), layout: new Set()};
-  for (const file of found['ai-findings.json']) for (const view of views(path.dirname(file))) reviewed.ai.add(view);
+  // A page counts as "reviewed again" only when the AI really looked at it (review-ui.mjs lists them): a page it could not review (no credit, an outage) is neither filed nor cleared, so a
+  // run that hit the API limit can never mark an open AI finding "not seen" and, two runs later, close it. Older files have no list: every photographed page, as before.
+  for (const file of found['ai-findings.json']) {
+    const data = read(file), real = Array.isArray(data?.reviewed) ? new Set(data.reviewed) : null;
+    for (const view of views(path.dirname(file))) if (!real || real.has(view)) reviewed.ai.add(view);
+    for (const item of Array.isArray(data?.unreviewed) ? data.unreviewed : []) out.unreviewed.push({suite: suiteOf(path.dirname(file)), view: item.view, why: item.why});
+  }
   for (const file of found['ui-findings.json']) for (const view of views(path.dirname(file))) reviewed.layout.add(view);
   // A suite-failure issue is cleared only when its suite ran in this run with NO failure at all (a different earlier failure would hide the later steps) and was not skipped.
   const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => name.replace(/^e2e-artifacts-(windows-)?/, '')) : []);
@@ -253,7 +261,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     process.exit(0);
   }
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac'});
-  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
+  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
     const candidate = result.candidate;

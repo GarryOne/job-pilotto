@@ -24,6 +24,8 @@ for (const name of fs.readdirSync(CACHE)) {
   if (Date.now() - fs.statSync(file).mtimeMs > CACHE_DAYS * 86400000) fs.rmSync(file, {force: true});
 }
 let rejected = 0;
+// Which pages the AI really looked at, and which it could not (no credit, rate limit, an outage): ui-findings reads this. A page nobody reviewed is not a page that came back clean.
+const reviewed = [], unreviewed = [];
 const usage = {model: MODEL, calls: 0, cached: 0, failed: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, usd: 0};
 const names = fs.readdirSync(ARTIFACTS);
 // The pages the journey photographed, and the window at the moment a step failed (at most two): a failure screenshot shows the whole app, the sidebar and the bottom bar too.
@@ -50,6 +52,7 @@ for (const {view, png, factsFile} of jobs) {
       if (response.status >= 400 && response.status < 500 && response.status !== 429 && !billing) { console.log(`::error::AI review of ${view} was rejected (HTTP ${response.status}): ${detail}`); rejected++; }
       else console.log(`::warning::AI review of ${view} failed (HTTP ${response.status}): ${detail.slice(0, 160)}; skipped`);
       console.log(`- ${view}: review failed (HTTP ${response.status})`);
+      unreviewed.push({view, why: billing ? 'no credit' : `HTTP ${response.status}`});
       continue;
     }
     const data = await response.json();
@@ -64,12 +67,13 @@ for (const {view, png, factsFile} of jobs) {
     answer = text;
   }
   const found = parseFindings(answer, view).map(item => ({...item, id: fingerprint(item), file: png}));   // file: the picture the finding was seen on
+  reviewed.push(view);
   console.log(`${found.length ? '!' : '✓'} ${view}: ${found.length} finding(s)${fromCache ? ' (unchanged since an earlier run: not asked again)' : ''}${found.map(item => `\n    [${item.severity}] ${item.title}: ${item.detail}`).join('')}`);
   all.push(...found);
 }
-fs.writeFileSync(path.join(ARTIFACTS, 'ai-findings.json'), JSON.stringify({model: MODEL, findings: all}, null, 2));
+fs.writeFileSync(path.join(ARTIFACTS, 'ai-findings.json'), JSON.stringify({model: MODEL, findings: all, reviewed, unreviewed}, null, 2));
 fs.writeFileSync(path.join(ARTIFACTS, 'ai-review-usage.json'), JSON.stringify({...usage, usd: Number(usage.usd.toFixed(4))}, null, 2));
 const line = `AI review: ${usage.calls} call(s), ${usage.cached} unchanged (not asked again), ${usage.failed} failed; ${usage.input} in + ${usage.cacheRead} cache read + ${usage.cacheWrite} cache write, ${usage.output} out = $${usage.usd.toFixed(4)} (${MODEL})`;
-console.log(`\n${all.length} finding(s) written to ai-findings.json\n${line}`);
+console.log(`\n${all.length} finding(s) written to ai-findings.json\n${line}${unreviewed.length ? `\nNOT reviewed (${unreviewed.map(item => `${item.view}: ${item.why}`).join(', ')}): no finding is filed or cleared for these pages from this run.` : ''}`);
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
 if (rejected) process.exit(1);

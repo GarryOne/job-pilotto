@@ -339,3 +339,28 @@ test('a command, stack or JSON in a finding goes in a code block under a short l
   assert.match(body, /### What was found\nCommand failed:\n\n```\npython3 -c/);
   assert.match(body, /<summary>engine\.log \(last lines\)<\/summary>\n\n````\noops ```\n````/);
 });
+
+// "We shouldn't create issues if we hit the Anthropic limit and couldn't reason about it": a page the AI could not review is not a page that came back clean.
+test('a page the AI could not review (limit, outage) is never marked not-seen, so a limit-hit run cannot close a real finding', async () => {
+  const {triage} = await import('../triage.mjs');
+  const {fingerprint} = await import('../lib/vision.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const open = {number: 5, state: 'OPEN', title: '[auto-ui] jobs: Rows overlap', body: '**MEDIUM** · layout · found by the AI screenshot review\n\nBuild tested: main @ aaaaaaa', labels: [{name: 'auto-ui'}, {name: 'fp:jobs-layout-abc'}], comments: [], createdAt: new Date().toISOString()};
+  const run = ai => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unreviewed-'));
+    fs.writeFileSync(path.join(dir, 'ui-jobs.png'), 'x');
+    fs.writeFileSync(path.join(dir, 'ai-findings.json'), JSON.stringify(ai));
+    const calls = [];
+    const gh = args => { calls.push(args.join(' ')); return args[0] === 'issue' && args[1] === 'list' ? JSON.stringify([open]) : args[0] === 'pr' ? '[]' : ''; };
+    return {out: triage({artifacts: dir, runUrl: 'https://x/runs/9', gh, build: 'main @ bbbbbbb'}), calls};
+  };
+  const limited = run({findings: [], reviewed: [], unreviewed: [{view: 'jobs', why: 'no credit'}]});
+  assert.deepEqual(limited.out.gone, [], 'not reviewed: not "not seen"');
+  assert.equal(limited.calls.some(call => /--add-label not-seen-latest/.test(call)), false);
+  assert.deepEqual(limited.out.unreviewed, [{suite: limited.out.unreviewed[0].suite, view: 'jobs', why: 'no credit'}]);
+  const looked = run({findings: [], reviewed: ['jobs'], unreviewed: []});
+  assert.equal(looked.out.gone.length, 1, 'reviewed and clean: not seen, as before');
+  const legacy = run({findings: []});
+  assert.equal(legacy.out.gone.length, 1, 'an older file without the list behaves as before');
+  assert.equal(fingerprint({view: 'x', kind: 'y', title: 'z'}).length > 0, true);
+});
