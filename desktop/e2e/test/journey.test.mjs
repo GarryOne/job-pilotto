@@ -31,3 +31,13 @@ test('a journey error is marked not seen when its suite ran again without it', a
   const gh = args => (args[0] === 'issue' && args[1] === 'list' ? JSON.stringify([issue]) : args[0] === 'pr' ? '[]' : '');
   assert.equal(triage({artifacts: dir, runUrl: 'https://x/runs/5', gh}).gone.length, 1);
 });
+
+// 4 Oct 2026: the app counted days in the runner's UTC and the suites in Zurich, so Focus's 14-day count failed from 0:00 to 2:00 Zurich time.
+test('the e2e app runs in the zone the suites check against, or the one a suite sets, for the window and the engine alike', async () => {
+  const {zoneOf} = await import('../lib/app.mjs');
+  assert.equal(zoneOf({}), 'Europe/Zurich');
+  assert.equal(zoneOf({TZ: 'Asia/Tokyo'}), 'Asia/Tokyo');
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../lib/app.mjs', import.meta.url), 'utf8');
+  assert.match(source, /TZ: zoneOf\(env\), JOB_PILOTTO_TZ: env\.JOB_PILOTTO_TZ \|\| zoneOf\(env\)/);
+});

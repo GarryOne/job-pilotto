@@ -19,6 +19,8 @@ const electronPath = () => {
 export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts', process.env.E2E_SUITE || 'default');
 
 // -> {app, page, profile, shot(name), close()}. `env` adds to the app's environment (models, test hooks).
+export const zoneOf = (env = {}) => env.TZ || 'Europe/Zurich';
+
 export async function launch({env = {}, executablePath, args, profile: again} = {}) {
   const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
@@ -27,7 +29,10 @@ export async function launch({env = {}, executablePath, args, profile: again} = 
   const app = await electron.launch({
     executablePath: executablePath || electronPath(),
     args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
-    env: {...process.env, JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', ...env},
+    // The app counts days in the computer's own zone; the suites check it against Europe/Zurich (lib/focus-data.mjs). On a CI runner in UTC the two disagreed
+    // about "today" from 0:00 to 2:00 Zurich time, and Focus's 14-day count failed only then (4 Oct 2026). A suite that tests another zone sets TZ, and the engine follows it
+    // (it reads JOB_PILOTTO_TZ first: the calendar suite's Tokyo and Honolulu must reach both the window and the engine).
+    env: {...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', ...env},
     timeout: 90000,
   });
   const page = await app.firstWindow();
