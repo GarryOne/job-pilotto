@@ -11,6 +11,7 @@ with you.
 terminal, with a Chrome extension that fills the forms. Website:
 [www.jobpilotto.workers.dev](https://www.jobpilotto.workers.dev/)
 ([how it works](https://www.jobpilotto.workers.dev/#how),
+[all the AI inside](https://www.jobpilotto.workers.dev/intelligence.html),
 [compared with Simplify, Teal, Huntr, JobCopilot and LazyApply](https://www.jobpilotto.workers.dev/compare.html)).
 
 <p align="center">
@@ -94,6 +95,53 @@ The names are the ones in the first column (`discover`, `scout`, `telegram`, `no
 `score`, `auto_kits`, `insights`, `google_jobs`, `mail`, `transcribe`), and `src/features.py` defines them. A
 switched-off feature behaves exactly as if its keys were missing, and `doctor` lists it under
 "switched off".
+
+## 🧠 AI at every step
+
+Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 25 AI steps today, each one yours to accept or ignore, none of them pressing Submit.
+The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
+
+**Find: Finds what is worth your time**
+
+- **Scout that keeps learning** *(new)*: Claude proposes employers and company lists to look at, then learns from what each probe found. The shared employer list grows with every install.
+- **Facts, quoted from the posting**: Languages, seniority, salary and visa read from each description by AI, with the words they came from.
+- **Fit score out of 100**: Role, place, pay, growth and risk scored against your Profile, with the reasons. Re-scored when your Profile changes.
+- **Hints from what people dismiss** *(new)*: Why jobs get turned down (seniority, place, tech) is counted across installs and nudges the score. Counts only, never a job or a name.
+- **A finding a day**: One useful discovery about your search each day, with its evidence and one action. A weekly report on Mondays.
+- **Strategy from your CV**: Goals, a draft Profile, standard answers and search settings from your CV in one pass. You review before anything is saved.
+- **Strategy insights**: What your best-fit jobs ask for, how much of the market your keywords catch, and where your target pay stands.
+
+**Prepare: Prepares what you send**
+
+- **A CV tailored to each job** *(new)*: Bullets reordered and reworded toward the posting, using only facts from your CV. Numbers are checked by code, unknown tools are flagged, and the page keeps the look of your own CV.
+- **A preview of what changed** *(new)*: Every edit marked and explained next to a clean final PDF. You see what moved and why before you send it.
+- **Application kit**: A cover letter and an answer for each form question, drafted per job from your Profile. It also checks visa and language eligibility.
+- **Your general cover letter**: Drafted once from your CV and Profile, approved by you, attached whenever a form asks for a file.
+- **Profile that follows your CV**: Replace your CV and Claude suggests only the Profile lines to change. You pick which.
+- **Interview prep kit**: Likely questions with what from your CV to answer, your gaps, what to ask them, and the weak topics from past interviews.
+
+**Apply: Fills the form, you press Submit**
+
+- **Form filling**: The extension fills every field from your kit. Claude answers only what the kit does not, and marks those answers for a read-through.
+- **A nudge at the form** *(new)*: On a form that has your general CV, the panel offers a tailored one. Fill again and it replaces the file.
+- **Learns from every form**: Each form that leaves fields teaches reusable notes from what you already gave. A question you answer once is answered for good.
+- **Recipes and labels from all installs** *(new)*: Which fields a site really means, learned from fills across installs and served as data. Nothing from the network ever becomes prompt text.
+- **Apply with Claude**: For pages the extension cannot fill alone, Claude follows the employer site and sign-up. You solve CAPTCHAs and submit.
+- **Knows when you really applied**: After you press Submit, the page that follows is read to tell a real confirmation from a thank-you banner.
+
+**Track: Reads your inbox so you do not have to**
+
+- **Gmail and Calendar, read-only**: Each email sorted into replies, interviews, rejections or recruiter pitches, and matched to the right application.
+- **Log anything**: Paste a message or a screenshot from LinkedIn, WhatsApp or email. It finds the job, updates it, or creates one.
+- **Recruiter leads**: A role someone pitched you becomes a tracked lead, with what they said and a next step.
+
+**Learn: Gets better at coaching you**
+
+- **Interview review**: Record on your Mac (transcribed there, free), then an AI review: strengths, weak spots and what to practise.
+- **Patterns across interviews**: What keeps helping or hurting you across every reviewed interview, quoting the interview each point comes from.
+- **Why you were rejected**: Each rejection reviewed for presentation, hard skills or fit, with the lesson reused in your next kit and prep.
+
+Coming next: a score for your own CV, the way applicant tracking systems read it, before any tailoring.
 
 ## What you get
 

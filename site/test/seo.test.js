@@ -11,8 +11,9 @@ test('Google can find the public pages: robots, sitemap, canonical, structured d
   const sitemap = file('sitemap.xml');
   assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/compare<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/intelligence<\/loc>/);
   assert.doesNotMatch(sitemap, /friends/);
-  for (const [page, canonical] of [['index.html', '/'], ['compare.html', '/compare']]) {
+  for (const [page, canonical] of [['index.html', '/'], ['compare.html', '/compare'], ['intelligence.html', '/intelligence']]) {
     const html = file(page);
     assert.ok(html.includes(`<link rel="canonical" href="https://www.jobpilotto.workers.dev${canonical}">`), page);
     assert.match(html, /<meta property="og:title"/);
