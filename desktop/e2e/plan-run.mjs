@@ -9,7 +9,7 @@ import {autoSuites, exploreDecision, reviewNeeded, suitesFor, suitesNamed, waiti
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
-export async function planRun({env, gh = realGh, all, minutes, cadence = {}, watches = {}}) {
+export async function planRun({env, gh = realGh, all, minutes, cadence = {}, watches = {}, varies = []}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
   // TARGET_REF (a manual run of the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
   // inputs (canary, soak), so the run is started on main and told which tag to check out.
@@ -47,7 +47,8 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
     const decision = exploreDecision({head: ref, lastSha, waiting, runsOnHead: runs.filter(own), activity});
     exploring = decision.exploring; why = decision.why;
-    suites = decision.run ? autoSuites(all, cadence, true) : [];
+    // Exploring (an unchanged commit): only the suites that walk a different path each run; the others would repeat themselves at full cost. None vary: nothing to explore.
+    suites = !decision.run ? [] : decision.exploring ? autoSuites(all, cadence, true).filter(suite => varies.includes(suite)) : autoSuites(all, cadence, true);
   }
   else suites = String(env.ONLY || '').trim() ? suitesNamed(env.ONLY, all) : autoSuites(all, cadence);   // names: exactly those, even a manual one; none: everything not manual
 
@@ -60,9 +61,9 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const {SUITES} = await import('./lib/context.mjs');
-  const cadence = {}, watches = {};
-  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; }
-  const out = await planRun({env: process.env, all: SUITES, cadence, watches, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15});
+  const cadence = {}, watches = {}, varies = [];
+  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); }
+  const out = await planRun({env: process.env, all: SUITES, cadence, watches, varies, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15});
   for (const [key, value] of Object.entries(out)) console.log(`${key}=${value}`);
   const summary = `Suites: ${JSON.parse(out.matrix).include.map(item => item.suite).join(', ') || '(none)'} · commit ${String(out.ref).slice(0, 7)}${out.tag ? ` · promotes ${out.tag} when all pass` : ''} · AI review ${out.review === '1' ? 'on' : 'off'}`;
   console.error(out.why ? `${summary} · ${out.why}` : summary);

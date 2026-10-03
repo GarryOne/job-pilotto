@@ -22,7 +22,7 @@ function gh({files = [], runs = [], issues = [], releases = []} = {}) {
     throw new Error(`unexpected gh call: ${text}`);
   };
 }
-const plan = (env, stub) => planRun({env: {REPO: 'o/r', ...env}, gh: gh(stub), all: ALL, minutes: () => 15});
+const plan = (env, stub, varies = ['jobs']) => planRun({env: {REPO: 'o/r', ...env}, gh: gh(stub), all: ALL, minutes: () => 15, varies});
 
 test('findings that wait for a second sighting are counted; parked ones are not', () => {
   assert.equal(waitingFindings([issue(0), issue(1), issue(0, ['needs-human']), issue(0, ['wontfix-auto'])]), 1);
@@ -66,13 +66,14 @@ test('on an unchanged commit it explores until QUIET_RUNS varied runs in a row f
 
 test('a schedule on an unchanged commit explores with the AI review on, then stops when it goes quiet; other runs of main\'s code do not count', async () => {
   const early = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8)]});
-  assert.deepEqual([early.count, early.review], ['4', '1']);
+  assert.deepEqual([early.count, early.review], ['1', '1'], 'only the suite that varies: the other three would repeat themselves');
+  assert.equal((await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8)]}, [])).count, '0', 'no suite varies: nothing to explore');
   assert.match(early.why, /exploring another path/);
   const three = [sched(8), sched(16), sched(24)];
   const quiet = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: three, issues: [{...issue(1), createdAt: ago(100)}]});   // seen twice long ago: nothing waits, nothing new
   assert.equal(quiet.count, '0');
   const found = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: three, issues: [{...issue(1), createdAt: ago(100), comments: [{body: 'Seen again in run x', createdAt: ago(3)}]}]});
-  assert.equal(found.count, '4', 'something was seen again since the earliest of the last three');
+  assert.equal(found.count, '1', 'something was seen again since the earliest of the last three: explore again');
   const others = [sched(8), sched(16, {displayTitle: 'RC soak desktop-v1'}), sched(24, {displayTitle: 'Stable canary desktop-v1'}), sched(30, {event: 'workflow_run'})];
   const notCounted = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: others});
   assert.match(notCounted.why, /only 1 run\(s\)/, 'soak top-ups, the canary and the gate test other commits under main\'s name');

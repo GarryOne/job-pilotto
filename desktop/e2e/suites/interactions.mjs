@@ -12,6 +12,8 @@ import {VIEWS} from '../lib/uicheck.mjs';
 
 export const name = 'interactions';
 export const minutes = 10;
+// A suite that walks a different seeded path on each scheduled run (lib/variation.mjs). Exploring runs on an unchanged commit run only these: the other suites would repeat themselves.
+export const varies = true;
 export const watches = ['desktop/renderer/', 'desktop/lib/e2e-ipc.js'];
 
 export async function run(ctx) {
