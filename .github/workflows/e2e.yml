@@ -159,7 +159,7 @@ jobs:
       - name: AI review of the screenshots
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # the costly part: only when the UI or its tests changed, or a finding waits
         working-directory: desktop/e2e
-        timeout-minutes: 10
+        timeout-minutes: 15   # the batch waits up to 6 min, then asks what is left directly
         run: node review-ui.mjs
       - name: Keep the AI reviews for the next run
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''

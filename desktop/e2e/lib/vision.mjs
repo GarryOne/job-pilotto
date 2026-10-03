@@ -49,12 +49,15 @@ Be concrete and short. If the page looks fine, return an empty list. Never inven
 Reply with ONE JSON object and nothing else:
 {"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","suggestion":"<the smallest fix, in plain words>"}]}`;
 
+export const MAX_TOKENS = 3000;
+
 export function buildRequest({view, pngBase64, rules = '', facts = null, model = MODEL}) {
   // The fixed part (instructions + design rules) comes first and is cached: every review in the 5 minutes after the first reads it at a tenth of the price.
   const system = [{type: 'text', text: SYSTEM}, ...(rules ? [{type: 'text', text: `The app's design rules (excerpt):\n${rules.slice(0, 3000)}`}] : [])];
   system.at(-1).cache_control = {type: 'ephemeral'};
   return {
-    model, max_tokens: 1200, system,   // no temperature: claude-sonnet-5-5 rejects it ("deprecated for this model", 400)
+    // 3000: Sonnet thinks before it answers and the thinking counts here; at 1200, 6 of 23 reviews on 3 Oct 2026 were cut off before the answer.
+    model, max_tokens: MAX_TOKENS, system,   // no temperature: claude-sonnet-5-5 rejects it ("deprecated for this model", 400)
     messages: [{role: 'user', content: [
       {type: 'image', source: {type: 'base64', media_type: 'image/png', data: pngBase64}},
       {type: 'text', text: `Page: ${view}\nExpected to show: ${expectedFor(view)}\n${facts ? `\nFACTS about the app's state when this was taken:\n${JSON.stringify(facts, null, 1)}\n` : ''}\nReview this screenshot.`},
@@ -65,11 +68,12 @@ export function buildRequest({view, pngBase64, rules = '', facts = null, model =
 // USD per million tokens (Claude API, 25 Sep 2026); cache writes cost 1.25x input, cache reads 0.1x. An unknown model has no price: its cost is not guessed.
 export const PRICES = {'claude-sonnet-5-5': {input: 2, output: 10}, 'claude-haiku-4-5': {input: 1, output: 5}, 'claude-opus-5-5': {input: 4, output: 20}};
 // -> the call's cost in USD from the API's own usage figures, or null when the model's price is not known.
-export function usageCost(model, usage = {}) {
+// batch: the Message Batches API bills half of every token.
+export function usageCost(model, usage = {}, {batch = false} = {}) {
   const price = PRICES[model];
   if (!price) return null;
   const n = key => Number(usage[key]) || 0;
-  return (n('input_tokens') * price.input + n('cache_creation_input_tokens') * price.input * 1.25
+  return (batch ? 0.5 : 1) * (n('input_tokens') * price.input + n('cache_creation_input_tokens') * price.input * 1.25
     + n('cache_read_input_tokens') * price.input * 0.1 + n('output_tokens') * price.output) / 1e6;
 }
 
