@@ -291,3 +291,35 @@ class RelevantRolesTest(unittest.TestCase):
         wanted = lambda title: bool(re.search('engineer', title or '', re.I)) and not re.search('sales', title or '', re.I)  # noqa: E731
         with mock.patch.object(scout.feeds, 'wanted_title', side_effect=wanted):
             self.assertEqual(scout.relevant_roles(jobs), 2)   # the repeated title is one role; sales and HR titles are not engineering
+
+
+class SliceTests(unittest.TestCase):
+    """The index in D1: each feed carries its regions (fixed words), each install asks only for its own regions."""
+
+    def test_a_feeds_places_become_fixed_region_words(self):
+        from src import contribute
+        self.assertEqual(contribute.regions_of(['Zürich, Switzerland', 'Remote - EMEA']), ['europe', 'remote'])
+        self.assertEqual(contribute.regions_of(['San Francisco, CA']), ['north_america'])
+        self.assertEqual(contribute.regions_of([]), [])
+
+    def test_an_install_asks_for_its_regions_only_and_downloads_again_when_they_change(self):
+        import tempfile
+        from datetime import datetime, timezone
+        from pathlib import Path
+        from unittest import mock
+        asked = []
+
+        def get(url, headers):
+            asked.append(url)
+            return 200, json.dumps({'feeds': [{'company': 'A', 'ats': 'lever', 'slug': 'a', 'regions': ['europe', 'mars']}]}), '"e1"'
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / 'index.json'
+            now = datetime(2026, 10, 3, tzinfo=timezone.utc)
+            with mock.patch.object(employer_index, 'my_regions', return_value=['europe', 'remote']):
+                feeds = employer_index.load(cache=cache, url='https://x.test/api/index', get=get, now=now, install_id='abcdefgh12')
+                employer_index.load(cache=cache, url='https://x.test/api/index', get=get, now=now, install_id='abcdefgh12')
+            self.assertEqual(asked, ['https://x.test/api/index?regions=europe,remote'], 'the second load comes from the cache')
+            self.assertEqual(feeds[0]['regions'], ['europe'])
+            with mock.patch.object(employer_index, 'my_regions', return_value=['north_america']):
+                employer_index.load(cache=cache, url='https://x.test/api/index', get=get, now=now, install_id='abcdefgh12')
+            self.assertEqual(asked[-1], 'https://x.test/api/index?regions=north_america')

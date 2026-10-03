@@ -6,8 +6,9 @@ import {REGIONS, ROLES} from './pool.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
 const KEY = 'index:employers';
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'careers', 'amazon', 'netflix'];
-const MAX_BYTES = 1_000_000;
-const MAX_FEEDS = 5000;
+const MAX_BYTES = 1_000_000;          // the KV copy older app versions download (one KV value)
+const MAX_PUBLISH_BYTES = 20_000_000; // what the central scout may send: D1 holds far more feeds than one KV value
+const MAX_FEEDS = 60000;
 const MAX_PLACES = 40;   // where a feed has roles: clients skip feeds with none in their own places
 
 const text = (status, body, headers = {}) => new Response(body, {status, headers});
@@ -41,6 +42,7 @@ export function clean(feeds) {
       quality: number(item.quality, 100), jobs: number(item.jobs, 100000), relevant: number(item.relevant, 100000),
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       fits: fitsOf(item.fits),
+      regions: Array.isArray(item.regions) ? [...new Set(item.regions.filter(r => REGIONS.includes(r)))] : [],
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : [],
       ...(ats === 'careers' && recipeOf(item.recipe) ? {recipe: recipeOf(item.recipe)} : {})});
   }
@@ -57,13 +59,31 @@ const day = date => date.toISOString().slice(0, 10);
 
 // The website's counters: only how many employers and open jobs, never the feeds.
 function summary(stored) {
-  const feeds = JSON.parse(stored).feeds || [];
+  const feeds = (Array.isArray(stored) ? stored : JSON.parse(stored).feeds) || [];
   const employers = feeds.filter(feed => feed.kind !== 'board');
   return {employers: employers.length, jobs: employers.reduce((sum, feed) => sum + (feed.jobs || 0), 0)};
 }
 
+// The regions an install asks for (fixed words, nothing else about it), or null for an older app that asks for the whole list.
+function regionsOf(request) {
+  const asked = new URL(request.url).searchParams.get('regions');
+  if (asked === null) return null;
+  return [...new Set(asked.split(',').map(r => r.trim()).filter(r => REGIONS.includes(r)))];
+}
+
+// The slice of the D1 index for these regions, plus feeds whose places are unknown; null when D1 holds no index yet.
+async function slice(env, regions) {
+  if (!env.STATS) return null;
+  const where = regions.length ? regions.map(() => 'regions LIKE ?').join(' OR ') + " OR regions = ','" : "regions = ','";
+  const rows = (await env.STATS.prepare(`SELECT body, generated FROM index_feeds WHERE ${where} ORDER BY ats, slug`)
+    .bind(...regions.map(r => `%,${r},%`)).all()).results || [];
+  if (!rows.length) return null;
+  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body))});
+}
+
 async function download(request, env, now = new Date()) {
-  const stored = await env.WAITLIST.get(KEY);
+  const regions = regionsOf(request);
+  const stored = (regions && await slice(env, regions)) || await env.WAITLIST.get(KEY);
   if (!stored) return text(404, JSON.stringify({ok: false, error: 'No index published yet'}), {'Content-Type': 'application/json'});
   if (new URL(request.url).searchParams.get('summary') === '1') {
     return text(200, JSON.stringify(summary(stored)), {'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600'});
@@ -96,16 +116,33 @@ async function publish(request, env) {
   const given = (request.headers.get('Authorization') || '').replace(/^Bearer /, '');
   if (!key || !equal(given, key)) return text(404, 'Not found');
   const raw = await request.text();
-  if (raw.length > MAX_BYTES) return text(413, 'Too large');
+  if (raw.length > MAX_PUBLISH_BYTES) return text(413, 'Too large');
   let body;
   try { body = JSON.parse(raw); } catch { return text(400, 'Send JSON'); }
   const feeds = clean(body.feeds).slice(0, MAX_FEEDS);
   if (!feeds.length) return text(400, 'No valid feeds');
   // A broken scout run must not wipe the list everyone downloads: a sudden loss of more than half is refused.
-  const previous = JSON.parse((await env.WAITLIST.get(KEY)) || '{"feeds":[]}').feeds.length;
+  const inD1 = env.STATS ? ((await env.STATS.prepare('SELECT COUNT(*) AS n FROM index_feeds').first())?.n || 0) : 0;
+  const previous = Math.max(inD1, JSON.parse((await env.WAITLIST.get(KEY)) || '{"feeds":[]}').feeds.length);
   if (previous >= 10 && feeds.length < previous / 2) return text(409, `Refused: ${feeds.length} feeds would replace ${previous}`);
-  await env.WAITLIST.put(KEY, JSON.stringify({version: 1, generated: new Date().toISOString(), feeds}));
-  return Response.json({ok: true, feeds: feeds.length});
+  const generated = new Date().toISOString();
+  if (env.STATS) await store(env.STATS, feeds, generated);
+  // Older app versions download the whole list from KV: kept while it fits in one value, else left as it was (they update soon).
+  const legacy = JSON.stringify({version: 1, generated, feeds});
+  const kept = legacy.length <= MAX_BYTES;
+  if (kept) await env.WAITLIST.put(KEY, legacy);
+  return Response.json({ok: true, feeds: feeds.length, d1: !!env.STATS, legacy: kept ? 'updated' : 'too large, unchanged'});
+}
+
+// Replace the D1 index with this list, in batches (D1 runs a batch as one transaction).
+async function store(db, feeds, generated) {
+  const statements = [db.prepare('DELETE FROM index_feeds')];
+  for (const feed of feeds) {
+    statements.push(db.prepare('INSERT OR REPLACE INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)')
+      .bind(feed.ats, feed.slug, `,${feed.regions.join(',')}${feed.regions.length ? ',' : ''}`, JSON.stringify(feed), generated));
+  }
+  if (db.batch) await db.batch(statements);
+  else for (const statement of statements) await statement.run();
 }
 
 export function index(request, env) {

@@ -27,7 +27,7 @@ import re
 import urllib.parse
 import urllib.request
 
-from . import employer_index, store, telegram
+from . import contribute, employer_index, store, telegram
 from .notion import client as notion, cron_runs
 from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, careers, feeds
@@ -450,7 +450,8 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             score, _ = quality(jobs)
             kind = 'board' if (system, slug.lower()) in board_keys else 'employer'   # a job board of many companies is not an employer
             entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
-                     'jobs': len(jobs), 'relevant': relevant_roles(jobs), 'checked': today, 'places': job_places(jobs)}
+                     'jobs': len(jobs), 'relevant': relevant_roles(jobs), 'checked': today, 'places': job_places(jobs),
+                     'regions': contribute.regions_of([j.get('location') or '' for j in jobs] + (['remote'] if any(j.get('remote') for j in jobs) else []))}
             tags = fits(by_feed.get((system, slug), {}))
             if system == 'careers':   # how to read this page without AI, learned here: every install's crawl can use it
                 from .sources import page_recipes

@@ -52,6 +52,17 @@ def _plain(fragment):
     return re.sub(r'\\b|\\|[()?]|\.\*', ' ', fragment).strip()
 
 
+REMOTE = re.compile(r'remote|anywhere|worldwide|home.?office|t[ée]l[ée]travail', re.I)
+
+
+def regions_of(places):
+    """The fixed-list regions a feed hires in, from its places ('Zurich, Switzerland' -> europe; 'Remote - EMEA' -> europe, remote)."""
+    found = {name for name, rx in _REGIONS.items() if any(rx.search(place or '') for place in places)}
+    if any(REMOTE.search(place or '') for place in places):
+        found.add('remote')
+    return sorted(found)
+
+
 def tags(search=None):
     """(roles, regions) of this user's own search settings, as fixed-list names. No free text ever."""
     search = search or load_search_config()

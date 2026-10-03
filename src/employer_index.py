@@ -16,6 +16,8 @@ import urllib.request
 from .paths import DATA
 from .sources import ats, page_recipes
 
+REGION_NAMES = ('europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote')   # site/src/pool.js REGIONS
+
 URL = 'https://www.jobpilotto.workers.dev/api/index'
 CACHE = DATA / 'employer_index.json'
 MAX_AGE = timedelta(hours=20)     # "at most daily", with slack for a run that starts a little early
@@ -59,6 +61,7 @@ def clean(feeds):
                         'checked': item.get('checked'),
                         'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None,
                         'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None,
+                        'regions': [r for r in item.get('regions') or [] if isinstance(r, str) and r in REGION_NAMES],
                         **({'recipe': item['recipe']} if system == 'careers' and page_recipes.valid(item.get('recipe')) else {})})
     return out
 
@@ -67,13 +70,22 @@ def _read(cache):
     try:
         data = json.loads(cache.read_text())
         return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds')),
-                'install': data.get('install')}
+                'install': data.get('install'), 'regions': data.get('regions') or []}
     except (OSError, ValueError, AttributeError):
         return None
 
 
 problem = ''   # why the last load() could not download the index ('' when it could, or did not need to): the run reports it
 RETRY_WAIT = 3   # seconds before the one retry of a failed download (a blip must not cost the whole crawl its 247 feeds)
+
+
+def my_regions():
+    """This install's regions from its own search settings (src/contribute.py tags), or [] (then the whole list is asked for)."""
+    try:
+        from .contribute import tags
+        return tags()[1]
+    except Exception:  # noqa: BLE001 — no search settings yet: the whole list, as before
+        return []
 
 
 def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=None, mint=None):
@@ -86,7 +98,13 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
     cache = cache or CACHE
     url = url or os.getenv('JOB_PILOTTO_INDEX_URL') or URL
     now = now or datetime.now(timezone.utc)
+    # Only the slice for this install's own regions (fixed words: europe, remote...): nothing else about the user goes up.
+    regions = my_regions()
+    if regions:
+        url = f"{url}{'&' if '?' in url else '?'}regions={','.join(regions)}"
     stored = _read(cache)
+    if stored and stored['regions'] != regions:
+        stored = {**stored, 'fetched': None, 'etag': None}   # the search moved to other regions: download the new slice
     if stored and stored['fetched']:
         try:
             if now - datetime.fromisoformat(stored['fetched']) < MAX_AGE:
@@ -118,7 +136,7 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
                 if attempt == 2:
                     raise
                 time.sleep(retry_wait)
-        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'feeds': feeds}
+        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds}
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
         return feeds

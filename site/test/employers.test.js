@@ -41,7 +41,7 @@ test('publish, then installs with a token download it: private cache, ETag reval
   assert.equal(get.status, 200);
   assert.match(get.headers.get('Cache-Control'), /private, max-age=/);
   const body = await get.json();
-  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer', fits: {roles: [], regions: []}, relevant: 5});
+  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer', fits: {roles: [], regions: []}, regions: [], relevant: 5});
   const again = await call(env(), 'GET', {...await holder(), 'If-None-Match': get.headers.get('ETag')});
   assert.equal(again.status, 304);
   assert.equal((await call(env(), 'GET', auth)).status, 200);   // the owner's scout
@@ -137,4 +137,55 @@ test('in the soft rollout older installs without a token still get the list, and
   assert.equal((await call(soft, 'GET')).status, 200);
   assert.equal((await call(soft, 'GET', {'X-Install-Id': 'abcd-1234-efgh', Authorization: 'Bearer wrong'})).status, 200);
   assert.equal((await call(env(), 'GET')).status, 401);   // the default enforces
+});
+
+// ---------- the index in D1: an install downloads the slice for its own regions ----------
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+function d1() {
+  const db = new DatabaseSync(':memory:');
+  db.exec(readFileSync(new URL('../migrations/0018_employer_index.sql', import.meta.url), 'utf8'));
+  const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
+    all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
+  return {db, prepare: sql => statement(sql)};
+}
+const sliced = (e, regions, headers) => worker.fetch(new Request(`https://www.jobpilotto.workers.dev/api/index?regions=${regions}`, {headers}), e, {});
+
+test('published feeds land in D1 with their regions, and an install gets only its regions plus feeds of unknown places', async () => {
+  store.clear();
+  const e = {...env(), STATS: d1()};
+  const feeds = [feed('zh', {regions: ['europe']}), feed('ny', {regions: ['north_america']}), feed('rem', {regions: ['remote', 'europe']}),
+    feed('nowhere', {regions: []}), feed('bad', {regions: ['mars', 'europe']})];
+  const put = await call(e, 'PUT', auth, {feeds});
+  assert.deepEqual(await put.json(), {ok: true, feeds: 5, d1: true, legacy: 'updated'});
+  const got = await (await sliced(e, 'europe', await holder())).json();
+  assert.equal(got.version, 2);
+  assert.deepEqual(got.feeds.map(f => f.slug).sort(), ['bad', 'nowhere', 'rem', 'zh']);   // not the New York feed
+  assert.deepEqual(got.feeds.find(f => f.slug === 'bad').regions, ['europe'], 'unknown region words are dropped');
+  const remote = await (await sliced(e, 'remote,evil', await holder())).json();
+  assert.deepEqual(remote.feeds.map(f => f.slug).sort(), ['nowhere', 'rem']);
+  // An older app (no regions) still gets the whole list from KV.
+  assert.equal((await (await call(e, 'GET', await holder())).json()).feeds.length, 5);
+});
+
+test('the slice needs a token like the whole list, and a later publish replaces the D1 rows', async () => {
+  store.clear();
+  const e = {...env(), STATS: d1()};
+  await call(e, 'PUT', auth, {feeds: Array.from({length: 12}, (_, i) => feed(`f${i}`, {regions: ['europe']}))});
+  assert.equal((await sliced(e, 'europe', {})).status, 401);
+  assert.equal((await call(e, 'PUT', auth, {feeds: [feed('only', {regions: ['europe']})]})).status, 409, 'a sudden loss is refused');
+  await call(e, 'PUT', auth, {feeds: Array.from({length: 10}, (_, i) => feed(`g${i}`, {regions: ['europe']}))});
+  const got = await (await sliced(e, 'europe', await holder())).json();
+  assert.deepEqual(got.feeds.map(f => f.slug).sort(), Array.from({length: 10}, (_, i) => `g${i}`).sort());
+});
+
+test('a list too large for one KV value still goes to D1, and older apps keep the last list that fit', async () => {
+  store.clear();
+  const e = {...env(), STATS: d1()};
+  await call(e, 'PUT', auth, {feeds: [feed('small', {regions: ['europe']})]});
+  const big = Array.from({length: 4000}, (_, i) => feed(`b${i}`, {regions: ['europe'], places: Array.from({length: 8}, (_, j) => `Place ${j} ${'x'.repeat(30)}`)}));
+  const answer = await (await call(e, 'PUT', auth, {feeds: big})).json();
+  assert.equal(answer.legacy, 'too large, unchanged');
+  assert.equal((await (await sliced(e, 'europe', await holder())).json()).feeds.length, 4000);
+  assert.equal((await (await call(e, 'GET', await holder())).json()).feeds.length, 1);
 });
