@@ -21,6 +21,7 @@ const PAGE = `<body><section class="view" data-view="fixture"><h1>Fixture</h1><d
 <button id="opener" onclick="window.fake(900, 'openExternal')">Open guide</button>
 <button id="stale" onclick="if (window.staleSeen) document.getElementById('out').textContent='stale ok'; window.staleSeen = true">Stale once</button>
 <button id="leaves" onclick="window.fake(900, 'openPrivacy')">Open Settings</button>
+
 </section><script>
 window.fakeIpc = []; window.clicked = false;
 window.fake = (ms, channel = 'work') => { const rec = {channel, start: Date.now(), ms: null}; window.fakeIpc.push(rec); return new Promise(done => setTimeout(() => { rec.ms = Date.now() - rec.start; done(); }, ms)); };
@@ -75,4 +76,29 @@ test('"Restart" is never pressed by the probe (it relaunches the app: Windows in
   assert.equal(isSafe({text: 'Restart'}), false);
   assert.equal(isSafe({text: 'Relaunch now'}), false);
   assert.equal(isSafe({text: 'Details'}), true);
+});
+
+// #86 / #89: the real ⋯ menu (components.js + the app's CSS) below the fold. A click that scrolls the page itself delivers its scroll event just after the press, and the menu
+// closes on any scroll, so the probe saw "More actions" do nothing. The probe now scrolls the control into view and lets it settle first.
+test('a real ⋯ menu below the fold is opened by the probe, not filed as broken', async () => {
+  const http = await import('node:http'), fs = await import('node:fs'), path = await import('node:path');
+  const root = new URL('../../renderer/', import.meta.url).pathname;
+  const types = {'.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml'};
+  const server = http.createServer((req, res) => {
+    const url = req.url.split('?')[0];
+    if (url === '/t.html') { res.setHeader('content-type', 'text/html'); return res.end(`<link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/components.css"><link rel="stylesheet" href="/style.css"><body style="margin:0"><section class="view" data-view="t"><div style="height:1800px">filler</div><div id="host"></div><div style="height:1200px"></div></section><script type="module">import {moreButton} from '/components.js'; document.getElementById('host').append(moreButton([{label: 'Dismiss', run() {}}], 'More'));</script></body>`); }
+    const file = path.join(root, url);
+    if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.statusCode = 404; return res.end(); }
+    res.setHeader('content-type', types[path.extname(file)] || 'application/octet-stream'); res.end(fs.readFileSync(file));
+  }).listen(0);
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1024, height: 700}});
+    await page.goto(`http://127.0.0.1:${server.address().port}/t.html`);
+    await page.waitForSelector('.ui-more');
+    const ipc = {mark: async () => 0, since: async () => []};
+    const {findings, results} = await probePage({page, view: 't', ipc, scope: '.view[data-view="t"]', settleMs: 800, idleMs: 0});
+    assert.deepEqual(findings, [], JSON.stringify(results));
+    assert.ok(results.some(item => item.effects.includes('expanded toggled')), 'the menu opened');
+  } finally { await browser.close(); server.close(); }
 });

@@ -138,6 +138,10 @@ export async function probePage({page, view, ipc, scope = 'body', settleMs = 150
     const background = await idleChannels(ipc, idleMs);
     // One press: what it changed, the calls it made, any sign of work, any error.
     const press = async control => {
+      // Scroll the control into view and let the scroll settle BEFORE pressing: a click that scrolls the page itself delivers its scroll event just after the press, and the ⋯ menu
+      // closes on any scroll, so a menu below the fold looked broken ("More actions" on Focus, #86/#89).
+      await page.locator(`[data-probe="${control.id}"]`).scrollIntoViewIfNeeded({timeout: 2000}).catch(() => {});
+      await wait(150);
       const before = await page.evaluate(snapshot, {id: control.id, scope});
       if (!before) return {skip: `${control.text || control.label} (gone)`};
       errors.length = 0;
