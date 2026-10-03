@@ -26,6 +26,8 @@ class Checker(unittest.TestCase):
 
     def test_a_thin_sample_must_say_so_and_collect_data(self):
         self.assertEqual(quality.problems('Not enough data yet: 3 jobs, 0 applications', 'Run a job search from Jobs', 3), [])
+        for phrase in ('Salary was answered weakly in 2 of 4 screens; the sample is small.', 'Only 4 jobs: the sample was small'):
+            self.assertEqual(quality.problems(phrase, 'Set a firm salary in Profile', 4), [], phrase)
         self.assertIn('small', ' '.join(quality.problems('Remote roles pay 12% more', 'Widen your regions in Strategy', 3)))
 
     def test_limits(self):
