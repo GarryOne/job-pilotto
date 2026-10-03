@@ -51,10 +51,10 @@ jobs:
       BRAIN_CHAT_ID: ${{ secrets.BRAIN_CHAT_ID }}
       JOB_PILOTTO_TELEMETRY_KEY: ${{ secrets.JOB_PILOTTO_TELEMETRY_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 300   # a month of commits for the signals
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 

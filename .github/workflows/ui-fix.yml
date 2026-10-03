@@ -32,8 +32,8 @@ jobs:
       RUN_URL: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
       BASE: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Pick the most critical finding that is ready
@@ -75,7 +75,7 @@ jobs:
           prompt: Read .heal/prompt.md and follow it exactly.
       - name: Keep Claude's transcript (to see where its turns went)
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: heal-transcript
           path: /home/runner/work/_temp/claude-execution-output.json

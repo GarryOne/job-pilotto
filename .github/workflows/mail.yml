@@ -83,13 +83,13 @@ jobs:
           echo "::notice::No Job Pilotto workspace in ${GITHUB_REPOSITORY} (NOTION_APPLICATIONS_DB is empty)."
           echo "A Gmail check needs the workspace the Desktop App writes to your private repo; nothing to do here."
           echo "It runs from your private job-pilotto-private repo's schedule, or as 'Check Gmail now' in the app."
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: env.GOOGLE_REFRESH_TOKEN != '' && env.NOTION_APPLICATIONS_DB != ''
         # Called from a private repo (templates/github-actions): run this repo's code there.
         with:
           repository: ${{ inputs.code_repository || github.repository }}
           ref: ${{ inputs.code_ref }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         if: env.GOOGLE_REFRESH_TOKEN != '' && env.NOTION_APPLICATIONS_DB != ''
         with:
           python-version: '3.12'
@@ -97,7 +97,7 @@ jobs:
       # costs one re-classification (events are deduplicated in Notion by Source ID).
       - name: Restore mail state
         if: env.GOOGLE_REFRESH_TOKEN != ''
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: data/mail-state.json
           key: job-pilotto-mail-${{ github.run_id }}
@@ -128,7 +128,7 @@ jobs:
           python -m src.ai.mail "${send[@]}" --log-run --days "${{ inputs.days || '2' }}"
       - name: Save mail state
         if: always() && env.GOOGLE_REFRESH_TOKEN != '' && env.NOTION_APPLICATIONS_DB != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: data/mail-state.json
           key: job-pilotto-mail-${{ github.run_id }}

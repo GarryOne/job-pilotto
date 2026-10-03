@@ -48,8 +48,8 @@ jobs:
       PLATFORM: ${{ inputs.platform || (contains(github.event.workflow_run.name, 'Windows') && 'windows') || 'mac' }}
       BASE: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Download the run's screenshots and findings (or plant one, for a dry run)

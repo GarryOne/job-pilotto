@@ -71,11 +71,11 @@ jobs:
       E2E_SEED: ${{ inputs.fixed && '0' || github.run_id }}   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install the app
@@ -96,7 +96,7 @@ jobs:
         run: node suite.mjs ${{ matrix.suite }}
       - name: Screenshots and logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-artifacts-windows-${{ matrix.suite }}
           path: e2e-artifacts-windows/${{ matrix.suite }}

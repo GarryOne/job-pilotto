@@ -45,7 +45,7 @@ jobs:
       REPO: ${{ github.repository }}
       JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}   # on: only a beta-approved build is the candidate (canary_promote.py approved_only)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: HOT PATH (by hand with force_tag)
         if: github.event_name == 'workflow_dispatch' && inputs.force_tag != ''
         env:

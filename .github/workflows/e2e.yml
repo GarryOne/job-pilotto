@@ -58,8 +58,8 @@ jobs:
       tag: ${{ steps.list.outputs.tag }}
       review: ${{ steps.list.outputs.review }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Install the tests
@@ -117,13 +117,13 @@ jobs:
       E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
       E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.plan.outputs.ref }}   # a push or a schedule: that commit; the run after a build: the build's own commit
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Record which commit this run tested (ui-findings.yml names it in every issue)
@@ -151,7 +151,7 @@ jobs:
           node suite.mjs ${{ matrix.suite }}
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: desktop/e2e/.review-cache
           key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -163,13 +163,13 @@ jobs:
         run: node review-ui.mjs
       - name: Keep the AI reviews for the next run
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: desktop/e2e/.review-cache
           key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Screenshots and timings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-artifacts-${{ matrix.suite }}
           path: e2e-artifacts/${{ matrix.suite }}
@@ -193,8 +193,8 @@ jobs:
       TAG: ${{ needs.plan.outputs.tag }}
       REF: ${{ needs.plan.outputs.ref }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: No real high-severity finding in this run (layout check, or an AI finding already seen twice / confirmed)
@@ -247,7 +247,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: What the promotion would do
         env:
           E2E_ALREADY_GREEN: '1'

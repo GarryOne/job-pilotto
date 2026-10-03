@@ -59,7 +59,7 @@ jobs:
       cancel-in-progress: false
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         # Called from a private repo (templates/github-actions): run this repo's code there.
         with:
           repository: ${{ inputs.code_repository || github.repository }}
@@ -68,18 +68,18 @@ jobs:
       # by the Desktop App) replaces the defaults; files it doesn't have keep this repo's version.
       - name: Your settings
         if: inputs.code_repository != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: .user
           sparse-checkout: config
       - name: Apply your settings
         if: inputs.code_repository != ''
         run: if [ -d .user/config ]; then cp -v .user/config/*.json config/; fi
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Restore job database
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
@@ -118,7 +118,7 @@ jobs:
             --data-urlencode "text=❌ Job Pilotto source scout failed: ${RUN_URL}" > /dev/null
       - name: Save job database
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
@@ -127,7 +127,7 @@ jobs:
         # a cache entry can be evicted without warning; an artifact just expires on its own
         # schedule instead. Real insurance, not a duplicate.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: job-pilotto-jobs-db
           path: data/jobs.sqlite

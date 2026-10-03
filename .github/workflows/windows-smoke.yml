@@ -24,11 +24,11 @@ jobs:
       run:
         shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/setup-python@v5   # only reads the Python release list; the app bundles its own
+      - uses: actions/setup-python@v6   # only reads the Python release list; the app bundles its own
         with:
           python-version: '3.12'
       - name: Install
@@ -55,7 +55,7 @@ jobs:
         run: node scripts/windows-smoke.mjs "$(ls dist/Job-Pilotto-*-x64.exe | head -1)" smoke
       - name: Keep the screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-smoke-screens
           path: desktop/smoke

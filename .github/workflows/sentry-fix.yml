@@ -32,8 +32,8 @@ jobs:
       BASE: ${{ github.ref_name }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Pick the most critical real, fresh issue
@@ -48,7 +48,7 @@ jobs:
           open=$(gh pr list --repo "$REPO" --state open --label auto-sentry-fix --json number --jq length)
           echo "Open automatic Sentry fixes: $open"
           if [ "$open" -ge 3 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Three automatic Sentry fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         with:
           python-version: '3.12'

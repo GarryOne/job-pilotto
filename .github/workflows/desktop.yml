@@ -35,7 +35,7 @@ jobs:
     outputs:
       build: ${{ steps.diff.outputs.build }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Anything new for the app?
@@ -68,13 +68,13 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       released: ${{ steps.release.outputs.released }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # full history and tags: the release notes list changes since the last build
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/setup-python@v5   # only runs the pipeline tests; the app bundles its own Python
+      - uses: actions/setup-python@v6   # only runs the pipeline tests; the app bundles its own Python
         with:
           python-version: '3.12'
       - name: Pipeline tests
@@ -119,7 +119,7 @@ jobs:
           codesign -dvv dist/mac-arm64/*.app 2>&1 | grep -q "Authority=Job Pilotto Self-Signed" \
             || { echo "::error::The app isn't signed with the release certificate"; exit 1; }
       - name: Build provenance (anyone can verify the download was built here, from this commit)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: desktop/dist/Job-Pilotto-*-arm64.*
       - name: Release
@@ -176,11 +176,11 @@ jobs:
     env:
       VERSION: ${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/setup-python@v5   # only reads the Python release list; the app bundles its own Python
+      - uses: actions/setup-python@v6   # only reads the Python release list; the app bundles its own Python
         with:
           python-version: '3.12'
       - name: Install
@@ -208,12 +208,12 @@ jobs:
         working-directory: desktop
         run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke
       - name: Build provenance (anyone can verify the download was built here, from this commit)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: desktop/dist/Job-Pilotto-*-x64.exe
       - name: Keep the Windows screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-screens-${{ needs.build.outputs.version }}
           path: desktop/smoke
@@ -261,7 +261,7 @@ jobs:
       contents: write   # delete the older test builds, retitle releases
       issues: write     # the pinned Release channels issue
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Remove older test builds (their tags stay)
         env:
           GH_TOKEN: ${{ github.token }}
