@@ -3,7 +3,6 @@
 // `plan` is pure (positions in, decisions out) and tested; `probeWindow` is the Electron side; `apply` writes the assets.
 import fs from 'node:fs';
 import path from 'node:path';
-import {pathToFileURL} from 'node:url';
 import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));

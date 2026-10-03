@@ -301,8 +301,6 @@ test('the CLI labels a new issue with the version, adds a second version when it
   const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'version-'));
   fs.writeFileSync(path.join(dir, 'ui-findings.json'), JSON.stringify([{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]));
-  const {normalize} = await import('../lib/triage.mjs');
-  const id = normalize({ui: JSON.parse(fs.readFileSync(path.join(dir, 'ui-findings.json'), 'utf8'))})[0].id;
   let stored = [], tag = 'desktop-v0.5.0';
   const calls = [];
   const gh = args => {

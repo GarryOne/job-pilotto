@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global document */
 // Visits pages the way a person does, waits for each to settle, takes a screenshot with the app's own facts beside it (for the AI review), and runs the
 // deterministic layout checks. Findings of a suite are collected in ctx.findings and written once to ui-findings.json.
 import fs from 'node:fs';

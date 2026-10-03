@@ -1,10 +1,9 @@
-/* global document, window, getComputedStyle */
+/* global document, window */
 // The real first-run path, step by step (Notion later, 3 Oct 2026): the setup wizard with a key, a CV and a strategy built by the AI, finished WITHOUT Notion
 // (the app only tries: the Jobs list opens, Focus asks to connect), then Notion connected with a token: the workspace is built and the strategy moves in.
 // The wizard suite runs it on an emptied page; any other suite runs it once to build its own Notion workspace when its page has none yet, and then keeps the workspace.
 import fs from 'node:fs';
 import path from 'node:path';
-import {step} from './app.mjs';
 import {pageText} from './notion.mjs';
 
 export async function runWizard(ctx) {

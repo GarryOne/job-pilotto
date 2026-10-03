@@ -1,4 +1,4 @@
-/* global document, window */
+/* global document */
 // The real Chrome extension (a copy with the test port) in a real Chromium, for the apply suite. Chromium loads the extension folder as it is (extension/), the fixture forms answer to the
 // job-site host names the extension is allowed on (lib/forms.mjs), and the app's own "Apply" click reaches this browser through a stand-in `open` command
 // on the app's PATH (the app runs `open -a "Google Chrome" <url>`: here that URL is handed to this Chromium instead).

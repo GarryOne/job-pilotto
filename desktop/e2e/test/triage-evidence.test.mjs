@@ -46,7 +46,7 @@ function stub(initial = []) {
   };
   return {gh, state};
 }
-const publish = uploads => ({files}) => { const out = {}; for (const {from, to} of files) { uploads.push(to); out[to] = `https://raw.githubusercontent.com/o/r/pr-assets/${to}`; } return out; };
+const publish = uploads => ({files}) => { const out = {}; for (const {to} of files) { uploads.push(to); out[to] = `https://raw.githubusercontent.com/o/r/pr-assets/${to}`; } return out; };
 const aiFinding = {view: 'focus', severity: 'medium', kind: 'layout', title: 'Header title overlaps DEV badge', detail: 'The DEV badge sits on top of the Focus title and covers the F.', suggestion: 'Move the badge.'};
 const openIssue = (number, title, kind, labels = [], comments = [], detail = 'The DEV badge sits on the Focus title.') => ({number, state: 'OPEN', title, body: `**MEDIUM** · ${kind} · found by the AI screenshot review\n\n${detail}`,
   labels: [{name: 'auto-ui'}, {name: `fp:old${number}`}, ...labels.map(name => ({name}))], comments});

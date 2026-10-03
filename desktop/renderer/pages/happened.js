@@ -1,7 +1,6 @@
 // Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 // Yes: your notes become a 🎤 Interviews row, the job moves on, and a few lines get Claude's review (on this Mac, or on
 // GitHub when Always on). No: moved to a new date (Next interview) or cancelled (an event; the stage stays).
-import {shared} from './shared.js';
 import {$, aiReady, message, show} from './core.js';
 import {loadFocus} from './focus.js';
 import {loadJobs} from './jobs.js';

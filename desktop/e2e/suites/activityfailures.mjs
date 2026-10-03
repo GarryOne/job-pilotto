@@ -13,8 +13,6 @@ export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_M
 export async function run(ctx) {
   const {proxy} = ctx;
   const page = await prepare(ctx);
-  // The steps that need the AI proxy in front of the app (a refusal, a delay, silence) run on the API engine with a dummy key when the Mac uses Claude Code (lib/engine.mjs).
-  const api = fn => () => ctx.withApi(fn);
   // ---------- (2) the AI fails ----------
   // A search with one new posting: the AI is asked, and the proxy answers the way the real API does when it is in trouble.
   const FAILURES = [

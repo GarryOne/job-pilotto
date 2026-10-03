@@ -28,7 +28,6 @@ export function show(element, visible = true) { element.hidden = !visible; }
 // AI steps can run: the user chose their own Claude Code, or saved an API key (lib/claude-code.js aiReady).
 export const aiReady = () => shared.state?.settings?.aiEngine === 'cli' || !!shared.state?.secrets?.ANTHROPIC_API_KEY;
 export function message(id, text, tone = '') { const el = $(id); el.textContent = text || ''; el.className = `message ${tone}`; }
-function chip(parent, text) { const span = document.createElement('span'); span.className = 'chip'; span.textContent = text; parent.append(span); }
 // Regex fragments from the draft ("z[uü]rich", "\\bsre\\b") shown as plain words.
 export const readable = fragment => fragment.replace(/\\b/g, '').replace(/\[([^\]])[^\]]*\]/g, '$1').replace(/[.?*+()]/g, '').trim();
 

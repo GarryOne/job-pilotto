@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global document */
 // Everything a suite needs, built once: its own Notion test page (token per suite), the fixture feeds (a copy a step can change), the slow-AI proxy, and the
 // launched app. A suite is a short file in suites/ that calls ctx.run(...) with its steps. See README.md.
 import fs from 'node:fs';

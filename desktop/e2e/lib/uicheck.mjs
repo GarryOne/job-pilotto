@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global document, getComputedStyle */
 // Deterministic UI checks, run on every page the journey visits: the layout bugs a person sees at a glance and a unit test never does
 // (2 Oct 2026: one job row was twenty lines tall). Cheap and exact, no AI. Each finding: {view, severity, kind, detail}.
 //   severe  -> fails the journey (the page is visibly broken)

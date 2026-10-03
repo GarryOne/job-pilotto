@@ -10,8 +10,6 @@ import {fileURLToPath} from 'node:url';
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(desktop, '..', 'site', 'public', 'images', 'app');
 const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
-const template = JSON.parse(fs.readFileSync(path.join(desktop, '..', 'config', 'notion_template.json'), 'utf8'));
-const titles = Object.values({...template.databases, ...template.pages});
 const profile = fs.readFileSync(path.join(desktop, 'demo', 'profile.md'), 'utf8');
 
 // Page scripts: show a wizard step with sample input (as a user would have filled it), or open a view.

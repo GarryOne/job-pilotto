@@ -21,7 +21,6 @@ function fakePty() {
   }})};
 }
 
-const fakeStorage = () => ({settings: () => ({}), secret: () => 'token', setSecret: () => {}});
 
 // The extension keeps its own decisions and pushes them (worker /extension/log): the app writes them to its log, so a
 // decision made in Chrome can be read beside everything else instead of dying with the service worker.

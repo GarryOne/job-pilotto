@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global window */
 // Puts a freshly launched app into the "set up" state the way the wizard leaves it, without the wizard: the app's own calls for the key, the Notion connection
 // (which finds the workspace already built in this suite's page) and "setup done". About ten seconds. A suite whose page is empty bootstraps with the real wizard path instead.
 import fs from 'node:fs';

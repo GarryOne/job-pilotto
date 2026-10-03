@@ -3,7 +3,7 @@
 // its rows, the feed the engine reads, and the common start (a set-up install, its own run rows cleared, no schedule, the app quiet). The suites themselves are in suites/.
 import fs from 'node:fs';
 import path from 'node:path';
-import {badSummary, leaks, sample, watch} from './activity.mjs';
+import {badSummary, leaks} from './activity.mjs';
 import {emptyDatabase, runRows} from './notion.mjs';
 import {snap} from './layout.mjs';
 import {ensureSetUp} from './seed.mjs';

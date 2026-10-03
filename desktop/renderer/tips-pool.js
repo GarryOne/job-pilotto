@@ -7,7 +7,6 @@
 const HUNTR = 'https://huntr.co/blog/how-applicant-tracking-systems-work';
 const TRUFFLE = 'https://www.hiretruffle.com/blog/knockout-questions';
 const JOBSCAN = 'https://www.jobscan.co/blog/blog-ai-resume-screening/';
-const HIRATION = 'https://www.hiration.com/blog/white-text-resume-hack/';
 const BUILTIN = 'https://builtin.com/articles/hidden-ai-prompts-in-resume';
 
 export const TIPS = [

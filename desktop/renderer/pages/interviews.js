@@ -23,7 +23,6 @@ let insightCollapsed = true;  // folded until you open it; the choice is remembe
 try { insightCollapsed = localStorage.getItem('ivInsightOpen') !== '1'; } catch {}
 const plainId = id => String(id || '').replace(/-/g, '');
 const jobList = () => (Array.isArray(shared.allJobs) ? shared.allJobs : []);  // unset while the job list loads
-const linkable = () => jobList().filter(job => job.notion_url);   // jobs with a Notion Applications row
 const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
 const jobForPage = pageId => jobList().find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
 

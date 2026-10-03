@@ -1,8 +1,8 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
-import {AI_BUSY, groupWarnings, humanError, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
+import {AI_BUSY, groupWarnings, humanError, limitedJobs, runWarningLines} from '../run-warnings.js';
 import {barState, runStatus, runWarned} from '../run-status.js';
-import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
+import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
@@ -26,7 +26,6 @@ import {renderDraft, showDraftIntro} from './strategy-review.js';
 import {goStep} from './wizard.js';
 
 // ---------- runs ----------
-const TRIGGER = {you: 'You', schedule: 'Schedule', first: 'First search'};
 export const clockTime = iso => new Date(iso).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'});
 const duration = (a, b) => { const s = Math.round((Date.parse(b) - Date.parse(a)) / 1000); return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`; };
 // The line under "Jobs": what's happening now, or when the last search ran.
@@ -101,15 +100,6 @@ function warningSummary(warnings) {
   }
   return humanError(warnings[0]) || '';
 }
-// A Recent activity row's label: gray "Queued" while it waits, gray "Scheduled" for the schedule's runs,
-// green "Started by you" for the ones you started.
-function runBadge(run) {
-  if (run.waiting) return ['Queued', 'neutral'];
-  if (run.trigger === 'schedule') return ['Scheduled' + (run.where === 'github' ? ' · GitHub' : ''), 'neutral'];
-  return [capital(WHO[run.trigger] || run.trigger) + runBadgeWhere(run), run.trigger === 'you' ? 'good' : 'neutral'];
-}
-// Where it ran, when not on this Mac (a run read from Notion: the user's GitHub repo, or elsewhere).
-const runBadgeWhere = run => (run.where === 'github' ? ' · GitHub' : '');
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
@@ -243,7 +233,6 @@ export function renderActivity(fresh) {
   $('activity').dataset.state = barState(running, lastSearch || lastMail || last);
   const liveLines = running ? shared.logLines : null;
   const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
-  const soon = at => (at <= Date.now() ? 'due now' : clockTime(new Date(at).toISOString()));  // a past time = runs at the next check
   const mailNote = lastMail ? `Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
     : nextMailAt ? `First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
   if (running) {
@@ -446,7 +435,6 @@ export function renderActivity(fresh) {
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) {
-    const latestMail = runs.find(item => kindOf(item) === 'mail');
     renderMailCard(mail, pendingMailQuestions(), lastAnswered());
   }
   else if (insight) renderInsightCard(insight);

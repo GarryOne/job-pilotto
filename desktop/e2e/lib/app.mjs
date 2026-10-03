@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global document, window */
 // Launch the real Job Pilotto app (Electron) with a throwaway profile, like a first-time user, and drive it through Playwright.
 // Nothing here touches the real user's data: JOB_PILOTTO_USER_DATA points at a fresh temp folder and no .env is read.
 import {_electron as electron} from 'playwright-core';

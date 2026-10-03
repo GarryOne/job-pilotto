@@ -71,7 +71,7 @@ export function create(storage, {appliedNow = () => 0, now = () => Date.now()} =
       if (result.ok) storage.saveSettings({license: {...(storage.settings().license || {}), key: String(pasted).trim()}});
       return result.ok ? {ok: true, state: state()} : result;
     },
-    remove() { const {key, ...rest} = storage.settings().license || {}; storage.saveSettings({license: rest}); return state(); },
+    remove() { const {key: _key, ...rest} = storage.settings().license || {}; storage.saveSettings({license: rest}); return state(); },
     // null when new work may start; else the state, so the caller can say why.
     blocked: () => { const now = state(); return now.ended ? now : null; },
   };

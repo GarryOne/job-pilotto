@@ -1,4 +1,3 @@
-/* global document, window */
 // The first-run path only: key, CV, strategy, finish WITHOUT Notion (the app only tries), then Notion connected and the strategy moved in. Starts from an emptied Notion page.
 import {finish, visit} from '../lib/layout.mjs';
 import {runWizard} from '../lib/wizard.mjs';

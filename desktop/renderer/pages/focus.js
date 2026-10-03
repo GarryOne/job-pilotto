@@ -16,7 +16,6 @@ import {prepCard} from '../prep-card.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
-const FOCUS_WHEN = {1: ['Now', 'bad'], 2: ['Soon', 'warn'], 3: ['Today', 'info'], 4: ['When you can', 'neutral']};
 
 // ---------- Focus: what to do next (src/focus.py, from Notion, no AI) ----------
 function focusButton(label, className, run) {

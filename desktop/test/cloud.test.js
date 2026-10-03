@@ -89,7 +89,7 @@ test('running it again leaves unchanged files alone', async () => {
   await github.connect(storage, 't', {fetcher: gh.fetcher});
   const writes = gh.calls.filter(c => c.method === 'PUT' && c.route.includes('/contents/')).length;
   gh.calls.length = 0;
-  const again = await github.connect(storage, 't', {fetcher: gh.fetcher});
+  await github.connect(storage, 't', {fetcher: gh.fetcher});
   assert.ok(writes > 0);
   assert.equal(gh.calls.filter(c => c.method === 'PUT' && c.route.includes('/contents/')).length, 0);
 });

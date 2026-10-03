@@ -10,7 +10,7 @@ import {openActivity, refreshActivity, showJob, showSearchStatus} from './activi
 import {jobActions, jobHeadline} from '../job-link.js';
 import {$, message, osPick, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
-import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
+import {SESSION_PILL, refreshSessions, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
 import {toastMessage} from './startup.js';
 import {openFeedback} from './feedback.js';
 import {outcomeChoices} from '../outcome-tap.js';

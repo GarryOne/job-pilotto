@@ -1,4 +1,4 @@
-/* global document, window */
+/* global document */
 // Calendar: meetings from the Job Tracker ("Next interview") and from saved recordings, on dummy rows written through the Notion API, with the app running in a fixed time
 // zone (Asia/Tokyo, no daylight saving) and then in another (Pacific/Honolulu). Starts from a set-up install; resets only its own rows.
 import {launch} from '../lib/app.mjs';

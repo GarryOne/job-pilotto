@@ -9,7 +9,6 @@ import {answerOptions} from '../answer-options.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openView} from './nav.js';
-import {richText} from './rich-text.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
 import {firstLine, renderDock, sessionCompany, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';

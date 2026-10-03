@@ -88,7 +88,7 @@ async function notionRuns(token) {
 }
 
 export async function run(ctx) {
-  const {page, token: NOTION} = ctx;
+  const {token: NOTION} = ctx;
   ctx.findings = [];
   await ensureSetUp(ctx);
   const state = {};

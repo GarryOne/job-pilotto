@@ -27,7 +27,7 @@ test('a broken verdict is an error, never a pass', () => {
   assert.throws(() => parseVerdict(''), /did not answer with JSON/);
   assert.throws(() => parseVerdict(undefined), /did not answer with JSON/);
   assert.throws(() => parseVerdict(JSON.stringify({...good, invents_facts: 'no'})), /invents_facts/);
-  const {why, ...noWhy} = good;
+  const {why: _why, ...noWhy} = good;
   assert.throws(() => parseVerdict(JSON.stringify(noWhy)), /why/);
   assert.throws(() => parseVerdict(JSON.stringify({...good, grounded: undefined})), /grounded/);
 });
