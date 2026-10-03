@@ -126,3 +126,13 @@ test('a kit fill starts at once: kit and contact details prefetched, no fixed wa
   assert.match(flow, /const me = early \|\| await api\(/);
   assert.match(flow, /limit = 1500; waited < limit; waited \+= 100/);
 });
+
+test('a CV tailored after the first fill replaces the one the extension attached, never one the person chose', () => {
+  const fill = read('extension/page/fill.js');
+  assert.match(fill, /input\.dataset\.jobPilottoFile = file\.name/);
+  assert.match(fill, /ours && input\.files\[0\]\.name === ours && ours !== file\.name/);
+  const review = read('extension/review.js');
+  assert.match(review, /panelTailor/);                                          // the panel offers a CV tailored to the job
+  assert.match(review, /ready && !filling && !readyNow/);                       // and the Fill button stays to attach it
+  assert.match(read('extension/background.js'), /type: 'tailor-cv'/);
+});

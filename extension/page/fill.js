@@ -227,11 +227,15 @@
     const context = el => `${el.id} ${el.name} ${el.getAttribute('aria-label') || ''} ${el.closest('div, fieldset, section')?.textContent || ''}`;
     const input = inputs.find(el => pattern.test(context(el)) && !(skip && skip.test(`${el.id} ${el.name} ${el.getAttribute('aria-label') || ''}`)))
       || (alone && inputs.length === 1 ? inputs[0] : null);
-    if (!input || input.files?.length) return false;
+    if (!input) return false;
+    // A file the person chose stays. One this extension attached earlier is replaced by a different one (a CV tailored after the first fill).
+    const ours = input.dataset.jobPilottoFile;
+    if (input.files?.length && !(ours && input.files[0].name === ours && ours !== file.name)) return false;
     const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
     const transfer = new DataTransfer();
     transfer.items.add(new File([bytes], file.name, {type: file.type || 'application/pdf'}));
     input.files = transfer.files;
+    input.dataset.jobPilottoFile = file.name;
     input.dispatchEvent(new Event('input', {bubbles: true}));
     input.dispatchEvent(new Event('change', {bubbles: true}));
     return true;

@@ -266,6 +266,27 @@ export async function run(ctx) {
     fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Greenhouse_Labs.pdf', size}));   // the tailored file's bytes, under its own name: the form shows which CV it got
   }, {needs: ctx.needs});
 
+  await ctx.run('the form\'s panel offers a tailored CV: asked there, it is written, and filling again attaches it under its own name', async () => {
+    const form = FORMS.lever;
+    const code = crypto.createHash('sha1').update(form.url.trim()).digest('hex').slice(0, 8);
+    const tailoredPdf = path.join(ctx.profile, 'cv', 'tailored', `${code}.pdf`);
+    fs.rmSync(tailoredPdf, {force: true});
+    const {tab, state} = await apply(form, {viaApi: true});
+    if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
+    let panel = await panelOf(tab);
+    for (let i = 0; i < 10 && !/general CV/.test(panel?.tailor || ''); i++) { await pause(1500); panel = await readPanel(tab); }
+    if (!/general CV/.test(panel?.tailor || '')) throw new Error(`the panel does not offer a tailored CV (its tailor line: "${panel?.tailor}")`);
+    await tab.locator('#jobpilotto-review-host .t-btn').click();
+    for (let waited = 0; !fs.existsSync(tailoredPdf) && waited < 120000; waited += 1000) await pause(1000);
+    if (!fs.existsSync(tailoredPdf)) throw new Error('asking from the panel wrote no tailored CV within two minutes');
+    for (let i = 0; i < 20 && !/ready/.test(panel?.tailor || ''); i++) { await pause(1500); panel = await readPanel(tab); }
+    if (!/ready/.test(panel?.tailor || '')) throw new Error(`the panel never said the tailored CV is ready (its tailor line: "${panel?.tailor}")`);
+    await tab.locator('#jobpilotto-review-host .fill').click();
+    await pause(2500);
+    for (let waited = 0; waited < 90000; waited += 500) { const now = await fillState(tab).catch(() => null); if (now?.state === 'done' || now?.state === 'error') break; await pause(500); }
+    fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Lever_Systems.pdf', size: fs.statSync(tailoredPdf).size}));
+  }, {needs: ctx.needs});
+
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
     fail(submitProblems(forms.fired, ''));
     const strange = [...ctx.browser.requested].filter(host => !HOSTS.includes(host) && host !== '127.0.0.1' && host !== 'localhost' && host !== '');

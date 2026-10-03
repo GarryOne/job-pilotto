@@ -651,6 +651,16 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     })().catch(() => reply({ok: false}));
     return true;
   }
+  // "Tailor my CV for this job": the person asks the app to write a CV from this job's posting; the form is filled again afterwards.
+  if (message?.type === 'panelTailor' && sender.tab) {
+    (async () => {
+      const job = String(await jobOf(sender.tab)).split('#')[0];
+      decide('panel', 'asked the app to tailor the CV', {});
+      const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'tailor-cv', url: job, page: sender.tab.url.split('#')[0]})});
+      reply({ok: !!data?.ok});
+    })().catch(() => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'panelOpenApp') {
     settings().then(config => api(config, '/extension/open', {method: 'POST', body: JSON.stringify({session: message.session})}))
       .then(data => reply({ok: !!data.ok}), () => reply({ok: false}));

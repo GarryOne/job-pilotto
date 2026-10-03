@@ -3,6 +3,7 @@
 // keys from the Keychain-backed store, and the local job list. Only this computer can connect, and
 // every call still needs the extension token.
 import * as cv from './cv.js';
+import {isFormOf} from './apply.js';
 import * as letters from './cover-letter.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -364,6 +365,8 @@ let stuckHandler = () => {};  // the extension can't get to a form (no form / ne
 export function setStuckHandler(fn) { stuckHandler = fn; }
 let takeOverHandler = () => {};  // the panel's "Take over with Claude": the person asks for Claude on this application (set by main.js)
 export function setTakeOverHandler(fn) { takeOverHandler = fn; }
+let tailorHandler = () => {};  // the panel's "Tailor my CV for this job" (set by main.js)
+export function setTailorHandler(fn) { tailorHandler = fn; }
 let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)
 export function setFormIssueHandler(fn) { formIssue = fn; }
 let openHandler = () => false;
@@ -532,9 +535,11 @@ export function start(storage, onError = () => {}) {
         if (ok) {
           const event = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
           const {jobs} = await pipeline.jobs(storage).catch(() => ({jobs: []}));
-          const job = jobs.find(j => pageKey(j.url) === pageKey(event.url));
+          // The page the panel reports may be the posting's form (Ashby /application, Lever /apply), not the posting itself.
+          const job = jobs.find(j => pageKey(j.url) === pageKey(event.url)) || jobs.find(j => j.url && isFormOf(event.url, j.url));
           if (event.type === 'stuck') stuckHandler(event);
           if (event.type === 'take-over') takeOverHandler({...event, job});
+          if (event.type === 'tailor-cv') tailorHandler({...event, job});
           if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
           if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`);
           if (event.type === 'fill-done') {

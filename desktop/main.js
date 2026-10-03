@@ -1415,7 +1415,7 @@ function handlers() {
   });
   // Tailored CV for one job: base CV (imported from the CV PDF the first time) + the posting -> Claude ->
   // checked -> PDF. A fixed-page design that overflows gets one second try with that feedback.
-  ipcMain.handle('tailorCv', async (_, code, name = 'this job') => {
+  const tailorCv = async (code, name = 'this job', {show = true} = {}) => {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     try {
@@ -1450,12 +1450,23 @@ function handlers() {
       } catch (error) { console.error(`Tailored CV not saved to Notion: ${error.message}`); }
       notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
         + (inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'));
-      openTailoredCv(code);
+      if (show) openTailoredCv(code);   // from the form's panel the window stays behind: the person is on the form, the notification says it is ready
       return {ok: true, usd: record.usd};
     } catch (error) {
       notify('CV not tailored', `${name}: ${error.message}`);
       return {ok: false, error: error.message};
     }
+  };
+  ipcMain.handle('tailorCv', (_, code, name) => tailorCv(code, name));
+  // The form panel's "Tailor my CV for this job": the person's own click, the same work as the menu's Tailor CV.
+  server.setTailorHandler(async event => {
+    const job = event.job;
+    appLog('extension', 'tailor CV asked from the form', {known: !!job?.code});
+    if (!job?.code) { toWindow('toast', {title: 'CV not tailored', body: 'This job is not in your list yet: add it first.'}); return; }
+    const key = server.pageKey(job.url);
+    if (tailoring.has(key)) return;
+    tailoring.add(key);
+    try { await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false}); } finally { tailoring.delete(key); }
   });
   ipcMain.handle('openTailoredCv', (_, code) => openTailoredCv(code));
   // The base CV the tailoring starts from: import it from the CV PDF (again), see it, or edit its files.
@@ -1608,6 +1619,9 @@ else if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.
 // A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
 // opens it; the app then starts like the first time (the setup wizard).
 let resetDone = null;
+// What the form's panel shows about a job's CV: tailored already, or being tailored now (jobs whose Tailor CV was asked from the panel).
+const tailoring = new Set();
+const cvOf = url => ({tailored: !!cvlib.forUrl(storage, url), working: tailoring.has(server.pageKey(url))});
 // The CV in Notion (once per version) and the weekly backup of Mac-only files: failures are logged, never block.
 function syncCv() {
   if (DEMO) return;
@@ -1796,7 +1810,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) for (const session of terminals.list()) { const record = terminals.record(session.id); if (record) saveConversation(record); }
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
-  server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  server.setReviewHandler(payload => { const report = review.report(terminals.list(), payload); return report.session ? {...report, cv: cvOf(report.session.url)} : report; });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   recipeReporterRef = recipeReporter;
   server.setProposalReporter(items => recipeReporter.proposal(items));

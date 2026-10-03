@@ -237,6 +237,8 @@
     .foot { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
     .foot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
     .foot.on::before { background: var(--good); }
+    .tailor { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 10px 0 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); font-size: 12.5px; color: var(--ink); }
+    .tailor .secondary { padding: 5px 9px; }
     [hidden] { display: none !important; }
   </style>
   <div class="jp">
@@ -248,6 +250,7 @@
         <div class="progress"><div class="progress-line"><b></b><span></span></div><div class="bar"><i></i></div></div>
         <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
+        <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job (~12¢)</button></div>
         <div class="left" hidden><h4>Left for you</h4><div class="list"></div></div>
         <div class="actions">
           <button class="secondary take-over" hidden title="Claude drives this application in Chrome, from where you are now. It never clicks Submit.">Take over with Claude</button>
@@ -260,7 +263,7 @@
   </div>`;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
-  let open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false;
+  let open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false, cv = null, asked = false;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -302,7 +305,10 @@
     $('.bar i').style.width = `${ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)
     const claudeFilling = session?.live && session.status === 'running';
-    $('.fill-box').hidden = claudeFilling || (ready && !filling);  // nothing left to fill
+    // A tailored CV written after the form was filled still has to be attached: the button stays for that.
+    const canTailor = !!session && !!connection?.connected && !!connection.app && !!cv;
+    const readyNow = canTailor && cv.tailored && asked;
+    $('.fill-box').hidden = claudeFilling || (ready && !filling && !readyNow);  // nothing left to fill
     $('.fill').disabled = filling;
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
@@ -315,6 +321,15 @@
       row.onclick = () => flash(field.el);
       return row;
     }));
+    // A CV written for this job gets noticeably more replies than the general one: offered while the form is still open, the person's click (it costs a few cents).
+    // Once it is written the fill has to run again to attach it.
+    const tailor = $('.tailor');
+    tailor.hidden = !canTailor || (cv.tailored && !asked);
+    if (!tailor.hidden) {
+      $('.t-text').textContent = readyNow ? 'Your tailored CV is ready. Press Fill again to attach it.' : cv.working ? 'Tailoring your CV for this job… about 1–2 minutes.'
+        : 'This form has your general CV. A CV tailored to this job gets noticeably more replies.';
+      $('.t-btn').hidden = readyNow || cv.working;
+    }
     // actions + connection
     $('.open-app').hidden = !session;
     // Offered whenever the app is connected and Claude is not already on this form; the person's click, never automatic (it uses Claude).
@@ -379,6 +394,16 @@
     button.textContent = answer?.ok ? 'Claude is starting in Job Pilotto' : 'Job Pilotto did not answer';
     setTimeout(() => { button.disabled = false; button.textContent = 'Take over with Claude'; }, 8000);
   };
+  $('.t-btn').onclick = async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Asking Job Pilotto…';
+    const answer = await send({type: 'panelTailor'}).catch(() => null);
+    asked = !!answer?.ok;
+    button.disabled = false;
+    button.textContent = 'Tailor my CV for this job (~12¢)';
+    render();
+  };
   $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
   // The extension's fill reports its steps here (instead of a floating box).
   chrome.runtime.onMessage.addListener((message, _, reply) => {
@@ -433,6 +458,7 @@
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});
       session = reply?.session || null;
+      cv = reply?.cv || null;
       const before = JSON.stringify(watch);
       watch = Array.isArray(reply?.watch) ? reply.watch : [];
       // The app asked to see this form (and maybe one field): this tab comes forward, then the field.

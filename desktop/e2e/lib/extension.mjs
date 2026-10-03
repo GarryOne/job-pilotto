@@ -96,5 +96,5 @@ export const readPanel = page => page.evaluate(() => {
   if (!root) return null;
   const text = selector => (root.querySelector(selector)?.textContent || '').replace(/\s+/g, ' ').trim();
   return {pill: text('.pill'), progress: text('.progress-line'), note: root.querySelector('.note')?.hidden ? '' : text('.note'),
-    left: [...root.querySelectorAll('.left .item')].map(item => item.textContent.replace(/\s+/g, ' ').trim()), foot: text('.foot'), fillLabel: text('.fill .label')};
+    tailor: root.querySelector('.tailor')?.hidden ? '' : text('.tailor'), left: [...root.querySelectorAll('.left .item')].map(item => item.textContent.replace(/\s+/g, ' ').trim()), foot: text('.foot'), fillLabel: text('.fill .label')};
 });
