@@ -7,6 +7,7 @@ import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
 import {guard} from './guard.js';
 import {view as intelligenceView} from './intelligence.js';
+import {view as selfHealView} from './selfheal.js';
 import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack} from './aliases.js';
 import {tidy as tidyIntelligence} from './intelligence.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
@@ -80,6 +81,7 @@ export default {
     // The owner's dashboard. Not /intelligence: that is the public page (public/intelligence.html), and static assets are
     // served before this Worker, so a route there is never reached.
     if (pathname === '/intel') return intelligenceView(request, env);
+    if (pathname === '/self-heal') return selfHealView(request, env);   // owner-only: not in public/, or it would be served to anyone
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
