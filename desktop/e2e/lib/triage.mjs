@@ -7,6 +7,7 @@ export const NEEDS_HUMAN = 'needs-human';
 export const FALSE_POSITIVE = 'wontfix-auto';
 export const CONFIRMED = 'confirmed';   // a person looked at the finding and says it is real: ready without a second sighting
 export const NOT_SEEN = 'not-seen-latest';   // the page was photographed and reviewed again and the finding did not come back
+export const SEEN_AGAIN = 'seen-again';   // seen on two or more commits (sightings()): reproduced, not a one-off
 export const SIGHTINGS_NEEDED = 2;   // a finding must show in two runs before anyone (or anything) acts on it: one-off flakes and model noise drop out
 export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill', 'dead-control', 'expand-broken', 'no-loading-state'];
 const RANK = {high: 3, medium: 2, low: 1};
@@ -136,13 +137,21 @@ export function matchExisting(finding, issues, threshold = 0.3, state = 'OPEN') 
     .filter(item => item.score >= threshold).sort((a, b) => b.score - a.score)[0]?.issue || null;
 }
 
-// How many nights an issue has been seen: the finding itself plus one "Seen again" comment per later run.
-export const sightings = issue => 1 + (issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).length;
+// One sighting per commit: an unchanged commit is looked at up to three times a day (lib/plan.mjs), and a cosmetic finding that shows every time
+// filled the fixer's queue (#66 scored 14 from one build, 3 Oct 2026). The commit is the "Build tested: … @ <sha>" line; without one, each sighting counts.
+const commitOf = text => /Build tested: .*? @ ([0-9a-f]{7})/.exec(text || '')?.[1] || '';
+function sightingKeys(issue, keep = () => true) {
+  const keys = new Set(), add = (text, key) => keys.add(commitOf(text) || key);
+  if (keep(issue.createdAt)) add(issue.body, 'filed');
+  (issue.comments || []).forEach((comment, i) => { if (/^Seen again\b/.test(comment.body || '') && keep(comment.createdAt)) add(comment.body, `seen-${i}`); });
+  return keys;
+}
+// How many commits an issue has been seen on: the finding itself plus each "Seen again" on another commit.
+export const sightings = issue => Math.max(1, sightingKeys(issue).size);
 
-// Sightings of an issue in the last `days` days: the issue itself (when it was filed that recently) and each "Seen again" comment. Undated ones (older data, tests) count.
+// Sightings of an issue in the last `days` days, one per commit: the issue itself (when it was filed that recently) and each "Seen again" comment. Undated ones (older data, tests) count.
 export function recentSightings(issue, now = Date.now(), days = 7) {
-  const recent = date => !date || now - Date.parse(date) <= days * 86400000;
-  return (recent(issue.createdAt) ? 1 : 0) + (issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '') && recent(comment.createdAt)).length;
+  return sightingKeys(issue, date => !date || now - Date.parse(date) <= days * 86400000).size;
 }
 const WEIGHT = {HIGH: 3, MEDIUM: 2, LOW: 1};
 // How critical a finding is: its severity times how often it came back this week; a person's "confirmed" doubles it.

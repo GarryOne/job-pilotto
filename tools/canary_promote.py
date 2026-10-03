@@ -248,6 +248,7 @@ def blocking_findings(issues, sha7):
     def names(issue):
         return {(l.get('name') if isinstance(l, dict) else l) for l in issue.get('labels') or []}
     return [i for i in issues if i.get('state', 'OPEN') == 'OPEN' and f'@ {sha7}' in issue_text(i)
+            and 'platform:windows' not in names(i)   # Windows e2e is a weekly look, never a release gate (e2e-windows.yml)
             and 'severity:high' in names(i) and any(f'kind:{kind}' in names(i) for kind in BLOCKING_KINDS)]
 
 

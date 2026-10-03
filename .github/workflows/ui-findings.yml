@@ -6,12 +6,15 @@ name: CI · UI findings
 # (ui-fix.yml does that, once a day, for the most critical issue). A false positive is closed with the label `wontfix-auto`; a real one a person marks `confirmed`.
 on:
   workflow_run:
-    workflows: ['CI · End-to-end journey']
+    workflows: ['CI · End-to-end journey', 'CI · End-to-end on Windows']   # a Windows run files its own issues, labelled platform:windows
     types: [completed]
   workflow_dispatch:
     inputs:
       run_id:
         description: 'An e2e run id whose artifacts to file'
+        required: false
+      platform:
+        description: "mac (e2e.yml) or windows (e2e-windows.yml): the run's platform, for a run_id filed by hand"
         required: false
       plant:
         description: 'DRY RUN, only on a branch other than main: a ui-findings.json array to file instead of a real run (see desktop/e2e/README.md)'
@@ -42,6 +45,7 @@ jobs:
       RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}   # main, or the release tag
       RUN_SHA: ${{ github.event.workflow_run.head_sha }}
       RUN_EVENT: ${{ github.event.workflow_run.event }}
+      PLATFORM: ${{ inputs.platform || (contains(github.event.workflow_run.name, 'Windows') && 'windows') || 'mac' }}
       BASE: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
@@ -68,4 +72,4 @@ jobs:
           # returns 1 and bash -e ended the step, so nothing was filed (3 Oct 2026, four runs).
           tested=$(find e2e-artifacts -name tested.txt | head -1)
           if [ -n "$tested" ]; then read -r label sha < "$tested" || true; BUILD="${label} @ ${sha:0:7} (${RUN_EVENT} run)"; fi
-          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD"
+          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD" --platform "$PLATFORM"

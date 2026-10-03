@@ -257,9 +257,16 @@ jobs:
     needs: [build, windows, mac-only]
     if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # delete the older test builds, retitle releases
+      issues: write     # the pinned Release channels issue
     steps:
       - uses: actions/checkout@v4
       - name: Remove older test builds (their tags stay)
         env:
           GH_TOKEN: ${{ github.token }}
         run: tools/prune-releases.sh 3
+      - name: Release titles and the pinned Release channels issue (a new build is listed at once, not at the next soak run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sync_release_labels.py || echo "labels not refreshed"   # best effort, never fails a build

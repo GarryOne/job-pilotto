@@ -138,3 +138,53 @@ test('blockers: a high layout-check finding always blocks; a high AI finding onl
   assert.equal(blockers([f('ai-review', 'medium', 'c')], [open('c', 3)]).length, 0);
   assert.equal(blockers([f('suite-failure', 'high', 'd')], []).length, 0, 'the gate is already red then');
 });
+
+test('a Windows run files its own issues (platform label, its own id) and never marks or closes a Mac issue', async () => {
+  const {triage, platformOf} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-win-'));
+  fs.mkdirSync(path.join(dir, 'e2e-artifacts-windows-jobs'));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-windows-jobs', 'ui-findings.json'), JSON.stringify([{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-windows-jobs', 'ui-jobs.png'), '');
+  const id = normalize({ui: [{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]})[0].id;
+  // The same finding is open for the Mac, and a Mac layout issue on the same page that this Windows run does not see.
+  const mac = [{number: 1, state: 'OPEN', title: '[auto-ui] jobs: tall row', body: '**HIGH** · tall-row · found by the layout check', labels: [{name: 'auto-ui'}, {name: `fp:${id}`}], comments: []},
+    {number: 2, state: 'OPEN', title: '[auto-ui] jobs: overflow', body: '**HIGH** · page-overflow · found by the layout check', labels: [{name: 'auto-ui'}, {name: 'fp:other'}], comments: []}];
+  const created = [], touched = [];
+  const gh = args => {
+    if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(mac);
+    if (args[0] === 'pr') return '[]';
+    if (args[0] === 'issue' && args[1] === 'create') created.push(args[args.indexOf('--label') + 1]);
+    if (args[0] === 'issue' && (['comment', 'close'].includes(args[1]) || (args[1] === 'edit' && args.join(' ').includes('not-seen')))) touched.push(Number(args[2]));   // priority labels are re-ranked for all
+    return '';
+  };
+  const out = triage({artifacts: dir, runUrl: 'https://x/runs/9', gh, platform: 'windows'});
+  assert.deepEqual(out.filed, [`${id}-win`]);
+  assert.match(created[0], /platform:windows/);
+  assert.match(created[0], new RegExp(`fp:${id}-win`));
+  assert.deepEqual(touched.filter(n => n === 1 || n === 2), []);   // neither Mac issue was commented on, marked "not seen" or closed
+  assert.equal(platformOf(mac[0]), 'mac');
+});
+
+test('sightings count once per commit: three looks at one build are one sighting, a second build is the second (#66 scored 14 from one build)', async () => {
+  const {sightings, recentSightings} = await import('../lib/triage.mjs');
+  const seen = sha => ({body: `Seen again in run https://x/runs/${sha}\n\nBuild tested: main @ ${sha} (schedule run)`});
+  const issue = {body: 'x\n\nBuild tested: main @ aaaaaaa (schedule run)', comments: [seen('aaaaaaa'), seen('aaaaaaa')]};
+  assert.equal(sightings(issue), 1);
+  assert.equal(recentSightings(issue), 1);
+  issue.comments.push(seen('bbbbbbb'));
+  assert.equal(recentSightings(issue), 2);
+  assert.equal(sightings({body: 'old issue, no build line', comments: [{body: 'Seen again in run 2'}, {body: 'Seen again in run 3'}]}), 3);   // older issues: each run still counts
+});
+
+test('the fixer is shown the other open findings of the same kind, so a shared cause is fixed once (#66 and #74)', async () => {
+  const {chooseCandidate, promptFor} = await import('../triage.mjs');
+  const issue = (number, kind, seen) => ({number, state: 'OPEN', title: `[auto-ui] page ${number}`, createdAt: new Date().toISOString(), body: `**MEDIUM** · ${kind} · found by the interaction probe`,
+    labels: [{name: 'auto-ui'}, {name: `fp:f${number}`}], comments: seen.map(sha => ({body: `Seen again in run ${sha}\n\nBuild tested: main @ ${sha}`, createdAt: new Date().toISOString()}))});
+  const issues = [issue(66, 'no-loading-state', ['aaaaaaa', 'bbbbbbb']), issue(74, 'no-loading-state', []), issue(70, 'dead-control', [])];
+  const gh = args => (args[0] === 'pr' ? '[]' : JSON.stringify(issues));
+  const picked = chooseCandidate({gh});
+  assert.equal(picked.number, 66);
+  assert.deepEqual(picked.siblings, ['#74 [auto-ui] page 74']);
+  assert.match(promptFor(picked, 'BASE'), /SAME KIND[\s\S]*#74/);
+});

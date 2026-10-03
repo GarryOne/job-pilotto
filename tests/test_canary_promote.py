@@ -258,6 +258,11 @@ class GateFourAndFiveTests(unittest.TestCase):
         medium = {'number': 72, 'title': 'x', 'state': 'OPEN', 'labels': [{'name': 'severity:medium'}], 'body': f'@ {SHA[:7]}', 'comments': []}
         self.assertTrue(self.decide(blockers=[other, medium])['promote'])
 
+    def test_a_windows_finding_never_blocks_a_release(self):
+        win = {'number': 74, 'title': 'apply: step failed', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'kind:test-failure'}, {'name': 'platform:windows'}],
+               'body': f'Build tested: main @ {SHA[:7]}', 'comments': []}
+        self.assertTrue(self.decide(blockers=[win])['promote'])
+
     def test_a_cosmetic_high_finding_does_not_block(self):
         clipped = {'number': 73, 'title': 'Brand name clipped', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'kind:text'}], 'body': f'@ {SHA[:7]}', 'comments': []}
         self.assertTrue(self.decide(blockers=[clipped])['promote'])

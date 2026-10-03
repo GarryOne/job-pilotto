@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LABEL, NOT_SEEN, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {LABEL, NOT_SEEN, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -21,7 +21,9 @@ export function filesNamed(folder) {
 }
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
-const suiteOf = dir => path.basename(dir || '').replace(/^e2e-artifacts-/, '');
+const suiteOf = dir => path.basename(dir || '').replace(/^e2e-artifacts-(windows-)?/, '');   // e2e-artifacts-<suite>, or e2e-artifacts-windows-<suite> (e2e-windows.yml)
+// Which platform an issue is about: its platform: label (issues filed before 3 Oct 2026 have none and are all from the Mac).
+export const platformOf = issue => ((issue.labels || []).map(item => item.name || item).find(name => name.startsWith('platform:')) || 'platform:mac').slice(9);
 const tail = (file, lines = 25, chars = 3500) => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-lines).join('\n').slice(-chars); } catch { return ''; } };
 const slug = step => `failed-${String(step).replace(/\W+/g, '-').slice(0, 60)}`;   // the runner's name for a failed step's screenshot (lib/runner.mjs)
 const views = dir => { try { return fs.readdirSync(dir).map(name => /^ui-(.+)\.png$/.exec(name)?.[1]).filter(Boolean); } catch { return []; } };
@@ -61,7 +63,7 @@ export function refreshRanking({gh = realGh, issues, repo = '', now = Date.now()
 }
 
 // -> {filed, again, gone, candidate}. `gh` and `publish` (the screenshot upload: files -> {to: url}) are injected so the rules can be tested without GitHub.
-export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = ''}) {
+export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = '', platform = 'mac'}) {
   const found = filesNamed(artifacts);   // every suite's folder (e2e-artifacts/e2e-artifacts-<suite>/…), or one flat folder
   const withDir = (file, items) => items.map(item => ({...item, _dir: path.dirname(file)}));
   // A suite's failed steps: only the first is a finding (the later ones are its consequences), and none when the AI had no credit (not a product problem).
@@ -76,8 +78,11 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   }
   const findings = normalize({ui: found['ui-findings.json'].flatMap(file => withDir(file, read(file) || [])), ai: found['ai-findings.json'].flatMap(file => withDir(file, (read(file) || {}).findings || [])),
     suite: suiteFailures});
+  // A run on Windows (e2e-windows.yml) files its own issues: a Windows-only break must not hide in a Mac issue, nor a Mac one be cleared by a Windows run.
+  if (platform !== 'mac') for (const finding of findings) finding.id = `${finding.id}-${platform.slice(0, 3)}`;
   const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
-  let issues = list();
+  // Only this platform's issues are matched, marked "not seen" and closed here (the ranking below reads them all again).
+  let issues = list().filter(issue => platformOf(issue) === platform);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
 
@@ -91,7 +96,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   for (const file of found['ai-findings.json']) for (const view of views(path.dirname(file))) reviewed.ai.add(view);
   for (const file of found['ui-findings.json']) for (const view of views(path.dirname(file))) reviewed.layout.add(view);
   // A suite-failure issue is cleared only when its suite ran in this run with NO failure at all (a different earlier failure would hide the later steps) and was not skipped.
-  const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => name.replace(/^e2e-artifacts-/, '')) : []);
+  const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => name.replace(/^e2e-artifacts-(windows-)?/, '')) : []);
   const failedSuites = new Set([...suiteFailures.map(item => item.suite), ...skipped.map(item => item.suite)]);
   // A sidebar / brand / badge issue lives in the app's chrome, which every page photograph checks (view 'app-chrome') but which has no photograph of its own, so the "reviewed
   // again" test above can never see it: it is cleared when the layout check ran in this run and found nothing in the chrome (the narrow-window pass counts: it is a warning, not silence).
@@ -134,12 +139,18 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
-      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite)];
+      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`];
       for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build}), '--label', labels.join(',')]);
       out.filed.push(finding.id);
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {
-      gh(['issue', 'comment', String(existing.number), '--body', seenAgainComment(runUrl, picture, build)]);
+      const comment = seenAgainComment(runUrl, picture, build);
+      gh(['issue', 'comment', String(existing.number), '--body', comment]);
+      // Seen on a second commit (one sighting per commit, lib/triage.mjs): labelled, so the list shows what is reproduced and what is a one-off.
+      if (sightings({...existing, comments: [...(existing.comments || []), {body: comment}]}) >= SIGHTINGS_NEEDED && !(existing.labels || []).some(item => (item.name || item) === SEEN_AGAIN)) {
+        gh(['label', 'create', SEEN_AGAIN, '--force', '--color', '5319E7', '--description', 'Seen on two or more commits: reproduced, not a one-off']);
+        gh(['issue', 'edit', String(existing.number), '--add-label', SEEN_AGAIN]);
+      }
       if ((existing.labels || []).some(item => (item.name || item) === NOT_SEEN)) gh(['issue', 'edit', String(existing.number), '--remove-label', NOT_SEEN]);
       out.again.push(finding.id);
     }
@@ -173,7 +184,10 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
   const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
-  return pickCandidate(issues, {openBranches: branches, now});
+  const candidate = pickCandidate(issues, {openBranches: branches, now});
+  // The other open findings of the same kind: one root cause often shows on several pages (#66 and #74, 3 Oct 2026), and the fix should cover them all.
+  const kindOf = issue => /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  return candidate && {...candidate, siblings: issues.filter(issue => issue.number !== candidate.number && issue.state === 'OPEN' && kindOf(issue) === kindOf(candidate)).map(issue => `#${issue.number} ${issue.title}`)};
 }
 
 // The files the fix step reads: which issue, its id, its "before" screenshot, and the prompt.
@@ -183,14 +197,15 @@ export function writeCandidate(candidate, outDir) {
   fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base));
 }
 
-export const promptFor = (issue, base) => `${base}\n\n---\nTHE FINDING (issue #${issue.number}):\n${issue.title}\n\n${issue.body}\n`;
+export const promptFor = (issue, base) => `${base}\n\n---\nTHE FINDING (issue #${issue.number}):\n${issue.title}\n\n${issue.body}\n` + (issue.siblings?.length
+  ? `\n---\nOTHER OPEN FINDINGS OF THE SAME KIND (check whether they have the same root cause; if so, fix it once where they all go through, and name them in your summary):\n${issue.siblings.join('\n')}\n` : '');
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const args = process.argv.slice(2);
   const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : ''; };
   const outDir = option('out') || '.heal';
   fs.mkdirSync(outDir, {recursive: true});
-  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build')});
+  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac'});
   const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, once a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
