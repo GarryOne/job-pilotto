@@ -28,7 +28,13 @@ function stub(initial = []) {
   const state = {issues: initial, created: [], comments: [], edits: [], prComments: [], prs: [], labels: []};
   const gh = args => {
     const [a, b] = args;
+    if (a === 'issue' && b === 'list' && args.includes('top-issues')) return JSON.stringify(state.ranking ? [state.ranking] : []);   // the pinned ranked list (refreshRanking)
     if (a === 'issue' && b === 'list') return JSON.stringify(state.issues);
+    if (a === 'issue' && b === 'create' && /^🔥/.test(args[3])) { state.ranking = {number: 900, id: 'node900', body: args[5]}; return 'https://github.com/o/r/issues/900\n'; }
+    if (a === 'issue' && b === 'edit' && args[2] === '900') { state.ranking = {...state.ranking, body: args[args.indexOf('--body') + 1]}; return ''; }
+    if (a === 'issue' && b === 'edit' && args.includes('--add-label') && /^priority:/.test(args[args.indexOf('--add-label') + 1])) { (state.priorities ||= []).push({number: args[2], label: args[args.indexOf('--add-label') + 1], removed: args.filter((x, i) => args[i - 1] === '--remove-label')}); return ''; }
+    if (a === 'issue' && b === 'view') return JSON.stringify({id: 'node900'});
+    if (a === 'api') return '';
     if (a === 'issue' && b === 'create') { state.created.push({title: args[3], body: args[5], labels: args[7]}); return ''; }
     if (a === 'issue' && b === 'comment') { state.comments.push({number: args[2], body: args[4]}); return ''; }
     if (a === 'issue' && b === 'close') { (state.closed ||= []).push({number: args[2], reason: args[4]}); return ''; }
@@ -293,4 +299,34 @@ test('a sidebar issue stays open while the chrome still has a finding, and an is
   assert.equal(triage({artifacts: root, runUrl: RUN, gh: still.gh, publish: publish([]), repo: 'o/r'}).closed.length, 0);
   const other = stub([chromeIssue(59, 'Status bar contradicts Gmail and check state', 'failure-screenshot', ['not-seen-latest'])]);
   assert.equal(triage({artifacts: artifacts({}), runUrl: RUN, gh: other.gh, publish: publish([]), repo: 'o/r'}).closed.length, 0, 'a status-bar issue needs its own review');
+});
+
+
+const ranked = (number, severity, comments, labels = [], kind = 'layout') => ({number, state: 'OPEN', title: `[auto-ui] focus: finding ${number}`, createdAt: new Date().toISOString(),
+  body: `**${severity}** · ${kind} · found by the AI screenshot review\n\nx`, labels: [{name: 'auto-ui'}, ...labels.map(name => ({name}))], comments: Array.from({length: comments}, () => ({body: 'Seen again in run x', createdAt: new Date().toISOString()}))});
+
+test('priority: a wrong-app high finding seen twice is P0; the rest band by severity x sightings; parked ones are not ranked', async () => {
+  const {priorityOf, rankIssues} = await import('../lib/triage.mjs');
+  assert.equal(priorityOf(ranked(1, 'HIGH', 1, [], 'functionality')), 'P0');
+  assert.equal(priorityOf(ranked(2, 'HIGH', 1, [], 'text')), 'P1', 'a cosmetic high never blocks a release: P1 at most (3 x 2 = 6)');
+  assert.equal(priorityOf(ranked(3, 'HIGH', 0, [], 'functionality')), 'P2', 'seen once: 3');
+  assert.equal(priorityOf(ranked(3, 'HIGH', 0, ['confirmed'], 'functionality')), 'P0', 'a person confirmed it');
+  assert.equal(priorityOf(ranked(4, 'MEDIUM', 0)), 'P3');
+  assert.equal(priorityOf(ranked(5, 'MEDIUM', 1)), 'P2');
+  const order = rankIssues([ranked(4, 'MEDIUM', 0), ranked(1, 'HIGH', 1, [], 'functionality'), ranked(5, 'MEDIUM', 1), ranked(6, 'HIGH', 0, ['needs-human']), {...ranked(7, 'HIGH', 3), state: 'CLOSED'}]);
+  assert.deepEqual(order.map(item => item.issue.number), [1, 5, 4]);
+});
+
+test('after a run every open issue gets one priority label and the pinned list is written once and rewritten only when it changes', () => {
+  const issues = [ranked(1, 'HIGH', 1, [], 'functionality'), ranked(5, 'MEDIUM', 1, ['priority:P3']), ranked(4, 'MEDIUM', 0, ['priority:P3'])];
+  const {gh, state} = stub(issues);
+  triage({artifacts: artifacts({}), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.deepEqual(state.priorities.map(item => [item.number, item.label, item.removed]), [['1', 'priority:P0', []], ['5', 'priority:P2', ['priority:P3']]], 'only the changed ones are edited; #4 is still P3');
+  assert.match(state.ranking.body, /\| 1 \| \*\*P0\*\* \| #1 /);
+  assert.match(state.ranking.body, /P0: 1 · P1: 0 · P2: 1 · P3: 1 · 3 open/);
+  const first = state.ranking.body;
+  state.edits.length = 0;
+  triage({artifacts: artifacts({}), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(state.ranking.body, first);
+  assert.ok(!state.edits.some(edit => edit[0] === '900'), 'unchanged list: not rewritten');
 });

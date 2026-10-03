@@ -152,6 +152,43 @@ export function score(issue, now = Date.now()) {
   return WEIGHT[severity] * Math.max(1, recentSightings(issue, now)) * (label.includes(CONFIRMED) ? 2 : 1);
 }
 
+// ---- Ranking: where an open issue stands, kept on its labels (priority:P0..P3) and in one pinned list, so the most important are on top without anyone sorting. ----
+export const PRIORITIES = ['P0', 'P1', 'P2', 'P3'];
+export const priorityLabel = band => `priority:${band}`;
+const BLOCKING_KINDS = ['functionality', 'error-shown', 'test-failure', 'page-overflow', 'tall-row', 'broken-image'];   // the kinds that keep a build from beta (blockers(), tools/canary_promote.py)
+
+// P0 would keep a build from beta or stable (a high, wrong-app finding seen twice this week or confirmed); P1 score 6+ (a high one seen twice, a medium one seen three times);
+// P2 score 3+ (a high one seen once, a medium one seen twice); P3 the rest (a medium or low one seen once). score() = severity x sightings this week, doubled by `confirmed`.
+export function priorityOf(issue, now = Date.now()) {
+  const labels = (issue.labels || []).map(item => item.name || item);
+  const severity = /\*\*(HIGH|MEDIUM|LOW)\*\*/.exec(issue.body || '')?.[1] || 'LOW';
+  const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  const seen = recentSightings(issue, now), points = score(issue, now);
+  if (severity === 'HIGH' && BLOCKING_KINDS.includes(kind) && (seen >= 2 || labels.includes(CONFIRMED))) return 'P0';
+  return points >= 6 ? 'P1' : points >= 3 ? 'P2' : 'P3';
+}
+
+// -> the open UI-loop issues, most important first: priority, then score, then the oldest. Parked ones (needs-human, wontfix-auto) are left out.
+export function rankIssues(issues, now = Date.now()) {
+  return issues.filter(issue => issue.state === 'OPEN' && !(issue.labels || []).some(item => [NEEDS_HUMAN, FALSE_POSITIVE].includes(item.name || item)))
+    .map(issue => ({issue, priority: priorityOf(issue, now), score: score(issue, now)}))
+    .sort((a, b) => PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || b.score - a.score || a.issue.number - b.issue.number);
+}
+
+const lastSeen = issue => [issue.createdAt, ...(issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).map(comment => comment.createdAt)].filter(Boolean).sort().at(-1) || '';
+export function rankingBody(ranked, now = Date.now(), limit = 12) {
+  const rows = ranked.slice(0, limit).map(({issue, priority, score: points}, index) => {
+    const at = lastSeen(issue), days = at ? Math.floor((now - Date.parse(at)) / 86400000) : null;
+    const age = days === null ? '' : days <= 0 ? 'today' : `${days} d ago${days >= 7 ? ' ⚠️' : ''}`;
+    return `| ${index + 1} | **${priority}** | #${issue.number} ${String(issue.title || '').replace(/^\[auto-ui\] /, '').replace(/\|/g, '/').slice(0, 80)} | ${points} | ${age} |`;
+  });
+  const counts = PRIORITIES.map(band => `${band}: ${ranked.filter(item => item.priority === band).length}`).join(' · ');
+  return ['**The open findings, most important first.** Re-ranked after every run.', '', `${counts} · ${ranked.length} open`, '',
+    '| # | Priority | Finding | Score | Last seen |', '|---|---|---|---|---|', ...(rows.length ? rows : ['| | | nothing open | | |']),
+    '', '**P0** would keep a build from beta or stable · **P1** seen again and again, or high and confirmed · **P2** worth a look · **P3** seen once. Score = severity × sightings this week (× 2 when a person confirmed it). ⚠️ = not seen for 7 days or more: it closes itself after two clean runs of its page.',
+    '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
+}
+
 // Which open issue is ready for a fix: seen twice this week (or confirmed by a person), a kind a UI change can fix, not parked, no pull request open already.
 // The most critical first (score), then the oldest.
 export function pickCandidate(issues, {openBranches = [], now = Date.now()} = {}) {

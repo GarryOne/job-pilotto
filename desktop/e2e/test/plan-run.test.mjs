@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {planRun} from '../plan-run.mjs';
-import {MAX_RUNS_PER_COMMIT, QUIET_RUNS, exploreDecision, reviewNeeded, shouldSkipScheduled, waitingFindings} from '../lib/plan.mjs';
+import {MAX_RUNS_PER_COMMIT, exploreDecision, reviewNeeded, shouldSkipScheduled, waitingFindings} from '../lib/plan.mjs';
 
 const ALL = ['activity', 'apply', 'jobs', 'settings'];
 const HEAD = 'a'.repeat(40), OLD = 'b'.repeat(40);
@@ -48,35 +48,27 @@ test('the AI reviews screenshots only when the UI or its tests changed, or a fin
 const ago = hours => new Date(Date.UTC(2026, 9, 3, 12) - hours * 3600000).toISOString();
 const sched = (hours, extra = {}) => ({event: 'schedule', headSha: HEAD, conclusion: 'success', createdAt: ago(hours), displayTitle: 'CI · End-to-end journey', ...extra});
 
-test('on an unchanged commit it explores until QUIET_RUNS varied runs in a row find nothing, never past the cap', () => {
-  const base = {head: HEAD, lastSha: HEAD, waiting: 0};
-  const runs = n => Array.from({length: n}, (_, i) => ({createdAt: ago(8 * (i + 1))}));   // newest first, 8 hours apart
-  assert.equal(exploreDecision({...base, lastSha: ''}).run, true, 'the very first run');
-  assert.equal(exploreDecision({...base, lastSha: OLD}).run, true, 'a new commit starts over');
-  assert.equal(exploreDecision({...base, waiting: 2, runsOnHead: runs(5)}).run, true, 'a finding that waits for its second sighting always runs');
-  const early = exploreDecision({...base, runsOnHead: runs(QUIET_RUNS - 1)});
-  assert.deepEqual([early.run, early.exploring], [true, true], 'one path seen is not enough');
-  const quiet = exploreDecision({...base, runsOnHead: runs(QUIET_RUNS), activity: [ago(100)]});
-  assert.deepEqual([quiet.run, quiet.exploring], [false, false]);
-  assert.match(quiet.why, /3 varied runs in a row found nothing new/);
-  const busy = exploreDecision({...base, runsOnHead: runs(QUIET_RUNS), activity: [ago(2)]});
-  assert.deepEqual([busy.run, busy.exploring], [true, true], 'an issue opened or seen again since the earliest of the last three');
-  assert.equal(exploreDecision({...base, runsOnHead: runs(MAX_RUNS_PER_COMMIT), activity: [ago(1)]}).run, false, 'the cap, however busy');
+test('a commit gets at most MAX_RUNS_PER_COMMIT looks; a new commit starts over; the first run ever goes', () => {
+  const runs = n => Array.from({length: n}, (_, i) => ({createdAt: ago(8 * (i + 1))}));
+  assert.equal(MAX_RUNS_PER_COMMIT, 3);
+  assert.equal(exploreDecision({head: HEAD, lastSha: '', runsOnHead: []}).run, true, 'the very first run');
+  const fresh = exploreDecision({head: HEAD, lastSha: OLD, runsOnHead: runs(9)});
+  assert.deepEqual([fresh.run, fresh.exploring], [true, false], 'a new commit starts over, whatever ran on the old one');
+  for (const n of [1, 2]) assert.deepEqual([exploreDecision({head: HEAD, lastSha: HEAD, runsOnHead: runs(n)}).run, exploreDecision({head: HEAD, lastSha: HEAD, runsOnHead: runs(n)}).exploring], [true, true]);
+  const done = exploreDecision({head: HEAD, lastSha: HEAD, runsOnHead: runs(3)});
+  assert.equal(done.run, false);
+  assert.match(done.why, /3 looks at this commit already/);
 });
 
-test('a schedule on an unchanged commit explores with the AI review on, then stops when it goes quiet; other runs of main\'s code do not count', async () => {
-  const early = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8)]});
-  assert.deepEqual([early.count, early.review], ['1', '1'], 'only the suite that varies: the other three would repeat themselves');
+test('a schedule on an unchanged commit takes up to three looks with the AI review on, only the suites that vary; other runs of main\'s code do not count', async () => {
+  const one = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8)]});
+  assert.deepEqual([one.count, one.review], ['1', '1'], 'only the suite that varies: the other three would repeat themselves');
+  assert.match(one.why, /look 2 of 3/);
   assert.equal((await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8)]}, [])).count, '0', 'no suite varies: nothing to explore');
-  assert.match(early.why, /exploring another path/);
-  const three = [sched(8), sched(16), sched(24)];
-  const quiet = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: three, issues: [{...issue(1), createdAt: ago(100)}]});   // seen twice long ago: nothing waits, nothing new
-  assert.equal(quiet.count, '0');
-  const found = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: three, issues: [{...issue(1), createdAt: ago(100), comments: [{body: 'Seen again in run x', createdAt: ago(3)}]}]});
-  assert.equal(found.count, '1', 'something was seen again since the earliest of the last three: explore again');
-  const others = [sched(8), sched(16, {displayTitle: 'RC soak desktop-v1'}), sched(24, {displayTitle: 'Stable canary desktop-v1'}), sched(30, {event: 'workflow_run'})];
-  const notCounted = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: others});
-  assert.match(notCounted.why, /only 1 run\(s\)/, 'soak top-ups, the canary and the gate test other commits under main\'s name');
+  assert.equal((await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8), sched(16)]})).count, '1', 'the third look');
+  assert.equal((await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8), sched(16), sched(24)]})).count, '0', 'three looks: nothing until the next commit');
+  const others = [sched(8), sched(16, {displayTitle: 'RC soak desktop-v1'}), sched(24, {displayTitle: 'Stable canary desktop-v1'}), sched(30, {event: 'workflow_run'}), sched(40, {event: 'push'})];
+  assert.match((await plan({EVENT: 'schedule', SHA: HEAD}, {runs: others})).why, /look 2 of 3/, 'soak top-ups, the canary, the gate and pushes test other things');
 });
 
 test('a schedule with new commits runs every suite on that commit', async () => {

@@ -26,9 +26,8 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   const lastSha = runs.find(run => run.event !== 'push' && ['success', 'failure'].includes(run.conclusion))?.headSha || '';
   const issues = json(['issue', 'list', '-R', repo, '--label', 'auto-ui', '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,createdAt']);
   const waiting = waitingFindings(issues);
-  // Runs of main's code on this commit (a gate run, a release candidate's top-up or the stable canary tests another commit under main's name: not these), and when the loop last found something.
+  // Runs of main's code on this commit (a gate run, a release candidate's top-up or the stable canary tests another commit under main's name: not these).
   const own = run => run.headSha === ref && run.event !== 'push' && run.event !== 'workflow_run' && !/^(Stable canary|RC soak|Gate) /.test(run.displayTitle || '');
-  const activity = issues.flatMap(issue => [issue.createdAt, ...(issue.comments || []).filter(comment => /^Seen again/.test(comment.body || '')).map(comment => comment.createdAt)]).filter(Boolean);
   let exploring = false, why = '';
 
   let suites = [], tag = '';
@@ -46,7 +45,7 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   } else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
   else if (event === 'workflow_dispatch' && env.GATE_TAG) { tag = env.GATE_TAG; suites = autoSuites(all, cadence); }   // the gate for one tag, by hand: the same suites as the nightly gate, on that tag's commit, and the promote job follows
   else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
-    const decision = exploreDecision({head: ref, lastSha, waiting, runsOnHead: runs.filter(own), activity});
+    const decision = exploreDecision({head: ref, lastSha, runsOnHead: runs.filter(own)});
     exploring = decision.exploring; why = decision.why;
     // Exploring (an unchanged commit): only the suites that walk a different path each run; the others would repeat themselves at full cost. None vary: nothing to explore.
     suites = !decision.run ? [] : decision.exploring ? autoSuites(all, cadence, true).filter(suite => varies.includes(suite)) : autoSuites(all, cadence, true);

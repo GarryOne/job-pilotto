@@ -43,26 +43,18 @@ export function waitingFindings(issues) {
   }).length;
 }
 
-// A scheduled run exists to find what changed, to confirm a finding, or (since the runs walk seeded random paths, lib/variation.mjs) to EXPLORE the same code another way.
-// On the same commit as the last run it keeps going while the varied runs still find something and stops once they go quiet:
-//  - at least QUIET_RUNS runs on the commit first (one run has seen one path);
-//  - then it runs again while any UI-loop issue was opened or seen again since the earliest of the last QUIET_RUNS runs;
-//  - never more than MAX_RUNS_PER_COMMIT (cost: macOS minutes and the shared AI credit);
-//  - a new commit starts over, and a finding that waits for its second sighting always runs.
-export const QUIET_RUNS = 3, MAX_RUNS_PER_COMMIT = 12;
+// One rule for a scheduled run: a commit gets at most MAX_RUNS_PER_COMMIT looks, then nothing runs until the next commit.
+//  - the first look is for what changed; the others walk another seeded random path over the same code (lib/variation.mjs), which is where a second look finds something;
+//  - a new commit starts over, so a busy day costs exactly the schedule (3 runs a day, whatever the number of commits) and an idle weekend costs 3 runs in all;
+//  - nothing goes stale while it waits: code that did not change cannot make an open finding wrong, and code that changed always gets a run at the next slot.
+export const MAX_RUNS_PER_COMMIT = 3;
 
-// runsOnHead: completed runs on this commit, newest first ({createdAt}); activity: ISO times when the UI loop found something (an issue opened, a "Seen again" comment).
-// -> {run, exploring, why}
-export function exploreDecision({head, lastSha, waiting, runsOnHead = [], activity = [], quiet = QUIET_RUNS, max = MAX_RUNS_PER_COMMIT}) {
+// runsOnHead: completed runs of main's code on this commit. -> {run, exploring, why}
+export function exploreDecision({head, lastSha, runsOnHead = [], max = MAX_RUNS_PER_COMMIT}) {
   if (!lastSha) return {run: true, exploring: false, why: 'no earlier run'};
   if (head !== lastSha) return {run: true, exploring: false, why: 'a new commit'};
-  if (waiting > 0) return {run: true, exploring: false, why: `${waiting} finding(s) wait for a second sighting`};
-  if (runsOnHead.length >= max) return {run: false, exploring: false, why: `${runsOnHead.length} runs on this commit: the cap`};
-  if (runsOnHead.length < quiet) return {run: true, exploring: true, why: `only ${runsOnHead.length} run(s) on this commit, exploring another path`};
-  const since = Date.parse(runsOnHead[quiet - 1].createdAt);
-  const found = activity.filter(at => Date.parse(at) > since).length;
-  return found ? {run: true, exploring: true, why: `the last ${quiet} runs still found something (${found})`}
-    : {run: false, exploring: false, why: `${quiet} varied runs in a row found nothing new`};
+  if (runsOnHead.length >= max) return {run: false, exploring: false, why: `${runsOnHead.length} looks at this commit already: waiting for the next one`};
+  return {run: true, exploring: true, why: `look ${runsOnHead.length + 1} of ${max} at this commit, another path`};
 }
 
 // Kept for the plain "same commit and nothing waits" question (the old rule): true when a run would only repeat the last one.

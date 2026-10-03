@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {LABEL, NOT_SEEN, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -34,6 +34,31 @@ function evidenceFile(finding) {
   return choices.map(name => path.join(finding.dir, name)).find(file => fs.existsSync(file)) || '';
 }
 const urlOf = (urls, to) => (to && urls[to]) || '';
+
+export const RANKING_TITLE = '🔥 Top issues (ranked automatically)';
+// Every open issue carries one priority:P0..P3 label (only changed ones are edited), and one pinned issue lists the top of the list, rewritten when it differs.
+export function refreshRanking({gh = realGh, issues, repo = '', now = Date.now()}) {
+  const ranked = rankIssues(issues, now);
+  for (const band of PRIORITIES) gh(['label', 'create', priorityLabel(band), '--force', '--color', {P0: 'B60205', P1: 'D93F0B', P2: 'FBCA04', P3: 'C5DEF5'}[band], '--description', 'Ranked automatically by the UI loop']);
+  for (const {issue, priority} of ranked) {
+    const have = (issue.labels || []).map(item => item.name || item).filter(name => name.startsWith('priority:'));
+    if (have.length === 1 && have[0] === priorityLabel(priority)) continue;
+    const args = ['issue', 'edit', String(issue.number), '--add-label', priorityLabel(priority)];
+    for (const old of have.filter(name => name !== priorityLabel(priority))) args.push('--remove-label', old);
+    gh(args);
+  }
+  const body = rankingBody(ranked, now);
+  const found = JSON.parse(gh(['issue', 'list', '--label', 'top-issues', '--state', 'open', '--json', 'number,body,id']));
+  if (found[0]) { if (found[0].body !== body) gh(['issue', 'edit', String(found[0].number), '--title', RANKING_TITLE, '--body', body]); return {ranked, number: found[0].number}; }
+  gh(['label', 'create', 'top-issues', '--force', '--color', 'B60205', '--description', 'The pinned ranked list of open findings']);
+  const url = gh(['issue', 'create', '--title', RANKING_TITLE, '--body', body, '--label', 'top-issues']).trim();
+  try {   // pinned (GitHub allows three); already pinned or no room is not worth failing the loop for
+    const number = url.split('/').pop();
+    const id = JSON.parse(gh(['issue', 'view', number, '--json', 'id'])).id;
+    gh(['api', 'graphql', '-f', `query=mutation { pinIssue(input: {issueId: "${id}"}) { issue { id } } }`]);
+  } catch { /* not pinned */ }
+  return {ranked, number: url.split('/').pop()};
+}
 
 // -> {filed, again, gone, candidate}. `gh` and `publish` (the screenshot upload: files -> {to: url}) are injected so the rules can be tested without GitHub.
 export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = ''}) {
@@ -138,6 +163,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     out.closed.push(issue.number);
   }
   issues = list();
+  refreshRanking({gh, issues, repo});
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
   out.candidate = pickCandidate(issues, {openBranches: branches});
   return {...out, findings};
