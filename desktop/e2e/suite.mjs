@@ -27,13 +27,13 @@ if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
 try {
-  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser});
+  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light});
   if (ctx.skipAll) {
     console.log(`The ${name} suite is skipped: ${ctx.needs.filter(item => !item.value).map(item => item.name).join(' and ')} not set.`);
     process.exit(0);
   }
   await suite.run(ctx);
-  await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });
+  if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app
 } catch (error) {
   if (!ctx?.runner.results.some(result => result.status === 'failed')) console.log(`✗ the ${name} suite stopped: ${error.message}`);
   process.exitCode = 1;

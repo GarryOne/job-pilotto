@@ -5,9 +5,10 @@ import {FALSE_POSITIVE, FIX_KINDS, LABEL, NEEDS_HUMAN, SIGHTINGS_NEEDED, sightin
 const SMOKE = 'settings';   // AI-free, about 30 s: proof that the shared test code still launches the app and drives a page
 
 // A suite's cadence (its `cadence` export): 'always' (default) runs on every automatic run, 'nightly' only in the nightly release gate and on a push that touches
-// its own files or `watches`, 'manual' never by itself (a person names it). cadence: {suite: 'nightly'}; watches: {suite: ['src/ai/score.py', 'dir/']}.
+// its own files or `watches`, 'watched' never in a schedule or the nightly gate but ONLY on a push that touches its own files or `watches` (a suite that
+// costs real AI money and judges one piece of code: the mail reading eval), 'manual' never by itself (a person names it). cadence: {suite: 'nightly'}; watches: {suite: ['src/ai/score.py', 'dir/']}.
 export function autoSuites(all, cadence = {}, alwaysOnly = false) {
-  return all.filter(suite => { const when = cadence[suite] || 'always'; return alwaysOnly ? when === 'always' : when !== 'manual'; });
+  return all.filter(suite => { const when = cadence[suite] || 'always'; return alwaysOnly ? when === 'always' : (when !== 'manual' && when !== 'watched'); });
 }
 
 export function suitesFor(files, all, {watches = {}, cadence = {}} = {}) {

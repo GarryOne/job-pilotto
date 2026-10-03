@@ -1,0 +1,295 @@
+{
+ "applications": [
+  {
+   "company": "Acme Labs",
+   "job": "Senior Site Reliability Engineer",
+   "stage": "Applied",
+   "applied": "2026-09-28"
+  },
+  {
+   "company": "Globex Corp",
+   "job": "Platform Engineer",
+   "stage": "Confirmation received",
+   "applied": "2026-09-25"
+  },
+  {
+   "company": "",
+   "job": "Principal SRE",
+   "stage": "Recruiter lead",
+   "via": "Example Talent",
+   "applied": ""
+  },
+  {
+   "company": "Initech",
+   "job": "DevOps Engineer",
+   "stage": "Screening",
+   "contact": "recruiter@initech-hr.test",
+   "applied": "2026-09-20"
+  }
+ ],
+ "cases": [
+  {
+   "id": "ats_thanks",
+   "strict": true,
+   "email": {
+    "from": "no-reply@us.greenhouse-mail.io",
+    "subject": "Thank you for applying to Acme Labs",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Hi Alex, we received your application for Senior Site Reliability Engineer at Acme Labs. Our team will review it and be in touch."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Confirmation received"
+    ],
+    "application": "Acme Labs"
+   }
+  },
+  {
+   "id": "ats_update_reject",
+   "strict": true,
+   "email": {
+    "from": "no-reply@us.greenhouse-mail.io",
+    "subject": "An update on your application to Globex Corp - Platform Engineer",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Hi Alex, thank you for your interest in Globex Corp. After careful consideration we have decided not to move forward with your application for Platform Engineer."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Rejected"
+    ],
+    "application": "Globex Corp"
+   }
+  },
+  {
+   "id": "reject_plain_words",
+   "strict": true,
+   "email": {
+    "from": "hr@initech-hr.test",
+    "subject": "Regarding your application",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Dear Alex, thank you for the conversation. Unfortunately we have decided to pursue other candidates for the DevOps Engineer role at Initech. We wish you all the best."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Rejected"
+    ],
+    "application": "Initech"
+   }
+  },
+  {
+   "id": "interview_invite",
+   "strict": true,
+   "email": {
+    "from": "recruiter@initech-hr.test",
+    "subject": "Interview invitation: DevOps Engineer at Initech",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Hi Alex, we would like to invite you to an interview for the DevOps Engineer role at Initech on Tuesday 6 October 2026 at 14:00 CEST on Zoom. Please confirm."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Interview scheduled"
+    ],
+    "application": "Initech"
+   }
+  },
+  {
+   "id": "offer",
+   "strict": true,
+   "email": {
+    "from": "talent@globex-hr.test",
+    "subject": "Your offer from Globex Corp",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Dear Alex, we are delighted to offer you the Platform Engineer position at Globex Corp. The offer letter is attached."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Offer"
+    ],
+    "application": "Globex Corp"
+   }
+  },
+  {
+   "id": "security_code",
+   "strict": true,
+   "email": {
+    "from": "no-reply@us.greenhouse-mail.io",
+    "subject": "Security code for your application to Acme Labs",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Your security code is 000000. It expires in 10 minutes. If you did not request it, ignore this email."
+   },
+   "expect": {
+    "relevant": false,
+    "kinds": [],
+    "application": null
+   }
+  },
+  {
+   "id": "card_receipt",
+   "strict": true,
+   "email": {
+    "from": "receipts@cafe.example",
+    "subject": "Your receipt from Example Cafe #000000",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Thank you for your purchase. Total: CHF 12.50. Paid with card ending 0000."
+   },
+   "expect": {
+    "relevant": false,
+    "kinds": [],
+    "application": null
+   }
+  },
+  {
+   "id": "vendor_usage_alert",
+   "strict": true,
+   "email": {
+    "from": "billing@vendor.example",
+    "subject": "You've used 90% of your organization's monthly API spend limit",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Your organization has used 90% of its monthly spend limit. Raise the limit in the console to avoid interruption."
+   },
+   "expect": {
+    "relevant": false,
+    "kinds": [],
+    "application": null
+   }
+  },
+  {
+   "id": "job_board_digest",
+   "strict": false,
+   "email": {
+    "from": "alerts@jobboard.example",
+    "subject": "10 new jobs for you: Site Reliability Engineer",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "New jobs matching your alert: SRE at Foo, DevOps at Bar, Platform at Baz. View all jobs."
+   },
+   "expect": {
+    "relevant": false,
+    "kinds": [],
+    "application": null
+   }
+  },
+  {
+   "id": "recruiter_linkedin_reply",
+   "strict": false,
+   "email": {
+    "from": "messages-noreply@linkedin.com",
+    "subject": "Message replied: Principal SRE - Remote opportunity for a global AI company",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Example Talent replied to your message: \"Great, I will send you the details of the Principal SRE role today.\""
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Reply received"
+    ],
+    "application": "Example Talent"
+   }
+  },
+  {
+   "id": "new_outreach",
+   "strict": false,
+   "email": {
+    "from": "sam@other-agency.test",
+    "subject": "Staff Platform Engineer, fintech, remote",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Hi Alex, I read your profile and your work on Kubernetes platforms stood out. I am hiring a Staff Platform Engineer for a fintech client in Zurich (remote two days a week, CHF 150-180k). It owns the internal developer platform. Are you free for a 15 minute call this week?"
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Recruiter outreach"
+    ],
+    "application": null
+   }
+  },
+  {
+   "id": "calendar_notification",
+   "strict": false,
+   "email": {
+    "from": "calendar-notification@google.com",
+    "subject": "Notification: Intro call Alex / Sam - Platform Engineer @ Thu 8 Oct 2026 10:00 - 10:30 (CEST)",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Globex Corp: Intro call Alex / Sam - Platform Engineer. When: Thu 8 Oct 2026 10:00 - 10:30 (CEST). Joining: meet link."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Interview scheduled"
+    ],
+    "application": "Globex Corp"
+   }
+  },
+  {
+   "id": "feedback_after_rejection",
+   "strict": false,
+   "email": {
+    "from": "recruiter@initech-hr.test",
+    "subject": "Re: Regarding your application",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Thanks for asking. The panel felt your Kubernetes depth was strong, but we needed more Go experience for this DevOps Engineer role at Initech."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Feedback received",
+     "Rejected"
+    ],
+    "application": "Initech"
+   }
+  },
+  {
+   "id": "untracked_confirmation",
+   "strict": false,
+   "email": {
+    "from": "no-reply@us.greenhouse-mail.io",
+    "subject": "Thank you for applying to Umbrella Corp",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Hi Alex, we received your application for QA Lead at Umbrella Corp."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Confirmation received"
+    ],
+    "application": null
+   }
+  },
+  {
+   "id": "tracked_company_marketing",
+   "strict": false,
+   "email": {
+    "from": "news@acme-labs.test",
+    "subject": "Acme Labs Q3 product update",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Read about what we shipped this quarter at Acme Labs: faster dashboards, new integrations and more."
+   },
+   "expect": {
+    "relevant": false,
+    "kinds": [],
+    "application": null
+   }
+  },
+  {
+   "id": "interview_rescheduled",
+   "strict": false,
+   "email": {
+    "from": "recruiter@initech-hr.test",
+    "subject": "Rescheduled: your interview with Initech",
+    "date": "2026-10-01T09:00:00+02:00",
+    "body": "Hi Alex, we have moved your DevOps Engineer interview at Initech to Wednesday 7 October 2026 at 11:00 CEST. Same Zoom link."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Interview scheduled"
+    ],
+    "application": "Initech"
+   }
+  }
+ ]
+}

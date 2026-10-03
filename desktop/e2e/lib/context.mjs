@@ -25,10 +25,12 @@ export function notionToken(suite) {
 }
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false} = {}) {
-  const key = KEY(), token = notionToken(suite);
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false} = {}) {
+  const key = KEY(), token = light ? '' : notionToken(suite);
   let session = null;
   const runner = createRunner(() => session);
+  // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
+  if (light) return {suite, key, runner, run: runner.run, ARTIFACTS, E2E, needs: [{name: 'E2E_ANTHROPIC_KEY', value: key}], skipAll: !key, close: async () => {}};
   const ctx = {suite, key, token, runner, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
     needs: [{name: `E2E_ANTHROPIC_KEY`, value: key}, {name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${suite.toUpperCase()}`})`, value: token}]};
   if (!key || !token) { ctx.skipAll = true; return ctx; }
