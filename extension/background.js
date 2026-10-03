@@ -661,7 +661,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const {tipsSeen = []} = await chrome.storage.local.get('tipsSeen');
       const fits = TIPS.filter(tip => !tip.ats || tip.ats === ats);
       const topical = fits.filter(tip => tip.category === message.prefer);
-      const pool = (topical.length ? topical : fits).filter(tip => tip.evidence !== 'to-test');
+      const pool = topical.length ? topical : fits;
       const next = [...pool].sort((a, b) => tipsSeen.indexOf(a.id) - tipsSeen.indexOf(b.id) || (Math.random() - 0.5))[0];   // never shown first, then the oldest
       if (!next) return reply({ok: false});
       await chrome.storage.local.set({tipsSeen: [...tipsSeen.filter(id => id !== next.id), next.id].slice(-60)});

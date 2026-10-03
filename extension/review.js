@@ -408,7 +408,7 @@
     button.textContent = answer?.ok ? 'Claude is starting in Job Pilotto' : 'Job Pilotto did not answer';
     setTimeout(() => { button.disabled = false; button.textContent = 'Take over with Claude'; }, 8000);
   };
-  const LABEL = {research: 'Fact', recruiters: 'Recruiters say', advice: 'Tip'};
+  const LABEL = {research: 'Fact', recruiters: 'Recruiters say', advice: 'Tip', 'to-test': 'Worth trying'};
   async function askTip() {
     const answer = await send({type: 'panelTip', host: location.hostname, prefer: tipFor}).catch(() => null);
     if (!answer?.ok) return;

@@ -21,8 +21,10 @@ export function atsOf(url) {
 
 // The next tip: never one already shown until all have been, system-specific tips only on their own system and first.
 // Returns {tip, seen}; once everything was shown the list starts over (without repeating the last tip straight away).
-export function nextTip({pool = TIPS, seen = [], ats = '', random = Math.random} = {}) {
-  const fits = pool.filter(tip => !tip.ats || tip.ats === ats);
+export function nextTip({pool = TIPS, seen = [], ats = '', categories = null, random = Math.random} = {}) {
+  const system = pool.filter(tip => !tip.ats || tip.ats === ats);
+  const topical = categories?.length ? system.filter(tip => categories.includes(tip.category)) : [];
+  const fits = topical.length ? topical : system;   // a page's own topics, else any tip
   if (!fits.length) return {tip: null, seen};
   let fresh = fits.filter(tip => !seen.includes(tip.id));
   let kept = seen.filter(id => fits.some(tip => tip.id === id));
@@ -41,14 +43,16 @@ const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(k
 const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 const still = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-let ats = '', ticking = null;
+// One bar per page that shows tips: the Application sessions page (its address decides which system's tips come first) and, on the other stops, the topics
+// of that stop. Hiding is global: one × hides the bars everywhere, "Show tips" brings them back.
+const ATS = new WeakMap(), TICK = new WeakMap();
 
 function advance(slot) {
-  const picked = nextTip({seen: read(SEEN_KEY, []), ats});
+  const picked = nextTip({seen: read(SEEN_KEY, []), ats: ATS.get(slot) || '', categories: slot.dataset.categories?.split(',') || null});
   if (!picked.tip) return;
   write(SEEN_KEY, picked.seen);
   const chip = slot.querySelector('.ss-tip-chip'), text = slot.querySelector('.ss-tip-text');
-  chip.textContent = {research: 'Fact', recruiters: 'Recruiters say'}[picked.tip.evidence] || 'Tip';
+  chip.textContent = {research: 'Fact', recruiters: 'Recruiters say', 'to-test': 'Worth trying'}[picked.tip.evidence] || 'Tip';
   text.textContent = picked.tip.text;
   slot.title = picked.tip.source ? `Source: ${picked.tip.source}` : picked.tip.evidence === 'recruiters' ? 'What recruiters report in Reddit threads (2025-26): firsthand, a few threads each, not a survey' : '';
   if (!still()) text.style.animationDuration = `${Math.max(MIN_SECONDS, text.scrollWidth / PIXELS_PER_SECOND)}s`;
@@ -61,12 +65,13 @@ function build(slot) {
   const hide = el('button', 'ss-tip-hide', '×');
   hide.type = 'button';
   hide.title = 'Hide tips';
-  hide.addEventListener('click', () => { write(HIDDEN_KEY, true); clearInterval(ticking); ticking = null; paint(slot); });
+  hide.addEventListener('click', () => { write(HIDDEN_KEY, true); repaintAll(); });
   slot.replaceChildren(el('span', 'ss-tip-chip'), frame, hide);
   // The next tip starts when the last one has left the frame (the animation ran once through).
   text.addEventListener('animationiteration', () => advance(slot));
   advance(slot);
-  if (still()) ticking = setInterval(() => advance(slot), STILL_MS);   // no motion: swap the line instead
+  clearInterval(TICK.get(slot));
+  if (still()) TICK.set(slot, setInterval(() => advance(slot), STILL_MS));   // no motion: swap the line instead
 }
 
 function paint(slot) {
@@ -74,7 +79,8 @@ function paint(slot) {
   if (read(HIDDEN_KEY, false)) {
     const show = el('button', 'ss-tip-show link-button', 'Show tips');
     show.type = 'button';
-    show.addEventListener('click', () => { write(HIDDEN_KEY, false); paint(slot); });
+    show.addEventListener('click', () => { write(HIDDEN_KEY, false); repaintAll(); });
+    clearInterval(TICK.get(slot));
     slot.replaceChildren(show);
     slot.classList.add('is-hidden');
     return;
@@ -83,12 +89,24 @@ function paint(slot) {
   build(slot);
 }
 
+const barsOnScreen = () => [...document.querySelectorAll('.ss-tips[data-ready]')];
+function repaintAll() { for (const slot of barsOnScreen()) paint(slot); }
+
+// A bar on another stop's page (Jobs, Focus, Interviews): shows the tips about that stop.
+export function mountStageTips(id, categories) {
+  const slot = document.getElementById(id);
+  if (!slot || slot.dataset.ready) return;
+  slot.dataset.categories = categories.join(',');
+  slot.dataset.ready = '1';
+  paint(slot);
+}
+
 // Called whenever the sessions page is drawn: shows the ticker while there is a session, otherwise hides the slot.
 export function syncTips({active, url = ''}) {
   const slot = document.getElementById('ss-tips');
   if (!slot) return;
   slot.hidden = !active;
   if (!active) return;
-  ats = atsOf(url);
+  ATS.set(slot, atsOf(url));
   if (!slot.dataset.ready) { slot.dataset.ready = '1'; paint(slot); }
 }

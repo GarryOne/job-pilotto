@@ -90,4 +90,17 @@ export const TIPS = [
     text: 'A photo is optional in Switzerland and usually left out in the US and UK. Keep a version without one.'},
   {id: 'agree-with-cv', evidence: 'advice', category: 'knockout',
     text: 'Keep residence, relocation, office days and work permit the same on the CV and in the form. A contradiction costs trust.'},
+  // Interviews and what comes after them (the Learn stop). Advice, no numbers: they are about how to use what the app already keeps.
+  {id: 'iv-review-soon', evidence: 'advice', category: 'interview',
+    text: 'Review an interview within a day. What you still remember of the questions is the most useful part.'},
+  {id: 'iv-weak-topic', evidence: 'advice', category: 'interview',
+    text: 'Pick one weak topic from your last review and practise it before the next round.'},
+  {id: 'iv-example', evidence: 'advice', category: 'interview',
+    text: 'Answer with the situation, what you did and the result. One real example beats three general claims.'},
+  {id: 'iv-ask-them', evidence: 'advice', category: 'interview',
+    text: 'Prepare two questions about the team and how success is measured. You are choosing them too.'},
+  {id: 'iv-consent', evidence: 'advice', category: 'interview',
+    text: 'Ask everyone before you record, every time. Many places require everyone\'s consent.'},
+  {id: 'rejection-data', evidence: 'advice', category: 'mindset',
+    text: 'A rejection with no reason is still data. Note the stage and date: patterns show after a handful.'},
 ];

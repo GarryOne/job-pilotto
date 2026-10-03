@@ -131,7 +131,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - **Form filling**: The extension fills every field from your kit. Claude answers only what the kit does not, and marks those answers for a read-through.
 - **A nudge at the form** *(new)*: On a form that has your general CV, the panel offers a tailored one. Fill again and it replaces the file.
 - **Knockout questions, first** *(new)*: Work permit, sponsorship, location and office-day questions are marked and moved to the top, because an employer can set them to reject (rules, no AI).
-- **A tip at every form** *(new)*: Short tips from recruiters' own accounts and employer documentation, each labelled Fact, Recruiters say or Tip, so you see how strong the claim is.
+- **A tip at every step** *(new)*: One slim line of advice on Jobs, Focus, Interviews, Application sessions and on the form itself. Each is labelled Fact, Recruiters say, Worth trying or Tip, so you see how strong it is. One click hides them all.
 - **Learns from every form**: Each form that leaves fields teaches reusable notes from what you already gave. A question you answer once is answered for good.
 - **Recipes and labels from all installs** *(new)*: Which fields a site really means, learned from fills across installs and served as data. Nothing from the network ever becomes prompt text.
 - **Apply with Claude**: For pages the extension cannot fill alone, Claude follows the employer site and sign-up. You solve CAPTCHAs and submit.

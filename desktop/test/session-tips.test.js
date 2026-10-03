@@ -67,3 +67,9 @@ test('after a full round it starts over without repeating the last tip straight 
 test('an empty pool gives no tip', () => {
   assert.equal(nextTip({pool: []}).tip, null);
 });
+
+test('a page\'s own topics come first, and any tip when it has none', () => {
+  for (let i = 0; i < 30; i++) assert.equal(nextTip({categories: ['interview'], random: Math.random}).tip.category, 'interview');
+  assert.ok(nextTip({categories: ['nothing-like-this']}).tip, 'an unknown topic still gives a tip');
+  assert.ok(TIPS.some(tip => tip.category === 'interview') && TIPS.some(tip => tip.category === 'follow-up'), 'each stop has tips');
+});

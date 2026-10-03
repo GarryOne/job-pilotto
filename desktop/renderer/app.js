@@ -23,6 +23,7 @@ import {init as startup} from './pages/startup.js';
 import {init as calendar} from './pages/calendar.js';
 import {init as interviews} from './pages/interviews.js';
 import {init as matchCheck} from './pages/match-check.js';
+import {mountStageTips} from './tips.js';
 import {init as focus} from './pages/focus.js';
 import {init as feedback} from './pages/feedback.js';
 import {init as happened} from './pages/happened.js';
@@ -70,6 +71,10 @@ await data();
 await startup();
 await interviews();
 matchCheck();
+// Tips on the other stops (the Application sessions page has its own): the topics of that stop, one slim bar, hidden everywhere with one ×.
+mountStageTips('tips-jobs', ['cv', 'tailor', 'ats', 'knockout', 'timing']);
+mountStageTips('tips-focus', ['follow-up', 'mindset', 'timing']);
+mountStageTips('tips-interviews', ['interview', 'mindset']);
 await calendar();
 await focus();
 await feedback();
