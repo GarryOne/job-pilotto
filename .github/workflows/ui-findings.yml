@@ -72,4 +72,11 @@ jobs:
           # returns 1 and bash -e ended the step, so nothing was filed (3 Oct 2026, four runs).
           tested=$(find e2e-artifacts -name tested.txt | head -1)
           if [ -n "$tested" ]; then read -r label sha < "$tested" || true; BUILD="${label} @ ${sha:0:7} (${RUN_EVENT} run)"; fi
+          # The app version too, when a build was made from that commit (its desktop-v* tag; looked up now, as a push's build can finish after its e2e run).
+          # No build yet: the line keeps just the commit. A peeled `^{}` row is an annotated tag's commit.
+          full=${sha:-$RUN_SHA}
+          if [ -n "$full" ]; then
+            version=$(git ls-remote --tags origin 'refs/tags/desktop-v*' | awk -v s="$full" '$1 == s { t = $2; sub("refs/tags/desktop-", "", t); sub(/\^\{\}$/, "", t); print t; exit }') || true
+            if [ -n "$version" ]; then BUILD="${version} · ${BUILD}"; fi
+          fi
           node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD" --platform "$PLATFORM"
