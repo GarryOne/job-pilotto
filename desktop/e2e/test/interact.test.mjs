@@ -58,3 +58,10 @@ test('on a page with one of each, the probe flags exactly the broken controls an
     assert.ok(results.every(item => item.control !== 'Delete everything'));
   } finally { await browser.close(); }
 });
+
+test('"Restart" is never pressed by the probe (it relaunches the app: Windows interactions run, 3 Oct 2026)', async () => {
+  const {isSafe} = await import('../lib/interact.mjs');
+  assert.equal(isSafe({text: 'Restart'}), false);
+  assert.equal(isSafe({text: 'Relaunch now'}), false);
+  assert.equal(isSafe({text: 'Details'}), true);
+});

@@ -7,7 +7,8 @@ const SLOW_MS = 500;       // an app call at least this long should show it is w
 const MAX_CONTROLS = 40;
 
 // What a probe must never press: it deletes, sends, signs in, leaves the app, or spends AI credit.
-const UNSAFE_TEXT = /\b(delete|remove|quit|exit|sign\s?(in|out)|log\s?(in|out)|connect|disconnect|install|update|upgrade|apply|submit|send|record|import|replace|run|reset|clear|discard|stop|cancel|retry|start|generate|draft|scan|export|download|unlink|revoke|buy|pay|copy|open in|reveal|show in|check|refresh|rebuild|redo|find|search|review|score|prepare|sync|rescan|test)\b/i;
+// restart/relaunch: `\bstart` does not match inside "Restart", and Interviews' "Restart" (microphone denied on a Windows runner) relaunched the app mid-probe.
+const UNSAFE_TEXT = /\b(delete|remove|quit|exit|restart|relaunch|sign\s?(in|out)|log\s?(in|out)|connect|disconnect|install|update|upgrade|apply|submit|send|record|import|replace|run|reset|clear|discard|stop|cancel|retry|start|generate|draft|scan|export|download|unlink|revoke|buy|pay|copy|open in|reveal|show in|check|refresh|rebuild|redo|find|search|review|score|prepare|sync|rescan|test)\b/i;
 const UNSAFE_CLASS = /danger|destructive/i;
 
 export function isSafe({text = '', cls = '', href = '', command = ''}) {
