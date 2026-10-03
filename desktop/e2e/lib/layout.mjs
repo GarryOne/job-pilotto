@@ -25,6 +25,26 @@ export async function visit(ctx, views) {
   }
 }
 
+// The app's narrowest window (main.js minWidth 1024): the sidebar becomes an icon rail under 1180 px, a state the 1280 px default never shows and where
+// the sidebar's text spilled out. Visits `views` there with their own screenshots (<view>-narrow, so the AI review judges them too), then restores the size.
+// Findings are downgraded to warnings: the pass files issues, it does not fail a journey (nor hold a release) the first time it looks.
+export async function visitNarrow(ctx, views, {width = 1024, height = 700, take = snap} = {}) {
+  const resize = size => ctx.app.evaluate(({BrowserWindow}, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; const was = win.getSize(); win.setSize(w, h); return was; }, size);
+  const was = await resize([width, height]);
+  try {
+    const railed = await ctx.page.waitForFunction(() => document.querySelector('.app')?.classList.contains('rail'), null, {timeout: 10000}).then(() => true, () => false);
+    if (!railed) ctx.findings.push({view: 'app-chrome', severity: 'warning', kind: 'layout', detail: `the sidebar did not become an icon rail at ${width} px wide (sidebar-rail.js: under 1180 px)`});
+    for (const view of views) {
+      const before = ctx.findings.length;
+      await ctx.page.click(`.nav[data-view="${view}"]`);
+      await take(ctx, `${view}-narrow`, {view});
+      for (const finding of ctx.findings.slice(before)) finding.severity = 'warning';
+    }
+  } finally {
+    await resize(was);
+  }
+}
+
 // Severe findings fail the step; every finding is written for the nightly triage.
 export function finish(ctx) {
   writeFindings(ctx);

@@ -3,7 +3,7 @@
 // Nothing that deletes, sends, signs in, leaves the app or spends AI credit is ever pressed (lib/interact.mjs isSafe). Starts from a set-up install.
 import fs from 'node:fs';
 import path from 'node:path';
-import {finish} from '../lib/layout.mjs';
+import {finish, visitNarrow} from '../lib/layout.mjs';
 import {probePage} from '../lib/interact.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {settle} from '../lib/app.mjs';
@@ -35,6 +35,9 @@ export async function run(ctx) {
       console.log(`  ${view}: ${results.length} controls pressed, ${findings.length} flagged, ${skipped.length} left alone (${skipped.slice(0, 6).join(' | ')})`);
     }, {needs: ctx.needs});
   }
+  await ctx.run('the narrowest window: the sidebar is an icon rail and every page still fits', async () => {
+    await visitNarrow(ctx, ['focus', 'jobs', 'actions', 'settings']);
+  }, {needs: ctx.needs});
   fs.writeFileSync(path.join(ARTIFACTS, 'interactions.json'), JSON.stringify(all, null, 2));
   await ctx.run('interaction findings are written', async () => {
     if (!all.length) throw new Error('the probe pressed no control on any page: it found nothing to test');
