@@ -142,6 +142,10 @@ jobs:
             gh issue comment "$number" --repo "$REPO" --body "The proposed change was refused by the guard (it touched files a UI fix may not touch, or had no test), so nothing was opened. See the run: $RUN_URL"
             exit 1
           fi
+          # CODEMAP.md is generated from the source tree: a fix that adds or renames a file makes the "CODEMAP.md is up to date" test fail, and the fix was thrown away for want of
+          # a regenerated file (#99, 3 Oct 2026: a good fix, lost). Claude may not run it, so the workflow does, after the guard has checked what Claude touched.
+          (cd desktop && node scripts/codemap.mjs > /dev/null)
+          changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v -E '^(\.heal/|e2e-artifacts/)' || true)
           if ! (cd desktop && npm test); then
             gh issue comment "$number" --repo "$REPO" --body "A fix was tried, but the desktop tests failed, so no pull request was opened. See the run: $RUN_URL"
             exit 1

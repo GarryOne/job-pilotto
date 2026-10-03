@@ -374,3 +374,11 @@ test('a layout finding\'s title quotes the text on the page, and its fingerprint
   const [again] = normalize({ui: [{...ui[0], detail: ui[0].detail.replace('378px', '380px')}]});
   assert.equal(again.id, finding.id);
 });
+
+// #94: a real bug (a raw API error in the CV message) that only showed while the API was failing was closed as "not seen in two runs" once the limit was raised.
+test('an issue a person confirmed is never closed by "not seen"; an unconfirmed one still is', async () => {
+  const {toClose} = await import('../lib/triage.mjs');
+  const issue = (number, labels) => ({number, state: 'OPEN', labels: [{name: 'auto-ui'}, {name: 'not-seen-latest'}, ...labels.map(name => ({name}))], comments: []});
+  const closing = toClose([issue(1, []), issue(2, ['confirmed'])], new Set(), 'https://x/runs/9', () => true);
+  assert.deepEqual(closing.map(item => item.number), [1]);
+});
