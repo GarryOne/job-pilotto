@@ -26,8 +26,8 @@ export function toastMessage(title, body, hint) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   // ---------- start ----------
-  // Notion is required (it's where Job Pilotto keeps your data): set up without it -> the Notion step first.
-  if (shared.state.settings.setupDone && shared.state.notion) {
+  // Set up: the app. Without Notion (Notion later) it is only trying, so it opens on Jobs; the pages that need Notion show a gate.
+  if (shared.state.settings.setupDone) {
     show($('app'));
     loadJobs();
     // After a reload (⌘R), the page and Settings section it was on, once all the code below has loaded (every page's
@@ -38,11 +38,11 @@ export async function init() {
         openView(view);
         if (view === 'settings' && section && document.querySelector(`[data-settings-page="${section}"]`)) settingsPage(section);
       }, 0);
-    } else openView('focus');
+    } else openView(shared.state.notion ? 'focus' : 'jobs');
   } else {
     show($('wizard'));
     const saved = shared.state.settings.wizardStep === 'goals' ? 'cv' : shared.state.settings.wizardStep;  // the old goals step: now part of the CV step
-    const resume = shared.state.settings.setupDone ? 'notion' : saved || 'welcome';
+    const resume = saved === 'notion' ? 'cv' : saved || 'welcome';  // an install that stopped on the old Notion step carries on at the CV
     if (resume === 'draft') toDraft(); else goStep(resume);
   }
 

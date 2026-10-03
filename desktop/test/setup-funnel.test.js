@@ -8,7 +8,10 @@ test('the steps match the wizard', () => {
   assert.match(core, new RegExp(`STEPS = \\[${STEPS.map(s => `'${s}'`).join(', ')}\\]`));
   // The website's funnel (/telemetry) counts the same steps, then "done".
   const site = fs.readFileSync(new URL('../../site/src/telemetry.js', import.meta.url), 'utf8');
-  assert.match(site, new RegExp(`SETUP_STEPS = \\[${[...STEPS, 'done'].map(s => `'${s}'`).join(', ')}\\]`));
+  // The website keeps 'notion' as a legacy step (older apps reported it; a newer install that went past it counts as having reached it).
+  const siteSteps = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];
+  assert.deepEqual(STEPS, siteSteps.filter(s => s !== 'notion' && s !== 'done'));
+  assert.match(site, new RegExp(`SETUP_STEPS = \\[${siteSteps.map(s => `'${s}'`).join(', ')}\\]`));
   // Every step has its page in the wizard, and the sidebar lists exactly these.
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   assert.deepEqual([...html.matchAll(/<li data-step="([a-z]+)"/g)].map(m => m[1]), STEPS);
@@ -20,8 +23,8 @@ test('one report per step reached, only moving forward; one when setup finishes'
   const before = {firstRunAt: '2026-09-30T10:00:00Z'};
   assert.deepEqual(track({wizardStep: 'ai'}, before, t0 + 3 * 60000), {step: 'ai', index: 1, minutes: 3, ai: 'own'});
   assert.equal(track({wizardStep: 'ai'}, {...before, setupFurthest: 'ai'}), null);        // same step again
-  assert.equal(track({wizardStep: 'welcome'}, {...before, setupFurthest: 'notion'}), null);  // going back
-  assert.equal(track({wizardStep: 'notion'}, {...before, setupFurthest: 'ai', aiTrial: true}).ai, 'trial');
+  assert.equal(track({wizardStep: 'welcome'}, {...before, setupFurthest: 'cv'}), null);  // going back
+  assert.equal(track({wizardStep: 'cv'}, {...before, setupFurthest: 'ai', aiTrial: true}).ai, 'trial');
   assert.equal(track({setupDone: true}, {...before, setupFurthest: 'extras'}).step, 'done');
   assert.equal(track({setupDone: true}, {...before, setupDone: true}), null);
   assert.equal(track({theme: 'dark'}, before), null);

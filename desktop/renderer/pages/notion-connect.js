@@ -104,6 +104,14 @@ export function init() {
   $('notion-connect-title').textContent = GATE_TITLE;
   $('notion-connect-note').textContent = GATE_FOOTNOTE;
   $('notion-connect-go').addEventListener('click', connect);
+  // Setup → Optional extras → Notion: the first three advantages; "Connect" opens the prompt on this step (the other extras'
+  // buttons finish setup and open Settings, strategy-review.js); connected, the button is "Manage" and does that like the rest.
+  $('extras-notion-benefits').replaceChildren(...notionBenefits(3).children);
+  $('extras-notion').addEventListener('click', event => {
+    if (notionConnected()) return;
+    event.stopImmediatePropagation();  // this listener is registered first: the finish-setup handler never runs
+    openNotionConnect({reason: 'none', where: 'extras', from: 'wizard', then: () => import('./settings.js').then(settings => settings.showExtrasStatus())});
+  });
   $('notion-connect-later').addEventListener('click', () => {
     if (!current) return;
     if (current.notNow) { $('notion-connect-dialog').close(); return; }

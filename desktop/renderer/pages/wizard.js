@@ -31,19 +31,10 @@ export function goStep(name) {
       if (hints.ANTHROPIC_API_KEY) $('anthropic-key').placeholder = `${hints.ANTHROPIC_API_KEY} · saved (paste a new one to replace it)`;
     });
   }
-  if (name === 'notion') showNotionNext();
   if (name === 'extras') import('./settings.js').then(settings => settings.showExtrasStatus());  // Connected / Manage, as in Settings
-  // Reviewing a finished setup: the workspace stays as it is (switching it is Settings → Notion).
-  const reviewing = !!shared.state.settings.setupDone && !!shared.state.notion;
-  $('notion-oauth').disabled = reviewing;
-  document.querySelector('.step[data-step="notion"] .oauth').classList.toggle('locked', reviewing);
   if (name === 'ai') {
     if (!chooser) chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
     aiStep();
-  }
-  if (name === 'notion' && (notionReady() || reviewing) && !$('notion-key').value) {
-    message('notion-message', reviewing ? '✓ Connected to your Job Pilotto workspace. To connect a different one: Settings → Notion.'
-      : '✓ Connected to your Job Pilotto workspace. Continue, or connect again.', 'ok');
   }
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
   document.querySelectorAll('#step-list li').forEach((li, i) => {
@@ -55,33 +46,6 @@ export function goStep(name) {
   show($('review-mode'), !!shared.state.settings.setupDone);  // setup done before: this is a review, not a redo
   $('draft-save').textContent = shared.state.settings.setupDone ? 'Replace my strategy…' : 'Save strategy & continue';
   if (name === 'cv') refreshCv();
-}
-
-const notionReady = () => !!shared.state.notion && Object.keys(shared.state.notion).length >= 11;
-// Connected earlier (e.g. setup run again): Continue without connecting again.
-function showNotionNext() { show($('notion-next'), notionReady() || (!!shared.state.settings.setupDone && !!shared.state.notion)); }
-async function showNotionResult(result) {
-  const found = $('notion-found');
-  found.replaceChildren();
-  if (result.titles) {
-    show(found);
-    for (const [env, title] of Object.entries(result.titles)) {
-      const ok = result.ids?.[env];
-      found.append(Object.assign(document.createElement('div'), {className: ok ? 'yes' : 'no', textContent: `${ok ? '✓' : '✗'} ${title}`}));
-    }
-  }
-  if (result.ok) {
-    $('notion-key').value = '';
-    shared.state = await window.pilot.state();
-    message('notion-message', `Connected ✓ ${result.workspace ? `${result.workspace}: ` : ''}your workspace is ready.`, 'ok');
-    setTimeout(() => goStep('cv'), 900);
-  } else if (result.error) {
-    message('notion-message', result.error, 'error');
-  } else if (result.missing?.length) {
-    message('notion-message', 'The connection can\'t see your Job Pilotto page yet, or sees more than one page. Click Connect with Notion again and keep "Use a template provided by the developer" (or tick only your Job Pilotto page). Notion can take a minute: try again shortly.', 'error');
-  } else {
-    message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
-  }
 }
 
 // The save window: a step is ● while it runs (with blocks written), ✓ when it's done; the bar sums them.
@@ -98,7 +62,7 @@ export async function init() {
   // Setup was done before (Run setup again, Rebuild from CV): leave the wizard any time, nothing changes.
   $('wizard-exit').addEventListener('click', () => { show($('wizard'), false); show($('app')); loadJobs(); });
   // A key already there (e.g. the free credit from the one-command install): no AI step to do.
-  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(aiDone() ? 'notion' : 'ai')));
+  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(aiDone() ? 'cv' : 'ai')));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
     const current = STEPS.find(step => !document.querySelector(`.step[data-step="${step}"]`).hidden);
     goStep(STEPS[Math.max(0, STEPS.indexOf(current) - 1)]);
@@ -109,13 +73,13 @@ export async function init() {
     if (chooser?.picked() === 'cli') {  // the user's own Claude Code, verified: no API key needed
       shared.state.settings = await window.pilot.setAiEngine('cli');
       message('ai-message', '', '');
-      goStep('notion');
+      goStep('cv');
       return;
     }
     const key = $('anthropic-key').value.trim();
     if (!key && shared.state.secrets.ANTHROPIC_API_KEY) {  // saved earlier: just continue
       shared.state.settings = await window.pilot.setAiEngine('api');
-      goStep('notion');
+      goStep('cv');
       return;
     }
     if (!key.startsWith('sk-ant-')) { message('ai-message', 'Anthropic keys start with sk-ant-. Copy the whole key.', 'error'); return; }
@@ -128,9 +92,9 @@ export async function init() {
     shared.state.settings = await window.pilot.setAiEngine('api');
     $('anthropic-key').value = '';
     message('ai-message', 'Saved ✓', 'ok');
-    goStep('notion');
+    goStep('cv');
   });
-  $('ai-skip').addEventListener('click', () => goStep('notion'));
+  $('ai-skip').addEventListener('click', () => goStep('cv'));
   // The free AI credit (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
   $('ai-trial-go').addEventListener('click', async () => {
     const pasted = $('ai-trial-key').value.trim();
@@ -143,45 +107,7 @@ export async function init() {
     shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
     $('ai-trial-key').value = '';
     message('ai-message', '✓ Using your $1 of free AI. Add your own key any time in Settings → Anthropic.', 'ok');
-    setTimeout(() => goStep('notion'), 900);
-  });
-
-  // Notion is required: the wizard continues only when every database and page of the template is found.
-  $('notion-template').addEventListener('click', () => window.pilot.openExternal(shared.state.templateUrl));
-  $('notion-next').addEventListener('click', () => goStep('cv'));
-  $('notion-oauth').addEventListener('click', async () => {
-    $('notion-oauth').disabled = true;
-    message('notion-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
-    const result = await window.pilot.notionOAuth();
-    $('notion-oauth').disabled = false;
-    // It didn't work: now offer the token way (hidden until then; Connect with Notion is enough for nearly everyone).
-    if (!result.ok && !result.titles) { message('notion-message', result.error || 'Not connected.', 'error'); show($('notion-manual')); return; }
-    if (!result.ok) show($('notion-manual'));
-    showNotionResult(result);
-  });
-  $('notion-connect').addEventListener('click', async () => {
-    const key = $('notion-key').value.trim();
-    if (!key) { message('notion-message', 'Paste the API token from step 2.', 'error'); return; }
-    $('notion-connect').disabled = true;
-    message('notion-message', 'Looking for your Job Pilotto workspace…', 'waiting');
-    const result = await window.pilot.notionConnect(key);
-    $('notion-connect').disabled = false;
-    showNotionResult(result);
-  });
-
-  window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage, template, moving}) => {
-    if (moving) { message('notion-message', 'Moving your strategy and matches into Notion…', 'waiting'); return; }
-    if (building) { show($('notion-found'), false); message('notion-message', 'Connected ✓ Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }
-    if (waitingPage) { show($('notion-found'), false); message('notion-message', 'Waiting for Notion to share your Job Pilotto page with the app…', 'waiting'); return; }
-    message('notion-message', template
-      ? `Connected ✓ Notion is copying the Job Pilotto template into your workspace: ${found} of ${total} ready. About a minute; the app keeps checking.`
-      : `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`, 'waiting');
-    const list = $('notion-found');
-    list.replaceChildren();
-    show(list);
-    for (const [env, title] of Object.entries(titles)) {
-      list.append(Object.assign(document.createElement('div'), {className: ids[env] ? 'yes' : 'pending', textContent: `${ids[env] ? '✓' : '…'} ${title}`}));
-    }
+    setTimeout(() => goStep('cv'), 900);
   });
 
   // What's happening, line by line: finished pieces ✓, the one being written last.

@@ -86,17 +86,17 @@ test('demo mode: Python runs only the jobs that read the demo folder', async () 
 });
 
 test('the look-around report: a setup event the funnel does not count as a step', () => {
-  const event = lookAround('notion', {firstRunAt: '2026-09-30T10:00:00Z'}, Date.parse('2026-09-30T10:05:00Z'));
-  assert.deepEqual(event, {step: 'look_around', from: 'notion', minutes: 5});
+  const event = lookAround('cv', {firstRunAt: '2026-09-30T10:00:00Z'}, Date.parse('2026-09-30T10:05:00Z'));
+  assert.deepEqual(event, {step: 'look_around', from: 'cv', minutes: 5});
   assert.equal(lookAround('<script>', {}).from, 'other');
   assert.equal(lookAround('welcome', {}).minutes, null);
 });
 
-test('the wizard offers the demo on Welcome and Notion, and the demo banner is there', () => {
+test('the wizard offers the demo on Welcome (Notion is no longer a step), and the demo banner is there', () => {
   const html = fs.readFileSync(path.join(here, 'renderer', 'index.html'), 'utf8');
   const step = name => html.slice(html.indexOf(`<div class="step" data-step="${name}">`), html.indexOf('<div class="step"', html.indexOf(`<div class="step" data-step="${name}">`) + 10));
   assert.match(step('welcome'), /data-look-around="welcome"[^>]*>Look around first \(demo data\)</);
-  assert.match(step('notion'), /data-look-around="notion"[^>]*>Look around first \(demo data\)</);
+  assert.ok(!html.includes('data-step="notion"'));
   assert.match(html, /id="demo-banner"[^>]*hidden/);
   assert.match(html, /nothing is real, nothing is sent/);
   assert.match(html, /id="demo-leave">Set up my own</);

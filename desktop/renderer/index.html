@@ -23,7 +23,6 @@
     <ol id="step-list">
       <li data-step="welcome">Welcome</li>
       <li data-step="ai">AI</li>
-      <li data-step="notion">Notion</li>
       <li data-step="cv">Your CV</li>
       <li data-step="draft">Your strategy</li>
       <li data-step="extras">Optional extras</li>
@@ -31,7 +30,7 @@
     <div class="steps-foot">
       <button class="nav wizard-exit" id="wizard-exit" type="button" hidden><i data-icon="undo"></i>Back to the app</button>
       <button class="nav wizard-stuck" id="wizard-stuck" type="button"><i data-icon="help"></i>Stuck? Tell us</button>
-      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Your data stays in your accounts: this Mac and your Notion. Keys are encrypted in your Keychain.</span></p>
+      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Your data stays in your accounts: this Mac, and your Notion when you connect it. Keys are encrypted in your Keychain.</span></p>
       <p class="fine app-version" data-version></p>
     </div>
   </aside>
@@ -53,7 +52,6 @@
       <section class="card step-card">
         <ul class="checks">
           <li><span class="ui-tile tone-signal"><i data-icon="zap"></i></span>Add your AI key (Anthropic)</li>
-          <li><span class="ui-tile tone-signal"><i data-icon="database"></i></span>Set up your Job Pilotto workspace in Notion (free)</li>
           <li><span class="ui-tile tone-signal"><i data-icon="file"></i></span>Choose your CV</li>
           <li><span class="ui-tile tone-signal"><i data-icon="target"></i></span>Check the goals and strategy it proposes from your CV</li>
         </ul>
@@ -67,7 +65,7 @@
 
     <div class="step" data-step="ai">
       <header class="view-head step-head">
-        <div><span class="eyebrow">Step 1 of 5</span>
+        <div><span class="eyebrow">Step 1 of 4</span>
           <h1>Connect your AI</h1>
           <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. Choose how it runs: your own
             Claude Code (your Claude plan), or an Anthropic API key (you pay Anthropic per use, usually a few dollars a month).</p></div>
@@ -102,52 +100,9 @@
       </div>
     </div>
 
-    <div class="step" data-step="notion">
-      <header class="view-head step-head">
-        <div><span class="eyebrow">Step 2 of 5</span>
-          <h1>Your Job Pilotto workspace in Notion</h1>
-          <p class="muted subtitle">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p></div>
-      </header>
-      <section class="card step-card oauth">
-        <ol class="howto">
-          <li><b>Click Connect with Notion</b> below. Notion opens in your browser.</li>
-          <li>Keep <b>Use a template provided by the developer</b> → <b>Allow access</b>. Notion adds a ready
-            <b>Job Pilotto</b> page to your workspace.</li>
-          <li><b>Come back here</b>. Job Pilotto finishes setting it up, about a minute.</li>
-        </ol>
-        <div class="step-field"><button class="primary with-icon" id="notion-oauth"><i data-icon="link"></i><span>Connect with Notion</span></button>
-          <p class="message" id="notion-message"></p>
-          <div id="notion-found" class="found" hidden></div></div>
-      </section>
-      <details class="troubleshoot manual" id="notion-own">
-        <summary>I already have a Job Pilotto page</summary>
-        <ol class="howto">
-          <li>Click <b>Connect with Notion</b> above. On Notion's page choose <b>Select pages</b> → tick <b>only</b> your
-            Job Pilotto page → <b>Allow access</b>.</li>
-          <li>Job Pilotto uses what's there and adds anything missing. (An empty page named Job Pilotto works too: everything is built inside it.)</li>
-        </ol>
-      </details>
-      <details class="troubleshoot manual" id="notion-manual" hidden>
-        <summary>Having trouble? Use a token instead</summary>
-        <ol class="howto">
-          <li><b>Make a page for it:</b> in Notion's sidebar, <b>+</b> (new page) → name it <b>Job Pilotto</b> and leave it empty. Job Pilotto builds everything inside it when you connect. (Or copy <button class="link" id="notion-template">the Job Pilotto template</button> → <b>Duplicate</b>; missing parts are added the same way.)</li>
-          <li><b>Create a connection:</b> open <a href="#" data-link="https://www.notion.so/profile/integrations">Notion's Developer tools</a> → <b>Connections</b> → <b>New connection</b> → name it "Job Pilotto", keep <b>API token</b> → <b>Create connection</b> → copy the token (starts with <code>ntn_</code>).</li>
-          <li><b>Give it access:</b> on the connection's <b>Content access</b> tab → <b>Edit access</b> → under <b>Private → Top level pages</b>, tick only <b>Job Pilotto</b> → <b>Save</b>.</li>
-          <li>Paste the token here.</li>
-        </ol>
-        <label for="notion-key">Notion API token</label>
-        <div class="inline"><input id="notion-key" type="password" placeholder="ntn_…" autocomplete="off"><button class="secondary" id="notion-connect">Connect</button></div>
-      </details>
-      <div class="actions">
-        <button class="ghost" data-back>Back</button>
-        <button class="secondary" data-look-around="notion" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
-        <button class="primary" id="notion-next" hidden>Continue</button>
-      </div>
-    </div>
-
     <div class="step" data-step="cv">
       <header class="view-head step-head">
-        <div><span class="eyebrow">Step 3 of 5</span>
+        <div><span class="eyebrow">Step 2 of 4</span>
           <h1>Your CV</h1>
           <p class="muted subtitle">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
             It stays on this Mac and in your Notion; only the AI reads it when building your strategy.</p></div>
@@ -167,7 +122,7 @@
 
     <div class="step" data-step="draft">
       <header class="view-head step-head">
-        <div><span class="eyebrow">Step 4 of 5</span>
+        <div><span class="eyebrow">Step 3 of 4</span>
           <h1 id="draft-title">Your strategy</h1>
           <p class="muted subtitle" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
         <div class="head-actions"><span class="pill-ai" id="draft-cost" hidden></span></div>
@@ -248,11 +203,15 @@
 
     <div class="step" data-step="extras">
       <header class="view-head step-head">
-        <div><span class="eyebrow">Step 5 of 5 · optional</span>
+        <div><span class="eyebrow">Step 4 of 4 · optional</span>
           <h1>Optional extras</h1>
           <p class="muted subtitle">Everything works without these. You can add them later in Settings.</p></div>
       </header>
       <div class="service-grid is-rows extras">
+        <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="layers"></i></span>
+          <span class="service-text"><b>Notion</b><span class="muted small">Track applications, kits and interviews in your own free Notion workspace. Needed to save jobs, apply, and for Always on, Telegram and Gmail.</span>
+            <ul class="ui-benefits" id="extras-notion-benefits"></ul></span>
+          <button class="secondary" id="extras-notion" data-goto-settings="notion" data-connect="Connect with Notion">Connect with Notion</button></div>
         <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="puzzle"></i></span>
           <span class="service-text"><b>Chrome extension</b><span class="muted small">Fills application forms in Chrome in seconds. You review and submit.</span>
             <span class="muted small"><span>In Chrome: open <code>chrome://extensions</code> → turn on <b>Developer mode</b> → <b>Load unpacked</b> → paste this folder. It connects itself within 30 seconds.</span></span>

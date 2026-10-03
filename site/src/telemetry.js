@@ -124,7 +124,7 @@ export async function channels(db, days, now = new Date()) {
 export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
   looking: 'Just looking', broke: 'Something broke', other: 'Other'};  // = desktop/lib/setup-funnel.js REASONS
 export const GATE_WHY = {no_notion: "Doesn't use Notion", privacy: 'Privacy', later: 'Later', other: 'Something else'};  // = desktop/lib/notion-gate.js WHY
-export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];
+export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];  // 'notion': older apps only (it left the wizard 3 Oct 2026); "reached" counts furthest ≥ step, so newer installs pass it
 export async function funnel(db, days, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const rows = (await db.prepare("SELECT install, data FROM telemetry WHERE kind = 'setup' AND day >= ?").bind(from).all()).results || [];
