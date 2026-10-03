@@ -3,7 +3,7 @@ name: CI · UI findings
 # THE PRODUCER of the UI loop. After EVERY end-to-end run (e2e.yml: the run after the nightly build, and the three daytime runs: four a day) it reads the run's artifacts
 # and files what they found as GitHub issues, one per problem: severity, kind, view and suite as labels, the screenshot, the app's state, the logs of a failed step, a
 # "Seen again" comment with a new screenshot each time a finding comes back, and "Not seen" when its page was reviewed again and it did not. No AI fix happens here
-# (ui-fix.yml does that, once a day, for the most critical issue). A false positive is closed with the label `wontfix-auto`; a real one a person marks `confirmed`.
+# (ui-fix.yml does that, four times a day, for the most critical issue). A false positive is closed with the label `wontfix-auto`; a real one a person marks `confirmed`.
 on:
   workflow_run:
     workflows: ['CI · End-to-end journey', 'CI · End-to-end on Windows']   # a Windows run files its own issues, labelled platform:windows

@@ -1,6 +1,6 @@
 name: CI · UI fixer
 
-# THE FIXER of the UI loop, once a day (early morning, after the nightly build and its end-to-end run). It reads the open issues the producer (ui-findings.yml) has been
+# THE FIXER of the UI loop, four times a day (after the nightly build's end-to-end run, and after each daytime one). It reads the open issues the producer (ui-findings.yml) has been
 # filing all day, picks the MOST CRITICAL one that is ready (severity times how often it came back this week, doubled by a person's `confirmed` label; two sightings this
 # week or `confirmed` are needed), and lets Claude Code fix it and open ONE pull request for the owner to review. Never merges anything.
 # Claude only edits files (no git, no gh, no network); the last step checks the paths (desktop/renderer and its tests only), requires a test, runs the whole desktop suite,
@@ -9,7 +9,7 @@ name: CI · UI fixer
 # Needs: ANTHROPIC_API_KEY (the same repository secret as the weekly self-review).
 on:
   schedule:
-    - cron: '30 5 * * *'   # 07:30 in Zurich in summer, 06:30 in winter
+    - cron: '30 5,11,15,19 * * *'   # four a day (owner, 3 Oct 2026: too many open issues): the early one after the nightly build, then ~1.5 h after each daytime e2e run is filed
   workflow_dispatch:
 
 permissions:
@@ -47,7 +47,7 @@ jobs:
         run: |
           open=$(gh pr list --repo "$REPO" --state open --label auto-ui-fix --json number --jq length)
           echo "Open automatic fixes: $open"
-          if [ "$open" -ge 3 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Three automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ "$open" -ge 4 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Four automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
       - name: Put the finding's screenshot next to it
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         run: |
@@ -128,7 +128,7 @@ jobs:
             echo "## After"
             echo "When a later end-to-end run photographs this page and the finding is gone, the loop comments here and on #$number with the new screenshot."; echo
             echo "Fixes #$number"; echo
-            echo "Opened by the UI fixer (once a day) for the most critical finding of the week: seen in two runs, or confirmed by a person. Review it like any change; it never merges itself."; } > .heal/body.md
+            echo "Opened by the UI fixer (four times a day) for the most critical finding of the week: seen in two runs, or confirmed by a person. Review it like any change; it never merges itself."; } > .heal/body.md
           branch="auto-fix/$id"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

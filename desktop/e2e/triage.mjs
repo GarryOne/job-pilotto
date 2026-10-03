@@ -207,7 +207,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   fs.mkdirSync(outDir, {recursive: true});
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac'});
   const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
-  // The producer only files and updates issues. The fixer (ui-fix.yml, once a day) picks the most critical one: node pick.mjs.
+  // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
     const candidate = result.candidate;
     if (candidate) { writeCandidate(candidate, outDir); lines.push(`Ready to fix: #${candidate.number} ${candidate.title}`); }

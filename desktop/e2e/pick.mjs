@@ -1,4 +1,4 @@
-// The fixer's first step (ui-fix.yml, once a day): the most critical open finding that is ready for a fix, from the issues the producer (ui-findings.yml) keeps filing.
+// The fixer's first step (ui-fix.yml, four times a day): the most critical open finding that is ready for a fix, from the issues the producer (ui-findings.yml) keeps filing.
 //   node pick.mjs --out .heal      (needs `gh` and GH_TOKEN)
 // Writes <out>/candidate.json + <out>/prompt.md and sets the step output `candidate` (the issue number, or "none").
 import fs from 'node:fs';
