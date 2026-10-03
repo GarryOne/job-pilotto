@@ -68,9 +68,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   // A suite-failure issue is cleared only when its suite ran in this run with NO failure at all (a different earlier failure would hide the later steps) and was not skipped.
   const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => name.replace(/^e2e-artifacts-/, '')) : []);
   const failedSuites = new Set([...suiteFailures.map(item => item.suite), ...skipped.map(item => item.suite)]);
+  // A sidebar / brand / badge issue lives in the app's chrome, which every page photograph checks (view 'app-chrome') but which has no photograph of its own, so the "reviewed
+  // again" test above can never see it: it is cleared when the layout check ran in this run and found nothing in the chrome (the narrow-window pass counts: it is a warning, not silence).
+  const chromeIssue = issue => /^\[auto-ui\] (app-chrome|failure-screenshot):/.test(issue.title || '') && /sidebar|brand|badge|icon|nav/i.test(issue.title || '');
+  const chromeCleared = issue => chromeIssue(issue) && found['ui-findings.json'].length > 0 && !findings.some(finding => finding.view === 'app-chrome');
   const suiteCleared = issue => { const suite = suiteOfIssue(issue); return !!suite && ranSuites.has(suite) && !failedSuites.has(suite); };
   const clearedNow = issue => {
-    if (suiteCleared(issue)) return true;
+    if (suiteCleared(issue) || chromeCleared(issue)) return true;
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     return source === 'the AI screenshot review' ? reviewed.ai.has(view) : source === 'the layout check' ? reviewed.layout.has(view) : false;
@@ -78,7 +82,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const gone = issues.filter(issue => issue.state === 'OPEN' && !matched.has(issue.number) && !(issue.labels || []).some(item => (item.name || item) === NOT_SEEN)
     && !(issue.comments || []).some(comment => (comment.body || '').includes(runUrl))).map(issue => {
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
-    if (suiteCleared(issue)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it
+    if (suiteCleared(issue) || chromeCleared(issue)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it; or a chrome issue the layout check no longer sees
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     const seen = source === 'the AI screenshot review' ? reviewed.ai : source === 'the layout check' ? reviewed.layout : new Set();
     const dir = found[source === 'the AI screenshot review' ? 'ai-findings.json' : 'ui-findings.json'].map(file => path.dirname(file)).find(folder => views(folder).includes(view));

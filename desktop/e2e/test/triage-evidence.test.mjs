@@ -275,3 +275,22 @@ test('an issue from a seeded run says which path it walked and how to replay it;
   assert.match(seeded, /Variation: seed 4242, window 1024x700\. Replay the same path: `E2E_SEED=4242 node suite\.mjs interactions`/);
   assert.doesNotMatch(issueBody(finding, RUN, {suite: 'interactions', seed: 0}), /Variation:/);
 });
+
+const chromeIssue = (number, title, view = 'failure-screenshot', labels = []) => ({number, state: 'OPEN', title: `[auto-ui] ${view}: ${title}`, body: '**HIGH** · text · found by the AI screenshot review\n\nx',
+  labels: [{name: 'auto-ui'}, {name: `fp:chrome${number}`}, ...labels.map(name => ({name}))], comments: []});
+
+test('a sidebar issue is cleared by a run whose layout check ran and found nothing in the chrome; closed after a second such run', () => {
+  const first = stub([chromeIssue(55, 'Brand name clipped at sidebar edge')]);
+  const out1 = triage({artifacts: artifacts({}), runUrl: RUN, gh: first.gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(out1.gone.length, 1, 'marked "not seen"');
+  const second = stub([chromeIssue(55, 'Brand name clipped at sidebar edge', 'failure-screenshot', ['not-seen-latest'])]);
+  assert.deepEqual(triage({artifacts: artifacts({}), runUrl: RUN, gh: second.gh, publish: publish([]), repo: 'o/r'}).closed, [55]);
+});
+
+test('a sidebar issue stays open while the chrome still has a finding, and an issue about something else is left alone', () => {
+  const still = stub([chromeIssue(49, 'spill on app-chrome: nav.sidebar', 'app-chrome', ['not-seen-latest'])]);
+  const root = artifacts({ui: [{view: 'app-chrome', severity: 'warning', kind: 'spill', chrome: true, detail: 'nav.sidebar content runs out of its box'}]});
+  assert.equal(triage({artifacts: root, runUrl: RUN, gh: still.gh, publish: publish([]), repo: 'o/r'}).closed.length, 0);
+  const other = stub([chromeIssue(59, 'Status bar contradicts Gmail and check state', 'failure-screenshot', ['not-seen-latest'])]);
+  assert.equal(triage({artifacts: artifacts({}), runUrl: RUN, gh: other.gh, publish: publish([]), repo: 'o/r'}).closed.length, 0, 'a status-bar issue needs its own review');
+});
