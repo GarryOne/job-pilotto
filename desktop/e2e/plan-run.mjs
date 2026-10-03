@@ -4,7 +4,7 @@
 // workflow_run (after the nightly build): every suite, on the build's own commit, and `tag` = the release to promote when all of them pass.
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-import {autoSuites, reviewNeeded, shouldSkipScheduled, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
+import {autoSuites, exploreDecision, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
 
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
@@ -22,9 +22,14 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   const changed = (from, to) => { try { return lines(gh(['api', `repos/${repo}/compare/${from}...${to}`, '--paginate', '-q', '.files[].filename'])); } catch { return null; } };
   const json = args => { try { return JSON.parse(gh(args)); } catch { return []; } };
 
-  const runs = json(['run', 'list', '-R', repo, '--workflow', 'e2e.yml', '--status', 'completed', '-L', '30', '--json', 'event,headSha,conclusion']);
+  const runs = json(['run', 'list', '-R', repo, '--workflow', 'e2e.yml', '--status', 'completed', '-L', '60', '--json', 'event,headSha,conclusion,createdAt,displayTitle']);
   const lastSha = runs.find(run => run.event !== 'push' && ['success', 'failure'].includes(run.conclusion))?.headSha || '';
-  const waiting = waitingFindings(json(['issue', 'list', '-R', repo, '--label', 'auto-ui', '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments']));
+  const issues = json(['issue', 'list', '-R', repo, '--label', 'auto-ui', '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,createdAt']);
+  const waiting = waitingFindings(issues);
+  // Runs of main's code on this commit (a gate run, a release candidate's top-up or the stable canary tests another commit under main's name: not these), and when the loop last found something.
+  const own = run => run.headSha === ref && run.event !== 'push' && run.event !== 'workflow_run' && !/^(Stable canary|RC soak|Gate) /.test(run.displayTitle || '');
+  const activity = issues.flatMap(issue => [issue.createdAt, ...(issue.comments || []).filter(comment => /^Seen again/.test(comment.body || '')).map(comment => comment.createdAt)]).filter(Boolean);
+  let exploring = false, why = '';
 
   let suites = [], tag = '';
   if (event === 'push') suites = suitesFor(changed(env.BEFORE, sha) || ['desktop/e2e/suite.mjs'], all, {watches, cadence});
@@ -39,14 +44,18 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
       if (tag) suites = autoSuites(all, cadence);   // the nightly gate: always + nightly suites, not the manual ones
     }
   } else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
-  else if (event === 'schedule') suites = shouldSkipScheduled({event, head: ref, lastSha, waiting}) ? [] : autoSuites(all, cadence, true);   // the three-a-day schedule: the always suites
+  else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
+    const decision = exploreDecision({head: ref, lastSha, waiting, runsOnHead: runs.filter(own), activity});
+    exploring = decision.exploring; why = decision.why;
+    suites = decision.run ? autoSuites(all, cadence, true) : [];
+  }
   else suites = String(env.ONLY || '').trim() ? suitesNamed(env.ONLY, all) : autoSuites(all, cadence);   // names: exactly those, even a manual one; none: everything not manual
 
   const files = lastSha ? changed(lastSha, ref) : null;
-  const review = reviewNeeded({files: files || [], waiting, known: files !== null});
+  const review = exploring || reviewNeeded({files: files || [], waiting, known: files !== null});   // an exploring run exists for what the AI review sees
   const include = [];
   for (const suite of suites) include.push({suite, minutes: await minutes(suite)});
-  return {matrix: JSON.stringify({include}), count: String(include.length), ref, tag, review: review ? '1' : '0'};
+  return {matrix: JSON.stringify({include}), count: String(include.length), ref, tag, review: review ? '1' : '0', why};
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
@@ -56,5 +65,5 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const out = await planRun({env: process.env, all: SUITES, cadence, watches, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15});
   for (const [key, value] of Object.entries(out)) console.log(`${key}=${value}`);
   const summary = `Suites: ${JSON.parse(out.matrix).include.map(item => item.suite).join(', ') || '(none)'} · commit ${String(out.ref).slice(0, 7)}${out.tag ? ` · promotes ${out.tag} when all pass` : ''} · AI review ${out.review === '1' ? 'on' : 'off'}`;
-  console.error(summary);
+  console.error(out.why ? `${summary} · ${out.why}` : summary);
 }

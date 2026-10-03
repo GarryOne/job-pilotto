@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {planRun} from '../plan-run.mjs';
-import {reviewNeeded, shouldSkipScheduled, waitingFindings} from '../lib/plan.mjs';
+import {MAX_RUNS_PER_COMMIT, QUIET_RUNS, exploreDecision, reviewNeeded, shouldSkipScheduled, waitingFindings} from '../lib/plan.mjs';
 
 const ALL = ['activity', 'apply', 'jobs', 'settings'];
 const HEAD = 'a'.repeat(40), OLD = 'b'.repeat(40);
@@ -45,9 +45,40 @@ test('the AI reviews screenshots only when the UI or its tests changed, or a fin
   assert.equal(reviewNeeded({files: [], waiting: 0, known: false}), true, 'no earlier run to compare with: review');
 });
 
-test('a schedule with nothing new runs nothing; with new commits it runs every suite on that commit', async () => {
-  const unchanged = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [{event: 'schedule', headSha: HEAD, conclusion: 'success'}]});
-  assert.equal(unchanged.count, '0');
+const ago = hours => new Date(Date.UTC(2026, 9, 3, 12) - hours * 3600000).toISOString();
+const sched = (hours, extra = {}) => ({event: 'schedule', headSha: HEAD, conclusion: 'success', createdAt: ago(hours), displayTitle: 'CI · End-to-end journey', ...extra});
+
+test('on an unchanged commit it explores until QUIET_RUNS varied runs in a row find nothing, never past the cap', () => {
+  const base = {head: HEAD, lastSha: HEAD, waiting: 0};
+  const runs = n => Array.from({length: n}, (_, i) => ({createdAt: ago(8 * (i + 1))}));   // newest first, 8 hours apart
+  assert.equal(exploreDecision({...base, lastSha: ''}).run, true, 'the very first run');
+  assert.equal(exploreDecision({...base, lastSha: OLD}).run, true, 'a new commit starts over');
+  assert.equal(exploreDecision({...base, waiting: 2, runsOnHead: runs(5)}).run, true, 'a finding that waits for its second sighting always runs');
+  const early = exploreDecision({...base, runsOnHead: runs(QUIET_RUNS - 1)});
+  assert.deepEqual([early.run, early.exploring], [true, true], 'one path seen is not enough');
+  const quiet = exploreDecision({...base, runsOnHead: runs(QUIET_RUNS), activity: [ago(100)]});
+  assert.deepEqual([quiet.run, quiet.exploring], [false, false]);
+  assert.match(quiet.why, /3 varied runs in a row found nothing new/);
+  const busy = exploreDecision({...base, runsOnHead: runs(QUIET_RUNS), activity: [ago(2)]});
+  assert.deepEqual([busy.run, busy.exploring], [true, true], 'an issue opened or seen again since the earliest of the last three');
+  assert.equal(exploreDecision({...base, runsOnHead: runs(MAX_RUNS_PER_COMMIT), activity: [ago(1)]}).run, false, 'the cap, however busy');
+});
+
+test('a schedule on an unchanged commit explores with the AI review on, then stops when it goes quiet; other runs of main\'s code do not count', async () => {
+  const early = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [sched(8)]});
+  assert.deepEqual([early.count, early.review], ['4', '1']);
+  assert.match(early.why, /exploring another path/);
+  const three = [sched(8), sched(16), sched(24)];
+  const quiet = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: three, issues: [{...issue(1), createdAt: ago(100)}]});   // seen twice long ago: nothing waits, nothing new
+  assert.equal(quiet.count, '0');
+  const found = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: three, issues: [{...issue(1), createdAt: ago(100), comments: [{body: 'Seen again in run x', createdAt: ago(3)}]}]});
+  assert.equal(found.count, '4', 'something was seen again since the earliest of the last three');
+  const others = [sched(8), sched(16, {displayTitle: 'RC soak desktop-v1'}), sched(24, {displayTitle: 'Stable canary desktop-v1'}), sched(30, {event: 'workflow_run'})];
+  const notCounted = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: others});
+  assert.match(notCounted.why, /only 1 run\(s\)/, 'soak top-ups, the canary and the gate test other commits under main\'s name');
+});
+
+test('a schedule with new commits runs every suite on that commit', async () => {
   const changed = await plan({EVENT: 'schedule', SHA: HEAD}, {runs: [{event: 'schedule', headSha: OLD, conclusion: 'success'}], files: ['desktop/lib/x.js']});
   assert.deepEqual([changed.count, changed.ref, changed.review, changed.tag], ['4', HEAD, '0', '']);
 });
