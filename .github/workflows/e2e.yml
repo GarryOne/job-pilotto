@@ -185,6 +185,17 @@ jobs:
           node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
           cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$status" != 0 ]; then echo "$TAG stays a pre-release: a real high-severity finding in its end-to-end run." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: The Notion schema is additive over the current stable (so "Back to stable" cannot split anybody's data)
+        if: vars.JOB_PILOTTO_SOAK == 'on'
+        run: |
+          stable=$(gh release list -R "$GITHUB_REPOSITORY" -L 20 --json tagName,isPrerelease,isDraft -q '[.[] | select(.isDraft | not) | select(.isPrerelease | not)][0].tagName')
+          if [ -z "$stable" ] || [ "$stable" = "$TAG" ]; then echo "No older stable to compare with." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          gh api "repos/$GITHUB_REPOSITORY/contents/config/notion_schema.json?ref=$stable" -q .content | base64 -d > "$RUNNER_TEMP/stable-schema.json"
+          gh api "repos/$GITHUB_REPOSITORY/contents/config/notion_schema.json?ref=$TAG" -q .content | base64 -d > "$RUNNER_TEMP/candidate-schema.json"
+          status=0
+          python3 tools/check_schema_additive.py "$RUNNER_TEMP/stable-schema.json" "$RUNNER_TEMP/candidate-schema.json" > "$RUNNER_TEMP/schema.txt" || status=$?
+          echo "Schema $TAG vs stable $stable:" >> "$GITHUB_STEP_SUMMARY"; cat "$RUNNER_TEMP/schema.txt" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "$TAG is not offered to beta testers: it changes the Notion schema in a way the older app cannot undo." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
       - name: build.yml (the unit suites) is green on the commit
         run: |
           verdict=$(gh run list -R "$GITHUB_REPOSITORY" --workflow build.yml --commit "$REF" --status completed --json conclusion | python3 tools/e2e_gate.py ci)
