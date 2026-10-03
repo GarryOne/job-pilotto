@@ -155,6 +155,21 @@ export async function run(ctx) {
     if (!left.tip || !['Fact', 'Recruiters say', 'Worth trying', 'Tip'].includes(left.tip.chip) || left.tip.text.length < 20) throw new Error(`the panel shows no tip with a valid label (${JSON.stringify(left.tip)})`);
   }, {needs: ctx.needs});
 
+  await ctx.run('the session page says it too: "Before you submit" counts the knockout question that is still the person\'s, and says which CV goes in', async () => {
+    const form = FORMS.multistep;
+    await page.click('.nav[data-view="jobs"]');
+    await page.locator('article.job-row').filter({hasText: form.company}).first().locator('.row-main').click();   // "View session": the session this form belongs to
+    const strip = page.locator('#ss-before');
+    await strip.waitFor({state: 'visible', timeout: 30000}).catch(async () => {
+      throw new Error(`the session page shows no "Before you submit" strip (the form card says: "${await page.locator('#ss-form-card').innerText().catch(() => 'not shown')}")`);
+    });
+    const knock = (await page.locator('#ss-before-knock').innerText()).replace(/\s+/g, ' ');
+    if (!/1 question can reject you automatically/i.test(knock) || !/sponsorship/i.test(knock)) throw new Error(`the knockout row does not count and name the sponsorship question: "${knock}"`);
+    await page.locator('#ss-before-cv').waitFor({state: 'visible', timeout: 15000});
+    const cvRow = (await page.locator('#ss-before-cv').innerText()).replace(/\s+/g, ' ');
+    if (!/general CV|tailored/i.test(cvRow)) throw new Error(`the CV row says neither which CV goes in nor that one is tailored: "${cvRow}"`);
+  }, {needs: ctx.needs});
+
   await ctx.run('a form with a control the extension cannot operate: the miss is reported to the app', async () => {
     const form = FORMS.unknown;
     const {tab, state} = await apply(form);
