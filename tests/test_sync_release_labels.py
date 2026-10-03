@@ -45,6 +45,17 @@ class BodyTests(unittest.TestCase):
         self.assertIn('none right now', body)
         self.assertIn('| none |', body)
 
+    def test_newest_builds_are_only_those_newer_than_stable(self):
+        # 3 Oct 2026: the pinned issue listed 0.4 Alpha 253 and 251 beside stable 0.5.0; an older build can never become stable.
+        rels = [release(256), release(255, isPrerelease=False, isLatest=True), release(254), release(253)]
+        body = labels.channels_body(rels, set())
+        newest = [line for line in body.splitlines() if 'Newest builds' in line][0]
+        self.assertIn('0.5.256', newest)
+        self.assertNotIn('0.5.254', newest)
+        self.assertNotIn('0.5.253', newest)
+        only_old = labels.channels_body([release(255, isPrerelease=False, isLatest=True), release(254)], set())
+        self.assertIn('none since 0.5.255', [line for line in only_old.splitlines() if 'Newest builds' in line][0])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -56,8 +56,11 @@ def channels_body(releases, approved, repo=REPO, builds=3):
     out.append(f"| 🧪 **Beta (release candidate)** | {', '.join(link(r) for r in beta) if beta else 'none right now'} | only people who switched the beta on (Settings → Diagnostics → Beta); soaking towards stable |")
     previous = pick('previous')
     out.append(f"| 📦 **Previous stable** | {link(previous[0]) if previous else 'none'} | nobody; the version to roll back to if the stable one turns out bad (`tools/release-stable.sh <tag>`) |")
-    newest = pick('build')[:builds]
-    out.append(f"| 🔨 **Newest builds** | {', '.join(link(r) for r in newest) if newest else 'none'} | nobody: every push and nightly makes one; it becomes Beta only after the release gate approves it |")
+    # Only builds newer than the stable one: an older build can never become stable, so listing it only misleads (3 Oct 2026: 0.4 Alpha 253 beside stable 0.5.0).
+    newer = [r for r, s in states[:states.index(next(item for item in states if item[1] == 'stable'))] if s == 'build'] if stable else pick('build')
+    newest = newer[:builds]
+    nothing = f"none since {base_name(stable[0].get('name') or stable[0]['tagName'])}" if stable else 'none'
+    out.append(f"| 🔨 **Newest builds** | {', '.join(link(r) for r in newest) if newest else nothing} | nobody: every push and nightly makes one; it becomes Beta only after the release gate approves it |")
     out += ['', 'A build becomes **Beta** after the unit suites and every end-to-end suite pass on it with no real high-severity finding. It becomes **Stable** after three more green end-to-end runs over a day, no blocking finding, and (once there are testers) healthy beta use. See `docs/HOW-IT-RUNS.md`.',
             '', '<sub>Updated by `tools/sync_release_labels.py`. Do not edit by hand.</sub>']
     return '\n'.join(out)
