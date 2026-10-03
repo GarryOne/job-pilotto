@@ -84,7 +84,7 @@ def origin_yield(db):
     for row in db.execute('SELECT origin, status, COUNT(*) n FROM scout_candidates GROUP BY origin, status'):
         kind = re.split(r'[:(]', row['origin'])[0].strip()
         entry = rows.setdefault(kind, {'origin': kind, 'probed': 0, 'found': 0})
-        if row['status'] in ('found', 'low', 'none'):
+        if row['status'] in ('found', 'low', 'none', 'watch'):
             entry['probed'] += row['n']
         if row['status'] == 'found':
             entry['found'] += row['n']
@@ -97,7 +97,7 @@ def last_ideas(db, limit=40):
     """The names Claude proposed before and how each ended (found a feed / probed with nothing / still waiting)."""
     out = []
     for row in db.execute("SELECT name, status FROM scout_candidates WHERE origin LIKE 'AI idea%' OR origin LIKE 'AI list%' ORDER BY added_at DESC LIMIT ?", (limit,)):
-        out.append({'name': row['name'], 'result': {'found': 'found a feed', 'low': 'feed with few matching roles', 'none': 'no public feed',
+        out.append({'name': row['name'], 'result': {'found': 'found a feed', 'low': 'feed with few matching roles', 'none': 'no public feed', 'watch': 'careers page, no open jobs now',
                                                     'pending': 'not probed yet'}.get(row['status'], row['status'])})
     return out
 

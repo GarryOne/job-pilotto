@@ -90,12 +90,12 @@ class DiscoverTests(unittest.TestCase):
         self.assertTrue(careers.own_site('acme.ch') and not careers.own_site('https://swissdevjobs.ch') and not careers.own_site('https://de.linkedin.com/company/x'))
 
     def test_a_widget_on_the_home_page_is_not_the_companys_job_system(self):
-        pages = {'https://acme.ch': '<a href="https://other.recruitee.com">partner</a><a href="/karriere">Karriere</a>', 'https://acme.ch/karriere': '<p>Keine Stellen</p>'}
+        pages = {'https://acme.ch': '<a href="https://other.recruitee.com">partner</a><a href="/karriere">Karriere</a>', 'https://acme.ch/karriere': '<p>Arbeiten bei uns</p>'}
         self.assertIsNone(careers.discover('https://acme.ch', site(pages)))
 
     def test_a_site_that_refuses_or_has_no_jobs_is_simply_not_found(self):
         self.assertIsNone(careers.discover('acme.ch', site({})))
-        self.assertIsNone(careers.discover('acme.ch', site({'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<p>No openings</p>'})))
+        self.assertIsNone(careers.discover('acme.ch', site({'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<p>Join us</p>'})))
         self.assertIsNone(careers.discover('', site({})))
 
 
@@ -274,7 +274,7 @@ class ShellTests(unittest.TestCase):
 
     def test_a_page_with_text_never_goes_to_the_browser(self):
         careers.RENDER = lambda url: self.fail('not a shell')
-        pages = {'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<p>' + 'Wir haben keine offenen Stellen. ' * 40 + '</p>'}
+        pages = {'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<p>' + 'Wir arbeiten gern zusammen. ' * 40 + '</p>'}
         with mock.patch.object(careers, 'get_text', site(pages)):
             self.assertIsNone(careers.discover('acme.ch', careers.get_text))
 
@@ -285,3 +285,61 @@ class ShellTests(unittest.TestCase):
         pages = {'https://acme.ch': '<a href="/jobs">Jobs</a>', 'https://acme.ch/jobs': '<div id="root"></div>'}
         with mock.patch.object(careers, 'get_text', site(pages)):
             self.assertIsNone(careers.discover('acme.ch', careers.get_text))
+
+
+class ReadMoreSitesTests(unittest.TestCase):
+    """Batch A: a careers page found through the site map or a usual address, an empty careers page watched, Umantis read."""
+
+    def setUp(self):
+        saved = careers.READER, careers.RENDER
+        careers.READER = careers.RENDER = None
+        self.addCleanup(lambda: (setattr(careers, 'READER', saved[0]), setattr(careers, 'RENDER', saved[1])))
+
+    def test_a_home_page_without_a_careers_link_is_helped_by_the_site_map(self):
+        pages = {'https://acme.ch': '<p>Welcome</p>',
+                 'https://acme.ch/sitemap.xml': '<urlset><url><loc>https://acme.ch/about</loc></url><url><loc>https://acme.ch/ueber-uns/offene-stellen</loc></url></urlset>',
+                 'https://acme.ch/ueber-uns/offene-stellen': page(POSTING)}
+        found = careers.discover('acme.ch', site(pages))
+        self.assertEqual((found['ats'], found['slug']), ('careers', 'acme.ch__ueber-uns__offene-stellen'))
+
+    def test_a_site_map_index_and_the_usual_addresses_are_tried(self):
+        pages = {'https://acme.ch': '<p>Welcome</p>', 'https://acme.ch/sitemap.xml': '<sitemapindex><sitemap><loc>https://acme.ch/page-sitemap.xml</loc></sitemap></sitemapindex>',
+                 'https://acme.ch/page-sitemap.xml': '<urlset><url><loc>https://acme.ch/news</loc></url></urlset>', 'https://acme.ch/jobs': page(POSTING)}
+        self.assertEqual(careers.discover('acme.ch', site(pages))['slug'], 'acme.ch__jobs')
+        self.assertEqual(careers.guessed_links('https://acme.ch', site({}))[:3], ['https://acme.ch/karriere', 'https://acme.ch/jobs', 'https://acme.ch/careers'])
+
+    def test_a_careers_page_with_no_open_jobs_is_watched_in_any_language(self):
+        for text in ('Zurzeit keine offenen Stellen.', 'There are no open positions at the moment.', "Aucun poste ouvert pour l'instant."):
+            pages = {'https://acme.ch': '<a href="/karriere">Karriere</a>', 'https://acme.ch/karriere': f'<p>{text}</p>'}
+            found = careers.discover('acme.ch', site(pages))
+            self.assertEqual((found['slug'], found['jobs'], found['empty']), ('acme.ch__karriere', [], True), text)
+
+    def test_a_watched_page_ends_as_watch_in_the_scout_and_comes_back_in_a_week(self):
+        import sqlite3
+        from datetime import datetime
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        with mock.patch.object(scout, 'find_feed', return_value=('careers', 'acme.ch__karriere', [])):
+            summary, results = scout.run(db, batch=5, tracker=None, seeds={'excluded': []}, static=[], probe=lambda s, g: None,
+                                         harvest_sources=[lambda: [dict(name='Acme AG', origin='x', priority=50, website='https://acme.ch')]])
+        row = db.execute('SELECT status, ats, slug, checked_at, next_check FROM scout_candidates').fetchone()
+        self.assertEqual((row['status'], row['ats'], row['slug']), ('watch', 'careers', 'acme.ch__karriere'))
+        days = (datetime.fromisoformat(row['next_check']) - datetime.fromisoformat(row['checked_at'])).days
+        self.assertEqual(days, 7)
+        self.assertIn('no open jobs today (watched weekly)', scout.telegram_summary(summary, results))
+
+    def test_umantis_list_and_job_pages_are_read(self):
+        listing = (b'<a href="/Vacancies/1092/Description/1" class="HSTableLinkSubTitle" aria-label="DevOps Engineer" id="x">DevOps Engineer</a>'
+                   b'<a href="/Vacancies/1092/Description/1" aria-label="DevOps Engineer">again</a>')
+        detail = '<h1>DevOps Engineer</h1><p>Arbeitsort: Zürich. Kubernetes und Terraform.</p>'.encode()
+        with mock.patch.object(ats, '_get', side_effect=lambda url: listing if url.endswith('/Jobs/All') else detail):
+            job, = ats.umantis('recruitingapp-2824')
+        self.assertEqual((job['id'], job['title'], job['url']), ('1092', 'DevOps Engineer', 'https://recruitingapp-2824.umantis.com/Vacancies/1092/Description/1'))
+        self.assertIn('Kubernetes', job['description'])
+        self.assertEqual(ats.detect('https://recruitingapp-2824.umantis.com/Vacancies/1092/Description/1'), ('umantis', 'recruitingapp-2824'))
+        with self.assertRaises(ValueError):
+            ats.umantis('evil.example/x')
+
+    def test_swiss_job_portals_built_by_scripts_count_as_careers_links(self):
+        home = '<a href="https://app.jobportal.abaservices.ch/job-overview/x/de">Offene Stellen</a><a href="https://direktlink.prospective.ch/?view=1">Jobs</a>'
+        self.assertEqual(len(careers.careers_links(home, 'https://acme.ch')), 2)

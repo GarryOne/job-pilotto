@@ -229,6 +229,32 @@ def workday(slug):
     return jobs
 
 
+def umantis(slug):
+    """Haufe Umantis (common with Swiss employers and cantons): the HTML job list of `slug.umantis.com`, then each job's page for its
+    place and text (the list shows neither). Slug: `recruitingapp-1234`."""
+    if not re.fullmatch(r'recruitingapp-\d{2,6}', slug):
+        raise ValueError('not an Umantis slug')
+    base = f'https://{slug}.umantis.com'
+    markup = _get(f'{base}/Jobs/All').decode('utf-8', 'replace')
+    found = []
+    for path, label in re.findall(r'href="(/Vacancies/\d+/Description/\d+)"[^>]*?aria-label="([^"]*)"', markup):
+        if path not in [p for p, _ in found]:
+            found.append((path, html.unescape(label)))
+    from . import careers as page
+
+    def one(item):
+        path, title = item
+        try:
+            job = page.job_from_page(_get(base + path).decode('utf-8', 'replace'), base + path)
+        except (urllib.error.URLError, OSError, ValueError):
+            job = None
+        return _job(path.split('/')[2], title, (job or {}).get('location', ''), base + path, '', (job or {}).get('description', ''),
+                    bool(job and job['remote']))
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        return list(pool.map(one, found[:40]))
+
+
 def careers(slug):
     """A company's own careers page (no job system behind it): see careers.py."""
     from . import careers as page
@@ -302,7 +328,7 @@ def netflix(slug='netflix'):
 DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
-            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'careers': careers,
+            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'careers': careers,
             'amazon': amazon, 'netflix': netflix}
 # Standard systems a company slug can be guessed for; company sites are listed explicitly.
 GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters', 'teamtailor', 'join')
@@ -320,6 +346,7 @@ URL_PATTERNS = [
     ('personio', r'([\w-]+)\.jobs\.personio\.(?:de|com)'),
     ('teamtailor', r'([\w-]+)\.teamtailor\.com'),
     ('join', r'join\.com/companies/([\w-]+)'),
+    ('umantis', r'(recruitingapp-\d{2,6})\.umantis\.com'),
     ('workday', r'([\w-]+)\.(wd\d{1,2})\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([\w-]+)'),
 ]
 IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o', 'career', 'app', 'support', 'help', 'blog', 'static'}

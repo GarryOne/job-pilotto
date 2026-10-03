@@ -2,7 +2,7 @@
 // employer career pages an app uses, tagged with coarse fixed-list roles and regions; GET /api/contributions (Bearer
 // INDEX_PUBLISH_KEY, the central scout only) gives the aggregate. Nothing here can identify a person: the install id is
 // hashed, and a feed's tags are only ever published from many installs (the scout's threshold).
-const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'careers', 'amazon', 'netflix'];
+const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'careers', 'amazon', 'netflix'];
 export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'other'];
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
 const MAX_FEEDS = 500, KEEP_DAYS = 90, EVERY_HOURS = 12;

@@ -37,7 +37,7 @@ SEEDS = CONFIG / 'scout_seeds.json'
 EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', '')
 DEFAULT_BATCH = 40      # candidates probed per run (15 until 3 Oct 2026: the queue then held 400+ names and moved too slowly)
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
-RECHECK_DAYS = {'low': 21, 'none': 90}
+RECHECK_DAYS = {'low': 21, 'none': 90, 'watch': 7}   # watch: a careers page with no open jobs today, looked at again weekly
 # Tier 1 feeds are crawled with this many SRE-type roles anywhere: their Zurich/London roles come and go.
 TIER1_MIN_RELEVANT = 3
 
@@ -233,7 +233,7 @@ def next_batch(db, size):
     stamp = now().isoformat(timespec='seconds')
     return [dict(row) for row in db.execute("""SELECT * FROM scout_candidates
         WHERE status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
-           OR (status IN ('low', 'none') AND next_check <= ?)
+           OR (status IN ('low', 'none', 'watch') AND next_check <= ?)
         ORDER BY priority DESC, added_at ASC LIMIT ?""", (stamp, size))]
 
 
@@ -274,6 +274,8 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover):
                 return system, slug, jobs
     page = discover(website) if website else None
     if page:
+        if page.get('empty'):
+            return page['ats'], page['slug'], []   # a careers page with no open jobs right now: watched, not dropped
         jobs = page.get('jobs') or probe(page['ats'], page['slug'])
         if jobs:
             return page['ats'], page['slug'], jobs
@@ -569,6 +571,8 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         if not found:
             return {'status': 'none'}
         system, slug, jobs = found
+        if not jobs:
+            return {'status': 'watch', 'ats': system, 'slug': slug}
         score, stats = quality(jobs)
         useful = stats['preferred'] >= 1 or (candidate['tier'] == 'Tier 1' and stats['relevant'] >= TIER1_MIN_RELEVANT)
         status = 'duplicate' if (system, slug) in active else ('found' if useful else 'low')
@@ -607,7 +611,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
 
 def telegram_summary(summary, results):
     found = sorted([(c, o) for c, o in results if o['status'] == 'found'], key=lambda x: -x[1]['quality'])
-    counts = {s: sum(1 for _, o in results if o['status'] == s) for s in ('none', 'low', 'manual', 'duplicate')}
+    counts = {s: sum(1 for _, o in results if o['status'] == s) for s in ('none', 'low', 'manual', 'duplicate', 'watch')}
     lines = [f"🔎 <b>Source scout</b> · checked {summary['checked']} · 🆕 {len(found)} new source"
              + ('s' if len(found) != 1 else '')]
     for i, (c, o) in enumerate(found, 1):
@@ -621,6 +625,8 @@ def telegram_summary(summary, results):
     if not found:
         lines.append('\nNo new useful feeds in this batch.')
     detail = [f"{counts['none']} without public feed", f"{counts['low']} low relevance"]
+    if counts['watch']:
+        detail.append(f"{counts['watch']} careers page{'s' if counts['watch'] != 1 else ''} with no open jobs today (watched weekly)")
     if counts['manual']:
         detail.append(f"{counts['manual']} Tier 1 on manual watch")
     if summary.get('ideas'):

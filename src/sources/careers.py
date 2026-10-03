@@ -104,9 +104,14 @@ def embedded_system(markup):
     return None
 
 
+NO_JOBS = re.compile(r'(?:keine|leider keine|aktuell keine|zurzeit keine|derzeit keine)\s+(?:offenen?\s+)?(?:stellen|vakanzen|positionen|jobs)|'
+                     r'no (?:open |current )?(?:positions|vacancies|openings|jobs)(?: (?:available|at the moment|right now))?|'
+                     r'(?:aucun|pas de) (?:poste|offre)s? (?:ouvert|disponible|vacant)|nessuna posizione aperta', re.I)
 STRONG_WORDS = re.compile(r'offene.?stellen|stellenangebot|stellenmarkt|stellenportal|open.?positions?|openings|vacanc|job.?overview|jobportal|all.?jobs|alle.?jobs|'
                           r'current.?jobs|aktuelle.?stellen|offres?.?d.?emploi|postes?.?ouverts|\bjobs\b|\bstellen\b', re.I)
-JOB_HOST = re.compile(r'(?:^|[.-])(?:jobs?|stellen|karriere|careers?|jobportal|recruiting|bewerbung|emploi)(?:[.-]|$)', re.I)
+JOB_HOST = re.compile(r'(?:^|[.-])(?:jobs?|stellen|karriere|careers?|jobportal|recruiting|bewerbung|emploi)(?:[.-]|$)|'
+                      # Swiss job-portal software whose pages are built by scripts (read through the browser): Abacus, Prospective, dualoo, jobdesk, refline, HR4YOU
+                      r'(?:^|\.)(?:abaservices\.ch|prospective\.ch|dualoo\.com|jobdesk\.ch|refline\.ch|hr4you\.org)$', re.I)
 NOT_JOBS = re.compile(r'benefit|news|blog|press|presse|medien|event|impressum|datenschutz|privacy|cookie|kontakt|contact|lehre|ausbildung|praktik|'
                       r'studium|bewerbungsprozess|application-process|erfahrungsberichte|mitarbeiterstimmen|login|logout', re.I)
 
@@ -298,10 +303,47 @@ def _shell(markup):
     return len(re.sub(r'\s+', ' ', text).strip()) < 800 or bool(re.search(r'id="(root|__next|app)"|__NEXT_DATA__|ng-version|data-reactroot', markup))
 
 
-def _explore(start, home, fetch_page, show=None):
-    """The careers links of a page, then (one level deeper) the job-list links of the best of them."""
-    seen, queue = set(), [(link, 0) for link in careers_links(home, start)]
-    while queue and len(seen) < 8:
+COMMON_PATHS = ('/karriere', '/jobs', '/careers', '/stellen', '/offene-stellen', '/de/karriere', '/de/jobs', '/en/careers', '/en/jobs', '/fr/carrieres')
+
+
+def guessed_links(website, fetch_page):
+    """Where a careers page usually is, for a home page that links none: the site map's job-like addresses, then the common paths."""
+    parts = urllib.parse.urlsplit(website)
+    origin = f'{parts.scheme}://{parts.netloc}'
+    found = []
+    try:
+        sitemap = fetch_page(f'{origin}/sitemap.xml')
+        locations = re.findall(r'<loc>\s*([^<\s]+)\s*</loc>', sitemap)
+        if '<sitemapindex' in sitemap:   # an index of site maps: read the ones that sound like pages, at most two
+            children = [loc for loc in locations if re.search(r'page|seite|job|career|karriere|post', loc, re.I)][:2] or locations[:1]
+            locations = [loc for child in children for loc in re.findall(r'<loc>\s*([^<\s]+)\s*</loc>', _quiet(fetch_page, child))]
+        for loc in locations:
+            path = urllib.parse.urlsplit(loc).path
+            if (STRONG_WORDS.search(path) or CAREER_WORDS.search(path)) and not NOT_JOBS.search(path) and registrable(urllib.parse.urlsplit(loc).hostname) == registrable(parts.hostname):
+                found.append(loc)
+    except Exception:  # noqa: BLE001 — no site map: the common paths are still tried
+        pass
+    found.sort(key=lambda loc: (not STRONG_WORDS.search(loc), len(loc)))
+    return list(dict.fromkeys(found[:4] + [origin + path for path in COMMON_PATHS]))
+
+
+def _quiet(fetch_page, url):
+    try:
+        return fetch_page(url)
+    except Exception:  # noqa: BLE001
+        return ''
+
+
+def _says_no_jobs(markup):
+    return bool(NO_JOBS.search(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', markup))))
+
+
+def _explore(start, home, fetch_page, show=None, links=None, limit=8):
+    """The careers links of a page, then (one level deeper) the job-list links of the best of them. A careers page that says it has no open
+    jobs right now is remembered: when nothing better turns up it is the answer, to be watched ({'empty': True})."""
+    seen, empty = set(), None
+    queue = [(link, 0) for link in (links if links is not None else careers_links(home, start))]
+    while queue and len(seen) < limit:
         link, depth = queue.pop(0)
         if link in seen:
             continue
@@ -327,8 +369,15 @@ def _explore(start, home, fetch_page, show=None):
                 except ValueError:
                     continue
             return result
+        if not empty and _says_no_jobs(page):
+            empty = link
         if depth == 0:   # a general careers page: the list of jobs is usually one link further
             queue += [(deeper, 1) for deeper in careers_links(page, link) if deeper not in seen][:3]
+    if empty:
+        try:
+            return {'ats': 'careers', 'slug': encode(empty), 'jobs': [], 'empty': True}
+        except ValueError:
+            return None
     return None
 
 
@@ -346,6 +395,10 @@ def discover(website, fetch_page=get_text):
     # Only a link that looks like the careers link counts as the company's job system: a stray widget or partner link on the home page is not.
     show = renderer() if fetch_page is get_text else None
     found = _explore(website, home, fetch_page, show)
+    if not found or found.get('empty'):   # nothing linked, or only an empty page: try the site map and the usual addresses too
+        guessed = _explore(website, home, fetch_page, show, links=guessed_links(website, fetch_page), limit=14)
+        if guessed and (not found or not guessed.get('empty')):
+            found = guessed
     if found or show is None:
         return found
     try:
