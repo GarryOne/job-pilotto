@@ -37,6 +37,17 @@ export function normalize({ui = [], ai = [], suite = []}) {
 export const issueTitle = finding => `[auto-ui] ${finding.view}: ${finding.title}`.slice(0, 120);
 export const labelFor = id => `fp:${id}`.slice(0, 50);
 
+// Which findings of THIS run keep a build away from beta testers: high severity, and either a deterministic layout check or an AI finding that is already a real
+// open issue (seen in two runs, or confirmed by a person). One AI sighting is noise often enough that it alone would block a good build every night. A failed suite
+// step is not listed: the gate is already red then.
+export function blockers(findings, issues) {
+  return findings.filter(finding => finding.severity === 'high' && finding.source !== 'suite-failure').filter(finding => {
+    if (finding.source === 'layout-check') return true;
+    const issue = matchExisting(finding, issues);
+    return !!issue && (sightings(issue) >= SIGHTINGS_NEEDED || (issue.labels || []).some(item => (item.name || item) === CONFIRMED));
+  });
+}
+
 // A suite that failed because the AI had no credit says nothing about the product. A suite that tests the spend-limit message on purpose is not read from its logs.
 export const NO_CREDIT = /credit balance is too low|spend limit is reached|AI limit reached|usage limits?\b/i;
 export const LIMIT_TESTED = ['activityfailures'];

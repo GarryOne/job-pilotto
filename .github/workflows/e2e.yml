@@ -153,6 +153,7 @@ jobs:
     permissions:
       contents: write   # gh release edit (promote)
       actions: read
+      issues: read      # block-check.mjs reads the open UI-loop issues
     concurrency:
       group: release-promote
       cancel-in-progress: false
@@ -162,6 +163,19 @@ jobs:
       REF: ${{ needs.plan.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: No real high-severity finding in this run (layout check, or an AI finding already seen twice / confirmed)
+        working-directory: desktop/e2e
+        run: |
+          npm ci || npm install
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'e2e-artifacts-*' --dir ../../e2e-artifacts || echo "no artifacts to read"
+          mkdir -p ../../e2e-artifacts
+          status=0
+          node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
+          cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "$TAG stays a pre-release: a real high-severity finding in its end-to-end run." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
       - name: build.yml (the unit suites) is green on the commit
         run: |
           verdict=$(gh run list -R "$GITHUB_REPOSITORY" --workflow build.yml --commit "$REF" --status completed --json conclusion | python3 tools/e2e_gate.py ci)
