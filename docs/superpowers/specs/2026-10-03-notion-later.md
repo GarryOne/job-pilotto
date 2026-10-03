@@ -90,7 +90,7 @@ Nothing else is written locally in Trying. If you need another local file, the f
   2. 📱 **On every device**: check and update your applications from your phone.
   3. 🔍 **See everything the app knows**: every job, fit reason, kit and answer, readable and editable. No technical
      skills needed.
-  4. 🛟 **Easy help**: when something looks wrong, you (or we) can see why in Notion.
+  4. 🛟 **Easy help**: when something looks wrong, you can see why right in Notion, and share just that page if you want help. (We never see a user's Notion.)
   5. 🔓 **Unlocks more**: saving jobs, kits, applying, interviews, Focus, Always on, Telegram buttons, Gmail checks.
   6. 🔒 **Yours**: in your own workspace, never on our servers; export it or leave any time.
   Don't add claims beyond these. "Survives a lost computer" is true for tracked data, not for keys or recordings, so

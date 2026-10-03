@@ -4,7 +4,7 @@ export const NOTION_BENEFITS = [
   {icon: 'cloud', lead: 'Safe in your own cloud', text: 'free, and it survives a lost or reset computer.'},
   {icon: 'globe', lead: 'On every device', text: 'check and update your applications from your phone.'},
   {icon: 'eye', lead: 'See everything the app knows', text: 'every job, fit reason, kit and answer, readable and editable. No technical skills needed.'},
-  {icon: 'help', lead: 'Easy help', text: 'when something looks wrong, you (or we) can see why in Notion.'},
+  {icon: 'help', lead: 'Easy help', text: 'when something looks wrong, you can see why right in Notion, and share just that page if you want help.'},
   {icon: 'zap', lead: 'Unlocks more', text: 'saving jobs, kits, applying, interviews, Focus, Always on, Telegram buttons, Gmail checks.'},
   {icon: 'shield', lead: 'Yours', text: 'in your own workspace, never on our servers; export it or leave any time.'},
 ];
