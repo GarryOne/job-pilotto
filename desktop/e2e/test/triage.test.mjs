@@ -83,7 +83,7 @@ test('findings of every suite are read, whatever its folder is called', async ()
   const found = filesNamed(dir);
   assert.equal(found['ui-findings.json'].length, 3);
   assert.equal(found['ai-findings.json'].length, 1);
-  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': []});
+  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': []});
 });
 
 // A step of a suite that failed is a finding too: filed as an issue so it is not only a red check, never picked for an automatic UI fix.
@@ -189,4 +189,48 @@ test('the fixer is shown the other open findings of the same kind, so a shared c
   assert.equal(picked.number, 66);
   assert.deepEqual(picked.siblings, ['#74 [auto-ui] page 74']);
   assert.match(promptFor(picked, 'BASE'), /SAME KIND[\s\S]*#74/);
+});
+
+// Probe issues never closed by themselves until 3 Oct 2026: the check only knew screenshot reviews. A fixed finding sat open until a pull request named it.
+test('a probe issue is cleared by a run that pressed the same control and did not flag it', async () => {
+  const {probeTarget, probeCleared} = await import('../lib/triage.mjs');
+  const issue = {title: '[auto-ui] jobs: dead control on jobs: "0Inbound"', labels: [{name: 'auto-ui'}, {name: 'source:interaction-probe'}]};
+  assert.deepEqual(probeTarget(issue), {view: 'jobs', control: '0Inbound'});
+  assert.equal(probeTarget({...issue, labels: [{name: 'auto-ui'}]}), null, 'a screenshot-review issue is not a probe issue');
+  assert.equal(probeCleared(issue, [{view: 'jobs', control: '0Inbound', effects: ['state changed']}]), true);
+  assert.equal(probeCleared(issue, [{view: 'jobs', control: 'Compact'}, {view: 'calendar', control: '0Inbound'}]), false, 'another control, or the same words on another page');
+  assert.equal(probeCleared(issue, []), false, 'a run that never pressed it says nothing');
+});
+
+test('a commit that says "Fixes #N" is recognised, also in a list, and never for another number', async () => {
+  const {namesIssue} = await import('../lib/triage.mjs');
+  assert.equal(namesIssue('Calendar: Today is disabled\n\nFixes #83', 83), true);
+  assert.equal(namesIssue('Fixes #86, #89', 89), true);
+  assert.equal(namesIssue('closes #8', 83), false);
+  assert.equal(namesIssue('Fixes #830', 83), false);
+  assert.equal(namesIssue('See #83 for the cause', 83), false, 'a mention is not a fix');
+});
+
+test('the CLI closes a probe issue on the second clean run, or on the first when a commit names it', async () => {
+  const {triage} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'probe-close-'));
+  fs.writeFileSync(path.join(dir, 'interactions.json'), JSON.stringify([{view: 'jobs', control: '0Inbound', effects: ['state changed'], calls: []}]));
+  const make = (number, labels, body) => ({number, state: 'OPEN', title: '[auto-ui] jobs: dead control on jobs: "0Inbound"', body, labels: [{name: 'auto-ui'}, {name: 'source:interaction-probe'}, {name: `fp:jobs-${number}`}, ...labels.map(name => ({name}))], comments: []});
+  const body = '**MEDIUM** · dead-control · found by the interaction probe\n\nBuild tested: main @ aaaaaaa';
+  const run = (issues, commits) => {
+    const calls = [];
+    const gh = args => { calls.push(args.join(' ')); if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(issues); if (args[0] === 'api') return JSON.stringify(commits); return args[0] === 'pr' ? '[]' : ''; };
+    const out = triage({artifacts: dir, runUrl: 'https://x/runs/9', gh, repo: 'o/r', build: 'main @ bbbbbbb'});
+    return {out, calls};
+  };
+  const first = run([make(1, [], body)], []);
+  assert.deepEqual([first.out.gone.length, first.out.closed.length], [1, 0], 'first clean run: only "not seen"');
+  const second = run([make(1, ['not-seen-latest'], body)], []);
+  assert.deepEqual(second.out.closed, [1], 'second clean run: closed');
+  const named = run([make(2, [], body)], [{sha: 'ccccccc', message: 'Menu: fix\n\nFixes #2'}]);
+  assert.deepEqual(named.out.closed, [2], 'a commit names it: one clean run closes it');
+  assert.ok(named.calls.some(call => call.startsWith('issue comment 2') && /ccccccc/.test(call)), 'the comment names the commit');
+  const other = run([make(3, [], body)], [{sha: 'ddddddd', message: 'Fixes #99'}]);
+  assert.deepEqual([other.out.gone.length, other.out.closed.length], [1, 0], 'a commit for another issue changes nothing');
 });

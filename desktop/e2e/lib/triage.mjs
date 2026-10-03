@@ -101,6 +101,9 @@ export const notSeenComment = (runUrl, screenshot = '', build = '') => `Not seen
 // Closing: the finding was already "not seen" in an earlier run and a second, later run did not see it either. A person can reopen it; a finding that comes back files a new issue.
 export const closedComment = (runUrl, build = '') => `Closed: not seen in two runs in a row (latest ${runUrl}).${buildLine(build)}\n\nIf it comes back, the loop files a new issue.`;
 
+// Closed after one clean run because a commit named the issue: says which commit and which run.
+export const closedByFixComment = (runUrl, sha, build = '') => `Closed: commit ${sha} says it fixes this, and the latest run did not see it (${runUrl}).${buildLine(build)}\n\nIf it comes back, the loop files a new issue.`;
+
 // The suite a suite-failure issue came from ("found by a run of the apply suite"), else ''.
 export const suiteOfIssue = issue => /found by a run of the (\w+) suite/.exec(issue.body || '')?.[1] || '';
 
@@ -109,6 +112,24 @@ export const suiteOfIssue = issue => /found by a run of the (\w+) suite/.exec(is
 export const toClose = (issues, matched, runUrl, cleared) => issues.filter(issue => issue.state === 'OPEN' && !matched.has(issue.number)
   && (issue.labels || []).some(item => (item.name || item) === NOT_SEEN)
   && !(issue.comments || []).some(comment => (comment.body || '').includes(runUrl)) && cleared(issue));
+
+// A probe issue ("jobs: dead control on jobs: "0Inbound"") is cleared by a run whose probe pressed that same control again and did not flag it. Until 3 Oct 2026 nothing cleared
+// them: the check only knew screenshot reviews, so a fixed probe finding stayed open until a pull request named it.
+export const probeTarget = issue => {
+  if (!(issue.labels || []).some(item => (item.name || item) === 'source:interaction-probe')) return null;
+  const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1], control = /"([^"]+)"\s*$/.exec(issue.title || '')?.[1];
+  return view && control ? {view, control} : null;
+};
+export const probeCleared = (issue, pressed) => { const target = probeTarget(issue); return !!target && pressed.some(row => row.view === target.view && row.control === target.control); };
+
+// A commit between the build an issue was first seen on and the build now tested that says "Fixes #N" (also "Closes", "Fixed", "Resolves", lists like "#1, #2"): the fix is known, one clean run is enough.
+export const namesIssue = (message, number) => {
+  const pattern = /\b(?:fix(?:es|ed)?|close[sd]?|resolve[sd]?)\b[:\s]+((?:#\d+[\s,&and]*)+)/gi;
+  for (const match of String(message || '').matchAll(pattern)) if ((match[1].match(/#(\d+)/g) || []).some(ref => ref === `#${number}`)) return true;
+  return false;
+};
+export const firstBuildSha = issue => /Build tested: .*? @ ([0-9a-f]{7})/.exec(issue.body || '')?.[1] || '';
+export const testedSha = build => /@ ([0-9a-f]{7})/.exec(build || '')?.[1] || '';
 
 // The first picture of an issue (its body, else its newest comment that has one): what a fix pull request shows as "before".
 export function screenshotOf(issue) {
