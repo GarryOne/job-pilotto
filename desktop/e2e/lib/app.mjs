@@ -1,6 +1,7 @@
 /* global document, window */
 // Launch the real Job Pilotto app (Electron) with a throwaway profile, like a first-time user, and drive it through Playwright.
 // Nothing here touches the real user's data: JOB_PILOTTO_USER_DATA points at a fresh temp folder and no .env is read.
+import {journey} from './journey.mjs';
 import {_electron as electron} from 'playwright-core';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -31,7 +32,10 @@ export async function launch({env = {}, executablePath, args, profile: again} = 
   });
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
-  page.on('pageerror', error => console.log(`  ! page error: ${error.message}`));
+  page.on('pageerror', error => { console.log(`  ! page error: ${error.message}`); journey.pageErrors.push(`${error.name || 'Error'}: ${error.message}`); });
+  page.on('console', message => { if (message.type() === 'error') journey.consoleErrors.push(message.text()); });
+  // Only the app's own files (the window's scripts, styles, images): an outside address failing is not the app's bug.
+  page.on('requestfailed', request => { if (/^file:/.test(request.url()) && !/ERR_ABORTED/.test(request.failure()?.errorText || '')) journey.failedLoads.push(request.url().replace(/^.*\/desktop\//, 'desktop/')); });
   await confirmQuiet(profile);
   const shot = name => page.screenshot({path: path.join(ARTIFACTS, `${name}.png`)}).catch(() => {});
   // Copy the app's own logs next to the screenshots (the test profile holds only fictional data, and the logs never contain keys), and print the engine's last lines.

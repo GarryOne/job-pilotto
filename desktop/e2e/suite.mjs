@@ -39,6 +39,12 @@ try {
   process.exitCode = 1;
 } finally {
   // For the nightly loop, whatever happened: the layout findings so far, and the steps that failed (a suite that stops early used to leave neither).
+  // Errors over the whole suite (lib/journey.mjs): added to its findings, so even a suite without layout checks reports a renderer exception.
+  if (ctx && !ctx.skipAll && !suite.light) {
+    const {journey, journeyFindings} = await import('./lib/journey.mjs');
+    const extra = journeyFindings(journey, {suite: name, expectsFailures: !!suite.env?.JOB_PILOTTO_E2E_EXPECTS_FAILURES});
+    if (extra.length) { ctx.findings = [...(ctx.findings || []), ...extra]; console.log(`  journey: ${extra.map(item => item.detail).join(' | ')}`); }
+  }
   if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }
   // The app and Playwright can leave handles open: exit explicitly, never hang a CI job.

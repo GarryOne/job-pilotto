@@ -117,10 +117,12 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const chromeIssue = issue => /^\[auto-ui\] (app-chrome|failure-screenshot):/.test(issue.title || '') && /sidebar|brand|badge|icon|nav/i.test(issue.title || '');
   const chromeCleared = issue => chromeIssue(issue) && found['ui-findings.json'].length > 0 && !findings.some(finding => finding.view === 'app-chrome');
   const suiteCleared = issue => { const suite = suiteOfIssue(issue); return !!suite && ranSuites.has(suite) && !failedSuites.has(suite); };
+  // A window error of a whole suite (view "<suite>-journey", lib/journey.mjs) is cleared when that suite ran again and the error did not come back (it is not matched).
+  const journeyCleared = issue => { const suite = /^\[auto-ui\] ([\w-]+)-journey:/.exec(issue.title || '')?.[1]; return !!suite && ranSuites.has(suite); };
   // The probe's own results: every control it pressed in this run, flagged or not (a flagged one is matched above, so a row here for an unmatched issue means "pressed, fine").
   const pressed = found['interactions.json'].flatMap(file => { const rows = read(file); return Array.isArray(rows) ? rows : []; });
   const clearedNow = issue => {
-    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed)) return true;
+    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed) || journeyCleared(issue)) return true;
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     return source === 'the AI screenshot review' ? reviewed.ai.has(view) : source === 'the layout check' ? reviewed.layout.has(view) : false;
@@ -128,7 +130,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const gone = issues.filter(issue => issue.state === 'OPEN' && !matched.has(issue.number) && !(issue.labels || []).some(item => (item.name || item) === NOT_SEEN)
     && !(issue.comments || []).some(comment => (comment.body || '').includes(runUrl))).map(issue => {
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
-    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it; or a chrome issue the layout check no longer sees
+    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed) || journeyCleared(issue)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it; or a chrome issue the layout check no longer sees
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     const seen = source === 'the AI screenshot review' ? reviewed.ai : source === 'the layout check' ? reviewed.layout : new Set();
     const dir = found[source === 'the AI screenshot review' ? 'ai-findings.json' : 'ui-findings.json'].map(file => path.dirname(file)).find(folder => views(folder).includes(view));
