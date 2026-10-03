@@ -106,7 +106,7 @@ export function init() {
   $('notion-connect-go').addEventListener('click', connect);
   // Setup → Optional extras → Notion: the first three advantages; "Connect" opens the prompt on this step (the other extras'
   // buttons finish setup and open Settings, strategy-review.js); connected, the button is "Manage" and does that like the rest.
-  $('extras-notion-benefits').replaceChildren(...notionBenefits(3).children);
+  $('extras-notion-benefits').replaceChildren(...notionBenefits(3, {compact: true}).children);
   $('extras-notion').addEventListener('click', event => {
     if (notionConnected()) return;
     event.stopImmediatePropagation();  // this listener is registered first: the finish-setup handler never runs
