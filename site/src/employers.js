@@ -5,7 +5,7 @@
 import {REGIONS, ROLES} from './pool.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
 const KEY = 'index:employers';
-const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'amazon', 'netflix'];
+const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'careers', 'amazon', 'netflix'];
 const MAX_BYTES = 1_000_000;
 const MAX_FEEDS = 5000;
 const MAX_PLACES = 40;   // where a feed has roles: clients skip feeds with none in their own places

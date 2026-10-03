@@ -1590,6 +1590,22 @@
               "color": "red"
             },
             {
+              "name": "teamtailor",
+              "color": "blue"
+            },
+            {
+              "name": "join",
+              "color": "default"
+            },
+            {
+              "name": "workday",
+              "color": "purple"
+            },
+            {
+              "name": "careers",
+              "color": "gray"
+            },
+            {
               "name": "board",
               "color": "gray"
             }

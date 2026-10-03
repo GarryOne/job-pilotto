@@ -7,7 +7,7 @@ on:
   # Called by the scheduled workflow in your private repo (templates/github-actions/scout.yml).
   workflow_call:
     inputs:
-      batch: {type: string, default: '15'}
+      batch: {type: string, default: '40'}
       code_repository: {type: string, default: ''}
       code_ref: {type: string, default: '', description: 'the release tag of that code (the app pins its own version); empty: the default branch'}
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
       batch:
         description: 'candidates to probe this run'
         required: false
-        default: '15'
+        default: '40'
   # No schedule here: the timer lives in your private repo.
 
 permissions:
@@ -87,7 +87,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          BATCH: ${{ inputs.batch || '15' }}
+          BATCH: ${{ inputs.batch || '40' }}
           JOB_PILOTTO_RUN_ID: ${{ github.run_id }}
         run: |
           echo "run_id=${JOB_PILOTTO_RUN_ID}"

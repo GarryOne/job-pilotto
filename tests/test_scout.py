@@ -155,7 +155,7 @@ class ExportSourcesTests(unittest.TestCase):
             employer_row('Anthropic', 'greenhouse', 'anthropic', Notes={'rich_text': [{'plain_text': 'applied twice'}]}),
             employer_row('Deadco', 'lever', 'deadco'),
             employer_row('Cloudflare again', 'greenhouse', 'cloudflare'),   # already in the file: file name wins
-            employer_row('Custom site', 'workday', 'x')]                    # not a crawlable feed type: skipped
+            employer_row('Custom site', 'taleo', 'x')]                    # not a crawlable feed type: skipped
 
         def fetch(system, slug):
             if slug == 'deadco':

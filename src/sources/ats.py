@@ -152,6 +152,89 @@ def personio(slug):
     return jobs
 
 
+def teamtailor(slug):
+    """Teamtailor's public RSS feed of a company's open jobs."""
+    root = ET.fromstring(_get(f'https://{slug}.teamtailor.com/jobs.rss'))
+    ns = {'tt': 'https://teamtailor.com/locations'}
+    jobs = []
+    for item in root.iter('item'):
+        places = []
+        for place in item.findall('tt:locations/tt:location', ns):
+            where = ', '.join(part for part in (place.findtext('tt:city', default='', namespaces=ns), place.findtext('tt:country', default='', namespaces=ns)) if part)
+            if where:
+                places.append(where)
+        remote = (item.findtext('remoteStatus') or '').lower() in ('fully', 'hybrid')
+        link = item.findtext('link') or ''
+        jobs.append(_job(item.findtext('guid') or link, item.findtext('title'), '; '.join(places) or ('Remote' if remote else ''), link,
+                         item.findtext('pubDate') or '', plain(item.findtext('description')), remote))
+    return jobs
+
+
+def join(slug):
+    """JOIN (join.com): the company page carries its jobs in the page data, a few per page."""
+    jobs, page = [], 1
+    while page <= 20:
+        markup = _get(f'https://join.com/companies/{slug}?page={page}').decode('utf-8', 'replace')
+        found = re.search(r'__NEXT_DATA__[^>]*>(.*?)</script>', markup, re.S)
+        state = json.loads(found.group(1))['props']['pageProps']['initialState']['jobs'] if found else {}
+        for j in state.get('items') or []:
+            city = j.get('city') or {}
+            where = ', '.join(part for part in (city.get('cityName'), city.get('countryName')) if part)
+            remote = (j.get('workplaceType') or '').upper() == 'REMOTE' or bool(j.get('remoteType'))
+            jobs.append(_job(j.get('id'), j.get('title'), where, f"https://join.com/companies/{slug}/{j.get('idParam')}",
+                             str(j.get('createdAt') or '')[:10], '', remote))
+        if page >= int((state.get('pagination') or {}).get('pageCount') or 1):
+            break
+        page += 1
+    return jobs
+
+
+WORKDAY_TERMS = ('site reliability', 'sre', 'devops', 'platform engineer', 'infrastructure', 'kubernetes', 'observability', 'cloud engineer')
+WORKDAY_PAGES = 2   # 20 jobs a page per search term: Workday sites list thousands, so each term is searched, not listed
+
+
+def _split_workday(slug):
+    tenant, cluster, site = slug.split('.', 2)
+    if not re.fullmatch(r'wd\d{1,2}', cluster) or not re.fullmatch(r'[\w-]+', tenant) or not re.fullmatch(r'[\w-]+', site):
+        raise ValueError('not a Workday slug')
+    return tenant, cluster, site
+
+
+def workday(slug):
+    """A Workday career site, slug `tenant.wdN.Site`. Its public search (the one its own page uses) is asked for each role term."""
+    tenant, cluster, site = _split_workday(slug)
+    base = f'https://{tenant}.{cluster}.myworkdayjobs.com'
+    jobs, seen = [], set()
+    for term in WORKDAY_TERMS:
+        for page in range(WORKDAY_PAGES):
+            body = json.dumps({'appliedFacets': {}, 'limit': 20, 'offset': 20 * page, 'searchText': term}).encode()
+            request = urllib.request.Request(f'{base}/wday/cxs/{tenant}/{site}/jobs', data=body, headers={
+                'User-Agent': USER_AGENT, 'Content-Type': 'application/json', 'Accept': 'application/json'})
+            fixtures = os.getenv('JOB_PILOTTO_FIXTURE_DIR')
+            if fixtures:
+                data = json.loads(_fixture(fixtures, request.full_url))
+            else:
+                with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                    data = json.loads(response.read())
+            postings = data.get('jobPostings') or []
+            for j in postings:
+                path = j.get('externalPath') or ''
+                if path in seen or not path:
+                    continue
+                seen.add(path)
+                where = j.get('locationsText') or ''
+                jobs.append(_job(path, j.get('title'), where, f'{base}/{site}{path}', '', '', 'remote' in where.lower()))
+            if len(postings) < 20:
+                break
+    return jobs
+
+
+def careers(slug):
+    """A company's own careers page (no job system behind it): see careers.py."""
+    from . import careers as page
+    return page.fetch(slug)
+
+
 # Company career sites with a public JSON search (no standard ATS). Queried per role and place,
 # because they list tens of thousands of jobs.
 # What to search for and where comes from the user's Strategy (config/search.json: roles, and the places they target),
@@ -219,9 +302,10 @@ def netflix(slug='netflix'):
 DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
+            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'careers': careers,
             'amazon': amazon, 'netflix': netflix}
 # Standard systems a company slug can be guessed for; company sites are listed explicitly.
-GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters')
+GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters', 'teamtailor', 'join')
 
 # Hosts that reveal an ATS and its board slug inside a careers or job URL.
 URL_PATTERNS = [
@@ -234,8 +318,11 @@ URL_PATTERNS = [
     ('workable', r'apply\.workable\.com/([\w-]+)'),
     ('recruitee', r'([\w-]+)\.recruitee\.com'),
     ('personio', r'([\w-]+)\.jobs\.personio\.(?:de|com)'),
+    ('teamtailor', r'([\w-]+)\.teamtailor\.com'),
+    ('join', r'join\.com/companies/([\w-]+)'),
+    ('workday', r'([\w-]+)\.(wd\d{1,2})\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([\w-]+)'),
 ]
-IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o'}
+IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o', 'career', 'app', 'support', 'help', 'blog', 'static'}
 
 
 def detect(url):
@@ -243,7 +330,8 @@ def detect(url):
     for name, pattern in URL_PATTERNS:
         match = re.search(pattern, url or '', re.I)
         if match and match.group(1).lower() not in IGNORED_SLUGS:
-            return name, match.group(1)
+            # Workday's board is three parts (tenant, cluster, site), written `tenant.wdN.Site`: letters, digits and dots only.
+            return name, '.'.join(match.groups()) if name == 'workday' else match.group(1)
     return None
 
 
@@ -255,6 +343,18 @@ def slug_guesses(company):
     if not words:
         return []
     guesses = [''.join(words), '-'.join(words), words[0]]
+    return list(dict.fromkeys(g for g in guesses if len(g) >= 3))
+
+
+def domain_guesses(website):
+    """Likely board slugs from a company's web address: 'https://www.acme-tech.ch/en' -> acme-tech, acmetech, acme."""
+    host = urllib.parse.urlsplit(website if '//' in (website or '') else f'//{website or ""}').hostname or ''
+    labels = [label for label in host.lower().split('.') if label and label != 'www']
+    if len(labels) < 2:
+        return []
+    name = labels[-2] if labels[-2] not in ('co', 'com', 'org', 'net') or len(labels) < 3 else labels[-3]
+    words = [w for w in re.split(r'[^a-z0-9]+', name) if w]
+    guesses = [name, ''.join(words), '-'.join(words), f'{name}-{labels[-1]}']
     return list(dict.fromkeys(g for g in guesses if len(g) >= 3))
 
 

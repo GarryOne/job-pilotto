@@ -144,7 +144,7 @@ the downloaded index, `config/sources.json` and its own local feed table if this
 | levels.fyi | URL | Auto-filled search link |
 | Checked | Date | |
 | Quality | Number | 0-100 |
-| ATS | Select | Options: the systems in `src/sources/ats.py` (Greenhouse, Lever, Ashby, Workable, Recruitee, Personio, SmartRecruiters) |
+| ATS | Select | Options: the systems in `src/sources/ats.py` (Greenhouse, Lever, Ashby, Workable, Recruitee, Personio, SmartRecruiters, Teamtailor, JOIN, Workday, and a company's own careers page) |
 | Slug | Text | |
 | Feed | URL | |
 | Careers | URL | |

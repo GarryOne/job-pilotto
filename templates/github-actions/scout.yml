@@ -9,7 +9,7 @@ on:
   # The Job Pilotto app adds your schedule here (Settings → How often).
   workflow_dispatch:
     inputs:
-      batch: {description: 'candidates to probe this run', required: false, default: '15'}
+      batch: {description: 'candidates to probe this run', required: false, default: '40'}
 
 permissions:
   contents: read
@@ -19,7 +19,7 @@ jobs:
   scout:
     uses: GarryOne/job-pilotto/.github/workflows/scout.yml@main
     with:
-      batch: ${{ inputs.batch || '15' }}
+      batch: ${{ inputs.batch || '40' }}
       code_repository: GarryOne/job-pilotto
       code_ref: main   # the Job Pilotto app writes its own release here, so this repo runs the code of the installed app
     secrets: inherit

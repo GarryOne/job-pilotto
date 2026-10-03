@@ -30,11 +30,12 @@ import urllib.request
 from . import employer_index, store, telegram
 from .notion import client as notion, cron_runs
 from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
-from .sources import ats, feeds
+from .sources import ats, careers, feeds
 
 SEEDS = CONFIG / 'scout_seeds.json'
 # Notion "Employers & Sources": one row per employer or job board (formerly Source Registry + Company Research).
 EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', '')
+DEFAULT_BATCH = 40      # candidates probed per run (15 until 3 Oct 2026: the queue then held 400+ names and moved too slowly)
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90}
 # Tier 1 feeds are crawled with this many SRE-type roles anywhere: their Zurich/London roles come and go.
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS scout_candidates (
     ats TEXT,
     slug TEXT,
     careers TEXT,
+    website TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     quality INTEGER,
     stats_json TEXT,
@@ -151,27 +153,59 @@ def whiteboards_candidates(get=_get_text):
         name, url = match.group(1).strip(), match.group(2).strip()
         found = ats.detect(url)
         yield dict(name=name, origin='hiring-without-whiteboards', priority=70 if found else 35,
-                   ats=found[0] if found else None, slug=found[1] if found else None, careers=url)
+                   ats=found[0] if found else None, slug=found[1] if found else None, careers=url,
+                   website=None if found else url)
 
 
 def local_company_candidates(db):
-    """Employers already seen on jobs.ch / TechTree, with their careers link when known."""
-    for row in db.execute('SELECT name, careers_url FROM companies'):
+    """Employers already seen on jobs.ch / TechTree / SwissDevJobs, with their careers link and website when known. They are Swiss
+    employers by origin, so they go first: 85 with a known feed address, 75 otherwise."""
+    for row in db.execute('SELECT name, careers_url, website FROM companies'):
         found = ats.detect(row['careers_url'] or '')
-        yield dict(name=row['name'], origin='jobs.ch employer', priority=80 if found else 45,
-                   ats=found[0] if found else None, slug=found[1] if found else None, careers=row['careers_url'])
+        yield dict(name=row['name'], origin='jobs.ch employer', priority=85 if found else 75,
+                   ats=found[0] if found else None, slug=found[1] if found else None, careers=row['careers_url'],
+                   website=row['website'] or None)
+
+
+def swissdevjobs_candidates(get=_get_json):
+    """Employers listed on SwissDevJobs (its public job list names each company and its website): Swiss tech employers by definition."""
+    seen = set()
+    for job in get('https://swissdevjobs.ch/api/jobsLight'):
+        name, site = (job.get('company') or '').strip(), (job.get('companyWebsiteLink') or '').strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        yield dict(name=name, origin='SwissDevJobs employer', priority=88, website=f'https://{site}' if site and '//' not in site else site or None)
+
+
+WIKIDATA_QUERY = """SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {
+  ?c wdt:P17 wd:Q39; wdt:P31/wdt:P279* wd:Q4830453; wdt:P856 ?site; wdt:P1128 ?staff. FILTER(?staff >= 30)
+  ?c rdfs:label ?label. FILTER(LANG(?label) = "en") } GROUP BY ?label ?site ORDER BY DESC(?employees) LIMIT 1500"""
+
+
+def wikidata_candidates(get=_get_json):
+    """Swiss companies with a website and at least 30 employees, from Wikidata's open SPARQL service (bigger first). Any trade: the
+    probe then keeps only those whose careers page lists jobs for your roles in your places."""
+    url = 'https://query.wikidata.org/sparql?format=json&query=' + urllib.parse.quote(WIKIDATA_QUERY)
+    for row in get(url)['results']['bindings']:
+        name, site = row['label']['value'], row['site']['value']
+        staff = int(float(row.get('employees', {}).get('value', 0) or 0))
+        yield dict(name=name, origin='Wikidata: Swiss companies', priority=60 if staff >= 200 else 50, website=site)
 
 
 def harvest(db, seeds, sources=None):
     """Add unseen candidates; returns how many were new. Failing sources are skipped."""
     db.executescript(TABLES)
+    if 'website' not in {row[1] for row in db.execute('PRAGMA table_info(scout_candidates)')}:
+        db.execute('ALTER TABLE scout_candidates ADD COLUMN website TEXT')   # a table made before 3 Oct 2026
     extra = [name for name in os.getenv('JOB_PILOTTO_EXCLUDED_COMPANIES', '').split(',') if name.strip()]
     excluded = {key_for(name.strip()) for name in seeds.get('excluded', []) + extra}
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
     if sources is None:
         # JOB_PILOTTO_FIXTURE_DIR (the end-to-end journey, desktop/e2e): the seeds only, no Hacker News or whiteboard crawl.
         sources = [lambda: seed_candidates(seeds)] if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else [
-            lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates, lambda: local_company_candidates(db)]
+            lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates, lambda: local_company_candidates(db),
+            swissdevjobs_candidates, wikidata_candidates]
     added = 0
     for source in sources:
         try:
@@ -181,13 +215,15 @@ def harvest(db, seeds, sources=None):
             continue
         for c in candidates:
             key = key_for(c['name'])
+            if key in known and c.get('website'):   # a name first seen without an address (Hacker News) learns it from a catalog
+                db.execute('UPDATE scout_candidates SET website = COALESCE(website, ?) WHERE key = ?', (c['website'], key))
             if not key or key in excluded or key in known:
                 continue
             known.add(key)
-            db.execute("""INSERT INTO scout_candidates (key, name, origin, priority, tier, ats, slug, careers, status, added_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            db.execute("""INSERT INTO scout_candidates (key, name, origin, priority, tier, ats, slug, careers, website, status, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                        (key, c['name'], c['origin'], c['priority'], c.get('tier', 'Standard'), c.get('ats'),
-                        c.get('slug'), c.get('careers'), c.get('status', 'pending'), now().isoformat(timespec='seconds')))
+                        c.get('slug'), c.get('careers'), c.get('website'), c.get('status', 'pending'), now().isoformat(timespec='seconds')))
             added += 1
     db.commit()
     return added
@@ -203,17 +239,28 @@ def next_batch(db, size):
 
 # ---------- probing and quality ----------
 
-def find_feed(candidate, probe=ats.probe):
-    """(ats, slug, jobs) for the candidate's public feed, or None."""
+def find_feed(candidate, probe=ats.probe, discover=careers.discover):
+    """(ats, slug, jobs) for the candidate's public feed, or None. In order: the address already known; slugs guessed from the name and
+    from the website's domain on the common job systems; then the website itself (an embedded job system, or a careers page with job data)."""
     if candidate.get('ats') and candidate.get('slug'):
         jobs = probe(candidate['ats'], candidate['slug'])
         if jobs:
             return candidate['ats'], candidate['slug'], jobs
-    for slug in ats.slug_guesses(candidate['name']):
+    website = candidate.get('website') or ''
+    website = website if careers.own_site(website) else ''   # a job board or network is not the employer's address
+    names = ats.slug_guesses(candidate['name'])
+    if website:
+        names = names[:2]   # the first word alone ("Data" for Data Purpose AG) is a guess; with an address to go by it is left out
+    for slug in list(dict.fromkeys([*names, *ats.domain_guesses(website)]))[:6]:
         for system in ats.GUESSABLE:
             jobs = probe(system, slug)
             if jobs:
                 return system, slug, jobs
+    page = discover(website) if website else None
+    if page:
+        jobs = page.get('jobs') or probe(page['ats'], page['slug'])
+        if jobs:
+            return page['ats'], page['slug'], jobs
     return None
 
 
@@ -245,7 +292,14 @@ def board_url(system, slug):
         'ashby': f'https://jobs.ashbyhq.com/{slug}', 'workable': f'https://apply.workable.com/{slug}',
         'recruitee': f'https://{slug}.recruitee.com', 'personio': f'https://{slug}.jobs.personio.de',
         'smartrecruiters': f'https://jobs.smartrecruiters.com/{slug}', 'amazon': 'https://www.amazon.jobs',
-        'netflix': 'https://explore.jobs.netflix.net/careers'}[system]
+        'netflix': 'https://explore.jobs.netflix.net/careers', 'teamtailor': f'https://{slug}.teamtailor.com/jobs',
+        'join': f'https://join.com/companies/{slug}', 'workday': workday_url(slug) if system == 'workday' else '',
+        'careers': careers.decode(slug) if system == 'careers' else ''}[system]
+
+
+def workday_url(slug):
+    tenant, cluster, site = slug.split('.', 2)
+    return f'https://{tenant}.{cluster}.myworkdayjobs.com/{site}'
 
 
 # ---------- registry used by the 4-hourly crawl ----------
@@ -460,7 +514,7 @@ def write_notion(tracker, candidate, outcome):
 
 # ---------- one run ----------
 
-def run(db, batch=15, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None):
+def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None):
     """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes).
     A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the Active Employers & Sources rows."""
     seeds = seeds or json.loads(SEEDS.read_text())
@@ -540,7 +594,7 @@ def telegram_summary(summary, results):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=JOBS_DB)
-    parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
+    parser.add_argument('--batch', type=int, default=DEFAULT_BATCH, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
     parser.add_argument('--log-run', action='store_true', help='log this run to Notion ⏱️ Search runs (the desktop app does)')
     parser.add_argument('--publish-index', action='store_true',
