@@ -85,7 +85,7 @@ test('findings of every suite are read, whatever its folder is called', async ()
   const found = filesNamed(dir);
   assert.equal(found['ui-findings.json'].length, 3);
   assert.equal(found['ai-findings.json'].length, 1);
-  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': []});
+  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': [], 'a11y.json': []});
 });
 
 // A step of a suite that failed is a finding too: filed as an issue so it is not only a red check, never picked for an automatic UI fix.

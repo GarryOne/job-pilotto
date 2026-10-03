@@ -44,6 +44,13 @@ try {
     const {journey, journeyFindings} = await import('./lib/journey.mjs');
     const extra = journeyFindings(journey, {suite: name, expectsFailures: !!suite.env?.JOB_PILOTTO_E2E_EXPECTS_FAILURES});
     if (extra.length) { ctx.findings = [...(ctx.findings || []), ...extra]; console.log(`  journey: ${extra.map(item => item.detail).join(' | ')}`); }
+    // Accessibility: one finding per axe rule over the suite's pages; a11y.json says what was checked, so the Finder can clear a rule that is gone.
+    if (ctx.a11y?.checked) {
+      const {a11yFindings} = await import('./lib/a11y.mjs');
+      const found = a11yFindings(ctx.a11y);
+      if (found.length) ctx.findings = [...(ctx.findings || []), ...found];
+      (await import('node:fs')).writeFileSync((await import('node:path')).join(ctx.ARTIFACTS, 'a11y.json'), JSON.stringify({checked: ctx.a11y.checked, rules: Object.keys(ctx.a11y.rules || {})}, null, 2));
+    }
   }
   if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }

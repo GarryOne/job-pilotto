@@ -11,7 +11,7 @@ import {publishFiles} from './lib/evidence.mjs';
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 // The findings files below a folder, whatever the suite folders are called.
 export function filesNamed(folder) {
-  const out = {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': []};
+  const out = {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': [], 'a11y.json': []};
   const walk = dir => { for (const entry of fs.existsSync(dir) ? fs.readdirSync(dir, {withFileTypes: true}) : []) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full); else if (out[entry.name]) out[entry.name].push(full);
@@ -118,11 +118,14 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const chromeCleared = issue => chromeIssue(issue) && found['ui-findings.json'].length > 0 && !findings.some(finding => finding.view === 'app-chrome');
   const suiteCleared = issue => { const suite = suiteOfIssue(issue); return !!suite && ranSuites.has(suite) && !failedSuites.has(suite); };
   // A window error of a whole suite (view "<suite>-journey", lib/journey.mjs) is cleared when that suite ran again and the error did not come back (it is not matched).
+  // An accessibility rule (view "a11y") is cleared when a suite of this run checked pages with axe and that rule was not among its violations.
+  const a11yRuns = found['a11y.json'].map(file => read(file)).filter(data => data?.checked > 0);
+  const a11yCleared = issue => { const rule = /^\[auto-ui\] a11y: a11y on a11y: ([\w-]+)/.exec(issue.title || '')?.[1]; return !!rule && a11yRuns.length > 0 && !a11yRuns.some(data => (data.rules || []).includes(rule)); };
   const journeyCleared = issue => { const suite = /^\[auto-ui\] ([\w-]+)-journey:/.exec(issue.title || '')?.[1]; return !!suite && ranSuites.has(suite); };
   // The probe's own results: every control it pressed in this run, flagged or not (a flagged one is matched above, so a row here for an unmatched issue means "pressed, fine").
   const pressed = found['interactions.json'].flatMap(file => { const rows = read(file); return Array.isArray(rows) ? rows : []; });
   const clearedNow = issue => {
-    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed) || journeyCleared(issue)) return true;
+    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed) || journeyCleared(issue) || a11yCleared(issue)) return true;
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     return source === 'the AI screenshot review' ? reviewed.ai.has(view) : source === 'the layout check' ? reviewed.layout.has(view) : false;
@@ -130,7 +133,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const gone = issues.filter(issue => issue.state === 'OPEN' && !matched.has(issue.number) && !(issue.labels || []).some(item => (item.name || item) === NOT_SEEN)
     && !(issue.comments || []).some(comment => (comment.body || '').includes(runUrl))).map(issue => {
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
-    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed) || journeyCleared(issue)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it; or a chrome issue the layout check no longer sees
+    if (suiteCleared(issue) || chromeCleared(issue) || probeCleared(issue, pressed) || journeyCleared(issue) || a11yCleared(issue)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it; or a chrome issue the layout check no longer sees
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     const seen = source === 'the AI screenshot review' ? reviewed.ai : source === 'the layout check' ? reviewed.layout : new Set();
     const dir = found[source === 'the AI screenshot review' ? 'ai-findings.json' : 'ui-findings.json'].map(file => path.dirname(file)).find(folder => views(folder).includes(view));
