@@ -123,6 +123,7 @@ export async function channels(db, days, now = new Date()) {
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
 export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
   looking: 'Just looking', broke: 'Something broke', other: 'Other'};  // = desktop/lib/setup-funnel.js REASONS
+export const GATE_WHY = {no_notion: "Doesn't use Notion", privacy: 'Privacy', later: 'Later', other: 'Something else'};  // = desktop/lib/notion-gate.js WHY
 export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];
 export async function funnel(db, days, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
@@ -149,6 +150,37 @@ export async function funnel(db, days, now = new Date()) {
   const reached = SETUP_STEPS.map((step, i) => ({step, n: Object.values(furthest).filter(max => max >= i).length}));
   minutesDone.sort((a, b) => a - b);
   return {stopped, reached, started: Object.keys(furthest).length, medianMinutes: minutesDone.length ? minutesDone[Math.floor(minutesDone.length / 2)] : null, trial};
+}
+
+// Who refuses Notion (desktop/lib/notion-gate.js gateEvent; Notion later, 3 Oct 2026): per install, did it ever connect after
+// seeing the prompt, and why not. REVISIT_AT / REVISIT_RATE = the trigger written in docs/superpowers/specs/2026-10-03-notion-later.md.
+export const GATE_REVISIT_INSTALLS = 30, GATE_REVISIT_RATE = 0.4;
+export async function gateStats(db, days, now = new Date()) {
+  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
+  const rows = (await db.prepare("SELECT install, data FROM telemetry WHERE kind = 'setup' AND day >= ?").bind(from).all()).results || [];
+  const perInstall = {}, byReason = {}, whys = {};
+  for (const row of rows) {
+    let data = {};
+    try { data = JSON.parse(row.data); } catch {}
+    if (data.step !== 'notion_gate') continue;
+    const mine = perInstall[row.install] ||= {prompts: 0, connected: false};
+    const reason = String(data.reason || 'none');
+    const line = byReason[reason] ||= {reason, shown: 0, connected: 0, not_now: 0, closed: 0, failed: 0, viewed: 0};
+    if (data.outcome in line) line[data.outcome] += 1;
+    if (data.outcome === 'viewed') continue;  // seeing a locked page is not a refusal
+    mine.prompts += 1;
+    line.shown += 1;
+    if (data.outcome === 'connected') mine.connected = true;
+    if (data.outcome === 'not_now' && data.why) whys[data.why] = (whys[data.why] || 0) + 1;
+  }
+  const saw = Object.values(perInstall).filter(item => item.prompts > 0);
+  const never = saw.filter(item => !item.connected);
+  const topWhy = Object.entries(whys).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const neverRate = saw.length ? never.length / saw.length : 0;
+  return {installs: saw.length, connected: saw.length - never.length, never: never.length, neverRate,
+    repeaters: never.filter(item => item.prompts >= 3).length, whys, topWhy,
+    reasons: Object.values(byReason).sort((a, b) => b.shown - a.shown),
+    revisit: saw.length >= GATE_REVISIT_INSTALLS && neverRate > GATE_REVISIT_RATE && topWhy === 'no_notion'};
 }
 
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
@@ -206,6 +238,12 @@ ${data.funnel?.started ? `<table class="funnel">${data.funnel.reached.map(({step
 ${Object.keys(data.funnel?.stopped || {}).length ? `<h2 style="margin-top:14px">Why they stopped</h2><table>${Object.entries(data.funnel.stopped)
   .map(([at, reasons]) => `<tr><td style="width:110px">${esc(at)}</td><td>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
     .map(([why, n]) => `${esc(STOP_REASONS[why] || why)} <b>×${n}</b>`).join(' · ')}</td></tr>`).join('')}</table>` : ''}</section>
+<section class="card" style="margin-bottom:12px"><h2>🗂️ Notion prompt</h2><small class="muted">installs that were asked to connect Notion (last ${data.days < 30 ? 30 : data.days} days): did they, and why not</small>
+${data.gate?.installs ? `<p style="margin:8px 0"><b>${data.gate.installs}</b> asked · <b>${data.gate.connected}</b> connected · <b>${data.gate.never}</b> never (${Math.round(data.gate.neverRate * 100)}%)${data.gate.repeaters ? ` · ${data.gate.repeaters} asked 3+ times without connecting` : ''}</p>
+<table><tr><th>Asked for</th><th>Shown</th><th>Connected</th><th>Not now</th><th>Closed</th><th>Failed</th><th>Page opened</th></tr>${data.gate.reasons.map(r => `<tr><td>${esc(r.reason)}</td><td class="num">${r.shown}</td><td class="num">${r.connected}</td><td class="num">${r.not_now}</td><td class="num">${r.closed}</td><td class="num">${r.failed}</td><td class="num">${r.viewed}</td></tr>`).join('')}</table>
+${Object.keys(data.gate.whys).length ? `<p class="muted" style="margin-top:8px">Why not: ${Object.entries(data.gate.whys).sort((a, b) => b[1] - a[1]).map(([why, n]) => `${esc(GATE_WHY[why] || why)} <b>×${n}</b>`).join(' · ')}</p>` : ''}
+<small class="muted" style="display:block;margin-top:6px">Revisit local tracking without Notion when, over ${GATE_REVISIT_INSTALLS}+ installs asked, more than ${Math.round(GATE_REVISIT_RATE * 100)}% never connect and "I don't use Notion" is the top reason. ${data.gate.revisit ? '<b style="color:var(--red)">That is the case now.</b>' : 'Not yet.'}</small>`
+  : '<p class="muted">Nobody has been asked yet.</p>'}</section>
 <section class="card"><h2>Problems, most users first</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 <section class="card" style="margin-top:12px"><h2>🧪 Form lab &amp; coverage</h2>
@@ -249,10 +287,11 @@ export async function view(request, env, now = new Date()) {
   if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
-    const [data, feedback, setup, byChannel] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
-      funnel(env.STATS, Math.max(days, 30), now).catch(() => null), channels(env.STATS, Math.max(days, 30), now).catch(() => [])]);
+    const [data, feedback, setup, byChannel, gate] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
+      funnel(env.STATS, Math.max(days, 30), now).catch(() => null), channels(env.STATS, Math.max(days, 30), now).catch(() => []),
+      gateStats(env.STATS, Math.max(days, 30), now).catch(() => null)]);
     const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []), guardData = await flags(env.STATS, 7, now).catch(() => null), learned = await knowledgeReport(env.STATS, 7, now).catch(() => null);
-    return new Response(page({...data, feedback, funnel: setup, channels: byChannel, plan, lab, guard: guardData, knowledge: learned}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    return new Response(page({...data, feedback, funnel: setup, gate, channels: byChannel, plan, lab, guard: guardData, knowledge: learned}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

@@ -227,3 +227,45 @@ test('Channels: machines, finished setup and active, by the channel each install
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📣 Channels/);   // (the page reads the last 30 days from today, so only the heading is checked here)
 });
+
+test('Notion prompt: connect rate per reason, why not, and the revisit trigger; never a funnel step or a problem', async () => {
+  const e = env();
+  const at = new Date().toISOString();
+  const gate = (install, extra) => ({kind: 'setup', install, version: '0.4.0-alpha.90', platform: 'darwin', at, step: 'notion_gate', where: 'dialog', minutes: 5, shown: 1, ...extra});
+  await send(e, [gate('install-aaaa', {reason: 'save', outcome: 'connected'}),
+    gate('install-bbbb', {reason: 'save', outcome: 'not_now', why: 'no_notion'}), gate('install-bbbb', {reason: 'prepare', outcome: 'closed'}),
+    gate('install-bbbb', {reason: 'apply', outcome: 'closed'}),
+    gate('install-cccc', {reason: 'focus', where: 'view', outcome: 'viewed'}),  // a locked page seen: not a refusal
+    gate('install-dddd', {reason: 'save', outcome: 'failed'}), gate('install-dddd', {reason: 'save', outcome: 'connected'})]);
+  const {gateStats, funnel} = await import('../src/telemetry.js');
+  const g = await gateStats(e.STATS, 30);
+  assert.equal(g.installs, 3);          // cccc only viewed a page
+  assert.equal(g.connected, 2);          // aaaa, dddd
+  assert.equal(g.never, 1);              // bbbb
+  assert.equal(g.repeaters, 1);          // bbbb was asked 3 times
+  assert.deepEqual(g.whys, {no_notion: 1});
+  assert.equal(g.reasons.find(r => r.reason === 'save').connected, 2);
+  assert.equal(g.reasons.find(r => r.reason === 'focus').viewed, 1);
+  assert.equal(g.revisit, false);         // far below 30 installs
+  assert.equal((await funnel(e.STATS, 30)).started, 0);  // these are not setup steps
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  assert.match(html, /🗂️ Notion prompt/);
+  assert.match(html, /No problems reported/);
+});
+
+test('the revisit trigger needs 30 installs, over 40% never connecting and "I don\'t use Notion" on top', async () => {
+  const e = env();
+  const at = new Date().toISOString();
+  const rows = [];
+  for (let i = 0; i < 30; i++) {
+    const install = `install-${String(i).padStart(4, '0')}`;
+    rows.push({kind: 'setup', install, version: '0.4.0-alpha.90', platform: 'darwin', at, step: 'notion_gate', reason: 'save', where: 'dialog', minutes: 3, shown: 1,
+      ...(i < 15 ? {outcome: 'connected'} : {outcome: 'not_now', why: 'no_notion'})});
+  }
+  await send(e, rows);
+  const {gateStats} = await import('../src/telemetry.js');
+  const g = await gateStats(e.STATS, 30);
+  assert.equal(g.installs, 30);
+  assert.equal(g.neverRate, 0.5);
+  assert.equal(g.revisit, true);
+});
