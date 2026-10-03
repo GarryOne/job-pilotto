@@ -32,9 +32,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: The one-off findings to judge
+      - name: The one-off findings to judge (none while the AI limit is reached)
         id: list
-        run: node desktop/e2e/pick.mjs --out .heal --verdict-list 5
+        run: |
+          node desktop/e2e/ai-budget.mjs --check
+          if grep -q '^skip=true' "$GITHUB_OUTPUT"; then echo "count=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          node desktop/e2e/pick.mjs --out .heal --verdict-list 5
 
   judge:
     needs: pick
@@ -69,6 +72,15 @@ jobs:
             --model claude-sonnet-5-5 --max-turns 25
             --allowedTools "Read,Glob,Grep,Write,Bash(git log:*),Bash(git show:*)"
           prompt: Read .heal/prompt.md and follow it exactly. Write only .heal/verdict.md.
+      - name: AI budget and cost of this run
+        if: always()
+        run: node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job "verdict of issue $NUMBER"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-cost-verdict-${{ matrix.issue }}
+          path: ai-cost.json
+          if-no-files-found: ignore
       - name: Apply the verdict
         if: steps.claude.outcome == 'success'
         run: |

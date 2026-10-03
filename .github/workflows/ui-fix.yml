@@ -47,6 +47,9 @@ jobs:
         id: capacity
         if: steps.pick.outputs.candidate != 'none'
         run: |
+          # The AI budget breaker (desktop/e2e/ai-budget.mjs): while the provider's limit was hit in the last hours, no Claude run is started.
+          node desktop/e2e/ai-budget.mjs --check
+          if grep -q '^skip=true' "$GITHUB_OUTPUT" 2>/dev/null; then echo "full=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           open=$(gh pr list --repo "$REPO" --state open --label auto-ui-fix --json number --jq length)
           echo "Open automatic fixes: $open"
           if [ "$open" -ge 4 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Four automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
@@ -82,6 +85,15 @@ jobs:
             --model claude-sonnet-5-5 --max-turns 50
             --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(python3 -m unittest:*),Bash(git diff:*),Bash(git status:*)"
           prompt: Read .heal/prompt.md and follow it exactly.
+      - name: AI budget and cost of this run
+        if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        run: node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job fixer
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        with:
+          name: ai-cost
+          path: ai-cost.json
+          if-no-files-found: ignore
       - name: Keep Claude's transcript (to see where its turns went)
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         uses: actions/upload-artifact@v6
