@@ -1,9 +1,9 @@
 You review the latest changes to Job Pilotto (an Electron desktop app in desktop/, a Python engine in src/, a Chrome extension in extension/) for BUGS that would hurt a person using the product.
 You change nothing. You read, then write ONE file: .review/findings.json.
 
-The changes to review (RANGE is given at the end): list them with `git log --oneline --no-merges RANGE -- . ':!*.md' ':!CODEMAP.md' ':!docs'`, then go through EVERY commit, oldest first:
-`git show --stat <sha>`, then `git show <sha> -- <its code files>` (skip test files and docs; a whole-range diff is too long and gets cut). Open the surrounding code with Read and
-Grep when a change touches logic. Review all the commits before you write the file; say in .review/reviewed.txt which commits you read (one sha per line).
+The changes to review: the COMMITS listed at the end (product code only, largest first, at most 20). Go through EVERY one: `git show --stat <sha>`, then
+`git show <sha> -- src desktop/lib desktop/main.js desktop/preload.cjs desktop/renderer extension` (tests and docs are out of scope). Open the surrounding code with Read
+and Grep when a change touches logic. Write .review/reviewed.txt with the shas you really read (one per line), then .review/findings.json.
 
 Report only a real bug you can show from the code, in one of these kinds:
 - functionality: a wrong result, a step that cannot be finished, data lost or written to the wrong place, a state that never ends (a run that stays "Running");
