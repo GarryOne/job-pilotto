@@ -850,6 +850,39 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
   border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); margin: var(--sp-3) 0; font-size: var(--fs-base); }
 .stale-draft span { flex: 1; }
 .save-dialog.danger h2 { color: var(--bad); }
+/* "Your CV is updated" (the replaced-CV dialog): file card, verdict, one row per thing that follows, the draft kits, a footer note. */
+.cv-dialog { width: min(640px, 94vw); }
+.cv-dialog .dialog-head { align-items: flex-start; }
+.cv-dialog .cv-head { flex: 1; min-width: 0; }
+.cv-dialog .cv-head h2 { font-size: var(--fs-2xl); }
+.cv-file { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); }
+.cv-file-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--ink-2); }
+.cv-file-icon svg { width: 20px; height: 20px; }
+.cv-file b { display: block; overflow-wrap: anywhere; }
+.cv-file small { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.cv-verdict { align-items: center; }
+.cv-verdict b { display: block; }
+.cv-rows { list-style: none; margin: var(--sp-4) 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-md); }
+.cv-row { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); }
+.cv-row + .cv-row { border-top: 1px solid var(--line); }
+.cv-row > svg { flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--ink); }
+.cv-row > div { flex: 1; min-width: 0; }
+.cv-row > div > b { display: block; }
+.cv-row > div > p { margin: 2px 0 0; color: var(--ink-2); font-size: var(--fs-md); }
+.cv-row > .ui-pill, .cv-row > span:last-child { flex: none; }
+.cv-kits-card { margin-top: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
+.cv-kits-head { display: flex; align-items: center; gap: var(--sp-2); }
+.cv-kits-head .muted { margin-left: auto; }
+.cv-kits-card > p { margin: var(--sp-1) 0 var(--sp-2); }
+.cv-kits { display: grid; }
+.cv-kit { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
+.cv-kit b { display: block; font-weight: 600; }
+.cv-kit .muted { display: block; }
+.cv-kit button { flex: none; color: var(--ink-2); }
+.cv-kits-card .link { margin-top: var(--sp-2); }
+.cv-unchanged { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; color: var(--ink-2); font-size: var(--fs-sm); }
+.cv-unchanged svg { flex: none; width: 18px; height: 18px; }
+.cv-dialog .dialog-foot { justify-content: space-between; align-items: center; }
 .save-dialog .impact { padding-left: 18px; display: grid; gap: var(--sp-2); font-size: var(--fs-base); margin: var(--sp-4) 0; }
 .save-dialog .impact li.bad b { color: var(--bad); }
 .save-dialog .impact li.good b { color: var(--good); }

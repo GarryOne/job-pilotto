@@ -1344,24 +1344,36 @@
 </dialog>
 
 <!-- A replaced CV after setup: what follows it (lib/cv-change.js) -->
-<dialog id="cv-dialog" class="save-dialog panel-dialog">
-  <div class="dialog-head"><span class="dialog-icon"><i data-icon="file-text"></i></span><h2>What changes with your new CV</h2></div>
-  <p class="dialog-lead" id="cv-dialog-name"></p>
-  <ul class="impact">
-    <li class="good"><b>Done:</b> new applications upload this CV (the extension and Apply with Claude).</li>
-    <li><b>Your Profile in Notion:</b> <span id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</span>
-      <div class="inline spaced"><button class="secondary" id="cv-compare">Compare with my Profile (~5¢)</button></div>
-      <div id="cv-suggestions" class="cv-suggestions"></div>
-      <div class="inline spaced" id="cv-apply-row" hidden><button class="primary" id="cv-apply">Apply selected to my Profile</button></div>
-      <p class="muted small" id="cv-impact"></p>
-      <p class="message" id="cv-review-message"></p></li>
-    <li id="cv-base-row"><b>CV for tailoring:</b> <span id="cv-base-text"></span>
-      <div class="inline spaced" id="cv-base-actions" hidden><button class="secondary" id="cv-base-read">Read the new CV (~5¢)</button></div></li>
-    <li id="cv-kits-row" hidden><b>Kits not sent yet</b> were drafted with the previous Profile. Redraft the ones you still want, after applying Profile changes:
-      <div id="cv-kits" class="cv-kits"></div></li>
-    <li class="good"><b>Not changed:</b> your searches and preferences, job matches and their scores, and applications already sent (they keep the CV you sent).</li>
+<dialog id="cv-dialog" class="save-dialog panel-dialog cv-dialog">
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="file-text"></i></span>
+    <div class="cv-head"><h2>Your CV is updated</h2><p class="dialog-lead">Here's what changed, and what you can review.</p></div>
+    <button class="ghost icon-btn" id="cv-later" aria-label="Close" title="Close: you can review this later"><i data-icon="close"></i></button></div>
+  <div class="cv-file"><span class="cv-file-icon"><i data-icon="file"></i></span>
+    <div><b id="cv-dialog-name"></b><small id="cv-dialog-sub"></small></div></div>
+  <div class="alert tone-info cv-verdict" id="cv-verdict"><i data-icon="info"></i>
+    <div><b id="cv-verdict-title">Not compared with your Profile yet</b><p id="cv-verdict-text">Compare the two CVs to see which Profile lines, if any, should change.</p></div></div>
+  <ul class="cv-rows">
+    <li class="cv-row"><i data-icon="user"></i>
+      <div><b>New applications</b><p>The extension and Apply with Claude use your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
+    <li class="cv-row"><i data-icon="file-text"></i>
+      <div><b>Notion Profile</b><p id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</p>
+        <div class="inline spaced"><button class="secondary" id="cv-compare">Compare with my Profile (~5¢)</button></div>
+        <div id="cv-suggestions" class="cv-suggestions"></div>
+        <div class="inline spaced" id="cv-apply-row" hidden><button class="primary" id="cv-apply">Apply selected to my Profile</button></div>
+        <p class="muted small" id="cv-impact"></p>
+        <p class="message" id="cv-review-message"></p></div><span id="cv-profile-pill"></span></li>
+    <li class="cv-row" id="cv-base-row"><i data-icon="settings"></i>
+      <div><b>CV for tailoring</b><p id="cv-base-text"></p>
+        <div class="inline spaced" id="cv-base-actions" hidden><button class="secondary" id="cv-base-read">Read the new CV (~5¢)</button></div></div><span id="cv-base-pill"></span></li>
   </ul>
-  <div class="dialog-foot"><button class="secondary" id="cv-later">Later</button><button class="primary" id="cv-done">Done</button></div>
+  <section class="cv-kits-card" id="cv-kits-row" hidden>
+    <div class="cv-kits-head"><b>Existing draft kits</b><span class="ui-pill tone-neutral" id="cv-kits-count"></span><span class="muted small">Optional review</span></div>
+    <p class="muted small">Created with the previous Profile. Redraft the ones you still want, after applying Profile changes.</p>
+    <div id="cv-kits" class="cv-kits"></div>
+    <button class="link" id="cv-kits-more" hidden></button>
+  </section>
+  <p class="cv-unchanged"><i data-icon="info"></i>Search preferences, match scores and applications already sent are unchanged (they keep the CV you sent).</p>
+  <div class="dialog-foot"><span class="muted small">You can review draft kits later.</span><button class="primary" id="cv-done">Done</button></div>
 </dialog>
 
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->

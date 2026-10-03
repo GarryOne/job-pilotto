@@ -1,11 +1,22 @@
 // A replaced CV and what follows it.
 import {el, pill} from '../components.js';
+import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, show} from './core.js';
 import {loadCvSetting} from './profile.js';
 
 // ---------- a replaced CV: what follows it (suggested Profile edits, tailoring base, unsent kits), never a rebuild ----------
 let cvSuggestions = [];
+const KITS_SHOWN = 3;
+// The verdict banner and the status pills on the dialog's rows.
+function setVerdict(tone, title, text) {
+  const box = $('cv-verdict');
+  box.className = `alert tone-${tone} cv-verdict`;
+  box.firstElementChild.replaceWith(icon(tone === 'good' ? 'check-circle' : 'info'));
+  $('cv-verdict-title').textContent = title;
+  $('cv-verdict-text').textContent = text;
+}
+function setPill(id, text, tone) { $(id).replaceChildren(pill(text, tone)); }
 export async function showCvChanged() {
   const change = await window.pilot.cvChange();
   $('cv-changed-text').textContent = `Your CV changed${change.at ? ` on ${new Date(change.at).toLocaleDateString()}` : ''}: review what it changes.`;
@@ -22,28 +33,49 @@ export async function openCvChange() {
     $('cv-impact').textContent = `Applying Profile edits re-scores ${data.scored} jobs over the next ${searches} search${searches === 1 ? '' : 'es'} ` +
       `(≈ $${(data.scored * 0.015).toFixed(2)})${data.counts?.kits ? `; ${data.counts.kits} unsent kits were drafted with the old Profile` : ''}.`;
   }).catch(() => {});
-  $('cv-dialog-name').textContent = `${change.previous ? `${change.previous} → ` : ''}${change.name || 'your CV'}`;
+  $('cv-dialog-name').textContent = change.name || 'your CV';
+  $('cv-dialog-sub').textContent = change.previous === change.name ? 'New upload · same file name as the previous CV' : `New upload${change.previous ? ` · replaces ${change.previous}` : ''}`;
+  setVerdict('info', 'Not compared with your Profile yet', 'Compare the two CVs to see which Profile lines, if any, should change.');
+  setPill('cv-profile-pill', 'Not compared', 'neutral');
   $('cv-suggestions').replaceChildren();
   show($('cv-apply-row'), false);
   message('cv-review-message', '');
   $('cv-compare').disabled = !change.comparable;
-  if (!change.comparable) $('cv-profile-text').textContent = 'The previous CV is not on this computer, so there is nothing to compare. Edit the Profile in Notion if needed.';
-  $('cv-base-text').textContent = change.base ? 'made from the previous CV. Read the new one so tailored CVs start from it.' : 'read from this CV on your first Tailor CV. Nothing to do.';
+  if (!change.comparable) {
+    $('cv-profile-text').textContent = 'The previous CV is not on this computer, so there is nothing to compare. Edit the Profile in Notion if needed.';
+    setVerdict('info', 'Nothing to compare', 'The previous CV is not on this computer. Edit your Profile in Notion if something changed.');
+    setPill('cv-profile-pill', 'Edit in Notion', 'neutral');
+  }
+  $('cv-base-text').textContent = change.base ? 'Made from the previous CV. Read the new one so tailored CVs start from it.' : 'Read from this CV on your first Tailor CV. Nothing to do.';
+  setPill('cv-base-pill', change.base ? 'To update' : 'Nothing to do', change.base ? 'warn' : 'neutral');
   show($('cv-base-actions'), change.base);
   const kits = shared.allJobs.filter(job => job.kit && job.code && job.status !== 'applied' && job.status !== 'dismissed');
-  $('cv-kits').replaceChildren(...kits.map(job => {
-    const row = el('div', 'cv-kit');
-    const redraft = el('button', 'ghost', '↻ Redraft');
-    redraft.addEventListener('click', async () => {
-      redraft.disabled = true;
-      redraft.textContent = 'Redrafting…';
-      const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
-      redraft.textContent = result.ok ? '✓ Redrafted' : 'Retry';
-      redraft.disabled = !!result.ok;
-    });
-    row.append(el('span', '', `${job.title} · ${job.company}`), redraft);
-    return row;
-  }));
+  let showAll = false;
+  const draw = () => {
+    const shown = showAll ? kits : kits.slice(0, KITS_SHOWN);
+    $('cv-kits').replaceChildren(...shown.map(job => {
+      const row = el('div', 'cv-kit');
+      const redraft = el('button', 'ghost with-icon', 'Redraft');
+      redraft.prepend(icon('refresh'));
+      redraft.addEventListener('click', async () => {
+        redraft.disabled = true;
+        redraft.textContent = 'Redrafting…';
+        const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
+        redraft.textContent = result.ok ? '✓ Redrafted' : 'Retry';
+        redraft.disabled = !!result.ok;
+      });
+      const name = el('div');
+      name.append(el('b', '', job.title), el('span', 'muted small', job.company));
+      row.append(name, redraft);
+      return row;
+    }));
+    const more = $('cv-kits-more');
+    show(more, kits.length > KITS_SHOWN);
+    more.textContent = showAll ? 'Show fewer' : `Show all ${kits.length} kits`;
+  };
+  $('cv-kits-more').onclick = () => { showAll = !showAll; draw(); };
+  $('cv-kits-count').textContent = String(kits.length);
+  draw();
   show($('cv-kits-row'), kits.length > 0);
   if (!$('cv-dialog').open) $('cv-dialog').showModal();
 }
@@ -61,7 +93,14 @@ export async function init() {
     button.classList.remove('busy');
     if (!result.ok) return message('cv-review-message', result.error, 'error');
     cvSuggestions = result.suggestions;
-    message('cv-review-message', `${result.summary} ($${result.usd.toFixed(2)})${cvSuggestions.length ? '' : ' Nothing in your Profile needs to change.'}`, 'ok');
+    message('cv-review-message', `${result.summary} ($${result.usd.toFixed(2)})`, 'ok');
+    if (cvSuggestions.length) {
+      setVerdict('info', `${cvSuggestions.length} Profile edit${cvSuggestions.length === 1 ? '' : 's'} suggested`, 'Pick the ones you want below; nothing is written until you apply.');
+      setPill('cv-profile-pill', `${cvSuggestions.length} to review`, 'warn');
+    } else {
+      setVerdict('good', 'No substantive changes found', 'Roles, dates, skills, achievements and contact details match your previous CV.');
+      setPill('cv-profile-pill', '– Unchanged', 'neutral');
+    }
     const label = {update: ['Update', 'info'], add: ['Add', 'good'], remove: ['Remove', 'bad']};
     $('cv-suggestions').replaceChildren(...cvSuggestions.map(s => {
       const row = el('label', 'radio cv-suggestion');
@@ -90,7 +129,7 @@ export async function init() {
     if (!result.ok) return message('cv-review-message', result.error, 'error');
     message('cv-review-message', result.failed.length ? `${result.applied} applied; not applied: ${result.failed.join('; ')}`
       : `✓ ${result.applied} change${result.applied === 1 ? '' : 's'} saved to your Profile in Notion.`, result.failed.length ? 'error' : 'ok');
-    if (!result.failed.length) { $('cv-suggestions').replaceChildren(); show($('cv-apply-row'), false); }
+    if (!result.failed.length) { $('cv-suggestions').replaceChildren(); show($('cv-apply-row'), false); setPill('cv-profile-pill', '✓ Updated', 'good'); setVerdict('good', 'Profile updated', 'Your selected changes are saved in Notion.'); }
   });
   $('cv-base-read').addEventListener('click', async () => {
     const button = $('cv-base-read');
@@ -99,6 +138,7 @@ export async function init() {
     const result = await window.pilot.importCv();
     button.textContent = result.ok ? `✓ Done ($${result.usd.toFixed(2)})` : 'Retry';
     button.disabled = !!result.ok;
+    if (result.ok) setPill('cv-base-pill', '✓ Updated', 'good');
     loadCvSetting();
   });
   $('cv-later').addEventListener('click', () => { $('cv-dialog').close(); showCvChanged(); });
