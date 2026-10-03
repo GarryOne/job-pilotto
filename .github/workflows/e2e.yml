@@ -171,7 +171,7 @@ jobs:
     permissions:
       contents: write   # gh release edit (promote)
       actions: read
-      issues: read      # block-check.mjs reads the open UI-loop issues
+      issues: write     # block-check.mjs reads the UI-loop issues; tools/sync_release_labels.py rewrites the pinned Release channels issue (read-only failed it, 3 Oct 2026)
     concurrency:
       group: release-promote
       cancel-in-progress: false
