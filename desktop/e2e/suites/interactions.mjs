@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {finish, visitNarrow} from '../lib/layout.mjs';
+import {WINDOW_SIZES, createVariation} from '../lib/variation.mjs';
 import {probePage} from '../lib/interact.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {settle} from '../lib/app.mjs';
@@ -24,11 +25,18 @@ export async function run(ctx) {
     since: mark => app.evaluate((_electron, from) => (globalThis.__jpIpc || []).slice(from).map(({channel, start, ms, failed}) => ({channel, start, ms, failed})), mark),
   };
   let shots = 0;
-  for (const view of VIEWS) {
+  // A different path on every scheduled run (E2E_SEED, lib/variation.mjs): the pages in another order, the controls in another order, another window size.
+  // The release gate runs with no seed: the same path every time.
+  const vary = createVariation();
+  const size = vary.pick(WINDOW_SIZES);
+  if (!vary.fixed) await app.evaluate(({BrowserWindow}, [w, h]) => BrowserWindow.getAllWindows()[0].setSize(w, h), size);
+  fs.writeFileSync(path.join(ARTIFACTS, 'seed.json'), JSON.stringify({seed: vary.seed, fixed: vary.fixed, window: size}));
+  console.log(vary.fixed ? '  variation: fixed path' : `  variation: seed ${vary.seed}, window ${size.join('x')}; replay with E2E_SEED=${vary.seed}`);
+  for (const view of vary.shuffle(VIEWS)) {
     await ctx.run(`${view}: every safe control does something`, async () => {
       await page.click(`.nav[data-view="${view}"]`);
       await settle(page);
-      const {results, findings, skipped} = await probePage({page, view, ipc, scope: `.view[data-view="${view}"]`, reset: async () => { await page.click(`.nav[data-view="${view}"]`); await settle(page); },
+      const {results, findings, skipped} = await probePage({page, view, ipc, scope: `.view[data-view="${view}"]`, arrange: vary.shuffle, reset: async () => { await page.click(`.nav[data-view="${view}"]`); await settle(page); },
         onFlag: async (_control, flagged) => { const shot = `probe-${view}-${++shots}`; await ctx.session.shot(`ui-${shot}`); for (const item of flagged) item.shot = shot; }});
       all.push(...results.map(item => ({...item, view})));
       ctx.findings.push(...findings);

@@ -268,3 +268,10 @@ test('a failed-step issue is cleared only by a run of its suite with no failure 
   const closing = stub([suiteIssue(61, 'focus', ['not-seen-latest'])]);
   assert.deepEqual(triage({artifacts: artifacts({}), runUrl: RUN, gh: closing.gh, publish: publish([]), repo: 'o/r'}).closed, [61]);
 });
+
+test('an issue from a seeded run says which path it walked and how to replay it; a fixed run says nothing', () => {
+  const finding = {...aiFinding, id: 'fp1', source: 'ai-review'};
+  const seeded = issueBody(finding, RUN, {suite: 'interactions', seed: 4242, window: [1024, 700]});
+  assert.match(seeded, /Variation: seed 4242, window 1024x700\. Replay the same path: `E2E_SEED=4242 node suite\.mjs interactions`/);
+  assert.doesNotMatch(issueBody(finding, RUN, {suite: 'interactions', seed: 0}), /Variation:/);
+});

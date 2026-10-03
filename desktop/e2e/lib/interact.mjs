@@ -100,7 +100,8 @@ async function recover(page) {
 const wait = ms => new Promise(done => setTimeout(done, ms));
 
 // Click every safe control of the page showing now. `ipc`: {mark(): Promise<number>, since(mark): Promise<[{channel, ms, failed}]>}.
-export async function probePage({page, view, ipc, scope = 'body', settleMs = 1500, max = MAX_CONTROLS, onFlag, reset}) {
+// `arrange(list)` (lib/variation.mjs shuffle) puts the controls in another order and picks a different `max` of them from a wider look, so two runs press different things.
+export async function probePage({page, view, ipc, scope = 'body', settleMs = 1500, max = MAX_CONTROLS, onFlag, reset, arrange = null}) {
   const errors = [];
   const onConsole = message => { if (message.type() === 'error') errors.push(message.text()); };
   const onPageError = error => errors.push(String(error.message || error));
@@ -108,14 +109,15 @@ export async function probePage({page, view, ipc, scope = 'body', settleMs = 150
   page.on('pageerror', onPageError);
   const results = [], findings = [], skipped = [];
   try {
-    const found = await page.evaluate(discover, {scope, max});
-    const controls = found.filter(control => isSafe(control));
+    const look = arrange ? max * 3 : max;
+    const found = await page.evaluate(discover, {scope, max: look});
+    const controls = (arrange ? arrange(found.filter(control => isSafe(control))) : found.filter(control => isSafe(control))).slice(0, max);
     skipped.push(...found.filter(control => !isSafe(control)).map(control => control.text || control.label));
     for (const control of controls) {
       // A page that drew itself again (or a dialog a press left open) loses the tags: go back to the page, find the control again by its words.
       if (!(await page.locator(`[data-probe="${control.id}"]`).isVisible().catch(() => false))) {
         if (reset) await reset();
-        const again = (await page.evaluate(discover, {scope, max})).find(item => item.text === control.text && item.label === control.label);
+        const again = (await page.evaluate(discover, {scope, max: look})).find(item => item.text === control.text && item.label === control.label);
         if (!again) { skipped.push(`${control.text || control.label} (gone)`); continue; }
         control.id = again.id;
       }

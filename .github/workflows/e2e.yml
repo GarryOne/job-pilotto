@@ -104,6 +104,7 @@ jobs:
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
+      E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate and the stable canary walk the fixed one (lib/variation.mjs)
       E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
       - uses: actions/checkout@v4
