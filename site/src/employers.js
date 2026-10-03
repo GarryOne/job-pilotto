@@ -16,6 +16,15 @@ const number = (value, max) => Number.isFinite(value) ? Math.max(0, Math.min(max
 
 // kind: an employer's own career page, or a job portal (counted apart on the website).
 // Who a feed fits (fixed lists only): the scout publishes a tag only when many installs agree.
+// How to read a careers page without AI (src/sources/page_recipes.py), checked to the same fixed shape: never a pattern, only a path or a tag and class.
+const TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'a', 'strong', 'b', 'span', 'div', 'p', 'td', 'dt'];
+export function recipeOf(recipe) {
+  if (!recipe || typeof recipe !== 'object') return null;
+  const keys = Object.keys(recipe).sort().join(',');
+  if (recipe.kind === 'links' && keys === 'kind,prefix' && typeof recipe.prefix === 'string' && /^(\/[\w.%~-]+){0,6}$/.test(recipe.prefix)) return {kind: 'links', prefix: recipe.prefix};
+  if (recipe.kind === 'tag' && keys === 'class,kind,tag' && TAGS.includes(recipe.tag) && typeof recipe.class === 'string' && /^[\w -]{1,60}$/.test(recipe.class)) return {kind: 'tag', tag: recipe.tag, class: recipe.class};
+  return null;
+}
 const fitsOf = fits => ({roles: (fits?.roles || []).filter(r => ROLES.includes(r)), regions: (fits?.regions || []).filter(r => REGIONS.includes(r))});
 
 // Only the fields clients read, and only feeds an app knows how to crawl.
@@ -32,7 +41,8 @@ export function clean(feeds) {
       quality: number(item.quality, 100), jobs: number(item.jobs, 100000), relevant: number(item.relevant, 100000),
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       fits: fitsOf(item.fits),
-      places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : []});
+      places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : [],
+      ...(ats === 'careers' && recipeOf(item.recipe) ? {recipe: recipeOf(item.recipe)} : {})});
   }
   return out;
 }

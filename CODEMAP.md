@@ -291,6 +291,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/google_jobs.py` — Google Jobs through SerpApi's paid API (engine=google_jobs). Python 3.10+, no dependencies.
 - `src/sources/google_setup.py` — Guided setup of your own Google app for Job Pilotto (`python -m src.sources.google setup`).
 - `src/sources/google.py` — Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).
+- `src/sources/page_recipes.py` — Recipes: how to read one careers page without AI, learned from the one time AI read it.
 - `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""

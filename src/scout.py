@@ -452,6 +452,11 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
                      'jobs': len(jobs), 'relevant': relevant_roles(jobs), 'checked': today, 'places': job_places(jobs)}
             tags = fits(by_feed.get((system, slug), {}))
+            if system == 'careers':   # how to read this page without AI, learned here: every install's crawl can use it
+                from .sources import page_recipes
+                recipe = page_recipes.load(careers.decode(slug), db)
+                if recipe:
+                    entry['recipe'] = recipe
             return {**entry, 'fits': tags} if tags else entry
         except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}

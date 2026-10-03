@@ -236,7 +236,7 @@ def read_page(url, fetch=get_text):
     """Jobs a careers page publishes: its own data, or the data of the job pages it links to. Raises when the page cannot be read."""
     markup = fetch(url)
     jobs = jsonld_jobs(markup, url) or read_page_from(markup, url, fetch)
-    return _asked(url, markup, jobs)
+    return _asked(url, markup, jobs, fetch)
 
 
 def fetch(slug):
@@ -259,17 +259,78 @@ def reader():
     return page_reader.read if page_reader.usable() else None
 
 
-def _asked(url, markup, jobs):
-    """Rules' jobs, unless they look like menu entries (none matches a role you look for) and a model can read the page: then its answer."""
+# A job title, in any of the usual languages, as opposed to a menu entry ("About us", "Benefits"): a role noun or a workload/gender mark.
+TITLE_LIKE = re.compile(r'engineer|ingenieur|ing[ée]nieur|developer|entwickler|d[ée]veloppeur|sviluppat|manager|leiter|leitung|responsable|'
+                        r'specialist|spezialist|sp[ée]cialiste|consultant|berater|analyst|administrator|admin\b|techniker|technician|technicien|'
+                        r'architect|architekt|lead\b|head of|scientist|designer|owner|scrum|operator|support|mitarbeiter|sachbearbeiter|'
+                        r'assistent|assistant|praktik|intern\b|\d{2,3}\s*%|\(m/w|\(w/m|m/w/d|m/f/d|f/m/d|h/f|f/h|all genders|\(a\)', re.I)
+
+
+def _plausible(jobs):
+    """Rules found jobs: do they look like job titles (or roles you look for)? If not, the links were probably menu entries."""
+    if not jobs:
+        return False
+    from ..ai import page_reader
+    return page_reader.plausible(jobs) or sum(1 for job in jobs if TITLE_LIKE.search(job['title'])) >= max(1, len(jobs) // 2)
+
+
+def _from_recipe(url, markup, fetch_page):
+    """Jobs read by a recipe learned for this page (page_recipes.py), or []: no model call."""
+    from . import page_recipes
+    recipe = page_recipes.load(url)
+    items = page_recipes.replay(recipe, markup, url) if recipe else []
+    if not items:
+        return []
+    listing = job_from_page(markup, url) or {}
+
+    def one(item):
+        title, link = item
+        found = None
+        if link:
+            try:
+                found = jsonld_jobs(fetch_page(link), link)[:1] or [job_from_page(fetch_page(link), link)]
+            except Exception:  # noqa: BLE001
+                found = None
+        job = (found or [None])[0] or {}
+        return ats._job(link or f'{url}#{title}', title, job.get('location') or listing.get('location', ''), link or url,
+                        job.get('date_posted', ''), job.get('description', ''), bool(job.get('remote')))
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        return list(pool.map(one, items[:40]))
+
+
+def _asked(url, markup, jobs, fetch_page=None):
+    """Rules' jobs when they look like jobs; else a recipe learned earlier (no AI); else, when a model can read the page, its answer,
+    and a recipe derived from that answer so the next read needs no model."""
+    if _plausible(jobs):
+        return jobs
+    fetch_page = fetch_page or get_text
+    replayed = _from_recipe(url, markup, fetch_page)
+    if replayed:
+        return replayed
     read = reader()
     if not read:
         return jobs
-    if jobs:
-        from ..ai import page_reader
-        if page_reader.plausible(jobs):
-            return jobs
     answer = read(url, markup)
-    return jobs if answer is None else answer
+    if answer is None:
+        return jobs
+    if answer and READER == 'auto':   # a real model answered: learn how to read this page without it
+        from . import page_recipes
+        recipe = page_recipes.derive(markup, url, answer)
+        if recipe:
+            page_recipes.save(url, recipe)
+    return answer
+
+
+CHOOSER = 'auto'   # 'auto': a model picks the job-list link on a home page the rules cannot read (ai/page_reader.py); None: never; or a function (tests)
+
+
+def chooser():
+    if CHOOSER != 'auto':
+        return CHOOSER
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):
+        return None
+    from ..ai import page_reader
+    return page_reader.choose_links if page_reader.usable() else None
 
 
 RENDER = 'auto'   # 'auto': the headless browser (render.py) when Playwright is installed; None: never; or a function url -> html (tests)
@@ -293,7 +354,7 @@ def _look(page, link, fetch_page):
     jobs = jsonld_jobs(page, link) or read_page_from(page, link, fetch_page)
     if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
         jobs = []   # that link is one job's page, not the list of jobs
-    jobs = _asked(link, page, jobs)
+    jobs = _asked(link, page, jobs, fetch_page)
     return {'ats': 'careers', 'jobs': jobs} if jobs else None
 
 
@@ -399,6 +460,14 @@ def discover(website, fetch_page=get_text):
         guessed = _explore(website, home, fetch_page, show, links=guessed_links(website, fetch_page), limit=14)
         if guessed and (not found or not guessed.get('empty')):
             found = guessed
+    if (not found or found.get('empty')) and (choose := chooser()):   # a model reads the home page's links and picks the job list
+        try:
+            picked = choose(website, home)
+        except Exception:  # noqa: BLE001 — no answer: nothing more to try
+            picked = []
+        chosen = _explore(website, home, fetch_page, show, links=picked) if picked else None
+        if chosen and (not found or not chosen.get('empty')):
+            found = chosen
     if found or show is None:
         return found
     try:

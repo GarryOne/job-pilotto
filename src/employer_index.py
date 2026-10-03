@@ -14,7 +14,7 @@ import secrets
 import urllib.request
 
 from .paths import DATA
-from .sources import ats
+from .sources import ats, page_recipes
 
 URL = 'https://www.jobpilotto.workers.dev/api/index'
 CACHE = DATA / 'employer_index.json'
@@ -58,7 +58,8 @@ def clean(feeds):
             out.append({'company': company, 'ats': system, 'slug': slug, 'quality': item.get('quality'),
                         'checked': item.get('checked'),
                         'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None,
-                        'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None})
+                        'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None,
+                        **({'recipe': item['recipe']} if system == 'careers' and page_recipes.valid(item.get('recipe')) else {})})
     return out
 
 
