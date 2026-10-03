@@ -24,3 +24,22 @@ a CV-scoring tool promoter, recruiting-software vendors in the AI-workflow threa
   and worded as unconfirmed; the weight is on text that exists, contact details as text, standard headings, dates, length.
 - **A clear top of page 1** matters: recruiters search, then spend seconds on the matches. The content review looks at keywords for the target roles.
 - **Next:** a job-level match check (this posting vs the attached CV) on Application sessions.
+
+
+---
+## Second pass: ten product decisions (3 Oct 2026)
+A follow-up research pass with stricter rules (vendor promotion excluded, vendor documentation kept apart as "capability, not behaviour").
+
+- **Knockout:** Greenhouse (Plus/Pro), Ashby and SmartRecruiters document auto-reject on question answers; Lever and Workday are unverified (do not read that as "only flags").
+  Reddit: one thread, a recruiter's account. Wording rule: "can trigger automatic rejection if the employer has configured a knockout rule"; "may be flagged for review" when unknown.
+- **Where the answer lives:** screening questions and location come before the CV (1 thread); no evidence for "CV wins" or "answer wins". Show a contradiction between CV and answer for review; keep residence, relocation, onsite, authorisation and sponsorship separate.
+- **First screen:** 10–20 s per CV (1 thread); a generic summary is skipped in half a second (1 thread). A readability point, not a reject trigger.
+- **Search:** recruiters Boolean-search required terms and title aliases (2 threads); field scope (CV text vs parsed fields) unknown.
+- **Parse failures:** 0 qualifying admin or recruiter threads. Penalise observed extraction errors only; layout alone is a prompt to check (copy-and-paste test). Numerical weights remain hypotheses.
+- **Tailoring and AI:** truthful AI polish is accepted (1 thread); no evidence of AI detection or a keyword-stuffing threshold. Include skills that have supporting experience.
+- **Rejection speed:** timing alone proves nothing (a 3 AM batch email; Ashby and SmartRecruiters delay emails). Never tell a user the CV "failed the ATS" from timing.
+- **Referrals:** conflicting hiring outcomes; no ranking bypass shown. Frame as "a relevant person may see it".
+- **Switzerland, Germany, UK, EU:** photo is optional in Switzerland (individual preferences); no regional ATS differences established. EU AI Act treats CV-sorting AI as high-risk (employment rules from 2 Dec 2027); FDPIC and ICO guidance apply. Offer a photo choice and a version without.
+
+**Implemented from this pass:** the knockout warning wording; the CV check no longer penalises layout alone; the content review treats a generic summary as readability.
+**Next:** contradiction review (CV vs form answers), a job-level match check on Application sessions, a photo-optional CV version.

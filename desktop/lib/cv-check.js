@@ -2,7 +2,8 @@
 // Two parts. The parser check is rules on the PDF's own text and layout (free, instant): modern hiring systems turn a CV into fields
 // (name, contact, jobs, dates, skills) that recruiters search, so a CV they cannot read cleanly never turns up. The content review is one
 // Claude call on the text a parser would get: keywords for the person's target roles, evidence, clarity. It is a readiness check, not a
-// score from any real hiring system (they do not publish one). Results are a cache of the PDF (cv/check.json), rebuilt on demand.
+// score from any real hiring system (they do not publish one). Only observed extraction problems cost points (no text, garbled characters, no contact
+// details, no readable dates); layout alone (columns, pictures) is a note: no recruiter or admin we found shows it breaking a parse. Results are a cache of the PDF (cv/check.json), rebuilt on demand.
 import Anthropic from '@anthropic-ai/sdk';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -60,7 +61,7 @@ export function analyse(pages) {
   }
   checks.push(side < 4 ? check('columns', 'One column of text', 'pass', 'Sentences run down one column, in reading order.')
     : check('columns', 'One column of text', 'warn', `${side} lines have text side by side: some parsers read straight across and mix the two (reported by a scanner developer, not confirmed by recruiters).`,
-      'Put experience in a single column; keep side panels to short labels.', 10));
+      'Put experience in a single column; keep side panels to short labels. Copy the PDF into a text editor: if the order is wrong, so is a parser\'s.', 0));
 
   // 3. Contact details in the body text.
   const email = /[\w.+-]+@[\w-]+\.[\w.-]+/.test(text), phone = /\+?\d[\d\s().-]{7,}\d/.test(text);
@@ -92,7 +93,7 @@ export function analyse(pages) {
   const banner = seen.some(image => image.w >= W * 0.9);
   checks.push(!photo && !banner ? check('images', 'No decorative images', 'pass', seen.length ? 'Small icons only: harmless.' : 'No images.')
     : check('images', 'Pictures are ignored by parsers', 'warn', `${[photo ? 'a photo' : '', banner ? 'a full-width banner' : ''].filter(Boolean).join(' and ')}: a parser cannot read them, so keep nothing important in them.` +
-      ' No recruiter we found reports a photo breaking a parse; it is a market habit (in the US, UK and Canada a photo is usually left out).', photo ? 'Check that your target market expects a photo; otherwise remove it.' : 'Keep the banner decorative.', photo && banner ? 3 : 2));
+      ' No recruiter we found reports a photo breaking a parse; it is a market habit (in the US, UK and Canada a photo is usually left out).', photo ? 'A photo is a choice, not a parse failure: keep it if your market expects one (Switzerland: optional), and keep a version without.' : 'Keep the banner decorative.', 0));
 
   // 7. Length.
   const n = pages.length;
@@ -129,6 +130,7 @@ const INSTRUCTIONS = `You review a CV the way a recruiter and a hiring system's 
 Score 0-100 overall and for four components: "Keywords for your target roles" (are the tools, methods and titles the target roles ask for stated plainly,
 not implied), "Evidence" (results and numbers, not duties), "Clarity" (short bullets that start with what the person did, one idea each), "Seniority signal"
 (scope, ownership and team size visible). Be calibrated: most CVs land between 55 and 85; 90+ only when nothing important is missing.
+A summary that says nothing specific ("results-driven professional") is a readability point, not a reason for rejection; say what a specific one would name. Never claim a hiring system will reject the CV.
 strengths: 2-4 short points. fixes: at most 8, most valuable first; where = the section or role it concerns, issue = what a reader or search would miss,
 suggestion = a concrete change. impact high/medium/low.
 Hard rules: use only what the CV says. Never suggest adding a tool, number, employer or responsibility the CV does not state; where a keyword is missing,

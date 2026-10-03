@@ -320,7 +320,7 @@
     const ranked = [...shown].sort((a, b) => KNOCKOUT.test(b.label) - KNOCKOUT.test(a.label));
     const knockouts = ranked.filter(field => KNOCKOUT.test(field.label)).length;
     $('.knock').hidden = !knockouts;
-    $('.knock').textContent = 'Some of these can reject an application automatically (work permit, sponsorship, location, office days). Answer them truthfully: they decide more than the CV.';
+    $('.knock').textContent = 'Some of these can trigger automatic rejection if the employer has set a knockout rule (work permit, sponsorship, location, office days); others are only flagged for review. Answer them truthfully: they can decide more than the CV.';
     $('.list').replaceChildren(...ranked.slice(0, 30).map(field => {
       const row = Object.assign(document.createElement('button'), {className: 'item'});
       row.append(Object.assign(document.createElement('i'), {textContent: KNOCKOUT.test(field.label) ? '⛔' : AGREE.test(field.label) ? '⚖️' : '○'}),
