@@ -3,6 +3,7 @@
 import {$, message, show} from './core.js';
 import {el, notionBenefits, notionGate} from '../components.js';
 import {GATE_FOOTNOTE, GATE_TITLE, LOCKED_VIEWS, WHY_CHOICES} from '../notion-benefits.js';
+import {closeOnProgress, ignoreGateEvent} from '../notion-connect-rules.js';
 import {shared} from './shared.js';
 
 export const notionConnected = () => !!shared.state?.notion?.NOTION_PROFILE_PAGE_ID;
@@ -14,7 +15,8 @@ export const reasonText = reason => {
 // What happened to the prompt, to the app (lib/notion-gate.js gateEvent keeps only fixed lists; nothing else is sent).
 const report = (reason, where, outcome, why) => window.pilot.notionGateEvent({reason, where, outcome, why}).catch?.(() => {});
 
-let current = null;  // the open prompt: {reason, where, from, then, sent, notNow, why}
+let current = null;  // the open prompt: {reason, where, from, then, sent, notNow, why, connecting}
+let underwaySince = 0;  // news of a connect this prompt did not start (Settings, a token): see notion-connect-rules.js
 function finish(outcome) {
   if (!current || current.sent) return;
   current.sent = true;
@@ -47,6 +49,7 @@ export function openNotionConnect({reason = 'none', where = 'dialog', from = 'di
 async function connect() {
   if (!current) return;
   const box = current;
+  box.connecting = true;
   $('notion-connect-go').disabled = true;
   message('notion-connect-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
   const result = await window.pilot.notionOAuth({from: box.from}).catch(error => ({ok: false, error: error.message}));
@@ -131,10 +134,16 @@ export function init() {
   window.addEventListener('pilot-needs-notion', () => {
     const need = window.pilot.takeNotionNeed();
     if (!need || $('notion-connect-dialog').open) return;
+    if (ignoreGateEvent({since: underwaySince})) return;   // a connect is already running: asking again would stack a prompt on it
     openNotionConnect({reason: need.reason, where: 'dialog', from: `gate:${need.reason}`, then: async () => {
       await window.pilot.retryNotionNeed().catch(() => null);
       import('./jobs.js').then(jobs => jobs.loadJobs());
     }});
   });
-  window.pilot.onNotionProgress(progress => { if ($('notion-connect-dialog').open && current) message('notion-connect-message', progressLine(progress), 'waiting'); });
+  window.pilot.onNotionProgress(progress => {
+    const dialog = $('notion-connect-dialog'), own = !!current?.connecting;
+    if (!own) underwaySince = Date.now();
+    if (closeOnProgress({dialogOpen: dialog.open, ownConnect: own})) { dialog.close(); return; }
+    if (dialog.open && current) message('notion-connect-message', progressLine(progress), 'waiting');
+  });
 }
