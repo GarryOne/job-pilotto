@@ -18,8 +18,13 @@ export async function checkA11y(page) {
       return result.violations.filter(item => item.impact === 'serious' || item.impact === 'critical')
         .map(item => ({rule: item.id, impact: item.impact, help: item.help, nodes: item.nodes.length, example: (item.nodes[0]?.target || []).join(' ').slice(0, 100)}));
     });
-  } catch { return []; }
+  } catch (error) {
+    // Never fails a journey, but never silently either: a missing axe-core (not installed) once looked like "no violations" (3 Oct 2026, found by the recall plants).
+    if (!warned) { warned = true; console.log(`  ! accessibility not checked: ${String(error.message).split('\n')[0].slice(0, 160)}`); }
+    return [];
+  }
 }
+let warned = false;
 
 // Adds one page's violations to the suite's tally (ctx.a11y: rule -> {help, pages, nodes, example}).
 export function tally(store, page, violations) {

@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -49,7 +49,7 @@ export function refreshRanking({gh = realGh, issues, repo = '', now = Date.now()
     for (const old of have.filter(name => name !== priorityLabel(priority))) args.push('--remove-label', old);
     gh(args);
   }
-  const body = rankingBody(ranked, now);
+  const body = rankingBody(ranked, now, 12, scorecard(issues, now));
   const found = JSON.parse(gh(['issue', 'list', '--label', 'top-issues', '--state', 'open', '--json', 'number,body,id']));
   if (found[0]) { if (found[0].body !== body) gh(['issue', 'edit', String(found[0].number), '--title', RANKING_TITLE, '--body', body]); return {ranked, number: found[0].number}; }
   gh(['label', 'create', 'top-issues', '--force', '--color', 'B60205', '--description', 'The pinned ranked list of open findings']);
@@ -82,7 +82,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     suite: suiteFailures});
   // A run on Windows (e2e-windows.yml) files its own issues: a Windows-only break must not hide in a Mac issue, nor a Mac one be cleared by a Windows run.
   if (platform !== 'mac') for (const finding of findings) finding.id = `${finding.id}-${platform.slice(0, 3)}`;
-  const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+  const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   // Only this platform's issues are matched, marked "not seen" and closed here (the ranking below reads them all again).
   let issues = list().filter(issue => platformOf(issue) === platform);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null};
@@ -220,7 +220,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 
 // The open issues of the loop and the open fix branches -> the most critical issue that is ready (or null). Used by the fixer (pick.mjs).
 export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
-  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
   const candidate = pickCandidate(issues, {openBranches: branches, now});
   // The other open findings of the same kind: one root cause often shows on several pages (#66 and #74, 3 Oct 2026), and the fix should cover them all.
@@ -230,7 +230,7 @@ export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
 
 // The fixer's job summary: open findings, which are ready, and why each other one was passed over (readinessSummary).
 export function fixerSummary({gh = realGh, now = Date.now(), candidate = null} = {}) {
-  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
   return readinessSummary(issues, {openBranches: branches, now, candidate});
 }
@@ -239,7 +239,7 @@ export function fixerSummary({gh = realGh, now = Date.now(), candidate = null} =
 // WITHOUT editing anything. It says `false-positive` (the issue is closed `wontfix-auto`) or `real` (labelled `confirmed`, so the next normal run fixes it). Six of fourteen issues on 3 Oct 2026
 // were false positives that a person had to find by reading the handler. Most critical first; never one already judged, parked, or clean in the latest run.
 export function chooseVerdictCandidate({gh = realGh, now = Date.now()} = {}) {
-  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   const ready = issues.filter(issue => {
     const labels = (issue.labels || []).map(label => label.name || label);
     if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED, NOT_SEEN].some(name => labels.includes(name))) return false;
@@ -277,7 +277,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   fs.mkdirSync(outDir, {recursive: true});
   // Only the pinned list: rebuilt when an issue is opened, closed or relabelled (ui-ranking.yml), not just after an e2e run.
   if (args.includes('--rank-only')) {
-    const issues = JSON.parse(realGh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+    const issues = JSON.parse(realGh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
     const {ranked} = refreshRanking({issues, repo: process.env.REPO || process.env.GITHUB_REPOSITORY || ''});
     console.log(`Ranking rebuilt: ${ranked.length} open.`);
     process.exit(0);

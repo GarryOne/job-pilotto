@@ -9,6 +9,7 @@ import {probePage} from '../lib/interact.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {settle} from '../lib/app.mjs';
 import {VIEWS} from '../lib/uicheck.mjs';
+import {measureRecall, recallFindings} from '../lib/recall.mjs';
 
 export const name = 'interactions';
 export const minutes = 10;
@@ -45,6 +46,16 @@ export async function run(ctx) {
       console.log(`  ${view}: ${results.length} controls pressed, ${findings.length} flagged, ${skipped.length} left alone (${skipped.slice(0, 6).join(' | ')})`);
     }, {needs: ctx.needs});
   }
+  // Recall (lib/recall.mjs): known bugs planted into the page one at a time; each detector must catch its own. A miss is filed as a finding about the detector.
+  await ctx.run('the detectors catch the bugs planted for them (recall)', async () => {
+    await page.click('.nav[data-view="focus"]');
+    await settle(page);
+    const result = await measureRecall({page, view: 'focus', ipc});
+    fs.writeFileSync(path.join(ARTIFACTS, 'recall.json'), JSON.stringify(result, null, 2));
+    ctx.findings.push(...recallFindings(result));
+    console.log(`  recall: ${result.caught} of ${result.planted} planted bugs caught${result.caught < result.planted ? ` (missed: ${result.rows.filter(row => !row.caught).map(row => row.id).join(', ')})` : ''}`);
+    if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Detector recall: ${result.caught} of ${result.planted} planted bugs caught.\n`);
+  }, {needs: ctx.needs});
   await ctx.run('the narrowest window: the sidebar is an icon rail and every page still fits', async () => {
     await visitNarrow(ctx, ['focus', 'jobs', 'actions', 'settings']);
   }, {needs: ctx.needs});

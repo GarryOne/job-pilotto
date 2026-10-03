@@ -276,7 +276,28 @@ export function rankIssues(issues, now = Date.now()) {
 
 const lastBuild = issue => [issue.body, ...(issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).map(comment => comment.body)].map(commitOf).filter(Boolean).at(-1) || '';
 const lastSeen = issue => [issue.createdAt, ...(issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).map(comment => comment.createdAt)].filter(Boolean).sort().at(-1) || '';
-export function rankingBody(ranked, now = Date.now(), limit = 12) {
+// Each detector's record over the last 30 days, from the issues themselves: how many it filed, how many were false positives (wontfix-auto), how many were real
+// (confirmed, or closed as completed), how many are still open. With the recall plants (recall.json), this is how "better" is measured, not guessed.
+const SOURCE_NAMES = {'ai-review': 'AI screenshot review', 'interaction-probe': 'Interaction probe', 'layout-check': 'Layout and DOM checks', 'suite-failure': 'Failed test steps', 'code-review': 'AI code review', explorer: 'AI explorer'};
+export function scorecard(issues, now = Date.now(), days = 30) {
+  const rows = {};
+  for (const issue of issues || []) {
+    if (issue.createdAt && now - Date.parse(issue.createdAt) > days * 86400000) continue;
+    const labels = (issue.labels || []).map(item => item.name || item);
+    const source = (labels.find(name => name.startsWith('source:')) || '').slice(7);
+    if (!source) continue;
+    const row = (rows[source] ??= {filed: 0, falsePositive: 0, real: 0, open: 0});
+    row.filed++;
+    if (labels.includes(FALSE_POSITIVE)) row.falsePositive++;
+    else if (labels.includes(CONFIRMED) || (issue.state === 'CLOSED' && issue.stateReason === 'COMPLETED' && !labels.includes(NOT_SEEN))) row.real++;
+    if (issue.state === 'OPEN') row.open++;
+  }
+  return Object.entries(rows).sort((a, b) => b[1].filed - a[1].filed).map(([source, row]) => ({source: SOURCE_NAMES[source] || source, ...row}));
+}
+export const scorecardLines = rows => (rows.length ? ['', '**Detectors, last 30 days**', '', '| Detector | Filed | False positives | Real | Open |', '|---|---|---|---|---|',
+  ...rows.map(row => `| ${row.source} | ${row.filed} | ${row.falsePositive}${row.filed ? ` (${Math.round(100 * row.falsePositive / row.filed)}%)` : ''} | ${row.real} | ${row.open} |`),
+  '', '<sub>Real = confirmed by a person or the verdict pass, or closed as fixed. Closed as "not seen" counts as neither. Recall (known bugs planted into the page, caught or not) is in each interactions run\'s summary.</sub>'] : []);
+export function rankingBody(ranked, now = Date.now(), limit = 12, card = []) {
   const rows = ranked.slice(0, limit).map(({issue, priority, score: points}, index) => {
     const at = lastSeen(issue), days = at ? Math.floor((now - Date.parse(at)) / 86400000) : null;
     const age = days === null ? '' : days <= 0 ? 'today' : `${days} d ago${days >= 7 ? ' ⚠️' : ''}`;
@@ -288,7 +309,7 @@ export function rankingBody(ranked, now = Date.now(), limit = 12) {
   return ['**The open findings, most important first.** Re-ranked after every run.', '', `${counts} · ${ranked.length} open`, '',
     '| # | Priority | Finding | Platform | Score | Last build seen on |', '|---|---|---|---|---|---|', ...(rows.length ? rows : ['| | | nothing open | | | |']),
     '', '**P0** would keep a build from beta or stable · **P1** seen again and again, or high and confirmed · **P2** worth a look · **P3** seen once, or already clean in the latest run. Score = severity × sightings this week (× 2 when a person confirmed it). Within a priority: a wrong result before a dead control before a missing spinner (a crashed test step counts least), the critical path (apply, strategy, activity, setup) first, Mac before Windows. ⚠️ = not seen for 7 days or more. A finding closes after two clean runs of its page, or one when a commit says it fixes it.',
-    '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
+    ...scorecardLines(card), '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
 }
 
 // Why an open issue is not ready for a fix ('' = ready): the fixer's rules, in the order they are checked. One place, so the pick and its summary agree.
