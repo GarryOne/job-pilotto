@@ -53,7 +53,8 @@ import {mergeTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-ta
 import * as backgroundChrome from './lib/background-chrome.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
-import {log as appLog, logTo} from './lib/log.js';
+import {log as appLog, logFile, logTo} from './lib/log.js';
+import {versionLine, watchWindow} from './lib/window-log.js';
 import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as reset from './lib/reset.js';
@@ -178,8 +179,10 @@ async function installUpdate() {
   if (FROM_SOURCE) return {ok: false, text: 'Running from source (npm start): update with git pull, then restart.'};
   if (!updateOffer) return {ok: false, text: 'No update to install.'};
   try {
-    await updater.install(updateOffer, {exe: app.getPath('exe'), onStep: text => toWindow('updateStep', text),
-      quit: () => app.quit()});  // the quit dialog still asks if a job runs; the swap waits for the app to close
+    appLog('update', `install ${updateOffer.version} over ${app.getVersion()}: started`);
+    await updater.install(updateOffer, {exe: app.getPath('exe'), logFile: logFile(),
+      onStep: text => { appLog('update', `install ${updateOffer.version}: ${text}`); toWindow('updateStep', text); },
+      quit: () => { appLog('update', `install ${updateOffer.version}: quitting so the new version can be put in place`); app.quit(); }});  // the quit dialog still asks if a job runs; the swap waits for the app to close
     return {ok: true};
   } catch (error) {
     appLog('update', `install failed: ${error.message}`);
@@ -265,6 +268,7 @@ function createWindow() {
     backgroundColor: windowBackground(),
     webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false},
   });
+  watchWindow(window.webContents, {log: appLog});   // load time, load failures, crashes, freezes, page errors, a blank window
   window.on('page-title-updated', event => { event.preventDefault(); window.setTitle(windowTitle); });
   // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
   const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
@@ -1774,6 +1778,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   engineLog.setFile(path.join(app.getPath('userData'), 'logs', 'engine.log'));  // everything a run printed, in full
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  const firstStart = DEMO ? null : versionLine(storage, app.getVersion(), buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : '');
+  if (firstStart) appLog('update', firstStart);
   aiTrial.apply(storage.settings());  // the free AI credit, if on: this process's Anthropic SDK goes to our website
   // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode, and never
   // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.

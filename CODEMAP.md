@@ -104,6 +104,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
+- `desktop/lib/window-log.js` — What happened to the main window, in logs/app.log (area `window`): how long it took to load, a load that failed, the
 
 ## Desktop window: pages
 
