@@ -239,7 +239,8 @@ export function chooseVerdictCandidate({gh = realGh, now = Date.now()} = {}) {
     const labels = (issue.labels || []).map(label => label.name || label);
     if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED, NOT_SEEN].some(name => labels.includes(name))) return false;
     const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
-    return ['dead-control', 'expand-broken', 'no-loading-state'].includes(kind) && recentSightings(issue, now) < SIGHTINGS_NEEDED;
+    // Every one-off finding the loop made by judging (the probe, the layout check, the AI screenshot review), not a failed test step: the suites judge those themselves.
+    return !!kind && kind !== 'test-failure' && recentSightings(issue, now) < SIGHTINGS_NEEDED;
   });
   ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
   return ready[0] ? {...ready[0], mode: 'verdict'} : null;

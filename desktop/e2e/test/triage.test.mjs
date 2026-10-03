@@ -279,8 +279,9 @@ test('the verdict pass takes a one-off probe finding, never a judged, parked, co
   const gh = args => (args[0] === 'issue' ? JSON.stringify(issues) : '[]');
   const picked = chooseVerdictCandidate({gh});
   assert.equal(picked.mode, 'verdict');
-  assert.ok([7, 8].includes(picked.number), `got #${picked.number}`);   // 6 was seen on two builds: the normal fixer takes it; 1-5 are not for a verdict
-  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 5)) : '[]')}), null);
+  assert.ok([5, 7, 8].includes(picked.number), `got #${picked.number}`);   // 6 was seen on two builds: the normal fixer takes it; 1-4 are judged, parked or clean
+  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 4)) : '[]')}), null);
+  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify([make(9, 'test-failure')]) : '[]')}), null, 'a failed test step is judged by its suite, not by a verdict');
 });
 
 // "We're still missing the version in the gh issue labels" (#92, #93, 3 Oct 2026): the version was text in the body, and only when a release tag sat on exactly the tested commit.
