@@ -98,6 +98,24 @@ export async function run(ctx) {
     } finally { proxy.setMode('pass'); }
   }, {needs: ctx.needs});
 
+  // ---------- (2b) the AI fails where a person asked for something on the spot (not a run) ----------
+  // #94 (3 Oct 2026): with the AI out of credit, "Read my CV PDF" put the API's JSON in the CV card ("400 {"type":"error",…,"request_id":…}"). A failure state is where
+  // such text shows, so the card is read here, and photographed: the layout check flags technical text shown to a person, and the AI review sees the page.
+  await ctx.run('the AI out of credit while reading the CV: the card says it in words, never the API\'s JSON (#94)', async () => {
+    proxy.setMode('no-credit');
+    try {
+      await page.click('.nav[data-view="settings"]');
+      page.once('dialog', dialog => dialog.accept().catch(() => {}));   // "Replace your CV data…?" when a CV was read before
+      await page.locator('#cv-import').click({timeout: 30000});
+      await page.waitForFunction(() => { const said = document.getElementById('cv-message')?.textContent || ''; return said && !/Reading your CV/.test(said); }, null, {timeout: 180000, polling: 1000});
+      const said = (await page.locator('#cv-message').innerText()).trim();
+      console.log(`  the CV card says: ${said.slice(0, 160)}`);
+      if (/[{}]|"type"|request_id|invalid_request_error|Error code/.test(said)) throw new Error(`the CV card shows the API's raw answer: ${said.slice(0, 200)}`);
+      if (!/credit|limit/i.test(said)) throw new Error(`the CV card does not say the AI is out of credit: ${said.slice(0, 200)}`);
+      await snap(ctx, 'settings-cv-no-credit', {view: 'settings', situation: 'Read my CV PDF pressed while the AI has no credit'});
+    } finally { proxy.setMode('pass'); }
+  }, {needs: ctx.needs});
+
   // ---------- (3) two things at once, and a quit in the middle ----------
   await ctx.run('Run double-clicked, and asked again from elsewhere while it runs: one row, not two', async () => {
     await ctx.relaunch();
