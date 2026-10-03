@@ -24,7 +24,15 @@ export async function run(ctx) {
     {command: 'weekly', kind: 'weekly', what: 'Create weekly report', maxMs: 240000},
   ];
   ctx.taskRuns = {};
-  for (const task of TASKS) {
+  // A seeded run presses the cards in another order (each is checked on its own): a run that only passes after another one, or leaves something behind
+  // for the next, shows up. No seed (the release gate) = the order above. Replay: E2E_SEED=<seed> node suite.mjs activity.
+  const order = ctx.vary.shuffle(TASKS);
+  if (!ctx.vary.fixed) {
+    console.log(`  variation: seed ${ctx.vary.seed}; tasks in order ${order.map(task => task.command).join(', ')}`);
+    fs.mkdirSync(ctx.ARTIFACTS, {recursive: true});
+    fs.writeFileSync(path.join(ctx.ARTIFACTS, 'seed.json'), JSON.stringify({seed: ctx.vary.seed, fixed: false, detail: `tasks: ${order.map(task => task.command).join(', ')}`}));
+  }
+  for (const task of order) {
     await ctx.run(`${task.what}: one Recent runs row, an end, plain words, a clean log, and no row left Running`, async () => {
       const {fresh, shown, seconds} = await runTask(ctx, task.command, {maxMs: task.maxMs, kind: task.kind});
       const mine = shown.find(row => row.id === String(fresh[0].id));
