@@ -102,7 +102,7 @@ jobs:
       - name: Version
         id: version
         working-directory: desktop
-        # package.json holds the target and phase (e.g. 0.2.0-alpha); each release gets the next number.
+        # package.json holds the target (0.5.0): each build is the next patch, 0.5.1, 0.5.2 … The channel (build, beta, stable) says how proven it is, not the version.
         run: |
           version=$(scripts/next-version.sh)
           npm version "$version" --no-git-tag-version --allow-same-version >/dev/null
