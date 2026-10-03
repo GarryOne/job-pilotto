@@ -47,7 +47,11 @@ export function makeOpenShim() {
   const bin = path.join(root, 'bin'), spool = path.join(root, 'spool');
   fs.mkdirSync(bin); fs.mkdirSync(spool);
   fs.writeFileSync(path.join(bin, 'open'), '#!/bin/sh\nfor last; do :; done\nf=$(mktemp "$JOB_PILOTTO_E2E_OPEN_DIR/open.XXXXXX") && printf \'%s\' "$last" > "$f" && mv "$f" "$f.url"\n', {mode: 0o755});
-  return {bin, spool};
+  // Windows has no `open`: the app runs `node <script> <urls>` instead (lib/apply.js chromeCommand, JOB_PILOTTO_E2E_OPENER). Same spool, same .url files.
+  const script = path.join(root, 'open.mjs');
+  fs.writeFileSync(script, "import fs from 'node:fs'; import path from 'node:path';\nconst dir = process.env.JOB_PILOTTO_E2E_OPEN_DIR, url = process.argv.at(-1);\n" +
+    "const file = path.join(dir, `open.${process.pid}.${Date.now()}`); fs.writeFileSync(file, url); fs.renameSync(file, `${file}.url`);\n");
+  return {bin, spool, script};
 }
 
 // -> {context, opened: [url], serviceWorker(), page(url), close()}. Every URL the app opens is opened here, in a new tab.

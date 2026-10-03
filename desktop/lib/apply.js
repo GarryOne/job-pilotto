@@ -70,6 +70,8 @@ const NO_CHROME = 'Google Chrome was not found. Install it (with the Job Pilotto
 // How to open URLs in Chrome: `open -a` on the Mac; on Windows chrome.exe itself (no shell, so a URL's & stays
 // part of the URL), from where the installer puts it. null when Chrome isn't installed.
 export function chromeCommand(urls, platform = process.platform, env = process.env, exists = fs.existsSync) {
+  // The end-to-end journey on Windows: no `open` to put a stand-in for on PATH, so node runs its stand-in script (never for a user: needs JOB_PILOTTO_E2E).
+  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_OPENER) return ['node', [env.JOB_PILOTTO_E2E_OPENER, ...urls]];
   if (platform !== 'win32') return ['open', ['-a', 'Google Chrome', ...urls]];
   const chrome = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean)
     .map(dir => path.win32.join(dir, 'Google', 'Chrome', 'Application', 'chrome.exe')).find(file => exists(file));
