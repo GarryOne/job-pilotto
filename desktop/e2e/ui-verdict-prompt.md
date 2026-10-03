@@ -9,6 +9,8 @@ If it was found by the AI SCREENSHOT REVIEW, look at the picture (.heal/screensh
 - a guess about how the app works inside ("it cannot know X without Y"): check where the data really comes from before agreeing.
 It is right, and important, when the page shows a false status, a wrong number, or technical text (an API error, JSON, a stack trace) to a person.
 
+If it was found by the AI CODE REVIEW (it read the changes, it ran nothing), open the file at the line, follow the scenario through the code, and say `real` only if it can happen.
+
 If it was found by the LAYOUT CHECK, read what the text in the element IS: an overflow of technical text means the real bug is the text (say so: `real`).
 
 If it was found by the INTERACTION PROBE (it pressed a control and recorded what happened), it is often wrong in these ways:
