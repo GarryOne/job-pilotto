@@ -1,6 +1,7 @@
 // The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
 // once while a fresh read from Notion runs, then swaps in the fresh one (stale-while-revalidate). A cache in the
-// data rules' sense: rebuilt by the next read, never edited, never the only copy. Tied to the Notion workspace, so
+// data rules' sense: rebuilt by the next read, never the only copy, edited only to mirror a write the app has just
+// made to Notion (statusChanged). Tied to the Notion workspace, so
 // switching workspaces never shows another workspace's jobs.
 export const NAMES = ['jobs', 'focus', 'strategy', 'contact', 'knowledge', 'interviews'];
 // contact, knowledge: what a form fill needs from Notion (your details, learned answers), so a fill never waits on
@@ -27,4 +28,19 @@ export function recall(storage, name) {
     const saved = JSON.parse(storage.readText(file(name)));
     return saved.workspace === workspace(storage) ? {at: saved.at, result: saved.result} : null;
   } catch { return null; }
+}
+
+// A job's status was just written to Notion (Save, Dismiss, Applied): the saved Jobs list says so too, and the saved
+// Focus (built from the old stages) is dropped. Without this a reload or restart painted the list from before the
+// change, a dismissed interview back as "Interview scheduled" until the fresh read landed (focus e2e, 3 Oct 2026).
+export function statusChanged(storage, url, status, stage) {
+  const saved = recall(storage, 'jobs');
+  if (saved?.result?.jobs) {
+    const job = saved.result.jobs.find(item => item.url === url);
+    if (job) {
+      Object.assign(job, {status}, stage ? {stage} : {});
+      storage.writeText(file('jobs'), JSON.stringify({at: saved.at, workspace: workspace(storage), result: saved.result}));
+    }
+  }
+  if (recall(storage, 'focus')) storage.writeText(file('focus'), '');
 }

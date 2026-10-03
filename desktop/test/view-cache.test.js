@@ -56,3 +56,18 @@ test('the view cache is on unless settings say "viewCache": false', () => {
   s.saveSettings({viewCache: false});
   assert.equal(viewCache.recall(s, 'focus'), null);
 });
+
+test('a status write shows in the saved Jobs list and drops the saved Focus: a reload never brings back a dismissed job', () => {
+  const s = storage();
+  viewCache.remember(s, 'jobs', {jobs: [{url: 'https://x/ember', status: 'applied', stage: 'Interview scheduled'}, {url: 'https://x/alder', status: 'unreviewed', stage: ''}]});
+  viewCache.remember(s, 'focus', {ok: true, focus: {}});
+  const at = viewCache.recall(s, 'jobs').at;
+  viewCache.statusChanged(s, 'https://x/ember', 'dismissed', 'Closed');
+  const saved = viewCache.recall(s, 'jobs');
+  assert.deepEqual(saved.result.jobs[0], {url: 'https://x/ember', status: 'dismissed', stage: 'Closed'});
+  assert.equal(saved.result.jobs[1].status, 'unreviewed');
+  assert.equal(saved.at, at);  // still says how old the read is
+  assert.equal(viewCache.recall(s, 'focus'), null);
+  viewCache.statusChanged(s, 'https://x/alder', 'saved');  // no Notion: the status alone
+  assert.deepEqual(viewCache.recall(s, 'jobs').result.jobs[1], {url: 'https://x/alder', status: 'saved', stage: ''});
+});

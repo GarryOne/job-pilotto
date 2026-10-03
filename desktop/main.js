@@ -1127,12 +1127,16 @@ function handlers() {
     const reason = notionGate.statusReason(status);
     const gate = reason && needsNotion(reason);
     if (gate) return gate;
-    if (status !== 'applied') return pipeline.setStatus(storage, url, status);
+    if (status !== 'applied') {
+      const result = await pipeline.setStatus(storage, url, status);
+      if (result?.ok) viewCache.statusChanged(storage, String(url), status, result.stage);
+      return result;
+    }
     const job = String(url);
     appLog('applied', `asked from the app (you): ${job}`);
     const result = await pipeline.setStatus(storage, job, status).catch(error => ({ok: false, error: error.message}));
     appLog('applied', `asked from the app (you): ${job} -> ${result?.ok ? 'marked applied' : result?.error || 'failed'}`);
-    if (result?.ok) { track('applied', {how: 'manual'}); server.sessionSubmitted(job); }   // the job is Applied: its sessions are over, as for a submit the extension saw
+    if (result?.ok) { track('applied', {how: 'manual'}); server.sessionSubmitted(job); viewCache.statusChanged(storage, job, status, result.stage); }   // the job is Applied: its sessions are over, as for a submit the extension saw
     return result;
   });
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
