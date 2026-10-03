@@ -389,6 +389,11 @@ export async function init() {
   $('open-login').addEventListener('change', () => window.pilot.setAutomation({openAtLogin: $('open-login').checked}));
   // Google calls the app unverified: say so before the browser opens, with the three clicks that get through it.
   $('google-connect').addEventListener('click', () => $('google-warning-dialog').showModal());
+  // The job-alert guide: each site's own page, in the browser (fixed addresses in index.html).
+  $('alerts-guide').addEventListener('click', event => {
+    const url = event.target.closest('[data-open-url]')?.dataset.openUrl;
+    if (url && /^https:\/\//.test(url)) window.pilot.openExternal(url);
+  });
   $('google-warning-go').addEventListener('click', async () => {
     $('google-warning-dialog').close();
     $('google-connect').disabled = true;

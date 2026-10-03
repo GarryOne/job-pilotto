@@ -66,6 +66,8 @@ FEATURES = (
     Feature('adzuna', 'Adzuna job search (16 countries incl. Switzerland)', ('ADZUNA_APP_ID', 'ADZUNA_APP_KEY'), 'free tier',
             'free keys from developer.adzuna.com'),
     Feature('jooble', 'Jooble job search', ('JOOBLE_API_KEY',), 'free tier', 'a free key from jooble.org/api/about'),
+    Feature('job_alerts', 'Jobs from your own job-alert emails (LinkedIn, jobs.ch, jobup.ch, Indeed, Glassdoor) in Gmail', ('GOOGLE_REFRESH_TOKEN', AI), 'paid',
+            'connect Gmail (Settings → Gmail and Calendar) and switch on job alerts on those sites; a fraction of a cent per alert email'),
 )
 BY_NAME = {f.name: f for f in FEATURES}
 

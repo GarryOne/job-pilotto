@@ -589,6 +589,16 @@ def main():
                     found = aggregators.scan(feed_db, load_search_config())
                     report['jobs'] += found['jobs']
                     report['sources'] += found['sources']
+                    # Job-alert emails in the user's own Gmail (src/sources/job_alerts.py): LinkedIn & co. without ever fetching their pages.
+                    from . import features
+                    from .ai import engine
+                    if features.enabled('job_alerts') and engine.ready():
+                        from .sources import google as google_api, job_alerts
+                        gmail = google_api.Google.from_env()
+                        if gmail:
+                            alerts = job_alerts.scan(feed_db, gmail, engine.client(action='mail'))
+                            report['jobs'] += alerts['jobs']
+                            report['sources'] += alerts['sources']
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run'):
