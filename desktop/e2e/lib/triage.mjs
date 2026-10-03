@@ -30,7 +30,10 @@ export function normalize({ui = [], ai = [], suite = []}) {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
     const finding = {view: item.view, severity: probed ? probeSeverity(item) : item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
       title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${probed ? `"${item.control}"` : String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: probed ? 'interaction-probe' : 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
-    return {...finding, id: fingerprint(finding)};
+    // `shown` is only the issue's title: a layout finding says what is on the page ("spill on settings-narrow: p#cv-message.message: "400 {"type":"error"…""), not just a selector. The fingerprint
+    // keeps using `title`, so issues filed before this still match.
+    const quoted = !probed && /:\s*"([\s\S]{3,})$/.exec(String(item.detail || ''))?.[1]?.replace(/"$/, '');
+    return {...finding, ...(quoted ? {shown: `${finding.title}: "${quoted.replace(/\s+/g, ' ').slice(0, 40)}${quoted.length > 40 ? '…' : ''}"`} : {}), id: fingerprint(finding)};
   });
   const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, severity: cappedSeverity(item.severity, item.kind), dir: item._dir, id: item.id || fingerprint(item), source: 'ai-review'}));
   // A step of a suite that failed: one finding per step (its message changes from run to run, the step does not). Never a kind a UI fix can address.
@@ -44,7 +47,7 @@ export function normalize({ui = [], ai = [], suite = []}) {
   return [...fromUi, ...fromAi, ...fromSuite].filter(item => !seen.has(item.id) && seen.add(item.id));
 }
 
-export const issueTitle = finding => `[auto-ui] ${finding.view}: ${finding.title}`.slice(0, 120);
+export const issueTitle = finding => `[auto-ui] ${finding.view}: ${finding.shown || finding.title}`.slice(0, 120);
 export const labelFor = id => `fp:${id}`.slice(0, 50);
 
 // Which findings of THIS run keep a build away from beta testers: high severity, and either a deterministic layout check or an AI finding that is already a real

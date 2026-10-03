@@ -364,3 +364,13 @@ test('a page the AI could not review (limit, outage) is never marked not-seen, s
   assert.equal(legacy.out.gone.length, 1, 'an older file without the list behaves as before');
   assert.equal(fingerprint({view: 'x', kind: 'y', title: 'z'}).length > 0, true);
 });
+
+// #94 was titled with a bare CSS selector; the text that overflowed (a raw API error) was in the detail only.
+test('a layout finding\'s title quotes the text on the page, and its fingerprint is unchanged by it', () => {
+  const ui = [{view: 'settings-narrow', severity: 'warning', kind: 'spill', detail: 'p#cv-message.message content runs out of its box (378px of 322px): "400 {"type":"error","error":{"type":"invalid_request_error"'}];
+  const [finding] = normalize({ui});
+  assert.equal(finding.title, 'spill on settings-narrow: p#cv-message.message', 'the title the fingerprint uses is as before');
+  assert.equal(issueTitle(finding), '[auto-ui] settings-narrow: spill on settings-narrow: p#cv-message.message: "400 {"type":"error","error":{"type":"inv…"');
+  const [again] = normalize({ui: [{...ui[0], detail: ui[0].detail.replace('378px', '380px')}]});
+  assert.equal(again.id, finding.id);
+});

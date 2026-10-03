@@ -32,6 +32,9 @@ Report EVERY defect you can see, each as its own finding, not only the most impo
 rail, the search button at its foot), the page header, and the bar along the bottom. Text that runs out of its box or over a neighbour, a label cut off at the edge, a badge covering a title,
 and icons or controls that are misaligned are real defects, each its own finding.
 Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
+Do NOT report transient interface: a toast or notification (it goes away by itself, and one over the page is by design), a tooltip, a spinner, a menu in the middle of opening.
+Do NOT report a guess about how the app works inside or what it "should" know. A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT; quote both.
+A status that merely looks odd, but that data the app keeps elsewhere could explain (a follow-up built from logged events while Gmail is disconnected), is not a contradiction. When you only suspect, say nothing.
 Severity is judged by what it does to the PERSON using the app, nothing else:
 high = it BLOCKS their journey: they cannot finish a task (a control that is missing, disabled or does nothing where it is needed), they get a wrong result or a false status that would
 make them act wrongly, they see a raw error or stack trace, or they could lose data. If they can still get through, it is NOT high.

@@ -1,7 +1,7 @@
 // The AI review's answer is only trusted in a fixed shape; a stable fingerprint keeps one problem from becoming a PR every night.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {buildRequest, fingerprint, parseFindings} from '../lib/vision.mjs';
+import {SYSTEM, buildRequest, fingerprint, parseFindings} from '../lib/vision.mjs';
 
 test('only well-formed findings survive, with the page they were found on', () => {
   const reply = 'Here you go: ' + JSON.stringify({findings: [
@@ -76,4 +76,12 @@ test('the review is told to report every defect separately and to look at the si
   assert.match(SYSTEM, /EVERY defect[\s\S]*its own finding/);
   assert.match(SYSTEM, /sidebar[\s\S]*bar along the bottom/);
   assert.match(expectedFor('failure-screenshot'), /sidebar and the bottom bar/);
+});
+
+// #98 (a toast over the header, "hides Refresh": invented) and #100 ("Gmail not connected" vs a follow-up built from logged events: a guess about the app's insides), 3 Oct 2026.
+test('the review is told that transient UI and guesses about the app\'s insides are not findings', () => {
+  assert.match(SYSTEM, /Do NOT report transient interface: a toast or notification/);
+  assert.match(SYSTEM, /Do NOT report a guess about how the app works inside/);
+  assert.match(SYSTEM, /A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT/);
+  assert.match(SYSTEM, /When you only suspect, say nothing/);
 });
