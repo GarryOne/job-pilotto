@@ -1636,7 +1636,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .nav-sessions.tone-good .nav-sessions-dot { background: var(--good-bright); }
 .notion-links { display: none; }
 .app.rail { grid-template-columns: 72px minmax(0, 1fr); }
-.app.rail .sidebar .nav-group { display: none; }
+.app.rail .sidebar .nav-group { color: transparent; overflow: hidden; white-space: nowrap; width: 32px; margin: 14px 0 6px; position: relative; user-select: none; border-top: 0; }
+.app.rail .sidebar .nav-group::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--rail-line); }   /* Work / Setup keep their height as a thin divider, so collapsing does not crowd the icons */
 .app.rail .sidebar .brand { border-bottom: 0; padding: 2px 0 0; }   /* 6px right padding only shifted the logo 3px left of the icons */
 .app.rail .sidebar .mark { width: 36px; height: 36px; }
 .app.rail .sidebar .nav { padding: 10px 0; }
