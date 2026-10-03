@@ -143,8 +143,10 @@ let staleWarned = '';  // the extension version already reported as stale in the
 // downloaded one in its place. From source, updating is `git pull` + restart.
 const FROM_SOURCE = !app.isPackaged;
 const betaOn = () => storage.settings().betaChannel === true;   // opt-in, off by default (Settings → Diagnostics → Beta)
-// A tester: the person switched the beta on, or runs an old 0.4 alpha build (versions are plain X.Y.Z since 0.5: the channel says how proven a build is).
-const testerOn = () => betaOn() || app.getVersion().includes('alpha');
+// A tester: the person switched the beta on (versions are plain X.Y.Z since 0.5: the channel says how proven a build is).
+const testerOn = betaOn;
+// The tester's run-log switch. Saved as `alphaLogs` before 0.5: that choice still counts until the switch is touched.
+const testerLogsOn = () => { const s = storage.settings(); return (s.testerLogs ?? s.alphaLogs) === true; };
 async function checkForUpdate(asked = false) {
   if (FROM_SOURCE) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
   try {
@@ -1351,8 +1353,8 @@ function handlers() {
     return true;
   });
   // The switch shows the saved choice (on unless turned off), also in a build that doesn't send (the reporter is null there).
-  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || [], shared: sharedLog.list(storage), alpha: testerOn(), alphaLogs: storage.settings().alphaLogs === true}));
-  ipcMain.handle('alphaLogsSet', (_, on) => { storage.saveSettings({alphaLogs: !!on}); appLog('telemetry', `alpha run logs ${on ? 'on' : 'off'}`); return {on: !!on}; });
+  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || [], shared: sharedLog.list(storage), tester: testerOn(), testerLogs: testerLogsOn()}));
+  ipcMain.handle('testerLogsSet', (_, on) => { storage.saveSettings({testerLogs: !!on}); appLog('telemetry', `tester run logs ${on ? 'on' : 'off'}`); return {on: !!on}; });
   // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
   ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));
   ipcMain.handle('poolShareSet', async (_, value) => {
@@ -1801,9 +1803,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     if (sentryClient.active) {
       const record = telemetry.record.bind(telemetry);
       trail = sentryClient.note;
-      // Testers only (beta on, or an old alpha build), and only for one who switched it on (Settings → Technical reports): the scrubbed tail of the run log
+      // Testers only (beta on), and only for one who switched it on (Settings → Technical reports): the scrubbed tail of the run log
       // rides along with a failed or hung run's report to Sentry (never to our own telemetry store).
-      const logLines = kind => (['run_failed', 'stuck'].includes(kind) && testerOn() && storage.settings().alphaLogs === true) ? engineLog.tailLines(200) : undefined;
+      const logLines = kind => (['run_failed', 'stuck'].includes(kind) && testerOn() && testerLogsOn()) ? engineLog.tailLines(200) : undefined;
       telemetry.record = (kind, fields) => { record(kind, fields); sentryClient.capture(kind, {...fields, logLines: logLines(kind)}); };
       if (sentryOnly || telemetry.enabled()) sentryLib.startNativeCrashes(crashReporter, {dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId});
       pipeline.setCrashReports({dsn: keys.sentryDsn, version: identity.version, installId: identity.installId, enabled: sentryOnly ? () => false : telemetry.enabled});   // the engine's own reports carry no environment tag: off in the journey
@@ -2033,7 +2035,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     });
     // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched;
     // keys kept outside the app's store (the Google sign-in) go along.
-    // Updates: shortly after start, then every 10 minutes during the alpha (back to 6 hours for the mass rollout: GitHub allows 60 anonymous checks an hour per IP; an installed app only; a source checkout updates with git).
+    // Updates: shortly after start, then every 10 minutes while installs are few (back to 6 hours for a mass rollout: GitHub allows 60 anonymous checks an hour per IP; an installed app only; a source checkout updates with git).
     if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 10 * 60 * 1000); }
     // Interview reminders: a Mac notification 10 and 1 minute before each Next interview (from the last read of the Jobs list).
     const remind = () => {

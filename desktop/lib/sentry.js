@@ -2,7 +2,7 @@
 // default for an app that promises not to look at your CV, mail or answers. This builds the event itself, so exactly these fields are sent:
 // the error's type, scrubbed message and stack frames (file names without folders above the app, function, line), the app version, the
 // platform, a random install id, and short scrubbed tags, plus the trail: the last 25 step names ("page: jobs", "apply started") the app
-// also tells PostHog, never what is on a page. Alpha builds can add the scrubbed tail of the run log, only if the tester switched that on.
+// also tells PostHog, never what is on a page. A beta tester's report can add the scrubbed tail of the run log, only if they switched that on.
 // No local variables, no request data, no IP-derived user.
 // Native crashes (renderer, GPU, main) go through Electron's own crashReporter to Sentry's minidump endpoint (see startNativeCrashes).
 import crypto from 'node:crypto';
@@ -43,7 +43,7 @@ const normal = text => String(text ?? '').replace(/0x[0-9a-f]+|\b[0-9a-f]{8,}\b|
 // so an alert or a fixer can tell the expected from a surprise. Empty for a user's install.
 export const e2eTags = (env = process.env) => (env.JOB_PILOTTO_E2E_SUITE ? {suite: env.JOB_PILOTTO_E2E_SUITE, expected: env.JOB_PILOTTO_E2E_EXPECTS_FAILURES ? 'yes' : 'no'} : {});
 
-export function buildEvent(kind, fields = {}, {release = '', environment = 'alpha', installId = '', platform = process.platform, os = '', now = Date.now(), trail = [], tags = {}} = {}) {
+export function buildEvent(kind, fields = {}, {release = '', environment = 'production', installId = '', platform = process.platform, os = '', now = Date.now(), trail = [], tags = {}} = {}) {
   const message = scrub(fields.message ?? fields.error ?? fields.warning ?? fields.action ?? kind, 300);
   const event = {
     event_id: crypto.randomBytes(16).toString('hex'), timestamp: now / 1000, platform: 'javascript', level: LEVEL[kind] || 'error',
@@ -80,7 +80,7 @@ export function envelope(event, dsn, attachment = null) {
 }
 
 // capture(kind, fields): fire and forget, never throws. At most one report per problem every 10 minutes and 30 an hour.
-export function create({dsn, release, environment = 'alpha', installId, platform = process.platform, os = '', tags = {}, enabled = () => true,
+export function create({dsn, release, environment = 'production', installId, platform = process.platform, os = '', tags = {}, enabled = () => true,
   fetcher = globalThis.fetch, now = () => Date.now()} = {}) {
   const target = parseDsn(dsn);
   const seen = new Map(), hour = [], trail = [];

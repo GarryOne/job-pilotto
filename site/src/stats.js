@@ -57,7 +57,7 @@ export async function hit(request, env, now = new Date()) {
 }
 
 // GET /download/mac?from=hero&page=/&src=linkedin.com: count it (in the background), then send the visitor to the file.
-// The latest stable release's own file (Job-Pilotto-0.4.0-alpha.60-arm64.dmg), so each download is named after its
+// The latest stable release's own file (Job-Pilotto-0.5.3-arm64.dmg), so each download is named after its
 // version instead of Chrome's "Job-Pilotto-mac-arm64 (6).dmg". Asked from GitHub at most every 10 minutes (Cloudflare
 // cache); if GitHub doesn't answer, the fixed name above still works.
 const VERSIONED = {mac: /^Job-Pilotto-\d[\w.-]*-arm64\.dmg$/, windows: /^Job-Pilotto-\d[\w.-]*-x64\.exe$/};

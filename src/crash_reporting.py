@@ -55,7 +55,7 @@ def build_event(exc_type, exc, tb, env=None, now=None):
     command = ' '.join(sys.argv[:1])
     return {
         'event_id': secrets.token_hex(16), 'timestamp': now or time.time(), 'platform': 'python', 'level': 'error',
-        'release': f"job-pilotto@{env.get('JOB_PILOTTO_APP_VERSION', 'dev')}", 'environment': env.get('JOB_PILOTTO_ENV', 'alpha'),
+        'release': f"job-pilotto@{env.get('JOB_PILOTTO_APP_VERSION', 'dev')}", 'environment': env.get('JOB_PILOTTO_ENV', 'production'),
         'user': {'id': env.get('JOB_PILOTTO_INSTALL_ID', '')}, 'tags': {'where': 'engine', 'os': platform.system(), 'run_id': env.get('JOB_PILOTTO_RUN_ID', ''),
                                                                          'command': scrub(command, 60)},
         'fingerprint': ['engine', kind, re.sub(r'\d+', '#', message)[:120]],

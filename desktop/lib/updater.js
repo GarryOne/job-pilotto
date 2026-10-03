@@ -11,7 +11,7 @@ import path from 'node:path';
 
 export const REPO = 'GarryOne/job-pilotto';
 
-// "0.4.0-alpha.41" > "0.4.0-alpha.9" > "0.3.2"; a release (no suffix) > its pre-releases.
+// "0.5.10" > "0.5.9"; the older suffixed builds still order: "0.4.0-alpha.41" > "0.4.0-alpha.9", and a plain version > its pre-releases.
 export function newer(a, b) {
   const parse = v => { const [core, pre = ''] = String(v).replace(/^desktop-v/, '').split('-'); return {core: core.split('.').map(Number), pre}; };
   const x = parse(a), y = parse(b);

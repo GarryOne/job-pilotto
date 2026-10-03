@@ -223,7 +223,7 @@ jobs:
             echo "Stable: $TAG (every suite passed on its commit)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.4.0-alpha.253 : what the promotion step would do for a release, changing nothing.
+  # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.5.3 : what the promotion step would do for a release, changing nothing.
   promote-dry-run:
     needs: plan
     if: github.event_name == 'workflow_dispatch' && inputs.promote_tag != ''

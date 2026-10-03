@@ -32,7 +32,7 @@ export function end({code, seconds, runId} = {}, at = new Date()) {
   append(`${at.toISOString()} ---- exit ${code} after ${seconds}s${id}`);
 }
 
-// The last `count` lines of the log, for an alpha tester's failed-run report (they switched that on; lib/sentry.js scrubs each line).
+// The last `count` lines of the log, for a beta tester's failed-run report (they switched that on; lib/sentry.js scrubs each line).
 export function tailLines(count = 200) {
   if (!file) return [];
   try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-count); } catch { return []; }

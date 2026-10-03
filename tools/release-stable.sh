@@ -2,7 +2,7 @@
 # Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 # and the website's download links serve it. Every push to main only makes a pre-release.
 #   tools/release-stable.sh                 # the newest build
-#   tools/release-stable.sh desktop-v0.4.0-alpha.42
+#   tools/release-stable.sh desktop-v0.5.3
 set -euo pipefail
 repo=GarryOne/job-pilotto
 tag=${1:-$(gh release list -R "$repo" -L 20 --json tagName,isDraft -q '[.[] | select(.isDraft | not)][0].tagName')}

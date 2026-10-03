@@ -27,7 +27,7 @@ The core crawl and printed digest need no accounts. Everything else turns on whe
 | Piece | Path | Role |
 |---|---|---|
 | Python engine | `src/` | The pipeline. Entry: `python -m src <check\|scout\|discover\|feeds\|enrich\|doctor>`. `src/daily.py` orchestrates a jobs check (`daily` is the old name). |
-| Desktop app | `desktop/` | Electron cockpit (v0.4.0-alpha). `start.js` → `main.js`. The window is one module per page under `desktop/renderer/pages/`. `desktop/lib/pipeline.js` shells out to the same Python engine. |
+| Desktop app | `desktop/` | Electron cockpit (v0.5). `start.js` → `main.js`. The window is one module per page under `desktop/renderer/pages/`. `desktop/lib/pipeline.js` shells out to the same Python engine. |
 | Chrome extension | `extension/` | Fills a form from the kit. Talks to the app on `127.0.0.1` (`desktop/lib/server.js`). Never submits. |
 | Website worker | `site/` | One Cloudflare worker: the site, Notion sign-in, the employer index, telemetry, license/trial, fill-failure intake. |
 | Telegram bot | `worker/` | Commands and buttons. The app long-polls it locally. "Always on" uploads a bundle to the user's own Cloudflare account so buttons work while the Mac is off. |

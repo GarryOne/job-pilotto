@@ -298,7 +298,7 @@ export async function view(request, env, now = new Date()) {
   }
 }
 
-// GET /telemetry/version?v=0.4.0-alpha.50&compare=0.4.0-alpha.40 (the /stats key, as `Authorization: Bearer`):
+// GET /telemetry/version?v=0.5.3&compare=0.5.1 (the /stats key, as `Authorization: Bearer`):
 // positive evidence that a build was used and worked, per exact version, for the canary auto-promote
 // (tools/canary_promote.py). Health lines carry runsOk / runsFailed since the previous line (desktop/main.js).
 const VERSION = /^[\w.+-]{1,30}$/;

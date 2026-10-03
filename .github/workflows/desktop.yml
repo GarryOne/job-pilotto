@@ -4,7 +4,7 @@ name: Release · Desktop app
 # GitHub Release: nightly at 04:00 Zurich (only when something that goes into the app changed on main since the last release) or on
 # demand (gh workflow run desktop.yml, always builds). The release starts as a
 # draft; the Windows job adds the x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") and then
-# publishes it as a pre-release (alpha). Friends' apps and the website follow the latest *stable* release: one
+# publishes it as a pre-release (a build: offered to nobody until the gate approves it for beta). Friends' apps and the website follow the latest *stable* release: one
 # promoted with tools/release-stable.sh (then its .exe and .dmg are what "latest" serves).
 on:
   # Nightly, and by hand (gh workflow run desktop.yml). Not on every push: with several pushes an hour, a release per push

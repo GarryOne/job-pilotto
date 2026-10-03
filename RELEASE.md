@@ -8,7 +8,7 @@
 
 | Channel | Who gets it | How it's made |
 |---|---|---|
-| 🧪 **Pre-release** (alpha) | you | nightly at 04:00 Zurich (cron: 02:00 and 03:00 UTC, the step lets the one at 04:xx/05:xx Zurich go on) if anything the app bundles changed since the last release, or on demand: `gh workflow run desktop.yml` (always builds). Not per push (`.github/workflows/desktop.yml`) |
+| 🔨 **Build** (a GitHub pre-release) | nobody until approved; 🧪 **Beta** once the gate approves it: people who switched the beta on | nightly at 04:00 Zurich (cron: 02:00 and 03:00 UTC, the step lets the one at 04:xx/05:xx Zurich go on) if anything the app bundles changed since the last release, or on demand: `gh workflow run desktop.yml` (always builds). Not per push (`.github/workflows/desktop.yml`) |
 | ✅ **Stable** ("Latest" on GitHub) | friends' apps + the website's Download buttons | **the nightly pipeline** (below), or you with `tools/release-stable.sh` |
 
 ### The nightly pipeline (`desktop.yml` → `e2e.yml`)
@@ -18,8 +18,9 @@
 4. **A red suite, a red `build.yml`, a failed Windows job, or no build:** nothing is promoted; stable stays; the next night's build carries the fixes.
 There is **no waiting period** and no telemetry check: the end-to-end journey is the gate. Dry run of step 3 for a release: `gh workflow run e2e.yml -f promote_tag=<tag>`.
 
-Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); each build gets the next number
-(`0.4.0-alpha.42`, tag `desktop-v0.4.0-alpha.42`). To start a new version, change the target there.
+Version numbers: plain `X.Y.Z` since 0.5 (no alpha/beta suffix: the channel says how proven a build is). `desktop/package.json`
+holds the start (e.g. `0.5.0`); each build counts the patch up (`0.5.1`, tag `desktop-v0.5.1`). To start a new version, change it there.
+Older builds are `0.4.0-alpha.N`; the updater and the release tools still order them correctly.
 
 ## 2 · Release a stable build
 
@@ -28,7 +29,7 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
 3. Promote it:
    ```sh
    tools/release-stable.sh                              # the newest build
-   tools/release-stable.sh desktop-v0.4.0-alpha.42      # a specific one
+   tools/release-stable.sh desktop-v0.5.3      # a specific one
    ```
    The **end-to-end journey** is the gate, and it runs here rather than on every push: the script needs a green run of *that build's commit*, no older than two
    days. With none, it **starts one on the tag and waits for it** (about 15 minutes), then decides by its result; a red one stops the promotion. (A schedule
@@ -44,7 +45,7 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
    - Pushing twice in a row leaves a **draft** behind: GitHub replaces a superseded *pending* run in the
      `desktop-release` group (`cancel-in-progress: false` still drops a pending one), and `tools/prune-releases.sh`
      deliberately skips drafts, so they linger until deleted by hand.
-4. Done. Friends see **"Update to 0.4 Alpha 42"** in the menu at their next start or within 6 hours.
+4. Done. Friends see **"Update to 0.5.3"** in the menu at their next start or within 6 hours.
 
 ### Canary auto-promote (retired as the release path)
 
@@ -67,7 +68,7 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
 - failed for sure (red CI, a new problem issue, a crash / run_failed) → the canary is **dropped** (release page deleted, tag kept)
 
 > 🧪 **Your app's trial** (menu → **Get Test Builds**, once): it installs the canary and **stays on it** for 2 days
-> ("Test build alpha.66 — trial 1 of 2 days" in Check for Updates and Settings → Diagnostics), not every newer build.
+> ("Test build 0.5.3 — trial 1 of 2 days" in Check for Updates and Settings → Diagnostics), not every newer build.
 > Promoted, dropped or 7 days old → it offers the next canary.
 
 - 🚪 **Escape hatch:** menu → **Update to the Newest Test Build Now…** installs the newest build and leaves this
@@ -106,7 +107,7 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 
 ## 5 · If a release is bad
 
-- **Stop it spreading:** promote the previous good build again: `tools/release-stable.sh desktop-v0.4.0-alpha.41`.
+- **Stop it spreading:** promote the previous good build again: `tools/release-stable.sh desktop-v0.5.2`.
   Apps only offer *newer* versions, so friends who already updated stay on the bad one until a fixed build is promoted.
 - **Release list:** stable releases stay; only the newest 3 test builds keep a release page (`tools/prune-releases.sh`, run after each build). Tags are never deleted.
 - **Fix forward:** push the fix, let it build, promote it.
