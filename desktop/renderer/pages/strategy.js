@@ -1,4 +1,5 @@
 // Strategy page.
+import {openInNotion} from './notion-connect.js';
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -144,7 +145,7 @@ function showCard(card, ids, add, done) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  $('strategy-edit').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_SEARCH_SETTINGS_PAGE || shared.state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
+  $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
   $('strategy-rescore').addEventListener('click', async () => {
     $('strategy-rescore').disabled = true;

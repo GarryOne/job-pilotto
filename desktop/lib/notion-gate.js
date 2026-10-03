@@ -22,3 +22,15 @@ export const statusReason = status => ({saved: 'save', dismissed: 'dismiss', app
 
 // null when the action may go on (connected, or the demo, which has its own fictional data), else needs(reason).
 export const check = (storage, reason, {demo = false} = {}) => (demo || connected(storage) ? null : needs(reason));
+
+// What the prompt may report (opt-in reports, like the setup funnel): fixed lists only, never words or jobs.
+// {step: 'notion_gate', reason, where, outcome, why?, minutes, shown} or null for anything not on the lists.
+export const WHERE = ['dialog', 'view', 'extras', 'settings'];
+export const OUTCOMES = ['connected', 'not_now', 'closed', 'failed', 'viewed'];
+export const WHY = ['no_notion', 'privacy', 'later', 'other'];
+export function gateEvent(payload, {firstRunAt = null, shown = 0, now = Date.now()} = {}) {
+  const {reason, where, outcome, why} = payload || {};
+  if (!(Object.hasOwn(REASONS, reason) || reason === 'none') || !WHERE.includes(where) || !OUTCOMES.includes(outcome)) return null;
+  const minutes = firstRunAt ? Math.max(0, Math.round((now - Date.parse(firstRunAt)) / 60000)) : null;
+  return {step: 'notion_gate', reason, where, outcome, ...(outcome === 'not_now' && WHY.includes(why) ? {why} : {}), minutes, shown: shown + 1};
+}

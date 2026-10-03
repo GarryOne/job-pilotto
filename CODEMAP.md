@@ -124,6 +124,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
+- `desktop/renderer/pages/notion-connect.js` — Connecting Notion from anywhere in the window (Notion later: the app only tries until it is connected): the dialog with the
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.
@@ -170,6 +171,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 28 of 40 applications left"): which plan this is and what the number counts, at a glance
 - `desktop/renderer/mail-report.js` — A Gmail check's message as the parts of it the owner reads. src/ai/mail.py writes the lines (prep_message and the
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back
+- `desktop/renderer/notion-benefits.js` — Why connect Notion: the advantages, written once. Shown in the connect dialog, on a locked page, in Settings → Notion
 - `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents. Order matters: the
 - `desktop/renderer/outcome-tap.js` — The "How did it go?" choices on a job's menu: which outcomes make sense for the stage it is at (desktop/lib/outcomes.js writes them).

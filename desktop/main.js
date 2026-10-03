@@ -445,6 +445,7 @@ function handlers() {
     notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
     templateUrl: notion.TEMPLATE.template_url,
+    notionReasons: notionGate.REASONS,  // the sentences after "Connect Notion …" (one source: lib/notion-gate.js)
     notionTitles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages},
     demo: DEMO ? {lookAround: LOOK_AROUND} : null,
   }));
@@ -469,6 +470,7 @@ function handlers() {
   });
   // Connect to the user's Notion with a token (pasted, or from "Connect with Notion"): find the workspace, or
   // build it from the schema (lib/notion-workspace.js; templateRoot: the page Notion just copied the template into).
+  let notionFrom = 'token';
   async function connectNotion(token, {templateRoot = null} = {}) {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
@@ -488,7 +490,7 @@ function handlers() {
           const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now
           kept = storage.settings().notionKeptFolder || null;
           if (kept) storage.saveSettings({notionKeptFolder: undefined});
-          appLog('notion', 'connected', {fresh: !!(result.built?.length || templateRoot), moved, kept: !!kept, hadLocal});
+          appLog('notion', 'connected', {from: notionFrom, fresh: !!(result.built?.length || templateRoot), moved, kept: !!kept, hadLocal});
           syncCv();
           // What was scored before Notion reaches Job Matches, with no AI spend; with Always on GitHub's next run does it.
           if (hadLocal || moved.length) { if (!cloud()) pipeline.syncMatches(storage, log).catch(error => log(`Job Matches not synced: ${error.message}`)); }
@@ -505,7 +507,8 @@ function handlers() {
     return connectNotion(token);
   });
   // "Connect with Notion": Notion's consent page in the browser, then the same connect as above.
-  ipcMain.handle('notionOAuth', async () => {
+  ipcMain.handle('notionOAuth', async (_, options = {}) => {
+    notionFrom = typeof options?.from === 'string' ? options.from.slice(0, 40) : 'unknown';  // for the log: wizard, gate:<reason>, settings
     const signedIn = await notionOAuth.connect(url => shell.openExternal(url));
     if (!signedIn.ok) return signedIn;
     window?.show();
@@ -513,6 +516,17 @@ function handlers() {
     return {...await connectNotion(signedIn.access_token, {templateRoot: notionOAuth.templateRoot(signedIn)}), workspace: signedIn.workspace_name};
   });
   ipcMain.handle('notionOAuthCancel', () => notionOAuth.cancel());
+  // The connect prompt's outcome (lib/notion-gate.js gateEvent): fixed lists only; counted per install, reported when reports are on.
+  ipcMain.handle('notionGateEvent', (_, payload) => {
+    const settings = storage.settings();
+    const event = notionGate.gateEvent(payload, {firstRunAt: settings.firstRunAt, shown: settings.notionGateShown || 0});
+    if (!event) return false;
+    storage.saveSettings({notionGateShown: event.shown});
+    appLog('notion', 'gate', {reason: event.reason, where: event.where, outcome: event.outcome, why: event.why});
+    if (telemetry) telemetry.record('setup', event);
+    track('notion_gate', {reason: event.reason, outcome: event.outcome, ...(event.why ? {why: event.why} : {})});
+    return true;
+  });
   ipcMain.handle('saveSettings', (_, patch) => {
     const before = storage.settings();
     const saved = storage.saveSettings(patch);
@@ -1924,7 +1938,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 10 * 60 * 1000); }
     // Interview reminders: a Mac notification 10 and 1 minute before each Next interview (from the last read of the Jobs list).
     const remind = () => {
-      if (DEMO || !storage.settings().setupDone || !reminders.on(storage)) return;
+      if (DEMO || !storage.settings().setupDone || !reminders.on(storage) || !notionGate.connected(storage)) return;
       const jobs = viewCache.recall(storage, 'jobs')?.result?.jobs || [];
       const sent = storage.settings().reminded || {};
       const items = reminders.due(jobs, sent);
@@ -1950,7 +1964,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     startSchedule(storage, {
       // Their notifications come from announceRuns, like every run's (wherever it ran).
       search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
-      mail: () => pipeline.checkMail(storage, log, 'schedule'),
+      mail: () => (notionGate.connected(storage) ? pipeline.checkMail(storage, log, 'schedule') : skipUntilNotion('mail')),
       scout: () => pipeline.scout(storage, log, 'schedule'),
     }, powerMonitor, {soon: () => notify('Checking for new jobs in 1 minute', 'Your scheduled check for new jobs is about to run.')});
     setInterval(announceRuns, 5000);
@@ -1962,9 +1976,16 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
 // Focus reminders at 11:00, 15:00 and 19:00 (this Mac's time), once per slot: a notification and a Telegram
 // message when someone waits for an answer, an interview is close, or today's applications are behind the target.
 const FOCUS_HOURS = [11, 15, 19];
+// Notion later: loops that read Notion do nothing until it is connected, and say so once per start (they pick up by themselves after a connect).
+const skippedLoops = new Set();
+function skipUntilNotion(loop) {
+  if (!skippedLoops.has(loop)) { skippedLoops.add(loop); appLog('notion', 'loop skipped: not connected', {loop}); }
+  return Promise.resolve();
+}
 async function focusReminder(now = new Date()) {
   const settings = storage.settings();
   if (!settings.setupDone || settings.focusReminders === false) return;
+  if (!notionGate.connected(storage)) return skipUntilNotion('focus reminder');
   const slot = FOCUS_HOURS.filter(hour => now.getHours() >= hour).pop();
   if (slot == null) return;
   const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${slot}`;  // local day

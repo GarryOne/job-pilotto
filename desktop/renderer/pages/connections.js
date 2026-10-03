@@ -1,4 +1,5 @@
 // Settings → connections: Apply with Claude, the extension, how often, Always on.
+import {notionConnected, openNotionConnect} from './notion-connect.js';
 import {shared} from './shared.js';
 import {$, message, osPick, osText, show} from './core.js';
 import {moreButton, pill} from '../components.js';
@@ -398,9 +399,11 @@ export async function init() {
     showGoogle();
   });
   $('set-notion-oauth').addEventListener('click', async () => {
+    // Not connected yet (Notion later): the same prompt as everywhere, with the advantages.
+    if (!notionConnected()) { openNotionConnect({reason: 'none', where: 'settings', from: 'settings', then: () => loadSettings()}); return; }
     $('set-notion-oauth').disabled = true;
     message('set-notion-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
-    const result = await window.pilot.notionOAuth();
+    const result = await window.pilot.notionOAuth({from: 'settings-reconnect'});
     $('set-notion-oauth').disabled = false;
     message('set-notion-message', result.ok ? 'Reconnected ✓' : result.error || 'Not connected.', result.ok ? 'ok' : 'error');
     if (result.ok) { shared.state = await window.pilot.state(); loadSettings(); }

@@ -2,6 +2,7 @@
 // pills, tags, tiles and ⋯ menus with these, so the same thing looks and behaves the same everywhere;
 // gallery.html shows every one of them side by side.
 import {icon} from './icons.js';
+import {GATE_FOOTNOTE, GATE_TITLE, NOTION_BENEFITS} from './notion-benefits.js';
 
 // el(tag, class, content): content is text, or a node (an icon, another element) that is appended, never
 // turned into "[object SVGSVGElement]".
@@ -105,4 +106,27 @@ export function moreButton(items, title = 'More actions') {
   button.append(icon('more'));
   button.addEventListener('click', () => openMenu(button, typeof items === 'function' ? items() : items));
   return button;
+}
+
+// Why connect Notion: the advantages as a list (an icon tile, a bold lead, a sentence). count: only the first few.
+export function notionBenefits(count = NOTION_BENEFITS.length) {
+  const list = el('ul', 'ui-benefits');
+  for (const item of NOTION_BENEFITS.slice(0, count)) {
+    const line = el('li');
+    line.append(tile(item.icon, 'signal'), el('span', 'ui-benefit-text'));
+    line.lastChild.append(el('b', '', `${item.lead}:`), ` ${item.text}`);
+    list.append(line);
+  }
+  return list;
+}
+
+// A page that needs Notion, until it is connected: the reason, the advantages and one button (pages/notion-connect.js).
+export function notionGate({reasonText = '', onConnect = () => {}} = {}) {
+  const card = el('section', 'card ui-gate');
+  const connect = el('button', 'primary', 'Connect with Notion');
+  connect.type = 'button';
+  connect.addEventListener('click', onConnect);
+  card.append(el('h2', '', GATE_TITLE), ...(reasonText ? [el('p', 'ui-gate-reason', reasonText)] : []), notionBenefits(),
+    el('p', 'muted small', GATE_FOOTNOTE), connect);
+  return card;
 }

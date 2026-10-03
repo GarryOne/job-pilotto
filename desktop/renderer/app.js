@@ -38,8 +38,10 @@ import {init as poolShare} from './pages/pool.js';
 import {init as license} from './pages/license.js';
 import {init as appFeedback} from './pages/app-feedback.js';
 import {init as whyStop} from './pages/why-stop.js';
+import {init as notionConnect} from './pages/notion-connect.js';
 
 await core();
+notionConnect();
 await wizard();
 await demo();
 await activity();

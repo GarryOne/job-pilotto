@@ -5,6 +5,7 @@ import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
+import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
@@ -28,7 +29,9 @@ export function openView(name, {fromHistory = false} = {}) {
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
-  if (name === 'sessions') renderSessionPage();  // the view's HTML starts on the spinner; opening it must paint the list we already have
+  // Notion later: a page that needs Notion shows only its gate card until it is connected (pages/notion-connect.js); connecting reopens it.
+  const locked = applyViewGate(name, {then: () => openView(name, {fromHistory: true})});
+  if (name === 'sessions' && !locked) renderSessionPage();  // the view's HTML starts on the spinner; opening it must paint the list we already have
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
   if (name === 'settings') {
     settingsPage('overview');
@@ -36,9 +39,9 @@ export function openView(name, {fromHistory = false} = {}) {
     loadSettings();
     window.pilot.dailyTarget().then(setting => { $('set-target').value = $('set-target').dataset.saved = setting.target; $('set-remind').checked = setting.reminders; });
   }
-  if (name === 'interviews') loadInterviews();
-  if (name === 'calendar') loadCalendar();
-  if (name === 'focus') loadFocus();
+  if (name === 'interviews' && !locked) loadInterviews();
+  if (name === 'calendar' && !locked) loadCalendar();
+  if (name === 'focus' && !locked) loadFocus();
 }
 
 // ⌘K / Ctrl+K: the command palette. Its commands are the app's own buttons, read when it opens (so a disabled

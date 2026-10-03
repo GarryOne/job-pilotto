@@ -1,4 +1,5 @@
 // Settings → Application profile.
+import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -96,7 +97,7 @@ async function loadAnswers() {
     const head = el('span', 'answer-head');
     head.append(el('b', '', item.question), pill(item.open ? 'Needs your answer' : item.category, item.open ? 'warn' : 'info'));
     const edit = el('button', 'link', 'Edit in Notion');
-    edit.addEventListener('click', event => { event.preventDefault(); window.pilot.openNotion(shared.state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey); });
+    edit.addEventListener('click', event => { event.preventDefault(); openInNotion('NOTION_ANSWERS_PAGE_ID', event); });
     summary.append(head, el('span', 'muted answer-preview', item.answer.split('\n')[0]), edit);
     box.append(summary, el('p', 'answer-text', item.answer || '—'));
     return box;
@@ -133,6 +134,7 @@ export async function loadCvSetting() {
 
 export async function loadSettings() {
   shared.state = await window.pilot.state();
+  showNotionPanel();
   const hints = await window.pilot.secretHints();
   for (const [id, name, empty] of [['set-anthropic', 'ANTHROPIC_API_KEY', 'sk-ant-…'], ['set-notion', 'NOTION_TOKEN', 'ntn_…'],
     ['set-telegram', 'TELEGRAM_BOT_TOKEN', '123456789:AA…'], ['set-serpapi', 'SERPAPI_API_KEY', 'SerpApi key']]) {
@@ -179,8 +181,8 @@ export function showContact() {
 export async function init() {
   initLetter();
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
-  $('open-profile-details').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
-  $('answers-review').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));
+  $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
+  $('answers-review').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('links-edit').addEventListener('click', () => {
     const editing = $('links-form').hidden;
     show($('links-form'), editing);
@@ -188,8 +190,8 @@ export async function init() {
     $('links-edit').textContent = editing ? 'Done' : 'Edit';
     if (!editing) showLinks();
   });
-  $('open-profile').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
-  $('open-answers').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));
+  $('open-profile').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
+  $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
   $('cv-view').addEventListener('click', async () => {

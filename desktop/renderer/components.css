@@ -527,3 +527,13 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 
 .aon-need { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .aon-need p { margin: 2px 0 0; }
+
+/* Why connect Notion: the advantages list and the card of a page that needs Notion */
+.ui-benefits { list-style: none; margin: var(--sp-3) 0; padding: 0; display: grid; gap: var(--sp-3); }
+.ui-benefits li { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.ui-benefit-text { font-size: var(--fs-sm); line-height: 1.45; padding-top: var(--sp-1); }
+.ui-gate { max-width: 560px; margin: var(--sp-6) auto; display: grid; gap: var(--sp-2); justify-items: start; }
+.ui-gate h2 { margin: 0; }
+.ui-gate-reason { margin: 0; font-weight: 600; }
+.view.notion-locked > :not(.notion-gate-host) { display: none !important; }
+.notion-why { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }

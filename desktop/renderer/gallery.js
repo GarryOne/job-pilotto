@@ -1,6 +1,6 @@
 // The component gallery: every token and component, built with the same code the screens use.
 import {fillIcons, icon} from './icons.js';
-import {choiceCards, el, moreButton, pill, tag, tile, TONES} from './components.js';
+import {choiceCards, el, moreButton, notionBenefits, notionGate, pill, tag, tile, TONES} from './components.js';
 
 const root = document.getElementById('gallery');
 const section = (title, note, ...children) => {
@@ -63,6 +63,9 @@ section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, ambe
   return box;
 })());
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
+
+section('Notion advantages', 'notionBenefits(count): why connect Notion (the connect dialog, Settings, Optional extras)', notionBenefits());
+section('Locked page', 'notionGate({reasonText, onConnect}): a page that needs Notion, until it is connected', notionGate({reasonText: 'Connect Notion to see what to do next.'}));
 
 section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few options (Settings → AI engine, the setup wizard)',
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},

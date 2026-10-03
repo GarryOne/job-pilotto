@@ -1031,7 +1031,8 @@
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>
         <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small">Your Job Pilotto workspace. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+          <p class="muted small">Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+        <ul class="ui-benefits" id="set-notion-benefits" hidden></ul>
         <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
         
         <p class="message" id="set-notion-message"></p>
@@ -1392,6 +1393,21 @@
   <div class="dialog-foot"><button class="secondary" id="save-close" hidden>Close</button><button class="primary" id="save-retry" hidden>Try again</button></div>
 </dialog>
 
+<dialog id="notion-connect-dialog" class="save-dialog panel-dialog">
+  <form method="dialog">
+    <h2 id="notion-connect-title"></h2>
+    <p class="ui-gate-reason" id="notion-connect-reason" hidden></p>
+    <ul class="ui-benefits" id="notion-connect-benefits"></ul>
+    <p class="muted small" id="notion-connect-note"></p>
+    <p class="message" id="notion-connect-message"></p>
+    <p class="muted small" id="notion-connect-token" hidden>Or paste a token: Settings → Connections → Notion.</p>
+    <div class="actions">
+      <button class="secondary" id="notion-connect-later" type="button">Not now</button>
+      <button class="primary" id="notion-connect-go" type="button">Connect with Notion</button>
+    </div>
+    <div class="notion-why" id="notion-connect-why" hidden></div>
+  </form>
+</dialog>
 <dialog id="import-dialog">
   <form method="dialog">
     <h2>➕ Add a job</h2>
