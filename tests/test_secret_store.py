@@ -82,8 +82,16 @@ class EndToEndIsolationTest(unittest.TestCase):
         with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers(), mock.patch.dict('os.environ', env), \
                 mock.patch('src.sources.google.os.getenv', side_effect=lambda name, default=None: {'JOB_PILOTTO_E2E': '1'}.get(name, default)):
             self.assertIsNone(google.credentials())
-        with mock.patch.object(telegram.os, 'uname', return_value=mock.Mock(sysname='Darwin')), mock.patch.object(telegram.subprocess, 'run',
+        with mock.patch.object(sys, 'platform', 'darwin'), mock.patch.object(telegram.subprocess, 'run',
                 return_value=mock.Mock(stdout='123456:real-bot-token\n')) as asked, mock.patch.dict('os.environ', env):
+            self.assertIsNone(telegram.keychain_token())
+        asked.assert_not_called()
+
+    def test_telegram_keychain_token_does_not_need_os_uname_which_windows_lacks(self):
+        from src import telegram
+        with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(telegram.os, 'uname', side_effect=AttributeError("module 'os' has no attribute 'uname'"), create=True), \
+                mock.patch.object(telegram.subprocess, 'run') as asked, mock.patch.dict('os.environ'):
+            os.environ.pop('JOB_PILOTTO_E2E', None)
             self.assertIsNone(telegram.keychain_token())
         asked.assert_not_called()
 

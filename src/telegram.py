@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import urllib.parse
 import urllib.request
 
@@ -57,7 +58,8 @@ def send(text, token, chat_id, reply_markup=None):
 
 def keychain_token():
     """Read the optional local macOS Keychain token without printing it."""
-    if os.uname().sysname != 'Darwin' or os.getenv('JOB_PILOTTO_E2E'):  # the end-to-end journey never reaches the owner's real bot
+    # sys.platform, not os.uname(): Windows has no os.uname, so `focus remind --send` crashed on every Windows run (found in the Windows e2e log, 3 Oct 2026)
+    if sys.platform != 'darwin' or os.getenv('JOB_PILOTTO_E2E'):  # the end-to-end journey never reaches the owner's real bot
         return None
     try:
         result = subprocess.run(
