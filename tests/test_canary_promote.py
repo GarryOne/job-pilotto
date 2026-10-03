@@ -319,3 +319,22 @@ class PromotesWithoutStartingARun(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SoakOnlyApprovedTests(unittest.TestCase):
+    def test_the_approved_build_is_the_candidate_not_an_older_one_that_failed_its_gate(self):
+        releases = [release(3, 100, pre=False, latest=True), release(4, 60), release(5, 50)]
+        self.assertEqual(canary.canary_of(releases, NOW)['tagName'], 'desktop-v0.5.0-alpha.4')
+        soaked = canary.approved_only(releases, {'desktop-v0.5.0-alpha.5'})
+        self.assertEqual(canary.canary_of(soaked, NOW)['tagName'], 'desktop-v0.5.0-alpha.5')
+        self.assertEqual(canary.pick(soaked, NOW)[1]['tagName'], 'desktop-v0.5.0-alpha.3')   # stable is still known
+
+    def test_no_approved_build_means_nothing_to_soak(self):
+        candidate, _, why = canary.pick(canary.approved_only([release(3, 100, pre=False, latest=True), release(4, 60)], set()), NOW)
+        self.assertIsNone(candidate)
+        self.assertIn('nothing newer than stable', why)
+
+    def test_approval_is_read_from_the_release_notes_line(self):
+        api = [{'tag_name': 'a', 'body': 'Notes\n\nBeta-approved: unit suites and every end-to-end suite passed on commit 547a444 (2026-10-03)'},
+               {'tag_name': 'b', 'body': 'Not Beta-approved: yet'}, {'tag_name': 'c', 'body': None}]
+        self.assertEqual(canary.approved_tags(api), {'a'})

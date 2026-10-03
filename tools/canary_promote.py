@@ -113,6 +113,18 @@ def canary_of(releases, now, window=CANARY_WINDOW, floor=CANARY_FLOOR):
     return min(recent, key=lambda r: version_key(version_of(r['tagName'])), default=None)
 
 
+def approved_tags(api_releases):
+    """Tags whose release notes carry the gate's `Beta-approved:` line (tools/beta-approve.sh), from GET /repos/{repo}/releases."""
+    return {r['tag_name'] for r in api_releases if re.search(r'^Beta-approved:', r.get('body') or '', re.M)}
+
+
+def approved_only(releases, approved):
+    """With the soak on (JOB_PILOTTO_SOAK=on) only a build the release gate approved is soaked: the other pre-releases drop out, stable stays.
+    Without it the oldest newer build was the candidate, so a build that failed its gate held up the approved one until it was dropped after 48 h
+    (alpha.253 in front of the approved alpha.254, 3 Oct 2026)."""
+    return [r for r in releases if not r.get('isPrerelease') or r['tagName'] in approved]
+
+
 def pick(releases, now, min_age=MIN_AGE):
     """(candidate, stable, reason): candidate is the canary once it is `min_age` old, else None and why."""
     stable, newer = _newer_than_stable(releases)
@@ -315,6 +327,9 @@ class GitHub:
         return json.loads(self._gh('release', 'list', '-R', self.repo, '-L', '100', '--json',
                                    'tagName,isDraft,isPrerelease,isLatest,publishedAt,createdAt'))
 
+    def approved(self):
+        return approved_tags(json.loads(self._gh('api', f'repos/{self.repo}/releases?per_page=100')))
+
     def ci_runs(self, tag):
         sha = self._gh('api', f'repos/{self.repo}/commits/{tag}', '-q', '.sha').strip()
         data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/build.yml/runs?head_sha={sha}&per_page=20'))
@@ -382,12 +397,15 @@ def main(argv=None):
         found = canary_of(json.load(sys.stdin), datetime.now(timezone.utc))
         print(found['tagName'] if found else '')
         return 0
+    github = GitHub(args.repo, key=os.environ.get(KEY_ENV, '').strip() or None)
+    releases = github.releases()
+    if os.environ.get('JOB_PILOTTO_SOAK', '') == 'on':
+        releases = approved_only(releases, github.approved())
     if args.candidate:
-        found = canary_of(GitHub(args.repo).releases(), datetime.now(timezone.utc))
+        found = canary_of(releases, datetime.now(timezone.utc))
         print(found['tagName'] if found else '')
         return 0
-    github = GitHub(args.repo, key=os.environ.get(KEY_ENV, '').strip() or None)
-    result = decide(github.releases(), datetime.now(timezone.utc), github, require_beta=os.environ.get('JOB_PILOTTO_REQUIRE_BETA', '') == 'on')
+    result = decide(releases, datetime.now(timezone.utc), github, require_beta=os.environ.get('JOB_PILOTTO_REQUIRE_BETA', '') == 'on')
     verdict = ('PROMOTE ' + result['tag']) if result['promote'] else 'WAIT (no promotion)'
     print(f"Canary auto-promote: {verdict}")
     print(f"Current stable: {result['stable'] or '(none)'}")
