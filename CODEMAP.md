@@ -319,6 +319,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/beta-approve.sh` — Mark a pre-release as approved for beta testers: it passed the unit suites and every end-to-end suite on its own commit.
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
 - `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
+- `tools/check_schema_additive.py` — May this build go to beta testers? Its Notion schema (config/notion_schema.json) must be ADDITIVE over the current stable's.
 - `tools/check.py` — Run consistent fast, area or full project verification with supported runtimes and actionable failures."""
 - `tools/check.sh` — Every agent uses this entry point; select a supported Python, then let check.py select Node and run CI checks.
 - `tools/e2e_gate.py` — The end-to-end gate of tools/release-stable.sh: may this build be promoted, judging by the e2e runs GitHub lists (newest first)?
