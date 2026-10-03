@@ -92,7 +92,7 @@ jobs:
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         with:
           name: ai-cost
-          path: ai-cost.json
+          path: ${{ runner.temp }}/ai-cost.json
           if-no-files-found: ignore
       - name: Keep Claude's transcript (to see where its turns went)
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'

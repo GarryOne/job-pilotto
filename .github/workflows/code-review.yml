@@ -80,7 +80,7 @@ jobs:
           name: code-review
           path: |
             .review/
-            ai-cost.json
+            ${{ runner.temp }}/ai-cost.json
             /home/runner/work/_temp/claude-execution-output.json
           if-no-files-found: ignore
           include-hidden-files: true   # .review/ is a dot folder: skipped by default, so the first audit artifact had no findings or list

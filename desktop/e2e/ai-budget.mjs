@@ -5,6 +5,8 @@
 //   node ai-budget.mjs --after <execution.json> --job <name>   -> trips or clears the breaker from a Claude run's result, writes its cost to the summary
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 export const LABEL = 'ai-budget';
@@ -54,7 +56,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     let text = '';
     try { text = fs.readFileSync(at('--after'), 'utf8'); } catch { /* none */ }
     const result = outcome(text), job = at('--job') || 'an AI job';
-    fs.writeFileSync('ai-cost.json', JSON.stringify({job, usd: result.usd, turns: result.turns, at: new Date().toISOString(), limit: result.limit}));
+    // Outside the repository: written into the checkout, the fixer's guard took it for an edit and refused a good fix (#118, 4 Oct 2026).
+    const costFile = path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'ai-cost.json');
+    fs.writeFileSync(costFile, JSON.stringify({job, usd: result.usd, turns: result.turns, at: new Date().toISOString(), limit: result.limit}));
     summary(`AI cost: $${result.usd.toFixed(3)} in ${result.turns} turn(s) (${job}).`);
     try { if (result.limit) trip({job, error: result.error}); else if (!result.error && text) clear({job}); } catch (error) { console.log(`breaker not updated: ${error.message}`); }
   }

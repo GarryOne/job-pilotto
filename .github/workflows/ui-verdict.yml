@@ -79,7 +79,7 @@ jobs:
         if: always()
         with:
           name: ai-cost-verdict-${{ matrix.issue }}
-          path: ai-cost.json
+          path: ${{ runner.temp }}/ai-cost.json
           if-no-files-found: ignore
       - name: Apply the verdict
         if: steps.claude.outcome == 'success'

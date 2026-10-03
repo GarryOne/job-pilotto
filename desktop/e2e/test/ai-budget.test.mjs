@@ -33,3 +33,15 @@ test('tripping opens one issue (or adds to it), clearing closes it', () => {
   clear({gh, job: 'code-review'});
   assert.ok(calls.some(args => args[1] === 'close' && args[2] === '9'));
 });
+
+// 4 Oct 2026: the cost file was written into the checkout, the fixer's guard took it for an edit outside the allowed folders and refused a good fix (#118).
+test('recording a run\'s cost leaves the working folder untouched', async () => {
+  const {execFileSync} = await import('node:child_process');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cost-cwd-')), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cost-tmp-'));
+  const record = path.join(temp, 'exec.json');
+  fs.writeFileSync(record, JSON.stringify([{type: 'result', result: 'ok', total_cost_usd: 0.1, num_turns: 2}]));
+  execFileSync(process.execPath, [new URL('../ai-budget.mjs', import.meta.url).pathname, '--after', record, '--job', 'fixer'], {cwd: work, env: {...process.env, RUNNER_TEMP: temp, GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '', GH_TOKEN: ''}, stdio: 'pipe'});
+  assert.deepEqual(fs.readdirSync(work), [], 'nothing written where the fixer\'s guard looks');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(temp, 'ai-cost.json'), 'utf8')).usd, 0.1);
+});
