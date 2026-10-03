@@ -58,6 +58,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/misses.js` — Controls the form reader could not read, kept on this Mac (extension/review.js -> /extension/misses): the first step of
 - `desktop/lib/needs-you.js` — Telegram, notification and toast for "Claude needs your input" (main.js sessionNeedsYou): once per question. A session
 - `desktop/lib/notify-watch.js` — macOS drops a notification from an app it hasn't allowed (the dev app from `npm start`, a fresh install) without
+- `desktop/lib/notion-gate.js` — Notion later: what "Notion is connected" means, and the one answer a tracking action gives when it is not.
 - `desktop/lib/notion-oauth.js` — "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
 - `desktop/lib/notion-pace.js` — One Notion pace for every process on this computer that uses the same Notion connection: the app, the Python
 - `desktop/lib/notion-workspace.js` — Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto

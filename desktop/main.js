@@ -58,6 +58,7 @@ import * as reset from './lib/reset.js';
 import * as files from './lib/files.js';
 import * as backup from './lib/backup.js';
 import * as cvChange from './lib/cv-change.js';
+import * as notionGate from './lib/notion-gate.js';
 import * as notionOAuth from './lib/notion-oauth.js';
 import * as notionWorkspace from './lib/notion-workspace.js';
 import * as contactDetails from './lib/contact.js';
@@ -429,6 +430,13 @@ function handlers() {
   if (DEMO) ipcMain.handle = demo.guard(ipcMain.handle.bind(ipcMain));
   // End-to-end run: log every call the window makes (the interaction probe reads it, see lib/e2e-ipc.js).
   if (process.env.JOB_PILOTTO_E2E) { globalThis.__jpIpc = []; ipcMain.handle = recordIpc(ipcMain.handle.bind(ipcMain), globalThis.__jpIpc); }
+  // Notion later: without Notion the app only tries; a tracking action returns notionGate.needs(reason) and the window
+  // opens the connect dialog (pages/core.js gated()). null = go on.
+  const needsNotion = reason => {
+    const answer = notionGate.check(storage, reason, {demo: DEMO});
+    if (answer) appLog('notion', 'gate', {reason, outcome: 'asked'});
+    return answer;
+  };
   ipcMain.handle('state', () => ({
     about,
     settings: storage.settings(), secrets: storage.secretsPresent(),
@@ -497,7 +505,7 @@ function handlers() {
     return saved;
   });
   ipcMain.handle('contact', () => (DEMO ? {} : contactDetails.read(storage)));
-  ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(saved => { server.contactSaved(storage, saved || contact); return {ok: true}; })
+  ipcMain.handle('saveContact', (_, contact) => needsNotion('profile') || contactDetails.save(storage, contact).then(saved => { server.contactSaved(storage, saved || contact); return {ok: true}; })
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   ipcMain.handle('saveSecret', (_, name, pasted) => {
     const {value, error} = cleanSecret(pasted);
@@ -694,6 +702,8 @@ function handlers() {
   ipcMain.handle('cloudConnect', async (_, chosen = '') => {
     if (DEMO) return {ok: true, repo: storage.settings().cloud?.repo || 'alexmorgan/job-pilotto-private', existing: null,
       secrets: ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'], variables: []};  // never the real GitHub
+    const gate = needsNotion('cloud');
+    if (gate) return gate;
     try {
       let token = storage.secret('GITHUB_TOKEN');
       if (!token) {
@@ -729,10 +739,12 @@ function handlers() {
     return {ok: true};
   });
   // Telegram buttons, always on: the user's own Cloudflare Worker (lib/telegram-cloud.js).
-  ipcMain.handle('telegramCloudOn', async (_, token) => { const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
+  ipcMain.handle('telegramCloudOn', async (_, token) => { const gate = needsNotion('telegram'); if (gate) return gate; const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
   ipcMain.handle('telegramCloudOff', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
   ipcMain.handle('telegramConnect', async (_, pasted) => {
+    const gate = needsNotion('telegram');
+    if (gate) return gate;
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
     // A new bot: the old one's Worker goes (pairing needs getUpdates, which a webhook blocks); turn it on again after.
@@ -759,12 +771,14 @@ function handlers() {
   // Jobs → Applied elsewhere: tracked like /add, but waited for, so the list shows it as Applied right away.
   ipcMain.handle('importJob', async (_, url) => {
     if (DEMO) return {ok: true, text: 'Added (demo): nothing was written.'};
-    if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first. Jobs are kept there.'};
+    const gate = needsNotion('add');
+    if (gate) return gate;
     try { return await pipeline.importJob(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
   ipcMain.handle('addApplied', async (_, url, when = '', details = {}) => {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
-    if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: applications are tracked there.'};
+    const gate = needsNotion('applied');
+    if (gate) return gate;
     try { return await pipeline.addApplied(storage, url, when, log, details || {}); } catch (error) { return {ok: false, text: error.message}; }
   });
   // Settings → Application profile → Standard answers (read from Notion) and the Strategy page's data.
@@ -838,8 +852,8 @@ function handlers() {
   // Jobs → Recruiter message: a recruiter lead read by Claude, waited for so the list shows it.
   // Two steps: proposeLead reads it (Claude, once; nothing written), the window asks you to confirm the channel and the
   // start date, then addLead(…, {proposal, confirmed}) writes it to Notion with those instead of Claude's guesses.
-  const leadCheck = () => (!storage.secret('NOTION_TOKEN') ? {ok: false, text: 'Connect Notion first: recruiter leads are tracked there.'}
-    : !aiReady() ? {ok: false, text: 'Reading a message or screenshot needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'} : null);
+  const leadCheck = () => needsNotion('lead')
+    || (!aiReady() ? {ok: false, text: 'Reading a message or screenshot needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'} : null);
   // Screenshots (up to 5) go to temporary files for the run (then to Notion, on the job's page), deleted after.
   const withShots = async (image, task) => {
     const exts = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'};
@@ -901,11 +915,13 @@ function handlers() {
   ipcMain.handle('ivRemindSet', (_, value) => { storage.saveSettings({interviewReminders: !!value}); return {on: !!value}; });
   ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
   ipcMain.handle('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved, insight: demoInterviews().insight}
-    : viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
+    : needsNotion('interviews') || viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
   ipcMain.handle('ivInsightStep', async (_, text, done) => (DEMO ? {ok: true, done_steps: []}
-    : interviews.insightStep(storage, text, !!done)));
+    : needsNotion('interviews') || interviews.insightStep(storage, text, !!done)));
   ipcMain.handle('ivInsights', async () => {
     if (DEMO) return {ok: true, status: 'unchanged', text: 'Demo mode', insight: demoInterviews().insight};
+    const gate = needsNotion('interviews');
+    if (gate) return gate;
     const result = await interviews.refreshInsights(storage);
     const cached = interviews.cacheWithInsight(viewCache.recall(storage, 'interviews'), result);
     if (cached) viewCache.remember(storage, 'interviews', cached);  // the next start shows this one
@@ -949,8 +965,8 @@ function handlers() {
   });
   ipcMain.handle('ivSaveDraft', (_, id, patch) => (DEMO ? true : interviews.saveDraft(storage, id, patch)));
   ipcMain.handle('ivDiscard', async (_, id) => (DEMO ? (interviews.discard(storage, id), true) : (await interviews.drop(storage, id)).ok));
-  ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
-  ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
+  ipcMain.handle('ivSave', (_, id) => needsNotion('interviews') || interviews.save(storage, id));
+  ipcMain.handle('ivLink', (_, pageId, jobUrl) => needsNotion('interviews') || interviews.link(storage, pageId, jobUrl));
   // A row already reviewed is reviewed again by the same run (⋯ Review again: src/ai/interviews.py review_again).
   // One review costs ~$0.25 and takes about a minute, so a second ask for the same interview inside that window is a
   // duplicate, whoever made it: 1 Oct 2026 produced two GitHub runs 38 s apart, two Notion rows and two different
@@ -961,6 +977,8 @@ function handlers() {
   // just "the app", which is what makes a second dispatch attributable.
   ipcMain.handle('ivReview', (_, pageId, why = '') => {
     if (DEMO) return {ok: true, summary: 'Reviewed (demo): nothing was written'};
+    const gate = needsNotion('interviews');
+    if (gate) return gate;
     const id = String(pageId), caller = `Interview review (${why || 'interviews page'})`;
     if (Date.now() - (reviewingStarted.get(id) || 0) < REVIEW_WINDOW_MS) {
       appLog('dispatch', `refused ${caller} → daily.yml (interview) in ${storage.settings().cloud?.repo || 'this Mac'}: already started within ${REVIEW_WINDOW_MS / 60000} min`);
@@ -1057,6 +1075,9 @@ function handlers() {
   // (server.js), and a mistaken one's undo (notSubmitted below). "Who decided this, and why?" is answerable from
   // logs/app.log alone (1 Oct 2026).
   ipcMain.handle('setStatus', async (_, url, status) => {
+    const reason = notionGate.statusReason(status);
+    const gate = reason && needsNotion(reason);
+    if (gate) return gate;
     if (status !== 'applied') return pipeline.setStatus(storage, url, status);
     const job = String(url);
     appLog('applied', `asked from the app (you): ${job}`);
@@ -1068,6 +1089,8 @@ function handlers() {
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
   // Demo mode: the fictional list in demo/focus.json (JOB_PILOTTO_DEMO_FOCUS_DELAY ms first, to see the loading state).
   ipcMain.handle('focus', async () => {
+    const gate = needsNotion('focus');
+    if (gate) return gate;
     if (!DEMO) return viewCache.remember(storage, 'focus', await pipeline.focus(storage));
     await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_FOCUS_DELAY) || 0));
     return {ok: true, focus: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8'))};
@@ -1076,6 +1099,8 @@ function handlers() {
   ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
   ipcMain.handle('setDailyTarget', async (_, value) => {
     if (DEMO) return {ok: true, target: strategy.clampTarget(value)};
+    const gate = needsNotion('focus');
+    if (gate) return gate;
     try {
       return {ok: true, target: await strategy.setDailyTarget(storage, value, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage})};
     } catch (error) { return {ok: false, error: `Notion: ${error.message}. The target wasn't changed.`}; }
@@ -1105,8 +1130,8 @@ function handlers() {
   // Where an email belongs: Focus → "Is this about …?" (src/ai/reassign.py).
   ipcMain.handle('reassignEmail', (_, eventId, target) => (DEMO ? {ok: true, text: 'Moved (demo): nothing was written.'}
     : pipeline.reassignEmail(storage, String(eventId), String(target))));
-  ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : pipeline.focusHistory(storage)));
-  ipcMain.handle('focusDone', (_, pageId, what = 'replied') => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId), String(what))));
+  ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : needsNotion('focus') || pipeline.focusHistory(storage)));
+  ipcMain.handle('focusDone', (_, pageId, what = 'replied') => (DEMO ? {ok: true} : needsNotion('focus') || pipeline.focusDone(storage, String(pageId), String(what))));
   // Focus → "Did the interview happen?": held (notes), moved (a new time) or cancelled; Notion first.
   ipcMain.handle('interviewHappened', (_, pageId, answer, detail = {}) => (DEMO ? {ok: true, review: false}
     : pipeline.interviewHappened(storage, String(pageId), String(answer), detail || {})));
@@ -1118,9 +1143,11 @@ function handlers() {
     if (!aiReady()) return {ok: false, text: 'The review needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'};
     try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
-  ipcMain.handle('apply', async (_, options) => allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
+  ipcMain.handle('apply', async (_, options) => needsNotion('apply') || allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options)));
   ipcMain.handle('applyOne', async (_, url, details) => {
+    const gate = needsNotion('apply');
+    if (gate) return gate;
     const blocked = allowanceBlock();
     if (blocked) return blocked;
     const result = await (DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {}));
@@ -1230,6 +1257,8 @@ function handlers() {
     try { return await googleStatus(); } catch { return {connected: false}; }
   });
   ipcMain.handle('googleConnect', async () => {
+    const gate = needsNotion('gmail');
+    if (gate) return gate;
     const lines = [];
     const {code} = await pipeline.run(storage, ['src.sources.google', 'auth'], line => lines.push(line));
     // Always on: the new sign-in goes to the GitHub repo too, so the Gmail check there can use it.
@@ -1307,10 +1336,10 @@ function handlers() {
   });
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));
-  ipcMain.handle('answerQuestion', (_, questionKey, answer) => questions.answer(storage, questionKey, answer)
+  ipcMain.handle('answerQuestion', (_, questionKey, answer) => needsNotion('profile') || questions.answer(storage, questionKey, answer)
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // A session's ❓ fact, answered with one tick on the session page: saved to the standard answers page.
-  ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : questions.remember(storage, question, answer))
+  ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer))
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).
   ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']
@@ -1318,6 +1347,8 @@ function handlers() {
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
+    const gate = needsNotion('prepare');
+    if (gate) return gate;
     const blocked = allowanceBlock();
     if (blocked) return blocked;
     // With Always on, background jobs run in the user's GitHub repo: Recent activity
