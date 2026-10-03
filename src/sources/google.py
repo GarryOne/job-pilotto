@@ -195,7 +195,11 @@ def invite_start(ics, default_zone=None):
     try:
         tz = ZoneInfo(WINDOWS_ZONES.get(zone, zone) or default_zone)
     except Exception:  # noqa: BLE001 — an unknown zone name: the owner's own zone
-        tz = ZoneInfo(default_zone)
+        from ..tz import local_zone
+        try:
+            tz = ZoneInfo(default_zone)
+        except Exception:  # noqa: BLE001 — no time-zone database (Windows without tzdata)
+            tz = local_zone()
     return moment.replace(tzinfo=tz).isoformat()
 
 

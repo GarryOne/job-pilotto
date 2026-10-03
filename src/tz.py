@@ -1,6 +1,7 @@
 """The user's own time zone: JOB_PILOTTO_TZ (the desktop app sets it from the computer), else the machine's, else UTC.
 Never a fixed city: dates, "today" and interview times are the user's, wherever they live."""
 import os
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -23,4 +24,7 @@ def zone_name():
 
 
 def local_zone():
-    return ZoneInfo(zone_name())
+    try:
+        return ZoneInfo(zone_name())
+    except Exception:  # noqa: BLE001 — no time-zone database at all (Windows without the tzdata package: not even "UTC" loads): the computer's own offset
+        return datetime.now().astimezone().tzinfo
