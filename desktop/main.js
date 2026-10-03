@@ -440,7 +440,7 @@ function handlers() {
   ipcMain.handle('state', () => ({
     about,
     settings: storage.settings(), secrets: storage.secretsPresent(),
-    hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!(storage.settings().setupDone && storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID),
+    hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!(storage.settings().setupDone && (storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID || storage.readText('profile.md'))),
     folder: storage.dir,
     notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
@@ -504,7 +504,7 @@ function handlers() {
     trackSetup(patch, before);
     return saved;
   });
-  ipcMain.handle('contact', () => (DEMO ? {} : contactDetails.read(storage)));
+  ipcMain.handle('contact', () => (DEMO || !notionGate.connected(storage) ? {} : contactDetails.read(storage)));
   ipcMain.handle('saveContact', (_, contact) => needsNotion('profile') || contactDetails.save(storage, contact).then(saved => { server.contactSaved(storage, saved || contact); return {ok: true}; })
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   ipcMain.handle('saveSecret', (_, name, pasted) => {
@@ -551,10 +551,14 @@ function handlers() {
   ipcMain.handle('cvChange', () => ({...(storage.settings().cvChange || {}), name: storage.settings().cvName,
     comparable: fs.existsSync(storage.path(cvChange.PREVIOUS)), base: !!cvlib.baseCv(storage)}));
   ipcMain.handle('cvReview', async () => {
+    const gate = needsNotion('profile');
+    if (gate) return gate;
     try { return {ok: true, ...await cvChange.review(storage, storage.secret('ANTHROPIC_API_KEY'), {client: claudeCode.client(storage)})}; }
     catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('cvApply', async (_, accepted) => {
+    const gate = needsNotion('profile');
+    if (gate) return gate;
     try { return {ok: true, ...await cvChange.apply(storage, accepted)}; } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('cvChangeDone', () => { storage.saveSettings({cvChange: null}); return true; });
@@ -616,11 +620,27 @@ function handlers() {
   ipcMain.handle('saveStrategy', (_, draft, parts = null) => {
     const take = part => !parts || parts.includes(part);
     saving ||= (async () => {
-      // Notion is required: the Profile, standard answers and contact details live only there.
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-      if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {ok: false, error: 'Connect Notion first: your strategy is saved there.'};
       // Progress for the save window: each step starts, advances (blocks written) and finishes.
       const step = (name, extra = {}) => toWindow('saveProgress', {step: name, ...extra});
+      // The daily target asked in the wizard goes with the search settings.
+      const perDay = storage.settings().questionnaire?.applications_per_day;
+      const accepted = () => ({search: take('search') ? draft.search : null,
+        preferences: !parts ? {...draft.preferences, daily_applications_target: strategy.clampTarget(perDay)} : take('filters') ? draft.preferences : null});
+      // Trying (no Notion yet, lib/notion-gate.js): the strategy is kept on this Mac, and lib/migrate.js moves it into
+      // Notion when it is connected. Contact details are a section of the Profile text, as in Notion.
+      if (!notionGate.connected(storage)) {
+        strategy.save(storage, accepted());
+        step('local', {finished: true});
+        const contact = Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value));
+        const profile = draft.profile_markdown.trim() + (Object.keys(contact).length ? `\n\n${contactDetails.markdown(contact)}\n` : '\n');
+        const backup = strategy.saveLocal(storage, {profile: take('profile') ? profile : null, answers: take('answers') ? draft.answers_markdown : null},
+          {backup: !!storage.settings().setupDone});
+        appLog('notion', 'strategy kept on this Mac', {parts: parts || 'all', backup: !!backup});
+        for (const name of ['profile', 'answers', 'search']) step(name, {finished: true});
+        { const before = storage.settings(); storage.saveSettings({setupDone: true}); trackSetup({setupDone: true}, before); }
+        return {ok: true, local: true};
+      }
       // Replacing a strategy that was set up before: keep a copy of the current one in Notion first.
       if (storage.settings().setupDone) {
         step('snapshot');
@@ -630,10 +650,7 @@ function handlers() {
       }
       // ⚙️ Search settings is the source of truth: read it first, so edits made there since the last search are not overwritten by the cached copy.
       if (ids.NOTION_SEARCH_SETTINGS_PAGE) await pipeline.run(storage, ['src.notion.search_settings', 'sync']);
-      // The daily target asked in the wizard goes on ⚙️ Search settings with the rest.
-      const perDay = storage.settings().questionnaire?.applications_per_day;
-      strategy.save(storage, {search: take('search') ? draft.search : null,
-        preferences: !parts ? {...draft.preferences, daily_applications_target: strategy.clampTarget(perDay)} : take('filters') ? draft.preferences : null});
+      strategy.save(storage, accepted());
       step('local', {finished: true});
       const report = page => (done, total) => step(page, {done, total});
       // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.

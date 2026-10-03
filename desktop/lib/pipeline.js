@@ -2,6 +2,7 @@
 import * as claudeCode from './claude-code.js';
 import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
+import * as notionGate from './notion-gate.js';
 import * as requestLog from './request-log.js';
 import {jobFrom, jobFromResult} from './job-line.js';
 import {mailProblem as mailProblemFrom, readResult} from './run-result.js';
@@ -69,10 +70,16 @@ export function pipelineEnv(storage, parent = process.env) {
     ...(requestLog.logPath() ? {JOB_PILOTTO_NOTION_LOG: requestLog.logPath()} : {}),  // Python's Notion requests: same file
     ...(crashReports?.enabled() ? {JOB_PILOTTO_SENTRY_DSN: crashReports.dsn, JOB_PILOTTO_APP_VERSION: crashReports.version, JOB_PILOTTO_INSTALL_ID: crashReports.installId} : {}),
   };
-  // The Profile and standard answers are read from Notion (Notion is required).
+  // The Profile and standard answers are read from Notion; before it is connected (Trying) from this Mac's files
+  // (src/paths.py local_text). Never set when connected: the local file would win over Notion.
   for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']) {
     const value = storage.secret(name);
     if (value) env[name] = value;
+  }
+  if (!notionGate.connected(storage)) {
+    for (const [variable, name] of [['JOB_PILOTTO_PROFILE_FILE', 'profile.md'], ['JOB_PILOTTO_ANSWERS_FILE', 'answers.md']]) {
+      if (fs.existsSync(storage.path(name))) env[variable] = storage.path(name);
+    }
   }
   // The free AI credit (lib/ai-trial.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
   if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;

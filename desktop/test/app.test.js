@@ -33,12 +33,26 @@ test('the pipeline runs on the user folder, with AI models only when a key is se
   assert.ok(fs.existsSync(storage.path('config/search.json')));
   let env = pipeline.pipelineEnv(storage);
   assert.equal(env.JOB_PILOTTO_DATA_DIR, storage.path('data'));
-  assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);  // the Profile is read from Notion (required)
+  assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);  // no file on this Mac yet
   assert.equal(env.JOB_PILOTTO_SCORE_MODEL, undefined);
   storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
   env = pipeline.pipelineEnv(storage);
   assert.equal(env.ANTHROPIC_API_KEY, 'sk-ant-x');
   assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5-5');
+});
+
+test('Trying (no Notion): the engine reads the Profile and answers from this Mac; connected, it never does', () => {
+  const storage = tempStorage();
+  storage.writeText('profile.md', 'P');
+  assert.equal(pipeline.pipelineEnv(storage).JOB_PILOTTO_PROFILE_FILE, storage.path('profile.md'));
+  assert.equal(pipeline.pipelineEnv(storage).JOB_PILOTTO_ANSWERS_FILE, undefined);  // no answers.md
+  storage.writeText('answers.md', 'A');
+  assert.equal(pipeline.pipelineEnv(storage).JOB_PILOTTO_ANSWERS_FILE, storage.path('answers.md'));
+  storage.setSecret('NOTION_TOKEN', 'ntn_x');
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'profile'}});
+  const env = pipeline.pipelineEnv(storage);
+  assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);  // Notion is the source of truth once connected
+  assert.equal(env.JOB_PILOTTO_ANSWERS_FILE, undefined);
 });
 
 test('apply picks saved jobs first, then the best fit, only with a kit, never applied or dismissed ones', () => {

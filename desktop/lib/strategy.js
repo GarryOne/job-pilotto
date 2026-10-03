@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as notion from './notion.js';
+import * as notionGate from './notion-gate.js';
 import {REPO} from './pipeline.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override is for the end-to-end journey (desktop/e2e): every step on Haiku
@@ -213,13 +214,31 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
 }
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
-// The Profile and standard answers: the Notion pages (the only copy; Notion is required).
+// The Profile and standard answers: the Notion pages once Notion is connected (the only copy). Before that (Trying, see
+// lib/notion-gate.js) this Mac's profile.md / answers.md, which lib/migrate.js moves into Notion at connect.
 export async function profileTexts(storage) {
+  if (!notionGate.connected(storage)) return {profile: storage.readText('profile.md'), answers: storage.readText('answers.md')};
   const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-  if (!token || !ids.NOTION_PROFILE_PAGE_ID) throw new Error('Connect Notion first: your Profile and standard answers live there.');
   const [profile, answers] = await Promise.all([notion.pageText(token, ids.NOTION_PROFILE_PAGE_ID),
     ids.NOTION_ANSWERS_PAGE_ID ? notion.pageText(token, ids.NOTION_ANSWERS_PAGE_ID) : '']);  // kept pages (lib/notion.js)
   return {profile, answers};
+}
+// Trying: the strategy's Profile (with its contact section) and standard answers are written to this Mac. null leaves a
+// file as it is; backup first copies the files being replaced to backup/strategy-<stamp>/ and returns that folder (else null).
+export function saveLocal(storage, {profile = null, answers = null}, {backup = false} = {}) {
+  const files = [['profile.md', profile], ['answers.md', answers]].filter(([, text]) => text != null);
+  let folder = null;
+  if (backup) {
+    const there = files.filter(([name]) => storage.readText(name));
+    if (there.length) {
+      const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
+      folder = storage.path(`backup/strategy-${stamp}`);
+      fs.mkdirSync(folder, {recursive: true});
+      for (const [name] of there) fs.writeFileSync(path.join(folder, name), storage.readText(name), {mode: 0o600});
+    }
+  }
+  for (const [name, text] of files) storage.writeText(name, text);
+  return folder;
 }
 // Copies an older version kept on the Mac go once Notion has them (lib/migrate.js).
 export function dropLocalCopies(storage) {
