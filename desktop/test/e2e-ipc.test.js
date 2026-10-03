@@ -30,3 +30,13 @@ test('the log keeps only the newest calls', () => {
   for (let i = 0; i < 12; i++) registered.a({});
   assert.equal(log.length, 5);
 });
+
+test('calls since a mark still show once the log is full (UI loop #70: every later control looked dead)', () => {
+  const log = [], registered = {};
+  recordIpc((channel, fn) => { registered[channel] = fn; }, log, 5)('a', () => 1);
+  for (let i = 0; i < 12; i++) registered.a({});
+  const mark = log.at(-1).seq;
+  registered.a({});
+  assert.equal(log.length, 5, 'full: the length no longer grows');
+  assert.equal(log.filter(call => call.seq > mark).length, 1);
+});

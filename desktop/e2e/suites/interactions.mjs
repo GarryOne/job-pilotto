@@ -23,8 +23,8 @@ export async function run(ctx) {
   await ensureSetUp(ctx);
   // The calls the window made to the app, recorded by main.js in an end-to-end run (lib/e2e-ipc.js).
   const ipc = {
-    mark: () => app.evaluate(() => (globalThis.__jpIpc || []).length),
-    since: mark => app.evaluate((_electron, from) => (globalThis.__jpIpc || []).slice(from).map(({channel, start, ms, failed}) => ({channel, start, ms, failed})), mark),
+    mark: () => app.evaluate(() => (globalThis.__jpIpc || []).at(-1)?.seq || 0),
+    since: mark => app.evaluate((_electron, from) => (globalThis.__jpIpc || []).filter(call => call.seq > from).map(({channel, start, ms, failed}) => ({channel, start, ms, failed})), mark),
   };
   let shots = 0;
   // A different path on every scheduled run (E2E_SEED, lib/variation.mjs): the pages in another order, the controls in another order, another window size.
