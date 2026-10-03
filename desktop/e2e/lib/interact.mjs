@@ -5,10 +5,16 @@
 
 const SLOW_MS = 500;       // an app call at least this long should show it is working
 const MAX_CONTROLS = 40;
+const IDLE_MS = 3000;      // how long a page is watched untouched, to learn the calls it makes by itself (a refresh, a poll)
+// Calls that only hand something to another program (a folder in Finder/Explorer, a link in the browser, system settings): reaching the app is the whole effect, and how
+// long the other program takes is not the app's to show (#90 "Open Settings" on Windows).
+export const EXTERNAL_CHANNELS = new Set(['openExternal', 'openPrivacy', 'showFolder', 'showCvFolder', 'showBackups', 'ivRecordings', 'coverLetterOpen']);
+// Kinds that are pressed a second time, from a reset page, before they are filed: a state left by an earlier press (a row already open) or a timing fluke does not repeat.
+const RECHECK = new Set(['dead-control', 'expand-broken', 'no-loading-state']);
 
 // What a probe must never press: it deletes, sends, signs in, leaves the app, or spends AI credit.
 // restart/relaunch: `\bstart` does not match inside "Restart", and Interviews' "Restart" (microphone denied on a Windows runner) relaunched the app mid-probe.
-const UNSAFE_TEXT = /\b(delete|remove|quit|exit|restart|relaunch|sign\s?(in|out)|log\s?(in|out)|connect|disconnect|install|update|upgrade|apply|submit|send|record|import|replace|run|reset|clear|discard|stop|cancel|retry|start|generate|draft|scan|export|download|unlink|revoke|buy|pay|copy|open in|reveal|show in|check|refresh|rebuild|redo|find|search|review|score|prepare|sync|rescan|test)\b/i;
+const UNSAFE_TEXT = /\b(delete|remove|quit|exit|restart|relaunch|sign\s?(in|out)|log\s?(in|out)|connect|disconnect|install|update|upgrade|apply|submit|send|record|import|replace|run|reset|clear|discard|stop|cancel|retry|start|generate|draft|scan|export|download|unlink|revoke|buy|pay|copy|open in|open settings|folder|finder|explorer|reveal|show in|check|refresh|rebuild|redo|find|search|review|score|prepare|sync|rescan|test)\b/i;
 const UNSAFE_CLASS = /danger|destructive/i;
 
 export function isSafe({text = '', cls = '', href = '', command = ''}) {
@@ -25,7 +31,7 @@ export function classify({view, control, effects, calls, loading = false, errors
   if (errors.length) found.push(make('console-error', `Clicking "${name}" threw: ${errors[0].slice(0, 200)}`));
   else if (control.expandable && !effects.includes('expanded toggled') && !effects.includes('control removed')) found.push(make('expand-broken', `"${name}" is an expandable control but clicking it did not expand or collapse anything`));
   else if (!effects.length && !calls.length) found.push(make('dead-control', `Clicking "${name}" did nothing: the page did not change and no call reached the app`));
-  const slow = calls.filter(call => call.ms === null || call.ms >= SLOW_MS);
+  const slow = calls.filter(call => (call.ms === null || call.ms >= SLOW_MS) && !EXTERNAL_CHANNELS.has(call.channel));
   if (slow.length && !loading && !errors.length) found.push(make('no-loading-state', `"${name}" ran for ${slow[0].ms === null ? 'more than the wait' : `${slow[0].ms} ms`} (${slow[0].channel}) and showed no sign of work: no disabled state, spinner or changed label`));
   return found;
 }
@@ -59,7 +65,8 @@ function snapshot({id, scope}) {
   const structure = [];
   for (const node of document.body.querySelectorAll('*')) {
     if (node === el) continue;
-    const bits = [node.tagName, node.hidden ? 'h' : '', node.getAttribute('aria-expanded') || '', node.getAttribute('aria-hidden') || '', node.open ? 'o' : '', node.disabled ? 'd' : '', node.getAttribute('data-state') || '', typeof node.className === 'string' ? node.className : ''];
+    const bits = [node.tagName, node.hidden ? 'h' : '', node.getAttribute('aria-expanded') || '', node.getAttribute('aria-hidden') || '', node.open ? 'o' : '', node.disabled ? 'd' : '', node.getAttribute('data-state') || '', typeof node.className === 'string' ? node.className : '',
+      node.getAttribute('aria-pressed') || '', node.getAttribute('aria-selected') || '', node.getAttribute('aria-checked') || '', node.getAttribute('aria-current') || ''];
     structure.push(bits.join('|'));
   }
   const target = el.getAttribute('aria-controls') ? document.getElementById(el.getAttribute('aria-controls')) : null;
@@ -71,6 +78,9 @@ function snapshot({id, scope}) {
     expanded: [el.getAttribute('aria-expanded'), details ? details.open : null, target ? `${target.hidden}:${Math.round(target.getBoundingClientRect().height)}` : null].join('/'),
     busy: root.querySelectorAll('[aria-busy="true"], .spinner, .skeleton, [data-state="busy"], progress, [disabled]').length,
     own: `${el.disabled}|${el.getAttribute('aria-busy')}|${el.textContent}`,
+    // A toggle says it was pressed (aria-pressed on the Jobs stat cards, #81/#82); "Edit target" only moves the focus to a field (#87). Both are effects (a press focuses the pressed control itself: that is not one).
+    state: ['aria-pressed', 'aria-selected', 'aria-checked', 'aria-current'].map(name => el.getAttribute(name) || '').join('|'),
+    focus: (() => { const active = document.activeElement; if (!active || active === document.body || active === el) return ''; return `${active.tagName}#${active.id}.${active.getAttribute('name') || ''}`; })(),
     scroll: Math.round(window.scrollY),
   };
 }
@@ -83,6 +93,8 @@ function effectsOf(before, after) {
   if (before.hash !== after.hash) effects.push('location changed');
   if (before.expanded !== after.expanded) effects.push('expanded toggled');
   if (before.own !== after.own) effects.push('control changed');
+  if (before.state !== after.state) effects.push('state changed');
+  if (before.focus !== after.focus && after.focus) effects.push('focus moved');
   return effects;
 }
 
@@ -100,9 +112,17 @@ async function recover(page) {
 
 const wait = ms => new Promise(done => setTimeout(done, ms));
 
+// The channels the app is called on while nobody touches the page.
+async function idleChannels(ipc, ms) {
+  if (!ms) return new Set();
+  const mark = await ipc.mark();
+  await wait(ms);
+  return new Set((await ipc.since(mark)).map(call => call.channel));
+}
+
 // Click every safe control of the page showing now. `ipc`: {mark(): Promise<number>, since(mark): Promise<[{channel, ms, failed}]>}.
 // `arrange(list)` (lib/variation.mjs shuffle) puts the controls in another order and picks a different `max` of them from a wider look, so two runs press different things.
-export async function probePage({page, view, ipc, scope = 'body', settleMs = 1500, max = MAX_CONTROLS, onFlag, reset, arrange = null}) {
+export async function probePage({page, view, ipc, scope = 'body', settleMs = 1500, idleMs = IDLE_MS, max = MAX_CONTROLS, onFlag, reset, arrange = null}) {
   const errors = [];
   const onConsole = message => { if (message.type() === 'error') errors.push(message.text()); };
   const onPageError = error => errors.push(String(error.message || error));
@@ -114,6 +134,32 @@ export async function probePage({page, view, ipc, scope = 'body', settleMs = 150
     const found = await page.evaluate(discover, {scope, max: look});
     const controls = (arrange ? arrange(found.filter(control => isSafe(control))) : found.filter(control => isSafe(control))).slice(0, max);
     skipped.push(...found.filter(control => !isSafe(control)).map(control => control.text || control.label));
+    // The calls this page makes untouched (its refreshes and polls) are never a click's (#65: a questions refresh was blamed on "Save").
+    const background = await idleChannels(ipc, idleMs);
+    // One press: what it changed, the calls it made, any sign of work, any error.
+    const press = async control => {
+      const before = await page.evaluate(snapshot, {id: control.id, scope});
+      if (!before) return {skip: `${control.text || control.label} (gone)`};
+      errors.length = 0;
+      const mark = await ipc.mark();
+      const clickedAt = Date.now();
+      const clicked = await page.locator(`[data-probe="${control.id}"]`).click({timeout: 2000, noWaitAfter: true}).then(() => '', error => String(error.message).split('\n').filter(line => /intercepts|obscur|not visible|not stable|outside|disabled/.test(line)).join(' ').trim() || 'timeout');
+      if (clicked) return {skip: `${control.text || control.label} (${clicked.slice(0, 80)})`};
+      let loading = false, after = null, calls = [];
+      const started = Date.now();
+      while (Date.now() - started < settleMs) {
+        await wait(100);
+        after = await page.evaluate(snapshot, {id: control.id, scope});
+        calls = (await ipc.since(mark)).filter(call => call.start >= clickedAt - 50 && call.start <= clickedAt + 500 && !background.has(call.channel));   // a poll that happened to run meanwhile is not this click's
+        if (after && (after.busy > before.busy || after.own !== before.own)) loading = true;
+        const running = calls.some(call => call.ms === null);
+        if (running && after && effectsOf(before, after).length) loading = true;   // the page said something while the call was still running ("updating…")
+        if (!running && Date.now() - started >= 300 && (calls.length || effectsOf(before, after).length)) break;
+      }
+      const effects = effectsOf(before, after);
+      const result = {view, control: control.text || control.label, label: control.label, effects, calls: calls.map(call => ({channel: call.channel, ms: call.ms})), loading, errors: [...errors]};
+      return {result, flagged: classify({view, control, effects, calls: result.calls, loading, errors: result.errors})};
+    };
     for (const control of controls) {
       // A page that drew itself again (or a dialog a press left open) loses the tags: go back to the page, find the control again by its words.
       if (!(await page.locator(`[data-probe="${control.id}"]`).isVisible().catch(() => false))) {
@@ -122,28 +168,21 @@ export async function probePage({page, view, ipc, scope = 'body', settleMs = 150
         if (!again) { skipped.push(`${control.text || control.label} (gone)`); continue; }
         control.id = again.id;
       }
-      const before = await page.evaluate(snapshot, {id: control.id, scope});
-      if (!before) { skipped.push(`${control.text || control.label} (gone)`); continue; }
-      errors.length = 0;
-      const mark = await ipc.mark();
-      const clickedAt = Date.now();
-      const clicked = await page.locator(`[data-probe="${control.id}"]`).click({timeout: 2000, noWaitAfter: true}).then(() => '', error => String(error.message).split('\n').filter(line => /intercepts|obscur|not visible|not stable|outside|disabled/.test(line)).join(' ').trim() || 'timeout');
-      if (clicked) { skipped.push(`${control.text || control.label} (${clicked.slice(0, 80)})`); continue; }
-      let loading = false, after = null, calls = [];
-      const started = Date.now();
-      while (Date.now() - started < settleMs) {
-        await wait(100);
-        after = await page.evaluate(snapshot, {id: control.id, scope});
-        calls = (await ipc.since(mark)).filter(call => call.start >= clickedAt - 50 && call.start <= clickedAt + 500);   // a poll that happened to run meanwhile is not this click's
-        if (after && (after.busy > before.busy || after.own !== before.own)) loading = true;
-        const running = calls.some(call => call.ms === null);
-        if (running && after && effectsOf(before, after).length) loading = true;   // the page said something while the call was still running ("updating…")
-        if (!running && Date.now() - started >= 300 && (calls.length || effectsOf(before, after).length)) break;
+      const first = await press(control);
+      if (first.skip) { skipped.push(first.skip); continue; }
+      let {result, flagged} = first;
+      // Pressed again from a reset page before it is filed: only what fails both times is a finding.
+      if (flagged.some(item => RECHECK.has(item.kind))) {
+        await recover(page);
+        if (reset) await reset();
+        const tagged = await page.locator(`[data-probe="${control.id}"]`).isVisible().catch(() => false);
+        const again = tagged ? control : (await page.evaluate(discover, {scope, max: look})).find(item => item.text === control.text && item.label === control.label);
+        const second = again ? await press({...control, id: again.id}) : {skip: 'gone'};
+        const kept = second.skip ? [] : new Set(second.flagged.map(item => item.kind));
+        flagged = flagged.filter(item => !RECHECK.has(item.kind) || (kept instanceof Set && kept.has(item.kind)));
+        result = {...result, rechecked: second.skip ? `not pressed again (${second.skip})` : second.result};
       }
-      const effects = effectsOf(before, after);
-      const result = {view, control: control.text || control.label, label: control.label, effects, calls: calls.map(call => ({channel: call.channel, ms: call.ms})), loading, errors: [...errors]};
       results.push(result);
-      const flagged = classify({view, control, effects, calls: result.calls, loading, errors: result.errors});
       if (flagged.length && onFlag) await onFlag(control, flagged);
       findings.push(...flagged);
       await recover(page);

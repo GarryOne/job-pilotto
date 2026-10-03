@@ -16,9 +16,16 @@ const PAGE = `<body><section class="view" data-view="fixture"><h1>Fixture</h1><d
 <button id="slowText" onclick="document.getElementById('out').textContent='Updating…'; window.fake(900)">Slow with a status line</button>
 <button id="boom" onclick="throw new Error('handler failed')">Throws</button>
 <button id="del" onclick="window.clicked = true">Delete everything</button>
+<button id="toggle" aria-pressed="false" onclick="this.setAttribute('aria-pressed', String(this.getAttribute('aria-pressed') !== 'true'))">Toggle filter</button>
+<div id="row">Target <input id="target" value="10"></div><a href="#" id="focusOnly" onclick="event.preventDefault(); document.getElementById('target').focus()">Edit target</a>
+<button id="opener" onclick="window.fake(900, 'openExternal')">Open guide</button>
+<button id="stale" onclick="if (window.staleSeen) document.getElementById('out').textContent='stale ok'; window.staleSeen = true">Stale once</button>
+<button id="leaves" onclick="window.fake(900, 'openPrivacy')">Open Settings</button>
 </section><script>
 window.fakeIpc = []; window.clicked = false;
-window.fake = ms => { const rec = {channel: 'work', start: Date.now(), ms: null}; window.fakeIpc.push(rec); return new Promise(done => setTimeout(() => { rec.ms = Date.now() - rec.start; done(); }, ms)); };
+window.fake = (ms, channel = 'work') => { const rec = {channel, start: Date.now(), ms: null}; window.fakeIpc.push(rec); return new Promise(done => setTimeout(() => { rec.ms = Date.now() - rec.start; done(); }, ms)); };
+// The page refreshes itself, slowly, the whole time: never a click's call (#65).
+setInterval(() => window.fake(900, 'poll'), 700);
 </script></body>`;
 
 const ipcOf = page => ({mark: () => page.evaluate(() => window.fakeIpc.length), since: mark => page.evaluate(count => window.fakeIpc.slice(count), mark)});
@@ -47,7 +54,7 @@ test('on a page with one of each, the probe flags exactly the broken controls an
   try {
     const page = await browser.newPage({viewport: {width: 1000, height: 700}});
     await page.setContent(PAGE);
-    const {results, findings} = await probePage({page, view: 'fixture', ipc: ipcOf(page), settleMs: 1200});
+    const {results, findings, skipped} = await probePage({page, view: 'fixture', ipc: ipcOf(page), settleMs: 1200, idleMs: 1500, reset: () => page.keyboard.press('Escape')});
     const by = kind => findings.filter(item => item.kind === kind).map(item => item.control);
     assert.deepEqual(by('dead-control'), ['Does nothing'], JSON.stringify(findings));
     assert.deepEqual(by('expand-broken'), ['Expand (broken)']);
@@ -56,6 +63,10 @@ test('on a page with one of each, the probe flags exactly the broken controls an
     assert.equal(await page.evaluate(() => window.clicked), false, 'the destructive button was left alone');
     assert.ok(results.some(item => item.control === 'Works' && item.effects.length), 'a working control is recorded as working');
     assert.ok(results.every(item => item.control !== 'Delete everything'));
+    // The ways a working control can look dead, none of them filed (#81/#82 toggle, #87 focus, #90 outside program, #65 background refresh, a state left by an earlier press).
+    for (const name of ['Toggle filter', 'Edit target', 'Open guide', 'Stale once', 'Works']) assert.ok(!findings.some(item => item.control === name), `${name}: ${JSON.stringify(findings.filter(item => item.control === name))}`);
+    assert.ok(skipped.includes('Open Settings'), 'system settings are another program: never pressed');
+    assert.ok(results.find(item => item.control === 'Does nothing').rechecked, 'a dead control is pressed twice before it is filed');
   } finally { await browser.close(); }
 });
 
