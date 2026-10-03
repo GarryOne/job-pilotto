@@ -126,13 +126,15 @@ test('a finding of the interaction probe names the control in its title and keep
 
 test('blockers: a high layout-check finding always blocks; a high AI finding only once it is a real open issue; medium and failed steps never', async () => {
   const {blockers} = await import('../lib/triage.mjs');
-  const f = (source, severity, id) => ({id, view: 'jobs', severity, kind: 'layout', title: `t ${id}`, detail: `d ${id}`, source});
+  const f = (source, severity, id, kind = 'functionality') => ({id, view: 'jobs', severity, kind, title: `t ${id}`, detail: `d ${id}`, source});
   const open = (fp, comments = 0, labels = []) => ({number: 1, state: 'OPEN', title: '[auto-ui] jobs: t', body: '**HIGH** · layout · found by the AI screenshot review', labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
     comments: Array.from({length: comments}, () => ({body: 'Seen again in run x'}))});
   assert.equal(blockers([f('layout-check', 'high', 'a')], []).length, 1);
   assert.equal(blockers([f('ai-review', 'high', 'b')], []).length, 0, 'one AI sighting is not enough');
   assert.equal(blockers([f('ai-review', 'high', 'b')], [open('b', 1)]).length, 1, 'seen in two runs');
   assert.equal(blockers([f('ai-review', 'high', 'b')], [open('b', 0, ['confirmed'])]).length, 1, 'a person confirmed it');
+  assert.equal(blockers([f('ai-review', 'high', 'b', 'text')], [open('b', 5, ['confirmed'])]).length, 0, 'a clipped brand name is cosmetic, however often it is seen');
+  assert.equal(blockers([f('ai-review', 'high', 'b', 'error-shown')], [open('b', 1)]).length, 1);
   assert.equal(blockers([f('ai-review', 'medium', 'c')], [open('c', 3)]).length, 0);
   assert.equal(blockers([f('suite-failure', 'high', 'd')], []).length, 0, 'the gate is already red then');
 });

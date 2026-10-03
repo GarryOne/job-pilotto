@@ -32,6 +32,9 @@ Report EVERY defect you can see, each as its own finding, not only the most impo
 rail, the search button at its foot), the page header, and the bar along the bottom. Text that runs out of its box or over a neighbour, a label cut off at the edge, a badge covering a title,
 and icons or controls that are misaligned are real defects, each its own finding.
 Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
+Severity: high = a person cannot finish a task, is shown a false status or a raw error, or could lose data (a status that contradicts the facts, a button that does nothing,
+an error where a result should be). medium = a defect anyone sees but can work around (clipped or overlapping text, a badge on a title, misaligned controls, odd spacing). low = polish.
+Clipped or overlapping text is medium, however prominent the place; it is never high.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
 {"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","suggestion":"<the smallest fix, in plain words>"}]}`;

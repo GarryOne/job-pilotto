@@ -247,7 +247,7 @@ class GateFourAndFiveTests(unittest.TestCase):
         self.assertTrue(self.decide(runs=noise + E2E_GREEN)['promote'])
 
     def test_an_open_high_severity_finding_on_this_build_blocks(self):
-        issue = {'number': 70, 'title': 'apply: step failed', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'auto-ui'}],
+        issue = {'number': 70, 'title': 'apply: step failed', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'kind:test-failure'}, {'name': 'auto-ui'}],
                  'body': 'x', 'comments': [{'body': f'Seen again. Build tested: desktop-v0.5.0-alpha.65 @ {SHA[:7]} (workflow_dispatch run)'}]}
         result = self.decide(blockers=[issue])
         self.assertFalse(result['promote'])
@@ -257,6 +257,12 @@ class GateFourAndFiveTests(unittest.TestCase):
         other = {'number': 71, 'title': 'x', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}], 'body': 'Build tested: main @ 9999999', 'comments': []}
         medium = {'number': 72, 'title': 'x', 'state': 'OPEN', 'labels': [{'name': 'severity:medium'}], 'body': f'@ {SHA[:7]}', 'comments': []}
         self.assertTrue(self.decide(blockers=[other, medium])['promote'])
+
+    def test_a_cosmetic_high_finding_does_not_block(self):
+        clipped = {'number': 73, 'title': 'Brand name clipped', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'kind:text'}], 'body': f'@ {SHA[:7]}', 'comments': []}
+        self.assertTrue(self.decide(blockers=[clipped])['promote'])
+        wrong = {**clipped, 'number': 74, 'title': 'Status contradicts', 'labels': [{'name': 'severity:high'}, {'name': 'kind:functionality'}]}
+        self.assertFalse(self.decide(blockers=[wrong])['promote'])
 
     def test_two_installs_are_not_enough(self):
         result = self.decide(usage=evidence(installs=2))

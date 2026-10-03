@@ -219,10 +219,17 @@ def rc_problems(runs, blockers, sha7, now):
     return problems
 
 
+# Kinds (the `kind:` label) that mean the app is WRONG or broken, not that it looks off: the AI review rates cosmetic defects "high" inconsistently (a clipped brand
+# name was high in #55 and medium in #57), so a cosmetic high never keeps a candidate from stable. desktop/e2e/lib/triage.mjs blockers() draws the same line.
+BLOCKING_KINDS = ('functionality', 'error-shown', 'test-failure', 'page-overflow', 'tall-row', 'broken-image')
+
+
 def blocking_findings(issues, sha7):
-    """The open high-severity UI-loop issues whose text (body or a 'Build tested' comment) names this commit."""
+    """The open high-severity UI-loop issues of a blocking kind whose text (body or a 'Build tested' comment) names this commit."""
+    def names(issue):
+        return {(l.get('name') if isinstance(l, dict) else l) for l in issue.get('labels') or []}
     return [i for i in issues if i.get('state', 'OPEN') == 'OPEN' and f'@ {sha7}' in issue_text(i)
-            and any((l.get('name') if isinstance(l, dict) else l) == 'severity:high' for l in i.get('labels') or [])]
+            and 'severity:high' in names(i) and any(f'kind:{kind}' in names(i) for kind in BLOCKING_KINDS)]
 
 
 def decide(releases, now, facts, min_age=MIN_AGE, require_beta=True):

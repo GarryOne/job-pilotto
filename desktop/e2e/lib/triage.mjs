@@ -40,9 +40,13 @@ export const labelFor = id => `fp:${id}`.slice(0, 50);
 // Which findings of THIS run keep a build away from beta testers: high severity, and either a deterministic layout check or an AI finding that is already a real
 // open issue (seen in two runs, or confirmed by a person). One AI sighting is noise often enough that it alone would block a good build every night. A failed suite
 // step is not listed: the gate is already red then.
+// An AI finding blocks only when it is about the app being WRONG (a false status, a dead control, an error shown), not about how it looks: the review rated a clipped
+// brand name "high" in one issue and "medium" for the same defect in the next (#55 and #56 against #57), and a cosmetic defect must not stop a release.
+export const BLOCKING_AI_KINDS = ['functionality', 'error-shown'];
 export function blockers(findings, issues) {
   return findings.filter(finding => finding.severity === 'high' && finding.source !== 'suite-failure').filter(finding => {
-    if (finding.source === 'layout-check') return true;
+    if (finding.source === 'layout-check') return true;   // deterministic and "severe" only for a sideways-scrolling page, a row hundreds of pixels tall, a broken image
+    if (!BLOCKING_AI_KINDS.includes(finding.kind)) return false;
     const issue = matchExisting(finding, issues);
     return !!issue && (sightings(issue) >= SIGHTINGS_NEEDED || (issue.labels || []).some(item => (item.name || item) === CONFIRMED));
   });
