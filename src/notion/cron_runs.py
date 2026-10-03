@@ -21,7 +21,8 @@ CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '')
 # (run key, the old per-step column (retired: each step's cost is on the run's page now), its label).
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
           ('kits', 'Cost kits (USD)', 'Kits'), ('insight', 'Cost insight (USD)', 'Insights'),
-          ('interview', 'Cost interview (USD)', 'Interviews'), ('mail', 'Cost mail (USD)', 'Emails'))
+          ('interview', 'Cost interview (USD)', 'Interviews'), ('mail', 'Cost mail (USD)', 'Emails'),
+          ('sources', 'Cost sources (USD)', 'Source reads'))   # careers pages, link picks, alert emails, scout ideas (ai/cost.py SIDE)
 
 
 def new_run(mode):

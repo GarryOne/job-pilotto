@@ -741,6 +741,9 @@ def main():
             count = publish_index(feeds_out, index_url, key, stats=stats)
             print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
+    from .ai import cost as ai_cost
+    if ai_cost.SIDE:   # AI ideas, link picks and page reads of this scout run: logged like any AI step
+        log['sources'] = dict(ai_cost.SIDE)
     message = telegram_summary(summary, results)
     log['headline'] = cron_runs.plain(message).split('\n')[0]
     log['subject'] = cron_runs.counted(sum(1 for _, outcome in results if outcome['status'] == 'found'), 'new feed')

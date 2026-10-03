@@ -131,6 +131,8 @@ def _ask(client, model, system, user, schema):
     response = client.messages.create(
         model=model, max_tokens=MAX_TOKENS, system=[{'type': 'text', 'text': system}],
         messages=[{'role': 'user', 'content': user}], output_config=engine.structured(schema, model, 'low'))
+    from . import cost
+    cost.side(model, response.usage)
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')
     return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage

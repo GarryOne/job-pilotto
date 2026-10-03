@@ -129,5 +129,8 @@ def apply_caps(args, info, warnings):
         args.score_max = min(args.score_max, PAUSED_SCORE_MAX)
     if args.enrich_max:
         args.enrich_max = min(args.enrich_max, PAUSED_ENRICH_MAX)
-    warnings.append(f"budget {info['pct']:.0%}: auto-kits off, scoring capped at {PAUSED_SCORE_MAX}")
+    # The AI that helps find sources (careers pages, alert emails, scout ideas) is optional too: off until the month resets.
+    off = [name for name in (os.getenv('JOB_PILOTTO_DISABLE') or '').split(',') if name.strip()]
+    os.environ['JOB_PILOTTO_DISABLE'] = ','.join(dict.fromkeys(off + ['page_reader', 'job_alerts', 'scout_ai']))
+    warnings.append(f"budget {info['pct']:.0%}: auto-kits off, scoring capped at {PAUSED_SCORE_MAX}, AI source reading off")
     return True

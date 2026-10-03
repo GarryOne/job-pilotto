@@ -37,6 +37,18 @@ def add(stats, model, usage):
     stats[kind] = stats.get(kind, 0) + 1
 
 
+# The AI that helps find sources (page reader, link chooser, alert emails, scout ideas) runs inside other steps; its cost is gathered here and
+# logged as the run's "sources" stage, so it counts in the run's AI cost and the monthly budget like every other step.
+SIDE = {}
+
+
+def side(model, usage):
+    """Count one source-finding call (no-op without usage: a test's fake model)."""
+    if usage is not None and hasattr(usage, 'input_tokens'):
+        add(SIDE, model, usage)
+        SIDE['done'] = SIDE.get('done', 0) + 1
+
+
 def limit_reached(error):
     """True when an API error is the account's spend limit or an empty credit balance, not a bug; or when the user's
     Claude Code can't go on (its plan's usage limit, not signed in, not installed: engine.CliLimitError)."""

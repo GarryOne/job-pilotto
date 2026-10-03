@@ -14,7 +14,7 @@ import sqlite3
 import urllib.parse
 from datetime import datetime, timezone
 
-from . import engine
+from . import cost, engine
 from ..sources import ats, careers
 
 MODEL = 'claude-haiku-4-5'
@@ -105,6 +105,7 @@ def read(url, markup, client=None, db=None):
         response = client.messages.create(
             model=MODEL, max_tokens=MAX_TOKENS, system=[{'type': 'text', 'text': SYSTEM}],
             messages=[{'role': 'user', 'content': f'Careers page: {url}\n\n{text}'}], output_config=engine.structured(SCHEMA, MODEL, 'low'))
+        cost.side(MODEL, response.usage)
         if response.stop_reason != 'end_turn':
             raise RuntimeError(f'stopped with {response.stop_reason}')
         found = json.loads(next(block.text for block in response.content if block.type == 'text'))['jobs']
@@ -160,6 +161,7 @@ def choose_links(site, markup, client=None, db=None):
             response = client.messages.create(
                 model=MODEL, max_tokens=500, system=[{'type': 'text', 'text': CHOOSE_SYSTEM}],
                 messages=[{'role': 'user', 'content': f'Home page: {site}\n\n{listing}'}], output_config=engine.structured(CHOOSE_SCHEMA, MODEL, 'low'))
+            cost.side(MODEL, response.usage)
             if response.stop_reason != 'end_turn':
                 raise RuntimeError(f'stopped with {response.stop_reason}')
             picked = json.loads(next(block.text for block in response.content if block.type == 'text'))['links']

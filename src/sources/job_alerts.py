@@ -98,6 +98,8 @@ def extract(client, email_text, pairs, site):
     response = client.messages.create(
         model=MODEL, max_tokens=3000, system=[{'type': 'text', 'text': SYSTEM}],
         messages=[{'role': 'user', 'content': f'{email_text[:8000]}\n\nLinks:\n{listing}'}], output_config=engine.structured(SCHEMA, MODEL, 'low'))
+    from ..ai import cost
+    cost.side(MODEL, response.usage)
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')
     offered = {url for _, url in pairs}

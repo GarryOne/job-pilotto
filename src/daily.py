@@ -599,6 +599,9 @@ def main():
                             alerts = job_alerts.scan(feed_db, gmail, engine.client(action='mail'))
                             report['jobs'] += alerts['jobs']
                             report['sources'] += alerts['sources']
+            from .ai import cost as ai_cost
+            if ai_cost.SIDE:   # careers pages, link picks and alert emails read with AI during this crawl: part of the run's AI cost
+                run['sources'] = dict(ai_cost.SIDE)
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run'):
