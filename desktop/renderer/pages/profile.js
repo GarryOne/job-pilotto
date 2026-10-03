@@ -9,6 +9,7 @@ import {showCvChanged} from './cv-change.js';
 import {renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
+import {humanError} from '../run-warnings.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
 export function profileTab(name) {
@@ -252,9 +253,11 @@ export async function init() {
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });
+  // An error from the AI service is said in words, never shown as the API's JSON (#94: "400 {"type":"error",…}" sat in the CV card).
+  const cvError = (raw, verb) => { const said = humanError(raw); return said === String(raw || '').trim() ? said : `Couldn't ${verb} your CV: ${said}.`; };
   $('cv-view').addEventListener('click', async () => {
     const result = await window.pilot.viewBaseCv();
-    $('cv-message').textContent = !result.ok ? result.error : result.overflow?.length ? `Page ${result.overflow.join(', ')} is too full: its end is cut off.` : '';
+    $('cv-message').textContent = !result.ok ? cvError(result.error, 'show') : result.overflow?.length ? `Page ${result.overflow.join(', ')} is too full: its end is cut off.` : '';
   });
   $('cv-import').addEventListener('click', async () => {
     if ((await window.pilot.cvStatus()).base && !confirm('Replace your CV data (and any hand edits) with a fresh read of your CV PDF?')) return;
@@ -265,7 +268,7 @@ export async function init() {
     const result = await window.pilot.importCv();
     button.disabled = false;
     button.classList.remove('busy');
-    $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : result.error;
+    $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : cvError(result.error, 'read');
     loadCvSetting();
   });
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));

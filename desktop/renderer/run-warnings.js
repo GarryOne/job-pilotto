@@ -25,7 +25,8 @@ const UNSCORED = /^(?:AI limit reached[^,]*,\s*)?(\d+)\s+job\(s\)\s+(?:left for 
 // A raw provider error as the sentence it means. The API's own dumping — "BadRequestError: Error code: 400 - {'type':
 // 'error', 'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified API usage limits…" —
 // is never shown to the owner: the message inside it is, or the fact that the account's spending limit was reached.
-const PROVIDER = /\b(?:BadRequestError|APIError|RateLimitError|AuthenticationError|PermissionDeniedError|InternalServerError|APIConnectionError|OverloadedError|Error code: \d{3})\b/i;
+// Also the JavaScript SDK's form, "400 {"type":"error","error":{…}}": it reached the CV message as it was (#94, 3 Oct 2026).
+const PROVIDER = /\b(?:BadRequestError|APIError|RateLimitError|AuthenticationError|PermissionDeniedError|InternalServerError|APIConnectionError|OverloadedError|Error code: \d{3})\b|^\d{3}\s*\{|["']type["']\s*:\s*["']error["']/i;
 const MESSAGE = /['"]message['"]\s*:\s*['"]([^'"]{4,240})/i;
 const BACK = /(?:regain access|resets?)[^.\d]{0,40}(\d{4}-\d{2}-\d{2})/i;
 // The AI service answering "too many requests" / "overloaded" (429, 529): busy, not a key or permission problem.

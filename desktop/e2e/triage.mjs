@@ -252,7 +252,16 @@ export function writeCandidate(candidate, outDir) {
   fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base));
 }
 
-export const promptFor = (issue, base) => `${base}\n\n---\nTHE FINDING (issue #${issue.number}):\n${issue.title}\n\n${issue.body}\n` + (issue.siblings?.length
+// What people wrote on the issue: the loop's own comments (Seen again, Not seen, Closed, verdicts) are left out; a person's note often names the real cause. Until 3 Oct 2026 the
+// fixer never saw them: #94's comment said "the bug is the raw API error, not the overflow" and PR #101 fixed the overflow only.
+const LOOP_COMMENT = /^(?:Seen again|Not seen|Closed|Closed by the UI loop|Judged real by|The UI loop could not|A fix was tried|The proposed change was refused|Correction: my earlier)/;
+// Only the repository's own people: the repo is public, and a stranger's comment must never steer what the fixer writes.
+const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+export const peopleSaid = issue => (issue.comments || []).filter(comment => TRUSTED.includes(comment.authorAssociation) && !LOOP_COMMENT.test(String(comment.body || '').trim())
+  && !/\[bot\]$|^github-actions$/.test(comment.author?.login || ''))
+  .slice(-5).map(comment => String(comment.body || '').trim().slice(0, 800)).filter(Boolean);
+export const promptFor = (issue, base) => `${base}\n\n---\nTHE FINDING (issue #${issue.number}):\n${issue.title}\n\n${issue.body}\n` + (peopleSaid(issue).length
+  ? `\n---\nWHAT PEOPLE WROTE ON THE ISSUE (read it first: it may name the real cause, and it outranks the finding's own wording):\n${peopleSaid(issue).map(text => `- ${text}`).join('\n')}\n` : '') + (issue.siblings?.length
   ? `\n---\nOTHER OPEN FINDINGS OF THE SAME KIND (check whether they have the same root cause; if so, fix it once where they all go through, and name them in your summary):\n${issue.siblings.join('\n')}\n` : '');
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

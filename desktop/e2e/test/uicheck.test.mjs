@@ -98,3 +98,25 @@ test('text that runs out of its box and stays visible is found, in the app chrom
     assert.ok(own && !own.chrome, `a spill inside the page: ${JSON.stringify(inPage)}`);
   } finally { await browser.close(); }
 });
+
+// #94: "400 {"type":"error",…,"request_id":…}" was shown in the CV card and filed only as a CSS spill. Technical text shown to a person is severe, whatever its size;
+// technical text shown on purpose (a log block, a code sample, a terminal, a technical-log toggle) and an ordinary sentence about an error are not.
+test('technical text shown to a person is a severe error-shown finding; logs, code and plain sentences are not', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1280, height: 800}});
+    const raw = '400 {"type":"error","error":{"type":"invalid_request_error","message":"You have reached your specified API usage limits."},"request_id":"req_011"}';
+    const shown = await findings(page, `<section class="view" data-view="jobs"><p id="cv-message" class="message">${raw}</p></section>`);
+    const hits = shown.filter(item => item.kind === 'error-shown');
+    assert.equal(hits.length, 1, JSON.stringify(shown));
+    assert.equal(hits[0].severity, 'severe');
+    assert.match(hits[0].detail, /p#cv-message\.message shows technical text to the person: "400 \{"type":"error"/);
+    for (const markup of [`<pre>${raw}</pre>`, `<code>TypeError: x is undefined</code>`, `<details open><summary>Technical log</summary><div>${raw}</div></details>`, `<textarea>${raw}</textarea>`,
+      `<p>Couldn't read your CV: the Anthropic API spending limit was reached (back on 2026-11-01).</p>`, `<p>The AI service had an error; try again in a minute.</p>`]) {
+      const quiet = await findings(page, `<section class="view" data-view="jobs">${markup}</section>`);
+      assert.deepEqual(quiet.filter(item => item.kind === 'error-shown'), [], markup);
+    }
+    const stack = await findings(page, `<section class="view" data-view="jobs"><div class="toast">Error: boom\n    at render (file:///app/renderer/pages/jobs.js:12:5)</div></section>`);
+    assert.equal(stack.filter(item => item.kind === 'error-shown').length, 1, 'a stack trace is caught');
+  } finally { await browser.close(); }
+});

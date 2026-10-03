@@ -29,7 +29,7 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 #iv-text, #draft-profile, #draft-answers, .review textarea { font-family: var(--font-mono); }
 #feedback-text { font: var(--fs-md)/1.5 var(--font-sans); }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
-.message { min-height: 1.4em; margin-top: 8px; }
+.message { min-height: 1.4em; margin-top: 8px; overflow-wrap: anywhere; }
 .message.error { color: var(--bad); }
 .message.ok { color: var(--good); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: var(--fs-lg); margin-bottom: 24px; }

@@ -1,4 +1,4 @@
-/* global document, getComputedStyle */
+/* global document, getComputedStyle, NodeFilter */
 // Deterministic UI checks, run on every page the journey visits: the layout bugs a person sees at a glance and a unit test never does
 // (2 Oct 2026: one job row was twenty lines tall). Cheap and exact, no AI. Each finding: {view, severity, kind, detail}.
 //   severe  -> fails the journey (the page is visibly broken)
@@ -61,6 +61,26 @@ export function inspect({view, limits}) {
   for (const button of root.querySelectorAll('button, a[href]')) {
     if (visible(button) && !(button.textContent || '').trim() && !button.getAttribute('aria-label') && !button.title && !button.querySelector('svg, img')) {
       found.push({view, severity: 'warning', kind: 'unnamed-control', detail: `${label(button)} has no text, label or icon`}); break;
+    }
+  }
+  // Technical text shown to a person: an API's JSON error body, a request id, a stack trace, a raw exception, "[object Object]". It blocks them (they cannot tell what
+  // happened or what to do), so it is severe. 3 Oct 2026: "400 {"type":"error",…,"request_id":…}" sat in the CV card and was filed as a CSS spill (#94); no check knew
+  // what the text MEANT. Places that show technical text on purpose are left out: code and log blocks, terminals, text fields, the technical-log toggles.
+  const TECH = [/\{\s*"type"\s*:\s*"error"/, /"request_id"\s*:/, /\b(?:invalid_request_error|authentication_error|permission_error|rate_limit_error|overloaded_error|api_error)\b/,
+    /Traceback \(most recent call last\)/, /\bat [\w$.<>]+ \([^)]*:\d+:\d+\)/, /\[object Object\]/, /\bError code: \d{3}\b/,
+    /\b(?:BadRequestError|APIConnectionError|RateLimitError|AuthenticationError|InternalServerError|TypeError|ReferenceError|SyntaxError|KeyError|AttributeError): /];
+  const ON_PURPOSE = 'pre, code, textarea, input, .xterm, .terminal, [data-technical], .tech-log, details';
+  const scopes = [root, ...document.querySelectorAll('dialog[open], #toasts, #activity')];
+  const seen = new Set();
+  for (const scope of scopes) {
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node && seen.size < 3; node = walker.nextNode()) {
+      const host = node.parentElement;
+      if (!host || seen.has(host) || host.closest(ON_PURPOSE) || !visible(host)) continue;
+      const text = (host.innerText || host.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!TECH.some(pattern => pattern.test(text))) continue;
+      seen.add(host);
+      found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(host)} shows technical text to the person: "${text.slice(0, 160)}"`});
     }
   }
   return found;

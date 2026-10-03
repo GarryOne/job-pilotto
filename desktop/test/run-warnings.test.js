@@ -79,3 +79,15 @@ test('the three wordings of "jobs the limit left" are one line, counted once eac
   assert.deepEqual(groupWarnings(['Warning: 3 job(s) not scored: the model answered with no JSON']),
     ['3 job(s) not scored: the model answered with no JSON']);
 });
+
+// #94: the JavaScript SDK's dump ("400 {"type":"error",…}") reached the CV card as it was; it is said in words now.
+test('the JavaScript SDK error body is said in words, with the day the limit resets', async () => {
+  const {humanError} = await import('../renderer/run-warnings.js');
+  const raw = '400 {"type":"error","error":{"type":"invalid_request_error","message":"You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC."},"request_id":"req_011"}';
+  assert.equal(humanError(raw), 'the Anthropic API spending limit was reached (back on 2026-11-01)');
+  assert.equal(humanError('401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}'), 'invalid x-api-key');
+  assert.equal(humanError('No CV PDF yet'), 'No CV PDF yet', 'a sentence stays as it is');
+  const fs = await import('node:fs');
+  const page = fs.readFileSync(new URL('../renderer/pages/profile.js', import.meta.url), 'utf8');
+  assert.equal((page.match(/\$\('cv-message'\)\.textContent = [^;]*result\.error/g) || []).filter(line => !/cvError\(result\.error/.test(line)).length, 0, 'the CV message never shows result.error as it is');
+});
