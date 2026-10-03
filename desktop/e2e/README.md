@@ -128,6 +128,8 @@ the app's history poll (`JOB_PILOTTO_E2E_HISTORY_MS`), its resume wait (`JOB_PIL
   in the code, **how to reproduce** (`node suite.mjs <suite>`), and, for a failed step, the step's message, its failure screenshot and the last lines of the app's and the engine's logs.
 - **Repeats are recognised even when the AI words them differently** (same view and kind, alike words): the issue gets a "Seen again in run …" comment with that run's screenshot.
 - **"Not seen in run …"** when the page was photographed and reviewed again and the finding did not come back, with the new screenshot (also on the open fix pull request: its "after"), and the label `not-seen-latest`.
+- **Closing:** an issue already marked `not-seen-latest` is **closed** (reason completed, with a comment naming the build) by the next run that clears it too: two clean runs in a row. A failed-step issue is cleared only by a run of its suite with NO failure at all (a different earlier failure hides the later steps); a sidebar / brand / badge issue by a run whose layout check found nothing in the chrome (`app-chrome`). A finding that comes back files a new issue.
+- **Which build was tested:** every issue and every Seen again / Not seen comment carries `Build tested: <branch or tag> @ <sha7> (<event> run)`, read from the `tested.txt` each run records. A reader can tell at once whether a finding is about code that has since changed.
 - **`confirmed`** (a label a person adds): a finding that is real is ready for a fix without a second sighting. `wontfix-auto` closes a false positive for good; `needs-human` parks one.
 A fix pull request shows the finding's screenshot as "Before" and promises the "After" when a later run no longer sees it.
 
@@ -148,3 +150,17 @@ Screenshots cannot show a button that does nothing. `suites/interactions.mjs` pr
 - **Artifacts:** `interactions.json` (every press: effects, calls, loading, errors) next to `ui-findings.json`.
 - **Secret:** `E2E_NOTION_TOKEN_INTERACTIONS` (a test page of its own); without it a local run falls back to the wizard token. No AI is called.
 - **Tests:** `test/interact.test.mjs` (a fixture page with one broken control of each kind, in real Chrome), `desktop/test/e2e-ipc.test.js`.
+
+## Varying the path: seeded, replayable (`lib/variation.mjs`)
+The suites follow scripted paths on fixed fixtures, so running them again re-walks the same path. To find different bugs each run, **scheduled, top-up and manual runs take a seeded random path** (`E2E_SEED=<run id>`): the interactions suite visits the pages in another order, presses the controls in another order (from a wider pool than its 40-control cap), and sizes the window from six real sizes (1024x700 up to 1680x1000).
+- **The seed is printed, saved as `seed.json` and written into every issue it produced** ("Variation: seed N, window WxH. Replay: `E2E_SEED=N node suite.mjs interactions`").
+- **No seed (or 0) is the FIXED path.** The release gate (`workflow_run`) and the stable canary run fixed, so a build is judged on a path that does not move under it.
+- Plus one deterministic pass: `visitNarrow` (`lib/layout.mjs`) visits focus, jobs, actions and settings at **1024 px**, where the sidebar becomes an icon rail (under 1180 px). Its findings are warnings (they file issues, they never fail a journey or hold a release).
+- Not varied yet: the starting data (jobs, strategy, Notion state), and the platform (there is no Windows e2e).
+
+## Release candidates, the soak and the stable canary
+The e2e run is also the gate of the release path (decisions: Notion Decision Log; summary in `docs/HOW-IT-RUNS.md`):
+- **`target_ref`:** a manual run can test another commit (a release tag) with THIS workflow file: an old tag's own `e2e.yml` does not know newer inputs. `plan-run.mjs` resolves the tag to its commit; `tested.txt` records it.
+- **Runs are named by what they tested:** `Gate <sha>` (the run after the nightly build: for a `workflow_run`, GitHub gives the run main's commit as its own), `RC soak <tag>` (a top-up on a release candidate, `canary-promote.yml`, no paid AI judge, findings filed) and `Stable canary <tag>` (`stable-canary.yml`, fixed path, no judge, **never filed as issues**: red opens one `stable-canary` issue). `tools/canary_promote.py` counts `Gate` and `RC soak` runs for gate 4 (three green runs over 24 hours or more, no red among the last three, no open blocking finding).
+- **What blocks a build:** a suite step that fails, a layout-check `severe` finding, or an AI finding of kind `functionality` / `error-shown` that is already a real open issue (seen twice, or `confirmed`) (`block-check.mjs`, `blockers()`). A clipped or overlapping label is `medium`, never `high` (the review prompt defines the three levels; it used to rate the same defect both ways).
+- **A suite on a persistent shared Notion page** starts from a store that forgot the last run (`lib/forget.mjs`): the page keeps the previous run's end state, and the connect-time Jobs check stores postings for it (the `strategy` flip-flop, 3 Oct 2026).
