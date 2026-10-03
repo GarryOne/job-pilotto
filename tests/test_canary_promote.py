@@ -19,7 +19,7 @@ NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 def release(n, hours_ago, pre=True, latest=False, draft=False):
     at = datetime.fromtimestamp(NOW.timestamp() - hours_ago * 3600, timezone.utc).isoformat().replace('+00:00', 'Z')
-    return {'tagName': f'desktop-v0.5.0-alpha.{n}', 'isPrerelease': pre, 'isLatest': latest, 'isDraft': draft,
+    return {'tagName': f'desktop-v0.5.{n}', 'isPrerelease': pre, 'isLatest': latest, 'isDraft': draft,
             'publishedAt': at, 'createdAt': at}
 
 
@@ -92,7 +92,7 @@ class CanaryPromoteTests(unittest.TestCase):
     def test_promotes_a_clean_build_older_than_48_hours(self):
         result = canary.decide([release(66, 2), release(65, 50), STABLE], NOW, Facts())
         self.assertTrue(result['promote'])
-        self.assertEqual(result['tag'], 'desktop-v0.5.0-alpha.65')
+        self.assertEqual(result['tag'], 'desktop-v0.5.65')
 
     def test_waits_while_every_newer_build_is_under_48_hours(self):
         result = canary.decide([release(66, 2), release(65, 47), STABLE], NOW, Facts())
@@ -116,25 +116,25 @@ class CanaryPromoteTests(unittest.TestCase):
 
     def test_a_telemetry_problem_in_the_candidate_blocks(self):
         issue = {'number': 7, 'title': 'App report: crash [t:abc]', 'state': 'CLOSED',
-                 'body': 'versions 0.5.0-alpha.64', 'comments': [{'body': 'Back in a newer version. versions 0.5.0-alpha.65'}]}
+                 'body': 'versions 0.5.64', 'comments': [{'body': 'Back in a newer version. versions 0.5.65'}]}
         result = canary.decide([release(65, 50), STABLE], NOW, Facts(telemetry=[issue]))
         self.assertFalse(result['promote'])
         self.assertTrue(any('#7' in reason for reason in result['reasons']))
 
     def test_a_problem_stable_already_has_is_not_new(self):
-        issue = {'number': 8, 'title': 'App report: x', 'state': 'OPEN', 'body': 'Versions seen: 0.5.0-alpha.60,0.5.0-alpha.65'}
+        issue = {'number': 8, 'title': 'App report: x', 'state': 'OPEN', 'body': 'Versions seen: 0.5.60,0.5.65'}
         self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(telemetry=[issue]))['promote'])
 
     def test_versions_match_whole(self):
-        self.assertFalse(canary.mentions('versions 0.5.0-alpha.650', '0.5.0-alpha.65'))
-        self.assertFalse(canary.mentions('0.5.0-alpha.6', '0.5.0-alpha.65'))
-        self.assertTrue(canary.mentions('versions 0.5.0-alpha.64,0.5.0-alpha.65.', '0.5.0-alpha.65'))
+        self.assertFalse(canary.mentions('versions 0.5.650', '0.5.65'))
+        self.assertFalse(canary.mentions('0.5.6', '0.5.65'))
+        self.assertTrue(canary.mentions('versions 0.5.64,0.5.65.', '0.5.65'))
 
     def test_fill_failures_count_only_when_the_extension_changed(self):
         issue = {'number': 9, 'title': 'Fill failure: acme · Name', 'state': 'OPEN', 'body': 'Extension version: `0.8.16`'}
-        changed = {'desktop-v0.5.0-alpha.65': '0.8.16', 'desktop-v0.5.0-alpha.60': '0.8.15'}
+        changed = {'desktop-v0.5.65': '0.8.16', 'desktop-v0.5.60': '0.8.15'}
         self.assertFalse(canary.decide([release(65, 50), STABLE], NOW, Facts(fill=[issue], ext=changed))['promote'])
-        same = {'desktop-v0.5.0-alpha.65': '0.8.16', 'desktop-v0.5.0-alpha.60': '0.8.16'}
+        same = {'desktop-v0.5.65': '0.8.16', 'desktop-v0.5.60': '0.8.16'}
         self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(fill=[issue], ext=same))['promote'])
 
     def wait_with(self, text, **facts):
@@ -179,7 +179,7 @@ class CanaryPromoteTests(unittest.TestCase):
     def test_missing_key_or_unreachable_site_waits(self):
         self.wait_with('JOB_PILOTTO_TELEMETRY_KEY is not set', unavailable='JOB_PILOTTO_TELEMETRY_KEY is not set')
         with self.assertRaises(canary.EvidenceUnavailable):
-            canary.GitHub(key=None).usage('0.5.0-alpha.65', '0.5.0-alpha.60')
+            canary.GitHub(key=None).usage('0.5.65', '0.5.60')
 
     def test_the_canary_rule_matches_the_shared_fixture(self):
         # tests/fixtures/canary_builds.json is read by desktop/test/canary.test.js too: one rule, three users
@@ -190,7 +190,7 @@ class CanaryPromoteTests(unittest.TestCase):
 
     def test_the_candidate_is_the_canary_not_the_newest_aged_build(self):
         result = canary.decide([release(67, 60), release(66, 70), STABLE], NOW, Facts())
-        self.assertEqual(result['tag'], 'desktop-v0.5.0-alpha.66')
+        self.assertEqual(result['tag'], 'desktop-v0.5.66')
 
     def test_a_canary_that_failed_for_sure_is_dropped(self):
         red = [{'status': 'completed', 'conclusion': 'failure'}]
@@ -206,13 +206,14 @@ class CanaryPromoteTests(unittest.TestCase):
         releases = [dict(r, createdAt=datetime.now(timezone.utc).isoformat()) for r in case['releases']]
         out = subprocess.run([sys.executable, str(SCRIPT), '--canary'], input=json.dumps(releases),
                              capture_output=True, text=True, check=True).stdout.strip()
-        self.assertEqual(out, 'desktop-v0.5.0-alpha.65')
+        self.assertEqual(out, 'desktop-v0.5.65')
 
     def test_version_order(self):
         key = canary.version_key
-        self.assertGreater(key('0.5.0-alpha.10'), key('0.5.0-alpha.9'))
+        self.assertGreater(key('0.5.10'), key('0.5.9'))
         self.assertGreater(key('0.4.0'), key('0.4.0-alpha.99'))
-        self.assertGreater(key('0.5.0-alpha.1'), key('0.4.0'))
+        self.assertGreater(key('0.5.1'), key('0.4.0'))
+        self.assertGreater(key('0.5.0'), key('0.4.0-alpha.254'), 'the first plain build is newer than the last alpha one')
 
 
 class GateFourAndFiveTests(unittest.TestCase):
@@ -248,7 +249,7 @@ class GateFourAndFiveTests(unittest.TestCase):
 
     def test_an_open_high_severity_finding_on_this_build_blocks(self):
         issue = {'number': 70, 'title': 'apply: step failed', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'kind:test-failure'}, {'name': 'auto-ui'}],
-                 'body': 'x', 'comments': [{'body': f'Seen again. Build tested: desktop-v0.5.0-alpha.65 @ {SHA[:7]} (workflow_dispatch run)'}]}
+                 'body': 'x', 'comments': [{'body': f'Seen again. Build tested: desktop-v0.5.65 @ {SHA[:7]} (workflow_dispatch run)'}]}
         result = self.decide(blockers=[issue])
         self.assertFalse(result['promote'])
         self.assertIn('#70', self.reasons(result))
@@ -297,16 +298,16 @@ class GateFourAndFiveTests(unittest.TestCase):
 class RunsForTests(unittest.TestCase):
     def test_counts_runs_on_its_commit_and_its_named_top_ups_only(self):
         runs = [
-            {'head_sha': 'mainsha', 'display_title': 'RC soak desktop-v0.5.0-alpha.65', 'conclusion': 'success', 'created_at': 'a'},   # a top-up
-            {'head_sha': 'mainsha', 'display_title': 'RC soak desktop-v0.5.0-alpha.64', 'conclusion': 'success', 'created_at': 'b'},   # another release's top-up
-            {'head_sha': 'mainsha', 'display_title': 'Stable canary desktop-v0.5.0-alpha.60', 'conclusion': 'success', 'created_at': 'c'},
+            {'head_sha': 'mainsha', 'display_title': 'RC soak desktop-v0.5.65', 'conclusion': 'success', 'created_at': 'a'},   # a top-up
+            {'head_sha': 'mainsha', 'display_title': 'RC soak desktop-v0.5.64', 'conclusion': 'success', 'created_at': 'b'},   # another release's top-up
+            {'head_sha': 'mainsha', 'display_title': 'Stable canary desktop-v0.5.60', 'conclusion': 'success', 'created_at': 'c'},
             {'head_sha': 'abc1234def', 'display_title': 'CI · End-to-end journey', 'conclusion': 'success', 'created_at': 'd'},        # the gate's own run
             {'head_sha': 'mainsha', 'display_title': 'CI · End-to-end journey', 'conclusion': 'failure', 'created_at': 'e'},          # a run of main
             {'head_sha': 'mainsha', 'display_title': 'Gate abc1234def', 'conclusion': 'success', 'created_at': 'f'},                  # the gate: its own commit is main's, the tested one is in the name
             {'head_sha': 'mainsha', 'display_title': 'Gate 999999', 'conclusion': 'success', 'created_at': 'g'},
-            {'head_sha': 'mainsha', 'display_title': 'Gate desktop-v0.5.0-alpha.65', 'conclusion': 'success', 'created_at': 'h'},     # the gate run by hand for this tag
+            {'head_sha': 'mainsha', 'display_title': 'Gate desktop-v0.5.65', 'conclusion': 'success', 'created_at': 'h'},     # the gate run by hand for this tag
         ]
-        got = canary.runs_for(runs, 'abc1234def', 'desktop-v0.5.0-alpha.65')
+        got = canary.runs_for(runs, 'abc1234def', 'desktop-v0.5.65')
         self.assertEqual([r['createdAt'] for r in got], ['a', 'd', 'f', 'h'])
 
 
@@ -314,12 +315,12 @@ class PromotesWithoutStartingARun(unittest.TestCase):
     def test_the_promotion_may_not_start_an_end_to_end_run(self):
         # release-stable.sh starts one by default and waits ~15 minutes; this job has 10 minutes and cannot start workflows.
         from unittest import mock
-        decision = {'promote': True, 'tag': 'desktop-v0.4.0-alpha.9', 'stable': 'desktop-v0.4.0-alpha.8', 'reasons': []}
+        decision = {'promote': True, 'tag': 'desktop-v0.5.9', 'stable': 'desktop-v0.5.8', 'reasons': []}
         with mock.patch.object(canary, 'GitHub'), mock.patch.object(canary, 'decide', return_value=decision), \
                 mock.patch.object(canary.subprocess, 'run') as ran, mock.patch('builtins.print'):
             canary.main([])
         self.assertEqual(ran.call_args.kwargs['env']['E2E_NO_START'], '1')
-        self.assertEqual(ran.call_args.args[0][1], 'desktop-v0.4.0-alpha.9')
+        self.assertEqual(ran.call_args.args[0][1], 'desktop-v0.5.9')
 
 
 if __name__ == '__main__':
@@ -329,10 +330,10 @@ if __name__ == '__main__':
 class SoakOnlyApprovedTests(unittest.TestCase):
     def test_the_approved_build_is_the_candidate_not_an_older_one_that_failed_its_gate(self):
         releases = [release(3, 100, pre=False, latest=True), release(4, 60), release(5, 50)]
-        self.assertEqual(canary.canary_of(releases, NOW)['tagName'], 'desktop-v0.5.0-alpha.4')
-        soaked = canary.approved_only(releases, {'desktop-v0.5.0-alpha.5'})
-        self.assertEqual(canary.canary_of(soaked, NOW)['tagName'], 'desktop-v0.5.0-alpha.5')
-        self.assertEqual(canary.pick(soaked, NOW)[1]['tagName'], 'desktop-v0.5.0-alpha.3')   # stable is still known
+        self.assertEqual(canary.canary_of(releases, NOW)['tagName'], 'desktop-v0.5.4')
+        soaked = canary.approved_only(releases, {'desktop-v0.5.5'})
+        self.assertEqual(canary.canary_of(soaked, NOW)['tagName'], 'desktop-v0.5.5')
+        self.assertEqual(canary.pick(soaked, NOW)[1]['tagName'], 'desktop-v0.5.3')   # stable is still known
 
     def test_no_approved_build_means_nothing_to_soak(self):
         candidate, _, why = canary.pick(canary.approved_only([release(3, 100, pre=False, latest=True), release(4, 60)], set()), NOW)

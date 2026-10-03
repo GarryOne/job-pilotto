@@ -16,7 +16,7 @@ function d1() {
 const env = () => ({STATS: d1(), BRAIN_BOT_TOKEN: 't', BRAIN_CHAT_ID: '42'});
 const send = (e, body, sent = []) => feedback(new Request('https://x/api/feedback', {method: 'POST', body: JSON.stringify(body)}), e,
   async (url, init) => { sent.push(JSON.parse(init.body)); return new Response('{}'); });
-const good = {install: 'install-aaaa-bbbb', version: '0.4.0-alpha.70', platform: 'darwin', text: 'The kit is great; setup took 20 min', contact: 'ana@example.com'};
+const good = {install: 'install-aaaa-bbbb', version: '0.5.70', platform: 'darwin', text: 'The kit is great; setup took 20 min', contact: 'ana@example.com'};
 
 test('feedback is stored and sent to the owner with the version and the contact', async () => {
   const e = env(), sent = [];

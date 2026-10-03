@@ -26,8 +26,8 @@ test('there is no test-build opt-in: the app only offers the stable release', ()
 });
 
 test('the answer: up to date, an update to install, or why the check failed', () => {
-  assert.equal(answer({ok: true, offer: null}, '0.4.0-alpha.65').message, 'You\'re up to date');
-  const offer = answer({ok: true, offer: {version: '0.4.0-alpha.66'}}, '0.4.0-alpha.65');
+  assert.equal(answer({ok: true, offer: null}, '0.5.65').message, 'You\'re up to date');
+  const offer = answer({ok: true, offer: {version: '0.5.66'}}, '0.5.65');
   assert.equal(offer.install, true);
   assert.deepEqual(offer.buttons, ['Update now', 'Later']);
   assert.match(answer({ok: false, text: 'offline'}, 'x').detail, /offline/);
@@ -42,7 +42,7 @@ test('Help → Send Feedback… on both platforms', () => {
 });
 
 test('from source (npm start): no update is offered, the menu says to git pull', () => {
-  const shown = answer({ok: true, offer: null, fromSource: true}, '0.4.0-alpha');
+  const shown = answer({ok: true, offer: null, fromSource: true}, '0.5.0');
   assert.match(shown.message, /from source/);
   assert.ok(!shown.install);
 });

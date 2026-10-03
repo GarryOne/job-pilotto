@@ -8,6 +8,7 @@ test('versions compare as releases do: numbers, then a release beats its pre-rel
   assert.ok(newer('0.4.0-alpha.41', '0.4.0-alpha.39'));
   assert.ok(newer('0.4.0-alpha.10', '0.4.0-alpha.9'));
   assert.ok(newer('desktop-v0.4.0', '0.4.0-alpha.50'));
+  assert.ok(newer('0.5.0', '0.4.0-alpha.254') && !newer('0.4.0-alpha.254', '0.5.0'));   // an alpha install updates to the plain 0.5 builds
   assert.ok(newer('0.5.0-alpha.1', '0.4.9'));
   assert.ok(!newer('0.4.0-alpha.39', '0.4.0-alpha.39'));
   assert.ok(!newer('0.3.9', '0.4.0-alpha.1'));

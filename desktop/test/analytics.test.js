@@ -9,7 +9,7 @@ import {load} from '../lib/analytics-config.js';
 
 const make = (extra = {}) => {
   const sent = [];
-  const client = analytics.create({key: 'phc_test', installId: 'inst-1', version: '0.4.0-alpha.250', os: '27.2.0', timers: false,
+  const client = analytics.create({key: 'phc_test', installId: 'inst-1', version: '0.5.250', os: '27.2.0', timers: false,
     fetcher: async (url, init) => { sent.push([url, JSON.parse(init.body)]); return {ok: true}; }, ...extra});
   return {client, sent};
 };
@@ -26,7 +26,7 @@ test('only listed events are tracked, with an anonymous id, no person profile an
   const [event] = body.batch;
   assert.deepEqual([event.event, event.distinct_id], ['setup_step', 'inst-1']);
   assert.deepEqual([event.properties.step, event.properties.minutes, event.properties.app_version, event.properties.$process_person_profile, event.properties.$geoip_disable],
-    ['cv', 3, '0.4.0-alpha.250', false, true]);
+    ['cv', 3, '0.5.250', false, true]);
 });
 
 test('properties are flags, numbers and short words: text, objects, arrays and odd names are dropped', () => {

@@ -116,18 +116,18 @@ test('an install whose report has no counts yet shows "–", not 0', async () =>
 test('/telemetry/version: per exact version, installs, health days, run counts and problem events (key as a header)', async () => {
   const e = env();
   const health = (install, version, at, runsOk, runsFailed) => ({kind: 'health', install, version, platform: 'darwin', at, runsOk, runsFailed});
-  await send(e, [health('install-aaaa', '0.4.0-alpha.50', '2026-09-26T08:00:00Z', 4, 0), health('install-aaaa', '0.4.0-alpha.50', '2026-09-28T09:00:00Z', 3, 1),
-    health('install-bbbb', '0.4.0-alpha.5', '2026-09-28T09:00:00Z', 10, 2), crash('install-bbbb', '0.4.0-alpha.5')]);
+  await send(e, [health('install-aaaa', '0.5.50', '2026-09-26T08:00:00Z', 4, 0), health('install-aaaa', '0.5.50', '2026-09-28T09:00:00Z', 3, 1),
+    health('install-bbbb', '0.5.5', '2026-09-28T09:00:00Z', 10, 2), crash('install-bbbb', '0.5.5')]);
   e.STATS.db.prepare("UPDATE telemetry SET day = substr(at, 1, 10)").run();
-  const url = 'https://www.jobpilotto.workers.dev/telemetry/version?v=0.4.0-alpha.50&compare=0.4.0-alpha.5';
+  const url = 'https://www.jobpilotto.workers.dev/telemetry/version?v=0.5.50&compare=0.5.5';
   assert.equal((await worker.fetch(new Request(url), e, {})).status, 404);
   assert.equal((await worker.fetch(new Request(url, {headers: {Authorization: 'Bearer wrong'}}), e, {})).status, 404);
   const body = await (await worker.fetch(new Request(url, {headers: {Authorization: 'Bearer k3y'}}), e, {})).json();
-  const canary = body.versions['0.4.0-alpha.50'], stable = body.versions['0.4.0-alpha.5'];
+  const canary = body.versions['0.5.50'], stable = body.versions['0.5.5'];
   assert.deepEqual([canary.installs, canary.healthInstalls, canary.healthDays], [1, 1, 2]);
   assert.deepEqual([canary.healthFirst, canary.healthLast], ['2026-09-26T08:00:00Z', '2026-09-28T09:00:00Z']);
   assert.deepEqual(canary.runs, {ok: 7, failed: 1, reports: 2});
-  assert.equal(canary.events.crash, 0);  // alpha.5's crash isn't alpha.50's: exact match
+  assert.equal(canary.events.crash, 0);  // 0.5.5's crash isn't 0.5.50's: exact match
   assert.deepEqual([stable.runs.ok, stable.runs.failed, stable.events.crash], [10, 2, 1]);
   const bad = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry/version?v=x%27%3B', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   assert.equal(bad.status, 400);
@@ -136,7 +136,7 @@ test('/telemetry/version: per exact version, installs, health days, run counts a
 test('the private page lists feedback with its contact; without the key it is not found', async () => {
   const e = env();
   e.STATS.db.prepare('INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(new Date().toISOString(), new Date().toISOString().slice(0, 10), 'install-aaaa', '0.4.0-alpha.75', 'darwin', 'Setup took 20 <min>', 'ana@example.com');
+    .run(new Date().toISOString(), new Date().toISOString().slice(0, 10), 'install-aaaa', '0.5.75', 'darwin', 'Setup took 20 <min>', 'ana@example.com');
   const open = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   const html = await open.text();
   assert.match(html, /💬 Feedback, newest first/);
@@ -150,7 +150,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   const e = env();
   const at = new Date().toISOString();
   // 'goals' below: an older app's step (now part of cv), ignored by the funnel.
-  const step = (install, s, extra = {}) => ({kind: 'setup', install, version: '0.4.0-alpha.76', platform: 'darwin', at, step: s, ...extra});
+  const step = (install, s, extra = {}) => ({kind: 'setup', install, version: '0.5.76', platform: 'darwin', at, step: s, ...extra});
   await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
     step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
     step('install-bbbb', 'goals'), step('install-bbbb', 'draft'), step('install-bbbb', 'extras'), step('install-bbbb', 'done', {minutes: 12})]);
@@ -167,7 +167,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
 test('why they stopped: reasons per step on the funnel', async () => {
   const e = env();
   const at = new Date().toISOString();
-  const stop = (install, step, reason) => ({kind: 'setup', install, version: '0.4.0-alpha.82', platform: 'darwin', at, step: 'stopped', where: step, reason});
+  const stop = (install, step, reason) => ({kind: 'setup', install, version: '0.5.82', platform: 'darwin', at, step: 'stopped', where: step, reason});
   await send(e, [stop('install-aaaa', 'notion', 'notion'), stop('install-bbbb', 'notion', 'notion'), stop('install-cccc', 'notion', 'privacy')]);
   const {funnel} = await import('../src/telemetry.js');
   assert.deepEqual((await funnel(e.STATS, 30)).stopped, {notion: {notion: 2, privacy: 1}});
@@ -231,7 +231,7 @@ test('Channels: machines, finished setup and active, by the channel each install
 test('Notion prompt: connect rate per reason, why not, and the revisit trigger; never a funnel step or a problem', async () => {
   const e = env();
   const at = new Date().toISOString();
-  const gate = (install, extra) => ({kind: 'setup', install, version: '0.4.0-alpha.90', platform: 'darwin', at, step: 'notion_gate', where: 'dialog', minutes: 5, shown: 1, ...extra});
+  const gate = (install, extra) => ({kind: 'setup', install, version: '0.5.90', platform: 'darwin', at, step: 'notion_gate', where: 'dialog', minutes: 5, shown: 1, ...extra});
   await send(e, [gate('install-aaaa', {reason: 'save', outcome: 'connected'}),
     gate('install-bbbb', {reason: 'save', outcome: 'not_now', why: 'no_notion'}), gate('install-bbbb', {reason: 'prepare', outcome: 'closed'}),
     gate('install-bbbb', {reason: 'apply', outcome: 'closed'}),
@@ -259,7 +259,7 @@ test('the revisit trigger needs 30 installs, over 40% never connecting and "I do
   const rows = [];
   for (let i = 0; i < 30; i++) {
     const install = `install-${String(i).padStart(4, '0')}`;
-    rows.push({kind: 'setup', install, version: '0.4.0-alpha.90', platform: 'darwin', at, step: 'notion_gate', reason: 'save', where: 'dialog', minutes: 3, shown: 1,
+    rows.push({kind: 'setup', install, version: '0.5.90', platform: 'darwin', at, step: 'notion_gate', reason: 'save', where: 'dialog', minutes: 3, shown: 1,
       ...(i < 15 ? {outcome: 'connected'} : {outcome: 'not_now', why: 'no_notion'})});
   }
   await send(e, rows);

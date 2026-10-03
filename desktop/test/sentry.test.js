@@ -16,13 +16,13 @@ test('a DSN gives the envelope and minidump addresses; anything else is off', ()
 test('a crash becomes an exception with frames (oldest first, no folders above the app); a run failure becomes a message with its last lines', () => {
   const stack = ['TypeError: x is not a function', '    at render (/Users/ada/Job Pilotto.app/Contents/Resources/app.asar/renderer/pages/jobs.js:120:14)',
     '    at async load (file:///Users/ada/Job Pilotto.app/Contents/Resources/app.asar/lib/pipeline.js:9:3)', '    at node:internal/process/task_queues:95:5'].join('\n');
-  const crash = sentry.buildEvent('crash', {type: 'TypeError', message: 'x is not a function', stack, where: 'window'}, {release: 'job-pilotto@0.4.0-alpha.250', installId: 'inst-1', os: '27.2.0'});
+  const crash = sentry.buildEvent('crash', {type: 'TypeError', message: 'x is not a function', stack, where: 'window'}, {release: 'job-pilotto@0.5.250', installId: 'inst-1', os: '27.2.0'});
   const [value] = crash.exception.values;
   assert.equal(value.type, 'TypeError');
   assert.deepEqual(value.stacktrace.frames.map(f => f.filename), ['node:internal/process/task_queues', 'app.asar/lib/pipeline.js', 'app.asar/renderer/pages/jobs.js'].map(name => name));
   assert.equal(value.stacktrace.frames.at(-1).lineno, 120);
   assert.ok(!JSON.stringify(crash).includes('/Users/ada'), 'no home folder anywhere in the event');
-  assert.deepEqual([crash.level, crash.release, crash.user], ['fatal', 'job-pilotto@0.4.0-alpha.250', {id: 'inst-1'}]);
+  assert.deepEqual([crash.level, crash.release, crash.user], ['fatal', 'job-pilotto@0.5.250', {id: 'inst-1'}]);
   const failed = sentry.buildEvent('run_failed', {job: 'src daily run', error: 'stopped by the app: no output for 16 min', timedOut: 'no output for 16 min',
     tail: ['a', 'b', 'Open /Users/ada/cv.pdf', 'd', 'e', 'f']}, {});
   assert.match(failed.message, /^run_failed · src daily run: stopped by the app/);

@@ -174,7 +174,7 @@ test('sightings count once per commit: three looks at one build are one sighting
   assert.equal(recentSightings(issue), 1);
   issue.comments.push(seen('bbbbbbb'));
   assert.equal(recentSightings(issue), 2);
-  issue.comments.push({body: 'Seen again in run 9\n\nBuild tested: v0.4.0-alpha.254 · main @ bbbbbbb (push run)'});   // the app version in front: still that commit
+  issue.comments.push({body: 'Seen again in run 9\n\nBuild tested: v0.5.254 · main @ bbbbbbb (push run)'});   // the app version in front: still that commit
   assert.equal(recentSightings(issue), 2);
   assert.equal(sightings({body: 'old issue, no build line', comments: [{body: 'Seen again in run 2'}, {body: 'Seen again in run 3'}]}), 3);   // older issues: each run still counts
 });

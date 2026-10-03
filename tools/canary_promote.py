@@ -72,7 +72,7 @@ def version_of(tag):
 
 
 def version_key(version):
-    """Sortable key for 0.4.0-alpha.42 style versions; a release (no suffix) sorts after its pre-releases."""
+    """Sortable key for a version: 0.5.10 after 0.5.9, and an older suffixed build (0.4.0-alpha.42) before its plain release and 0.5.x."""
     core, _, pre = version.partition('-')
     nums = tuple(int(x) if x.isdigit() else 0 for x in core.split('.'))
     if not pre:
@@ -81,7 +81,7 @@ def version_key(version):
 
 
 def mentions(text, version):
-    """True when `version` appears as a whole version in text (0.4.0-alpha.6 doesn't match 0.4.0-alpha.66)."""
+    """True when `version` appears as a whole version in text (0.5.6 doesn't match 0.5.66)."""
     if not version:
         return False
     return re.search(r'(?<![\w.-])' + re.escape(version) + r'(?![\w-]|\.\w)', text or '') is not None

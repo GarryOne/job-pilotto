@@ -93,10 +93,10 @@ test('device and source are read without keeping anything identifying', () => {
 
 test('the Download button serves the latest stable release under its own name, else the fixed name', async () => {
   const release = {assets: [{name: 'Job-Pilotto-mac-arm64.dmg', browser_download_url: 'https://x/fixed.dmg'},
-    {name: 'Job-Pilotto-0.4.0-alpha.60-arm64.dmg', browser_download_url: 'https://x/Job-Pilotto-0.4.0-alpha.60-arm64.dmg'},
-    {name: 'Job-Pilotto-0.4.0-alpha.60-x64.exe', browser_download_url: 'https://x/Job-Pilotto-0.4.0-alpha.60-x64.exe'}]};
+    {name: 'Job-Pilotto-0.5.60-arm64.dmg', browser_download_url: 'https://x/Job-Pilotto-0.5.60-arm64.dmg'},
+    {name: 'Job-Pilotto-0.5.60-x64.exe', browser_download_url: 'https://x/Job-Pilotto-0.5.60-x64.exe'}]};
   const ok = async () => new Response(JSON.stringify(release), {status: 200});
-  assert.equal(await versioned('mac', {}, ok, null), 'https://x/Job-Pilotto-0.4.0-alpha.60-arm64.dmg');
-  assert.equal(await versioned('windows', {}, ok, null), 'https://x/Job-Pilotto-0.4.0-alpha.60-x64.exe');
+  assert.equal(await versioned('mac', {}, ok, null), 'https://x/Job-Pilotto-0.5.60-arm64.dmg');
+  assert.equal(await versioned('windows', {}, ok, null), 'https://x/Job-Pilotto-0.5.60-x64.exe');
   assert.equal(await versioned('mac', {}, async () => new Response('', {status: 403}), null), null);  // GitHub busy: the fixed name
 });

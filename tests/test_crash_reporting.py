@@ -23,7 +23,7 @@ class CrashReportingTests(unittest.TestCase):
 
     def test_event_has_type_scrubbed_message_frames_and_no_personal_data(self):
         exc_type, exc, tb = raised()
-        env = {'JOB_PILOTTO_APP_VERSION': '0.4.0-alpha.250', 'JOB_PILOTTO_RUN_ID': 'run1', 'JOB_PILOTTO_INSTALL_ID': 'inst-1'}
+        env = {'JOB_PILOTTO_APP_VERSION': '0.5.250', 'JOB_PILOTTO_RUN_ID': 'run1', 'JOB_PILOTTO_INSTALL_ID': 'inst-1'}
         event = cr.build_event(exc_type, exc, tb, env)
         text = json.dumps(event)
         for leaked in ('ada@example.com', 'sk-ant-abc123', '/Users/ada'):
@@ -31,7 +31,7 @@ class CrashReportingTests(unittest.TestCase):
         value = event['exception']['values'][0]
         self.assertEqual(value['type'], 'ValueError')
         self.assertEqual(value['stacktrace']['frames'][-1]['function'], 'raised')
-        self.assertEqual([event['release'], event['user']['id'], event['tags']['run_id']], ['job-pilotto@0.4.0-alpha.250', 'inst-1', 'run1'])
+        self.assertEqual([event['release'], event['user']['id'], event['tags']['run_id']], ['job-pilotto@0.5.250', 'inst-1', 'run1'])
         again = cr.build_event(exc_type, ValueError(str(exc).replace('42', '57')), tb, env)
         self.assertEqual(event['fingerprint'], again['fingerprint'])   # numbers do not make a different problem
 

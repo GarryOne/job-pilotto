@@ -7,20 +7,20 @@ const NOW = Date.parse('2026-10-03T12:00:00Z');
 const issue = (shortId, extra = {}) => ({shortId, level: 'error', status: 'unresolved', count: '5', userCount: 2, firstSeen: '2026-10-01T00:00:00Z', lastSeen: '2026-10-03T08:00:00Z', ...extra});
 
 test('an end-to-end run, a warning, a stale or one-off issue is never picked', () => {
-  assert.equal(judge(issue('A'), 'alpha', NOW).ok, true);
+  assert.equal(judge(issue('A'), 'production', NOW).ok, true);
   assert.match(judge(issue('A'), 'e2e', NOW).why, /without the expected tag/, 'an e2e report from before the tag');
   assert.match(judge(issue('A'), 'e2e', NOW, {expected: 'yes'}).why, /on purpose/);
   assert.equal(judge(issue('A'), 'e2e', NOW, {expected: 'no'}).ok, true, 'a surprise in a suite that breaks nothing on purpose is a real finding');
   assert.match(judge(issue('A'), 'ci', NOW).why, /not a user/);
-  assert.match(judge(issue('A', {level: 'warning'}), 'alpha', NOW).why, /warning/);
-  assert.match(judge(issue('A', {lastSeen: '2026-09-20T00:00:00Z'}), 'alpha', NOW).why, /stale/);
-  assert.match(judge(issue('A', {count: '1', userCount: 1}), 'alpha', NOW).why, /one-off/);
-  assert.match(judge(issue('A', {status: 'resolved'}), 'alpha', NOW).why, /resolved/);
-  assert.equal(judge(issue('A', {count: '1', userCount: 1, level: 'fatal'}), 'alpha', NOW).ok, true, 'a crash counts at once');
+  assert.match(judge(issue('A', {level: 'warning'}), 'production', NOW).why, /warning/);
+  assert.match(judge(issue('A', {lastSeen: '2026-09-20T00:00:00Z'}), 'production', NOW).why, /stale/);
+  assert.match(judge(issue('A', {count: '1', userCount: 1}), 'production', NOW).why, /one-off/);
+  assert.match(judge(issue('A', {status: 'resolved'}), 'production', NOW).why, /resolved/);
+  assert.equal(judge(issue('A', {count: '1', userCount: 1, level: 'fatal'}), 'production', NOW).ok, true, 'a crash counts at once');
 });
 
 test('the issue touching most people comes first; one with a pull request is skipped', () => {
-  const list = [{issue: issue('LOW', {userCount: 1, count: '9'}), environment: 'alpha'}, {issue: issue('TOP', {userCount: 4}), environment: 'alpha'}, {issue: issue('NOISE', {userCount: 50}), environment: 'e2e'}, {issue: issue('BUSY', {userCount: 3}), environment: 'alpha'}];
+  const list = [{issue: issue('LOW', {userCount: 1, count: '9'}), environment: 'production'}, {issue: issue('TOP', {userCount: 4}), environment: 'production'}, {issue: issue('NOISE', {userCount: 50}), environment: 'e2e'}, {issue: issue('BUSY', {userCount: 3}), environment: 'production'}];
   const prs = [{headRefName: 'sentry-fix/busy', state: 'OPEN'}];
   const {pick, left} = choose(list, prs, NOW);
   assert.equal(pick.issue.shortId, 'TOP');
@@ -43,7 +43,7 @@ test('a fix may touch code and tests, never reporting, secrets, workflows or con
 });
 
 test('the event is reduced to the exception, its own frames and the trail, with no user', () => {
-  const facts = eventFacts({title: 't', user: {id: 'secret'}, tags: [{key: 'release', value: 'r1'}, {key: 'environment', value: 'alpha'}], entries: [
+  const facts = eventFacts({title: 't', user: {id: 'secret'}, tags: [{key: 'release', value: 'r1'}, {key: 'environment', value: 'production'}], entries: [
     {type: 'exception', data: {values: [{type: 'KeyError', value: 'x', stacktrace: {frames: [{filename: 'lib.py', inApp: false, lineNo: 1}, {filename: 'src/a.py', inApp: true, lineNo: 7, function: 'f', context: [[7, '  boom()  ']]}]}}]}},
     {type: 'breadcrumbs', data: {values: [{message: 'opened Jobs'}]}}]});
   assert.deepEqual(facts.exceptions[0].frames, [{file: 'src/a.py', line: 7, function: 'f', code: 'boom()'}]);
