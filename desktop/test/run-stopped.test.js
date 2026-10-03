@@ -51,7 +51,7 @@ test('a run stopped by the watchdog has its Notion row closed', async () => {
 // #91 (Windows): the app quit under a run, the engine died with it, and its Notion row stayed Running. On resume the app closes this Mac's matching row, once, and only that one.
 test('closeInterrupted closes the Running row of the run the quit killed, not another kind, another start time or a finished run', async () => {
   const calls = [];
-  const at = Date.parse('2026-10-03T19:17:30Z');
+  const at = Date.now() - 2 * 60 * 1000;   // relative to now: a Running row counts as live for 3 h only (a fixed date made this test fail after 22:17 UTC on 3 Oct)
   const row = (id, mode, status, minutesFromJob, trigger = 'Mac (you)') => ({id, url: `https://app.notion.com/p/${id}`, created_time: new Date(at).toISOString(),
     properties: {Started: {date: {start: new Date(at + minutesFromJob * 60000).toISOString()}}, Mode: {select: {name: mode}}, Status: {select: {name: status}}, Trigger: {select: {name: trigger}}, Summary: {rich_text: []}}});
   const pages = [row('a'.repeat(32), 'run', 'Running', 0.4), row('b'.repeat(32), 'mail', 'Running', 0.1), row('c'.repeat(32), 'run', 'Running', 40), row('d'.repeat(32), 'run', 'OK', 0.2),
