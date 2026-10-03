@@ -9,6 +9,12 @@ import {fileURLToPath} from 'node:url';
 
 export const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DESKTOP = path.resolve(E2E, '..');
+// Windows has no .bin/electron executable (it is a .cmd that Playwright cannot start): the package itself says where electron.exe is. Elsewhere: unchanged.
+import {createRequire} from 'node:module';
+const electronPath = () => {
+  if (process.platform !== 'win32') return path.join(DESKTOP, 'node_modules', '.bin', 'electron');
+  return createRequire(path.join(DESKTOP, 'package.json'))('electron');
+};
 export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts', process.env.E2E_SUITE || 'default');
 
 // -> {app, page, profile, shot(name), close()}. `env` adds to the app's environment (models, test hooks).
@@ -18,7 +24,7 @@ export async function launch({env = {}, executablePath, args, profile: again} = 
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
   if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
   const app = await electron.launch({
-    executablePath: executablePath || path.join(DESKTOP, 'node_modules', '.bin', 'electron'),
+    executablePath: executablePath || electronPath(),
     args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
     env: {...process.env, JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', ...env},
     timeout: 90000,

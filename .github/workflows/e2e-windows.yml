@@ -1,0 +1,71 @@
+name: CI · End-to-end on Windows
+
+# The Mac is the product's main platform, so every suite runs on a Mac (e2e.yml). Windows users get the same app, and a Windows-only break (paths, quoting, the installer's
+# environment) was invisible to the journey. This runs the AI-free `settings` suite on a Windows runner, weekly and by hand: it never gates a release, and it grows suite by
+# suite as each one is proven to run on Windows (the `suites` input). Red on a quiet week = the runner or a Windows-only code path moved. See also windows-smoke.yml (builds and installs).
+on:
+  schedule:
+    - cron: '47 6 * * 1'   # Mondays, 06:47 UTC, after the smoke build (06:17)
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: 'Suites to run on Windows, comma-separated'
+        required: false
+        default: 'settings'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash   # the suites' commands use bash syntax; pwsh would mangle quoting
+    concurrency:
+      group: e2e-settings   # the settings suite owns one Notion page: never together with a run on the Mac
+      cancel-in-progress: false
+    env:
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
+      E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}
+      E2E_NOTION_TOKEN_JOBS: ${{ secrets.E2E_NOTION_TOKEN_JOBS }}
+      E2E_SEED: '0'   # the fixed path: a Windows run is compared with the Mac's, not explored
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Python packages the engine needs
+        run: pip install --quiet -r requirements.txt
+      - name: Run the suites on Windows
+        working-directory: desktop/e2e
+        timeout-minutes: 30
+        env:
+          SUITES: ${{ inputs.suites || 'settings' }}
+          E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows
+        run: |
+          status=0
+          for suite in ${SUITES//,/ }; do
+            echo "::group::$suite"
+            E2E_SUITE=$suite E2E_ARTIFACTS="$E2E_ARTIFACTS/$suite" node suite.mjs "$suite" || status=$?
+            echo "::endgroup::"
+          done
+          exit $status
+      - name: Screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts-windows
+          path: e2e-artifacts-windows
+          if-no-files-found: ignore
