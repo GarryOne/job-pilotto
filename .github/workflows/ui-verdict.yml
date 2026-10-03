@@ -1,0 +1,92 @@
+name: CI · UI verdicts
+
+# THE VERDICT PASS, in parallel. After every filing of the UI loop (ui-findings.yml), up to five one-off findings (seen on one build, not yet judged) are
+# read by Claude, one job each, read-only: it opens the code and the screenshot and answers real / false-positive / needs-human. A real one is labelled
+# `confirmed` (the fixer takes it next), a false positive is closed `wontfix-auto`, the rest `needs-human`. Why: the fixer judged one finding per run, so a run
+# that filed a dozen took days to sort (4 Oct 2026). Only with the repo variable JOB_PILOTTO_FIXER_VERDICTS = "on" (it spends AI credit).
+on:
+  workflow_run:
+    workflows: ['CI · UI findings']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ui-verdict
+  cancel-in-progress: false
+
+jobs:
+  pick:
+    if: vars.JOB_PILOTTO_FIXER_VERDICTS == 'on'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+      count: ${{ steps.list.outputs.count }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: The one-off findings to judge
+        id: list
+        run: node desktop/e2e/pick.mjs --out .heal --verdict-list 5
+
+  judge:
+    needs: pick
+    if: needs.pick.outputs.count != '0' && needs.pick.outputs.count != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix: ${{ fromJson(needs.pick.outputs.matrix) }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      NUMBER: ${{ matrix.issue }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: The finding and its screenshot
+        run: |
+          node desktop/e2e/pick.mjs --out .heal --issue "$NUMBER"
+          shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
+          if [ -n "$shot" ]; then curl -fsSL -o .heal/screenshot.png "$shot" || echo "screenshot not downloaded"; fi
+      - name: Claude judges it (read-only)
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: >-
+            --model claude-sonnet-5-5 --max-turns 25
+            --allowedTools "Read,Glob,Grep,Write,Bash(git log:*),Bash(git show:*)"
+          prompt: Read .heal/prompt.md and follow it exactly. Write only .heal/verdict.md.
+      - name: Apply the verdict
+        if: steps.claude.outcome == 'success'
+        run: |
+          set -euo pipefail
+          verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
+          reason=$(sed -n '2,$p' .heal/verdict.md 2>/dev/null | head -3 || true)
+          case "$verdict" in
+            real)
+              gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'
+              gh issue edit "$NUMBER" --repo "$REPO" --add-label confirmed
+              gh issue comment "$NUMBER" --repo "$REPO" --body "Judged real by the UI loop's verdict pass (no edits made): $reason Marked \`confirmed\`: the fixer takes it." ;;
+            false-positive)
+              gh label create wontfix-auto --repo "$REPO" --force --color CCCCCC --description 'A false positive of the UI loop: never retried'
+              gh issue edit "$NUMBER" --repo "$REPO" --add-label wontfix-auto
+              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "Closed by the UI loop as a false positive: $reason" ;;
+            *)
+              gh label create needs-human --repo "$REPO" --force --color D93F0B --description 'The UI loop could not fix this by itself'
+              gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-human
+              gh issue comment "$NUMBER" --repo "$REPO" --body "The verdict pass could not decide this one alone: ${reason:-no verdict written}" ;;
+          esac
+          echo "#$NUMBER: ${verdict:-none}" >> "$GITHUB_STEP_SUMMARY"

@@ -416,3 +416,13 @@ test('a window-chrome defect from the AI review is one app-chrome finding, howev
   const [page] = normalize({ai: [{view: 'jobs', severity: 'medium', kind: 'consistency', title: 'Job counts disagree within the card', detail: 'x'}]});
   assert.equal(page.view, 'jobs', 'a finding about the page itself stays on its page');
 });
+
+// The verdict pass judged one finding per fixer run: a run that filed a dozen took days. ui-verdict.yml judges up to five at once.
+test('the verdict list is the most critical unjudged one-off findings, at most five', async () => {
+  const {chooseVerdictCandidates} = await import('../triage.mjs');
+  const make = (number, labels = []) => ({number, state: 'OPEN', title: `[auto-ui] jobs: thing ${number}`, body: '**MEDIUM** · layout · found by the AI screenshot review', labels: [{name: 'auto-ui'}, {name: `fp:v${number}`}, ...labels.map(name => ({name}))], comments: [], createdAt: new Date().toISOString()});
+  const issues = [...Array.from({length: 7}, (_, i) => make(i + 1)), make(8, ['confirmed']), make(9, ['wontfix-auto'])];
+  const picked = chooseVerdictCandidates({gh: args => (args[0] === 'issue' ? JSON.stringify(issues) : '[]')});
+  assert.deepEqual(picked.map(issue => issue.number), [1, 2, 3, 4, 5]);
+  assert.ok(picked.every(issue => issue.mode === 'verdict'));
+});

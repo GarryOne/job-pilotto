@@ -238,7 +238,8 @@ export function fixerSummary({gh = realGh, now = Date.now(), candidate = null} =
 // A verdict-only pass (off unless the repo variable JOB_PILOTTO_FIXER_VERDICTS is "on": it spends AI credit): an open finding seen on ONE commit, which the fixer will not touch, is read by Claude
 // WITHOUT editing anything. It says `false-positive` (the issue is closed `wontfix-auto`) or `real` (labelled `confirmed`, so the next normal run fixes it). Six of fourteen issues on 3 Oct 2026
 // were false positives that a person had to find by reading the handler. Most critical first; never one already judged, parked, or clean in the latest run.
-export function chooseVerdictCandidate({gh = realGh, now = Date.now()} = {}) {
+// Up to `max` of them, most critical first: ui-verdict.yml judges several at once, in parallel (one per fixer run took days for a run's worth of findings).
+export function chooseVerdictCandidates({gh = realGh, now = Date.now(), max = 5} = {}) {
   const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   const ready = issues.filter(issue => {
     const labels = (issue.labels || []).map(label => label.name || label);
@@ -248,8 +249,10 @@ export function chooseVerdictCandidate({gh = realGh, now = Date.now()} = {}) {
     return !!kind && kind !== 'test-failure' && recentSightings(issue, now) < SIGHTINGS_NEEDED;
   });
   ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
-  return ready[0] ? {...ready[0], mode: 'verdict'} : null;
+  return ready.slice(0, max).map(issue => ({...issue, mode: 'verdict'}));
 }
+// The fixer's own fallback (one when nothing is ready to fix): the most critical one-off finding.
+export const chooseVerdictCandidate = options => chooseVerdictCandidates({...options, max: 1})[0] || null;
 
 // The files the fix step reads: which issue, its id, its "before" screenshot, and the prompt.
 export function writeCandidate(candidate, outDir) {
