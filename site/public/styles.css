@@ -59,11 +59,23 @@ body { counter-reset: gate; }
 .topnav .links { display: flex; gap: 28px; margin-left: auto; font-size: .93rem; color: var(--muted); }
 .topnav .links a { text-decoration: none; transition: color .15s ease; }
 .topnav .links a:hover, .topnav .links a[aria-current] { color: var(--ink); }
+.topnav .links a { white-space: nowrap; }
+/* Product menu: opens on hover and on keyboard focus; the label itself goes to How it works */
+.topnav .menu { position: relative; }
+.topnav .menu-label span { font-size: .7em; margin-left: 2px; }
+.topnav .menu-panel { position: absolute; top: 100%; left: -16px; display: none; flex-direction: column; gap: 2px; min-width: 190px; margin-top: 10px;
+  padding: 8px; border: 1px solid #1f2a36; border-radius: 12px; background: #0d131a; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+.topnav .menu-panel::before { content: ""; position: absolute; inset: -12px 0 auto; height: 12px; }  /* keeps hover alive across the gap */
+.topnav .menu-panel a { padding: 8px 10px; border-radius: 8px; }
+.topnav .menu-panel a:hover { background: #17212c; }
+.topnav .menu:hover .menu-panel, .topnav .menu:focus-within .menu-panel { display: flex; }
 .topnav .gh { display: inline-flex; color: var(--muted); margin-left: -6px; transition: color .15s ease; }
 .topnav .gh:hover { color: var(--ink); }
 @media (max-width: 800px) { .topnav .links, .topnav .gh { display: none; } .topnav .btn { margin-left: auto; } }
 /* Home: the nav is part of the dark hall (full width, even once scrolled). */
-.topnav.on-dark { background: #0d131a; box-shadow: 0 0 0 100vmax #0d131a; clip-path: inset(0 -100vmax); color: #f1ede4; }
+.topnav.on-dark { background: #0d131a; color: #f1ede4; }
+/* Full-bleed bar without clip-path, so the Product menu can hang below it (body clips the sideways overflow) */
+.topnav.on-dark::before { content: ""; position: absolute; inset: 0 -100vmax; background: #0d131a; z-index: -1; }
 .topnav.on-dark.scrolled { border-bottom-color: #1f2a36; }
 .topnav.on-dark .links, .topnav.on-dark .gh { color: #9aa7b5; }
 .topnav.on-dark .links a:hover, .topnav.on-dark .gh:hover { color: #fff; }
