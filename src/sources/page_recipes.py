@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 TAGS = ('h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'a', 'strong', 'b', 'span', 'div', 'p', 'td', 'dt')
 MATCH_SHARE = 0.8          # a replay must give back at least this share of what the model found
 MAX_FACTOR = 3             # ... and not more than this many times as many items (a pattern that grabs every link is no recipe)
-TABLE = 'CREATE TABLE IF NOT EXISTS page_recipes (url TEXT PRIMARY KEY, recipe_json TEXT NOT NULL, learned_at TEXT NOT NULL, source TEXT NOT NULL)'
+TABLE = 'CREATE TABLE IF NOT EXISTS page_recipes (url TEXT PRIMARY KEY, recipe_json TEXT NOT NULL, learned_at TEXT NOT NULL, source TEXT NOT NULL, broken_at TEXT)'
 
 
 def valid(recipe):
@@ -109,15 +109,34 @@ def derive(markup, base, jobs):
 
 # ---------- kept on this computer, and from the employer index ----------
 
+def _ready(db):
+    db.execute(TABLE)
+    if 'broken_at' not in {row[1] for row in db.execute('PRAGMA table_info(page_recipes)')}:
+        db.execute('ALTER TABLE page_recipes ADD COLUMN broken_at TEXT')   # a cache made before feed health (3 Oct 2026)
+    return db
+
+
 def _db(db=None):
     if db is not None:
-        db.execute(TABLE)
-        return db, False
+        return _ready(db), False
     from ..paths import JOBS_DB
     JOBS_DB.parent.mkdir(parents=True, exist_ok=True)   # a fresh checkout or runner has no data/ folder yet
-    db = sqlite3.connect(JOBS_DB, timeout=30)
-    db.execute(TABLE)
-    return db, True
+    return _ready(sqlite3.connect(JOBS_DB, timeout=30)), True
+
+
+def mark_broken(url, db=None):
+    """The recipe for this page read nothing although the page was there: flagged (counted on /intel) and, until a new read learns a new one,
+    not used. Never raises."""
+    try:
+        db, own = _db(db)
+        try:
+            db.execute('UPDATE page_recipes SET broken_at = ? WHERE url = ? AND broken_at IS NULL', (datetime.now(timezone.utc).isoformat(timespec='seconds'), url))
+            db.commit()
+        finally:
+            if own:
+                db.close()
+    except sqlite3.Error:
+        pass
 
 
 def save(url, recipe, source='learned', db=None):
@@ -125,7 +144,7 @@ def save(url, recipe, source='learned', db=None):
         return
     db, own = _db(db)
     try:
-        db.execute('INSERT OR REPLACE INTO page_recipes (url, recipe_json, learned_at, source) VALUES (?, ?, ?, ?)',
+        db.execute('INSERT OR REPLACE INTO page_recipes (url, recipe_json, learned_at, source, broken_at) VALUES (?, ?, ?, ?, NULL)',
                    (url, json.dumps(recipe), datetime.now(timezone.utc).isoformat(timespec='seconds'), source))
         db.commit()
     finally:
@@ -149,7 +168,7 @@ def load(url, db=None):
     try:
         db, own = _db(db)
         try:
-            row = db.execute('SELECT recipe_json FROM page_recipes WHERE url = ?', (url,)).fetchone()
+            row = db.execute('SELECT recipe_json FROM page_recipes WHERE url = ? AND broken_at IS NULL', (url,)).fetchone()
         finally:
             if own:
                 db.close()

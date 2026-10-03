@@ -286,6 +286,8 @@ def _from_recipe(url, markup, fetch_page):
     from . import page_recipes
     recipe = page_recipes.load(url)
     items = page_recipes.replay(recipe, markup, url) if recipe else []
+    if recipe and not items:
+        page_recipes.mark_broken(url)   # the page changed: flag it; the page is read the usual way and a new read learns a new recipe
     if not items:
         return []
     listing = job_from_page(markup, url) or {}

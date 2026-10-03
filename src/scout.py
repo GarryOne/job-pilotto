@@ -467,8 +467,31 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(check, known.items()))
-    kept = sorted((r for r in results if 'error' not in r), key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
+    answered = [r for r in results if 'error' not in r]
+    quiet = health(db, answered, today)
+    kept = sorted((r for r in answered if (r['ats'], r['slug']) not in quiet), key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
     return kept, [r for r in results if 'error' in r]
+
+
+QUIET_DAYS = 90   # a feed with no role in our scope for this long leaves the published index (it stays known, and returns when it has roles)
+
+
+def health(db, entries, today):
+    """Record when each feed last had a role in scope; returns {(ats, slug)} of the feeds quiet for QUIET_DAYS (left out of the index)."""
+    db.execute('CREATE TABLE IF NOT EXISTS feed_health (ats TEXT NOT NULL, slug TEXT NOT NULL, first_checked TEXT NOT NULL, '
+               'last_relevant TEXT, PRIMARY KEY (ats, slug))')
+    cutoff = (datetime.fromisoformat(today) - timedelta(days=QUIET_DAYS)).date().isoformat()
+    quiet = set()
+    for entry in entries:
+        key = (entry['ats'], entry['slug'])
+        db.execute('INSERT OR IGNORE INTO feed_health (ats, slug, first_checked) VALUES (?, ?, ?)', (*key, today))
+        if entry.get('relevant'):
+            db.execute('UPDATE feed_health SET last_relevant = ? WHERE ats = ? AND slug = ?', (today, *key))
+        row = db.execute('SELECT first_checked, last_relevant FROM feed_health WHERE ats = ? AND slug = ?', key).fetchone()
+        if (row[1] or row[0]) < cutoff:
+            quiet.add(key)
+    db.commit()
+    return quiet
 
 
 SWISS = re.compile(r'switzerland|schweiz|suisse|svizzera|z[uü]rich|gen[eè]v|genf|basel|\bbern\b|lausanne|\bzug\b|lugano|luzern|lucerne|winterthur|st\.? ?gallen', re.I)
@@ -514,6 +537,8 @@ def central_stats(db, feeds_out, market=()):
             'by_ats': dict(Counter(f['ats'] for f in feeds_out)), 'by_region': dict(Counter(r for f in feeds_out for r in f.get('regions') or [])),
             'queue': {row[0]: row[1] for row in db.execute('SELECT status, COUNT(*) FROM scout_candidates GROUP BY status')},
             'recipes': scalar('SELECT COUNT(*) FROM page_recipes'), 'page_reads': scalar('SELECT COUNT(*) FROM page_reads'),
+            'recipes_broken': scalar('SELECT COUNT(*) FROM page_recipes WHERE broken_at IS NOT NULL'),
+            'quiet': scalar(f"SELECT COUNT(*) FROM feed_health WHERE COALESCE(last_relevant, first_checked) < date('now', '-{QUIET_DAYS} days')"),
             'link_choices': scalar('SELECT COUNT(*) FROM link_choices'), 'commoncrawl': meta.get('commoncrawl', ''),
             'ideas_at': meta.get('ideas_at', ''), 'ideas_note': meta.get('ideas_note', ''),
             'sources': [{'origin': s['origin'], 'probed': s['probed'], 'found': s['found']} for s in scout_ideas.origin_yield(db)[:25]],

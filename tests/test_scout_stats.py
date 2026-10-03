@@ -37,5 +37,24 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(sent[0]['stats'], {'feeds': 1})
 
 
+class HealthTests(unittest.TestCase):
+    def test_a_feed_quiet_for_90_days_leaves_the_index_and_returns_with_roles(self):
+        db = sqlite3.connect(':memory:')
+        busy, idle = {'ats': 'lever', 'slug': 'busy', 'relevant': 3}, {'ats': 'lever', 'slug': 'idle', 'relevant': 0}
+        self.assertEqual(scout.health(db, [busy, idle], '2026-06-01'), set())
+        self.assertEqual(scout.health(db, [busy, idle], '2026-08-01'), set())          # 61 days: still in
+        self.assertEqual(scout.health(db, [busy, idle], '2026-09-05'), {('lever', 'idle')})
+        self.assertEqual(scout.health(db, [busy, {**idle, 'relevant': 1}], '2026-09-06'), set())   # roles again: back in
+
+    def test_a_recipe_that_reads_nothing_is_flagged_and_not_used_until_relearned(self):
+        from src.sources import page_recipes
+        db = sqlite3.connect(':memory:')
+        page_recipes.save('https://a.ch/jobs', {'kind': 'links', 'prefix': '/jobs'}, db=db)
+        page_recipes.mark_broken('https://a.ch/jobs', db)
+        self.assertIsNone(page_recipes.load('https://a.ch/jobs', db))
+        page_recipes.save('https://a.ch/jobs', {'kind': 'links', 'prefix': '/de/jobs'}, db=db)
+        self.assertEqual(page_recipes.load('https://a.ch/jobs', db), {'kind': 'links', 'prefix': '/de/jobs'})
+
+
 if __name__ == '__main__':
     unittest.main()

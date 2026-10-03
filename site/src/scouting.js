@@ -8,7 +8,7 @@ export function cleanStats(stats) {
   if (!stats || typeof stats !== 'object') return null;
   return {
     feeds: int(stats.feeds), jobs: int(stats.jobs), relevant: int(stats.relevant), by_ats: counts(stats.by_ats), by_region: counts(stats.by_region),
-    queue: counts(stats.queue, 12), recipes: int(stats.recipes), page_reads: int(stats.page_reads), link_choices: int(stats.link_choices),
+    queue: counts(stats.queue, 12), recipes: int(stats.recipes), recipes_broken: int(stats.recipes_broken), quiet: int(stats.quiet), page_reads: int(stats.page_reads), link_choices: int(stats.link_choices),
     commoncrawl: word(stats.commoncrawl, 30), ideas_at: word(stats.ideas_at, 30), ideas_note: word(stats.ideas_note, 300),
     sources: (Array.isArray(stats.sources) ? stats.sources : []).slice(0, 25).map(s => ({origin: word(s?.origin), probed: int(s?.probed), found: int(s?.found)})),
     market: (Array.isArray(stats.market) ? stats.market : []).slice(0, 20).map(m => ({term: word(m?.term, 40), ours: int(m?.ours), jobsch: m?.jobsch == null ? null : int(m.jobsch)})),
@@ -39,8 +39,8 @@ export function section(s) {
   if (!s) return `<section class="card"><h2>🧭 Scouting</h2><small class="muted">The central scout has not reported yet: it sends its numbers with the next index it publishes (daily, 04:20 UTC).</small></section>`;
   const trend = s.history.map(h => `${esc(h.day.slice(5))}: ${h.feeds}`).join(' · ');
   return `<section class="card"><h2>🧭 Scouting</h2><small class="muted">The central scout's own numbers, ${esc(s.day)}. No user data. Trend of feeds in the index: ${trend}</small>
-<table><tr><th>Feeds in the index</th><th>Open jobs in them</th><th>Engineering roles</th><th>Recipes learned</th><th>AI page reads (cached)</th><th>AI link picks</th><th>Common Crawl</th></tr>
-<tr><td><b>${s.feeds.toLocaleString('en-US')}</b></td><td>${s.jobs.toLocaleString('en-US')}</td><td>${s.relevant.toLocaleString('en-US')}</td><td>${s.recipes}</td><td>${s.page_reads}</td><td>${s.link_choices}</td><td>${esc(s.commoncrawl || '—')}</td></tr></table>
+<table><tr><th>Feeds in the index</th><th>Open jobs in them</th><th>Engineering roles</th><th>Recipes learned (broken)</th><th>Quiet feeds (90 days, left out)</th><th>AI page reads (cached)</th><th>AI link picks</th><th>Common Crawl</th></tr>
+<tr><td><b>${s.feeds.toLocaleString('en-US')}</b></td><td>${s.jobs.toLocaleString('en-US')}</td><td>${s.relevant.toLocaleString('en-US')}</td><td>${s.recipes} (${s.recipes_broken || 0})</td><td>${s.quiet || 0}</td><td>${s.page_reads}</td><td>${s.link_choices}</td><td>${esc(s.commoncrawl || '—')}</td></tr></table>
 <h2 style="margin-top:14px">📈 Market coverage (Switzerland)</h2><small class="muted">Open jobs with this word in the title in Swiss places: in our index (employer feeds) vs jobs.ch's own total for the word. Indicative: jobs.ch also lists agencies and repeats.</small>
 <table><tr><th>Word</th><th>Our index</th><th>jobs.ch</th><th>Coverage</th></tr>
 ${s.market.map(m => `<tr><td>${esc(m.term)}</td><td>${m.ours}</td><td>${m.jobsch ?? '—'}</td><td><b>${pct(m.jobsch ? m.ours / m.jobsch : null)}</b></td></tr>`).join('') || '<tr><td colspan="4" class="muted">Not measured yet.</td></tr>'}</table>
