@@ -78,18 +78,30 @@ export function factsRows(facts) {
 }
 
 // evidence: {suite, screenshot (url), failedScreenshot (url), facts, logs: {name: text}, codeFile, message}
+// A fence longer than any run of backticks inside the text, so a log or a command that contains ``` cannot close it early.
+export const fence = (text, lang = '') => { const longest = Math.max(2, ...(String(text).match(/`+/g) || []).map(run => run.length)); const mark = '`'.repeat(longest + 1); return `${mark}${lang}\n${String(text).replace(/\n+$/, '')}\n${mark}`; };
+// What a test step or a click reported is often a command, a stack or JSON, written over several lines: as plain markdown it collapses into one paragraph and `import` turns bold
+// (#93, 3 Oct 2026). A short lead line ("Command failed:") stays prose, the rest goes in a code block. Prose findings (the AI's) are left as they are.
+const CODE_SOURCES = ['suite-failure', 'interaction-probe'];
+const LOOKS_LIKE_CODE = /\n|[{}]|=>|\bimport\b|\b[A-Za-z]:\\|\/home\/|\bat .+:\d+|Traceback|\bsys\.argv\b/;
+export function formatDetail(finding) {
+  const text = String(finding.detail || '');
+  if (!CODE_SOURCES.includes(finding.source) || (!LOOKS_LIKE_CODE.test(text) && text.length <= 240)) return text;
+  const split = /^([^\n:]{3,80}:)\s+([\s\S]+)$/.exec(text);
+  return split ? `${split[1]}\n\n${fence(split[2])}` : fence(text);
+}
 export function issueBody(finding, runUrl, evidence = {}) {
   const view = finding.view, suite = evidence.suite || '';
   const picture = evidence.screenshot || evidence.failedScreenshot;
   const rows = factsRows(evidence.facts);
   const logs = Object.entries(evidence.logs || {}).filter(([, text]) => text);
-  const out = [`**${finding.severity.toUpperCase()}** · ${finding.kind} · found by ${sourceWords(finding)}`, '', '### What was found', finding.detail];
+  const out = [`**${finding.severity.toUpperCase()}** · ${finding.kind} · found by ${sourceWords(finding)}`, '', '### What was found', formatDetail(finding)];
   if (finding.suggestion) out.push('', '### Suggested', finding.suggestion);
   if (picture || rows.length || logs.length) out.push('', '### Evidence');
   if (picture) out.push(`![${view}](${picture})`, `<sub>${suite ? `Suite \`${suite}\` · ` : ''}page \`${view}\` · ${runUrl}</sub>`);
   if (rows.length) out.push('', '| App state | |', '|---|---|', ...rows.map(([name, value]) => `| ${name} | ${value} |`));
   if (finding.also?.length) out.push('', '### Failed after it', ...finding.also.slice(0, 8).map(step => `- ${step}`), ...(finding.also.length > 8 ? [`- … and ${finding.also.length - 8} more`] : []), '', '<sub>Probably consequences of the first failure (later steps need what it leaves).</sub>');
-  for (const [name, text] of logs) out.push('', `<details><summary>${name} (last lines)</summary>`, '', '```', text, '```', '', '</details>');
+  for (const [name, text] of logs) out.push('', `<details><summary>${name} (last lines)</summary>`, '', fence(text), '', '</details>');
   if (evidence.seed) out.push('', `Variation: seed ${evidence.seed}${evidence.window ? `, window ${evidence.window.join('x')}` : ''}${evidence.detail ? ` (${evidence.detail})` : ''}. Replay the same path: \`E2E_SEED=${evidence.seed} node suite.mjs ${suite || 'interactions'}\``);
   if (suite) out.push('', '### Reproduce', `\`cd desktop/e2e && node suite.mjs ${suite}\`: the step that photographs \`${view}\` (\`snap(ctx, '${view}')\`) shows it.`);
   const where = [];

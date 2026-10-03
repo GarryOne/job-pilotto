@@ -325,3 +325,17 @@ test('the CLI labels a new issue with the version, adds a second version when it
   triage({artifacts: dir, runUrl: 'https://x/runs/3', gh, repo: 'o/r', build: 'main @ ccccccc (workflow_dispatch run)'});
   assert.equal(calls.slice(before).filter(call => /--add-label version:/.test(call)).length, 0, 'a version already on the issue is not added again');
 });
+
+// #93: a failed step's command was pasted as prose, so it collapsed into one paragraph and `import` was bold.
+test('a command, stack or JSON in a finding goes in a code block under a short lead line; prose stays prose; a fence cannot be closed from inside', async () => {
+  const {formatDetail, fence, issueBody} = await import('../lib/triage.mjs');
+  const command = 'Command failed: python3 -c import json, sqlite3, sys\nfrom src import scout, store\npath = sys.argv[1]\nprint(json.dumps({\'a\': 1})) C:\\Users\\RUNNER';
+  assert.equal(formatDetail({source: 'suite-failure', detail: command}), `Command failed:\n\n\`\`\`\npython3 -c import json, sqlite3, sys\nfrom src import scout, store\npath = sys.argv[1]\nprint(json.dumps({'a': 1})) C:\\Users\\RUNNER\n\`\`\``);
+  assert.match(formatDetail({source: 'suite-failure', detail: 'the app was still busy after 300 s of waiting for quiet: running={"kind":"search"} queued=0'}), /quiet:\n\n```\nrunning=\{"kind":"search"\} queued=0\n```$/);
+  assert.equal(formatDetail({source: 'suite-failure', detail: 'the page shows two rows'}), 'the page shows two rows', 'a short plain sentence stays prose');
+  assert.equal(formatDetail({source: 'ai-review', detail: 'Cards cover the {form}\nand more'}), 'Cards cover the {form}\nand more', 'the AI review is prose: left alone');
+  assert.equal(fence('a ```inner``` b'), '````\na ```inner``` b\n````');
+  const body = issueBody({id: 'x', view: 'employers', severity: 'medium', kind: 'test-failure', source: 'suite-failure', title: 't', detail: command, suggestion: ''}, 'https://x/runs/1', {suite: 'employers', logs: {'engine.log': 'oops ```'}});
+  assert.match(body, /### What was found\nCommand failed:\n\n```\npython3 -c/);
+  assert.match(body, /<summary>engine\.log \(last lines\)<\/summary>\n\n````\noops ```\n````/);
+});
