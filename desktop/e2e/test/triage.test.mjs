@@ -11,8 +11,10 @@ test('layout-check findings count as high or medium; AI findings rated low are n
   const out = normalize({
     ui: [{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}, {view: 'jobs', severity: 'warning', kind: 'clipped-text', detail: 'cut off'}, {view: 'jobs', kind: 'x'}],
     ai: [{view: 'settings', severity: 'low', kind: 'layout', title: 'minor', detail: 'x'}, {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y', id: 'settings-layout-1'},
-      {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y again', id: 'settings-layout-1'}]});
-  assert.deepEqual(out.map(item => [item.view, item.severity, item.source]), [['jobs', 'high', 'layout-check'], ['jobs', 'medium', 'layout-check'], ['settings', 'high', 'ai-review']]);
+      {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y again', id: 'settings-layout-1'},
+      {view: 'settings', severity: 'high', kind: 'functionality', title: 'Save does nothing', detail: 'z', id: 'settings-functionality-1'}]});
+  // A look-and-feel finding is never high, whatever the model said (#50, #55, #56); only a wrong app (functionality, error-shown) can be.
+  assert.deepEqual(out.map(item => [item.view, item.severity, item.source]), [['jobs', 'high', 'layout-check'], ['jobs', 'medium', 'layout-check'], ['settings', 'medium', 'ai-review'], ['settings', 'high', 'ai-review']]);
 });
 
 test('an issue is ready only after two sightings, for a kind a UI fix can address, with no pull request already open', () => {
@@ -87,10 +89,10 @@ test('findings of every suite are read, whatever its folder is called', async ()
 });
 
 // A step of a suite that failed is a finding too: filed as an issue so it is not only a red check, never picked for an automatic UI fix.
-test('a failed suite step becomes one high finding per step, whatever its message says', () => {
+test('a failed suite step becomes one medium finding per step (a red step is not a blocked journey), whatever its message says', () => {
   const out = normalize({suite: [{suite: 'activity', step: 'the AI never answers', message: 'took 90 s'}, {suite: 'activity', step: 'the AI never answers', message: 'took 120 s'}, {suite: 'jobs', step: 'a jobs check', message: 'x'}, {step: 'no suite'}]});
   assert.deepEqual(out.map(item => [item.view, item.kind, item.severity, item.source, item.title]),
-    [['activity', 'test-failure', 'high', 'suite-failure', 'step failed: the AI never answers'], ['jobs', 'test-failure', 'high', 'suite-failure', 'step failed: a jobs check']]);
+    [['activity', 'test-failure', 'medium', 'suite-failure', 'step failed: the AI never answers'], ['jobs', 'test-failure', 'medium', 'suite-failure', 'step failed: a jobs check']]);
   assert.match(out[0].detail, /took 90 s/);
 });
 
@@ -255,4 +257,16 @@ test('the ranking puts what breaks the product first, a harness crash and alread
   assert.match(body, /\| #2 settings: dead-control on settings \| Windows \|/);
   assert.match(body, /\| #5 [^\n]*`abc1235` · today · clean last run \|/);
   assert.match(body, /\| 6 \| \*\*P3\*\* \| #5 /, 'the clean harness crash is last');
+});
+
+// High = blocks the user's journey; medium = confusing, a workaround, or bad UX; low = barely noticeable (the owner's definition, 3 Oct 2026).
+test('severity follows what the person feels: a probe finding is medium, a missing spinner is low until the wait is seconds', async () => {
+  const {probeSeverity} = await import('../lib/triage.mjs');
+  assert.equal(probeSeverity({kind: 'dead-control', detail: 'Clicking "X" did nothing'}), 'medium');
+  assert.equal(probeSeverity({kind: 'expand-broken', detail: '...'}), 'medium');
+  assert.equal(probeSeverity({kind: 'no-loading-state', detail: '"Edit preferences" ran for 771 ms (openNotion) and showed no sign of work'}), 'low');
+  assert.equal(probeSeverity({kind: 'no-loading-state', detail: '"Save" ran for 3400 ms (x) and showed no sign of work'}), 'medium');
+  assert.equal(probeSeverity({kind: 'no-loading-state', detail: '"Save" ran for more than the wait (x) and showed no sign of work'}), 'low');
+  const out = normalize({ui: [{view: 'strategy', severity: 'warning', kind: 'no-loading-state', source: 'interaction-probe', control: 'Edit preferences', detail: '"Edit preferences" ran for 771 ms (openNotion) and showed no sign of work'}]});
+  assert.equal(out[0].severity, 'low');
 });

@@ -11,7 +11,9 @@ test('only well-formed findings survive, with the page they were found on', () =
     {severity: 'low', kind: 'text', title: '', detail: 'empty title'},
     'junk', null]});
   const out = parseFindings(reply, 'jobs');
-  assert.deepEqual(out.map(item => [item.view, item.severity, item.kind, item.title]), [['jobs', 'high', 'layout', 'Location cell 20 lines tall']]);
+  assert.deepEqual(out.map(item => [item.view, item.severity, item.kind, item.title]), [['jobs', 'medium', 'layout', 'Location cell 20 lines tall']]);   // a layout finding is never high, whatever the model said
+  const wrong = parseFindings(JSON.stringify({findings: [{severity: 'high', kind: 'functionality', title: 'Save does nothing', detail: 'x'}, {severity: 'high', kind: 'error-shown', title: 'A stack trace', detail: 'y'}, {severity: 'high', kind: 'text', title: 'Vague warning', detail: 'z'}]}), 'jobs');
+  assert.deepEqual(wrong.map(item => item.severity), ['high', 'high', 'medium'], 'only a wrong app can block a journey');
   assert.deepEqual(parseFindings('no json at all', 'jobs'), []);
   assert.deepEqual(parseFindings('{"findings": "nope"}', 'jobs'), []);
 });

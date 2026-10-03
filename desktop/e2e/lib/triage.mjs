@@ -1,6 +1,6 @@
 // The self-healing loop's judgement, as plain functions (no network): which findings are worth an issue, which one is ready for a fix, and
 // what a fix may touch. triage.mjs (the producer's CLI), pick.mjs (the fixer's) and .github/workflows/ui-findings.yml, ui-fix.yml call these; tests/triage.test.mjs pins the rules.
-import {fingerprint} from './vision.mjs';
+import {fingerprint, cappedSeverity} from './vision.mjs';
 
 export const LABEL = 'auto-ui';
 export const NEEDS_HUMAN = 'needs-human';
@@ -18,17 +18,26 @@ export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) &
 
 // ui-findings.json (deterministic) + ai-findings.json (vision) -> one list: {id, view, severity, kind, title, detail, suggestion, source}.
 // AI findings rated "low" are noise by experience (about 1 in 16 was real) and are not filed; deterministic "severe" counts as high, "warning" as medium.
+// The probe's own grading: a dead or broken control confuses (medium); a call with no sign of work is barely noticeable (low) until the person waits seconds for it (medium).
+const SLOW_NOTICEABLE_MS = 3000;
+export function probeSeverity(item) {
+  if (item.kind !== 'no-loading-state') return 'medium';
+  const ms = Number(/ran for (\d+) ms/.exec(item.detail || '')?.[1]);
+  return Number.isFinite(ms) && ms >= SLOW_NOTICEABLE_MS ? 'medium' : 'low';
+}
 export function normalize({ui = [], ai = [], suite = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
-    const finding = {view: item.view, severity: item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
+    const finding = {view: item.view, severity: probed ? probeSeverity(item) : item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
       title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${probed ? `"${item.control}"` : String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: probed ? 'interaction-probe' : 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
     return {...finding, id: fingerprint(finding)};
   });
-  const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, dir: item._dir, id: item.id || fingerprint(item), source: 'ai-review'}));
+  const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, severity: cappedSeverity(item.severity, item.kind), dir: item._dir, id: item.id || fingerprint(item), source: 'ai-review'}));
   // A step of a suite that failed: one finding per step (its message changes from run to run, the step does not). Never a kind a UI fix can address.
   const fromSuite = suite.filter(item => item && item.suite && item.step).map(item => {
-    const finding = {view: item.suite, severity: 'high', kind: 'test-failure', title: `step failed: ${item.step}`, detail: String(item.message || 'The step failed.'), suggestion: '', source: 'suite-failure', dir: item._dir, also: item.also || []};
+    // A red test step says something is off, not that a journey is blocked: that is a judgement (a person's `confirmed`), and the release gate is red anyway while any suite fails.
+    // Until 3 Oct 2026 every failed step was filed high: 18 of the 21 "high" issues were test steps, and none blocked anyone.
+    const finding = {view: item.suite, severity: 'medium', kind: 'test-failure', title: `step failed: ${item.step}`, detail: String(item.message || 'The step failed.'), suggestion: '', source: 'suite-failure', dir: item._dir, also: item.also || []};
     return {...finding, id: fingerprint(finding)};
   });
   const seen = new Set();

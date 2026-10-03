@@ -32,9 +32,13 @@ Report EVERY defect you can see, each as its own finding, not only the most impo
 rail, the search button at its foot), the page header, and the bar along the bottom. Text that runs out of its box or over a neighbour, a label cut off at the edge, a badge covering a title,
 and icons or controls that are misaligned are real defects, each its own finding.
 Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
-Severity: high = a person cannot finish a task, is shown a false status or a raw error, or could lose data (a status that contradicts the facts, a button that does nothing,
-an error where a result should be). medium = a defect anyone sees but can work around (clipped or overlapping text, a badge on a title, misaligned controls, odd spacing). low = polish.
-Clipped or overlapping text is medium, however prominent the place; it is never high.
+Severity is judged by what it does to the PERSON using the app, nothing else:
+high = it BLOCKS their journey: they cannot finish a task (a control that is missing, disabled or does nothing where it is needed), they get a wrong result or a false status that would
+make them act wrongly, they see a raw error or stack trace, or they could lose data. If they can still get through, it is NOT high.
+medium = it confuses them or makes them work around it, or it is simply bad UX (unclear or vague wording, a message repeated twice, clipped or overlapping text, a badge on a title, misaligned
+controls, odd spacing, an unhelpful empty state).
+low = barely noticeable or barely bothering (a pixel of misalignment, a slightly long label, polish).
+Wording, layout and styling problems are never high, however prominent the place or however badly the text reads: a vague or duplicated message is medium at most.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
 {"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","suggestion":"<the smallest fix, in plain words>"}]}`;
@@ -49,13 +53,18 @@ export function buildRequest({view, pngBase64, rules = '', facts = null, model =
   };
 }
 
+// Only a finding about the app being WRONG can block a journey: a wrong status, a dead control, an error shown. How something looks or reads is medium at most, whatever the model
+// said (it rated a vague, duplicated warning "high" in #50 and a clipped brand name "high" in #55 and #56; none blocked anyone).
+export const HIGH_KINDS = ['functionality', 'error-shown'];
+export const cappedSeverity = (severity, kind) => (severity === 'high' && !HIGH_KINDS.includes(kind) ? 'medium' : severity);
+
 // -> [{view, severity, kind, title, detail, suggestion}], dropping anything off the fixed shape; at most 6 per page.
 export function parseFindings(text, view) {
   let data;
   try { data = JSON.parse(String(text).slice(String(text).indexOf('{'), String(text).lastIndexOf('}') + 1)); } catch { return []; }
   return (Array.isArray(data?.findings) ? data.findings : []).filter(item => item && SEVERITIES.includes(item.severity) && KINDS.includes(item.kind)
       && typeof item.title === 'string' && item.title.trim() && typeof item.detail === 'string' && item.detail.trim())
-    .slice(0, 6).map(item => ({view, severity: item.severity, kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
+    .slice(0, 6).map(item => ({view, severity: cappedSeverity(item.severity, item.kind), kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
       suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : ''}));
 }
 
