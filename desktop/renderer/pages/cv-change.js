@@ -14,7 +14,9 @@ function setVerdict(tone, title, text) {
   box.className = `alert tone-${tone} cv-verdict`;
   box.firstElementChild.replaceWith(icon(tone === 'good' ? 'check-circle' : 'info'));
   $('cv-verdict-title').textContent = title;
-  $('cv-verdict-text').textContent = text;
+  $('cv-verdict-text').replaceChildren(...text.split('\n').flatMap((line, i) => (i ? [document.createElement('br'), line] : [line])));
+  show(box, true);
+  show($('cv-profile-text'), false);
 }
 function setPill(id, text, tone) { $(id).replaceChildren(pill(text, tone)); }
 export async function showCvChanged() {
@@ -27,6 +29,7 @@ export async function openCvChange() {
   const change = await window.pilot.cvChange();
   // What applying Profile edits costs: every scored job is re-scored over the next searches.
   $('cv-impact').textContent = '';
+  show($('cv-impact'), false);
   window.pilot.strategyData().then(data => {
     if (!data?.ok || !data.scored) return;
     const searches = Math.max(1, Math.ceil(data.scored / 60));
@@ -35,15 +38,20 @@ export async function openCvChange() {
   }).catch(() => {});
   $('cv-dialog-name').textContent = change.name || 'your CV';
   $('cv-dialog-sub').textContent = change.previous === change.name ? 'New upload · same file name as the previous CV' : `New upload${change.previous ? ` · replaces ${change.previous}` : ''}`;
-  setVerdict('info', 'Not compared with your Profile yet', 'Compare the two CVs to see which Profile lines, if any, should change.');
+  show($('cv-verdict'), false);
+  show($('cv-profile-text'), true);
+  $('cv-profile-status').textContent = 'Not compared yet';
+  $('cv-compare').textContent = 'Compare with my Profile';
+  show($('cv-cost'), true);
   setPill('cv-profile-pill', 'Not compared', 'neutral');
   $('cv-suggestions').replaceChildren();
   show($('cv-apply-row'), false);
+  show($('cv-profile-status').parentElement, true);
   message('cv-review-message', '');
   $('cv-compare').disabled = !change.comparable;
   if (!change.comparable) {
     $('cv-profile-text').textContent = 'The previous CV is not on this computer, so there is nothing to compare. Edit the Profile in Notion if needed.';
-    setVerdict('info', 'Nothing to compare', 'The previous CV is not on this computer. Edit your Profile in Notion if something changed.');
+    show($('cv-profile-status').parentElement, false);
     setPill('cv-profile-pill', 'Edit in Notion', 'neutral');
   }
   $('cv-base-text').textContent = change.base ? 'Made from the previous CV. Read the new one so tailored CVs start from it.' : 'Read from this CV on your first Tailor CV. Nothing to do.';
@@ -93,13 +101,16 @@ export async function init() {
     button.classList.remove('busy');
     if (!result.ok) return message('cv-review-message', result.error, 'error');
     cvSuggestions = result.suggestions;
-    message('cv-review-message', `${result.summary} ($${result.usd.toFixed(2)})`, 'ok');
+    message('cv-review-message', '');
+    $('cv-profile-status').textContent = `Comparison complete · Actual cost $${result.usd.toFixed(2)}`;
+    $('cv-compare').textContent = 'Compare again';
+    show($('cv-impact'), cvSuggestions.length > 0);   // what applying costs matters only when there is something to apply
     if (cvSuggestions.length) {
-      setVerdict('info', `${cvSuggestions.length} Profile edit${cvSuggestions.length === 1 ? '' : 's'} suggested`, 'Pick the ones you want below; nothing is written until you apply.');
+      setVerdict('info', `${cvSuggestions.length} Profile edit${cvSuggestions.length === 1 ? '' : 's'} suggested`, `${result.summary}\nPick the ones you want below; nothing is written until you apply.`);
       setPill('cv-profile-pill', `${cvSuggestions.length} to review`, 'warn');
     } else {
-      setVerdict('good', 'No substantive changes found', 'Roles, dates, skills, achievements and contact details match your previous CV.');
-      setPill('cv-profile-pill', '– Unchanged', 'neutral');
+      setVerdict('good', 'No Profile edits needed', 'Your new CV matches the previous one in substance.\nRoles, dates, titles, skills, achievements and contact details are unchanged.');
+      setPill('cv-profile-pill', 'Unchanged', 'neutral');
     }
     const label = {update: ['Update', 'info'], add: ['Add', 'good'], remove: ['Remove', 'bad']};
     $('cv-suggestions').replaceChildren(...cvSuggestions.map(s => {

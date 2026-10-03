@@ -870,6 +870,18 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .cv-row > div > b { display: block; }
 .cv-row > div > p { margin: 2px 0 0; color: var(--ink-2); font-size: var(--fs-md); }
 .cv-row > .ui-pill, .cv-row > span:last-child { flex: none; }
+.cv-row.cv-profile { display: block; }
+.cv-profile-head { display: flex; align-items: center; gap: var(--sp-3); }
+.cv-profile-head > svg { flex: none; width: 24px; height: 24px; }
+.cv-profile-head b { flex: 1; }
+.cv-row.cv-profile > p { margin: var(--sp-1) 0 0 36px; color: var(--ink-2); font-size: var(--fs-md); }
+.cv-profile .cv-verdict { margin-top: var(--sp-3); align-items: flex-start; }
+.cv-profile .cv-verdict p { margin: var(--sp-1) 0 0; color: var(--ink-2); }
+.cv-profile .cv-note { margin: var(--sp-3) 0 0; color: var(--ink-2); font-size: var(--fs-md); }
+.cv-profile .message { margin: var(--sp-2) 0 0; font-size: var(--fs-md); }
+.cv-profile .cv-suggestions { margin-top: var(--sp-3); }
+.cv-profile-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-4); font-size: var(--fs-md); }
+.cv-profile-cta { display: flex; align-items: center; gap: var(--sp-3); }
 .cv-kits-card { margin-top: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .cv-kits-head { display: flex; align-items: center; gap: var(--sp-2); }
 .cv-kits-head .muted { margin-left: auto; }

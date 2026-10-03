@@ -1351,18 +1351,20 @@
     <button class="ghost icon-btn" id="cv-later" aria-label="Close" title="Close: you can review this later"><i data-icon="close"></i></button></div>
   <div class="cv-file"><span class="cv-file-icon"><i data-icon="file"></i></span>
     <div><b id="cv-dialog-name"></b><small id="cv-dialog-sub"></small></div></div>
-  <div class="alert tone-info cv-verdict" id="cv-verdict"><i data-icon="info"></i>
-    <div><b id="cv-verdict-title">Not compared with your Profile yet</b><p id="cv-verdict-text">Compare the two CVs to see which Profile lines, if any, should change.</p></div></div>
   <ul class="cv-rows">
     <li class="cv-row"><i data-icon="user"></i>
       <div><b>New applications</b><p>The extension and Apply with Claude use your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
-    <li class="cv-row"><i data-icon="file-text"></i>
-      <div><b>Notion Profile</b><p id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</p>
-        <div class="inline spaced"><button class="secondary" id="cv-compare">Compare with my Profile (~5¢)</button></div>
-        <div id="cv-suggestions" class="cv-suggestions"></div>
-        <div class="inline spaced" id="cv-apply-row" hidden><button class="primary" id="cv-apply">Apply selected to my Profile</button></div>
-        <p class="muted small" id="cv-impact"></p>
-        <p class="message" id="cv-review-message"></p></div><span id="cv-profile-pill"></span></li>
+    <li class="cv-row cv-profile">
+      <div class="cv-profile-head"><i data-icon="file-text"></i><b>Notion Profile</b><span id="cv-profile-pill"></span></div>
+      <p id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</p>
+      <div class="alert tone-good cv-verdict" id="cv-verdict" hidden><i data-icon="check-circle"></i>
+        <div><b id="cv-verdict-title"></b><p id="cv-verdict-text"></p></div></div>
+      <div id="cv-suggestions" class="cv-suggestions"></div>
+      <div class="inline spaced" id="cv-apply-row" hidden><button class="primary" id="cv-apply">Apply selected to my Profile</button></div>
+      <p class="cv-note" id="cv-impact"></p>
+      <p class="message" id="cv-review-message"></p>
+      <div class="cv-profile-foot"><span class="muted" id="cv-profile-status">Not compared yet</span>
+        <span class="cv-profile-cta"><button class="secondary" id="cv-compare">Compare with my Profile</button><span class="muted small" id="cv-cost">Estimated AI cost ~5¢</span></span></div></li>
     <li class="cv-row" id="cv-base-row"><i data-icon="settings"></i>
       <div><b>CV for tailoring</b><p id="cv-base-text"></p>
         <div class="inline spaced" id="cv-base-actions" hidden><button class="secondary" id="cv-base-read">Read the new CV (~5¢)</button></div></div><span id="cv-base-pill"></span></li>
