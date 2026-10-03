@@ -1,6 +1,8 @@
 // One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 // files and caches). Each step runs at start-up while it has something to move, and only deletes the local
 // copy after Notion confirmed it has the data, so nothing is ever lost. A failed step retries next start.
+import fs from 'node:fs';
+import path from 'node:path';
 import * as contact from './contact.js';
 import * as knowledge from './knowledge.js';
 import {log} from './log.js';
@@ -25,6 +27,33 @@ export const STEPS = [
     for (const step of fixed.manual || []) log('notion', `Do by hand in Notion: ${step}`);
     if (!fixed.created.length && !fixed.columns.length && !fixed.renamed?.length) return false;
     storage.saveSettings({notionIds: fixed.ids});
+    return true;
+  }},
+  // Notion later: a strategy kept on this Mac while the app was only trying (profile.md, answers.md and the search cache)
+  // moves in when Notion is connected. notionMoveIn (set at connect, main.js): 'fresh' = the workspace is new/empty, so this
+  // Mac's strategy is written into it; 'existing' = the workspace already had data, so Notion wins and the files are only
+  // backed up. After 'workspace' (which creates the pages) and before 'profile copies' and 'search settings' (which would
+  // link the empty Search settings page and drop this Mac's search choices). Local copies go only after every write succeeded.
+  {name: 'strategy from this Mac', run: async (storage, _fetcher, deps = {}) => {
+    const mode = storage.settings().notionMoveIn;
+    if (!mode) return false;
+    const {writePage = notion.writePage, ensurePage = notion.ensurePage, run = pipeline.run} = deps;
+    const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
+    const files = ['profile.md', 'answers.md'].map(name => [name, storage.readText(name)]).filter(([, text]) => text.trim());
+    if (mode === 'fresh') {
+      for (const [name, text] of files) {
+        const page = name === 'profile.md' ? ids.NOTION_PROFILE_PAGE_ID : ids.NOTION_ANSWERS_PAGE_ID;
+        if (page) await writePage(token, page, text);
+      }
+      await strategy.publishSearchSettings(storage, {run, ensurePage, writePage});
+    } else if (files.length) {
+      const folder = storage.path(`backup/before-notion-${new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)}`);
+      fs.mkdirSync(folder, {recursive: true});
+      for (const [name, text] of files) fs.writeFileSync(path.join(folder, name), text, {mode: 0o600});
+      storage.saveSettings({notionKeptFolder: folder});
+    }
+    strategy.dropLocalCopies(storage);
+    storage.saveSettings({notionMoveIn: undefined});
     return true;
   }},
   // "Reached via" on leads tracked before the column existed (from their Notes), once.

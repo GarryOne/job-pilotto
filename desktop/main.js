@@ -474,12 +474,27 @@ function handlers() {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       const send = progress => toWindow('notionProgress', {...progress, titles});
       const result = await notionWorkspace.connectWorkspace(token, {templateRoot, onProgress: send});
+      let kept = null;
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
-        if (!DEMO) migrate.run(storage, log);  // anything an older version kept on this Mac moves in now
+        // Notion later: a strategy kept on this Mac while trying moves in (lib/migrate.js 'strategy from this Mac'). A workspace the
+        // app just built (or Notion just copied the template into) is empty, so this Mac's strategy wins; any other workspace
+        // already had data, and Notion wins. Saved first, so a step that fails retries next start with the same answer.
+        const hadLocal = !!(storage.readText('profile.md').trim() || storage.readText('answers.md').trim());
+        if (hadLocal) storage.saveSettings({notionMoveIn: result.built?.length || templateRoot ? 'fresh' : 'existing'});
+        if (!DEMO) {
+          if (hadLocal) send({moving: true});
+          const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now
+          kept = storage.settings().notionKeptFolder || null;
+          if (kept) storage.saveSettings({notionKeptFolder: undefined});
+          appLog('notion', 'connected', {fresh: !!(result.built?.length || templateRoot), moved, kept: !!kept, hadLocal});
+          syncCv();
+          // What was scored before Notion reaches Job Matches, with no AI spend; with Always on GitHub's next run does it.
+          if (hadLocal || moved.length) { if (!cloud()) pipeline.syncMatches(storage, log).catch(error => log(`Job Matches not synced: ${error.message}`)); }
+        }
       }
-      return {...result, titles};
+      return {...result, titles, kept};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }

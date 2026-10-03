@@ -169,7 +169,8 @@ export async function init() {
     showNotionResult(result);
   });
 
-  window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage, template}) => {
+  window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage, template, moving}) => {
+    if (moving) { message('notion-message', 'Moving your strategy and matches into Notion…', 'waiting'); return; }
     if (building) { show($('notion-found'), false); message('notion-message', 'Connected ✓ Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }
     if (waitingPage) { show($('notion-found'), false); message('notion-message', 'Waiting for Notion to share your Job Pilotto page with the app…', 'waiting'); return; }
     message('notion-message', template

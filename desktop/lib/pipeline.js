@@ -348,6 +348,15 @@ export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
   });
 }
 
+// Notion just connected after a time of trying: one run that spends no AI (every cap at 0), so the Job Matches sync
+// (src/notion/matches.py, hash-keyed over every scored job in the cache) puts what was scored before Notion there.
+// `--mode today` is the no-AI path that reaches that sync; it also reads the feeds, which is free.
+export const syncMatchesArgs = () => ['src', 'daily', '--mode', 'today', '--log-run', '--enrich-max', '0', '--score-max', '0', '--auto-kit-max', '0'];
+export function syncMatches(storage, onLine, trigger = 'you') {
+  return tracked(storage, 'search', trigger, onLine, tee => run(storage, syncMatchesArgs(), tee, triggerEnv(trigger))
+    .then(({code, result}) => ({ok: code === 0, result})), {mode: 'today'}, () => ({}));
+}
+
 // Gmail and Calendar check (src/ai/mail.py): confirmations, replies, rejections and interviews -> Notion.
 // `updates` = what it recorded (the lines it prints under "Updates:"), shown in the app and the notification.
 export function mailArgs(storage, now = Date.now()) {

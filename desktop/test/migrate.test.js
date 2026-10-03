@@ -61,3 +61,64 @@ test('Origin is backfilled once, after the workspace step adds the column; a fai
   assert.equal(storage.settings().originFilled, true);
   assert.equal(await step.run(storage, undefined, async () => { throw new Error('must not run again'); }), false);
 });
+
+// ---- Notion later: the strategy kept on this Mac while trying moves in at connect ----
+const withLocal = mode => {
+  const storage = connected();
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'prof', NOTION_ANSWERS_PAGE_ID: 'ans'}, notionMoveIn: mode});
+  storage.writeText('profile.md', '# Me\nSRE');
+  storage.writeText('answers.md', 'Notice: 1 month');
+  return storage;
+};
+const step = () => migrate.STEPS.find(s => s.name === 'strategy from this Mac');
+
+test('strategy from this Mac: a fresh workspace gets the local Profile, answers and search settings, then the files go', async () => {
+  const storage = withLocal('fresh');
+  const written = [];
+  const writePage = async (_token, page, text) => { written.push([page, text]); };
+  const run = async () => ({code: 0, stdout: '## Roles\n- sre'});
+  const ensurePage = async () => 'search-page';
+  assert.equal(await step().run(storage, undefined, {writePage, run, ensurePage}), true);
+  assert.deepEqual(written, [['prof', '# Me\nSRE'], ['ans', 'Notice: 1 month'], ['search-page', '## Roles\n- sre']]);
+  assert.equal(storage.readText('profile.md'), '');
+  assert.equal(storage.readText('answers.md'), '');
+  assert.equal(storage.settings().notionMoveIn, undefined);
+});
+
+test('strategy from this Mac: an existing workspace wins; the files are only backed up', async () => {
+  const storage = withLocal('existing');
+  const writePage = async () => { throw new Error('must not write'); };
+  assert.equal(await step().run(storage, undefined, {writePage}), true);
+  const folder = storage.settings().notionKeptFolder;
+  assert.ok(folder && fs.readFileSync(path.join(folder, 'profile.md'), 'utf8') === '# Me\nSRE');
+  assert.equal(fs.readFileSync(path.join(folder, 'answers.md'), 'utf8'), 'Notice: 1 month');
+  assert.equal(storage.readText('profile.md'), '');
+  assert.equal(storage.settings().notionMoveIn, undefined);
+});
+
+test('strategy from this Mac: a failed write keeps both files and the flag, so the next start finishes the job', async () => {
+  const storage = withLocal('fresh');
+  const writePage = async (_t, page) => { if (page === 'ans') throw new Error('429'); };
+  await assert.rejects(step().run(storage, undefined, {writePage, run: async () => ({code: 0, stdout: 'x'}), ensurePage: async () => 'sp'}), /429/);
+  assert.equal(storage.readText('profile.md'), '# Me\nSRE');
+  assert.equal(storage.readText('answers.md'), 'Notice: 1 month');
+  assert.equal(storage.settings().notionMoveIn, 'fresh');
+  // retry succeeds
+  assert.equal(await step().run(storage, undefined, {writePage: async () => {}, run: async () => ({code: 0, stdout: 'x'}), ensurePage: async () => 'sp'}), true);
+  assert.equal(storage.readText('profile.md'), '');
+});
+
+test('strategy from this Mac: without the flag (installs that already had Notion) it does nothing', async () => {
+  const storage = connected();
+  storage.writeText('profile.md', 'old copy');
+  assert.equal(await step().run(storage, undefined, {writePage: async () => { throw new Error('no'); }}), false);
+  assert.equal(storage.readText('profile.md'), 'old copy');
+});
+
+test('strategy from this Mac runs after the workspace step and before the steps that would hide it', () => {
+  const names = migrate.STEPS.map(s => s.name);
+  const at = names.indexOf('strategy from this Mac');
+  assert.ok(names.indexOf('workspace') < at);
+  assert.ok(at < names.indexOf('profile copies'));
+  assert.ok(at < names.indexOf('search settings'));
+});
