@@ -14,9 +14,14 @@ export const minutes = 30;
 export const name = 'strategy';
 const TITLE = '⚙️ Search settings';
 const ROLE = 'zebra wrangler', GIRAFFE = 'giraffe keeper', PLACE = 'lugano', SKIP = 'E2E Initech';
+// Free words (no fixture feed depends on them): a company added on the Notion page and a region accepted in the app. A seeded run picks one of each, so a word an
+// earlier run left behind can never make the "edit kept" check pass; every variant is removed first.
+const EDITED = ['E2E Hooli', 'E2E Pied Piper', 'E2E Vandelay', 'E2E Globex'], REGIONS = ['atlantis', 'lemuria', 'hyperborea', 'avalon'];
 
 export async function run(ctx) {
   const {page, token: NOTION} = ctx;
+  const edited = ctx.vary.fixed ? EDITED[0] : ctx.vary.pick(EDITED), region = ctx.vary.fixed ? REGIONS[0] : ctx.vary.pick(REGIONS);
+  if (!ctx.vary.fixed) console.log(`  variation: seed ${ctx.vary.seed}; edited on the page "${edited}", region "${region}"`);
   await ensureSetUp(ctx);
   const read = file => JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', file), 'utf8'));
   // The app links (or creates) the page a moment after it connects (lib/migrate.js runs in the background): wait for it.
@@ -76,7 +81,8 @@ export async function run(ctx) {
     const found = await findPagesBeside(NOTION, profileId, TITLE);
     // A page left changed by an earlier run goes back to the plain strategy first.
     const now = await pageSections(NOTION, pageId);
-    for (const [heading, word] of [['Roles to look for', ROLE], ['Roles to look for', GIRAFFE], ['Best places', PLACE], ['Companies to skip', SKIP]]) {
+    for (const [heading, word] of [['Roles to look for', ROLE], ['Roles to look for', GIRAFFE], ['Best places', PLACE], ['Companies to skip', SKIP],
+      ...EDITED.map(word => ['Companies to skip', word]), ...REGIONS.map(word => ['Remote jobs: regions to skip', word])]) {
       if (has(now[heading], word)) await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word)));
     }
     if (found.length !== 1 || found[0].id.replace(/-/g, '') !== pageId.replace(/-/g, '')) throw new Error(`expected exactly the linked ${TITLE} page, found ${found.length}`);
@@ -150,14 +156,14 @@ export async function run(ctx) {
   await ctx.run('accepting a strategy change in the app keeps what was edited on the Notion page meanwhile', async () => {
     const id = await settingsPage();
     const before = await pageSections(NOTION, id);
-    await setSection(NOTION, id, 'Companies to skip', [...(before['Companies to skip'] || []), 'E2E Hooli']);   // edited in Notion, no check has run since
+    await setSection(NOTION, id, 'Companies to skip', [...(before['Companies to skip'] || []), edited]);   // edited in Notion, no check has run since
     const search = read('search.json');
     const saved = await page.evaluate(draft => window.pilot.saveStrategy(draft, ['search']), {
-      profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search: {...search, remote_excluded_regions: [...(search.remote_excluded_regions || []), 'atlantis']}, preferences: {}});
+      profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search: {...search, remote_excluded_regions: [...(search.remote_excluded_regions || []), region]}, preferences: {}});
     if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
     const after = await pageSections(NOTION, id);
-    if (!has(after['Companies to skip'], 'E2E Hooli')) throw new Error('the edit made on the Notion page was overwritten when a strategy change was accepted');
-    if (!has(after['Remote jobs: regions to skip'], 'atlantis')) throw new Error('the accepted change did not reach the page');
+    if (!has(after['Companies to skip'], edited)) throw new Error('the edit made on the Notion page was overwritten when a strategy change was accepted');
+    if (!has(after['Remote jobs: regions to skip'], region)) throw new Error('the accepted change did not reach the page');
   }, {needs: ctx.needs});
 
   await ctx.run('a fresh install reconnecting to the same Notion page keeps the real settings and links the same page', async () => {
