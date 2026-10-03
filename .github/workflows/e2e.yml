@@ -149,11 +149,24 @@ jobs:
           # A run on an older commit (target_ref: the stable canary, a release candidate) plans with main's suite list; a suite added since does not exist in that build.
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
           node suite.mjs ${{ matrix.suite }}
+      - name: Earlier AI reviews (an unchanged screenshot is not asked again)
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
+        uses: actions/cache/restore@v4
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-review-${{ matrix.suite }}-
       - name: AI review of the screenshots
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # the costly part: only when the UI or its tests changed, or a finding waits
         working-directory: desktop/e2e
         timeout-minutes: 10
         run: node review-ui.mjs
+      - name: Keep the AI reviews for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v4

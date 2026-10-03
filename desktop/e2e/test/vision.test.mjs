@@ -22,7 +22,26 @@ test('the request carries the picture, the page and the expectations, on Sonnet 
   const request = buildRequest({view: 'jobs', pngBase64: 'AAAA', rules: 'rule one'});
   assert.equal(request.model, 'claude-sonnet-5-5');
   assert.equal(request.messages[0].content[0].source.data, 'AAAA');
-  assert.match(request.messages[0].content[1].text, /Page: jobs[\s\S]*Expected to show:[\s\S]*rule one/);
+  assert.match(request.messages[0].content[1].text, /Page: jobs[\s\S]*Expected to show:/);
+  assert.match(request.system.at(-1).text, /design rules[\s\S]*rule one/);
+});
+
+test('the fixed part (instructions + design rules) comes first and is cached; what changes per page comes after it', () => {
+  const a = buildRequest({view: 'jobs', pngBase64: 'AAAA', rules: 'rule one', facts: {x: 1}});
+  const b = buildRequest({view: 'settings', pngBase64: 'BBBB', rules: 'rule one'});
+  assert.deepEqual(a.system, b.system, 'the cached prefix must be byte-identical across pages, or nothing is ever read from the cache');
+  assert.deepEqual(a.system.at(-1).cache_control, {type: 'ephemeral'});
+  assert.equal(a.system.filter(block => block.cache_control).length, 1);
+  assert.equal(JSON.stringify(a.messages).includes('rule one'), false, 'the rules are not sent twice');
+  assert.deepEqual(buildRequest({view: 'jobs', pngBase64: 'AAAA'}).system.at(-1).cache_control, {type: 'ephemeral'}, 'no rules: the instructions alone are cached');
+});
+
+test('a review\'s cost comes from the API\'s own usage figures: input, cache write 1.25x, cache read 0.1x, output; an unknown model is not guessed', async () => {
+  const {usageCost} = await import('../lib/vision.mjs');
+  const usd = usageCost('claude-sonnet-5-5', {input_tokens: 1000, cache_creation_input_tokens: 2000, cache_read_input_tokens: 10000, output_tokens: 500});
+  assert.ok(Math.abs(usd - (1000 * 2 + 2000 * 2.5 + 10000 * 0.2 + 500 * 10) / 1e6) < 1e-12, String(usd));
+  assert.equal(usageCost('claude-sonnet-5-5', {}), 0);
+  assert.equal(usageCost('some-new-model', {input_tokens: 1}), null);
 });
 
 test('the same problem has the same fingerprint, a different one does not', () => {
