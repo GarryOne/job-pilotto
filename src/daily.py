@@ -583,6 +583,12 @@ def main():
                                               google_jobs.settings(load_search_config()))
                     report['jobs'] += google['jobs']
                     report['sources'] += google['sources']
+                # Aggregators with public APIs (src/sources/aggregators.py): free ones always, keyed ones with their keys; each at most every 6 hours.
+                if args.mode in ('scheduled', 'run'):
+                    from .sources import aggregators
+                    found = aggregators.scan(feed_db, load_search_config())
+                    report['jobs'] += found['jobs']
+                    report['sources'] += found['sources']
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run'):

@@ -288,7 +288,7 @@ export async function setDailyTarget(storage, value, {run, ensurePage, writePage
 // Role terms the user chose to add after the app said the search was narrow (src/coverage.py). Like the daily target they live in
 // ⚙️ Search settings: the page is read first (edits made in Notion are kept), the terms are added, the page is written again; if
 // Notion refuses, the cache is put back so the two never disagree.
-export const ROLE_TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/i;
+export const ROLE_TERM = /^\p{L}[\p{L}0-9+#.\- ]{1,38}[\p{L}0-9+#]$/iu;   // any language's letters: "ingénieur système", "systemtechniker"
 const escapeRegex = term => term.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
 export function addRoles(storage, terms, deps) {
   const wanted = [...new Set((Array.isArray(terms) ? terms : []).map(term => String(term).trim().toLowerCase()).filter(term => ROLE_TERM.test(term)))].slice(0, 10);

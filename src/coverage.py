@@ -18,6 +18,16 @@ FILE = DATA / 'coverage.json'
 VOCAB = ('distributed systems', 'systems engineer', 'backend', 'back-end', 'full stack', 'software engineer', 'data platform',
          'data infrastructure', 'data engineer', 'security engineer', 'machine learning', 'ml engineer', 'performance engineer',
          'storage', 'networking', 'database', 'release engineer', 'build engineer', 'devsecops', 'operations engineer', 'sdet')
+# The same kinds of role in the languages job titles are written in across Europe (German, French, Italian, Spanish, Dutch, Polish):
+# an English-only search silently misses them. Offered like the words above; marked so the card can say why.
+LOCAL_VOCAB = ('systemtechniker', 'systemingenieur', 'systemadministrator', 'informatiker', 'plattform', 'infrastruktur', 'cloud-ingenieur',
+               'betriebsingenieur', 'netzwerktechniker', 'softwareentwickler', 'entwickler', 'applikationsentwickler', 'dateningenieur',
+               'ingénieur système', 'ingénieur systèmes', 'ingénieur cloud', 'ingénieur devops', 'ingénieur infrastructure', 'ingénieur logiciel',
+               'administrateur système', 'administrateur systèmes', 'développeur', 'ingénieur réseau', 'sistemista', 'sviluppatore',
+               'ingegnere cloud', 'ingegnere devops', 'amministratore di sistema', 'ingeniero devops', 'ingeniero cloud', 'desarrollador',
+               'ontwikkelaar', 'systeembeheerder', 'programista', 'administrator systemów')
+VOCAB = VOCAB + LOCAL_VOCAB
+LOCAL_MIN = 3   # a local-language word with at least this many missed postings is worth saying, however broad the search already is
 EXAMPLES = 3
 # Places a user with EU work rights could add, as a fixed list (label shown, regex fragment written into the search settings' "abroad"
 # places). The app only ever adds a fragment offered here: fixed words in, nothing typed by a server or a posting.
@@ -124,7 +134,10 @@ def verdict(summary, keywords=(), locations=()):
     have = {str(word).lower() for word in keywords}
     suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have]
     share = summary['matched'] / summary['in_places'] if summary.get('in_places') else 1
-    return {'narrow': share < NARROW_BELOW and any(s['count'] >= 5 for s in suggestions), 'share': share, 'matched': summary['matched'],
+    for item in suggestions:
+        item['local'] = item['term'] in LOCAL_VOCAB
+    local = any(item['local'] and item['count'] >= LOCAL_MIN for item in suggestions)
+    return {'narrow': (share < NARROW_BELOW and any(s['count'] >= 5 for s in suggestions)) or local, 'local': local, 'share': share, 'matched': summary['matched'],
             'in_places': summary['in_places'], 'fetched': summary['fetched'], 'feeds': summary['feeds'], 'at': summary.get('at'),
             'suggestions': suggestions[:8], 'places': places_verdict(summary, locations)}
 

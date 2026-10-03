@@ -283,6 +283,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
 - `src/service.py` — The Job Pilotto service as the engine sees it: a random local install id, the token the website gives that id, and the private
+- `src/sources/aggregators.py` — Job aggregators with public APIs: more jobs straight away, and every employer they name becomes a scout candidate (via the jobs table).
 - `src/sources/ats.py` — Public job feeds of common applicant-tracking systems, normalised to one shape.
 - `src/sources/boards.py` — Discover employers from the Swiss job boards (jobs.ch, SwissDevJobs, TechTree), then follow career links. Runs only when the
 - `src/sources/careers.py` — A company's own careers page, for employers with no job-system feed (Greenhouse, Lever, ...).

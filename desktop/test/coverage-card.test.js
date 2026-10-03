@@ -53,3 +53,11 @@ test('the places card stays quiet without offers, and after Not now for this cra
   assert.equal(placesCard(places(), '2026-10-03T10:00:00+00:00'), null);
   assert.notEqual(placesCard(places(), '2026-10-01T10:00:00+00:00'), null);
 });
+
+test('when the missed titles are in another language the card says so, and such words can be added', async () => {
+  const card = coverageCard(verdict({local: true, suggestions: [{term: 'systemtechniker', count: 6, local: true, examples: ['ICT Systemtechniker 100%']}]}));
+  assert.equal(card.title, 'Jobs written in other languages slip past your search');
+  assert.match(card.text, /German, French or another language/);
+  const {ROLE_TERM} = await import('../lib/strategy.js');
+  assert.ok(ROLE_TERM.test('ingénieur système') && ROLE_TERM.test('systemtechniker') && ROLE_TERM.test('amministratore di sistema') && !ROLE_TERM.test('<b>'));
+});

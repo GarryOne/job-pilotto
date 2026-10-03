@@ -7,8 +7,9 @@ export function coverageCard(verdict, dismissedAt = '') {
   if (dismissedAt && verdict.at && dismissedAt === verdict.at) return null;
   const percent = Math.max(1, Math.round((verdict.share || 0) * 100));
   return {
-    title: 'Your search may be too narrow',
-    text: `Of ${number(verdict.in_places)} postings in your places, your role keywords catch ${number(verdict.matched)} (${percent}%). ` +
+    title: verdict.local ? 'Jobs written in other languages slip past your search' : 'Your search may be too narrow',
+    text: (verdict.local ? `Your role keywords are in English, but many jobs in your places are titled in German, French or another language. ` : '') +
+      `Of ${number(verdict.in_places)} postings in your places, your role keywords catch ${number(verdict.matched)} (${percent}%). ` +
       'These role words appear in titles your keywords miss; adding one makes the next searches look for it:',
     chips: verdict.suggestions.slice(0, 8).map(item => ({
       term: item.term, label: `+ ${item.term} · ${number(item.count)}`,
