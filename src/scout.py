@@ -239,6 +239,21 @@ def next_batch(db, size):
 
 # ---------- probing and quality ----------
 
+STOP_WORDS = {'gmbh', 'sagl', 'ltd', 'inc', 'llc', 'plc', 'the', 'and', 'group', 'holding', 'switzerland', 'schweiz', 'suisse', 'international', 'solutions', 'services', 'systems', 'technologies', 'technology', 'software'}
+
+
+def belongs_to(candidate, slug, jobs, exact):
+    """A guessed feed is the company's: its slug is the whole name or the website's domain (`exact`), or its jobs name the rest of the
+    company's name. "Stellar Alpina" must not take the feed `stellar` of another company; `Puzzle ITC` may take `puzzle` if its jobs say ITC."""
+    if exact:
+        return True
+    words = [w for w in re.findall(r'[a-z0-9]+', candidate['name'].lower()) if len(w) >= 3 and w not in STOP_WORDS and w != slug.lower()]
+    if not words:
+        return False
+    blob = ' '.join(f"{j.get('title', '')} {j.get('location', '')} {j.get('url', '')} {(j.get('description') or '')[:400]}" for j in jobs[:40]).lower()
+    return any(word in blob for word in words)
+
+
 def find_feed(candidate, probe=ats.probe, discover=careers.discover):
     """(ats, slug, jobs) for the candidate's public feed, or None. In order: the address already known; slugs guessed from the name and
     from the website's domain on the common job systems; then the website itself (an embedded job system, or a careers page with job data)."""
@@ -251,10 +266,11 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover):
     names = ats.slug_guesses(candidate['name'])
     if website:
         names = names[:2]   # the first word alone ("Data" for Data Purpose AG) is a guess; with an address to go by it is left out
+    exact_slugs = {*ats.slug_guesses(candidate['name'])[:2], *ats.domain_guesses(website)}
     for slug in list(dict.fromkeys([*names, *ats.domain_guesses(website)]))[:6]:
         for system in ats.GUESSABLE:
             jobs = probe(system, slug)
-            if jobs:
+            if jobs and belongs_to(candidate, slug, jobs, slug in exact_slugs):
                 return system, slug, jobs
     page = discover(website) if website else None
     if page:

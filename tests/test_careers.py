@@ -178,6 +178,17 @@ class FindFeedTests(unittest.TestCase):
         scout.find_feed({'name': 'Data Purpose AG'}, lambda system, slug: tried.append(slug), discover=lambda site: None)
         self.assertIn('data', tried)   # without an address the name is all there is
 
+    def test_a_guessed_feed_must_belong_to_the_company(self):
+        other = [{'title': 'Engineer', 'location': 'Remote', 'url': 'https://jobs.x/stellar/1', 'description': 'Stellar Development Foundation'}]
+        mine = [{'title': 'Engineer', 'location': 'Zürich', 'url': 'https://jobs.x/p/1', 'description': 'Puzzle ITC builds platforms'}]
+        probe = lambda feed: (lambda system, slug: feed if (system, slug) == ('lever', 'puzzle') else None)
+        # first word only, and the jobs do not name the rest of the name: someone else's feed
+        self.assertIsNone(scout.find_feed({'name': 'Puzzle ITC'}, probe(other), discover=lambda site: None))
+        # same guess, jobs that do name it: accepted
+        self.assertEqual(scout.find_feed({'name': 'Puzzle ITC'}, probe(mine), discover=lambda site: None)[:2], ('lever', 'puzzle'))
+        # the whole name as the slug needs no confirmation
+        self.assertEqual(scout.find_feed({'name': 'Sentry'}, lambda s, g: other if (s, g) == ('lever', 'sentry') else None, discover=lambda site: None)[:2], ('lever', 'sentry'))
+
     def test_the_website_is_read_when_no_guess_works(self):
         found = scout.find_feed({'name': 'Acme AG', 'website': 'https://acme.ch'}, lambda system, slug: None,
                                 discover=lambda site: {'ats': 'careers', 'slug': 'acme.ch__jobs', 'jobs': self.JOBS})
