@@ -87,6 +87,7 @@ test('a real ⋯ menu below the fold is opened by the probe, not filed as broken
   const server = http.createServer((req, res) => {
     const url = req.url.split('?')[0];
     if (url === '/t.html') { res.setHeader('content-type', 'text/html'); return res.end(`<link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/components.css"><link rel="stylesheet" href="/style.css"><body style="margin:0"><section class="view" data-view="t"><div style="height:1800px">filler</div><div id="host"></div><div style="height:1200px"></div></section><script type="module">import {moreButton} from '/components.js'; document.getElementById('host').append(moreButton([{label: 'Dismiss', run() {}}], 'More'));</script></body>`); }
+    if (url === '/favicon.ico') { res.statusCode = 204; return res.end(); }   // the CI browser asks for it; a 404 would be filed as a console error
     const file = path.join(root, url);
     if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.statusCode = 404; return res.end(); }
     res.setHeader('content-type', types[path.extname(file)] || 'application/octet-stream'); res.end(fs.readFileSync(file));
