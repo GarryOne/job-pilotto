@@ -739,8 +739,11 @@ function renderQuestions(list, error = '') {
     const answer = async value => {
       save.disabled = skip.disabled = true;
       const result = await window.pilot.answerQuestion(q.key, value);
-      if (result.ok) loadQuestions(); else { note.className = 'message error'; note.textContent = result.error; save.disabled = skip.disabled = false; }
+      if (result.ok) loadQuestions(); else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !input.value.trim(); }
     };
+    // Save waits for an answer: an enabled Save that silently did nothing on an empty field read as broken (UI loop #64).
+    save.disabled = true;
+    input.addEventListener('input', () => { save.disabled = !input.value.trim(); });
     save.addEventListener('click', () => input.value.trim() && answer(input.value.trim()));
     input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.value.trim()) answer(input.value.trim()); });
     skip.addEventListener('click', () => answer(''));
