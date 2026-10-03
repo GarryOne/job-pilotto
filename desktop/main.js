@@ -804,6 +804,19 @@ function handlers() {
       return {ok: true, ...result};
     } catch (error) { return {ok: false, error: error.message}; }
   });
+  // "Your places miss N matching roles": the names the card offered are looked up again in the engine's own verdict, so only an offered place
+  // (a fixed list, src/coverage.py PLACE_OPTIONS) can ever be written into the search settings.
+  ipcMain.handle('addPlaces', async (_, names) => {
+    if (DEMO) return {ok: true, added: []};
+    try {
+      const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
+      if (code !== 0) throw new Error('Could not read the coverage (see the activity log)');
+      const offered = (JSON.parse(stdout.trim().split('\n').pop())?.places?.options || []).filter(option => (Array.isArray(names) ? names : []).includes(option.place));
+      const result = await strategy.addPlaces(storage, offered, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      appLog('search', `places added: ${result.added.join(', ') || 'none'}`, {offered: offered.length});
+      return {ok: true, ...result};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('strategyData', async () => {
     // Demo mode: JOB_PILOTTO_DEMO_STRATEGY_DELAY ms first, to see (and screenshot) the loading state.
     if (DEMO && process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY)));

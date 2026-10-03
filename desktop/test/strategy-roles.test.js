@@ -65,3 +65,32 @@ test('a search that put the old settings back once is retried, and the terms the
   assert.deepEqual((await addRoles(t.storage, ['backend'], t.deps)).added, ['backend']);
   assert.ok(roles(t.files).includes('backend'));
 });
+
+import {addPlaces} from '../lib/strategy.js';
+const ireland = {place: 'Ireland', fragment: '\\bireland\\b|\\bdublin\\b'};
+
+test('an offered place joins the "abroad" places one name per bullet, and the Notion page is published', async () => {
+  const t = setup();
+  const result = await addPlaces(t.storage, [ireland], t.deps);
+  assert.deepEqual(result.added, ['Ireland']);
+  const search = JSON.parse(t.files['config/search.json']);
+  assert.deepEqual(search.locations, {top_tier: ['zurich'], abroad: ['\\bireland\\b', '\\bdublin\\b']});
+  assert.deepEqual(search.role_keywords, ['\\bsre\\b', 'devops'], 'roles do not change');
+  assert.deepEqual(t.calls.map(c => c[0] + ':' + c[1]), ['run:sync', 'write:config/search.json', 'run:render', 'publish:settings']);
+});
+
+test('a place already there, anything that is not a plain fragment, and an empty offer change nothing', async () => {
+  const t = setup();
+  await addPlaces(t.storage, [ireland], t.deps);
+  assert.deepEqual((await addPlaces(t.storage, [ireland], t.deps)).added, []);
+  assert.deepEqual((await addPlaces(t.storage, [{place: 'x', fragment: '(?:a)<script>'}, {place: 'y'}, null], t.deps)).added, []);
+  assert.deepEqual((await addPlaces(t.storage, undefined, t.deps)).added, []);
+  assert.equal(t.calls.filter(c => c[0] === 'publish').length, 1);
+});
+
+test('when Notion refuses a place, the settings are put back', async () => {
+  const t = setup({writeFails: true});
+  const before = t.files['config/search.json'];
+  await assert.rejects(addPlaces(t.storage, [ireland], t.deps), /Notion said no/);
+  assert.equal(t.files['config/search.json'], before);
+});

@@ -17,6 +17,35 @@ def posting(i, title, place='Zurich, Switzerland'):
     return {'id': str(i), 'title': title, 'location': place, 'url': f'https://x.test/{i}', 'date_posted': '', 'description': 'd', 'remote': False, 'salary': ''}
 
 
+class PlacesTest(unittest.TestCase):
+    def crawl(self, rows):
+        tally = coverage.Tally()
+        for title, place in rows:
+            tally.add(title, in_place=feeds.wanted_location({'location': place}), matched=feeds.wanted_title(title), location=place)
+        return tally.summary(NOW)
+
+    def test_matching_roles_just_outside_your_places_are_counted_by_place(self):
+        rows = [('Site Reliability Engineer', 'Dublin, Ireland')] * 6 + [('DevOps Engineer', 'Amsterdam')] * 2 + \
+               [('Platform Engineer', 'San Francisco, CA')] * 4 + [('Senior Accountant', 'Dublin')] * 9 + [('SRE', 'Zurich')]
+        summary = self.crawl(rows)
+        self.assertEqual(summary['title_hits'], 13)           # accountant is no title match
+        self.assertEqual([(o['place'], o['count']) for o in summary['places']], [('Ireland', 6)])   # Amsterdam: 2 is below the minimum
+        self.assertEqual(summary['elsewhere'], 4)             # US: needs a visa, not offered as a place
+        self.assertEqual(summary['places'][0]['examples'], ['Site Reliability Engineer'])
+
+    def test_the_verdict_offers_places_not_already_yours_with_the_fragment_to_add(self):
+        summary = self.crawl([('Site Reliability Engineer', 'Dublin, Ireland')] * 6 + [('SRE', 'Zurich')])
+        offered = coverage.verdict(summary, ['sre'], [])['places']
+        self.assertEqual(offered['options'][0]['place'], 'Ireland')
+        self.assertIn('dublin', offered['options'][0]['fragment'])
+        self.assertTrue(feeds.keyword_regex([offered['options'][0]['fragment']]).search('Dublin'))
+        self.assertIsNone(coverage.verdict(summary, ['sre'], [offered['options'][0]['fragment']])['places'])
+
+    def test_every_option_compiles_and_matches_its_own_label_example(self):
+        for label, fragment in coverage.PLACE_OPTIONS:
+            self.assertTrue(feeds.keyword_regex([fragment]), label)
+
+
 class TallyTest(unittest.TestCase):
     def test_it_counts_the_funnel_and_the_near_misses_by_term(self):
         tally = coverage.Tally()

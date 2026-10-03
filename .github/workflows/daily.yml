@@ -218,7 +218,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: job-pilotto-jobs-db
-          path: data/jobs.sqlite
+          path: |
+            data/jobs.sqlite
+            data/coverage.json
           retention-days: 90
           if-no-files-found: warn
       - name: Upload daily report

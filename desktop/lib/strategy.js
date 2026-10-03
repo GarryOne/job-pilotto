@@ -271,8 +271,28 @@ export async function setDailyTarget(storage, value, {run, ensurePage, writePage
 // Notion refuses, the cache is put back so the two never disagree.
 export const ROLE_TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/i;
 const escapeRegex = term => term.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
-export async function addRoles(storage, terms, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
+export function addRoles(storage, terms, deps) {
   const wanted = [...new Set((Array.isArray(terms) ? terms : []).map(term => String(term).trim().toLowerCase()).filter(term => ROLE_TERM.test(term)))].slice(0, 10);
+  const list = search => search.role_keywords || [];
+  return widen(storage, wanted.map(term => ({label: term, fragment: escapeRegex(term)})), list,
+    (search, entries) => ({...search, role_keywords: [...list(search), ...entries]}), deps);
+}
+
+// Places the app offered after a search (src/coverage.py PLACE_OPTIONS): the caller passes the offered fragments only. They join
+// locations.abroad, the same list the Berlin/London/Dubai of the starter settings sit in.
+export function addPlaces(storage, offered, deps) {
+  // One bullet per name ("dublin", "cork"), so the Notion page stays readable instead of showing one long /regex/.
+  const parts = (Array.isArray(offered) ? offered : []).filter(item => item && typeof item.fragment === 'string' && item.fragment.length <= 600
+    && !/[^\w\\|.\s\u00c0-\u017f\[\]-]/.test(item.fragment))
+    .flatMap(item => item.fragment.split('|').filter(Boolean).map(fragment => [fragment.toLowerCase(), {label: String(item.place || fragment), fragment}]));
+  const wanted = [...new Map(parts).values()].slice(0, 60);
+  const list = search => search.locations?.abroad || [];
+  return widen(storage, wanted, list,
+    (search, entries) => ({...search, locations: {...search.locations, abroad: [...list(search), ...entries]}}), deps);
+}
+
+// The shared shape of both: sync the page, change the cached file, publish the page, check the change survived (a search can put the old file back).
+async function widen(storage, wanted, list, change, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
   if (!wanted.length) return {added: []};
   // A search (Focus refresh, the daily run) syncs the page into the cache first; right after our write Notion can still list the old blocks, so
   // that sync puts the old settings back. The page is right a moment later: read it again and redo the change, a few times, before giving up.
@@ -282,17 +302,17 @@ export async function addRoles(storage, terms, {run, ensurePage, writePage, wait
     await run(storage, ['src.notion.search_settings', 'sync']);
     const before = storage.readText('config/search.json') || '{}';
     const search = JSON.parse(before);
-    const have = new Set((search.role_keywords || []).map(entry => String(entry).toLowerCase()));
-    const added = wanted.filter(term => !have.has(escapeRegex(term)));
+    const have = new Set(list(search).map(entry => String(entry).toLowerCase()));
+    const added = wanted.filter(item => !have.has(item.fragment.toLowerCase()));
     if (!added.length) return {added: first || []};
-    first ||= added;
-    storage.writeText('config/search.json', JSON.stringify({...search, role_keywords: [...(search.role_keywords || []), ...added.map(escapeRegex)]}, null, 2) + '\n');
+    first ||= [...new Set(added.map(item => item.label))];
+    storage.writeText('config/search.json', JSON.stringify(change(search, added.map(item => item.fragment)), null, 2) + '\n');
     try {
       await publishSearchSettings(storage, {run, ensurePage, writePage});
       // The page is rendered from the cached file: if a search rewrote that file from an older copy of the page in between, the terms are gone from both
       // and the call would still say it worked (seen in the strategy e2e suite). Check, and try again.
-      const kept = new Set((JSON.parse(storage.readText('config/search.json') || '{}').role_keywords || []).map(entry => String(entry).toLowerCase()));
-      lost = added.filter(term => !kept.has(escapeRegex(term)));
+      const kept = new Set(list(JSON.parse(storage.readText('config/search.json') || '{}')).map(entry => String(entry).toLowerCase()));
+      lost = [...new Set(added.filter(item => !kept.has(item.fragment.toLowerCase())).map(item => item.label))];
       if (!lost.length) return {added: first};
     } catch (error) {
       storage.writeText('config/search.json', before);

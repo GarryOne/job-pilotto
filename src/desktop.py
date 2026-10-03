@@ -344,7 +344,10 @@ def main(argv=None):
         if args.command == 'coverage':
             from . import coverage
             from .paths import load_search_config
-            print(json.dumps(coverage.verdict(coverage.load(), load_search_config().get('role_keywords') or []), ensure_ascii=False))
+            search = load_search_config()
+            places = search.get('locations') or {}
+            print(json.dumps(coverage.verdict(coverage.load(), search.get('role_keywords') or [],
+                                              [fragment for group in places.values() for fragment in group]), ensure_ascii=False))
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()

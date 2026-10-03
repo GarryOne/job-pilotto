@@ -7,7 +7,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {coverageCard} from '../coverage-card.js';
+import {coverageCard, placesCard} from '../coverage-card.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
 function chips(items, tone = '') {
@@ -113,25 +113,33 @@ function renderStrategy(data) {
 // "Your search may be too narrow": read after the strategy is drawn (a quick local file), shown only when the role keywords catch little
 // of the market and some role word would add real numbers. Adding a term rewrites the search settings, in the app and in Notion.
 const DISMISSED = 'jp.coverage.dismissed';
-const remembered = () => { try { return localStorage.getItem(DISMISSED) || ''; } catch { return ''; } };
+const remembered = (key = DISMISSED) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
 export async function loadCoverage() {
   const answer = await window.pilot.searchCoverage().catch(() => null);
-  const card = answer?.ok ? coverageCard(answer.coverage, remembered()) : null;
-  show($('strategy-coverage'), !!card);
+  const verdict = answer?.ok ? answer.coverage : null;
+  showCard(coverageCard(verdict, remembered()), {box: 'strategy-coverage', title: 'coverage-title', text: 'coverage-text', chips: 'coverage-chips', dismiss: 'coverage-dismiss', key: DISMISSED},
+    chip => window.pilot.addRoles([chip.term]), chip => `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`);
+  showCard(placesCard(verdict, remembered(PLACES_DISMISSED)), {box: 'strategy-places', title: 'places-title', text: 'places-text', chips: 'places-chips', dismiss: 'places-dismiss', key: PLACES_DISMISSED},
+    chip => window.pilot.addPlaces([chip.place]), chip => `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`);
+}
+const PLACES_DISMISSED = 'jp.places.dismissed';
+
+function showCard(card, ids, add, done) {
+  show($(ids.box), !!card);
   if (!card) return;
-  $('coverage-title').textContent = card.title;
-  $('coverage-text').textContent = card.text;
-  $('coverage-chips').replaceChildren(...card.chips.map(chip => {
+  $(ids.title).textContent = card.title;
+  $(ids.text).textContent = card.text;
+  $(ids.chips).replaceChildren(...card.chips.map(chip => {
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
     button.addEventListener('click', async () => {
       button.disabled = true;
-      const result = await window.pilot.addRoles([chip.term]).catch(error => ({ok: false, error: error.message}));
-      toastMessage(result.ok ? 'Search widened' : 'Not added', result.ok ? `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).` : result.error);
+      const result = await add(chip).catch(error => ({ok: false, error: error.message}));
+      toastMessage(result.ok ? 'Search widened' : 'Not added', result.ok ? done(chip) : result.error);
       if (result.ok) loadCoverage(); else button.disabled = false;
     });
     return button;
   }));
-  $('coverage-dismiss').onclick = () => { try { localStorage.setItem(DISMISSED, card.at); } catch {} show($('strategy-coverage'), false); };
+  $(ids.dismiss).onclick = () => { try { localStorage.setItem(ids.key, card.at); } catch {} show($(ids.box), false); };
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).

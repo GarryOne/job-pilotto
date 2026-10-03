@@ -31,3 +31,25 @@ test('a tiny share still reads as at least 1 percent and at most 8 chips are sho
   assert.match(card.text, /\(1%\)/);
   assert.equal(card.chips.length, 8);
 });
+
+import {placesCard} from '../renderer/coverage-card.js';
+const places = (extra = {}) => ({at: '2026-10-03T10:00:00+00:00', places: {title_hits: 775, matched: 183, elsewhere: 430,
+  options: [{place: 'Ireland', count: 11, examples: ['Senior SRE', 'Platform Engineer'], fragment: '\\bireland\\b|\\bdublin\\b'}, {place: 'Spain', count: 1, examples: []}], ...extra}});
+
+test('the places card says how many matching roles sit outside your places and offers each place with its count', () => {
+  const card = placesCard(places());
+  assert.equal(card.title, 'Matching roles sit just outside your places');
+  assert.match(card.text, /match 775 open roles; 183 are in your places\. 12 more are in these places:/);
+  assert.match(card.text, /430 more are in places that need a visa/);
+  assert.deepEqual(card.chips.map(chip => chip.label), ['+ Ireland · 11', '+ Spain · 1']);
+  assert.deepEqual(card.chips.map(chip => chip.place), ['Ireland', 'Spain']);   // what addPlaces receives
+  assert.equal(card.chips[0].title, '11 open roles, e.g. Senior SRE; Platform Engineer. About $0.17 once to read and score them.');
+});
+
+test('the places card stays quiet without offers, and after Not now for this crawl', () => {
+  assert.equal(placesCard(null), null);
+  assert.equal(placesCard({places: null}), null);
+  assert.equal(placesCard(places({options: []})), null);
+  assert.equal(placesCard(places(), '2026-10-03T10:00:00+00:00'), null);
+  assert.notEqual(placesCard(places(), '2026-10-01T10:00:00+00:00'), null);
+});

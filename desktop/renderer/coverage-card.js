@@ -18,3 +18,21 @@ export function coverageCard(verdict, dismissedAt = '') {
     at: verdict.at || '',
   };
 }
+
+// The same card for places (src/coverage.py): roles the keywords already catch, but in places you did not list. Pure like the one above.
+export function placesCard(verdict, dismissedAt = '') {
+  const places = verdict?.places;
+  if (!places || !Array.isArray(places.options) || !places.options.length) return null;
+  if (dismissedAt && verdict.at && dismissedAt === verdict.at) return null;
+  const extra = places.options.reduce((sum, option) => sum + (option.count || 0), 0);
+  const elsewhere = places.elsewhere ? ` ${number(places.elsewhere)} more are in places that need a visa (US, Asia), so they are left out.` : '';
+  return {
+    title: 'Matching roles sit just outside your places',
+    text: `Your role keywords match ${number(places.title_hits)} open roles; ${number(places.matched)} are in your places. ${number(extra)} more are in these places:` + elsewhere,
+    chips: places.options.slice(0, 8).map(option => ({
+      place: option.place, label: `+ ${option.place} · ${number(option.count)}`,
+      title: `${number(option.count)} open role${option.count === 1 ? '' : 's'}${option.examples?.length ? `, e.g. ${option.examples.join('; ')}` : ''}. About $${(Math.round(option.count * 1.5) / 100).toFixed(2)} once to read and score them.`,
+    })),
+    at: verdict.at || '',
+  };
+}

@@ -121,7 +121,7 @@ def scan(sources, db, fetcher=fetch, details=None):
             with db:
                 for job in jobs:
                     in_place, hit = wanted_location(job), wanted_title(job["title"])
-                    tally.add(job["title"], in_place, hit, excluded=excluded_title(job["title"]))
+                    tally.add(job["title"], in_place, hit, excluded=excluded_title(job["title"]), location=job["location"])
                     if hit and in_place:
                         matched.append({
                             "company": source["company"], "id": str(job["id"]),
