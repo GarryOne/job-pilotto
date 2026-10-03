@@ -530,7 +530,7 @@ a measured accuracy or success-rate benchmark.
 
 | | 🦾 **Job Pilotto** | [JobCopilot.com](https://jobcopilot.com/) | [Job-CoPilot.ai](https://job-copilot.ai/) | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 🔓 Open source, your data in your own accounts | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 🔓 Source code public, your data in your own accounts | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 🕷️ Finds new jobs by itself, on a schedule | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
 | 🎯 AI fit score against your profile, with the reason | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
 | ✍️ Cover letter and answers to each employer's own form | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
