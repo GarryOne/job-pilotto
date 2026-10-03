@@ -2100,7 +2100,12 @@ async function focusReminder(now = new Date()) {
 
 // Jobs you started that were running or waiting when the app quit (pipeline queue.json) start again. The
 // schedule's own (searches, Gmail checks) aren't: its catch-up runs whatever is due anyway.
-function resumeQueue(jobs) {
+async function resumeQueue(jobs) {
+  // First close the Notion rows of the runs the quit killed (they stay "Running" for 3 h otherwise, on Windows where the engine dies with the app), then start them again.
+  try {
+    const closed = await runHistory.closeInterrupted(storage, jobs);
+    for (const row of closed) appLog('run', 'closed the row of a run the quit interrupted', {kind: row.kind, started: row.startedAt, decidedBy: 'resume after quit'});
+  } catch (error) { appLog('run', 'interrupted rows not closed', {error: error.message}); }
   for (const job of jobs) {
     const failed = error => log(`${pipeline.taskName(job.kind)} failed: ${error.message}`);
     if (job.kind === 'search') pipeline.refresh(storage, log, job.resume.mode || 'run', 'you').catch(failed);

@@ -82,6 +82,26 @@ export async function closeStopped(storage, url, reason, {fetcher} = {}) {
   return true;
 }
 
+// The jobs the app was running when it quit (queue.json, `interrupted`) are about to start again, and the killed run's row would stay "Running" for up to 3 h: Python can
+// close its own row only when it exits by itself. A Mac leaves the orphaned engine running and it finishes; Windows ends the whole process tree, so the row stayed Running
+// and the app listed the task as running for hours (the Windows activityfailures run, 3 Oct 2026, #91). The app closes this Mac's matching row first (the new run's row does
+// not exist yet). Matched by kind, by a Mac trigger and by the start time (Notion keeps it to the minute); the nearest row wins. Returns the rows it closed.
+export async function closeInterrupted(storage, jobs, {fetcher, size = 25, windowMs = 3 * 60 * 1000} = {}) {
+  const wanted = jobs.filter(job => job?.interrupted && (job.queuedAt || job.startedAt));
+  if (!wanted.length) return [];
+  const rows = (await list(storage, {fetcher, size}) || []).filter(row => row.live && row.where === 'mac');
+  const closed = [], taken = new Set();
+  for (const job of wanted) {
+    const at = new Date(job.queuedAt || job.startedAt).getTime();
+    const near = rows.filter(row => !taken.has(row) && row.kind === job.kind && Math.abs(Date.parse(row.startedAt) - at) <= windowMs)
+      .sort((a, b) => Math.abs(Date.parse(a.startedAt) - at) - Math.abs(Date.parse(b.startedAt) - at))[0];
+    if (!near) continue;
+    taken.add(near);
+    if (await closeStopped(storage, near.notionUrl, 'Interrupted: the app was closed before this run finished; it was started again.', {fetcher})) closed.push({kind: near.kind, pageId: near.pageId, startedAt: near.startedAt});
+  }
+  return closed;
+}
+
 // A run's page: what it produced (under "Result") and its technical log (the toggle's code blocks).
 export async function detail(storage, pageId, {fetcher} = {}) {
   const token = storage.secret('NOTION_TOKEN');

@@ -47,3 +47,27 @@ test('a run stopped by the watchdog has its Notion row closed', async () => {
   assert.ok(patch, `the row was not closed (calls: ${calls.map(call => call[0]).join(', ') || 'none'})`);
   assert.equal(JSON.parse(patch[2]).properties.Status.select.name, 'Failed');
 });
+
+// #91 (Windows): the app quit under a run, the engine died with it, and its Notion row stayed Running. On resume the app closes this Mac's matching row, once, and only that one.
+test('closeInterrupted closes the Running row of the run the quit killed, not another kind, another start time or a finished run', async () => {
+  const calls = [];
+  const at = Date.parse('2026-10-03T19:17:30Z');
+  const row = (id, mode, status, minutesFromJob, trigger = 'Mac (you)') => ({id, url: `https://app.notion.com/p/${id}`, created_time: new Date(at).toISOString(),
+    properties: {Started: {date: {start: new Date(at + minutesFromJob * 60000).toISOString()}}, Mode: {select: {name: mode}}, Status: {select: {name: status}}, Trigger: {select: {name: trigger}}, Summary: {rich_text: []}}});
+  const pages = [row('a'.repeat(32), 'run', 'Running', 0.4), row('b'.repeat(32), 'mail', 'Running', 0.1), row('c'.repeat(32), 'run', 'Running', 40), row('d'.repeat(32), 'run', 'OK', 0.2),
+    row('e'.repeat(32), 'run', 'Running', 0.2, 'Schedule')];
+  const fetcher = async (url, init) => {
+    const route = String(url).replace('https://api.notion.com/v1/', '');
+    calls.push([init.method, route]);
+    if (init.method === 'POST') return json({results: pages});
+    return json(pages.find(page => route.endsWith(page.id)) || {properties: {}});
+  };
+  const storage = {secret: () => 'token', settings: () => ({notionIds: {NOTION_CRON_RUNS_DB: 'db'}})};
+  const job = {kind: 'search', trigger: 'you', queuedAt: new Date(at).toISOString(), resume: {mode: 'run'}, interrupted: true};
+  const closed = await runHistory.closeInterrupted(storage, [job], {fetcher});
+  assert.equal(closed.length, 1);
+  const patched = calls.filter(call => call[0] === 'PATCH');
+  assert.equal(patched.length, 1, JSON.stringify(calls));
+  assert.match(patched[0][1], /aaaaaaaa/, 'the search row at the job\'s start time, not the mail row, the 40-minute-later row, the finished row or the GitHub row');
+  assert.deepEqual(await runHistory.closeInterrupted(storage, [{...job, interrupted: false}], {fetcher}), [], 'a job that was only waiting has no row to close');
+});
