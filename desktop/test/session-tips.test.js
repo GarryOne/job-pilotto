@@ -19,7 +19,7 @@ test('the pool is valid: unique ids, short lines, known evidence, https sources,
   assert.equal(new Set(TIPS.map(tip => tip.id)).size, TIPS.length, 'ids are unique');
   for (const tip of TIPS) {
     assert.ok(tip.text && tip.text.length <= 150, `${tip.id}: one short line`);
-    assert.ok(['research', 'advice', 'to-test'].includes(tip.evidence), `${tip.id}: evidence`);
+    assert.ok(['research', 'recruiters', 'advice', 'to-test'].includes(tip.evidence), `${tip.id}: evidence`);
     if (tip.source) assert.match(tip.source, /^https:\/\//, `${tip.id}: source is https`);
     if (tip.evidence === 'research') assert.ok(tip.source, `${tip.id}: a fact names its source`);
     if (tip.ats) assert.ok(SYSTEMS.includes(tip.ats), `${tip.id}: known system`);

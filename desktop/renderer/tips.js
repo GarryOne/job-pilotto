@@ -48,9 +48,9 @@ function advance(slot) {
   if (!picked.tip) return;
   write(SEEN_KEY, picked.seen);
   const chip = slot.querySelector('.ss-tip-chip'), text = slot.querySelector('.ss-tip-text');
-  chip.textContent = picked.tip.evidence === 'research' ? 'Fact' : 'Tip';
+  chip.textContent = {research: 'Fact', recruiters: 'Recruiters say'}[picked.tip.evidence] || 'Tip';
   text.textContent = picked.tip.text;
-  slot.title = picked.tip.source ? `Source: ${picked.tip.source}` : '';
+  slot.title = picked.tip.source ? `Source: ${picked.tip.source}` : picked.tip.evidence === 'recruiters' ? 'What recruiters report in Reddit threads (2025-26): firsthand, a few threads each, not a survey' : '';
   if (!still()) text.style.animationDuration = `${Math.max(MIN_SECONDS, text.scrollWidth / PIXELS_PER_SECOND)}s`;
 }
 
