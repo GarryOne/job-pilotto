@@ -719,6 +719,15 @@
       <div class="alert tone-info settings-alert" id="strategy-cv-changed" hidden><i data-icon="info"></i>
         <div><strong>Your CV changed</strong><p>New applications already use it. Review what it changes in your Profile before anything is re-scored.</p></div>
         <button class="primary" id="strategy-cv-review">Review what changes</button></div>
+      <div class="alert tone-info settings-alert" id="strategy-previous" hidden><i data-icon="info"></i>
+        <div><strong>Previous scoring method</strong><p id="strategy-previous-text"></p></div>
+        <button class="secondary" id="strategy-rescore"></button></div>
+      <div class="alert tone-warn settings-alert" id="strategy-coverage" hidden><i data-icon="target"></i>
+        <div><strong id="coverage-title"></strong><p id="coverage-text"></p><div class="coverage-chips" id="coverage-chips"></div></div>
+        <button class="secondary" id="coverage-dismiss">Not now</button></div>
+      <div class="alert tone-warn settings-alert" id="strategy-places" hidden><i data-icon="target"></i>
+        <div><strong id="places-title"></strong><p id="places-text"></p><div class="coverage-chips" id="places-chips"></div></div>
+        <button class="secondary" id="places-dismiss">Not now</button></div>
       <div class="strategy-grid">
         <div class="strategy-main">
           <article class="summary-card">
@@ -749,15 +758,6 @@
           </article>
         </div>
       </div>
-      <div class="alert tone-info settings-alert" id="strategy-previous" hidden><i data-icon="info"></i>
-        <div><strong>Previous scoring method</strong><p id="strategy-previous-text"></p></div>
-        <button class="secondary" id="strategy-rescore"></button></div>
-      <div class="alert tone-warn settings-alert" id="strategy-coverage" hidden><i data-icon="target"></i>
-        <div><strong id="coverage-title"></strong><p id="coverage-text"></p><div class="coverage-chips" id="coverage-chips"></div></div>
-        <button class="secondary" id="coverage-dismiss">Not now</button></div>
-      <div class="alert tone-warn settings-alert" id="strategy-places" hidden><i data-icon="target"></i>
-        <div><strong id="places-title"></strong><p id="places-text"></p><div class="coverage-chips" id="places-chips"></div></div>
-        <button class="secondary" id="places-dismiss">Not now</button></div>
       <p class="message" id="strategy-load"></p>
     </div>
 
