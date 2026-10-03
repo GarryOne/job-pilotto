@@ -49,7 +49,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   let findings = [];
   try { findings = JSON.parse(fs.readFileSync(option('findings'), 'utf8')); } catch { /* none written: nothing to file */ }
   const result = fileReview({findings, range: option('range'), runUrl: option('run-url'), repo: process.env.REPO || '', sha: process.env.SHA || ''});
-  const line = `AI code review: ${Array.isArray(findings) ? findings.length : 0} finding(s) written, ${result.checked} well-formed, ${result.filed.length} filed (${result.filed.join(', ') || 'none new'}).`;
+  let read = [];
+  try { read = fs.readFileSync('.review/reviewed.txt', 'utf8').split('\n').map(line => line.trim()).filter(Boolean); } catch { /* not written */ }
+  const line = `AI code review: ${read.length} commit(s) read, ${Array.isArray(findings) ? findings.length : 0} finding(s) written, ${result.checked} well-formed, ${result.filed.length} filed (${result.filed.join(', ') || 'none new'}).`;
   console.log(line);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
 }

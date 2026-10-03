@@ -56,9 +56,18 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
-            --model claude-sonnet-5-5 --max-turns 40
+            --model claude-sonnet-5-5 --max-turns 80
             --allowedTools "Read,Glob,Grep,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: Read .review/prompt.md and follow it exactly.
+      - name: Keep what it read and found (to audit a review)
+        if: always() && steps.range.outputs.range != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-review
+          path: |
+            .review/
+            /home/runner/work/_temp/claude-execution-output.json
+          if-no-files-found: ignore
       - uses: actions/setup-node@v4
         if: steps.range.outputs.range != ''
         with:
