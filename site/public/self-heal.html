@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Self-healing loops: what the AI costs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="description" content="What Job Pilotto's self-healing loops (the Finder and the Fixer) spend on AI, run by run.">
+<link rel="canonical" href="https://www.jobpilotto.workers.dev/self-heal">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .sh { max-width: 900px; margin-inline: auto; padding-bottom: 48px; }
+  .sh h2 { margin: 40px 0 10px; font-size: 1.35rem; }
+  .sh p, .sh li { color: var(--muted); max-width: 72ch; }
+  .sh .access-wrap { margin-top: 14px; }
+  .sh .access td:last-child { white-space: normal; }
+  .sh .access td.num { font: 500 .85rem var(--mono); color: var(--ink); white-space: nowrap; }
+  .sh .access tr.total td { color: var(--ink); font-weight: 700; }
+  .sh .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 18px; }
+  .sh .kpi { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 16px 18px; }
+  .sh .kpi b { display: block; font: 700 1.6rem var(--display, inherit); color: var(--ink); }
+  .sh .kpi span { font: 400 .78rem var(--mono); color: var(--muted); }
+  .sh .note { font: 400 .78rem var(--mono); color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topnav" id="topnav">
+    <a class="brand" href="./"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Job Pilotto</a>
+    <div class="links">
+      <a href="./#how">How it works</a>
+      <a href="intelligence.html">Intelligence</a>
+      <a href="./#privacy">Privacy</a>
+      <a href="./#pricing">Pricing</a>
+      <a href="compare.html">Compare</a>
+      <a href="./#faq">FAQ</a>
+    </div>
+    <a class="btn btn-primary" href="/download/mac?from=self-heal-header">Download for Mac</a>
+  </nav>
+
+  <main class="sh">
+    <header class="section-head" style="padding-block: 36px 8px">
+      <span class="eyebrow">Self-healing · AI spend · 2–3 Oct 2026</span>
+      <h1 style="font-size: clamp(1.9rem, 4vw, 2.8rem)">The self-healing loops cost about $4–11 in AI in their first two days</h1>
+      <p class="lede">The Finder reviews the app's screenshots and files issues. The Fixer turns an issue into a pull request. Both run on Claude Sonnet 5.5, and the Finder's screenshot review is most of the bill.</p>
+    </header>
+
+    <div class="kpis">
+      <div class="kpi"><b>$1.12</b><span>Fixer · measured</span></div>
+      <div class="kpi"><b>≈ $3–10</b><span>Finder · estimated</span></div>
+      <div class="kpi"><b>4 PRs · 2 merged</b><span>≈ $0.56 per merged fix</span></div>
+      <div class="kpi"><b>220 findings</b><span>from 476 screenshot reviews</span></div>
+    </div>
+
+    <h2>What drives the cost</h2>
+    <ul>
+      <li><strong>Volume of screenshot reviews.</strong> There were 476 of them, about one per screenshot in every e2e suite, four e2e runs a day.</li>
+      <li><strong>Thinking tokens.</strong> Sonnet 5.5 thinks by default, and thinking counts as output ($10 per million tokens, up to the 1,200-token cap). That is roughly half to two-thirds of each review.</li>
+      <li><strong>No prompt caching.</strong> Every review resends the prompt and the design rules, and the screenshot comes first, so nothing after it can be cached.</li>
+      <li><strong>The Fixer is cheap per attempt</strong> ($0.17–0.25, 14–22 turns). Its cost is in the attempts that end in a closed PR: 2 of 4.</li>
+    </ul>
+
+    <h2>Fixer: $1.12, measured</h2>
+    <div class="access-wrap">
+      <table class="access">
+        <thead><tr><th>Run (UTC)</th><th>Issue</th><th>Turns</th><th>Cost</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>3 Oct 17:35</td><td>#63 focus: “More actions” expand broken</td><td class="num">20</td><td class="num">$0.253</td><td>PR #85, closed</td></tr>
+          <tr><td>3 Oct 16:48</td><td>#66 strategy: no loading state on “Edit in Notion”</td><td class="num">19</td><td class="num">$0.208</td><td>PR #79, merged</td></tr>
+          <tr><td>3 Oct 10:31</td><td>#49 sidebar spill (second try)</td><td class="num">19</td><td class="num">$0.232</td><td>no PR (run failed)</td></tr>
+          <tr><td>2 Oct 23:31</td><td>#49 sidebar spill</td><td class="num">14</td><td class="num">$0.172</td><td>PR #62, closed</td></tr>
+          <tr><td>2 Oct 21:43</td><td>#50 activity: vague warning reason</td><td class="num">22</td><td class="num">$0.252</td><td>PR #54, merged</td></tr>
+          <tr><td>2 Oct 21:19</td><td>#38 activity: rate-limit detail</td><td class="num">1</td><td class="num">$0.000</td><td>Claude errored at once</td></tr>
+          <tr><td>2–3 Oct</td><td>Sentry fixer, 3 runs: nothing qualified</td><td class="num">0</td><td class="num">$0</td><td>Claude never ran</td></tr>
+          <tr class="total"><td>Total</td><td></td><td class="num">95</td><td class="num">$1.117</td><td>4 PRs, 2 merged</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Measured: the total_cost_usd that claude-code-action prints in each run. One earlier PR (#35, 2 Oct 13:29) has no run left in the history, so it isn't counted.</p>
+
+    <h2>Finder: 476 reviews, ≈ $3–10</h2>
+    <div class="access-wrap">
+      <table class="access">
+        <thead><tr><th>Day</th><th>Reviews answered</th><th>Rejected (HTTP 400)</th><th>Estimated cost</th></tr></thead>
+        <tbody>
+          <tr><td>2 Oct</td><td class="num">292</td><td class="num">58</td><td class="num">≈ $1.9–5.8</td></tr>
+          <tr><td>3 Oct</td><td class="num">184</td><td class="num">0</td><td class="num">≈ $1.2–3.7</td></tr>
+          <tr class="total"><td>Total</td><td class="num">476</td><td class="num">58</td><td class="num">≈ $3.1–9.5</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Estimated: the review discards the API's usage figures. Per review ≈ 2.6–3.8k input tokens ($0.005–0.008) and 150–1,200 output tokens ($0.0015–0.012), at Sonnet 5.5's $2 / $10 per million. Rejected calls are counted as free.</p>
+
+    <h2>Not counted</h2>
+    <ul>
+      <li>The e2e fact judges (the quality and employers suites) and the app's own AI calls made during e2e runs. Those are test spend, not the Finder.</li>
+      <li>Exact Finder figures would need the review to log its token usage, or the Anthropic cost report split by API key.</li>
+    </ul>
+    <p class="note">Sources: GitHub Actions logs of ui-fix.yml (9 runs), sentry-fix.yml (3) and e2e.yml (106 runs, 409 suite jobs with a review), 2 Oct 12:10 to 3 Oct 19:59 UTC.</p>
+  </main>
+
+  <footer>
+    <span>✈ Job Pilotto · made in Switzerland by an SRE who needed it</span>
+    <span>Source available · Mac app · Your data stays in your Notion</span>
+  </footer>
+</div>
+<script src="/track.js" defer></script>
+</body>
+</html>
