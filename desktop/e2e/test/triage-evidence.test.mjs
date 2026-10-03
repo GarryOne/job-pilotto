@@ -53,9 +53,10 @@ const openIssue = (number, title, kind, labels = [], comments = [], detail = 'Th
 
 test('an issue shows the screenshot, the app state, the severity and where to look', () => {
   const body = issueBody({...aiFinding, id: 'fp1', source: 'ai-review'}, RUN, {suite: 'focus', screenshot: URL1, facts: {page: 'focus', aiEngineChosen: 'api', notionConnected: true, jobsInList: 0, situation: 'default'}, codeFile: 'desktop/renderer/pages/focus.js'});
-  assert.match(body, /^\*\*MEDIUM\*\* · layout · found by the AI screenshot review/);
+  assert.match(body, /^🟠 \*\*MEDIUM\*\* · layout · found by the AI screenshot review/);
+  assert.match(body, /\n> 📍 Page `focus` · suite `focus`\n/, 'a short where-and-on-what block follows the verdict line');
   assert.ok(body.includes(`![focus](${URL1})`));
-  assert.match(body, /\| Page \| focus \|/);
+  assert.match(body, /<details><summary>App state when this was taken<\/summary>[\s\S]*- \*\*Page:\*\* focus/, 'the app state is collapsed, as a short list');
   assert.match(body, /node suite\.mjs focus/);
   assert.match(body, /desktop\/renderer\/pages\/focus\.js/);
   assert.match(body, /e2e-artifacts-focus/);
@@ -79,7 +80,7 @@ test('a new finding is filed with its screenshot (uploaded), facts and labels', 
   assert.equal(uploads.length, 1);
   assert.match(uploads[0], /^ui-loop\/[^/]+\/777-ui-focus\.png$/);
   assert.match(state.created[0].body, /!\[focus\]\(https:\/\/raw\.githubusercontent\.com\/o\/r\/pr-assets\/ui-loop\//);
-  assert.match(state.created[0].body, /\| Page \| focus \|/);
+  assert.match(state.created[0].body, /- \*\*Page:\*\* focus/);
   assert.match(state.created[0].labels, /severity:medium.*kind:layout.*view:focus/);
 });
 
@@ -278,8 +279,9 @@ test('a failed-step issue is cleared only by a run of its suite with no failure 
 test('an issue from a seeded run says which path it walked and how to replay it; a fixed run says nothing', () => {
   const finding = {...aiFinding, id: 'fp1', source: 'ai-review'};
   const seeded = issueBody(finding, RUN, {suite: 'interactions', seed: 4242, window: [1024, 700]});
-  assert.match(seeded, /Variation: seed 4242, window 1024x700\. Replay the same path: `E2E_SEED=4242 node suite\.mjs interactions`/);
-  assert.doesNotMatch(issueBody(finding, RUN, {suite: 'interactions', seed: 0}), /Variation:/);
+  assert.match(seeded, /Variation of this run: seed 4242, window 1024x700/);
+  assert.match(seeded, /E2E_SEED=4242 node suite\.mjs interactions {4}# this run's path/);
+  assert.doesNotMatch(issueBody(finding, RUN, {suite: 'interactions', seed: 0}), /Variation of this run/);
 });
 
 const chromeIssue = (number, title, view = 'failure-screenshot', labels = []) => ({number, state: 'OPEN', title: `[auto-ui] ${view}: ${title}`, body: '**HIGH** · text · found by the AI screenshot review\n\nx',

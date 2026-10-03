@@ -90,25 +90,38 @@ export function formatDetail(finding) {
   const split = /^([^\n:]{3,80}:)\s+([\s\S]+)$/.exec(text);
   return split ? `${split[1]}\n\n${fence(split[2])}` : fence(text);
 }
+const DOT = {high: '🔴', medium: '🟠', low: '🟡'};
+const PLATFORM_NAME = {mac: 'Mac', windows: 'Windows'};
+// The first line and the "Build tested:" line are read back by the later steps (severity, kind, the commit, "found by"); the fingerprint comment ends the body.
+// Layout (3 Oct 2026, after the owner's review): the verdict line, a three-line "where and on what" block, then what was found, the evidence, how to reproduce it and where to look.
+// Wide or secondary facts (the app's state, a seeded run's variation, the logs) sit in collapsed blocks, so the page reads in a few seconds.
 export function issueBody(finding, runUrl, evidence = {}) {
   const view = finding.view, suite = evidence.suite || '';
   const picture = evidence.screenshot || evidence.failedScreenshot;
   const rows = factsRows(evidence.facts);
   const logs = Object.entries(evidence.logs || {}).filter(([, text]) => text);
-  const out = [`**${finding.severity.toUpperCase()}** · ${finding.kind} · found by ${sourceWords(finding)}`, '', '### What was found', formatDetail(finding)];
+  const platform = PLATFORM_NAME[evidence.platform] || '';
+  const out = [`${DOT[finding.severity] || ''} **${finding.severity.toUpperCase()}** · ${finding.kind} · found by ${sourceWords(finding)}`.trim(), ''];
+  out.push(`> 📍 Page \`${view}\`${suite ? ` · suite \`${suite}\`` : ''}${platform ? ` · ${platform}` : ''}`);
+  if (evidence.build) out.push(`> 🏷️ Build tested: ${evidence.build}`);
+  out.push(`> 🔗 First seen: ${runUrl}`, '', '### What was found', formatDetail(finding));
   if (finding.suggestion) out.push('', '### Suggested', finding.suggestion);
   if (picture || rows.length || logs.length) out.push('', '### Evidence');
-  if (picture) out.push(`![${view}](${picture})`, `<sub>${suite ? `Suite \`${suite}\` · ` : ''}page \`${view}\` · ${runUrl}</sub>`);
-  if (rows.length) out.push('', '| App state | |', '|---|---|', ...rows.map(([name, value]) => `| ${name} | ${value} |`));
-  if (finding.also?.length) out.push('', '### Failed after it', ...finding.also.slice(0, 8).map(step => `- ${step}`), ...(finding.also.length > 8 ? [`- … and ${finding.also.length - 8} more`] : []), '', '<sub>Probably consequences of the first failure (later steps need what it leaves).</sub>');
+  if (picture) out.push(`![${view}](${picture})`);
+  if (rows.length) out.push('', '<details><summary>App state when this was taken</summary>', '', ...rows.map(([name, value]) => `- **${name}:** ${value}`), '', '</details>');
+  if (finding.also?.length) out.push('', '### Failed after it', ...finding.also.slice(0, 8).map(step => `- ${step}`), ...(finding.also.length > 8 ? [`- … and ${finding.also.length - 8} more`] : []), '', '<sub>Probably consequences of the first failure (later steps of the same suite).</sub>');
   for (const [name, text] of logs) out.push('', `<details><summary>${name} (last lines)</summary>`, '', fence(text), '', '</details>');
-  if (evidence.seed) out.push('', `Variation: seed ${evidence.seed}${evidence.window ? `, window ${evidence.window.join('x')}` : ''}${evidence.detail ? ` (${evidence.detail})` : ''}. Replay the same path: \`E2E_SEED=${evidence.seed} node suite.mjs ${suite || 'interactions'}\``);
-  if (suite) out.push('', '### Reproduce', `\`cd desktop/e2e && node suite.mjs ${suite}\`: the step that photographs \`${view}\` (\`snap(ctx, '${view}')\`) shows it.`);
+  if (suite) {
+    out.push('', '### Reproduce', fence([`cd desktop/e2e`, `node suite.mjs ${suite}${evidence.seed ? `    # the fixed path` : ''}`, ...(evidence.seed ? [`E2E_SEED=${evidence.seed} node suite.mjs ${suite}    # this run's path`] : [])].join('\n'), 'sh'),
+      `The step that photographs \`${view}\` (\`snap(ctx, '${view}')\`) shows it.`);
+    if (evidence.seed) out.push('', `<details><summary>Variation of this run: seed ${evidence.seed}${evidence.window ? `, window ${evidence.window.join('x')}` : ''}</summary>`, '',
+      ...(evidence.detail ? [`${evidence.detail}`, ''] : []), 'The seed shuffles the pages, the controls and the form data; the same seed replays the same path.', '', '</details>');
+  }
   const where = [];
   if (evidence.codeFile) where.push(`- Code: \`${evidence.codeFile}\``);
   if (suite) where.push(`- The run's artifacts: \`e2e-artifacts-${suite}\` (\`ui-${view}.png\`, \`ui-${view}.json\`, the findings files)`);
   if (where.length) out.push('', '### Where to look', ...where);
-  out.push('', `First seen: ${runUrl}`, ...(evidence.build ? [`Build tested: ${evidence.build}`] : []), '', `<!-- fingerprint: ${finding.id} -->`);
+  out.push('', `<!-- fingerprint: ${finding.id} -->`);
   return out.join('\n');
 }
 
@@ -175,6 +188,9 @@ export function screenshotOf(issue) {
   return find(issue.body) || [...(issue.comments || [])].reverse().map(comment => find(comment.body)).find(Boolean) || '';
 }
 
+// The finding's own words in an issue body: the "What was found" section (old bodies had it right after the first line, new ones after a metadata block).
+export const foundText = body => { const text = String(body || ''); const at = text.indexOf('### What was found'); return (at >= 0 ? text.slice(at + 18).split('\n###')[0] : text.split('\n').slice(1, 4).join(' ')).replace(/\s+/g, ' ').trim().slice(0, 600); };
+
 // How alike two texts are, 0..1: the share of their words (3+ letters) that both have. The AI words the same problem differently every run.
 const wordsOf = text => new Set(String(text || '').toLowerCase().match(/[a-z]{3,}/g) || []);
 export function similar(a, b) {
@@ -192,7 +208,7 @@ export function matchExisting(finding, issues, threshold = 0.3, state = 'OPEN') 
   const text = `${finding.title} ${finding.detail}`;
   return issues.filter(issue => issue.state === state && new RegExp(`^\\[auto-ui\\] ${finding.view}:`).test(issue.title || '')
       && (/·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '') === finding.kind)
-    .map(issue => ({issue, score: similar(text, `${(issue.title || '').replace(/^\[auto-ui\] [^:]+:/, '')} ${String(issue.body || '').split('\n').slice(1, 4).join(' ')}`)}))
+    .map(issue => ({issue, score: similar(text, `${(issue.title || '').replace(/^\[auto-ui\] [^:]+:/, '')} ${foundText(issue.body)}`)}))
     .filter(item => item.score >= threshold).sort((a, b) => b.score - a.score)[0]?.issue || null;
 }
 
