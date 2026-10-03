@@ -331,7 +331,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.
-- `tools/scout_canary.py` — Weekly live check of the scout: can it still find a job feed for each site in config/scout_canary.json?
 - `tools/send-to-chatgpt.sh` — send-to-chatgpt.sh — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
 - `tools/site-shots.mjs` — The website as visitors see it, for the product brain (.github/workflows/product-brain.yml): a desktop and a
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the

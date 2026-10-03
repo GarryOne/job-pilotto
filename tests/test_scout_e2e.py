@@ -110,28 +110,3 @@ class IndexContract(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
-class CanaryTool(unittest.TestCase):
-    def setUp(self):
-        saved = careers.READER, careers.RENDER   # the tool switches the AI reader and the browser off for itself
-        self.addCleanup(lambda: (setattr(careers, 'READER', saved[0]), setattr(careers, 'RENDER', saved[1])))
-
-    def test_it_fails_when_too_few_sites_still_give_a_feed_and_names_the_lost_ones(self):
-        import importlib.util
-        import io
-        from contextlib import redirect_stdout
-        spec = importlib.util.spec_from_file_location('scout_canary', ROOT / 'tools' / 'scout_canary.py')
-        tool = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(tool)
-        config = json.loads((ROOT / 'config' / 'scout_canary.json').read_text())
-        self.assertGreaterEqual(len(config['sites']), 20)
-        self.assertTrue(all(site['website'].startswith('http') for site in config['sites']))
-        lost = {config['sites'][0]['name']}
-        answer = lambda candidate: ('careers', 'x', [1]) if candidate['name'] not in lost else None
-        for losing, code in ((lost, 0), ({s['name'] for s in config['sites']}, 1)):
-            lost = losing
-            out = io.StringIO()
-            with mock.patch.object(tool.scout, 'find_feed', side_effect=answer), redirect_stdout(out):
-                self.assertEqual(tool.main(), code)
-            self.assertIn('LOST', out.getvalue())
