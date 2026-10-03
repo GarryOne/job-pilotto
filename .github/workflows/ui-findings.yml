@@ -64,7 +64,8 @@ jobs:
           # Which code was tested: an issue about a finding already fixed on main must be recognisable at a glance.
           BUILD=""
           if [ -n "$RUN_SHA" ]; then BUILD="${RUN_BRANCH} @ ${RUN_SHA:0:7} (${RUN_EVENT} run)"; fi
-          # A run that tested another commit than its own (a soak top-up on a release tag) says which one.
+          # A run that tested another commit than its own (a soak top-up on a release tag) says which one. tested.txt has no final newline: `read` then
+          # returns 1 and bash -e ended the step, so nothing was filed (3 Oct 2026, four runs).
           tested=$(find e2e-artifacts -name tested.txt | head -1)
-          if [ -n "$tested" ]; then read -r label sha < "$tested"; BUILD="${label} @ ${sha:0:7} (${RUN_EVENT} run)"; fi
+          if [ -n "$tested" ]; then read -r label sha < "$tested" || true; BUILD="${label} @ ${sha:0:7} (${RUN_EVENT} run)"; fi
           node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD"
