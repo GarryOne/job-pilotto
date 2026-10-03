@@ -433,7 +433,13 @@ export function start(storage, onError = () => {}) {
           try {
             const report = JSON.parse(body?.toString() || '{}');
             tabs = new Set((report.urls || []).map(pageKey));
-            seen = {at: Date.now(), version: report.version || ''};
+            const at = Date.now(), version = report.version || '';
+            // The first check-in since the app started, one after a silence, or a new version: "when did the extension
+            // last reach the app?" is answerable from the log (the every-30-s ones in between are not written).
+            const why = !seen ? 'first since the app started' : seen.version !== version ? `version ${seen.version || '?'} → ${version}`
+              : at - seen.at > 90 * 1000 ? `after ${Math.round((at - seen.at) / 1000)} s of silence` : '';
+            if (why) appLog('extension', `checked in: ${why}`, {version, tabs: (report.urls || []).length});
+            seen = {at, version};
             tabsHandler({ids: report.ids, boot: report.boot});
             void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}
