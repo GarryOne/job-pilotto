@@ -53,7 +53,11 @@ TELEMETRY_URL = 'https://www.jobpilotto.workers.dev/telemetry/version'
 KEY_ENV = 'JOB_PILOTTO_TELEMETRY_KEY'
 MIN_HEALTH_DAYS = 2              # distinct days with a health line on the candidate
 MIN_USED_SPAN = timedelta(hours=48)   # first to last health line
-MIN_RUNS_OK = 5                  # successful pipeline runs (health runsOk; about a day of normal use)
+MIN_INSTALLS = 3                 # distinct installs on the build: one tester's luck proves nothing (the old rule needed one)
+MIN_RUNS_OK = 30                 # successful pipeline runs: with none failing, 30 rule out a failure rate of 10 % at 95 % confidence (rule of three)
+MIN_BASELINE_RUNS = 5            # stable needs this many counted runs to be a baseline for the failure rate
+RC_MIN_RUNS = 3                  # gate 4: end-to-end runs on the candidate's own commit, all green ...
+RC_MIN_SPAN = timedelta(hours=24)  # ... the first and the last at least this far apart (a one-off flake or a lucky hour proves nothing)
 FAILURE_MARGIN = 0.05            # candidate failure rate may exceed stable's by at most 5 points
 MAX_FAILURE_NO_BASELINE = 0.10   # stable with fewer than MIN_RUNS_OK counted runs: an absolute ceiling
 MAX_SILENCE = timedelta(hours=24)  # its last report
@@ -169,7 +173,7 @@ def usage_problems(candidate, stable, now):
     rate = _rate(runs)
     s_runs = (stable or {}).get('runs') or {}
     s_total = (s_runs.get('ok') or 0) + (s_runs.get('failed') or 0)
-    baseline = s_total >= MIN_RUNS_OK
+    baseline = s_total >= MIN_BASELINE_RUNS
     limit = _rate(s_runs) + FAILURE_MARGIN if baseline else MAX_FAILURE_NO_BASELINE
     summary = (f"app reports: {c.get('healthInstalls', 0)} install(s), health on {c.get('healthDays', 0)} day(s) over "
                f"{span.total_seconds() / 3600:.0f} h, runs {runs.get('ok', 0)} ok / {runs.get('failed', 0)} failed "
@@ -178,8 +182,8 @@ def usage_problems(candidate, stable, now):
                f"stuck {events.get('stuck', 0)}, form_issue {events.get('form_issue', 0)}, "
                f"last report {f'{silent.total_seconds() / 3600:.0f} h ago' if silent is not None else 'never'}")
     problems = []
-    if not c.get('healthInstalls') or (c.get('healthDays') or 0) < MIN_HEALTH_DAYS or span < MIN_USED_SPAN:
-        problems.append(f"not used enough: needs health reports on >= {MIN_HEALTH_DAYS} days spanning "
+    if (c.get('healthInstalls') or 0) < MIN_INSTALLS or (c.get('healthDays') or 0) < MIN_HEALTH_DAYS or span < MIN_USED_SPAN:
+        problems.append(f"not used enough: needs >= {MIN_INSTALLS} installs with health reports on >= {MIN_HEALTH_DAYS} days spanning "
                         f">= {int(MIN_USED_SPAN.total_seconds() // 3600)} h")
     if (runs.get('ok') or 0) < MIN_RUNS_OK:
         problems.append(f"too few successful runs: {runs.get('ok') or 0} < {MIN_RUNS_OK}")
@@ -193,9 +197,38 @@ def usage_problems(candidate, stable, now):
     return problems, summary
 
 
-def decide(releases, now, facts, min_age=MIN_AGE):
+# Problems about the evidence being thin (nobody ran it yet) versus about it being bad (it ran and went wrong): only the second always blocks.
+BAD_EVIDENCE = ('problem reports for it', 'failure rate')
+
+
+def rc_problems(runs, blockers, sha7, now):
+    """Gate 4: why the candidate's own end-to-end runs aren't enough yet ([] = they are).
+    `runs`: completed e2e.yml runs on its commit, newest first ({conclusion, createdAt}); cancelled/skipped say nothing.
+    `blockers`: open `auto-ui` issues of severity high (any text naming this commit as the build tested)."""
+    decided = [r for r in runs if r.get('conclusion') in ('success', 'failure')]
+    problems = []
+    for issue in blockers:
+        problems.append(f"open high-severity finding #{issue['number']} on this build: {issue.get('title', '')[:80]}")
+    if any(r['conclusion'] == 'failure' for r in decided[:RC_MIN_RUNS]):
+        problems.append(f"end-to-end red in one of its last {RC_MIN_RUNS} runs on commit {sha7}")
+    greens = [r for r in decided if r['conclusion'] == 'success']
+    if len(greens) < RC_MIN_RUNS:
+        problems.append(f"end-to-end ran green {len(greens)} time(s) on commit {sha7}, needs {RC_MIN_RUNS}")
+    elif parse_time(greens[0]['createdAt']) - parse_time(greens[-1]['createdAt']) < RC_MIN_SPAN:
+        problems.append(f"its green end-to-end runs span under {int(RC_MIN_SPAN.total_seconds() // 3600)} h")
+    return problems
+
+
+def blocking_findings(issues, sha7):
+    """The open high-severity UI-loop issues whose text (body or a 'Build tested' comment) names this commit."""
+    return [i for i in issues if i.get('state', 'OPEN') == 'OPEN' and f'@ {sha7}' in issue_text(i)
+            and any((l.get('name') if isinstance(l, dict) else l) == 'severity:high' for l in i.get('labels') or [])]
+
+
+def decide(releases, now, facts, min_age=MIN_AGE, require_beta=True):
     """{'promote': bool, 'tag': str|None, 'reasons': [...]}. `facts` reads GitHub (fake in tests):
-    ci_runs(tag), telemetry(), fill_failures(), extension_version(tag), usage(version, stable_version)."""
+    ci_runs(tag), e2e_runs(tag), blocking_issues(tag), telemetry(), fill_failures(), extension_version(tag), usage(version, stable_version).
+    require_beta=False (no opt-in testers exist yet): thin app evidence is noted, not blocking; a crash, a failed run or a worse failure rate still block."""
     candidate, stable, why = pick(releases, now, min_age)
     if not candidate:
         return {'promote': False, 'tag': None, 'stable': stable and stable['tagName'], 'reasons': [why]}
@@ -213,6 +246,13 @@ def decide(releases, now, facts, min_age=MIN_AGE):
         reasons.append(ci)
     else:
         reasons.append('CI green on its commit')
+    sha7 = facts.sha(tag)[:7]
+    rc = rc_problems(facts.e2e_runs(tag), blocking_findings(facts.blocking_issues(), sha7), sha7, now)
+    if rc:
+        ok = False
+        reasons.extend(f"not proven yet: {why}" for why in rc)
+    else:
+        reasons.append(f"end-to-end green >= {RC_MIN_RUNS} times over >= {int(RC_MIN_SPAN.total_seconds() // 3600)} h on its commit, no open high-severity finding")
     ext = facts.extension_version(tag)
     stable_ext = facts.extension_version(stable['tagName']) if stable else ''
     problems = new_problems(version, stable_version, facts.telemetry(), facts.fill_failures(), ext, stable_ext)
@@ -224,13 +264,20 @@ def decide(releases, now, facts, min_age=MIN_AGE):
     try:
         usage = facts.usage(version, stable_version)
     except EvidenceUnavailable as error:
-        ok = False
-        reasons.append(f"no usage evidence: {error}")
+        if require_beta:
+            ok = False
+            reasons.append(f"no usage evidence: {error}")
+        else:
+            reasons.append(f"no usage evidence ({error}); not required while there are no beta testers")
     else:
         missing, summary = usage_problems(usage.get(version), usage.get(stable_version), now)
         events = (usage.get(version) or {}).get('events') or {}
         blocked = blocked or bool(events.get('crash') or events.get('run_failed'))
         reasons.append(summary)
+        if not require_beta:
+            thin = [why for why in missing if not why.startswith(BAD_EVIDENCE)]
+            missing = [why for why in missing if why.startswith(BAD_EVIDENCE)]
+            reasons.extend(f"thin app evidence, not required while there are no beta testers: {why}" for why in thin)
         if missing:
             ok = False
             reasons.extend(f"not proven yet: {why}" for why in missing)
@@ -258,6 +305,18 @@ class GitHub:
         sha = self._gh('api', f'repos/{self.repo}/commits/{tag}', '-q', '.sha').strip()
         data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/build.yml/runs?head_sha={sha}&per_page=20'))
         return data.get('workflow_runs', [])
+
+    def sha(self, tag):
+        return self._gh('api', f'repos/{self.repo}/commits/{tag}', '-q', '.sha').strip()
+
+    def e2e_runs(self, tag):
+        """Completed end-to-end runs on the tag's commit, newest first (the gate's own, the soak's top-ups, scheduled ones on main at that commit)."""
+        data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/e2e.yml/runs?head_sha={self.sha(tag)}&status=completed&per_page=30'))
+        return [{'conclusion': r.get('conclusion'), 'createdAt': r['created_at']} for r in data.get('workflow_runs', [])]
+
+    def blocking_issues(self):
+        return json.loads(self._gh('issue', 'list', '-R', self.repo, '--label', 'auto-ui', '--label', 'severity:high', '--state', 'open', '-L', '300',
+                                   '--json', 'number,title,state,body,comments,labels'))
 
     def _issues(self, label, state):
         return json.loads(self._gh('issue', 'list', '-R', self.repo, '--label', label, '--state', state, '-L', '300',
@@ -300,6 +359,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--dry-run', action='store_true', help='print the decision and why; change nothing')
     parser.add_argument('--repo', default=REPO)
+    parser.add_argument('--candidate', action='store_true', help="print the canary build's tag at any age (empty when none), for the workflow's end-to-end top-up runs")
     parser.add_argument('--canary', action='store_true',
                         help="read `gh release list --json tagName,isPrerelease,isDraft,isLatest,createdAt` on stdin, "
                              "print the canary build's tag (empty when none)")
@@ -308,8 +368,12 @@ def main(argv=None):
         found = canary_of(json.load(sys.stdin), datetime.now(timezone.utc))
         print(found['tagName'] if found else '')
         return 0
+    if args.candidate:
+        found = canary_of(GitHub(args.repo).releases(), datetime.now(timezone.utc))
+        print(found['tagName'] if found else '')
+        return 0
     github = GitHub(args.repo, key=os.environ.get(KEY_ENV, '').strip() or None)
-    result = decide(github.releases(), datetime.now(timezone.utc), github)
+    result = decide(github.releases(), datetime.now(timezone.utc), github, require_beta=os.environ.get('JOB_PILOTTO_REQUIRE_BETA', '') == 'on')
     verdict = ('PROMOTE ' + result['tag']) if result['promote'] else 'WAIT (no promotion)'
     print(f"Canary auto-promote: {verdict}")
     print(f"Current stable: {result['stable'] or '(none)'}")

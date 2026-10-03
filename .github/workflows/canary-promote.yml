@@ -1,21 +1,36 @@
-name: Release · Canary auto-promote
+name: Release · Soak and promote
 
-# RETIRED as the release path (2 Oct 2026): the nightly pipeline promotes (e2e.yml: the build at 04:00 Zurich -> every e2e suite on its commit -> `promote`), with no 48 h wait.
-# This workflow no longer runs on a schedule. By hand it still prints what the old canary rule would decide (tools/canary_promote.py, also used by the app's test-build trial
-# and by tools/prune-releases.sh): make the newest pre-release stable once it has been out 48 h, CI is green, no new problem was reported for it, and app reports prove it was
-# used and healthy (secret JOB_PILOTTO_TELEMETRY_KEY; missing → wait). With the repository variable JOB_PILOTTO_AUTO_PROMOTE `on` a manual non-dry run would still promote.
+# The last stretch before stable (2 Oct 2026 pipeline, soak added 4 Oct). With the repository variable JOB_PILOTTO_SOAK = on, e2e.yml no longer promotes a build the moment
+# it passes: it APPROVES it for beta testers (tools/beta-approve.sh), and this workflow decides when it becomes stable, every 8 hours:
+#   1. the candidate is the canary build (the oldest pre-release newer than stable, under 7 days old). It gets end-to-end TOP-UP runs on its own commit (about every 7 h),
+#      so "green three times over a day" is evidence, not luck; their findings are filed as issues that name the build.
+#   2. tools/canary_promote.py decides (gates 3-5): >= 48 h out, build.yml green, end-to-end green >= 3 times over >= 24 h with no red among the last 3 and no open
+#      high-severity finding on that commit, no new telemetry/fill-failure issue, and (JOB_PILOTTO_REQUIRE_BETA = on) healthy opt-in beta use: >= 3 installs,
+#      >= 30 successful runs, no crash. Without beta testers yet, thin app evidence is noted, not blocking; a crash or a worse failure rate still blocks.
+#   3. JOB_PILOTTO_AUTO_PROMOTE = on promotes it (tools/release-stable.sh); a canary that failed for sure is dropped; one that is still unproven after 5 days opens a
+#      `release-decision` issue: a person promotes it (hot path below), waits, or drops it.
+# HOT PATH: a security or data-loss fix must not wait for the soak. Run this workflow by hand with `force_tag` and `force_reason`: it promotes that tag with SKIP_E2E=1
+# and writes the reason into the release notes. By hand without them it prints the decision (dry run).
 on:
+  schedule:
+    - cron: '17 1,9,17 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Only print the decision'
         type: boolean
         default: true
+      force_tag:
+        description: 'HOT PATH: promote this release tag now, skipping the soak and the end-to-end gate'
+        required: false
+      force_reason:
+        description: 'HOT PATH: why (written into the release notes; required with force_tag)'
+        required: false
 
 permissions:
   contents: write   # gh release edit (promote)
-  issues: read
-  actions: read
+  issues: write     # release-decision issue
+  actions: write    # gh workflow run (the end-to-end top-up)
 
 concurrency:
   group: canary-promote   # not desktop-release: a waiting run there would replace a waiting build
@@ -24,17 +39,44 @@ concurrency:
 jobs:
   promote:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
-      - name: Decide (and promote when switched on)
+      - name: HOT PATH (by hand with force_tag)
+        if: github.event_name == 'workflow_dispatch' && inputs.force_tag != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          FORCE_TAG: ${{ inputs.force_tag }}
+          FORCE_REASON: ${{ inputs.force_reason }}
+        run: |
+          [ -n "$FORCE_REASON" ] || { echo "force_reason is required: it goes into the release notes." >&2; exit 1; }
+          body=$(gh release view "$FORCE_TAG" -R "$REPO" --json body -q .body)
+          gh release edit "$FORCE_TAG" -R "$REPO" --notes "$(printf '%s\n\nPromoted by hand, soak and end-to-end gate skipped: %s' "$body" "$FORCE_REASON")"
+          SKIP_E2E=1 tools/release-stable.sh "$FORCE_TAG"
+          echo "HOT PATH: $FORCE_TAG is stable (soak skipped: $FORCE_REASON)" >> "$GITHUB_STEP_SUMMARY"
+      - name: End-to-end top-up on the candidate
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_tag != '') }}
+        run: |
+          tag=$(python3 tools/canary_promote.py --candidate)
+          [ -n "$tag" ] || { echo "No canary build: nothing to soak." >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          sha=$(gh api "repos/$REPO/commits/$tag" -q .sha)
+          # only for a build the gate approved, and not more often than every 7 hours (a run takes about 15 minutes of paid macOS time)
+          gh release view "$tag" -R "$REPO" --json body -q .body | grep -q '^Beta-approved:' || { echo "$tag is not beta-approved yet: no top-up." >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          recent=$(gh run list -R "$REPO" --workflow=e2e.yml --commit "$sha" -L 10 --json createdAt,status,conclusion \
+            -q '[.[] | select(.status != "completed" or .conclusion == "success" or .conclusion == "failure") | select((.createdAt | fromdateiso8601) > (now - 25200))] | length')
+          if [ "${recent:-0}" = 0 ]; then gh workflow run e2e.yml -R "$REPO" --ref "$tag" -f soak=true; echo "Top-up end-to-end run started on $tag." >> "$GITHUB_STEP_SUMMARY"
+          else echo "$tag had an end-to-end run in the last 7 hours: no top-up." >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Decide (and promote when switched on)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_tag != '') }}
+        env:
           JOB_PILOTTO_TELEMETRY_KEY: ${{ secrets.JOB_PILOTTO_TELEMETRY_KEY }}
+          JOB_PILOTTO_REQUIRE_BETA: ${{ vars.JOB_PILOTTO_REQUIRE_BETA }}
           SWITCH: ${{ vars.JOB_PILOTTO_AUTO_PROMOTE }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
-          args=(--repo "$GITHUB_REPOSITORY")
+          args=(--repo "$REPO")
           if [ "$SWITCH" != "on" ]; then
             args+=(--dry-run); note="Auto-promote is off (repository variable JOB_PILOTTO_AUTO_PROMOTE is not \`on\`): decision only."
           elif [ "$DRY_RUN" = "true" ]; then
@@ -45,5 +87,20 @@ jobs:
           status=0
           out=$(python3 tools/canary_promote.py "${args[@]}" 2>&1) || status=$?
           echo "$out"
-          { echo "### Canary auto-promote"; echo; echo "$note"; echo; echo '```'; echo "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "### Soak and promote"; echo; echo "$note"; echo; echo '```'; echo "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "$out" > decision.txt
           exit "$status"
+      - name: A canary that stays unproven for 5 days needs a person
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_tag != '') }}
+        run: |
+          tag=$(python3 tools/canary_promote.py --candidate)
+          [ -n "$tag" ] || exit 0
+          age_days=$(gh release view "$tag" -R "$REPO" --json publishedAt -q '((now - (.publishedAt | fromdateiso8601)) / 86400 | floor)')
+          if [ "$age_days" -ge 5 ] && ! grep -q '^Canary auto-promote: PROMOTE' decision.txt; then
+            gh label create release-decision -R "$REPO" --force --color 5319E7 --description "A release candidate needs a person's decision" > /dev/null
+            existing=$(gh issue list -R "$REPO" --label release-decision --state open --search "$tag in:title" --json number -q '.[0].number // empty')
+            if [ -z "$existing" ]; then
+              gh issue create -R "$REPO" --label release-decision --title "Release candidate $tag is still unproven after $age_days days" \
+                --body $'It will be dropped at 7 days. Why it waits is in the latest run of the "Release · Soak and promote" workflow.\n\nOptions: wait; promote it by hand with force_tag and force_reason (hot path); or drop it.'
+            fi
+          fi

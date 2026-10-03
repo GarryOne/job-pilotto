@@ -30,7 +30,7 @@ def ago(hours):
     return datetime.fromtimestamp(NOW.timestamp() - hours * 3600, timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
-def evidence(installs=1, days=3, first=60, last=6, ok=12, failed=0, crash=0, run_failed=0):
+def evidence(installs=3, days=3, first=60, last=6, ok=40, failed=0, crash=0, run_failed=0):
     """One GET /telemetry/version entry: health lines from `first` to `last` hours ago."""
     return {'installs': installs, 'healthInstalls': installs, 'healthDays': days,
             'firstSeen': ago(first) if installs else None, 'lastSeen': ago(last) if installs else None,
@@ -43,10 +43,29 @@ HEALTHY = evidence()
 STABLE_USAGE = evidence(installs=4, days=30, first=900, last=2, ok=200, failed=4)
 
 
+def e2e(*hours_ago, result='success'):
+    """Completed end-to-end runs on the candidate's commit, newest first."""
+    return [{'conclusion': result, 'createdAt': ago(h)} for h in sorted(hours_ago)]
+
+
+E2E_GREEN = e2e(2, 14, 30)   # three green runs over 28 h
+SHA = 'abc1234def'
+
+
 class Facts:
-    def __init__(self, ci=GREEN, telemetry=(), fill=(), ext=None, usage=HEALTHY, stable_usage=STABLE_USAGE, unavailable=None):
+    def __init__(self, ci=GREEN, telemetry=(), fill=(), ext=None, usage=HEALTHY, stable_usage=STABLE_USAGE, unavailable=None, runs=E2E_GREEN, blockers=()):
         self.ci, self.tel, self.fill, self.ext = ci, list(telemetry), list(fill), ext or {}
         self.usage_, self.stable_usage, self.unavailable = usage, stable_usage, unavailable
+        self.runs, self.blockers = list(runs), list(blockers)
+
+    def sha(self, tag):
+        return SHA
+
+    def e2e_runs(self, tag):
+        return self.runs
+
+    def blocking_issues(self):
+        return self.blockers
 
     def usage(self, version, stable_version):
         if self.unavailable:
@@ -127,7 +146,7 @@ class CanaryPromoteTests(unittest.TestCase):
     def test_healthy_usage_promotes_and_shows_the_numbers(self):
         result = canary.decide([release(65, 50), STABLE], NOW, Facts())
         self.assertTrue(result['promote'], result['reasons'])
-        self.assertTrue(any('runs 12 ok / 0 failed' in reason for reason in result['reasons']), result['reasons'])
+        self.assertTrue(any('runs 40 ok / 0 failed' in reason for reason in result['reasons']), result['reasons'])
 
     def test_an_unused_build_waits(self):
         self.wait_with('not used enough', usage=evidence(installs=0, days=0, ok=0))
@@ -147,12 +166,12 @@ class CanaryPromoteTests(unittest.TestCase):
 
     def test_a_worse_failure_rate_than_stable_waits(self):
         # stable 2 %, candidate 3 of 20 = 15 % > 7 %
-        self.wait_with('failure rate 15%', usage=evidence(ok=17, failed=3))
-        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(ok=19, failed=1)))['promote'])
+        self.wait_with('failure rate 15%', usage=evidence(ok=34, failed=6))
+        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(ok=57, failed=3)))['promote'])
 
     def test_stable_without_data_uses_an_absolute_ceiling(self):
-        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(ok=19, failed=1), stable_usage=None))['promote'])
-        self.wait_with('no stable baseline', usage=evidence(ok=17, failed=3), stable_usage=None)
+        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(ok=57, failed=3), stable_usage=None))['promote'])
+        self.wait_with('no stable baseline', usage=evidence(ok=34, failed=6), stable_usage=None)
 
     def test_stale_reports_wait(self):
         self.wait_with('not fresh', usage=evidence(first=90, last=30))
@@ -194,6 +213,74 @@ class CanaryPromoteTests(unittest.TestCase):
         self.assertGreater(key('0.5.0-alpha.10'), key('0.5.0-alpha.9'))
         self.assertGreater(key('0.4.0'), key('0.4.0-alpha.99'))
         self.assertGreater(key('0.5.0-alpha.1'), key('0.4.0'))
+
+
+class GateFourAndFiveTests(unittest.TestCase):
+    def decide(self, **facts):
+        return canary.decide([release(65, 50), STABLE], NOW, Facts(**facts))
+
+    def reasons(self, result):
+        return ' | '.join(result['reasons'])
+
+    def test_three_green_runs_over_a_day_pass_gate_four(self):
+        self.assertTrue(self.decide()['promote'])
+
+    def test_fewer_than_three_green_runs_wait(self):
+        result = self.decide(runs=e2e(2, 14))
+        self.assertFalse(result['promote'])
+        self.assertIn('ran green 2 time(s)', self.reasons(result))
+        self.assertFalse(result['blocked'], 'waiting for more runs never drops the build')
+
+    def test_runs_squeezed_into_a_few_hours_wait(self):
+        result = self.decide(runs=e2e(1, 2, 3))
+        self.assertIn('span under 24 h', self.reasons(result))
+
+    def test_a_red_run_among_the_last_three_waits_even_with_enough_green_ones(self):
+        runs = e2e(1, 14, 30, 40)
+        runs[0] = {'conclusion': 'failure', 'createdAt': runs[0]['createdAt']}
+        result = self.decide(runs=runs)
+        self.assertFalse(result['promote'])
+        self.assertIn('end-to-end red', self.reasons(result))
+
+    def test_cancelled_and_skipped_runs_say_nothing(self):
+        noise = [{'conclusion': 'cancelled', 'createdAt': ago(1)}, {'conclusion': 'skipped', 'createdAt': ago(3)}]
+        self.assertTrue(self.decide(runs=noise + E2E_GREEN)['promote'])
+
+    def test_an_open_high_severity_finding_on_this_build_blocks(self):
+        issue = {'number': 70, 'title': 'apply: step failed', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}, {'name': 'auto-ui'}],
+                 'body': 'x', 'comments': [{'body': f'Seen again. Build tested: desktop-v0.5.0-alpha.65 @ {SHA[:7]} (workflow_dispatch run)'}]}
+        result = self.decide(blockers=[issue])
+        self.assertFalse(result['promote'])
+        self.assertIn('#70', self.reasons(result))
+
+    def test_a_finding_on_another_commit_or_of_medium_severity_does_not_block(self):
+        other = {'number': 71, 'title': 'x', 'state': 'OPEN', 'labels': [{'name': 'severity:high'}], 'body': 'Build tested: main @ 9999999', 'comments': []}
+        medium = {'number': 72, 'title': 'x', 'state': 'OPEN', 'labels': [{'name': 'severity:medium'}], 'body': f'@ {SHA[:7]}', 'comments': []}
+        self.assertTrue(self.decide(blockers=[other, medium])['promote'])
+
+    def test_two_installs_are_not_enough(self):
+        result = self.decide(usage=evidence(installs=2))
+        self.assertFalse(result['promote'])
+        self.assertIn('>= 3 installs', self.reasons(result))
+
+    def test_thirty_runs_are_needed(self):
+        self.assertFalse(self.decide(usage=evidence(ok=29))['promote'])
+        self.assertTrue(self.decide(usage=evidence(ok=30))['promote'])
+
+    def test_without_beta_testers_thin_evidence_is_noted_not_blocking(self):
+        thin = canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(installs=1, ok=4)), require_beta=False)
+        self.assertTrue(thin['promote'])
+        self.assertIn('not required while there are no beta testers', self.reasons(thin))
+        silent = canary.decide([release(65, 50), STABLE], NOW, Facts(unavailable='no key'), require_beta=False)
+        self.assertTrue(silent['promote'])
+
+    def test_without_beta_testers_bad_evidence_still_blocks(self):
+        crash = canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(installs=1, ok=4, crash=1)), require_beta=False)
+        self.assertFalse(crash['promote'])
+        self.assertTrue(crash['blocked'])
+
+    def test_without_beta_testers_gate_four_still_holds(self):
+        self.assertFalse(canary.decide([release(65, 50), STABLE], NOW, Facts(runs=e2e(2)), require_beta=False)['promote'])
 
 
 class PromotesWithoutStartingARun(unittest.TestCase):
