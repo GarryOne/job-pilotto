@@ -514,6 +514,23 @@ def write_notion(tracker, candidate, outcome):
 
 # ---------- one run ----------
 
+def ai_ideas(db, harvest_sources=None):
+    """Claude's ideas for new candidates when it is time (every few days), or None: off, no AI available, tests that pass their own
+    harvest sources, or a failure (the scout then simply carries on with the usual sources)."""
+    from . import features
+    from .ai import engine, scout_ideas
+    if harvest_sources is not None or os.getenv('JOB_PILOTTO_FIXTURE_DIR') or not features.enabled('scout_ai') or not engine.ready():
+        return None
+    try:
+        found = scout_ideas.run(db, load_search_config())
+    except Exception as error:  # noqa: BLE001 — the ideas are a bonus: a failed call must never stop the scout
+        print(f'Warning: scout ideas skipped: {type(error).__name__}: {error}')
+        return None
+    if found:
+        print(f"Scout ideas: {found['companies']} companies and {found['directories']} from company lists. {found['note']}")
+    return found
+
+
 def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None):
     """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes).
     A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the Active Employers & Sources rows."""
@@ -522,6 +539,9 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         starter = CONFIG / 'sources.json'
         static = json.loads(starter.read_text()) if starter.exists() else []
     added = harvest(db, seeds, harvest_sources)
+    ideas = ai_ideas(db, harvest_sources)
+    if ideas:
+        added += harvest(db, seeds, [lambda: ideas['candidates']])
     candidates = next_batch(db, batch)
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
@@ -564,7 +584,8 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
 
     queued = db.execute("SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending'").fetchone()[0]
     total_feeds = db.execute('SELECT COUNT(*) FROM feed_sources WHERE active = 1').fetchone()[0]
-    return {'checked': len(candidates), 'harvested': added, 'queued': queued, 'total_feeds': total_feeds}, \
+    return {'checked': len(candidates), 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
+            'ideas': {k: ideas[k] for k in ('companies', 'directories', 'note')} if ideas else None}, \
         list(zip(candidates, outcomes))
 
 
@@ -586,6 +607,9 @@ def telegram_summary(summary, results):
     detail = [f"{counts['none']} without public feed", f"{counts['low']} low relevance"]
     if counts['manual']:
         detail.append(f"{counts['manual']} Tier 1 on manual watch")
+    if summary.get('ideas'):
+        ideas = summary['ideas']
+        lines.append(f"\n🧠 <b>New ideas</b> · {ideas['companies']} companies and {ideas['directories']} from company lists queued\n<i>{escape(ideas['note'])}</i>")
     lines.append(f"\n<i>{' · '.join(detail)} · {summary['total_feeds']} feeds crawled · {summary['queued']} candidates "
                  f"queued{' · ' + str(summary['harvested']) + ' new candidates found' if summary['harvested'] else ''}</i>")
     return '\n'.join(lines)

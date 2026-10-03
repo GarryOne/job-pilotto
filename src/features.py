@@ -55,6 +55,8 @@ FEATURES = (
             'own Google app: python3 -m src.sources.google setup; README → Gmail and Calendar'),
     Feature('contribute', 'Help the pool grow: share employer career pages with coarse tags (opt-in)', ('JOB_PILOTTO_SHARE_EMPLOYERS',),
             'free', 'Settings → Help the pool grow (the app sets JOB_PILOTTO_SHARE_EMPLOYERS=1); `python -m src contribute --show` prints what is sent'),
+    Feature('scout_ai', 'Scout ideas: Claude proposes employers and company lists to look at, learning from what was found', (AI,), 'paid',
+            'on with the AI key (a few cents every third day); JOB_PILOTTO_DISABLE=scout_ai turns it off'),
 )
 BY_NAME = {f.name: f for f in FEATURES}
 

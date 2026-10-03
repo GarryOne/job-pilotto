@@ -251,6 +251,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/reassign.py` — Your answer about an email the Gmail check wasn't sure where to place.
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
+- `src/ai/scout_ideas.py` — The scout's own ideas: Claude proposes employers and public company lists to look at, and learns from what the probes found.
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).
 - `src/contribute.py` — Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 - `src/coverage.py` — How much of the market does the search catch? The funnel of one crawl, and the near misses.

@@ -66,7 +66,7 @@ def missing_text(env=None):
             'This needs your Anthropic API key (Settings → AI), or choose Claude Code there.')
 
 
-ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import')
+ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import', 'scout')
 
 
 def _api(action=''):
