@@ -906,6 +906,14 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .cvc-comp { margin-top: var(--sp-3); }
 .cvc-fixrow { display: flex; gap: var(--sp-3); align-items: flex-start; margin-top: var(--sp-3); }
 .cvc-fixrow .ui-pill { flex: none; }
+/* Application session → Form completion: "Before you submit" (knockout questions, which CV goes in). */
+.ss-before { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.ss-before-row { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); }
+.ss-before-row > div { flex: 1; min-width: 0; }
+.ss-before-row b { display: block; }
+.ss-before-row small { display: block; color: var(--ink-2); font-size: var(--fs-sm); }
+.ss-before-row button { flex: none; }
+.ss-before-mark { flex: none; width: 22px; text-align: center; }
 .cv-kits-card { margin-top: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
 .cv-kits-head { display: flex; align-items: center; gap: var(--sp-2); }
 .cv-kits-head .muted { margin-left: auto; }

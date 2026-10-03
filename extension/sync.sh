@@ -5,7 +5,8 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cp "$here/../tools/browser-submit-guard.js" "$here/../tools/browser-form-fastpath.js" "$here/page/"
-echo "Synced page helpers into extension/page/"
+cp "$here/../desktop/renderer/tips-pool.js" "$here/tips-pool.js"   # the form panel's tip line draws from the same pool as the app (worker/test/extension-files.test.js)
+echo "Synced page helpers into extension/page/ and the tips pool"
 # The snapshot scrubber (extension/page/snapshot.js, between "// <scrub>" and "// </scrub>") has a copy in
 # worker/src/snapshot.js (worker/test/snapshot.test.js fails while they differ).
 node -e '

@@ -167,6 +167,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/interview-review.js` — An interview review's message as the parts the owner reads. src/ai/interviews.py writes it as:
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
+- `desktop/renderer/knockout.js` — Questions a hiring system can be set to reject on by itself (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
 - `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 28 of 40 applications left"): which plan this is and what the number counts, at a glance
@@ -224,6 +225,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
+- `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.
 
 ## Python pipeline

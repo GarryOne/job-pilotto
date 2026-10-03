@@ -27,6 +27,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   into the app (automatic where possible, else one clear button or wizard step) and test it, then say which. Nothing may
   depend on the owner's machine, CLI tools or access. Example: Always on now copies the Google sign-in to the user's
   GitHub repo itself (`desktop/lib/google-keys.js`), after it was once set with `gh secret set` by hand.
+- **Keep the website's Intelligence page in step** (`site/public/intelligence.html`, its teaser in `index.html`, the README block "AI at every step"): any new AI step, rule or guidance a user can see gets an entry there in the same change, with the count updated (owner, 3 Oct 2026).
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 

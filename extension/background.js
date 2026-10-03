@@ -3,6 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
+import {TIPS} from './tips-pool.js';
 import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -648,6 +649,23 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       decide('panel', 'asked Claude to take over', {host});
       const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'take-over', url: job, page: sender.tab.url.split('#')[0], host})});
       reply({ok: !!data?.ok});
+    })().catch(() => reply({ok: false}));
+    return true;
+  }
+  // The form panel's tip line: one tip from the same pool as the app's Application sessions page, the least recently shown, for this application system and, when
+  // one fits, the topic the form is at (knockout questions, tailoring, the CV).
+  if (message?.type === 'panelTip') {
+    (async () => {
+      const host = String(message.host || ''), ats = /greenhouse\.io$/.test(host) ? 'greenhouse' : /lever\.co$/.test(host) ? 'lever' : /ashbyhq\.com$/.test(host) ? 'ashby'
+        : /myworkdayjobs\.com$|workday\.com$/.test(host) ? 'workday' : /smartrecruiters\.com$/.test(host) ? 'smartrecruiters' : '';
+      const {tipsSeen = []} = await chrome.storage.local.get('tipsSeen');
+      const fits = TIPS.filter(tip => !tip.ats || tip.ats === ats);
+      const topical = fits.filter(tip => tip.category === message.prefer);
+      const pool = (topical.length ? topical : fits).filter(tip => tip.evidence !== 'to-test');
+      const next = [...pool].sort((a, b) => tipsSeen.indexOf(a.id) - tipsSeen.indexOf(b.id) || (Math.random() - 0.5))[0];   // never shown first, then the oldest
+      if (!next) return reply({ok: false});
+      await chrome.storage.local.set({tipsSeen: [...tipsSeen.filter(id => id !== next.id), next.id].slice(-60)});
+      reply({ok: true, text: next.text, evidence: next.evidence});
     })().catch(() => reply({ok: false}));
     return true;
   }

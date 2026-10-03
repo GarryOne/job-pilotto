@@ -146,3 +146,14 @@ test('the form panel marks the questions a hiring system can reject on, first', 
     'Are you able to work from our US office three days per week?', 'Do you hold a valid driving licence?']) assert.ok(KNOCKOUT.test(label), label);
   for (const label of ['Preferred name', 'Why do you want to work here?', 'LinkedIn profile']) assert.ok(!KNOCKOUT.test(label), label);
 });
+
+test('the app and the form panel mark the same knockout questions', () => {
+  const regex = text => text.match(/const KNOCKOUT = (\/.*\/i);/)[1];
+  assert.equal(regex(read('desktop/renderer/knockout.js')), regex(read('extension/review.js')));
+});
+
+test('the form panel\'s tip line draws from the same pool as the app (run extension/sync.sh after changing it)', () => {
+  assert.equal(read('extension/tips-pool.js'), read('desktop/renderer/tips-pool.js'));
+  assert.match(read('extension/background.js'), /message\?\.type === 'panelTip'/);
+  assert.match(read('extension/review.js'), /type: 'panelTip'/);
+});

@@ -1,0 +1,3 @@
+// Questions a hiring system can be set to reject on by itself (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or
+// office attendance, a required licence). The form panel (extension/review.js) keeps its own copy of this expression: a test keeps the two equal.
+export const KNOCKOUT = /authori[sz]ed to work|authori[sz]ation|right to work|legally (eligible|entitled)|sponsor|visa|work permit|citizen|relocat|willing(ness)? to (work|commute|come|travel)|on-?site|in[- ]office|office (days|attendance)|days (a|per) week|reside|currently located|security clearance|licen[sc]e/i;

@@ -1492,6 +1492,7 @@ function handlers() {
     }
   };
   ipcMain.handle('tailorCv', (_, code, name) => tailorCv(code, name));
+  ipcMain.handle('cvOf', (_, url) => cvOf(String(url || '')));   // the session card: tailored for this job already, or being tailored now
   // The form panel's "Tailor my CV for this job": the person's own click, the same work as the menu's Tailor CV.
   server.setTailorHandler(async event => {
     const job = event.job;

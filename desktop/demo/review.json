@@ -1,50 +1,52 @@
 [
-  {
-    "id": "d2",
-    "url": "https://boards.greenhouse.io/acmerobotics/jobs/4820113",
-    "left": 1,
-    "total": 9,
-    "ready": false,
-    "states": {},
-    "missing": [
-      "Notice period"
-    ],
-    "pending": [
-      "Notice period"
-    ],
-    "filled": [
-      {
-        "label": "First name",
-        "at": 1790624580000
-      },
-      {
-        "label": "Last name",
-        "at": 1790624581000
-      },
-      {
-        "label": "Email",
-        "at": 1790624582000
-      },
-      {
-        "label": "Phone",
-        "at": 1790624583000
-      },
-      {
-        "label": "Resume/CV",
-        "at": 1790624584000
-      },
-      {
-        "label": "LinkedIn profile",
-        "at": 1790624585000
-      },
-      {
-        "label": "Are you authorized to work in the UK?",
-        "at": 1790624586000
-      },
-      {
-        "label": "Why do you want to work at Acme Robotics?",
-        "at": 1790624589000
-      }
-    ]
-  }
+ {
+  "id": "d2",
+  "url": "https://boards.greenhouse.io/acmerobotics/jobs/4820113",
+  "left": 2,
+  "total": 9,
+  "ready": false,
+  "states": {},
+  "missing": [
+   "Notice period",
+   "Will you now or in the future require sponsorship for employment visa status?"
+  ],
+  "pending": [
+   "Notice period",
+   "Will you now or in the future require sponsorship for employment visa status?"
+  ],
+  "filled": [
+   {
+    "label": "First name",
+    "at": 1790624580000
+   },
+   {
+    "label": "Last name",
+    "at": 1790624581000
+   },
+   {
+    "label": "Email",
+    "at": 1790624582000
+   },
+   {
+    "label": "Phone",
+    "at": 1790624583000
+   },
+   {
+    "label": "Resume/CV",
+    "at": 1790624584000
+   },
+   {
+    "label": "LinkedIn profile",
+    "at": 1790624585000
+   },
+   {
+    "label": "Are you authorized to work in the UK?",
+    "at": 1790624586000
+   },
+   {
+    "label": "Why do you want to work at Acme Robotics?",
+    "at": 1790624589000
+   }
+  ]
+ }
 ]

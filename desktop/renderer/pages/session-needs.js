@@ -4,9 +4,10 @@ import {splitLabel} from '../session-message.js';
 import {isSubmitted} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
+import {KNOCKOUT} from '../knockout.js';
 import {answerOptions} from '../answer-options.js';
 import {shared} from './shared.js';
-import {$} from './core.js';
+import {$, show} from './core.js';
 import {openView} from './nav.js';
 import {richText} from './rich-text.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
@@ -125,6 +126,51 @@ export function showFormState(item) {
 }
 // "Form completion", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded under
 // them: what's left first, then each filled one with its time since the fill started (the first field filled).
+// "Before you submit": what decides an application more than the CV, from what the form says is still open. The knockout questions (a hiring system can be set to
+// reject on them: docs/research/ats-reddit-2026-10.md) and which CV goes in: the general one, or one tailored to this job, with a way to tailor it.
+const fullKey = url => String(url || '').trim().replace(/\/$/, '');
+const cvSeen = new Map();   // job url → {at, info}
+async function cvInfo(url) {
+  const known = cvSeen.get(url);
+  if (known && Date.now() - known.at < 4000) return known.info;
+  const info = await window.pilot.cvOf(url).catch(() => null);
+  cvSeen.set(url, {at: Date.now(), info});
+  return info;
+}
+function showBefore(item, left) {
+  const knockouts = left.filter(label => KNOCKOUT.test(label));
+  const submitted = isSubmitted(item);
+  show($('ss-before-knock'), !submitted && knockouts.length > 0);
+  if (knockouts.length) {
+    $('ss-before-knock-title').textContent = `${knockouts.length} question${knockouts.length === 1 ? '' : 's'} can reject you automatically, if the employer set a rule`;
+    $('ss-before-knock-list').textContent = `Answer ${knockouts.length === 1 ? 'it' : 'them'} yourself, truthfully: ${knockouts.slice(0, 3).map(label => label.replace(/\s*\*\s*$/, '')).join(' · ')}${knockouts.length > 3 ? ' …' : ''}`;
+  }
+  const job = shared.allJobs.find(candidate => fullKey(candidate.url) === fullKey(item.url));
+  show($('ss-before-cv'), false);
+  if (submitted || !item.url) return show($('ss-before'), !submitted && knockouts.length > 0);
+  cvInfo(item.url).then(info => {
+    if (!info) return;
+    show($('ss-before-cv'), true);
+    $('ss-before-cv-mark').textContent = info.tailored ? '✓' : '○';
+    $('ss-before-cv-title').textContent = info.tailored ? 'A CV tailored to this job is ready' : info.working ? 'Tailoring your CV for this job…' : 'This form gets your general CV';
+    $('ss-before-cv-sub').textContent = info.tailored ? 'Press Fill again on the form if it still shows your general CV.' : info.working ? 'About 1–2 minutes. Then fill the form again.'
+      : 'A CV written for the job gets noticeably more replies than a general one.';
+    const button = $('ss-before-cv-btn');
+    show(button, !info.tailored && !info.working && !!job?.code);
+    button.disabled = false;
+    button.onclick = async () => {
+      button.disabled = true;
+      button.textContent = 'Tailoring… (about 1–2 min)';
+      const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
+      button.textContent = result.ok ? 'Tailored ✓' : 'Retry';
+      button.disabled = !!result.ok;
+      cvSeen.delete(item.url);
+      if (result.ok) showBefore(item, left);
+    };
+    show($('ss-before'), true);
+  });
+  show($('ss-before'), knockouts.length > 0);
+}
 const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 function showFormCard(item, state) {
   const card = $('ss-form-card');
@@ -141,6 +187,7 @@ function showFormCard(item, state) {
   count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
+  showBefore(item, state.pending || state.missing || []);
   // An extension older than 0.8.12 sends no filled fields: then only what's left.
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
   const left = state.pending || state.missing || [];

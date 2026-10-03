@@ -237,6 +237,8 @@
     .actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .secondary { padding: 7px 10px; border-radius: 9px; background: #fff; color: var(--ink); border: 1px solid var(--line); font-weight: 600; font-size: 12px; }
     .secondary:hover { background: var(--soft); }
+    .tip { display: flex; gap: 8px; align-items: baseline; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.4; color: var(--ink); cursor: pointer; }
+    .tip-chip { flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
     .foot { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
     .foot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
     .foot.on::before { background: var(--good); }
@@ -261,13 +263,14 @@
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
         </div>
       </div>
+      <div class="tip" hidden><b class="tip-chip"></b><span class="tip-text"></span></div>
       <div class="foot">Checking the connection…</div>
     </div>
     <button class="pill" title="Job Pilotto"><span class="ring"><span></span></span><div><b></b><small></small></div></button>
   </div>`;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
-  let open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false, cv = null, asked = false;
+  let open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -338,6 +341,9 @@
         : 'This form has your general CV. A CV tailored to this job gets noticeably more replies.';
       $('.t-btn').hidden = readyNow || cv.working;
     }
+    // One tip at the bottom, about what the form is at: knockout questions left, no tailored CV yet, else the CV. Click for the next one.
+    const prefer = knockouts ? 'knockout' : canTailor && !cv.tailored ? 'tailor' : 'cv';
+    if (tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
     // actions + connection
     $('.open-app').hidden = !session;
     // Offered whenever the app is connected and Claude is not already on this form; the person's click, never automatic (it uses Claude).
@@ -402,6 +408,15 @@
     button.textContent = answer?.ok ? 'Claude is starting in Job Pilotto' : 'Job Pilotto did not answer';
     setTimeout(() => { button.disabled = false; button.textContent = 'Take over with Claude'; }, 8000);
   };
+  const LABEL = {research: 'Fact', recruiters: 'Recruiters say', advice: 'Tip'};
+  async function askTip() {
+    const answer = await send({type: 'panelTip', host: location.hostname, prefer: tipFor}).catch(() => null);
+    if (!answer?.ok) return;
+    $('.tip-chip').textContent = LABEL[answer.evidence] || 'Tip';
+    $('.tip-text').textContent = answer.text;
+    $('.tip').hidden = false;
+  }
+  $('.tip').onclick = askTip;
   $('.t-btn').onclick = async event => {
     const button = event.currentTarget;
     button.disabled = true;

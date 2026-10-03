@@ -102,7 +102,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ## 🧠 AI at every step
 
-Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 25 AI steps today, each one yours to accept or ignore, none of them pressing Submit.
+Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 28 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
 **Find: Finds what is worth your time**
@@ -119,6 +119,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 
 - **A CV tailored to each job** *(new)*: Bullets reordered and reworded toward the posting, using only facts from your CV. Numbers are checked by code, unknown tools are flagged, and the page keeps the look of your own CV.
 - **A preview of what changed** *(new)*: Every edit marked and explained next to a clean final PDF. You see what moved and why before you send it.
+- **A check of your own CV** *(new)*: How cleanly a hiring system can read it (free rules on the PDF), then an AI review of keywords, evidence and clarity. Not a score from a real hiring system: they publish none.
 - **Application kit**: A cover letter and an answer for each form question, drafted per job from your Profile. It also checks visa and language eligibility.
 - **Your general cover letter**: Drafted once from your CV and Profile, approved by you, attached whenever a form asks for a file.
 - **Profile that follows your CV**: Replace your CV and Claude suggests only the Profile lines to change. You pick which.
@@ -128,6 +129,8 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 
 - **Form filling**: The extension fills every field from your kit. Claude answers only what the kit does not, and marks those answers for a read-through.
 - **A nudge at the form** *(new)*: On a form that has your general CV, the panel offers a tailored one. Fill again and it replaces the file.
+- **Knockout questions, first** *(new)*: Work permit, sponsorship, location and office-day questions are marked and moved to the top, because an employer can set them to reject (rules, no AI).
+- **A tip at every form** *(new)*: Short tips from recruiters' own accounts and employer documentation, each labelled Fact, Recruiters say or Tip, so you see how strong the claim is.
 - **Learns from every form**: Each form that leaves fields teaches reusable notes from what you already gave. A question you answer once is answered for good.
 - **Recipes and labels from all installs** *(new)*: Which fields a site really means, learned from fills across installs and served as data. Nothing from the network ever becomes prompt text.
 - **Apply with Claude**: For pages the extension cannot fill alone, Claude follows the employer site and sign-up. You solve CAPTCHAs and submit.
@@ -144,8 +147,6 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - **Interview review**: Record on your Mac (transcribed there, free), then an AI review: strengths, weak spots and what to practise.
 - **Patterns across interviews**: What keeps helping or hurting you across every reviewed interview, quoting the interview each point comes from.
 - **Why you were rejected**: Each rejection reviewed for presentation, hard skills or fit, with the lesson reused in your next kit and prep.
-
-Coming next: a score for your own CV, the way applicant tracking systems read it, before any tailoring.
 
 ## What you get
 
