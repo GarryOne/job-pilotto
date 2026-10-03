@@ -1,3 +1,4 @@
+/* global document */
 // The recall benchmark: on a page like the app's, every planted bug is caught by the detector it was planted for, nothing planted is left behind,
 // and the planted window errors are removed from the journey's record (never filed as real ones).
 import assert from 'node:assert/strict';
