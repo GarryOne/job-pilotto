@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  WEEKLY: 'settings,jobs,focus,apply'   # proven on Windows (run 37139930788); add a suite once a by-hand run of it is green there
+  WEEKLY: 'settings,jobs,focus,apply,interactions'   # proven on Windows (runs 37139930788, 37141811216); add a suite once a by-hand run of it is green there
 
 jobs:
   plan:
