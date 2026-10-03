@@ -8,10 +8,10 @@
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {autoSuites, suitesNamed} from './lib/plan.mjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // -> the suites to run, in order. only: names (all of them allowed); skip: names to leave out; manual: include the manual suites.
 export function pickSuites({all, cadence = {}, only = '', skip = '', manual = false}) {

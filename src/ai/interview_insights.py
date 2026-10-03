@@ -518,6 +518,9 @@ def main(argv=None):
     try:
         out = update(tracker, stats=run['insight'])
     except Exception as error:  # noqa: BLE001 - the page says what failed
+        # The page gets a friendly sentence; the log keeps which error it was (a spend limit and a rate limit read alike there).
+        print(f'interview insights failed: {type(error).__name__} status={getattr(error, "status_code", "")} '
+              f'{str(error)[:300]}', file=sys.stderr)
         text = cost.limit_message(error, 'the interview insights') if cost.limit_reached(error) else \
             f'Could not update the interview insights: {type(error).__name__}: {error}'
         print(json.dumps({'ok': False, 'error': text}))

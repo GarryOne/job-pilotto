@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
 import {databaseRows, emptyDatabase, profileText, rewriteLines} from '../lib/notion.mjs';
@@ -19,7 +20,7 @@ export const watches = ['src/ai/score.py', 'src/ai/enrich.py', 'src/ai/hints.py'
 // This suite measures what a user gets, so the app under test runs on the shipped model (about $0.3 a run); the other suites run on Haiku. For a cheap run:
 // E2E_APP_MODEL=claude-haiku-4-5 (Haiku scores the same job up to 10 points apart between two scorings, Sonnet within 6).
 export const env = {JOB_PILOTTO_MODEL_OVERRIDE: process.env.E2E_APP_MODEL || 'claude-sonnet-5-5'};
-const GOLDEN = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'fixtures', 'golden');
+const GOLDEN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'golden');
 const read = file => JSON.parse(fs.readFileSync(path.join(GOLDEN, file), 'utf8'));
 const MATCHES = 'Job Matches — AI Scored';
 

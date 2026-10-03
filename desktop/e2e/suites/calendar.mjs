@@ -12,6 +12,8 @@ export const name = 'calendar';
 export const env = {TZ: 'Asia/Tokyo'};
 const ZONE = 'Asia/Tokyo';
 const dayIn = (date, zone) => new Intl.DateTimeFormat('en-CA', {timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit'}).format(date);
+// Today is disabled while this month is already shown: press it only when it can move the page.
+const backToToday = async page => { if (await page.locator('#cal-today').isEnabled()) await page.click('#cal-today'); };
 const monthTitle = day => new Date(`${day.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString('en-US', {month: 'long', year: 'numeric', timeZone: 'UTC'});
 
 export async function run(ctx) {
@@ -37,7 +39,7 @@ export async function run(ctx) {
   const openCalendar = async () => {
     await page.click('.nav[data-view="focus"]');
     await page.click('.nav[data-view="calendar"]');
-    await page.click('#cal-today');
+    await backToToday(page);
     await ready(page);
   };
   const ready = target => target.waitForFunction(() => document.getElementById('cal-status').hidden && !document.querySelector('#cal-upcoming .skeleton, #cal-past .skeleton'), null, {timeout: 120000});
@@ -128,6 +130,7 @@ export async function run(ctx) {
     if (await page.locator('#cal-grid .cal-cell:not(.out) .cal-chip').count()) throw new Error('last month shows a meeting of this month');
     await page.click('#cal-today');
     await page.waitForFunction(title => document.getElementById('cal-title').textContent === title, here, {timeout: 30000});
+    if (await page.locator('#cal-today').isEnabled()) throw new Error('Today is still enabled while this month is shown');
   });
 
   await step('a meeting opens its job in Notion, from the grid and from the agenda', async () => {
@@ -158,7 +161,7 @@ export async function run(ctx) {
       const zone = await other.page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
       if (zone !== 'Pacific/Honolulu') throw new Error(`the second app runs in "${zone}"`);
       await other.page.click('.nav[data-view="calendar"]');
-      await other.page.click('#cal-today');
+      await backToToday(other.page);
       await ready(other.page);
       // Acme: 23:30 UTC on (l1 - 1) is 13:30 on that same day in Honolulu (and 08:30 the day after in Tokyo).
       const day = addDays(l1, -1);
