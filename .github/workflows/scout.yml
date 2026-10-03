@@ -2,7 +2,9 @@ name: Pipeline · Find new employers
 run-name: scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
 
 # Grows the list of employer job feeds a small batch at a time. Probes public
-# job-feed APIs only; no AI and no applying.
+# job-feed APIs and public career pages only; no applying. AI (ideas for new employers, reading careers pages that list jobs
+# as plain text) only when the repository has an Anthropic key; a headless browser for pages built in the browser unless
+# JOB_PILOTTO_RENDER=0.
 on:
   # Called by the scheduled workflow in your private repo (templates/github-actions/scout.yml).
   workflow_call:
@@ -82,8 +84,17 @@ jobs:
           path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
           restore-keys: job-pilotto-db-
+      - name: Install the AI library
+        run: pip install --quiet -r requirements.txt
+      - name: Install the headless browser
+        # Optional (src/sources/render.py): careers pages that only exist after JavaScript runs. A failure here never stops the scout.
+        if: vars.JOB_PILOTTO_RENDER != '0'
+        continue-on-error: true
+        run: pip install --quiet -r requirements-render.txt && playwright install --with-deps chromium
       - name: Scout new sources
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          JOB_PILOTTO_RENDER: ${{ vars.JOB_PILOTTO_RENDER }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}

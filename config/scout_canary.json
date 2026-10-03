@@ -1,0 +1,106 @@
+{
+ "_comment": "Real Swiss employer sites whose jobs the scout could read on 3 Oct 2026 (rules only, no AI, no browser). tools/scout_canary.py reads them weekly and fails when fewer than min_found still work: a site that changed its pages shows up here, not in the unit tests.",
+ "min_found": 16,
+ "sites": [
+  {
+   "name": "Kantonsspital Baden AG",
+   "website": "https://www.kantonsspitalbaden.ch/"
+  },
+  {
+   "name": "St. Galler Kantonalbank",
+   "website": "https://www.sgkb.ch/de"
+  },
+  {
+   "name": "ERNI Schweiz AG",
+   "website": "https://www.betterask.erni/ch-de/"
+  },
+  {
+   "name": "Mabi AG",
+   "website": "https://www.mabi-robotic.com/"
+  },
+  {
+   "name": "mesoneer AG",
+   "website": "https://www.mesoneer.io/"
+  },
+  {
+   "name": "Intelliact AG",
+   "website": "https://intelliact.ch/"
+  },
+  {
+   "name": "Swisslinx AG",
+   "website": "https://www.swisslinx.com"
+  },
+  {
+   "name": "TRUMPF Schweiz AG",
+   "website": "https://www.trumpf.com"
+  },
+  {
+   "name": "Zühlke Engineering AG",
+   "website": "https://www.zuehlke.com/de/karriere"
+  },
+  {
+   "name": "BLP Digital AG",
+   "website": "https://blp-digital.com"
+  },
+  {
+   "name": "Infometis AG",
+   "website": "https://infometis.ch"
+  },
+  {
+   "name": "Konova AG",
+   "website": "https://konova.ch"
+  },
+  {
+   "name": "Threema GmbH",
+   "website": "https://threema.ch"
+  },
+  {
+   "name": "isolutions",
+   "website": "https://isolutions.ch"
+  },
+  {
+   "name": "Cudos AG",
+   "website": "https://cudos.ch"
+  },
+  {
+   "name": "Intersim AG",
+   "website": "https://intersim.ch"
+  },
+  {
+   "name": "Helga Digitalagentur GmbH",
+   "website": "https://helga.ch"
+  },
+  {
+   "name": "Curion Business Software AG",
+   "website": "https://curion.net"
+  },
+  {
+   "name": "TekkMinds Schweiz AG",
+   "website": "https://tekkminds.com"
+  },
+  {
+   "name": "OnlineDoctor AG",
+   "website": "https://onlinedoctor.de"
+  },
+  {
+   "name": "10x Partners",
+   "website": "https://10x-partners.com"
+  },
+  {
+   "name": "ITech Consult AG",
+   "website": "https://www.itcag.com/"
+  },
+  {
+   "name": "Centris AG",
+   "website": "https://www.centrisag.ch"
+  },
+  {
+   "name": "Supercomputing Systems AG",
+   "website": "https://www.scs.ch/arbeiten-bei-scs/"
+  },
+  {
+   "name": "Jenny Science AG",
+   "website": "https://www.jennyscience.com/de"
+  }
+ ]
+}

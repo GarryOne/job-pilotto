@@ -1,0 +1,25 @@
+name: Check · Scout still reads real Swiss sites
+run-name: scout canary
+
+# Real career sites change their pages, and no unit test sees that. Once a week this reads the fixed list in config/scout_canary.json the way the
+# scout does (rules only: no AI, no browser) and fails when fewer than min_found of them still give a job feed. A red run means: open the
+# lost sites by hand, then fix src/sources/careers.py or update the list.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read the sites
+        run: python tools/scout_canary.py | tee "$GITHUB_STEP_SUMMARY"
