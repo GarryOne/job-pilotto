@@ -68,7 +68,7 @@ menu.setAttribute('role', 'menu');
 document.body.append(menu);
 export function closeMenu() {
   menu.hidden = true;
-  document.querySelector('.ui-more[aria-expanded="true"]')?.setAttribute('aria-expanded', 'false');
+  for (const open of document.querySelectorAll('.ui-more[aria-expanded="true"]')) open.setAttribute('aria-expanded', 'false');
 }
 export function openMenu(anchor, items) {
   const wasOpen = anchor.getAttribute('aria-expanded') === 'true';
