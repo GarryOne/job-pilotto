@@ -576,7 +576,7 @@ class MailTests(unittest.TestCase):
         self.assertIn('caption "AG Talent, AG Talent role', asked[0])
 
 
-class HuxleyFollowUpTests(unittest.TestCase):
+class HuxleyFirstInviteTests(unittest.TestCase):
     """30 Sep 2026: Huxley's second invitation (1 Oct 08:30 Zurich, message 1a0f12c88badf86c) arrived ~19 h after the
     first (30 Sep 08:30, message 1a0ed2a0b8f85171). Classified "Interview scheduled", it was taken for the first one."""
 
