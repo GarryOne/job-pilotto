@@ -84,4 +84,5 @@ test('the review is told that transient UI and guesses about the app\'s insides 
   assert.match(SYSTEM, /Do NOT report a guess about how the app works inside/);
   assert.match(SYSTEM, /A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT/);
   assert.match(SYSTEM, /When you only suspect, say nothing/);
+  assert.match(SYSTEM, /A picture freezes motion: a line that scrolls in a frame \(a ticker or marquee\)/, '#97: a scrolling tip ticker caught mid-scroll was reported as clipped text');
 });
