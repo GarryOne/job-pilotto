@@ -6,6 +6,7 @@ import {longestSilence, watch} from '../lib/activity.mjs';
 import {emptyDatabase, findPage} from '../lib/notion.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {varyFeeds} from '../lib/feeds.mjs';
 
 export const minutes = 30;
 export const name = 'jobs';
@@ -41,6 +42,11 @@ export async function run(ctx) {
     // The employers to crawl: two fixture boards (feeds come from fixtures/feeds, never the network).
     fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources.json'), path.join(ctx.profile, 'config', 'sources.json'));
+    const varied = varyFeeds(ctx.feeds, ctx.vary);   // a seeded run: one more match, one more wrong role, Zurich written another way (lib/feeds.mjs)
+    if (varied) {   // replay: E2E_SEED=<seed> node suite.mjs jobs (issues show the seed from seed.json)
+      console.log(`  variation: seed ${ctx.vary.seed}; ${varied.note}`);
+      fs.writeFileSync(path.join(ARTIFACTS, 'seed.json'), JSON.stringify({seed: ctx.vary.seed, fixed: false, detail: varied.note}));
+    }
     await page.click('.nav[data-view="jobs"]');
     await page.click('#refresh');
     // Only the fixture employers' jobs (E2E …) count: the app's list also holds this workspace's own application records, scored long ago, which made this wait pass at once
@@ -54,6 +60,11 @@ export async function run(ctx) {
     if (jobs.some(job => !(job.fit >= 0 && job.fit <= 100))) throw new Error('a score is outside 0 to 100');
     const wrong = titles.filter(title => /account executive|product designer|intern/i.test(title));
     if (wrong.length) throw new Error(`jobs for the wrong role were kept: ${wrong.join(', ')}`);
+    if (varied) {   // the added match is kept and scored like the written ones, whatever way Zurich is written
+      const has = async () => (await scored()).some(job => job.title === varied.match);
+      for (let waited = 0; !(await has()) && waited < 120000; waited += 5000) await page.waitForTimeout(5000);
+      if (!(await has())) throw new Error(`the added match "${varied.match}" (in "${varied.place}") was not kept and scored; scored: ${(await scored()).map(job => job.title).join('; ')}`);
+    }
   }, {needs: ctx.needs});
   await ctx.run('Find new employers probes the seed company and lists it in Notion', async () => {
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(ctx.profile, 'config', 'scout_seeds.json'));
