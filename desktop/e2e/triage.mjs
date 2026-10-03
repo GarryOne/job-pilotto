@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LABEL, NOT_SEEN, closedByFixComment, probeCleared, probeTarget, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, probeTarget, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -208,10 +208,25 @@ export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
   return candidate && {...candidate, siblings: issues.filter(issue => issue.number !== candidate.number && issue.state === 'OPEN' && kindOf(issue) === kindOf(candidate)).map(issue => `#${issue.number} ${issue.title}`)};
 }
 
+// A verdict-only pass (off unless the repo variable JOB_PILOTTO_FIXER_VERDICTS is "on": it spends AI credit): an open finding seen on ONE commit, which the fixer will not touch, is read by Claude
+// WITHOUT editing anything. It says `false-positive` (the issue is closed `wontfix-auto`) or `real` (labelled `confirmed`, so the next normal run fixes it). Six of fourteen issues on 3 Oct 2026
+// were false positives that a person had to find by reading the handler. Most critical first; never one already judged, parked, or clean in the latest run.
+export function chooseVerdictCandidate({gh = realGh, now = Date.now()} = {}) {
+  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+  const ready = issues.filter(issue => {
+    const labels = (issue.labels || []).map(label => label.name || label);
+    if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED, NOT_SEEN].some(name => labels.includes(name))) return false;
+    const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+    return ['dead-control', 'expand-broken', 'no-loading-state'].includes(kind) && recentSightings(issue, now) < SIGHTINGS_NEEDED;
+  });
+  ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
+  return ready[0] ? {...ready[0], mode: 'verdict'} : null;
+}
+
 // The files the fix step reads: which issue, its id, its "before" screenshot, and the prompt.
 export function writeCandidate(candidate, outDir) {
-  const base = fs.readFileSync(new URL('./ui-fix-prompt.md', import.meta.url), 'utf8');
-  fs.writeFileSync(path.join(outDir, 'candidate.json'), JSON.stringify({number: candidate.number, title: candidate.title, id: candidate.labels.map(l => l.name).find(n => n.startsWith('fp:')).slice(3), screenshot: screenshotOf(candidate)}));
+  const base = fs.readFileSync(new URL(candidate.mode === 'verdict' ? './ui-verdict-prompt.md' : './ui-fix-prompt.md', import.meta.url), 'utf8');
+  fs.writeFileSync(path.join(outDir, 'candidate.json'), JSON.stringify({mode: candidate.mode || 'fix', number: candidate.number, title: candidate.title, id: candidate.labels.map(l => l.name).find(n => n.startsWith('fp:')).slice(3), screenshot: screenshotOf(candidate)}));
   fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base));
 }
 

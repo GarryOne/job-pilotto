@@ -136,6 +136,7 @@ A fix pull request shows the finding's screenshot as "Before" and promises the "
 
 ## The loop is two workflows on two clocks
 - **`ui-findings.yml` (the producer), after every e2e run: four a day** (the run chained to the nightly build, and 09:47, 13:47, 17:47 UTC). It only files and updates issues, with the evidence above. No AI fix.
+- **The verdict pass (off by default).** With the repo variable `JOB_PILOTTO_FIXER_VERDICTS` = `on` and nothing ready to fix, the fixer reads one open probe finding seen on one build (`ui-verdict-prompt.md`: no edits) and answers `false-positive` (closed `wontfix-auto`), `real` (labelled `confirmed`, so the next run fixes it) or `needs-human`. It spends AI credit, so it is the owner's switch.
 - **`ui-fix.yml` (the fixer), once a day at 05:30 UTC (07:30 Zurich in summer).** `pick.mjs` chooses the most critical finding that is ready: **score = severity (high 3, medium 2, low 1) times its
   sightings in the last 7 days, doubled by `confirmed`**; two sightings this week, or `confirmed`, are needed; only kinds a UI change can fix. Claude Code (Sonnet 5, at most 50 turns, about
   $0.5 to $1.5 an attempt) fixes it in `desktop/renderer` with a test first; a guard and the desktop suite must pass; ONE pull request opens, with the finding's screenshot as "Before". At most 3 are open at once.

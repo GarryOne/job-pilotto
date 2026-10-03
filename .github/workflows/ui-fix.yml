@@ -38,6 +38,8 @@ jobs:
           node-version: '22'
       - name: Pick the most critical finding that is ready
         id: pick
+        env:
+          VERDICTS: ${{ vars.JOB_PILOTTO_FIXER_VERDICTS }}   # "on": with nothing to fix, judge a one-off finding (no edits; spends AI credit)
         run: |
           mkdir -p .heal
           node desktop/e2e/pick.mjs --out .heal
@@ -49,11 +51,13 @@ jobs:
           echo "Open automatic fixes: $open"
           if [ "$open" -ge 4 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Four automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
       - name: Put the finding's screenshot next to it
+        id: shot
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         run: |
           shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
           if [ -n "$shot" ]; then curl -fsSL -o .heal/screenshot.png "$shot" || echo "screenshot not downloaded"; else echo "the issue has no screenshot"; fi
       - name: Install the app's dependencies (for its tests)
+        id: deps
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         working-directory: desktop
         run: npm ci
@@ -80,8 +84,18 @@ jobs:
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         env:
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          SHOT_OUTCOME: ${{ steps.shot.outcome }}
+          DEPS_OUTCOME: ${{ steps.deps.outcome }}
         run: |
           set -euo pipefail
+          # An earlier step failed: say WHICH. This step runs after any failure, and "Claude Code did not run (skipped)" hid a picker bug for two runs (3 Oct 2026).
+          for pair in "Put the finding's screenshot next to it:$SHOT_OUTCOME" "Install the app's dependencies:$DEPS_OUTCOME"; do
+            if [ "${pair##*:}" = failure ]; then
+              echo "::error::The step \"${pair%:*}\" failed, so Claude was not run; the issue is left as it is."
+              echo "The step \"${pair%:*}\" failed: see its log above. Nothing was changed on the issue." >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          done
           # Claude did not run (the API refused: no credit, a bad key, an outage): that says nothing about the finding. Nothing is labelled or closed (2 Oct 2026: a first run that
           # failed on "Credit balance is too low" parked the issue as needs-human, "Claude made no change").
           if [ "$CLAUDE_OUTCOME" != success ]; then
@@ -95,10 +109,23 @@ jobs:
           number=$(jq -r '.number' .heal/candidate.json)
           id=$(jq -r '.id' .heal/candidate.json)
           changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v -E '^(\.heal/|e2e-artifacts/)' || true)
+          mode=$(jq -r '.mode // "fix"' .heal/candidate.json)
+          # A verdict-only pass never opens a pull request: whatever Claude edited is dropped, only its verdict counts.
+          if [ "$mode" = verdict ]; then changed=""; git checkout -- . 2>/dev/null || true; fi
           if [ -z "$changed" ]; then
             verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
             reason=$(sed -n '2,$p' .heal/verdict.md 2>/dev/null | head -3 || true)
             case "$verdict" in
+              real)
+                if [ "$mode" = verdict ]; then
+                  gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'
+                  gh issue edit "$number" --repo "$REPO" --add-label confirmed
+                  gh issue comment "$number" --repo "$REPO" --body "Judged real by the UI loop's verdict pass (no edits made): $reason Marked \`confirmed\`: the next fixer run takes it."
+                  echo "Issue #$number judged real and confirmed." >> "$GITHUB_STEP_SUMMARY"
+                else
+                  gh issue edit "$number" --repo "$REPO" --add-label needs-human
+                  gh issue comment "$number" --repo "$REPO" --body "The UI loop could not fix this by itself. ${reason:-Claude made no change.}"
+                fi ;;
               false-positive)
                 gh issue edit "$number" --repo "$REPO" --add-label wontfix-auto
                 gh issue close "$number" --repo "$REPO" --comment "Closed by the UI loop as a false positive: $reason"
@@ -119,7 +146,9 @@ jobs:
             gh issue comment "$number" --repo "$REPO" --body "A fix was tried, but the desktop tests failed, so no pull request was opened. See the run: $RUN_URL"
             exit 1
           fi
-          title=$(head -1 .heal/pr-body.md 2>/dev/null || echo "UI fix for #$number")
+          # At most 72 BYTES, cut at a word: the title becomes the commit subject, and the repo's push hook counts bytes (a "⋯" is 3), so PR #85's 72-character title was refused and re-committed by hand.
+          title=$(node -e 'const t=((require("fs").readFileSync(".heal/pr-body.md","utf8").split("\n")[0])||"").trim(); const bytes=x=>Buffer.byteLength(x); if(bytes(t)<=72){console.log(t)}else{let c=[...t]; while(bytes(c.join(""))>68)c.pop(); console.log(c.join("").replace(/\s+\S*$/,"")+"…")}' 2>/dev/null || true)
+          [ -n "$title" ] || title="UI fix for #$number"
           shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
           { sed -n '2,$p' .heal/pr-body.md 2>/dev/null || true; echo
             echo "## Before: the finding as the end-to-end run saw it"

@@ -270,3 +270,15 @@ test('severity follows what the person feels: a probe finding is medium, a missi
   const out = normalize({ui: [{view: 'strategy', severity: 'warning', kind: 'no-loading-state', source: 'interaction-probe', control: 'Edit preferences', detail: '"Edit preferences" ran for 771 ms (openNotion) and showed no sign of work'}]});
   assert.equal(out[0].severity, 'low');
 });
+
+test('the verdict pass takes a one-off probe finding, never a judged, parked, confirmed or clean one, and never a kind it cannot judge', async () => {
+  const {chooseVerdictCandidate} = await import('../triage.mjs');
+  const make = (number, kind, labels = [], comments = []) => ({number, state: 'OPEN', title: `[auto-ui] jobs: ${kind} on jobs: "X"`, body: `**MEDIUM** · ${kind} · found by the interaction probe`, labels: [{name: 'auto-ui'}, {name: `fp:f${number}`}, ...labels.map(name => ({name}))], comments, createdAt: new Date().toISOString()});
+  const issues = [make(1, 'dead-control', ['confirmed']), make(2, 'dead-control', ['wontfix-auto']), make(3, 'dead-control', ['needs-human']), make(4, 'dead-control', ['not-seen-latest']),
+    make(5, 'layout'), make(6, 'dead-control', [], [{body: 'Seen again in run https://x/runs/2\n\nBuild tested: main @ bbbbbbb', createdAt: new Date().toISOString()}]), make(7, 'no-loading-state'), make(8, 'expand-broken')];
+  const gh = args => (args[0] === 'issue' ? JSON.stringify(issues) : '[]');
+  const picked = chooseVerdictCandidate({gh});
+  assert.equal(picked.mode, 'verdict');
+  assert.ok([7, 8].includes(picked.number), `got #${picked.number}`);   // 6 was seen on two builds: the normal fixer takes it; 1-5 are not for a verdict
+  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 5)) : '[]')}), null);
+});
