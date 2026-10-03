@@ -7,6 +7,7 @@ import path from 'node:path';
 import {startAiProxy} from './ai-proxy.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
 import {startForms} from './forms.mjs';
+import {createVariation} from './variation.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
@@ -45,7 +46,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     // The app and the extension copy share a free port, so the test never meets the user's own app on 47111.
     ctx.appPort = await freePort();
     ctx.extensionDir = copyExtension(ctx.appPort);
-    ctx.forms = await startForms();
+    ctx.vary = createVariation();   // no E2E_SEED = the fixed path (the release gate); a seed = this run's varied data and timing
+    ctx.forms = await startForms({vary: ctx.vary});
     ctx.shim = makeOpenShim();
     Object.assign(browserEnv, {PATH: `${ctx.shim.bin}:${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: ctx.shim.spool, JOB_PILOTTO_PORT: String(ctx.appPort)});
   }

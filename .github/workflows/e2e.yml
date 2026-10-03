@@ -10,7 +10,7 @@ name: CI · End-to-end journey
 #     The AI review of screenshots (the costly part) runs when the UI or its tests changed, a finding waits, or the run is exploring. A push to main runs NO e2e (decided: e2e never runs on commit); by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
-run-name: ${{ inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || github.event_name == 'workflow_run' && format('Gate {0}', github.event.workflow_run.head_sha) || '' }}   # empty = GitHub's default name. Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' and 'Gate <sha>' (the release gate: GitHub gives a workflow_run its own commit as main's, so the tested one is in the name) for gate 4
+run-name: ${{ inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Gate {0}', inputs.gate_tag) || github.event_name == 'workflow_run' && format('Gate {0}', github.event.workflow_run.head_sha) || '' }}   # empty = GitHub's default name. Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' and 'Gate <sha>' (the release gate: GitHub gives a workflow_run its own commit as main's, so the tested one is in the name) for gate 4
 
 on:
   workflow_dispatch:
@@ -22,6 +22,9 @@ on:
         description: 'The daily stable canary (stable-canary.yml): no paid AI judge, and ui-findings.yml files nothing from it'
         type: boolean
         default: false
+      gate_tag:
+        description: 'Run the full release gate for this pre-release tag by hand (a manual build is never gated by the nightly path): every suite on its commit, then approve it for beta (or promote it when the soak is off)'
+        required: false
       target_ref:
         description: "Test this release tag's commit with THIS workflow file (the soak top-ups and the stable canary: an old tag's own workflow file does not know their inputs)"
         required: false
@@ -79,7 +82,8 @@ jobs:
           RUN_EVENT: ${{ github.event.workflow_run.event }}
           ONLY: ${{ inputs.suite }}
           PROMOTE_TAG: ${{ inputs.promote_tag }}
-          TARGET_REF: ${{ inputs.target_ref }}
+          TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}
+          GATE_TAG: ${{ inputs.gate_tag }}
         run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
   suite:
     name: ${{ matrix.suite }}
@@ -110,7 +114,7 @@ jobs:
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
-      E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate and the stable canary walk the fixed one (lib/variation.mjs)
+      E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
       E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
       - uses: actions/checkout@v4

@@ -156,7 +156,10 @@ The suites follow scripted paths on fixed fixtures, so running them again re-wal
 - **The seed is printed, saved as `seed.json` and written into every issue it produced** ("Variation: seed N, window WxH. Replay: `E2E_SEED=N node suite.mjs interactions`").
 - **No seed (or 0) is the FIXED path.** The release gate (`workflow_run`) and the stable canary run fixed, so a build is judged on a path that does not move under it.
 - Plus one deterministic pass: `visitNarrow` (`lib/layout.mjs`) visits focus, jobs, actions and settings at **1024 px**, where the sidebar becomes an icon rail (under 1180 px). Its findings are warnings (they file issues, they never fail a journey or hold a release).
-- Not varied yet: the starting data (jobs, strategy, Notion state), and the platform (there is no Windows e2e).
+- **The apply suite varies its data and timing too** (`lib/forms.mjs` `varyForms`): free-text answers from hazard lists (apostrophes, quotes, `&`, `<tags>`, accents, emoji, a newline, a 900-character answer; short answers stay short and the long one stays long), the greenhouse questions in another order, the late-rendered Lever field after 0 to 1200 ms. The kit is changed before anything reads it, so the suite's expectations stay right; the seed and the picks are in the issue.
+- Not varied yet: the strategy / jobs / Notion starting state, and the platform (there is no Windows e2e).
+- **Which runs vary:** scheduled and manual runs. The release gate, the soak top-ups (their three green runs must be comparable), the by-hand gate (`gate_tag`) and the stable canary walk the fixed path.
+- **A by-hand gate** (`gh workflow run e2e.yml -f gate_tag=desktop-v0.4.0-alpha.253`): a build started by hand is never gated by the nightly path; this runs the same suites on that tag's commit, then the promote job approves it for beta (soak on) or promotes it (soak off).
 
 ## Release candidates, the soak and the stable canary
 The e2e run is also the gate of the release path (decisions: Notion Decision Log; summary in `docs/HOW-IT-RUNS.md`):

@@ -228,7 +228,7 @@ def runs_for(workflow_runs, sha, tag):
     """The completed end-to-end runs that tested this release: the ones on its own commit (the gate's, a scheduled one that landed on it) and the soak top-ups, which run main's
     workflow file on the tag's commit and are named "RC soak <tag>", and the release gate's own run, named "Gate <sha>" (e2e.yml run-name). Newest first."""
     return [{'conclusion': r.get('conclusion'), 'createdAt': r['created_at']} for r in workflow_runs
-            if r.get('head_sha') == sha or r.get('display_title') in (f'RC soak {tag}', f'Gate {sha}')]
+            if r.get('head_sha') == sha or r.get('display_title') in (f'RC soak {tag}', f'Gate {sha}', f'Gate {tag}')]
 
 
 def blocking_findings(issues, sha7):

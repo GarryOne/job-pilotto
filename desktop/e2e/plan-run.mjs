@@ -44,6 +44,7 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
       if (tag) suites = autoSuites(all, cadence);   // the nightly gate: always + nightly suites, not the manual ones
     }
   } else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
+  else if (event === 'workflow_dispatch' && env.GATE_TAG) { tag = env.GATE_TAG; suites = autoSuites(all, cadence); }   // the gate for one tag, by hand: the same suites as the nightly gate, on that tag's commit, and the promote job follows
   else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
     const decision = exploreDecision({head: ref, lastSha, waiting, runsOnHead: runs.filter(own), activity});
     exploring = decision.exploring; why = decision.why;

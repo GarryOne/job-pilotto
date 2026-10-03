@@ -72,6 +72,40 @@ FORMS.submitter = {
 };
 for (const form of Object.values(FORMS)) form.url = `https://${form.host}${form.path}`;
 
+// ---- Varied starting data (lib/variation.mjs): what a real person's data and a real site's timing throw at the fill, not only the tidy values above. ----
+// A seeded run takes another pick from each list below; no seed leaves the forms exactly as written (the release gate). The kit is changed IN PLACE before anything reads it, so the
+// suite's expectations (they come from the kit) stay right. Short answers stay short and the long one stays long: the panel flags a long drafted answer for a read-through.
+const LONG_ANSWERS = [
+  'I led the response to a cascading failure in our payments cluster, wrote the post-mortem and added load-shedding and SLO alerts afterwards.',
+  "I'm proud of one night: a bad deploy took our \"checkout\" service down & I rolled it back in 9 minutes, then wrote the post-mortem (what we'd change: canaries, <5 min alerts).",
+  'Während eines Ausfalls im Zürcher Rechenzentrum habe ich den Failover geleitet; danach schrieb ich das Post-Mortem und führte Lastabwurf ein. Résumé: très instructif, café inclus. 🚀',
+  'Line one: the page went red at 02:10.\nLine two: I paged the database owner.\nLine three: we fixed the replica lag and wrote the review the next day, with three follow-ups.',
+  'A '.repeat(450).trim(),   // about 900 characters: a long answer that must not be cut
+];
+const HAZARDS = {
+  question_1001: ['8', '12', '0.5', '8 years'],
+  question_1003: ['3 months', '30 days', 'six Wochen (Kündigungsfrist)', 'immédiat'],
+  question_1004: LONG_ANSWERS,
+  org: ['Acme Infrastructure AG', "O'Reilly & Sons <Cloud> GmbH", 'Zürich Cloud Systèmes Ltd', 'Äpfel-AG 日本'],
+  salary: ['140000', "140'000", 'CHF 140,000', '140 000'],
+  start_date: ['1 December 2026', '01.12.2026', 'ASAP', 'Dec 1st, 2026'],
+};
+const LATE_CHOICES = [0, 300, 600, 900, 1200];   // under the extension's wait; a value past it is a negative test of its own (E2E_LATE_MS)
+const ORIGINAL = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(FORMS).map(([name, form]) => [name, form.kit]))));
+let lateMs = 600, questionOrder = [0, 1, 2, 3];
+
+// -> a one-line description of what this run's data looks like (empty for the fixed path).
+export function varyForms(vary) {
+  for (const [name, form] of Object.entries(FORMS)) form.kit = JSON.parse(JSON.stringify(ORIGINAL[name]));   // always from the written forms, never on top of an earlier pick
+  lateMs = 600; questionOrder = [0, 1, 2, 3];
+  if (!vary || vary.fixed) return '';
+  const picked = [];
+  for (const form of Object.values(FORMS)) for (const item of form.kit) if (HAZARDS[item.field]) { item.answer = vary.pick(HAZARDS[item.field]); picked.push(`${item.field}=${JSON.stringify(item.answer).slice(0, 24)}`); }
+  lateMs = Number(process.env.E2E_LATE_MS) || vary.pick(LATE_CHOICES);
+  questionOrder = vary.shuffle([0, 1, 2, 3]);
+  return `late field after ${lateMs} ms, greenhouse questions in order ${questionOrder.map(i => i + 1).join('')}, answers ${picked.join(' ')}`;
+}
+
 const esc = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const field = (id, label, {type = 'text', required = false, name = id, extra = ''} = {}) =>
   `<div class="field"><label for="${id}">${esc(label)}${required ? ' *' : ''}</label><input id="${id}" name="${esc(name)}" type="${type}"${required ? ' required' : ''} ${extra}></div>`;
@@ -109,10 +143,10 @@ const PAGES = {
   greenhouse: form => page(form, `<form id="application_form">
   ${field('first_name', 'First Name', {required: true})}${field('last_name', 'Last Name', {required: true})}${field('email', 'Email', {type: 'email', required: true})}${field('phone', 'Phone', {type: 'tel'})}
   ${resume}
-  ${field('question_1001', 'Years of experience with Kubernetes', {required: true})}
-  ${select('question_1002', 'Are you legally authorized to work in Switzerland?', ['Yes', 'No'], {required: true})}
-  ${field('question_1003', 'Notice period', {required: true})}
-  ${area('question_1004', 'Describe a production incident you led and what you changed afterwards.', {required: true})}
+  ${questionOrder.map(i => [field('question_1001', 'Years of experience with Kubernetes', {required: true}),
+    select('question_1002', 'Are you legally authorized to work in Switzerland?', ['Yes', 'No'], {required: true}),
+    field('question_1003', 'Notice period', {required: true}),
+    area('question_1004', 'Describe a production incident you led and what you changed afterwards.', {required: true})][i]).join('\n  ')}
   ${consent('consent_privacy', 'I agree to the privacy policy and the processing of my data')}
   ${submit}</form>`),
   // Lever: the posting's page has the form under /apply; "Current company" is rendered by script a moment after the page has loaded (E2E_LATE_MS moves it: a
@@ -125,7 +159,7 @@ const PAGES = {
   ${select('heard', 'How did you hear about us?', ['Job board', 'Referral', 'Company website', 'Other'], {required: true})}
   ${area('why', 'Why do you want to work at E2E Lever Systems?', {required: true})}
   ${submit}</form>`,
-  `setTimeout(() => { document.getElementById('late-slot').innerHTML = ${JSON.stringify(field('org', 'Current company', {required: true}))}; }, ${Number(process.env.E2E_LATE_MS) || 600});`),
+  `setTimeout(() => { document.getElementById('late-slot').innerHTML = ${JSON.stringify(field('org', 'Current company', {required: true}))}; }, ${Number(process.env.E2E_LATE_MS) || lateMs});`),
   // Two steps on one page: step 2 (salary, consent, Submit) is hidden until the person presses Next.
   multistep: form => page(form, `<form id="application_form">
   <section id="step1"><h2>Step 1 of 2: about you</h2>
@@ -150,7 +184,8 @@ const PAGES = {
 };
 
 // -> {url, host, port, close(), fired: [{kind, form}] (what happened to a Submit), forms: {name: form}}. https, a self-made certificate.
-export async function startForms() {
+export async function startForms({vary = null} = {}) {
+  const variation = varyForms(vary);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-cert-'));
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '2', '-subj', '/CN=jp-e2e', '-keyout', path.join(dir, 'key.pem'), '-out', path.join(dir, 'cert.pem')], {stdio: 'ignore'});
   const fired = [];
@@ -181,7 +216,7 @@ export async function startForms() {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
-  return {port, fired, posts, hits, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => PAGES[name](FORMS[name])};
+  return {port, fired, posts, hits, variation, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => PAGES[name](FORMS[name])};
 }
 
 // Chromium flags that send the job-site host names to the fixture server and make every other name unresolvable (no employer is ever contacted).

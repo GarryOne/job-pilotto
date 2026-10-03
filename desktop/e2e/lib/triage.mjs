@@ -80,7 +80,7 @@ export function issueBody(finding, runUrl, evidence = {}) {
   if (rows.length) out.push('', '| App state | |', '|---|---|', ...rows.map(([name, value]) => `| ${name} | ${value} |`));
   if (finding.also?.length) out.push('', '### Failed after it', ...finding.also.slice(0, 8).map(step => `- ${step}`), ...(finding.also.length > 8 ? [`- … and ${finding.also.length - 8} more`] : []), '', '<sub>Probably consequences of the first failure (later steps need what it leaves).</sub>');
   for (const [name, text] of logs) out.push('', `<details><summary>${name} (last lines)</summary>`, '', '```', text, '```', '', '</details>');
-  if (evidence.seed) out.push('', `Variation: seed ${evidence.seed}${evidence.window ? `, window ${evidence.window.join('x')}` : ''}. Replay the same path: \`E2E_SEED=${evidence.seed} node suite.mjs ${suite || 'interactions'}\``);
+  if (evidence.seed) out.push('', `Variation: seed ${evidence.seed}${evidence.window ? `, window ${evidence.window.join('x')}` : ''}${evidence.detail ? ` (${evidence.detail})` : ''}. Replay the same path: \`E2E_SEED=${evidence.seed} node suite.mjs ${suite || 'interactions'}\``);
   if (suite) out.push('', '### Reproduce', `\`cd desktop/e2e && node suite.mjs ${suite}\`: the step that photographs \`${view}\` (\`snap(ctx, '${view}')\`) shows it.`);
   const where = [];
   if (evidence.codeFile) where.push(`- Code: \`${evidence.codeFile}\``);

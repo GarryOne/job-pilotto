@@ -11,6 +11,8 @@ import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mj
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
+// Walks other data and timing on each seeded run (lib/forms.mjs varyForms): an exploring run on an unchanged commit includes it.
+export const varies = true;
 export const minutes = 12;
 export const browser = true;
 export const name = 'apply';
@@ -35,6 +37,9 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function run(ctx) {
   const {page, token: NOTION, proxy, forms} = ctx;
   ctx.findings = [];
+  // A seeded run (E2E_SEED, lib/variation.mjs) fills forms with other data and other timing (lib/forms.mjs varyForms); the written seed replays it.
+  fs.writeFileSync(path.join(ctx.ARTIFACTS, 'seed.json'), JSON.stringify({seed: ctx.vary.seed, fixed: ctx.vary.fixed, detail: forms.variation}));
+  console.log(ctx.vary.fixed ? '  variation: fixed forms' : `  variation: seed ${ctx.vary.seed}; ${forms.variation}; replay with E2E_SEED=${ctx.vary.seed}`);
   await ensureSetUp(ctx);
   const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};

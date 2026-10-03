@@ -151,3 +151,11 @@ test('a manual run with target_ref tests that release\'s commit, not main\'s', a
   assert.equal(plain.ref, 'mainsha', 'no target_ref: main as before');
   await assert.rejects(planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha', TARGET_REF: 'nope'}, gh: () => { throw new Error('404'); }, all: ALL, minutes: () => 15}), /not a commit/);
 });
+
+test('a manual gate for a tag runs the nightly gate\'s suites on that tag\'s commit and names the tag to approve', async () => {
+  const stub = args => (args[0] === 'api' && /commits\/desktop-v1\.5$/.test(args[1]) ? 'cafe'.repeat(10) + '\n' : '[]');
+  const out = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha', TARGET_REF: 'desktop-v1.5', GATE_TAG: 'desktop-v1.5'}, gh: stub, all: ALL, minutes: () => 15});
+  assert.deepEqual([out.tag, out.ref, out.count], ['desktop-v1.5', 'cafe'.repeat(10), '4']);
+  const plain = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha'}, gh: stub, all: ALL, minutes: () => 15});
+  assert.equal(plain.tag, '', 'a plain manual run promotes nothing');
+});
