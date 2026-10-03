@@ -24,6 +24,18 @@ export function probeSeverity(item) {
   const ms = Number(/ran for (\d+) ms/.exec(item.detail || '')?.[1]);
   return Number.isFinite(ms) && ms >= SLOW_NOTICEABLE_MS ? 'medium' : 'low';
 }
+// The window around every page (sidebar, bottom bar, brand, icon rail) looks the same on every page, so the AI review reported one sidebar defect once per page:
+// nine issues for one cut-off icon (4 Oct 2026). Such a finding goes to view "app-chrome" with a key made of its words (synonyms folded), however it is worded.
+const CHROME = /\b(?:sidebar|side bar|status bar|bottom bar|icon rail|brand|activity bar)\b/i;
+const CHROME_WORDS = {sidebar: 'sidebar', 'side bar': 'sidebar', 'status bar': 'bottom', 'bottom bar': 'bottom', 'activity bar': 'bottom', 'icon rail': 'sidebar', brand: 'brand',
+  icon: 'icon', icons: 'icon', badge: 'badge', badges: 'badge', label: 'label', search: 'search', bottom: 'bottom', footer: 'bottom', last: 'bottom', top: 'top',
+  clipped: 'clipped', cut: 'clipped', truncated: 'clipped', hidden: 'clipped', overlap: 'overlap', overlaps: 'overlap', covers: 'overlap', covered: 'overlap', misaligned: 'misaligned'};
+export function chromeKey(item) {
+  const text = `${item.title || ''} ${item.detail || ''}`;
+  if (!CHROME.test(item.title || '')) return '';
+  const words = new Set(Object.entries(CHROME_WORDS).filter(([word]) => new RegExp(`\\b${word}\\b`, 'i').test(text)).map(([, key]) => key));
+  return [...words].sort().join('-').slice(0, 40);
+}
 export function normalize({ui = [], ai = [], suite = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
@@ -34,7 +46,10 @@ export function normalize({ui = [], ai = [], suite = []}) {
     const quoted = !probed && /:\s*"([\s\S]{3,})$/.exec(String(item.detail || ''))?.[1]?.replace(/"$/, '');
     return {...finding, ...(quoted ? {shown: `${finding.title}: "${quoted.replace(/\s+/g, ' ').slice(0, 40)}${quoted.length > 40 ? '…' : ''}"`} : {}), id: fingerprint(finding)};
   });
-  const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, severity: cappedSeverity(item.severity, item.kind), dir: item._dir, id: item.id || fingerprint(item), source: 'ai-review'}));
+  const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => {
+    const chrome = chromeKey(item);
+    return {...item, severity: cappedSeverity(item.severity, item.kind), dir: item._dir, source: 'ai-review', ...(chrome ? {view: 'app-chrome', id: `app-chrome-${item.kind}-${chrome}`} : {id: item.id || fingerprint(item)})};
+  });
   // A step of a suite that failed: one finding per step (its message changes from run to run, the step does not). Never a kind a UI fix can address.
   const fromSuite = suite.filter(item => item && item.suite && item.step).map(item => {
     // A red test step says something is off, not that a journey is blocked: that is a judgement (a person's `confirmed`), and the release gate is red anyway while any suite fails.

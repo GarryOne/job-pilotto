@@ -407,3 +407,12 @@ test('the scorecard counts each detector\'s filed, false positive, real and open
   assert.deepEqual(rows, [{source: 'AI screenshot review', filed: 3, falsePositive: 1, real: 1, open: 1}, {source: 'Interaction probe', filed: 1, falsePositive: 0, real: 1, open: 0}]);
   assert.match(scorecardLines(rows).join('\n'), /\| AI screenshot review \| 3 \| 1 \(33%\) \| 1 \| 1 \|/);
 });
+
+// 4 Oct 2026: the AI review filed one cut-off sidebar icon nine times, once per page, each worded differently.
+test('a window-chrome defect from the AI review is one app-chrome finding, however it is worded and on whatever page', () => {
+  const titles = ['Sidebar bottom icon clipped at window edge', 'Sidebar footer icon cut off at bottom', 'Sidebar\'s last icon cut off at bottom', 'Bottom sidebar icon is cut off', 'Sidebar bottom icon cut off by status bar'];
+  const out = normalize({ai: titles.map((title, i) => ({view: ['jobs', 'focus', 'settings-narrow', 'calendar', 'actions'][i], severity: 'medium', kind: 'layout', title, detail: 'x'}))});
+  assert.deepEqual([...new Set(out.map(item => `${item.view}|${item.id}`))], ['app-chrome|app-chrome-layout-bottom-clipped-icon-sidebar']);
+  const [page] = normalize({ai: [{view: 'jobs', severity: 'medium', kind: 'consistency', title: 'Job counts disagree within the card', detail: 'x'}]});
+  assert.equal(page.view, 'jobs', 'a finding about the page itself stays on its page');
+});

@@ -55,6 +55,14 @@ export function inspect({view, limits}) {
     const size = parseFloat(getComputedStyle(el).fontSize);   // size 0 hides a label on purpose (the nav buttons of the icon rail): not tiny text
     if (size > 0 && size < limits.minFont) { found.push({view, severity: 'warning', kind: 'tiny-text', detail: `${label(el)} text is under ${limits.minFont}px: "${snippet(el)}"`}); break; }
   }
+  // Sideways overflow INSIDE the page: in the app the document never scrolls sideways (the content area scrolls itself), so the check above alone never saw a
+  // too-wide element (4 Oct 2026, found by the recall plants). The page's own scroll containers are measured: the view and the area that scrolls it, not a
+  // nested table wrapper that may scroll sideways on purpose.
+  if (!found.some(item => item.kind === 'page-overflow')) {
+    const containers = [...new Set([root, root.parentElement, document.querySelector('main'), document.querySelector('.content')].filter(Boolean))];
+    const scroller = containers.find(el => /(auto|scroll)/.test(getComputedStyle(el).overflowX) && el.scrollWidth > el.clientWidth + 2 && visible(el));
+    if (scroller) found.push({view, severity: 'warning', kind: 'page-overflow', detail: `${label(scroller)} scrolls sideways (${scroller.scrollWidth}px of content in ${scroller.clientWidth}px)`});
+  }
   for (const img of root.querySelectorAll('img')) {
     if (visible(img) && img.complete && img.naturalWidth === 0) found.push({view, severity: 'severe', kind: 'broken-image', detail: `${label(img)} does not load`});
   }

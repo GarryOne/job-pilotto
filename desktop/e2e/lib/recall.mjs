@@ -23,7 +23,7 @@ export const PLANTS = [
   {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(new Error('recall planted rejection')); }},
 ];
 
-const insert = html => { document.getElementById('recall-plant')?.remove(); const box = document.createElement('div'); box.id = 'recall-plant'; box.innerHTML = html; (document.querySelector('.view:not([hidden])') || document.body).append(box); };
+const insert = html => { document.getElementById('recall-plant')?.remove(); const box = document.createElement('div'); box.id = 'recall-plant'; box.innerHTML = html; (document.querySelector('.view:not([hidden])') || document.body).prepend(box); box.scrollIntoView({block: 'nearest'}); };   // at the top, in view: axe leaves an off-screen element's contrast "incomplete" (#115)
 const takeOut = () => document.getElementById('recall-plant')?.remove();
 
 // -> {planted, caught, rows: [{id, detector, caught, saw}]}. `view`: the page showing; `ipc`: as for the probe.
@@ -32,6 +32,7 @@ export async function measureRecall({page, view, ipc, wait = ms => new Promise(d
   // What the page already has before any plant: a detector "caught" a plant only when its count for that kind or rule went UP.
   const count = (list, key, value) => list.filter(item => item[key] === value).length;
   await page.evaluate(takeOut).catch(() => {});
+  const before = [journey.pageErrors, journey.consoleErrors, journey.failedLoads].map(list => [list, list.length]);
   const baseLayout = await page.evaluate(inspect, {view, limits: LIMITS}).catch(() => []);
   const baseA11y = await checkA11y(page);
   for (const plant of PLANTS) {
@@ -56,8 +57,9 @@ export async function measureRecall({page, view, ipc, wait = ms => new Promise(d
     await page.evaluate(takeOut).catch(() => {});
     rows.push({id: plant.id, detector: plant.detector, caught, saw: saw.slice(0, 160)});
   }
-  // The planted window errors are not real ones: never filed.
-  for (const list of [journey.pageErrors, journey.consoleErrors]) for (let i = list.length - 1; i >= 0; i--) if (/recall planted/.test(list[i])) list.splice(i, 1);
+  // Whatever the window recorded DURING the plants is planted, not real: never filed. Matching the text was not enough (4 Oct 2026: the broken-image plant's
+  // failed load and its console line were filed as real errors, #116 and #117).
+  for (const [list, length] of before) list.splice(length);
   return {planted: rows.length, caught: rows.filter(row => row.caught).length, rows};
 }
 
