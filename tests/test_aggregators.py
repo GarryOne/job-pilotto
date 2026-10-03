@@ -19,6 +19,15 @@ class AggregatorTests(unittest.TestCase):
     def setUp(self):
         self.assertTrue(feeds.wanted_title(TITLE) and feeds.wanted_location({'location': PLACE}))
 
+    def test_the_end_to_end_fixture_mode_never_reaches_a_live_api(self):
+        # 3 Oct 2026: real jobicy rows landed in the e2e quality suite's data. Fixture mode reads files only, like careers.py.
+        db = sqlite3.connect(':memory:')
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': '/tmp/fixtures'}), mock.patch.object(aggregators, 'sources', side_effect=AssertionError('a live source was asked')):
+            self.assertEqual(aggregators.scan(db, {}, now=NOW), {'jobs': [], 'sources': []})
+        # a test of scan itself, with its own readers, is unaffected
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': '/tmp/fixtures'}):
+            self.assertEqual(aggregators.scan(db, {}, now=NOW, readers=[])['jobs'], [])
+
     def test_each_free_source_is_read_into_the_common_job_shape_with_its_own_address(self):
         pages = {'arbeitnow': {'data': [{'slug': 's1', 'company_name': 'Acme', 'title': TITLE, 'location': PLACE, 'url': 'https://arbeitnow.example/s1',
                                          'created_at': 1791028823, 'description': '<p>Kubernetes</p>', 'remote': False}]},

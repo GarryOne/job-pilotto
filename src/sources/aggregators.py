@@ -128,9 +128,13 @@ def sources(env=None):
 
 def scan(db, search, now=None, readers=None):
     """A feeds.scan-style report ({'jobs', 'sources'}) from the aggregators that are due; your roles and places only, source named on each job."""
+    report = {'jobs': [], 'sources': []}
+    # The end-to-end fixture mode reads feeds from files and never reaches a live site (careers.py does the same): real postings from a public API would land in a test's data
+    # (3 Oct 2026: jobicy rows in the quality suite). `readers` given = a test of this function itself.
+    if readers is None and os.getenv('JOB_PILOTTO_FIXTURE_DIR'):
+        return report
     now = now or datetime.now(timezone.utc)
     db.execute(TABLE)
-    report = {'jobs': [], 'sources': []}
     for name, read in (readers if readers is not None else sources()):
         last = db.execute('SELECT at FROM aggregator_runs WHERE source = ?', (name,)).fetchone()
         if last and datetime.fromisoformat(last[0]) > now - timedelta(hours=SPACING_HOURS):
