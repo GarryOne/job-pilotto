@@ -421,7 +421,8 @@ export async function init() {
     $('set-notion').value = '';
     loadSettings();
   });
-  for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', true], ['serpapi', 'SERPAPI_API_KEY', false]]) {
+  for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', true], ['serpapi', 'SERPAPI_API_KEY', false], ['adzuna-id', 'ADZUNA_APP_ID', false],
+    ['adzuna-key', 'ADZUNA_APP_KEY', false], ['jooble', 'JOOBLE_API_KEY', false]]) {
     $(`set-${id}-save`).addEventListener('click', async () => {
       const value = $(`set-${id}`).value.trim();
       if (!value) return;

@@ -72,7 +72,7 @@ export function pipelineEnv(storage, parent = process.env) {
   };
   // The Profile and standard answers are read from Notion; before it is connected (Trying) from this Mac's files
   // (src/paths.py local_text). Never set when connected: the local file would win over Notion.
-  for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']) {
+  for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY']) {
     const value = storage.secret(name);
     if (value) env[name] = value;
   }

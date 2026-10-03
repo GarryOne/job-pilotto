@@ -138,6 +138,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # Google Jobs via SerpApi (one paid search per scheduled/run crawl); off while unset.
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
           # AI stage 1 stays off until this repository variable names a model,
           # so no API credits are spent by accident.
           JOB_PILOTTO_ENRICH_MODEL: ${{ vars.JOB_PILOTTO_ENRICH_MODEL }}

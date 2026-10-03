@@ -17,7 +17,7 @@ adds the times you choose (Settings → How often). Defaults:
 
 Your private repo needs:
 - **Secrets:** `ANTHROPIC_API_KEY`, `NOTION_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and
-  optionally `SERPAPI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`.
+  optionally `SERPAPI_API_KEY`, `ADZUNA_APP_ID` + `ADZUNA_APP_KEY`, `JOOBLE_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`.
 - **Variables:** your Notion IDs (`NOTION_APPLICATIONS_DB`, `NOTION_MATCHES_DB`, … — see
   `.env.example`), and the feature switches you use (`JOB_PILOTTO_SCORE_MODEL`, …).
 

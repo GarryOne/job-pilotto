@@ -131,6 +131,16 @@ test('the pipeline never inherits the developer\'s tokens or .env', () => {
   assert.equal(env.JOB_PILOTTO_NO_DOTENV, '1');
 });
 
+test('the user\'s own Adzuna and Jooble keys reach the engine, and a developer\'s never do', () => {
+  const storage = tempStorage();
+  storage.setSecret('ADZUNA_APP_ID', 'id1');
+  storage.setSecret('ADZUNA_APP_KEY', 'key1');
+  storage.setSecret('JOOBLE_API_KEY', 'jk1');
+  const env = pipeline.pipelineEnv(storage, {PATH: '/usr/bin', ADZUNA_APP_ID: 'owner'});
+  assert.deepEqual([env.ADZUNA_APP_ID, env.ADZUNA_APP_KEY, env.JOOBLE_API_KEY], ['id1', 'key1', 'jk1']);
+  assert.equal(pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin', ADZUNA_APP_ID: 'owner'}).ADZUNA_APP_ID, undefined);
+});
+
 test('the end-to-end journey\'s fixture feeds and its fictional candidate reach the engine; nothing else of the shell does', () => {
   const env = pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin', JOB_PILOTTO_FIXTURE_DIR: '/fx', JOB_PILOTTO_LOCATIONS_FILE: '/fx/person.json', JOB_PILOTTO_EXCLUDED_COMPANIES: 'Acme'});
   assert.equal(env.JOB_PILOTTO_FIXTURE_DIR, '/fx');
