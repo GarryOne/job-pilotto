@@ -144,6 +144,11 @@ test('the extension gets the tailored CV on that job\'s page and the base CV els
   cv.save(storage, 'ee22ff33', {job: {code: 'ee22ff33', url: 'https://mail.google.com/mail/u/0/#all/xyz', title: 'Staff SRE', company: 'Kestrel Agency'},
     createdAt: new Date().toISOString(), model: cv.MODEL, usd: 0.05, changes: [], warnings: [], cv: tailored, review}, Buffer.from('ANOTHER'));
   assert.equal(cv.forUrl(storage, 'https://careers.kestrelagency.com/apply/42'), null, 'two tailored CVs for one employer: the base CV, not a guess');
+  // What the extension is handed on that employer's form (GET /extension/me): the chat job's tailored CV while it is the only one, the base CV after.
+  fs.rmSync(path.join(cv.dir(storage), 'tailored', 'ee22ff33.json'));
+  const forForm = await me(storage, 'https://careers.kestrelagency.com/apply/42');
+  assert.equal(Buffer.from(forForm.resume.data, 'base64').toString(), 'FOR KESTREL');
+  assert.equal(forForm.resume.tailored, true);
   const page = fs.readFileSync(cv.reviewPage(storage, cv.load(storage, 'ab12cd34')), 'utf8');
   assert.match(page, /What changed and why/);
   assert.match(page, /Hide highlights/);
