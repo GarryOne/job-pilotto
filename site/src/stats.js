@@ -183,7 +183,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar i{height:10px;width:var(--w);background:var(--amber);border-radius:5px}.bar b{text-align:right}
 table{width:100%;border-collapse:collapse;margin-top:8px}td{padding:6px 4px;border-top:1px solid var(--line);overflow-wrap:anywhere}
 </style></head><body><main>
-<header><h1>✈ Job Pilotto · website stats</h1><span class="muted">${range} · <a href="/telemetry">App reports →</a></span></header>
+<header><h1>✈ Job Pilotto · website stats</h1><span class="muted">${range} · <a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a></span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>Per day</h2><small class="legend muted"><i></i>visitors<i class="t"></i>downloaders</small>
 <div class="chart">${chart || '<p class="muted">Nothing yet</p>'}</div><div style="height:18px"></div></section>

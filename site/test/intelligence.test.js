@@ -66,11 +66,11 @@ test('the report names a role word only once enough people chose it, and shows w
   assert.deepEqual([mid.total, Math.round(mid.acted * 100), Math.round(mid.dismissed * 100)], [100, 10, 20]);
 });
 
-test('/intelligence is for the owner only and shows the sections', async () => {
+test('/intel is for the owner only and shows the sections', async () => {
   const e = env();
   await store(e, {dismissals: [{reason: 'location', bucket: '40-59', n: 3}], coverage: {role: 'sre_devops', region: 'europe', in_places: 100, matched: 5, missed: [{term: 'backend', count: 30}]}}, now);
-  assert.equal((await view(new Request('https://x/intelligence'), e, now)).status, 404);
-  const page = await (await view(new Request('https://x/intelligence', {headers: {Authorization: 'Bearer secret'}}), e, now)).text();
+  assert.equal((await view(new Request('https://x/intel'), e, now)).status, 404);
+  const page = await (await view(new Request('https://x/intel', {headers: {Authorization: 'Bearer secret'}}), e, now)).text();
   assert.match(page, /Is the search too narrow\?/);
   assert.match(page, /sre_devops<\/td><td>europe<\/td><td>1<\/td><td>5%/);
   assert.match(page, /Why jobs are dismissed[\s\S]*location/);
@@ -99,7 +99,7 @@ test('replies by score band, source kinds and corrected answers: stored, bounded
   assert.deepEqual(r.replies.map(x => [x.bucket, x.total, x.rate == null ? null : Math.round(x.rate * 100)]), [['40-59', 20, 10], ['80-100', 20, 60]]);
   assert.deepEqual(r.sources.map(x => [x.board, x.seen, x.acted]), [['greenhouse', 100, 30], ['other', 5, 5]]);   // a hashed host is refused, acted is clamped to seen
   assert.deepEqual(r.fixes.map(x => [x.label, x.filled, x.corrected]), [['notice period', 30, 18]]);   // "Only mine" has one install; the name label has too few fills
-  const page = await (await view(new Request('https://x/intelligence', {headers: {Authorization: 'Bearer secret'}}), e, now)).text();
+  const page = await (await view(new Request('https://x/intel', {headers: {Authorization: 'Bearer secret'}}), e, now)).text();
   assert.match(page, /Do higher scores get replies\?[\s\S]*80-100<\/td><td>20<\/td><td>60%/);
   assert.match(page, /Answers people change[\s\S]*notice period<\/td><td>30<\/td><td><b>60%/);
 });
@@ -143,7 +143,16 @@ test('why fields stay empty: fixed reason words per board are summed, the rest i
   await storeKnowledge(e, {unfilled: [{board: 'lever', reason: 'no_answer', n: 2}]}, 'install-b-0002', now);
   const data = await report(e.STATS, 30, now);
   assert.deepEqual(data.reasons.map(r => [r.reason, r.n, r.share]), [['no_answer', 5, 5 / 6], ['not_taken', 1, 1 / 6]]);
-  const html = await (await view(new Request('https://x/intelligence', {headers: {Authorization: 'Bearer secret'}}), {...e, STATS: e.STATS}, now)).text();
+  const html = await (await view(new Request('https://x/intel', {headers: {Authorization: 'Bearer secret'}}), {...e, STATS: e.STATS}, now)).text();
   assert.match(html, /Why fields stay empty/);
   assert.match(html, /No answer in the profile/);
+});
+
+test('the owner page is not shadowed by the public one: /intel has no static asset', async () => {
+  const fs = await import('node:fs');
+  const assets = fs.readdirSync(new URL('../public/', import.meta.url));
+  assert.ok(assets.includes('intelligence.html'));  // public, served before the Worker
+  assert.ok(!assets.some(name => name === 'intel' || name.startsWith('intel.')));
+  const index = fs.readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
+  assert.match(index, /pathname === '\/intel'\) return intelligenceView/);
 });

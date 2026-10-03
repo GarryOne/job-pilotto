@@ -77,7 +77,9 @@ export default {
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/telemetry') return telemetry.view(request, env);
-    if (pathname === '/intelligence') return intelligenceView(request, env);
+    // The owner's dashboard. Not /intelligence: that is the public page (public/intelligence.html), and static assets are
+    // served before this Worker, so a route there is never reached.
+    if (pathname === '/intel') return intelligenceView(request, env);
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);

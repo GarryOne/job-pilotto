@@ -5,7 +5,7 @@
 //   2 how much of the market the role keywords catch, and which fixed role words they miss
 //   3 why a job was dismissed (a one-tap reason), by the job's fit-score band
 //   4 a daily snapshot of score band vs what became of the job (new, saved, applied, replied ...): does the score predict action?
-// store() takes the `intel` part of POST /api/controls; view() is the owner's /intelligence page.
+// store() takes the `intel` part of POST /api/controls; view() is the owner's /intel page (/intelligence is the public one).
 import {report as aiCost} from './aicost.js';
 import {REGIONS, ROLES} from './pool.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
@@ -199,7 +199,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font
 td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}.bar{height:8px;border-radius:99px;background:var(--amber);min-width:2px}
 </style></head><body><main>
 <header><div><h1>🧠 What the installs teach</h1><small class="muted">Counts only, by coarse tags: no job title, company or text. A role word is named only once ${MIN_PEOPLE}+ people chose it.</small></div>
-<div class="muted">Last ${range} · <a href="/telemetry">App reports</a> · <a href="/stats">Stats</a></div></header>
+<div class="muted">Last ${range} · <a href="/telemetry">App reports</a> · <a href="/stats">Stats</a> · <a href="/intelligence">Public page</a></div></header>
 <section class="card"><h2>🔎 Is the search too narrow?</h2><small class="muted">Share of postings in people's wanted places that their role keywords catch (reports from each crawl), by role and region.</small>
 <table><tr><th>Role</th><th>Region</th><th>Reports</th><th>Keywords catch</th></tr>
 ${data.coverage.map(row => `<tr><td>${esc(row.role)}</td><td>${esc(row.region)}</td><td>${row.reports}</td><td>${pct(row.share)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No crawl reports yet.</td></tr>'}</table>
@@ -234,7 +234,7 @@ ${data.cost.steps.map(row => `<tr><td>${esc(row.action)}</td><td>${row.calls}</t
 </main></body></html>`;
 }
 
-// GET /intelligence?days=30 (the /stats key or cookie)
+// GET /intel?days=30 (the /stats key or cookie)
 export async function view(request, env, now = new Date()) {
   if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const asked = Number(new URL(request.url).searchParams.get('days'));
