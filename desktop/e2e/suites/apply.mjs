@@ -162,8 +162,15 @@ export async function run(ctx) {
 
   await ctx.run('the session page says it too: "Before you submit" counts the knockout question that is still the person\'s, and says which CV goes in', async () => {
     const form = FORMS.multistep;
-    await page.click('.nav[data-view="jobs"]');
-    await page.locator('article.job-row').filter({hasText: form.company}).first().locator('.row-main').click();   // "View session": the session this form belongs to
+    // The session this form belongs to. The job row's button says "View session" only on a Mac with Claude Code installed (claudeReady, jobs.js); here it is the fill
+    // button ("Opened ↻"), and clicking it fills the form again and stays on the Jobs list (apply run 37134779221). A session card in the dock opens the same page for everyone,
+    // and the Sessions page lists them all when the dock (three cards at most) does not show this one.
+    const card = page.locator('#sd-cards .sd-card').filter({hasText: form.company}).first();
+    if (await card.count()) await card.click();
+    else {
+      await page.click('.nav[data-view="sessions"]');
+      await page.locator('.view[data-view="sessions"]').getByText(form.company).first().click({timeout: 15000}).catch(() => { throw new Error(`no session for ${form.company} on the Sessions page or in the dock`); });
+    }
     const strip = page.locator('#ss-before');
     await strip.waitFor({state: 'visible', timeout: 30000}).catch(async () => {
       throw new Error(`the session page shows no "Before you submit" strip (the form card says: "${await page.locator('#ss-form-card').innerText().catch(() => 'not shown')}")`);
