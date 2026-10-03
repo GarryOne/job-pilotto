@@ -1,37 +1,75 @@
 name: CI · End-to-end on Windows
 
 # The Mac is the product's main platform, so every suite runs on a Mac (e2e.yml). Windows users get the same app, and a Windows-only break (paths, quoting, the installer's
-# environment) was invisible to the journey. This runs the AI-free `settings` suite on a Windows runner, weekly and by hand: it never gates a release, and it grows suite by
-# suite as each one is proven to run on Windows (the `suites` input). Red on a quiet week = the runner or a Windows-only code path moved. See also windows-smoke.yml (builds and installs).
+# environment) was invisible to the journey. This runs the suites proven on Windows (one job per suite, like e2e.yml), weekly and by hand: it never gates a release, and it grows suite by
+# suite as each one is proven to run on Windows (the `suites` input; WEEKLY below once proven). Each run takes its own seeded path (E2E_SEED = the run id,
+# lib/variation.mjs: page/control order, window size, form data), so the weekly Windows look explores; `fixed: true` replays the Mac's fixed path. Red on a quiet week = the runner or a Windows-only code path moved. See also windows-smoke.yml (builds and installs).
 on:
   schedule:
     - cron: '47 6 * * 1'   # Mondays, 06:47 UTC, after the smoke build (06:17)
   workflow_dispatch:
     inputs:
       suites:
-        description: 'Suites to run on Windows, comma-separated'
+        description: 'Suites to run on Windows, comma-separated (empty = the weekly set)'
         required: false
-        default: 'settings'
+      fixed:
+        description: 'The fixed path (E2E_SEED=0, as the release gate) instead of a seeded one'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+env:
+  WEEKLY: 'settings'   # proven on Windows; add a suite once a by-hand run of it is green there
+
 jobs:
-  windows:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        env:
+          SUITES: ${{ inputs.suites }}
+        run: |
+          list="${SUITES:-$WEEKLY}"
+          echo "matrix=$(printf '%s' "$list" | tr -d ' ' | jq -Rc 'split(",") | map(select(length > 0)) | {suite: .}')" >> "$GITHUB_OUTPUT"
+
+  suite:
+    name: ${{ matrix.suite }} (Windows)
+    needs: plan
     runs-on: windows-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     defaults:
       run:
         shell: bash   # the suites' commands use bash syntax; pwsh would mangle quoting
     concurrency:
-      group: e2e-settings   # the settings suite owns one Notion page: never together with a run on the Mac
+      # The suite owns one Notion page: never together with the same suite on the Mac (e2e.yml uses the same group). A NEW pending job cancels an
+      # older pending one in the group, so start a by-hand Windows run only when no e2e.yml job of that suite is still queued.
+      group: e2e-${{ matrix.suite }}
       cancel-in-progress: false
     env:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
-      E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}
       E2E_NOTION_TOKEN_JOBS: ${{ secrets.E2E_NOTION_TOKEN_JOBS }}
-      E2E_SEED: '0'   # the fixed path: a Windows run is compared with the Mac's, not explored
+      E2E_NOTION_TOKEN_INTERVIEWS: ${{ secrets.E2E_NOTION_TOKEN_INTERVIEWS }}
+      E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}
+      E2E_NOTION_TOKEN_PERSONAS: ${{ secrets.E2E_NOTION_TOKEN_PERSONAS }}
+      E2E_NOTION_TOKEN_EMPLOYERS: ${{ secrets.E2E_NOTION_TOKEN_EMPLOYERS }}
+      E2E_NOTION_TOKEN_CALENDAR: ${{ secrets.E2E_NOTION_TOKEN_CALENDAR }}
+      E2E_NOTION_TOKEN_FOCUS: ${{ secrets.E2E_NOTION_TOKEN_FOCUS }}
+      E2E_NOTION_TOKEN_APPLY: ${{ secrets.E2E_NOTION_TOKEN_APPLY }}
+      E2E_NOTION_TOKEN_ACTIVITY: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITY }}
+      E2E_NOTION_TOKEN_ACTIVITYFAILURES: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITYFAILURES }}
+      E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
+      E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
+      E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
+      E2E_SEED: ${{ inputs.fixed && '0' || github.run_id }}   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,26 +84,20 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
+      - name: Chromium for the extension (the apply suite loads the real Chrome extension in it)
+        if: matrix.suite == 'apply'
+        working-directory: desktop/e2e
+        run: npx playwright-core install chromium
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
-      - name: Run the suites on Windows
+      - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
         timeout-minutes: 30
-        env:
-          SUITES: ${{ inputs.suites || 'settings' }}
-          E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows
-        run: |
-          status=0
-          for suite in ${SUITES//,/ }; do
-            echo "::group::$suite"
-            E2E_SUITE=$suite E2E_ARTIFACTS="$E2E_ARTIFACTS/$suite" node suite.mjs "$suite" || status=$?
-            echo "::endgroup::"
-          done
-          exit $status
+        run: node suite.mjs ${{ matrix.suite }}
       - name: Screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-artifacts-windows
-          path: e2e-artifacts-windows
+          name: e2e-artifacts-windows-${{ matrix.suite }}
+          path: e2e-artifacts-windows/${{ matrix.suite }}
           if-no-files-found: ignore

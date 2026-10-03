@@ -129,7 +129,7 @@ jobs:
       - name: Record which commit this run tested (ui-findings.yml names it in every issue)
         run: |
           mkdir -p "$E2E_ARTIFACTS"
-          printf '%s %s' "${{ inputs.target_ref || github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
+          printf '%s %s\n' "${{ inputs.target_ref || github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
       - name: Install the app
         working-directory: desktop
         run: npm ci
