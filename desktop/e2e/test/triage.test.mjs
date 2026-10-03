@@ -283,8 +283,8 @@ test('the verdict pass takes a one-off probe finding, never a judged, parked, co
   const gh = args => (args[0] === 'issue' ? JSON.stringify(issues) : '[]');
   const picked = chooseVerdictCandidate({gh});
   assert.equal(picked.mode, 'verdict');
-  assert.ok([5, 7, 8].includes(picked.number), `got #${picked.number}`);   // 6 was seen on two builds: the normal fixer takes it; 1-4 are judged, parked or clean
-  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 4)) : '[]')}), null);
+  assert.ok([4, 5, 7, 8].includes(picked.number), `got #${picked.number}`);   // 4 is not seen in the latest run: judged too since 4 Oct 2026   // 6 was seen on two builds: the normal fixer takes it; 1-4 are judged, parked or clean
+  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 3)) : '[]')}), null);
   assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify([make(9, 'test-failure')]) : '[]')}), null, 'a failed test step is judged by its suite, not by a verdict');
 });
 
@@ -439,4 +439,14 @@ test('the fixer card counts pull requests by outcome and the verdict pass\'s rea
     [{comments: [{body: 'Judged real by the UI loop\'s verdict pass (no edits made): x', createdAt: '2026-10-03T13:00:00Z'}, {body: 'Closed by the UI loop as a false positive: y', createdAt: '2026-10-03T14:00:00Z'}, {body: 'a person', createdAt: '2026-10-03T15:00:00Z'}]}], now);
   assert.deepEqual(card, {pr: {opened: 3, merged: 1, closed: 1, open: 1}, verdicts: {real: 1, falsePositive: 1}});
   assert.match(fixerLines(card).join('\n'), /3 pull request\(s\) opened, 1 merged, 1 closed unmerged, 1 open · verdict pass: 1 real, 1 false positive/);
+});
+
+// The kind was read with [a-z-]+, so "a11y" read as no kind: accessibility issues were invisible to the verdict pass and the fixer (4 Oct 2026).
+test('an accessibility finding has its kind, is judged by the verdict pass and fixable; a not-seen one-off is judged too', async () => {
+  const {chooseVerdictCandidates} = await import('../triage.mjs');
+  const make = (number, kind, labels = []) => ({number, state: 'OPEN', title: `[auto-ui] a11y: a11y on a11y: rule${number}`, body: `**MEDIUM** · ${kind} · found by the layout check`, labels: [{name: 'auto-ui'}, {name: `fp:k${number}`}, ...labels.map(name => ({name}))], comments: [], createdAt: new Date().toISOString()});
+  const issues = [make(1, 'a11y'), make(2, 'consistency', ['not-seen-latest'])];
+  const picked = chooseVerdictCandidates({gh: args => (args[0] === 'issue' ? JSON.stringify(issues) : '[]')});
+  assert.deepEqual(picked.map(issue => issue.number).sort(), [1, 2]);
+  assert.equal(pickCandidate([make(3, 'a11y', ['confirmed'])])?.number, 3, 'a confirmed accessibility finding is fixable');
 });

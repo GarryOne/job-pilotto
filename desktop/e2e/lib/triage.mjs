@@ -10,7 +10,7 @@ export const NOT_SEEN = 'not-seen-latest';   // the page was photographed and re
 export const SEEN_AGAIN = 'seen-again';   // seen on two or more commits (sightings()): reproduced, not a one-off
 export const SIGHTINGS_NEEDED = 2;   // a finding must show in two runs before anyone (or anything) acts on it: one-off flakes and model noise drop out
 export const LOGIC_KINDS = ['functionality', 'crash'];   // fixable since 4 Oct 2026, only when confirmed (notReadyReason)
-export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill', 'dead-control', 'expand-broken', 'no-loading-state'];
+export const FIX_KINDS = ['a11y', 'layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill', 'dead-control', 'expand-broken', 'no-loading-state'];
 
 // Allowed edits of an automatic fix: the window's pages, styles and their tests. Nothing that touches data, Notion, secrets, the engine, the site or workflows.
 // Since 4 Oct 2026 also the engine (src/*.py) and the app's own logic (desktop/lib/*.js), with their tests: confirmed logic bugs from the AI code review (#109, #110)
@@ -229,7 +229,7 @@ export function matchExisting(finding, issues, threshold = 0.3, state = 'OPEN') 
   if (named) return named;
   const text = `${finding.title} ${finding.detail}`;
   return issues.filter(issue => issue.state === state && new RegExp(`^\\[auto-ui\\] ${finding.view}:`).test(issue.title || '')
-      && (/·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '') === finding.kind)
+      && (/·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '') === finding.kind)
     .map(issue => ({issue, score: similar(text, `${(issue.title || '').replace(/^\[auto-ui\] [^:]+:/, '')} ${foundText(issue.body)}`)}))
     .filter(item => item.score >= threshold).sort((a, b) => b.score - a.score)[0]?.issue || null;
 }
@@ -268,7 +268,7 @@ const BLOCKING_KINDS = ['functionality', 'error-shown', 'test-failure', 'page-ov
 export function priorityOf(issue, now = Date.now()) {
   const labels = (issue.labels || []).map(item => item.name || item);
   const severity = /\*\*(HIGH|MEDIUM|LOW)\*\*/.exec(issue.body || '')?.[1] || 'LOW';
-  const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
   const seen = recentSightings(issue, now), points = score(issue, now);
   if (labels.includes(NOT_SEEN)) return 'P3';   // already clean in the latest run: waiting to close, never above the rest
   if (severity === 'HIGH' && BLOCKING_KINDS.includes(kind) && (seen >= 2 || labels.includes(CONFIRMED))) return 'P0';
@@ -279,7 +279,7 @@ export function priorityOf(issue, now = Date.now()) {
 // The score alone tied eleven of twelve rows on 3 Oct 2026 (a red status dot ranked like a missing spinner).
 const KIND_WEIGHT = {functionality: 3, 'error-shown': 3, 'console-error': 3, 'dead-control': 2, 'expand-broken': 2, 'page-overflow': 2, 'tall-row': 2, 'broken-image': 2, 'no-loading-state': 1, 'test-failure': 0.5};
 const CRITICAL_VIEWS = ['apply', 'strategy', 'activity', 'wizard'];   // the critical path: apply, strategy sync, run results, setup
-const kindOf = issue => /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+const kindOf = issue => /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
 const viewOf = issue => /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
 export const rankWeight = (issue, now = Date.now()) => score(issue, now) * (KIND_WEIGHT[kindOf(issue)] ?? 1) * (CRITICAL_VIEWS.includes(viewOf(issue)) ? 1.5 : 1);
 
@@ -363,7 +363,7 @@ export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}
   if (labels.includes(NOT_SEEN)) return 'clean';
   if (openBranches.includes(`auto-fix/${id.slice(3)}`)) return 'pr-open';
   if (recentSightings(issue, now) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return 'once';
-  const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
   // A wrong result or a crash is fixed only once someone (the verdict pass or a person) said it is real: two sightings of a logic claim prove nothing.
   if (LOGIC_KINDS.includes(kind)) return labels.includes(CONFIRMED) ? '' : 'unconfirmed';
   return FIX_KINDS.includes(kind) ? '' : 'kind';

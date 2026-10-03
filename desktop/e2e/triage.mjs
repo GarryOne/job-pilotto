@@ -226,7 +226,7 @@ export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
   const candidate = pickCandidate(issues, {openBranches: branches, now});
   // The other open findings of the same kind: one root cause often shows on several pages (#66 and #74, 3 Oct 2026), and the fix should cover them all.
-  const kindOf = issue => /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  const kindOf = issue => /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
   return candidate && {...candidate, siblings: issues.filter(issue => issue.number !== candidate.number && issue.state === 'OPEN' && kindOf(issue) === kindOf(candidate)).map(issue => `#${issue.number} ${issue.title}`)};
 }
 
@@ -245,8 +245,10 @@ export function chooseVerdictCandidates({gh = realGh, now = Date.now(), max = 5}
   const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   const ready = issues.filter(issue => {
     const labels = (issue.labels || []).map(label => label.name || label);
-    if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED, NOT_SEEN].some(name => labels.includes(name))) return false;
-    const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+    // "Not seen in the latest run" is judged too: the AI review is not deterministic and a failure-state bug shows only sometimes, so a real one could close
+    // itself unjudged (4 Oct 2026: "Failed run shows all steps with green checks"). A confirmed one is never auto-closed.
+    if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED].some(name => labels.includes(name))) return false;
+    const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
     // Every one-off finding the loop made by judging (the probe, the layout check, the AI screenshot review), not a failed test step: the suites judge those themselves.
     return !!kind && kind !== 'test-failure' && recentSightings(issue, now) < SIGHTINGS_NEEDED;
   });
