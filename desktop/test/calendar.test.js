@@ -53,3 +53,11 @@ test('the agenda: coming meetings soonest first, past ones latest first, today\'
   assert.deepEqual(upcoming.map(m => m.day), ['2026-10-05', '2026-10-07']);
   assert.deepEqual(past.map(m => m.recording), ['r2', 'r1']);
 });
+
+test('"Today" moves the grid to this month at once, without re-reading Notion (#67: about 1 s with no sign of work)', async () => {
+  const fs = await import('node:fs');
+  const page = fs.readFileSync(new URL('../renderer/pages/calendar.js', import.meta.url), 'utf8');
+  const handler = page.slice(page.indexOf("$('cal-today').onclick"), page.indexOf('\n', page.indexOf("$('cal-today').onclick")));
+  assert.match(handler, /render\(\)/);
+  assert.doesNotMatch(handler, /loadCalendar|pilot\./);
+});

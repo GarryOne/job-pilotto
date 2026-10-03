@@ -144,5 +144,6 @@ const step = by => { moved = true; const d = new Date(Date.UTC(month.year, month
 export async function init() {
   $('cal-prev').onclick = () => step(-1);
   $('cal-next').onclick = () => step(1);
-  $('cal-today').onclick = () => { month = null; moved = true; loadCalendar(); };
+  // Today only moves the grid, as Prev/Next do: it used to re-read the whole calendar from Notion (about 1 s with no sign of work, #67).
+  $('cal-today').onclick = () => { const now = new Date(); moved = true; month = {year: now.getFullYear(), month: now.getMonth()}; render(); };
 }
