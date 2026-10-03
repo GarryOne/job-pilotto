@@ -2,7 +2,7 @@
 // warnings" and "Failed" while the Actions page said plain "Completed" for a run with warnings).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {runStatus, runWarned} from '../renderer/run-status.js';
+import {barState, runStatus, runWarned} from '../renderer/run-status.js';
 
 test('a finished run is Completed, With warnings or Failed, a running one Running, a waiting one Queued', () => {
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
@@ -19,4 +19,22 @@ test('a run is warned when its row says so or its log or report carries a warnin
   assert.equal(runWarned({ok: true, log: ['Enriched 1 of 1 job(s); 0 failed']}), false);
   assert.equal(runWarned({ok: false, log: ['Warning: x']}), false);   // a failed run is Failed, not warned
   assert.equal(runWarned({live: true, ok: true, warned: true}), false);
+});
+
+test('the status bar dot describes the run the words beside it describe: a failed Gmail check no longer turns "Last jobs check · nothing new" red', () => {
+  const search = {ok: true, kind: 'search'}, mail = {ok: true, off: true, kind: 'mail'};
+  assert.equal(barState(null, search), 'ok');
+  assert.equal(barState(null, mail), 'error', 'a Gmail check that did not run is shown for itself ...');
+  assert.equal(barState(null, search || mail), 'ok', '... but beside the jobs check the dot follows the jobs check');
+  assert.equal(barState({live: true}, mail), 'busy');
+  assert.equal(barState(null, null), 'idle');
+  assert.equal(barState(null, {ok: false}), 'error');
+  assert.equal(barState(null, {ok: true, warned: true}), 'warn', 'a run that worked but warned is amber, not green');
+});
+
+test('the checklist marks the step a warned run stopped at with a warning, not a tick', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  assert.match(source, /i === at && !live && runWarned\(run\) \? 'warn'/);
+  assert.match(fs.readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8'), /\.activity-phases li\.warn::before/);
 });

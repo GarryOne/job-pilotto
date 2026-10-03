@@ -4,6 +4,7 @@
 // elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a row isn't there yet.
 import {call} from './notion.js';
 import {jobFrom} from './job-line.js';
+import {runWarned} from '../renderer/run-status.js';   // pure (no DOM): the Actions page and this pop-up must call a run "with warnings" by the same rule
 
 export {jobFrom};
 
@@ -149,10 +150,14 @@ export function notice(run) {
     return {title: `Gmail: ${count} application update${count === 1 ? '' : 's'}${where}`,
       body: run.updates?.length ? run.updates.slice(0, 3).join('\n') : run.result};
   }
+  // A run that worked but said something (its Status is Warnings, or its log has a warning line) is not "done": the Actions page already calls it "With warnings",
+  // and a pop-up that says "done" over a refused AI call is the contradiction the UI loop found (#51, #52).
+  const verdict = runWarned(run) ? 'finished with warnings' : 'done';
+  const look = runWarned(run) ? ' Open Job Pilotto to see what it said.' : '';
   if (!run.kind || run.kind === 'search') {
     const fresh = run.new;
-    return {title: `${run.trigger === 'schedule' ? 'Scheduled jobs check' : 'Jobs check'} done${where}`,
-      body: fresh ? `${fresh} new job${fresh === 1 ? '' : 's'} found.` : 'No new jobs this time.'};
+    return {title: `${run.trigger === 'schedule' ? 'Scheduled jobs check' : 'Jobs check'} ${verdict}${where}`,
+      body: (fresh ? `${fresh} new job${fresh === 1 ? '' : 's'} found.` : 'No new jobs this time.') + look};
   }
-  return {title: `${name} done${where}`, body: String(run.result || run.summary || run.message || 'Done.').split('\n')[0].slice(0, 180)};
+  return {title: `${name} ${verdict}${where}`, body: String(run.result || run.summary || run.message || 'Done.').split('\n')[0].slice(0, 180) + look};
 }

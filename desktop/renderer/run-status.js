@@ -11,3 +11,12 @@ export function runStatus(run, warned) {
   if (!run.ok || run.off) return ['Failed', 'bad'];
   return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
 }
+
+// The dot of the bottom status bar. It must describe the SAME run as the words beside it (the last jobs check, else the last Gmail check): the newest run of any kind
+// made a Gmail check that was not connected turn the dot red beside "Last jobs check · nothing new" (UI loop #59). A run that worked but warned is amber.
+export function barState(running, shown) {
+  if (running) return 'busy';
+  if (!shown) return 'idle';
+  if (!shown.ok || shown.off) return 'error';
+  return runWarned(shown) ? 'warn' : 'ok';
+}

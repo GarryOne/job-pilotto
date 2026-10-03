@@ -132,6 +132,7 @@ main { overflow-y: auto; padding: 28px 32px; }
 .activity-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
 .activity[data-state="ok"] .activity-dot { background: var(--teal); }
 .activity[data-state="error"] .activity-dot { background: var(--bad); }
+.activity[data-state="warn"] .activity-dot { background: var(--warn-bright); }
 .activity[data-state="busy"] .activity-dot { background: var(--signal); animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(var(--signal-rgb) / .5); } 50% { box-shadow: 0 0 0 6px rgb(var(--signal-rgb) / 0); } }
 /* The panel floats above the bar as a card (the page doesn't move); scrolls inside when long. */
@@ -158,6 +159,7 @@ main { overflow-y: auto; padding: 28px 32px; }
 .activity-phases { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; font-size: var(--fs-base); }
 .activity-phases li::before { display: inline-block; width: 22px; }
 .activity-phases li.done::before { content: '✓'; color: var(--teal); font-weight: 700; }
+.activity-phases li.warn::before { content: '!'; color: var(--warn-bright); font-weight: 700; }
 .activity-phases li.now::before { content: '●'; color: var(--signal); }
 .activity-phases li.now { font-weight: 600; }
 .activity-phases li.todo { color: var(--muted); }

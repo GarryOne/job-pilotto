@@ -74,6 +74,10 @@ test('every finished job is a notification wherever it ran; a quiet Gmail check 
     {title: 'Insight done (on GitHub)', body: 'Insight sent: Skills — Go is in 40%'});
   assert.deepEqual(history.notice({kind: 'search', trigger: 'schedule', ok: true, new: 3}), {title: 'Scheduled jobs check done', body: '3 new jobs found.'});
   assert.deepEqual(history.notice({ok: true, new: 0}), {title: 'Jobs check done', body: 'No new jobs this time.'});  // an older record without kind
+  // A run that worked but warned is not "done" (UI loop #51, #52: a green "Jobs check done" over a refused AI call).
+  assert.deepEqual(history.notice({ok: true, new: 1, warned: true}), {title: 'Jobs check finished with warnings', body: '1 new job found. Open Job Pilotto to see what it said.'});
+  assert.equal(history.notice({kind: 'insight', ok: true, result: 'Written', warned: true}).title, 'Insight finished with warnings');
+  assert.equal(history.notice({ok: false, warned: true}).title, 'Jobs check had problems', 'a failure stays a failure');
   assert.equal(history.notice({kind: 'weekly', where: 'github', ok: false}).title, 'Weekly report had problems (on GitHub)');
   assert.deepEqual(history.notice({kind: 'mail', ok: true, updates: ['Grafana Labs: Rejected']}),
     {title: 'Gmail: 1 application update', body: 'Grafana Labs: Rejected'});

@@ -1,7 +1,7 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
-import {runStatus, runWarned} from '../run-status.js';
+import {barState, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -240,7 +240,7 @@ export function renderActivity(fresh) {
   const last = runs[0];
   const lastSearch = runs.find(run => kindOf(run) === 'search');
   const lastMail = runs.find(run => kindOf(run) === 'mail');
-  $('activity').dataset.state = running ? 'busy' : last && (!last.ok || last.off) ? 'error' : last ? 'ok' : 'idle';
+  $('activity').dataset.state = barState(running, lastSearch || lastMail || last);
   const liveLines = running ? shared.logLines : null;
   const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
   const soon = at => (at <= Date.now() ? 'due now' : clockTime(new Date(at).toISOString()));  // a past time = runs at the next check
@@ -422,7 +422,8 @@ export function renderActivity(fresh) {
   const live = !!run?.live;
   $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
     : PHASES.map((phase, i) => {
-      const status = i < at || (i === at && !live) ? 'done' : i === at ? 'now' : 'todo';
+      // The step a run that warned stopped at is not a clean tick: a refused AI call under "reading and scoring" must not look done (UI loop #51).
+      const status = i === at && !live && runWarned(run) ? 'warn' : i < at || (i === at && !live) ? 'done' : i === at ? 'now' : 'todo';
       return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
