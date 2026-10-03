@@ -115,6 +115,13 @@ class FocusTests(unittest.TestCase):
         self.assertEqual((result['insight']['reason'], result['insight']['headline']), ('Hard skills', 'Lead with Python'))
         self.assertEqual(result['summary'], "You're up to date. A good moment to apply to a few more jobs.")
 
+    def test_a_long_lesson_sentence_is_not_cut_mid_sentence(self):
+        lesson = "Fast rejection suggests CV didn't match the Data Infrastructure posting's keywords or requirements, despite strong cloud experience"
+        rows = [row('a', 'Canonical', 'SRE', stage='Rejected', Rejection_lesson=lesson + '. Next time: tailor.')]
+        events = [event('a', 'Reply received', '2026-09-28T08:00:00Z')]
+        result = focus.build(rows, events, target=0, now=NOW)
+        self.assertEqual(result['insight']['headline'], lesson)
+
     def test_the_funnel_counts_each_step_from_the_same_rows(self):
         rows = [row('a', 'A', 'x', stage='Rejected'), row('b', 'B', 'y', stage='Screening'), row('c', 'C', 'z', stage='Kit ready', applied=None)]
         events = [event('a', 'Reply received', '2026-09-27T10:00:00Z')]

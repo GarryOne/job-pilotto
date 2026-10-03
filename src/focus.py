@@ -530,7 +530,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         row = max(recent, key=lambda r: r.get('last_edited_time', ''))
         lesson = _field(row, 'Rejection lesson')
         first = re.split(r'(?<=[.;])\s', lesson, maxsplit=1)[0].rstrip('.;')
-        insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 110),
+        insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 220),
                    'detail': f"{_field(row, 'Company')} — {_role(row)}", 'lesson': lesson,
                    'notion_url': row.get('url', ''), 'page_id': row['id']}
     fresh = [r for r in insights if _field(r, 'Date')[:10] >= (now - timedelta(days=7)).date().isoformat()
