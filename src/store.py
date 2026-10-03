@@ -2,6 +2,7 @@
 """Canonical local store for jobs, companies, sources and application state."""
 from datetime import datetime, timezone
 import json
+import re
 from pathlib import Path
 import sqlite3
 
@@ -68,7 +69,59 @@ def connect(path):
         db.execute("ALTER TABLE jobs ADD COLUMN posted_at TEXT")
     if 'description' not in columns:
         db.execute("ALTER TABLE jobs ADD COLUMN description TEXT")
+    if 'identity' not in columns:
+        db.execute("ALTER TABLE jobs ADD COLUMN identity TEXT")
+    db.execute("CREATE INDEX IF NOT EXISTS jobs_identity_idx ON jobs(identity)")
     return db
+
+
+# ---------- one job, many sources ----------
+# The same posting now arrives from the employer's feed, jobs.ch, an aggregator and an alert email, each under its own address. Its identity is
+# the company and the title written loosely (no legal form, no gender or workload marks, no punctuation); the city decides only when both
+# sides name one. A second source of a known open job is merged into it instead of becoming a second job to list and score.
+LEGAL = re.compile(r'\b(ag|sa|gmbh|sagl|ltd|limited|inc|llc|plc|se|bv|nv|ab|oy|as|srl|spa|co|corp|corporation|company|group|holding|schweiz|switzerland|suisse)\b')
+MARKS = re.compile(r'\((?:[mwfdhxa]\s*/\s*)+[mwfdhxa]\)|\b[mwfdh]\s*/\s*[mwfdh](?:\s*/\s*[mwfdhx])?\b|\ball genders\b|\d{1,3}\s*(?:-|–|bis)?\s*\d{0,3}\s*%|\(a\)')
+
+
+def _words(text):
+    return ' '.join(re.findall(r'[a-z0-9äöüéèàç+#]+', text))
+
+
+def identity(company, title):
+    """'Acme AG', 'Senior DevOps Engineer (m/w/d) 80-100%' -> 'acme|senior devops engineer'; '' when either is missing."""
+    company = _words(LEGAL.sub(' ', (company or '').lower()))
+    title = _words(MARKS.sub(' ', (title or '').lower()))
+    return f'{company}|{title}' if company and title and company not in ('unknown employer', 'undisclosed employer') else ''
+
+
+def _site(host):
+    """The site a host belongs to (jobs.lever.co and api.lever.co are one site): its last two labels."""
+    return '.'.join((host or '').lower().split('.')[-2:])
+
+
+def _city(text):
+    """A place's first part, accents and case removed: 'Zürich, Switzerland' and 'Zurich' are the same city."""
+    import unicodedata
+    plain = unicodedata.normalize('NFKD', (text or '').lower()).encode('ascii', 'ignore').decode()
+    return _words(plain.split(',')[0].split(';')[0].split(' - ')[0])
+
+
+def same_job(db, item, company_name):
+    """The open job this item is another copy of (same identity; same city when both name one; on ANOTHER site), or None.
+    Two postings with the same title on one site are two openings (a feed lists each requisition once); copies come from other sites."""
+    from urllib.parse import urlsplit
+    key = identity(company_name, item.get('title'))
+    if not key:
+        return None, ''
+    city = _city(item.get('city') or item.get('location'))
+    host = _site(urlsplit(item.get('url') or '').hostname)
+    for row in db.execute("SELECT id, location, city, url FROM jobs WHERE identity = ? AND state = 'open'", (key,)):
+        if host and host == _site(urlsplit(row['url'] or '').hostname):
+            continue
+        other = _city(row['city'] or row['location'])
+        if not city or not other or city == other or city in other or other in city:
+            return row, key
+    return None, key
 
 
 def _now():
@@ -113,6 +166,16 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
               item.get('classification'), item.get('confidence'),
               json.dumps(item.get('salary')) if item.get('salary') is not None else None,
               item.get('notes'))
+    duplicate, key_identity = (None, identity(company_name, item.get('title'))) if existing else same_job(db, item, company_name)
+    if duplicate:
+        # Another source of a job we already hold: keep the first copy (its address, its Notion row, its score); take this copy's text
+        # when the first has none (an alert email's job borrows the employer feed's description, and the other way round), note the source.
+        db.execute("UPDATE jobs SET last_seen_at=?, notes=TRIM(COALESCE(notes, '') || ' · also on ' || ?) WHERE id=? AND instr(COALESCE(notes, ''), ?) = 0",
+                   (now, source_name, duplicate['id'], f'also on {source_name}'))
+        db.execute("UPDATE jobs SET last_seen_at=? WHERE id=?", (now, duplicate['id']))
+        if item.get('description'):
+            db.execute("UPDATE jobs SET description=? WHERE id=? AND COALESCE(description, '') = ''", (item['description'], duplicate['id']))
+        return duplicate['id'], 'seen'
     if existing:
         db.execute("""UPDATE jobs SET source_id=?, company_id=?, title=?, url=?, location=?, city=?,
             work_mode=?, last_seen_at=?, classification=?, confidence=?, salary_json=?, notes=?, state='open' WHERE id=?""",
@@ -123,6 +186,8 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
             work_mode, first_seen_at, last_seen_at, classification, confidence, salary_json, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (key, *fields))
         job_id = cur.lastrowid; status = 'new'
+    if key_identity:
+        db.execute("UPDATE jobs SET identity=? WHERE id=?", (key_identity, job_id))
     if item.get('date_posted'):
         db.execute("UPDATE jobs SET posted_at=? WHERE id=?", (item['date_posted'], job_id))
     # Only overwrite with real text: a failed detail fetch must not erase a stored description.
