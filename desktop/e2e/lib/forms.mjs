@@ -133,6 +133,7 @@ const PAGES = {
   <div class="field"><button type="button" id="next_step">Next</button></div></section>
   <section id="step2" hidden><h2>Step 2 of 2: your terms</h2>
   ${field('salary', 'Salary expectation (CHF per year)', {required: true})}${field('start_date', 'Earliest start date', {required: true})}
+  ${field('sponsorship', 'Will you now or in the future require sponsorship for employment visa status?', {required: true})}
   ${consent('consent_data', 'I agree to the processing of my personal data (privacy policy)')}
   ${submit}</section></form>`,
   `document.getElementById('next_step').addEventListener('click', () => { document.getElementById('step1').hidden = true; document.getElementById('step2').hidden = false; });`),

@@ -73,3 +73,13 @@ test('a page\'s own topics come first, and any tip when it has none', () => {
   assert.ok(nextTip({categories: ['nothing-like-this']}).tip, 'an unknown topic still gives a tip');
   assert.ok(TIPS.some(tip => tip.category === 'interview') && TIPS.some(tip => tip.category === 'follow-up'), 'each stop has tips');
 });
+
+// The honesty rule, kept when someone adds a tip later: nothing promises an outcome, nothing says a system rejects without saying when, no invented figures.
+const BANNED = [[/guarantee/i, 'a promise'], [/\bwill (be )?reject/i, 'a certain rejection'], [/\balways (reject|fail|ban)/i, 'an always'], [/\bevery (recruiter|employer|company|system)\b/i, 'an every'],
+  [/\bnever (fails|works)\b/i, 'a never'], [/\b(double|triple|10x)\b/i, 'a multiplier'], [/\d+\s?(%|percent)/i, 'a percentage'], [/\bfake it\b|\bpad\b|\blie\b|\btrick\b/i, 'a trick']];
+test('no tip promises an outcome or states a figure it cannot source', () => {
+  for (const tip of TIPS) for (const [pattern, what] of BANNED) assert.doesNotMatch(tip.text, pattern, `${tip.id}: ${what}`);
+});
+test('a tip that says something rejects you says it conditionally', () => {
+  for (const tip of TIPS.filter(item => /\breject(s|ed)?\b|auto-reject/i.test(item.text))) assert.match(tip.text, /\b(if|can|may|some|no major|not|never|or only)\b/i, `${tip.id}: reject needs a condition`);
+});

@@ -137,6 +137,9 @@ Hard rules: use only what the CV says. Never suggest adding a tool, number, empl
 say "add it only if it is true". missing_keywords: up to 10 terms the target roles typically ask for that the CV never states. The target roles come from the
 Profile excerpt when there is one, else from the CV itself. Keep every sentence short and plain.`;
 
+const plain = value => String(value || '').toLowerCase().replace(/[^\p{L}\p{N}+#.]+/gu, ' ').replace(/\s+/g, ' ').trim();
+export const stated = (text, term) => { const p = plain(term); return p.length >= 2 && ` ${plain(text)} `.includes(` ${p} `); };
+
 export async function review(storage, apiKey, text, {client = null, profile = ''} = {}) {
   const anthropic = client || new Anthropic({apiKey});
   const response = await anthropic.messages.create({
@@ -148,7 +151,8 @@ export async function review(storage, apiKey, text, {client = null, profile = ''
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   const clamp = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   return {...result, score: clamp(result.score), components: result.components.map(item => ({...item, score: clamp(item.score)})),
-    fixes: result.fixes.slice(0, 8), missing_keywords: result.missing_keywords.slice(0, 10), usd: usd(response.usage)};
+    fixes: result.fixes.slice(0, 8), usd: usd(response.usage),
+    missing_keywords: result.missing_keywords.filter(term => !stated(text, term)).slice(0, 10)};   // a term the CV already states is not missing
 }
 
 // ---------- the cache of the PDF's check (cv/check.json) ----------

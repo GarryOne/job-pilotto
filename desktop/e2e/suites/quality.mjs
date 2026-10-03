@@ -208,6 +208,32 @@ export async function run(ctx) {
     if (!allowance.ok) throw new Error(`${problems.length} of ${verdicts.length} score texts invent facts or contradict the posting (at most ${allowance.allowed} allowed)`);
     }, {needs: ctx.needs}));
 
+    // The CV match (desktop/lib/match-check.js) on three golden postings with a fixed CV, judged by plain text rules, no second model: the terms the posting and the CV
+    // both state must come back as found, and the code has to correct the model's claims about the CV only rarely (it corrects them; this watches how often).
+    await soft(() => ctx.run('the CV match is right about the CV on golden postings: required terms found, few claims corrected', async () => {
+      process.env.JOB_PILOTTO_MODEL_OVERRIDE ||= env.JOB_PILOTTO_MODEL_OVERRIDE;
+      const {check, cvText} = await import('../../lib/match-check.js');
+      const cv = {summary: 'Senior Site Reliability Engineer, nine years in cloud infrastructure, Kubernetes, observability and incident response.', skills: 'Kubernetes, Terraform, AWS, Datadog, OpenTelemetry, SLOs',
+        jobs: [{company: 'Acme Cloud', roles: [{title: 'Senior SRE', period: '2022 – Present', place: 'Zurich', skills: 'AWS EKS, Terraform, Datadog',
+          bullets: ['Ran 400 microservices on Kubernetes (AWS EKS)', 'Cut incident time by 40 percent with Datadog and OpenTelemetry', 'Built the Terraform platform used by 120 engineers', 'Led the on-call rotation of 8 people']}]},
+          {company: 'Beta Systems', roles: [{title: 'Platform Engineer', period: '2018 – 2022', place: 'Berlin', bullets: ['Migrated 60 services to Kubernetes', 'Introduced SLOs and error budgets']}]}]};
+      const text = cvText(cv).toLowerCase();
+      const TERMS = ['kubernetes', 'terraform', 'aws', 'datadog', 'opentelemetry', 'slos'];
+      let expected = 0, got = 0, corrected = 0;
+      for (const item of postings.filter(entry => entry.fit === 'high').slice(0, 3)) {
+        const result = await check({}, ctx.key, {job: item, cv});
+        corrected += result.corrected;
+        for (const term of TERMS.filter(candidateTerm => text.includes(candidateTerm) && item.description.toLowerCase().includes(candidateTerm))) {
+          expected++;
+          if (result.musts.some(must => must.term.toLowerCase().includes(term) && must.status === 'found')) got++;
+        }
+        for (const must of result.musts) if (must.status === 'found' && !text.includes(must.term.toLowerCase())) throw new Error(`"${item.title}": "${must.term}" is marked found, but the CV never says it`);
+      }
+      console.log(`  CV match: ${got}/${expected} required terms found, ${corrected} claim(s) corrected by the guard`);
+      if (expected && got / expected < 0.7) throw new Error(`only ${got} of ${expected} terms that the posting and the CV both state came back as found`);
+      if (corrected > 4) throw new Error(`the guard had to correct ${corrected} claims about the CV on three postings (at most 4)`);
+    }, {needs: ctx.needs}));
+
     if (late.length) throw new Error(`${late.length} quality check(s) failed: ${late.map(error => error.message.split('\n')[0].slice(0, 120)).join(' | ')}`);
   } finally {   // the one-line summary is printed whatever failed
     const line = `quality: ${summary.facts.exact}/${summary.facts.total} facts exact, ranking ${summary.ranking}, ${summary.invented} invented facts, scores stable ${summary.stable}`;

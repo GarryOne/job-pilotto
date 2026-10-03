@@ -146,7 +146,13 @@ export async function run(ctx) {
     await tab.waitForFunction(() => document.getElementById('salary')?.value, null, {timeout: 60000}).catch(() => { throw new Error('"Fill again" did not fill step 2 (salary stayed empty)'); });
     actual = await readForm(tab);
     fail([...fillProblems({expected: expectedOf(form), left: form.legal, actual}), ...submitProblems(forms.fired, form.path)]);
-    fail(leftProblems((await readPanel(tab)).left, ['personal data']));
+    const left = await readPanel(tab);
+    fail(leftProblems(left.left, ['personal data', 'sponsorship']));
+    // The question a hiring system can be set to reject on comes first, with its warning, and the panel carries a tip with one of the labels that say how strong it is.
+    if (!/sponsorship/i.test(left.left[0] || '')) throw new Error(`the knockout question is not first in "Left for you" (the list: ${left.left.join(' | ')})`);
+    if (!/reject an application automatically|knockout rule/i.test(left.knock)) throw new Error(`no knockout warning above the list (it says: "${left.knock}")`);
+    for (let i = 0; i < 10 && !left.tip; i++) { await pause(1000); left.tip = (await readPanel(tab)).tip; }
+    if (!left.tip || !['Fact', 'Recruiters say', 'Worth trying', 'Tip'].includes(left.tip.chip) || left.tip.text.length < 20) throw new Error(`the panel shows no tip with a valid label (${JSON.stringify(left.tip)})`);
   }, {needs: ctx.needs});
 
   await ctx.run('a form with a control the extension cannot operate: the miss is reported to the app', async () => {

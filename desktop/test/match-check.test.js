@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {check, cvText, save, saved} from '../lib/match-check.js';
+import {check, cvText, guard, save, saved} from '../lib/match-check.js';
 
 const cv = {summary: 'Platform engineer **eight** years.', skills: 'Kubernetes, Terraform', jobs: [{company: 'Acme', roles: [{title: 'SRE', period: '2020 – Present', place: 'Zurich', bullets: ['Ran the on-call rota', 'Moved 40 services to Kubernetes'], skills: 'AWS'}]}]};
 const job = {title: 'Platform Engineer', company: 'Beta', location: 'London', description: 'You will run Kubernetes and Prometheus. Must have the right to work in the UK. Three days a week in the office.'};
@@ -41,4 +41,18 @@ test('the last answer for a job is kept, and said to be old once the CV changed'
   assert.equal(saved(storage, 'ab12cd34', cv).stale, undefined);
   assert.equal(saved(storage, 'ab12cd34', {...cv, summary: 'Changed'}).stale, true);
   assert.equal(saved(storage, '../../etc/passwd', cv), null, 'a code is a file name, nothing more');
+});
+
+test('a claim the CV does not bear out is corrected before it is shown', () => {
+  const text = cvText(cv);   // states Kubernetes, Terraform, AWS, on-call; never Prometheus or SLOs
+  const musts = [
+    {term: 'Kubernetes', status: 'found', evidence: 'Moved 40 services to Kubernetes'},   // true, stays
+    {term: 'Prometheus', status: 'found', evidence: 'Built alerting with Prometheus'},       // not in the CV: only implied
+    {term: 'Terraform', status: 'missing', evidence: ''},                                     // it is in the CV: found
+    {term: 'AWS', status: 'implied', evidence: ''},                                           // stated in a skills line: found
+    {term: 'SLOs', status: 'missing', evidence: ''}];                                         // really missing, stays
+  const out = guard({musts, knockouts: [{requirement: 'x', status: 'conflict', note: 'n'}]}, text);
+  assert.deepEqual(out.musts.map(item => `${item.term}:${item.status}`), ['Kubernetes:found', 'Prometheus:implied', 'Terraform:found', 'AWS:found', 'SLOs:missing']);
+  assert.equal(out.knockouts[0].status, 'conflict', 'a judgement is left as the model gave it');
+  assert.equal(out.corrected, 3);
 });

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {analyse, hashOf, linesOf, review, save, saved} from '../lib/cv-check.js';
+import {analyse, hashOf, linesOf, review, save, saved, stated} from '../lib/cv-check.js';
 
 const word = (str, x, y, w = 60, h = 9) => ({str, x, y, w, h});
 const page = (text, images = [], n = 1) => ({n, width: 595, height: 842, images, text});
@@ -78,4 +78,13 @@ test('the result belongs to one PDF: another CV starts clean', () => {
   fs.writeFileSync(storage.path('cv.pdf'), 'TWO');
   assert.equal(saved(storage), null);
   assert.notEqual(hashOf(storage), '');
+});
+
+test('a keyword the CV already states is never listed as missing', async () => {
+  assert.ok(stated('Ran Kubernetes and Terraform on AWS', 'terraform'));
+  assert.ok(!stated('Ran SLOs', 'SLO'), 'a term inside another word is not stated');
+  const fake = {messages: {create: async () => ({stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: JSON.stringify({
+    score: 70, components: [], strengths: [], fixes: [], missing_keywords: ['Kubernetes', 'Prometheus', 'SLO']})}]})}};
+  const result = await review({}, '', 'Ada Tester\nRan Kubernetes on AWS.', {client: fake});
+  assert.deepEqual(result.missing_keywords, ['Prometheus', 'SLO']);
 });
