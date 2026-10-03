@@ -71,7 +71,7 @@ async function connect() {
 // Open one of the user's Notion pages (a key of state.notion), or the connect prompt when Notion isn't connected.
 export function openInNotion(key, event, reason = 'profile') {
   if (!notionConnected()) { openNotionConnect({reason, where: 'dialog', from: `gate:${reason}`}); return; }
-  window.pilot.openNotion(shared.state.notion[key], !!event?.metaKey);
+  return window.pilot.openNotion(shared.state.notion[key], !!event?.metaKey);
 }
 
 // Settings → Notion: the advantages and "Connect" until it is connected; "Reconnect" after.
