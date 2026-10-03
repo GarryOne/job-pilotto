@@ -110,6 +110,23 @@ export const notSeenComment = (runUrl, screenshot = '', build = '') => `Not seen
 // Closing: the finding was already "not seen" in an earlier run and a second, later run did not see it either. A person can reopen it; a finding that comes back files a new issue.
 export const closedComment = (runUrl, build = '') => `Closed: not seen in two runs in a row (latest ${runUrl}).${buildLine(build)}\n\nIf it comes back, the loop files a new issue.`;
 
+// The app version of the tested code, as a label (`version:0.5.0`) so the issue list can be filtered by it. Until 3 Oct 2026 it was only text in the body, and only when a
+// release tag sat on exactly that commit: most tested commits lie between releases, so most issues had no version at all. Now: the newest release that is an ancestor of the
+// tested commit (exact when it is that commit). `gh` and the repo are injected; any failure gives null (an issue is never held back for want of a label).
+export const versionLabel = version => `version:${version}`.slice(0, 50);
+export function appVersionAt(sha, {gh, repo, limit = 12}) {
+  if (!sha || !repo) return null;
+  try {
+    const releases = JSON.parse(gh(['api', `repos/${repo}/releases?per_page=${limit}`, '--jq', '[.[] | select(.draft | not) | {tag: .tag_name}]']));
+    for (const {tag} of Array.isArray(releases) ? releases : []) {
+      if (!/^desktop-v/.test(tag || '')) continue;
+      const status = String(gh(['api', `repos/${repo}/compare/${tag}...${sha}`, '--jq', '.status'])).trim();
+      if (status === 'identical' || status === 'ahead') return {version: tag.replace(/^desktop-v/, ''), exact: status === 'identical'};
+    }
+  } catch { /* no label this time */ }
+  return null;
+}
+
 // Closed after one clean run because a commit named the issue: says which commit and which run.
 export const closedByFixComment = (runUrl, sha, build = '') => `Closed: commit ${sha} says it fixes this, and the latest run did not see it (${runUrl}).${buildLine(build)}\n\nIf it comes back, the loop files a new issue.`;
 

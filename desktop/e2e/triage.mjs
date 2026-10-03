@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, probeTarget, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, probeTarget, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, priorityOf, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -85,6 +85,12 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   let issues = list().filter(issue => platformOf(issue) === platform);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
+  // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
+  const tested = appVersionAt(testedSha(build), {gh, repo});
+  const versionOfRun = tested ? versionLabel(tested.version) : '';
+  // A commit between releases says which release it follows ("after 0.5.0 · main @ 9f5e0ad"): the line then always names a version.
+  if (tested && !tested.exact && build && !/\d+\.\d+\.\d+[^@]*@/.test(build)) build = `after ${tested.version} · ${build}`;
+  const addVersion = number => { if (!versionOfRun) return; gh(['label', 'create', versionOfRun, '--force', '--color', 'C5DEF5', '--description', 'The app version the finding was seen on']); gh(['issue', 'edit', String(number), '--add-label', versionOfRun]); };
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
   const plan = findings.map(finding => ({finding, existing: matchExisting(finding, issues)})).filter(({finding, existing}) => existing || !suppressedBy(finding, issues));   // a closed false positive stays closed
@@ -141,7 +147,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
-      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`];
+      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : [])];
       for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build}), '--label', labels.join(',')]);
       out.filed.push(finding.id);
@@ -154,6 +160,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
         gh(['issue', 'edit', String(existing.number), '--add-label', SEEN_AGAIN]);
       }
       if ((existing.labels || []).some(item => (item.name || item) === NOT_SEEN)) gh(['issue', 'edit', String(existing.number), '--remove-label', NOT_SEEN]);
+      if (versionOfRun && !(existing.labels || []).some(item => (item.name || item) === versionOfRun)) addVersion(existing.number);   // seen on another version: that one is added too
       out.again.push(finding.id);
     }
   }

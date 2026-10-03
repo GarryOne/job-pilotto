@@ -282,3 +282,46 @@ test('the verdict pass takes a one-off probe finding, never a judged, parked, co
   assert.ok([7, 8].includes(picked.number), `got #${picked.number}`);   // 6 was seen on two builds: the normal fixer takes it; 1-5 are not for a verdict
   assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 5)) : '[]')}), null);
 });
+
+// "We're still missing the version in the gh issue labels" (#92, #93, 3 Oct 2026): the version was text in the body, and only when a release tag sat on exactly the tested commit.
+test('the version of the tested code is a label: the newest release that is an ancestor, exact or "after"', async () => {
+  const {appVersionAt, versionLabel} = await import('../lib/triage.mjs');
+  const releases = [{tag: 'desktop-v0.5.1'}, {tag: 'desktop-v0.5.0'}, {tag: 'desktop-v0.4.0-alpha.254'}];
+  const status = {'desktop-v0.5.1': 'behind', 'desktop-v0.5.0': 'ahead', 'desktop-v0.4.0-alpha.254': 'ahead'};
+  const gh = args => (/releases\?/.test(args[1]) ? JSON.stringify(releases) : status[args[1].split('/compare/')[1].split('...')[0]]);
+  assert.deepEqual(appVersionAt('9f5e0ad', {gh, repo: 'o/r'}), {version: '0.5.0', exact: false}, 'a build newer than the commit is skipped; the nearest older release wins');
+  assert.deepEqual(appVersionAt('x', {gh: args => (/releases\?/.test(args[1]) ? JSON.stringify(releases) : 'identical'), repo: 'o/r'}), {version: '0.5.1', exact: true});
+  assert.equal(appVersionAt('x', {gh: () => { throw new Error('rate limit'); }, repo: 'o/r'}), null, 'a failed lookup never holds an issue back');
+  assert.equal(appVersionAt('', {gh, repo: 'o/r'}), null);
+  assert.equal(versionLabel('0.5.0'), 'version:0.5.0');
+});
+
+test('the CLI labels a new issue with the version, adds a second version when it is seen on another, and writes "after" in the build line', async () => {
+  const {triage} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'version-'));
+  fs.writeFileSync(path.join(dir, 'ui-findings.json'), JSON.stringify([{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]));
+  const {normalize} = await import('../lib/triage.mjs');
+  const id = normalize({ui: JSON.parse(fs.readFileSync(path.join(dir, 'ui-findings.json'), 'utf8'))})[0].id;
+  let stored = [], tag = 'desktop-v0.5.0';
+  const calls = [];
+  const gh = args => {
+    calls.push(args.join(' '));
+    if (args[0] === 'api') return /releases\?/.test(args[1]) ? JSON.stringify([{tag}]) : 'ahead';
+    if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(stored);
+    if (args[0] === 'pr') return '[]';
+    if (args[0] === 'issue' && args[1] === 'create') stored = [{number: 7, state: 'OPEN', title: 't', body: args[args.indexOf('--body') + 1], labels: args[args.indexOf('--label') + 1].split(',').map(name => ({name})), comments: []}];
+    if (args[0] === 'issue' && args[1] === 'edit' && args.includes('--add-label')) stored[0].labels.push({name: args[args.indexOf('--add-label') + 1]});
+    if (args[0] === 'issue' && args[1] === 'comment') stored[0].comments.push({body: args[4]});
+    return '';
+  };
+  triage({artifacts: dir, runUrl: 'https://x/runs/1', gh, repo: 'o/r', build: 'main @ aaaaaaa (workflow_dispatch run)'});
+  assert.ok(stored[0].labels.some(label => label.name === 'version:0.5.0'), JSON.stringify(stored[0].labels));
+  assert.match(stored[0].body, /Build tested: after 0\.5\.0 · main @ aaaaaaa/);
+  tag = 'desktop-v0.5.1';
+  triage({artifacts: dir, runUrl: 'https://x/runs/2', gh, repo: 'o/r', build: 'main @ bbbbbbb (workflow_dispatch run)'});
+  assert.deepEqual(stored[0].labels.map(label => label.name).filter(name => name.startsWith('version:')).sort(), ['version:0.5.0', 'version:0.5.1']);
+  const before = calls.length;
+  triage({artifacts: dir, runUrl: 'https://x/runs/3', gh, repo: 'o/r', build: 'main @ ccccccc (workflow_dispatch run)'});
+  assert.equal(calls.slice(before).filter(call => /--add-label version:/.test(call)).length, 0, 'a version already on the issue is not added again');
+});
