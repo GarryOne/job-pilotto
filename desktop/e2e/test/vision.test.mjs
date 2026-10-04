@@ -75,11 +75,11 @@ test('the activity suite\'s screenshots of failure and queued states are judged 
   for (const view of ['activity-run-failed', 'activity-run-warned', 'activity-limit-paused', 'activity-queued']) assert.match(expectedFor(view), /Recent activity panel/);
 });
 
-test('the review is told to report every defect separately and to look at the sidebar and the bottom bar; a failure screenshot has its own expectation', async () => {
+test('the review is told to report few findings, and a failure screenshot is not judged on the sidebar and the bottom bar (they made nine copies of one nitpick)', async () => {
   const {SYSTEM, expectedFor} = await import('../lib/vision.mjs');
-  assert.match(SYSTEM, /EVERY defect[\s\S]*its own finding/);
-  assert.match(SYSTEM, /sidebar[\s\S]*bar along the bottom/);
-  assert.match(expectedFor('failure-screenshot'), /sidebar and the bottom bar/);
+  assert.match(SYSTEM, /Fewer, better[\s\S]*At most 3 findings per page/);
+  assert.doesNotMatch(SYSTEM, /EVERY defect/);
+  assert.match(expectedFor('failure-screenshot'), /not worth a finding here/);
 });
 
 // #98 (a toast over the header, "hides Refresh": invented) and #100 ("Gmail not connected" vs a follow-up built from logged events: a guess about the app's insides), 3 Oct 2026.
@@ -89,4 +89,10 @@ test('the review is told that transient UI and guesses about the app\'s insides 
   assert.match(SYSTEM, /A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT/);
   assert.match(SYSTEM, /When you only suspect, say nothing/);
   assert.match(SYSTEM, /A picture freezes motion: a line that scrolls in a frame \(a ticker or marquee\)/, '#97: a scrolling tip ticker caught mid-scroll was reported as clipped text');
+});
+
+test('the review reads as a job seeker, not a design critic: the nitpick classes are named as never reported (#210, 4 Oct 2026)', () => {
+  assert.match(SYSTEM, /person using the Job Pilotto desktop app to find and win a job/);
+  assert.match(SYSTEM, /NEVER report: visual style or consistency opinions \(emoji versus line icons/);
+  assert.match(SYSTEM, /would this make me fail, lose time, misread something, or distrust the app/);
 });
