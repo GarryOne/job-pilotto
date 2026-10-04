@@ -1,0 +1,35 @@
+name: CI · Self-heal stats
+
+# The self-healing loop's numbers for the owner's page https://www.jobpilotto.workers.dev/self-heal: every issue the loop filed, by detector and how it ended,
+# precision, the fixer's pull requests, the verdict pass, the AI cost per real bug, the recall of the planted bugs, the real bugs it caught. Computed from
+# GitHub (desktop/e2e/selfheal-stats.mjs) and published to the site (PUT /self-heal/data, SELFHEAL_PUBLISH_KEY); the site keeps one snapshot per day.
+on:
+  schedule:
+    - cron: '40 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  actions: read   # the ai-cost artifacts and the interactions run's recall.json
+
+concurrency:
+  group: self-heal-stats
+  cancel-in-progress: true
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Collect and publish
+        run: node desktop/e2e/selfheal-stats.mjs --publish
