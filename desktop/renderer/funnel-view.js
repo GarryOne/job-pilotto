@@ -39,13 +39,16 @@ export function funnelSteps(steps, open) {
     fill.style.width = `${Math.max(share, reached ? 4 : 0)}%`;
     bar.append(fill);
     li.title = title;
-    li.append(el('span', 'funnel-name', name), el('b', 'funnel-count', String(reached)), bar, el('span', 'muted small', `${share}% reached`));
+    // The button role sits on an inner element: a role on the <li> itself makes the <ol> hold a non-list item.
+    const hit = el('div', 'funnel-hit');
+    hit.append(el('span', 'funnel-name', name), el('b', 'funnel-count', String(reached)), bar, el('span', 'muted small', `${share}% reached`));
+    li.append(hit);
     if (urls?.length) {
       li.classList.add('is-link');
-      Object.assign(li, {tabIndex: 0, role: 'button'});
+      Object.assign(hit, {tabIndex: 0, role: 'button'});
       li.title += '. Click to see them';
-      li.addEventListener('click', () => open(label, urls));
-      li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(label, urls); } });
+      hit.addEventListener('click', () => open(label, urls));
+      hit.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(label, urls); } });
     }
     nodes.push(li);
   });

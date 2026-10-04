@@ -39,14 +39,29 @@ test('each step drawn with its count, bar and share; a click (or Enter) lists ex
   const steps = nodes.filter(node => node.className.startsWith('funnel-step'));
   assert.equal(nodes.length, 7);  // 4 steps, 3 arrows between them
   assert.deepEqual(steps.map(node => node.text()), ['Contacted you4100% reached', 'Screening250% reached', 'Interviews125% reached', 'Offers00% reached']);
-  assert.equal(steps[1].children[2].children[0].style.width, '50%');
-  steps[1].listeners.click();
-  steps[2].listeners.keydown({key: 'Enter', preventDefault() {}});
+  assert.equal(steps[1].children[0].children[2].children[0].style.width, '50%');
+  steps[1].children[0].listeners.click();
+  steps[2].children[0].listeners.keydown({key: 'Enter', preventDefault() {}});
   assert.deepEqual(opened, [['Inbound: ever reached Screening', ['m', 'n']], ['Inbound: ever reached Interviews', ['n']]]);
   // Nothing reached Offers: not a link.
   assert.equal(steps[3].className, 'funnel-step');
-  assert.equal(steps[3].listeners.click, undefined);
+  assert.equal(steps[3].children[0].listeners.click, undefined);
   assert.match(steps[0].className, /is-link/);
+});
+
+// An <ol> may only hold <li> items (axe "list"): a clickable step keeps its <li>, the button role sits on an element inside it.
+test('a clickable step is a plain list item with the button inside it', () => {
+  const opened = [];
+  const [first] = funnelSteps(inboundSteps(INBOUND), label => opened.push(label));
+  assert.equal(first.tag, 'li');
+  assert.notEqual(first.role, 'button');
+  assert.equal(first.tabIndex, undefined);
+  const hit = first.children[0];
+  assert.equal(hit.role, 'button');
+  assert.equal(hit.tabIndex, 0);
+  hit.listeners.click();
+  hit.listeners.keydown({key: ' ', preventDefault() {}});
+  assert.equal(opened.length, 2);
 });
 
 // A new account has no applications: the engine still returns its five steps, all at 0. The card says it fills in later.
