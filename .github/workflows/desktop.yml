@@ -11,7 +11,7 @@ on:
   # was mostly noise and a macOS + Windows build each (2 Oct 2026). A night with nothing new for the app builds nothing.
   schedule:
     # 04:00 in Zurich all year: cron is UTC and Zurich is UTC+2 in summer, UTC+1 in winter, so both hours are scheduled and the step below lets only the one that falls
-    # at 04:xx or 05:xx Zurich time go on (GitHub starts scheduled runs late, sometimes by an hour or more). If both pass, the second finds nothing new to build.
+    # between 04:00 and 15:59 Zurich time go on (GitHub starts scheduled runs late, by up to six hours). If both pass, the second finds nothing new to build.
     - cron: '0 2 * * *'
     - cron: '0 3 * * *'
   workflow_dispatch:
@@ -45,7 +45,9 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" != schedule ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           hour=$(TZ=Europe/Zurich date +%H)
-          if [ "$hour" != 04 ] && [ "$hour" != 05 ]; then echo "It is $hour:xx in Zurich: not this schedule's turn (04:00 Zurich is the other one)."; echo "build=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # 04:00-15:59: GitHub starts scheduled runs late, on 4 Oct 2026 by six hours (07:52 and 09:29 UTC), and the old 04:xx-05:xx guard skipped
+          # both, so no build and no beta that day. A late run still builds; the second of the two finds nothing new since the first one's release.
+          if [ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]; then echo "It is $hour:xx in Zurich: outside the nightly window (04:00-15:59): not this schedule's turn."; echo "build=false" >> "$GITHUB_OUTPUT"; exit 0; fi
           tag=$(gh release list -L 1 --exclude-drafts --json tagName -q '.[0].tagName' || true)
           sha=$([ -n "$tag" ] && git rev-list -n 1 "$tag" 2>/dev/null || true)
           # The tests of the app (desktop/test, desktop/e2e) are not in the app: a night when only they changed builds nothing.

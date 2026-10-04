@@ -23,7 +23,8 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn("cron: '0 2 * * *'", triggers)
         self.assertIn("cron: '0 3 * * *'", triggers)
         self.assertIn('TZ=Europe/Zurich date +%H', WORKFLOW)
-        self.assertIn('[ "$hour" != 04 ] && [ "$hour" != 05 ]', WORKFLOW)
+        # A late start still builds (4 Oct 2026: both runs came six hours late and the old 04-05 guard skipped them): 04:00-15:59.
+        self.assertIn('[ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]', WORKFLOW)
         self.assertIn('workflow_dispatch:', triggers)
         self.assertIn("if: needs.changes.outputs.build == 'true'", WORKFLOW)
         self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ]', WORKFLOW)   # a manual run always builds
