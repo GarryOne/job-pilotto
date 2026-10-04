@@ -1,16 +1,17 @@
 name: CI · End-to-end on Windows
 
-# The Mac is the product's main platform, so every suite runs on a Mac (e2e.yml). Windows users get the same app, and a Windows-only break (paths, quoting, the installer's
-# environment) was invisible to the journey. This runs the suites proven on Windows (one job per suite, like e2e.yml), weekly and by hand: it never gates a release, and it grows suite by
-# suite as each one is proven to run on Windows (the `suites` input; WEEKLY below once proven). Each run takes its own seeded path (E2E_SEED = the run id,
-# lib/variation.mjs: page/control order, window size, form data), so the weekly Windows look explores; `fixed: true` replays the Mac's fixed path. Red on a quiet week = the runner or a Windows-only code path moved. See also windows-smoke.yml (builds and installs).
+# The Mac is the product's main platform (e2e.yml); Windows users get the same app, and a Windows-only break (paths, quoting, the installer's
+# environment) was invisible there. One job per suite, like e2e.yml. By hand: the `suites` input (empty = all), `fixed: true` = the fixed path (E2E_SEED=0).
+# 4 Oct 2026, parity with the Mac: it follows every Mac e2e run (e2e.yml) on the same commit, with the same suites and the same AI review
+# (plan-windows.mjs). After it, never beside it: each suite owns one Notion page. Still never a release gate.
 on:
-  schedule:
-    - cron: '47 6 * * 1'   # Mondays, 06:47 UTC, after the smoke build (06:17)
+  workflow_run:
+    workflows: ['CI · End-to-end journey']
+    types: [completed]
   workflow_dispatch:
     inputs:
       suites:
-        description: 'Suites to run on Windows, comma-separated (empty = the weekly set)'
+        description: 'Suites to run on Windows, comma-separated (empty = all)'
         required: false
       fixed:
         description: 'The fixed path (E2E_SEED=0, as the release gate) instead of a seeded one'
@@ -20,25 +21,41 @@ on:
 permissions:
   contents: read
 
-env:
-  WEEKLY: 'settings,jobs,focus,apply,interactions,activity,wizard'   # proven on Windows (runs 37139930788, 37141811216, 37147038978); add a suite once a by-hand run of it is green there
 
 jobs:
   plan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
+      count: ${{ steps.pick.outputs.count }}
+      review: ${{ steps.pick.outputs.review }}
     steps:
-      - id: pick
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: What to run (the Mac run's suites and AI review, or the ones named by hand)
+        id: pick
+        working-directory: desktop/e2e
         env:
-          SUITES: ${{ inputs.suites }}
-        run: |
-          list="${SUITES:-$WEEKLY}"
-          echo "matrix=$(printf '%s' "$list" | tr -d ' ' | jq -Rc 'split(",") | map(select(length > 0)) | {suite: .}')" >> "$GITHUB_OUTPUT"
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ONLY: ${{ inputs.suites }}
+          MAC_RUN: ${{ github.event.workflow_run.id }}
+          MAC_TITLE: ${{ github.event.workflow_run.display_title }}
+          MAC_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: node plan-windows.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
 
   suite:
     name: ${{ matrix.suite }} (Windows)
     needs: plan
+    if: needs.plan.outputs.count != '0'
     runs-on: windows-latest
     timeout-minutes: 45
     strategy:
@@ -68,16 +85,23 @@ jobs:
       E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
-      E2E_SEED: ${{ inputs.fixed && '0' || github.run_id }}   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
+      E2E_FULL: ${{ contains(fromJson('["workflow_run","workflow_dispatch"]'), github.event.workflow_run.event) && '1' || '' }}   # the paid AI judge steps, as on the Mac run it follows (a nightly gate or a run by hand)
+      E2E_SEED: ${{ inputs.fixed && '0' || github.event.workflow_run.id || github.run_id }}   # after a Mac run: the Mac's own seed, the same path on both   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}   # the commit the Mac run tested
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: Record which commit this run tested (ui-findings.yml names it in every issue)
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          printf '%s %s\n' "${{ github.event.workflow_run.head_branch || github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
       - name: Install the app
         working-directory: desktop
         run: npm ci
@@ -93,7 +117,27 @@ jobs:
       - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
         timeout-minutes: 30
-        run: node suite.mjs ${{ matrix.suite }}
+        run: |
+          if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node suite.mjs ${{ matrix.suite }}
+      - name: Earlier AI reviews (an unchanged screenshot is not asked again)
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-review-windows-${{ matrix.suite }}-
+      - name: AI review of the screenshots
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # only when the Mac run had it (the UI or its tests changed, or a finding waits)
+        working-directory: desktop/e2e
+        timeout-minutes: 15   # the batch waits up to 6 min, then asks what is left directly
+        run: node review-ui.mjs
+      - name: Keep the AI reviews for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Screenshots and logs
         if: always()
         uses: actions/upload-artifact@v6
