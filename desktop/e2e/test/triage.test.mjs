@@ -526,6 +526,7 @@ test('a Windows finding the Mac already told is that issue\'s twin: open, or rej
 test('only a failed step that ran out of time goes to the verdict pass', () => {
   assert.ok(TIMEOUT_FAILURE.test('page.waitForSelector: Timeout 60000ms exceeded.'));
   assert.ok(TIMEOUT_FAILURE.test('the app was still busy after 300 s of waiting for quiet'));
+  assert.ok(TIMEOUT_FAILURE.test('Unexpected token \'<\', "<!DOCTYPE "... is not valid JSON'), 'an HTML page from a service, not our JSON (#266)');
   assert.ok(!TIMEOUT_FAILURE.test('the tailored CV is not on the job\'s row in Notion'));
 });
 

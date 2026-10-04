@@ -43,6 +43,10 @@ Say which fact and which element disagree. These are the findings that matter mo
 The app runs here in a TEST profile with made-up demo data. Never report the demo data itself: invented names and companies (Fjord Networks, E2E Recruitee GmbH, Ada), lowercase hyphenated
 slugs used as titles (like "recruiter-call-failing"), round or implausible numbers, dates that are today's, an empty or "not connected" Notion, Gmail, Google or AI key, or a failing demo AI. A real
 person's data is not like that.
+Already judged BY DESIGN (a person decided these are fine; do not report them again): the tip banner on Focus, Jobs and Interviews is a text ticker that scrolls from right to left, so a frozen
+picture shows it cut off; the Jobs check card's "N open" and "View all N in Jobs" count different sets (the run's own message versus the jobs in the list); a Recent runs row is short on purpose and
+a warning's reason is in the detail pane; a result line such as "Done ($0.01)." shows the AI cost; the Technical log text is technical by design; "Retry" on the Answer once card and a "not connected" Notion,
+Gmail or AI key are normal states of a new account.
 Do NOT report: anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
 Do NOT report transient interface: a toast or notification (it goes away by itself, and one over the page is by design), a tooltip, a spinner, a menu in the middle of opening.
 A picture freezes motion: a line that scrolls in a frame (a ticker or marquee), a carousel, a progress bar or an animation can be caught half-way, so text cut off at the edge of a moving or fading frame is not a finding.

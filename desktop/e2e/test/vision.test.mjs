@@ -118,3 +118,9 @@ test('UI problems are noise only when they cost the person nothing: unreachable 
   assert.match(SYSTEM, /the smallest is 1024 x 640/);
   assert.doesNotMatch(SYSTEM, /NEVER report:[^.]*scrollbars/, 'scrollbars and narrow windows are no longer banned outright (the hidden menu scrollbar was a real bug)');
 });
+
+test('the review is told what was already judged by design, so it stops spending tokens on the same false positives (#97, #102, #130, #132)', () => {
+  assert.match(SYSTEM, /Already judged BY DESIGN/);
+  assert.match(SYSTEM, /text ticker/);
+  assert.match(SYSTEM, /count different sets/);
+});
