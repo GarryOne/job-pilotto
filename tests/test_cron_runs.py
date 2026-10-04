@@ -165,6 +165,26 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(calls[0]['parent']['database_id'], cron_runs.CRON_RUNS_DATABASE_ID)
 
 
+    def test_a_row_archived_while_the_run_ran_is_replaced_not_lost(self):
+        # 5 Oct 2026 (activityfailures e2e): the row begin() opened was archived mid-run; log_run only tried to edit it, Notion answered
+        # "Can't edit block that is archived", and the run never got a finished row, so the app waited for it until its 300 s timeout.
+        run = sample_run()
+        calls = []
+        class Tracker:
+            def _request(self, method, path, body):
+                calls.append((method, path))
+                if method == 'PATCH':
+                    raise RuntimeError("HTTP Error 400: Can't edit block that is archived. You must unarchive the block before editing.")
+                return {'url': 'https://notion.so/new-row'}
+        cron_runs._open.update(id='old-row', url='https://notion.so/old-row', run=run)
+        try:
+            self.assertEqual(cron_runs.log_run(Tracker(), run), 'https://notion.so/new-row')
+        finally:
+            cron_runs._open.clear()
+        self.assertEqual(calls[0], ('PATCH', 'pages/old-row'))
+        self.assertEqual(calls[-1], ('POST', 'pages'))
+
+
 def row(job, company='', via=''):
     rich = lambda value: {'rich_text': [{'plain_text': value}]}
     return {'id': 'app-1', 'properties': {'Job': {'title': [{'plain_text': job}]}, 'Company': rich(company), 'Via': rich(via)}}

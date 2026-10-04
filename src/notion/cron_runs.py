@@ -482,12 +482,20 @@ def log_run(tracker, run, failed=False):
         children = children[:50] + extra_blocks(telegram.MESSAGES, list(_output))
         if _open.get('id') and _open.get('run') is run:
             _open.pop('run')
-            _without_missing(lambda props: tracker._request('PATCH', f"pages/{_open['id']}", {'properties': props}), properties)
-            tracker._request('PATCH', f"blocks/{_open['id']}/children", {'children': children[:100]})
-            url = _open.get('url')
-            run_result.note_notion(url)
-            run_result.publish(run, failed=failed)
-            return url
+            try:
+                _without_missing(lambda props: tracker._request('PATCH', f"pages/{_open['id']}", {'properties': props}), properties)
+                tracker._request('PATCH', f"blocks/{_open['id']}/children", {'children': children[:100]})
+                url = _open.get('url')
+                run_result.note_notion(url)
+                run_result.publish(run, failed=failed)
+                return url
+            except Exception as error:  # noqa: BLE001
+                # The opened row was archived or deleted while the run ran (a person tidying Notion, a test reset): write a new
+                # row instead, or the run never ends in Recent activity (5 Oct 2026). Anything else is a real failure.
+                if not re.search(r'archived|Could not find|404', str(error), re.I):
+                    raise
+                print(f"Warning: the run's Notion row {_open['id']} was archived or deleted during the run; writing a new row")
+                _open.clear()
         page = _without_missing(lambda props: tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID},
                                                                                 'properties': props, 'children': children[:100]}), properties)
         run_result.note_notion(page.get('url'))
