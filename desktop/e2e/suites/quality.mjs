@@ -195,7 +195,8 @@ export async function run(ctx) {
           const p = byId[item.id][0].props;
           const produced = [p.Reason, p.Strengths && `Strengths: ${p.Strengths}`, p.Gaps && `Gaps: ${p.Gaps}`];
           const facts = Object.fromEntries(['Seniority', 'Work mode', 'Languages', 'Salary', 'Role family', 'Technologies', 'Recruiter'].map(column => [column, p[column]]));
-        const verdict = await judge({key: ctx.key, posting: item, profile, produced, facts});
+          // The employer is on every posting the app read (fixtures/golden/sources.json): without it the judge called the company's own name invented (Windows run 37150232804, job 3008).
+          const verdict = await judge({key: ctx.key, posting: {...item, company: item.company || read('sources.json')[0].company}, profile, produced, facts});
           verdicts.push({id: item.id, title: item.title, produced, verdict});
           const bad = failures(verdict);
           if (bad.length) problems.push(`"${item.title}" ${bad.join(' and ')}: ${verdict.why} [text: ${produced.filter(Boolean).join(' / ')}]`);

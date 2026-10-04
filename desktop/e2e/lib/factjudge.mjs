@@ -15,7 +15,7 @@ export function buildRequest({posting, profile, produced, facts = {}, model = JU
   const text = Array.isArray(produced) ? produced.filter(Boolean).join('\n') : String(produced ?? '');
   return {
     model, max_tokens: 1000, system: SYSTEM,   // no temperature: claude-sonnet-5-5 rejects it
-    messages: [{role: 'user', content: `POSTING\nTitle: ${posting.title}\nLocation: ${posting.location}\n${posting.description}\n\nEXTRACTED FACTS (stage 1)\n${Object.entries(facts).filter(([, value]) => value !== '' && value != null && !(Array.isArray(value) && !value.length)).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n') || '(none)'}\n\nCANDIDATE\n${profile}\n\nTEXT THE TOOL WROTE\n${text}\n\nJudge the text.`}],
+    messages: [{role: 'user', content: `POSTING\nTitle: ${posting.title}\n${posting.company ? `Company: ${posting.company}\n` : ''}Location: ${posting.location}\n${posting.description}\n\nEXTRACTED FACTS (stage 1)\n${Object.entries(facts).filter(([, value]) => value !== '' && value != null && !(Array.isArray(value) && !value.length)).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n') || '(none)'}\n\nCANDIDATE\n${profile}\n\nTEXT THE TOOL WROTE\n${text}\n\nJudge the text.`}],
   };
 }
 

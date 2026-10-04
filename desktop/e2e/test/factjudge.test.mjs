@@ -70,3 +70,10 @@ test('the request carries the extracted facts the scorer saw, and skips empty on
   assert.match(buildRequest({posting, profile: 'p', produced: 'x'}).messages[0].content, /EXTRACTED FACTS \(stage 1\)\n\(none\)/);
   assert.match(buildRequest({posting, profile: 'p', produced: 'x'}).system, /extracted facts/);
 });
+
+test('the judge is told the posting\'s company, so a score text naming the employer is not "invented" (job 3008, 3 Oct 2026)', async () => {
+  const {buildRequest} = await import('../lib/factjudge.mjs');
+  const posting = {title: 'Senior Platform Engineer', company: 'E2E Quality Labs', location: 'Geneva', description: 'Kubernetes.'};
+  assert.match(buildRequest({posting, profile: 'p', produced: ['x']}).messages[0].content, /Title: Senior Platform Engineer\nCompany: E2E Quality Labs\nLocation: Geneva/);
+  assert.doesNotMatch(buildRequest({posting: {...posting, company: ''}, profile: 'p', produced: ['x']}).messages[0].content, /Company:/);
+});
