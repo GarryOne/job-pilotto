@@ -932,11 +932,10 @@ function handlers() {
     try {
       const fresh = await tuneProposals();
       if (!fresh.ok) return fresh;
-      const wanted = new Set(Array.isArray(ids) ? ids.map(String) : []);
-      const chosen = fresh.proposals.filter(item => wanted.has(item.id));
+      const {chosen, asked} = strategy.chooseOffered(fresh.proposals, ids);
       const result = await strategy.retune(storage, chosen, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
-      appLog('strategy', 'tune applied', {asked: wanted.size, applied: chosen.length, kinds: chosen.map(item => item.kind).join(',')});
-      return {ok: true, ...result, missing: wanted.size - chosen.length};
+      appLog('strategy', 'tune applied', {asked, applied: chosen.length, kinds: chosen.map(item => item.kind).join(',')});
+      return {ok: true, ...result, missing: asked - chosen.length};
     } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('strategyData', async () => {

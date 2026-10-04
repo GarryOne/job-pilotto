@@ -360,6 +360,11 @@ export function applyTune(search, chosen) {
   }
   return next;
 }
+// The guard behind Tune's Apply: the window sends ids only; the changes written are those of a fresh engine answer that match.
+export const chooseOffered = (fresh, ids) => {
+  const wanted = new Set(Array.isArray(ids) ? ids.map(String) : []);
+  return {chosen: (fresh || []).filter(item => wanted.has(item.id)), asked: wanted.size};
+};
 export async function retune(storage, chosen, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
   if (!chosen.length) return {changed: []};
   for (let attempt = 0; attempt < ADD_ROLES_ATTEMPTS; attempt++) {

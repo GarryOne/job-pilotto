@@ -18,9 +18,10 @@ export async function run(ctx) {
     {command: 'run', kind: 'search', what: 'Search for new jobs (an empty feed: nothing new)', maxMs: 240000},
     {command: 'scout', kind: 'scout', what: 'Find new employers', maxMs: 240000},
     {command: 'mail', kind: 'mail', what: 'Check Gmail & Calendar with no Google connection', maxMs: 120000},
-    {command: 'today', kind: 'today', what: "Send today's matches with no Telegram", maxMs: 120000},
-    {command: 'insight', kind: 'insight', what: 'Generate an insight', maxMs: 240000},
-    {command: 'weekly', kind: 'weekly', what: 'Create weekly report', maxMs: 240000},
+    // No scored job in this install: the run has nothing to draft, so it is free and its answer ("Kits ready: 0, no new top match") is exact.
+    // Drafting itself (which jobs, the cap, the Notion row) is unit-tested in tests/test_daily.py.
+    {command: 'kits', kind: 'kits', what: 'Prepare top matches with no scored job to draft for', maxMs: 120000},
+    {command: 'weekly', kind: 'weekly', what: 'Analyze my job search', maxMs: 240000},
   ];
   ctx.taskRuns = {};
   // A seeded run presses the cards in another order (each is checked on its own): a run that only passes after another one, or leaves something behind
@@ -56,7 +57,7 @@ export async function run(ctx) {
     await page.click('#activity-filter');
     const entries = await page.locator('.ui-menu button').allTextContents();
     console.log(`  panel rows: ${all.length}; filter menu: ${entries.join(' | ')}`);
-    for (const wanted of [LABEL.search, LABEL.mail, LABEL.today, LABEL.insight, LABEL.weekly, LABEL.scout]) {
+    for (const wanted of [LABEL.search, LABEL.mail, LABEL.kits, LABEL.weekly, LABEL.scout]) {
       if (!entries.some(entry => entry.replace(/^✓ /, '').startsWith(`${wanted} ·`))) throw new Error(`the filter has no "${wanted}" entry although that task ran`);
     }
     await chooseMenu(page, new RegExp(`^${LABEL.mail}`));
@@ -72,10 +73,10 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
 
   await ctx.run('opening a finished run shows its result card and its Technical log', async () => {
-    const opened = await openRun(ctx, 'Weekly report', {inPanel: true});
+    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
     const words = `${opened.message} ${opened.card} ${opened.result}`.trim();
     console.log(`  weekly: result "${words.slice(0, 100)}"; log ${opened.log.split('\n').filter(Boolean).length} line(s)`);
-    if (words.length < 20) throw new Error(`the finished weekly report shows no result ("${words}")`);
+    if (words.length < 20) throw new Error(`the finished search analysis shows no result ("${words}")`);
     if (badSummary(words.slice(0, 200))) throw new Error(`its result is wrong: ${badSummary(words.slice(0, 200))}`);
     if (/^(Nothing to show yet|No log for this run)/.test(opened.log.trim()) || !opened.log.trim()) throw new Error('its Technical log is empty');
   }, {needs: ctx.needs});
@@ -86,7 +87,7 @@ export async function run(ctx) {
     const data = await runsData(page);
     if (data.runs.some(run => run.log.length)) throw new Error('the local run record was not removed: this would test nothing');
     if (!data.runs.length) throw new Error('the history read from Notion is empty after a fresh start');
-    const opened = await openRun(ctx, 'Weekly report', {inPanel: true});
+    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
     const lines = opened.log.split('\n').filter(Boolean).length;
     console.log(`  from Notion: ${data.runs.length} run(s); weekly log ${lines} line(s)`);
     if (/^(Nothing to show yet|No log for this run)/.test(opened.log.trim()) || !lines) throw new Error('a run read from Notion shows no log');

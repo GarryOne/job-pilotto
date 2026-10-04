@@ -306,3 +306,28 @@ class EffortTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SearchAnalysisMessageTests(unittest.TestCase):
+    """The weekly report, shown as "Search analysis": the top finding leads, and an older report without one still renders."""
+    REPORT = dict(WEEKLY, finding='Replies came only from jobs posted under 3 days ago (4 of 4)', issues=[])
+
+    def test_the_message_opens_with_the_finding_when_there_is_one(self):
+        lines = insights.weekly_message(self.REPORT).split('\n')
+        self.assertEqual(lines[0], '📊 <b>Search analysis · last 7 days</b>')
+        self.assertEqual(lines[2], '<b>Quiet week: 2 applications, no replies yet</b>')
+        self.assertEqual(lines[3], '💡 Replies came only from jobs posted under 3 days ago (4 of 4)')
+
+    def test_a_report_without_a_finding_has_no_empty_line_for_it(self):
+        text = insights.weekly_message(dict(self.REPORT, finding=''))
+        self.assertNotIn('💡', text)
+        self.assertNotIn('Search review', text)
+
+    def test_the_notion_page_starts_with_the_finding_as_a_callout(self):
+        stats = {'applications': {'applications': 2, 'applied_last_7_days': 2, 'outcomes': {}, 'interview_rate_of_decided': 0},
+                 'market': {'open_jobs': 1, 'eligible': 1, 'language_blocked': 0, 'new_last_7_days': 1, 'technologies_in_good_fit_jobs': []},
+                 'week': {'event_counts': {}, 'insights_last_7_days': []}}
+        first = insights.weekly_blocks(self.REPORT, stats)[0]
+        self.assertEqual(first['type'], 'callout')
+        self.assertIn('Replies came only', first['callout']['rich_text'][0]['text']['content'])
+        self.assertEqual(insights.weekly_blocks(dict(self.REPORT, finding=''), stats)[0]['type'], 'paragraph')

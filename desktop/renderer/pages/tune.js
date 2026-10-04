@@ -2,9 +2,8 @@
 // only the ticked ones are written to ⚙️ Search settings (main.js tuneApply → lib/strategy.js retune).
 import {el} from '../components.js';
 import {$, message, show} from './core.js';
+import {basisLine, proposalTitle} from '../tune-text.js';
 import {toastMessage} from './startup.js';
-
-const VERB = {drop_role: 'Stop searching for', drop_place: 'Stop searching in', exclude_title: 'Skip job titles with'};
 
 // One proposal as a ticked row: what changes, then the counts it rests on.
 export function proposalRow(item) {
@@ -15,18 +14,10 @@ export function proposalRow(item) {
   box.checked = true;
   box.value = item.id;
   const words = el('div');
-  words.append(el('b', '', `${VERB[item.kind] || 'Change'} “${item.label}”`), el('span', 'muted small', item.why));
+  words.append(el('b', '', proposalTitle(item)), el('span', 'muted small', item.why));
   label.append(box, words);
   li.append(label);
   return li;
-}
-
-// The line under the title: what the proposals were read from, or why there are none yet.
-export function basisLine(answer) {
-  const b = answer.basis || {};
-  if (!b.jobs) return 'No results to learn from yet: save, dismiss or apply to some jobs first.';
-  const read = `Read from ${b.jobs} job${b.jobs === 1 ? '' : 's'} you acted on: ${b.dismissed} dismissed, ${b.engaged} kept or applied, ${b.interviews} interview${b.interviews === 1 ? '' : 's'}.`;
-  return answer.proposals?.length ? read : `${read} Nothing to change: no role, place or title word has ${b.min_dismissed}+ dismissals and none kept.`;
 }
 
 async function open() {

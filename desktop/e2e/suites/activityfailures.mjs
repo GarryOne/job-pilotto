@@ -52,14 +52,14 @@ export async function run(ctx) {
       } finally { proxy.setMode('pass'); }
     }, {needs: ctx.needs});
   }
-  await ctx.run('an insight paused by the spending limit is a run with a warning that names the limit, not a failure', async () => {
+  await ctx.run('a search analysis paused by the spending limit is a run with a warning that names the limit, not a failure', async () => {
     proxy.setMode('no-credit');
     try {
-      const {fresh, shown} = await runTask(ctx, 'insight', {maxMs: 240000, kind: 'insight'});
+      const {fresh, shown} = await runTask(ctx, 'weekly', {maxMs: 240000, kind: 'weekly'});
       const mine = shown.find(row => row.id === String(fresh[0].id));
-      const opened = await openRun(ctx, LABEL.insight, {id: fresh[0].id, snapAs: 'activity-limit-paused', situation: 'An insight paused because the Anthropic spending limit was reached: With warnings, naming the limit, in the Recent activity panel'});
+      const opened = await openRun(ctx, LABEL.weekly, {id: fresh[0].id, snapAs: 'activity-limit-paused', situation: 'A search analysis paused because the Anthropic spending limit was reached: With warnings, naming the limit, in the Recent activity panel'});
       const words = `${opened.warnings} ${opened.warningList} ${mine?.result}`;
-      console.log(`  insight at the limit: list "${mine?.result}" [${mine?.pill}]; panel [${opened.status}] ${opened.warnings.slice(0, 120)}`);
+      console.log(`  search analysis at the limit: list "${mine?.result}" [${mine?.pill}]; panel [${opened.status}] ${opened.warnings.slice(0, 120)}`);
       const problems = [];
       if (/failed/i.test(mine?.result || '') || /Failed/.test(mine?.pill || '')) problems.push(`a pause for the spending limit reads as a failure: "${mine?.result}" [${mine?.pill}]`);
       if (!/spending limit|AI limit/i.test(words)) problems.push(`the limit is not named: "${words.slice(0, 160)}"`);
