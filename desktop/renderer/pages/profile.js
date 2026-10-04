@@ -10,6 +10,7 @@ import {renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
 import {humanError} from '../run-warnings.js';
+import {cvStateText} from '../cv-state.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
 export function profileTab(name) {
@@ -185,7 +186,7 @@ export async function loadCvSetting() {
   loadCvCheck();
   const status = await window.pilot.cvStatus();
   // One glance: ready (and which design), or not read yet. ✂️ Tailor CV on a job uses it.
-  $('cv-state').textContent = status.base ? `· ready · ${status.custom ? 'your design' : 'default design'}` : '· not read yet: it happens on your first Tailor CV';
+  $('cv-state').textContent = cvStateText(status, shared.cvReadFailed);
   $('cv-view').hidden = !status.base;
   $('cv-import').querySelector('span').textContent = status.base ? 'Read my CV PDF again' : 'Read my CV PDF';
 }
@@ -268,6 +269,7 @@ export async function init() {
     const result = await window.pilot.importCv();
     button.disabled = false;
     button.classList.remove('busy');
+    shared.cvReadFailed = !result.ok;
     $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : cvError(result.error, 'read');
     loadCvSetting();
   });
