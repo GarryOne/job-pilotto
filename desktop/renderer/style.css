@@ -160,6 +160,7 @@ main { overflow-y: auto; padding: 28px 32px; }
 .activity-phases li::before { display: inline-block; width: 22px; }
 .activity-phases li.done::before { content: '✓'; color: var(--teal); font-weight: 700; }
 .activity-phases li.warn::before { content: '!'; color: var(--warn-bright); font-weight: 700; }
+.activity-phases li.fail::before { content: '✕'; color: var(--bad-bright); font-weight: 700; }
 .activity-phases li.now::before { content: '●'; color: var(--signal); }
 .activity-phases li.now { font-weight: 600; }
 .activity-phases li.todo { color: var(--muted); }
