@@ -66,7 +66,8 @@ export function normalize({ui = [], ai = [], suite = []}) {
     return {...finding, id: fingerprint(finding)};
   });
   const seen = new Set();
-  return [...fromUi, ...fromAi, ...fromSuite].filter(item => !seen.has(item.id) && seen.add(item.id));
+  // Only medium and high are filed (owner, 4 Oct 2026: "if we assess it as low, let's not open it"): a low finding is not worth an issue, a review or a fix.
+  return [...fromUi, ...fromAi, ...fromSuite].filter(item => item.severity !== 'low').filter(item => !seen.has(item.id) && seen.add(item.id));
 }
 
 export const issueTitle = finding => `[auto-ui] ${finding.view}: ${finding.shown || finding.title}`.slice(0, 120);
@@ -130,6 +131,7 @@ export function issueBody(finding, runUrl, evidence = {}) {
   out.push(`> 📍 Page \`${view}\`${suite ? ` · suite \`${suite}\`` : ''}${platform ? ` · ${platform}` : ''}`);
   if (evidence.build) out.push(`> 🏷️ Build tested: ${evidence.build}`);
   out.push(`> 🔗 First seen: ${runUrl}`, '', '### What was found', formatDetail(finding));
+  if (finding.impact) out.push('', '### Why it matters', finding.impact);
   if (finding.workaround) out.push('', '### What the person has to do to get past it', finding.workaround);
   if (finding.suggestion) out.push('', '### Suggested', finding.suggestion);
   if (picture || rows.length || logs.length) out.push('', '### Evidence');

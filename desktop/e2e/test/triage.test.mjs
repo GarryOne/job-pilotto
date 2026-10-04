@@ -7,14 +7,14 @@ const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, 
   labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
   body: `**${severity}** · ${kind} · found by the AI screenshot review\n\ntext`, comments: Array.from({length: comments}, () => ({body: 'Seen again in run x'}))});
 
-test('layout-check findings count as high, medium or low; AI findings of every level are filed; duplicates collapse', () => {
+test('layout-check findings count as high or medium; low ones (any detector) are not filed; duplicates collapse', () => {
   const out = normalize({
     ui: [{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}, {view: 'jobs', severity: 'warning', kind: 'clipped-text', detail: 'cut off'}, {view: 'jobs', kind: 'x'}],
     ai: [{view: 'settings', severity: 'low', kind: 'layout', title: 'minor', detail: 'x'}, {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y', id: 'settings-layout-1'},
       {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y again', id: 'settings-layout-1'},
       {view: 'settings', severity: 'high', kind: 'functionality', title: 'Save does nothing', detail: 'z', id: 'settings-functionality-1'}]});
-  // A look-and-feel finding is high only for a wrong app (functionality, error-shown) or with a stated workaround (#50, #55, #56; 4 Oct 2026); low ones are filed too.
-  assert.deepEqual(out.map(item => [item.view, item.severity, item.source]), [['jobs', 'high', 'layout-check'], ['jobs', 'medium', 'layout-check'], ['settings', 'low', 'ai-review'], ['settings', 'medium', 'ai-review'], ['settings', 'high', 'ai-review']]);
+  // A look-and-feel finding is high only for a wrong app (functionality, error-shown) or with a stated workaround (#50, #55, #56; 4 Oct 2026); low ones are not filed at all (4 Oct 2026).
+  assert.deepEqual(out.map(item => [item.view, item.severity, item.source]), [['jobs', 'high', 'layout-check'], ['jobs', 'medium', 'layout-check'], ['settings', 'medium', 'ai-review'], ['settings', 'high', 'ai-review']]);
 });
 
 test('an issue is ready only after two sightings, for a kind a UI fix can address, with no pull request already open', () => {
@@ -272,7 +272,7 @@ test('severity follows what the person feels: a probe finding is medium, a missi
   assert.equal(probeSeverity({kind: 'no-loading-state', detail: '"Save" ran for 3400 ms (x) and showed no sign of work'}), 'medium');
   assert.equal(probeSeverity({kind: 'no-loading-state', detail: '"Save" ran for more than the wait (x) and showed no sign of work'}), 'low');
   const out = normalize({ui: [{view: 'strategy', severity: 'warning', kind: 'no-loading-state', source: 'interaction-probe', control: 'Edit preferences', detail: '"Edit preferences" ran for 771 ms (openNotion) and showed no sign of work'}]});
-  assert.equal(out[0].severity, 'low');
+  assert.deepEqual(out, [], 'a low finding (a quick call with no spinner) is not filed');
 });
 
 test('the verdict pass takes a one-off probe finding, never a judged, parked, confirmed or clean one, and never a kind it cannot judge', async () => {

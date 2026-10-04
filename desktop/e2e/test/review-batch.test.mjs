@@ -11,7 +11,7 @@ import {promisify} from 'node:util';
 
 const run = promisify(execFile);
 const SCRIPT = new URL('../review-ui.mjs', import.meta.url).pathname;
-const FINDING = '{"findings":[{"severity":"medium","kind":"layout","title":"Row too tall","detail":"the first row is 400 px","suggestion":"cap it"}]}';
+const FINDING = '{"findings":[{"severity":"medium","kind":"layout","title":"Row too tall","detail":"the first row is 400 px","impact":"They scroll a whole screen past one row.","suggestion":"cap it"}]}';
 const message = (text, stop = 'end_turn') => ({content: [{type: 'text', text}], stop_reason: stop, usage: {input_tokens: 1000, cache_read_input_tokens: 2000, output_tokens: 500}});
 
 async function fakeApi({batchEnds = true}) {

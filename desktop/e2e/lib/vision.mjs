@@ -47,12 +47,13 @@ ignore wrong, noisy or contradicting information just to get through. For that s
 If you cannot say that in one concrete sentence, it is not high.
 medium = it confuses them for a moment, or is plainly bad UX that is cheap to get past (unclear or vague wording, a message repeated twice, clipped or overlapping text, a badge on a title,
 misaligned controls, an unhelpful empty state).
-low = barely noticeable or barely bothering (a pixel of misalignment, spacing, polish). Report at most 2 low findings per page.
+low = barely noticeable or barely bothering (a pixel of misalignment, spacing, polish). Do NOT report low findings: they are never filed. Every finding you report must be worth a person's fix.
 Do NOT report wording at all: grammar, an awkward or fragmentary sentence, tone, terminology, a phrase that could be nicer. Changing words is low value (owner, 4 Oct 2026). Report words only when
 they MISLEAD (a wrong status, a number or claim that is false, a contradiction) or leave the person unsure what to do next: that is medium, or high with a stated workaround.
+Every finding needs an "impact": one concrete sentence on what the person loses, gets wrong or has to do. If you cannot write it, the finding is not worth reporting: leave it out.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
-{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","workaround":"<only for high that is not a blocked task: what the person must do to get past it>","suggestion":"<the smallest fix, in plain words>"}]}`;
+{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","workaround":"<only for high that is not a blocked task: what the person must do to get past it>","impact":"<one sentence: what the person loses, gets wrong or has to do because of this>","suggestion":"<the smallest fix, in plain words>"}]}`;
 
 export const MAX_TOKENS = 3000;
 
@@ -94,9 +95,10 @@ export function parseFindings(text, view) {
   let data;
   try { data = JSON.parse(String(text).slice(String(text).indexOf('{'), String(text).lastIndexOf('}') + 1)); } catch { return []; }
   return (Array.isArray(data?.findings) ? data.findings : []).filter(item => item && SEVERITIES.includes(item.severity) && KINDS.includes(item.kind)
-      && typeof item.title === 'string' && item.title.trim() && typeof item.detail === 'string' && item.detail.trim())
+      && typeof item.title === 'string' && item.title.trim() && typeof item.detail === 'string' && item.detail.trim()
+      && typeof item.impact === 'string' && item.impact.trim().length >= 15)   // no stated impact, no issue (4 Oct 2026: only findings that help the product)
     .slice(0, 6).map(item => ({view, severity: cappedSeverity(item.severity, item.kind, item.workaround), kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
-      suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : '',
+      impact: item.impact.trim().slice(0, 300), suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : '',
       ...(typeof item.workaround === 'string' && item.workaround.trim() ? {workaround: item.workaround.trim().slice(0, 300)} : {})}));
 }
 

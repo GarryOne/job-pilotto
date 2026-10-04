@@ -5,17 +5,18 @@ import {SYSTEM, buildRequest, fingerprint, parseFindings} from '../lib/vision.mj
 
 test('only well-formed findings survive, with the page they were found on', () => {
   const reply = 'Here you go: ' + JSON.stringify({findings: [
-    {severity: 'high', kind: 'layout', title: 'Location cell 20 lines tall', detail: 'The Jobs row is 700px tall.', suggestion: 'Show two places and a count.'},
+    {severity: 'high', kind: 'layout', title: 'Location cell 20 lines tall', detail: 'The Jobs row is 700px tall.', impact: 'They scroll past one row for a full screen.', suggestion: 'Show two places and a count.'},
     {severity: 'urgent', kind: 'layout', title: 'bad severity', detail: 'x'},
     {severity: 'low', kind: 'taste', title: 'bad kind', detail: 'x'},
     {severity: 'low', kind: 'text', title: '', detail: 'empty title'},
-    {severity: 'low', kind: 'layout', title: 'Tight spacing', detail: 'A few pixels.'},
+    {severity: 'low', kind: 'layout', title: 'Tight spacing', detail: 'A few pixels.', impact: 'Barely noticeable spacing.'},
+    {severity: 'medium', kind: 'text', title: 'No impact', detail: 'x'},
     'junk', null]});
   const out = parseFindings(reply, 'jobs');
   assert.deepEqual(out.map(item => [item.view, item.severity, item.kind, item.title]), [['jobs', 'medium', 'layout', 'Location cell 20 lines tall'], ['jobs', 'low', 'layout', 'Tight spacing']]);   // a layout finding is high only with a stated workaround
-  const wrong = parseFindings(JSON.stringify({findings: [{severity: 'high', kind: 'functionality', title: 'Save does nothing', detail: 'x'}, {severity: 'high', kind: 'error-shown', title: 'A stack trace', detail: 'y'}, {severity: 'high', kind: 'text', title: 'Vague warning', detail: 'z'}]}), 'jobs');
+  const wrong = parseFindings(JSON.stringify({findings: [{severity: 'high', kind: 'functionality', title: 'Save does nothing', detail: 'x', impact: 'Their changes are lost without a word.'}, {severity: 'high', kind: 'error-shown', title: 'A stack trace', detail: 'y', impact: 'They see technical text and cannot act.'}, {severity: 'high', kind: 'text', title: 'Vague warning', detail: 'z', impact: 'They do not know what the warning asks of them.'}]}), 'jobs');
   assert.deepEqual(wrong.map(item => item.severity), ['high', 'high', 'medium'], 'only a wrong app can block a journey');
-  const costly = parseFindings(JSON.stringify({findings: [{severity: 'high', kind: 'text', title: 'Two clocks', detail: 'x', workaround: 'They must compare both times and guess which is right, every time they open a run.'}, {severity: 'high', kind: 'text', title: 'Vague', detail: 'y', workaround: 'ok'}]}), 'jobs');
+  const costly = parseFindings(JSON.stringify({findings: [{severity: 'high', kind: 'text', title: 'Two clocks', detail: 'x', impact: 'They compare two times on every run.', workaround: 'They must compare both times and guess which is right, every time they open a run.'}, {severity: 'high', kind: 'text', title: 'Vague', detail: 'y', impact: 'They have to read it twice.', workaround: 'ok'}]}), 'jobs');
   assert.deepEqual(costly.map(item => item.severity), ['high', 'medium'], 'very bad UX is high only when it says what the person must do and why it costs them');
   assert.deepEqual(parseFindings('no json at all', 'jobs'), []);
   assert.deepEqual(parseFindings('{"findings": "nope"}', 'jobs'), []);
