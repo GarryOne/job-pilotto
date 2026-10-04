@@ -40,16 +40,18 @@ Do NOT report a guess about how the app works inside or what it "should" know. A
 A status that merely looks odd, but that data the app keeps elsewhere could explain (a follow-up built from logged events while Gmail is disconnected), is not a contradiction. When you only suspect, say nothing.
 A list row that gives only a short summary is not missing its reason when the page also shows a detail pane or a selected item: the reason lives there. Two numbers or messages that count different things (a run's own message versus the items listed, a summary of one data source beside a list of another, an empty-list message with a filter off) are not a contradiction unless the labels say they count the same thing.
 The window is narrow (about 1024 px) in views whose name ends in -narrow: a single column and an icon-only sidebar are by design there, so do not compare it with the wide layout. Content that is really clipped or overlapping is still a finding at any width.
-Severity is judged by what it does to the PERSON using the app, nothing else:
-high = it BLOCKS their journey: they cannot finish a task (a control that is missing, disabled or does nothing where it is needed), they get a wrong result or a false status that would
-make them act wrongly, they see a raw error or stack trace, or they could lose data. If they can still get through, it is NOT high.
-medium = it confuses them or makes them work around it, or it is simply bad UX (unclear or vague wording, a message repeated twice, clipped or overlapping text, a badge on a title, misaligned
-controls, odd spacing, an unhelpful empty state).
-low = barely noticeable or barely bothering (a pixel of misalignment, a slightly long label, polish).
-Wording, layout and styling problems are never high, however prominent the place or however badly the text reads: a vague or duplicated message is medium at most.
+Severity is judged by what it does to the PERSON using the app, nothing else. Use all three levels: a page with a few findings usually has a mix, not three mediums.
+high = it BLOCKS their journey (they cannot finish a task: a control that is missing, disabled or does nothing where it is needed; a wrong result or a false status that would make them
+act wrongly; a raw error or stack trace; data they could lose), OR the experience is so bad that they must work around it at a real cost: they lose real time looking for the way, or they must
+ignore wrong, noisy or contradicting information just to get through. For that second kind you MUST fill "workaround" with what the person has to do to get past it and why it costs them.
+If you cannot say that in one concrete sentence, it is not high.
+medium = it confuses them for a moment, or is plainly bad UX that is cheap to get past (unclear or vague wording, a message repeated twice, clipped or overlapping text, a badge on a title,
+misaligned controls, an unhelpful empty state).
+low = barely noticeable or barely bothering (a pixel of misalignment, a slightly long label, spacing, polish). A change of WORDING is low: grammar, an awkward or fragmentary sentence, tone, terminology,
+the same thing named two ways. It is medium only when the words mislead (a wrong status, a number or claim that is false) or leave the person unsure what to do next. Report at most 2 low findings per page.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
-{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","suggestion":"<the smallest fix, in plain words>"}]}`;
+{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","workaround":"<only for high that is not a blocked task: what the person must do to get past it>","suggestion":"<the smallest fix, in plain words>"}]}`;
 
 export const MAX_TOKENS = 3000;
 
@@ -82,7 +84,9 @@ export function usageCost(model, usage = {}, {batch = false} = {}) {
 // Only a finding about the app being WRONG can block a journey: a wrong status, a dead control, an error shown. How something looks or reads is medium at most, whatever the model
 // said (it rated a vague, duplicated warning "high" in #50 and a clipped brand name "high" in #55 and #56; none blocked anyone).
 export const HIGH_KINDS = ['functionality', 'error-shown'];
-export const cappedSeverity = (severity, kind) => (severity === 'high' && !HIGH_KINDS.includes(kind) ? 'medium' : severity);
+// High stays high for a wrong app (functionality, a raw error) or when the finding says what the person must do to get past it (owner, 4 Oct 2026: very bad UX
+// that costs them time or makes them ignore things is high too). Anything else is medium, whatever the model said (#50, #55, #56).
+export const cappedSeverity = (severity, kind, workaround = '') => (severity === 'high' && !HIGH_KINDS.includes(kind) && String(workaround || '').trim().length < 20 ? 'medium' : severity);
 
 // -> [{view, severity, kind, title, detail, suggestion}], dropping anything off the fixed shape; at most 6 per page.
 export function parseFindings(text, view) {
@@ -90,8 +94,9 @@ export function parseFindings(text, view) {
   try { data = JSON.parse(String(text).slice(String(text).indexOf('{'), String(text).lastIndexOf('}') + 1)); } catch { return []; }
   return (Array.isArray(data?.findings) ? data.findings : []).filter(item => item && SEVERITIES.includes(item.severity) && KINDS.includes(item.kind)
       && typeof item.title === 'string' && item.title.trim() && typeof item.detail === 'string' && item.detail.trim())
-    .slice(0, 6).map(item => ({view, severity: cappedSeverity(item.severity, item.kind), kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
-      suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : ''}));
+    .slice(0, 6).map(item => ({view, severity: cappedSeverity(item.severity, item.kind, item.workaround), kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
+      suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : '',
+      ...(typeof item.workaround === 'string' && item.workaround.trim() ? {workaround: item.workaround.trim().slice(0, 300)} : {})}));
 }
 
 // A stable id for "the same problem again" (the nightly loop opens one PR per problem, not one per night).

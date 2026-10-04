@@ -1,20 +1,20 @@
 // The self-healing loop's rules: what is worth an issue, what is ready for a fix, and what a fix may touch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {allowedPath, checkChange, issueBody, issueTitle, matchExisting, normalize, pickCandidate, sightings} from '../lib/triage.mjs';
+import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, matchExisting, normalize, pickCandidate, sightings} from '../lib/triage.mjs';
 
 const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, state = 'OPEN', labels = []} = {}) => ({number, state,
   labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
   body: `**${severity}** · ${kind} · found by the AI screenshot review\n\ntext`, comments: Array.from({length: comments}, () => ({body: 'Seen again in run x'}))});
 
-test('layout-check findings count as high or medium; AI findings rated low are not filed; duplicates collapse', () => {
+test('layout-check findings count as high, medium or low; AI findings of every level are filed; duplicates collapse', () => {
   const out = normalize({
     ui: [{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}, {view: 'jobs', severity: 'warning', kind: 'clipped-text', detail: 'cut off'}, {view: 'jobs', kind: 'x'}],
     ai: [{view: 'settings', severity: 'low', kind: 'layout', title: 'minor', detail: 'x'}, {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y', id: 'settings-layout-1'},
       {view: 'settings', severity: 'high', kind: 'layout', title: 'Cards cover the form', detail: 'y again', id: 'settings-layout-1'},
       {view: 'settings', severity: 'high', kind: 'functionality', title: 'Save does nothing', detail: 'z', id: 'settings-functionality-1'}]});
-  // A look-and-feel finding is never high, whatever the model said (#50, #55, #56); only a wrong app (functionality, error-shown) can be.
-  assert.deepEqual(out.map(item => [item.view, item.severity, item.source]), [['jobs', 'high', 'layout-check'], ['jobs', 'medium', 'layout-check'], ['settings', 'medium', 'ai-review'], ['settings', 'high', 'ai-review']]);
+  // A look-and-feel finding is high only for a wrong app (functionality, error-shown) or with a stated workaround (#50, #55, #56; 4 Oct 2026); low ones are filed too.
+  assert.deepEqual(out.map(item => [item.view, item.severity, item.source]), [['jobs', 'high', 'layout-check'], ['jobs', 'medium', 'layout-check'], ['settings', 'low', 'ai-review'], ['settings', 'medium', 'ai-review'], ['settings', 'high', 'ai-review']]);
 });
 
 test('an issue is ready only after two sightings, for a kind a UI fix can address, with no pull request already open', () => {
@@ -471,4 +471,13 @@ test('the same bug seen from another variant of the page is the same issue; a di
   assert.equal(matchExisting(other, issues), null, 'a different bug of the family stays its own issue');
   const elsewhere = {...same, view: 'calendar', id: 'new-3'};
   assert.equal(matchExisting(elsewhere, issues), null, 'another page family is never merged');
+});
+
+test('deterministic severities in the owner\'s levels: severe is high; tiny text and a tall cell are low; axe\'s impact sets accessibility', () => {
+  assert.equal(layoutSeverity({severity: 'severe', kind: 'tall-row'}), 'high');
+  assert.equal(layoutSeverity({severity: 'warning', kind: 'tiny-text'}), 'low');
+  assert.equal(layoutSeverity({severity: 'warning', kind: 'clipped-text'}), 'medium');
+  const axe = impact => ({severity: 'warning', kind: 'a11y', detail: `color-contrast on a, b (3 element(s), ${impact}, e.g. x): "Elements must meet minimum color contrast"`});
+  assert.deepEqual(['critical', 'serious', 'moderate', 'minor'].map(impact => layoutSeverity(axe(impact))), ['high', 'medium', 'low', 'low']);
+  assert.equal(layoutSeverity({severity: 'warning', kind: 'a11y', detail: 'no impact stated'}), 'medium');
 });

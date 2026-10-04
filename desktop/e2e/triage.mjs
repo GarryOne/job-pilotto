@@ -163,7 +163,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
       const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : [])];
-      for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
+      for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]);
       out.filed.push(finding.id);
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {

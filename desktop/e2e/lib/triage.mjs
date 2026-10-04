@@ -23,6 +23,10 @@ export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) &
 // AI findings rated "low" are noise by experience (about 1 in 16 was real) and are not filed; deterministic "severe" counts as high, "warning" as medium.
 // The probe's own grading: a dead or broken control confuses (medium); a call with no sign of work is barely noticeable (low) until the person waits seconds for it (medium).
 const SLOW_NOTICEABLE_MS = 3000;
+// A deterministic check's own words, in the owner's levels: an exact severe check is high; of the warnings, tiny text and a tall table cell are polish, the rest confuse a little.
+export const layoutSeverity = item => item.severity === 'severe' ? 'high' : ['tiny-text', 'tall-cell'].includes(item.kind) ? 'low' : item.kind === 'a11y' ? a11ySeverity(item) : 'medium';
+// axe's own impact: critical blocks someone using a screen reader or keyboard; serious is a real barrier that is cheap to get past; moderate and minor are polish.
+export const a11ySeverity = item => { const impact = /\d+ element\(s\), (critical|serious|moderate|minor)/.exec(item.detail || '')?.[1]; return impact ? ({critical: 'high', serious: 'medium'})[impact] || 'low' : 'medium'; };
 export function probeSeverity(item) {
   if (item.kind !== 'no-loading-state') return 'medium';
   const ms = Number(/ran for (\d+) ms/.exec(item.detail || '')?.[1]);
@@ -43,16 +47,16 @@ export function chromeKey(item) {
 export function normalize({ui = [], ai = [], suite = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
-    const finding = {view: item.view, severity: probed ? probeSeverity(item) : item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
+    const finding = {view: item.view, severity: probed ? probeSeverity(item) : layoutSeverity(item), kind: item.kind,
       title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${probed ? `"${item.control}"` : String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: probed ? 'interaction-probe' : 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
     // `shown` is only the issue's title: a layout finding says what is on the page ("spill on settings-narrow: p#cv-message.message: "400 {"type":"error"…""), not just a selector. The fingerprint
     // keeps using `title`, so issues filed before this still match.
     const quoted = !probed && /:\s*"([\s\S]{3,})$/.exec(String(item.detail || ''))?.[1]?.replace(/"$/, '');
     return {...finding, ...(quoted ? {shown: `${finding.title}: "${quoted.replace(/\s+/g, ' ').slice(0, 40)}${quoted.length > 40 ? '…' : ''}"`} : {}), id: fingerprint(finding)};
   });
-  const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => {
+  const fromAi = ai.filter(item => item && item.view && item.title && item.severity).map(item => {
     const chrome = chromeKey(item);
-    return {...item, severity: cappedSeverity(item.severity, item.kind), dir: item._dir, source: 'ai-review', ...(chrome ? {view: 'app-chrome', id: `app-chrome-${item.kind}-${chrome}`} : {id: item.id || fingerprint(item)})};
+    return {...item, severity: cappedSeverity(item.severity, item.kind, item.workaround), dir: item._dir, source: 'ai-review', ...(chrome ? {view: 'app-chrome', id: `app-chrome-${item.kind}-${chrome}`} : {id: item.id || fingerprint(item)})};
   });
   // A step of a suite that failed: one finding per step (its message changes from run to run, the step does not). Never a kind a UI fix can address.
   const fromSuite = suite.filter(item => item && item.suite && item.step).map(item => {
@@ -126,6 +130,7 @@ export function issueBody(finding, runUrl, evidence = {}) {
   out.push(`> 📍 Page \`${view}\`${suite ? ` · suite \`${suite}\`` : ''}${platform ? ` · ${platform}` : ''}`);
   if (evidence.build) out.push(`> 🏷️ Build tested: ${evidence.build}`);
   out.push(`> 🔗 First seen: ${runUrl}`, '', '### What was found', formatDetail(finding));
+  if (finding.workaround) out.push('', '### What the person has to do to get past it', finding.workaround);
   if (finding.suggestion) out.push('', '### Suggested', finding.suggestion);
   if (picture || rows.length || logs.length) out.push('', '### Evidence');
   if (picture) out.push(`![${view}](${picture})`);
