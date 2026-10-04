@@ -537,3 +537,26 @@ test('a run opens at most three new issues from the AI review, the highest sever
   const kept = capNewAi(plan).map(item => item.finding.id);
   assert.deepEqual(kept, ['a', 'b', 'c', 'f', 'g'], 'the high one and the first two mediums; the repeat and the suite failure stay');
 });
+
+test('the ranking includes an issue this run just filed even when the issue list does not show it yet (#265 missing from #73)', async () => {
+  const {triage} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-fresh-'));
+  fs.mkdirSync(path.join(dir, 'e2e-artifacts-jobs'));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-jobs', 'ui-findings.json'), JSON.stringify([{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-jobs', 'ui-jobs.png'), '');
+  const edits = [], views = [];
+  const fresh = {number: 77, state: 'OPEN', title: '[auto-ui] jobs: tall row', body: '**HIGH** · tall-row · found by the layout check', labels: [{name: 'auto-ui'}, {name: 'fp:x'}], comments: [], createdAt: new Date().toISOString()};
+  const gh = args => {
+    if (args[0] === 'issue' && args[1] === 'list' && args.includes('top-issues')) return '[]';
+    if (args[0] === 'issue' && args[1] === 'list') return '[]';   // the lagging list: the new issue is not in it
+    if (args[0] === 'pr') return '[]';
+    if (args[0] === 'issue' && args[1] === 'create') return args.includes('top-issues') ? 'https://github.com/o/r/issues/73' : 'https://github.com/o/r/issues/77';
+    if (args[0] === 'issue' && args[1] === 'view') { views.push(args[2]); return JSON.stringify(fresh); }
+    if (args[0] === 'issue' && args[1] === 'edit') edits.push(args.join(' '));
+    return '';
+  };
+  triage({artifacts: dir, runUrl: 'https://x/runs/9', gh});
+  assert.ok(views.includes('77'), 'the filed issue was read by its number');
+  assert.ok(edits.some(edit => edit.startsWith('issue edit 77') && edit.includes('priority:')), 'and ranked: it got its priority label');
+});

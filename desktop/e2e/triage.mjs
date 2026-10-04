@@ -89,6 +89,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const everything = list();
   let issues = everything.filter(issue => platformOf(issue) === platform);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null};
+  const createdNow = [];   // the numbers of the issues this run filed
   const runId = String(runUrl).split('/').pop() || 'run';
   // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
   const tested = appVersionAt(testedSha(build), {gh, repo});
@@ -174,7 +175,8 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
       const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : [])];
       for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
-      gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]);
+      const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]) || '').trim();
+      if (/\/issues\/\d+$/.test(url)) createdNow.push(Number(url.split('/').pop()));
       out.filed.push(finding.id);
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {
       const comment = seenAgainComment(runUrl, picture, build);
@@ -224,6 +226,11 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     out.closed.push(issue.number);
   }
   issues = list();
+  // GitHub's issue list lags a few seconds behind a create (4 Oct 2026: #265 was filed at 12:42:15 and the pinned list, rebuilt at 12:42:28, said "0 open"). An issue made with
+  // the workflow's token starts no ranking run of its own, so read each issue this run filed by number, which is consistent, when the list does not have it yet.
+  for (const number of createdNow.filter(number => !issues.some(issue => issue.number === number))) {
+    try { issues.push(JSON.parse(gh(['issue', 'view', String(number), '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']))); } catch { /* the next run ranks it */ }
+  }
   refreshRanking({gh, issues, repo});
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
   out.candidate = pickCandidate(issues, {openBranches: branches});
