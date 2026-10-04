@@ -1131,8 +1131,11 @@ main { min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .skeleton, .skeleton-round { animation: none; } }
 @media (max-width: 1180px) {
   .focus-grid { grid-template-columns: 1fr; }
+  /* The buttons wrap below the text only when both no longer fit in one row; width: 100% forced them onto their own row at any
+     width under 1180 px, leaving a tall empty band in every Up next card (owner, 4 Oct 2026). */
   .focus-item { flex-wrap: wrap; }
-  .focus-actions { width: 100%; justify-content: flex-end; }
+  .focus-body { flex: 1 1 240px; }
+  .focus-actions { margin-left: auto; }
   .funnel-steps { flex-wrap: wrap; }
   .funnel-arrow { display: none; }
   .funnel-step { flex: 1 1 30%; }
