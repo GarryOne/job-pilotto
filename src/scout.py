@@ -720,6 +720,16 @@ def telegram_summary(summary, results):
     return '\n'.join(lines)
 
 
+def report_ai_cost(side):
+    """Print what this run's AI calls cost, and write {usd, calls} to JOB_PILOTTO_AI_COST_FILE when set (the central scout's workflow
+    reports it to the owner's /ai-cost page). Always written when asked, even $0: a job that spent nothing must still show up."""
+    usd, calls = float(side.get('usd') or 0), int(side.get('done') or 0)
+    print(f'AI cost of this scout run: ${usd:.3f} in {calls} call(s)')
+    target = os.getenv('JOB_PILOTTO_AI_COST_FILE')
+    if target:
+        Path(target).write_text(json.dumps({'usd': round(usd, 6), 'calls': calls}))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=JOBS_DB)
@@ -769,6 +779,7 @@ def main():
     from .ai import cost as ai_cost
     if ai_cost.SIDE:   # AI ideas, link picks and page reads of this scout run: logged like any AI step
         log['sources'] = dict(ai_cost.SIDE)
+    report_ai_cost(ai_cost.SIDE)
     message = telegram_summary(summary, results)
     log['headline'] = cron_runs.plain(message).split('\n')[0]
     log['subject'] = cron_runs.counted(sum(1 for _, outcome in results if outcome['status'] == 'found'), 'new feed')

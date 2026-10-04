@@ -88,6 +88,11 @@ jobs:
             --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git show:*),Bash(git log:*)"
           prompt: ${{ secrets.SELF_REVIEW_PROMPT }}
 
+      - name: Report the AI cost to /ai-cost
+        if: always()
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: node desktop/e2e/ai-cost-report.mjs --job weekly-self-review --execution /home/runner/work/_temp/claude-execution-output.json
       - name: Open the pull request (or report nothing to change)
         if: always()
         env:

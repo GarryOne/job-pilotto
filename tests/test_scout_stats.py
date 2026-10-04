@@ -3,6 +3,7 @@ import json
 import sqlite3
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -54,6 +55,23 @@ class HealthTests(unittest.TestCase):
         self.assertIsNone(page_recipes.load('https://a.ch/jobs', db))
         page_recipes.save('https://a.ch/jobs', {'kind': 'links', 'prefix': '/de/jobs'}, db=db)
         self.assertEqual(page_recipes.load('https://a.ch/jobs', db), {'kind': 'links', 'prefix': '/de/jobs'})
+
+
+class AiCostReportTests(unittest.TestCase):
+    def test_the_run_prints_its_ai_cost_and_writes_the_file_even_at_zero(self):
+        import os
+        import tempfile
+        from contextlib import redirect_stdout
+        from io import StringIO
+        with tempfile.TemporaryDirectory() as tmp, unittest.mock.patch.dict(os.environ, {'JOB_PILOTTO_AI_COST_FILE': f'{tmp}/c.json'}):
+            out = StringIO()
+            with redirect_stdout(out):
+                scout.report_ai_cost({'usd': 0.12345678, 'done': 7})
+            self.assertIn('$0.123 in 7 call(s)', out.getvalue())
+            self.assertEqual(json.loads(Path(f'{tmp}/c.json').read_text()), {'usd': 0.123457, 'calls': 7})
+            with redirect_stdout(StringIO()):
+                scout.report_ai_cost({})
+            self.assertEqual(json.loads(Path(f'{tmp}/c.json').read_text()), {'usd': 0.0, 'calls': 0})
 
 
 if __name__ == '__main__':

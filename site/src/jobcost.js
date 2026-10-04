@@ -1,0 +1,126 @@
+// The owner's page /ai-cost: everything the product's own scheduled jobs spend on AI (central scout, self-heal, product brain, proposers, form lab...).
+// Not the users' Always-on runs: those are paid with their own keys. Owner-only like /stats (STATS_KEY), never a static page.
+import {allowed, esc, remember} from './stats.js';
+import {equal} from './guard.js';
+
+export const JOBS = {   // job id -> [label, group]; an unknown id still shows, under "other"
+  'central-scout': ['Central scout', 'Discovery'],
+  'form-lab': ['Form lab', 'Discovery'],
+  'recipe-proposer': ['Recipe proposer', 'Discovery'],
+  'alias-proposer': ['Alias proposer', 'Discovery'],
+  'ui-fix': ['UI fixer', 'Self-heal'],
+  'ui-verdict': ['Verdict pass', 'Self-heal'],
+  'code-review': ['Code review', 'Self-heal'],
+  'finder-review': ['Finder self-review', 'Self-heal'],
+  'e2e-screenshot-review': ['E2E screenshot review', 'Self-heal'],
+  'sentry-fix': ['Sentry fixer', 'Self-heal'],
+  'weekly-self-review': ['Weekly self-review', 'Self-heal'],
+  'product-brain': ['Product brain', 'Product brain'],
+};
+const day = at => String(at).slice(0, 10);
+const money = n => `$${(Number(n) || 0).toFixed(2)}`;
+
+// Pure: the page's figures from the run rows and the billed days.
+export function summarize(rows, billed = [], now = new Date()) {
+  const today = now.toISOString().slice(0, 10), from = new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);
+  const recent = rows.filter(row => row.day >= from);
+  const jobs = {}, days = {};
+  for (const row of recent) {
+    const job = jobs[row.job] ||= {job: row.job, runs: 0, usd: 0, calls: 0, last: ''};
+    job.runs += 1; job.usd += row.usd; job.calls += row.calls; if (row.at > job.last) job.last = row.at;
+    days[row.day] = (days[row.day] || 0) + row.usd;
+  }
+  const billedByDay = Object.fromEntries(billed.map(item => [item.day, item.usd]));
+  const total = recent.reduce((sum, row) => sum + row.usd, 0);
+  const span = Math.max(1, Math.round((Date.parse(today) - Date.parse(recent.reduce((min, row) => (row.day < min ? row.day : min), today))) / 86400000) + 1);
+  const billedTotal = Object.entries(billedByDay).filter(([d]) => d >= from).reduce((sum, [, usd]) => sum + usd, 0);
+  const overlap = Object.keys(billedByDay).filter(d => d >= from && days[d] !== undefined);   // compare only days where both sides exist
+  const trackedOnBilledDays = overlap.reduce((sum, d) => sum + days[d], 0), billedOnTrackedDays = overlap.reduce((sum, d) => sum + billedByDay[d], 0);
+  return {
+    today: days[today] || 0, total, perDay: total / span, span, runs: recent.length,
+    jobs: Object.values(jobs).sort((a, b) => b.usd - a.usd),
+    days: [...new Set([...Object.keys(days), ...Object.keys(billedByDay).filter(d => d >= from)])].sort().reverse().map(d => ({day: d, tracked: days[d] || 0, billed: billedByDay[d] ?? null})),
+    billedTotal, covered: billedOnTrackedDays > 0 ? Math.round(100 * trackedOnBilledDays / billedOnTrackedDays) : null,
+  };
+}
+
+export function page(rows, billed = []) {
+  const s = summarize(rows, billed);
+  const groups = {};
+  for (const job of s.jobs) { const group = (JOBS[job.job] || [])[1] || 'Other'; groups[group] = (groups[group] || 0) + job.usd; }
+  const tiles = [
+    ['💸 Last 30 days', money(s.total), `${s.runs} runs reported`],
+    ['📅 Today', money(s.today), 'UTC'],
+    ['📈 Per day', money(s.perDay), `average over ${s.span} day${s.span === 1 ? '' : 's'}`],
+    ['🧾 Billed by Anthropic', billed.length ? money(s.billedTotal) : '–', billed.length ? `the jobs explain ${s.covered === null ? '–' : s.covered + '%'} of it` : 'no billing report yet (ANTHROPIC_ADMIN_KEY)'],
+  ];
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Job Pilotto AI cost</title><link rel="icon" href="/favicon-32.png">
+<style>
+:root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:24px 16px 48px}h1{margin:0;font-size:24px}h2{margin:0;font-size:15px}
+a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0;margin-bottom:12px}
+.tile{margin-bottom:0}.tile b{display:block;font-size:30px;margin:4px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
+td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}tr.total td{font-weight:700}
+</style></head><body><main>
+<header><h1>✈ Job Pilotto · AI cost</h1><span class="muted">scheduled jobs of the product · <a href="/self-heal">Self-heal →</a> · <a href="/stats">Website stats →</a></span></header>
+<div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
+<div class="grid">
+<section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>Last 30 days</th></tr>
+${Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([group, usd]) => `<tr><td>${esc(group)}</td><td class="n">${money(usd)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">Nothing reported yet: each job reports at the end of its run.</td></tr>'}
+</table></div></section>
+<section class="card"><h2>📅 By day</h2><small class="muted">Jobs = reported by the jobs · Billed = Anthropic's cost report</small><div class="wrap"><table><tr><th>Day</th><th>Jobs</th><th>Billed</th></tr>
+${s.days.slice(0, 30).map(d => `<tr><td>${esc(d.day)}</td><td class="n">${money(d.tracked)}</td><td class="n">${d.billed === null ? '–' : money(d.billed)}</td></tr>`).join('')}
+</table></div></section></div>
+<section class="card"><h2>⚙️ By job</h2><div class="wrap"><table><tr><th>Job</th><th>Group</th><th>Runs</th><th>Calls</th><th>Cost</th><th>Per run</th><th>Last run (UTC)</th></tr>
+${s.jobs.map(job => `<tr><td>${esc((JOBS[job.job] || [job.job])[0])}</td><td class="muted">${esc((JOBS[job.job] || [])[1] || 'Other')}</td><td class="n">${job.runs}</td><td class="n">${job.calls}</td><td class="n">${money(job.usd)}</td><td class="n">$${(job.usd / job.runs).toFixed(3)}</td><td class="muted">${esc(job.last.slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
+<tr class="total"><td>Total</td><td></td><td class="n">${s.runs}</td><td class="n">${s.jobs.reduce((sum, job) => sum + job.calls, 0)}</td><td class="n">${money(s.total)}</td><td></td><td></td></tr>
+</table></div>
+<small class="muted">Not counted: the users' Always-on runs (their own keys), and any job that does not report. A growing gap between Jobs and Billed means a job is missing.</small></section>
+</main></body></html>`;
+}
+
+// PUT /ai-cost/data (Bearer AI_COST_PUBLISH_KEY): {runs: [{job, run_id, at, usd, calls?, repo?}], billed: [{day, usd}]}. Checked: key, size, shape; ids are slugs.
+export async function ingest(request, env) {
+  const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!(env.AI_COST_PUBLISH_KEY && equal(given, env.AI_COST_PUBLISH_KEY))) return new Response('Not found', {status: 404});
+  const body = await request.text();
+  if (body.length > 100000) return new Response('Too large', {status: 413});
+  let data;
+  try { data = JSON.parse(body); } catch { return new Response('Not JSON', {status: 400}); }
+  const runs = Array.isArray(data?.runs) ? data.runs : [], billed = Array.isArray(data?.billed) ? data.billed : [];
+  const slug = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+  const goodRun = run => slug.test(String(run?.job)) && /^[A-Za-z0-9._-]{1,64}$/.test(String(run?.run_id)) && /^\d{4}-\d{2}-\d{2}T/.test(String(run?.at)) && Number.isFinite(run?.usd) && run.usd >= 0 && run.usd < 1000;
+  const goodDay = item => /^\d{4}-\d{2}-\d{2}$/.test(String(item?.day)) && Number.isFinite(item?.usd) && item.usd >= 0 && item.usd < 100000;
+  if (!runs.length && !billed.length) return new Response('Nothing to record', {status: 400});
+  if (!runs.every(goodRun) || !billed.every(goodDay) || runs.length > 200 || billed.length > 100) return new Response('Unexpected shape', {status: 400});
+  const statements = [
+    ...runs.map(run => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_runs (job, run_id, day, at, usd, calls, repo) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(run.job, String(run.run_id), day(run.at), run.at, run.usd, Math.max(0, Math.round(Number(run.calls) || 0)), String(run.repo || '').slice(0, 80))),
+    ...billed.map(item => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_billed (day, usd, at) VALUES (?, ?, ?)').bind(item.day, item.usd, new Date().toISOString())),
+  ];
+  await env.STATS.batch(statements);
+  return new Response(JSON.stringify({ok: true, runs: runs.length, billed: billed.length}), {headers: {'Content-Type': 'application/json'}});
+}
+
+async function read(env) {
+  try {
+    const from = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);
+    const runs = (await env.STATS.prepare('SELECT job, run_id, day, at, usd, calls FROM ai_cost_runs WHERE day >= ?').bind(from).all()).results || [];
+    const billed = (await env.STATS.prepare('SELECT day, usd FROM ai_cost_billed WHERE day >= ?').bind(from).all()).results || [];
+    return {runs, billed};
+  } catch { return {runs: [], billed: []}; }
+}
+
+// GET /ai-cost (?key=<STATS_KEY> once; the cookie after that)
+export async function view(request, env) {
+  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  const url = new URL(request.url);
+  if (url.searchParams.has('key')) return remember(url, env);
+  const {runs, billed} = env.STATS ? await read(env) : {runs: [], billed: []};
+  return new Response(page(runs, billed), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+}

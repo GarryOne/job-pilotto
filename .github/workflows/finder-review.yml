@@ -55,6 +55,11 @@ jobs:
       - name: The AI's cost and limit
         if: always() && steps.budget.outputs.skip != 'true'
         run: node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job "Finder self-review"
+      - name: Report the AI cost to /ai-cost
+        if: always() && steps.budget.outputs.skip != 'true'
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: node desktop/e2e/ai-cost-report.mjs --job finder-review --execution /home/runner/work/_temp/claude-execution-output.json
       - uses: actions/upload-artifact@v6
         if: always() && steps.budget.outputs.skip != 'true'
         with:

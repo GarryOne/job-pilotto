@@ -136,6 +136,11 @@ jobs:
         if: env.STEP == 'explore'
         run: python tools/product_brain.py plan --id "$DECISION" --file .brain/plan.md
 
+      - name: Report the AI cost to /ai-cost
+        if: always() && (env.STEP == 'brief' || env.STEP == 'another' || env.STEP == 'review' || env.STEP == 'explore')
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: node desktop/e2e/ai-cost-report.mjs --job product-brain --suffix "${{ env.STEP }}" --execution /home/runner/work/_temp/claude-execution-output.json
       - name: Say it failed
         if: failure()
         run: |

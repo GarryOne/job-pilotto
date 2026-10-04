@@ -28,6 +28,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}   # job-wide: a step's own env is not visible to its `if`
+      AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
     steps:
       - name: Not set up yet
         if: env.CLOUDFLARE_API_TOKEN == ''
@@ -54,3 +55,8 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.SELFHEAL_PUBLISH_KEY != ''
         working-directory: site
         run: printf '%s' "$SELFHEAL_PUBLISH_KEY" | npx --yes wrangler@4 secret put SELFHEAL_PUBLISH_KEY --config wrangler.toml
+      # The key the scheduled jobs use to report their AI cost to /ai-cost (desktop/e2e/ai-cost-report.mjs).
+      - name: The publish key of /ai-cost
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.AI_COST_PUBLISH_KEY != ''
+        working-directory: site
+        run: printf '%s' "$AI_COST_PUBLISH_KEY" | npx --yes wrangler@4 secret put AI_COST_PUBLISH_KEY --config wrangler.toml

@@ -73,6 +73,11 @@ jobs:
       - name: AI budget and cost of this run
         if: always() && steps.range.outputs.range != ''
         run: node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job code-review
+      - name: Report the AI cost to /ai-cost
+        if: always() && steps.range.outputs.range != ''
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: node desktop/e2e/ai-cost-report.mjs --job code-review --execution /home/runner/work/_temp/claude-execution-output.json
       - name: Keep what it read and found (to audit a review)
         if: always() && steps.range.outputs.range != ''
         uses: actions/upload-artifact@v6
