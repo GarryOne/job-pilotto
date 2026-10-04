@@ -1,0 +1,79 @@
+// Judging before filing (lib/prejudge.mjs): which findings, the prompt, the answer, and the noise register that remembers what was not filed.
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {asIssues, entryOf, parseVerdicts, pendingOf, prejudgePrompt, registerBody, registerEntries, wordOf} from '../lib/prejudge.mjs';
+import {suppressedBy} from '../lib/triage.mjs';
+
+const finding = (id, severity, extra = {}) => ({id, view: 'app-chrome', kind: 'layout', severity, source: 'ai-review', title: `Sidebar clipped ${id}`, detail: 'the last icon is cut at 640 px', ...extra});
+
+test('the most severe judgeable findings, at most the cap; a plain failed step is left to its suite', () => {
+  const list = pendingOf([finding('a', 'medium'), finding('b', 'high'), {...finding('c', 'medium'), source: 'suite-failure', kind: 'test-failure', detail: 'expected 3, saw 2'},
+    {...finding('d', 'medium'), source: 'suite-failure', kind: 'test-failure', detail: 'Timeout 30000ms exceeded'}, finding('e', 'medium')], 3);
+  assert.deepEqual(list.map(item => item.id), ['b', 'a', 'd']);
+});
+
+test('one prompt names every finding by id and its picture', () => {
+  const text = prejudgePrompt(pendingOf([finding('a', 'medium', {screenshot: '.heal/shots/a.png'})]), 'BASE RULES');
+  assert.match(text, /^BASE RULES/);
+  assert.match(text, /## a\nDetector: ai-review/);
+  assert.match(text, /Screenshot: \.heal\/shots\/a\.png/);
+});
+
+test('the answer is read per id; a real verdict without code that exists is not trusted', () => {
+  const lines = file => (file === 'desktop/renderer/style.css' ? 1800 : 0);
+  const text = '## a\nfalse-positive\nWhy: desktop/renderer/style.css:1700 scrolls on purpose.\n\n## b\nreal\nWhy: desktop/renderer/nope.js:3 is wrong.\n\n## zz\nreal\nWhy: x';
+  const verdicts = parseVerdicts(text, ['a', 'b'], lines);
+  assert.deepEqual(Object.keys(verdicts), ['a', 'b']);
+  assert.equal(wordOf(verdicts.a), 'false-positive');
+  assert.equal(wordOf(verdicts.b), 'needs-human');
+  assert.equal(wordOf('banana'), 'needs-human');
+});
+
+test('the register keeps its JSON through its body, and a remembered finding is suppressed next run even in other words', () => {
+  const entry = entryOf(finding('a', 'medium'), 'false-positive\nWhy: the menu scrolls on purpose.', '2026-10-05');
+  const body = registerBody([entry]);
+  assert.deepEqual(registerEntries(body), [entry]);
+  assert.match(body, /\| 2026-10-05 \| app-chrome \| Sidebar clipped a \| false-positive \| the menu scrolls on purpose\. \|/);
+  const again = {...finding('x', 'medium'), title: 'Sidebar clipped icon', detail: 'the last icon is cut at 640 px high'};
+  assert.ok(suppressedBy(again, asIssues([entry])), 'alike words on the same page and kind');
+  assert.equal(suppressedBy({...again, view: 'jobs'}, asIssues([entry])), null, 'another page is not the same finding');
+  assert.deepEqual(registerEntries('no block'), []);
+});
+
+test('a run with verdicts: noise is not filed and is remembered, real is filed confirmed with its verdict, the next run drops the noise unjudged', async () => {
+  const {triage} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prejudge-'));
+  fs.mkdirSync(path.join(dir, 'e2e-artifacts-interactions'));
+  const ai = {findings: [
+    {view: 'focus', kind: 'layout', severity: 'medium', title: 'Sidebar icon clipped at short window', detail: 'the last menu icon is half cut at the bottom edge', impact: 'the person may think a page is missing'},
+    {view: 'jobs', kind: 'functionality', severity: 'high', title: 'Retry offered though it cannot work', detail: 'Retry shows while no AI key is saved', impact: 'they press it and nothing happens'},
+  ]};
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-interactions', 'ai-findings.json'), JSON.stringify(ai));
+  let register = null;
+  const created = [], comments = [];
+  const gh = args => {
+    if (args[0] === 'issue' && args[1] === 'list') return args.includes('noise-register') ? JSON.stringify(register ? [register] : []) : '[]';
+    if (args[0] === 'issue' && args[1] === 'create') {
+      const title = args[args.indexOf('--title') + 1], body = args[args.indexOf('--body') + 1], labels = args.includes('--label') ? args[args.indexOf('--label') + 1] : '';
+      if (labels === 'noise-register') { register = {number: 99, body}; return 'https://github.com/o/r/issues/99'; }
+      created.push({title, labels}); return `https://github.com/o/r/issues/${created.length}`;
+    }
+    if (args[0] === 'issue' && args[1] === 'comment') comments.push(args[2]);
+    return args[0] === 'pr' ? '[]' : '';
+  };
+  const pending = triage({artifacts: dir, runUrl: 'https://x/runs/1', gh, pendingOnly: true}).pending;
+  assert.equal(pending.length, 2);
+  assert.equal(created.length, 0, 'planning writes nothing');
+  const byView = Object.fromEntries(pending.map(item => [item.view === 'app-chrome' ? 'focus' : item.view, item.id]));   // a sidebar finding is the app's chrome, whatever page it was seen on
+  const verdicts = {[byView.focus]: 'false-positive\nWhy: the menu scrolls on purpose.', [byView.jobs]: 'real\nWhy: desktop/renderer/pages/jobs.js:1 offers it.'};
+  const out = triage({artifacts: dir, runUrl: 'https://x/runs/1', gh, verdicts});
+  assert.deepEqual(created.map(item => item.title).filter(title => title.startsWith('[auto-ui]')), ['[auto-ui] jobs: Retry offered though it cannot work']);
+  assert.match(created[0].labels, /(^|,)confirmed(,|$)/);
+  assert.deepEqual(comments, ['1']);
+  assert.equal(out.judgedNoise.length, 1);
+  assert.ok(out.dropped.some(item => /judged false-positive before filing/.test(item.why)));
+  assert.match(register.body, /Sidebar icon clipped/);
+  const next = triage({artifacts: dir, runUrl: 'https://x/runs/2', gh, pendingOnly: true});
+  assert.deepEqual(next.pending.map(item => item.view), ['jobs'], 'the remembered noise is not judged again');
+});

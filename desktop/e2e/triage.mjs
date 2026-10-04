@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, capNewAi, droppedTable, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {asIssues, entryOf, NOISE_WORDS, pendingOf, REGISTER_LABEL, registerBody, registerEntries, wordOf} from './lib/prejudge.mjs';
+import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -65,7 +67,8 @@ export function refreshRanking({gh = realGh, issues, repo = '', now = Date.now()
 }
 
 // -> {filed, again, gone, candidate}. `gh` and `publish` (the screenshot upload: files -> {to: url}) are injected so the rules can be tested without GitHub.
-export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = '', platform = 'mac'}) {
+// `pendingOnly`: plan, then return the new findings to judge before filing (lib/prejudge.mjs), with no write to GitHub. `verdicts`: {id: raw verdict} from that judgement.
+export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = '', platform = 'mac', pendingOnly = false, verdicts = null, today = new Date().toISOString().slice(0, 10)}) {
   const found = filesNamed(artifacts);   // every suite's folder (e2e-artifacts/e2e-artifacts-<suite>/…), or one flat folder
   const withDir = (file, items) => items.map(item => ({...item, _dir: path.dirname(file)}));
   // A suite's failed steps: only the first is a finding (the later ones are its consequences), and none when the AI had no credit (not a product problem).
@@ -104,8 +107,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
   // A Windows finding the Mac already told becomes a comment on that issue ("also seen on Windows"), or nothing when the Mac one was rejected: not a second issue.
+  // What was judged noise before filing in earlier runs (the pinned noise register): dropped like a person's rejection, with no new judgement.
+  let register = null;
+  try { register = JSON.parse(gh(['issue', 'list', '--label', REGISTER_LABEL, '--state', 'open', '--limit', '1', '--json', 'number,body']))[0] || null; } catch { register = null; }
+  const remembered = registerEntries(register?.body);
+  const rejected = [...issues, ...asIssues(remembered)];
   const planAll = findings.map(finding => { const existing = matchExisting(finding, issues); return {finding, existing, twin: !existing && platform !== 'mac' ? macTwin(finding, everything) : null}; })
-    .filter(({finding, existing, twin}) => existing || twin || !suppressedBy(finding, issues));   // a closed false positive stays closed
+    .filter(({finding, existing, twin}) => existing || twin || !suppressedBy(finding, rejected));   // a closed false positive (or one judged noise before filing) stays closed
   const plan = capNewAi(planAll);
   out.capped = planAll.length - plan.length;
   for (const item of planAll) if (!plan.includes(item)) dropped.push({view: item.finding.view, severity: item.finding.severity, title: item.finding.title, source: 'ai-review', why: 'over the 3-new-AI-issues-per-run cap'});
@@ -113,6 +121,15 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const matched = new Set(plan.filter(item => item.existing).map(item => item.existing.number));
   const needsPicture = plan.filter(({existing, twin}) => !twin && (!existing || (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl)))));
 
+  if (pendingOnly) {
+    const fresh = plan.filter(({existing, twin}) => !existing && !twin).map(({finding}) => ({...finding, screenshot: evidenceFile(finding)}));
+    return {...out, findings, pending: pendingOf(fresh)};
+  }
+  // Judged noise before filing: never filed, listed in the summary and remembered in the register.
+  const verdictFor = finding => (verdicts && verdicts[finding.id]) || '';
+  const noiseNow = plan.filter(({finding, existing, twin}) => !existing && !twin && verdictFor(finding) && NOISE_WORDS.includes(wordOf(verdictFor(finding))));
+  for (const {finding} of noiseNow) dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: `judged ${wordOf(verdictFor(finding))} before filing`});
+  out.judgedNoise = noiseNow.map(({finding}) => finding.id);
   // 2. a finding that was open, whose page was photographed and reviewed again in this run and did not come back: it is "not seen" (a fix, or a one-off).
   const reviewed = {ai: new Set(), layout: new Set()};
   // A page counts as "reviewed again" only when the AI really looked at it (review-ui.mjs lists them): a page it could not review (no credit, an outage) is neither filed nor cleared, so a
@@ -157,7 +174,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   // 3. one upload of every picture that is needed (a failure to upload never stops the issues).
   const uploads = [];
   const target = (finding, name) => `ui-loop/${finding.id}/${runId}-${name}`;
-  for (const {finding} of needsPicture) { const from = evidenceFile(finding); if (from) uploads.push({from, to: target(finding, path.basename(from))}); }
+  for (const {finding} of needsPicture.filter(item => !noiseNow.includes(item))) { const from = evidenceFile(finding); if (from) uploads.push({from, to: target(finding, path.basename(from))}); }
   for (const {issue, view, dir} of gone) { const from = dir && path.join(dir, `ui-${view}.png`); const id = /fp:(\S+)/.exec((issue.labels || []).map(item => item.name || item).join(' '))?.[1] || `issue-${issue.number}`;
     if (from && fs.existsSync(from)) uploads.push({from, to: `ui-loop/${id}/${runId}-${view}-clear.png`}); }
   let urls = {};
@@ -173,16 +190,20 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     const suite = suiteOf(finding.dir) || (finding.source === 'suite-failure' ? finding.view : '');
     const from = evidenceFile(finding), to = from ? target(finding, path.basename(from)) : '';
     const picture = urlOf(urls, to);
+    if (!existing && noiseNow.some(item => item.finding === finding)) continue;
     if (!existing) {
+      const judged = verdictFor(finding), word = judged ? wordOf(judged) : '';
       const facts = finding.dir ? read(path.join(finding.dir, `ui-${finding.view}.json`)) : null;
       const logs = finding.source === 'suite-failure' && finding.dir ? {'engine.log': tail(path.join(finding.dir, 'logs', 'engine.log')), 'app.log': tail(path.join(finding.dir, 'logs', 'app.log'))} : {};
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
-      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : [])];
-      for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
+      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : []), ...(word === 'real' ? [CONFIRMED] : word === 'needs-human' ? [NEEDS_HUMAN] : [])];
+      for (const label of labels.slice(1).filter(name => name !== CONFIRMED && name !== NEEDS_HUMAN)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]) || '').trim();
       if (/\/issues\/\d+$/.test(url)) createdNow.push(Number(url.split('/').pop()));
+      // Judged before filing: the verdict is the issue's first comment (the same layout as the verdict pass's).
+      if (judged && /\/issues\/\d+$/.test(url)) gh(['issue', 'comment', url.split('/').pop(), '--body', verdictComment(judged, {number: Number(url.split('/').pop())})]);
       out.filed.push(finding.id);
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {
       const comment = seenAgainComment(runUrl, picture, build);
@@ -196,6 +217,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       if (versionOfRun && !(existing.labels || []).some(item => (item.name || item) === versionOfRun)) addVersion(existing.number);   // seen on another version: that one is added too
       out.again.push(finding.id);
     }
+  }
+  // The register remembers this run's noise (one pinned issue, created on first use).
+  if (noiseNow.length) {
+    const entries = [...remembered, ...noiseNow.map(({finding}) => entryOf(finding, verdictFor(finding), today))];
+    gh(['label', 'create', REGISTER_LABEL, '--force', '--color', 'CCCCCC', '--description', 'The pinned list of findings judged noise before filing']);
+    if (register) gh(['issue', 'edit', String(register.number), '--body', registerBody(entries)]);
+    else gh(['issue', 'create', '--title', '🧹 Judged noise before filing (kept automatically)', '--label', REGISTER_LABEL, '--body', registerBody(entries)]);
   }
   // A commit that says "Fixes #N", between the build the issue was first seen on and this one: the fix is known, so one clean run closes it (otherwise two, as before).
   const fixOf = issue => {
@@ -323,8 +351,18 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     console.log(`Ranking rebuilt: ${ranked.length} open.`);
     process.exit(0);
   }
-  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac'});
-  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
+  // Judge before filing, step 1: the new findings and their pictures, nothing written to GitHub (ui-findings.yml).
+  if (option('pending-out')) {
+    const {pending} = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac', pendingOnly: true});
+    fs.writeFileSync(option('pending-out'), JSON.stringify(pending, null, 2));
+    console.log(`${pending.length} new finding(s) to judge before filing`);
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `pending=${pending.length}\n`);
+    process.exit(0);
+  }
+  const verdictsFile = option('verdicts');
+  const verdicts = verdictsFile && fs.existsSync(verdictsFile) ? JSON.parse(fs.readFileSync(verdictsFile, 'utf8')) : null;
+  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac', verdicts});
+  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.judgedNoise?.length ? `, ${result.judgedNoise.length} judged noise before filing (not filed)` : ''}${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
     const candidate = result.candidate;

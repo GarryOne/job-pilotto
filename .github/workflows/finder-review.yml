@@ -10,7 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  issues: read
+  issues: write   # the weekly verdict audit issue
   id-token: write
 
 concurrency:
@@ -95,3 +95,18 @@ jobs:
           git push -q origin "$branch"
           url=$(gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .finder-review/body.md)
           { echo "## Finder self-review: PR opened"; echo "$url"; } >> "$GITHUB_STEP_SUMMARY"
+
+  # The verdict pass's measured accuracy: five random verdicts of the week in one issue to tick right or wrong; last week's audit is closed with its score. No AI.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Open this week's verdict audit
+        run: node desktop/e2e/verdict-audit.mjs

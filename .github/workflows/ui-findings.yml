@@ -62,6 +62,37 @@ jobs:
           elif [ -n "$RUN_ID" ]; then
             gh run download "$RUN_ID" --repo "$REPO" --pattern 'e2e-artifacts-*' --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"   # one folder per suite
           fi
+      # JUDGE BEFORE FILING (desktop/e2e/lib/prejudge.mjs): the run's new findings (at most 3) are judged in one Claude session before any issue opens; noise is
+      # never filed. Only with JOB_PILOTTO_FIXER_VERDICTS = "on" (AI credit) and while the AI budget breaker is closed; otherwise everything is filed as before.
+      - name: New findings to judge before filing
+        id: pending
+        if: vars.JOB_PILOTTO_FIXER_VERDICTS == 'on' && env.PLANT == ''
+        run: |
+          mkdir -p .heal
+          node desktop/e2e/ai-budget.mjs --check
+          if grep -q '^skip=true' "$GITHUB_OUTPUT"; then echo "pending=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --platform "$PLATFORM" --pending-out .heal/pending.json
+          node desktop/e2e/prejudge.mjs --pending .heal/pending.json --out .heal
+      - name: Claude judges them (read-only)
+        id: judge
+        if: steps.pending.outputs.pending != '' && steps.pending.outputs.pending != '0'
+        continue-on-error: true   # no verdict: the findings are filed as before and judged later (ui-verdict.yml)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: >-
+            --model claude-sonnet-5-5 --max-turns 30
+            --allowedTools "Read,Glob,Grep,Write,Bash(git log:*),Bash(git show:*)"
+          prompt: Read .heal/prejudge-prompt.md and follow it exactly. Write only .heal/verdicts.md.
+      - name: Read the verdicts, and the cost of judging
+        if: steps.pending.outputs.pending != '' && steps.pending.outputs.pending != '0'
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          node desktop/e2e/prejudge.mjs --parse .heal/verdicts.md --pending .heal/pending.json --out .heal/verdicts.json || true
+          node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job "judging ${{ steps.pending.outputs.pending }} finding(s) before filing" || true
+          node desktop/e2e/ai-cost-report.mjs --job ui-prejudge --execution /home/runner/work/_temp/claude-execution-output.json --suffix "$RUN_ID" || true
       - name: File the findings
         run: |
           mkdir -p .heal
@@ -79,4 +110,5 @@ jobs:
             version=$(git ls-remote --tags origin 'refs/tags/desktop-v*' | awk -v s="$full" '$1 == s { t = $2; sub("refs/tags/desktop-", "", t); sub(/\^\{\}$/, "", t); print t; exit }') || true
             if [ -n "$version" ]; then BUILD="${version} · ${BUILD}"; fi
           fi
-          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD" --platform "$PLATFORM"
+          judged=(); if [ -f .heal/verdicts.json ]; then judged=(--verdicts .heal/verdicts.json); fi
+          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD" --platform "$PLATFORM" "${judged[@]}"
