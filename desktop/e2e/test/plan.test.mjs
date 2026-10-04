@@ -65,7 +65,7 @@ test('a watched suite (it costs real AI money and judges one piece of code) runs
 
 // The noise breaker (4 Oct 2026): the AI review stops spending tokens when most of its recent issues were noise.
 test('the noise breaker trips when most judged review issues since the new prompt were noise, and only then', () => {
-  const issue = (number, kind, extra = {}) => ({number, state: 'CLOSED', stateReason: 'NOT_PLANNED', createdAt: '2026-10-04T05:00:00Z', labels: [{name: 'source:ai-review'}], comments: [], ...extra});
+  const issue = (number, kind, extra = {}) => ({number, state: 'CLOSED', stateReason: 'NOT_PLANNED', createdAt: '2026-10-05T05:00:00Z', labels: [{name: 'source:ai-review'}], comments: [], ...extra});
   const noisy = Array.from({length: 6}, (_, n) => issue(n));
   assert.equal(noiseTripped(noisy).tripped, true);
   const real = Array.from({length: 6}, (_, n) => issue(100 + n, 'x', {stateReason: 'COMPLETED', labels: [{name: 'source:ai-review'}, {name: 'confirmed'}]}));

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {build, classify} from '../lib/selfheal-stats.mjs';
 
-const issue = (number, state, labels, comments = [], extra = {}) => ({number, state, title: `[auto-ui] x: bug ${number}`, url: `https://github.com/o/r/issues/${number}`, createdAt: '2026-10-03T10:00:00Z',
+const issue = (number, state, labels, comments = [], extra = {}) => ({number, state, title: `[auto-ui] x: bug ${number}`, url: `https://github.com/o/r/issues/${number}`, createdAt: '2026-10-05T10:00:00Z',
   labels: labels.map(name => ({name})), comments: comments.map(body => ({body, createdAt: '2026-10-03T12:00:00Z'})), ...extra});
 
 test('each way an issue ends is told apart: fixed, queued, false positive, duplicate, harness, unclear, open', () => {

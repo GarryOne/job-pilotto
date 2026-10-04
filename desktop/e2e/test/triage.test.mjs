@@ -430,8 +430,8 @@ test('the fixer is shown what the repo\'s own people wrote on the issue, never t
 // Each detector's record (found, false, real, open) in the pinned list, so "the Finder got better" is a number, not a guess.
 test('the scorecard counts each detector\'s filed, false positive, real and open issues of the last 30 days', async () => {
   const {scorecard, scorecardLines} = await import('../lib/triage.mjs');
-  const now = Date.parse('2026-10-04T00:00:00Z');
-  const issue = (source, state, labels = [], stateReason = '', createdAt = '2026-10-03T10:00:00Z') => ({state, stateReason, createdAt, labels: [`source:${source}`, ...labels].map(name => ({name}))});
+  const now = Date.parse('2026-10-06T00:00:00Z');
+  const issue = (source, state, labels = [], stateReason = '', createdAt = '2026-10-05T10:00:00Z') => ({state, stateReason, createdAt, labels: [`source:${source}`, ...labels].map(name => ({name}))});
   const rows = scorecard([issue('ai-review', 'CLOSED', ['wontfix-auto'], 'NOT_PLANNED'), issue('ai-review', 'OPEN', ['confirmed']), issue('ai-review', 'CLOSED', ['not-seen-latest'], 'COMPLETED'),
     issue('interaction-probe', 'CLOSED', [], 'COMPLETED'), issue('ai-review', 'CLOSED', ['wontfix-auto'], 'NOT_PLANNED', '2026-08-01T00:00:00Z')], now);
   assert.deepEqual(rows, [{source: 'AI screenshot review', filed: 3, falsePositive: 1, real: 1, open: 1}, {source: 'Interaction probe', filed: 1, falsePositive: 0, real: 1, open: 0}]);

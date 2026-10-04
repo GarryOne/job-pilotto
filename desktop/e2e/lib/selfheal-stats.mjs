@@ -1,6 +1,7 @@
 // The numbers of the self-healing loop, for the owner's page /self-heal (site/src/selfheal.js): every issue the loop filed, by the detector that found it and
 // how it ended (real and fixed, real and queued, false positive, duplicate, test or harness, unclear), the fixer's pull requests, the verdict pass, what the
 // AI cost, the recall of the planted bugs, and the real bugs worth knowing. Pure: the CLI (selfheal-stats.mjs) fetches, this computes. 4 Oct 2026.
+import {afterEpoch} from './stats-epoch.mjs';
 export const SCHEMA = 1;
 export const CATEGORIES = ['fixed', 'queued', 'falsePositive', 'duplicate', 'harness', 'unclear', 'open'];
 export const DETECTORS = {'ai-review': 'AI screenshot review', 'suite-failure': 'Failed test steps', 'interaction-probe': 'Interaction probe',
@@ -30,8 +31,8 @@ const empty = () => Object.fromEntries(CATEGORIES.map(name => [name, 0]));
 const day = date => String(date || '').slice(0, 10);
 
 // -> the snapshot the site stores (one per day) and shows.
-export function build({issues = [], prs = [], costs = [], recall = null, now = new Date()} = {}) {
-  const totals = {filed: 0, ...empty()}, by = {};
+export function build({issues: all = [], prs = [], costs = [], recall = null, now = new Date()} = {}) {
+  const issues = all.filter(afterEpoch), totals = {filed: 0, ...empty()}, by = {};
   for (const issue of issues) {
     const kind = classify(issue), source = detectorOf(issue);
     totals.filed++; totals[kind]++;

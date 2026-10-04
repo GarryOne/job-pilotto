@@ -1,3 +1,4 @@
+import {STATS_SINCE} from './stats-epoch.mjs';
 import {classify, detectorOf} from './selfheal-stats.mjs';
 // Which suites a run starts. A push to main runs only the suites whose files changed (every test-file push used to run all of them, and the shared test key's
 // AI credit ran out); a schedule or a manual run runs all, or the ones named. The CI matrix is built from this (suite.mjs --list).
@@ -65,7 +66,7 @@ export const shouldSkipScheduled = ({event, head, lastSha, waiting}) => event ==
 // The noise breaker for the AI screenshot review, which spends the owner's money on every run (owner, 4 Oct 2026: "it burns my tokens and produces noise"). When most of the
 // issues the review filed SINCE the job-seeker prompt (NOISE_SINCE) were judged noise (rejected, duplicate, harness) rather than real (fixed or confirmed), the review pauses:
 // no more tokens until a person changes the rules and moves NOISE_SINCE forward. It needs NOISE_MIN judged issues before it can trip.
-export const NOISE_SINCE = '2026-10-04T03:00:00Z';
+export const NOISE_SINCE = STATS_SINCE;
 export const NOISE_MIN = 6, NOISE_SHARE = 0.5;
 export function noiseTripped(issues, {since = NOISE_SINCE, min = NOISE_MIN, share = NOISE_SHARE} = {}) {
   let noise = 0, real = 0;

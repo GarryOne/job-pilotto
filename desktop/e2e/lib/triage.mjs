@@ -1,5 +1,6 @@
 // The self-healing loop's judgement, as plain functions (no network): which findings are worth an issue, which one is ready for a fix, and
 // what a fix may touch. triage.mjs (the producer's CLI), pick.mjs (the fixer's) and .github/workflows/ui-findings.yml, ui-fix.yml call these; tests/triage.test.mjs pins the rules.
+import {afterEpoch} from './stats-epoch.mjs';
 import {fingerprint, cappedSeverity} from './vision.mjs';
 
 export const LABEL = 'auto-ui';
@@ -344,6 +345,7 @@ export function scorecard(issues, now = Date.now(), days = 30) {
   const rows = {};
   for (const issue of issues || []) {
     if (issue.createdAt && now - Date.parse(issue.createdAt) > days * 86400000) continue;
+    if (!afterEpoch(issue)) continue;
     const labels = (issue.labels || []).map(item => item.name || item);
     const source = (labels.find(name => name.startsWith('source:')) || '').slice(7);
     if (!source) continue;
