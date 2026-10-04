@@ -23,8 +23,9 @@ If it was found by the INTERACTION PROBE (it pressed a control and recorded what
 - a background refresh landed during the press and was blamed on the click.
 
 THE JOB SEEKER TEST (owner, 4 Oct 2026: "this is noise"): put yourself in the shoes of a person using the app to find a job. Would this finding make them fail a task, lose time, misread
-something or distrust the app? If they would barely notice or not care (an emoji instead of a line icon, a style or consistency opinion, wording, spacing, a scrollbar, a narrow-window difference),
-write `false-positive` even if it is technically true: it is not worth a person's fix.
+something or distrust the app? If they would barely notice or not care (an emoji instead of a line icon, a style or consistency opinion, wording, small spacing), write `false-positive` even if it is technically true: it is not worth
+a person's fix. But a UI problem that costs them something is real, however visual it looks: they cannot reach or use a control or menu item at a window size the app supports (smallest 1024 x 640), content they need is cut
+off or covered, or the screen looks broken. Do not dismiss those as cosmetic.
 
 HOW (you have about 15 turns; be quick):
 1. Find the element or control: grep desktop/renderer/index.html, desktop/renderer/pages/*.js and desktop/renderer/style.css for its id, class or text from the finding.

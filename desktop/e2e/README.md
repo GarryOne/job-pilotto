@@ -193,3 +193,7 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 - **Why:** the owner shrank the window to its minimum height (640 px) and could not reach the bottom menu items; the column scrolled, but with its scrollbar hidden and inside a drag area, so nothing showed it. The Finder never looked at that height, and the AI review was told to ignore sidebar nitpicks.
 - **Finder:** the narrow visit now uses the app's real smallest height (640 px, `main.js` minHeight), and the deterministic layout check (`lib/uicheck.mjs`) flags a menu control that is cut off with nothing to scroll (`unreachable-control`) or whose scroll area shows no scrollbar (`hidden-scroll`). Both are medium.
 - **Product:** the menu list (`.nav-scroll`) scrolls on its own with a thin visible scrollbar and takes the wheel; the brand and the bottom buttons (Settings, plan, feedback, theme, search) stay in view.
+
+## UI findings: noise versus real (owner, 4 Oct 2026)
+- **Not every UI problem is noise.** Real: the person cannot navigate or reach a control, menu item or page; needed content is cut off, covered or unreadable; controls overlap; the screen looks broken, at any supported window size (smallest 1024 x 640). Noise: style and consistency opinions, wording, small spacing, polish, anything that costs nothing (time, clarity, confidence).
+- The AI review and the verdict pass apply the same test; scrollbars and narrow windows are no longer banned outright (the hidden menu scrollbar was a real bug).

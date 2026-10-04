@@ -93,7 +93,7 @@ test('the review is told that transient UI and guesses about the app\'s insides 
 
 test('the review reads as a job seeker, not a design critic: the nitpick classes are named as never reported (#210, 4 Oct 2026)', () => {
   assert.match(SYSTEM, /person using the Job Pilotto desktop app to find and win a job/);
-  assert.match(SYSTEM, /NEVER report: visual style or consistency opinions \(emoji versus line icons/);
+  assert.match(SYSTEM, /visual style or consistency opinions \(emoji versus line icons/);
   assert.match(SYSTEM, /would this make me fail, lose time, misread something, or distrust the app/);
 });
 
@@ -110,4 +110,11 @@ test('an empty answer is the welcome answer: the prompt forbids inventing or pad
 test('the review looks hardest at the paths where a failure costs a person a job', () => {
   assert.match(SYSTEM, /Look hardest where a failure costs a person a job/);
   assert.match(SYSTEM, /silently loses or misstates their data/);
+});
+
+test('UI problems are noise only when they cost the person nothing: unreachable or cut-off controls at a supported size are real', () => {
+  assert.match(SYSTEM, /A UI problem is NOT noise when it costs the person something/);
+  assert.match(SYSTEM, /cannot navigate or reach a button, menu item or page/);
+  assert.match(SYSTEM, /the smallest is 1024 x 640/);
+  assert.doesNotMatch(SYSTEM, /NEVER report:[^.]*scrollbars/, 'scrollbars and narrow windows are no longer banned outright (the hidden menu scrollbar was a real bug)');
 });
