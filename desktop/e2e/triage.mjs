@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -221,6 +221,16 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 }
 
 // The open issues of the loop and the open fix branches -> the most critical issue that is ready (or null). Used by the fixer (pick.mjs).
+// The candidates for the parallel fixer, each with its siblings (the other open findings of its kind).
+export function chooseCandidates({gh = realGh, now = Date.now(), max = 4} = {}) {
+  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
+  const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
+  return pickCandidates(issues, {openBranches: branches, now, max}).map(candidate => withSiblings(candidate, issues));
+}
+export function withSiblings(candidate, issues) {
+  const kindOf = issue => /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  return {...candidate, siblings: issues.filter(issue => issue.number !== candidate.number && issue.state === 'OPEN' && kindOf(issue) === kindOf(candidate)).map(issue => `#${issue.number} ${issue.title}`)};
+}
 export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
   const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);

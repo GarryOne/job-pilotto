@@ -23,36 +23,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  fix:
+  # Up to four fixes at once (4 Oct 2026: one fix per run left confirmed bugs waiting for days): the ready findings, at most one per kind, minus the fixes that
+  # already wait for review, and none while the AI limit is reached (desktop/e2e/ai-budget.mjs).
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+      count: ${{ steps.list.outputs.count }}
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      RUN_URL: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
-      BASE: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - name: Pick the most critical finding that is ready
+      - name: The findings to fix now
+        id: list
+        run: |
+          node desktop/e2e/ai-budget.mjs --check
+          if grep -q '^skip=true' "$GITHUB_OUTPUT"; then echo "count=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          open=$(gh pr list --repo "$REPO" --state open --label auto-ui-fix --json number --jq length)
+          room=$((4 - open))
+          if [ "$room" -le 0 ]; then echo "count=0" >> "$GITHUB_OUTPUT"; echo "Four automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node desktop/e2e/pick.mjs --out .heal --fix-list "$room"
+
+  fix:
+    needs: plan
+    if: needs.plan.outputs.count != '0' && needs.plan.outputs.count != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
+      BASE: ${{ github.ref_name }}
+      NUMBER: ${{ matrix.issue }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The finding to fix (chosen by the plan job)
         id: pick
-        env:
-          VERDICTS: ${{ vars.JOB_PILOTTO_FIXER_VERDICTS }}   # "on": with nothing to fix, judge a one-off finding (no edits; spends AI credit)
         run: |
           mkdir -p .heal
-          node desktop/e2e/pick.mjs --out .heal
-      - name: Not too many open automatic fixes
+          node desktop/e2e/pick.mjs --out .heal --issue "$NUMBER" --mode fix
+      - name: Room checked by the plan job
         id: capacity
-        if: steps.pick.outputs.candidate != 'none'
-        run: |
-          # The AI budget breaker (desktop/e2e/ai-budget.mjs): while the provider's limit was hit in the last hours, no Claude run is started.
-          node desktop/e2e/ai-budget.mjs --check
-          if grep -q '^skip=true' "$GITHUB_OUTPUT" 2>/dev/null; then echo "full=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          open=$(gh pr list --repo "$REPO" --state open --label auto-ui-fix --json number --jq length)
-          echo "Open automatic fixes: $open"
-          if [ "$open" -ge 4 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Four automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
+        run: echo "full=false" >> "$GITHUB_OUTPUT"
       - name: Put the finding's screenshot next to it
         id: shot
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
@@ -91,14 +114,14 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         with:
-          name: ai-cost
+          name: ai-cost-fix-${{ matrix.issue }}
           path: ${{ runner.temp }}/ai-cost.json
           if-no-files-found: ignore
       - name: Keep Claude's transcript (to see where its turns went)
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: heal-transcript
+          name: heal-transcript-${{ matrix.issue }}
           path: /home/runner/work/_temp/claude-execution-output.json
           if-no-files-found: ignore
       - name: Check the change, run the tests, open the pull request
@@ -205,7 +228,10 @@ jobs:
             files=$(git show --name-only --format= HEAD | grep -v '^CODEMAP.md$' || true)
             lines=$(git show --numstat --format= HEAD -- . ':!CODEMAP.md' | awk '{s+=$1+$2} END{print s+0}')
             if [ -n "$files" ] && ! echo "$files" | grep -qvE '^desktop/(renderer|test)/' && [ "$lines" -le 80 ]; then
-              gh pr merge "$url" --repo "$REPO" --squash --delete-branch
+              # Fixes merge in parallel: one that now conflicts with a fix merged meanwhile stays open for a person.
+              if ! gh pr merge "$url" --repo "$REPO" --squash --delete-branch; then
+                echo "Could not merge automatically (probably a conflict with a fix merged meanwhile): a person merges it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+              fi
               gh pr comment "$url" --repo "$REPO" --body "Merged by the UI loop (JOB_PILOTTO_FIXER_AUTOMERGE=on): a window-only fix of $lines line(s) that passed every suite and the lint. The next end-to-end run checks the finding stays gone; revert this commit if it was wrong."
               echo "Merged automatically ($lines lines, window only)." >> "$GITHUB_STEP_SUMMARY"
             else

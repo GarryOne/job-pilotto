@@ -372,9 +372,21 @@ export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}
 // Which open issue is ready for a fix: seen twice this week (or confirmed by a person), a kind a UI change can fix, not parked, no pull request open already.
 // The most critical first (score), then the oldest.
 export function pickCandidate(issues, {openBranches = [], now = Date.now()} = {}) {
+  return pickCandidates(issues, {openBranches, now, max: 1})[0] || null;
+}
+// Several at once for the parallel fixer (4 Oct 2026: one fix per run, four runs a day, left confirmed bugs waiting for days). At most one per kind: two fixers
+// on the same kind often chase one root cause and collide (#66 and #74 had one cause).
+export function pickCandidates(issues, {openBranches = [], now = Date.now(), max = 4} = {}) {
   const ready = issues.filter(issue => notReadyReason(issue, {openBranches, now}) === '');
   ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
-  return ready[0] || null;
+  const kinds = new Set(), out = [];
+  for (const issue of ready) {
+    const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+    if (kinds.has(kind)) continue;
+    kinds.add(kind); out.push(issue);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 // The fixer's job summary: how many findings are open, which are ready, why each other one was passed over, and the rules.

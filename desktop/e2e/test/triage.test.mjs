@@ -450,3 +450,12 @@ test('an accessibility finding has its kind, is judged by the verdict pass and f
   assert.deepEqual(picked.map(issue => issue.number).sort(), [1, 2]);
   assert.equal(pickCandidate([make(3, 'a11y', ['confirmed'])])?.number, 3, 'a confirmed accessibility finding is fixable');
 });
+
+// The parallel fixer: up to four ready findings at once, at most one per kind (two fixers on one kind often chase one root cause).
+test('the fixer takes several ready findings at once, one per kind, most critical first', async () => {
+  const {pickCandidates} = await import('../lib/triage.mjs');
+  const issues = [issue(1, 'a', {kind: 'layout', labels: ['confirmed']}), issue(2, 'b', {kind: 'layout', labels: ['confirmed']}), issue(3, 'c', {kind: 'text', labels: ['confirmed']}),
+    issue(4, 'd', {kind: 'a11y', labels: ['confirmed']}), issue(5, 'e', {kind: 'functionality', labels: ['confirmed']}), issue(6, 'f', {kind: 'consistency'})];
+  assert.deepEqual(pickCandidates(issues, {max: 4}).map(item => item.number), [1, 3, 4, 5]);
+  assert.deepEqual(pickCandidates(issues, {max: 2}).map(item => item.number), [1, 3]);
+});

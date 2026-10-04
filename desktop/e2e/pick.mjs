@@ -4,7 +4,7 @@
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
-import {chooseCandidate, chooseVerdictCandidate, fixerSummary, writeCandidate, chooseVerdictCandidates} from './triage.mjs';
+import {chooseCandidate, chooseVerdictCandidate, fixerSummary, writeCandidate, chooseVerdictCandidates, chooseCandidates, withSiblings} from './triage.mjs';
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const args = process.argv.slice(2);
@@ -18,10 +18,20 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({include: list})}\ncount=${list.length}\n`);
     process.exit(0);
   }
+  // The parallel fixer (ui-fix.yml): up to N ready findings, at most one per kind (--fix-list N); then each job writes its own files (--issue N --mode fix).
+  if (args.includes('--fix-list')) {
+    const list = chooseCandidates({max: Number(at('--fix-list')) || 1}).map(issue => ({issue: issue.number}));
+    console.log(`To fix: ${list.map(item => `#${item.issue}`).join(', ') || 'nothing ready'}`);
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({include: list})}\ncount=${list.length}\n`);
+    process.exit(0);
+  }
   if (args.includes('--issue')) {
     const issue = JSON.parse(execFileSync('gh', ['issue', 'view', at('--issue'), '--json', 'number,title,body,labels,comments,state'], {encoding: 'utf8'}));
-    writeCandidate({...issue, mode: 'verdict'}, outDir);
-    console.log(`Judging #${issue.number} ${issue.title}`);
+    const mode = at('--mode') === 'fix' ? 'fix' : 'verdict';
+    const open = mode === 'fix' ? JSON.parse(execFileSync('gh', ['issue', 'list', '--label', 'auto-ui', '--state', 'open', '--limit', '300', '--json', 'number,state,body,title'], {encoding: 'utf8'})) : [];
+    writeCandidate(mode === 'fix' ? {...withSiblings(issue, open), mode} : {...issue, mode}, outDir);
+    console.log(`${mode === 'fix' ? 'Fixing' : 'Judging'} #${issue.number} ${issue.title}`);
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${issue.number}\n`);
     process.exit(0);
   }
   let candidate = chooseCandidate();
