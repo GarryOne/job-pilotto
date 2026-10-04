@@ -700,6 +700,7 @@ function setDensity(value) {
 // them (only if they changed, so nothing you're typing is lost). No cache yet: a shimmer where the count goes.
 const QUESTIONS_CACHE = 'questionsCache';
 let questionsShown = '';
+$('questions-retry').addEventListener('click', () => { questionsShown = ''; loadQuestions(); });
 async function loadQuestions() {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(QUESTIONS_CACHE) || 'null'); } catch {}
@@ -726,6 +727,8 @@ function renderQuestions(list, error = '') {
   $('questions-count').textContent = error ? 'couldn\'t load' : `${list.length} question${list.length === 1 ? '' : 's'}`;
   $('questions-error').textContent = error ? `Couldn't read your questions from Notion: ${error}` : '';
   show($('questions-error'), !!error);
+  show($('questions-retry'), !!error);
+  if (error) $('questions').open = true;  // the reason and Retry sit inside: don't leave them collapsed
   $('questions-list').replaceChildren(...list.map(q => {
     const row = Object.assign(document.createElement('div'), {className: 'question'});
     const label = Object.assign(document.createElement('label'), {textContent: q.question});
