@@ -41,3 +41,8 @@ test('the e2e app runs in the zone the suites check against, or the one a suite 
   const source = fs.readFileSync(new URL('../lib/app.mjs', import.meta.url), 'utf8');
   assert.match(source, /TZ: zoneOf\(env\), JOB_PILOTTO_TZ: env\.JOB_PILOTTO_TZ \|\| zoneOf\(env\)/);
 });
+
+test('the test profile\'s undecryptable seeded secrets are not the app\'s error (#217)', () => {
+  const found = journeyFindings({pageErrors: ["Error: Error invoking remote method 'state': Error: Error while decrypting the ciphertext provided to safeStorage.decryptString."], consoleErrors: [], failedLoads: []}, {suite: 'jobs'});
+  assert.deepEqual(found, []);
+});

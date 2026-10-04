@@ -231,6 +231,13 @@ export function similar(a, b) {
 }
 
 // The open issue this finding already is: the same fingerprint, else the same view and kind with alike words.
+// A finding from a Windows run that the Mac already told: an open Mac issue, or one a person rejected as not planned (4 Oct 2026: #239 / #202, #215 / #146 were the same finding filed twice).
+// A Mac issue closed as fixed does not count: a Windows run that sees it again may be a real regression.
+export function macTwin(finding, issues) {
+  const mac = issues.filter(issue => ((issue.labels || []).map(item => item.name || item).find(name => name.startsWith('platform:')) || 'platform:mac') === 'platform:mac');
+  const asMac = {...finding, id: String(finding.id).replace(/-win$/, '')};
+  return matchExisting(asMac, mac) || matchExisting(asMac, mac.filter(issue => issue.stateReason === 'NOT_PLANNED'), 0.3, 'CLOSED') || null;
+}
 export function matchExisting(finding, issues, threshold = 0.3, state = 'OPEN') {
   const label = labelFor(finding.id);
   const named = issues.find(issue => issue.state === state && (issue.labels || []).some(item => (item.name || item) === label));
@@ -371,6 +378,8 @@ export const NOT_READY = {
   kind: {why: 'A kind the fixer does not take (a crashed test step, a console error)', next: 'Fix it by hand, or let its suite tell what failed'},
   unconfirmed: {why: 'A logic finding (a wrong result, a crash) not confirmed yet', next: 'The verdict pass or a person labels it confirmed; then the fixer takes it'},
 };
+// A failed suite step that is only a wait running out (a view that stayed hidden, an app that did not go quiet): the verdict pass reads its logs and says whether the product or the test is at fault.
+export const TIMEOUT_FAILURE = /Timeout \d+\s?ms exceeded|waitForSelector|waiting for locator|still busy after|did not (?:appear|finish|go quiet) within/i;
 export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}) {
   const labels = (issue.labels || []).map(label => label.name || label);
   const id = labels.find(name => name.startsWith('fp:'));

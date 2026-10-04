@@ -7,7 +7,8 @@ export const resetJourney = () => { journey.pageErrors.length = 0; journey.conso
 // What a suite that breaks the AI on purpose expects to see in the console (the app logging the refusals it then shows in words).
 const EXPECTED_AI = /\b(?:429|500|529|401|overloaded|rate.?limit|credit balance|usage limits?|spend(?:ing)? limit|anthropic|AI service)\b/i;
 // Noise that is not the app's: a page outside the app, the dev tools, an aborted load while a page is replaced.
-const NOISE = /DevTools|Electron Security Warning|ERR_ABORTED|net::ERR_INTERNET_DISCONNECTED/;
+// Also the test profile's seeded secrets: a keychain that did not encrypt them cannot decrypt them (#217), which no real install does.
+const NOISE = /DevTools|Electron Security Warning|ERR_ABORTED|net::ERR_INTERNET_DISCONNECTED|safeStorage|decryptString|decrypting the ciphertext/;
 const firstLine = text => String(text || '').split('\n')[0].trim().slice(0, 200);
 const signature = text => (/^(\w*Error\b|Uncaught \(in promise\)|Uncaught\b)/.exec(firstLine(text))?.[1] || 'error').replace(/\s+/g, '-').replace(/[()]/g, '');
 

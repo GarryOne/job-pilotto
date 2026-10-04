@@ -30,3 +30,10 @@ test('the snapshot: totals, precision, detectors, fixer (landed by hand counts),
   assert.deepEqual(data.recall, {planted: 13, caught: 12, missed: ['tiny-text']});
   assert.deepEqual(data.notable.map(bug => [bug.number, bug.status, bug.detector]), [[6, 'fixed', 'AI code review'], [4, 'queued', 'AI screenshot review']]);
 });
+
+test('a person\'s "not planned" closure is a rejection the stats and the weekly review can learn from, with or without the wontfix-auto label', () => {
+  assert.equal(classify(issue(40, 'CLOSED', ['source:ai-review'], ['Closed as noise: a cosmetic point.'], {stateReason: 'NOT_PLANNED'})), 'falsePositive');
+  assert.equal(classify(issue(41, 'CLOSED', ['source:ai-review', 'confirmed'], ['Rejected as low.'], {stateReason: 'NOT_PLANNED'})), 'falsePositive', 'a confirmed one that was then rejected was not worth fixing');
+  assert.equal(classify(issue(42, 'CLOSED', ['source:ai-review'], ['Not seen in two runs: closed.'], {stateReason: 'NOT_PLANNED'})), 'unclear', 'the not-seen rule is not a judgement');
+  assert.equal(classify(issue(43, 'CLOSED', ['source:ai-review'], ['Duplicate of #5.'], {stateReason: 'NOT_PLANNED'})), 'duplicate');
+});

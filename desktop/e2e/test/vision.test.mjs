@@ -96,3 +96,8 @@ test('the review reads as a job seeker, not a design critic: the nitpick classes
   assert.match(SYSTEM, /NEVER report: visual style or consistency opinions \(emoji versus line icons/);
   assert.match(SYSTEM, /would this make me fail, lose time, misread something, or distrust the app/);
 });
+
+test('the review is told the app runs on made-up demo data and test-only states, which are not findings (#202, #217)', () => {
+  assert.match(SYSTEM, /TEST profile with made-up demo data/);
+  assert.match(SYSTEM, /recruiter-call-failing/);
+});

@@ -1,7 +1,7 @@
 // The self-healing loop's rules: what is worth an issue, what is ready for a fix, and what a fix may touch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, matchExisting, normalize, notReadyReason, pickCandidate, sightings} from '../lib/triage.mjs';
+import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notReadyReason, pickCandidate, sightings} from '../lib/triage.mjs';
 
 const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, state = 'OPEN', labels = []} = {}) => ({number, state,
   labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
@@ -145,7 +145,7 @@ test('blockers: a high layout-check finding always blocks; a high AI finding onl
   assert.equal(blockers([f('suite-failure', 'high', 'd')], []).length, 0, 'the gate is already red then');
 });
 
-test('a Windows run files its own issues (platform label, its own id) and never marks or closes a Mac issue', async () => {
+test('a Windows run files its own issue (platform label, its own id) for a finding the Mac does not have, and never marks or closes a Mac issue', async () => {
   const {triage, platformOf} = await import('../triage.mjs');
   const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-win-'));
@@ -154,8 +154,9 @@ test('a Windows run files its own issues (platform label, its own id) and never 
   fs.writeFileSync(path.join(dir, 'e2e-artifacts-windows-jobs', 'ui-jobs.png'), '');
   const id = normalize({ui: [{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]})[0].id;
   // The same finding is open for the Mac, and a Mac layout issue on the same page that this Windows run does not see.
-  const mac = [{number: 1, state: 'OPEN', title: '[auto-ui] jobs: tall row', body: '**HIGH** · tall-row · found by the layout check', labels: [{name: 'auto-ui'}, {name: `fp:${id}`}], comments: []},
-    {number: 2, state: 'OPEN', title: '[auto-ui] jobs: overflow', body: '**HIGH** · page-overflow · found by the layout check', labels: [{name: 'auto-ui'}, {name: 'fp:other'}], comments: []}];
+  const twin = {number: 1, state: 'OPEN', title: '[auto-ui] jobs: tall row', body: '**HIGH** · tall-row · found by the layout check', labels: [{name: 'auto-ui'}, {name: `fp:${id}`}], comments: []};
+  const mac = [{number: 2, state: 'OPEN', title: '[auto-ui] jobs: overflow', body: '**HIGH** · page-overflow · found by the layout check', labels: [{name: 'auto-ui'}, {name: 'fp:other'}], comments: []}];
+  void twin;
   const created = [], touched = [];
   const gh = args => {
     if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(mac);
@@ -170,6 +171,31 @@ test('a Windows run files its own issues (platform label, its own id) and never 
   assert.match(created[0], new RegExp(`fp:${id}-win`));
   assert.deepEqual(touched.filter(n => n === 1 || n === 2), []);   // neither Mac issue was commented on, marked "not seen" or closed
   assert.equal(platformOf(mac[0]), 'mac');
+});
+
+test('a Windows finding the Mac already has is a comment on that issue, not a second issue', async () => {
+  const {triage} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-twin-'));
+  fs.mkdirSync(path.join(dir, 'e2e-artifacts-windows-jobs'));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-windows-jobs', 'ui-findings.json'), JSON.stringify([{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-windows-jobs', 'ui-jobs.png'), '');
+  const id = normalize({ui: [{view: 'jobs', severity: 'severe', kind: 'tall-row', detail: 'a row is 700px tall'}]})[0].id;
+  const mac = [{number: 1, state: 'OPEN', title: '[auto-ui] jobs: tall row', body: '**HIGH** · tall-row · found by the layout check', labels: [{name: 'auto-ui'}, {name: `fp:${id}`}], comments: []}];
+  const created = [], commented = [];
+  const gh = args => {
+    if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(mac);
+    if (args[0] === 'pr') return '[]';
+    if (args[0] === 'issue' && args[1] === 'create') created.push(args);
+    if (args[0] === 'issue' && args[1] === 'comment') commented.push([args[2], args[args.indexOf('--body') + 1]]);
+    return '';
+  };
+  const out = triage({artifacts: dir, runUrl: 'https://x/runs/9', gh, platform: 'windows'});
+  assert.deepEqual(out.filed, []);
+  assert.equal(created.length, 0);
+  assert.equal(commented.length, 1);
+  assert.equal(commented[0][0], '1');
+  assert.match(commented[0][1], /Also seen on Windows in https:\/\/x\/runs\/9/);
 });
 
 test('sightings count once per commit: three looks at one build are one sighting, a second build is the second (#66 scored 14 from one build)', async () => {
@@ -486,4 +512,19 @@ test('a low finding is listed but neither judged nor fixed automatically; a pers
   const low = {number: 9, state: 'OPEN', title: 't', body: '🟢 **LOW** · layout · found by the AI screenshot review', labels: [{name: 'auto-ui'}, {name: 'fp:x'}], comments: [{body: 'Seen again'}]};
   assert.equal(notReadyReason(low), 'low-value');
   assert.equal(notReadyReason({...low, labels: [...low.labels, {name: 'confirmed'}]}), '');
+});
+
+test('a Windows finding the Mac already told is that issue\'s twin: open, or rejected; a Mac issue closed as fixed is not', () => {
+  const mac = (number, state, extra = {}) => ({number, state, title: '[auto-ui] jobs: Raw Notion error in the Answer once card', body: '🟠 **MEDIUM** · text · found by the AI screenshot review\n\n### What was found\nThe card shows a raw Notion error.', labels: [{name: 'auto-ui'}, {name: 'fp:jobs-text-1'}, {name: 'platform:mac'}], comments: [], ...extra});
+  const finding = {id: 'jobs-text-1-win', title: 'Raw Notion error in the Answer once card', detail: 'The card shows a raw Notion error.', view: 'jobs', kind: 'text'};
+  assert.equal(macTwin(finding, [mac(1, 'OPEN')])?.number, 1);
+  assert.equal(macTwin(finding, [mac(2, 'CLOSED', {stateReason: 'NOT_PLANNED'})])?.number, 2, 'a rejected Mac finding is not filed again from Windows');
+  assert.equal(macTwin(finding, [mac(3, 'CLOSED', {stateReason: 'COMPLETED'})]), null, 'a fixed one that comes back on Windows may be a regression');
+  assert.equal(macTwin(finding, [{...mac(4, 'OPEN'), labels: [{name: 'auto-ui'}, {name: 'platform:windows'}]}]), null, 'only Mac issues are twins');
+});
+
+test('only a failed step that ran out of time goes to the verdict pass', () => {
+  assert.ok(TIMEOUT_FAILURE.test('page.waitForSelector: Timeout 60000ms exceeded.'));
+  assert.ok(TIMEOUT_FAILURE.test('the app was still busy after 300 s of waiting for quiet'));
+  assert.ok(!TIMEOUT_FAILURE.test('the tailored CV is not on the job\'s row in Notion'));
 });

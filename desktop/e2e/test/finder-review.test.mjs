@@ -28,3 +28,10 @@ test('the week: per-detector counts, false positives with their reasons, real bu
   assert.match(facts, /## Real bugs[^\n]*: 1\n- #2 /);
   assert.doesNotMatch(facts, /#4 /, 'outside the week');
 });
+
+test('a hand-rejected issue (closed as not planned, with the reason in a comment) is a lesson in the week\'s false positives', () => {
+  const rejected = issue(7, ['source:ai-review', 'kind:text', 'view:interviews'], {state: 'CLOSED', stateReason: 'NOT_PLANNED', comments: [{...bot('Closed as noise: it is a seeded fixture title.'), authorAssociation: 'OWNER'}]});
+  const facts = weekFacts([rejected], {now});
+  assert.match(facts, /## False positives[^\n]*: 1\n- #7 /);
+  assert.match(facts, /reason: Closed as noise: it is a seeded fixture title\./);
+});

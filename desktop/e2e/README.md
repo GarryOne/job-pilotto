@@ -176,3 +176,10 @@ The e2e run is also the gate of the release path (decisions: Notion Decision Log
 Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed after each run (only changed ones are edited), and ONE pinned issue, **🔥 Top issues (ranked automatically)**, lists the top 12 with score and when each was last seen (⚠️ after 7 days).
 - **P0** a high, wrong-app finding (kinds that keep a build from beta) seen twice this week, or confirmed by a person. **P1** score 6+, **P2** score 3+, **P3** the rest. Score = severity (high 3, medium 2, low 1) x sightings in the last 7 days, x2 when `confirmed`.
 - Parked issues (`needs-human`, `wontfix-auto`) are not ranked. Stale ones close by themselves: two clean runs of their page (see "Closing" above).
+
+
+## What the owner's hand closures taught the Finder (4 Oct 2026)
+- **A person's "closed as not planned" is a lesson.** `classify` (the stats) counts it as a false positive with or without `wontfix-auto`, and the weekly Finder self-review reads its comment as the reason (the "not seen in two runs" rule is not a judgement).
+- **Test artifacts are not findings.** The review prompt names the demo data (made-up names, slug titles, "not connected" services); the journey detector ignores the test profile's undecryptable secrets (`safeStorage`).
+- **One finding, one issue across platforms.** A Windows finding that matches an open Mac issue (or one a person rejected) becomes an "Also seen on Windows" comment (`macTwin`); a Mac issue closed as fixed does not count, so a regression still files.
+- **A failed step that only ran out of time goes to the verdict pass** (`TIMEOUT_FAILURE`), which may answer `harness` (the test, not the product).

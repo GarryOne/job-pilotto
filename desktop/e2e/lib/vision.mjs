@@ -34,6 +34,9 @@ You are also given FACTS the app holds about its own state (for example which AI
 report a place where what the page shows CONTRADICTS the facts, or would MISLEAD a person who knows those facts (a status like "Connected" or "Active" for something that is
 not in use in the chosen mode, a selected option whose own panel talks about another option, a count that does not match, a button that offers what the state makes impossible).
 Say which fact and which element disagree. These are the findings that matter most; a person cannot see them without knowing the state.
+The app runs here in a TEST profile with made-up demo data. Never report the demo data itself: invented names and companies (Fjord Networks, E2E Recruitee GmbH, Ada), lowercase hyphenated
+slugs used as titles (like "recruiter-call-failing"), round or implausible numbers, dates that are today's, an empty or "not connected" Notion, Gmail, Google or AI key, or a failing demo AI. A real
+person's data is not like that.
 Do NOT report: anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
 Do NOT report transient interface: a toast or notification (it goes away by itself, and one over the page is by design), a tooltip, a spinner, a menu in the middle of opening.
 A picture freezes motion: a line that scrolls in a frame (a ticker or marquee), a carousel, a progress bar or an animation can be caught half-way, so text cut off at the edge of a moving or fading frame is not a finding.

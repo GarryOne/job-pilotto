@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -86,7 +86,8 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   if (platform !== 'mac') for (const finding of findings) finding.id = `${finding.id}-${platform.slice(0, 3)}`;
   const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']));
   // Only this platform's issues are matched, marked "not seen" and closed here (the ranking below reads them all again).
-  let issues = list().filter(issue => platformOf(issue) === platform);
+  const everything = list();
+  let issues = everything.filter(issue => platformOf(issue) === platform);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
   // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
@@ -97,9 +98,11 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const addVersion = number => { if (!versionOfRun) return; gh(['label', 'create', versionOfRun, '--force', '--color', 'C5DEF5', '--description', 'The app version the finding was seen on']); gh(['issue', 'edit', String(number), '--add-label', versionOfRun]); };
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
-  const plan = findings.map(finding => ({finding, existing: matchExisting(finding, issues)})).filter(({finding, existing}) => existing || !suppressedBy(finding, issues));   // a closed false positive stays closed
+  // A Windows finding the Mac already told becomes a comment on that issue ("also seen on Windows"), or nothing when the Mac one was rejected: not a second issue.
+  const plan = findings.map(finding => { const existing = matchExisting(finding, issues); return {finding, existing, twin: !existing && platform !== 'mac' ? macTwin(finding, everything) : null}; })
+    .filter(({finding, existing, twin}) => existing || twin || !suppressedBy(finding, issues));   // a closed false positive stays closed
   const matched = new Set(plan.filter(item => item.existing).map(item => item.existing.number));
-  const needsPicture = plan.filter(({existing}) => !existing || (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))));
+  const needsPicture = plan.filter(({existing, twin}) => !twin && (!existing || (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl)))));
 
   // 2. a finding that was open, whose page was photographed and reviewed again in this run and did not come back: it is "not seen" (a fix, or a one-off).
   const reviewed = {ai: new Set(), layout: new Set()};
@@ -152,7 +155,12 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   if (uploads.length && repo) { try { urls = publish({repo, files: uploads, message: `Evidence of run ${runId}`, tag: `ui-evidence-${runId}`}); } catch (error) { console.error(`screenshots not uploaded: ${error.message}`); } }
 
   gh(['label', 'create', LABEL, '--force', '--color', 'C2E0C6', '--description', 'Found by the nightly UI loop']);
-  for (const {finding, existing} of plan) {
+  for (const {finding, existing, twin} of plan) {
+    if (!existing && twin) {   // already told by the Mac
+      if (twin.state === 'OPEN' && !(twin.comments || []).some(comment => (comment.body || '').includes(runUrl))) gh(['issue', 'comment', String(twin.number), '--body', `Also seen on Windows in ${runUrl}. Not filed again as a Windows issue (the same finding).`]);
+      out.again.push(finding.id);
+      continue;
+    }
     const suite = suiteOf(finding.dir) || (finding.source === 'suite-failure' ? finding.view : '');
     const from = evidenceFile(finding), to = from ? target(finding, path.basename(from)) : '';
     const picture = urlOf(urls, to);
@@ -260,8 +268,8 @@ export function chooseVerdictCandidates({gh = realGh, now = Date.now(), max = 5}
     if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED].some(name => labels.includes(name))) return false;
     if (/\*\*LOW\*\*/.test(issue.body || '')) return false;   // no AI credit on polish: low findings are listed, not judged or fixed
     const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
-    // Every one-off finding the loop made by judging (the probe, the layout check, the AI screenshot review), not a failed test step: the suites judge those themselves.
-    return !!kind && kind !== 'test-failure' && recentSightings(issue, now) < SIGHTINGS_NEEDED;
+    // Every one-off finding the loop made by judging (the probe, the layout check, the AI screenshot review), and a failed step that only ran out of time (the suites judge the other failed steps themselves).
+    return !!kind && (kind !== 'test-failure' || TIMEOUT_FAILURE.test(issue.body || '')) && recentSightings(issue, now) < SIGHTINGS_NEEDED;
   });
   ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
   return ready.slice(0, max).map(issue => ({...issue, mode: 'verdict'}));

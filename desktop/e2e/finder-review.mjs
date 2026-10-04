@@ -5,7 +5,7 @@ import path from 'node:path';
 import {weekFacts} from './lib/finder-review.mjs';
 
 const out = process.argv[2] || '.finder-review';
-const issues = JSON.parse(execFileSync('gh', ['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '400', '--json', 'number,title,state,labels,comments,createdAt,closedAt'],
+const issues = JSON.parse(execFileSync('gh', ['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '400', '--json', 'number,title,state,stateReason,labels,comments,createdAt,closedAt'],
   {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024}));
 fs.mkdirSync(out, {recursive: true});
 fs.writeFileSync(path.join(out, 'facts.md'), weekFacts(issues));

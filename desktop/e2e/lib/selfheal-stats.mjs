@@ -17,6 +17,9 @@ export function classify(issue) {
   if (labels.includes('wontfix-auto')) return 'falsePositive';
   if (/Duplicate of #\d+/.test(text)) return 'duplicate';
   if (!labels.includes('confirmed') && /Not a product (?:bug|finding)|plant(?:ed)? .*leak|the probe pressed|harness|test bug|e2e app counted|Dry run|Closing so the producer/i.test(text)) return 'harness';
+  // A person (or the loop) closed it as "not planned" with a reason: it was not worth a fix, whether or not it carries the wontfix-auto label (4 Oct 2026: ~70 were closed by hand
+  // and the weekly self-review could not learn from them). A closure by the "not seen in two runs" rule is not a judgement.
+  if (issue.state === 'CLOSED' && issue.stateReason === 'NOT_PLANNED' && !/not seen in two runs/i.test(last)) return 'falsePositive';
   if (labels.includes('confirmed')) return issue.state === 'OPEN' ? 'queued' : 'fixed';
   if (issue.state === 'CLOSED' && /Fixed by|Fixes #|fixes this|Landed on main|Merged by|commit [0-9a-f]{7} says/i.test(text)) return 'fixed';
   if (issue.state === 'OPEN') return 'open';

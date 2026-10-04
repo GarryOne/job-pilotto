@@ -13,6 +13,9 @@ If it was found by the AI CODE REVIEW (it read the changes, it ran nothing), ope
 
 If it was found by the LAYOUT CHECK, read what the text in the element IS: an overflow of technical text means the real bug is the text (say so: `real`).
 
+If it was found by a FAILED SUITE STEP that only ran out of time (a timeout waiting for a view, a selector or the app to go quiet), read the error and the logs in the finding. It is `harness` when the product
+showed nothing wrong (a slow runner, a fixture or profile difference, a wait that was too short); `real` only when the logs show the app itself failing; `needs-human` when you cannot tell.
+
 If it was found by the INTERACTION PROBE (it pressed a control and recorded what happened), it is often wrong in these ways:
 - the control toggles a state (aria-pressed, a filter) or only moves the focus to a field, so "the page did not change" is not a bug;
 - the control hands something to another program (a folder, a link, system settings), so a "slow, no spinner" is the other program's time;
