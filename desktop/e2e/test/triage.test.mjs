@@ -473,12 +473,12 @@ test('the same bug seen from another variant of the page is the same issue; a di
   assert.equal(matchExisting(elsewhere, issues), null, 'another page family is never merged');
 });
 
-test('deterministic severities in the owner\'s levels: severe is high; tiny text and a tall cell are low; axe\'s impact sets accessibility', () => {
+test('deterministic severities in the owner\'s levels: severe is high; tiny text and a tall cell are low; axe\'s impact sets accessibility (only critical is filed)', () => {
   assert.equal(layoutSeverity({severity: 'severe', kind: 'tall-row'}), 'high');
   assert.equal(layoutSeverity({severity: 'warning', kind: 'tiny-text'}), 'low');
   assert.equal(layoutSeverity({severity: 'warning', kind: 'clipped-text'}), 'medium');
   const axe = impact => ({severity: 'warning', kind: 'a11y', detail: `color-contrast on a, b (3 element(s), ${impact}, e.g. x): "Elements must meet minimum color contrast"`});
-  assert.deepEqual(['critical', 'serious', 'moderate', 'minor'].map(impact => layoutSeverity(axe(impact))), ['high', 'medium', 'low', 'low']);
+  assert.deepEqual(['critical', 'serious', 'moderate', 'minor'].map(impact => layoutSeverity(axe(impact))), ['medium', 'low', 'low', 'low']);
   assert.equal(layoutSeverity({severity: 'warning', kind: 'a11y', detail: 'no impact stated'}), 'medium');
 });
 
