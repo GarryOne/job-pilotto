@@ -375,6 +375,8 @@ export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}
   if (labels.includes(NEEDS_HUMAN) || labels.includes(FALSE_POSITIVE)) return 'parked';
   if (labels.includes(NOT_SEEN)) return 'clean';
   if (openBranches.includes(`auto-fix/${id.slice(3)}`)) return 'pr-open';
+  // A low finding is not worth an automatic fix (owner, 4 Oct 2026: polish and wording are low value, and most of the loop's pull requests were that); a person's `confirmed` still sends it.
+  if (/\*\*LOW\*\*/.test(issue.body || '') && !labels.includes(CONFIRMED)) return 'low-value';
   if (recentSightings(issue, now) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return 'once';
   const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
   // A wrong result or a crash is fixed only once someone (the verdict pass or a person) said it is real: two sightings of a logic claim prove nothing.

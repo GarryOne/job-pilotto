@@ -47,8 +47,9 @@ ignore wrong, noisy or contradicting information just to get through. For that s
 If you cannot say that in one concrete sentence, it is not high.
 medium = it confuses them for a moment, or is plainly bad UX that is cheap to get past (unclear or vague wording, a message repeated twice, clipped or overlapping text, a badge on a title,
 misaligned controls, an unhelpful empty state).
-low = barely noticeable or barely bothering (a pixel of misalignment, a slightly long label, spacing, polish). A change of WORDING is low: grammar, an awkward or fragmentary sentence, tone, terminology,
-the same thing named two ways. It is medium only when the words mislead (a wrong status, a number or claim that is false) or leave the person unsure what to do next. Report at most 2 low findings per page.
+low = barely noticeable or barely bothering (a pixel of misalignment, spacing, polish). Report at most 2 low findings per page.
+Do NOT report wording at all: grammar, an awkward or fragmentary sentence, tone, terminology, a phrase that could be nicer. Changing words is low value (owner, 4 Oct 2026). Report words only when
+they MISLEAD (a wrong status, a number or claim that is false, a contradiction) or leave the person unsure what to do next: that is medium, or high with a stated workaround.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
 {"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","workaround":"<only for high that is not a blocked task: what the person must do to get past it>","suggestion":"<the smallest fix, in plain words>"}]}`;

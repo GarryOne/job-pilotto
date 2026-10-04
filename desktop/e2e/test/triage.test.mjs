@@ -1,7 +1,7 @@
 // The self-healing loop's rules: what is worth an issue, what is ready for a fix, and what a fix may touch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, matchExisting, normalize, pickCandidate, sightings} from '../lib/triage.mjs';
+import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, matchExisting, normalize, notReadyReason, pickCandidate, sightings} from '../lib/triage.mjs';
 
 const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, state = 'OPEN', labels = []} = {}) => ({number, state,
   labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
@@ -480,4 +480,10 @@ test('deterministic severities in the owner\'s levels: severe is high; tiny text
   const axe = impact => ({severity: 'warning', kind: 'a11y', detail: `color-contrast on a, b (3 element(s), ${impact}, e.g. x): "Elements must meet minimum color contrast"`});
   assert.deepEqual(['critical', 'serious', 'moderate', 'minor'].map(impact => layoutSeverity(axe(impact))), ['high', 'medium', 'low', 'low']);
   assert.equal(layoutSeverity({severity: 'warning', kind: 'a11y', detail: 'no impact stated'}), 'medium');
+});
+
+test('a low finding is listed but neither judged nor fixed automatically; a person\'s confirmed still sends it', () => {
+  const low = {number: 9, state: 'OPEN', title: 't', body: '🟢 **LOW** · layout · found by the AI screenshot review', labels: [{name: 'auto-ui'}, {name: 'fp:x'}], comments: [{body: 'Seen again'}]};
+  assert.equal(notReadyReason(low), 'low-value');
+  assert.equal(notReadyReason({...low, labels: [...low.labels, {name: 'confirmed'}]}), '');
 });

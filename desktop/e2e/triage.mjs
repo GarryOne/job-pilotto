@@ -258,6 +258,7 @@ export function chooseVerdictCandidates({gh = realGh, now = Date.now(), max = 5}
     // "Not seen in the latest run" is judged too: the AI review is not deterministic and a failure-state bug shows only sometimes, so a real one could close
     // itself unjudged (4 Oct 2026: "Failed run shows all steps with green checks"). A confirmed one is never auto-closed.
     if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED].some(name => labels.includes(name))) return false;
+    if (/\*\*LOW\*\*/.test(issue.body || '')) return false;   // no AI credit on polish: low findings are listed, not judged or fixed
     const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
     // Every one-off finding the loop made by judging (the probe, the layout check, the AI screenshot review), not a failed test step: the suites judge those themselves.
     return !!kind && kind !== 'test-failure' && recentSightings(issue, now) < SIGHTINGS_NEEDED;
