@@ -11,7 +11,7 @@ const SCOUT_ITEM = /^(\d+)\.\s+(.+?)\s+·\s+(\w[\w ]*?)\s+·\s+quality\s+(\d+)(?
 const num = (text, pattern) => { const m = String(text).match(pattern); return m ? Number(m[1]) : null; };
 
 export function parseDigest(text) {
-  const lines = String(text || '').split('\n');
+  const lines = String(text || '').trim().split('\n');
   if (!/^✈️.*(🆕|jobs \d)/.test(lines[0] || '')) return null;  // with or without the brand name
   const items = [];
   lines.forEach((line, i) => {
@@ -44,3 +44,8 @@ export function parseScout(text) {
 }
 
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);
+
+// A run's message that is not a card is shown as text: written for Telegram, so its tags and the "Tap a job number…" hint
+// (nothing in this pane can be tapped) are dropped (UI loop #265).
+export const plainMessage = text => String(text || '').replace(/<\/?(?:b|i|u|s|a|code|pre)\b[^>]*>/gi, '')
+  .split('\n').filter(line => !/^\s*Tap a job number\b/i.test(line)).join('\n').trim();

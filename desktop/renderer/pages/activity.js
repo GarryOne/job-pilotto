@@ -5,7 +5,7 @@ import {barState, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
-import {parseRunMessage} from '../run-cards.js';
+import {parseRunMessage, plainMessage} from '../run-cards.js';
 import {mailChanges, parseMailReport, settleQuestion} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
@@ -442,7 +442,7 @@ export function renderActivity(fresh) {
   if (card) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || reading);
   const plain = !run?.live && !card && !mail && !insight && !weekly && !review && run?.message;
-  $('activity-message').textContent = plain || '';
+  $('activity-message').textContent = plain ? plainMessage(plain) : '';
   show($('activity-message'), !!plain && !reading);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
@@ -1015,7 +1015,7 @@ export async function buildDraft() {
   } catch (error) {
     clearInterval(clock);
     showDraftIntro();  // the note stays, Build tries again
-    $('draft-error').textContent = `Couldn't draft your strategy: ${error.message.replace(/^Error invoking remote method '[^']+': /, '')}`;
+    $('draft-error').textContent = `Couldn't draft your strategy: ${humanError(error.message.replace(/^Error invoking remote method '[^']+': /, ''))}`;
     show($('draft-error'));
     return;
   }
