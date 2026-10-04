@@ -78,7 +78,7 @@ test('every finished job is a notification wherever it ran; a quiet Gmail check 
   assert.deepEqual(history.notice({ok: true, new: 1, warned: true}), {title: 'Jobs check finished with warnings', body: '1 new job found. Open Job Pilotto to see what it said.'});
   assert.equal(history.notice({kind: 'insight', ok: true, result: 'Written', warned: true}).title, 'Insight finished with warnings');
   assert.equal(history.notice({ok: false, warned: true}).title, 'Jobs check had problems', 'a failure stays a failure');
-  assert.equal(history.notice({kind: 'weekly', where: 'github', ok: false}).title, 'Weekly report had problems (on GitHub)');
+  assert.equal(history.notice({kind: 'weekly', where: 'github', ok: false}).title, 'Search analysis had problems (on GitHub)');
   assert.deepEqual(history.notice({kind: 'mail', ok: true, updates: ['Grafana Labs: Rejected']}),
     {title: 'Gmail: 1 application update', body: 'Grafana Labs: Rejected'});
   assert.equal(history.notice({kind: 'mail', where: 'github', ok: true, result: 'Gmail check: 4 new email(s) read, 2 update(s) recorded'}).title,

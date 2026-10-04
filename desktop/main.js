@@ -818,9 +818,25 @@ function handlers() {
       return {ok: false, error: error.code === 401 ? 'Telegram rejected this token. Copy it again from @BotFather.' : error.message};
     }
   });
+  // Prepare top matches (Actions): kits for the best-scored matches without one, tracked like the other tasks. Not a Telegram
+  // command; with Always on it runs in the user's GitHub repo like every background job.
+  const prepareTopMatches = async () => {
+    const gate = needsNotion('kits');
+    if (gate) return gate;
+    const blocked = allowanceBlock();
+    if (blocked) return blocked;
+    appLog('dispatch', 'prepare top matches', {where: cloud() ? 'github' : 'mac'});
+    if (cloud()) {
+      const started = await dispatchCloud('Prepare top matches', {mode: 'kits'});
+      return {text: started.ok ? 'Drafting kits for your top matches on GitHub.' : `⚠️ ${started.error}`};
+    }
+    pipeline.task(storage, 'kits', pipeline.dailyArgs(storage, {mode: 'kits'}), log).catch(error => log(`Prepare top matches failed: ${error.message}`));
+    return {text: 'Drafting kits for your top matches.'};
+  };
   // Every Telegram command, from the app (the answer also goes to Telegram when connected).
   const COMMANDS = ['check', 'employers', 'run', 'today', 'applied', 'saved', 'insight', 'weekly', 'mail', 'scout', 'status', 'add', 'help'];
   ipcMain.handle('command', async (_, name, arg = '') => {
+    if (name === 'kits') return prepareTopMatches();
     if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
     if (name === 'run' && allowanceBlock()) return {text: 'The free allowance is over. Paste a license key in Settings → License to search again.'};
     try { return await telegram.runCommand(storage, name, arg, log, undefined, dispatchNote); } catch (error) { return {text: `⚠️ ${error.message}`}; }
@@ -892,6 +908,35 @@ function handlers() {
       const result = await strategy.addPlaces(storage, offered, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       appLog('search', `places added: ${result.added.join(', ') || 'none'}`, {offered: offered.length});
       return {ok: true, ...result};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
+  // Tune my strategy (Actions): proposals from the user's own outcomes (src/tune.py, no AI); only the ticked ones are written,
+  // and only ones the engine offers again at that moment (the window's ids pick from them, they never carry a change themselves).
+  const tuneProposals = async () => {
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'tune']);
+    if (code !== 0) return {ok: false, error: 'Could not read your results (see the activity log)'};
+    try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return {ok: false, error: 'Could not read your results (see the activity log)'}; }
+  };
+  ipcMain.handle('tuneProposals', async () => {
+    if (DEMO) return {ok: true, proposals: [], basis: {jobs: 0, dismissed: 0, engaged: 0, interviews: 0, min_dismissed: 5}};
+    const gate = needsNotion('tune');
+    if (gate) return gate;
+    const answer = await tuneProposals();
+    appLog('strategy', 'tune proposals', {ok: !!answer.ok, proposals: answer.proposals?.length || 0, jobs: answer.basis?.jobs, dismissed: answer.basis?.dismissed});
+    return answer;
+  });
+  ipcMain.handle('tuneApply', async (_, ids) => {
+    if (DEMO) return {ok: true, changed: []};
+    const gate = needsNotion('tune');
+    if (gate) return gate;
+    try {
+      const fresh = await tuneProposals();
+      if (!fresh.ok) return fresh;
+      const wanted = new Set(Array.isArray(ids) ? ids.map(String) : []);
+      const chosen = fresh.proposals.filter(item => wanted.has(item.id));
+      const result = await strategy.retune(storage, chosen, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      appLog('strategy', 'tune applied', {asked: wanted.size, applied: chosen.length, kinds: chosen.map(item => item.kind).join(',')});
+      return {ok: true, ...result, missing: wanted.size - chosen.length};
     } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('strategyData', async () => {

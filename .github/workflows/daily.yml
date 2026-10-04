@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit; insight sends an insight now; weekly sends the weekly report now; interview analyses a transcript sent to the bot; add tracks an application made elsewhere'
+        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit; insight sends an insight now; weekly sends the search analysis now; kits drafts kits for the top matches; interview analyses a transcript sent to the bot; add tracks an application made elsewhere'
         type: choice
-        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview, add]
+        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview, add, kits]
         default: scheduled
       job:
         description: 'job code from /apply_<code> (apply and prepare modes), or a job URL (add mode)'
@@ -178,7 +178,7 @@ jobs:
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
           ai=""
-          if [ -n "$JOB_PILOTTO_ENRICH_MODEL$JOB_PILOTTO_SCORE_MODEL$JOB_PILOTTO_AUTO_KIT_MAX$JOB_PILOTTO_INSIGHT_MODEL" ] || [ "$MODE" = prepare ] || [ "$MODE" = insight ] || [ "$MODE" = weekly ] || [ "$MODE" = interview ]; then pip install --quiet -r requirements.txt; fi
+          if [ -n "$JOB_PILOTTO_ENRICH_MODEL$JOB_PILOTTO_SCORE_MODEL$JOB_PILOTTO_AUTO_KIT_MAX$JOB_PILOTTO_INSIGHT_MODEL" ] || [ "$MODE" = prepare ] || [ "$MODE" = kits ] || [ "$MODE" = insight ] || [ "$MODE" = weekly ] || [ "$MODE" = interview ]; then pip install --quiet -r requirements.txt; fi
           # Stage 1 runs before stage 2 in every mode that scores, so scores always see the facts.
           if [ -n "$JOB_PILOTTO_ENRICH_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --enrich-max 100"

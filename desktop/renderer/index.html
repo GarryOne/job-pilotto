@@ -542,22 +542,22 @@
               <button class="secondary action" data-command="mail"><b hidden>Check Gmail &amp; Calendar</b>Run</button></div>
           </div>
           <div class="task-card">
-            <span class="task-category">COMMUNICATION</span>
-            <div class="task-body"><span class="task-tile"><i data-icon="send"></i></span>
-              <div class="task-words"><b>Send today's matches</b><span class="muted">Your best matches, ranked (and to Telegram)</span></div>
-              <button class="secondary action" data-command="today"><b hidden>Send today's matches</b>Run</button></div>
+            <span class="task-category">APPLICATIONS</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="file-text"></i></span>
+              <div class="task-words"><b>Prepare top matches</b><span class="muted">Draft application kits for your 3 best matches</span></div>
+              <button class="secondary action" data-command="kits"><b hidden>Prepare top matches</b>Run</button></div>
+          </div>
+          <div class="task-card">
+            <span class="task-category">INSIGHTS</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="sliders"></i></span>
+              <div class="task-words"><b>Tune my strategy</b><span class="muted">Changes your own results support, for you to accept</span></div>
+              <button class="secondary action" id="tune-open"><b hidden>Tune my strategy</b>Run</button></div>
           </div>
           <div class="task-card">
             <span class="task-category">INSIGHTS</span>
             <div class="task-body"><span class="task-tile"><i data-icon="chart"></i></span>
-              <div class="task-words"><b>Generate an insight</b><span class="muted">One useful finding about your search</span></div>
-              <button class="secondary action" data-command="insight"><b hidden>Generate an insight</b>Run</button></div>
-          </div>
-          <div class="task-card">
-            <span class="task-category">INSIGHTS</span>
-            <div class="task-body"><span class="task-tile"><i data-icon="file"></i></span>
-              <div class="task-words"><b>Create weekly report</b><span class="muted">Applications, replies and market trends</span></div>
-              <button class="secondary action" data-command="weekly"><b hidden>Create weekly report</b>Run</button></div>
+              <div class="task-words"><b>Analyze my job search</b><span class="muted">Last 7 days: what works, what to change</span></div>
+              <button class="secondary action" data-command="weekly"><b hidden>Analyze my job search</b>Run</button></div>
           </div>
       </div>
       <section class="card runs-card">
@@ -1395,6 +1395,16 @@
   <div class="dialog-foot"><span class="muted small">You can review draft kits later.</span><button class="primary" id="cv-done">Done</button></div>
 </dialog>
 
+<!-- Tune my strategy: changes the user's own outcomes support (src/tune.py), applied only when ticked (pages/tune.js) -->
+<dialog id="tune-dialog" class="save-dialog panel-dialog cv-dialog">
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="sliders"></i></span>
+    <div class="cv-head"><h2>Tune my strategy</h2><p class="dialog-lead" id="tune-basis">Reading your results…</p></div>
+    <button class="ghost icon-btn" id="tune-close" aria-label="Close"><i data-icon="close"></i></button></div>
+  <ul class="cvc-checks" id="tune-list"></ul>
+  <p class="message" id="tune-message"></p>
+  <div class="dialog-foot"><span class="muted small">No AI, no cost. Only what you tick changes.</span>
+    <span class="inline"><button class="primary" id="tune-apply" hidden>Apply selected</button></span></div>
+</dialog>
 <!-- CV match: this job's posting against the CV (lib/match-check.js) -->
 <dialog id="match-dialog" class="save-dialog panel-dialog cv-dialog">
   <div class="dialog-head"><span class="dialog-icon"><i data-icon="scale"></i></span>

@@ -22,6 +22,7 @@ const MESSAGE = [
 test('reads the fields the report carries', () => {
   assert.deepEqual(weekly.parseWeekly(MESSAGE), {
     headline: 'Quiet week: 2 applications, no replies yet',
+    finding: '',
     summary: 'You sent 2 applications this week and heard back on one.',
     worked: ['Applying within three days of a posting matched every interview.'],
     change: ['Send more of the 31 already-drafted kits.', 'Prefer SRE and Platform titles over generic software listings.'],
@@ -72,4 +73,13 @@ test('a report without a focus keeps its other parts', () => {
     '🔧 Change next week', '• Apply sooner.'].join('\n'));
   assert.equal(parsed.focus, '');
   assert.deepEqual(parsed.change, ['Apply sooner.']);
+});
+
+test('a search review (the renamed report) reads its top finding', () => {
+  const review = MESSAGE.replace('📊 Weekly report', '📊 Search analysis · last 7 days')
+    .replace('Quiet week: 2 applications, no replies yet', 'Quiet week: 2 applications, no replies yet\n💡 Replies came only from jobs posted under 3 days ago (4 of 4)');
+  const read = weekly.parseWeekly(review);
+  assert.equal(read.finding, 'Replies came only from jobs posted under 3 days ago (4 of 4)');
+  assert.equal(read.headline, 'Quiet week: 2 applications, no replies yet');
+  assert.equal(read.summary, 'You sent 2 applications this week and heard back on one.');
 });

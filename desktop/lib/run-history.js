@@ -9,7 +9,7 @@ import {runWarned} from '../renderer/run-status.js';   // pure (no DOM): the Act
 export {jobFrom};
 
 const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today', mail: 'mail', scout: 'scout', insight: 'insight',
-  weekly: 'weekly', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep', import: 'import'};
+  weekly: 'weekly', kits: 'kits', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep', import: 'import'};
 // What started it: the Mac's schedule, you (the app, Telegram, GitHub's Run button) or GitHub's schedule.
 const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
 const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
@@ -156,7 +156,7 @@ export function merge(notionRuns, localRuns, pending = []) {
 
 // A finished run as a macOS / Windows notification, wherever it ran; null when there's nothing to say
 // (a Gmail check that recorded nothing, a Telegram button's small action).
-const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Weekly report', today: "Today's list",
+const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Search analysis', kits: 'Prepare top matches', today: "Today's list",
   scout: 'Find new employers', prepare: 'Application kit', interview: 'Interview review', add: 'Logged activity', rejection: 'Rejection review',
   prep: 'Interview prep kit', import: 'Add a job'};
 export function notice(run) {

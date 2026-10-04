@@ -297,9 +297,11 @@ def generate(client, model, profile, stats):
 
 WEEKLY_SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['headline', 'summary', 'worked', 'change', 'focus', 'confidence'],
+    'required': ['headline', 'finding', 'summary', 'worked', 'change', 'focus', 'confidence'],
     'properties': {
         'headline': {'type': 'string', 'description': 'The week in one sentence, max 110 characters, with a number from the statistics; "Not enough data yet" when the sample is tiny'},
+        'finding': {'type': 'string', 'description': 'The single most useful finding about the search right now, one sentence under 160 characters with a '
+                    'number from the statistics: what the daily insight would say. Not a repeat of the headline or the focus'},
         'summary': {'type': 'string', 'description': '2-3 sentences: what happened this week, with numbers'},
         'worked': {'type': 'array', 'items': {'type': 'string'}, 'description': '0-3 things that worked, with evidence'},
         'change': {'type': 'array', 'items': {'type': 'string'},
@@ -311,7 +313,7 @@ WEEKLY_SCHEMA = {
 WEEKLY_SCHEMA['required'].append('issues')
 WEEKLY_SCHEMA['properties']['issues'] = learning.ISSUE_SCHEMA
 
-WEEKLY_SYSTEM = """You write the owner's weekly job-search report inside Job Pilotto. Look back at the \
+WEEKLY_SYSTEM = """You write the owner's search analysis inside Job Pilotto (on Mondays, or whenever they ask: "Analyze my job search"). Look back at the \
 last 7 days (applications sent, replies, the market, the daily insights and how the owner rated them) \
 and forward to next week. Same rules as the daily insight: only numbers from the statistics; no claims \
 about why applications fail below {min_group} applications in a group; direct and specific, no filler, \
@@ -338,7 +340,10 @@ def week_stats(tracker, now):
 
 
 def weekly_message(report, page_url=''):
-    lines = [f"📊 <b>Weekly report</b>", '', f"<b>{escape(report['headline'])}</b>", escape(report['summary'])]
+    lines = ['📊 <b>Search analysis · last 7 days</b>', '', f"<b>{escape(report['headline'])}</b>"]
+    if report.get('finding'):
+        lines.append(f"💡 {escape(report['finding'])}")
+    lines.append(escape(report['summary']))
     if report['worked']:
         lines += ['', '✅ <b>Worked</b>'] + [f'• {escape(item)}' for item in report['worked']]
     lines += ['', '🔧 <b>Change next week</b>'] + [f'• {escape(item)}' for item in report['change']]
@@ -352,7 +357,7 @@ def weekly_blocks(report, stats):
     """Page body: the written report, then the numbers behind it."""
     para = lambda kind, content: {'object': 'block', 'type': kind,
                                   kind: {'rich_text': [{'text': {'content': content[:1900]}}]}}
-    blocks = [para('paragraph', report['summary'])]
+    blocks = ([para('callout', report['finding'])] if report.get('finding') else []) + [para('paragraph', report['summary'])]
     issues = report.get('issues') or []
     blocks += [para('heading_3', 'Priorities from recurring evidence')]
     if issues:

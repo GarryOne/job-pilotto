@@ -2,8 +2,9 @@
 // insight-card.js, so the tests can check it. The message is written by src/ai/insights.py (weekly_message()) and
 // read back from the run's Notion page, which usually loses its blank lines on the way:
 //
-//   📊 Weekly report
+//   📊 Search analysis · last 7 days        ("📊 Weekly report" before 5 Oct 2026)
 //   Quiet week: 2 applications, no replies yet
+//   💡 Replies came only from jobs posted under 3 days ago (4 of 4)   (the top finding; newer reports only)
 //   You sent 2 applications. Six rejections came in…
 //   ✅ Worked
 //   • All 5 interview outcomes came through the Recruiter channel.
@@ -15,7 +16,8 @@
 // Only what the message holds is read out of it; the link line at the end belongs to Telegram, and the report's
 // confidence and its "priorities from recurring evidence" live on the Notion page, not here, so the card omits them
 // rather than inventing them.
-const HEAD = /^📊\s*Weekly report\s*$/;
+const HEAD = /^📊\s*(?:Weekly report|Search analysis(?:\s*·\s*last 7 days)?)\s*$/;
+const FINDING = /^💡\s*(.+)$/;
 const WORKED = /^✅\s*Worked\s*$/;
 const CHANGE = /^🔧\s*Change next week\s*$/;
 const FOCUS = /^🎯\s*(.+)$/;
@@ -27,7 +29,7 @@ const plain = line => line.replace(/<\/?[bia](?:\s[^>]*)?>/g, '').trim();
 export function parseWeekly(text) {
   const lines = String(text ?? '').split('\n').map(plain).filter(Boolean);
   if (!HEAD.test(lines[0] || '')) return null;  // not a weekly report: another card's message, or plain text
-  const weekly = {headline: '', summary: '', worked: [], change: [], focus: ''};
+  const weekly = {headline: '', finding: '', summary: '', worked: [], change: [], focus: ''};
   let section = '';
   for (const line of lines.slice(1)) {
     if (WORKED.test(line)) { section = 'worked'; continue; }
@@ -35,6 +37,8 @@ export function parseWeekly(text) {
     const focus = line.match(FOCUS);
     if (focus) { section = 'focus'; weekly.focus = focus[1].trim(); continue; }
     if (LINK.test(line)) { section = ''; continue; }
+    const finding = !section && line.match(FINDING);
+    if (finding) { weekly.finding = finding[1].trim(); continue; }
     const bullet = line.match(BULLET);
     if (bullet) {  // a section's item; a bullet before any section belongs to no list and is left out
       if (section === 'worked' || section === 'change') weekly[section].push(bullet[1].trim());

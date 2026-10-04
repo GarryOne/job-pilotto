@@ -1073,6 +1073,10 @@
             {
               "name": "import",
               "color": "blue"
+            },
+            {
+              "name": "kits",
+              "color": "yellow"
             }
           ]
         },

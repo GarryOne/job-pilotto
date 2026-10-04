@@ -145,6 +145,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/strategy.js` — Strategy page.
 - `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
+- `desktop/renderer/pages/tune.js` — Tune my strategy (Actions page): the changes your own results support (src/tune.py, no AI), each one ticked or not;
 - `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads
 - `desktop/renderer/pages/why-stop.js` — Why setup stopped: asked once when quitting mid-setup ("Leaving setup?"), or any time from "Stuck? Tell us" in the
 - `desktop/renderer/pages/wizard.js` — The setup wizard.
@@ -307,6 +308,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
+- `src/tune.py` — Tune my strategy (Actions page): what your own outcomes say about your search settings. Counts only, no AI.
 - `src/tz.py` — The user's own time zone: JOB_PILOTTO_TZ (the desktop app sets it from the computer), else the machine's, else UTC.
 
 ## Telegram bot (worker)

@@ -342,6 +342,44 @@ async function widen(storage, wanted, list, change, {run, ensurePage, writePage,
 }
 const ADD_ROLES_ATTEMPTS = 3;
 
+// Tune my strategy: the changes the engine proposed from the user's outcomes (src/tune.py) and the user ticked. The caller
+// passes proposals the engine produced again just now, never the window's copy, so only an offered change is ever written.
+// Same loop as widen(): sync the page, change the cache, publish, check the change stayed.
+export function tuned(search, chosen) {
+  const has = (list, fragment) => list.some(entry => String(entry).toLowerCase() === fragment.toLowerCase());
+  return chosen.every(item => item.kind === 'exclude_title' ? has(search.title_exclude_keywords || [], item.fragment)
+    : !has(item.kind === 'drop_role' ? search.role_keywords || [] : search.locations?.[item.list] || [], item.fragment));
+}
+export function applyTune(search, chosen) {
+  const next = {...search, locations: {...search.locations}};
+  const without = (list, fragment) => (list || []).filter(entry => String(entry).toLowerCase() !== fragment.toLowerCase());
+  for (const item of chosen) {
+    if (item.kind === 'drop_role') next.role_keywords = without(next.role_keywords, item.fragment);
+    else if (item.kind === 'drop_place' && ['top_tier', 'country_wide', 'abroad'].includes(item.list)) next.locations[item.list] = without(next.locations[item.list], item.fragment);
+    else if (item.kind === 'exclude_title' && !tuned(next, [item])) next.title_exclude_keywords = [...(next.title_exclude_keywords || []), item.fragment];
+  }
+  return next;
+}
+export async function retune(storage, chosen, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
+  if (!chosen.length) return {changed: []};
+  for (let attempt = 0; attempt < ADD_ROLES_ATTEMPTS; attempt++) {
+    if (attempt) await wait(2000 * attempt);
+    await run(storage, ['src.notion.search_settings', 'sync']);
+    const before = storage.readText('config/search.json') || '{}';
+    const search = JSON.parse(before);
+    if (tuned(search, chosen)) return {changed: chosen.map(item => item.label)};
+    storage.writeText('config/search.json', JSON.stringify(applyTune(search, chosen), null, 2) + '\n');
+    try {
+      await publishSearchSettings(storage, {run, ensurePage, writePage});
+      if (tuned(JSON.parse(storage.readText('config/search.json') || '{}'), chosen)) return {changed: chosen.map(item => item.label)};
+    } catch (error) {
+      storage.writeText('config/search.json', before);
+      throw error;
+    }
+  }
+  throw new Error('A search changed your settings while they were being saved. Try again.');
+}
+
 export function save(storage, accepted) {
   // The Profile, standard answers and contact details go to Notion (main.js saveStrategy); here only the
   // search settings' cache is written (published to ⚙️ Search settings right after).

@@ -67,7 +67,7 @@ function searchPhase(step = '') {
 // icon: emoji for text the owner reads (toasts, messages); line: the line icon for rows and headers (same as Actions → Recent runs).
 export const KIND = {search: {icon: '🔎', line: 'search', name: 'Jobs check'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
   interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'},
-  weekly: {icon: '📊', line: 'file', name: 'Weekly report'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
+  weekly: {icon: '📊', line: 'file', name: 'Search analysis'}, kits: {icon: '📝', line: 'file-text', name: 'Prepare top matches'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
   add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, import: {icon: '➕', line: 'search', name: 'Add a job'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
   prep: {icon: '🎤', line: 'mic', name: 'Interview prep kit'}};
@@ -129,7 +129,7 @@ export function outcome(run) {
   return run.new != null ? plural(run.new, 'new job') : 'done';
 }
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
-export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', scout: 'scout', mail: 'mail', run: 'search'};
+export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
 function showActionsResult(run, kind, card) {
   show($('command-answer'), false);
@@ -910,13 +910,14 @@ export function renderWeeklyCard(weekly) {
   const box = el('div', 'insight-card');
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
-  kicker.append(el('span', 'insight-category', 'Weekly report'));
+  kicker.append(el('span', 'insight-category', 'Search analysis · last 7 days'));
   head.append(kicker, el('h3', 'insight-title', weekly.headline));
+  if (weekly.finding) head.append(el('p', 'insight-subtitle', `💡 ${weekly.finding}`));
   if (weekly.summary) head.append(el('p', 'insight-subtitle', weekly.summary));
   box.append(head);
   if (weekly.focus) {
     const words = el('div', 'insight-next-words');
-    words.append(el('b', '', 'Focus next week'), el('p', '', weekly.focus));
+    words.append(el('b', '', 'Focus next'), el('p', '', weekly.focus));
     const focus = el('section', 'insight-next');
     focus.append(el('span', 'insight-next-icon', icon('target')), words);
     box.append(focus);

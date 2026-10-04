@@ -895,6 +895,10 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .cvc-score.low { border-color: var(--bad); color: var(--bad); }
 .cvc-checks { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
 .cvc-check { display: flex; gap: var(--sp-3); align-items: flex-start; }
+/* Tune my strategy: a ticked proposal, its counts under it */
+.tune-row { display: flex; gap: var(--sp-3); align-items: flex-start; cursor: pointer; }
+.tune-row input { margin-top: var(--sp-1); }
+.tune-row div { display: flex; flex-direction: column; }
 .cvc-check b, .cvc-comp b, .cvc-fixrow b { display: block; }
 .cvc-check .muted, .cvc-comp .muted, .cvc-fixrow .muted { display: block; }
 .cvc-mark { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; font-size: var(--fs-sm); font-weight: 800; background: var(--surface-2); }

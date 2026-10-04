@@ -403,7 +403,8 @@ export function mailResult(log) {
 // (the one the pipeline prints, e.g. "Insight sent: Skills — …") and its Notion ⏱️ Search runs row.
 export const TASKS = {
   insight: {name: 'Insight', result: /^(Insight sent: |Insight: )/},
-  weekly: {name: 'Weekly report', result: /^Weekly report sent: /},
+  weekly: {name: 'Search analysis', result: /^Weekly report sent: /},
+  kits: {name: 'Prepare top matches', result: /^Kits ready: /},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off/},
 };

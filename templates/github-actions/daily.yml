@@ -12,7 +12,7 @@ on:
       mode:
         description: 'scheduled, run, today, apply, more, prepare, insight, weekly, interview or add'
         type: choice
-        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview, add]
+        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview, add, kits]
         default: scheduled
       job: {description: 'job code (apply, prepare) or job URL (add)', required: false}
       action: {description: 'apply mode: applied, saved or dismissed', required: false, default: applied}

@@ -9,6 +9,7 @@ export const REASONS = {
   lead: 'to track a recruiter lead', log: 'to log this message', interviews: 'to keep interview transcripts',
   focus: 'to see what to do next', cloud: 'for Always on', telegram: 'for Telegram buttons',
   gmail: 'for Gmail checks', profile: 'to edit your details and answers',
+  tune: 'to tune your strategy from your results', kits: 'to draft application kits',
 };
 
 // {ok: false, needsNotion: true, reason, text, error}: the window opens the connect dialog on needsNotion (pages/core.js gated()).

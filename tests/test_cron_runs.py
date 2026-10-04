@@ -194,7 +194,7 @@ class RunTitleTest(unittest.TestCase):
             (('prep',), {'subject': 'Acme — Staff SRE'}, 'Interview prep · Acme — Staff SRE'),
             (('rejection',), {'subject': 'Acme — Staff SRE'}, 'Rejection review · Acme — Staff SRE'),
             (('insight',), {'subject': 'Interview patterns'}, 'Insight · Interview patterns'),
-            (('weekly',), {'headline': '9 applications sent'}, 'Weekly report'),
+            (('weekly',), {'headline': '9 applications sent'}, 'Search analysis'),
         ]
         for (mode,), extra, expected in cases:
             self.assertEqual(self.title(mode, **extra), f'2026-09-30 11:44 · {expected}', (mode, extra))
@@ -234,7 +234,7 @@ class RunTitleTest(unittest.TestCase):
             def _request(self, method, path, body):
                 sent.append(body)
                 return {'id': 'row-1', 'url': 'https://notion.so/row'}
-        for mode, name in (('insight', 'Insight'), ('weekly', 'Weekly report'), ('interview', 'Interview review')):
+        for mode, name in (('insight', 'Insight'), ('weekly', 'Search analysis'), ('interview', 'Interview review')):
             sent.clear()
             run = {'mode': mode, 'started_at': self.AT, 'warnings': ['ended before its report (see the technical log)']}
             cron_runs.log_run(Tracker(), run, failed=True)

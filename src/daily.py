@@ -51,8 +51,9 @@ def top_new(report, scored, limit=3):
     return sorted(hits, key=lambda h: h[2], reverse=True)[:limit]
 
 
+KITS_DEFAULT = 3  # Prepare top matches: kits per run unless --auto-kit-max says otherwise
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview', 'add', 'import')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview', 'add', 'import', 'kits')
 
 
 def find_job(db, code):
@@ -367,6 +368,38 @@ def main():
             credentials = telegram.credentials()
             for message in messages:
                 telegram.send(message, *credentials)
+        return 0
+    if args.mode == 'kits':
+        # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
+        # scores already stored. No crawl, no scoring: the same step a search runs after scoring (auto-kit), on demand.
+        if not tracker:
+            raise SystemExit('--mode kits requires NOTION_TOKEN')
+        run = new_cron_run('kits')
+        run['kits'] = {}
+        stages = tracker.url_stages()
+        hidden = frozenset(u for u, st in stages.items() if st not in notion.VISIBLE_STAGES)
+        kitted = frozenset(u for u, st in stages.items() if st == 'Kit ready')
+        with store.connect(args.db) as db:
+            candidates = [j for j in for_job_matches(db, hidden) if (j.get('url') or '').strip() not in kitted]
+            summary, drafted = kit.auto_run(db, candidates, tracker, kit.DEFAULT_MODEL, args.auto_kit_max or KITS_DEFAULT,
+                                            args.auto_kit_min_score, stats=run['kits'])
+        print(summary)
+        if drafted:
+            lines = [f"📝 <b>{len(drafted)} application kit(s) ready</b>: drafted for your top matches, nothing sent."]
+            lines += [f"• <a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a> — {escape(job['company'])}"
+                      for job, _ in drafted]
+            message = '\n'.join(lines)
+        else:
+            message = (f"No kit to prepare: every open match scoring {args.auto_kit_min_score}+ already has one. "
+                       "Run a search for new jobs first.")
+        run['headline'] = f'Kits ready: {len(drafted)}' if drafted else 'Kits ready: 0, no new top match'
+        run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted]
+        print(run['headline'])
+        log_ai_run(tracker, run, args)
+        if args.send:
+            telegram.send(message, *telegram.credentials())
+        else:
+            telegram.to_app(message)
         return 0
     if args.mode == 'add' and not args.job:
         # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):

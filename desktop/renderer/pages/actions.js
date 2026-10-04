@@ -35,7 +35,7 @@ export async function init() {
     button.disabled = true;
     const result = await window.pilot.command(command);
     button.disabled = false;
-    if (task) { refreshActivity(); show($('command-answer'), false); return; }  // its row, then its result, show in Recent activity
+    if (task && !/^⚠️/.test(result?.text || '')) { refreshActivity(); show($('command-answer'), false); return; }  // its row, then its result, show in Recent activity
     answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
   }));
   // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in

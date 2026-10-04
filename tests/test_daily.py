@@ -118,5 +118,37 @@ class InsightLimitTests(unittest.TestCase):
         self.assertTrue(any(line.startswith('AI limit reached') for line in out.getvalue().splitlines()))
 
 
+class PrepareTopMatchesTests(unittest.TestCase):
+    def test_kits_mode_drafts_for_the_best_matches_without_a_kit_and_logs_a_run(self):
+        # The Actions page's "Prepare top matches": no crawl, the stored scores; a job already at Kit ready is left out.
+        import contextlib
+        import io
+        from unittest import mock
+        tracker = mock.Mock()
+        tracker.url_stages.return_value = {'https://a/1': 'Kit ready', 'https://a/9': 'Applied'}
+        matches = [{'id': 1, 'url': 'https://a/1', 'title': 'SRE', 'company': 'A', 'fit': {'score': 90}},
+                   {'id': 2, 'url': 'https://a/2', 'title': 'Platform', 'company': 'B', 'fit': {'score': 80}}]
+        seen, logged, shown = [], [], []
+        def auto_run(db, candidates, tracker, model, max_jobs, min_score, stats=None):
+            seen.append(([c['id'] for c in candidates], max_jobs))
+            return 'Auto-drafted 1 of 1 kit(s); 0 failed', [(candidates[0], {'url': 'https://notion.so/p'})]
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(daily, 'for_job_matches', return_value=matches) as found, \
+                mock.patch.object(daily.kit, 'auto_run', side_effect=auto_run), \
+                mock.patch.object(daily.cron_runs, 'log_run', side_effect=lambda tracker, run, failed=False: logged.append(dict(run)) or ''), \
+                mock.patch.object(daily.feeds, 'scan', side_effect=AssertionError('no crawl')), \
+                mock.patch.object(daily.telegram, 'to_app', side_effect=shown.append), \
+                mock.patch.object(sys, 'argv', ['daily', '--mode', 'kits', '--log-run', '--db', str(Path(tmp) / 'jobs.sqlite')]), \
+                contextlib.redirect_stdout(out):
+            code = daily.main()
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertEqual(seen, [([2], daily.KITS_DEFAULT)])
+        self.assertIn('https://a/9', found.call_args[0][1])          # an applied job is not a match to prepare
+        self.assertEqual(logged[0]['headline'], 'Kits ready: 1')
+        self.assertIn('Kits ready: 1', out.getvalue().splitlines())   # the Actions page's result line (pipeline.js TASKS.kits)
+        self.assertIn('Platform', shown[0])
+
+
 if __name__ == '__main__':
     unittest.main()

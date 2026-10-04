@@ -327,6 +327,7 @@ def main(argv=None):
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
+    sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
     sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
@@ -381,6 +382,14 @@ def main(argv=None):
             return 0
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))
+            return 0
+        if args.command == 'tune':
+            if not tracker:
+                print(json.dumps({'ok': False, 'error': 'Connect Notion first: your outcomes (dismissed, applied, interviews) live there.'}))
+                return 0
+            from . import tune
+            from .paths import load_search_config
+            print(json.dumps(tune.run(db, tracker, load_search_config()), ensure_ascii=False))
             return 0
         if args.command == 'strategy':
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
