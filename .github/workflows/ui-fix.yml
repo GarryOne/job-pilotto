@@ -205,15 +205,8 @@ jobs:
           # At most 72 BYTES, cut at a word: the title becomes the commit subject, and the repo's push hook counts bytes (a "⋯" is 3), so PR #85's 72-character title was refused and re-committed by hand.
           title=$(node -e 'const t=((require("fs").readFileSync(".heal/pr-body.md","utf8").split("\n")[0])||"").trim(); const bytes=x=>Buffer.byteLength(x); if(bytes(t)<=72){console.log(t)}else{let c=[...t]; while(bytes(c.join(""))>68)c.pop(); console.log(c.join("").replace(/\s+\S*$/,"")+"…")}' 2>/dev/null || true)
           [ -n "$title" ] || title="UI fix for #$number"
-          shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
-          { sed -n '2,$p' .heal/pr-body.md 2>/dev/null || true; echo
-            echo "## Before: the finding as the end-to-end run saw it"
-            if [ -n "$shot" ]; then echo "![before]($shot)"; echo; fi
-            echo "The issue #$number has the severity, the app's state, the logs and the run's artifacts."; echo
-            echo "## After"
-            echo "When a later end-to-end run photographs this page and the finding is gone, the loop comments here and on #$number with the new screenshot."; echo
-            echo "Fixes #$number"; echo
-            echo "Opened by the UI fixer (four times a day) for the most critical finding of the week: seen in two runs, or confirmed by a person. Review it like any change; it never merges itself."; } > .heal/body.md
+          # The text of the pull request: headings, facts, proof, before and after, the merge rule (desktop/e2e/lib/pr-body.mjs).
+          node desktop/e2e/pr-body.mjs --number "$number" --files "$(echo "$changed" | tr '\n' ' ')" --dir .heal
           branch="auto-fix/$id"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

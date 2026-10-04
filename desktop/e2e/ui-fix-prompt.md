@@ -27,5 +27,5 @@ Rules (a script checks them afterwards and refuses the change if you break one):
    A finding from the AI code review gives the file, the line and a scenario: reproduce the scenario in the test, then fix it.
 5. The screenshot of the page may be at .heal/screenshot.png: read it with the Read tool. The AI reviewer is often wrong; if you cannot see the problem there or in the code, it is a false positive.
 6. Keep the change small (a few lines). Do not restyle neighbouring things. Do not touch more than needed.
-7. When done, write .heal/pr-body.md: the FIRST line is the PR title (imperative, at most 60 characters, plain ASCII: no symbols such as ⋯; it becomes the commit subject and the push hook counts bytes), then a blank line, then: the root cause with file:line, what you changed, and the test you added.
+7. When done, write .heal/pr-body.md: the FIRST line is the PR title (imperative, at most 60 characters, plain ASCII: no symbols such as ⋯; it becomes the commit subject and the push hook counts bytes), then a blank line, then exactly three labelled lines, each one or two sentences (the workflow lays them out as headings): `Root cause: <what is wrong, file:line>`, `Change: <what you changed>`, `Test: <the test file you added>`.
 8. No git commands that change anything, no network, no installing packages. The workflow commits and opens the pull request.
