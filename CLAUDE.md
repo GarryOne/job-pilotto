@@ -51,6 +51,8 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
      discover -s tests`, desktop `npm ci` with dev deps); say what you verified and what you didn't.
 - Big features (Always on, migrations, Apply with Claude): a short spec in `docs/superpowers/specs/` with a
   "Data ownership" section (Notion vs cache) before code; link it from the Notion Decision Log, don't copy it there.
+- Finder/fixer policy (what is filed, severities, wording rules): decide the whole rule first, then change it once with its
+  docs. 4 Oct 2026 had six policy commits in a day (`5510d49c`, `b1dbaba6`, `d21ab024`, `1a1b4300`, `521d4f07`, `b517c454`).
 - Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and
   opens a `self-review/<date>` PR editing these rules or skills. Proposals only: the owner merges.
 
@@ -123,6 +125,7 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   `moreButton(items)` (the ⋯ menu), plus the button classes (`primary`, `secondary`, `ghost`, `link`, `danger`,
   `with-icon`). Use them; if a screen needs something new, add it there (modifiers are `is-…`, tones `tone-…`)
   and to `gallery.js`, rather than styling it once in `style.css`.
+- Fixed-height columns (sidebar, menu, panels): also check a ~600 px tall window; scroll, scrollbars and bottom buttons took three rounds (`73de6d05`, `59ac499c`, `81190f7d`).
 - `npm run gallery` (in `desktop/`) shows every token and component on one page; check it after changing one.
 - New colour or size? Add a token (and say why) instead of a literal. The website (`site/`) has its own styles.
 
