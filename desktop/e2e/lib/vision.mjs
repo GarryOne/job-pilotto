@@ -38,6 +38,8 @@ The FACTS may list "moving" (elements animating when the picture was taken) and 
 unless the cut hides the meaning and the full text is nowhere else on the page.
 Do NOT report a guess about how the app works inside or what it "should" know. A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT; quote both.
 A status that merely looks odd, but that data the app keeps elsewhere could explain (a follow-up built from logged events while Gmail is disconnected), is not a contradiction. When you only suspect, say nothing.
+A list row that gives only a short summary is not missing its reason when the page also shows a detail pane or a selected item: the reason lives there. Two numbers or messages that count different things (a run's own message versus the items listed, a summary of one data source beside a list of another, an empty-list message with a filter off) are not a contradiction unless the labels say they count the same thing.
+The window is narrow (about 1024 px) in views whose name ends in -narrow: a single column and an icon-only sidebar are by design there, so do not compare it with the wide layout. Content that is really clipped or overlapping is still a finding at any width.
 Severity is judged by what it does to the PERSON using the app, nothing else:
 high = it BLOCKS their journey: they cannot finish a task (a control that is missing, disabled or does nothing where it is needed), they get a wrong result or a false status that would
 make them act wrongly, they see a raw error or stack trace, or they could lose data. If they can still get through, it is NOT high.
