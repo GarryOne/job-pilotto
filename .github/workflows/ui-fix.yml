@@ -232,6 +232,8 @@ jobs:
               if ! gh pr merge "$url" --repo "$REPO" --squash --delete-branch; then
                 echo "Could not merge automatically (probably a conflict with a fix merged meanwhile): a person merges it." >> "$GITHUB_STEP_SUMMARY"; exit 0
               fi
+              # A merge by the workflow's own token does not apply "Fixes #N" (4 Oct 2026: #122, #123, #135 stayed open after their fixes landed): close it here.
+              gh issue close "$number" --repo "$REPO" --comment "Fixed by $url (merged by the UI loop). The next end-to-end run checks it stays gone." || true
               gh pr comment "$url" --repo "$REPO" --body "Merged by the UI loop (JOB_PILOTTO_FIXER_AUTOMERGE=on): a window-only fix of $lines line(s) that passed every suite and the lint. The next end-to-end run checks the finding stays gone; revert this commit if it was wrong."
               echo "Merged automatically ($lines lines, window only)." >> "$GITHUB_STEP_SUMMARY"
             else
