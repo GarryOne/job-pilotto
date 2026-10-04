@@ -8,7 +8,8 @@ import * as sharedPace from './notion-pace.js';
 import * as requestLog from './request-log.js';
 import {REPO} from './pipeline.js';
 
-const API = 'https://api.notion.com/v1/';
+// The end-to-end tests put a Notion stand-in in between that can fail on purpose (desktop/e2e/lib/notion-proxy.mjs); honoured only in a test run.
+const API = process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_E2E_NOTION_BASE_URL ? `${process.env.JOB_PILOTTO_E2E_NOTION_BASE_URL.replace(/\/$/, '')}/v1/` : 'https://api.notion.com/v1/';
 export const TEMPLATE = JSON.parse(fs.readFileSync(path.join(REPO, 'config', 'notion_template.json'), 'utf8'));
 
 // Notion answers 429 when a workspace sends more than ~3 requests a second (the app often reads several things at

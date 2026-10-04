@@ -16,6 +16,15 @@ import urllib.request
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from . import origin, titles
 
+
+def api_base():
+    """Notion's API, or the end-to-end tests' stand-in that can fail on purpose (desktop/e2e/lib/notion-proxy.mjs): only in a test run."""
+    override = os.environ.get('JOB_PILOTTO_E2E_NOTION_BASE_URL', '')
+    if os.environ.get('JOB_PILOTTO_E2E') and override:
+        return override.rstrip('/') + '/v1'
+    return 'https://api.notion.com/v1'
+
+
 NOTION_VERSION = '2022-06-28'
 # The default IDs below (here and in scout.py, kit.py) are the maintainer's own Notion workspace.
 # Fork this project and set the matching environment variable to point at your own instead —
@@ -122,7 +131,7 @@ class Tracker:
                 pace.wait_turn(self.token, self.sleep)
             started = time.time()
             request = urllib.request.Request(
-                f'https://api.notion.com/v1/{path}', method=method,
+                f'{api_base()}/{path}', method=method,
                 data=json.dumps(body).encode() if body is not None else None,
                 headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': NOTION_VERSION,
                          'Content-Type': 'application/json'})
@@ -419,7 +428,7 @@ class Tracker:
         body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{name}"\r\n'
                 f'Content-Type: {content_type}\r\n\r\n').encode() + data + f'\r\n--{boundary}--\r\n'.encode()
         request = urllib.request.Request(
-            f"https://api.notion.com/v1/file_uploads/{created['id']}/send", method='POST', data=body,
+            f"{api_base()}/file_uploads/{created['id']}/send", method='POST', data=body,
             headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': NOTION_VERSION,
                      'Content-Type': f'multipart/form-data; boundary={boundary}'})
         with self.opener(request, timeout=60) as response:

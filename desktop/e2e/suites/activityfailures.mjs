@@ -8,6 +8,8 @@ import {LABEL, appReady, idsNow, noRowStaysRunning, openPanel, openRun, own, pre
 
 export const minutes = 20;
 export const name = 'activityfailures';
+// Notion fails on purpose too (lib/notion-proxy.mjs): busy, an HTML error page, the connection gone.
+export const notionProxy = true;
 // The app reads Notion's run history every 15 s and picks up the jobs of the last session 20 s after launch: both shortened for the journey (never for a user).
 export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_MS: '3000', JOB_PILOTTO_E2E_EXPECTS_FAILURES: '1'};   // this suite breaks things on purpose: its Sentry reports are tagged expected
 export async function run(ctx) {
@@ -75,6 +77,37 @@ export async function run(ctx) {
     await noRowStaysRunning(ctx);
   }, {needs: ctx.needs});
 
+  // ---------- (2b) Notion fails (5 Oct 2026) ----------
+  // The run's own writes fail the way Notion and networks really do; reads still work, so the panel can show what became of the run. A person must see a clear end,
+  // in words: never "Running" for ever, never the HTML of an error page or Notion's JSON.
+  const NOTION_FAULTS = [
+    {mode: 'rate-limit', times: 3, what: 'Notion is busy (429) for a moment', recovers: true},
+    {mode: 'html', writes: true, what: 'Notion answers an HTML error page instead of JSON'},
+    {mode: 'offline', writes: true, what: 'the connection to Notion is gone'},
+  ];
+  for (const fault of NOTION_FAULTS) {
+    await ctx.run(`${fault.what} during a Jobs check: the run ends ${fault.recovers ? 'normally' : 'as Failed or with warnings'}, in words, with nothing left Running`, async () => {
+      setFeed(ctx, [`Senior Site Reliability Engineer, notion ${fault.mode}`]);
+      const failedBefore = ctx.notion.stats.failed;
+      ctx.notion.fail(fault.mode, {times: fault.times ?? null, writes: !!fault.writes});
+      let finished;
+      try { finished = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'}); } finally { ctx.notion.pass(); }
+      const {fresh, shown} = finished;
+      const mine = shown.find(row => row.id === String(fresh[0].id));
+      const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id, ...(fault.mode === 'html' ? {snapAs: 'activity-notion-html', situation: 'A Jobs check during which Notion answered an HTML error page to every write: its detail pane in the Recent activity panel'} : {})});
+      console.log(`  notion ${fault.mode}: ${ctx.notion.stats.failed - failedBefore} call(s) failed; ok=${fresh[0].ok}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warnings.slice(0, 160)}`);
+      const problems = [];
+      if (ctx.notion.stats.failed - failedBefore < 1) problems.push('Notion was never asked while failing, so nothing was tested');
+      const words = `${opened.warnings} ${opened.warningList} ${opened.result} ${opened.message} ${mine?.result}`;
+      if (/<!DOCTYPE|<html|Bad Gateway<|"object":\s*"error"|rate_limited|internal_server_error|ECONNRE|socket hang up/i.test(words)) problems.push('raw technical text from the failed Notion call is shown to the person');
+      const bad = badSummary(mine?.result);
+      if (bad) problems.push(`the list's words are wrong: ${bad}`);
+      if (!fault.recovers && /Completed$/.test(opened.status) && !opened.warnings && !opened.warningList) problems.push('the run says plain "Completed" though its results never reached Notion');
+      if (/warning/i.test(opened.status) !== /warning/i.test(mine?.pill || '')) problems.push(`the list says "${mine?.pill}" and the panel "${opened.status}"`);
+      if (problems.length) throw new Error(problems.join('; '));
+      await noRowStaysRunning(ctx);
+    }, {needs: ctx.needs, faults: true});
+  }
   await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', async () => {
     // The app stops a run that prints nothing for 15 minutes; this test shortens that to 10 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
     await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '10000'});

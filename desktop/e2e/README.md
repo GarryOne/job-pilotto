@@ -214,3 +214,8 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 - **Truth checks** (`lib/uicheck.mjs`, kind `wrong-result`, filed **high**): a page that contradicts itself. A month grid must hold every day of its month once, in order (#120, #122); a run's status pill and its steps must agree (#104). They run wherever the layout check runs (every visited page, the size and theme sweep). A new truth check blocks a release only once it is a real open issue (seen twice or confirmed).
 - **Screen against source** (`lib/truth-data.mjs`, a step of `jobs`): every scored job in the Jobs list is its Job Matches row with the same score, and no row scored 50+ is missing from the list.
 - **Recall now plants serious bugs** too, so it measures whether the Finder catches a wrong result, not only a broken look.
+
+## Notion failing on purpose (5 Oct 2026)
+- **`lib/notion-proxy.mjs`**: a pass-through stand-in for the Notion API, like the AI proxy. `ctx.notion.fail(mode, {times, writes})` with `rate-limit` (429), `server-error`, `unavailable`, `html` (an HTML error page instead of JSON), `hang`, `offline` (connection refused); `ctx.notion.pass()` ends it. A suite opts in with `export const notionProxy = true`; the app (`desktop/lib/notion.js`, `files.js`) and the engine (`src/notion/client.py` `api_base`) use it only with `JOB_PILOTTO_E2E` and `JOB_PILOTTO_E2E_NOTION_BASE_URL`.
+- **`activityfailures`** runs a Jobs check while Notion is busy, answers HTML, and while the connection is gone: a clear end in words, no raw HTML or JSON, nothing left Running.
+- A step that breaks things on purpose passes `{faults: true}` to `ctx.run`: it is never retried or filed as an environment failure, since handling the broken answer is the product's job.
