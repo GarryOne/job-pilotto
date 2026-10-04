@@ -1493,6 +1493,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 
 .activity-panel .ap-detail { border: 0; border-radius: 0; background: none; padding: var(--sp-4) var(--sp-5) var(--sp-3);
   display: flex; flex-direction: column; gap: var(--sp-3); overflow: auto; min-height: 0; }
+/* The detail scrolls, so its boxes keep their own height: shrunk, the result box was a 25px sliver (issue #119). */
+.activity-panel .ap-detail > * { flex-shrink: 0; }
 .activity-panel .ap-detail-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
 .activity-panel .ap-detail-icon { font-size: var(--fs-xl); width: 40px; height: 40px; display: grid; place-items: center;
   border-radius: 50%; background: var(--surface-2); flex: none; }
