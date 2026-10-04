@@ -157,6 +157,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/coverage-card.js` — The Strategy page's "your search may be too narrow" card (src/coverage.py says it; desktop/lib/strategy.js addRoles acts on it).
+- `desktop/renderer/cv-state.js` — The one-glance caption beside "Current CV": ready, not read yet, or the read failed (then the error below says it, not a promise).
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
