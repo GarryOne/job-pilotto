@@ -1941,7 +1941,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-dow { background: var(--surface); padding: 6px 8px; font-size: var(--fs-sm); color: var(--muted); }
 .cal-cell { background: var(--surface); min-height: 92px; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
 .cal-cell.out { opacity: .5; }
-.cal-cell.today .cal-num { background: var(--accent); color: var(--on-accent); border-radius: var(--r-pill); padding: 0 6px; }
+.cal-cell.today .cal-num { background: var(--signal); color: var(--on-accent); border-radius: var(--r-pill); padding: 0 6px; }
 .cal-num { font-size: var(--fs-sm); align-self: flex-start; }
 .cal-chip { text-align: left; border: 0; border-radius: var(--r-sm); padding: 2px 6px; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: var(--info-soft); color: inherit; }
 .cal-chip.kind-screening { background: var(--teal-soft); }
