@@ -9,7 +9,7 @@ export function writeFindings(ctx) {
 
 // The steps that failed, as records the loop files as issues (message cut to a readable length).
 export const failureRecords = (suite, results) => results.filter(result => result.status === 'failed')
-  .map(result => ({suite, step: result.name, message: String(result.note || '').slice(0, 600)}));
+  .map(result => ({suite, step: result.name, message: String(result.note || '').slice(0, 600), ...(result.environment ? {environment: true} : {})}));
 
 // suite-failures.json, every run: the failed steps, or an empty list.
 export function writeSuiteFailures(dir, suite, results) {

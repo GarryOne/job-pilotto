@@ -46,6 +46,22 @@ export function chromeKey(item) {
   const words = new Set(Object.entries(CHROME_WORDS).filter(([word]) => new RegExp(`\\b${word}\\b`, 'i').test(text)).map(([, key]) => key));
   return [...words].sort().join('-').slice(0, 40);
 }
+// One problem told twice by the AI review in ONE run (same page, same kind, other words: #270 and #271, 7 seconds apart) is one issue: the most severe stays, the
+// others become lines of its detail so nothing is lost. The fingerprint cannot do this: it hashes the title, which the AI words differently each time.
+const RANK = {high: 0, medium: 1, low: 2};
+export function mergeSameRun(findings) {
+  const groups = new Map();
+  for (const item of findings) { const key = `${item.view}|${item.kind}`; (groups.get(key) || groups.set(key, []).get(key)).push(item); }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => (RANK[a.severity] ?? 3) - (RANK[b.severity] ?? 3));
+    const [keep, ...rest] = group;
+    keep.detail = `${keep.detail}\n\nAlso told on this page in the same run: ${rest.map(item => `"${item.title}"`).join('; ')}.`;
+    for (const item of rest) findings.splice(findings.indexOf(item), 1);
+  }
+  return findings;
+}
+
 export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
@@ -68,6 +84,7 @@ export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
     return {...finding, id: fingerprint(finding)};
   });
   const seen = new Set();
+  mergeSameRun(fromAi);
   // Only medium and high are filed (owner, 4 Oct 2026: "if we assess it as low, let's not open it"): a low finding is not worth an issue, a review or a fix.
   const all = [...fromUi, ...fromAi, ...fromSuite];
   for (const item of all) if (item.severity === 'low') dropped.push({view: item.view, severity: 'low', kind: item.kind, title: String(item.title || '').slice(0, 80), source: item.source, why: 'low severity (never filed)'});

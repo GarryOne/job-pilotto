@@ -45,7 +45,7 @@ slugs used as titles (like "recruiter-call-failing"), round or implausible numbe
 person's data is not like that.
 Already judged BY DESIGN (a person decided these are fine; do not report them again): the tip banner on Focus, Jobs and Interviews is a text ticker that scrolls from right to left, so a frozen
 picture shows it cut off; the Jobs check card's "N open" and "View all N in Jobs" count different sets (the run's own message versus the jobs in the list); a Recent runs row is short on purpose and
-a warning's reason is in the detail pane; a result line such as "Done ($0.01)." shows the AI cost; the Technical log text is technical by design; "Retry" on the Answer once card and a "not connected" Notion,
+a warning's reason is in the detail pane; a result line such as "Done ($0.01)." shows the AI cost; at a short window the sidebar's menu list scrolls on its own with a thin visible scrollbar, so its last icon shown half-cut at the edge is the scroll, not a bug (#270, #271), but a menu item that cannot be reached at all is real; the Technical log text is technical by design; "Retry" on the Answer once card and a "not connected" Notion,
 Gmail or AI key are normal states of a new account.
 Do NOT report: anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
 Do NOT report transient interface: a toast or notification (it goes away by itself, and one over the page is by design), a tooltip, a spinner, a menu in the middle of opening.

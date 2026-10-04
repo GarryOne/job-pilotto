@@ -78,6 +78,8 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     const whole = file => { try { return fs.readFileSync(file, 'utf8').slice(-4e6); } catch { return ''; } };
     const logs = `${whole(path.join(dir, 'logs', 'engine.log'))}\n${whole(path.join(dir, 'logs', 'app.log'))}`;
     if (items.some(item => NO_CREDIT.test(item.message || '')) || (!LIMIT_TESTED.includes(suite) && NO_CREDIT.test(logs))) { skipped.push({suite, why: 'the AI had no credit'}); continue; }
+    // The first failed step decides: an environment failure (failed twice: the runner retried it) says nothing about the product. Listed in the summary, not filed.
+    if (items[0].environment) { skipped.push({suite, why: `the test environment failed twice: ${String(items[0].message).slice(0, 100)}`}); continue; }
     suiteFailures.push({...items[0], also: items.slice(1).map(item => item.step)});
   }
   const dropped = [];   // what the filters cut this run, with why (shown in the run's summary)
