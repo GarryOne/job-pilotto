@@ -19,6 +19,7 @@ let benchmarkText = {};   // url -> the board's typical reply line (lib/benchmar
 import {askWhy} from './dismiss-reason.js';
 import {openMatchCheck} from './match-check.js';
 import {searchSelect} from '../search-select.js';
+import {questionsProblem} from '../questions-view.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
@@ -723,9 +724,11 @@ function renderQuestions(list, error = '') {
   if (shown === questionsShown) return;
   questionsShown = shown;
   // Collapsed by default (the count shows on its heading); shown whenever there's something to answer or a read failed.
+  // Notion not connected yet (trying only): nothing to read, so no error card.
+  if (error && questionsProblem(error).hide) { show($('questions'), false); return; }
   show($('questions'), list.length > 0 || !!error);
   $('questions-count').textContent = error ? 'couldn\'t load' : `${list.length} question${list.length === 1 ? '' : 's'}`;
-  $('questions-error').textContent = error ? `Couldn't read your questions from Notion: ${error}` : '';
+  $('questions-error').textContent = error ? questionsProblem(error).text : '';
   show($('questions-error'), !!error);
   show($('questions-retry'), !!error);
   if (error) $('questions').open = true;  // the reason and Retry sit inside: don't leave them collapsed
