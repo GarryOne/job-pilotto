@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: What to review
@@ -75,7 +75,7 @@ jobs:
         run: node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job code-review
       - name: Keep what it read and found (to audit a review)
         if: always() && steps.range.outputs.range != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: code-review
           path: |
@@ -84,7 +84,7 @@ jobs:
             /home/runner/work/_temp/claude-execution-output.json
           if-no-files-found: ignore
           include-hidden-files: true   # .review/ is a dot folder: skipped by default, so the first audit artifact had no findings or list
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.range.outputs.range != ''
         with:
           node-version: '22'
