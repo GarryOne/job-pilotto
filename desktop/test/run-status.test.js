@@ -2,7 +2,7 @@
 // warnings" and "Failed" while the Actions page said plain "Completed" for a run with warnings).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {barState, runStatus, runWarned} from '../renderer/run-status.js';
+import {barState, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
 
 test('a finished run is Completed, With warnings or Failed, a running one Running, a waiting one Queued', () => {
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
@@ -32,9 +32,18 @@ test('the status bar dot describes the run the words beside it describe: a faile
   assert.equal(barState(null, {ok: true, warned: true}), 'warn', 'a run that worked but warned is amber, not green');
 });
 
+test('a failed run does not tick the step it stopped at, and its later steps stay pending', () => {
+  const failed = {ok: false, log: ['Searching job boards', 'Checking employer career pages']};
+  assert.deepEqual([0, 1].map(i => phaseStatus(failed, i, 1)), ['done', 'fail']);
+  assert.deepEqual([0, 1].map(i => phaseStatus(failed, i, 0)), ['fail', 'todo']);
+  assert.equal(phaseStatus({ok: true}, 1, 1), 'done');
+  assert.equal(phaseStatus({ok: true, warned: true}, 1, 1), 'warn');
+  assert.equal(phaseStatus({live: true, ok: false}, 1, 1), 'now');
+});
+
 test('the checklist marks the step a warned run stopped at with a warning, not a tick', async () => {
   const fs = await import('node:fs');
   const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
-  assert.match(source, /i === at && !live && runWarned\(run\) \? 'warn'/);
+  assert.match(source, /phaseStatus\(run, i, at\)/);
   assert.match(fs.readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8'), /\.activity-phases li\.warn::before/);
 });

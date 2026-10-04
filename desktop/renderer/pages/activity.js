@@ -1,7 +1,7 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
-import {barState, runStatus, runWarned} from '../run-status.js';
+import {barState, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -408,12 +408,10 @@ export function renderActivity(fresh) {
   const asked = lastQuestions();
   const updates = !run?.live && kindOf(run) === 'mail' ? (run.updates || []).map(text => settleQuestion(text, asked)) : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
-  const live = !!run?.live;
   $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
     : PHASES.map((phase, i) => {
       // The step a run that warned stopped at is not a clean tick: a refused AI call under "reading and scoring" must not look done (UI loop #51).
-      const status = i === at && !live && runWarned(run) ? 'warn' : i < at || (i === at && !live) ? 'done' : i === at ? 'now' : 'todo';
-      return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
+      return Object.assign(document.createElement('li'), {className: phaseStatus(run, i, at), textContent: phase.label});
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
