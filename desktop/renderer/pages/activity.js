@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
-import {AI_BUSY, groupWarnings, humanError, limitedJobs, runWarningLines} from '../run-warnings.js';
+import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {barState, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
@@ -460,10 +460,10 @@ export function renderActivity(fresh) {
     $('activity-warnings-summary').textContent = warnings.length ? warningSummary(warnings)
       : 'The run recorded warnings, with no line about them in its log or report.';
     show($('activity-warnings-limit'), limited > 0);
-    const grouped = groupWarnings(warnings);
+    const grouped = newDetails(groupWarnings(warnings));
     // One line needs no toggle: it is shown. Two or more fold behind "View N details".
     const single = grouped.length === 1;
-    const listShown = single || (warnings.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));
+    const listShown = single || (grouped.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));
     $('activity-warnings-list').dataset.for = String(run?.id);
     show($('activity-warnings-list'), listShown);
     show($('activity-warnings-more'), grouped.length > 1);
