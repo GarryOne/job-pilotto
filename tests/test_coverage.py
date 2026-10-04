@@ -100,6 +100,14 @@ class VerdictTest(unittest.TestCase):
         said = coverage.verdict(self.SUMMARY, keywords=['backend', 'Software Engineer'])
         self.assertEqual([s['term'] for s in said['suggestions']], ['systems engineer', 'distributed systems'])
 
+    def test_a_search_with_no_technical_keyword_gets_no_engineering_suggestions(self):
+        for keywords in (['registered nurse', '\\bnurse\\b'], ['accountant', 'tax advisor'], ['mechanical engineer'], ['infirmière']):
+            said = coverage.verdict(self.SUMMARY, keywords=keywords)
+            self.assertEqual(said['suggestions'], [], keywords)
+            self.assertFalse(said['narrow'], keywords)
+        for keywords in (['data analyst'], ['\\bit\\b support'], ['ingénieur système'], ['Softwareentwickler'], []):
+            self.assertTrue(coverage.verdict(self.SUMMARY, keywords=keywords)['suggestions'], keywords)   # technical (or unknown): as before
+
     def test_a_wide_enough_search_or_nothing_worth_adding_is_not_a_warning(self):
         self.assertFalse(coverage.verdict(dict(self.SUMMARY, matched=800), keywords=[])['narrow'])                                  # catches a quarter
         self.assertFalse(coverage.verdict(dict(self.SUMMARY, suggestions=[{'term': 'storage', 'count': 3, 'examples': []}]), keywords=[])['narrow'])   # nothing adds 5+

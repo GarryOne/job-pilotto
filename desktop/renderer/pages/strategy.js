@@ -74,7 +74,7 @@ function renderStrategy(data) {
     ...row('briefcase', 'Roles', chips(data.roles.slice(0, 6).map(titleCase))),
     ...row('pin', 'Locations', chips(data.locations.slice(0, 8).map(titleCase))),
     ...row('chart', 'Compensation', compensationText(data.compensation)),
-    ...(data.stack.length ? row('layers', 'Tech stack', chips(data.stack.map(titleCase))) : []));
+    ...(data.stack.length ? row('layers', 'Key skills and tools', chips(data.stack.map(titleCase))) : []));
   const level = value => (value >= 70 ? ['High', 'good'] : value >= 50 ? ['Medium', 'warn'] : ['Low', 'bad']);
   $('strategy-score-note').textContent = !data.scored ? 'No scored matches yet: run a search with your AI key.'
     : `Average of each part of the fit score across your ${data.scored} scored matches.` +

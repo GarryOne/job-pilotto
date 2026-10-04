@@ -126,13 +126,30 @@ def load(path=FILE):
         return None
 
 
+# Words that mark a role keyword as IT/engineering work. VOCAB only knows engineering roles, so it is offered to searches that look technical.
+_TECH_WORDS = re.compile(
+    r'(?<![a-z])(software|developer|devops|sre|site reliability|cloud|backend|back-end|frontend|front-end|full.?stack|data|analytics|machine learning|'
+    r'ml|infrastructure|platform|sysadmin|sysop|systems?|syst[eè]mes?|programmer|sdet|qa|security|network|database|kubernetes|it|entwickler|informatiker|'
+    r'd[eé]veloppeur|sviluppatore|desarrollador|ontwikkelaar|programista|sistemista)(?![a-z])', re.I)
+# Compound words (German "Softwareentwickler", "Systemadministrator") have no word boundary to match on: these stems count anywhere.
+_TECH_STEMS = ('software', 'entwickler', 'informatik', 'devops', 'kubernetes', 'programmier', 'sysadmin', 'systemadmin')
+
+
+def looks_technical(keywords):
+    """True when any role keyword names IT/engineering work (regex fragments like "\\bsre\\b" are read as their words).
+    An empty list is unknown, not non-technical."""
+    words = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', str(word)) for word in keywords]
+    return not words or any(_TECH_WORDS.search(word) or any(stem in word.lower() for stem in _TECH_STEMS) for word in words)
+
+
 def verdict(summary, keywords=(), locations=()):
     """What to tell the user: {'narrow': bool, 'share': matched / in_places, 'suggestions': those not already keywords}.
-    Narrow = the keywords catch under NARROW_BELOW of the in-place postings AND some listed term would add at least 5 more."""
+    Narrow = the keywords catch under NARROW_BELOW of the in-place postings AND some listed term would add at least 5 more.
+    A search with no technical keyword (a nurse, an accountant) gets no engineering suggestions and no "too narrow" warning."""
     if not summary or not (summary.get('in_places') or summary.get('places')):
         return None
     have = {str(word).lower() for word in keywords}
-    suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have]
+    suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have] if looks_technical(keywords) else []
     share = summary['matched'] / summary['in_places'] if summary.get('in_places') else 1
     for item in suggestions:
         item['local'] = item['term'] in LOCAL_VOCAB
