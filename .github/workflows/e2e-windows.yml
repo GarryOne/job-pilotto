@@ -2,12 +2,10 @@ name: CI · End-to-end on Windows
 
 # The Mac is the product's main platform (e2e.yml); Windows users get the same app, and a Windows-only break (paths, quoting, the installer's
 # environment) was invisible there. One job per suite, like e2e.yml. By hand: the `suites` input (empty = all), `fixed: true` = the fixed path (E2E_SEED=0).
-# 4 Oct 2026, parity with the Mac: it follows every Mac e2e run (e2e.yml) on the same commit, with the same suites and the same AI review
-# (plan-windows.mjs). After it, never beside it: each suite owns one Notion page. Still never a release gate.
+# 4 Oct 2026, parity with the Mac: the Mac run (e2e.yml, job "Windows follows") starts this one when it tested something, with its commit, the same
+# suites and the same AI review (plan-windows.mjs). A commit Windows already tested is not run again. Never a release gate.
+run-name: ${{ inputs.sha && format('Windows {0}', inputs.sha) || 'CI · End-to-end on Windows' }}
 on:
-  workflow_run:
-    workflows: ['CI · End-to-end journey']
-    types: [completed]
   workflow_dispatch:
     inputs:
       suites:
@@ -17,6 +15,18 @@ on:
         description: 'The fixed path (E2E_SEED=0, as the release gate) instead of a seeded one'
         type: boolean
         default: false
+      mac_run:
+        description: 'Set by e2e.yml: the Mac run to follow (its suites)'
+        required: false
+      sha:
+        description: 'Set by e2e.yml: the commit to test'
+        required: false
+      review:
+        description: 'Set by e2e.yml: 1 = the AI screenshot review, as on the Mac run'
+        required: false
+      full:
+        description: 'Set by e2e.yml: 1 = the paid AI judge steps, as on the Mac run'
+        required: false
 
 permissions:
   contents: read
@@ -53,9 +63,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ONLY: ${{ inputs.suites }}
-          MAC_RUN: ${{ github.event.workflow_run.id }}
-          MAC_TITLE: ${{ github.event.workflow_run.display_title }}
-          MAC_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          MAC_RUN: ${{ inputs.mac_run }}
+          SHA: ${{ inputs.sha }}
+          REVIEW: ${{ inputs.review }}
         run: node plan-windows.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
 
   suite:
@@ -91,13 +101,13 @@ jobs:
       E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
-      E2E_FULL: ${{ contains(fromJson('["workflow_run","workflow_dispatch"]'), github.event.workflow_run.event) && '1' || '' }}   # the paid AI judge steps, as on the Mac run it follows (a nightly gate or a run by hand)
-      E2E_SEED: ${{ inputs.fixed && '0' || github.event.workflow_run.id || github.run_id }}   # after a Mac run: the Mac's own seed, the same path on both   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
+      E2E_FULL: ${{ inputs.full }}   # the paid AI judge steps, as on the Mac run it follows (a nightly gate or a run by hand)
+      E2E_SEED: ${{ inputs.fixed && '0' || inputs.mac_run || github.run_id }}   # after a Mac run: the Mac's own seed, the same path on both   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}   # the commit the Mac run tested
+          ref: ${{ inputs.sha || github.sha }}   # the commit the Mac run tested
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -107,7 +117,7 @@ jobs:
       - name: Record which commit this run tested (ui-findings.yml names it in every issue)
         run: |
           mkdir -p "$E2E_ARTIFACTS"
-          printf '%s %s\n' "${{ github.event.workflow_run.head_branch || github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
+          printf '%s %s\n' "${{ github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
       - name: Install the app
         working-directory: desktop
         run: npm ci

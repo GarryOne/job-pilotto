@@ -248,6 +248,26 @@ jobs:
           fi
 
   # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.5.3 : what the promotion step would do for a release, changing nothing.
+  windows:
+    # The same suites on Windows (e2e-windows.yml), started here only when this run tested something, so Windows never runs empty; it skips a commit it
+    # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. Never a release gate.
+    name: Windows follows
+    needs: [plan, suite]
+    if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Start the Windows run on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FULL: ${{ (github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch') && '1' || '' }}
+        run: |
+          gh workflow run e2e-windows.yml --repo "${{ github.repository }}" --ref main \
+            -f mac_run=${{ github.run_id }} -f sha=${{ needs.plan.outputs.ref }} -f review=${{ needs.plan.outputs.review }} -f full="$FULL"
+          echo "Windows run started for commit ${{ needs.plan.outputs.ref }} (it skips a commit Windows already tested)." >> "$GITHUB_STEP_SUMMARY"
+
   promote-dry-run:
     needs: plan
     if: github.event_name == 'workflow_dispatch' && inputs.promote_tag != ''
