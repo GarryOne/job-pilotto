@@ -10,3 +10,10 @@ test('the sidebar scrolls when the window is too short for it', () => {
   assert.match(rules, /overflow-y:\s*auto/);
   assert.match(rules, /min-height:\s*0/);
 });
+
+test('the sidebar shows no scrollbar of its own, and never scrolls sideways', () => {
+  const rules = [...css.matchAll(/(?:^|\n)\.sidebar\s*\{([^}]*)\}/g)].map(m => m[1]).join(' ');
+  assert.match(rules, /overflow-x:\s*hidden/);
+  assert.match(rules, /scrollbar-width:\s*none/);
+  assert.match(css, /\.sidebar::-webkit-scrollbar\s*\{\s*display:\s*none/);
+});
