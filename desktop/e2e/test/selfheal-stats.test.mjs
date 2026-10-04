@@ -8,6 +8,7 @@ const issue = (number, state, labels, comments = [], extra = {}) => ({number, st
 
 test('each way an issue ends is told apart: fixed, queued, false positive, duplicate, harness, unclear, open', () => {
   assert.equal(classify(issue(1, 'CLOSED', ['source:ai-review', 'wontfix-auto'])), 'falsePositive');
+  assert.equal(classify(issue(30, 'CLOSED', ['source:suite-failure', 'harness', 'wontfix-auto'])), 'harness', 'the verdict pass: a test problem is not counted as a false positive');
   assert.equal(classify(issue(2, 'CLOSED', ['source:ai-review'], ['Duplicate of #118 (the same sidebar icon).'])), 'duplicate');
   assert.equal(classify(issue(3, 'CLOSED', ['source:layout-check'], ['Not a product bug: the recall benchmark\'s planted broken image leaked.'])), 'harness');
   assert.equal(classify(issue(4, 'OPEN', ['source:ai-review', 'confirmed'])), 'queued');

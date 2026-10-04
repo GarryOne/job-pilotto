@@ -16,7 +16,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
-  actions: read
+  actions: write   # to run the fixed page's suite again right after an automatic merge
 
 concurrency:
   group: ui-fix
@@ -130,6 +130,7 @@ jobs:
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           SHOT_OUTCOME: ${{ steps.shot.outcome }}
           AUTOMERGE: ${{ vars.JOB_PILOTTO_FIXER_AUTOMERGE }}   # "on": a small UI-only fix that passed every suite merges itself (off by default)
+          AUTOMERGE_ENGINE: ${{ vars.JOB_PILOTTO_FIXER_AUTOMERGE_ENGINE }}   # "on": also a small, confirmed fix in src/ or desktop/lib/ that brings its own test
           DEPS_OUTCOME: ${{ steps.deps.outcome }}
         run: |
           set -euo pipefail
@@ -175,6 +176,11 @@ jobs:
                 gh issue edit "$number" --repo "$REPO" --add-label wontfix-auto
                 gh issue close "$number" --repo "$REPO" --comment "Closed by the UI loop as a false positive: $reason"
                 echo "Issue #$number closed as a false positive." >> "$GITHUB_STEP_SUMMARY" ;;
+              harness)
+                gh label create harness --repo "$REPO" --force --color BFD4F2 --description 'The test was wrong, not the product: the Finder self-review fixes the test'
+                gh issue edit "$number" --repo "$REPO" --add-label harness --add-label wontfix-auto
+                gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "Closed by the UI loop: a test-harness problem, not a product bug (harness). $reason The weekly Finder self-review reads these and fixes the test."
+                echo "Issue #$number closed as a test-harness problem." >> "$GITHUB_STEP_SUMMARY" ;;
               *)
                 gh issue edit "$number" --repo "$REPO" --add-label needs-human
                 gh issue comment "$number" --repo "$REPO" --body "The UI loop could not fix this by itself. ${reason:-Claude made no change.}"
@@ -222,21 +228,31 @@ jobs:
           url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/body.md --label auto-ui-fix $extra)
           echo "Pull request opened: $url" >> "$GITHUB_STEP_SUMMARY"
           # Autonomy, opt-in (JOB_PILOTTO_FIXER_AUTOMERGE=on): a fix of the window only (desktop/renderer and its tests), at most 80 changed lines, that already
-          # passed every suite and the lint, merges itself; "Fixes #N" closes its issue and the next end-to-end run checks it stays gone. An engine or app-logic
-          # fix always waits for a person. Off by default: until 4 Oct 2026 the rule was that nothing merges itself.
-          if [ "${AUTOMERGE:-}" = on ] && [ "$BASE" = main ]; then
+          # passed every suite and the lint, merges itself, and a confirmed small engine fix with its own test may too (JOB_PILOTTO_FIXER_AUTOMERGE_ENGINE=on, below).
+          # Anything else waits for a person. Off by default: until 4 Oct 2026 nothing merged itself.
+          if { [ "${AUTOMERGE:-}" = on ] || [ "${AUTOMERGE_ENGINE:-}" = on ]; } && [ "$BASE" = main ]; then
             files=$(git show --name-only --format= HEAD | grep -v '^CODEMAP.md$' || true)
             lines=$(git show --numstat --format= HEAD -- . ':!CODEMAP.md' | awk '{s+=$1+$2} END{print s+0}')
-            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^desktop/(renderer|test)/' && [ "$lines" -le 80 ]; then
+            kind=""
+            if [ -n "$files" ] && [ "${AUTOMERGE:-}" = on ] && ! echo "$files" | grep -qvE '^desktop/(renderer|test)/' && [ "$lines" -le 80 ]; then kind="window-only"; fi
+            # Level 2 (owner, 4 Oct 2026): an engine or app-logic fix merges itself only when a person or the verdict pass confirmed the bug, it stays in src/ and
+            # desktop/lib/ with its tests, it brings a test of its own, and it is small (40 lines). It already passed the whole Python suite, the desktop suite and the lint.
+            if [ -z "$kind" ] && [ -n "$files" ] && [ "${AUTOMERGE_ENGINE:-}" = on ] && [ "$lines" -le 40 ] \
+               && ! echo "$files" | grep -qvE '^(src/|desktop/lib/|tests/|desktop/test/)' && echo "$files" | grep -qE '^(tests/|desktop/test/)' \
+               && gh issue view "$number" --repo "$REPO" --json labels --jq '.labels[].name' | grep -qx confirmed; then kind="engine"; fi
+            if [ -n "$kind" ]; then
               # Fixes merge in parallel: one that now conflicts with a fix merged meanwhile stays open for a person.
               if ! gh pr merge "$url" --repo "$REPO" --squash --delete-branch; then
                 echo "Could not merge automatically (probably a conflict with a fix merged meanwhile): a person merges it." >> "$GITHUB_STEP_SUMMARY"; exit 0
               fi
               # A merge by the workflow's own token does not apply "Fixes #N" (4 Oct 2026: #122, #123, #135 stayed open after their fixes landed): close it here.
-              gh issue close "$number" --repo "$REPO" --comment "Fixed by $url (merged by the UI loop). The next end-to-end run checks it stays gone." || true
-              gh pr comment "$url" --repo "$REPO" --body "Merged by the UI loop (JOB_PILOTTO_FIXER_AUTOMERGE=on): a window-only fix of $lines line(s) that passed every suite and the lint. The next end-to-end run checks the finding stays gone; revert this commit if it was wrong."
-              echo "Merged automatically ($lines lines, window only)." >> "$GITHUB_STEP_SUMMARY"
+              gh issue close "$number" --repo "$REPO" --comment "Fixed by $url (merged by the UI loop). The page's suite runs again now: the next findings run checks it stays gone." || true
+              gh pr comment "$url" --repo "$REPO" --body "Merged by the UI loop ($kind fix, $lines line(s), passed every suite and the lint). Its suite runs again now; revert this commit if it was wrong."
+              echo "Merged automatically ($kind, $lines lines)." >> "$GITHUB_STEP_SUMMARY"
+              # The proof, now rather than at the next scheduled run: the issue's own suite on the new main.
+              suite=$(gh issue view "$number" --repo "$REPO" --json labels --jq '[.labels[].name | select(startswith("suite:")) | sub("suite:";"")][0] // ""')
+              if [ -n "$suite" ]; then gh workflow run e2e.yml --repo "$REPO" --ref main -f suite="$suite" || echo "The suite could not be started: the scheduled run checks it." >> "$GITHUB_STEP_SUMMARY"; fi
             else
-              echo "Not merged automatically: $( [ "$lines" -gt 80 ] && echo "$lines lines (over 80)" || echo 'it touches more than the window') . A person merges it." >> "$GITHUB_STEP_SUMMARY"
+              echo "Not merged automatically ($lines lines): it is outside what may merge itself (window-only up to 80 lines, or a confirmed engine fix up to 40 lines with its own test). A person merges it." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi

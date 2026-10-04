@@ -13,6 +13,7 @@ export const detectorOf = issue => (names(issue).find(name => name.startsWith('s
 // How an issue ended. Real = confirmed by the verdict pass or a person (queued while open), or closed by a fix (a commit or a merged pull request).
 export function classify(issue) {
   const labels = names(issue), text = said(issue), last = (issue.comments || []).at(-1)?.body || '';
+  if (labels.includes('harness')) return 'harness';   // the verdict pass: the test was wrong, not the product (also wontfix-auto, so it is never filed again)
   if (labels.includes('wontfix-auto')) return 'falsePositive';
   if (/Duplicate of #\d+/.test(text)) return 'duplicate';
   if (!labels.includes('confirmed') && /Not a product (?:bug|finding)|plant(?:ed)? .*leak|the probe pressed|harness|test bug|e2e app counted|Dry run|Closing so the producer/i.test(text)) return 'harness';

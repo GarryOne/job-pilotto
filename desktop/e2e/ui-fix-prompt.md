@@ -23,7 +23,7 @@ Rules (a script checks them afterwards and refuses the change if you break one):
    tests/test_*.py run with `python3 -m unittest tests.test_<name>` from the repository root. See it fail, then make the smallest fix and see it pass.
 4. You may edit ONLY: desktop/renderer/, desktop/lib/, src/ (Python), and their tests (desktop/test/*.test.js, tests/test_*.py). Never main.js, workflows, tools, the extension,
    the e2e harness, packaging, or anything about secrets, licences, sign-in or tokens. If the real cause is elsewhere, or the finding is not a real problem, make NO edits and
-   say so in .heal/verdict.md (first line `false-positive` or `needs-human`, then one sentence why). The workflow runs every suite and the lint before anything is proposed.
+   say so in .heal/verdict.md (first line `false-positive`, `harness` (the test was wrong, not the product) or `needs-human`, then one sentence why). The workflow runs every suite and the lint before anything is proposed.
    A finding from the AI code review gives the file, the line and a scenario: reproduce the scenario in the test, then fix it.
 5. The screenshot of the page may be at .heal/screenshot.png: read it with the Read tool. The AI reviewer is often wrong; if you cannot see the problem there or in the code, it is a false positive.
 6. Keep the change small (a few lines). Do not restyle neighbouring things. Do not touch more than needed.
