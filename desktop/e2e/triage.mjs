@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, capNewAi, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -99,8 +99,10 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
   // A Windows finding the Mac already told becomes a comment on that issue ("also seen on Windows"), or nothing when the Mac one was rejected: not a second issue.
-  const plan = findings.map(finding => { const existing = matchExisting(finding, issues); return {finding, existing, twin: !existing && platform !== 'mac' ? macTwin(finding, everything) : null}; })
+  const planAll = findings.map(finding => { const existing = matchExisting(finding, issues); return {finding, existing, twin: !existing && platform !== 'mac' ? macTwin(finding, everything) : null}; })
     .filter(({finding, existing, twin}) => existing || twin || !suppressedBy(finding, issues));   // a closed false positive stays closed
+  const plan = capNewAi(planAll);
+  out.capped = planAll.length - plan.length;
   const matched = new Set(plan.filter(item => item.existing).map(item => item.existing.number));
   const needsPicture = plan.filter(({existing, twin}) => !twin && (!existing || (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl)))));
 

@@ -1,7 +1,7 @@
 // The self-healing loop's rules: what is worth an issue, what is ready for a fix, and what a fix may touch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notReadyReason, pickCandidate, sightings} from '../lib/triage.mjs';
+import {allowedPath, checkChange, issueBody, issueTitle, layoutSeverity, capNewAi, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notReadyReason, pickCandidate, sightings} from '../lib/triage.mjs';
 
 const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, state = 'OPEN', labels = []} = {}) => ({number, state,
   labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
@@ -527,4 +527,13 @@ test('only a failed step that ran out of time goes to the verdict pass', () => {
   assert.ok(TIMEOUT_FAILURE.test('page.waitForSelector: Timeout 60000ms exceeded.'));
   assert.ok(TIMEOUT_FAILURE.test('the app was still busy after 300 s of waiting for quiet'));
   assert.ok(!TIMEOUT_FAILURE.test('the tailored CV is not on the job\'s row in Notion'));
+});
+
+test('a run opens at most three new issues from the AI review, the highest severity first; other detectors and repeats are not capped', () => {
+  const ai = (id, severity) => ({finding: {id, severity, source: 'ai-review'}, existing: null, twin: null});
+  const plan = [ai('a', 'medium'), ai('b', 'medium'), ai('c', 'high'), ai('d', 'medium'), ai('e', 'medium'),
+    {finding: {id: 'f', severity: 'medium', source: 'ai-review'}, existing: {number: 1}, twin: null},
+    {finding: {id: 'g', severity: 'medium', source: 'suite-failure'}, existing: null, twin: null}];
+  const kept = capNewAi(plan).map(item => item.finding.id);
+  assert.deepEqual(kept, ['a', 'b', 'c', 'f', 'g'], 'the high one and the first two mediums; the repeat and the suite failure stay');
 });

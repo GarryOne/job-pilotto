@@ -233,6 +233,15 @@ export function similar(a, b) {
 // The open issue this finding already is: the same fingerprint, else the same view and kind with alike words.
 // A finding from a Windows run that the Mac already told: an open Mac issue, or one a person rejected as not planned (4 Oct 2026: #239 / #202, #215 / #146 were the same finding filed twice).
 // A Mac issue closed as fixed does not count: a Windows run that sees it again may be a real regression.
+// At most this many NEW issues from the AI screenshot review in one run, the highest severity first (owner, 4 Oct 2026: "no need to invent trivial bugs"). A full run that finds more than
+// this is more likely noisy than broken; the rest are dropped, and a real one shows again in the next run.
+export const MAX_NEW_AI_PER_RUN = 3;
+export function capNewAi(plan, max = MAX_NEW_AI_PER_RUN) {
+  const fresh = plan.filter(item => !item.existing && !item.twin && item.finding.source === 'ai-review');
+  const rank = item => ({high: 0, medium: 1, low: 2})[item.finding.severity] ?? 3;
+  const keep = new Set([...fresh].sort((a, b) => rank(a) - rank(b)).slice(0, max));
+  return plan.filter(item => !fresh.includes(item) || keep.has(item));
+}
 export function macTwin(finding, issues) {
   const mac = issues.filter(issue => ((issue.labels || []).map(item => item.name || item).find(name => name.startsWith('platform:')) || 'platform:mac') === 'platform:mac');
   const asMac = {...finding, id: String(finding.id).replace(/-win$/, '')};

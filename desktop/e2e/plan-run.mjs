@@ -4,7 +4,7 @@
 // workflow_run (after the nightly build): every suite, on the build's own commit, and `tag` = the release to promote when all of them pass.
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-import {autoSuites, exploreDecision, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
+import {autoSuites, exploreDecision, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
 
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
@@ -53,7 +53,14 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   else suites = String(env.ONLY || '').trim() ? suitesNamed(env.ONLY, all) : autoSuites(all, cadence);   // names: exactly those, even a manual one; none: everything not manual
 
   const files = lastSha ? changed(lastSha, ref) : null;
-  const review = exploring || reviewNeeded({files: files || [], waiting, known: files !== null});   // an exploring run exists for what the AI review sees
+  let review = exploring || reviewNeeded({files: files || [], waiting, known: files !== null});   // an exploring run exists for what the AI review sees
+  if (review) {   // the noise breaker: no AI tokens on a review whose recent issues were mostly noise
+    try {
+      const issues = JSON.parse(gh(['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '300', '--json', 'number,state,stateReason,labels,comments,createdAt']));
+      const noise = noiseTripped(issues);
+      if (noise.tripped) { review = false; why = `${why ? `${why} · ` : ''}AI review paused: ${noise.noise} of the last ${noise.judged} judged review issues were noise (the noise breaker, lib/plan.mjs)`; }
+    } catch { /* cannot tell: the review runs */ }
+  }
   const include = [];
   for (const suite of suites) include.push({suite, minutes: await minutes(suite)});
   return {matrix: JSON.stringify({include}), count: String(include.length), ref, tag, review: review ? '1' : '0', why};

@@ -183,3 +183,8 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 - **Test artifacts are not findings.** The review prompt names the demo data (made-up names, slug titles, "not connected" services); the journey detector ignores the test profile's undecryptable secrets (`safeStorage`).
 - **One finding, one issue across platforms.** A Windows finding that matches an open Mac issue (or one a person rejected) becomes an "Also seen on Windows" comment (`macTwin`); a Mac issue closed as fixed does not count, so a regression still files.
 - **A failed step that only ran out of time goes to the verdict pass** (`TIMEOUT_FAILURE`), which may answer `harness` (the test, not the product).
+
+## Noise guards: money and issues (4 Oct 2026)
+- **An empty answer is the right answer.** The review prompt says `{"findings":[]}` is correct and welcome and forbids inventing or padding a problem.
+- **At most 3 new AI-review issues per run** (`capNewAi`), highest severity first; repeats and other detectors are not capped.
+- **The noise breaker** (`noiseTripped` in `lib/plan.mjs`, used by `plan-run.mjs`): when 50 % or more of the (at least 6) AI-review issues filed since `NOISE_SINCE` were judged noise (rejected, duplicate, harness) rather than real (fixed or confirmed), the AI review is skipped, so no tokens are spent, and the run says why. To resume after changing the rules, move `NOISE_SINCE` forward in that file.

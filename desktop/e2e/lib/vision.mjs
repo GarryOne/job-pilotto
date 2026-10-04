@@ -29,7 +29,8 @@ Report something only if, as that job seeker, it would:
  (d) WASTE your time or make you work around it, or make you stop trusting the app.
 For every candidate ask: "would this make me fail, lose time, misread something, or distrust the app?" If the honest answer is "I would barely notice, or not care", say nothing.
 NEVER report: visual style or consistency opinions (emoji versus line icons, icon or button styles, colours, fonts, alignment or spacing of small things), wording or tone, scrollbars, differences between
-a narrow and a wide window, polish, taste, or anything a person would shrug at. Fewer, better: most pages have nothing to report, and the answer is then an empty list. At most 3 findings per page.
+a narrow and a wide window, polish, taste, or anything a person would shrug at. Fewer, better: most pages have nothing to report, and the answer is then an empty list: {"findings":[]} is the correct, expected and welcome answer. NEVER invent or pad a problem to have something to say:
+each finding costs the owner real money to read, judge and fix. At most 3 findings per page.
 You are also given FACTS the app holds about its own state (for example which AI engine the person chose and whether a key is saved). Check the page against them:
 report a place where what the page shows CONTRADICTS the facts, or would MISLEAD a person who knows those facts (a status like "Connected" or "Active" for something that is
 not in use in the chosen mode, a selected option whose own panel talks about another option, a count that does not match, a button that offers what the state makes impossible).

@@ -2,7 +2,7 @@
 // Schedules and manual runs still run everything.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {autoSuites, suitesFor, suitesNamed} from '../lib/plan.mjs';
+import {autoSuites, noiseTripped, suitesFor, suitesNamed} from '../lib/plan.mjs';
 
 const ALL = ['activity', 'apply', 'calendar', 'employers', 'focus', 'interviews', 'jobs', 'personas', 'settings', 'strategy', 'wizard'];
 
@@ -61,4 +61,16 @@ test('a watched suite (it costs real AI money and judges one piece of code) runs
   assert.deepEqual(suitesFor(['tests/fixtures/mail_eval.json'], all, {watches, cadence}), ['mailreading']);
   assert.deepEqual(suitesFor(['src/ai/score.py', 'desktop/lib/pipeline.js'], all, {watches, cadence}), []);   // anything else leaves it alone
   assert.deepEqual(suitesFor(['desktop/e2e/suites/mailreading.mjs'], all, {watches, cadence}), ['mailreading']);   // so does a change to the suite itself
+});
+
+// The noise breaker (4 Oct 2026): the AI review stops spending tokens when most of its recent issues were noise.
+test('the noise breaker trips when most judged review issues since the new prompt were noise, and only then', () => {
+  const issue = (number, kind, extra = {}) => ({number, state: 'CLOSED', stateReason: 'NOT_PLANNED', createdAt: '2026-10-04T05:00:00Z', labels: [{name: 'source:ai-review'}], comments: [], ...extra});
+  const noisy = Array.from({length: 6}, (_, n) => issue(n));
+  assert.equal(noiseTripped(noisy).tripped, true);
+  const real = Array.from({length: 6}, (_, n) => issue(100 + n, 'x', {stateReason: 'COMPLETED', labels: [{name: 'source:ai-review'}, {name: 'confirmed'}]}));
+  assert.equal(noiseTripped([...noisy.slice(0, 3), ...real]).tripped, false, '3 noise of 9 judged is under half');
+  assert.equal(noiseTripped(noisy.slice(0, 5)).tripped, false, 'too few judged issues to say');
+  assert.equal(noiseTripped(noisy.map(item => ({...item, createdAt: '2026-10-03T12:00:00Z'}))).tripped, false, 'issues from before the new prompt do not count against it');
+  assert.equal(noiseTripped(noisy.map(item => ({...item, labels: [{name: 'source:suite-failure'}]}))).tripped, false, 'only the AI review is judged by this');
 });

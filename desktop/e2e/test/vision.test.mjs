@@ -101,3 +101,8 @@ test('the review is told the app runs on made-up demo data and test-only states,
   assert.match(SYSTEM, /TEST profile with made-up demo data/);
   assert.match(SYSTEM, /recruiter-call-failing/);
 });
+
+test('an empty answer is the welcome answer: the prompt forbids inventing or padding findings', () => {
+  assert.match(SYSTEM, /\{"findings":\[\]\} is the correct, expected and welcome answer/);
+  assert.match(SYSTEM, /NEVER invent or pad a problem/);
+});
