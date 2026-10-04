@@ -45,6 +45,11 @@ export function parseScout(text) {
 
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);
 
+// The text a finished run's card is drawn from: its own message (read from its Notion page), else the result the window
+// kept when it watched the run end (renderer/pages/activity.js runResults). A search run recorded on this Mac carries a log
+// but no message, so without the kept one its digest showed as raw Telegram text under a "Completed" pill (5 Oct 2026).
+export const cardText = (run, kept) => (!run || run.live ? null : run.message || kept || null);
+
 // A run's message that is not a card is shown as text: written for Telegram, so its tags and the "Tap a job number…" hint
 // (nothing in this pane can be tapped) are dropped (UI loop #265).
 export const plainMessage = text => String(text || '').replace(/<\/?(?:b|i|u|s|a|code|pre)\b[^>]*>/gi, '')

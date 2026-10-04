@@ -52,6 +52,8 @@ Do NOT report transient interface: a toast or notification (it goes away by itse
 A picture freezes motion: a line that scrolls in a frame (a ticker or marquee), a carousel, a progress bar or an animation can be caught half-way, so text cut off at the edge of a moving or fading frame is not a finding.
 The FACTS may list "moving" (elements animating when the picture was taken) and "clippedOnPurpose" (text cut by design: an ellipsis, a line clamp, a fade). Text cut in those is not a finding,
 unless the cut hides the meaning and the full text is nowhere else on the page.
+A message written for a chat app shown as plain text inside the app IS a finding (medium): a numbered list of jobs with raw web addresses in brackets, an emoji header like "✈️ … · 🆕 4 new",
+"Tap a job number…", or a /command. The app draws these as cards; raw chat text means the card failed, even when it looks tidy and even when a card for the same run also shows.
 Do NOT report a guess about how the app works inside or what it "should" know. A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT; quote both.
 A status that merely looks odd, but that data the app keeps elsewhere could explain (a follow-up built from logged events while Gmail is disconnected), is not a contradiction. When you only suspect, say nothing.
 A list row that gives only a short summary is not missing its reason when the page also shows a detail pane or a selected item: the reason lives there. Two numbers or messages that count different things (a run's own message versus the items listed, a summary of one data source beside a list of another, an empty-list message with a filter off) are not a contradiction unless the labels say they count the same thing.

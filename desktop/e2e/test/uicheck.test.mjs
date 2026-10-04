@@ -176,3 +176,18 @@ test('the real menu at the smallest window height: the old hidden-scrollbar colu
     assert.deepEqual(await open(''), [], 'the current menu keeps the bottom buttons in view and the list scrolls with a scrollbar');
   } finally { await browser.close(); }
 });
+
+// 5 Oct 2026: the Jobs check's digest shown as raw Telegram text in the run's detail pane; no check flagged it.
+test('a Telegram message shown as raw text is flagged; the same words in a technical log are not', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1280, height: 800}});
+    const digest = '✈️ Job Pilotto · 🆕 1 new · top 1 of 1<br>1 open · 1 📍<br>1. Senior Site Reliability Engineer (https://boards.e2e.test/job/1791157080)<br>&nbsp;&nbsp;E2E Acme · Zurich<br>Tap a job number to mark it applied, save or dismiss it.';
+    const shown = await findings(page, `<section class="view" data-view="jobs"><div class="activity-result" id="activity-result">${digest}</div></section>`);
+    const chat = shown.filter(item => item.kind === 'chat-text');
+    assert.equal(chat.length, 1, JSON.stringify(shown));
+    assert.match(chat[0].detail, /div#activity-result/);
+    const logged = await findings(page, `<section class="view" data-view="jobs"><details open><pre>${digest}</pre></details><p>4 new jobs · Finished 01:38</p></section>`);
+    assert.deepEqual(logged.filter(item => item.kind === 'chat-text'), []);
+  } finally { await browser.close(); }
+});

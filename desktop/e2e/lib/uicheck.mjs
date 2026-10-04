@@ -91,6 +91,23 @@ export function inspect({view, limits}) {
       found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(host)} shows technical text to the person: "${text.slice(0, 160)}"`});
     }
   }
+  // A message written for Telegram shown as plain text where the app has a card for it: a numbered job list with raw links in
+  // brackets, "Tap a job number…", a /command, the engine's <<<message markers. 5 Oct 2026: a Jobs check that ended while Recent
+  // activity was open showed its digest this way above the card; every check passed, because the text was neither JSON nor clipped.
+  const CHAT = [/Tap a job number\b/i, /(?:^|\s)\d+\.\s[^\n]{3,200}?\(https?:\/\/[^)\s]+\)/, /(?:^|\s)\/(?:apply|save|dismiss|more)_\w+/, /<<<message|message>>>/,
+    /✈️[^\n]{0,40}🆕\s*\d+ new/];
+  const chatSeen = new Set();
+  for (const scope of [root, ...document.querySelectorAll('dialog[open], #toasts, #activity, #activity-panel')]) {
+    for (const host of scope.querySelectorAll('div, p, section, li, span')) {
+      if (chatSeen.size >= 2 || chatSeen.has(host) || host.closest(ON_PURPOSE) || !visible(host)) continue;
+      if ([...host.children].some(child => CHAT.some(pattern => pattern.test(child.innerText || '')))) continue;   // report the innermost box only
+      const text = host.innerText || '';
+      const hit = CHAT.find(pattern => pattern.test(text));
+      if (!hit) continue;
+      chatSeen.add(host);
+      found.push({view, severity: 'warning', kind: 'chat-text', detail: `${label(host)} shows a message written for Telegram as raw text (${hit.source.slice(0, 30)}): "${text.replace(/\s+/g, ' ').trim().slice(0, 140)}"`});
+    }
+  }
   // The window's menu: every one of its buttons must be reachable. The owner (4 Oct 2026) shrank the window to its smallest height and could not reach the bottom menu items: the column
   // scrolled, but its scrollbar was hidden and nothing showed it. A control cut off by the window edge (or by an ancestor that clips) with nothing to scroll is "unreachable-control";
   // one whose scroll container shows no scrollbar is "hidden-scroll". A scrollable list with a visible scrollbar is fine.

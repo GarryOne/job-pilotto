@@ -52,3 +52,19 @@ test('a digest counts the jobs in your places with 📍 (older digests used 🇨
   const card = parseRunMessage('✈️ Job Pilotto · 🆕 1 new · top 10 of 24\n24 open · 7 📍 · 2 applied\n🆕 New since last run\n1. Data Analyst (https://x.example/1)\n   Acme · Amsterdam');
   assert.equal(card.local, 7);
 });
+
+// 5 Oct 2026: a jobs check that ended while Recent activity was open showed its digest as raw Telegram text. A run recorded
+// on this Mac has a log but no message; the window keeps the message it saw, and the card must be drawn from that.
+test('a run without a message of its own is drawn from the result the window kept', async () => {
+  const {cardText} = await import('../renderer/run-cards.js');
+  const kept = ['✈️ Job Pilotto · 🆕 4 new · top 4 of 4', '4 open · 4 📍', '🆕 New since last run',
+    '1. Senior Site Reliability Engineer, no-credit (Site Reliability / Data Analyst) (https://boards.e2e.test/job/1791157083)',
+    '   E2E Acme · Zurich, Switzerland or Amsterdam, Netherlands'].join('\n');
+  const local = {id: 7, kind: 'search', log: ['…'], ok: true};
+  const card = parseRunMessage(cardText(local, kept));
+  assert.equal(card?.kind, 'digest');
+  assert.deepEqual(card.items.map(item => [item.company, item.url]), [['E2E Acme', 'https://boards.e2e.test/job/1791157083']]);
+  assert.equal(cardText({...local, message: 'its own'}, kept), 'its own');   // the page's message wins
+  assert.equal(cardText({...local, live: true}, kept), null);                // a running job has no card yet
+  assert.equal(cardText(null, kept), null);
+});

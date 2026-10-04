@@ -5,7 +5,7 @@ import {barState, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
-import {parseRunMessage, plainMessage} from '../run-cards.js';
+import {cardText, parseRunMessage, plainMessage} from '../run-cards.js';
 import {mailChanges, parseMailReport, settleQuestion} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
@@ -376,7 +376,8 @@ export function renderActivity(fresh) {
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
   // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
-  const hasCard = !!(run && !run.live && run.message && parseRunMessage(run.message));  // its card says it better than the raw text
+  const shownText = cardText(run, run ? runResults.get(run.id) : null);
+  const hasCard = !!(shownText && parseRunMessage(shownText));  // its card says it better than the raw text
   const said = run && !run.live && !hasCard ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
   const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
   // A run that used no AI shows no cost: "$0" on every row was noise.
@@ -417,16 +418,16 @@ export function renderActivity(fresh) {
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
   // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
   // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.
-  const card = !run?.live && run?.message ? parseRunMessage(run.message) : null;
+  const card = shownText ? parseRunMessage(shownText) : null;
   // A Gmail check's message has no digest header but plenty of structure (the interview it is about, the topics to
   // strengthen, the recruiter's next step): it gets its own card, not its raw lines in a <pre>.
   const mail = !run?.live && !card && kindOf(run) === 'mail' && (run?.message || run?.report?.length)
     ? parseMailReport(run.message, run.result, run.report || []) : null;
   // An insight is written to be sent, not read: its card is the finding, the numbers behind it and the one action
   // (the mockup, 30 Sep). Only what the insight carries is drawn — anything else is absent, never an empty slot.
-  const insight = !run?.live && !card && !mail && run?.message ? parseInsight(run.message) : null;
+  const insight = !card && !mail && shownText ? parseInsight(shownText) : null;
   // The week's report: the same card, with what worked and what to change in place of the finding's evidence.
-  const weekly = !run?.live && !card && !mail && !insight && run?.message ? parseWeekly(run.message) : null;
+  const weekly = !card && !mail && !insight && shownText ? parseWeekly(shownText) : null;
   // An interview review: the same card shape as the others, from the message src/ai/interviews.py wrote.
   const review = !run?.live && !card && !mail && !insight && !weekly && kindOf(run) === 'interview' && run?.message
     ? parseInterviewReview(run.message) : null;
@@ -439,7 +440,7 @@ export function renderActivity(fresh) {
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
   else if (reading) renderCardSkeleton();
-  if (card) show($('activity-result'), false);  // the card shows the same, laid out
+  if (card || insight || weekly) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || reading);
   const plain = !run?.live && !card && !mail && !insight && !weekly && !review && run?.message;
   $('activity-message').textContent = plain ? plainMessage(plain) : '';
