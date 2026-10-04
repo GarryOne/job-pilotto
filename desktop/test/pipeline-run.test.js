@@ -54,3 +54,11 @@ test('a run that stops talking is stopped, says so, and is reported as a failed 
   logTo(null);
   engineLog.setFile(null);
 });
+
+test('a stopped run says what to do next, and keeps the prefix the log and tests match (#185)', async () => {
+  const {stoppedReason} = await import('../lib/pipeline.js');
+  const text = stoppedReason('no output for 10 s');
+  assert.match(text, /^Stopped by Job Pilotto: no output for 10 s\./);
+  assert.match(text, /Run it again/);
+  assert.match(text, /check your AI key or plan in Settings/);
+});

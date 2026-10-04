@@ -136,6 +136,9 @@ export const setDemo = on => { demoMode = !!on; };
 // The end-to-end journey shortens the silence limit (JOB_PILOTTO_E2E_IDLE_MS) so a hung AI can be tested in under a minute; never set for a user.
 const E2E_IDLE = process.env.JOB_PILOTTO_E2E ? Number(process.env.JOB_PILOTTO_E2E_IDLE_MS) || 0 : 0;
 export const LIMITS = {idleMs: E2E_IDLE || 15 * 60 * 1000, totalMs: 45 * 60 * 1000, checkMs: E2E_IDLE ? 1000 : 5000, killAfterMs: E2E_IDLE ? 3000 : 8000, watchAll: false};   // watchAll: tests watch any module, not only `src …`
+// What a person reads when the app stopped a silent run (the row, its detail, the toast, the bottom bar). #185: it said only "no output for 10 s", with no
+// next step. The prefix stays: tests and the technical log match it.
+export const stoppedReason = timedOut => `Stopped by Job Pilotto: ${timedOut}. The run went quiet, so it was stopped. Run it again; if it keeps stopping, check your AI key or plan in Settings.`;
 // How long a run was silent, for the watchdog's message: minutes for a real run, seconds when the journey shortens the limit.
 export const quietText = ms => (ms < 90 * 1000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
@@ -161,7 +164,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       timedOut = quiet > LIMITS.idleMs ? `no output for ${quietText(quiet)}` : total > LIMITS.totalMs ? `still running after ${Math.round(total / 60000)} min` : '';
       if (!timedOut) return;
       appLog('run', `watchdog: python -m ${args.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
-      onLine(`⚠️ Stopped by Job Pilotto: ${timedOut}. The last thing it did: ${tail.at(-1) || 'nothing yet'}`);
+      onLine(`⚠️ ${stoppedReason(timedOut)} The last thing it did: ${tail.at(-1) || 'nothing yet'}`);
       child.kill('SIGTERM');
       killTimer = setTimeout(() => child.kill('SIGKILL'), LIMITS.killAfterMs);
     }, LIMITS.checkMs) : null;
@@ -187,7 +190,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
       for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId, timedOut, result}); } catch {} }
       if (timedOut && rowUrl) {   // killed, so it could not close its own row
-        const closed = await (await import('./run-history.js')).closeStopped(storage, rowUrl, `Stopped by Job Pilotto: ${timedOut}`).catch(() => false);
+        const closed = await (await import('./run-history.js')).closeStopped(storage, rowUrl, stoppedReason(timedOut)).catch(() => false);
         appLog('run', `its Notion row ${closed ? 'was closed as Failed' : 'was already closed'}`, {run_id: runId});
       }
       resolve({code, stdout, result, runId, timedOut});
