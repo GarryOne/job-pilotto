@@ -2,11 +2,12 @@
 // it, swaps the app and restarts (the quit dialog still asks if a job is running).
 import {$, show} from './core.js';
 import {toastMessage} from './startup.js';
+import {updateLabel, updateTooltip} from '../update-label.js';
 
 function offer(update) {
   if (!update) return;
-  $('nav-update-text').textContent = `Update to ${update.name}`;
-  $('nav-update').title = `${update.name} is ready: click to install it and restart. What's new: ${update.url}`;
+  $('nav-update-text').textContent = updateLabel(update);
+  $('nav-update').title = updateTooltip(update);
   show($('nav-update'), true);
 }
 

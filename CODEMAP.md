@@ -200,6 +200,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/sidebar-rail.js` — The sidebar as an icon rail: automatically in a narrow window (under 1180 px, where there is no room for labels), or when the person
 - `desktop/renderer/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `desktop/renderer/tips.js` — The tip ticker on the Application sessions page (owner, 2 Oct 2026): one line of fact or advice scrolls right to left
+- `desktop/renderer/update-label.js` — The sidebar's update button: one short line from the version ("Update to 0.5.1 beta"); the release's full title, which names the
 - `desktop/renderer/update-text.js` — Settings → Diagnostics → Updates: whether this is the latest version, from main's updateStatus.
 - `desktop/renderer/view-history.js` — Back and forward through the screens you opened (⌘← / ⌘→, ⌘[ / ⌘], the mouse's side buttons; Alt+← / Alt+→ on
 - `desktop/renderer/weekly-card.js` — A weekly report's message as its card reads it, kept free of the DOM, like run-cards.js, mail-report.js and
