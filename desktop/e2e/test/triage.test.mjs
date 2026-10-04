@@ -1,7 +1,7 @@
 // The self-healing loop's rules: what is worth an issue, what is ready for a fix, and what a fix may touch.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {allowedPath, checkChange, issueBody, issueTitle, normalize, pickCandidate, sightings} from '../lib/triage.mjs';
+import {allowedPath, checkChange, issueBody, issueTitle, matchExisting, normalize, pickCandidate, sightings} from '../lib/triage.mjs';
 
 const issue = (number, fp, {severity = 'MEDIUM', kind = 'layout', comments = 0, state = 'OPEN', labels = []} = {}) => ({number, state,
   labels: [{name: 'auto-ui'}, {name: `fp:${fp}`}, ...labels.map(name => ({name}))],
@@ -458,4 +458,17 @@ test('the fixer takes several ready findings at once, one per kind, most critica
     issue(4, 'd', {kind: 'a11y', labels: ['confirmed']}), issue(5, 'e', {kind: 'functionality', labels: ['confirmed']}), issue(6, 'f', {kind: 'consistency'})];
   assert.deepEqual(pickCandidates(issues, {max: 4}).map(item => item.number), [1, 3, 4, 5]);
   assert.deepEqual(pickCandidates(issues, {max: 2}).map(item => item.number), [1, 3]);
+});
+
+// #103/#105 (activity-limit-paused / activity-run-failed) and #120/#122 (calendar-empty / calendar) were one bug each, filed twice from two variants of a page.
+test('the same bug seen from another variant of the page is the same issue; a different bug of that page family is not', () => {
+  const open = (number, view, kind, title, found) => ({number, state: 'OPEN', title: `[auto-ui] ${view}: ${title}`, body: `**MEDIUM** · ${kind} · found by the AI screenshot review\n\n### What was found\n${found}\n\n### Evidence`, labels: [{name: 'auto-ui'}, {name: `fp:x${number}`}]});
+  const issues = [open(105, 'activity-run-failed', 'consistency', 'Mixed 24-hour and 12-hour time formats', 'The run list shows 14:05 while the detail header says 2:05 PM and the status bar 2:05 PM.'),
+    open(104, 'activity-run-failed', 'functionality', 'Failed run shows all steps with green checks', 'Every step has a green check although the run failed.')];
+  const same = {view: 'activity-limit-paused', kind: 'consistency', title: 'Time formats differ on the same panel', detail: 'The list says 14:05 and the header 2:05 PM: two time formats on one panel.', id: 'new-1'};
+  assert.equal(matchExisting(same, issues)?.number, 105);
+  const other = {view: 'activity-limit-paused', kind: 'consistency', title: 'Limit banner repeats the reason', detail: 'The paused banner says the limit twice.', id: 'new-2'};
+  assert.equal(matchExisting(other, issues), null, 'a different bug of the family stays its own issue');
+  const elsewhere = {...same, view: 'calendar', id: 'new-3'};
+  assert.equal(matchExisting(elsewhere, issues), null, 'another page family is never merged');
 });

@@ -228,11 +228,19 @@ export function matchExisting(finding, issues, threshold = 0.3, state = 'OPEN') 
   const named = issues.find(issue => issue.state === state && (issue.labels || []).some(item => (item.name || item) === label));
   if (named) return named;
   const text = `${finding.title} ${finding.detail}`;
-  return issues.filter(issue => issue.state === state && new RegExp(`^\\[auto-ui\\] ${finding.view}:`).test(issue.title || '')
-      && (/·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '') === finding.kind)
-    .map(issue => ({issue, score: similar(text, `${(issue.title || '').replace(/^\[auto-ui\] [^:]+:/, '')} ${foundText(issue.body)}`)}))
-    .filter(item => item.score >= threshold).sort((a, b) => b.score - a.score)[0]?.issue || null;
+  const kindOf = issue => /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  const best = (pool, floor) => pool.map(issue => ({issue, score: similar(text, `${(issue.title || '').replace(/^\[auto-ui\] [^:]+:/, '')} ${foundText(issue.body)}`)}))
+    .filter(item => item.score >= floor).sort((a, b) => b.score - a.score)[0]?.issue || null;
+  const open = issues.filter(issue => issue.state === state && kindOf(issue) === finding.kind);
+  const same = best(open.filter(issue => viewOf(issue) === finding.view), threshold);
+  if (same) return same;
+  // The same bug seen from another variant of the page (activity-run-failed and activity-limit-paused, calendar and calendar-empty, jobs and jobs-narrow) was
+  // filed twice (#103 and #105, #120 and #122, 4 Oct 2026). Within a page family and a kind, alike words are the same issue: those pairs scored 0.22 and 0.38,
+  // distinct bugs of the same family at most 0.14.
+  return best(open.filter(issue => viewOf(issue) !== finding.view && viewFamily(viewOf(issue)) === viewFamily(finding.view)), FAMILY_SIMILAR);
 }
+export const FAMILY_SIMILAR = 0.2;
+export const viewFamily = view => String(view || '').replace(/-narrow$/, '').split('-')[0];
 
 // One sighting per commit: an unchanged commit is looked at up to three times a day (lib/plan.mjs), and a cosmetic finding that shows every time
 // filled the fixer's queue (#66 scored 14 from one build, 3 Oct 2026). The commit is the "Build tested: … @ <sha>" line; without one, each sighting counts.
