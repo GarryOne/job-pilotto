@@ -1198,16 +1198,16 @@
           <div class="setting panel" id="setting-telemetry">
             <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Technical reports</h3></div>
               <label class="switch-row"><input type="checkbox" id="telemetry-on"><span>Send</span></label></div>
-            <p class="panel-lead tr-lead">Helps Job Pilotto get better for everyone. <b>Never</b> your answers, CV, emails, names, companies or keys: removed on this Mac before anything is sent.</p>
+            <p class="panel-lead tr-lead">✨ Small, anonymous signals that help us fix problems and improve matching for everyone. Your answers, CV, emails, names, companies and keys <b>stay on your Mac</b>: they are removed before anything is sent.</p>
             <div class="tr-grid">
-              <section class="tr-card"><h4>🐞 Errors and crashes</h4><ul><li>Errors and crashes (through Sentry)</li><li>Failed runs</li><li>Forms that trip Job Pilotto up</li></ul></section>
-              <section class="tr-card"><h4>👣 Steps people take</h4><ul><li>Which steps are used (through PostHog)</li><li>Anonymous counts of how it helps: matches, forms filled, replies, interviews, offers</li></ul></section>
-              <section class="tr-card"><h4>📬 How an application went</h4><ul><li>A reply, interview, offer or rejection</li><li>Counted by job board and days only</li><li>Never the company or the role</li></ul></section>
-              <section class="tr-card"><h4>🔎 Searches and jobs</h4><ul><li>Role words you add to widen a search</li><li>Why you dismiss a job, if you tap a reason</li><li>Once a day: jobs per score band, what became of them, which kinds of job board</li><li>Counts only, never a job, title or company</li></ul></section>
-              <section class="tr-card"><h4>📝 Forms</h4><ul><li>Which answers you changed by hand: the form's own question wording, never what you wrote</li><li>Which question wordings stand for which profile field ("preferred first name" = your first name; never your answer)</li><li>How many fields stayed empty and why, per job board</li></ul></section>
-              <section class="tr-card"><h4>🤝 Shared fixes</h4><ul><li>Asks our service for fixes to controls it struggles with</li><li>Sends only the control's anonymous shape, never its text</li><li>Tells you in the form panel when it used one</li></ul></section>
+              <section class="tr-card"><h4>🛠️ Keeping it smooth</h4><ul><li>Anonymous notes when something doesn't work as expected (through Sentry)</li><li>Which forms Job Pilotto finds tricky, so we can teach it</li></ul></section>
+              <section class="tr-card"><h4>📈 How it helps</h4><ul><li>Which steps are used (through PostHog)</li><li>Anonymous counts: matches, forms filled, replies, interviews, offers</li></ul></section>
+              <section class="tr-card"><h4>📬 How applications go</h4><ul><li>A reply, interview, offer or rejection</li><li>Counted by job board and days only, with no company or role</li></ul></section>
+              <section class="tr-card"><h4>🔎 Better searches</h4><ul><li>Role words you add to widen a search</li><li>The reason you dismiss a job, if you tap one</li><li>Once a day: how many jobs sit in each score band, and from which kinds of job board</li><li>Just counts, never a job, title or company</li></ul></section>
+              <section class="tr-card"><h4>📝 Smarter forms</h4><ul><li>Which question wordings match which profile field ("preferred first name" = your first name)</li><li>Which answers you adjusted: the form's own wording, never what you wrote</li><li>How many fields stayed empty and why, per job board</li></ul></section>
+              <section class="tr-card"><h4>🤝 Fixes from the community</h4><ul><li>Job Pilotto can fetch shared fixes for tricky form controls</li><li>It sends only the control's anonymous shape, never its text</li><li>You're told in the form panel when one was used</li></ul></section>
             </div>
-            <p class="tr-foot"><b>Off:</b> no reports and no shared fixes; everything else works as before. Everything sent is listed below.</p>
+            <p class="tr-foot">🔍 Everything sent is listed below, nothing hidden. Turn it off any time: no reports and no shared fixes; everything else works as before.</p>
             <label class="switch-row" id="tester-logs-row" hidden><input type="checkbox" id="tester-logs-on"><span>Beta tester: when a search fails or hangs, also send the last 200 lines of its log (emails, paths, keys and numbers removed first)</span></label>
             <details class="telemetry-shown"><summary>See what's sent</summary><pre class="log" id="telemetry-events">Nothing sent yet.</pre></details>
             <details class="telemetry-shown"><summary>See the shared counts and shapes sent</summary><pre class="log" id="shared-sent">Nothing sent yet.</pre></details>
