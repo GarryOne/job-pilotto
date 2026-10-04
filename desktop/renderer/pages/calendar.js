@@ -46,7 +46,10 @@ function cross(m) {
 }
 
 function chip(m) {
-  const button = el('button', `cal-chip kind-${m.kind}${m.held ? ' held' : ''}`, `${m.held ? '✓ ' : ''}${timeOf(m)} ${name(m)}`.trim());
+  const button = el('button', `cal-chip kind-${m.kind}${m.held ? ' held' : ''}`);
+  const when = `${m.held ? '✓ ' : ''}${timeOf(m)}`.trim();
+  if (when) button.append(el('span', 'cal-chip-time', when));
+  button.append(el('span', 'cal-chip-name', name(m)));
   button.title = `${KINDS[m.kind][0]}${m.round ? ` · ${m.round}` : ''} · ${name(m)}${m.held ? ' (held)' : ''}`;
   button.onclick = () => open(m);
   const x = cross(m);
