@@ -27,6 +27,9 @@ Report something only if, as that job seeker, it would:
  (b) give you a WRONG or MISLEADING picture (a false status, a wrong or contradicting number, an action offered that cannot work, a message that says the opposite of what happened);
  (c) show you raw technical text (an API error, JSON, a stack trace, an internal name) or put your data at risk;
  (d) WASTE your time or make you work around it, or make you stop trusting the app.
+Look hardest where a failure costs a person a job, because that is where a finding is worth the most: finding and scoring jobs (does the list show real matches with honest scores and counts?),
+preparing and sending an application (the CV, the kit, the form fill), tracking what happened (status, next steps, follow-ups, interviews), and anything that silently loses or misstates their data. A real
+problem there is worth reporting; the same problem on a settings label is not.
 For every candidate ask: "would this make me fail, lose time, misread something, or distrust the app?" If the honest answer is "I would barely notice, or not care", say nothing.
 NEVER report: visual style or consistency opinions (emoji versus line icons, icon or button styles, colours, fonts, alignment or spacing of small things), wording or tone, scrollbars, differences between
 a narrow and a wide window, polish, taste, or anything a person would shrug at. Fewer, better: most pages have nothing to report, and the answer is then an empty list: {"findings":[]} is the correct, expected and welcome answer. NEVER invent or pad a problem to have something to say:

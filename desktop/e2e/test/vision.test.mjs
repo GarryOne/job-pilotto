@@ -106,3 +106,8 @@ test('an empty answer is the welcome answer: the prompt forbids inventing or pad
   assert.match(SYSTEM, /\{"findings":\[\]\} is the correct, expected and welcome answer/);
   assert.match(SYSTEM, /NEVER invent or pad a problem/);
 });
+
+test('the review looks hardest at the paths where a failure costs a person a job', () => {
+  assert.match(SYSTEM, /Look hardest where a failure costs a person a job/);
+  assert.match(SYSTEM, /silently loses or misstates their data/);
+});
