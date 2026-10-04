@@ -41,6 +41,20 @@ test('the pipeline runs on the user folder, with AI models only when a key is se
   assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5-5');
 });
 
+test('the end-to-end stand-ins reach the engine only in a test run (its env is a whitelist)', () => {
+  const storage = tempStorage();
+  const parent = {PATH: '/bin', JOB_PILOTTO_E2E_NOTION_BASE_URL: 'http://127.0.0.1:1', JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: 'http://127.0.0.1:2',
+    JOB_PILOTTO_E2E_GOOGLE_BASE_URL: 'http://127.0.0.1:3', GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's', GOOGLE_REFRESH_TOKEN: 'r'};
+  const user = pipeline.pipelineEnv(storage, parent);
+  assert.equal(user.JOB_PILOTTO_E2E_NOTION_BASE_URL, undefined);
+  assert.equal(user.GOOGLE_REFRESH_TOKEN, undefined);
+  const e2e = pipeline.pipelineEnv(storage, {...parent, JOB_PILOTTO_E2E: '1'});
+  assert.equal(e2e.JOB_PILOTTO_E2E_NOTION_BASE_URL, 'http://127.0.0.1:1');
+  assert.equal(e2e.JOB_PILOTTO_E2E_TELEGRAM_BASE_URL, 'http://127.0.0.1:2');
+  assert.equal(e2e.JOB_PILOTTO_E2E_GOOGLE_BASE_URL, 'http://127.0.0.1:3');
+  assert.equal(e2e.GOOGLE_REFRESH_TOKEN, 'r');
+});
+
 test('Trying (no Notion): the engine reads the Profile and answers from this Mac; connected, it never does', () => {
   const storage = tempStorage();
   storage.writeText('profile.md', 'P');

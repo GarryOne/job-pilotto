@@ -3,13 +3,18 @@
 // quitting the app in the middle of a run. Starts from a set-up install; resets only its own run rows in Notion. The task cards and the Recent activity screen are the
 // activity suite, in parallel, on its own Notion page (this split halves the wall-clock time).
 import {badSummary, leaks, sample, watch} from '../lib/activity.mjs';
+import {digestProblems} from '../lib/telegram-fake.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {LABEL, appReady, idsNow, noRowStaysRunning, openPanel, openRun, own, prepare, quiet, runTask, runsData, searchRows, setFeed, sleep} from '../lib/activity-steps.mjs';
 
-export const minutes = 20;
+export const minutes = 40;   // + Notion, Telegram and Gmail failures (5 Oct 2026)
 export const name = 'activityfailures';
 // Notion fails on purpose too (lib/notion-proxy.mjs): busy, an HTML error page, the connection gone.
 export const notionProxy = true;
+// Telegram through a fake Bot API (lib/telegram-fake.mjs): the digest a person receives is read, and Telegram can refuse it.
+export const telegram = true;
+// Gmail through a fake Google (lib/google-fake.mjs): three invented emails, and a revoked sign-in.
+export const google = true;
 // The app reads Notion's run history every 15 s and picks up the jobs of the last session 20 s after launch: both shortened for the journey (never for a user).
 export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_MS: '3000', JOB_PILOTTO_E2E_EXPECTS_FAILURES: '1'};   // this suite breaks things on purpose: its Sentry reports are tagged expected
 export async function run(ctx) {
@@ -108,6 +113,76 @@ export async function run(ctx) {
       await noRowStaysRunning(ctx);
     }, {needs: ctx.needs, faults: true});
   }
+  // ---------- (2c) Telegram (5 Oct 2026) ----------
+  // The digest a person receives, read from the fake Bot API: one message to their chat, readable, every promised job listed. Then Telegram refuses it.
+  const CHAT = '424242';
+  const connectTelegram = on => page.evaluate(async ([chat, on]) => { if (on) await window.pilot.saveSecret('TELEGRAM_BOT_TOKEN', '123456:e2e-fake-token'); await window.pilot.saveSettings({telegramChatId: on ? chat : ''}); }, [CHAT, on]);
+  await ctx.run('with Telegram connected, a Jobs check sends one readable digest to the person\'s chat', async () => {
+    await connectTelegram(true);
+    try {
+      setFeed(ctx, ['Senior Site Reliability Engineer, telegram digest']);
+      const before = ctx.telegram.sent.length;
+      const {fresh} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
+      const mine = ctx.telegram.sent.slice(before).filter(item => item.chat === CHAT);
+      console.log(`  telegram: ${mine.length} message(s); first: ${(mine[0]?.text || '').replace(/\n/g, ' ').slice(0, 140)}`);
+      const problems = [];
+      if (!fresh[0].ok) problems.push('the run did not end ok');
+      if (!mine.length) problems.push('no message reached the person\'s chat');
+      const digests = mine.filter(item => /^✈️/.test(item.text.replace(/<[^>]+>/g, '').trim()));
+      if (digests.length > 1) problems.push(`${digests.length} digests for one check`);
+      for (const item of digests) for (const problem of digestProblems(item.text)) problems.push(`the digest: ${problem}`);
+      for (const leak of leaks(mine.map(item => item.text).join('\n'), {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the message shows ${leak}`);
+      if (problems.length) throw new Error(problems.join('; '));
+    } finally { await connectTelegram(false).catch(() => {}); }
+  }, {needs: ctx.needs, faults: true});
+  await ctx.run('Telegram refuses the digest (the bot was blocked): the run says so in words, never a plain Completed, nothing left Running', async () => {
+    await connectTelegram(true);
+    ctx.telegram.fail('blocked');
+    try {
+      setFeed(ctx, ['Senior Site Reliability Engineer, telegram blocked']);
+      const {fresh, shown} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
+      const mine = shown.find(row => row.id === String(fresh[0].id));
+      const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id, snapAs: 'activity-telegram-blocked', situation: 'A Jobs check whose Telegram digest was refused because the bot was blocked: its detail pane'});
+      console.log(`  telegram blocked: list "${mine?.result}" [${mine?.pill}]; panel [${opened.status}] ${opened.warnings.slice(0, 160)}`);
+      const words = `${opened.warnings} ${opened.warningList} ${opened.result} ${opened.message} ${mine?.result}`;
+      const problems = [];
+      if (/Completed$/.test(opened.status) && !opened.warnings && !opened.warningList) problems.push('the run says plain "Completed" though the digest never reached the person');
+      if (!/telegram/i.test(words)) problems.push('nothing on the run names Telegram as what failed');
+      if (/"ok":\s*false|error_code|Forbidden:/.test(words)) problems.push('Telegram\'s raw answer is shown');
+      if (problems.length) throw new Error(problems.join('; '));
+      await noRowStaysRunning(ctx);
+    } finally { ctx.telegram.pass(); await connectTelegram(false).catch(() => {}); }
+  }, {needs: ctx.needs, faults: true});
+  // ---------- (2d) Gmail (5 Oct 2026) ----------
+  await ctx.run('the Gmail check reads the inbox through Google and ends in words, with nothing left Running', async () => {
+    const before = ctx.google.stats.read;
+    const {fresh, shown} = await runTask(ctx, 'mail', {maxMs: 240000, kind: 'mail'});
+    const mine = shown.find(row => row.id === String(fresh[0].id));
+    console.log(`  gmail: ${ctx.google.stats.read - before} email(s) read of ${ctx.google.count}; ok=${fresh[0].ok}; list: "${mine?.result}" [${mine?.pill}]`);
+    const problems = [];
+    if (ctx.google.stats.read - before < 1) problems.push('no email was read, so nothing was tested');
+    if (!fresh[0].ok) problems.push(`the check did not end ok ("${mine?.result}")`);
+    const bad = badSummary(mine?.result);
+    if (bad) problems.push(`the list's words are wrong: ${bad}`);
+    if (problems.length) throw new Error(problems.join('; '));
+    await noRowStaysRunning(ctx);
+  }, {needs: ctx.needs, faults: true});
+  await ctx.run('Google access revoked: the Gmail check says so in words (connect Google again), never a plain Completed, never Google\'s raw answer', async () => {
+    ctx.google.revoke();
+    try {
+      const {fresh, shown} = await runTask(ctx, 'mail', {maxMs: 240000, kind: 'mail'});
+      const mine = shown.find(row => row.id === String(fresh[0].id));
+      const opened = await openRun(ctx, LABEL.mail, {id: fresh[0].id, snapAs: 'activity-google-revoked', situation: 'A Gmail check whose Google sign-in was revoked: its detail pane'});
+      console.log(`  google revoked: list "${mine?.result}" [${mine?.pill}]; panel [${opened.status}] ${opened.warnings.slice(0, 160)}`);
+      const words = `${opened.warnings} ${opened.warningList} ${opened.result} ${opened.message} ${mine?.result}`;
+      const problems = [];
+      if (/Completed$/.test(opened.status) && !opened.warnings && !opened.warningList) problems.push('the check says plain "Completed" though it could not read the mail');
+      if (!/google|gmail|sign.?in|connect/i.test(words)) problems.push('nothing says the Google sign-in is the problem');
+      if (/invalid_grant|error_description|Token has been expired/.test(words)) problems.push('Google\'s raw answer is shown');
+      if (problems.length) throw new Error(problems.join('; '));
+      await noRowStaysRunning(ctx);
+    } finally { ctx.google.pass(); }
+  }, {needs: ctx.needs, faults: true});
   await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', async () => {
     // The app stops a run that prints nothing for 15 minutes; this test shortens that to 10 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
     await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '10000'});

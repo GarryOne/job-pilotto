@@ -36,6 +36,7 @@ import urllib.request
 from ..notion import client as notion
 from ..notion import titles
 from . import engine
+from ..telegram import api_base as telegram_api_base
 from ..notion.titles import named  # noqa: F401 — the one placeholder rule (job titles too)
 from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
 from . import cost, transcribe
@@ -145,12 +146,12 @@ The candidate's profile follows.
 
 def download(token, file_id, opener=urllib.request.urlopen):
     """(file name, bytes) of a Telegram document, audio or voice note, via getFile (bots: up to 20 MB)."""
-    with opener(f'https://api.telegram.org/bot{token}/getFile?file_id={file_id}', timeout=20) as response:
+    with opener(f'{telegram_api_base()}/bot{token}/getFile?file_id={file_id}', timeout=20) as response:
         info = json.load(response)
     if not info.get('ok'):
         raise RuntimeError(info.get('description', 'Telegram getFile failed'))
     path = info['result']['file_path']
-    with opener(f'https://api.telegram.org/file/bot{token}/{path}', timeout=60) as response:
+    with opener(f'{telegram_api_base()}/file/bot{token}/{path}', timeout=60) as response:
         raw = response.read()
     return path.rsplit('/', 1)[-1], raw
 

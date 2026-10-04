@@ -41,9 +41,15 @@ def to_app(text, reply_markup=None):
     print(f'{APP_MESSAGE[0]}\n{plain(text)}\n{APP_MESSAGE[1]}')
 
 
+def api_base():
+    """Telegram's Bot API, or the end-to-end tests' fake (desktop/e2e/lib/telegram-fake.mjs): only in a test run."""
+    override = os.environ.get('JOB_PILOTTO_E2E_TELEGRAM_BASE_URL', '')
+    return override.rstrip('/') if os.environ.get('JOB_PILOTTO_E2E') and override else 'https://api.telegram.org'
+
+
 def send(text, token, chat_id, reply_markup=None):
     MESSAGES.append(text)
-    endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
+    endpoint = f"{api_base()}/bot{token}/sendMessage"
     fields = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}
     if reply_markup:
         fields['reply_markup'] = json.dumps(reply_markup)

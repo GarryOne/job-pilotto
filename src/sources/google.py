@@ -53,6 +53,15 @@ def _keychain(service):
     return secret_store.get(service)
 
 
+def e2e_url(url):
+    """In a test run, Google's hosts become the end-to-end tests' fake (desktop/e2e/lib/google-fake.mjs): <base>/<host>/<path>."""
+    base = os.environ.get('JOB_PILOTTO_E2E_GOOGLE_BASE_URL', '')
+    if not (os.environ.get('JOB_PILOTTO_E2E') and base):
+        return url
+    parts = urllib.parse.urlsplit(url)
+    return f"{base.rstrip('/')}/{parts.netloc}{parts.path}{'?' + parts.query if parts.query else ''}"
+
+
 def credentials():
     """(client id, client secret, refresh token) from the environment (CI) or the Keychain, or None."""
     values = [os.getenv(name) or _keychain(service) for name, service in KEYCHAIN.items()]
@@ -77,7 +86,7 @@ class Google:
             body = urllib.parse.urlencode({'client_id': self.client_id, 'client_secret': self.client_secret,
                                            'refresh_token': self.refresh_token, 'grant_type': 'refresh_token'}).encode()
             try:
-                with self.opener(urllib.request.Request(TOKEN_URL, data=body), timeout=20) as response:
+                with self.opener(urllib.request.Request(e2e_url(TOKEN_URL), data=body), timeout=20) as response:
                     self._token = json.load(response)['access_token']
             except urllib.error.HTTPError as error:
                 raise RuntimeError(f'Google token refresh failed ({error.code}): {error.read().decode(errors="replace")[:200]}') from error
@@ -86,7 +95,7 @@ class Google:
     def get(self, url, params=None):
         if params:
             url += '?' + urllib.parse.urlencode(params, doseq=True)
-        request = urllib.request.Request(url, headers={'Authorization': f'Bearer {self._access_token()}'})
+        request = urllib.request.Request(e2e_url(url), headers={'Authorization': f'Bearer {self._access_token()}'})
         with self.opener(request, timeout=30) as response:
             return json.load(response)
 

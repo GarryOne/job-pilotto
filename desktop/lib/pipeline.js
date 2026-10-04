@@ -85,6 +85,12 @@ export function pipelineEnv(storage, parent = process.env) {
   if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;
   // The end-to-end journey (desktop/e2e) sends the engine's AI calls through its own slow proxy to reproduce a slow AI; never set for a user.
   if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = parent.JOB_PILOTTO_E2E_AI_BASE_URL;
+  // The end-to-end journey's stand-ins for Notion, Telegram and Google (desktop/e2e/lib/*-proxy|fake.mjs), and the fake Google sign-in that goes with its fake Gmail.
+  // Only in a test run: the engine's env is a whitelist, so without this the engine's own calls went straight to the real services (5 Oct 2026).
+  if (parent.JOB_PILOTTO_E2E) {
+    for (const name of ['JOB_PILOTTO_E2E_NOTION_BASE_URL', 'JOB_PILOTTO_E2E_TELEGRAM_BASE_URL', 'JOB_PILOTTO_E2E_GOOGLE_BASE_URL']) if (parent[name]) env[name] = parent[name];
+    if (parent.JOB_PILOTTO_E2E_GOOGLE_BASE_URL) for (const name of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) if (parent[name]) env[name] = parent[name];
+  }
   // The AI engine the user chose (lib/claude-code.js): their own Claude Code on this Mac, or the API key.
   Object.assign(env, claudeCode.pipelineVariables(settings, !!env.ANTHROPIC_API_KEY));
   if (claudeCode.aiReady(settings, !!env.ANTHROPIC_API_KEY)) {
