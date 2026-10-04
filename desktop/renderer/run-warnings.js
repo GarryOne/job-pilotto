@@ -71,6 +71,9 @@ export function groupWarnings(warnings) {
   return out;
 }
 
+// The grouped lines minus those that only say again what the banner's "AI service is busy" sentence says.
+export const newDetails = grouped => grouped.filter(line => !/^(?!Skipped )(?:[^:]*: )?the AI service is rate-limited right now$/.test(line));
+
 // How many jobs the spend limit left unscored: the ones that failed on it, and those the run stopped before.
 export function limitedJobs(warnings) {
   if (!warnings.some(text => LIMIT.test(text))) return 0;
