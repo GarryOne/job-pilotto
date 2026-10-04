@@ -18,7 +18,8 @@ export const runWarningLines = run => runWarnings([
 
 // The Anthropic account's spend limit, in any of its wordings (a line cut short still counts when another says it).
 const LIMIT = /usage limits?|credit balance|AI limit reached|spending limit/i;
-const SKIPPED = /^Skipped job (\S+): (.*)$/;
+export const isSpendingLimit = text => LIMIT.test(String(text || ''));
+const SKIPPED =/^Skipped job (\S+): (.*)$/;
 // "N job(s) not read by AI / not scored / left for the next check": the same loss, said three ways by the pipeline.
 const UNSCORED = /^(?:AI limit reached[^,]*,\s*)?(\d+)\s+job\(s\)\s+(?:left for the next check|not read by AI|not scored|not enriched|not ranked)/i;
 

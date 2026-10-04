@@ -9,7 +9,7 @@ import {showCvChanged} from './cv-change.js';
 import {renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
-import {humanError} from '../run-warnings.js';
+import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
@@ -267,11 +267,19 @@ export async function init() {
     button.classList.add('busy');
     $('cv-message').textContent = 'Reading your CV… (about 30 s)';
     const result = await window.pilot.importCv();
-    button.disabled = false;
+    const limited = !result.ok && isSpendingLimit(humanError(result.error));
+    button.disabled = limited;  // another read would fail the same way until credit is added
     button.classList.remove('busy');
+    show($('cv-limit-link'), limited);
     shared.cvReadFailed = !result.ok;
     $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : cvError(result.error, 'read');
     loadCvSetting();
+  });
+  $('cv-limit-link').addEventListener('click', event => {
+    event.preventDefault();
+    window.pilot.openExternal('https://console.anthropic.com/settings/limits');
+    $('cv-import').disabled = false;
+    show($('cv-limit-link'), false);
   });
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));
   $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi()));
