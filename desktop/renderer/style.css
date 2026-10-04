@@ -1094,10 +1094,11 @@ main { min-width: 0; }
 /* Funnel: tiles with a bar and the share of the first step, chevrons between */
 .funnel-steps { list-style: none; padding: 0; margin: 0; display: flex; align-items: stretch; gap: var(--sp-1); }
 .funnel-step { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3); background: var(--surface-2); border-radius: var(--r-md); }
+.funnel-hit { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; min-width: 0; outline: none; }
 .is-empty .funnel-steps { opacity: .55; }
 .funnel-step.is-weak { background: var(--warn-soft); }
 .funnel-step.is-link { cursor: pointer; border: 1px solid transparent; }
-.funnel-step.is-link:hover, .funnel-step.is-link:focus-visible { border-color: var(--line-strong); }
+.funnel-step.is-link:hover, .funnel-step.is-link:focus-within { border-color: var(--line-strong); }
 .funnel-step.is-link:hover .funnel-name { color: var(--signal-ink); text-decoration: underline; }
 .funnel-name { font-size: var(--fs-sm); color: var(--ink-2); }
 .funnel-count { font-size: var(--fs-xl); line-height: 1.2; }
