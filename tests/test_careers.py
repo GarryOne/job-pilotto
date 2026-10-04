@@ -50,6 +50,14 @@ class ReadingTests(unittest.TestCase):
                          ('Site Reliability Engineer', 'Zürich, Switzerland', '2026-10-01', 'https://acme.ch/jobs/sre-1'))
         self.assertEqual((job['description'], job['salary']), ('Run our Kubernetes platform.', 'CHF 120000–150000'))
 
+    def test_an_address_given_as_a_list_or_a_bare_place_does_not_crash(self):
+        addr = {'@type': 'PostalAddress', 'addressLocality': 'Zürich', 'addressCountry': 'CH'}
+        for places in ([addr], {'address': [addr]}, [{'address': [addr, addr]}], ['Zürich'], [None], [{'address': 5}]):
+            jobs = careers.jsonld_jobs(page({**POSTING, 'jobLocation': places}), 'https://acme.ch/')
+            self.assertEqual(len(jobs), 1)
+        job, = careers.jsonld_jobs(page({**POSTING, 'jobLocation': {'address': [addr]}}), 'https://acme.ch/')
+        self.assertEqual(job['location'], 'Zürich, Switzerland')
+
     def test_postings_inside_a_graph_and_bad_json_are_handled(self):
         markup = page({'@graph': [{'@type': 'WebSite'}, POSTING]}) + '<script type="application/ld+json">{broken</script>'
         self.assertEqual(len(careers.jsonld_jobs(markup, 'https://acme.ch/')), 1)

@@ -176,9 +176,16 @@ def jsonld_jobs(markup, url):
             places = places if isinstance(places, list) else [places]
             where = []
             for place in places:
-                address = (place or {}).get('address') or {}
+                if isinstance(place, str):
+                    where.append(place)
+                    continue
+                address = (place.get('address') if isinstance(place, dict) else None) or {}
+                if isinstance(address, list):
+                    address = next((a for a in address if a), {})
                 if isinstance(address, str):
                     where.append(address)
+                    continue
+                if not isinstance(address, dict):
                     continue
                 country = address.get('addressCountry') or ''
                 country = country.get('name', '') if isinstance(country, dict) else str(country)
