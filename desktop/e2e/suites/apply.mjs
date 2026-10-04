@@ -44,7 +44,7 @@ export async function run(ctx) {
   const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
-  await ctx.run('the app has an applicant, four jobs with drafted kits, and an AI that answers only what the kits do not', async () => {
+  await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
     for (const form of [...Object.values(FORMS), CHAIN]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
@@ -67,7 +67,7 @@ export async function run(ctx) {
     await page.waitForFunction(wanted => wanted.every(url => (window.__jp.shared.allJobs || []).some(job => job.url === url && job.kit)), urls, {timeout: 120000, polling: 2000})
       .catch(async () => {
         const seen = await page.evaluate(() => (window.__jp.shared.allJobs || []).map(job => `${job.company} [${job.stage}${job.kit ? ', kit' : ''}]`));
-        throw new Error(`the Jobs list never showed the four kit jobs with an Apply button; it holds ${seen.length}: ${seen.join('; ')}`);
+        throw new Error(`the Jobs list never showed every kit job with an Apply button; it holds ${seen.length}: ${seen.join('; ')}`);
       });
     ctx.browser = await launchBrowser({port: forms.port, spool: ctx.shim.spool, extensionDir: ctx.extensionDir});
     await ctx.browser.serviceWorker();
@@ -124,6 +124,19 @@ export async function run(ctx) {
     if (!panel) throw new Error('no Job Pilotto panel on the form');
     console.log(`  panel: "${panel.progress}"; left for you: ${panel.left.join(' | ') || 'nothing'}`);
     fail(leftProblems(panel.left, ['privacy']));
+  }, {needs: ctx.needs});
+
+  await ctx.run('a Workday-shaped form: answers fill fields known only by opaque ids and aria labels, the list-button question is left for you by name, Submit untouched', async () => {
+    const form = FORMS.workday;
+    const {tab, state} = await apply(form);
+    if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
+    const actual = await readForm(tab);
+    fail([...fillProblems({expected: {...expectedOf(form), 'input-2': CONTACT.first_name, 'input-3': CONTACT.last_name, 'input-4': CONTACT.email}, actual}),
+      ...submitProblems(forms.fired, form.path)]);
+    const panel = await panelOf(tab);
+    if (!panel) throw new Error('no Job Pilotto panel on the form');
+    console.log(`  workday panel: "${panel.progress}"; left for you: ${panel.left.join(' | ') || 'nothing'}`);
+    fail(leftProblems(panel.left, ['hear about us']));
   }, {needs: ctx.needs});
 
   await ctx.run('a Lever-like form: a field rendered late is filled, the question no kit covers is answered by the AI and highlighted', async () => {

@@ -8,7 +8,7 @@ import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
 
-export const HOSTS = ['boards.greenhouse.io', 'jobs.lever.co', 'e2e.recruitee.com'];
+export const HOSTS = ['boards.greenhouse.io', 'jobs.lever.co', 'e2e.recruitee.com', 'e2e.wd3.myworkdayjobs.com'];
 const LEVER_ID = '5e2e5e2e-0000-4000-8000-00000000a001';
 
 // One entry per form. `kit` is what the job's drafted kit holds for it (field ids of the form); `legal` the ids the extension must leave to the person even
@@ -45,6 +45,17 @@ export const FORMS = {
       {field: 'consent_data', question: 'I agree to the processing of my personal data (privacy policy)', answer: 'checked', needs_review: false},
     ],
     legal: ['consent_data'],
+  },
+  // Workday's own shape (5 Oct 2026): opaque ids (input-7), labels tied only by aria-labelledby with the star in an <abbr>, aria-required instead of `required`,
+  // a "How Did You Hear About Us?" that is a button opening a list (not a <select>), and data-automation-id everywhere. The kit's answers fill by id; the
+  // dropdown cannot be filled and must be left to the person, by name.
+  workday: {
+    title: 'Site Reliability Engineer', company: 'E2E Workday Corp', host: 'e2e.wd3.myworkdayjobs.com', path: '/en-US/E2E/job/Zurich/Site-Reliability-Engineer_R1001/apply',
+    kit: [
+      {field: 'input-7', question: 'How many years of experience do you have with AWS?', answer: '6', needs_review: false},
+      {field: 'input-9', question: 'What is your notice period?', answer: '3 months', needs_review: false},
+    ],
+    dropdown: 'How Did You Hear About Us?', legal: [],
   },
   unknown: {
     title: 'Infrastructure Engineer', company: 'E2E Unknown Widget Inc', host: 'boards.greenhouse.io', path: '/e2e/jobs/4001004',
@@ -171,6 +182,16 @@ const PAGES = {
   ${consent('consent_data', 'I agree to the processing of my personal data (privacy policy)')}
   ${submit}</section></form>`,
   `document.getElementById('next_step').addEventListener('click', () => { document.getElementById('step1').hidden = true; document.getElementById('step2').hidden = false; });`),
+  workday: form => {
+    const wd = (id, auto, label, {type = 'text', required = true, tag = 'input'} = {}) => `<div class="field" data-automation-id="formField-${auto}"><label id="lbl-${id}">${esc(label)}${required ? '<abbr title="required">*</abbr>' : ''}</label>` +
+      (tag === 'textarea' ? `<textarea id="${id}" data-automation-id="${auto}" aria-labelledby="lbl-${id}"${required ? ' aria-required="true"' : ''} rows="3"></textarea>` : `<input id="${id}" data-automation-id="${auto}" type="${type}" aria-labelledby="lbl-${id}"${required ? ' aria-required="true"' : ''}>`) + '</div>';
+    return page(form, `<div data-automation-id="applyFlowPage"><h2 data-automation-id="pageHeader">My Information</h2><form id="application_form" data-automation-id="applyFlowForm">
+  ${wd('input-2', 'legalNameSection_firstName', 'First Name')}${wd('input-3', 'legalNameSection_lastName', 'Last Name')}${wd('input-4', 'email', 'Email Address', {type: 'email'})}
+  <div class="field" data-automation-id="formField-resume"><label id="lbl-input-5">Resume/CV<abbr title="required">*</abbr></label><input id="input-5" data-automation-id="file-upload-input-ref" type="file" aria-labelledby="lbl-input-5" aria-required="true"></div>
+  <div class="field" data-automation-id="formField-source"><label id="lbl-source">${esc(form.dropdown)}<abbr title="required">*</abbr></label><button type="button" id="source" data-automation-id="sourcePrompt" aria-haspopup="listbox" aria-labelledby="lbl-source" aria-required="true">Select One</button></div>
+  ${wd('input-7', 'questionnaire_aws', form.kit[0].question)}${wd('input-9', 'questionnaire_notice', form.kit[1].question, {tag: 'textarea'})}
+  <div class="field"><button type="submit" id="submit_app" data-automation-id="bottom-navigation-next-button">Submit</button></div></form></div>`);
+  },
   submitter: (form, done = false) => page(form, `${done ? '<p id="done" style="padding:8px;background:#e6f4ea">Your application has been successfully submitted. Thank you, we have received your application.</p>' : ''}<form id="application_form" method="post" action="${form.path}">
   ${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'Email', {type: 'email', required: true})}${resume}
   ${field('question_4001', 'Years of experience with Linux', {required: true})}${submit}</form>`, '', {realSubmit: true}),

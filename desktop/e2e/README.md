@@ -229,3 +229,6 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 - **`lib/google-fake.mjs`**: a fake Google (`export const google = true`) with three of the mailreading eval's invented emails and a fake sign-in; `src/sources/google.py` `e2e_url` routes to it in a test run. `activityfailures` runs a real Gmail check on them, then one with the sign-in revoked.
 - **The engine gets the stand-ins too.** Its environment is a whitelist (`desktop/lib/pipeline.js` `pipelineEnv`): the Notion, Telegram and Google base URLs (and the fake Google sign-in) are passed on only with `JOB_PILOTTO_E2E`. Before this, the Notion stand-in only saw the app's own calls.
 - **The code review reads every product commit**: each run starts where the last review that ran ended (its `code-review` artifact) and carries the commits the 20-commit cap left out; every 4 hours.
+
+## A Workday-shaped form (5 Oct 2026)
+`apply` fills a form written the way Workday writes them (`FORMS.workday`, host `e2e.wd3.myworkdayjobs.com`): opaque ids, labels tied only by `aria-labelledby`, `aria-required`, a list button instead of a `<select>`. The kit's answers and the person's details must be filled, the list-button question left for the person by name, Submit untouched.
