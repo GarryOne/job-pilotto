@@ -1,0 +1,92 @@
+name: UI loop · Finder self-review
+# The Finder learns from its own week (owner, 4 Oct 2026: "make the Finder and Fixer autonomous"): the facts are the false positives' verdict reasons,
+# harness issues, duplicates, detector misses and fixes handed to a person (desktop/e2e/finder-review.mjs, no AI). Claude Code (Sonnet, 30 turns) proposes
+# at most 3 rule/prompt changes in desktop/e2e with a test each (desktop/e2e/finder-review-prompt.md). The e2e unit tests must pass; ONE PR, never merged by itself.
+on:
+  schedule:
+    - cron: '0 17 * * 6'  # Saturday 17:00 UTC: a week of findings, a day before the rules self-review
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+  id-token: write
+
+concurrency:
+  group: finder-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 50
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install the e2e tools (as e2e.yml's plan job, which runs the same tests)
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: The AI budget allows it
+        id: budget
+        run: node desktop/e2e/ai-budget.mjs --check
+      - name: Gather the Finder's week (no AI)
+        if: steps.budget.outputs.skip != 'true'
+        run: node desktop/e2e/finder-review.mjs .finder-review
+      - name: Claude Code proposes Finder changes
+        if: steps.budget.outputs.skip != 'true'
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: >-
+            --model claude-sonnet-5-5 --max-turns 30
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git show:*),Bash(git log:*),Bash(cd desktop/e2e && npm test:*),Bash(npm test:*),Bash(node --test:*)"
+          prompt: |
+            Follow desktop/e2e/finder-review-prompt.md exactly. The facts are in .finder-review/facts.md.
+      - name: The AI's cost and limit
+        if: always() && steps.budget.outputs.skip != 'true'
+        run: node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job "Finder self-review"
+      - uses: actions/upload-artifact@v6
+        if: always() && steps.budget.outputs.skip != 'true'
+        with:
+          name: ai-cost-finder-review
+          path: ${{ runner.temp }}/ai-cost.json
+          if-no-files-found: ignore
+      - name: Check, test, open the pull request
+        if: steps.budget.outputs.skip != 'true'
+        run: |
+          changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v '^\.finder-review/' || true)
+          if [ -z "$changed" ]; then
+            { echo "## Finder self-review: no changes proposed"; cat .finder-review/summary.md 2>/dev/null || echo "Claude made no edits."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          bad=$(echo "$changed" | grep -v -E '^desktop/e2e/(lib/[a-z0-9-]+\.mjs|test/[a-z0-9-]+\.test\.mjs|[a-z-]+-prompt\.md)$' || true)
+          if [ -n "$bad" ]; then
+            { echo "## Finder self-review: refused"; echo "Edits outside the Finder's files:"; echo '```'; echo "$bad"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if ! (cd desktop/e2e && npm test > ../../.finder-review/test.log 2>&1); then
+            { echo "## Finder self-review: its change failed the e2e unit tests, no PR"; echo '```'; tail -40 .finder-review/test.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          [ -s .finder-review/pr-body.md ] || echo "Finder: weekly self-review changes" > .finder-review/pr-body.md
+          title=$(head -1 .finder-review/pr-body.md | node -e 'let s=require("fs").readFileSync(0,"utf8").trim(); while (Buffer.byteLength(s) > 72) s = s.slice(0, -1); process.stdout.write(s)')
+          { tail -n +2 .finder-review/pr-body.md; echo; echo "Opened by the Finder's weekly self-review (finder-review.yml) from the week's verdict reasons and misses. It never merges itself."; } > .finder-review/body.md
+          branch="finder-review/$(date -u +%Y-%m-%d)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$branch"
+          echo "$changed" | xargs git add --
+          git commit -q -m "$title"
+          git push -q origin "$branch"
+          url=$(gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .finder-review/body.md)
+          { echo "## Finder self-review: PR opened"; echo "$url"; } >> "$GITHUB_STEP_SUMMARY"
