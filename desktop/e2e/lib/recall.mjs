@@ -23,6 +23,11 @@ export const PLANTS = [
   // restores that old column (the whole sidebar scrolls, scrollbar hidden), or one that does not scroll at all; <style> goes with the plant when it is taken out.
   {id: 'menu-hidden-scroll', detector: 'layout', expect: 'hidden-scroll', html: '<style>.app{height:520px !important}.sidebar{overflow-y:auto !important;scrollbar-width:none !important}.sidebar .nav-scroll{display:contents !important}</style>'},
   {id: 'menu-unreachable', detector: 'layout', expect: 'unreachable-control', html: '<style>.app{height:520px !important}.sidebar{overflow:hidden !important}.sidebar .nav-scroll{display:contents !important}</style>'},
+  // SERIOUS bugs (5 Oct 2026): a wrong result, not a look. Recall used to plant only surface defects, so it could not say whether the Finder catches what matters.
+  // A month grid that lost a day (#120, #122), and a failed run whose steps are all ticked (#104). Each builds the page's own structure inside the plant.
+  {id: 'calendar-day-missing', detector: 'layout', expect: 'wrong-result', html: '<b id="cal-title">October 2026</b><div id="cal-grid">' + Array.from({length: 31}, (_, i) => i + 1).filter(day => day !== 4).map(day => `<div class="cal-cell"><span class="cal-num">${day}</span></div>`).join('') + '</div>'},
+  {id: 'failed-run-all-ticked', detector: 'layout', expect: 'wrong-result', html: '<span id="activity-status"><span class="pill">Failed</span></span><ol id="activity-phases"><li class="done">Searching</li><li class="done">Reading and scoring</li><li class="done">Saving</li></ol>'},
+  {id: 'completed-run-step-failed', detector: 'layout', expect: 'wrong-result', html: '<span id="activity-status"><span class="pill">Completed</span></span><ol id="activity-phases"><li class="done">Searching</li><li class="fail">Reading and scoring</li></ol>'},
   {id: 'uncaught-error', detector: 'journey', expect: 'recall planted error', run: () => setTimeout(() => { throw new Error('recall planted error'); }, 0)},
   {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(new Error('recall planted rejection')); }},
 ];

@@ -121,6 +121,36 @@ export function inspect({view, limits}) {
         : `"${snippet(control)}" is cut off at this window size and nothing scrolls, so the person cannot reach it`});
     }
   }
+  // WRONG RESULTS the page states about itself (5 Oct 2026): the serious bugs the Finder found only by luck. Two parts of one screen that must agree, checked exactly.
+  // A month grid must hold every day of its month once, in order: #120 and #122 lost Sunday 4 October in a time zone.
+  // By id, but every visible one: a recall plant repeats the ids inside the page showing.
+  const shown = id => [...document.querySelectorAll(`[id="${id}"]`)].filter(visible);
+  for (const grid of shown('cal-grid')) {
+    const days = [...grid.querySelectorAll('.cal-cell:not(.out) .cal-num')].map(node => Number(node.textContent));
+    const title = ((grid.parentElement?.querySelector('[id="cal-title"]') || shown('cal-title')[0])?.textContent || '').trim();
+    const first = new Date(`1 ${title}`);
+    const want = Number.isNaN(first.getTime()) ? 0 : new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const missing = [], repeated = [];
+    const top = want || Math.max(0, ...days);
+    for (let day = 1; day <= top; day++) { const n = days.filter(value => value === day).length; if (!n) missing.push(day); else if (n > 1) repeated.push(day); }
+    const ordered = days.every((value, i) => !i || value > days[i - 1]);
+    if (days.length && (missing.length || repeated.length || !ordered || (want && days.length !== want))) {
+      found.push({view, severity: 'warning', kind: 'wrong-result', detail: `the month grid of "${title}" is wrong: ${[missing.length ? `day ${missing.join(', ')} missing` : '', repeated.length ? `day ${repeated.join(', ')} twice` : '', !ordered ? 'days out of order' : '', want && days.length !== want ? `${days.length} days shown, the month has ${want}` : ''].filter(Boolean).join('; ')}`});
+    }
+  }
+  // A run's status pill and its steps must tell the same story: #104 showed a Failed run with every step ticked green.
+  for (const [i, status] of shown('activity-status').entries()) {
+    const phases = shown('activity-phases')[i];
+    if (!phases) continue;
+    const said = (status.textContent || '').trim();
+    const steps = [...phases.children].filter(item => visible(item) && !item.classList.contains('update'));
+    const all = name => steps.length > 0 && steps.every(item => item.classList.contains(name));
+    const any = name => steps.some(item => item.classList.contains(name));
+    const wrong = /fail/i.test(said) && all('done') ? `the run says "${said}" but every step is ticked done`
+      : /warning/i.test(said) && all('done') && !any('warn') ? `the run says "${said}" but every step is ticked done and none is marked`
+      : /^completed$/i.test(said) && any('fail') ? `the run says "${said}" but a step is marked failed` : '';
+    if (wrong) found.push({view, severity: 'warning', kind: 'wrong-result', detail: wrong});
+  }
   return found;
 }
 

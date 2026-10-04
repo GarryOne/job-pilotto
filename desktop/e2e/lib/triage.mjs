@@ -25,7 +25,8 @@ export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) &
 // The probe's own grading: a dead or broken control confuses (medium); a call with no sign of work is barely noticeable (low) until the person waits seconds for it (medium).
 const SLOW_NOTICEABLE_MS = 3000;
 // A deterministic check's own words, in the owner's levels: an exact severe check is high; of the warnings, tiny text and a tall table cell are polish, the rest confuse a little.
-export const layoutSeverity = item => item.severity === 'severe' ? 'high' : ['tiny-text', 'tall-cell'].includes(item.kind) ? 'low' : item.kind === 'a11y' ? a11ySeverity(item) : 'medium';
+// A page that states a wrong result about itself (`wrong-result`) is high: it misleads the person (the owner's definition). Deterministic, so it is never low.
+export const layoutSeverity = item => item.severity === 'severe' || item.kind === 'wrong-result' ? 'high' : ['tiny-text', 'tall-cell'].includes(item.kind) ? 'low' : item.kind === 'a11y' ? a11ySeverity(item) : 'medium';
 // axe's own impact, through a job seeker's eyes (owner, 4 Oct 2026, on #146: a link at 4.0:1 instead of 4.5:1 is not a medium): only a critical barrier (a control no keyboard or screen reader can use)
 // is worth an issue (medium); serious, moderate and minor are low, so they are not filed. The contrast fixes still happen when someone touches that CSS.
 export const a11ySeverity = item => { const impact = /\d+ element\(s\), (critical|serious|moderate|minor)/.exec(item.detail || '')?.[1]; return impact ? (impact === 'critical' ? 'medium' : 'low') : 'medium'; };
@@ -102,7 +103,9 @@ export const labelFor = id => `fp:${id}`.slice(0, 50);
 export const BLOCKING_AI_KINDS = ['functionality', 'error-shown'];
 export function blockers(findings, issues) {
   return findings.filter(finding => finding.severity === 'high' && finding.source !== 'suite-failure').filter(finding => {
-    if (finding.source === 'layout-check') return true;   // deterministic and "severe" only for a sideways-scrolling page, a row hundreds of pixels tall, a broken image
+    // A new deterministic truth check blocks only once it is a real open issue (seen twice, or confirmed), like an AI finding: one buggy check must not stop a release.
+    if (finding.source === 'layout-check' && finding.kind !== 'wrong-result') return true;
+    if (finding.kind === 'wrong-result') { const issue = matchExisting(finding, issues); return !!issue && (sightings(issue) >= SIGHTINGS_NEEDED || (issue.labels || []).some(item => (item.name || item) === CONFIRMED)); }   // deterministic and "severe" only for a sideways-scrolling page, a row hundreds of pixels tall, a broken image
     if (!BLOCKING_AI_KINDS.includes(finding.kind)) return false;
     const issue = matchExisting(finding, issues);
     return !!issue && (sightings(issue) >= SIGHTINGS_NEEDED || (issue.labels || []).some(item => (item.name || item) === CONFIRMED));

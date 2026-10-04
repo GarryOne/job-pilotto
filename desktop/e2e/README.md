@@ -203,9 +203,14 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 
 ## Is the Finder too restrictive? Three answers (4 Oct 2026)
 1. **Raised but not filed.** Every run's summary (ui-findings) lists what the filters cut, with why: low severity, no stated impact (the AI review's own shape rules, `parseFindingsDetailed`, record it in `ai-findings.json` → `dropped`), over the 3-new-AI-issues cap, or matching a closed false positive. No extra AI cost: the AI already returned them. A real bug that is missing should show up in that table.
-2. **Plant what the owner finds.** The recall benchmark (`lib/recall.mjs`) now has 15 plants; `menu-hidden-scroll` and `menu-unreachable` reproduce the owner's cut-off menu at a short window. Each bug the Finder misses and the owner finds becomes a plant, so it is tested for good.
+2. **Plant what the owner finds.** The recall benchmark (`lib/recall.mjs`) now has 18 plants (3 of them serious: a calendar month that lost a day, a Failed run with every step ticked, a Completed run with a failed step); `menu-hidden-scroll` and `menu-unreachable` reproduce the owner's cut-off menu at a short window. Each bug the Finder misses and the owner finds becomes a plant, so it is tested for good.
 3. **Sweep sizes and themes.** `sweep` (`lib/layout.mjs`, in the `interactions` suite) runs the deterministic checks on 8 pages at 1024x640, 1440x900 and 1920x1080 and in both themes (5 combinations), with no screenshot and no AI; findings are warnings, told once with the size and theme they were seen at.
 
 ## Environment failures and repeats in one run (5 Oct 2026)
 - **A step that fails on the environment** (an HTML error page instead of JSON, a dropped connection, Notion busy: `lib/environment.mjs`) is **tried once more** by the runner. Failing twice, it is marked `environment` and listed in the run's summary, **never filed** (#266). AI refusals are not environment: `activityfailures` injects them on purpose.
 - **One problem told twice in one run** (same page and kind from the AI review, other words: #270 and #271) is **one issue**: the most severe stays, the others are listed in its detail (`mergeSameRun`).
+
+## Wrong results, checked exactly (5 Oct 2026)
+- **Truth checks** (`lib/uicheck.mjs`, kind `wrong-result`, filed **high**): a page that contradicts itself. A month grid must hold every day of its month once, in order (#120, #122); a run's status pill and its steps must agree (#104). They run wherever the layout check runs (every visited page, the size and theme sweep). A new truth check blocks a release only once it is a real open issue (seen twice or confirmed).
+- **Screen against source** (`lib/truth-data.mjs`, a step of `jobs`): every scored job in the Jobs list is its Job Matches row with the same score, and no row scored 50+ is missing from the list.
+- **Recall now plants serious bugs** too, so it measures whether the Finder catches a wrong result, not only a broken look.

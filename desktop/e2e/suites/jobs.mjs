@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {longestSilence, watch} from '../lib/activity.mjs';
-import {emptyDatabase, findPage} from '../lib/notion.mjs';
+import {emptyDatabase, findPage, rows} from '../lib/notion.mjs';
+import {compareJobs} from '../lib/truth-data.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {varyFeeds} from '../lib/feeds.mjs';
@@ -65,6 +66,13 @@ export async function run(ctx) {
       for (let waited = 0; !(await has()) && waited < 120000; waited += 5000) await page.waitForTimeout(5000);
       if (!(await has())) throw new Error(`the added match "${varied.match}" (in "${varied.place}") was not kept and scored; scored: ${(await scored()).map(job => job.title).join('; ')}`);
     }
+  }, {needs: ctx.needs});
+  await ctx.run('every scored job in the Jobs list is its Notion row, with the same score, and none is missing', async () => {
+    // Screen against source: a list that drops, adds or rescored a job is a wrong result no screenshot shows (lib/truth-data.mjs).
+    const app = await page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '') && job.fit != null && job.fit !== '').map(job => ({url: job.url, title: job.title, fit: job.fit})));
+    const notion = await rows(NOTION, 'Job Matches — AI Scored');   // emptied at the start of this suite: only this run's fixture jobs
+    const problems = compareJobs(app, notion);
+    if (problems.length) throw new Error(problems.slice(0, 5).join('; '));
   }, {needs: ctx.needs});
   await ctx.run('Find new employers probes the seed company and lists it in Notion', async () => {
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(ctx.profile, 'config', 'scout_seeds.json'));
