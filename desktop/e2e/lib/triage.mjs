@@ -319,7 +319,8 @@ export const rankWeight = (issue, now = Date.now()) => score(issue, now) * (KIND
 // Parked ones (needs-human, wontfix-auto) are left out.
 export function rankIssues(issues, now = Date.now()) {
   const has = (issue, name) => (issue.labels || []).some(item => (item.name || item) === name);
-  return issues.filter(issue => issue.state === 'OPEN' && !(issue.labels || []).some(item => [NEEDS_HUMAN, FALSE_POSITIVE].includes(item.name || item)))
+  // An issue that needs a person is open and the most relevant one to the owner, so it stays on the list, marked (4 Oct 2026: #265 was open with needs-human and #73 said "0 open"); only a false positive drops out.
+  return issues.filter(issue => issue.state === 'OPEN' && !(issue.labels || []).some(item => (item.name || item) === FALSE_POSITIVE))
     .map(issue => ({issue, priority: priorityOf(issue, now), score: score(issue, now), weight: rankWeight(issue, now)}))
     .sort((a, b) => PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || Number(has(a.issue, NOT_SEEN)) - Number(has(b.issue, NOT_SEEN)) || b.weight - a.weight
       || Number(has(a.issue, 'platform:windows')) - Number(has(b.issue, 'platform:windows')) || a.issue.number - b.issue.number);
@@ -369,7 +370,8 @@ export function rankingBody(ranked, now = Date.now(), limit = 12, card = [], fix
     const age = days === null ? '' : days <= 0 ? 'today' : `${days} d ago${days >= 7 ? ' ⚠️' : ''}`;
     const platform = (issue.labels || []).some(item => (item.name || item) === 'platform:windows') ? 'Windows' : 'Mac';
     const clean = (issue.labels || []).some(item => (item.name || item) === NOT_SEEN) ? ' · clean last run' : '';
-    return `| ${index + 1} | **${priority}** | #${issue.number} ${String(issue.title || '').replace(/^\[auto-ui\] /, '').replace(/\|/g, '/').slice(0, 80)} | ${platform} | ${points} | ${[lastBuild(issue) ? `\`${lastBuild(issue)}\`` : '?', age].filter(Boolean).join(' · ')}${clean} |`;
+    const person = (issue.labels || []).some(item => (item.name || item) === NEEDS_HUMAN) ? '🙋 needs a person · ' : '';
+    return `| ${index + 1} | **${priority}** | ${person}#${issue.number} ${String(issue.title || '').replace(/^\[auto-ui\] /, '').replace(/\|/g, '/').slice(0, 80)} | ${platform} | ${points} | ${[lastBuild(issue) ? `\`${lastBuild(issue)}\`` : '?', age].filter(Boolean).join(' · ')}${clean} |`;
   });
   const counts = PRIORITIES.map(band => `${band}: ${ranked.filter(item => item.priority === band).length}`).join(' · ');
   return ['**The open findings, most important first.** Re-ranked after every run.', '', `${counts} · ${ranked.length} open`, '',

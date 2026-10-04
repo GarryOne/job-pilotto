@@ -308,7 +308,7 @@ test('a sidebar issue stays open while the chrome still has a finding, and an is
 const ranked = (number, severity, comments, labels = [], kind = 'layout') => ({number, state: 'OPEN', title: `[auto-ui] focus: finding ${number}`, createdAt: new Date().toISOString(),
   body: `**${severity}** · ${kind} · found by the AI screenshot review\n\nx`, labels: [{name: 'auto-ui'}, ...labels.map(name => ({name}))], comments: Array.from({length: comments}, () => ({body: 'Seen again in run x', createdAt: new Date().toISOString()}))});
 
-test('priority: a wrong-app high finding seen twice is P0; the rest band by severity x sightings; parked ones are not ranked', async () => {
+test('priority: a wrong-app high finding seen twice is P0; the rest band by severity x sightings; a needs-human one stays on the list, a false positive does not', async () => {
   const {priorityOf, rankIssues} = await import('../lib/triage.mjs');
   assert.equal(priorityOf(ranked(1, 'HIGH', 1, [], 'functionality')), 'P0');
   assert.equal(priorityOf(ranked(2, 'HIGH', 1, [], 'text')), 'P1', 'a cosmetic high never blocks a release: P1 at most (3 x 2 = 6)');
@@ -316,8 +316,11 @@ test('priority: a wrong-app high finding seen twice is P0; the rest band by seve
   assert.equal(priorityOf(ranked(3, 'HIGH', 0, ['confirmed'], 'functionality')), 'P0', 'a person confirmed it');
   assert.equal(priorityOf(ranked(4, 'MEDIUM', 0)), 'P3');
   assert.equal(priorityOf(ranked(5, 'MEDIUM', 1)), 'P2');
-  const order = rankIssues([ranked(4, 'MEDIUM', 0), ranked(1, 'HIGH', 1, [], 'functionality'), ranked(5, 'MEDIUM', 1), ranked(6, 'HIGH', 0, ['needs-human']), {...ranked(7, 'HIGH', 3), state: 'CLOSED'}]);
-  assert.deepEqual(order.map(item => item.issue.number), [1, 5, 4]);
+  const order = rankIssues([ranked(4, 'MEDIUM', 0), ranked(1, 'HIGH', 1, [], 'functionality'), ranked(5, 'MEDIUM', 1), ranked(6, 'HIGH', 0, ['needs-human']), ranked(8, 'HIGH', 3, ['wontfix-auto']), {...ranked(7, 'HIGH', 3), state: 'CLOSED'}]);
+  assert.equal(order[0].issue.number, 1);
+  assert.deepEqual(order.map(item => item.issue.number).sort(), [1, 4, 5, 6], 'a person is needed on #6 (it stays, marked); the false positive #8 and the closed #7 are gone');
+  const {rankingBody} = await import('../lib/triage.mjs');
+  assert.match(rankingBody(order), /🙋 needs a person · #6/);
 });
 
 test('after a run every open issue gets one priority label and the pinned list is written once and rewritten only when it changes', () => {
