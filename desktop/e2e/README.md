@@ -200,3 +200,8 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 
 ## The verdict pass's comment (4 Oct 2026)
 `lib/verdict-comment.mjs` lays the comment out: a GitHub alert banner per verdict (✅ real, 🚫 not a bug, 🧪 test problem, 🙋 needs a person), **Why**, **What a person should check** (needs-human only), an **Evidence** table of the file:line references, and **What happens next**. The model writes the verdict word, `Why:` and (for needs-human) `Check:` lines with full paths. The first line is a hidden marker, `<!-- ui-loop-verdict:<word> -->`, which the loop's own code reads (the verdict count, the fixer ignoring loop comments); the weekly self-review reads the Why section.
+
+## Is the Finder too restrictive? Three answers (4 Oct 2026)
+1. **Raised but not filed.** Every run's summary (ui-findings) lists what the filters cut, with why: low severity, no stated impact (the AI review's own shape rules, `parseFindingsDetailed`, record it in `ai-findings.json` → `dropped`), over the 3-new-AI-issues cap, or matching a closed false positive. No extra AI cost: the AI already returned them. A real bug that is missing should show up in that table.
+2. **Plant what the owner finds.** The recall benchmark (`lib/recall.mjs`) now has 15 plants; `menu-hidden-scroll` and `menu-unreachable` reproduce the owner's cut-off menu at a short window. Each bug the Finder misses and the owner finds becomes a plant, so it is tested for good.
+3. **Sweep sizes and themes.** `sweep` (`lib/layout.mjs`, in the `interactions` suite) runs the deterministic checks on 8 pages at 1024x640, 1440x900 and 1920x1080 and in both themes (5 combinations), with no screenshot and no AI; findings are warnings, told once with the size and theme they were seen at.

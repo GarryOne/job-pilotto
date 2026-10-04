@@ -45,7 +45,7 @@ export function chromeKey(item) {
   const words = new Set(Object.entries(CHROME_WORDS).filter(([word]) => new RegExp(`\\b${word}\\b`, 'i').test(text)).map(([, key]) => key));
   return [...words].sort().join('-').slice(0, 40);
 }
-export function normalize({ui = [], ai = [], suite = []}) {
+export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
     const finding = {view: item.view, severity: probed ? probeSeverity(item) : layoutSeverity(item), kind: item.kind,
@@ -68,7 +68,9 @@ export function normalize({ui = [], ai = [], suite = []}) {
   });
   const seen = new Set();
   // Only medium and high are filed (owner, 4 Oct 2026: "if we assess it as low, let's not open it"): a low finding is not worth an issue, a review or a fix.
-  return [...fromUi, ...fromAi, ...fromSuite].filter(item => item.severity !== 'low').filter(item => !seen.has(item.id) && seen.add(item.id));
+  const all = [...fromUi, ...fromAi, ...fromSuite];
+  for (const item of all) if (item.severity === 'low') dropped.push({view: item.view, severity: 'low', kind: item.kind, title: String(item.title || '').slice(0, 80), source: item.source, why: 'low severity (never filed)'});
+  return all.filter(item => item.severity !== 'low').filter(item => !seen.has(item.id) && seen.add(item.id));
 }
 
 export const issueTitle = finding => `[auto-ui] ${finding.view}: ${finding.shown || finding.title}`.slice(0, 120);
@@ -241,6 +243,13 @@ export function capNewAi(plan, max = MAX_NEW_AI_PER_RUN) {
   const rank = item => ({high: 0, medium: 1, low: 2})[item.finding.severity] ?? 3;
   const keep = new Set([...fresh].sort((a, b) => rank(a) - rank(b)).slice(0, max));
   return plan.filter(item => !fresh.includes(item) || keep.has(item));
+}
+// What the filters cut this run, as a table the owner can read (4 Oct 2026: to tell whether the Finder is too restrictive).
+export function droppedTable(dropped, max = 30) {
+  if (!dropped.length) return '';
+  const rows = dropped.slice(0, max).map(item => `| ${String(item.source || 'ai-review').replace(/\|/g, '/')} | ${String(item.view || '').replace(/\|/g, '/')} | ${String(item.severity || '?')} | ${String(item.title || '').replace(/\|/g, '/')} | ${String(item.why).replace(/\|/g, '/')} |`);
+  return ['', `### Raised but not filed: ${dropped.length}`, 'What the filters cut (so a missing bug can be found here): low ones, no stated impact, over the per-run cap, matching a closed false positive.', '',
+    '| Detector | Page | Severity | Finding | Why not filed |', '|---|---|---|---|---|', ...rows, ...(dropped.length > max ? [`| | | | … and ${dropped.length - max} more | |`] : [])].join('\n');
 }
 export function macTwin(finding, issues) {
   const mac = issues.filter(issue => ((issue.labels || []).map(item => item.name || item).find(name => name.startsWith('platform:')) || 'platform:mac') === 'platform:mac');

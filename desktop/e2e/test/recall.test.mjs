@@ -16,7 +16,7 @@ test('every planted bug is caught by its detector, and nothing planted stays', a
     page.on('console', message => { if (message.type() === 'error') journey.consoleErrors.push(message.text()); });
     page.on('requestfailed', request => journey.failedLoads.push(request.url()));
     // Like the app: the page itself never scrolls sideways, the content area does (overflow auto), and the page is long (a plant at the end would be off-screen).
-    await page.setContent('<html lang="en"><head><title>t</title></head><body style="margin:0;overflow:hidden"><main style="height:100vh;overflow:auto"><section class="view" data-view="focus" style="overflow-x:auto"><h1>Focus</h1><p>Up next</p><div style="height:3000px"></div></section></main></body></html>');
+    await page.setContent('<html lang="en"><head><title>t</title></head><body style="margin:0;overflow:hidden"><div class="app" style="height:100vh;position:relative"><nav class="sidebar" style="position:absolute;right:0;top:0;height:100%;width:120px;display:flex;flex-direction:column;overflow-y:auto"><div class="nav-scroll" style="display:flex;flex-direction:column">'+Array.from({length: 16}, (_, n) => `<button style="height:40px;flex:none">Item ${n}</button>`).join('')+'</div></nav></div><main style="height:100vh;overflow:auto"><section class="view" data-view="focus" style="overflow-x:auto"><h1>Focus</h1><p>Up next</p><div style="height:3000px"></div></section></main></body></html>');
     const ipc = {mark: async () => 0, since: async () => []};
     const result = await measureRecall({page, view: 'focus', ipc});
     assert.equal(result.planted, PLANTS.length);

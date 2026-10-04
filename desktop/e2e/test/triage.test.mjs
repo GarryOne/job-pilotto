@@ -561,3 +561,15 @@ test('the ranking includes an issue this run just filed even when the issue list
   assert.ok(views.includes('77'), 'the filed issue was read by its number');
   assert.ok(edits.some(edit => edit.startsWith('issue edit 77') && edit.includes('priority:')), 'and ranked: it got its priority label');
 });
+
+test('what the filters cut is listed with why: low severity, no stated impact, over the cap, a closed false positive', async () => {
+  const {droppedTable} = await import('../lib/triage.mjs');
+  const dropped = [];
+  const out = normalize({dropped, ui: [{view: 'jobs', severity: 'warning', kind: 'tiny-text', detail: 'p text is under 11px'}], ai: [{view: 'focus', severity: 'low', kind: 'layout', title: 'Tight spacing', detail: 'x', impact: 'barely visible spacing here'}]});
+  assert.deepEqual(out, [], 'both are low: nothing filed');
+  assert.deepEqual(dropped.map(item => [item.view, item.why]), [['jobs', 'low severity (never filed)'], ['focus', 'low severity (never filed)']]);
+  const table = droppedTable([...dropped, {view: 'actions', severity: 'medium', title: 'Counts disagree', source: 'ai-review', why: 'matches an issue closed as a false positive'}]);
+  assert.match(table, /### Raised but not filed: 3/);
+  assert.match(table, /\| ai-review \| actions \| medium \| Counts disagree \| matches an issue closed as a false positive \|/);
+  assert.equal(droppedTable([]), '');
+});

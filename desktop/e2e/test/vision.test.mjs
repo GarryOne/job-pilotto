@@ -1,7 +1,7 @@
 // The AI review's answer is only trusted in a fixed shape; a stable fingerprint keeps one problem from becoming a PR every night.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {SYSTEM, buildRequest, fingerprint, parseFindings} from '../lib/vision.mjs';
+import {SYSTEM, buildRequest, fingerprint, parseFindings, parseFindingsDetailed} from '../lib/vision.mjs';
 
 test('only well-formed findings survive, with the page they were found on', () => {
   const reply = 'Here you go: ' + JSON.stringify({findings: [
@@ -123,4 +123,11 @@ test('the review is told what was already judged by design, so it stops spending
   assert.match(SYSTEM, /Already judged BY DESIGN/);
   assert.match(SYSTEM, /text ticker/);
   assert.match(SYSTEM, /count different sets/);
+});
+
+test('the shape rules say what they dropped and why: malformed, no stated impact, more than six on a page', () => {
+  const item = n => ({severity: 'medium', kind: 'text', title: `T${n}`, detail: 'd', impact: 'They lose a minute finding the way.'});
+  const {kept, dropped} = parseFindingsDetailed(JSON.stringify({findings: [item(1), {...item(2), impact: ''}, {severity: 'urgent', kind: 'text', title: 'Bad', detail: 'x', impact: 'x'.repeat(20)}, item(3), item(4), item(5), item(6), item(7)]}), 'jobs');
+  assert.deepEqual(kept.map(row => row.title), ['T1', 'T3', 'T4', 'T5']);
+  assert.deepEqual(dropped.map(row => [row.title, row.why]), [['T2', 'no stated impact'], ['Bad', 'malformed'], ['T6', 'over 6 on one page'], ['T7', 'over 6 on one page']]);
 });

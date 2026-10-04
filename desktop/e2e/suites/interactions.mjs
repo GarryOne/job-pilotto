@@ -3,7 +3,7 @@
 // Nothing that deletes, sends, signs in, leaves the app or spends AI credit is ever pressed (lib/interact.mjs isSafe). Starts from a set-up install.
 import fs from 'node:fs';
 import path from 'node:path';
-import {finish, visitNarrow} from '../lib/layout.mjs';
+import {finish, sweep, visitNarrow} from '../lib/layout.mjs';
 import {WINDOW_SIZES, createVariation} from '../lib/variation.mjs';
 import {probePage} from '../lib/interact.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -58,6 +58,9 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
   await ctx.run('the narrowest window: the sidebar is an icon rail and every page still fits', async () => {
     await visitNarrow(ctx, ['focus', 'jobs', 'actions', 'settings']);
+  }, {needs: ctx.needs});
+  await ctx.run('every page at four window sizes and in both themes: nothing is cut off, unreachable or broken (no screenshots, no AI)', async () => {
+    await sweep(ctx, ['focus', 'jobs', 'actions', 'calendar', 'interviews', 'strategy', 'settings', 'sessions']);
   }, {needs: ctx.needs});
   fs.writeFileSync(path.join(ARTIFACTS, 'interactions.json'), JSON.stringify(all, null, 2));
   await ctx.run('interaction findings are written', async () => {

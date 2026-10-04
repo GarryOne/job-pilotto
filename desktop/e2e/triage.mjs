@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, capNewAi, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, capNewAi, droppedTable, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -80,7 +80,9 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     if (items.some(item => NO_CREDIT.test(item.message || '')) || (!LIMIT_TESTED.includes(suite) && NO_CREDIT.test(logs))) { skipped.push({suite, why: 'the AI had no credit'}); continue; }
     suiteFailures.push({...items[0], also: items.slice(1).map(item => item.step)});
   }
-  const findings = normalize({ui: found['ui-findings.json'].flatMap(file => withDir(file, read(file) || [])), ai: found['ai-findings.json'].flatMap(file => withDir(file, (read(file) || {}).findings || [])),
+  const dropped = [];   // what the filters cut this run, with why (shown in the run's summary)
+  for (const file of found['ai-findings.json']) for (const item of (read(file) || {}).dropped || []) dropped.push({...item, source: 'ai-review', why: `AI answer: ${item.why}`});
+  const findings = normalize({dropped, ui: found['ui-findings.json'].flatMap(file => withDir(file, read(file) || [])), ai: found['ai-findings.json'].flatMap(file => withDir(file, (read(file) || {}).findings || [])),
     suite: suiteFailures});
   // A run on Windows (e2e-windows.yml) files its own issues: a Windows-only break must not hide in a Mac issue, nor a Mac one be cleared by a Windows run.
   if (platform !== 'mac') for (const finding of findings) finding.id = `${finding.id}-${platform.slice(0, 3)}`;
@@ -88,7 +90,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   // Only this platform's issues are matched, marked "not seen" and closed here (the ranking below reads them all again).
   const everything = list();
   let issues = everything.filter(issue => platformOf(issue) === platform);
-  const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null};
+  const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null, dropped};
   const createdNow = [];   // the numbers of the issues this run filed
   const runId = String(runUrl).split('/').pop() || 'run';
   // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
@@ -104,6 +106,8 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     .filter(({finding, existing, twin}) => existing || twin || !suppressedBy(finding, issues));   // a closed false positive stays closed
   const plan = capNewAi(planAll);
   out.capped = planAll.length - plan.length;
+  for (const item of planAll) if (!plan.includes(item)) dropped.push({view: item.finding.view, severity: item.finding.severity, title: item.finding.title, source: 'ai-review', why: 'over the 3-new-AI-issues-per-run cap'});
+  for (const finding of findings) if (!planAll.some(item => item.finding === finding)) dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: 'matches an issue closed as a false positive'});
   const matched = new Set(plan.filter(item => item.existing).map(item => item.existing.number));
   const needsPicture = plan.filter(({existing, twin}) => !twin && (!existing || (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl)))));
 
@@ -326,6 +330,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     else lines.push('Nothing is ready to fix.');
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${candidate ? candidate.number : 'none'}\n`);
   }
+  if (result.dropped?.length) lines.push(droppedTable(result.dropped));
   console.log(lines.join('\n'));
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }

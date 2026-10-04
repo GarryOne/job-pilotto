@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window */
 // Visits pages the way a person does, waits for each to settle, takes a screenshot with the app's own facts beside it (for the AI review), and runs the
 // deterministic layout checks. Findings of a suite are collected in ctx.findings and written once to ui-findings.json.
 import fs from 'node:fs';
@@ -44,6 +44,39 @@ export async function visitNarrow(ctx, views, {width = 1024, height = 640, take 
     }
   } finally {
     await resize(was);
+  }
+}
+
+// The sweep (owner, 4 Oct 2026): the same deterministic checks as every snapshot, on every page, at several window sizes and in both themes, with no screenshot and no AI (so no cost). The
+// menu bug showed only at the smallest height; a size or theme nobody looks at hides its bugs. Findings are warnings (never fail a journey), once per page, kind and element, and name the
+// size and theme they were seen at.
+export const SWEEP = [[1024, 640, 'light'], [1024, 640, 'dark'], [1440, 900, 'light'], [1920, 1080, 'light'], [1920, 1080, 'dark']];
+export async function sweep(ctx, views, {combos = SWEEP, settleFn = settle} = {}) {
+  const {page, app} = ctx;
+  const resize = size => app.evaluate(({BrowserWindow}, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; const was = win.getSize(); win.setSize(w, h); return was; }, size);
+  const theme = value => page.evaluate(choice => window.pilot.setTheme(choice), value).catch(() => null);
+  const had = await page.evaluate(async () => (await window.pilot.state()).settings?.theme || 'system').catch(() => 'system');
+  const was = await resize([combos[0][0], combos[0][1]]);
+  const told = new Set();
+  try {
+    for (const [width, height, choice] of combos) {
+      await resize([width, height]);
+      await theme(choice);
+      await page.waitForTimeout(500);
+      for (const view of views) {
+        await page.click(`.nav[data-view="${view}"]`);
+        await settleFn(page);
+        for (const item of await page.evaluate(inspect, {view, limits: LIMITS})) {
+          const shown = item.chrome ? 'app-chrome' : view, key = `${shown}|${item.kind}|${String(item.detail).split(' ')[0]}`;
+          if (told.has(key)) continue;
+          told.add(key);
+          ctx.findings.push({...item, view: shown, severity: 'warning', detail: `${item.detail} [seen at ${width}x${height}, ${choice} theme]`});
+        }
+      }
+    }
+  } finally {
+    await resize(was);
+    await theme(had);
   }
 }
 

@@ -107,16 +107,23 @@ export const HIGH_KINDS = ['functionality', 'error-shown'];
 export const cappedSeverity = (severity, kind, workaround = '') => (severity === 'high' && !HIGH_KINDS.includes(kind) && String(workaround || '').trim().length < 20 ? 'medium' : severity);
 
 // -> [{view, severity, kind, title, detail, suggestion}], dropping anything off the fixed shape; at most 6 per page.
-export function parseFindings(text, view) {
+// Which findings the shape rules drop, and why: the owner can then see what the filters cut (4 Oct 2026: "didn't we make the Finder too restrictive?").
+export function parseFindingsDetailed(text, view) {
   let data;
-  try { data = JSON.parse(String(text).slice(String(text).indexOf('{'), String(text).lastIndexOf('}') + 1)); } catch { return []; }
-  return (Array.isArray(data?.findings) ? data.findings : []).filter(item => item && SEVERITIES.includes(item.severity) && KINDS.includes(item.kind)
-      && typeof item.title === 'string' && item.title.trim() && typeof item.detail === 'string' && item.detail.trim()
-      && typeof item.impact === 'string' && item.impact.trim().length >= 15)   // no stated impact, no issue (4 Oct 2026: only findings that help the product)
-    .slice(0, 6).map(item => ({view, severity: cappedSeverity(item.severity, item.kind, item.workaround), kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
+  try { data = JSON.parse(String(text).slice(String(text).indexOf('{'), String(text).lastIndexOf('}') + 1)); } catch { return {kept: [], dropped: []}; }
+  const kept = [], dropped = [];
+  for (const [index, item] of (Array.isArray(data?.findings) ? data.findings : []).entries()) {
+    const why = !item || !SEVERITIES.includes(item.severity) || !KINDS.includes(item.kind) || typeof item.title !== 'string' || !item.title.trim() || typeof item.detail !== 'string' || !item.detail.trim() ? 'malformed'
+      : !(typeof item.impact === 'string' && item.impact.trim().length >= 15) ? 'no stated impact'   // no stated impact, no issue (4 Oct 2026: only findings that help the product)
+      : index >= 6 ? 'over 6 on one page' : '';
+    if (why) { if (item && typeof item.title === 'string') dropped.push({view, severity: item.severity, kind: item.kind, title: String(item.title).trim().slice(0, 80), why}); continue; }
+    kept.push({view, severity: cappedSeverity(item.severity, item.kind, item.workaround), kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
       impact: item.impact.trim().slice(0, 300), suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : '',
-      ...(typeof item.workaround === 'string' && item.workaround.trim() ? {workaround: item.workaround.trim().slice(0, 300)} : {})}));
+      ...(typeof item.workaround === 'string' && item.workaround.trim() ? {workaround: item.workaround.trim().slice(0, 300)} : {})});
+  }
+  return {kept, dropped};
 }
+export const parseFindings = (text, view) => parseFindingsDetailed(text, view).kept;
 
 // A stable id for "the same problem again" (the nightly loop opens one PR per problem, not one per night).
 export function fingerprint(finding) {

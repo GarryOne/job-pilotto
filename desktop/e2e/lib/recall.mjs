@@ -19,6 +19,10 @@ export const PLANTS = [
   {id: 'a11y-contrast', detector: 'a11y', expect: 'color-contrast', html: '<p style="color:#f2f2f2;background:#ffffff;font-size:14px">This sentence is too pale to read</p>'},
   {id: 'dead-button', detector: 'probe', expect: 'dead-control', html: '<button>More filters</button>'},   // not "Apply …": the probe never presses apply
   {id: 'broken-expander', detector: 'probe', expect: 'expand-broken', html: '<button aria-expanded="false" aria-controls="recall-x">Show details</button><div id="recall-x" hidden>details</div>'},
+  // The owner's own find (4 Oct 2026): at the smallest window height the bottom menu items were cut off and the column scrolled with no visible scrollbar. The plant shrinks the window shell and
+  // restores that old column (the whole sidebar scrolls, scrollbar hidden), or one that does not scroll at all; <style> goes with the plant when it is taken out.
+  {id: 'menu-hidden-scroll', detector: 'layout', expect: 'hidden-scroll', html: '<style>.app{height:520px !important}.sidebar{overflow-y:auto !important;scrollbar-width:none !important}.sidebar .nav-scroll{display:contents !important}</style>'},
+  {id: 'menu-unreachable', detector: 'layout', expect: 'unreachable-control', html: '<style>.app{height:520px !important}.sidebar{overflow:hidden !important}.sidebar .nav-scroll{display:contents !important}</style>'},
   {id: 'uncaught-error', detector: 'journey', expect: 'recall planted error', run: () => setTimeout(() => { throw new Error('recall planted error'); }, 0)},
   {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(new Error('recall planted rejection')); }},
 ];

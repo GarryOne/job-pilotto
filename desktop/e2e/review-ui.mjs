@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {ARTIFACTS, DESKTOP} from './lib/app.mjs';
-import {MODEL, buildRequest, fingerprint, parseFindings, usageCost} from './lib/vision.mjs';
+import {MODEL, buildRequest, fingerprint, parseFindingsDetailed, usageCost} from './lib/vision.mjs';
 
 const key = process.env.E2E_ANTHROPIC_KEY;
 if (!key) { console.error('E2E_ANTHROPIC_KEY is needed.'); process.exit(2); }
@@ -128,7 +128,7 @@ async function batch(pending) {
   return settled;
 }
 
-const answers = new Map(), fromCache = new Set();
+const answers = new Map(), fromCache = new Set(), droppedByShape = [];   // findings the AI raised that the shape rules dropped (lib/vision.mjs), with why
 for (const job of jobs) {
   try {
     const text = JSON.parse(fs.readFileSync(job.cached, 'utf8')).text;
@@ -143,12 +143,14 @@ for (const job of pending.filter(job => !fromBatch.has(job.id))) answers.set(job
 for (const job of jobs) {
   const answer = answers.get(job.id);
   if (typeof answer !== 'string') continue;   // failed or cut off: already listed as not reviewed
-  const found = parseFindings(answer, job.view).map(item => ({...item, id: fingerprint(item), file: job.png}));   // file: the picture the finding was seen on
+  const parsed = parseFindingsDetailed(answer, job.view);
+  droppedByShape.push(...parsed.dropped);
+  const found = parsed.kept.map(item => ({...item, id: fingerprint(item), file: job.png}));   // file: the picture the finding was seen on
   reviewed.push(job.view);
   console.log(`${found.length ? '!' : '✓'} ${job.view}: ${found.length} finding(s)${fromCache.has(job.id) ? ' (unchanged since an earlier run: not asked again)' : ''}${found.map(item => `\n    [${item.severity}] ${item.title}: ${item.detail}`).join('')}`);
   all.push(...found);
 }
-fs.writeFileSync(path.join(ARTIFACTS, 'ai-findings.json'), JSON.stringify({model: MODEL, findings: all, reviewed, unreviewed}, null, 2));
+fs.writeFileSync(path.join(ARTIFACTS, 'ai-findings.json'), JSON.stringify({model: MODEL, findings: all, reviewed, unreviewed, dropped: droppedByShape}, null, 2));
 fs.writeFileSync(path.join(ARTIFACTS, 'ai-review-usage.json'), JSON.stringify({...usage, usd: Number(usage.usd.toFixed(4))}, null, 2));
 const line = `AI review: ${usage.calls} call(s) (${usage.batched} by batch, half price), ${usage.cached} unchanged (not asked again), ${usage.failed} failed, ${usage.cutOff} cut off; ${usage.input} in + ${usage.cacheRead} cache read + ${usage.cacheWrite} cache write, ${usage.output} out = $${usage.usd.toFixed(4)} (${MODEL})`;
 console.log(`\n${all.length} finding(s) written to ai-findings.json\n${line}${unreviewed.length ? `\nNOT reviewed (${unreviewed.map(item => `${item.view}: ${item.why}`).join(', ')}): no finding is filed or cleared for these pages from this run.` : ''}`);

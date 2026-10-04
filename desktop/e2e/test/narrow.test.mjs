@@ -1,7 +1,7 @@
 // The narrow-window pass (lib/layout.mjs visitNarrow): resizes, visits, downgrades what it finds to warnings, always restores the size.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {visitNarrow} from '../lib/layout.mjs';
+import {SWEEP, sweep, visitNarrow} from '../lib/layout.mjs';
 import {expectedFor} from '../lib/vision.mjs';
 
 function fakeCtx({railed = true} = {}) {
@@ -34,4 +34,25 @@ test('a sidebar that does not become a rail is a finding, not a crash', async ()
 
 test('the AI review judges a narrow page against the same expectation as the wide one', () => {
   assert.equal(expectedFor('jobs-narrow'), expectedFor('jobs'));
+});
+
+// The sweep (4 Oct 2026): every page at several sizes and both themes with the deterministic checks only, once per page/kind/element, then the window and the theme are put back.
+test('the sweep visits every page at every size and theme, tells each finding once with where it was seen, and restores the window and the theme', async () => {
+  const sizes = [], themes = [], clicks = [];
+  let current = '';
+  const ctx = {findings: [], app: {evaluate: async (_fn, size) => { sizes.push(size); return [1280, 820]; }},
+    page: {click: async selector => { clicks.push(selector); current = selector; }, waitForTimeout: async () => {},
+      evaluate: async (fn, arg) => {
+        if (arg?.limits) return current.includes('"jobs"') ? [{view: 'jobs', severity: 'warning', kind: 'hidden-scroll', detail: '"Settings" is cut off at this window size and nothing shows it scrolls'}] : [];
+        if (typeof arg === 'string') { themes.push(arg); return arg; }
+        return 'system';
+      }}};
+  await sweep(ctx, ['focus', 'jobs'], {combos: [[1024, 640, 'light'], [1024, 640, 'dark'], [1920, 1080, 'light']], settleFn: async () => true});
+  assert.equal(clicks.length, 6, 'two pages at three combinations');
+  assert.deepEqual(sizes.slice(-1)[0], [1280, 820], 'the window is put back');
+  assert.deepEqual(themes, ['light', 'dark', 'light', 'system'], 'each theme was set, then the original one restored');
+  assert.equal(ctx.findings.length, 1, 'the same finding at three sizes is told once');
+  assert.match(ctx.findings[0].detail, /\[seen at 1024x640, light theme\]$/);
+  assert.equal(ctx.findings[0].severity, 'warning');
+  assert.ok(SWEEP.some(([w, h]) => w === 1024 && h === 640), 'the real sweep includes the app\'s smallest window');
 });
