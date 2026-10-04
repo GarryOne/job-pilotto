@@ -1843,7 +1843,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 #setting-telemetry .switch-row input { width: auto; margin: 0; }
 #setting-telemetry .tr-lead { margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-md); color: var(--ink); }
 .tr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-3); }
-.tr-card { background: var(--signal-soft); border-radius: var(--r-md); padding: var(--sp-3) 14px; }
+.tr-card { background: var(--info-soft); border-radius: var(--r-md); padding: var(--sp-3) 14px; }
 .tr-card h4 { margin: 0 0 var(--sp-2); font-size: var(--fs-md); }
 .tr-card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--muted, inherit); }
 .tr-foot { font-size: var(--fs-sm); margin: 0 0 var(--sp-3); }
