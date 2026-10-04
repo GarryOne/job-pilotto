@@ -555,7 +555,8 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     const known = new Set((shared.allJobs || []).map(job => fullKey(job.url)));
     const here = urls.length && known.size ? urls.filter(url => known.has(fullKey(url))).length : urls.length;
     const total = card.items.length;
-    const words = !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
+    if (!total) rows.append(el('li', 'muted', 'This run found nothing new to show. Your saved jobs are in Jobs.'));
+    const words = !total ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
     more = el('button', 'link', words);
     more.addEventListener('click', () => {
       openActivity(false);
