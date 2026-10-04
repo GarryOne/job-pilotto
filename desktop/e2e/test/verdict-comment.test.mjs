@@ -36,3 +36,13 @@ test('the loop still reads its own decorated comments: the verdict count, the re
   assert.equal(build({issues: [issue]}).verdicts.real, 1, 'counted as a verdict');
   assert.deepEqual(peopleSaid(issue), [], 'a loop comment never steers the fixer');
 });
+
+import {checkEvidence} from '../lib/verdict-comment.mjs';
+test('a real verdict that cites code which does not exist is not trusted', () => {
+  const lines = file => ({'desktop/renderer/pages/activity.js': 1000})[file] || 0;
+  assert.equal(checkEvidence('real\nWhy: desktop/renderer/pages/activity.js:420 prints it.', lines).word, 'real');
+  assert.equal(checkEvidence('real\nWhy: desktop/renderer/pages/nope.js:3 prints it.', lines).word, 'needs-human');
+  assert.equal(checkEvidence('real\nWhy: desktop/renderer/pages/activity.js:5000 prints it.', lines).word, 'needs-human');
+  assert.equal(checkEvidence('real\nWhy: it is wrong.', lines).word, 'needs-human');
+  assert.equal(checkEvidence('false-positive\nWhy: fine.', lines).word, 'false-positive');
+});

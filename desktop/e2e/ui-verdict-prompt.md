@@ -27,11 +27,16 @@ something or distrust the app? If they would barely notice or not care (an emoji
 a person's fix. But a UI problem that costs them something is real, however visual it looks: they cannot reach or use a control or menu item at a window size the app supports (smallest 1024 x 640), content they need is cut
 off or covered, or the screen looks broken. Do not dismiss those as cosmetic.
 
+ENVIRONMENT FAILURES (the test key out of credit or quota, a 429, a refused call): that is the environment's doing, not a product bug. But if the page then shows the raw error, JSON or a stack trace to a
+person, THAT is real: judge the text on screen and name the file that prints it. Find the file by grepping the exact words on screen (desktop/renderer/*.js, pages/*.js); never name a file from its name alone.
+
 HOW (you have about 15 turns; be quick):
 1. Find the element or control: grep desktop/renderer/index.html, desktop/renderer/pages/*.js and desktop/renderer/style.css for its id, class or text from the finding.
 2. Read its click handler. Does it do something a person would see when pressed in a normal state? Does it call the app and take long enough (3 s or more) with no loading line?
 3. Write .heal/verdict.md. The FIRST line is exactly one word: `false-positive` (it works, or the probe's reading is wrong) or `real` (a person pressing it would be confused or blocked, and a UI change in
    desktop/renderer/ could fix it) or `harness` (the finding is the TEST's doing, not the product's: a wrong expectation, a fixture or environment difference such as the time zone,
    a favicon or a dev-only request failing, a planted test bug leaking, a step that presses something it should not) or `needs-human` (you cannot tell, or the cause is outside desktop/renderer/). Then two labelled lines: `Why: <one or two sentences naming the file:line, with the full path such as desktop/renderer/pages/activity.js:420>` and, only for `needs-human`, `Check: <what a person should look at>`.
+
+A `real` verdict MUST cite a file:line you opened in this run; one that does not exist is turned into `needs-human` automatically.
 
 Never invent a problem: when the handler works and the finding is about timing or state, it is a false positive. Do not write any other file. No git commands, no network.

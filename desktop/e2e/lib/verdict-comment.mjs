@@ -31,6 +31,17 @@ export function parse(raw) {
   return out;
 }
 
+// A `real` verdict rests on code the model read: when none of the files it cites exists (or the line is past the file's end), it was guessing where the bug is
+// (#267 cited strategy-review.js; the text lives in activity.js), so a person looks instead of the fixer going to the wrong file. `exists(path)` returns the file's line count, or 0.
+export function checkEvidence(raw, lines) {
+  const {word, why} = parse(raw);
+  if (word !== 'real') return {word, note: ''};
+  const refs = refsIn(why);
+  const found = refs.filter(ref => { const [file, line] = ref.split(':'); const count = lines(file); return count > 0 && (!line || Number(line.split('-')[0]) <= count); });
+  if (found.length) return {word, note: ''};
+  return {word: 'needs-human', note: refs.length ? `Its cited code (${refs.join(', ')}) does not exist, so the verdict was not trusted.` : 'It cited no file and line, so the verdict was not trusted.'};
+}
+
 export function verdictComment(raw, {number = 0} = {}) {
   const {word, why, check} = parse(raw);
   const key = BANNER[word] ? word : 'needs-human';

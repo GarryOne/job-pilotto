@@ -90,9 +90,10 @@ jobs:
         if: steps.claude.outcome == 'success'
         run: |
           set -euo pipefail
-          verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
           # The comment: banner, why, evidence, next step (desktop/e2e/lib/verdict-comment.mjs). Its first line is a hidden marker the loop reads back.
           node desktop/e2e/verdict-comment.mjs --file .heal/verdict.md --number "$NUMBER" --out .heal/comment.md
+          # After the check: a `real` that cites code which does not exist has become `needs-human` in the file.
+          verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
           case "$verdict" in
             real)
               gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'
