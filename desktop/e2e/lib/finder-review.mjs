@@ -1,6 +1,7 @@
 // The week's facts for the Finder's weekly self-review (finder-review.yml): per detector what it filed and how that ended, and the reasons behind every false
 // positive, test-harness issue, detector miss and fix a person had to take over. Claude reads them and proposes rule/prompt changes as one PR. Pure. 4 Oct 2026.
 import {classify, detectorOf} from './selfheal-stats.mjs';
+import {whyOf} from './verdict-comment.mjs';
 
 // Only the loop's own words and the owner's team count as reasons (the repo is public: anyone can comment).
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
@@ -12,7 +13,7 @@ const oneLine = (text, max) => String(text || '').replace(/```[\s\S]*?```/g, ' '
 // The comment that says why it ended: the last trusted one (the verdict, the closing note, the fixer's "could not fix").
 export function reasonOf(issue) {
   const comments = (issue.comments || []).filter(trusted);
-  return oneLine(comments.at(-1)?.body, 300);
+  return oneLine(whyOf(comments.at(-1)?.body), 300);
 }
 
 const inWeek = (issue, since) => [issue.createdAt, issue.closedAt].some(date => date && Date.parse(date) >= since);

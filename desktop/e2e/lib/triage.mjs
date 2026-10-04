@@ -358,7 +358,7 @@ export function fixerCard(prs, issues, now = Date.now(), days = 30) {
   let real = 0, falsePositive = 0;
   for (const issue of issues || []) for (const comment of issue.comments || []) {
     if (!recent(comment.createdAt)) continue;
-    if (/^Judged real by the UI loop's verdict pass/.test(comment.body || '')) real++;
+    if (/^(?:<!-- ui-loop-verdict:real -->|Judged real by the UI loop's verdict pass)/.test(comment.body || '')) real++;
     if (/^Closed by the UI loop as a false positive/.test(comment.body || '')) falsePositive++;
   }
   return {pr, verdicts: {real, falsePositive}};

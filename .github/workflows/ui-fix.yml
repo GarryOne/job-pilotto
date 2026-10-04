@@ -166,12 +166,14 @@ jobs:
           if [ -z "$changed" ]; then
             verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
             reason=$(sed -n '2,$p' .heal/verdict.md 2>/dev/null | head -3 || true)
+            # The verdict's comment: banner, why, evidence, next step (desktop/e2e/lib/verdict-comment.mjs; its first line is a hidden marker the loop reads back).
+            node desktop/e2e/verdict-comment.mjs --file .heal/verdict.md --number "$number" --out .heal/comment.md
             case "$verdict" in
               real)
                 if [ "$mode" = verdict ]; then
                   gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'
                   gh issue edit "$number" --repo "$REPO" --add-label confirmed
-                  gh issue comment "$number" --repo "$REPO" --body "Judged real by the UI loop's verdict pass (no edits made): $reason Marked \`confirmed\`: the next fixer run takes it."
+                  gh issue comment "$number" --repo "$REPO" --body-file .heal/comment.md
                   echo "Issue #$number judged real and confirmed." >> "$GITHUB_STEP_SUMMARY"
                 else
                   gh issue edit "$number" --repo "$REPO" --add-label needs-human
@@ -179,16 +181,17 @@ jobs:
                 fi ;;
               false-positive)
                 gh issue edit "$number" --repo "$REPO" --add-label wontfix-auto
-                gh issue close "$number" --repo "$REPO" --comment "Closed by the UI loop as a false positive: $reason"
+                gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)"
                 echo "Issue #$number closed as a false positive." >> "$GITHUB_STEP_SUMMARY" ;;
               harness)
                 gh label create harness --repo "$REPO" --force --color BFD4F2 --description 'The test was wrong, not the product: the Finder self-review fixes the test'
                 gh issue edit "$number" --repo "$REPO" --add-label harness --add-label wontfix-auto
-                gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "Closed by the UI loop: a test-harness problem, not a product bug (harness). $reason The weekly Finder self-review reads these and fixes the test."
+                gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)"
                 echo "Issue #$number closed as a test-harness problem." >> "$GITHUB_STEP_SUMMARY" ;;
               *)
                 gh issue edit "$number" --repo "$REPO" --add-label needs-human
-                gh issue comment "$number" --repo "$REPO" --body "The UI loop could not fix this by itself. ${reason:-Claude made no change.}"
+                if [ "$mode" = verdict ]; then gh issue comment "$number" --repo "$REPO" --body-file .heal/comment.md
+                else gh issue comment "$number" --repo "$REPO" --body "The UI loop could not fix this by itself. ${reason:-Claude made no change.}"; fi
                 echo "Issue #$number needs a person." >> "$GITHUB_STEP_SUMMARY" ;;
             esac
             exit 0

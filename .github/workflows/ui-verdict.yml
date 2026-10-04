@@ -91,23 +91,24 @@ jobs:
         run: |
           set -euo pipefail
           verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
-          reason=$(sed -n '2,$p' .heal/verdict.md 2>/dev/null | head -3 || true)
+          # The comment: banner, why, evidence, next step (desktop/e2e/lib/verdict-comment.mjs). Its first line is a hidden marker the loop reads back.
+          node desktop/e2e/verdict-comment.mjs --file .heal/verdict.md --number "$NUMBER" --out .heal/comment.md
           case "$verdict" in
             real)
               gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'
               gh issue edit "$NUMBER" --repo "$REPO" --add-label confirmed
-              gh issue comment "$NUMBER" --repo "$REPO" --body "Judged real by the UI loop's verdict pass (no edits made): $reason Marked \`confirmed\`: the fixer takes it." ;;
+              gh issue comment "$NUMBER" --repo "$REPO" --body-file .heal/comment.md ;;
             false-positive)
               gh label create wontfix-auto --repo "$REPO" --force --color CCCCCC --description 'A false positive of the UI loop: never retried'
               gh issue edit "$NUMBER" --repo "$REPO" --add-label wontfix-auto
-              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "Closed by the UI loop as a false positive: $reason" ;;
+              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)" ;;
             harness)
               gh label create harness --repo "$REPO" --force --color BFD4F2 --description 'The test was wrong, not the product: the Finder self-review fixes the test'
               gh issue edit "$NUMBER" --repo "$REPO" --add-label harness --add-label wontfix-auto
-              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "Closed by the UI loop: a test-harness problem, not a product bug (harness). $reason The weekly Finder self-review reads these and fixes the test." ;;
+              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)" ;;
             *)
               gh label create needs-human --repo "$REPO" --force --color D93F0B --description 'The UI loop could not fix this by itself'
               gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-human
-              gh issue comment "$NUMBER" --repo "$REPO" --body "The verdict pass could not decide this one alone: ${reason:-no verdict written}" ;;
+              gh issue comment "$NUMBER" --repo "$REPO" --body-file .heal/comment.md ;;
           esac
           echo "#$NUMBER: ${verdict:-none}" >> "$GITHUB_STEP_SUMMARY"

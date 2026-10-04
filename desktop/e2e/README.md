@@ -197,3 +197,6 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 ## UI findings: noise versus real (owner, 4 Oct 2026)
 - **Not every UI problem is noise.** Real: the person cannot navigate or reach a control, menu item or page; needed content is cut off, covered or unreadable; controls overlap; the screen looks broken, at any supported window size (smallest 1024 x 640). Noise: style and consistency opinions, wording, small spacing, polish, anything that costs nothing (time, clarity, confidence).
 - The AI review and the verdict pass apply the same test; scrollbars and narrow windows are no longer banned outright (the hidden menu scrollbar was a real bug).
+
+## The verdict pass's comment (4 Oct 2026)
+`lib/verdict-comment.mjs` lays the comment out: a GitHub alert banner per verdict (✅ real, 🚫 not a bug, 🧪 test problem, 🙋 needs a person), **Why**, **What a person should check** (needs-human only), an **Evidence** table of the file:line references, and **What happens next**. The model writes the verdict word, `Why:` and (for needs-human) `Check:` lines with full paths. The first line is a hidden marker, `<!-- ui-loop-verdict:<word> -->`, which the loop's own code reads (the verdict count, the fixer ignoring loop comments); the weekly self-review reads the Why section.

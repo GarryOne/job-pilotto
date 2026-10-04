@@ -32,6 +32,6 @@ HOW (you have about 15 turns; be quick):
 2. Read its click handler. Does it do something a person would see when pressed in a normal state? Does it call the app and take long enough (3 s or more) with no loading line?
 3. Write .heal/verdict.md. The FIRST line is exactly one word: `false-positive` (it works, or the probe's reading is wrong) or `real` (a person pressing it would be confused or blocked, and a UI change in
    desktop/renderer/ could fix it) or `harness` (the finding is the TEST's doing, not the product's: a wrong expectation, a fixture or environment difference such as the time zone,
-   a favicon or a dev-only request failing, a planted test bug leaking, a step that presses something it should not) or `needs-human` (you cannot tell, or the cause is outside desktop/renderer/). Then ONE or TWO sentences: the handler's file:line and why.
+   a favicon or a dev-only request failing, a planted test bug leaking, a step that presses something it should not) or `needs-human` (you cannot tell, or the cause is outside desktop/renderer/). Then two labelled lines: `Why: <one or two sentences naming the file:line, with the full path such as desktop/renderer/pages/activity.js:420>` and, only for `needs-human`, `Check: <what a person should look at>`.
 
 Never invent a problem: when the handler works and the finding is about timing or state, it is a false positive. Do not write any other file. No git commands, no network.

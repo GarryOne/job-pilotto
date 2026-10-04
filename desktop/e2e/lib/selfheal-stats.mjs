@@ -41,7 +41,7 @@ export function build({issues = [], prs = [], costs = [], recall = null, now = n
   const real = totals.fixed + totals.queued, judged = real + totals.falsePositive;
   const verdicts = {real: 0, falsePositive: 0};
   for (const issue of issues) for (const comment of issue.comments || []) {
-    if (/^Judged real by the UI loop's verdict pass/.test(comment.body || '')) verdicts.real++;
+    if (/^(?:<!-- ui-loop-verdict:real -->|Judged real by the UI loop's verdict pass)/.test(comment.body || '')) verdicts.real++;
     if (/^Closed by the UI loop as a false positive/.test(comment.body || '')) verdicts.falsePositive++;
   }
   const fixer = {opened: prs.length, merged: prs.filter(pr => pr.state === 'MERGED').length, closed: prs.filter(pr => pr.state === 'CLOSED').length, open: prs.filter(pr => pr.state === 'OPEN').length};

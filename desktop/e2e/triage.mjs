@@ -295,7 +295,7 @@ export function writeCandidate(candidate, outDir) {
 
 // What people wrote on the issue: the loop's own comments (Seen again, Not seen, Closed, verdicts) are left out; a person's note often names the real cause. Until 3 Oct 2026 the
 // fixer never saw them: #94's comment said "the bug is the raw API error, not the overflow" and PR #101 fixed the overflow only.
-const LOOP_COMMENT = /^(?:Seen again|Not seen|Closed|Closed by the UI loop|Judged real by|The UI loop could not|A fix was tried|The proposed change was refused|Correction: my earlier)/;
+const LOOP_COMMENT = /^(?:<!-- ui-loop-|Seen again|Not seen|Closed|Closed by the UI loop|Judged real by|The UI loop could not|A fix was tried|The proposed change was refused|Correction: my earlier)/;
 // Only the repository's own people: the repo is public, and a stranger's comment must never steer what the fixer writes.
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 export const peopleSaid = issue => (issue.comments || []).filter(comment => TRUSTED.includes(comment.authorAssociation) && !LOOP_COMMENT.test(String(comment.body || '').trim())
