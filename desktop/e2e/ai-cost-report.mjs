@@ -12,7 +12,7 @@ const SITE = process.env.AI_COST_SITE || 'https://www.jobpilotto.workers.dev';
 // {usd, calls} of one run from whichever record the job leaves.
 export function spent({execution, file, usd, calls}) {
   if (execution !== undefined) { const result = outcome(execution); return {usd: result.usd, calls: result.turns}; }
-  if (file !== undefined) { try { const data = JSON.parse(file); return {usd: Number(data.usd) || 0, calls: Number(data.calls ?? data.turns) || 0}; } catch { return null; } }
+  if (file !== undefined) { try { const data = JSON.parse(file); return {usd: Number(data.usd ?? data.spent) || 0, calls: Number(data.calls ?? data.turns ?? data.considered) || 0}; } catch { return null; } }
   if (Number.isFinite(Number(usd))) return {usd: Number(usd), calls: Number(calls) || 0};
   return null;
 }

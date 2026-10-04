@@ -8,6 +8,7 @@ test('the figure comes from claude-code-action\'s record, a cost file or a plain
   assert.deepEqual(spent({execution}), {usd: 0.25, calls: 7});
   assert.deepEqual(spent({file: '{"usd": 0.4, "calls": 12}'}), {usd: 0.4, calls: 12});
   assert.deepEqual(spent({file: '{"usd": 0.1, "turns": 3}'}), {usd: 0.1, calls: 3});
+  assert.deepEqual(spent({file: '{"spent": 0.31, "considered": 9, "results": []}'}), {usd: 0.31, calls: 9}, 'the proposers\' result files');
   assert.deepEqual(spent({usd: '0'}), {usd: 0, calls: 0}, 'a job that spent nothing still reports, so it shows up');
   assert.equal(spent({file: 'broken'}), null);
   assert.equal(spent({}), null);
