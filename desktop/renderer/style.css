@@ -1419,7 +1419,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .runs-result { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .runs-go { color: var(--muted); font-size: var(--fs-lg); }
 .runs-empty { padding: var(--sp-3) 0; }
-@media (max-width: 1180px) { .task-grid { grid-template-columns: 1fr; } .runs-row { grid-template-columns: 32px 1fr auto; } .runs-row > :nth-child(n+4) { display: none; } }
+@media (max-width: 1180px) { .task-grid { grid-template-columns: 1fr; } .runs-row { grid-template-columns: 32px 1fr auto; } .runs-row > :first-child { grid-row: 1 / 4; } .runs-row > :nth-child(4), .runs-row > :nth-child(5) { grid-column: 2 / 4; } .runs-row > :nth-child(6) { display: none; } }
 
 /* Strategy while it loads: the cards' own rows, greyed */
 .skeleton.chip { display: inline-block; width: 96px; height: 28px; }
