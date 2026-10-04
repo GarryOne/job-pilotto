@@ -30,7 +30,7 @@ export async function visit(ctx, views) {
 // The app's narrowest window (main.js minWidth 1024): the sidebar becomes an icon rail under 1180 px, a state the 1280 px default never shows and where
 // the sidebar's text spilled out. Visits `views` there with their own screenshots (<view>-narrow, so the AI review judges them too), then restores the size.
 // Findings are downgraded to warnings: the pass files issues, it does not fail a journey (nor hold a release) the first time it looks.
-export async function visitNarrow(ctx, views, {width = 1024, height = 700, take = snap} = {}) {
+export async function visitNarrow(ctx, views, {width = 1024, height = 640, take = snap} = {}) {   // 640: the app's smallest height (main.js minHeight), where the menu is cut off (owner, 4 Oct 2026)
   const resize = size => ctx.app.evaluate(({BrowserWindow}, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; const was = win.getSize(); win.setSize(w, h); return was; }, size);
   const was = await resize([width, height]);
   try {

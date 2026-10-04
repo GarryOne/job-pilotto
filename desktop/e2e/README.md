@@ -188,3 +188,8 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 - **An empty answer is the right answer.** The review prompt says `{"findings":[]}` is correct and welcome and forbids inventing or padding a problem.
 - **At most 3 new AI-review issues per run** (`capNewAi`), highest severity first; repeats and other detectors are not capped.
 - **The noise breaker** (`noiseTripped` in `lib/plan.mjs`, used by `plan-run.mjs`): when 50 % or more of the (at least 6) AI-review issues filed since `NOISE_SINCE` were judged noise (rejected, duplicate, harness) rather than real (fixed or confirmed), the AI review is skipped, so no tokens are spent, and the run says why. To resume after changing the rules, move `NOISE_SINCE` forward in that file.
+
+## The menu at the smallest window height (4 Oct 2026)
+- **Why:** the owner shrank the window to its minimum height (640 px) and could not reach the bottom menu items; the column scrolled, but with its scrollbar hidden and inside a drag area, so nothing showed it. The Finder never looked at that height, and the AI review was told to ignore sidebar nitpicks.
+- **Finder:** the narrow visit now uses the app's real smallest height (640 px, `main.js` minHeight), and the deterministic layout check (`lib/uicheck.mjs`) flags a menu control that is cut off with nothing to scroll (`unreachable-control`) or whose scroll area shows no scrollbar (`hidden-scroll`). Both are medium.
+- **Product:** the menu list (`.nav-scroll`) scrolls on its own with a thin visible scrollbar and takes the wheel; the brand and the bottom buttons (Settings, plan, feedback, theme, search) stay in view.

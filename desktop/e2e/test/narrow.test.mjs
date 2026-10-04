@@ -15,7 +15,7 @@ test('it visits each page at 1024 px, files what it finds as warnings and puts t
   const {ctx, calls} = fakeCtx();
   const take = async (c, name) => { c.findings.push({view: name, severity: 'severe', kind: 'page-overflow', detail: 'x'}); };
   await visitNarrow(ctx, ['focus', 'jobs'], {take});
-  assert.deepEqual(calls.sizes, [[1024, 700], [1280, 820]]);
+  assert.deepEqual(calls.sizes, [[1024, 640], [1280, 820]]);
   assert.deepEqual(calls.clicks, ['.nav[data-view="focus"]', '.nav[data-view="jobs"]']);
   assert.deepEqual(ctx.findings.map(f => [f.view, f.severity]), [['focus-narrow', 'warning'], ['jobs-narrow', 'warning']], 'a narrow-only problem never fails a journey');
 });

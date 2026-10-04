@@ -139,3 +139,40 @@ test('what is moving and what is clipped on purpose are facts for the AI review'
     assert.ok(!facts.clippedOnPurpose.some(item => /by accident/.test(item)), 'a cut without an ellipsis, clamp or mask is not "on purpose"');
   } finally { await browser.close(); }
 });
+
+// 4 Oct 2026, the owner: "if I resize to the lowest vertically I cannot access the menu items at the bottom; there is no scroll". The column did scroll, but its scrollbar was hidden and
+// the wheel does not scroll a drag area, so nothing showed it. The Finder never looked at the smallest height; now it does, and says what is wrong in plain words.
+const menu = (css, buttons = 14) => `<style>body{margin:0}.sidebar{width:200px;height:100vh;display:flex;flex-direction:column;${css}}.sidebar button{height:40px;flex:none}</style>
+  <nav class="sidebar">${Array.from({length: buttons}, (_, n) => `<button>Item ${n}</button>`).join('')}</nav>`;
+const menuFindings = async (page, markup) => { await page.setContent(markup); await page.waitForTimeout(100); return (await page.evaluate(inspect, {view: 'jobs', limits: LIMITS})).filter(item => ['unreachable-control', 'hidden-scroll'].includes(item.kind)); };
+
+test('a menu cut off by the window: nothing to scroll is unreachable, a scroll with no scrollbar is hidden, a visible scrollbar is fine', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1024, height: 400}});
+    const stuck = await menuFindings(page, menu('overflow:hidden'));
+    assert.deepEqual(stuck.map(item => item.kind), ['unreachable-control']);
+    assert.match(stuck[0].detail, /cut off at this window size and nothing scrolls/);
+    const quiet = await menuFindings(page, menu('overflow-y:auto;scrollbar-width:none'));
+    assert.deepEqual(quiet.map(item => item.kind), ['hidden-scroll']);
+    assert.match(quiet[0].detail, /scrolls with no visible scrollbar/);
+    assert.deepEqual(await menuFindings(page, menu('overflow-y:auto;scrollbar-width:thin')), [], 'a visible scrollbar tells the person it scrolls');
+    assert.deepEqual(await menuFindings(page, menu('overflow-y:auto', 3)), [], 'a menu that fits is fine');
+  } finally { await browser.close(); }
+});
+
+test('the real menu at the smallest window height: the old hidden-scrollbar column is flagged, the current one is reachable', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1024, height: 640}});
+    const open = async extra => {
+      await page.goto(`file://${css}/index.html`);
+      await page.waitForTimeout(300);
+      await page.evaluate(styles => { for (let e = document.querySelector('.sidebar'); e; e = e.parentElement) e.hidden = false; const tag = document.createElement('style'); tag.textContent = styles; document.head.append(tag); }, extra);
+      return (await page.evaluate(inspect, {view: 'jobs', limits: LIMITS})).filter(item => ['unreachable-control', 'hidden-scroll'].includes(item.kind));
+    };
+    const old = await open('.sidebar{overflow-y:auto !important;scrollbar-width:none !important}.sidebar .nav-scroll{display:contents !important}');
+    assert.ok(old.some(item => item.kind === 'hidden-scroll'), `the owner's bug was not flagged: ${JSON.stringify(old)}`);
+    assert.deepEqual(await open(''), [], 'the current menu keeps the bottom buttons in view and the list scrolls with a scrollbar');
+  } finally { await browser.close(); }
+});

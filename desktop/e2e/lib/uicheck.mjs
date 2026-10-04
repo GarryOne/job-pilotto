@@ -91,6 +91,36 @@ export function inspect({view, limits}) {
       found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(host)} shows technical text to the person: "${text.slice(0, 160)}"`});
     }
   }
+  // The window's menu: every one of its buttons must be reachable. The owner (4 Oct 2026) shrank the window to its smallest height and could not reach the bottom menu items: the column
+  // scrolled, but its scrollbar was hidden and nothing showed it. A control cut off by the window edge (or by an ancestor that clips) with nothing to scroll is "unreachable-control";
+  // one whose scroll container shows no scrollbar is "hidden-scroll". A scrollable list with a visible scrollbar is fine.
+  const menu = document.querySelector('.sidebar');
+  if (menu && visible(menu)) {
+    const clips = el => { const style = getComputedStyle(el); return style.overflowY !== 'visible' || style.overflowX !== 'visible'; };
+    const cutBy = control => {   // -> the clipping ancestors that hide part of the control, nearest first
+      const box = control.getBoundingClientRect(), hiding = [];
+      for (let p = control.parentElement; p; p = p.parentElement) {
+        if (!(p === document.documentElement || clips(p))) continue;
+        const edge = p === document.documentElement ? {top: 0, bottom: document.documentElement.clientHeight} : p.getBoundingClientRect();
+        if (box.bottom > edge.bottom + 1 || box.top < edge.top - 1) hiding.push(p);
+      }
+      return hiding;
+    };
+    const quiet = el => getComputedStyle(el).scrollbarWidth === 'none' || getComputedStyle(el, '::-webkit-scrollbar').display === 'none';
+    const reported = new Set();
+    for (const control of menu.querySelectorAll('button, a[href]')) {
+      if (!visible(control) || reported.size >= 2) continue;
+      const hiding = cutBy(control);
+      if (!hiding.length) continue;
+      const scroller = hiding.find(el => /(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 1);
+      const kind = !scroller ? 'unreachable-control' : quiet(scroller) ? 'hidden-scroll' : '';
+      if (!kind || reported.has(kind)) continue;
+      reported.add(kind);
+      found.push({view, severity: 'warning', kind, detail: kind === 'hidden-scroll'
+        ? `"${snippet(control)}" is cut off at this window size and ${label(scroller)} scrolls with no visible scrollbar, so nothing tells the person the menu scrolls (${scroller.scrollHeight}px of menu in ${scroller.clientHeight}px)`
+        : `"${snippet(control)}" is cut off at this window size and nothing scrolls, so the person cannot reach it`});
+    }
+  }
   return found;
 }
 

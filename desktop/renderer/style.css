@@ -1697,6 +1697,13 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .sidebar { background-color: var(--rail); background-image: radial-gradient(var(--rail-dot) 1px, transparent 1.5px); background-size: 14px 14px;
   padding: 22px 12px 14px; gap: 2px; border-right: 1px solid var(--rail-line); min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }   /* a short window scrolls the menu: its last button (theme) was cut off; the scrollbars are hidden, they ate the icon rail */
 .sidebar::-webkit-scrollbar { display: none; }
+/* The menu list scrolls, not the whole column (owner, 4 Oct 2026: at the smallest window height the bottom buttons could not be reached and nothing showed that the menu scrolls):
+   the brand and the bottom buttons (Settings, Send feedback, theme, search) stay where they are, the list between them scrolls, with a thin scrollbar so it is seen, and takes the
+   wheel itself (the column around it is a drag area, which does not scroll). */
+.sidebar { overflow: hidden; }
+.sidebar .nav-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 2px; -webkit-app-region: no-drag;
+  scrollbar-width: thin; scrollbar-color: var(--on-rail-3) transparent; }
+.app.rail .sidebar .nav-scroll { align-items: center; }
 /* The brand: the Ink tile (amber border) and the name, a line under them (owner's mockup, 29 Sep 2026). */
 .sidebar .brand { color: var(--on-rail); font-size: var(--fs-xl); gap: var(--sp-3); padding: 2px 6px var(--sp-4); margin-bottom: var(--sp-2);
   border-bottom: 1px solid var(--rail-line); }
