@@ -77,3 +77,21 @@ test('a run with verdicts: noise is not filed and is remembered, real is filed c
   const next = triage({artifacts: dir, runUrl: 'https://x/runs/2', gh, pendingOnly: true});
   assert.deepEqual(next.pending.map(item => item.view), ['jobs'], 'the remembered noise is not judged again');
 });
+
+test('noise judged before filing still counts: a false positive of its detector for the breaker, the numbers and the weekly lessons', async () => {
+  const {classify, detectorOf, build} = await import('../lib/selfheal-stats.mjs');
+  const {noiseTripped} = await import('../lib/plan.mjs');
+  const {weekFacts} = await import('../lib/finder-review.mjs');
+  const entry = n => entryOf({...finding(`n${n}`, 'medium'), source: 'ai-review', title: `Ticker cut ${n}`}, `false-positive\nWhy: the ticker scrolls on purpose ${n}.`, '2026-10-06');
+  const judged = asIssues([entry(1), entry(2), entry(3), entry(4), entry(5), entry(6), entryOf({...finding('h', 'medium'), source: 'layout-check'}, 'harness\nWhy: the demo data.', '2026-10-06')]);
+  assert.equal(detectorOf(judged[0]), 'ai-review');
+  assert.equal(classify(judged[0]), 'falsePositive');
+  assert.equal(classify(judged[6]), 'harness');
+  assert.equal(noiseTripped(judged).tripped, true, 'six judged-noise review findings trip the breaker');
+  const snapshot = build({issues: judged});
+  assert.equal(snapshot.totals.filed, 7);
+  assert.equal(snapshot.totals.falsePositive, 6);
+  assert.equal(snapshot.verdicts.falsePositive, 6, 'the decorated verdict is counted');
+  const facts = weekFacts(judged, {now: Date.parse('2026-10-07T00:00:00Z')});
+  assert.match(facts, /the ticker scrolls on purpose 1/);
+});

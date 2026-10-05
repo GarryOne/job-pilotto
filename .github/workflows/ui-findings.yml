@@ -35,7 +35,7 @@ jobs:
     # The daily stable canary (stable-canary.yml) names its runs "Stable canary …": it alarms by itself and never files into the backlog.
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event != 'push' && !startsWith(github.event.workflow_run.display_title, 'Stable canary'))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35   # 15 for filing, up to 15 more for judging before filing (its own step limit below)
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
@@ -75,6 +75,7 @@ jobs:
           node desktop/e2e/prejudge.mjs --pending .heal/pending.json --out .heal
       - name: Claude judges them (read-only)
         id: judge
+        timeout-minutes: 15   # a slow judgement must never cost the run its filing: on timeout the findings are filed as before
         if: steps.pending.outputs.pending != '' && steps.pending.outputs.pending != '0'
         continue-on-error: true   # no verdict: the findings are filed as before and judged later (ui-verdict.yml)
         uses: anthropics/claude-code-action@v1

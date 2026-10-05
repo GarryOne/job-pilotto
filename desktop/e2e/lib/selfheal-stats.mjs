@@ -43,7 +43,7 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, no
   const verdicts = {real: 0, falsePositive: 0};
   for (const issue of issues) for (const comment of issue.comments || []) {
     if (/^(?:<!-- ui-loop-verdict:real -->|Judged real by the UI loop's verdict pass)/.test(comment.body || '')) verdicts.real++;
-    if (/^Closed by the UI loop as a false positive/.test(comment.body || '')) verdicts.falsePositive++;
+    if (/^(?:<!-- ui-loop-verdict:false-positive -->|Closed by the UI loop as a false positive)/.test(comment.body || '')) verdicts.falsePositive++;
   }
   const fixer = {opened: prs.length, merged: prs.filter(pr => pr.state === 'MERGED').length, closed: prs.filter(pr => pr.state === 'CLOSED').length, open: prs.filter(pr => pr.state === 'OPEN').length};
   // Landing a fixer's PR by hand closes it unmerged with "Landed on main": it counts as landed, not discarded.

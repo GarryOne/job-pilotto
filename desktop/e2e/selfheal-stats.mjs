@@ -1,6 +1,7 @@
 // Collects the self-healing loop's numbers and publishes them to the owner's page /self-heal (self-heal-stats.yml, every 3 hours).
 //   node selfheal-stats.mjs [--publish]        (needs gh with GH_TOKEN; --publish needs SELFHEAL_PUBLISH_KEY, optional SELFHEAL_URL)
 // The site keeps one snapshot per day (D1 selfheal_snapshots), so the page shows a trend, not only today.
+import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,7 +13,11 @@ const gh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 50 * 1
 const repo = () => process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/job-pilotto';
 
 export function collect({days = 30} = {}) {
-  const issues = JSON.parse(gh(['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '1000', '--json', 'number,title,state,stateReason,labels,comments,createdAt,url']));
+  const filed = JSON.parse(gh(['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '1000', '--json', 'number,title,state,stateReason,labels,comments,createdAt,url']));
+  // Plus what was judged noise before filing (the noise register): still a false positive of its detector, or precision would look better than it is.
+  let judged = [];
+  try { judged = asIssues(registerEntries(JSON.parse(gh(REGISTER_LIST))[0]?.body)); } catch { judged = []; }
+  const issues = [...filed, ...judged];
   const prs = JSON.parse(gh(['pr', 'list', '--label', 'auto-ui-fix', '--state', 'all', '--limit', '200', '--json', 'state,createdAt,comments']))
     .map(pr => ({state: pr.state, createdAt: pr.createdAt, closingNote: (pr.comments || []).at(-1)?.body || ''}));
   // What the AI cost: the ai-cost artifacts the fixer, the verdict pass and the code review leave (desktop/e2e/ai-budget.mjs), last `days` days, at most 300.

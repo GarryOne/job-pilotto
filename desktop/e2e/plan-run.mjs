@@ -5,6 +5,7 @@
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {autoSuites, exploreDecision, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
+import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
@@ -57,7 +58,9 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   if (review) {   // the noise breaker: no AI tokens on a review whose recent issues were mostly noise
     try {
       const issues = JSON.parse(gh(['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '300', '--json', 'number,state,stateReason,labels,comments,createdAt']));
-      const noise = noiseTripped(issues);
+      // Noise judged before filing never became an issue: it still counts against the review (lib/prejudge.mjs asIssues).
+      const judged = asIssues(registerEntries(JSON.parse(gh(REGISTER_LIST))[0]?.body));
+      const noise = noiseTripped([...issues, ...judged]);
       if (noise.tripped) { review = false; why = `${why ? `${why} · ` : ''}AI review paused: ${noise.noise} of the last ${noise.judged} judged review issues were noise (the noise breaker, lib/plan.mjs)`; }
     } catch { /* cannot tell: the review runs */ }
   }

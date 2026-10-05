@@ -2,7 +2,7 @@
 // notification and a place in the statistics. Now the run's NEW findings (at most PREJUDGE_MAX) are judged first, in one Claude session: `false-positive` and
 // `harness` are never filed (listed in the run's summary and remembered in the pinned noise register, so the same noise is not judged again), `real` is filed
 // already `confirmed`, `needs-human` is filed parked. A finding over the cap, or a run without AI, is filed as before and judged later (ui-verdict.yml). Pure.
-import {checkEvidence, parse} from './verdict-comment.mjs';
+import {checkEvidence, parse, verdictComment} from './verdict-comment.mjs';
 import {FALSE_POSITIVE, labelFor, TIMEOUT_FAILURE} from './triage.mjs';
 
 export const PREJUDGE_MAX = 3;   // per run; four runs a day = at most 12 judgements a day
@@ -55,8 +55,16 @@ export function registerBody(entries) {
     `${kept.length} remembered · the latest ${rows.length}:`, '', '| Date | Page | Finding | Verdict | Why |', '|---|---|---|---|---|', ...rows, '',
     '<details><summary>The register (read by the loop: keep it valid JSON)</summary>', '', '```json', JSON.stringify(kept, null, 0), '```', '', '</details>'].join('\n');
 }
-// Register entries as closed false-positive issues, so the loop's own matching (same page and kind, alike words) suppresses them like a person's rejection.
-export const asIssues = entries => entries.map(item => ({state: 'CLOSED', stateReason: 'NOT_PLANNED', title: `[auto-ui] ${item.view}: ${item.title}`,
-  body: `**MEDIUM** · ${item.kind} · found by the register\n\n### What was found\n${item.detail || ''}\n`, labels: [{name: FALSE_POSITIVE}, {name: labelFor(item.id)}]}));
-export const entryOf = (finding, raw, date) => ({id: finding.id, view: finding.view, kind: finding.kind, title: String(finding.title).slice(0, 120), detail: String(finding.detail || '').slice(0, 300),
+// Register entries as the closed issues they would have been: a person's rejection for the loop's own matching (same page and kind, alike words), and a
+// false positive (or harness) OF ITS DETECTOR for the numbers: the noise breaker, the precision on /self-heal and the weekly self-review's lessons. Without this,
+// noise judged before filing vanished from every place that measures noise (5 Oct 2026): the breaker could never trip again.
+export const REGISTER_LIST = ['issue', 'list', '--label', REGISTER_LABEL, '--state', 'open', '--limit', '1', '--json', 'body'];
+export const asIssues = entries => entries.map(item => {
+  const at = `${item.date || '1970-01-01'}T12:00:00Z`, word = item.word === 'harness' ? 'harness' : 'false-positive';
+  return {number: 0, prejudged: true, state: 'CLOSED', stateReason: 'NOT_PLANNED', createdAt: at, closedAt: at, title: `[auto-ui] ${item.view}: ${item.title}`,
+    body: `**MEDIUM** · ${item.kind} · found by the register\n\n### What was found\n${item.detail || ''}\n`,
+    labels: [{name: 'auto-ui'}, {name: FALSE_POSITIVE}, {name: labelFor(item.id)}, {name: `source:${item.source || 'other'}`}, {name: `kind:${item.kind}`}, ...(word === 'harness' ? [{name: 'harness'}] : [])],
+    comments: [{body: verdictComment(`${word}\nWhy: ${item.why || ''}`), createdAt: at, author: {login: 'github-actions'}}]};
+});
+export const entryOf = (finding, raw, date) => ({id: finding.id, view: finding.view, kind: finding.kind, source: finding.source, title: String(finding.title).slice(0, 120), detail: String(finding.detail || '').slice(0, 300),
   word: wordOf(raw), why: parse(raw).why.slice(0, 300), date});
