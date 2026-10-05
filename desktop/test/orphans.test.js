@@ -27,7 +27,7 @@ test('quiet for the limit, or running too long, is stopped; one that still uses 
   assert.match(stale([{pid: 2, elapsed: 50 * 60, cpu: 5}], new Map(), 0)[0].why, /running 50 min/);
 });
 
-test('the watchdog stops a stuck orphan with SIGTERM and says so in the log', async () => {
+test('the watchdog stops a stuck orphan with SIGTERM and says so in the log', {skip: process.platform === 'win32' && 'the watchdog is Mac/Linux only'}, async () => {
   const sent = [], logged = [];
   const limits = {quietMs: 0, totalMs: ORPHAN.totalMs, killAfterMs: 10};
   const stop = watchOrphans((...args) => logged.push(args), {every: 1e9, limits, list: async () => PS, kill: (pid, signal) => { sent.push([pid, signal]); if (signal === 0) throw new Error('gone'); }});
