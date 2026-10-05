@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {autoSuites, suitesNamed} from './lib/plan.mjs';
+import {SKIPPED, summarize} from './lib/skip.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,7 +42,7 @@ function defaultRead(service) {
 const run = (suite, env, quiet) => new Promise(resolve => {
   const started = Date.now();
   const log = quiet ? fs.openSync(path.join(HERE, 'artifacts', `${suite}.run.log`), 'w') : null;
-  const child = spawn('node', ['suite.mjs', suite], {cwd: HERE, env, stdio: quiet ? ['ignore', log, log] : 'inherit'});
+  const child = spawn('node', ['suite.mjs', suite], {cwd: HERE, env: {E2E_SKIP_EXIT: String(SKIPPED), ...env}, stdio: quiet ? ['ignore', log, log] : 'inherit'});
   child.on('exit', code => resolve({suite, code: code ?? 1, seconds: Math.round((Date.now() - started) / 1000)}));
 });
 
@@ -61,8 +62,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     while (queue.length) results.push(await run(queue.shift(), env, parallel > 1));
   }));
   results.sort((a, b) => suites.indexOf(a.suite) - suites.indexOf(b.suite));
-  console.log('\n' + results.map(r => `${r.code === 0 ? '✓' : '✗'} ${r.suite.padEnd(12)} ${String(r.seconds).padStart(4)} s${r.code === 0 ? '' : `   (artifacts/${r.suite}${parallel > 1 ? `.run.log` : ''})`}`).join('\n'));
-  const failed = results.filter(r => r.code !== 0);
-  console.log(`\n${results.length - failed.length} passed, ${failed.length} failed`);
-  process.exit(failed.length ? 1 : 0);
+  const summary = summarize(results, {parallel, requireSecrets: env.E2E_REQUIRE_SECRETS === '1'});
+  console.log('\n' + summary.text);
+  process.exit(summary.exit);
 }

@@ -573,7 +573,7 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     rows.append(...card.items.slice(0, all ? undefined : 5).map(item => {
       const row = el('li', 'run-card-row');
       const words = el('span', 'run-card-words');
-      words.append(el('b', '', item.company), el('span', 'muted', [item.ats, item.roles != null && `${item.roles} SRE role${item.roles === 1 ? '' : 's'}`,
+      words.append(el('b', '', item.company), el('span', 'muted', [item.ats, item.roles != null && `${item.roles} matching role${item.roles === 1 ? '' : 's'}`,
         item.yours != null && `${item.yours} in your places`].filter(Boolean).join(' · ')));
       row.append(words, ...(item.tier ? [el('span', 'run-card-fit', item.tier.replace('Tier ', 'T'))] : []));
       return row;
@@ -1003,7 +1003,7 @@ export async function buildDraft() {
   $('draft-save').disabled = true;
   if (!aiReady()) {
     showDraftIntro();
-    $('draft-error').textContent = 'Building your strategy needs AI (step 1: Claude Code or an API key). Go back and add it, or skip to use the default SRE settings.';
+    $('draft-error').textContent = 'Building your strategy needs AI (step 1: Claude Code or an API key). Go back and add it, or skip to use the example settings.';
     show($('draft-error'));
     return;
   }

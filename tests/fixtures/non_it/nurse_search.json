@@ -1,0 +1,79 @@
+{
+ "role_keywords": [
+  "registered nurse",
+  "\\brn\\b",
+  "staff nurse",
+  "senior staff nurse",
+  "band 6",
+  "ward sister",
+  "charge nurse",
+  "acute medicine",
+  "medical ward",
+  "clinical nurse",
+  "surgical nurse"
+ ],
+ "title_exclude_keywords": [
+  "\\bhca\\b",
+  "healthcare assistant",
+  "support worker",
+  "\\bstudent\\b",
+  "\\bintern(ship)?\\b",
+  "recruit(er|ment)",
+  "\\bsales\\b",
+  "paediatric",
+  "\\bmatron\\b",
+  "\\bdirector\\b",
+  "head of nursing"
+ ],
+ "quality_stack_keywords": [
+  "acute medicine",
+  "\\bnmc\\b",
+  "\\bbls\\b",
+  "\\bils\\b",
+  "iv therapy",
+  "cannulation",
+  "\\becg\\b",
+  "news2",
+  "safeguarding",
+  "\\bepic\\b",
+  "cerner",
+  "mentor",
+  "wound",
+  "post-operative"
+ ],
+ "locations": {
+  "top_tier": [
+   "manchester",
+   "salford"
+  ],
+  "country_wide": [
+   "united kingdom",
+   "\\buk\\b",
+   "england"
+  ],
+  "abroad": []
+ },
+ "remote_excluded_regions": [
+  "\\busa?\\b",
+  "united states",
+  "canada",
+  "apac",
+  "latam",
+  "\\beu\\b",
+  "european union",
+  "\\bunited\\ states\\b",
+  "u\\.s\\.",
+  "\\bcanada\\b",
+  "\\bnorth\\ america\\b",
+  "\\blatam\\b",
+  "\\blatin\\ america\\b",
+  "\\bapac\\b",
+  "\\basia\\b",
+  "\\bindia\\b",
+  "\\baustralia\\b",
+  "\\bbrazil\\b",
+  "\\bmexico\\b",
+  "\\bamericas\\b"
+ ],
+ "_comment": "What the strategy draft proposed for a dummy nurse CV on 5 Oct 2026 (real model output, fictional person). Used by tests/test_non_it_crawl.py."
+}

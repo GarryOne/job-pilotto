@@ -40,6 +40,10 @@ node suite.mjs wizard              # or jobs, interviews, focus
 E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 ```
 
+## A skipped suite is not a pass
+A suite without its secrets prints `⚠ SKIPPED, nothing ran` (`lib/skip.mjs`). Under `npm run all` it exits 3 and the table shows `–` and "skipped (not run)", never `✓`.
+Set `E2E_REQUIRE_SECRETS=1` (CI on this repo, release gates) and a skipped suite fails the run. Without it a bare `node suite.mjs <name>` still exits 0 (a fork's pull request has no secrets).
+
 ## How a suite gets its state
 - **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_CALENDAR`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_FOCUS`, `E2E_NOTION_TOKEN_EMPLOYERS`, `E2E_NOTION_TOKEN_PERSONAS`, `E2E_NOTION_TOKEN_APPLY`, `E2E_NOTION_TOKEN_ACTIVITY`, `E2E_NOTION_TOKEN_STRATEGY`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
 - **The workspace is built once and kept.** The wizard suite empties its page and builds it from scratch every run. The others find their page already built and **seed the app in about 5 seconds** with the app's own calls (`saveSecret`, `notionConnect`, `saveSettings`), not the wizard. A suite whose page is empty builds it once with the real wizard path (`lib/wizard.mjs`).

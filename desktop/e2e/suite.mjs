@@ -23,14 +23,15 @@ process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite write
 const {assertNothingQueued} = await import('./lib/app.mjs');
 const {SUITES, openContext} = await import('./lib/context.mjs');
 const {writeFindings, writeSuiteFailures} = await import('./lib/artifacts.mjs');
+const {skipExitCode, skipMessage} = await import('./lib/skip.mjs');
 if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); process.exit(2); }
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
 try {
   ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google});
   if (ctx.skipAll) {
-    console.log(`The ${name} suite is skipped: ${ctx.needs.filter(item => !item.value).map(item => item.name).join(' and ')} not set.`);
-    process.exit(0);
+    console.log(skipMessage(name, ctx.needs.filter(item => !item.value).map(item => item.name)));
+    process.exit(skipExitCode());
   }
   await suite.run(ctx);
   if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app

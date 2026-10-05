@@ -1,0 +1,73 @@
+{
+ "role_keywords": [
+  "bilanzbuchhalter",
+  "senior accountant",
+  "financial accountant",
+  "finanzbuchhalter",
+  "buchhalter",
+  "hauptbuchhalter",
+  "general ledger",
+  "accounts payable",
+  "accounts receivable",
+  "\\baccountant\\b",
+  "kreditorenbuchhalter",
+  "debitorenbuchhalter"
+ ],
+ "title_exclude_keywords": [
+  "\\bintern(ship)?\\b",
+  "praktik",
+  "werkstudent",
+  "ausbildung",
+  "azubi",
+  "auszubildende",
+  "\\bsales\\b",
+  "recruit(er|ing)",
+  "\\bsoftware\\b"
+ ],
+ "quality_stack_keywords": [
+  "datev",
+  "sap fi",
+  "\\bsap\\b",
+  "\\bhgb\\b",
+  "power query",
+  "excel",
+  "jahresabschluss",
+  "monatsabschluss",
+  "umsatzsteuer",
+  "kreditoren",
+  "debitoren",
+  "lohn"
+ ],
+ "locations": {
+  "top_tier": [
+   "hamburg"
+  ],
+  "country_wide": [
+   "germany",
+   "deutschland"
+  ],
+  "abroad": []
+ },
+ "remote_excluded_regions": [
+  "\\busa?\\b",
+  "united states",
+  "canada",
+  "apac",
+  "latam",
+  "india",
+  "\\bunited\\ states\\b",
+  "u\\.s\\.",
+  "\\bcanada\\b",
+  "\\bnorth\\ america\\b",
+  "\\blatam\\b",
+  "\\blatin\\ america\\b",
+  "\\bapac\\b",
+  "\\basia\\b",
+  "\\bindia\\b",
+  "\\baustralia\\b",
+  "\\bbrazil\\b",
+  "\\bmexico\\b",
+  "\\bamericas\\b"
+ ],
+ "_comment": "What the strategy draft proposed for a dummy accountant CV on 5 Oct 2026 (real model output, fictional person). Used by tests/test_non_it_crawl.py."
+}
