@@ -129,6 +129,13 @@ test('missing kits are picked saved first, then by fit, open jobs only', () => {
   assert.deepEqual(apply.pickMissing(jobs, 5).map(job => job.code), ['b', 'a']);
 });
 
+test('Tailor CVs for top matches: open jobs without a tailored CV, saved first, then by fit, capped', () => {
+  const jobs = [{code: 'a', url: 'u', status: 'unreviewed', fit: 90}, {code: 'b', url: 'u', status: 'saved', fit: 50, tailored: true}, {code: 'c', url: 'u', status: 'saved', fit: 40},
+    {code: 'd', url: 'u', status: 'dismissed', fit: 99}, {code: 'e', url: 'u', status: 'unreviewed', fit: 95}];
+  assert.deepEqual(apply.pickUntailored(jobs, 5).map(job => job.code), ['c', 'e', 'a']);
+  assert.deepEqual(apply.pickUntailored(jobs, 2).map(job => job.code), ['c', 'e']);
+});
+
 test('strategy draft: CV as a PDF document, structured output; only the search settings cache is saved on the Mac', async () => {
   const storage = tempStorage();
   pipeline.ensureConfig(storage);

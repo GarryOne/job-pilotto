@@ -30,6 +30,11 @@ export function pickMissing(jobs, n) {
   return jobs.filter(job => open(job) && job.code && !job.kit).sort(best).slice(0, n);
 }
 
+// The best open jobs without a tailored CV (saved first, then by fit): what "Tailor CVs for top matches" works through.
+export function pickUntailored(jobs, n) {
+  return jobs.filter(job => open(job) && job.code && !job.tailored).sort(best).slice(0, n);
+}
+
 // Draft the missing kits one after the other (about 20 s each). `prepare(code, name)` is the app's prepareKit.
 // Returns how many are ready now, or {cloud: true} when they are drafted on GitHub and cannot be waited for here.
 export async function draftMissing(jobs, shortfall, prepare) {

@@ -1534,7 +1534,7 @@ function handlers() {
   ipcMain.handle('prepareKit', (_, code, name) => prepareKitFor(code, name));
   // Tailored CV for one job: base CV (imported from the CV PDF the first time) + the posting -> Claude ->
   // checked -> PDF. A fixed-page design that overflows gets one second try with that feedback.
-  const tailorCv = async (code, name = 'this job', {show = true} = {}) => {
+  const tailorCv = async (code, name = 'this job', {show = true, quiet = false} = {}) => {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     try {
@@ -1567,16 +1567,37 @@ function handlers() {
         inNotion = await files.tailoredToApplication(storage.secret('NOTION_TOKEN'), storage.settings().notionIds?.NOTION_APPLICATIONS_DB,
           job.url, cvlib.pdfPath(storage, code), `CV · ${job.company} · ${job.title}.pdf`.replace(/[/\\:]/g, '-'));
       } catch (error) { console.error(`Tailored CV not saved to Notion: ${error.message}`); }
-      notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
+      if (!quiet) notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
         + (inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'), {view: 'jobs', job: code});
       if (show) openTailoredCv(code);   // from the form's panel the window stays behind: the person is on the form, the notification says it is ready
       return {ok: true, usd: record.usd};
     } catch (error) {
-      notify('CV not tailored', `${name}: ${error.message}`, {view: 'jobs', job: code});
+      if (!quiet) notify('CV not tailored', `${name}: ${error.message}`, {view: 'jobs', job: code});
       return {ok: false, error: error.message};
     }
   };
   ipcMain.handle('tailorCv', (_, code, name) => tailorCv(code, name));
+  // Tailor CVs for top matches (Actions): the best N open jobs without a tailored CV, one after another (about 1-2 minutes each),
+  // so the form needs no wait for it. One notification at the end; each CV is listed on its job as 📄 Tailored CV to check.
+  ipcMain.handle('tailorTop', async (_, count) => {
+    const n = Math.max(1, Math.min(10, Number(count) || 5));
+    const gate = needsNotion('tailor');
+    if (gate) return gate;
+    const blocked = allowanceBlock();
+    if (blocked) return blocked;
+    const picked = apply.pickUntailored((await pipeline.jobs(storage)).jobs, n);
+    if (!picked.length) return {ok: true, text: 'Every one of your best matches already has a tailored CV.'};
+    appLog('cv', 'tailor top matches', {asked: n, jobs: picked.length, by: 'you'});
+    let done = 0, failed = 0, usd = 0;
+    for (const job of picked) {
+      const result = await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false, quiet: true});
+      if (result.ok) { done++; usd += result.usd || 0; } else { failed++; appLog('cv', 'tailor top matches: one failed', {job: job.code, reason: String(result.error || '').slice(0, 80)}); }
+    }
+    appLog('cv', 'tailor top matches done', {done, failed, usd: Math.round(usd * 100) / 100});
+    const text = `Tailored ${done} of ${picked.length} CV${picked.length === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}. Open each job's 📄 Tailored CV to check it before you apply.`;
+    notify('Tailored CVs ready ✓', text, {view: 'jobs'});
+    return {ok: done > 0, text};
+  });
   // CV match (Jobs ⋯ and the session card): this job's posting against the CV, on request. The last answer is kept per job for the CV it was made with.
   ipcMain.handle('matchSaved', (_, code) => { if (DEMO) return demo.matchSaved; const cv = cvlib.baseCv(storage); return cv ? matchCheck.saved(storage, String(code), cv) : null; });
   ipcMain.handle('matchCheck', async (_, code) => {
