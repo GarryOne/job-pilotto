@@ -5,10 +5,12 @@ import {loadJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {settingsPage} from './settings.js';
 import {toDraft} from './strategy-review.js';
+import {openTarget} from './open-target.js';
 import {goStep} from './wizard.js';
 
 export function toastMessage(title, body, hint) {
-  if (typeof title === 'object') ({title, body, hint} = title);
+  let target = null;
+  if (typeof title === 'object') ({title, body, hint, target = null} = title);
   // The same message twice (a double click, two checks finding the same thing) replaces the first instead of stacking.
   for (const old of $('toasts').children) if (old.dataset.key === `${title}\n${body}`) old.remove();
   const toast = Object.assign(document.createElement('div'), {className: 'toast'});
@@ -17,7 +19,9 @@ export function toastMessage(title, body, hint) {
   if (hint) toast.append(Object.assign(document.createElement('small'), {textContent:
     window.pilot.platform === 'win32' ? 'Windows notifications are off for this app: Settings → System → Notifications → Job Pilotto → On.'
       : 'macOS notifications are off for this app: System Settings → Notifications → Electron (or Job Pilotto) → Allow notifications.'}));
-  toast.addEventListener('click', () => toast.remove());
+  // A pop-up that is news about something opens it on a click (renderer/targets.js); the others just close.
+  if (target) { toast.classList.add('toast-link'); toast.title = 'Click to open'; }
+  toast.addEventListener('click', () => { toast.remove(); if (target) openTarget(target); });
   $('toasts').append(toast);
   setTimeout(() => toast.remove(), hint ? 20000 : 8000);
   return toast;
@@ -48,6 +52,7 @@ export async function init() {
 
   // In-window notifications (when macOS blocks system ones).
   window.pilot.onToast(toastMessage);
+  window.pilot.onOpenTarget(openTarget);   // a clicked system notification
 
   // Help improve Job Pilotto (opt-in anonymous form reports).
   $('claude-consent').addEventListener('change', async () => {

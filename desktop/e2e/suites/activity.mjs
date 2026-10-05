@@ -1,3 +1,4 @@
+/* global document */
 // Actions + Recent activity: every task on the Actions page (one row, an end, plain words, a clean log, nothing left Running) and the Recent activity screen itself (filter,
 // "View all activity", a finished run's result card, a run read only from Notion). Starts from a set-up install; resets only its own run rows in Notion.
 // What goes WRONG (the AI failing, two things at once, a quit in the middle) is the activityfailures suite, in parallel, on its own Notion page.
@@ -81,6 +82,24 @@ export async function run(ctx) {
     if (words.length < 20) throw new Error(`the finished search analysis shows no result ("${words}")`);
     if (badSummary(words.slice(0, 200))) throw new Error(`its result is wrong: ${badSummary(words.slice(0, 200))}`);
     if (/^(Nothing to show yet|No log for this run)/.test(opened.log.trim()) || !opened.log.trim()) throw new Error('its Technical log is empty');
+  }, {needs: ctx.needs});
+
+  await ctx.run('clicking the pop-up of a finished task opens that task\'s result in Recent activity', async () => {
+    const {page} = ctx;
+    const selected = () => page.evaluate(() => (document.getElementById('activity-selected')?.textContent || '').replace(/\s+/g, ' ').trim());
+    await page.click('.nav[data-view="actions"]');
+    await page.click('[data-command="kits"]');   // the quick, free task: its pop-up is the news that the run ended (renderer/pages/activity.js announceRuns)
+    const popup = page.locator('.toast.toast-link').filter({hasText: new RegExp(LABEL.kits, 'i')}).first();
+    await popup.waitFor({timeout: 180000});
+    // Look at an older run first and leave the panel open on it: the panel would show the new run by itself (it is the latest), so only the click can switch it.
+    await page.locator('#runs-table .runs-row').filter({hasNot: page.locator('b', {hasText: new RegExp(`^${LABEL.kits}$`)})}).first().click();   // the Actions page lists the newest five
+    await page.waitForFunction(() => !document.getElementById('activity-panel')?.hidden, null, {timeout: 10000});
+    const before = await selected();
+    if (!before || new RegExp(LABEL.kits, 'i').test(before)) throw new Error(`the test could not open an older run first (the panel shows "${before}")`);
+    await popup.click();   // the pop-up is still on screen: they last 8 s
+    await page.waitForFunction(label => (document.getElementById('activity-selected')?.textContent || '').includes(label), LABEL.kits, {timeout: 5000})
+      .catch(async () => { throw new Error(`the pop-up opened Recent activity on "${await selected()}", not on the run it announced (${LABEL.kits})`); });
+    await page.click('#activity-close');
   }, {needs: ctx.needs});
 
   await ctx.run('a run read only from Notion (a fresh start, no local record) still shows its log', async () => {

@@ -25,6 +25,7 @@ import * as requestLog from './lib/request-log.js';
 import * as notifyWatch from './lib/notify-watch.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
+import * as targets from './renderer/targets.js';   // pure (no DOM), shared with the window
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
@@ -383,16 +384,22 @@ function openTailoredCv(code) {
   review.loadFile(cvlib.reviewPage(storage, record));
   return true;
 }
-// A macOS notification; clicking it brings the app to the front.
+// A macOS notification; clicking it brings the app to the front and, with a target (renderer/targets.js: a page, a section, a run's result, a job's row),
+// opens it. The target may also be a function (the older callers). The same message as a window toast carries the target too.
 // If macOS blocks notifications (common for an app run with npm start: "Electron" is off in System
 // Settings), the same message shows as a toast inside the window, with a one-time hint how to allow them.
 let notificationsBlocked = false, hintedMissing = false;
-function notify(title, body, onClick = null) {
+function openTarget(target) {
+  const clean = targets.clean(target);
+  if (clean) toWindow('openTarget', clean);
+}
+function notify(title, body, target = null) {
   if (process.env.JOB_PILOTTO_SMOKE) return;
-  const toast = hint => toWindow('toast', {title, body, hint});
+  const onClick = typeof target === 'function' ? target : () => openTarget(target);
+  const toast = hint => toWindow('toast', {title, body, hint, target: typeof target === 'function' ? null : targets.clean(target)});
   if (!Notification.isSupported() || notificationsBlocked) { appLog('notify', 'window toast only', {title, blocked: notificationsBlocked}); toast(false); return; }
   const note = new Notification({title, body, silent: false});
-  note.on('click', () => { window?.show(); window?.focus(); onClick?.(); });
+  note.on('click', () => { window?.show(); window?.focus(); onClick(); });
   // Titles only in the log, never the body (it can name an employer or an interview).
   notifyWatch.watch(note, {
     onShown: () => appLog('notify', 'shown by macOS', {title}),
@@ -432,7 +439,7 @@ function announceRuns() {
     if (window?.isFocused()) continue;
     if (run.kind === 'prepare' && run.where === 'mac') continue;  // prepareKit gives its own ("Press Apply…")
     const note = runHistory.notice(run);
-    if (note) notify(note.title, note.body);
+    if (note) notify(note.title, note.body, note.target);   // a click opens that run's result
   }
 }
 
@@ -1061,7 +1068,7 @@ function handlers() {
   });
   ipcMain.handle('ivTranscribe', async (_, id, options) => {
     const meta = await interviews.transcribe(storage, id, options, step => toWindow('ivProgress', step));
-    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`);
+    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`, {view: 'interviews'});
     return meta;
   });
   ipcMain.handle('ivSaveDraft', (_, id, patch) => (DEMO ? true : interviews.saveDraft(storage, id, patch)));
@@ -1499,8 +1506,8 @@ function handlers() {
     const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), line => lines.push(line),
       pipeline.triggerEnv('you'));
     const ineligible = lines.map(line => line.replace(/<[^>]+>/g, '')).find(line => line.includes('Not eligible:'));
-    if (exit !== 0) notify('Kit not prepared', `${name}: ${lines.filter(Boolean).slice(-1)[0] || 'something went wrong'}`);
-    else notify('Application kit ready ✓', ineligible ? `${name}. ${ineligible.trim()}` : `${name}. Press Apply to fill the form.`);
+    if (exit !== 0) notify('Kit not prepared', `${name}: ${lines.filter(Boolean).slice(-1)[0] || 'something went wrong'}`, {view: 'jobs', job: code});
+    else notify('Application kit ready ✓', ineligible ? `${name}. ${ineligible.trim()}` : `${name}. Press Apply to fill the form.`, {view: 'jobs', job: code});
     if (exit === 0) track('kit_prepared', {});
     return {ok: exit === 0, ineligible: ineligible || ''};
   });
@@ -1540,11 +1547,11 @@ function handlers() {
           job.url, cvlib.pdfPath(storage, code), `CV · ${job.company} · ${job.title}.pdf`.replace(/[/\\:]/g, '-'));
       } catch (error) { console.error(`Tailored CV not saved to Notion: ${error.message}`); }
       notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
-        + (inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'));
+        + (inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'), {view: 'jobs', job: code});
       if (show) openTailoredCv(code);   // from the form's panel the window stays behind: the person is on the form, the notification says it is ready
       return {ok: true, usd: record.usd};
     } catch (error) {
-      notify('CV not tailored', `${name}: ${error.message}`);
+      notify('CV not tailored', `${name}: ${error.message}`, {view: 'jobs', job: code});
       return {ok: false, error: error.message};
     }
   };
@@ -2117,7 +2124,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
       mail: () => (notionGate.connected(storage) ? pipeline.checkMail(storage, log, 'schedule') : skipUntilNotion('mail')),
       scout: () => pipeline.scout(storage, log, 'schedule'),
-    }, powerMonitor, {soon: () => notify('Checking for new jobs in 1 minute', 'Your scheduled check for new jobs is about to run.')});
+    }, powerMonitor, {soon: () => notify('Checking for new jobs in 1 minute', 'Your scheduled check for new jobs is about to run.', {activity: true})});
     setInterval(announceRuns, 5000);
     scheduleResume(pipeline, storage, {cloud: !!storage.settings().cloud?.repo, begin: resumeQueue, delayMs: resumeDelay()});  // after the schedule's own catch-up check has queued what's due; the queue is read now, not then
   }
@@ -2144,7 +2151,7 @@ async function focusReminder(now = new Date()) {
   storage.saveSettings({lastFocusReminder: key});
   const text = await pipeline.focusReminder(storage, true);
   appLog('focus', `reminder ${key}: ${text ? 'sent' : 'nothing worth saying'}`, {chars: text.length});
-  if (text) notify('Focus: what to do next', text);
+  if (text) notify('Focus: what to do next', text, {view: 'focus'});
 }
 
 
@@ -2164,7 +2171,7 @@ async function resumeQueue(jobs) {
   }
   if (jobs.length) {
     notify(`Picking up ${jobs.length} job${jobs.length === 1 ? '' : 's'} from before you quit`,
-      jobs.map(job => pipeline.taskName(job.kind)).join(', '));
+      jobs.map(job => pipeline.taskName(job.kind)).join(', '), {activity: true});
   }
 }
 

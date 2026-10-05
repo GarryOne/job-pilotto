@@ -170,6 +170,7 @@ export function renderJobs() {
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
     const row = el('article', 'job-row');
+    Object.assign(row.dataset, {code: job.code || '', url: job.url || ''});   // a notification's click scrolls to it (pages/open-target.js)
     // Fit: a ring filled to the score (the compact list adds "Strong match" under it). A row whose score has a
     // breakdown behind it says so with a caret, and the ring opens it.
     const fit = el('div', `fit-cell ${band(job.fit)}`);

@@ -271,6 +271,7 @@ details.questions > p { margin: 0 0 6px; }
 .question .message { grid-column: 1 / -1; }
 .toasts { position: fixed; top: 16px; right: 16px; z-index: 50; display: grid; gap: 8px; width: 340px; }
 .toast { background: var(--navy); color: var(--on-accent); border-radius: var(--r-md); padding: 12px 14px; box-shadow: 0 10px 30px rgb(var(--shadow-rgb) / .3); display: grid; gap: 4px; cursor: pointer; font-size: var(--fs-md); }
+.toast-link { cursor: pointer; }
 .toast b { font-size: var(--fs-base); } .toast small { color: var(--on-navy-2); }
 /* Row main button: one colour per step, so the next action stands out. */
 .row-actions .row-main { border-radius: var(--r-md); font-weight: 700; border: 1.5px solid transparent; }
@@ -409,6 +410,10 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .job-list-head { padding: 0 14px 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .job-list { display: grid; gap: 8px; }
 .job-row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; transition: border-color .15s, box-shadow .15s; }
+/* The row a notification's click scrolled to (pages/open-target.js): a brief outline, none for people who ask for less motion. */
+.job-row.flash { outline: 2px solid var(--signal); outline-offset: 2px; animation: row-flash 2.2s ease-out; }
+@keyframes row-flash { from { background: color-mix(in srgb, var(--signal) 14%, var(--surface)); } to { background: var(--surface); } }
+@media (prefers-reduced-motion: reduce) { .job-row.flash { animation: none; } }
 .job-row:hover { border-color: var(--line-strong); box-shadow: 0 3px 12px rgb(var(--shadow-rgb) / .06); }
 .fit-cell { --tone: var(--line-strong); --track: var(--line); display: grid; justify-items: center; gap: 4px; }
 .fit-cell.is-clickable { cursor: pointer; }

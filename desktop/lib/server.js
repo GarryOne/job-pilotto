@@ -115,7 +115,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // button's own end, without pressing anything.
       submitted(job.url);
       appliedHook({how: 'extension'});
-      notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`);
+      notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`, {view: 'jobs', job: job.code || job.url});
       return {ok: true, message: 'Marked Applied in your Notion.'};
     },
     NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || '',
@@ -135,7 +135,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
         console.error('Open questions:', error.message);
         return 0;
       });
-      if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
+      if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`, {view: 'jobs'});
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
       reports.send(storage, run, undefined, sharedLogger).then(report => {  // each field also shows in the app reports (/telemetry)
         // A fill that failed while Chrome ran an older copy than this app ships is explained first, as its own
@@ -408,7 +408,7 @@ export function start(storage, onError = () => {}) {
         const local = req.method === 'POST' && req.headers['x-job-pilotto'] === 'launcher' && !req.headers.origin;
         const form = new URLSearchParams(body?.toString() || '');
         const message = form.get('message')?.slice(0, 300);
-        if (local && message) notify(`Job Pilotto · ${form.get('job')?.slice(0, 120) || 'Apply with Claude'}`, message);
+        if (local && message) notify(`Job Pilotto · ${form.get('job')?.slice(0, 120) || 'Apply with Claude'}`, message, {view: 'sessions'});
         res.writeHead(local && message ? 200 : 403, {'Content-Type': 'application/json'});
         res.end(JSON.stringify({ok: !!(local && message)}));
         return;
@@ -547,10 +547,10 @@ export function start(storage, onError = () => {}) {
           if (event.type === 'take-over') takeOverHandler({...event, job});
           if (event.type === 'tailor-cv') tailorHandler({...event, job});
           if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
-          if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`);
+          if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`, {view: 'sessions'});
           if (event.type === 'fill-done') {
             notify(event.left ? 'Form filled: a few things left for you' : 'Form filled ✓',
-              `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`);
+              `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`, {view: 'sessions'});
           }
         }
         return;

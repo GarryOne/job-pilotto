@@ -129,6 +129,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
 - `desktop/renderer/pages/notion-connect.js` — Connecting Notion from anywhere in the window (Notion later: the app only tries until it is connected): the dialog with the
+- `desktop/renderer/pages/open-target.js` — A clicked notification or pop-up opens what it is about (lib/targets.js): the result of a finished task, a page, a section, a job's row.
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.
@@ -200,6 +201,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/session-state.js` — A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's
 - `desktop/renderer/sessions-cache.js` — The last known session list, so the Applying page paints it at once instead of a spinner — or, before this, the
 - `desktop/renderer/sidebar-rail.js` — The sidebar as an icon rail: automatically in a narrow window (under 1180 px, where there is no room for labels), or when the person
+- `desktop/renderer/targets.js` — Where a click on a notification (macOS / Windows) or an in-window pop-up leads (pure, no DOM: main.js checks a target, the window follows it). A target is plain data with fixed keys, checked here befo
 - `desktop/renderer/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `desktop/renderer/tips.js` — The tip ticker on the Application sessions page (owner, 2 Oct 2026): one line of fact or advice scrolls right to left
 - `desktop/renderer/tune-text.js` — The words of the Tune my strategy dialog, kept free of the DOM (like weekly-card.js) so the tests can check them.

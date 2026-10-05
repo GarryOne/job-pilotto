@@ -973,14 +973,14 @@ function announceRuns({running, runs}) {
   if (running && running.id !== announced.running) {
     announced.running = running.id;
     const kind = KIND[kindOf(running)] || KIND.search;
-    if (running.trigger === 'schedule') toastMessage(`${kind.icon} ${kind.name} started`, `Scheduled${where(running)}`).onclick = () => openActivity(true);
+    if (running.trigger === 'schedule') toastMessage({title: `${kind.icon} ${kind.name} started`, body: `Scheduled${where(running)}`, target: {activity: true}});
   }
   for (const run of runs.filter(r => !announced.done.has(r.id))) {
     announced.done.add(run.id);
     if (Date.now() - Date.parse(run.endedAt || run.startedAt) > 3 * 60000) continue;  // history arriving (Notion), not news
     const kind = KIND[kindOf(run)] || KIND.search;
     const failed = !run.ok || run.off;
-    toastMessage(`${failed ? '⚠️' : '✅'} ${kind.name} ${failed ? 'had problems' : 'done'}`, `${capital(outcome(run))}${where(run)}`).onclick = () => openActivity(true);
+    toastMessage({title: `${failed ? '⚠️' : '✅'} ${kind.name} ${failed ? 'had problems' : 'done'}`, body: `${capital(outcome(run))}${where(run)}`, target: {run: run.id}});   // a click opens this run's result
   }
 }
 

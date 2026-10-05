@@ -159,7 +159,12 @@ export function merge(notionRuns, localRuns, pending = []) {
 const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Search analysis', kits: 'Prepare top matches', today: "Today's list",
   scout: 'Find new employers', prepare: 'Application kit', interview: 'Interview review', add: 'Logged activity', rejection: 'Rejection review',
   prep: 'Interview prep kit', import: 'Add a job'};
+// A notification is the news of one run, so a click opens that run's result (Recent activity, the run selected); renderer/targets.js says how.
 export function notice(run) {
+  const said = noticeText(run);
+  return said && (run.id == null ? said : {...said, target: {run: run.id}});   // no id, nothing to open
+}
+function noticeText(run) {
   if (!NAMES[run.kind] && run.kind) return null;
   const where = run.where === 'github' ? ' (on GitHub)' : '';
   const name = NAMES[run.kind] || 'Jobs check';

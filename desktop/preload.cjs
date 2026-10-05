@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onExportProgress: callback => ipcRenderer.on('exportProgress', (_, count) => callback(count)),
   onSaveProgress: callback => ipcRenderer.on('saveProgress', (_, progress) => callback(progress)),
   onToast: callback => ipcRenderer.on('toast', (_, toast) => callback(toast)),
+  onOpenTarget: callback => ipcRenderer.on('openTarget', (_, target) => callback(target)),   // a clicked notification (lib/targets.js)
   onReview: callback => ipcRenderer.on('review', (_, state) => callback(state)),
   reviewWatch: call('reviewWatch'), reviewStates: call('reviewStates'), reviewFocus: call('reviewFocus'), reviewReload: call('reviewReload'),
   onSession: callback => ipcRenderer.on('session', (_, event, payload) => callback(event, payload)),
