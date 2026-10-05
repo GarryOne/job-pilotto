@@ -1736,7 +1736,7 @@ function handlers() {
       const up = await Promise.all([...new Set(installed.map(entry => entry.app))].map(app => extensionInstall.running(app)));
       browserUp = up.some(Boolean);
     }
-    return {folder: extensionFolder(), latest: server.latestExtension(), installed, browserUp,
+    return {folder: extensionFolder(), latest: server.latestExtension(), installed, browserUp, browser: apply.launchBrowser(),
       looked: extensionInstall.lookedFor({})};  // where it was looked for, for a browser that keeps profiles elsewhere
   });
   // The computer's part of installing it, in one press: Chrome on its extensions page, the extension's folder in

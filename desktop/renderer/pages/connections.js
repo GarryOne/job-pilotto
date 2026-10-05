@@ -8,6 +8,7 @@ import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {extensionState} from '../service-status.js';
 import {lookedText} from '../extension-looked.js';
+import {inBrowser, retarget} from '../browser-words.js';
 import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
@@ -59,6 +60,7 @@ const EXT_LINE = {
   absent: 'Not installed in Chrome yet — the three steps below take a minute.',
   checking: 'Looking for it in Chrome…',
 };
+let browserApp = 'Google Chrome';  // the browser the extension is (or will be) installed in, from the app
 export async function showExtensionStatus() {
   const [seen, found] = await Promise.all([window.pilot.extensionSeen().catch(() => null), window.pilot.extensionInstall().catch(() => null)]);
   const state = extensionState({known: !!found || !!seen, installed: found?.installed || [], seen, browserRunning: found?.browserUp ?? null});
@@ -66,7 +68,9 @@ export async function showExtensionStatus() {
   pill.id = 'ext-status';
   $('ext-status').replaceWith(pill);
   if (state.checking) { setTimeout(showExtensionStatus, 1500); return; }  // only until the first profile read lands
-  $('ext-line').textContent = EXT_LINE[state.state] || EXT_LINE.absent;
+  browserApp = found?.browser || browserApp;
+  for (const card of ['setting-extension', 'extras-extension']) retarget($(card), browserApp, '#ext-stray, #ext-looked, #ext-path, #ext-path-extras');  // Chrome's words become Edge's when that is where it is
+  $('ext-line').textContent = inBrowser(EXT_LINE[state.state] || EXT_LINE.absent, browserApp);
   showStray((await window.pilot.strayChrome().catch(() => []))[0] || null);
   $('ext-path').textContent = found?.folder || '';  // what Chrome's Load unpacked dialog wants pasted
   const looked = lookedText(found?.looked);  // where we looked: the answer when the profile is somewhere we can't know
@@ -450,9 +454,9 @@ export async function init() {
   // The step-1 chip: best effort at Chrome's page, and the URL on the clipboard so the paste always gets there.
   $('ext-open-page').addEventListener('click', async () => {
     const result = await window.pilot.extensionPage().catch(() => null);
-    message('ext-message', result?.opened
+    message('ext-message', inBrowser(result?.opened
       ? osText('Chrome should be opening its extensions page. If it doesn\'t: chrome://extensions is on your clipboard (⌘L, ⌘V, ⏎).')
-      : osText('chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.'), result?.opened ? 'ok' : 'error');
+      : osText('chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.'), browserApp), result?.opened ? 'ok' : 'error');
   });
   // The folder in front of the user and its path on the clipboard. The Mac's dialog takes ⌘⇧G (Go to Folder), ⌘V,
   // Return; the PC's has no such shortcut, so it gets its own sentence. Bound by attribute, so the setup wizard's
@@ -463,15 +467,15 @@ export async function init() {
       const result = await window.pilot.extensionShow().catch(() => null);
       button.disabled = false;
       toastMessage(result?.opened ? 'Extension folder opened' : 'Couldn\'t open the folder',
-        result?.opened ? osPick('Its path is on your clipboard: in Chrome press Load unpacked, then ⌘⇧G, ⌘V, Return.',
+        inBrowser(result?.opened ? osPick('Its path is on your clipboard: in Chrome press Load unpacked, then ⌘⇧G, ⌘V, Return.',
           'Its path is on your clipboard: in Chrome press Load unpacked, paste it into the folder box (Ctrl+V), and press Enter.')
-          : 'Open the extension folder by hand, then press Load unpacked in Chrome.');
+          : 'Open the extension folder by hand, then press Load unpacked in Chrome.', browserApp));
     });
   }
   $('ext-connect').addEventListener('click', async () => {
     const result = await window.pilot.extensionOptions().catch(() => null);
     message('ext-message', result?.opened ? 'Its settings page is open: press Connect to the Job Pilotto app there.'
-      : 'Couldn\'t open the extension\'s settings page. Open it from Chrome: 🧩 → ⋮ next to Job Pilotto → Options.', result?.opened ? 'ok' : 'error');
+      : inBrowser('Couldn\'t open the extension\'s settings page. Open it from Chrome: 🧩 → ⋮ next to Job Pilotto → Options.', browserApp), result?.opened ? 'ok' : 'error');
   });
   $('open-data').addEventListener('click', () => window.pilot.showFolder('data'));
   $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });

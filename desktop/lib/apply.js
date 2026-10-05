@@ -11,7 +11,7 @@ import path from 'node:path';
 import * as pipeline from './pipeline.js';
 import * as session from './claude-session.js';
 import * as terminals from './terminals.js';
-import {browserCommand} from './browser-launch.js';
+import {browserCommand, browserOf} from './browser-launch.js';
 import * as extensionInstall from './extension-install.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
@@ -72,6 +72,11 @@ const NO_CHROME = 'No supported browser was found. Install Chrome or Edge (with 
 // How to open URLs in the browser that has the extension (Chrome, Edge, Brave, Vivaldi): see browser-launch.js.
 // `prefer` is that browser's app name. null when none is installed.
 export const chromeCommand = browserCommand;
+
+// The browser a form would open in now (the extension's, else Chrome, else Edge…), as an app name, for the wording of the install steps.
+export function launchBrowser(find = extensionInstall.installed, command = browserCommand) {
+  return extensionBrowser(find) || browserOf(command(['x'], process.platform, process.env, fs.existsSync)) || 'Google Chrome';
+}
 
 // The browser the Job Pilotto extension is installed in, enabled, for a form to open in: the copy loaded from the app's own
 // folder first. '' when none is found (Chrome, then Edge, is tried).
