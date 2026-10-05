@@ -66,6 +66,14 @@ export function inspect({view, limits}) {
   for (const img of root.querySelectorAll('img')) {
     if (visible(img) && img.complete && img.naturalWidth === 0) found.push({view, severity: 'severe', kind: 'broken-image', detail: `${label(img)} does not load`});
   }
+  // A spinner is round. A flex rule meant for text (a min-width on a notice's first child) once stretched the setup banner's into a 280px line (6 Oct 2026).
+  // offsetWidth/Height ignore the rotation animation, which would otherwise make a long thin box look square at some angle.
+  for (const spinner of root.querySelectorAll('.spinner')) {
+    const [w, h] = [spinner.offsetWidth, spinner.offsetHeight];
+    if (visible(spinner) && Math.max(w, h) > 2 * Math.max(1, Math.min(w, h))) {
+      found.push({view, severity: 'warning', kind: 'distorted-spinner', detail: `${label(spinner)} is ${w}x${h}px: a spinner should be round`}); break;
+    }
+  }
   for (const button of root.querySelectorAll('button, a[href]')) {
     if (visible(button) && !(button.textContent || '').trim() && !button.getAttribute('aria-label') && !button.title && !button.querySelector('svg, img')) {
       found.push({view, severity: 'warning', kind: 'unnamed-control', detail: `${label(button)} has no text, label or icon`}); break;

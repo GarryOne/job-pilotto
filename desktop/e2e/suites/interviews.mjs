@@ -138,6 +138,24 @@ export async function run(ctx) {
     if (!(await record.isDisabled())) throw new Error('Record is still enabled after the consent box is unticked');
   });
 
+  // The one-time setup (add-on + speech models) shows a banner only on a Mac without the models, which no suite has: send the app's own progress events instead,
+  // so the banner is on screen for the checks and the screenshot review (it was invisible to them, and its spinner was stretched, 6 Oct 2026).
+  await step('the one-time setup banner shows its step and percent, then goes away when transcribing starts', async () => {
+    await openInterviews();
+    const send = payload => app.evaluate(({BrowserWindow}, data) => BrowserWindow.getAllWindows()[0].webContents.send('ivProgress', data), payload);
+    const banner = () => page.evaluate(() => ({shown: !document.getElementById('iv-setup').hidden, text: document.getElementById('iv-setup-text').textContent,
+      bar: document.getElementById('iv-setup-bar').hidden ? null : document.getElementById('iv-setup-fill').style.width}));
+    await send({id: 'setup', percent: 40, setup: true, text: 'Downloading the speech models, only the first time (about 520 MB): asr'});
+    await page.waitForFunction(() => !document.getElementById('iv-setup').hidden, null, {timeout: 5000});
+    const downloading = await banner();
+    if (!/asr 40%/.test(downloading.text) || downloading.bar !== '40%') throw new Error(`the setup banner shows "${downloading.text}" with a bar of ${downloading.bar}, expected asr 40% and 40%`);
+    await snap(ctx, 'interviews-setup', {view: 'interviews', busy: true, situation: 'The one-time transcription setup banner at the top of Interviews, downloading the speech models at 40% (a spinner, one line of text, a progress bar)'});
+    await send({id: 'setup', percent: null, setup: true, text: 'Unpacking the speech models (asr), a minute or two'});
+    await page.waitForFunction(() => document.getElementById('iv-setup-bar').hidden, null, {timeout: 5000});
+    await send({id: 'x', percent: 10, text: 'Writing down what was said'});
+    await page.waitForFunction(() => document.getElementById('iv-setup').hidden, null, {timeout: 5000});
+  });
+
   await step('an interview can be linked to a job and unlinked again, and Notion follows', async () => {
     await openInterviews(4);
     await row(seed.ivNegative.page).getByRole('button', {name: 'Link a job'}).click();
