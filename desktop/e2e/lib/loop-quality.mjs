@@ -16,8 +16,10 @@ const rate = (part, whole) => (whole ? Math.round(100 * part / whole) : null);
 export function escapeRate(rows, {now = Date.now(), days = 30} = {}) {
   const select = (row, name) => row.properties?.[name]?.select?.name || '';
   const recent = rows.filter(row => { const at = row.properties?.['Found on']?.date?.start; return !at || now - Date.parse(at) <= days * 86400000; });
-  const caught = recent.filter(row => select(row, 'Caught by e2e') === 'Yes').length, late = recent.filter(row => select(row, 'Caught by e2e') === 'Late').length;
-  const missed = recent.filter(row => select(row, 'Caught by e2e') === 'No - gap').length, judged = caught + late + missed;
+  // By the option's first word: the Tracker's options carry explanations ("Late (only after users or manual)", "No - gap").
+  const is = (row, word) => new RegExp(`^${word}\\b`, 'i').test(select(row, 'Caught by e2e'));
+  const caught = recent.filter(row => is(row, 'Yes')).length, late = recent.filter(row => is(row, 'Late')).length;
+  const missed = recent.filter(row => is(row, 'No')).length, judged = caught + late + missed;
   return {rate: rate(missed, judged), missed, late, caught, judged};
 }
 

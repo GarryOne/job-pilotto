@@ -7,7 +7,7 @@ const row = (caught, at = '2026-10-04') => ({properties: {'Caught by e2e': {sele
 const now = Date.parse('2026-10-06T00:00:00Z');
 
 test('escape rate: missed of judged, late counted apart, n/a and old rows left out', () => {
-  const result = escapeRate([row('Yes'), row('Yes'), row('Late'), row('No - gap'), row('n/a'), row('No - gap', '2026-07-01')], {now});
+  const result = escapeRate([row('Yes'), row('Yes'), row('Late (only after users or manual)'), row('No - gap'), row('n/a'), row('No - gap', '2026-07-01')], {now});
   assert.deepEqual(result, {rate: 25, missed: 1, late: 1, caught: 2, judged: 4});
 });
 
