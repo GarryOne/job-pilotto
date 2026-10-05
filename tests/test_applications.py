@@ -146,7 +146,8 @@ class DigestIntegrationTests(unittest.TestCase):
                 stages = tracker.url_stages()
                 saved = frozenset(u for u, s in stages.items() if s == 'Saved')
                 message = digest.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)
-                self.assertIn('1. ⭐ <a href="https://x.test/0"', message)  # saved job ranks first, starred
+                self.assertIn('<b>1. <a href="https://x.test/0"', message)  # saved job ranks first, and says so
+                self.assertIn(' · Saved\n', message)
         self.assertNotIn('https://x.test/1"', message)
         self.assertIn('https://x.test/0"', message)
         self.assertIn('1 applied', message)

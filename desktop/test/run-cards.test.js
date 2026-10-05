@@ -89,3 +89,15 @@ test('emptyResult: only a finished, ok, Notion-backed run of a result kind that 
   assert.equal(emptyResult('search', run, false), false);                  // a Jobs check may find nothing
   assert.equal(emptyResult('add', run, false), false);                     // Logged activity has no card
 });
+
+test('the digest in the card layout: unindented company line, score on a Fit: line, headings and the hint are not jobs', () => {
+  const text = ['✈️ Job digest', '5 new · Top 3 of 50 ranked jobs', 'In your preferred locations', 'New since your last run · 2 jobs',
+    '1. Senior IT Cloud Engineer (https://example.test/1)', 'Swiss Casinos · Zürich, Switzerland · Senior', 'Fit: 58/100 · Senior cloud role in Zürich', 'Check: English',
+    '2. Head of Platform Engineering (https://example.test/2)', 'Convotis · Switzerland',
+    'Your pipeline', '173 open · 4 pinned · 2 applied', 'Tap a job number to mark it applied, save or dismiss it.'].join('\n');
+  const card = parseRunMessage(text);
+  assert.equal(card.kind, 'digest');
+  assert.deepEqual(card.items.map(item => [item.title, item.company, item.fit, item.url]),
+    [['Senior IT Cloud Engineer', 'Swiss Casinos', 58, 'https://example.test/1'], ['Head of Platform Engineering', 'Convotis', null, 'https://example.test/2']]);
+  assert.deepEqual([card.fresh, card.open, card.local, card.applied], [5, 173, 4, 2]);
+});

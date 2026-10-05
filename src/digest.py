@@ -6,7 +6,7 @@ import os
 import random
 import re
 
-from . import store
+from . import store, tgcard
 from .ai import enrich, score
 from .notion import client as notion
 from .paths import CONFIG, keyword_regex, load_search_config
@@ -196,7 +196,6 @@ def rank_jobs(jobs, rng):
 
 LEGAL_SUFFIX = re.compile(r"[\s,]+(AG|SA|S\.A\.|GmbH|Sàrl|S\.à\s?r\.l\.|Ltd\.?|Limited|Inc\.?|LLC|plc|SE|Co\.)$", re.I)
 GENDER_TAG = re.compile(r"\s*\((?:[mwfdxa]\s*[/|,]?\s*)+\)|\s*\((?:all genders?|alle|tous genres)\)", re.I)
-INDENT = '   '
 
 
 def short_company(name):
@@ -215,32 +214,39 @@ def short_title(title):
 MODE_LABELS = {'onsite': '🏢 On-site', 'hybrid': '🏠 Hybrid', 'remote': '🌍 Remote'}
 
 
+def _plain_badge(text):
+    """'🇬🇧 English' -> 'English', '🔴 visa sponsorship needed' -> 'visa sponsorship needed': the card layout has no emoji per line."""
+    return re.sub(r'^[^\w(]+', '', unescape(text)).strip()
+
+
 def _job_block(index, job):
-    """Layout: bold linked title / company · location · seniority · work mode / signals."""
-    title = f"<b>{escape(short_title(job['title']))}</b>"
+    """One job in the card layout (src/tgcard.py): the numbered, linked title as the bold heading; company · location · seniority · work mode;
+    then `Fit:` (score and why) and `Check:` (language, visa, salary) as facts. No italics, no emoji."""
+    title = escape(short_title(job['title']))
     if job.get('url'):
         title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
     facts = [escape(short_company(job['company'])), escape(job.get('location') or 'location not stated')]
     ai = job.get('ai')
     if ai and ai['seniority']['value'] in SENIORITY_LABELS:
-        facts.append(f"<b>{SENIORITY_LABELS[ai['seniority']['value']]}</b>")
+        facts.append(SENIORITY_LABELS[ai['seniority']['value']])
     mode = MODE_LABELS.get(ai['work_mode']['value'] if ai else '')
     if not mode:
         badge = _work_mode_badge(job.get('work_mode'))
         mode = {'🔀 Hybrid': '🏠 Hybrid'}.get(badge, badge)
     if mode:
-        facts.append(mode)
+        facts.append(_plain_badge(mode))
+    if job.get('saved'):
+        facts.append('Saved')
+    lines = [' · '.join(facts)]
     fit = job.get('fit')
-    star = '⭐ ' if job.get('saved') else ''
-    head = f"{index}. {star}{title}" + (f" · <b>{fit['score']}/100</b>" if fit else '')
-    lines = [head, INDENT + ' · '.join(facts)]
+    if fit:
+        why = f" · {fit['reason'][:110]}" if fit.get('reason') else ''
+        lines.append(tgcard.fact('Fit', f"{fit['score']}/100{why}"))
     # The visa flag is a rule on your places and work rights, not an AI finding: it shows without AI facts too.
     signals = _ai_badges(ai, job) if ai else (['🔴 visa sponsorship needed'] if needs_sponsorship(job) else [])
     if signals:
-        lines.append(INDENT + ' · '.join(signals))
-    if fit and fit.get('reason'):
-        lines.append(f"{INDENT}<i>{escape(fit['reason'][:110])}</i>")
-    return '\n'.join(lines)
+        lines.append(tgcard.fact('Check', ' · '.join(_plain_badge(item) for item in signals)))
+    return tgcard.block(f'{index}. {title}', *lines)
 
 
 def _keyboard(entries):
@@ -356,13 +362,12 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
             rest.append(f"{len(low_fit)} low fit")
         if rest:
             pipeline.append(' · '.join(rest))
-        pipeline_block = '<b>Your pipeline</b>\n' + '\n'.join(pipeline)
-        header = (f"✈️ <b>{BRAND_NAME}</b> · Job digest\n"
-                  f"{len(new)} new · Top {len(shown)} of {len(ranked)} ranked jobs")
+        pipeline_block = tgcard.block('Your pipeline', *pipeline)
+        header = tgcard.card('Job digest', f"{len(new)} new · Top {len(shown)} of {len(ranked)} ranked jobs", emoji='✈️')
     elif shown:
-        header = f"✈️ <b>{BRAND_NAME}</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
+        header = tgcard.card('Job digest', f"Jobs {first + 1}–{first + len(shown)} of {len(ranked)}", emoji='✈️')
     else:
-        return [f'✈️ <b>{BRAND_NAME}</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
+        return [tgcard.card('Job digest', 'No more jobs in this list. Send /today for a fresh one.', emoji='✈️')], len(new), [None]
 
     SECTION_LABELS = {'new': 'New since your last run', 'best': 'Best matches', 'older': 'More to explore'}
     # One heading per group, jobs in the order they are listed: why they are listed first (new, best, more), your places before elsewhere. The ranking mixes the two
@@ -380,9 +385,9 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         key = (kind, in_places(job))
         if key != section:
             section = key
-            place = '📍 <b>In your preferred locations</b>' if key[1] else '🌍 <b>Outside your preferred locations</b>'
+            place = 'In your preferred locations' if key[1] else 'Outside your preferred locations'
             count = group_sizes[key]
-            blocks.append(f"{place}\n{SECTION_LABELS[kind]} · {count} {'job' if count == 1 else 'jobs'}")
+            blocks.append(tgcard.block(place, f"{SECTION_LABELS[kind]} · {count} {'job' if count == 1 else 'jobs'}"))
         blocks.append(_job_block(index, job))
         if shown_ids is not None:
             shown_ids.append(job['id'])
@@ -391,8 +396,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     remaining = len(ranked) - (first + len(shown))
     if page == 1:
         blocks.append(pipeline_block)
-    blocks.append('<i>Tap a job number to mark it applied, save or dismiss it.</i>'
-                  + (f' <i>{remaining} more with ➕.</i>' if remaining else ''))
+    blocks.append('Tap a job number to mark it applied, save or dismiss it.' + (f' {remaining} more with ➕.' if remaining else ''))
     text = '\n\n'.join(blocks)
     keyboard = _keyboard(entries)
     if remaining:

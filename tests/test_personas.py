@@ -69,7 +69,7 @@ class SponsorshipFollowsTheUser(unittest.TestCase):
     def test_the_badge_shows_even_without_ai_facts(self):
         with as_user(AUSTIN):
             block = digest._job_block(1, {'title': 'Analytics Engineer', 'company': 'Acme', 'location': 'Lisbon, Portugal', 'city': '', 'url': ''})
-            self.assertIn('🔴 visa sponsorship needed', block)
+            self.assertIn('<b>Check:</b> visa sponsorship needed', block)
             home = digest._job_block(1, {'title': 'Data Analyst', 'company': 'Acme', 'location': 'Austin, TX', 'city': '', 'url': ''})
             self.assertNotIn('visa sponsorship', home)
 

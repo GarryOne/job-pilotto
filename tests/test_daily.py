@@ -19,7 +19,7 @@ class DigestFormatTests(unittest.TestCase):
                 message = digest.format_digest(db)
         self.assertIn('1 new · Top 1 of 1 ranked jobs', message)
         self.assertIn('Tap a job number', message)
-        self.assertIn('<b>SRE &lt;Platform&gt; &amp; Ops</b>', message)
+        self.assertIn('>SRE &lt;Platform&gt; &amp; Ops</a></b>', message)
         self.assertIn('href="https://example.test/jobs?id=1&amp;x=&quot;y&quot;"', message)
         self.assertIn('A&amp;B &lt;Labs&gt; · Zurich', message)
         self.assertNotIn('<blockquote>', message)
@@ -70,8 +70,8 @@ class DigestFormatTests(unittest.TestCase):
         next_buttons = [row[0]['callback_data'] for _, _, kb in pages[:3] for row in kb[0]['inline_keyboard']
                         if row[0]['callback_data'].startswith('more:')]
         self.assertEqual(next_buttons, ['more:7:2', 'more:7:3'])
-        self.assertIn('jobs 11–20 of 25', pages[1][0][0])
-        self.assertIn('no more jobs', pages[3][0][0])
+        self.assertIn('Jobs 11–20 of 25', pages[1][0][0])
+        self.assertIn('No more jobs', pages[3][0][0])
 
     def test_consecutive_digests_rotate_older_jobs(self):
         report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer',

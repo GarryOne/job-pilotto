@@ -92,8 +92,9 @@ class EnrichTests(unittest.TestCase):
                 message = digest.format_digest(db)
         self.assertNotIn('SRE German', message)
         self.assertIn('1 filtered', message)
-        for badge in ('🇬🇧 English', '<b>Senior</b>', '🇫🇷 French +', '💰 CHF 130k–150k'):
-            self.assertIn(badge, message)
+        for word in ('Senior', '<b>Check:</b> English', 'French +', 'CHF 130k–150k'):   # plain words, no emoji per line (src/tgcard.py)
+            self.assertIn(word, message)
+        self.assertNotIn('🇬🇧', message)
 
 
 class ExcludedCompanyTests(unittest.TestCase):

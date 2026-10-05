@@ -18,10 +18,18 @@ export function parseDigest(text) {
   const items = [];
   lines.forEach((line, i) => {
     const m = line.match(DIGEST_ITEM);
-    if (m && /^\s/.test(lines[i + 1] || '')) {
+    // A job is its numbered line and the company line under it: indented in the older layout, a plain line since the card layout (src/tgcard.py). Its
+    // score is on the heading ("· 78/100", older) or a "Fit: 78/100 · why" line before the next job.
+    if (m && (lines[i + 1] || '').trim() && !DIGEST_ITEM.test(lines[i + 1])) {
       const percent = TITLE_PERCENT.exec(m[2]);
+      let fit = m[4] || m[5] ? Number(m[4] || m[5]) : null;
+      for (const next of lines.slice(i + 1)) {
+        if (!next.trim() || DIGEST_ITEM.test(next)) break;
+        const found = /^Fit:\s*(\d+)\/100/.exec(next.trim());
+        if (found) { fit = Number(found[1]); break; }
+      }
       items.push({title: (percent ? m[2].slice(0, percent.index) : m[2]).replace(/\s*\|.*$/, ''), url: m[3] || '',
-        fit: m[4] || m[5] ? Number(m[4] || m[5]) : null, percent: percent ? Number(percent[1]) : null,
+        fit, percent: percent ? Number(percent[1]) : null,
         company: (lines[i + 1] || '').trim().split(' · ')[0]});
     }
   });
