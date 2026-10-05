@@ -1971,8 +1971,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-title { font-size: var(--fs-lg); margin-right: auto; }
 .cal-nav { display: flex; gap: 6px; }
 .cal-legend { display: flex; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border); }
-.cal-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: var(--info-soft); }
-.cal-legend .dot.kind-screening { background: var(--teal-soft); }
+.cal-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: var(--info); }
+.cal-legend .dot.kind-screening { background: var(--teal); }
 .cal-legend .dot.today { background: none; border: 2px solid var(--signal); }
 .cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); }
@@ -1986,7 +1986,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-chip { text-align: left; border: 0; border-radius: var(--r-sm); padding: 2px 6px; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: var(--info-soft); color: inherit; }
 .cal-chip-time { display: block; font-size: var(--fs-xs); color: var(--muted); }
 .cal-chip-name { display: block; overflow: hidden; text-overflow: ellipsis; }
-.cal-chip.kind-screening { background: var(--teal-soft); }
+.cal-chip { border-left: 3px solid var(--info); }
+.cal-chip.kind-screening { background: var(--teal-soft); border-left-color: var(--teal); }
 .cal-chip.held { opacity: .65; }
 .cal-chip-wrap { position: relative; display: block; }
 .cal-chip-wrap .cal-chip { width: 100%; padding-right: 20px; }
