@@ -696,18 +696,18 @@ function mailDiff(changes) {
   return row;
 }
 function mailSections(box, report, pending = [], answered = null) {
-  const {results, updates} = mailResults(report);
+  const {results, updates, hidden} = mailResults(report);
   if (updates.length) {
-    const section = el('section', 'mail-block mail-changed');
+    const section = el('section', 'mail-changed');
     section.append(el('h4', 'run-card-title', 'What changed'));
     const questions = report.emails.filter(email => NEEDS_YOU.has(email.action)).map(email => ({email, ...questionState(email, pending, answered)}));
     for (const update of updates) {
       const row = el('div', 'mail-changed-row');
-      const ask = /\s+—\s+which job\?$/.exec(update.job);
+      const ask = update.question;
       const sentence = el('p', 'mail-changed-sentence');
       if (ask) {
         // Not sure which job: the check wrote a question for you (Focus) and moved nothing, until you answer.
-        const company = update.job.slice(0, ask.index);
+        const company = update.job;
         const state = questions.find(question => question.email.by === company) || {};
         const line = el('div', 'mail-changed-line');
         line.append(icon(state.answered ? 'check-circle' : 'help'), el('span', '', state.answered
@@ -730,6 +730,7 @@ function mailSections(box, report, pending = [], answered = null) {
     const rows = el('ol', 'run-card-rows');
     for (const result of results) rows.append(mailResult(result, pending, answered));
     box.append(el('h4', 'run-card-title', results.length === 1 ? 'Email result' : 'Email results'), rows);
+    if (hidden) box.append(el('p', 'muted', `${hidden} more email${hidden === 1 ? '' : 's'} read, not about your applications.`));
   }
 }
 

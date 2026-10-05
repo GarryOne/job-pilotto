@@ -71,12 +71,10 @@ export function mailResults(report) {
     if (!result.outcome) result.outcome = outcome;
   }
   for (const review of report.assessments || []) claim(review.job).assessment = review;
-  const left = [];
-  for (const update of report.updates) {
-    const result = !/which job\?$/.test(update.job) && results.find(r => r.company && sameJob(`${r.company} — ${r.role}`, update.job));
-    if (result && !result.update) result.update = update; else left.push(update);
-  }
-  return {results, updates: left};
+  // Every recorded update stays in "What changed" (the data the check moved); the email rows say what each email was.
+  // Emails the check read but did not list (not about your applications) are counted, so the card's numbers add up.
+  const hidden = Math.max(0, (report.status?.emails ?? 0) - report.emails.length);
+  return {results, updates: report.updates, hidden};
 }
 
 // A next step with a clause in it reads as two paragraphs ("…salary expectations, with a further call planned to
@@ -114,6 +112,12 @@ const EMAIL_HEAD = /^(.*?)\s+—\s+/;
 const UPDATED = /^([^·]+?)\s*·\s*(.*)$/;
 const CHANGE = /→|^(?:Stage|Next interview|Confirmation email|Feedback status)\b/;
 function parseUpdated(line) {
+  const parsed = parseUpdate(line);
+  // "Interview · <calendar title> — which job? Add details": not sure which job, so it asked you and moved nothing.
+  const ask = /^(.*?)\s+—\s+which job\?/.exec(parsed.job);
+  return ask ? {...parsed, job: ask[1].trim(), question: true} : parsed;
+}
+function parseUpdate(line) {
   const [, summary, rest] = UPDATED.exec(line.replace(DID, '').trim()) || [];
   if (!summary || rest === undefined) return {summary: '', job: (summary || '').trim(), changes: ''};
   const parts = rest.split(/\s*·\s*/);
@@ -121,10 +125,12 @@ function parseUpdated(line) {
   return at < 0 ? {summary: summary.trim(), job: parts.join(' · ').trim(), changes: ''}
                 : {summary: summary.trim(), job: parts.slice(0, at).join(' · ').trim(), changes: parts.slice(at).join(' · ').trim()};
 }
-const DID = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)|\[\w[\w ]*\]/u;
+// Any leading emoji (❌ Rejected, 📬 Application received, ❓ … which job?, …) or a "[recorded]" tag: a fixed list of
+// emojis once missed ❌ and the rejection never reached "What changed" (5 Oct 2026).
+const DID = /^\p{Extended_Pictographic}\uFE0F?|\[\w[\w ]*\]/u;
 
 export function parseMailLines(fromRow = []) {
-  const record = {updates: [], emails: []};
+  const record = {updates: [], emails: [], assessments: []};
   for (const raw of fromRow.slice(1)) {
     const line = String(raw || '').trim();
     const action = EMAIL_ACTION.exec(line);
@@ -138,6 +144,8 @@ export function parseMailLines(fromRow = []) {
       record.emails.push({subject, sender, time, action: action[1].trim(), by: by[0] || '', changes: (changed?.[1] || changed?.[2] || '')});
       continue;
     }
+    const review = assessment(line);   // "🛠 Why rejected · …": the AI's reading of a rejection, not a change
+    if (review) { record.assessments.push(review); continue; }
     if (DID.test(line)) record.updates.push(parseUpdated(line));
   }
   return record;
@@ -158,7 +166,7 @@ export function parseMailReport(message, result = '', fromRow = []) {
     .map(([line, fromRow_]) => [line.trim(), fromRow_]);  // blank lines kept: they end a message block
   if (!lines.some(([line]) => line) && !parsed.emails.length) return null;
   const report = {status: mailStatus(result), interview: null, topics: [], nextSteps: [], consent: '', notes: [],
-                  url: '', updates: parsed.updates, emails: parsed.emails, outcomes: [], assessments: []};
+                  url: '', updates: parsed.updates, emails: parsed.emails, outcomes: [], assessments: parsed.assessments};
   let reading = '';  // what the last line put us inside: the meeting's own lines, its topics, or the next step
   for (const [line, fromRow_] of lines) {
     if (!line) { if (reading === 'outcome') reading = ''; continue; }
@@ -190,7 +198,7 @@ export function parseMailReport(message, result = '', fromRow = []) {
     }
     if (!fromRow_) {
       const review = assessment(line);
-      if (review) { report.assessments.push(review); reading = ''; continue; }
+      if (review) { if (!report.assessments.some(seen => seen.job === review.job)) report.assessments.push(review); reading = ''; continue; }
       if (UPDATES_TITLE.test(line.replace(HEAD, ''))) { reading = ''; continue; }
       const outcome = OUTCOME.exec(line);
       if (outcome && !HEAD.test(line)) {

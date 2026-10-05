@@ -151,7 +151,7 @@ test('a "which job?" stays an update (a side effect) and the email that raised i
     '📬 Application received · Canonical — SRE · Stage Applied → Confirmation received',
     '❓ Interview scheduled · Blockdaemon — which job?',
     'Meeting invitation · Cal.com · 02 Oct 21:30 — [needs you] · Blockdaemon']);
-  assert.deepEqual(report.updates.map(update => update.job), ['Canonical — SRE', 'Blockdaemon — which job?']);
+  assert.deepEqual(report.updates.map(update => [update.job, !!update.question]), [['Canonical — SRE', false], ['Blockdaemon', true]]);
   assert.equal(report.emails[0].action, 'needs you');
 });
 
@@ -181,4 +181,32 @@ test('an assessment with no "your experience" clause stays one sentence, and an 
   const [result] = mailResults(report).results;
   assert.equal(result.email, null);
   assert.deepEqual([result.company, result.role, result.assessment.focus, result.assessment.summary], ['Acme', 'SRE', '', 'The email gave no reason.']);
+});
+
+// Two real runs' report lines (Notion, 5 Oct 2026): one on GitHub (Always on), one on the Mac. Same card for both.
+const GITHUB_RUN = [
+  'Gmail check: 2 new email(s) read, 2 update(s) recorded; AI cost $0.048.',
+  '❌ Rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure · Stage Confirmation received → Rejected',
+  '🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.',
+  'Anthropic Follow-Up for Staff+ Software Engineer, Data Infrastructure | Igor · us.greenhouse-mail.io · 05 Oct 21:50 — [recorded] · Anthropic — Staff+ Software Engineer, Data Infrastructure · changed Stage Confirmation received → Rejected',
+];
+const MAC_RUN = [
+  'Gmail check: 22 new email(s) read, 2 update(s) recorded; Claude Code, your plan.',
+  '❓ Interview · Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - 22:15 (CEST) (Igor Mardari) — which job? Add details',
+  '🗓 Interview scheduled · Google Calendar — Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - · Fri 02 Oct 21:30 · Stage Screening → Interview scheduled',
+  'Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - 22:15 (CEST) (Igor Mardari) · Google Calendar · 02 Oct 21:00 — [recorded] · Google Calendar — Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 20 · changed Stage Screening → Interview scheduled',
+];
+
+test('every recorded update stays in "What changed", whatever its emoji, wherever the check ran', () => {
+  const github = mailResults(parseMailReport('', GITHUB_RUN[0], GITHUB_RUN));
+  assert.deepEqual(github.updates.map(u => [u.summary, u.changes]), [['Rejected', 'Stage Confirmation received → Rejected']]);
+  assert.equal(github.results[0].assessment?.verdict, 'Hard skills');   // the review line is the assessment, not an update
+  const mac = mailResults(parseMailReport('', MAC_RUN[0], MAC_RUN));
+  assert.equal(mac.updates.length, 2);
+  assert.ok(mac.updates.some(u => u.question));                          // "— which job? Add details" is the question
+});
+
+test('emails the check read but left out are counted, so the card never claims rows it does not show', () => {
+  const report = parseMailReport('', GITHUB_RUN[0], GITHUB_RUN);
+  assert.equal(mailResults(report).hidden, 1);
 });

@@ -1580,6 +1580,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* A Gmail check's own record: its counts, what it changed on a job, and every email it read (1 Oct 2026). The card
    is one column of children, so these sections carry their own inset — and, stacked rather than side by side, none of
    the border-left that .mail-block + .mail-block draws for the two columns. */
+.mail-changed { display: grid; gap: var(--sp-2); padding-bottom: var(--sp-3); }
 .mail-changed-row { display: grid; gap: var(--sp-2); padding-top: var(--sp-3); margin-top: var(--sp-3); border-top: 1px solid var(--line); }
 .mail-changed-row:first-of-type { padding-top: 0; margin-top: 0; border-top: 0; }
 .mail-changed-job { color: var(--ink); }
