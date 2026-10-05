@@ -363,6 +363,35 @@ export async function run(ctx) {
     fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Lever_Systems.pdf', size: fs.statSync(tailoredPdf).size}));
   }, {needs: ctx.needs});
 
+  // Tailor CVs for top matches (Actions): the best open jobs without a tailored CV, in fit order, only as many as asked. The stand-in AI answers the tailoring.
+  const topUrls = [1, 2, 3].map(n => `https://boards.greenhouse.io/e2e-top/jobs/90000${n}`);
+  const codeOf = url => crypto.createHash('sha1').update(url.trim()).digest('hex').slice(0, 8);
+  const tailoredAt = url => path.join(ctx.profile, 'cv', 'tailored', `${codeOf(url)}.pdf`);
+    await ctx.run('Tailor CVs for top matches: asked for 2, it tailors the two best open jobs without a CV, in fit order, and leaves the third alone', async () => {
+    await removeJobsByUrl(NOTION, topUrls);   // rows an earlier failed run left behind
+    for (const [index, fit] of [99, 98, 97].entries()) await addKitJob(NOTION, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
+      kit: {answers: [], cover_letter: '', check_before_sending: []}, description: POSTING});
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    await page.click('.nav[data-view="jobs"]');
+    await page.waitForFunction(wanted => wanted.every(url => (window.__jp.shared.allJobs || []).some(job => job.url === url)), topUrls, {timeout: 120000, polling: 2000});
+    await page.click('.nav[data-view="actions"]');
+    if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
+    await page.fill('#tailor-top-n', '2');
+    await page.click('#tailor-top');
+    await page.waitForFunction(() => /Tailored \d+ of \d+ CV/.test(document.getElementById('command-answer')?.textContent || ''), null, {timeout: 420000, polling: 2000});
+    const said = await page.textContent('#command-answer');
+    if (!/Tailored 2 of 2 CVs/.test(said)) throw new Error(`the result does not say two CVs were tailored: "${said}"`);
+    const made = topUrls.map(url => fs.existsSync(tailoredAt(url)));
+    if (made.join() !== 'true,true,false') throw new Error(`expected CVs for the 99 and 98 fit jobs only, got ${JSON.stringify(Object.fromEntries(topUrls.map((url, i) => [url.slice(-6), made[i]])))}`);
+    await page.reload();   // the list is read again from Notion, where the CVs now sit on their rows
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    await page.click('.nav[data-view="jobs"]');
+    await page.waitForFunction(urls => { const jobs = window.__jp.shared.allJobs || []; return jobs.filter(job => urls.includes(job.url) && job.tailored).length === 2; }, topUrls, {timeout: 90000, polling: 2000})
+      .catch(() => { throw new Error('the Jobs list does not show 📄 Tailored CV on the two jobs'); });
+    await removeJobsByUrl(NOTION, topUrls);
+  }, {needs: ctx.needs});
+
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
     fail(submitProblems(forms.fired, ''));
     const strange = [...ctx.browser.requested].filter(host => !HOSTS.includes(host) && host !== '127.0.0.1' && host !== 'localhost' && host !== '');
