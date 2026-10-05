@@ -2,7 +2,8 @@
 // the installed app, not the source tree.
 //   node scripts/windows-smoke.mjs <installer.exe> <output folder>
 // 1. Silent per-user install (%LOCALAPPDATA%\Programs\…).
-// 2. The bundled Python starts and imports what the pipeline, transcription and the Credential Manager need;
+// 2. The bundled Python starts and imports what the pipeline and the Credential Manager need;
+//    the transcription add-on (not in the installer) installs itself with pip and then loads, PyAV decoding a real file;
 //    a secret round-trips through the Credential Manager; the pipeline lists (no) jobs from an empty folder.
 // 3. The installed app renders three screens (welcome, the wizard's extras with the Apply with Claude
 //    checklist, the Jobs page) in smoke mode (JOB_PILOTTO_SMOKE); screenshots go to the output folder.
@@ -29,16 +30,24 @@ say(`installed: ${exe}`);
 
 const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000,
   env: {...process.env, PYTHONUTF8: '1', ...env}}).trim();
-say(py(['-c', 'import anthropic, keyring, sqlite3, ssl, sherpa_onnx, av, numpy, sys; from importlib.metadata import version; ' +
+say(py(['-c', 'import anthropic, keyring, pip, sqlite3, ssl, sys; from importlib.metadata import version; ' +
   "print('Python', sys.version.split()[0], 'anthropic', version('anthropic'), 'keyring', version('keyring'))"]));
 say(py(['-c', "from src import secret_store as s; s.put('job-pilotto.smoke.test', 'ok', 'ci'); " +
   "v = s.get('job-pilotto.smoke.test', 'ci'); s.delete('job-pilotto.smoke.test', 'ci'); " +
   "assert v == 'ok', v; assert s.get('job-pilotto.smoke.test', 'ci') is None; print('Credential Manager round-trip ok')"]));
+// The transcription add-on is downloaded on the first recording (src/ai/transcribe.py install_addon): do exactly that here,
+// into a throwaway folder, so a Windows wheel that goes missing fails the release instead of a user's first interview.
+const models = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-models-'));
+say(py(['-c', "from src.ai import transcribe as t; assert not t.libraries(), 'bundled after all'; t.install_addon(); " +
+  "assert t.libraries(), 'installed but not loadable'; import sherpa_onnx, numpy; print('Add-on installed:', t.addon_dir())"],
+{JOB_PILOTTO_MODELS_DIR: path.join(models, 'models')}));
 // The audio half of interview transcription: PyAV's bundled ffmpeg decoding a real file. The recogniser's models are
 // a 520 MB download, so CI doesn't run those — but importing `av` proves nothing about whether its native codecs
 // load on Windows, and this does.
 say(py(['-c', `
 import os, tempfile, wave
+from src.ai import transcribe
+transcribe.use_addon()
 import av
 folder = tempfile.mkdtemp(prefix='jp-av-')
 path = os.path.join(folder, 'tone.wav')
@@ -51,7 +60,7 @@ samples = sum(f.samples for f in frames)
 assert samples >= 16000, samples
 os.remove(path); os.rmdir(folder)
 print('PyAV decoded', samples, 'samples at', frames[0].sample_rate, 'Hz')
-`]));
+`], {JOB_PILOTTO_MODELS_DIR: path.join(models, 'models')}));
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-data-'));
 for (const sub of ['config', 'data']) fs.mkdirSync(path.join(data, sub), {recursive: true});
 for (const name of fs.readdirSync(path.join(pilot, 'config')).filter(n => n.endsWith('.json'))) {
