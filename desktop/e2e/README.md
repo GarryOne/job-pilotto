@@ -237,3 +237,6 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 
 ## A Workday-shaped form (5 Oct 2026)
 `apply` fills a form written the way Workday writes them (`FORMS.workday`, host `e2e.wd3.myworkdayjobs.com`): opaque ids, labels tied only by `aria-labelledby`, `aria-required`, a list button instead of a `<select>`. The kit's answers and the person's details must be filled, the list-button question left for the person by name, Submit untouched.
+
+## One failed step never hides the rest (5 Oct 2026)
+A suite that exports `keepGoing = true` (activityfailures, activity, focus, settings, interactions; calendar and interviews use `independent()`) records a failed step and runs the next one (`lib/runner.mjs`); the suite still fails at the end. Setup steps the others need pass `{critical: true}` and still stop it. Why: one outdated step hid fifteen later ones, twice in one day. The Finder still files the first failed step and lists the later ones under it.

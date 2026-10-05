@@ -22,7 +22,7 @@ export async function fastSeed(ctx) {
 // The workspace exists in this suite's page: seed in seconds. Otherwise build it once with the real wizard path (and keep it for the next run).
 export async function ensureSetUp(ctx) {
   if (ctx.built) {
-    await ctx.run('the app is seeded as a set-up install from the existing workspace', () => fastSeed(ctx), {needs: ctx.needs});
+    await ctx.run('the app is seeded as a set-up install from the existing workspace', () => fastSeed(ctx), {needs: ctx.needs, critical: true});   // every later step needs a set-up app
   } else {
     console.log(`The ${ctx.suite} suite's Notion page has no workspace yet: building it once with the real wizard path.`);
     await runWizard(ctx);

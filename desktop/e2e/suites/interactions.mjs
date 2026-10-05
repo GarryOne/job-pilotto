@@ -12,6 +12,8 @@ import {VIEWS} from '../lib/uicheck.mjs';
 import {measureRecall, recallFindings} from '../lib/recall.mjs';
 
 export const name = 'interactions';
+// One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
+export const keepGoing = true;
 export const minutes = 10;
 // A suite that walks a different seeded path on each scheduled run (lib/variation.mjs). Exploring runs on an unchanged commit run only these: the other suites would repeat themselves.
 export const varies = true;

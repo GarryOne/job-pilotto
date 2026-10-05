@@ -10,6 +10,8 @@ import {LABEL, appReady, idsNow, noRowStaysRunning, openPanel, openRun, own, pre
 
 export const minutes = 40;   // + Notion, Telegram and Gmail failures (5 Oct 2026)
 export const name = 'activityfailures';
+// One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
+export const keepGoing = true;
 // Notion fails on purpose too (lib/notion-proxy.mjs): busy, an HTML error page, the connection gone.
 export const notionProxy = true;
 // Telegram through a fake Bot API (lib/telegram-fake.mjs): the digest a person receives is read, and Telegram can refuse it.

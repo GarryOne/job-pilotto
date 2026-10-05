@@ -172,7 +172,7 @@ export async function prepare(ctx) {
   console.log(`  profile ${ctx.profile}, feeds ${ctx.feeds}`);
   await ctx.run('this suite starts with no run rows in its Notion page', async () => {
     console.log(`  cleared ${await emptyDatabase(ctx.token, RUNS_DB)} run row(s)`);
-  }, {needs: ctx.needs});
+  }, {needs: ctx.needs, critical: true});
   await ensureSetUp(ctx);
   fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
   fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources.json'), path.join(ctx.profile, 'config', 'sources.json'));
@@ -182,6 +182,6 @@ export async function prepare(ctx) {
     // A set-up install starts its first search by itself, and a schedule catches up what is due: neither belongs in a count of "one click, one row".
     await page.evaluate(() => window.pilot.saveSettings({autoSearch: false, schedule: {search: 0, mail: 0, scout: 'off', insights: 'off'}}));
     await quiet(ctx, {forMs: 8000, maxMs: 300000});
-  }, {needs: ctx.needs});
+  }, {needs: ctx.needs, critical: true});
   return page;
 }

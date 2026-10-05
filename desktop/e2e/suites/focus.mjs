@@ -9,6 +9,8 @@ import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 15;
 export const name = 'focus';
+// One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
+export const keepGoing = true;
 
 const ERROR_WORDS = /\b(undefined|null|NaN|\[object|TypeError|Traceback|ENOENT|ECONN|could not load|stack)\b/i;
 
@@ -70,7 +72,7 @@ export async function run(ctx) {
     await resetFocusData(NOTION, ids, {data: scenario(now), target});
     for (let i = 0; i < 12; i++) { await readNotion(); if (rows.length === 10 && events.length === 14) break; await page.waitForTimeout(5000); }   // Notion lists new rows a moment later
     if (rows.length !== 10 || events.length !== 14) throw new Error(`expected 10 applications and 14 events in Notion, found ${rows.length} and ${events.length}`);
-  }, {needs: ctx.needs});
+  }, {needs: ctx.needs, critical: true});
 
   await ctx.run('Focus finishes loading within 20 seconds, with no error text', async () => {
     const started = Date.now();

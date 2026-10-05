@@ -7,6 +7,8 @@ import {FIXTURES} from '../lib/cvfixtures.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const name = 'settings';
+// One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
+export const keepGoing = true;
 const SECTIONS = ['overview', 'profile', 'automation', 'connections', 'data', 'appearance', 'license', 'advanced'];
 
 export async function run(ctx) {

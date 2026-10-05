@@ -2,9 +2,11 @@
 import {ARTIFACTS} from './app.mjs';
 import {isEnvironment, RETRY_WAIT_MS} from './environment.mjs';
 
-export function createRunner(getSession) {
+// keepGoing (a suite's `export const keepGoing = true`): a failed step is recorded and the next one runs, so one failure never hides the rest of the suite
+// (5 Oct 2026: one outdated step hid fifteen, twice). A step marked `critical` (the setup the others need) still stops the suite.
+export function createRunner(getSession, {keepGoing = false} = {}) {
   const results = [];
-  async function run(name, fn, {needs = [], faults = false} = {}) {   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
+  async function run(name, fn, {needs = [], faults = false, critical = false} = {}) {   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
     const missing = needs.filter(item => !item.value);
     if (missing.length) { results.push({name, status: 'skipped'}); console.log(`- ${name}: skipped (needs ${missing.map(item => item.name).join(', ')})`); return; }
     const started = Date.now();
@@ -26,6 +28,7 @@ export function createRunner(getSession) {
       await getSession()?.keepLogs();   // the app's and the engine's own logs: a screenshot says "nothing new", the log says why
       results.push({name, status: 'failed', note: error.message, ...(!faults && isEnvironment(error.message) ? {environment: true} : {})});
       console.log(`✗ ${name}: ${error.message}`);
+      if (keepGoing && !critical) return;   // recorded: the suite still fails at the end, and the next step runs
       throw error;
     }
   }
