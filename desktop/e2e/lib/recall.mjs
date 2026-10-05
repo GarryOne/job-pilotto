@@ -6,6 +6,7 @@ import {inspect, LIMITS} from './uicheck.mjs';
 import {checkA11y} from './a11y.mjs';
 import {probePage} from './interact.mjs';
 import {journey} from './journey.mjs';
+import {lateShiftFindings, nowInPage, shiftsIn, watchShifts} from './shift.mjs';
 
 export const PLANTS = [
   {id: 'json-error-text', detector: 'layout', expect: 'error-shown', html: '<p class="message">400 {"type":"error","error":{"type":"invalid_request_error","message":"usage"},"request_id":"req_recall"}</p>'},
@@ -32,6 +33,9 @@ export const PLANTS = [
   // marker on a box showing a carded run as text, and the same text with no marker at all (what a future page that forgets the marker would show).
   {id: 'plain-report-marked', detector: 'layout', expect: 'card-fallback', html: '<pre data-fallback="weekly">📊 Search analysis · last 7 days\nNot enough data yet: 0 jobs found, 0 applications sent\n💡 Begin by running a market search\n🔧 Change next week\nFull report in Notion (https://app.notion.com/p/recall)</pre>'},
   {id: 'chat-report-as-text', detector: 'layout', expect: 'raw-markup', html: '<div style="white-space:pre-wrap">📊 Search analysis: last 7 days\nNot enough data yet: 0 jobs found, 0 applications sent\n💡 Begin by running a market search to see demand\n🔧 Change next week\n🎯 Run a market search in Jobs to find eligible roles\nFull report in Notion (https://app.notion.com/p/recall-report)</div>'},
+  // 5 Oct 2026 (the owner's find): a card appeared on Strategy five seconds after the page stood still and pushed everything down, with no loading sign. The plant adds a tall card at
+  // the top of the page after a short wait, with no click behind it.
+  {id: 'late-card', detector: 'shift', expect: 'late-shift', run: () => setTimeout(() => { const box = document.createElement('div'); box.id = 'recall-plant'; box.style.cssText = 'height:160px;background:#fdf1d8'; box.textContent = 'Your search may be too narrow'; (document.querySelector('.view:not([hidden])') || document.body).prepend(box); }, 300)},
   {id: 'uncaught-error', detector: 'journey', expect: 'recall planted error', run: () => setTimeout(() => { throw new Error('recall planted error'); }, 0)},
   {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(new Error('recall planted rejection')); }},
 ];
@@ -62,6 +66,14 @@ export async function measureRecall({page, view, ipc, wait = ms => new Promise(d
       } else if (plant.detector === 'probe') {
         const {findings} = await probePage({page, view, ipc, scope: '#recall-plant', settleMs: 900, idleMs: 0});
         caught = findings.some(item => item.kind === plant.expect); saw = findings.map(item => item.kind).join(',');
+      } else if (plant.detector === 'shift') {
+        await page.evaluate(watchShifts);
+        await page.evaluate(() => { for (const box of document.querySelectorAll('*')) if (box.scrollTop) box.scrollTop = 0; });   // at the top of the page, as a person reading it (the browser holds a scrolled page still, so nothing would show)
+        await wait(700);   // the browser ignores a shift within half a second of a click or key: the earlier plants pressed controls
+        const since = await page.evaluate(nowInPage);
+        await page.evaluate(plant.run); await wait(1500);
+        const found = lateShiftFindings({view, since, shifts: await page.evaluate(shiftsIn)});
+        caught = found.some(item => item.kind === plant.expect); saw = found.map(item => item.kind).join(',');
       } else if (plant.detector === 'journey') {
         await page.evaluate(plant.run); await wait(500);
         caught = [...journey.pageErrors, ...journey.consoleErrors].some(text => text.includes(plant.expect)); saw = caught ? 'recorded' : 'not recorded';

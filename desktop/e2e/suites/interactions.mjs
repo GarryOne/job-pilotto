@@ -1,3 +1,4 @@
+/* global window */
 // Interactions: what each safe control of every page DOES when pressed. A click that changes nothing and reaches nothing, an expandable that does not expand, an action that
 // runs seconds with no sign of work and a click that throws are found from recorded behaviour (page changes, the window's calls to the app, errors), not from a picture.
 // Nothing that deletes, sends, signs in, leaves the app or spends AI credit is ever pressed (lib/interact.mjs isSafe). Starts from a set-up install.
@@ -6,10 +7,11 @@ import path from 'node:path';
 import {finish, sweep, visitNarrow} from '../lib/layout.mjs';
 import {WINDOW_SIZES, createVariation} from '../lib/variation.mjs';
 import {probePage} from '../lib/interact.mjs';
-import {ensureSetUp} from '../lib/seed.mjs';
+import {ensureSetUp, seedCoverage} from '../lib/seed.mjs';
 import {settle} from '../lib/app.mjs';
 import {VIEWS} from '../lib/uicheck.mjs';
 import {measureRecall, recallFindings} from '../lib/recall.mjs';
+import {lateShiftFindings, nowInPage, shiftsIn, watchShifts} from '../lib/shift.mjs';
 
 export const name = 'interactions';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
@@ -17,6 +19,8 @@ export const keepGoing = true;
 // A seeded run visits every page from another time zone and language (lib/variation.mjs placeOf): the truth and layout checks see dates and numbers as a person there would.
 export const variesPlace = true;
 export const minutes = 10;
+// The engine's coverage answer takes seconds on a real machine (the owner's: about 5): a card that arrives that late must not move the page (lib/shift.mjs, #strategy-coverage-checking).
+export const env = {JOB_PILOTTO_E2E_COVERAGE_MS: '4500'};
 // A suite that walks a different seeded path on each scheduled run (lib/variation.mjs). Exploring runs on an unchanged commit run only these: the other suites would repeat themselves.
 export const varies = true;
 export const watches = ['desktop/renderer/', 'desktop/lib/e2e-ipc.js'];
@@ -26,6 +30,7 @@ export async function run(ctx) {
   ctx.findings = [];
   const all = [];
   await ensureSetUp(ctx);
+  seedCoverage(ctx);   // the search has been run before: the Strategy page has its "too narrow" card to show
   // The calls the window made to the app, recorded by main.js in an end-to-end run (lib/e2e-ipc.js).
   const ipc = {
     mark: () => app.evaluate(() => (globalThis.__jpIpc || []).at(-1)?.seq || 0),
@@ -39,6 +44,24 @@ export async function run(ctx) {
   if (!vary.fixed) await app.evaluate(({BrowserWindow}, [w, h]) => BrowserWindow.getAllWindows()[0].setSize(w, h), size);
   fs.writeFileSync(path.join(ARTIFACTS, 'seed.json'), JSON.stringify({seed: vary.seed, fixed: vary.fixed, window: size, ...(ctx.place ? {detail: `time zone ${ctx.place.zone}, language ${ctx.place.locale}`} : {})}));
   console.log(vary.fixed ? '  variation: fixed path' : `  variation: seed ${vary.seed}, window ${size.join('x')}; replay with E2E_SEED=${vary.seed}`);
+  // A page that has finished loading stays still (lib/shift.mjs): content that appears by itself seconds later and pushes the page down is a finding. Each page is watched untouched for STILL_MS.
+  const STILL_MS = 7000;
+  await page.evaluate(watchShifts);
+  for (const view of VIEWS) {
+    await ctx.run(`${view}: stays still once it has loaded`, async () => {
+      await page.click(`.nav[data-view="${view}"]`);
+      await settle(page);
+      const since = await page.evaluate(nowInPage);
+      await page.waitForTimeout(STILL_MS);
+      if (view === 'strategy') console.log(`  strategy: the coverage verdict is ${JSON.stringify(await page.evaluate(() => window.pilot.searchCoverage()).catch(error => String(error.message))).slice(0, 200)}; its card is ${await page.locator('#strategy-coverage').isVisible() ? 'shown' : 'not shown'}`);
+      const record = await page.evaluate(shiftsIn), late = lateShiftFindings({view, since, shifts: record});
+      const after = record.filter(item => item.at >= since);
+      console.log(`  ${view}: ${after.length} layout shift(s) after it was ready${after.length ? ` (${after.map(item => `${((item.at - since) / 1000).toFixed(1)}s score ${item.value.toFixed(3)}${item.input ? ' by input' : ''} ${item.node}`).join('; ')})` : ''}`);
+      for (const item of late) console.log(`  ! [${view}] ${item.kind}: ${item.detail}`);
+      ctx.findings.push(...late);
+    }, {needs: ctx.needs});
+  }
+  if (process.env.E2E_ONLY_STILL) return;   // a by-hand check of this one detector: skip the rest of the suite
   for (const view of vary.shuffle(VIEWS)) {
     await ctx.run(`${view}: every safe control does something`, async () => {
       await page.click(`.nav[data-view="${view}"]`);

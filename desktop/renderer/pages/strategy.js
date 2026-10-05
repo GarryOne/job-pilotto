@@ -20,6 +20,7 @@ function chips(items, tone = '') {
 export async function loadStrategy() {
   shared.state = await window.pilot.state();
   message('strategy-message', '');
+  loadCoverage({first: true});   // beside the strategy read, so the cards are there when the page first shows
   // The last good read at once (lib/view-cache.js), then the fresh one.
   const saved = await window.pilot.cached('strategy');
   if (saved?.result?.ok && !strategyShown) {
@@ -32,7 +33,6 @@ export async function loadStrategy() {
   $('strategy-view-loading')?.remove();
   renderStrategy(data);
   $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
-  loadCoverage();
 }
 let strategyShown = false;
 // First load: every card in its final shape, greyed (the same rows, icons and chips), and a pill in the header.
@@ -117,13 +117,27 @@ function renderStrategy(data) {
 // of the market and some role word would add real numbers. Adding a term rewrites the search settings, in the app and in Notion.
 const DISMISSED = 'jp.coverage.dismissed';
 const remembered = (key = DISMISSED) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
-export async function loadCoverage() {
-  const answer = await window.pilot.searchCoverage().catch(() => null);
-  const verdict = answer?.ok ? answer.coverage : null;
+// The last verdict, kept so the cards are in place at the FIRST paint: the engine's answer takes seconds (a Python start), and a card that arrived after the page had stood still
+// pushed everything down while it was being read (5 Oct 2026). With nothing kept yet, a "Checking…" card holds the place; once a visit has found no card, nothing is held.
+const LAST = 'jp.coverage.last';
+const lastVerdict = () => { try { const saved = JSON.parse(localStorage.getItem(LAST) || 'null'); return saved && 'verdict' in saved ? saved : null; } catch { return null; } };
+const paintCoverage = verdict => {
   showCard(coverageCard(verdict, remembered()), {box: 'strategy-coverage', title: 'coverage-title', text: 'coverage-text', chips: 'coverage-chips', dismiss: 'coverage-dismiss', key: DISMISSED},
     chip => window.pilot.addRoles([chip.term]), chip => `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`);
   showCard(placesCard(verdict, remembered(PLACES_DISMISSED)), {box: 'strategy-places', title: 'places-title', text: 'places-text', chips: 'places-chips', dismiss: 'places-dismiss', key: PLACES_DISMISSED},
     chip => window.pilot.addPlaces([chip.place]), chip => `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`);
+};
+// first: called when the page starts to load, beside the strategy read (not after it).
+export async function loadCoverage({first = false} = {}) {
+  if (first) {
+    const last = lastVerdict();
+    if (last) paintCoverage(last.verdict); else show($('strategy-coverage-checking'), true);
+  }
+  const answer = await window.pilot.searchCoverage().catch(() => null);
+  show($('strategy-coverage-checking'), false);
+  const verdict = answer?.ok ? answer.coverage : null;
+  if (answer?.ok) { try { localStorage.setItem(LAST, JSON.stringify({verdict})); } catch { /* the cards still show */ } }
+  paintCoverage(verdict);
 }
 const PLACES_DISMISSED = 'jp.places.dismissed';
 

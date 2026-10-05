@@ -886,6 +886,8 @@ function handlers() {
   ipcMain.handle('benchmarkLines', (_, urls) => ({ok: true, lines: benchmarkLib.lines(storage, urls, controlEvents.boardName)}));
   ipcMain.handle('searchCoverage', async () => {
     if (DEMO) return {ok: true, coverage: null};
+    // A test run can make the engine's answer as slow as it is on a real machine (a Python start over a big data folder): the card must not arrive late and push the page.
+    if (process.env.JOB_PILOTTO_E2E && Number(process.env.JOB_PILOTTO_E2E_COVERAGE_MS) > 0) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_E2E_COVERAGE_MS)));
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
     if (code !== 0) return {ok: false, error: 'Could not read the coverage (see the activity log)'};
     try { return {ok: true, coverage: JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: true, coverage: null}; }

@@ -2014,6 +2014,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 
 /* "Your search may be too narrow": the role words that appear in titles the keywords miss, one click to add each. */
 .coverage-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+/* The card's place while the engine reads (seconds): about the height of the card that replaces it, so nothing below moves when it arrives. */
+#strategy-coverage-checking { min-height: 132px; }
 .coverage-chip { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: var(--r-pill); padding: 4px 10px;
   font-size: var(--fs-sm); cursor: pointer; }
 .coverage-chip:hover { border-color: var(--signal); color: var(--signal-ink); }

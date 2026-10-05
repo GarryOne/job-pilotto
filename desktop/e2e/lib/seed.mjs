@@ -28,3 +28,12 @@ export async function ensureSetUp(ctx) {
     await runWizard(ctx);
   }
 }
+
+// What the engine learned from the last searches (src/coverage.py): the postings it saw in the user's places and the role words their titles used that the keywords miss. With it the
+// Strategy page shows "Your search may be too narrow" (a card the tests never saw before 5 Oct 2026, when it arrived late and pushed the page down). The numbers are the owner's real case.
+export function seedCoverage(ctx, {now = new Date()} = {}) {
+  const term = (word, count) => ({term: word, count, local: false, examples: [`Senior ${word} Engineer`]});
+  fs.mkdirSync(path.join(ctx.profile, 'data'), {recursive: true});
+  fs.writeFileSync(path.join(ctx.profile, 'data', 'coverage.json'), JSON.stringify({at: now.toISOString(), roles: ['sre'], regions: ['ch'], fetched: 9400, feeds: 14, in_places: 7582, matched: 434, title_hits: 640, elsewhere: 210,
+    suggestions: [term('software engineer', 740), term('backend', 191), term('security engineer', 85), term('machine learning', 77)], places: []}));
+}
