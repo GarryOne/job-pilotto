@@ -63,10 +63,10 @@ def main(argv=None):
     log = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(log)
     settings = log.app_settings()
-    token = os.getenv('NOTION_TOKEN') or log.token_from_keychain()
     database = os.getenv('NOTION_AGENT_RUNS_DB') or settings.get('notionIds', {}).get('NOTION_AGENT_RUNS_DB')
+    token = log.token_for(database, [os.getenv('NOTION_TOKEN', '')] + log.keychain_tokens()) if database else ''
     if not token or not database:
-        sys.exit('Need NOTION_TOKEN and NOTION_AGENT_RUNS_DB (or a connected Job Pilotto app).')
+        sys.exit('No Notion token on this Mac can open the app\'s Agent Runs database (see tools/fill-failures.py).')
     since = datetime.now(timezone.utc) - timedelta(days=args.days)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

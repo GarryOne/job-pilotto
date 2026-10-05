@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -37,12 +38,35 @@ def notion(token, method, path, body=None):
         return json.load(response)
 
 
+KEYCHAIN_TOKENS = ('job-pilotto.notion.token', 'job-pilotto.notion.token-job-pilotto-2')
+
+
+def keychain_tokens():
+    """Every Notion token in this Mac's Keychain (the real workspace's and the test workspace's), in order."""
+    found = []
+    for service in KEYCHAIN_TOKENS:
+        result = subprocess.run(['security', 'find-generic-password', '-s', service, '-w'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            found.append(result.stdout.strip())
+    return found
+
+
 def token_from_keychain():
-    for service in ('job-pilotto.notion.token-job-pilotto-2', 'job-pilotto.notion.token'):
-        found = subprocess.run(['security', 'find-generic-password', '-s', service, '-w'], capture_output=True, text=True)
-        if found.returncode == 0 and found.stdout.strip():
-            return found.stdout.strip()
-    return ''
+    tokens = keychain_tokens()
+    return tokens[0] if tokens else ''
+
+
+def token_for(database, candidates, opens=None):
+    """The first token that can open `database`. The database id comes from the app (the real workspace) while a Keychain token may
+    belong to the test workspace: the test token used to be tried first and every run ended in HTTP 404 (5 Oct 2026). '' when none can."""
+    def can_open(token):
+        try:
+            notion(token, 'GET', f'databases/{database}')
+            return True
+        except urllib.error.HTTPError:
+            return False
+    opens = opens or can_open
+    return next((token for token in dict.fromkeys(item for item in candidates if item) if opens(token)), '')
 
 
 def runs(token, database, since):
@@ -69,10 +93,13 @@ def main(argv=None):
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
     settings = app_settings()
-    token = os.getenv('NOTION_TOKEN') or token_from_keychain()
     database = os.getenv('NOTION_AGENT_RUNS_DB') or settings.get('notionIds', {}).get('NOTION_AGENT_RUNS_DB')
-    if not token or not database:
-        sys.exit('Need NOTION_TOKEN and NOTION_AGENT_RUNS_DB (or a connected Job Pilotto app).')
+    if not database:
+        sys.exit('Need NOTION_AGENT_RUNS_DB (or a connected Job Pilotto app).')
+    token = token_for(database, [os.getenv('NOTION_TOKEN', '')] + keychain_tokens())
+    if not token:
+        sys.exit(f'No Notion token on this Mac can open the Agent Runs database {database}: set NOTION_TOKEN to the token of the '
+                 f'workspace the app is connected to, or share that database with the connection whose token is in the Keychain.')
     since = datetime.now(timezone.utc) - timedelta(days=args.days)
     all_runs = list(runs(token, database, since))
     left = collections.defaultdict(list)
