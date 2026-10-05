@@ -2,7 +2,7 @@
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned} from '../run-status.js';
+import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -121,6 +121,7 @@ export const capital = text => String(text || '').replace(/^./, c => c.toUpperCa
 // One line on what a finished run did.
 export function outcome(run) {
   if (run.problem && (kindOf(run) === 'mail' || !run.ok)) return run.problem;   // why it read nothing or did not arrive comes before the counts a Notion row says (#290, #298)
+  if (aiLimitHead({...run, kind: kindOf(run)})) return 'results unavailable';   // the AI provider stopped it: the box says why
   const failed = failedOutcome(run);
   if (failed) return failed;   // a failed run says so before what its Notion row reports (#301)
   if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
@@ -508,7 +509,9 @@ export function renderActivity(fresh) {
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
   const warnings = detailWarnings;
-  const head = failureHead(run);   // a failed run says so in its box, with its reason and the fix the app can open (#290)
+  // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
+  // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
+  const head = (run && aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name)) || failureHead(run);
   const warnedOnly = !warnings.length && !run?.live && !!run?.warned && !head;
   const limited = limitedJobs(warnings);
   show($('activity-warnings'), warnings.length > 0 || warnedOnly || !!head?.problem);
@@ -518,7 +521,13 @@ export function renderActivity(fresh) {
       : head ? head.title : run?.live ? 'Running with warnings' : 'Completed with warnings';
     const summary = head?.problem ? head.summary : warnings.length ? warningSummary(warnings) : 'The run recorded warnings, with no line about them in its log or report.';
     $('activity-warnings-summary').textContent = summary;
-    show($('activity-warnings-fix'), !!head?.fix);
+    show($('activity-warnings-hint'), !!head?.hint);
+    $('activity-warnings-hint').textContent = head?.hint || '';
+    const external = $('activity-warnings-external');
+    show(external, !!head?.fix?.url);
+    external.dataset.url = head?.fix?.url || '';
+    external.replaceChildren(...(head?.fix?.url ? [`${head.fix.label} `, icon('external')] : []));
+    show($('activity-warnings-fix'), !!head?.fix && !head.fix.url);
     $('activity-warnings-fix').textContent = head?.fix ? head.fix.label : '';
     $('activity-warnings-fix').dataset.view = head?.fix?.view || '';
     show($('activity-warnings-limit'), limited > 0);
@@ -542,7 +551,7 @@ export function renderActivity(fresh) {
   const streamLocal = !!run?.live && run?.where !== 'github';
   if (run && $('activity-log').dataset.for !== String(run.id)) {
     $('activity-log').dataset.for = String(run.id);
-    $('activity-log').open = !!failed || streamLocal;
+    $('activity-log').open = (!!failed && !head?.hint) || streamLocal;   // an explained stop keeps its log folded
   }
   $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
   const log = $('log');
@@ -1212,6 +1221,7 @@ export async function init() {
   });
   // The Anthropic console, where the spending limit lives: the warning card's one action.
   $('activity-warnings-fix').addEventListener('click', event => { event.preventDefault(); const view = event.currentTarget.dataset.view; if (view) openView(view); });
+  $('activity-warnings-external').addEventListener('click', event => { const url = event.currentTarget.dataset.url; if (url) window.pilot.openExternal(url); });
   $('activity-warnings-limit').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal('https://console.anthropic.com/settings/limits'); });
   $('activity-warnings-fold').addEventListener('click', () => {
     foldedWarnings = foldedWarnings === String(detailRunId) ? '' : String(detailRunId);

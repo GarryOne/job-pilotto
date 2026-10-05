@@ -1,5 +1,5 @@
 // How a run ended, in one word and a tone: the Actions page and Recent activity both use this, so they cannot disagree.
-import {runWarningLines} from './run-warnings.js';
+import {AI_BUSY, isSpendingLimit, runWarningLines} from './run-warnings.js';
 
 // A finished run that worked but said something (its row's Status, or a warning line in its log or report).
 export const runWarned = run => !!run && !run.live && !run.waiting && !!run.ok && !run.off && (!!run.warned || runWarningLines(run).length > 0);
@@ -13,6 +13,23 @@ export function doneTitle(name, run) {
 // What a failed run says in the box above its log, in its own words (#290, 5 Oct 2026: a Gmail check whose Google sign-in was revoked was "Failed" in the pill and "Completed with
 // warnings" in the box, with no reason and no way out). The reason is the run's `problem`; a fix the app can open is named next to it.
 export const PROBLEM_FIXES = [[/Google sign-in/i, 'Connect Google again', 'settings'], [/Claude Code is not ready/i, 'Open AI settings', 'settings'], [/Telegram/i, 'Open Telegram settings', 'settings']];
+// A run the AI provider stopped (usage/spending limit, or rate-limited) — the engine exits with an error, so the run has no
+// problem line and read "Had problems" over a raw log. It says what happened, what it means and the one fix (the owner's
+// mockup, 6 Oct 2026): a variant of the failure box beside the others, not a replacement.
+const AI_STOPPED_WHAT = {mail: 'Email processing', search: 'Scoring', insight: 'The insight', weekly: 'The report', kit: 'The application kit',
+  interview: 'The interview review', review: 'The review'};
+export function aiLimitHead(run, name = 'The run') {
+  if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
+  const lines = [run.problem, run.result, ...(run.log || []), ...(run.report || [])].filter(Boolean).map(String);
+  const hit = lines.find(line => isSpendingLimit(line)) || lines.find(line => AI_BUSY.test(line));
+  if (!hit) return null;
+  const spend = isSpendingLimit(hit);
+  const what = AI_STOPPED_WHAT[run.kind] || 'The run';
+  return {problem: hit, title: `${name} couldn’t finish`,
+    summary: `The AI provider’s ${spend ? 'usage limit was reached' : 'rate limit was hit'}. ${what} could not complete.`,
+    hint: spend ? `Increase your limit, then run the ${name === 'Gmail check' || name === 'Jobs check' ? 'check' : 'task'} again.` : 'Wait a few minutes, then run it again.',
+    fix: spend ? {label: 'Manage AI limit', url: run.billing === 'Claude subscription' ? 'https://claude.ai/settings/usage' : 'https://console.anthropic.com/settings/limits'} : null};
+}
 export function failureHead(run) {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
   const problem = String(run.problem || '').trim();

@@ -1546,6 +1546,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-actions .activity-notion { margin: 0; }
 .activity-panel .activity-warnings, .activity-panel .activity-job { margin: 0; }
 .activity-panel .activity-warnings p { margin: var(--sp-1) 0; }
+.activity-panel .activity-warnings #activity-warnings-hint { margin-top: 0; color: var(--muted); }
 /* The details under the actions: quiet bullets, one line each, with room between them. */
 .activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); color: var(--ink-2); line-height: 1.5; }
 .activity-panel .activity-warnings li + li { margin-top: var(--sp-1); }
