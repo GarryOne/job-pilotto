@@ -217,10 +217,15 @@ def signals(out: str, today: dt.date, days: int = 7) -> None:
 # ---- post / decision / plan / status ----
 
 def card(brief: dict, page_url: str) -> str:
-    serves = f'🎯 Serves: {esc(brief["serves"])}\n' if brief.get('serves') else ''
-    return (f'🧭 <b>Today\'s one action · {esc(brief["lens"])}</b>\n{esc(brief.get("evidence", ""))}\n\n'
-            f'→ <b>{esc(brief["action"])}</b>\n{serves}{esc(brief.get("why", ""))}\n'
-            f'Effort {esc(brief.get("effort", "?"))} · expected {esc(brief.get("expected", "?"))}\n<a href="{page_url}">Details</a>')
+    """Blocks separated by a blank line: evidence, the action (+ what it serves), why, effort, link."""
+    action = f'→ <b>{esc(brief["action"])}</b>'
+    if brief.get('serves'):
+        action += f'\n🎯 Serves: {esc(brief["serves"])}'
+    blocks = [f'🧭 <b>Today\'s one action · {esc(brief["lens"])}</b>\n{esc(brief.get("evidence", ""))}',
+              action, esc(brief.get('why', '')),
+              f'⏱ Effort {esc(brief.get("effort", "?"))} · expected {esc(brief.get("expected", "?"))}',
+              f'<a href="{page_url}">Details</a>']
+    return '\n\n'.join(b for b in blocks if b)
 
 
 def post(path: str, today: dt.date) -> str:
