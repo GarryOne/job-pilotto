@@ -30,11 +30,19 @@ test('quiet for the limit, or running too long, is stopped; one that still uses 
 test('the watchdog stops a stuck orphan with SIGTERM and says so in the log', {skip: process.platform === 'win32' && 'the watchdog is Mac/Linux only'}, async () => {
   const sent = [], logged = [];
   const limits = {quietMs: 0, totalMs: ORPHAN.totalMs, killAfterMs: 10};
-  const stop = watchOrphans((...args) => logged.push(args), {every: 1e9, limits, list: async () => PS, kill: (pid, signal) => { sent.push([pid, signal]); if (signal === 0) throw new Error('gone'); }});
+  const stop = watchOrphans((...args) => logged.push(args), {every: 1e9, limits, platform: 'darwin', list: async () => PS, kill: (pid, signal) => { sent.push([pid, signal]); if (signal === 0) throw new Error('gone'); }});
   await new Promise(resolve => setTimeout(resolve, 50));
   stop();
   assert.deepEqual(sent.slice(0, 1), [[40107, 'SIGTERM']]);
   assert.equal(logged[0][0], 'run');
   assert.match(logged[0][1], /stopping an engine run/);
   assert.equal(JSON.stringify(logged[0][2]).includes('--send'), false, 'no command line in the log');
+});
+
+test('a stopped orphan has its Notion row closed afterwards (a killed run cannot close its own)', async () => {
+  const stopped = [], limits = {quietMs: 0, totalMs: ORPHAN.totalMs, killAfterMs: 20};
+  const stop = watchOrphans(() => {}, {every: 1e9, limits, platform: 'darwin', list: async () => PS, kill: (pid, signal) => { if (signal === 0) throw new Error('gone'); }, onStopped: async run => { stopped.push(run.pid); }});
+  await new Promise(resolve => setTimeout(resolve, 120));
+  stop();
+  assert.deepEqual(stopped, [40107]);
 });
