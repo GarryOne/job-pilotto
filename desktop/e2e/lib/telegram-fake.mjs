@@ -48,6 +48,6 @@ export function digestProblems(text) {
   if (/\bundefined\b|\bnull\b|\[object Object\]|NaN|Traceback|"type":\s*"error"/.test(plain)) problems.push('technical text in the message');
   if (String(text).length > 4096) problems.push(`${String(text).length} characters: Telegram refuses more than 4096`);
   const items = plain.split('\n').filter(line => /^\s*\d+\.\s/.test(line));
-  if (/top \d+ of [1-9]/.test(plain) && !items.length) problems.push('the header promises jobs but none is listed');
+  if (/top \d+ of [1-9]/i.test(plain) && !items.length) problems.push('the header promises jobs but none is listed');
   return problems;
 }

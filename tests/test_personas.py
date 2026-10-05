@@ -80,7 +80,7 @@ class WordingIsNotSwiss(unittest.TestCase):
             self.assertTrue(digest.in_places(job('Austin, TX')))
             self.assertFalse(digest.in_places(job('Zurich, Switzerland')))
         source = Path(digest.__file__).read_text(encoding='utf-8')
-        self.assertIn('Outside your places', source)
+        self.assertIn('Outside your preferred locations', source)
         self.assertNotRegex(source.replace('Zürich Versicherungs', ''), r'🇨🇭|Swiss')
 
     def test_salary_follows_the_posting(self):

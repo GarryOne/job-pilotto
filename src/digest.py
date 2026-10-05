@@ -232,7 +232,7 @@ def _job_block(index, job):
         facts.append(mode)
     fit = job.get('fit')
     star = '⭐ ' if job.get('saved') else ''
-    head = f"{index}. {star}{title}" + (f" · 🎯 <b>{fit['score']}</b>" if fit else '')
+    head = f"{index}. {star}{title}" + (f" · <b>{fit['score']}/100</b>" if fit else '')
     lines = [head, INDENT + ' · '.join(facts)]
     # The visa flag is a rule on your places and work rights, not an AI finding: it shows without AI facts too.
     signals = _ai_badges(ai, job) if ai else (['🔴 visa sponsorship needed'] if needs_sponsorship(job) else [])
@@ -347,37 +347,46 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
 
     if page == 1:
         places_total = sum(in_places(j) for j in everything)
-        stats = [f"{len(everything)} open", f"{places_total} 📍"]
+        stats = [f"{len(everything)} open", f"{places_total} pinned"]
         if hidden_urls:
             stats.append(f"{len(hidden_urls)} applied")
-        if blocked:
-            stats.append(f"{len(blocked)} filtered")
+        pipeline = [' · '.join(stats)]
+        rest = [f"{len(blocked)} filtered"] if blocked else []
         if low_fit:
-            stats.append(f"{len(low_fit)} low fit")
-        header = (f"✈️ <b>{BRAND_NAME}</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
-                  f"<i>{' · '.join(stats)}</i>")
+            rest.append(f"{len(low_fit)} low fit")
+        if rest:
+            pipeline.append(' · '.join(rest))
+        pipeline_block = '<b>Your pipeline</b>\n' + '\n'.join(pipeline)
+        header = (f"✈️ <b>{BRAND_NAME}</b> · Job digest\n"
+                  f"{len(new)} new · Top {len(shown)} of {len(ranked)} ranked jobs")
     elif shown:
         header = f"✈️ <b>{BRAND_NAME}</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
     else:
         return [f'✈️ <b>{BRAND_NAME}</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
 
-    blocks, entries, section, abroad_heading = [header], [], None, False
+    SECTION_LABELS = {'new': 'New since your last run', 'best': 'Best matches', 'older': 'More to explore'}
+    group_sizes = {}
+    for kind, job in shown:
+        key = (kind, in_places(job))
+        group_sizes[key] = group_sizes.get(key, 0) + 1
+    blocks, entries, section = [header], [], None
     for offset, (kind, job) in enumerate(shown):
         index = first + offset + 1
-        if kind != section:
-            section, abroad_heading = kind, False
-            blocks.append({'new': '🆕 <b>New since last run</b>', 'best': '🎯 <b>Best matches</b>',
-                           'older': '🎲 <b>More to explore</b>'}[kind])
-        # Ranking puts jobs in the user's places first; mark where the rest begins instead of flagging every job.
-        if not in_places(job) and not abroad_heading:
-            blocks.append('🌍 <i>Outside your places</i>')
-            abroad_heading = True
+        # One heading per run of jobs: where they are (your places or elsewhere), then why they are listed.
+        key = (kind, in_places(job))
+        if key != section:
+            section = key
+            place = '📍 <b>In your preferred locations</b>' if key[1] else '🌍 <b>Outside your preferred locations</b>'
+            count = group_sizes[key]
+            blocks.append(f"{place}\n{SECTION_LABELS[kind]} · {count} {'job' if count == 1 else 'jobs'}")
         blocks.append(_job_block(index, job))
         if shown_ids is not None:
             shown_ids.append(job['id'])
         if job.get('url'):
             entries.append((index, notion.job_code(job['url'])))
     remaining = len(ranked) - (first + len(shown))
+    if page == 1:
+        blocks.append(pipeline_block)
     blocks.append('<i>Tap a job number to mark it applied, save or dismiss it.</i>'
                   + (f' <i>{remaining} more with ➕.</i>' if remaining else ''))
     text = '\n\n'.join(blocks)

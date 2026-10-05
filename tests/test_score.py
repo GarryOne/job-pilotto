@@ -197,10 +197,10 @@ class ScoreTests(unittest.TestCase):
                 digest.mark_shown(db, first, seed=1)
                 second = []
                 digest.build_digest(db, seed=2, shown_ids=second)
-        self.assertIn('🎯 <b>Best matches</b>', message)
-        self.assertIn('🎯 <b>95</b>', message)
+        self.assertIn('Best matches · ', message)
+        self.assertIn('<b>95/100</b>', message)
         self.assertIn('3 low fit', message)
-        self.assertEqual(message.count('🎯 <b>Best matches</b>'), 1)
+        self.assertEqual(message.count('Best matches · '), 1)
         self.assertIn('<i>Kubernetes + Datadog match; salary not stated</i>', message)
         self.assertEqual(set(first), set(range(11, 21)))  # the ten highest scores
         self.assertFalse({1, 2, 3} & set(first + second))  # below digest_min_score: never in the digest

@@ -141,7 +141,7 @@ export async function run(ctx) {
         for (const job of jobs) if (!job.sponsorship) problems.push(`not flagged "visa sponsorship needed": ${job.title} in ${job.location}`);
       }
       const abroad = result.jobs.filter(job => !job.inPlaces && !/remote/i.test(job.location));
-      if (abroad.length && !/Outside your places/.test(result.text)) problems.push('the digest does not say "Outside your places" above jobs elsewhere');
+      if (abroad.length && !/Outside your preferred locations/.test(result.text)) problems.push('the digest does not say "Outside your preferred locations" above jobs elsewhere');
       if (!/your places/i.test(result.text) && abroad.length) problems.push('the digest never says "your places"');
       if (!result.jobs.some(job => job.salary.includes(profile.expect.currency))) problems.push(`no posting's salary was read as "${profile.expect.currency}…" in its own currency: ${JSON.stringify(result.jobs.map(job => job.salary))}`);
       for (const job of result.jobs.filter(job => job.sponsorship)) if (!/visa sponsorship needed/.test(result.text.split(/\n\n(?=\d+\. )/).find(block => block.includes(job.title)) || '')) problems.push(`the digest shows no "visa sponsorship needed" for ${job.title}`);
