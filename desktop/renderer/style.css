@@ -1555,7 +1555,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
    the interview it is about, what to prepare and the recruiter's next step, and the consent line (the mockup, 30 Sep). */
 /* The interview, on its own tinted band right across the card. */
 .mail-interview { display: flex; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-4);
-  background: var(--strip); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  background: var(--strip); border-bottom: 1px solid var(--line); }
 .mail-interview-words { flex: 1; min-width: 0; }
 .mail-interview-words h3 { margin: var(--sp-1) 0 0; font-size: var(--fs-xl); }
 .mail-where { margin: var(--sp-2) 0 0; color: var(--ink-2); }
@@ -1572,7 +1572,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-block-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
 .mail-block h4 { margin: 0; font-size: var(--fs-xl); font-weight: 600; white-space: nowrap; }
 .mail-block p { margin: var(--sp-3) 0 0; color: var(--ink-2); }
-.mail-sub { margin-top: var(--sp-1); color: var(--muted); }
+.mail-block .mail-sub { margin-top: 0; color: var(--muted); }
 .mail-topics { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-2); color: var(--ink-2); }
 .mail-notes { list-style: none; margin: 0; padding: var(--sp-4); display: grid; gap: var(--sp-2); }
 .mail-notes li { display: flex; gap: var(--sp-2); color: var(--ink-2); }
@@ -1598,6 +1598,9 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
 /* One email in the run card's list (.run-card-row, as Find employers): what it recorded and the AI's reading under it. */
 .mail-row { flex-wrap: wrap; }
+.run-card-stats.mail-stats { align-items: center; }
+.mail-done { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.mail-done .icon { width: 18px; height: 18px; color: var(--good); }
 .mail-row-detail { flex-basis: 100%; display: grid; gap: var(--sp-2); padding-bottom: var(--sp-1); }
 .mail-row-update { display: flex; align-items: center; gap: var(--sp-2); margin: 0; color: var(--ink-2); }
 .mail-row-detail p { margin: 0; }

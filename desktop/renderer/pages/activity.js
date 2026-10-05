@@ -855,15 +855,22 @@ function questionBlock(state, key) {
 }
 export function renderMailCard(report, pending = [], answered = null, target = $('activity-card')) {
   // The run card's shape, as every other run (Find employers, Search): the counts strip, then the body straight in the panel.
-  const status = el('div', 'run-card-stats');
+  const status = el('div', 'run-card-stats mail-stats');
   const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
+  // "✓ Check complete" first, as the owner's mockup (30 Sep, commit 957e32d), then the counts.
+  const done = el('span', 'run-card-stat mail-done');
+  done.append(icon('check-circle'), el('b', '', report.status.title));
+  status.append(done);
   // The counts, from the row's own result line (the report rows list only some of the updates).
   const emails = report.status.emails ?? report.emails.length, updates = report.status.updates ?? report.updates.length;
   if (emails || updates) status.append(stat(emails, emails === 1 ? 'email reviewed' : 'emails reviewed'),
                                        stat(updates, updates === 1 ? 'update recorded' : 'updates recorded'));
-  else status.append(el('span', 'run-card-stat', report.status.sentence || report.status.title));
+  else if (report.status.sentence) status.append(el('span', 'run-card-stat', report.status.sentence));
   const box = el('div', 'run-card-body mail-card');
   mailSections(box, report, pending, answered);
+  // The interview, what to prepare and the consent line are full-width bands of the panel itself, as in the mockup
+  // (957e32d): inside the padded list body they were inset and lost their edge-to-edge strip.
+  const bands = [];
   const {interview} = report;
   if (interview) {
     const panel = el('section', 'mail-interview');
@@ -885,7 +892,7 @@ export function renderMailCard(report, pending = [], answered = null, target = $
       side.append(view);
     }
     panel.append(words, side);
-    box.append(panel);
+    bands.push(panel);
   }
   if (report.topics.length || report.nextSteps.length) {
     const columns = el('div', 'mail-columns');
@@ -901,12 +908,12 @@ export function renderMailCard(report, pending = [], answered = null, target = $
     if (report.nextSteps.length) {
       const right = el('section', 'mail-block');
       const heading = el('div', 'mail-block-head');
-      heading.append(el('h4', '', 'Recruiter follow-up'), pill('Next step', 'neutral'));
+      heading.append(el('h4', '', 'Recruiter follow-up'), pill('Pending with recruiter', 'neutral'));
       right.append(heading);
       report.nextSteps.forEach(text => right.append(el('p', '', text)));
       columns.append(right);
     }
-    box.append(columns);
+    bands.push(columns);
   }
   // The message's own lines (instructions to you). The run's report lines are the sections above, with the job and
   // the change pulled out of them, so a raw "… · [recorded] · … · changed …" line is never drawn twice.
@@ -924,9 +931,9 @@ export function renderMailCard(report, pending = [], answered = null, target = $
   if (report.consent) {
     const consent = el('p', 'mail-consent');
     consent.append(icon('mic'), report.consent);
-    box.append(consent);
+    bands.push(consent);
   }
-  target.replaceChildren(status, box);
+  target.replaceChildren(status, ...(box.childNodes.length ? [box] : []), ...bands);
 }
 
 // A daily insight's card: the finding, the numbers behind it, the one action and where it came from (the mockup,
