@@ -778,9 +778,10 @@ def _place(tracker, page_id, seen):
     return seen[page_id]
 
 
-def listing(tracker, limit=100):
+def listing(tracker, limit=100, places=True):
     """🎤 Interviews rows for the app, newest first: reviewed when Overall is set. `place` is where the linked
-    application's job is (Location, Work mode from Applications)."""
+    application's job is (Location, Work mode from Applications; one Notion read per linked job, so places=False skips them:
+    the Calendar does not show a place and waited ~20 s for them)."""
     rows = []
     for row in tracker.query_database(INTERVIEWS_DATABASE_ID):
         props = row['properties']
@@ -792,7 +793,7 @@ def listing(tracker, limit=100):
     rows.sort(key=lambda r: r['date'], reverse=True)
     rows, seen = rows[:limit], {}
     for row in rows:
-        row['place'] = _place(tracker, row['application'][0], seen) if row['application'] else {}
+        row['place'] = _place(tracker, row['application'][0], seen) if places and row['application'] else {}
     return rows
 
 
@@ -867,6 +868,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=main.__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('list')
+    sub.add_parser('calendar', help='the rows only: no places, no insight (the Calendar)')
     saving = sub.add_parser('save', help='a transcript file as a new row')
     saving.add_argument('file', type=Path)
     saving.add_argument('--title', default='')
@@ -897,6 +899,8 @@ def main(argv=None):
             out = {'ok': True, 'interviews': listing(tracker), 'insight': saved_insight(tracker, problems)}
             if problems:
                 out['insight_error'] = problems[0]  # the app logs it and says so on the card; the list still shows
+        elif args.command == 'calendar':
+            out = {'ok': True, 'interviews': listing(tracker, places=False)}
         elif args.command == 'save':
             page = save(tracker, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input,
                         page_id=args.page)

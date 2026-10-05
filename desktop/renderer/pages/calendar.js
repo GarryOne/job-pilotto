@@ -139,7 +139,7 @@ export async function loadCalendar() {
   if (!month) { const now = new Date(); month = {year: now.getFullYear(), month: now.getMonth()}; }
   const mine = ++visit;
   const [cachedJobs, cachedRecordings] = await Promise.all([
-    window.pilot.cached('calendar').catch(() => null), window.pilot.cached('interviews').catch(() => null)]);
+    window.pilot.cached('calendar').catch(() => null), window.pilot.cached('calendarRecordings').catch(() => null)]);
   if (mine !== visit) return;
   if (cachedJobs?.result?.jobs?.length) calJobs = cachedJobs.result.jobs;
   else if (jobsLoaded()) calJobs = shared.allJobs;
@@ -162,7 +162,7 @@ export async function loadCalendar() {
   window.pilot.calendarJobs().then(fresh => {
     if (Array.isArray(fresh?.jobs) && !fresh.error) { calJobs = fresh.jobs; jobsOk = true; } else { jobsOk = null; error ||= String(fresh?.error || ''); }
   }, () => { jobsOk = null; }).then(finish);
-  window.pilot.interviews.saved().then(saved => {
+  window.pilot.calendarRecordings().then(saved => {
     if (Array.isArray(saved?.interviews)) { recordings = saved.interviews; recordingsOk = true; } else { recordingsOk = null; error ||= String(saved?.error || ''); }
   }, () => { recordingsOk = null; }).then(finish);
 }

@@ -344,6 +344,13 @@ class InterviewTests(unittest.TestCase):
         # Where the job is comes from the linked Applications row, so a job the app's list lacks still shows it.
         grafana['properties'].update({'Location': text('Zürich, Switzerland'), 'Work mode': {'type': 'select', 'select': {'name': 'On-site'}}})
         self.assertEqual(interviews.listing(tracker)[0]['place'], {'location': 'Zürich, Switzerland', 'work_mode': 'On-site'})
+        # The Calendar's read skips the place: one Notion read per linked job made it wait ~20 s.
+        reads = []
+        real = tracker._request
+        tracker._request = lambda method, path, *a, **k: (reads.append(path), real(method, path, *a, **k))[1]
+        self.assertEqual(interviews.listing(tracker, places=False)[0]['place'], {})
+        self.assertFalse([path for path in reads if path.startswith('pages/')])
+        tracker._request = real
         # A job not in Applications yet is added there first (an interview means you applied), then linked.
         added = []
 

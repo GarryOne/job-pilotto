@@ -192,6 +192,9 @@ export async function saved(storage, run = pipeline.run, log = appLog) {
   return result;
 }
 
+// The rows alone, for the Calendar: no linked-job places and no insight, so no Notion read per linked job.
+export const savedForCalendar = (storage, run = pipeline.run) => notionCall(storage, ['calendar'], run);
+
 // The Insights card's Refresh (src/ai/interview_insights.py): Claude reads the reviewed interviews together, only when
 // a review changed since the last update (else no AI call). Runs here, even with Always on: the page waits for it.
 // One at a time: a second Refresh (another click, the window reloaded while one runs) joins the running one instead of

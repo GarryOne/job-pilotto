@@ -1029,6 +1029,8 @@ function handlers() {
   ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
   ipcMain.handle('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved, insight: demoInterviews().insight}
     : needsNotion('interviews') || viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
+  ipcMain.handle('calendarRecordings', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved}
+    : needsNotion('interviews') || viewCache.remember(storage, 'calendarRecordings', await interviews.savedForCalendar(storage))));
   ipcMain.handle('ivInsightStep', async (_, text, done) => (DEMO ? {ok: true, done_steps: []}
     : needsNotion('interviews') || interviews.insightStep(storage, text, !!done)));
   ipcMain.handle('ivInsights', async () => {
