@@ -20,3 +20,10 @@ test('Coming up has a card empty state with a calendar icon', () => {
 test('each side event is a small bordered card', () => {
   assert.match(read('style.css'), /\.cal-row \{[^}]*border: 1px solid var\(--border\)[^}]*border-radius: var\(--r-md\)/);
 });
+
+test('Recent interviews: count, View all, scrolling list, Load more', () => {
+  const html = read('index.html');
+  for (const id of ['cal-past-count', 'cal-more-view', 'cal-past-more', 'cal-past-shown']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(read('style.css'), /\.cal-scroll \{[^}]*overflow-y: auto/);
+  assert.match(read('pages/calendar.js'), /pastShown \+= 20/);
+});

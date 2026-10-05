@@ -587,7 +587,11 @@
         </section>
         <aside class="cal-side">
           <section class="card"><h2>Coming up</h2><div id="cal-upcoming"></div></section>
-          <section class="card"><h2>Recent</h2><div id="cal-past"></div></section>
+          <section class="card">
+            <div class="cal-side-head"><h2>Recent interviews</h2><span id="cal-past-count" class="cal-count" hidden></span><button class="link" id="cal-more-view">View all</button></div>
+            <div id="cal-past" class="cal-scroll"></div>
+            <div class="cal-foot" id="cal-past-foot" hidden><span id="cal-past-shown" class="muted small"></span><button class="secondary" id="cal-past-more">Load more</button></div>
+          </section>
         </aside>
       </div>
     </div>

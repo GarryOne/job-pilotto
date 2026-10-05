@@ -1,15 +1,17 @@
 // Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
 // list (Next interview) and the saved recordings (Notion 🎤 Interviews); clicking a meeting opens its job in Notion.
-import {el, pill} from '../components.js';
+import {el} from '../components.js';
 import {icon} from '../icons.js';
 import * as cal from '../calendar.js';
 import {shared} from './shared.js';
 import {$, savedAgo} from './core.js';
 import {dismissInterview} from './happened.js';
+import {openView} from './nav.js';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const KINDS = {screening: ['Screening', 'teal'], interview: ['Interview', 'info']};
 let month = null;        // {year, month} shown
+let pastShown = 20;      // how many past meetings the Recent list shows (Load more adds 20)
 let recordings = [];     // saved interview rows
 // What is on screen: 'loading' (nothing to show yet), 'updating' (a saved copy shown while Notion is read), 'ready', 'failed'.
 let phase = 'loading', savedAt = '', failure = '';
@@ -62,9 +64,9 @@ function chip(m) {
 
 function row(m) {
   const line = el('button', 'cal-row');
-  line.append(el('span', 'cal-when', `${dayLabel(m)}${timeOf(m) ? ` · ${timeOf(m)}` : ''}`),
-    el('b', 'cal-who', name(m)), el('span', 'muted small', [m.title !== name(m) ? m.title : '', m.round].filter(Boolean).join(' · ')),
-    pill(KINDS[m.kind][0], KINDS[m.kind][1]));
+  const job = m.title !== name(m) ? m.title : '';
+  line.append(el('b', 'cal-who', name(m)), el('span', 'cal-when', `${dayLabel(m)}${timeOf(m) ? ` · ${timeOf(m)}` : ''}`),
+    ...(job ? [el('span', 'cal-job', job)] : []), el('span', `cal-stage kind-${m.kind}`, m.round || KINDS[m.kind][0]));
   line.onclick = () => open(m);
   const x = cross(m);
   if (!x) return line;
@@ -112,7 +114,12 @@ export function render() {
   const {upcoming, past} = cal.agenda(list, Date.now(), ZONE);
   if (phase === 'loading') { $('cal-upcoming').replaceChildren(...skeletons()); $('cal-past').replaceChildren(...skeletons()); return; }
   $('cal-upcoming').replaceChildren(...(upcoming.length ? upcoming.map(row) : [emptyUpcoming()]));
-  $('cal-past').replaceChildren(...(past.length ? past.slice(0, 20).map(row) : [el('p', 'muted small', 'No past meetings yet.')]));
+  $('cal-past').replaceChildren(...(past.length ? past.slice(0, pastShown).map(row) : [el('p', 'muted small', 'No past meetings yet.')]));
+  $('cal-past-count').textContent = past.length || '';
+  $('cal-past-count').hidden = !past.length;
+  $('cal-past-foot').hidden = past.length <= 20;
+  $('cal-past-shown').textContent = `Showing ${Math.min(pastShown, past.length)} of ${past.length}`;
+  $('cal-past-more').hidden = pastShown >= past.length;
 }
 
 // A month with nothing in it, and a meeting coming later: open on that one (until the user picks a month themselves).
@@ -155,6 +162,8 @@ export async function loadCalendar() {
 const step = by => { moved = true; const d = new Date(Date.UTC(month.year, month.month + by, 1)); month = {year: d.getUTCFullYear(), month: d.getUTCMonth()}; render(); };
 
 export async function init() {
+  $('cal-more-view').onclick = () => openView('interviews');
+  $('cal-past-more').onclick = () => { pastShown += 20; render(); };
   $('cal-prev').onclick = () => step(-1);
   $('cal-next').onclick = () => step(1);
   // Today only moves the grid, as Prev/Next do: it used to re-read the whole calendar from Notion (about 1 s with no sign of work, #67).
