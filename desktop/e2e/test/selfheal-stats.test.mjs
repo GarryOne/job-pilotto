@@ -22,7 +22,7 @@ test('the snapshot: totals, precision, detectors, fixer (landed by hand counts),
   const issues = [issue(1, 'CLOSED', ['source:ai-review', 'wontfix-auto'], ['Closed by the UI loop as a false positive: ticker']), issue(4, 'OPEN', ['source:ai-review', 'confirmed'], ['Judged real by the UI loop\'s verdict pass (no edits made): x']),
     issue(6, 'CLOSED', ['source:code-review', 'severity:medium'], ['Fixed by 258e752'])];
   const prs = [{state: 'MERGED'}, {state: 'CLOSED', closingNote: 'Landed on main as 73de6d0 after review'}, {state: 'CLOSED', closingNote: 'not right'}, {state: 'OPEN'}];
-  const data = build({issues, prs, costs: [{job: 'fixer', usd: 0.5}, {job: 'verdict of issue 4', usd: 0.1}], recall: {planted: 13, caught: 12, rows: [{id: 'tiny-text', caught: false}]}, now: new Date('2026-10-04T00:00:00Z')});
+  const data = build({issues, prs, costs: [{job: 'fixer', usd: 0.5, at: '2026-10-05T09:00:00Z'}, {job: 'verdict of issue 4', usd: 0.1, at: '2026-10-05T09:30:00Z'}], recall: {planted: 13, caught: 12, rows: [{id: 'tiny-text', caught: false}]}, now: new Date('2026-10-04T00:00:00Z')});
   assert.deepEqual([data.totals.filed, data.totals.real, data.totals.fixed, data.totals.queued, data.totals.falsePositive, data.totals.precision], [3, 2, 1, 1, 1, 67]);
   assert.deepEqual(data.fixer, {opened: 4, merged: 1, closed: 2, open: 1, landed: 2});
   assert.deepEqual(data.verdicts, {real: 1, falsePositive: 1});
@@ -36,4 +36,25 @@ test('a person\'s "not planned" closure is a rejection the stats and the weekly 
   assert.equal(classify(issue(41, 'CLOSED', ['source:ai-review', 'confirmed'], ['Rejected as low.'], {stateReason: 'NOT_PLANNED'})), 'falsePositive', 'a confirmed one that was then rejected was not worth fixing');
   assert.equal(classify(issue(42, 'CLOSED', ['source:ai-review'], ['Not seen in two runs: closed.'], {stateReason: 'NOT_PLANNED'})), 'unclear', 'the not-seen rule is not a judgement');
   assert.equal(classify(issue(43, 'CLOSED', ['source:ai-review'], ['Duplicate of #5.'], {stateReason: 'NOT_PLANNED'})), 'duplicate');
+});
+
+test('cost per real bug counts only the runs inside the issues\' window, and the snapshot says where the window starts', () => {
+  const issues = [issue(4, 'OPEN', ['source:ai-review', 'confirmed']), issue(6, 'CLOSED', ['source:code-review'], ['Fixed by 258e752'])];
+  const costs = [{job: 'fixer', usd: 1, at: '2026-10-05T09:00:00Z'}, {job: 'fixer', usd: 8, at: '2026-10-02T09:00:00Z'}, {job: 'verdict', usd: 5}];   // before the epoch; no date
+  const data = build({issues, costs, now: new Date('2026-10-05T12:00:00Z')});
+  assert.deepEqual([data.cost.usd, data.cost.runs, data.cost.outside, data.cost.perRealBug], [1, 1, 2, 0.5], 'the $8 of 2 Oct is not charged to bugs filed on 5 Oct');
+  assert.equal(data.since, '2026-10-04T13:44:50Z');
+});
+
+test('issues before the cutoff are counted as excluded, so the page can say how much it leaves out', () => {
+  const old = issue(9, 'CLOSED', ['source:suite-failure', 'harness'], [], {createdAt: '2026-10-03T10:00:00Z'});
+  const data = build({issues: [old, issue(4, 'OPEN', ['source:ai-review', 'confirmed'])], now: new Date('2026-10-05T12:00:00Z')});
+  assert.deepEqual([data.totals.filed, data.excluded], [1, 1]);
+});
+
+test('precision counts a test or harness mistake against its detector; a duplicate and an open issue are not judged', () => {
+  const issues = [issue(1, 'CLOSED', ['source:suite-failure', 'confirmed']), issue(2, 'CLOSED', ['source:suite-failure', 'harness']), issue(3, 'CLOSED', ['source:suite-failure', 'harness']),
+    issue(4, 'CLOSED', ['source:suite-failure'], ['Duplicate of #1.']), issue(5, 'OPEN', ['source:suite-failure'])];
+  const data = build({issues, now: new Date('2026-10-05T12:00:00Z')});
+  assert.deepEqual([data.totals.real, data.totals.harness, data.totals.duplicate, data.totals.unjudged, data.totals.judged, data.totals.precision], [1, 2, 1, 1, 3, 33]);
 });

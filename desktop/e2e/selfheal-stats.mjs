@@ -32,7 +32,8 @@ export async function collect({days = 30} = {}) {
     try {
       const zip = path.join(tmp, `${item.id}.zip`);
       fs.writeFileSync(zip, execFileSync('gh', ['api', `repos/${repo()}/actions/artifacts/${item.id}/zip`], {maxBuffer: 5 * 1024 * 1024}));
-      costs.push(JSON.parse(execFileSync('unzip', ['-p', zip, 'ai-cost.json'], {encoding: 'utf8'})));
+      const cost = JSON.parse(execFileSync('unzip', ['-p', zip, 'ai-cost.json'], {encoding: 'utf8'}));
+      costs.push({...cost, at: cost.at || item.created_at});   // dated by the artifact when the file has no time
     } catch { /* an artifact that cannot be read is left out */ }
   }
   // Recall: the planted bugs of the latest interactions run that has a recall.json.

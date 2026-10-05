@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {ingest, liveSection, page, view} from '../src/selfheal.js';
+import {freshness, ingest, liveSection, page, view} from '../src/selfheal.js';
 
 const env = {STATS_KEY: 'secret'};
 
@@ -80,4 +80,25 @@ test('the loop-quality numbers are shown with what they count, and "not measured
   assert.match(html, /🧬 Mutation catch rate<\/span><b>80%<\/b><small class="muted">4 of 5 planted code bugs caught · higher is better/);
   assert.match(html, /🕳️ Escape rate<\/span><b>–<\/b><small class="muted">not measured yet: the Bug Tracker is not shared/);
   assert.doesNotMatch(liveSection({...live, quality: undefined}), /How well it does/);
+});
+
+test('the page says how old the numbers are: fresh is quiet, a late publish warns, more than one missed run is stale', () => {
+  const live = {at: '2026-10-05T06:15:46Z', since: '2026-10-04T13:44:50Z', excluded: 39, totals: {real: 4, falsePositive: 1, harness: 2, judged: 7, unjudged: 4}, byDetector: []};
+  const at = hours => new Date(Date.parse(live.at) + hours * 3600000);
+  assert.equal(freshness(live.at, at(2)).level, 'fresh');
+  assert.equal(freshness(live.at, at(5.5)).level, 'late');
+  assert.equal(freshness(live.at, at(8)).level, 'stale');
+  assert.equal(freshness('nonsense').level, 'stale');
+  assert.doesNotMatch(liveSection(live, [], at(2)), /class="card (late|stale)"/);
+  assert.match(liveSection(live, [], at(5.5)), /A publish is late[^]*5\.5 h old/);
+  assert.match(liveSection(live, [], at(8)), /These numbers are stale[^]*Self-heal stats/);
+});
+
+test('the page names its cutoff and what it leaves out, and its precision tile says what was judged', () => {
+  const live = {at: '2026-10-05T06:15:46Z', since: '2026-10-04T13:44:50Z', excluded: 39, totals: {real: 4, falsePositive: 1, harness: 2, judged: 7, unjudged: 4, precision: 57}, byDetector: [], cost: {usd: 1, runs: 3, perRealBug: 0.25}};
+  const html = liveSection(live, [], new Date('2026-10-05T07:00:00Z'));
+  assert.match(html, /since 2026-10-04 13:44 UTC/);
+  assert.match(html, /39 earlier issues[^<]*not counted/);
+  assert.match(html, /4 real vs 3 wrong \(false positive or test mistake\) · 7 judged, 4 open not counted/);
+  assert.match(html, /\$0\.25 per real bug · 3 runs recorded since the cutoff/);
 });

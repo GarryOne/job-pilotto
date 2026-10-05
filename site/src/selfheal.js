@@ -39,15 +39,24 @@ const range = (low, high) => `≈ $${low.toFixed(1)}–${high.toFixed(1)}`;
 // ---------- live: the loop's numbers, published by CI (self-heal-stats.yml) ----------
 const pct = value => (value === null || value === undefined ? '–' : `${value}%`);
 const num = value => (value === null || value === undefined ? '–' : String(value));
-export function liveSection(live, history = []) {
+// How old the published numbers are. CI publishes every 3 hours: past 4 h a run is late, past 7 h more than one was missed (5 Oct 2026: GitHub's scheduler left them 5.5 h old).
+export function freshness(at, now = new Date()) {
+  const hours = (now - Date.parse(at)) / 3600000;
+  if (!Number.isFinite(hours)) return {hours: null, level: 'stale', text: 'age unknown'};
+  const text = hours < 1 ? `${Math.max(0, Math.round(hours * 60))} min old` : `${hours.toFixed(1)} h old`;
+  return {hours, level: hours > 7 ? 'stale' : hours > 4 ? 'late' : 'fresh', text};
+}
+const sinceText = live => (live.since ? `${String(live.since).slice(0, 10)} ${String(live.since).slice(11, 16)} UTC` : null);
+
+export function liveSection(live, history = [], now = new Date()) {
   if (!live) return `<section class="card"><h2>🩺 The loop, live</h2><p class="muted">No numbers published yet: they arrive every 3 hours from CI (self-heal-stats.yml).</p></section>`;
   const t = live.totals || {}, fixer = live.fixer || {}, cost = live.cost || {}, recall = live.recall;
   const tiles = [
     ['🐞 Real bugs caught', num(t.real), `${num(t.fixed)} fixed · ${num(t.queued)} queued for the fixer`],
-    ['🎯 Precision', pct(t.precision), `${num(t.real)} real vs ${num(t.falsePositive)} false positives (judged issues)`],
+    ['🎯 Precision', pct(t.precision), `${num(t.real)} real vs ${num((t.falsePositive || 0) + (t.harness || 0))} wrong (false positive or test mistake) · ${num(t.judged ?? (t.real || 0) + (t.falsePositive || 0))} judged, ${num(t.unjudged ?? t.open)} open not counted`],
     ['🧪 Recall', recall ? `${recall.caught}/${recall.planted}` : '–', recall ? (recall.missed.length ? `missed: ${recall.missed.join(', ')}` : 'every planted bug caught') : 'no interactions run yet'],
     ['🛠️ Fixer', `${num(fixer.landed ?? fixer.merged)} landed`, `${num(fixer.opened)} PRs · ${num(fixer.open)} open · verdicts ${num(live.verdicts?.real)} real / ${num(live.verdicts?.falsePositive)} false`],
-    ['💸 AI cost', `$${(cost.usd || 0).toFixed(2)}`, cost.perRealBug ? `$${cost.perRealBug} per real bug · ${cost.runs} runs recorded` : `${num(cost.runs)} runs recorded`],
+    ['💸 AI cost', `$${(cost.usd || 0).toFixed(2)}`, cost.perRealBug ? `$${cost.perRealBug} per real bug · ${cost.runs} runs recorded${live.since ? ' since the cutoff' : ''}` : `${num(cost.runs)} runs recorded`],
   ];
   // How well the loop does (desktop/e2e/lib/loop-quality.mjs): each number with what it counts, or why it is not measured yet. Lower is better for escape, regression, flake.
   const q = live.quality || {};
@@ -56,7 +65,9 @@ export function liveSection(live, history = []) {
   const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'harness', 'unclear', 'open'];
   const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Test / harness', 'Unclear', 'Open, unjudged'];
   const trend = history.slice().sort((a, b) => a.day.localeCompare(b.day)).slice(-30);
-  return `<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC · every issue the loop filed, by what found it and how it ended</small></section>
+  const age = freshness(live.at, now), since = sinceText(live);
+  const banner = age.level === 'fresh' ? '' : `<section class="card ${age.level}"><b>${age.level === 'stale' ? '⛔ These numbers are stale' : '⚠️ A publish is late'}</b> · last published ${esc(age.text)}; CI publishes every 3 hours (the Worker's cron, GitHub's schedule as backup).${age.level === 'stale' ? ' More than one run was missed: check the "CI · Self-heal stats" workflow.' : ''}</section>`;
+  return `${banner}<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC (${esc(age.text)}) · every issue the loop filed${since ? ` since ${esc(since)}` : ''}, by what found it and how it ended${since ? `. ${num(live.excluded)} earlier issues, filed under noisier rules, stay on GitHub and are not counted, so the figures cover only this window` : ''}</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 <section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
@@ -117,7 +128,7 @@ main{max-width:1040px;margin:0 auto;padding:24px 16px 48px}h1{margin:0;font-size
 a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:18px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0;margin-bottom:12px}
-.tile{margin-bottom:0}.tile b{display:block;font-size:30px;margin:4px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.card.late{border-color:var(--amber)}.card.stale{border-color:#e5484d;background:#2a1517}.tile{margin-bottom:0}.tile b{display:block;font-size:30px;margin:4px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}tr.total td{font-weight:700}
 ul{margin:8px 0 0;padding-left:18px}li{margin-top:6px}

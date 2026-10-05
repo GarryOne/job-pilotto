@@ -4,7 +4,8 @@
 //
 //   desktop.yml  -nightly: true    the nightly build, at 04:00 Zurich (the build runs only when the app changed since the last release)
 //   e2e.yml      -scheduled: true  the three-a-day journey runs, planned exactly as the schedule event plans them
-export const CRONS = ['0 2 * * *', '0 3 * * *', '47 9,13,17 * * *'];
+//   self-heal-stats.yml            the numbers on the owner's /self-heal page, every 3 hours (GitHub's schedule left them 5-6 hours old on 5 Oct 2026)
+export const CRONS = ['0 2 * * *', '0 3 * * *', '47 9,13,17 * * *', '40 */3 * * *'];
 
 // The hour in Zurich (0-23) at this moment: 04:00 all year, whether UTC+1 or UTC+2.
 export const zurichHour = date => Number(new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Zurich', hour: '2-digit', hourCycle: 'h23'}).format(date));
@@ -14,6 +15,7 @@ export function jobsFor(cron, now = new Date()) {
     return zurichHour(now) === 4 ? [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}] : [];
   }
   if (cron === '47 9,13,17 * * *') return [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}];
+  if (cron === '40 */3 * * *') return [{workflow: 'self-heal-stats.yml', inputs: {}}];
   return [];
 }
 
