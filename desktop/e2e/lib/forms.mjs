@@ -81,6 +81,17 @@ FORMS.submitter = {
   kit: [{field: 'question_4001', question: 'Years of experience with Linux', answer: '9', needs_review: false}],
   legal: [], submits: true,
 };
+// REAL forms (5 Oct 2026): the shapes of forms the extension failed on for a real person, rebuilt from the fill log by tools/fixture-from-fills.py (field
+// labels and kinds only, never a value: public form wording). Each is a job with no kit answers: the extension fills the person's details and must list every
+// required field it cannot fill as left for them, by its label. A real form the extension once skipped silently stays a test for good.
+const REAL_HOSTS = {greenhouse: 'boards.greenhouse.io', lever: 'jobs.lever.co', workday: 'e2e.wd3.myworkdayjobs.com'};
+export const REAL_FORMS = (() => {
+  const dir = new URL('../fixtures/real-forms/', import.meta.url);
+  try { return fs.readdirSync(dir).filter(name => name.endsWith('.json')).map(name => JSON.parse(fs.readFileSync(new URL(name, dir), 'utf8'))); } catch { return []; }
+})();
+for (const spec of REAL_FORMS) {
+  FORMS[`real-${spec.id}`] = {title: spec.title || 'Engineer (real form)', company: `E2E Real ${spec.id}`, host: REAL_HOSTS[spec.ats] || 'e2e.recruitee.com', path: `/real/${spec.id}`, kit: [], legal: [], real: spec};
+}
 for (const form of Object.values(FORMS)) form.url = `https://${form.host}${form.path}`;
 
 // ---- Varied starting data (lib/variation.mjs): what a real person's data and a real site's timing throw at the fill, not only the tidy values above. ----
@@ -205,6 +216,22 @@ const PAGES = {
 };
 
 // -> {url, host, port, close(), fired: [{kind, form}] (what happened to a Submit), forms: {name: form}}. https, a self-made certificate.
+// A real form's page from its spec: the person's details first (as every board asks), then each field the extension failed on, as the kind it was.
+export function realPage(form) {
+  const spec = form.real, slug = (label, i) => `real_${i}_${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30)}`;
+  const fields = spec.fields.map((item, i) => {
+    const id = slug(item.label, i), required = item.required !== false;
+    if (item.kind === 'select') return select(id, item.label, item.options?.length ? item.options : ['Yes', 'No', 'Prefer not to say'], {required});
+    if (item.kind === 'textarea') return area(id, item.label, {required});
+    if (item.kind === 'widget') return `<div class="field"><label id="lbl-${id}">${esc(item.label)}${required ? ' *' : ''}</label><button type="button" id="${id}" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="lbl-${id}"${required ? ' aria-required="true"' : ''}>Select…</button></div>`;
+    if (item.kind === 'checkbox') return `<div class="field"><label><input id="${id}" name="${id}" type="checkbox"${required ? ' required' : ''}> ${esc(item.label)}${required ? ' *' : ''}</label></div>`;
+    return field(id, item.label, {required});
+  });
+  return page(form, `<form id="application_form">${field('first_name', 'First Name', {required: true})}${field('last_name', 'Last Name', {required: true})}${field('email', 'Email', {type: 'email', required: true})}${resume}
+  ${fields.join('\n  ')}
+  ${submit}</form>`);
+}
+
 export async function startForms({vary = null} = {}) {
   const variation = varyForms(vary);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-cert-'));
@@ -233,11 +260,11 @@ export async function startForms({vary = null} = {}) {
     const name = Object.keys(FORMS).find(key => FORMS[key].host === host && [FORMS[key].path, FORMS[key].formPath].includes(url.pathname.replace(/(.)\/$/, '$1')));
     if (!name) { res.writeHead(404, {'content-type': 'text/plain'}).end('not a fixture form'); return; }
     res.writeHead(200, {'content-type': 'text/html; charset=utf-8'});
-    res.end(PAGES[name](FORMS[name]));
+    res.end((PAGES[name] || realPage)(FORMS[name]));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
-  return {port, fired, posts, hits, variation, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => PAGES[name](FORMS[name])};
+  return {port, fired, posts, hits, variation, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => (PAGES[name] || realPage)(FORMS[name])};
 }
 
 // Chromium flags that send the job-site host names to the fixture server and make every other name unresolvable (no employer is ever contacted).

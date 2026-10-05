@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, REAL_FORMS} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -137,6 +137,26 @@ export async function run(ctx) {
     if (!panel) throw new Error('no Job Pilotto panel on the form');
     console.log(`  workday panel: "${panel.progress}"; left for you: ${panel.left.join(' | ') || 'nothing'}`);
     fail(leftProblems(panel.left, ['hear about us']));
+  }, {needs: ctx.needs});
+
+  // Forms the extension failed on for a real person (fixtures/real-forms, tools/fixture-from-fills.py): your details filled, every required field it cannot
+  // fill listed as left for you by its label, Submit untouched. None yet: the step says so and passes.
+  await ctx.run('real forms the extension once failed on: your details are filled and every field it cannot fill is listed for you, by name', async () => {
+    if (!REAL_FORMS.length) { console.log('  no real forms yet (tools/fixture-from-fills.py writes them from the fill log)'); return; }
+    const problems = [];
+    for (const spec of REAL_FORMS) {
+      const form = FORMS[`real-${spec.id}`];
+      const {tab, state} = await apply(form);
+      if (state.state === 'error') { problems.push(`${spec.id}: the fill ended in an error: ${state.error}`); continue; }
+      const actual = await readForm(tab);
+      problems.push(...fillProblems({expected: {first_name: CONTACT.first_name, last_name: CONTACT.last_name, email: CONTACT.email}, actual}).map(text => `${spec.id}: ${text}`));
+      problems.push(...submitProblems(forms.fired, form.path).map(text => `${spec.id}: ${text}`));
+      const panel = await panelOf(tab);
+      if (!panel) { problems.push(`${spec.id}: no Job Pilotto panel on the form`); continue; }
+      const wanted = spec.fields.filter(item => item.required !== false).map(item => String(item.label).split(/\s+/).slice(0, 3).join(' '));
+      problems.push(...leftProblems(panel.left, wanted).map(text => `${spec.id}: ${text}`));
+    }
+    fail(problems);
   }, {needs: ctx.needs});
 
   await ctx.run('a Lever-like form: a field rendered late is filled, the question no kit covers is answered by the AI and highlighted', async () => {

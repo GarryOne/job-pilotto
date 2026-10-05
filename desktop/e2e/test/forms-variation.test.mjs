@@ -53,3 +53,14 @@ test('the served pages follow the pick: the questions in the chosen order, the l
     assert.match(seeded.variation, /answers .*question_1004=/);
   } finally { await seeded.close(); varyForms(null); }
 });
+
+test('a real form from the fill log renders each failed field as its kind, after the person\'s details', async () => {
+  const {realPage} = await import('../lib/forms.mjs');
+  const html = realPage({title: 'Engineer', company: 'E2E Real x', real: {id: 'x', ats: 'greenhouse', fields: [
+    {label: 'How did you hear about us?', kind: 'widget'}, {label: 'Visa status', kind: 'select'}, {label: 'Describe a system you scaled', kind: 'textarea'}]}});
+  assert.match(html, /id="first_name"[\s\S]*id="email"/);
+  assert.match(html, /role="combobox"[^>]*aria-labelledby="lbl-real_0_how_did_you_hear_about_us_"/);
+  assert.match(html, /<select id="real_1_visa_status"/);
+  assert.match(html, /<textarea id="real_2_describe_a_system_you_scaled"/);
+  assert.match(html, /type="submit"/);
+});

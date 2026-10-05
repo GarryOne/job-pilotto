@@ -334,6 +334,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/e2e_gate.py` — The end-to-end gate of tools/release-stable.sh: may this build be promoted, judging by the e2e runs GitHub lists (newest first)?
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
+- `tools/fixture-from-fills.py` — Real forms for the apply suite, from the extension's fill log: the forms it failed on for a real person, rebuilt as fixtures.
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
