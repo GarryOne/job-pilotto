@@ -72,6 +72,7 @@ export const KIND = {search: {icon: '🔎', line: 'search', name: 'Jobs check'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
   add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, import: {icon: '➕', line: 'search', name: 'Add a job'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
   prep: {icon: '🎤', line: 'mic', name: 'Interview prep kit'}};
+const KITS_CARD = new Set(['kits', 'prepare', 'tailor']);   // the runs whose result is a list of jobs on the kits card
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
 const WHERE = {github: 'GitHub', mac: 'this Mac'};  // where a run ran, after who started it
@@ -157,7 +158,7 @@ export function cardFor(run, text) {
   if (weekly) return target => renderWeeklyCard(weekly, target);
   const review = kindOf(run) === 'interview' ? parseInterviewReview(text) : null;
   if (review) return target => renderInterviewCard(review, target);
-  const kits = kindOf(run) === 'kits' ? parseKitsReady(text) : null;
+  const kits = KITS_CARD.has(kindOf(run)) ? parseKitsReady(text) : null;
   if (kits) return target => renderKitsCard(kits, target);
   return null;
 }
@@ -483,7 +484,7 @@ export function renderActivity(fresh) {
   // An interview review: the same card shape as the others, from the message src/ai/interviews.py wrote.
   const review = !run?.live && !card && !mail && !insight && !weekly && kindOf(run) === 'interview' && run?.message
     ? parseInterviewReview(run.message) : null;
-  const kits = !run?.live && !card && !mail && !insight && !weekly && !review && kindOf(run) === 'kits' && run?.message ? parseKitsReady(run.message) : null;
+  const kits = !run?.live && !card && !mail && !insight && !weekly && !review && KITS_CARD.has(kindOf(run)) && run?.message ? parseKitsReady(run.message) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) {
@@ -1020,8 +1021,9 @@ export function renderKitsCard(kits, target = $('activity-card')) {
   const box = el('div', 'insight-card');
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
-  kicker.append(el('span', 'insight-category', 'Application kits'));
-  head.append(kicker, el('h3', 'insight-title', `${plural(kits.jobs.length, 'kit')} ready`));
+  const cvs = kits.what === 'cv';
+  kicker.append(el('span', 'insight-category', cvs ? 'Tailored CVs' : 'Application kits'));
+  head.append(kicker, el('h3', 'insight-title', `${plural(kits.jobs.length, cvs ? 'CV' : 'kit')} ready`));
   if (kits.subtitle) head.append(el('p', 'insight-subtitle', kits.subtitle));
   const list = el('ul', 'insight-evidence kits-jobs');
   for (const job of kits.jobs) {

@@ -9,7 +9,7 @@
 //
 // Drawn on the insight card's shape like every other task's result, not as the Telegram text it was written as (5 Oct 2026).
 // Nothing is re-worded; a message that is not a kits list returns null, so its plain text still shows.
-const HEAD = /^\p{Extended_Pictographic}?️?\s*Application kits ready\s*$/u;
+const HEAD = /^\p{Extended_Pictographic}?️?\s*(Application kits|Tailored CVs) ready\s*$/u;   // a Prepare run's kits, or a Tailor CVs run's CVs: one card shape
 const TITLE = /^(.*?)\s*\((https?:\/\/[^)\s]+)\)\s*$/;
 
 export function parseKitsReady(message) {
@@ -17,6 +17,7 @@ export function parseKitsReady(message) {
     .split('\n').map(line => line.trim()).filter(Boolean);
   const head = lines.findIndex(line => HEAD.test(line));
   if (head < 0) return null;
+  const what = HEAD.exec(lines[head])[1] === 'Tailored CVs' ? 'cv' : 'kit';
   const subtitle = lines[head + 1] || '';
   const jobs = [];
   for (const line of lines.slice(head + 2)) {
@@ -24,5 +25,5 @@ export function parseKitsReady(message) {
     if (title) jobs.push({title: title[1], url: title[2], company: ''});
     else if (jobs.length && !jobs[jobs.length - 1].company) jobs[jobs.length - 1].company = line;
   }
-  return jobs.length ? {subtitle, jobs} : null;
+  return jobs.length ? {what, subtitle, jobs} : null;
 }

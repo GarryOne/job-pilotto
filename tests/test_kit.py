@@ -112,7 +112,10 @@ class KitTests(unittest.TestCase):
                     {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
                      'description': 'Kubernetes.'}]})
                 tracker, client = FakeTracker(), FakeClient()
-                messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5-5', opener)
+                drafted = []
+                messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5-5', opener, drafted_out=drafted)
+        self.assertEqual([job['title'] for job, _ in drafted], ['SRE'])  # the app's card for the run
+        self.assertIn('Drafted for this job', daily.kits_message(drafted, 'Drafted for this job · nothing sent'))
         self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
         self.assertIn('Kit cost (USD)', tracker.updates[0][1])
         page_id, heading, block = tracker.sections[0]

@@ -168,10 +168,10 @@ def log_text(html):
     return telegram.plain(html)
 
 
-def kits_message(drafted):
+def kits_message(drafted, subtitle=None):
     """The "Prepare top matches" message: the count, then each drafted job's linked title and company (the window's
     kits card reads it: desktop/renderer/kits-ready.js, checked against this writer in desktop/test/engine-message-contract.test.js)."""
-    return tgcard.card('Application kits ready', f"{len(drafted)} drafted for your top matches · nothing sent", [
+    return tgcard.card('Application kits ready', subtitle or f"{len(drafted)} drafted for your top matches · nothing sent", [
         f"<a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a>\n{escape(job['company'])}"
         for job, _ in drafted], emoji='📝')
 
@@ -186,7 +186,7 @@ def log_ai_run(tracker, run, args, failed=False):
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
 
-def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None):
+def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None, drafted_out=None):
     """Draft the application kit for one job; save it on its Notion Applications row (run: its ⏱️ Search runs row
     links to that row, shown on the job's page as Runs).
 
@@ -217,6 +217,8 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     kit.record_next_step(tracker, page, drafted)
     kit.record_cost(tracker, page, model, usage)
     provenance.record_kit(tracker, page, profile, answers)
+    if drafted_out is not None:
+        drafted_out.append((job, page))  # the app's card for this run (kits_message)
     return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
 
 
@@ -367,11 +369,14 @@ def main():
             raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
         run = new_cron_run('prepare')
         run['kits'] = {}
+        drafted = []
         with store.connect(args.db) as db:
-            messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run)
+            messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run, drafted_out=drafted)
         print(log)
         log_ai_run(tracker, run, args)
         print('\n\n'.join(messages))  # the kit is saved in Notion; no Telegram message (owner, 5 Oct 2026: not relevant)
+        if drafted:  # the run's card in the app: the job and "nothing sent", on the kits card's shape
+            telegram.to_app(kits_message(drafted, 'Drafted for this job · nothing sent'))
         return 0
     if args.mode == 'kits':
         # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the

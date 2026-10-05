@@ -1592,6 +1592,7 @@ function handlers() {
     // A tracked task like a Jobs check: the banner, a live log, a row in Recent activity and the result line. Started, not awaited: the window follows it.
     pipeline.work(storage, 'tailor', log, async tee => {
       let done = 0, failed = 0, usd = 0;
+      const tailored = [];
       tee(`Finding your ${n} best matches without a tailored CV…`);   // reading the job list takes a few seconds: the banner is already up
       const picked = apply.pickUntailored((await pipeline.jobs(storage)).jobs, n);
       appLog('cv', 'tailor top matches picked', {asked: n, jobs: picked.length});
@@ -1604,7 +1605,7 @@ function handlers() {
       for (const [index, job] of picked.entries()) {
         tee(`Tailoring ${index + 1} of ${picked.length}: ${job.title} · ${job.company}`);
         const result = await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false, quiet: true});
-        if (result.ok) { done++; usd += result.usd || 0; tee(`  ✓ ${job.title} · ${job.company}`); } else {
+        if (result.ok) { done++; usd += result.usd || 0; tailored.push(job); tee(`  ✓ ${job.title} · ${job.company}`); } else {
           failed++;
           tee(`  ✗ ${job.title} · ${job.company}: ${String(result.error || 'something went wrong').slice(0, 120)}`);
           appLog('cv', 'tailor top matches: one failed', {job: job.code, reason: String(result.error || '').slice(0, 80)});
@@ -1613,7 +1614,14 @@ function handlers() {
       appLog('cv', 'tailor top matches done', {done, failed, usd: Math.round(usd * 100) / 100});
       const text = `Tailored ${done} of ${picked.length} CV${picked.length === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}. Open each job's 📄 Tailored CV to check it before you apply.`;
       tee(text);
-      tee('<<<message'); tee(text); tee('message>>>');
+      // The card (renderer/kits-ready.js reads this shape): the count, then each tailored job's title with its link, and its company.
+      tee('<<<message');
+      if (tailored.length) {
+        tee('✂️ Tailored CVs ready');
+        tee(`${done} of ${picked.length} tailored${failed ? ` · ${failed} failed` : ''} · check each before you apply`);
+        for (const job of tailored) { tee(''); tee(`${job.title} (${job.url})`); tee(job.company); }
+      } else tee(text);
+      tee('message>>>');
       return done > 0;
     }).catch(error => log(`Tailor CVs failed: ${error.message}`));
     return {ok: true, started: true, text: 'Tailoring started.'};

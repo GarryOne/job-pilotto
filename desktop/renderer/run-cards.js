@@ -69,7 +69,7 @@ export const parseRunMessage = text => parseDigest(text) || parseScout(text);
 // The run kinds the window draws as a card. When one of them shows its message as plain text instead, a parser failed or was never
 // reached: the screen still looks tidy, so the window says so on the element (data-fallback), and the e2e checks treat it as a
 // finding (desktop/e2e/lib/uicheck.mjs 'card-fallback'). A one- or two-line note ("No new jobs since…") is a plain answer, not a fallback.
-export const CARD_KINDS = new Set(['search', 'today', 'scout', 'mail', 'insight', 'weekly', 'interview', 'kits']);
+export const CARD_KINDS = new Set(['search', 'today', 'scout', 'mail', 'insight', 'weekly', 'interview', 'kits', 'prepare', 'tailor']);
 export const isFallback = (kind, text) => CARD_KINDS.has(kind) && String(text || '').split('\n').filter(line => line.trim()).length >= 3;
 // The run kinds that always leave a result to read (not a Jobs check, which may find nothing). A finished one whose pane drew no
 // card, no text and no result is a finding too ("Search analysis" opened to an empty pane, 5 Oct 2026): data-empty-result on the

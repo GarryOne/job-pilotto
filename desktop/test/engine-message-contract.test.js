@@ -36,6 +36,15 @@ test('insight: category, headline, evidence, next step, confidence', () => {
     ['Skills', 'Go appears in 40% of roles', ['9 of 12 postings'], 'Add Go to your CV', 'medium', 12]);
 });
 
+test('tailored CVs: the same card shape as kits, from the message the app writes', () => {
+  const message = '✂️ Tailored CVs ready\n2 of 3 tailored · 1 failed · check each before you apply\n\nSRE (https://jobs.example.com/1)\nAcme\n\nOps (https://jobs.example.com/2)\nBeta';
+  const cvs = parseKitsReady(message);
+  assert.equal(cvs.what, 'cv');
+  assert.deepEqual(cvs.jobs.map(job => [job.title, job.company, job.url]), [['SRE', 'Acme', 'https://jobs.example.com/1'], ['Ops', 'Beta', 'https://jobs.example.com/2']]);
+  assert.match(cvs.subtitle, /2 of 3 tailored/);
+  assert.equal(parseKitsReady('📝 Application kits ready\n1 drafted\n\nSRE (https://a/1)\nAcme').what, 'kit');
+});
+
 test('kits: the count line and each job with its link and company', () => {
   const kits = parseKitsReady(said.kits);
   assert.ok(kits, lookAt('kits'));
