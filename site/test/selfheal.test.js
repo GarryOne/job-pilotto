@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
+import {changesSection} from "../src/trend.js";
 import {freshness, ingest, liveSection, page, periodsSection, PRINCIPLES, principlesSection, view, watchSection} from '../src/selfheal.js';
 
 const env = {STATS_KEY: 'secret'};
@@ -143,4 +144,18 @@ test('a snapshot with periods shows all time first, then the last 7 days, and it
   assert.equal((html.match(/Real bugs caught/g) || []).length, 3, 'one per period, not a fourth from the cutoff totals');
   assert.match(periodsSection(live), /\$9\.50/);
   assert.equal(periodsSection({}), '');
+});
+
+test('the page lays what changed in the Finder each day beside what it filed, with sizes and the commits', () => {
+  const history = [{day: '2026-10-04', filed: 13, real: 9, falsePositive: 2, stale: 0, open: 2}, {day: '2026-10-05', filed: 36, real: 10, falsePositive: 18, stale: 6, open: 2}];
+  const changes = [{day: '2026-10-05', commits: 2, rules: 400, suite: 20, tests: 90, files: 7, lines: 420, size: 'large', items: [{sha: 'abc1234', subject: 'Finder: hold <b>findings</b>', lines: 400, size: 'large'}], more: 1}];
+  const html = changesSection({history, changes});
+  assert.match(html, /What we changed in the Finder, day by day/);
+  assert.match(html, /<b>large<\/b><\/td><td class="n">420<\/td><td class="n">36<\/td><td class="n">36%<\/td><td class="n">-46 pts<\/td>/);
+  assert.match(html, /<td>4 Oct<\/td><td><span class="muted">none<\/span><\/td>/, 'a day without changes says so');
+  assert.match(html, /and 1 smaller/);
+  assert.match(html, /<code>abc1234<\/code>/);
+  assert.doesNotMatch(html, /<b>findings<\/b>/, 'a commit subject is escaped');
+  assert.equal(changesSection({history, changes: []}), '', 'an old snapshot without changes shows no section');
+  assert.match(liveSection({...snapshot('2026-10-05T04:00:00Z', 26), history, changes}, history), /What we changed in the Finder/);
 });

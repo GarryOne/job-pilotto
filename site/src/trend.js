@@ -115,6 +115,47 @@ export function trendTable(history, costDays = {}) {
 ${history.map((row, index) => `<tr><td>${esc(dayLabel(row.day))}</td><td class="n">${row.filed}</td><td class="n">${row.real}</td><td class="n">${row.falsePositive}</td><td class="n">${row.stale}</td><td class="n">${row.open}</td><td class="n">${series[index].own === null ? '–' : `${series[index].own}%`}</td><td class="n">${costDays[row.day] ? esc(usd(costDays[row.day])) : '–'}</td></tr>`).join('')}</table></div></details>`;
 }
 
+// ---------- 4. what changed in the Finder each day, beside what it filed (desktop/e2e/lib/finder-changes.mjs) ----------
+const SIZE_NOTE = 'Size = lines of detector, rule or suite code changed (tests and fixtures not counted): small under 60, medium under 300, large from 300.';
+export function changesChart(history, changes = []) {
+  const byDayMap = Object.fromEntries(changes.map(item => [item.day, item]));
+  const max = niceMax(Math.max(1, ...history.map(row => (byDayMap[row.day]?.lines || 0)))), count = history.length, barW = Math.min(30, stepOf(count) * 0.6);
+  const parts = [axis(max, [0, Math.round(max / 2), max].filter((tick, at, all) => all.indexOf(tick) === at)), xLabels(history)];
+  history.forEach((row, index) => {
+    const item = byDayMap[row.day] || {rules: 0, suite: 0, lines: 0, commits: 0}, x = xOf(index, count) - barW / 2;
+    let y = M.t + PLOT.h;
+    const stack = [['s-real', item.rules], ['s-stale', item.suite]].filter(([, value]) => value > 0);
+    stack.forEach(([cls, value], at) => {
+      const h = Math.max(2, (PLOT.h * value) / max); y -= h;
+      parts.push(at === stack.length - 1 ? `<path class="${cls}" d="${roundedTop(x, y, barW, h, 4)}"/>` : `<rect class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"/>`);
+    });
+    if (item.lines) parts.push(`<text class="value" x="${xOf(index, count).toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle">${item.lines}</text>`);
+    parts.push(hit(index, count, `${dayLabel(row.day)}: ${item.commits} changes, ${item.rules} lines of detector and rule code, ${item.suite} of suite code${item.lines ? ` (${item.size})` : ''}`));
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Lines of Finder code changed per day">${parts.join('')}</svg>`;
+}
+
+// One row per day: how much changed, what the Finder filed that day and how right it was, against the day before. A hint to read next to the numbers, not a proof: several changes land on one day.
+export function changesTable(history, changes = []) {
+  const byDayMap = Object.fromEntries(changes.map(item => [item.day, item])), series = precisionSeries(history);
+  const rows = history.map((row, index) => {
+    const item = byDayMap[row.day], own = series[index].own, before = index ? series[index - 1].own : null;
+    const delta = own !== null && before !== null ? own - before : null;
+    const shift = delta === null ? '–' : `${delta > 0 ? '+' : ''}${delta} pts`;
+    const list = item ? `<details><summary>${item.commits} change${item.commits === 1 ? '' : 's'}</summary><ul class="changes">${item.items.map(entry => `<li><span class="muted">${esc(entry.size)}</span> ${esc(entry.subject)} <code>${esc(entry.sha)}</code></li>`).join('')}${item.more ? `<li class="muted">and ${item.more} smaller</li>` : ''}</ul></details>` : '<span class="muted">none</span>';
+    return `<tr><td>${esc(dayLabel(row.day))}</td><td>${list}</td><td>${item ? `<b>${esc(item.size)}</b>` : '–'}</td><td class="n">${item ? item.lines : 0}</td><td class="n">${row.filed}</td><td class="n">${own === null ? '–' : `${own}%`}</td><td class="n">${shift}</td></tr>`;
+  });
+  return `<div class="wrap"><table><tr><th>Day</th><th>What changed</th><th>Size</th><th>Lines</th><th>Filed</th><th>Right</th><th>vs day before</th></tr>${rows.join('')}</table></div>`;
+}
+
+export function changesSection(live) {
+  const history = Array.isArray(live?.history) ? live.history : [], changes = Array.isArray(live?.changes) ? live.changes : [];
+  if (!history.length || !changes.length) return '';
+  return `<section class="card"><h2>🛠️ What we changed in the Finder, day by day</h2><small class="muted">Every commit that touched the Finder's own code, by the day it landed, beside what it filed and how right it was. ${SIZE_NOTE} Read the last column as a hint, not a proof: several changes land on one day, and the issues a change prevents show up days later.</small>
+<ul class="legend"><li><i class="sw s-real"></i>Detector and rule code</li><li><i class="sw s-stale"></i>Suite code</li></ul>${changesChart(history, changes)}
+${changesTable(history, changes)}</section>`;
+}
+
 export function trendSection(live) {
   const history = Array.isArray(live.history) ? live.history : [];
   if (!history.length) return `<section class="card"><h2>📈 How the Finder is evolving</h2><p class="muted">No daily history yet: it arrives with the next publish.</p></section>`;
@@ -127,7 +168,7 @@ ${costs ? `<h3>What its AI costs each day</h3>${costs}` : ''}${trendTable(histor
 }
 
 // The hover layer: a tooltip for the mark under the pointer or the keyboard focus (data-tip on a hit area larger than the mark).
-export const TREND_STYLE = `.seg{display:inline-flex;gap:4px;margin:6px 0 10px}.seg button{font:inherit;color:inherit;background:transparent;border:1px solid #2b3139;border-radius:6px;padding:4px 10px;cursor:pointer}.seg button[aria-pressed=true]{background:#3987e5;border-color:#3987e5;color:#fff}.period[hidden]{display:none}.chart{width:100%;height:auto;display:block;margin:6px 0 4px}.chart .grid{stroke:var(--line);stroke-width:1}.chart .tick{fill:var(--muted);font-size:11px}.chart .value{fill:var(--text);font-size:11px;font-variant-numeric:tabular-nums}
+export const TREND_STYLE = `.changes{margin:6px 0;padding-left:18px;font-size:13px}.changes li{margin:2px 0}.seg{display:inline-flex;gap:4px;margin:6px 0 10px}.seg button{font:inherit;color:inherit;background:transparent;border:1px solid #2b3139;border-radius:6px;padding:4px 10px;cursor:pointer}.seg button[aria-pressed=true]{background:#3987e5;border-color:#3987e5;color:#fff}.period[hidden]{display:none}.chart{width:100%;height:auto;display:block;margin:6px 0 4px}.chart .grid{stroke:var(--line);stroke-width:1}.chart .tick{fill:var(--muted);font-size:11px}.chart .value{fill:var(--text);font-size:11px;font-variant-numeric:tabular-nums}
 .s-real{fill:var(--s1)}.s-false{fill:var(--s2)}.s-stale{fill:var(--s3)}.s-open{fill:url(#hatch)}.chart .s-real,.chart .s-false,.chart .s-stale,.chart .s-open{stroke:var(--card);stroke-width:2}.chart .hit{stroke:none}.chart .hit:hover,.chart .hit:focus{fill:rgba(255,255,255,.06);outline:none}
 .hatch-bg{fill:var(--card)}.hatch-line{stroke:var(--muted);stroke-width:2}.chart .line{fill:none;stroke:var(--s1);stroke-width:2;stroke-linejoin:round}.chart .dot{fill:var(--card);stroke:var(--s1);stroke-width:2}
 .chart .mark-line{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}.chart .milestone circle{fill:var(--card);stroke:var(--muted);stroke-width:1.5}.chart .milestone text{fill:var(--text);font-size:10px;font-weight:600}

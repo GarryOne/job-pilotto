@@ -12,6 +12,7 @@ import {pathToFileURL} from 'node:url';
 import {build} from './lib/selfheal-stats.mjs';
 import {totalRuns} from './lib/run-summary.mjs';
 import {breakerState} from './lib/breaker.mjs';
+import {collectChanges} from './lib/finder-changes.mjs';
 import {SIGNATURE_LABEL, signaturesFromBody} from './lib/signatures.mjs';
 
 const gh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
@@ -89,7 +90,7 @@ export async function collect({days = 30} = {}) {
     }
   } catch { judgeExam = null; }
   ({tracker, trackerWhy} = await readTracker());
-  return {...build({issues, prs, costs, recall, runs: summaries.length ? totalRuns(summaries) : null, breaker: breakerState(issues), signatures: learnedCount()}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy, judgeExam})};
+  return {changes: collectChanges(), ...build({issues, prs, costs, recall, runs: summaries.length ? totalRuns(summaries) : null, breaker: breakerState(issues), signatures: learnedCount()}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy, judgeExam})};
 }
 
 

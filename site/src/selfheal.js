@@ -2,7 +2,7 @@
 // Owner-only like /stats (STATS_KEY), never a static page: static assets are public. The figures are a snapshot read from the CI logs.
 import {allowed, esc, remember} from './stats.js';
 import {equal} from './guard.js';
-import {dayLabel, TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
+import {changesSection, dayLabel, TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
 
 // 2-3 Oct 2026, from GitHub Actions logs. Fixer: claude-code-action's own total_cost_usd. Finder: estimated (the review then dropped usage).
 // ---------- live: the loop's numbers, published by CI (self-heal-stats.yml) ----------
@@ -127,6 +127,7 @@ export function liveSection(live, history = [], now = new Date()) {
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 ${periodsSection(live)}
 ${trendSection(live)}
+${changesSection(live)}
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 ${causesSection(live)}
 ${watchSection(live)}

@@ -30,6 +30,8 @@ jobs:
       BUG_TRACKER_DB: ${{ vars.BUG_TRACKER_DB }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the whole history: what changed in the Finder each day (lib/finder-changes.mjs)
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
