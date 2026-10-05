@@ -2,8 +2,10 @@
 so a fixture that drifts (or a scout change) fails here in seconds, not in a 10-minute e2e run."""
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -35,12 +37,26 @@ print(json.dumps({'summary': summary, 'again': again, 'again_checked': len(again
 
 
 class EmployersFixturesTest(unittest.TestCase):
+    PERSONA, PLACES = 'employers', ['Zurich']   # the SRE in Zurich; NurseEmployersFixturesTest swaps in the nurse in Manchester (EMPLOYERS_PERSONA=nurse in the e2e suite)
+
     @classmethod
     def setUpClass(cls):
-        env = dict(os.environ, JOB_PILOTTO_FIXTURE_DIR=str(FEEDS), JOB_PILOTTO_LOCATIONS_FILE=str(FEEDS / 'employers' / 'person.json'))
+        feeds = FEEDS
+        if cls.PERSONA != 'employers':   # the persona's boards replace the SRE boards of the same names, exactly as the suite does
+            cls._tmp = tempfile.mkdtemp()
+            feeds = Path(cls._tmp) / 'feeds'
+            shutil.copytree(FEEDS, feeds)
+            for board in (FEEDS / cls.PERSONA).glob('*.json'):
+                if board.name != 'person.json':
+                    shutil.copy(board, feeds / 'employers' / board.name)
+        env = dict(os.environ, JOB_PILOTTO_FIXTURE_DIR=str(feeds), JOB_PILOTTO_LOCATIONS_FILE=str(FEEDS / cls.PERSONA / 'person.json'))
         out = subprocess.run([sys.executable, '-c', SCRIPT], cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
         assert out.returncode == 0, out.stderr[-2000:]
         cls.data = json.loads(out.stdout.strip().splitlines()[-1])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(getattr(cls, '_tmp', ''), ignore_errors=True)
 
     def test_each_candidate_ends_in_its_status(self):
         status = {name: s for name, s, _, _ in self.data['results']}
@@ -53,7 +69,7 @@ class EmployersFixturesTest(unittest.TestCase):
         stats = {name: st for name, _, _, st in self.data['results']}
         self.assertGreaterEqual(quality['E2E Nimbus'] - quality['E2E Orbit'], 20)
         self.assertEqual((stats['E2E Nimbus']['jobs'], stats['E2E Nimbus']['relevant'], stats['E2E Nimbus']['preferred']), (5, 4, 4))
-        self.assertEqual((stats['E2E Orbit']['jobs'], stats['E2E Orbit']['relevant'], stats['E2E Orbit']['preferred'], stats['E2E Orbit']['places']), (3, 2, 1, ['Zurich']))
+        self.assertEqual((stats['E2E Orbit']['jobs'], stats['E2E Orbit']['relevant'], stats['E2E Orbit']['preferred'], stats['E2E Orbit']['places']), (3, 2, 1, self.PLACES))
 
     def test_notion_rows_are_written_for_every_kind_but_the_duplicate(self):
         rows = {row['Company']: row for row in self.data['rows']}
@@ -61,9 +77,18 @@ class EmployersFixturesTest(unittest.TestCase):
         self.assertEqual({k: (v['status'], v['Active']) for k, v in rows.items()},
                          {'E2E Nimbus': ('Feed found', True), 'E2E Orbit': ('Feed found', True), 'E2E Noise': ('Low relevance', False),
                           'E2E Hollow': ('No public feed', False), 'E2E Ghost': ('No public feed', False), 'E2E Quiet': ('Manual watch', False)})
-        self.assertIn('5 postings; 4 SRE-type; 4 in preferred places', rows['E2E Nimbus']['Notes'])
+        self.assertIn('5 postings; 4 matching; 4 in preferred places', rows['E2E Nimbus']['Notes'])
 
     def test_a_second_run_checks_nothing_and_adds_nothing(self):
         self.assertEqual((self.data['again']['checked'], self.data['again_checked']), (0, 0))
         self.assertEqual(self.data['again']['total_feeds'], self.data['summary']['total_feeds'])
         self.assertEqual(len(self.data['rows']), 6)
+
+
+class NurseEmployersFixturesTest(EmployersFixturesTest):
+    """The same outcomes for a band 6 nurse in Manchester (fixtures/feeds/employers-nurse): the scout and its rows are not for engineers only."""
+    PERSONA, PLACES = 'employers-nurse', ['Manchester']
+
+
+if __name__ == '__main__':
+    unittest.main()

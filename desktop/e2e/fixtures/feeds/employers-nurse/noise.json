@@ -1,0 +1,44 @@
+{
+ "jobs": [
+  {
+   "id": 5301,
+   "title": "Kitchen Porter",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5301",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Wash up and clean the ward kitchen.</p>"
+  },
+  {
+   "id": 5302,
+   "title": "Estates Electrician",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5302",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Maintain electrical systems.</p>"
+  },
+  {
+   "id": 5303,
+   "title": "Payroll Clerk",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5303",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Run the monthly payroll.</p>"
+  },
+  {
+   "id": 5304,
+   "title": "Software Developer",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5304",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Build the hospital's booking system.</p>"
+  }
+ ]
+}

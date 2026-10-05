@@ -22,7 +22,7 @@ test('Find new employers: counts, one line per employer, the closing note', () =
    4 SRE-type roles · 3 in your places
    San Francisco
 2. Delivery Hero · Smartrecruiters · quality 24 · ⭐ Tier 1
-   1 SRE-type roles · 1 in your places
+   1 matching roles · 1 in your places
 4 without public feed · 4 low relevance · 26 feeds crawled · 616 candidates queued`);
   assert.deepEqual([card.kind, card.checked, card.fresh], ['scout', 15, 7]);
   assert.deepEqual(card.items.map(item => [item.company, item.ats, item.roles, item.yours, item.tier]),

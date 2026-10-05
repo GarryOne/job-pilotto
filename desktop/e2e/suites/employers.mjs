@@ -15,8 +15,16 @@ import {ensureSetUp} from '../lib/seed.mjs';
 export const minutes = 15;
 export const name = 'employers';
 // The scout judges feeds for this person whatever the test workspace's search settings hold (src/paths.py: JOB_PILOTTO_LOCATIONS_FILE).
-export const env = {JOB_PILOTTO_LOCATIONS_FILE: path.join(E2E, 'fixtures', 'feeds', 'employers', 'person.json')};
-const PERSON = 'A fictional senior site reliability / platform engineer in Zurich, Switzerland (Kubernetes, AWS, Terraform), looking for SRE, platform and DevOps roles in Zurich or elsewhere in Switzerland.';
+// E2E_EMPLOYERS_PERSONA=nurse runs the same suite for a band 6 nurse in Manchester: fixtures/feeds/employers-nurse/ replaces the SRE boards of the same names, so every
+// expectation holds with another profession (the scout, its Notion rows and the judge are not for engineers only). Default: the SRE in Zurich.
+const PERSONAS = {
+  sre: {dir: 'employers', city: /zurich/i, elsewhere: /lisbon/i, cityName: 'Zurich', person: 'A fictional senior site reliability / platform engineer in Zurich, Switzerland (Kubernetes, AWS, Terraform), looking for SRE, platform and DevOps roles in Zurich or elsewhere in Switzerland.'},
+  nurse: {dir: 'employers-nurse', city: /manchester/i, elsewhere: /sydney/i, cityName: 'Manchester', person: 'A fictional band 6 registered nurse in Manchester, UK (acute medicine, BLS and ILS, cannulation, NEWS2), looking for registered nurse, staff nurse, charge nurse and ward sister roles in Manchester, Salford or elsewhere in the UK.'},
+};
+export const persona = PERSONAS[process.env.E2E_EMPLOYERS_PERSONA || 'sre'];
+if (!persona) throw new Error(`E2E_EMPLOYERS_PERSONA must be one of ${Object.keys(PERSONAS).join(', ')}`);
+export const env = {JOB_PILOTTO_LOCATIONS_FILE: path.join(E2E, 'fixtures', 'feeds', persona.dir, 'person.json')};
+const PERSON = persona.person;
 // "quality" is the scout's 0-100 score of a whole feed (relevance, freshness, location, stack): a feed with older postings or a few off-target roles scores in the 30s-50s and is
 // still a sensible employer to follow. The judge must not read a middling score as a contradiction with "stack overlap" or "in preferred places", which describe single postings.
 const QUALITY_NOTE = 'Note: "quality" is a 0-100 score of the whole job feed, also lowered by stale postings or a few unrelated roles, so a middling score next to a good stack or place match is normal; judge only whether following this employer suits the person.';
@@ -97,6 +105,9 @@ export async function run(ctx) {
     const cleared = [await emptyDatabase(NOTION, 'Employers & Sources'), await emptyDatabase(NOTION, 'Cronjob Runs')];
     console.log(`  cleared ${cleared[0]} employer row(s) and ${cleared[1]} run row(s)`);
     // Nimbus' postings are three days old whenever the suite runs (freshness is part of the quality score); Orbit's stay old on purpose.
+    if (persona.dir !== 'employers') {   // the persona's boards replace the SRE ones of the same names
+      for (const file of fs.readdirSync(path.join(E2E, 'fixtures', 'feeds', persona.dir)).filter(name => name !== 'person.json')) fs.copyFileSync(path.join(E2E, 'fixtures', 'feeds', persona.dir, file), path.join(ctx.feeds, 'employers', file));
+    }
     const nimbusFile = path.join(ctx.feeds, 'employers', 'nimbus.json');
     const nimbus = JSON.parse(fs.readFileSync(nimbusFile, 'utf8'));
     for (const job of nimbus.jobs) job.updated_at = new Date(Date.now() - 3 * 86400000).toISOString();
@@ -133,7 +144,7 @@ export async function run(ctx) {
     if (problems.length) throw new Error(problems.join('; '));
     const [nimbus, orbit] = ['E2E Nimbus', 'E2E Orbit'].map(company => status[company].quality);
     console.log(`  quality: Nimbus ${nimbus}, Orbit ${orbit}`);
-    if (!(nimbus > orbit)) throw new Error(`the board with 4 fresh roles in Zurich (${nimbus}) must outscore the one with 1 old role there (${orbit})`);
+    if (!(nimbus > orbit)) throw new Error(`the board with 4 fresh roles in ${persona.cityName} (${nimbus}) must outscore the one with 1 old role there (${orbit})`);
     if (nimbus - orbit < 20) throw new Error(`quality barely tells a strong board (${nimbus}) from a weak one (${orbit})`);
   }, {needs: ctx.needs});
 
@@ -149,10 +160,10 @@ export async function run(ctx) {
       if (row['Feed status'] !== want.feed) problems.push(`${company}: Feed status "${row['Feed status']}", expected "${want.feed}"`);
       if (row.Active !== want.active) problems.push(`${company}: Active is ${row.Active}, expected ${want.active}`);
     }
-    // The numbers in a row come from the fixture boards: Nimbus has 5 postings, 4 of them SRE-type, all 4 in Zurich; Orbit 3, 2 and 1.
+    // The numbers in a row come from the fixture boards: Nimbus has 5 postings, 4 of them relevant, all 4 in the person's city; Orbit 3, 2 and 1.
     const nimbus = byName['E2E Nimbus'], orbit = byName['E2E Orbit'];
-    if (nimbus && !(nimbus.ATS === 'greenhouse' && nimbus.Slug === 'e2e-nimbus' && nimbus['Relevant roles'] === 4 && nimbus['In preferred places'] === 4 && /zurich/i.test(nimbus.Cities) && /5 postings; 4 SRE-type; 4 in preferred places/.test(nimbus.Notes))) problems.push(`E2E Nimbus' row does not match its board: ${JSON.stringify({ats: nimbus.ATS, slug: nimbus.Slug, relevant: nimbus['Relevant roles'], preferred: nimbus['In preferred places'], cities: nimbus.Cities, notes: nimbus.Notes})}`);
-    if (orbit && !(orbit['Relevant roles'] === 2 && orbit['In preferred places'] === 1 && /zurich/i.test(orbit.Cities) && !/lisbon/i.test(orbit.Cities))) problems.push(`E2E Orbit's row does not match its board (2 relevant, 1 in Zurich, none in Lisbon): ${JSON.stringify({relevant: orbit['Relevant roles'], preferred: orbit['In preferred places'], cities: orbit.Cities})}`);
+    if (nimbus && !(nimbus.ATS === 'greenhouse' && nimbus.Slug === 'e2e-nimbus' && nimbus['Relevant roles'] === 4 && nimbus['In preferred places'] === 4 && persona.city.test(nimbus.Cities) && /5 postings; 4 matching; 4 in preferred places/.test(nimbus.Notes))) problems.push(`E2E Nimbus' row does not match its board: ${JSON.stringify({ats: nimbus.ATS, slug: nimbus.Slug, relevant: nimbus['Relevant roles'], preferred: nimbus['In preferred places'], cities: nimbus.Cities, notes: nimbus.Notes})}`);
+    if (orbit && !(orbit['Relevant roles'] === 2 && orbit['In preferred places'] === 1 && persona.city.test(orbit.Cities) && !persona.elsewhere.test(orbit.Cities))) problems.push(`E2E Orbit's row does not match its board (2 relevant, 1 in ${persona.cityName}, none elsewhere): ${JSON.stringify({relevant: orbit['Relevant roles'], preferred: orbit['In preferred places'], cities: orbit.Cities})}`);
     if (nimbus && orbit && !(nimbus.Quality > orbit.Quality)) problems.push(`Notion's quality does not order the boards: Nimbus ${nimbus.Quality}, Orbit ${orbit.Quality}`);
     if (byName['E2E Quiet'] && !/quiet\.e2e\.test/.test(byName['E2E Quiet'].Careers || '')) problems.push(`E2E Quiet's Careers link is "${byName['E2E Quiet'].Careers}"`);
     if (problems.length) throw new Error(problems.join('; '));

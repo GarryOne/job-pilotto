@@ -600,7 +600,7 @@ def write_notion(tracker, candidate, outcome):
     if stats:
         props.update({'Cities': _text(', '.join(stats['places'])), 'Relevant roles': {'number': stats['relevant']},
                       'In preferred places': {'number': stats['preferred']},
-                      'Notes': _text(f"{stats['jobs']} postings; {stats['relevant']} SRE-type; {stats['preferred']} in "
+                      'Notes': _text(f"{stats['jobs']} postings; {stats['relevant']} matching; {stats['preferred']} in "
                                      f"preferred places ({stats['swiss']} in your countries or cities); stack overlap "
                                      f"{int(stats['stack_share'] * 100)}%"
                                      + ('; salaries published' if stats['salary_published'] else ''))})
@@ -703,7 +703,7 @@ def telegram_summary(summary, results):
         where = f" ({s['swiss']} 📍)" if s['swiss'] else ''
         places = ', '.join(s['places'][:3])
         lines.append(f"\n{i}. <b>{escape(c['name'])}</b> · {o['ats'].capitalize()} · quality <b>{o['quality']}</b>{tier}\n"
-                     f"   {s['relevant']} SRE-type roles · {s['preferred']} in your places{where}"
+                     f"   {s['relevant']} matching roles · {s['preferred']} in your places{where}"
                      + (f"\n   <i>{escape(places)}</i>" if places else ''))
     if not found:
         lines.append('\nNo new useful feeds in this batch.')

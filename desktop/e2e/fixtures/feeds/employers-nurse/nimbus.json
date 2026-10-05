@@ -1,0 +1,54 @@
+{
+ "jobs": [
+  {
+   "id": 5001,
+   "title": "Registered Nurse - Acute Medicine",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5001",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Lead care on an acute ward: BLS and ILS certified, cannulation and IV therapy, NEWS2 observations, safeguarding, mentoring student nurses. NMC registration required.</p>"
+  },
+  {
+   "id": 5002,
+   "title": "Band 6 Staff Nurse, Medical Ward",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5002",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Lead care on an acute ward: BLS and ILS certified, cannulation and IV therapy, NEWS2 observations, safeguarding, mentoring student nurses. NMC registration required.</p>"
+  },
+  {
+   "id": 5003,
+   "title": "Ward Sister - Surgical",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5003",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Lead care on an acute ward: BLS and ILS certified, cannulation and IV therapy, NEWS2 observations, safeguarding, mentoring student nurses. NMC registration required. Band 7.</p>"
+  },
+  {
+   "id": 5004,
+   "title": "Charge Nurse, Emergency Department",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5004",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Lead care on an acute ward: BLS and ILS certified, cannulation and IV therapy, NEWS2 observations, safeguarding, mentoring student nurses. NMC registration required.</p>"
+  },
+  {
+   "id": 5005,
+   "title": "Estates Manager",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5005",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Look after the hospital buildings and contractors.</p>"
+  }
+ ]
+}

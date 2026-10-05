@@ -1,0 +1,34 @@
+{
+ "jobs": [
+  {
+   "id": 5101,
+   "title": "Registered Nurse, Community Team",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5101",
+   "updated_at": "2026-03-01T09:00:00Z",
+   "content": "<p>Lead care on an acute ward: BLS and ILS certified, cannulation and IV therapy, NEWS2 observations, safeguarding, mentoring student nurses. NMC registration required.</p>"
+  },
+  {
+   "id": 5102,
+   "title": "Staff Nurse, Theatres",
+   "location": {
+    "name": "Sydney, Australia"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5102",
+   "updated_at": "2026-03-01T09:00:00Z",
+   "content": "<p>Lead care on an acute ward: BLS and ILS certified, cannulation and IV therapy, NEWS2 observations, safeguarding, mentoring student nurses. NMC registration required.</p>"
+  },
+  {
+   "id": 5103,
+   "title": "Payroll Clerk",
+   "location": {
+    "name": "Manchester, UK"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5103",
+   "updated_at": "2026-03-01T09:00:00Z",
+   "content": "<p>Run the monthly payroll.</p>"
+  }
+ ]
+}

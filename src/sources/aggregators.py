@@ -113,12 +113,44 @@ def jooble(search, get=_get):
     return jobs
 
 
+def jobsch(search, get=None):
+    """jobs.ch, Switzerland's biggest job board, for any profession: the search pages' own job listing (schema.org data), for the user's job-board searches. Only for a search
+    with Swiss places. Its robots.txt allows the search pages and disallows the job detail pages, so only the search pages are read (the same ones the employer discovery in
+    boards.py reads, 0.35 s apart, kept 6 hours); a job's own jobs.ch address goes with it and the user opens it in the browser. The listing carries a short description only."""
+    from . import boards
+    if not boards.swiss_places(search):
+        return []
+    fetch = get or (lambda url, client=boards.Client(): client.get(url)['html'])
+    jobs = []
+    for query in _queries(search):
+        for page in range(1, PAGES + 1):
+            markup = fetch('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': query, 'page': page}))
+            for j in boards.walk(boards.Page(markup).schemas, 'JobPosting'):
+                places = j.get('jobLocation') or []
+                places = places if isinstance(places, list) else [places]
+                where = []
+                for place in places:
+                    address = (place or {}).get('address') or {}
+                    town = re.sub(r'^[A-Z]{2} ', '', str(address.get('addressLocality') or '').strip())   # "ZH Herrliberg" -> "Herrliberg"
+                    if town and town not in where:
+                        where.append(town)
+                url = j.get('url') or ''
+                key = re.search(r'/detail/([0-9a-f-]{36})', url)
+                if not (url and j.get('title') and key):
+                    continue
+                jobs.append(_job('jobsch', key.group(1), j['title'], (j.get('hiringOrganization') or {}).get('name'), ', '.join(f'{town}, Switzerland' for town in where) or 'Switzerland',
+                                 url, str(j.get('datePosted') or '')[:10], j.get('description')))
+    return jobs
+
+
 def sources(env=None):
     """[(name, reader)] of the aggregators this install may use now (free ones always; keyed ones when their keys are set)."""
     env = os.environ if env is None else env
     from ..features import disabled
     found = [] if disabled('aggregators', env) else [('Arbeitnow', lambda search: arbeitnow()), ('Himalayas', lambda search: himalayas()),
                                                       ('Jobicy', lambda search: jobicy())]
+    if not disabled('aggregators', env) and not disabled('jobsch', env):
+        found.append(('jobs.ch', jobsch))   # Swiss places only (it returns nothing otherwise)
     if env.get('ADZUNA_APP_ID') and env.get('ADZUNA_APP_KEY') and not disabled('adzuna', env):
         found.append(('Adzuna', adzuna))
     if env.get('JOOBLE_API_KEY') and not disabled('jooble', env):

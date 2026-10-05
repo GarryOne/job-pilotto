@@ -36,7 +36,7 @@ export function parseScout(text) {
     if (!m) return;
     const roles = (lines[i + 1] || '').trim();
     items.push({company: m[2], ats: m[3], quality: Number(m[4]), tier: m[5] || '',
-      roles: num(roles, /(\d+) SRE-type roles?/), yours: num(roles, /(\d+) in your places/)});
+      roles: num(roles, /(\d+) (?:matching|SRE-type) roles?/), yours: num(roles, /(\d+) in your places/)});
   });
   const last = lines[lines.length - 1] || '';
   return {kind: 'scout', checked: num(lines[0], /checked (\d+)/), fresh: num(lines[0], /(\d+) new sources?/), items,

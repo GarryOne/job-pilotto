@@ -15,6 +15,59 @@ NOW = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
 TITLE, PLACE = 'Site Reliability Engineer / Data Analyst', 'Zürich, Switzerland; Amsterdam, Netherlands'   # matches the example search and the owner's
 
 
+LISTING = ('<html><head><script type="application/ld+json">' + json.dumps({'@context': 'https://schema.org', '@graph': [
+    {'@type': 'JobPosting', 'title': 'Dipl. Pflegefachperson 60- 100%', 'datePosted': '2026-10-02T13:02:12+02:00', 'description': '<b>Wir suchen</b> Pflegefachpersonen',
+     'url': 'https://www.jobs.ch/en/vacancies/detail/7b196f02-5316-44a8-b583-893ead3e1111/?source=vacancy_search', 'hiringOrganization': {'@type': 'Organization', 'name': 'Senevita'},
+     'jobLocation': {'@type': 'Place', 'address': {'@type': 'PostalAddress', 'addressLocality': 'ZH Herrliberg', 'addressCountry': 'CH'}}},
+    {'@type': 'JobPosting', 'title': 'Data Analyst', 'datePosted': '2026-10-01', 'url': 'https://www.jobs.ch/en/vacancies/detail/3f461ccc-bb43-4574-874a-cb90d1aaaaaa/',
+     'hiringOrganization': {'@type': 'Organization', 'name': 'Acme AG'},
+     'jobLocation': [{'@type': 'Place', 'address': {'addressLocality': 'Zürich', 'addressCountry': 'CH'}}, {'@type': 'Place', 'address': {'addressLocality': 'Bern', 'addressCountry': 'CH'}}]},
+    {'@type': 'JobPosting', 'title': 'No address job', 'url': 'https://www.jobs.ch/en/vacancies/other/'}]}) + '</script></head><body></body></html>')
+SWISS = {'role_keywords': ['data analyst'], 'jobs_board_search_queries': ['data analyst'], 'locations': {'top_tier': ['zurich'], 'country_wide': ['switzerland'], 'abroad': []}}
+
+
+class JobsChTests(unittest.TestCase):
+    """jobs.ch as a job source for any profession (5 Oct 2026): its robots.txt allows the search pages and disallows the job detail pages."""
+    def test_the_search_listing_becomes_jobs_with_their_own_address_and_a_swiss_place(self):
+        asked = []
+        jobs = aggregators.jobsch(SWISS, lambda url: asked.append(url) or LISTING)
+        by_title = {job['title']: job for job in jobs}
+        self.assertEqual(sorted(by_title), ['Data Analyst', 'Dipl. Pflegefachperson 60- 100%'])   # a posting with no job address is not a job
+        nurse = by_title['Dipl. Pflegefachperson 60- 100%']
+        self.assertEqual((nurse['company'], nurse['location'], nurse['date_posted'], nurse['description']), ('Senevita', 'Herrliberg, Switzerland', '2026-10-02', 'Wir suchen Pflegefachpersonen'))
+        self.assertTrue(nurse['url'].startswith('https://www.jobs.ch/en/vacancies/detail/7b196f02'))
+        self.assertEqual(by_title['Data Analyst']['location'], 'Zürich, Switzerland, Bern, Switzerland')
+
+    def test_only_the_search_pages_are_asked_never_a_job_detail_page(self):
+        asked = []
+        aggregators.jobsch({**SWISS, 'jobs_board_search_queries': ['data analyst', 'pflegefachperson']}, lambda url: asked.append(url) or LISTING)
+        self.assertEqual(len(asked), 2 * aggregators.PAGES)
+        for url in asked:
+            self.assertTrue(url.startswith('https://www.jobs.ch/en/vacancies/?term='), url)
+            self.assertNotIn('/detail/', url)
+
+    def test_a_search_with_no_swiss_place_asks_nothing(self):
+        self.assertEqual(aggregators.jobsch({**SWISS, 'locations': {'top_tier': ['berlin'], 'country_wide': ['germany'], 'abroad': []}}, lambda url: self.fail('jobs.ch was asked')), [])
+        self.assertTrue(aggregators.jobsch({**SWISS, 'locations': {'top_tier': ['romandie'], 'country_wide': [], 'abroad': []}}, lambda url: LISTING))   # a Swiss region word counts
+
+    def test_it_is_on_by_default_and_has_its_own_switch(self):
+        names = lambda env: [name for name, _ in aggregators.sources(env)]
+        self.assertIn('jobs.ch', names({}))
+        self.assertNotIn('jobs.ch', names({'JOB_PILOTTO_DISABLE': 'jobsch'}))
+        self.assertNotIn('jobs.ch', names({'JOB_PILOTTO_DISABLE': 'aggregators'}))
+        self.assertIn('Arbeitnow', names({'JOB_PILOTTO_DISABLE': 'jobsch'}))
+
+    def test_the_scan_keeps_the_matching_ones_named_by_source(self):
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE feed_jobs (board TEXT, id TEXT, fingerprint TEXT, first_seen TEXT, last_seen TEXT, PRIMARY KEY(board, id))')
+        listing = LISTING.replace('"Data Analyst"', json.dumps(TITLE))   # the title this machine's own search keeps (see TITLE above)
+        report = aggregators.scan(db, SWISS, now=NOW, readers=[('jobs.ch', lambda search: aggregators.jobsch(search, lambda url: listing))])
+        titles = [job['title'] for job in report['jobs']]
+        self.assertIn(TITLE, titles)
+        self.assertNotIn('Dipl. Pflegefachperson 60- 100%', titles)   # not a role of this search
+        self.assertEqual(report['jobs'][0]['source'], 'jobs.ch')
+
+
 class AggregatorTests(unittest.TestCase):
     def setUp(self):
         self.assertTrue(feeds.wanted_title(TITLE) and feeds.wanted_location({'location': PLACE}))
@@ -63,8 +116,8 @@ class AggregatorTests(unittest.TestCase):
 
     def test_keyed_sources_only_with_their_keys_and_free_ones_can_be_switched_off(self):
         names = lambda env: [name for name, _ in aggregators.sources(env)]
-        self.assertEqual(names({}), ['Arbeitnow', 'Himalayas', 'Jobicy'])
-        self.assertEqual(names({'ADZUNA_APP_ID': 'i', 'ADZUNA_APP_KEY': 'k', 'JOOBLE_API_KEY': 'j'}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'Adzuna', 'Jooble'])
+        self.assertEqual(names({}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'jobs.ch'])
+        self.assertEqual(names({'ADZUNA_APP_ID': 'i', 'ADZUNA_APP_KEY': 'k', 'JOOBLE_API_KEY': 'j'}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'jobs.ch', 'Adzuna', 'Jooble'])
         self.assertEqual(names({'JOB_PILOTTO_DISABLE': 'aggregators', 'JOOBLE_API_KEY': 'j'}), ['Jooble'])
 
     def test_adzuna_asks_per_country_of_your_places(self):

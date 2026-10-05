@@ -31,7 +31,8 @@ SWISS_PLACE = re.compile(r'switzerland|swiss|schweiz|suisse|svizzera|z[uü]e?ric
 def swiss_places(config):
     """True when the places the user searches in (config/search.json locations) include Switzerland."""
     places = config.get('locations') or {}
-    return any(SWISS_PLACE.search(str(p)) for key in ('top_tier', 'country_wide', 'abroad') for p in places.get(key) or [])
+    from .. import regions   # a Swiss region word (Romandie, Ticino, Deutschschweiz…) is a Swiss place too
+    return any(SWISS_PLACE.search(str(p)) or regions.region_of(p) for key in ('top_tier', 'country_wide', 'abroad') for p in places.get(key) or [])
 
 
 def text(s):
