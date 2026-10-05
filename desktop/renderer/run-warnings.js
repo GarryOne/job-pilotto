@@ -32,8 +32,22 @@ const MESSAGE = /['"]message['"]\s*:\s*['"]([^'"]{4,240})/i;
 const BACK = /(?:regain access|resets?)[^.\d]{0,40}(\d{4}-\d{2}-\d{2})/i;
 // The AI service answering "too many requests" / "overloaded" (429, 529): busy, not a key or permission problem.
 export const AI_BUSY = /RateLimitError|OverloadedError|Error code: (?:429|529)\b/i;
+// A web service answering with an HTTP error, often with its error page's HTML after it ("HTTPError: HTTP Error 502: <!DOCTYPE html>…"): the owner is told in a sentence, never the markup (#275).
+const HTTP = /(?:\b\w*Error:\s*)?HTTP Error (\d{3})\b[^]*$/i;
+const HTML = /<!DOCTYPE[^]*$|<html[^]*$/i;
+export function httpSentence(code) {
+  const status = Number(code);
+  if (status === 429) return 'the service is busy right now (HTTP 429). Try again in a few minutes';
+  if (status === 401 || status === 403) return `the service refused access (HTTP ${status}). Check the connection in Settings`;
+  if (status >= 500) return `the service was unavailable (HTTP ${status}). It is usually back within minutes: try again`;
+  return `the service answered with an error (HTTP ${status})`;
+}
 export function humanError(text, limit = false) {
   const raw = String(text || '').trim();
+  if (!PROVIDER.test(raw) && (HTTP.test(raw) || HTML.test(raw))) {
+    const code = HTTP.exec(raw)?.[1];
+    return raw.replace(HTTP, '').replace(HTML, '').replace(/[:\s]+$/, '').concat(code ? `: ${httpSentence(code)}` : ': the service answered with an error page').replace(/^: /, '');
+  }
   if (!PROVIDER.test(raw)) return raw.replace(/^\w*Error:\s*/, '') || raw;
   const message = (MESSAGE.exec(raw)?.[1] || '').replace(/\s+/g, ' ').trim();
   if (limit || LIMIT.test(raw) || LIMIT.test(message)) {
@@ -60,7 +74,7 @@ export function groupWarnings(warnings) {
     // "check failed: BadRequestError: …" keeps its own words in front of the sentence; a bare dump does not.
     const head = raw.split(/:\s*/)[0];
     const clean = humanError(raw, limit);
-    add(head && head.length < 60 && !PROVIDER.test(head) && clean !== raw ? `${head}: ${clean}` : clean, null);
+    add(head && head.length < 60 && !PROVIDER.test(head) && clean !== raw && !clean.startsWith(head) ? `${head}: ${clean}` : clean, null);
   }
   const total = [...counts].reduce((sum, count) => sum + count, 0);
   const out = total ? [`${total} job${total === 1 ? '' : 's'} left unscored: the Anthropic API spending limit was reached`] : [];

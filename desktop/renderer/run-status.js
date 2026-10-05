@@ -4,6 +4,12 @@ import {runWarningLines} from './run-warnings.js';
 // A finished run that worked but said something (its row's Status, or a warning line in its log or report).
 export const runWarned = run => !!run && !run.live && !run.waiting && !!run.ok && !run.off && (!!run.warned || runWarningLines(run).length > 0);
 
+// The title of the toast when a run ends: a run that worked but warned is not "done" with a green check, the detail pane says "Completed with warnings" (#276).
+export function doneTitle(name, run) {
+  if (!run?.ok || run?.off) return `⚠️ ${name} had problems`;
+  return runWarned(run) ? `⚠️ ${name} done with warnings` : `✅ ${name} done`;
+}
+
 // One checklist step of a search: 'done', 'now', 'todo', 'warn' (the step a warned run stopped at) or 'fail' (the step a failed run stopped at).
 // `at` is the index of the last step the log reached; a failed run's steps after it never ran, so they stay 'todo'.
 export function phaseStatus(run, i, at) {

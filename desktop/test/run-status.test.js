@@ -2,7 +2,7 @@
 // warnings" and "Failed" while the Actions page said plain "Completed" for a run with warnings).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {barState, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
+import {barState, doneTitle, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
 
 test('a finished run is Completed, With warnings or Failed, a running one Running, a waiting one Queued', () => {
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
@@ -46,4 +46,11 @@ test('the checklist marks the step a warned run stopped at with a warning, not a
   const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
   assert.match(source, /phaseStatus\(run, i, at\)/);
   assert.match(fs.readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8'), /\.activity-phases li\.warn::before/);
+});
+
+test('the toast of a finished run agrees with its status: done, done with warnings, had problems (#276)', () => {
+  assert.equal(doneTitle('Jobs check', {ok: true}), '✅ Jobs check done');
+  assert.equal(doneTitle('Jobs check', {ok: true, warned: true}), '⚠️ Jobs check done with warnings', 'no green check for a run that detail pane calls "Completed with warnings"');
+  assert.equal(doneTitle('Jobs check', {ok: false}), '⚠️ Jobs check had problems');
+  assert.equal(doneTitle('Jobs check', {ok: true, off: true}), '⚠️ Jobs check had problems');
 });

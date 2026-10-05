@@ -1,7 +1,8 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
-import {barState, phaseStatus, runStatus, runWarned} from '../run-status.js';
+import {unseenRun, withShown} from '../result-seen.js';
+import {barState, doneTitle, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -165,14 +166,16 @@ function showActionsResult(run, kind, draw) {
 // only marks what is already there as seen. Before 5 Oct 2026 it was only for the task clicked in this window, forgot a run whose Notion page had no Result yet, and
 // then fell back to raw chat text.
 const SEEN_KEY = 'actionsResultSeen';
+const SHOWN_KEY = 'actionsResultShown';   // the ids shown since that first start (renderer/result-seen.js)
 const seenResult = () => { try { return Number(localStorage.getItem(SEEN_KEY)) || 0; } catch { return 0; } };
-const markResultSeen = id => { try { localStorage.setItem(SEEN_KEY, String(id)); } catch { /* private window: it shows again after a reload */ } };
+const shownResults = () => { try { return JSON.parse(localStorage.getItem(SHOWN_KEY) || '[]').filter(Number.isFinite); } catch { return []; } };
+const markResultSeen = id => { try { if (!seenResult()) localStorage.setItem(SEEN_KEY, String(id)); localStorage.setItem(SHOWN_KEY, JSON.stringify(withShown(shownResults(), id))); } catch { /* private window: it shows again after a reload */ } };
 const waitingForResult = new Set();   // run ids whose Notion page is being read for the result
 function showAwaitedResult(runs) {
   const newest = runs.find(r => r.endedAt && !r.live && KIND[kindOf(r)]);
   if (!seenResult()) { markResultSeen(newest ? newest.id : 1); return; }   // first start: what is there already is not news (1: no run yet, every later one is)
   if (!newest) return;
-  const run = runs.find(r => r.endedAt && !r.live && KIND[kindOf(r)] && r.id > seenResult());
+  const run = unseenRun(runs, {base: seenResult(), shown: shownResults()}, r => KIND[kindOf(r)]);
   if (!run || waitingForResult.has(run.id)) return;
   const onActions = !document.querySelector('.view[data-view="actions"]').hidden;
   if (!onActions && $('activity-panel').hidden) return;   // shown when the Actions page is opened
@@ -1050,8 +1053,7 @@ function announceRuns({running, runs}) {
     announced.done.add(run.id);
     if (Date.now() - Date.parse(run.endedAt || run.startedAt) > 3 * 60000) continue;  // history arriving (Notion), not news
     const kind = KIND[kindOf(run)] || KIND.search;
-    const failed = !run.ok || run.off;
-    toastMessage({title: `${failed ? '⚠️' : '✅'} ${kind.name} ${failed ? 'had problems' : 'done'}`, body: `${capital(outcome(run))}${where(run)}`, target: {run: run.id}});   // a click opens this run's result
+    toastMessage({title: doneTitle(kind.name, run), body: `${capital(outcome(run))}${where(run)}`, target: {run: run.id}});   // a click opens this run's result
   }
 }
 

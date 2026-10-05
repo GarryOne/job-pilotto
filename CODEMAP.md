@@ -191,6 +191,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/practice-session.js` — Interviews → Insights → "Start practice session": rehearse the "Practice next" steps out loud, one at a time, with a
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
 - `desktop/renderer/questions-view.js` — What the "Answer once" card says when its questions couldn't be read: nothing while Notion isn't connected, else one plain line.
+- `desktop/renderer/result-seen.js` — Which finished runs have had their result card shown on Actions (#280, 5 Oct 2026). A run's id is its start time, so a search started at 10:00 that ends at 10:30 has a
 - `desktop/renderer/review-again.js` — Interviews → a reviewed row's ⋯ "Review again": its menu entry (busy while it runs) and the message after it.
 - `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered
 - `desktop/renderer/run-cards.js` — Recent activity: a run's message (the Telegram text) as a small card, for the two long ones: Today's list /
