@@ -75,12 +75,13 @@ function row(m) {
 const skeletons = () => [0, 1, 2].map(() => { const box = el('div', 'cal-row'); box.append(el('span', 'skeleton w-40'), el('span', 'skeleton w-80')); return box; });
 
 function status() {
-  const text = phase === 'loading' ? 'Reading your meetings from Notion…'
-    : phase === 'updating' ? `${savedAt ? `Saved ${savedAt} · ` : ''}updating from Notion…`
+  const text = phase === 'loading' ? 'Reading from Notion…'
+    : phase === 'updating' ? 'Updating from Notion…'
     : phase === 'failed' ? `Couldn't refresh from Notion${savedAt ? ` · showing the copy saved ${savedAt}` : ''}. ${failure}`.trim() : '';
   const node = $('cal-status');
-  node.textContent = text;
+  node.replaceChildren(...(phase === 'failed' || !text ? [] : [el('span', 'spinner')]), text);
   node.className = `muted small cal-status${phase === 'failed' ? ' bad' : ''}`;
+  node.title = text;
   node.hidden = !text;
 }
 
@@ -95,8 +96,8 @@ export function render() {
   $('cal-title').textContent = monthName(month);
   const weeks = cal.monthGrid(month.year, month.month, list, today);
   const head = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => el('span', 'cal-dow', day));
-  const cells = weeks.flat().map(cell => {
-    const node = el('div', `cal-cell${cell.inMonth ? '' : ' out'}${cell.today ? ' today' : ''}`);
+  const cells = weeks.flat().map((cell, i) => {
+    const node = el('div', `cal-cell${cell.inMonth ? '' : ' out'}${cell.today ? ' today' : ''}${i % 7 > 4 ? ' weekend' : ''}`);
     node.append(el('span', 'cal-num', cell.num), ...cell.meetings.slice(0, 3).map(chip));
     if (cell.meetings.length > 3) node.append(el('span', 'muted small', `+${cell.meetings.length - 3} more`));
     return node;
@@ -104,7 +105,7 @@ export function render() {
   $('cal-grid').replaceChildren(...head, ...cells);
   const {upcoming, past} = cal.agenda(list, Date.now(), ZONE);
   if (phase === 'loading') { $('cal-upcoming').replaceChildren(...skeletons()); $('cal-past').replaceChildren(...skeletons()); return; }
-  $('cal-upcoming').replaceChildren(...(upcoming.length ? upcoming.map(row) : [el('p', 'muted small', 'Nothing scheduled. A call booked by email shows up here after the next Gmail check.')]));
+  $('cal-upcoming').replaceChildren(...(upcoming.length ? upcoming.map(row) : [el('p', 'muted small', 'Nothing scheduled. Email bookings appear after the next Gmail check.')]));
   $('cal-past').replaceChildren(...(past.length ? past.slice(0, 20).map(row) : [el('p', 'muted small', 'No past meetings yet.')]));
 }
 

@@ -569,19 +569,25 @@
 
     <div class="view" data-view="calendar" hidden>
       <header class="view-head jobs-head">
-        <div><h1>Calendar</h1><p class="muted subtitle">Every screening and interview, coming and held.</p></div>
-        <div class="head-actions">
-          <button class="secondary" id="cal-prev" aria-label="Previous month">‹</button>
-          <b id="cal-title" class="cal-title"></b>
-          <button class="secondary" id="cal-next" aria-label="Next month">›</button>
-          <button class="secondary" id="cal-today">Today</button>
-        </div>
+        <div><h1>Calendar</h1><p class="muted subtitle">Your screenings and interviews.</p></div>
       </header>
       <div class="cal-layout">
-        <section class="card"><p id="cal-status" class="muted small cal-status" hidden></p><div class="cal-grid" id="cal-grid"></div></section>
+        <section class="card cal-card">
+          <div class="cal-bar">
+            <b id="cal-title" class="cal-title"></b>
+            <span id="cal-status" class="muted small cal-status" hidden></span>
+            <div class="cal-nav">
+              <button class="secondary" id="cal-prev" aria-label="Previous month">‹</button>
+              <button class="secondary" id="cal-today">Today</button>
+              <button class="secondary" id="cal-next" aria-label="Next month">›</button>
+            </div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-legend muted small"><span><i class="dot kind-screening"></i>Screening</span><span><i class="dot kind-interview"></i>Interview</span><span><i class="dot today"></i>Today</span></div>
+        </section>
         <aside class="cal-side">
-          <section class="card"><h2>Coming up</h2><div id="cal-upcoming"></div></section>
-          <section class="card"><h2>Past</h2><div id="cal-past"></div></section>
+          <section class="card"><h2>Upcoming</h2><div id="cal-upcoming"></div></section>
+          <section class="card"><h2>Recent</h2><div id="cal-past"></div></section>
         </aside>
       </div>
     </div>

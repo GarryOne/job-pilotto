@@ -1966,12 +1966,21 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .engine-note { color: var(--muted); }
 
 /* Calendar page: month grid and agenda */
-.cal-title { min-width: 140px; text-align: center; }
+.cal-card { padding: 0; overflow: hidden; }
+.cal-bar { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border); }
+.cal-title { font-size: var(--fs-lg); margin-right: auto; }
+.cal-nav { display: flex; gap: 6px; }
+.cal-legend { display: flex; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border); }
+.cal-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: var(--info-soft); }
+.cal-legend .dot.kind-screening { background: var(--teal-soft); }
+.cal-legend .dot.today { background: none; border: 2px solid var(--signal); }
 .cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); }
 .cal-dow { background: var(--surface); padding: 6px 8px; font-size: var(--fs-sm); color: var(--muted); }
-.cal-cell { background: var(--surface); min-height: 92px; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
+.cal-cell { background: var(--surface); min-height: 84px; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
 .cal-cell.out { opacity: .5; }
+.cal-cell.weekend { background: var(--surface-2, var(--surface)); }
+.cal-cell.today { background: var(--signal-soft); }
 .cal-cell.today .cal-num { background: var(--signal); color: var(--on-accent); border-radius: var(--r-pill); padding: 0 6px; }
 .cal-num { font-size: var(--fs-sm); align-self: flex-start; }
 .cal-chip { text-align: left; border: 0; border-radius: var(--r-sm); padding: 2px 6px; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: var(--info-soft); color: inherit; }
@@ -1991,7 +2000,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-when { font-size: var(--fs-sm); color: var(--muted); }
 @media (max-width: 1100px) { .cal-layout { grid-template-columns: 1fr; } }
 
-.cal-status { margin: 0 0 8px; }
+.cal-status { display: inline-flex; align-items: center; gap: 8px; }
+.cal-status .spinner { width: 14px; height: 14px; border-width: 2px; }
 .cal-status.bad { color: var(--bad); }
 
 /* Tip ticker on the Application sessions page: a fixed frame, the line scrolls right to left like a station board. */
