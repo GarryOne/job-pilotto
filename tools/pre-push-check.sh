@@ -9,6 +9,17 @@ set -uo pipefail
 
 input="$(cat)"
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
+# A `git commit` whose subject is over 72 characters is stopped here, before it exists: fixing it after the commit needs an amend, which
+# Claude Code's auto mode may deny, and then the push below stays blocked (5 Oct 2026). `COMMIT_LONG_OK=1` skips it.
+case "$command" in *"git commit"*)
+  case "$command" in *COMMIT_LONG_OK=1*) ;; *)
+    subject="$(python3 "$(dirname "$0")/commit-subject.py" <<<"$command" 2>/dev/null)"
+    if [ "${#subject}" -gt 72 ]; then
+      echo "Commit blocked: subject is ${#subject} characters, at most 72 (details go in the body): $subject" >&2
+      exit 2
+    fi ;;
+  esac ;;
+esac
 case "$command" in *"git push"*) ;; *) exit 0 ;; esac
 
 # The directory the push runs in: the last `cd <dir>` before `git push` in the command, else the call's cwd.
@@ -58,7 +69,8 @@ case "$command" in *COMMIT_LONG_OK=1*) ;; *)
   if [ -n "$long" ]; then
     echo "Push blocked: commit subject over 72 characters (details go in the body, no versions or reasons in the subject):" >&2
     echo "$long" | cut -c1-110 >&2
-    echo "Shorten your own unpushed commits: git commit --amend (last one) or git rebase -i origin/main." >&2
+    echo "Shorten your own unpushed commits: git commit --amend (last one). If the amend is denied, push it as it is:" \
+      "COMMIT_LONG_OK=1 git push ... (never rewrite a pushed commit for this)." >&2
     exit 2
   fi ;;
 esac

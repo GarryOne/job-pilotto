@@ -141,8 +141,8 @@ through (its own suites still run).
 - **Commit subject: one line, at most 72 characters** (GitHub cuts the list at about that, 2 Oct 2026: subjects of 150+ characters
   with version numbers and reasons made the history unreadable). Imperative, what changed: `Extension: drop "Use on this tab"`.
   No version number, no reasons, no "because…" in the subject; those go in the body (blank line, then wrapped text).
-  The pre-push hook blocks a push with a longer subject: `git commit --amend` / `git rebase -i` your own unpushed commits
-  (never a pushed one). Attribution lines stay at the end of the body.
+  The hook stops a longer subject at `git commit` already. One that got through blocks the push: `git commit --amend` your own
+  unpushed commit, or, if the amend is denied, `COMMIT_LONG_OK=1 git push ...` (never rewrite a pushed one). Attribution lines stay at the end of the body.
 
 ## If you're not Claude Code (Codex, Grok, the DeepSeek Harness, anything else)
 
