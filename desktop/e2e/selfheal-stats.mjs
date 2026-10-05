@@ -2,6 +2,7 @@
 //   node selfheal-stats.mjs [--publish]        (needs gh with GH_TOKEN; --publish needs SELFHEAL_PUBLISH_KEY, optional SELFHEAL_URL)
 // The site keeps one snapshot per day (D1 selfheal_snapshots), so the page shows a trend, not only today.
 import {loopQuality} from './lib/loop-quality.mjs';
+import {readTracker} from './lib/bug-tracker.mjs';
 import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -56,27 +57,10 @@ export async function collect({days = 30} = {}) {
       mutation = JSON.parse(execFileSync('unzip', ['-p', zip, 'mutation-result.json'], {encoding: 'utf8'}));
     }
   } catch { mutation = null; }
-  ({tracker, trackerWhy} = await bugTracker());
+  ({tracker, trackerWhy} = await readTracker());
   return {...build({issues, prs, costs, recall}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy})};
 }
 
-// The Notion Bug Tracker's rows (every bug, whoever found it), read with the CI's Notion connection; the database id is the BUG_TRACKER_DB variable (no Notion id lives in code).
-async function bugTracker() {
-  const token = process.env.NOTION_BRAIN_TOKEN, db = process.env.BUG_TRACKER_DB;
-  if (!token || !db) return {tracker: null, trackerWhy: 'the Bug Tracker is not connected (NOTION_BRAIN_TOKEN and BUG_TRACKER_DB)'};
-  const rows = [];
-  let cursor;
-  try {
-    do {
-      const response = await fetch(`https://api.notion.com/v1/databases/${db}/query`, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'}, body: JSON.stringify({page_size: 100, ...(cursor ? {start_cursor: cursor} : {})})});
-      if (!response.ok) return {tracker: null, trackerWhy: response.status === 404 ? 'the Bug Tracker is not shared with the "Job Pilotto Brain" Notion connection' : `the Bug Tracker answered ${response.status}`};
-      const page = await response.json();
-      rows.push(...page.results);
-      cursor = page.has_more ? page.next_cursor : null;
-    } while (cursor && rows.length < 1000);
-  } catch (error) { return {tracker: null, trackerWhy: `the Bug Tracker could not be read (${String(error.message).slice(0, 60)})`}; }
-  return {tracker: rows, trackerWhy: ''};
-}
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const data = await collect();

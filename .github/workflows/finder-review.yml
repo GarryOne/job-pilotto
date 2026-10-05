@@ -39,6 +39,9 @@ jobs:
         run: node desktop/e2e/ai-budget.mjs --check
       - name: Gather the Finder's week (no AI)
         if: steps.budget.outputs.skip != 'true'
+        env:
+          NOTION_BRAIN_TOKEN: ${{ secrets.NOTION_BRAIN_TOKEN }}   # the Bug Tracker, read-only: the bugs the Finder missed, as local sessions logged them
+          BUG_TRACKER_DB: ${{ vars.BUG_TRACKER_DB }}
         run: |
           node desktop/e2e/reversals.mjs --out .finder-review/lessons.md   # the owner's corrections: the strongest lessons of the week
           node desktop/e2e/finder-review.mjs .finder-review

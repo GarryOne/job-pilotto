@@ -9,17 +9,20 @@ Fewer false positives and duplicates **without losing a real bug**. The "Real bu
 ## What to do
 1. Group the false positives, harness issues and duplicates by root cause (e.g. "AI judged a ticker mid-scroll", "probe did not wait for focus"). Ignore one-offs
    already answered by a commit named in the reason (the reason says "now…" or names a commit): check with `git log` that the change is on main.
-2. Pick **at most 3** causes that recur (2+ issues) and are not fixed yet. For each, make the smallest change where the decision is made:
+2. **First, "Bugs the Finder missed"** (when facts.md has it): real bugs a local session found with the owner and the Finder did not. For the top ones on
+   the critical path, add what would have caught it: a truth check (`lib/uicheck.mjs`), a step in its suite, a recall plant (`lib/recall.mjs`) or a mutant
+   (`mutants.json`). The session's "Test idea" is a strong hint. These count towards the 3 changes below and come before false-positive fixes.
+3. Pick **at most 3** causes that recur (2+ issues) and are not fixed yet. For each, make the smallest change where the decision is made:
    - AI screenshot review rules: `desktop/e2e/lib/vision.mjs` (the prompt text and severity rules)
    - deterministic checks: `desktop/e2e/lib/uicheck.mjs`, `lib/a11y.mjs`, `lib/journey.mjs`
    - interaction probe: `desktop/e2e/lib/interact.mjs`
    - dedupe, severity, clearing: `desktop/e2e/lib/triage.mjs`
    - the verdict pass and the fixer: `desktop/e2e/ui-verdict-prompt.md`, `desktop/e2e/ui-fix-prompt.md`
    - detector misses: the detector the planted bug belongs to (`lib/recall.mjs` names it)
-3. Every code change gets a test in `desktop/e2e/test/` that fails without it, built from the week's real case (the issue's title and reason).
+4. Every code change gets a test in `desktop/e2e/test/` that fails without it, built from the week's real case (the issue's title and reason).
    A prompt-only change needs no test, but quote the issues it answers.
-4. Never weaken a rule that found an issue in the "Real bugs" list. Never edit anything outside `desktop/e2e/`.
-5. Run `cd desktop/e2e && npm test` and make it pass.
+5. Never weaken a rule that found an issue in the "Real bugs" list. Never edit anything outside `desktop/e2e/`.
+6. Run `cd desktop/e2e && npm test` and make it pass.
 
 ## Write
 - `.finder-review/pr-body.md`: line 1 is the PR title (≤ 72 characters, e.g. `Finder: stop judging tickers mid-scroll`). Then a short body:

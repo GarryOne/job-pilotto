@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {weekFacts} from './lib/finder-review.mjs';
+import {missedLessons, readTracker} from './lib/bug-tracker.mjs';
 import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 
 const out = process.argv[2] || '.finder-review';
@@ -11,7 +12,10 @@ const issues = JSON.parse(execFileSync('gh', ['issue', 'list', '--label', 'auto-
 // What the verdict pass judged noise BEFORE filing is the week's false positives too: the lessons this review learns from (lib/prejudge.mjs asIssues).
 let judged = [];
 try { judged = asIssues(registerEntries(JSON.parse(execFileSync('gh', REGISTER_LIST, {encoding: 'utf8'}))[0]?.body)); } catch { judged = []; }
+// The bugs the Finder missed, as the local sessions logged them (lib/bug-tracker.mjs): what the weekly review must turn into checks first.
+const {tracker} = await readTracker();
+const missed = tracker ? missedLessons(tracker) : '';
 fs.mkdirSync(out, {recursive: true});
 const lessons = fs.existsSync(path.join(out, 'lessons.md')) ? fs.readFileSync(path.join(out, 'lessons.md'), 'utf8') : '';   // finder-review.yml runs reversals.mjs first
-fs.writeFileSync(path.join(out, 'facts.md'), weekFacts([...issues, ...judged]) + (lessons ? `\n## Verdicts a person corrected (the strongest lessons: make the rules decide these the way the person did)\n${lessons}` : ''));
+fs.writeFileSync(path.join(out, 'facts.md'), weekFacts([...issues, ...judged]) + missed + (lessons ? `\n## Verdicts a person corrected (the strongest lessons: make the rules decide these the way the person did)\n${lessons}` : ''));
 console.log(`${path.join(out, 'facts.md')}: ${issues.length} loop issues read`);
