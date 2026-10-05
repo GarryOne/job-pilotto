@@ -100,8 +100,9 @@ test('the two pages open in Chrome itself, on the Mac and on the PC', async () =
   const opened = [];
   const record = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
   // The Mac: `open -a`, which is what knows Chrome's name whatever folder it was installed into.
-  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'darwin'}), true);
-  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec: record, platform: 'darwin'}), true);
+  const chromeApp = file => file === '/Applications/Google Chrome.app';
+  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'darwin', exists: chromeApp}), true);
+  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec: record, platform: 'darwin', exists: chromeApp}), true);
   assert.deepEqual(opened, [['open', '-a Google Chrome chrome://extensions'], ['open', '-a Google Chrome ' + options]]);
   // Windows: chrome.exe itself, from where its installer puts it — no shell, so a URL's & stays in the URL.
   const chrome = path.win32.join('C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');
@@ -157,4 +158,24 @@ test('on the Mac the same list sits under Application Support, with no User Data
   const base = path.join(os.homedir(), 'Library', 'Application Support');
   for (const entry of looked) assert.equal(entry.at, path.join(base, entry.dir));
   assert.equal(looked[0].at, path.join(base, 'Google/Chrome'));
+});
+
+test('Edge: its own extensions page, and forms open where the extension is', async () => {
+  const opened = [];
+  const record = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
+  assert.equal(ext.extensionsUrl('Microsoft Edge'), 'edge://extensions');
+  assert.equal(ext.extensionsUrl(''), 'chrome://extensions');
+  // A PC with only Edge (the Windows default): msedge.exe, from Program Files (x86) where Edge lives.
+  const edge = path.win32.join('C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
+  const env = {'ProgramFiles(x86)': 'C:\\Program Files (x86)'};
+  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'win32', env, exists: file => file === edge, browser: 'Microsoft Edge'}), true);
+  assert.deepEqual(opened, [[edge, 'edge://extensions']]);
+  // No Chrome, no preference: Edge still opens it.
+  opened.length = 0;
+  assert.equal(await ext.openInChrome('https://x', {exec: record, platform: 'win32', env, exists: file => file === edge}), true);
+  assert.deepEqual(opened, [[edge, 'https://x']]);
+  // The Mac: Edge's app name.
+  opened.length = 0;
+  assert.equal(await ext.openInChrome('https://x', {exec: record, platform: 'darwin', exists: file => file === '/Applications/Microsoft Edge.app', browser: 'Microsoft Edge'}), true);
+  assert.deepEqual(opened, [['open', '-a Microsoft Edge https://x']]);
 });

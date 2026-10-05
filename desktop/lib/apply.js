@@ -1,5 +1,5 @@
 // "Apply to N jobs": pick the N best open jobs and start applying.
-//   chrome: open them as tabs in Google Chrome; the Job Pilotto extension fills each, you submit.
+//   chrome: open them as tabs in the browser with the extension (Chrome, Edge…); the Job Pilotto extension fills each, you submit.
 //   agents: one Claude session per job in Terminal (tools/apply-batch-claude.sh), driving Chrome with
 //     Claude in Chrome; it follows a job board's Apply to the employer's site, signs up there if asked,
 //     and fills every page. Recommended when Claude Code is installed; needs Notion kits.
@@ -11,6 +11,8 @@ import path from 'node:path';
 import * as pipeline from './pipeline.js';
 import * as session from './claude-session.js';
 import * as terminals from './terminals.js';
+import {browserCommand} from './browser-launch.js';
+import * as extensionInstall from './extension-install.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
@@ -46,7 +48,7 @@ export function isFormOf(reported, posting) {
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
 export function openOne(url, open = spawn) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
-  const chrome = chromeCommand([`${formUrl(url)}#${FILL_MARK}`]);
+  const chrome = chromeCommand([`${formUrl(url)}#${FILL_MARK}`], process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true};
@@ -65,17 +67,19 @@ export async function applyOne(storage, url, details = {}, {open = spawn, term =
   return {ok: true, session};
 }
 
-const NO_CHROME = 'Google Chrome was not found. Install it (with the Job Pilotto extension) to fill applications.';
+const NO_CHROME = 'No supported browser was found. Install Chrome or Edge (with the Job Pilotto extension) to fill applications.';
 
-// How to open URLs in Chrome: `open -a` on the Mac; on Windows chrome.exe itself (no shell, so a URL's & stays
-// part of the URL), from where the installer puts it. null when Chrome isn't installed.
-export function chromeCommand(urls, platform = process.platform, env = process.env, exists = fs.existsSync) {
-  // The end-to-end journey on Windows: no `open` to put a stand-in for on PATH, so node runs its stand-in script (never for a user: needs JOB_PILOTTO_E2E).
-  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_OPENER) return ['node', [env.JOB_PILOTTO_E2E_OPENER, ...urls]];
-  if (platform !== 'win32') return ['open', ['-a', 'Google Chrome', ...urls]];
-  const chrome = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean)
-    .map(dir => path.win32.join(dir, 'Google', 'Chrome', 'Application', 'chrome.exe')).find(file => exists(file));
-  return chrome ? [chrome, urls] : null;
+// How to open URLs in the browser that has the extension (Chrome, Edge, Brave, Vivaldi): see browser-launch.js.
+// `prefer` is that browser's app name. null when none is installed.
+export const chromeCommand = browserCommand;
+
+// The browser the Job Pilotto extension is installed in, enabled, for a form to open in: the copy loaded from the app's own
+// folder first. '' when none is found (Chrome, then Edge, is tried).
+export function extensionBrowser(find = extensionInstall.installed) {
+  try {
+    const found = find({folder: path.join(pipeline.REPO, 'extension')}).filter(copy => copy.enabled);
+    return (found.find(copy => copy.current) || found[0])?.app || '';
+  } catch { return ''; }
 }
 
 // Where the Claude Code installer and Homebrew put `claude`: an app opened from the Finder has no shell PATH.
@@ -200,7 +204,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
   const chosen = pick(jobs, n);
   if (!chosen.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
   // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel.
-  const chrome = chromeCommand(chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`));
+  const chrome = chromeCommand(chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`), process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true, jobs: chosen.map(job => `${job.title} · ${job.company}`),

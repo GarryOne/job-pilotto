@@ -518,10 +518,20 @@ test('Windows: Chrome is chrome.exe itself (no shell), the bundled Python is pyt
   const chrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   assert.deepEqual(apply.chromeCommand(['https://x/?a=1&b=2'], 'win32', env, file => file === chrome), [chrome, ['https://x/?a=1&b=2']]);
   assert.equal(apply.chromeCommand(['https://x'], 'win32', env, () => false), null);
-  assert.deepEqual(apply.chromeCommand(['https://x'], 'darwin'), ['open', ['-a', 'Google Chrome', 'https://x']]);
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'darwin', {}, () => false), ['open', ['-a', 'Google Chrome', 'https://x']]);
+  // Edge: used when it is the browser with the extension, or the only one installed; Chrome wins otherwise.
+  const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+  const both = file => file === chrome || file === edge;
+  const pc = {...env, 'ProgramFiles(x86)': 'C:\\Program Files (x86)'};
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'win32', pc, file => file === edge), [edge, ['https://x']]);
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'win32', pc, both), [chrome, ['https://x']]);
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'win32', pc, both, 'Microsoft Edge'), [edge, ['https://x']]);
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'darwin', {}, file => file === '/Applications/Microsoft Edge.app'), ['open', ['-a', 'Microsoft Edge', 'https://x']]);
+  assert.equal(apply.extensionBrowser(() => [{app: 'Google Chrome', enabled: false}, {app: 'Microsoft Edge', enabled: true}]), 'Microsoft Edge');
+  assert.equal(apply.extensionBrowser(() => []), '');
   // The e2e stand-in, only with the e2e flag (a user's JOB_PILOTTO_E2E_OPENER alone does nothing).
   assert.deepEqual(apply.chromeCommand(['https://x'], 'win32', {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_OPENER: 'C:\\o.mjs'}), ['node', ['C:\\o.mjs', 'https://x']]);
-  assert.deepEqual(apply.chromeCommand(['https://x'], 'darwin', {JOB_PILOTTO_E2E_OPENER: '/o.mjs'}), ['open', ['-a', 'Google Chrome', 'https://x']]);
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'darwin', {JOB_PILOTTO_E2E_OPENER: '/o.mjs'}, () => false), ['open', ['-a', 'Google Chrome', 'https://x']]);
   assert.match(pipeline.python('win32', file => file.endsWith('python.exe')), /python[\\/]python\.exe$/);
   assert.equal(pipeline.python('win32', () => false), 'python');
   const npm = 'C:\\Users\\x\\AppData\\Roaming\\npm\\claude.cmd';

@@ -23,6 +23,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/background-chrome.js` — A Chrome an automation left behind is not just clutter: macOS keeps ONE Apple Event connection per application, and
 - `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
 - `desktop/lib/benchmarks.js` — What applications typically get on a job board, from the website's counts of how people's applications went (site/src/knowledge.js benchmarks).
+- `desktop/lib/browser-launch.js` — Which Chromium browser to open a URL in, and how. Chrome first (what the app always did), then Edge (the Windows
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
 - `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,

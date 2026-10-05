@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
-import {chromeCommand} from './apply.js';
+import {browserCommand, schemeOf} from './browser-launch.js';
 
 // The name in extension/manifest.json: how the extension is recognised whatever folder it was loaded from.
 export const NAME = 'Job Pilotto';
@@ -151,15 +151,19 @@ export function extensionId(folder, {read = fs.readFileSync} = {}) {
   return [...hex].map(nibble => String.fromCharCode(97 + parseInt(nibble, 16))).join('');
 }
 
-// Open a URL in Chrome itself (the default browser may not be Chrome, and chrome:// pages only exist in Chrome).
-// The launcher is the one the rest of the app already uses: `open -a` on the Mac, chrome.exe on Windows.
-export function openInChrome(url, {exec = execFile, platform = process.platform, env = process.env, exists = fs.existsSync} = {}) {
-  const command = chromeCommand([url], platform, env, exists);
-  if (!command) return Promise.resolve(false);  // no Chrome installed: nothing to open it with
-  return new Promise(resolve => exec(...command, error => resolve(!error)));
+// Open a URL in a Chromium browser itself (the default browser may not be one, and chrome:// / edge:// pages only exist in
+// their own browser). `browser` is the app name to use (the one the extension is in); otherwise Chrome, then Edge. The
+// launcher is the app's one: `open -a` on the Mac, the browser's exe on Windows.
+export function openInChrome(url, {exec = execFile, platform = process.platform, env = process.env, exists = fs.existsSync, browser = ''} = {}) {
+  const command = browserCommand([url], platform, env, exists, browser);
+  if (!command) return Promise.resolve(false);  // no supported browser installed: nothing to open it with
+  return new Promise(resolve => exec(command[0], command[1], error => resolve(!error)));
 }
 
-// The two pages the install flow needs: Chrome's own extensions list, and the extension's options page, whose
+// A browser's own extensions page: chrome://extensions, edge://extensions…
+export const extensionsUrl = browser => `${schemeOf(browser)}://extensions`;
+
+// The two pages the install flow needs: the browser's own extensions list, and the extension's options page, whose
 // "Connect to the Job Pilotto app" is what makes it start reporting.
-export const openExtensionsPage = (options = {}) => openInChrome('chrome://extensions', options);
+export const openExtensionsPage = (options = {}) => openInChrome(extensionsUrl(options.browser), options);
 export const openOptionsPage = (folder, options = {}) => openInChrome(`chrome-extension://${extensionId(folder)}/options.html`, options);

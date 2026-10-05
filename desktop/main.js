@@ -1331,7 +1331,7 @@ function handlers() {
       let host = '';
       try { host = new URL(String(url || '')).hostname; } catch { /* no url */ }
       appLog('review', 'extension not on the form tab: joining it', {host});
-      await extensionInstall.openInChrome(`chrome-extension://${server.EXTENSION_ID}/wake.html`).catch(() => {});
+      await extensionInstall.openInChrome(`chrome-extension://${server.EXTENSION_ID}/wake.html`, {browser: apply.extensionBrowser()}).catch(() => {});
       taken = await review.delivered(key, 6000);
     }
     if (!taken) review.cancelFocus(key);  // nobody took it: it must not fire later and pull Chrome forward
@@ -1744,8 +1744,9 @@ function handlers() {
   // The step-1 chip: try to open Chrome on its extensions page, and put the URL on the clipboard too — Chrome
   // ignores chrome:// URLs handed to it from outside often enough that the paste has to be the reliable half.
   ipcMain.handle('extensionPage', async () => {
-    clipboard.writeText('chrome://extensions');
-    return {opened: await extensionInstall.openExtensionsPage()};
+    const browser = apply.extensionBrowser();
+    clipboard.writeText(extensionInstall.extensionsUrl(browser));
+    return {opened: await extensionInstall.openExtensionsPage({browser})};
   });
   // Step 2's computer part: the folder in front of the user and its path on the clipboard, so Chrome's Load
   // unpacked dialog takes ⌘⇧G, ⌘V, Return. Chrome's own extensions page is the step-1 chip's job.
@@ -1759,7 +1760,7 @@ function handlers() {
   ipcMain.handle('extensionOptions', async () => {
     const found = extensionInstall.installed({folder: extensionFolder()});
     const copy = found.find(entry => entry.current) || found[0] || null;
-    const opened = copy?.id ? await extensionInstall.openInChrome(`chrome-extension://${copy.id}/options.html`)
+    const opened = copy?.id ? await extensionInstall.openInChrome(`chrome-extension://${copy.id}/options.html`, {browser: copy.app})
       : await extensionInstall.openOptionsPage(copy?.folder || extensionFolder());
     return {opened};
   });
