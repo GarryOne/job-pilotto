@@ -93,6 +93,37 @@ class CheckingTheAnswerTests(unittest.TestCase):
         self.assertNotIn('evil()', text)
 
 
+NURSE = {'role_keywords': ['registered nurse', '\\bnurse\\b', 'ward sister'], 'locations': {'top_tier': ['manchester'], 'country_wide': ['united kingdom'], 'abroad': []}}
+IT_WORDS = ('IT ', 'DevOps', 'engineer', 'software', 'SaaS', 'cloud', 'infrastructure')
+
+
+class RoleNeutralPromptsTests(unittest.TestCase):
+    """A prompt that tells the model to prefer IT employers is a risk for every other profession (5 Oct 2026): the IT guidance stays for IT searches only."""
+    def test_a_technical_search_keeps_the_it_prompts_word_for_word(self):
+        self.assertIs(scout_ideas.ideas_system(SEARCH), scout_ideas.IDEAS_SYSTEM)
+        self.assertIs(scout_ideas.read_system(SEARCH), scout_ideas.READ_SYSTEM)
+        self.assertIs(scout_ideas.read_system(None), scout_ideas.READ_SYSTEM)   # no search known: as before
+        self.assertIs(scout_ideas.ideas_system({'role_keywords': []}), scout_ideas.IDEAS_SYSTEM)   # unknown roles are not "non-technical"
+
+    def test_a_nurses_prompts_mention_no_it_work_and_name_her_kind_of_employers(self):
+        ideas, read = scout_ideas.ideas_system(NURSE), scout_ideas.read_system(NURSE)
+        for word in IT_WORDS:
+            self.assertNotIn(word, ideas, f'{word!r} in the ideas prompt')
+            self.assertNotIn(word, read, f'{word!r} in the directory reader prompt')
+        self.assertIn('hospitals', ideas)
+        self.assertIn('Never invent a company', ideas)   # the rules that matter stay
+        self.assertIn('untrusted', read)
+
+    def test_a_run_for_a_nurse_sends_the_neutral_prompts_and_her_roles_to_the_reader(self):
+        db = database()
+        client = FakeClient(IDEAS, {'companies': [{'name': 'Beta SA', 'website': ''}]})
+        fetch = lambda url: (_ for _ in ()).throw(OSError('none')) if url.endswith('robots.txt') else PAGE
+        scout_ideas.run(db, NURSE, client, NOW, get=fetch)
+        self.assertEqual(client.calls[0]['system'][0]['text'], scout_ideas.IDEAS_SYSTEM_GENERAL)
+        self.assertEqual(client.calls[1]['system'][0]['text'], scout_ideas.READ_SYSTEM_GENERAL)
+        self.assertIn('registered nurse', client.calls[1]['messages'][0]['content'])
+
+
 class RunTests(unittest.TestCase):
     def fetch(self, url):
         if url.endswith('robots.txt'):

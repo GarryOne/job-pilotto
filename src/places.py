@@ -1,0 +1,154 @@
+"""Place words that stand for many places, worked out by AI instead of a list. "Germany" must find a job posted as "Leipzig", "Asia" one in "Singapore": a posting's
+location is usually a city, rarely the country or the region. Nobody keeps a list of every city of every country, so a small model is asked once per word, the answer
+is checked here and kept on this computer (data/places.json), and every later crawl reads the file: no AI call, no cost. (src/regions.py keeps Switzerland's fixed
+table: deterministic, tested, works offline.)
+
+What the model says is data, never a pattern: each name must be plain letters, spaces, hyphens, dots or apostrophes (otherwise it is dropped), it is escaped and matched
+as a whole word, and a wrong or missing city costs one false or missed match, nothing else. A word the model calls a city is left as the user wrote it.
+No CV and no personal data is sent: the place words of the search, nothing more.
+"""
+import json
+import re
+import unicodedata
+from datetime import datetime, timezone
+
+MODEL = 'claude-haiku-4-5'
+MAX_WORDS = 12          # place words asked about in one call
+MAX_NAMES = 80          # names kept per word
+EXPAND_KINDS = ('country', 'region', 'state')
+NAME_OK = re.compile(r"[^\W\d_](?:[^\W\d_]|[ .'’\-])*[^\W\d_.]")
+
+SCHEMA = {
+    'type': 'object', 'additionalProperties': False, 'required': ['places'],
+    'properties': {'places': {'type': 'array', 'items': {
+        'type': 'object', 'additionalProperties': False, 'required': ['word', 'kind', 'names'],
+        'properties': {'word': {'type': 'string', 'description': 'The place word exactly as given'},
+                       'kind': {'type': 'string', 'enum': ['country', 'region', 'state', 'city', 'other']},
+                       'names': {'type': 'array', 'items': {'type': 'string'}}}}}},
+}
+
+SYSTEM = """You turn the place words of a job search into the places a job posting would name. For each word, say what it is:
+- "country": a country. "region": several countries or a large area (Asia, Europe, DACH, Nordics, the Middle East). "state": a part of a country (a US state, a Canadian \\
+province, a German Land, a UK nation or county, a Swiss canton).
+- "city": one city or town. "other": anything else, or not a place.
+For a country, region or state: names = the main cities and towns where employers post jobs (up to 70, the biggest first, then mid-size), each in the spellings postings use \\
+(the local name and the English name when they differ, e.g. "München" and "Munich"), plus the states, provinces or countries inside it when it is a region or a country with \\
+states. Short forms postings use, such as "UK", "USA", "NYC", count too. Only real places: never invent one, and leave out a name that is also a common word.
+For a city or other: names = [] (up to three other spellings of the city that postings really use, if any).
+Answer for every word given, with the word exactly as written."""
+
+
+def _plain(text):
+    return ''.join(c for c in unicodedata.normalize('NFKD', str(text)) if not unicodedata.combining(c))
+
+
+def path():
+    from .paths import DATA
+    return DATA / 'places.json'
+
+
+def load(file=None):
+    try:
+        return json.loads((file or path()).read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _key(word):
+    from .regions import _key
+    return _key(word)
+
+
+def clean_names(names):
+    """The names the model gave that are safe to match: plain place names, each once, at most MAX_NAMES."""
+    out, seen = [], set()
+    for name in names or []:
+        if not isinstance(name, str):
+            continue
+        name = ' '.join(name.split())
+        if not 2 <= len(name) <= 60 or not NAME_OK.fullmatch(name):
+            continue
+        key = _plain(name).lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(name)
+    return out[:MAX_NAMES]
+
+
+def words_of(search):
+    """The plain place words of a search that may need working out: not a regex, not one of the fixed regions, not shorter than three letters."""
+    from .notion.search_settings import readable
+    from .regions import region_of
+    found = []
+    for key in ('top_tier', 'country_wide', 'abroad'):
+        for fragment in ((search.get('locations') or {}).get(key) or []):
+            word = readable(fragment).strip('"')
+            if word.startswith('/') or len(word) < 3 or region_of(fragment) or word in found:
+                continue
+            found.append(word)
+    return found
+
+
+def pattern(names):
+    """One regex fragment for these names: each as a whole word, accents ignored (the matcher also reads the posting without its accents)."""
+    return '(?:' + '|'.join(rf"(?<!\w){re.escape(_plain(name).lower())}(?!\w)" for name in names) + ')'
+
+
+def expand(fragments, cache=None):
+    """The place fragments with what the cache knows added to each country, region or state word; the user's own word stays, so nothing already found is lost."""
+    cache = load() if cache is None else cache
+    out = []
+    for fragment in fragments or []:
+        out.append(fragment)
+        entry = cache.get(_key(fragment))
+        if entry and entry.get('kind') in EXPAND_KINDS + ('city',) and entry.get('names'):
+            out.append(pattern(entry['names']))
+    return out
+
+
+def ask(client, words):
+    """-> {normalized word: {word, kind, names, at}} for the words the model answered."""
+    from .ai import cost, engine
+    response = client.messages.create(
+        model=MODEL, max_tokens=8000, system=[{'type': 'text', 'text': SYSTEM}],
+        messages=[{'role': 'user', 'content': 'Place words (JSON): ' + json.dumps(words, ensure_ascii=False)}], output_config=engine.structured(SCHEMA, MODEL, 'low'))
+    cost.side(MODEL, response.usage)
+    if response.stop_reason != 'end_turn':
+        raise RuntimeError(f'stopped with {response.stop_reason}')
+    answer = json.loads(next(block.text for block in response.content if block.type == 'text'))
+    asked = {_key(word): word for word in words}
+    stamp = datetime.now(timezone.utc).date().isoformat()
+    out = {}
+    for item in answer.get('places') or []:
+        key = _key(item.get('word', ''))
+        if key in asked and item.get('kind') in ('country', 'region', 'state', 'city', 'other'):
+            out[key] = {'word': asked[key], 'kind': item['kind'], 'names': clean_names(item.get('names')) if item['kind'] != 'other' else [], 'at': stamp}
+    return out
+
+
+def refresh(search, client=None, file=None):
+    """Work out the place words of this search that are not in the cache yet; returns how many it asked about. Nothing is asked when all are known."""
+    file = file or path()
+    cache = load(file)
+    words = [word for word in words_of(search) if _key(word) not in cache][:MAX_WORDS]
+    if not words:
+        return 0
+    if client is None:
+        from .ai import engine
+        if not engine.ready():
+            return 0
+        client = engine.client(action='scout')
+    cache.update(ask(client, words))
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text(json.dumps(cache, indent=1, ensure_ascii=False) + '\n')
+    print(f"Places: worked out {len(words)} place word(s) with AI: {', '.join(words)}")
+    return len(words)
+
+
+def refresh_quietly():
+    """Before a crawl: a failure (offline, no AI set up, a refusal) leaves the crawl exactly as it was."""
+    try:
+        from .paths import CONFIG
+        refresh(json.loads((CONFIG / 'search.json').read_text()))
+    except Exception as error:  # noqa: BLE001 — the places stay as the user wrote them
+        print(f'Warning: place words not worked out ({type(error).__name__}); matching them as written.')

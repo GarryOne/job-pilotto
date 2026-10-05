@@ -17,6 +17,7 @@ import urllib.robotparser
 from datetime import datetime, timedelta, timezone
 
 from . import engine
+from .. import coverage
 from ..sources import ats, careers
 
 IDEAS_MODEL = 'claude-sonnet-5-5'
@@ -74,6 +75,33 @@ READ_SCHEMA = {
         'type': 'object', 'additionalProperties': False, 'required': ['name', 'website'],
         'properties': {'name': {'type': 'string'}, 'website': {'type': 'string'}}}}},
 }
+
+
+# For a search that is not in IT, the same prompts without the IT guidance (5 Oct 2026: a nurse's search was told to prefer "regional IT and engineering
+# departments" and "cloud/DevOps service firms", and the directory reader to keep only employers of software or DevOps engineers; the model followed the roles
+# instead, but the words were a risk for every other profession). Built from the user's own roles; a technical search keeps the prompts above, word for word.
+IDEAS_SYSTEM_GENERAL = IDEAS_SYSTEM.replace(
+    """- Prefer employers the sources so far would miss: scale-ups, subsidiaries, regional IT and engineering departments, banks and insurers' tech \
+arms, SaaS and infrastructure vendors, consultancies and cloud/DevOps service firms, research and public-sector IT, in the owner's places.""",
+    """- Prefer employers the sources so far would miss, of the kinds that hire for exactly these roles in these places: think about who really employs \
+people in this profession (hospitals and care groups for nursing, firms, banks, public bodies and agencies for office roles, schools for teaching, \
+and so on), including the public sector, regional employers, subsidiaries and groups.""")
+READ_SYSTEM_GENERAL = READ_SYSTEM.replace(
+    "that could plausibly hire software, infrastructure or DevOps engineers: name",
+    "that could plausibly hire for the roles named above the page: name")
+
+
+def technical(search):
+    """True when the user's roles are IT or engineering work (or not known yet): they keep the IT-aware prompts."""
+    return coverage.looks_technical(strategy_terms(search)['roles'])
+
+
+def ideas_system(search):
+    return IDEAS_SYSTEM if technical(search) else IDEAS_SYSTEM_GENERAL
+
+
+def read_system(search):
+    return READ_SYSTEM if search is None or technical(search) else READ_SYSTEM_GENERAL
 
 
 # ---------- what Claude is shown ----------
@@ -194,7 +222,7 @@ def page_text(markup, base):
     return (plain[:MAX_PAGE_TEXT // 2] + '\n' + '\n'.join(lines))[:MAX_PAGE_TEXT]
 
 
-def read_directory(client, directory, known, get=careers.get_text):
+def read_directory(client, directory, known, get=careers.get_text, search=None):
     """Candidates from one public list page, or [] when it is not allowed, not reachable or not useful."""
     url = str(directory.get('url') or '')
     parts = urllib.parse.urlsplit(url)
@@ -204,7 +232,8 @@ def read_directory(client, directory, known, get=careers.get_text):
         markup = get(url)
     except Exception:  # noqa: BLE001 — a page that is gone or refuses is just not used
         return []
-    answer, _ = _ask(client, READ_MODEL, READ_SYSTEM, f'Page: {url}\n\n{page_text(markup, url)}', READ_SCHEMA)
+    roles = '' if search is None or technical(search) else 'Roles the owner looks for: ' + ', '.join(strategy_terms(search)['roles'][:12]) + '\n\n'
+    answer, _ = _ask(client, READ_MODEL, read_system(search), f'{roles}Page: {url}\n\n{page_text(markup, url)}', READ_SCHEMA)
     host = (parts.hostname or '').removeprefix('www.')
     return clean_candidates(answer['companies'], f'AI list: {host}', 76, known, MAX_FROM_PAGE)
 
@@ -225,14 +254,14 @@ def run(db, search, client=None, now=None, force=False, get=careers.get_text):
     if not force and not due(db, now):
         return None
     client = client or engine.client(action='scout')
-    answer, _ = _ask(client, IDEAS_MODEL, IDEAS_SYSTEM, 'Where the search stands (JSON):\n' + json.dumps(payload(db, search), ensure_ascii=False), IDEAS_SCHEMA)
+    answer, _ = _ask(client, IDEAS_MODEL, ideas_system(search), 'Where the search stands (JSON):\n' + json.dumps(payload(db, search), ensure_ascii=False), IDEAS_SCHEMA)
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
     stamp = now.date().isoformat()
     candidates = clean_candidates(answer['companies'], f'AI idea {stamp}', 78, known)
     listed = []
     for directory in answer['directories'][:MAX_DIRECTORIES]:
         try:
-            found = read_directory(client, directory, known, get)
+            found = read_directory(client, directory, known, get, search)
         except Exception as error:  # noqa: BLE001 — one list failing must not lose the other ideas
             print(f"Warning: scout list {directory.get('url')} skipped: {type(error).__name__}: {error}")
             continue

@@ -26,10 +26,12 @@ print(json.dumps([[t, l, bool(feeds.wanted_title(t) and feeds.wanted_location({'
 ANALYST = {'role_keywords': ['data analyst']}
 
 
-def kept(search, postings):
+def kept(search, postings, cache=None):
     """The postings (title, location) the crawl would keep for this search; a title alone is placed in Zurich so only the title decides."""
     rows = [(p, 'Zurich, Switzerland', 0) if isinstance(p, str) else (p[0], p[1], p[2] if len(p) > 2 else 0) for p in postings]
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as data:
+        if cache is not None:   # place words worked out by AI (src/places.py); none = a fresh install that has not asked yet. Never the real data folder.
+            (Path(data) / 'places.json').write_text(json.dumps(cache))
         shutil.copytree(ROOT / 'config', tmp, dirs_exist_ok=True)
         base = json.loads((ROOT / 'config' / 'search.json').read_text())
         base.update({'role_keywords': ['data analyst'], 'title_exclude_keywords': [], 'remote_excluded_regions': [], 'level': [],
@@ -38,7 +40,7 @@ def kept(search, postings):
         (Path(tmp) / 'search.json').write_text(json.dumps(base))
         env = {k: v for k, v in os.environ.items() if k != 'JOB_PILOTTO_LOCATIONS_FILE'}
         done = subprocess.run([sys.executable, '-c', RUN, str(ROOT), json.dumps(rows)], capture_output=True, text=True, timeout=60,
-                              env={**env, 'JOB_PILOTTO_CONFIG_DIR': tmp})
+                              env={**env, 'JOB_PILOTTO_CONFIG_DIR': tmp, 'JOB_PILOTTO_DATA_DIR': data})
     assert done.returncode == 0, done.stderr
     return [row[0] if row[1] == 'Zurich, Switzerland' and isinstance(postings[i], str) else (row[0], row[1])
             for i, row in enumerate(json.loads(done.stdout.strip().splitlines()[-1])) if row[2]]
@@ -57,9 +59,13 @@ CITIES = {  # a posting's location is usually a city; the country is rarely in i
 ELSEWHERE = ['Berlin, Germany', 'Munich, Germany', 'London, UK', 'Paris, France', 'Vienna, Austria', 'Singapore', 'Tokyo, Japan', 'Bangalore, India']
 
 
-def where(search, locations):
+def where(search, locations, cache=None):
     """Which of these locations a 'Data Analyst' posting is kept in, for this search."""
-    return sorted(loc for title, loc in kept(search, [('Data Analyst', loc) for loc in locations]))
+    return sorted(loc for title, loc in kept(search, [('Data Analyst', loc) for loc in locations], cache))
+
+
+# Real model output (Haiku, 5 Oct 2026): what src/places.py keeps for Germany, UK, United States, Asia, Netherlands, Bavaria, DACH and Berlin.
+AI = json.loads((ROOT / 'tests' / 'fixtures' / 'places.json').read_text())
 
 
 class SwitzerlandTest(unittest.TestCase):
@@ -123,10 +129,40 @@ class SwitzerlandTest(unittest.TestCase):
     def test_a_place_that_is_no_region_stays_exactly_as_written(self):
         self.assertEqual(where(places(top=['singapore']), ['Singapore', 'Tokyo, Japan', 'Zürich']), ['Singapore'])
 
-    @unittest.expectedFailure
-    def test_GAP_asia_is_a_region_too(self):
-        """Today 'Asia' matches only a posting whose location text says Asia. Only Switzerland's regions are known (src/regions.py)."""
-        self.assertEqual(where(places(top=['asia']), ['Singapore', 'Tokyo, Japan', 'Bangalore, India', 'Berlin, Germany']), ['Bangalore, India', 'Singapore', 'Tokyo, Japan'])
+
+class CountriesTest(unittest.TestCase):
+    """A country, region or state word finds the cities the model named for it (src/places.py); without that answer it stays a plain word."""
+    OTHER = ['Zurich, Switzerland', 'Vienna, Austria', 'Paris, France', 'Dublin, Ireland']
+
+    def test_germany_finds_german_cities_with_or_without_the_country_in_the_text(self):
+        german = ['Berlin', 'Munich', 'München', 'Leipzig', 'Köln', 'Cologne, North Rhine-Westphalia', 'Hamburg, Germany']
+        for word in ('germany', 'Germany'):
+            self.assertEqual(where(places(country=[word]), german + self.OTHER + ['London, UK', 'Singapore'], AI), sorted(german), word)
+
+    def test_the_uk_and_the_us_work_the_same_way(self):
+        uk = ['London', 'Manchester', 'Edinburgh', 'Cardiff', 'Belfast, Northern Ireland']
+        self.assertEqual(where(places(country=['uk']), uk + ['Dublin', 'Berlin', 'Chicago'], AI), sorted(uk))
+        us = ['New York', 'Chicago', 'Austin, TX', 'Seattle']
+        self.assertEqual(where(places(country=['united states']), us + ['London', 'Toronto', 'Berlin'], AI), sorted(us))
+
+    def test_asia_finds_asian_cities_and_not_the_rest(self):
+        asia = ['Singapore', 'Tokyo, Japan', 'Bangalore, India', 'Mumbai', 'Hong Kong', 'Seoul']
+        self.assertEqual(where(places(top=['asia']), asia + ['Berlin', 'London', 'New York', 'Sydney'], AI), sorted(asia))
+
+    def test_a_state_and_a_region_of_countries(self):
+        self.assertEqual(where(places(top=['bavaria']), ['Munich', 'Nuremberg', 'Augsburg', 'Berlin', 'Hamburg'], AI), ['Augsburg', 'Munich', 'Nuremberg'])
+        self.assertEqual(where(places(top=['dach']), ['Berlin', 'Vienna', 'Zurich', 'Paris', 'London'], AI), ['Berlin', 'Vienna', 'Zurich'])
+
+    def test_a_city_stays_a_city(self):
+        self.assertEqual(where(places(top=['berlin']), ['Berlin', 'Potsdam', 'Munich'], AI), ['Berlin'])
+        self.assertEqual(where(places(top=['netherlands']), ['Amsterdam', 'Utrecht', 'Antwerp'], AI), ['Amsterdam', 'Utrecht'])
+
+    def test_a_word_the_model_has_not_been_asked_about_yet_is_matched_as_written(self):
+        """A fresh install, or an offline first run: nothing is lost that was found before, and nothing wrong is found."""
+        self.assertEqual(where(places(country=['germany']), ['Leipzig', 'Berlin, Germany', 'Germany (remote)'], cache={}), ['Berlin, Germany', 'Germany (remote)'])
+
+    def test_a_country_word_and_the_swiss_table_work_together(self):
+        self.assertEqual(where(places(country=['germany'], top=['romandie']), ['Leipzig', 'Lausanne', 'Zürich', 'Vienna'], AI), ['Lausanne', 'Leipzig'])
 
 
 class LevelTest(unittest.TestCase):

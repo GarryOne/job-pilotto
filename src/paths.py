@@ -188,7 +188,9 @@ def with_matching_words(config):
     config/search.json and the Notion page keep what the user wrote."""
     from . import levels, regions
     places = config.get('locations') or {}
-    config['locations'] = {**places, **{key: regions.expand(places[key]) for key in ('top_tier', 'country_wide', 'abroad') if key in places}}
+    from . import places as ai_places
+    cache = ai_places.load()   # place words worked out by AI once and kept (src/places.py): no call here
+    config['locations'] = {**places, **{key: ai_places.expand(regions.expand(places[key]), cache) for key in ('top_tier', 'country_wide', 'abroad') if key in places}}
     skips = levels.title_skips(config.get('level'))
     if skips:
         config['title_exclude_keywords'] = [*(config.get('title_exclude_keywords') or []), *[s for s in skips if s not in (config.get('title_exclude_keywords') or [])]]

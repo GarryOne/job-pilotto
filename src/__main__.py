@@ -33,6 +33,8 @@ def main():
             # ⚙️ Search settings in Notion are the source of truth: refresh the cached config before it's imported.
             from .notion import search_settings
             search_settings.sync_quietly()
+            from . import places
+            places.refresh_quietly()   # "Germany", "Asia": the cities they stand for, worked out once and kept (src/places.py)
             return importlib.import_module(commands[name]).main() or 0
     return importlib.import_module(commands[name]).main() or 0
 

@@ -294,6 +294,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
 - `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
+- `src/places.py` — Place words that stand for many places, worked out by AI instead of a list. "Germany" must find a job posted as "Leipzig", "Asia" one in "Singapore": a posting's
 - `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
