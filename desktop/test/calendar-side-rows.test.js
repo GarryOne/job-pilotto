@@ -16,3 +16,7 @@ test('Coming up has a card empty state with a calendar icon', () => {
   assert.match(read('pages/calendar.js'), /No upcoming interviews/);
   assert.match(read('index.html'), /<h2>Coming up<\/h2>/);
 });
+
+test('each side event is a small bordered card', () => {
+  assert.match(read('style.css'), /\.cal-row \{[^}]*border: 1px solid var\(--border\)[^}]*border-radius: var\(--r-md\)/);
+});

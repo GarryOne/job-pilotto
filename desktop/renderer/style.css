@@ -1996,9 +1996,11 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-cross { position: absolute; top: 50%; right: 2px; transform: translateY(-50%); width: 18px; height: 18px; display: grid; place-items: center;
   padding: 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--muted); font-size: var(--fs-md); line-height: 1; cursor: pointer; }
 .cal-cross:hover { background: var(--surface); color: inherit; }
-.cal-row-wrap .cal-cross { right: 4px; }
+.cal-row-wrap .cal-cross { right: 8px; top: 14px; transform: none; }
 .cal-side { display: flex; flex-direction: column; gap: 16px; }
-.cal-row { display: grid; gap: 2px; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); padding: 8px 0; cursor: pointer; color: inherit; }
+.cal-row { display: grid; gap: 2px; width: 100%; text-align: left; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; cursor: pointer; color: inherit; }
+.cal-row:hover { border-color: var(--teal-line); }
+#cal-upcoming, #cal-past { display: grid; gap: var(--sp-2); }
 .cal-empty { display: grid; justify-items: center; gap: 6px; padding: var(--sp-6, 28px) var(--sp-4); border-radius: var(--r-md); background: var(--surface-2); text-align: center; }
 .cal-empty .icon { width: 36px; height: 36px; color: var(--ink-2); }
 .cal-empty b { font-size: var(--fs-md); }
