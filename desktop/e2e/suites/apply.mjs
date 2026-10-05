@@ -392,6 +392,30 @@ export async function run(ctx) {
     await removeJobsByUrl(NOTION, topUrls);
   }, {needs: ctx.needs});
 
+  // One Apply button (5 Oct 2026): pressed on a saved job with no kit, it drafts the kit first. The board below does not exist, so the draft cannot be made: the button must
+  // say so ("Retry apply"), no form may open, and the job stays without a kit. The success path needs a form to read (not faked here).
+  await ctx.run('Apply on a saved job without a kit: it prepares first, and when the kit cannot be drafted says Retry apply and opens nothing', async () => {
+    const bareUrl = 'https://boards.greenhouse.io/e2e-no-such-board/jobs/900010';
+    await removeJobsByUrl(NOTION, [bareUrl]);
+    await addKitJob(NOTION, {title: 'Bare Platform Engineer', company: 'E2E Bare', url: bareUrl, kit: null, fit: 60, stage: 'Saved', nextStep: '', description: POSTING});
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    await page.click('.nav[data-view="jobs"]');
+    await page.evaluate(() => { const filter = document.getElementById('filter-status'); filter.value = 'saved'; filter.dispatchEvent(new Event('change')); });   // Saved jobs are not in the default "New matches"
+    const rowText = () => page.evaluate(() => [...document.querySelectorAll('article.job-row')].filter(row => /E2E Bare/.test(row.textContent)).map(row => row.querySelector('.row-main')?.textContent.trim())[0] || '');
+    for (let waited = 0; !(await rowText()) && waited < 120000; waited += 2000) await pause(2000);
+    if ((await rowText()) !== 'Apply') throw new Error(`a saved job without a kit should show Apply, it shows "${await rowText()}"`);
+    const opened = ctx.browser.opened.length;
+    await page.locator('article.job-row').filter({hasText: 'E2E Bare'}).first().locator('.row-main').click();
+    for (let waited = 0; (await rowText()) !== 'Retry apply' && waited < 180000; waited += 1000) {
+      if (ctx.browser.opened.length !== opened) throw new Error('a form was opened for a job whose kit was never drafted');
+      await pause(1000);
+    }
+    if ((await rowText()) !== 'Retry apply') throw new Error(`the button never said Retry apply (it says "${await rowText()}")`);
+    if (ctx.browser.opened.length !== opened) throw new Error('a form was opened for a job whose kit was never drafted');
+    await removeJobsByUrl(NOTION, [bareUrl]);
+  }, {needs: ctx.needs});
+
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
     fail(submitProblems(forms.fired, ''));
     const strange = [...ctx.browser.requested].filter(host => !HOSTS.includes(host) && host !== '127.0.0.1' && host !== 'localhost' && host !== '');
