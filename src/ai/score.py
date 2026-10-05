@@ -321,6 +321,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                     data['first_pass'] = True   # a quick score by the cheap model, below the bar for a second look
                 save(db, job, used_model, data, profile)
                 scored += 1
+                print(f'Scored {scored} of {len(jobs)} job(s)')   # a heartbeat for the live log: one Claude Code call takes tens of seconds
         return escalate, halted
 
     if cascade:
