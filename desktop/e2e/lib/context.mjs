@@ -37,7 +37,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   let session = null;
   const runner = createRunner(() => session, {keepGoing});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
-  if (light) return {suite, key, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
+  if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
   const ctx = {suite, key, token, runner, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
     engine, appKey: appKey(key), needsKey: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [],   // CI only: on a Mac nothing needs a key
     needs: [...(engine === 'api' && isCi() ? [{name: `E2E_ANTHROPIC_KEY`, value: key}] : []),

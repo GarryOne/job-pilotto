@@ -116,7 +116,9 @@ export async function run(ctx) {
     else if (firstLog.at - running[0].at > 40000) problems.push(`the Technical log showed nothing for the first ${Math.round((firstLog.at - running[0].at) / 1000)} s`);
     const silence = longestSilence(samples);
     console.log(`  longest stretch with nothing visibly changing: ${Math.round(silence / 1000)} s; AI calls through the slow proxy: ${proxy.stats.calls - callsBefore}`);
-    if (silence > 60000) problems.push(`nothing visibly changed for ${Math.round(silence / 1000)} s while the task was running`);
+    // Through the proxy every call takes 8 s, so 60 s of nothing is a stall. Claude Code starts `claude` for each call and scores in long bursts: 150 s on a Mac (CI keeps 60 s).
+    const patience = ctx.engine === 'cli' ? 150000 : 60000;
+    if (silence > patience) problems.push(`nothing visibly changed for ${Math.round(silence / 1000)} s while the task was running`);
     if (endedAt == null) problems.push('the task was still running after 6 minutes');
     const last = samples.at(-1);
     if (endedAt != null && (last.newest?.live || last.newest?.ok === false)) problems.push(`the task ended but the newest run is ${last.newest?.live ? 'still live' : 'failed'}: ${last.newest?.result}`);
