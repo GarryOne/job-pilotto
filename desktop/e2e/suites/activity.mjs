@@ -33,9 +33,6 @@ export async function run(ctx) {
     {command: 'run', kind: 'search', what: 'Search for new jobs (an empty feed: nothing new)', maxMs: 240000},
     {command: 'scout', kind: 'scout', what: 'Find new employers', maxMs: 240000},
     {command: 'mail', kind: 'mail', what: 'Check Gmail & Calendar with no Google connection', maxMs: 120000},
-    // No scored job in this install: the run has nothing to draft, so it is free and its answer ("Kits ready: 0, no new top match") is exact.
-    // Drafting itself (which jobs, the cap, the Notion row) is unit-tested in tests/test_daily.py.
-    {command: 'kits', kind: 'kits', what: 'Prepare top matches with no scored job to draft for', maxMs: 120000},
     {command: 'weekly', kind: 'weekly', what: 'Analyze my job search', maxMs: 240000},
   ];
   ctx.taskRuns = {};
@@ -91,7 +88,7 @@ export async function run(ctx) {
     await page.click('#activity-filter');
     const entries = await page.locator('.ui-menu button').allTextContents();
     console.log(`  panel rows: ${all.length}; filter menu: ${entries.join(' | ')}`);
-    for (const wanted of [LABEL.search, LABEL.mail, LABEL.kits, LABEL.weekly, LABEL.scout]) {
+    for (const wanted of [LABEL.search, LABEL.mail, LABEL.weekly, LABEL.scout]) {
       if (!entries.some(entry => entry.replace(/^✓ /, '').startsWith(`${wanted} ·`))) throw new Error(`the filter has no "${wanted}" entry although that task ran`);
     }
     await chooseMenu(page, new RegExp(`^${LABEL.mail}`));
@@ -119,17 +116,17 @@ export async function run(ctx) {
     const {page} = ctx;
     const selected = () => page.evaluate(() => (document.getElementById('activity-selected')?.textContent || '').replace(/\s+/g, ' ').trim());
     await page.click('.nav[data-view="actions"]');
-    await page.click('[data-command="kits"]');   // the quick, free task: its pop-up is the news that the run ended (renderer/pages/activity.js announceRuns)
-    const popup = page.locator('.toast.toast-link').filter({hasText: new RegExp(LABEL.kits, 'i')}).first();
+    await page.click('[data-command="mail"]');   // the quick, free task (no Google connection): its pop-up is the news that the run ended (renderer/pages/activity.js announceRuns)
+    const popup = page.locator('.toast.toast-link').filter({hasText: new RegExp(LABEL.mail, 'i')}).first();
     await popup.waitFor({timeout: 180000});
     // Look at an older run first and leave the panel open on it: the panel would show the new run by itself (it is the latest), so only the click can switch it.
-    await page.locator('#runs-table .runs-row').filter({hasNot: page.locator('b', {hasText: new RegExp(`^${LABEL.kits}$`)})}).first().click();   // the Actions page lists the newest five
+    await page.locator('#runs-table .runs-row').filter({hasNot: page.locator('b', {hasText: new RegExp(`^${LABEL.mail}$`)})}).first().click();   // the Actions page lists the newest five
     await page.waitForFunction(() => !document.getElementById('activity-panel')?.hidden, null, {timeout: 10000});
     const before = await selected();
-    if (!before || new RegExp(LABEL.kits, 'i').test(before)) throw new Error(`the test could not open an older run first (the panel shows "${before}")`);
+    if (!before || new RegExp(LABEL.mail, 'i').test(before)) throw new Error(`the test could not open an older run first (the panel shows "${before}")`);
     await popup.click();   // the pop-up is still on screen: they last 8 s
-    await page.waitForFunction(label => (document.getElementById('activity-selected')?.textContent || '').includes(label), LABEL.kits, {timeout: 5000})
-      .catch(async () => { throw new Error(`the pop-up opened Recent activity on "${await selected()}", not on the run it announced (${LABEL.kits})`); });
+    await page.waitForFunction(label => (document.getElementById('activity-selected')?.textContent || '').includes(label), LABEL.mail, {timeout: 5000})
+      .catch(async () => { throw new Error(`the pop-up opened Recent activity on "${await selected()}", not on the run it announced (${LABEL.mail})`); });
     await page.click('#activity-close');
   }, {needs: ctx.needs});
 
