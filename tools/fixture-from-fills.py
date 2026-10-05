@@ -20,6 +20,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PERSONAL = re.compile(r'@|https?://|\+?\d[\d\s()-]{7,}')   # an e-mail, a link or a phone number is never a label worth keeping
+UPLOAD = re.compile(r'^(cv|resume|résumé|curriculum|cover letter)\b', re.I)   # a file upload: every fixture form already has its own
+CONTACT = re.compile(r'^(first|last|full|given|family|sur)?\s*name\b|^e-?mail|^phone|^mobile', re.I)   # the person's details: every fixture asks for them itself and requires them FILLED
+NO_LABEL = re.compile(r'^[a-z]+[-_]\d+$', re.I)   # a site's internal id ("text-3219"): the field had no label, nothing to learn from
 
 
 def kind_of(label, why):
@@ -40,10 +43,11 @@ def spec_of(run):
     fields = []
     for field in run.get('trace', []):
         label, why = (field.get('label') or '').strip(), (field.get('why') or '').strip()
-        if field.get('result', '').startswith('✅') or why.startswith('legal/consent') or not label or PERSONAL.search(label):
+        if field.get('result', '').startswith('✅') or why.startswith('legal/consent') or not label or PERSONAL.search(label) or UPLOAD.search(label) or NO_LABEL.search(label) or CONTACT.search(label):
             continue
         if (field.get('required') or '').lower() not in ('yes', 'true', '✓', '*', 'required'):
             continue
+        fields = [item for item in fields if item['label'] != label[:160]]   # one field tried twice in a run: its last try says what it is
         fields.append({'label': label[:160], 'kind': kind_of(label, why), 'required': True})
     if not fields:
         return None

@@ -1,0 +1,12 @@
+{
+ "id": "greenhouse-b9819ada",
+ "ats": "greenhouse",
+ "title": "Engineer (a real form)",
+ "fields": [
+  {
+   "label": "Will you now or in the future require company sponsorship to retain or extend your work authorization in the country whe",
+   "kind": "select",
+   "required": true
+  }
+ ]
+}

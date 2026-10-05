@@ -217,8 +217,10 @@ const PAGES = {
 
 // -> {url, host, port, close(), fired: [{kind, form}] (what happened to a Submit), forms: {name: form}}. https, a self-made certificate.
 // A real form's page from its spec: the person's details first (as every board asks), then each field the extension failed on, as the kind it was.
+// A real form's field id, from its label and place (the suite reads the field back by it).
+export const realFieldId = (label, i) => `real_${i}_${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30)}`;
 export function realPage(form) {
-  const spec = form.real, slug = (label, i) => `real_${i}_${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30)}`;
+  const spec = form.real, slug = realFieldId;
   const fields = spec.fields.map((item, i) => {
     const id = slug(item.label, i), required = item.required !== false;
     if (item.kind === 'select') return select(id, item.label, item.options?.length ? item.options : ['Yes', 'No', 'Prefer not to say'], {required});

@@ -1,0 +1,42 @@
+{
+ "id": "greenhouse-e36f249d",
+ "ats": "greenhouse",
+ "title": "Engineer (a real form)",
+ "fields": [
+  {
+   "label": "How did you perform in mathematics at high school?",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "How did you perform in your native language at high school?",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "We require all colleagues to meet in person 2-4 times a year, at internal company events lasting between 1-2 weeks. We t",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "In the past ten years, looking only at the time since you graduated your first undergraduate degree, how many companies",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "What time zone are you in?",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "In which country do you currently work?",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "Please indicate your nationality:",
+   "kind": "select",
+   "required": true
+  }
+ ]
+}

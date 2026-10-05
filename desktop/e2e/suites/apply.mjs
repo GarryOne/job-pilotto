@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, REAL_FORMS} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, REAL_FORMS, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -141,7 +141,7 @@ export async function run(ctx) {
 
   // Forms the extension failed on for a real person (fixtures/real-forms, tools/fixture-from-fills.py): your details filled, every required field it cannot
   // fill listed as left for you by its label, Submit untouched. None yet: the step says so and passes.
-  await ctx.run('real forms the extension once failed on: your details are filled and every field it cannot fill is listed for you, by name', async () => {
+  await ctx.run('real forms the extension once failed on: your details are filled, and every field it failed on is now filled or listed for you by name', async () => {
     if (!REAL_FORMS.length) { console.log('  no real forms yet (tools/fixture-from-fills.py writes them from the fill log)'); return; }
     const problems = [];
     for (const spec of REAL_FORMS) {
@@ -153,8 +153,14 @@ export async function run(ctx) {
       problems.push(...submitProblems(forms.fired, form.path).map(text => `${spec.id}: ${text}`));
       const panel = await panelOf(tab);
       if (!panel) { problems.push(`${spec.id}: no Job Pilotto panel on the form`); continue; }
-      const wanted = spec.fields.filter(item => item.required !== false).map(item => String(item.label).split(/\s+/).slice(0, 3).join(' '));
-      problems.push(...leftProblems(panel.left, wanted).map(text => `${spec.id}: ${text}`));
+      // Each field it failed on for a real person is now either filled, or listed for the person by name: never skipped in silence.
+      const listed = label => panel.left.some(item => item.toLowerCase().includes(String(label).split(/\s+/).slice(0, 3).join(' ').toLowerCase()));
+      for (const [i, item] of spec.fields.entries()) {
+        if (item.required === false) continue;
+        const value = actual[realFieldId(item.label, i)];
+        const filled = value && (value.checked || (value.value && !/^select/i.test(value.value)));
+        if (!filled && !listed(item.label)) problems.push(`${spec.id}: "${String(item.label).slice(0, 60)}" was neither filled nor listed as left for the person (it lists: ${panel.left.join(' | ') || 'nothing'})`);
+      }
     }
     fail(problems);
   }, {needs: ctx.needs});

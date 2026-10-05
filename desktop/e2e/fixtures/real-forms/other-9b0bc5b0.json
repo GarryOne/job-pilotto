@@ -1,0 +1,17 @@
+{
+ "id": "other-9b0bc5b0",
+ "ats": "other",
+ "title": "Engineer (a real form)",
+ "fields": [
+  {
+   "label": "I hereby agree that I have received the notification to candidates acc. to Art. 13 GDPR.",
+   "kind": "checkbox",
+   "required": true
+  },
+  {
+   "label": "Are you able to provide professional references and criminal record checks? As a regulated bank, we need to ask for it p",
+   "kind": "textarea",
+   "required": true
+  }
+ ]
+}

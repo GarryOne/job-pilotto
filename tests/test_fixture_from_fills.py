@@ -18,11 +18,15 @@ class SpecTest(unittest.TestCase):
             {'label': 'I agree to the privacy policy', 'required': 'yes', 'result': '⚠️ left', 'why': 'legal/consent: left to you'},
             {'label': 'Contact me at ada@example.test', 'required': 'yes', 'result': '⚠️ left', 'why': 'no answer'},
             {'label': 'Pronouns', 'required': 'no', 'result': '⚠️ left', 'why': 'optional'},
+            {'label': 'CV', 'required': 'yes', 'result': '⚠️ left', 'why': 'no file'},
+            {'label': 'First Name', 'required': 'yes', 'result': '⚠️ left', 'why': 'no answer'},
+            {'label': 'Visa status', 'required': 'yes', 'result': '⚠️ left', 'why': 'dropdown: no select option matched'},
+            {'label': 'text-3219', 'required': 'yes', 'result': '⚠️ left', 'why': 'no answer'},
         ]}
         made = tool.spec_of(run)
         self.assertEqual(made['ats'], 'greenhouse')
         self.assertEqual([(f['label'], f['kind']) for f in made['fields']], [
-            ('How did you hear about us?', 'widget'), ('Visa status', 'select'), ('Describe a system you scaled and what broke first', 'textarea')])
+            ('How did you hear about us?', 'widget'), ('Describe a system you scaled and what broke first', 'textarea'), ('Visa status', 'select')])   # tried twice: once
         self.assertTrue(made['id'].startswith('greenhouse-'))
         self.assertEqual(made, tool.spec_of(run), 'the same run gives the same file')
 

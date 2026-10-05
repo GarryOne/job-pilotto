@@ -1,0 +1,17 @@
+{
+ "id": "greenhouse-cffbb40e",
+ "ats": "greenhouse",
+ "title": "Engineer (a real form)",
+ "fields": [
+  {
+   "label": "Will you now or will you in the future require employment visa sponsorship to work in the country in which the job you'r",
+   "kind": "select",
+   "required": true
+  },
+  {
+   "label": "How many years of industry experience in a full-time Software Engineer role (does not include internships and co-ops) do",
+   "kind": "select",
+   "required": true
+  }
+ ]
+}
