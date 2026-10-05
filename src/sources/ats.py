@@ -153,8 +153,16 @@ def personio(slug):
 
 
 def teamtailor(slug):
-    """Teamtailor's public RSS feed of a company's open jobs."""
-    root = ET.fromstring(_get(f'https://{slug}.teamtailor.com/jobs.rss'))
+    """Teamtailor's public RSS feed of a company's open jobs. The slug is the company's name on teamtailor.com, or its own careers address
+    ("jobs.tamedia.ch"): many companies serve the same feed from their own domain, and the made-up name in the page's scripts is not theirs."""
+    if '.' in slug:
+        from . import careers
+        if not re.fullmatch(r'[a-z0-9-]+(?:\.[a-z0-9-]+)+', slug) or not careers._public(slug):
+            raise ValueError('not a public Teamtailor careers address')
+        url = f'https://{slug}/jobs.rss'
+    else:
+        url = f'https://{slug}.teamtailor.com/jobs.rss'
+    root = ET.fromstring(_get(url))
     ns = {'tt': 'https://teamtailor.com/locations'}
     jobs = []
     for item in root.iter('item'):
@@ -367,7 +375,7 @@ URL_PATTERNS = [
     ('umantis', r'(recruitingapp-\d{2,6})\.umantis\.com'),
     ('workday', r'([\w-]+)\.(wd\d{1,2})\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([\w-]+)'),
 ]
-IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o', 'career', 'app', 'support', 'help', 'blog', 'static'}
+IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o', 'career', 'app', 'support', 'help', 'blog', 'static', 'tt', 'assets', 'scripts', 'cdn'}
 
 
 def detect(url):

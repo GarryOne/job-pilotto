@@ -254,7 +254,7 @@ def belongs_to(candidate, slug, jobs, exact):
     return any(word in blob for word in words)
 
 
-def find_feed(candidate, probe=ats.probe, discover=careers.discover):
+def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None):
     """(ats, slug, jobs) for the candidate's public feed, or None. In order: the address already known; slugs guessed from the name and
     from the website's domain on the common job systems; then the website itself (an embedded job system, or a careers page with job data)."""
     if candidate.get('ats') and candidate.get('slug'):
@@ -279,6 +279,10 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover):
         jobs = page.get('jobs') or probe(page['ats'], page['slug'])
         if jobs:
             return page['ats'], page['slug'], jobs
+        if note and page.get('ats') != 'careers':
+            # A job system the page names that gave back nothing: no adapter, or one that does not fit this company's pages. Said out loud, because a
+            # silent None looked like "this employer has no jobs" (Ringier on Umantis, 5 Oct 2026).
+            note(page['ats'], page['slug'], 'no adapter' if page['ats'] not in ats.FETCHERS else 'read no jobs')
     return None
 
 
@@ -520,6 +524,18 @@ def market_coverage(titles, get=None, terms=MARKET_TERMS, pause=1.0):
     return out
 
 
+def record_unread(db, unread):
+    """Keep which job systems were named by a careers page but could not be read (table unread_systems: one row per system and company), and say so in the
+    run's log with the vendor's count: the list of what is worth teaching next (an adapter, or a recipe learned once per vendor)."""
+    db.execute('CREATE TABLE IF NOT EXISTS unread_systems (system TEXT NOT NULL, why TEXT NOT NULL, company TEXT NOT NULL, seen_at TEXT NOT NULL, PRIMARY KEY (system, company))')
+    for system, why, company in unread:
+        db.execute('INSERT OR REPLACE INTO unread_systems (system, why, company, seen_at) VALUES (?, ?, ?, ?)', (system, why, company, now()))
+    if unread:
+        counts = Counter(system for system, _, _ in unread)
+        print('Unread job systems this run: ' + ', '.join(f'{system} ×{n}' for system, n in counts.most_common()) + ' (' + ', '.join(sorted({c for _, _, c in unread}))[:160] + ')')
+    return Counter(system for system, _, _ in unread)
+
+
 def central_stats(db, feeds_out, market=()):
     """The central scout's own numbers for the website's /intel page: no user data, only counts and its own source names."""
     from .ai import scout_ideas
@@ -540,6 +556,7 @@ def central_stats(db, feeds_out, market=()):
             'recipes_broken': scalar('SELECT COUNT(*) FROM page_recipes WHERE broken_at IS NOT NULL'),
             'quiet': scalar(f"SELECT COUNT(*) FROM feed_health WHERE COALESCE(last_relevant, first_checked) < date('now', '-{QUIET_DAYS} days')"),
             'link_choices': scalar('SELECT COUNT(*) FROM link_choices'), 'commoncrawl': meta.get('commoncrawl', ''),
+            'unread_systems': {row[0]: row[1] for row in db.execute('SELECT system, COUNT(*) FROM unread_systems GROUP BY system')} if scalar("SELECT COUNT(*) FROM sqlite_master WHERE name = 'unread_systems'") else {},
             'ideas_at': meta.get('ideas_at', ''), 'ideas_note': meta.get('ideas_note', ''),
             'sources': [{'origin': s['origin'], 'probed': s['probed'], 'found': s['found']} for s in scout_ideas.origin_yield(db)[:25]],
             'market': list(market)}
@@ -647,10 +664,12 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
 
+    unread = []   # job systems a careers page named that could not be read: (system, why, company)
+
     def check(candidate):
         if candidate['status'] == 'manual':
             return {'status': 'manual'}
-        found = find_feed(candidate, probe)
+        found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])))
         if not found:
             return {'status': 'none'}
         system, slug, jobs = found
@@ -663,6 +682,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         outcomes = list(pool.map(check, candidates))
+    record_unread(db, unread)
 
     stamp = now()
     for candidate, outcome in zip(candidates, outcomes):

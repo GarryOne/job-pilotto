@@ -96,12 +96,18 @@ def links(markup, base):
 
 
 def embedded_system(markup):
-    """(ats, slug) of the first job system the page links or embeds, or None."""
+    """(ats, slug) of the first job system the page links or embeds, or None. A Teamtailor careers site on the company's own domain
+    ("jobs.tamedia.ch") is read from that address: its feed is there, and the name in Teamtailor's scripts is not the company's."""
+    found = None
     for url in re.findall(r'https?:(?:\\?/){2}[^\s"\'<>\\)]+', markup):
         found = ats.detect(url)
         if found:
-            return found
-    return None
+            break
+    if (not found or found[0] == 'teamtailor') and 'teamtailor' in markup.lower():
+        own = re.search(r'https?:(?:\\?/){2}([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:\\?/)jobs\.rss', markup, re.I)
+        if own and _public(own.group(1).lower()):
+            return 'teamtailor', own.group(1).lower()
+    return found
 
 
 NO_JOBS = re.compile(r'(?:keine|leider keine|aktuell keine|zurzeit keine|derzeit keine)\s+(?:offenen?\s+)?(?:stellen|vakanzen|positionen|jobs)|'
