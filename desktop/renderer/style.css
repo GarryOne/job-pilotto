@@ -333,6 +333,9 @@ button.danger:hover { background: var(--bad-soft); }
 .nav { position: relative; }
 .nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); display: inline-grid;
   place-items: center; font-size: var(--fs-xs); font-weight: 700; line-height: 1; }
+.nav-running { margin-left: auto; width: 14px; height: 14px; border-width: 2px; flex: none; }
+.nav-running[hidden] { display: none; }
+.app.rail .nav-running { position: absolute; top: 4px; right: 4px; margin: 0; width: 10px; height: 10px; border-width: 1.5px; }
 .nav-badge.tone-warn { background: var(--warn-bright); color: var(--ink); }
 .nav-badge.tone-info { background: var(--info); color: var(--on-accent); }
 .nav-badge.tone-good { background: var(--good-bright); color: var(--on-accent); }

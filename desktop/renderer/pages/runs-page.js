@@ -44,6 +44,11 @@ export function renderActionsPage(data) {
   const connected = !!(shared.state.settings.telegramChatId || shared.state.settings.telegramCloud);
   $('actions-telegram').replaceChildren(el('span', `dot ${connected ? 'is-on' : ''}`), document.createTextNode(connected ? 'Telegram connected' : 'Telegram not connected'));
   show($('run-banner'), !!running);
+  // The menu says so too, on every screen: a spinner on Actions while a task runs (not a count: the other badges mean "waiting for you").
+  const dot = $('nav-actions-running');
+  dot.hidden = !running;
+  dot.title = running ? `${TASK_TITLE[kindOf(running)] || KIND[kindOf(running)]?.name || 'A task'} is running` : '';
+  dot.setAttribute('aria-label', dot.title);
   if (running) {
     const kind = kindOf(running);
     $('run-banner-title').textContent = `${TASK_TITLE[kind] || KIND[kind]?.name || 'A task'} is running`;
