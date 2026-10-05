@@ -11,6 +11,7 @@ import {emptyDatabase, ensureSection, findPagesBeside, pageSections, setSection,
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
+export const engine = 'api';   // the suite relies on the AI proxy answering "no credit", which needs the API engine (dummy key: nothing reaches Anthropic)
 export const minutes = 30;
 export const name = 'strategy';
 const TITLE = '⚙️ Search settings';
