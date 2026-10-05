@@ -338,6 +338,16 @@ export async function setSection(token, id, heading, entries) {
   }
 }
 
+// setSection, for a heading the page may not have yet (a page written before the setting existed): it is added at the end with its entries.
+export async function ensureSection(token, id, heading, entries) {
+  const blocks = await children(token, id);
+  if (blocks.some(block => block.type.startsWith('heading_') && textOf(block).trim() === heading)) return setSection(token, id, heading, entries);
+  const text = content => [{type: 'text', text: {content}}];
+  await call(token, 'PATCH', `blocks/${id}/children`, {children: [
+    {object: 'block', type: 'heading_2', heading_2: {rich_text: text(heading)}},
+    ...entries.map(entry => ({object: 'block', type: 'bulleted_list_item', bulleted_list_item: {rich_text: text(entry)}}))]});
+}
+
 // The titles of every live row of one database (read straight from Notion, which is what the app lists from).
 export async function rowTitles(token, dbTitle) {
   const db = await findDatabase(token, dbTitle);

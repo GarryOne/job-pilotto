@@ -6,7 +6,7 @@ import path from 'node:path';
 import {launch} from '../lib/app.mjs';
 import {digestTitles} from '../lib/digest.mjs';
 import {watch} from '../lib/activity.mjs';
-import {emptyDatabase, findPagesBeside, pageSections, setSection, trashPage} from '../lib/notion.mjs';
+import {emptyDatabase, ensureSection, findPagesBeside, pageSections, setSection, trashPage} from '../lib/notion.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
@@ -151,6 +151,29 @@ export async function run(ctx) {
     if (!has(file.role_keywords, GIRAFFE) || has(file.role_keywords, ROLE)) throw new Error(`config/search.json did not follow the page: ${file.role_keywords.join(', ')}`);
     if (!listed(jobs, 'giraffe keeper, cloud')) throw new Error(`the role added in Notion found nothing (listed: ${jobs.join('; ') || 'nothing'})`);
     if (listed(jobs, 'zebra wrangler, cloud')) throw new Error('the role removed in Notion still matches a new posting');
+  }, {needs: ctx.needs});
+
+  await ctx.run('a region word and a level written on the Notion page decide which postings the next check keeps', async () => {
+    const id = await settingsPage();
+    const before = await sections();
+    const places = before['Best places'] || [], level = before['Your level'] || [];
+    try {
+      // "Ticino" is a region word (src/regions.py): a posting in Bellinzona has no "lugano" in it. "junior" skips the titles that plainly name a senior role.
+      await setSection(NOTION, id, 'Best places', ['Ticino']);
+      await ensureSection(NOTION, id, 'Your level', ['junior']);
+      addPosting('zebra.json', 3008, 'Junior Giraffe Keeper, Nord', 'Bellinzona');
+      addPosting('zebra.json', 3009, 'Senior Giraffe Keeper, Nord', 'Bellinzona');
+      addPosting('zebra.json', 3010, 'Junior Giraffe Keeper, Sued', 'Zurich, Switzerland');
+      const jobs = await check();
+      const file = read('search.json');
+      if (!has(file.locations?.top_tier, 'ticino') || !has(file.level, 'junior')) throw new Error(`config/search.json did not follow the page: places ${(file.locations?.top_tier || []).join(', ')}; level ${(file.level || []).join(', ') || 'none'}`);
+      if (!listed(jobs, 'junior giraffe keeper, nord')) throw new Error(`a posting in Bellinzona was not kept for the region "Ticino" (listed: ${jobs.join('; ') || 'nothing'})`);
+      if (listed(jobs, 'senior giraffe keeper, nord')) throw new Error('the level "junior" still kept a Senior title');
+      if (listed(jobs, 'giraffe keeper, sued')) throw new Error('a posting in Zurich was kept for the region "Ticino"');
+    } finally {
+      await setSection(NOTION, id, 'Best places', places);     // the next steps start from the page as it was
+      await setSection(NOTION, id, 'Your level', level);       // an empty list: the heading stays with no bullets, which means no level
+    }
   }, {needs: ctx.needs});
 
   await ctx.run('accepting a strategy change in the app keeps what was edited on the Notion page meanwhile', async () => {

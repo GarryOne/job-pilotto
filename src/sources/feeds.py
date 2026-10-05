@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 import sqlite3
+import unicodedata
 import urllib.request
 
 from . import ats
@@ -34,11 +35,11 @@ EXCLUDED_TITLES = keyword_regex(_SEARCH.get('title_exclude_keywords') or [r'(?!x
 
 def wanted_title(title):
     """A role title we crawl for: matches role_keywords and none of title_exclude_keywords."""
-    return bool(TITLES.search(title or '')) and not EXCLUDED_TITLES.search(title or '')
+    return bool(TITLES.search(title or '') or TITLES.search(plain(title))) and not (EXCLUDED_TITLES.search(title or '') or EXCLUDED_TITLES.search(plain(title)))
 
 
 def excluded_title(title):
-    return bool(EXCLUDED_TITLES.search(title or ''))
+    return bool(EXCLUDED_TITLES.search(title or '') or EXCLUDED_TITLES.search(plain(title)))
 
 # Feed jobs outside these places (config/search.json's locations, plus generic remote synonyms)
 # are dropped before they reach the digest or the AI stages.
@@ -54,13 +55,18 @@ def fetch(source):
 
 
 # Remote roles restricted to these regions (config/search.json) are not open to someone in your places.
-REMOTE_ELSEWHERE = keyword_regex(_SEARCH['remote_excluded_regions'])
+REMOTE_ELSEWHERE = keyword_regex(_SEARCH['remote_excluded_regions'] or [r'(?!x)x'])   # no region skipped: an empty pattern would match every text and drop every remote job
+
+
+def plain(text):
+    """The text without accents ("Zürich" -> "Zurich"): a place typed without its umlaut still finds the posting that has it."""
+    return "".join(c for c in unicodedata.normalize("NFKD", text or "") if not unicodedata.combining(c))
 
 
 def wanted_location(job):
     """One of your preferred places (config/search.json), or remote that isn't limited elsewhere."""
     where = job.get("location") or ""
-    if PLACE.search(where):
+    if PLACE.search(where) or PLACE.search(plain(where)):
         return True
     remote = job.get("remote") or re.search(_REMOTE_SYNONYMS, where, re.I)
     return bool(remote) and not REMOTE_ELSEWHERE.search(where)

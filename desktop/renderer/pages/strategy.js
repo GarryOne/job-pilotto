@@ -73,6 +73,7 @@ function renderStrategy(data) {
   $('strategy-targets').replaceChildren(
     ...row('briefcase', 'Roles', chips(data.roles.slice(0, 6).map(titleCase))),
     ...row('pin', 'Locations', chips(data.locations.slice(0, 8).map(titleCase))),
+    ...(data.level ? row('target', 'Level', chips([titleCase(data.level)])) : []),
     ...row('chart', 'Compensation', compensationText(data.compensation)),
     ...(data.stack.length ? row('layers', 'Key skills and tools', chips(data.stack.map(titleCase))) : []));
   const level = value => (value >= 70 ? ['High', 'good'] : value >= 50 ? ['Medium', 'warn'] : ['Low', 'bad']);

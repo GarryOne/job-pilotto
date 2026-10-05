@@ -179,6 +179,19 @@ def load_search_config():
         extra = json.loads(Path(override).read_text())
         config.update({k: extra[k] for k in ('locations', 'remote_excluded_regions', 'role_keywords', 'title_exclude_keywords',
                         'quality_stack_keywords') if k in extra})
+    return with_matching_words(config)
+
+
+def with_matching_words(config):
+    """The settings as the crawl matches them: a region word in the places (Romandie, Switzerland) stands for its cities (src/regions.py), and a
+    level (junior, mid, senior, lead) adds the titles that plainly name another level to the skipped titles (src/levels.py). In memory only:
+    config/search.json and the Notion page keep what the user wrote."""
+    from . import levels, regions
+    places = config.get('locations') or {}
+    config['locations'] = {**places, **{key: regions.expand(places[key]) for key in ('top_tier', 'country_wide', 'abroad') if key in places}}
+    skips = levels.title_skips(config.get('level'))
+    if skips:
+        config['title_exclude_keywords'] = [*(config.get('title_exclude_keywords') or []), *[s for s in skips if s not in (config.get('title_exclude_keywords') or [])]]
     return config
 
 

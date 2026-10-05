@@ -41,6 +41,7 @@ INTRO = ('What Job Pilotto looks for. Edit freely: one entry per bullet; the nex
 # 'number' is one number; 'place' is "Location · language" for Google Jobs.
 SECTIONS = [
     ('Roles to look for', 'search', ('role_keywords',), 'match'),
+    ('Your level', 'search', ('level',), 'text'),
     ('Job titles to skip', 'search', ('title_exclude_keywords',), 'match'),
     ('Skills that make a job a better match', 'search', ('quality_stack_keywords',), 'match'),
     ('Best places', 'search', ('locations', 'top_tier'), 'match'),

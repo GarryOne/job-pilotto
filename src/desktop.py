@@ -13,7 +13,7 @@ import argparse
 import json
 import sys
 
-from . import digest, store
+from . import digest, levels, store
 from .ai import provenance, score
 from .notion.client import job_code
 from .paths import JOBS_DB
@@ -303,6 +303,7 @@ def strategy(db, tracker=None):
         # The top cities, the country, the cities abroad (the long lists of nearby towns and spellings stay out).
         'locations': unique((places.get('top_tier') or [])[:3] + (places.get('country_wide') or [])[:1] + (places.get('abroad') or [])),
         'stack': unique(search.get('quality_stack_keywords'))[:8],
+        'level': levels.level_of(search.get('level')),
         'compensation': compensation,
         'avoid': [f'Requires {language}' for language in prefs.get('disqualifying_languages') or []]
                  + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]

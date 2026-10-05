@@ -279,6 +279,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
 - `src/import_url.py` — One job link, put through the same path as a job a search found.
+- `src/levels.py` — The level a person is looking for ("junior", "mid", "senior", "lead") as title words to skip, before any AI is spent on a posting.
 - `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
 - `src/notion/cron_runs.py` — Notion "⏰ Cronjob Runs": one row per scheduled pipeline run, with its cost and a mini-report.
 - `src/notion/dedupe.py` — One Job Matches row per job: find rows that are the same job (same URL, ignoring tracking parameters, a
@@ -291,6 +292,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
 - `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
+- `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
