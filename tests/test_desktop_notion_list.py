@@ -94,6 +94,30 @@ class AddedJobTests(unittest.TestCase):
         self.assertEqual(origin(source=shown['source'], stage=shown['stage'], notes=shown['notes']), 'inbound')
         self.assertEqual(shown['origin'], 'Inbound')  # the Origin column, which the app reads first
 
+class CalendarJobsTests(unittest.TestCase):
+    def test_calendar_reads_the_applications_database_only_and_keeps_the_meeting_fields(self):
+        from src.notion import client
+        text = lambda value: {'rich_text': [{'plain_text': value}]}
+        row = {'id': 'p1', 'url': 'https://notion/p1', 'created_time': '2026-09-29', 'properties': {
+            'Job URL': {'url': 'https://a/1'}, 'Job': {'title': [{'plain_text': 'SRE'}]}, 'Company': text('Acme'),
+            'Stage': {'select': {'name': 'Interviewing'}}, 'Next interview': {'date': {'start': '2026-10-08T10:00:00+02:00'}}}}
+        tracker = client.Tracker('token', 'apps')
+        asked = []
+        def query(filter_=None, database_id=None):
+            asked.append(database_id)
+            return [row]
+        with mock.patch.object(client, 'MATCHES_DATABASE_ID', 'matches'), mock.patch.object(tracker, '_query', query):
+            result = desktop.calendar_jobs(tracker)
+        self.assertEqual(asked, [None])  # Job Matches (every job a search found) is not read
+        self.assertEqual(result['jobs'], [{'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme', 'stage': 'Interviewing',
+                                           'notion_url': 'https://notion/p1', 'next_interview': '2026-10-08T10:00:00+02:00', 'status': 'applied'}])
+
+    def test_calendar_says_so_when_notion_is_not_connected_or_fails(self):
+        self.assertEqual(desktop.calendar_jobs(None)['jobs'], [])
+        tracker = mock.Mock()
+        tracker.notion_jobs.side_effect = RuntimeError('down')
+        self.assertIn('could not be read', desktop.calendar_jobs(tracker)['error'])
+
 
 if __name__ == '__main__':
     unittest.main()

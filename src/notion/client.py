@@ -191,16 +191,17 @@ class Tracker:
                 rows[url.strip()] = ((props['Stage'].get('select') or {}).get('name'), step, page.get('url') or '')
         return rows
 
-    def notion_jobs(self):
+    def notion_jobs(self, matches=True):
         """Every job in Notion, merged by URL: Job Matches rows (score, reason, status) and Applications rows
-        (stage, next step, the kit's page). The desktop app's Jobs list is built from this (Notion is the truth)."""
+        (stage, next step, the kit's page). The desktop app's Jobs list is built from this (Notion is the truth).
+        matches=False reads the Applications rows only (the small database): the Calendar needs nothing else."""
         from .dedupe import normalize_url  # one entry per job, whatever URL form each database has
         text = lambda prop: ''.join(t.get('plain_text', '') for t in (prop or {}).get('rich_text') or (prop or {}).get('title') or [])
         select = lambda prop: ((prop or {}).get('select') or {}).get('name')
         found = {}
         # Job Matches and Applications at the same time: the list waits for the slower one, not both.
-        matches, applications = together(lambda: self._query(None, MATCHES_DATABASE_ID) if MATCHES_DATABASE_ID else [], self._query)
-        if MATCHES_DATABASE_ID:
+        matches, applications = together(lambda: self._query(None, MATCHES_DATABASE_ID) if matches and MATCHES_DATABASE_ID else [], self._query)
+        if matches:
             for page in matches:
                 props = page['properties']
                 url = ((props.get('Job URL') or {}).get('url') or '').strip()

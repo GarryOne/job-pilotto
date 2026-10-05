@@ -316,6 +316,19 @@ def strategy(db, tracker=None):
     }
 
 
+def calendar_jobs(tracker):
+    """What the Calendar reads from a job: its Next interview, and the fields a meeting shows. Applications rows only, so it
+    skips the Job Matches database (every job a search found), which made the page wait ~10 s for a list it barely used."""
+    if not tracker:
+        return {'jobs': [], 'error': 'Notion is not connected.'}
+    try:
+        found = tracker.notion_jobs(matches=False)
+    except Exception as error:  # noqa: BLE001 — shown on the page; the saved copy stays
+        return {'jobs': [], 'error': f'Notion could not be read ({type(error).__name__}).'}
+    keep = ('url', 'title', 'company', 'stage', 'notion_url', 'next_interview')
+    return {'jobs': [{**{key: job.get(key) or '' for key in keep}, 'status': stage_status(job.get('stage'))} for job in found]}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -327,6 +340,7 @@ def main(argv=None):
     sub.add_parser('unapply').add_argument('url')  # a session ended without a submission: Applying -> Kit ready
     sub.add_parser('not-submitted').add_argument('url')  # an Applied was wrong: back to Applying (never a stage with evidence)
     sub.add_parser('posting').add_argument('code')
+    sub.add_parser('calendar')   # the Calendar's jobs: Applications rows only, no search cache (a fraction of `jobs`)
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
@@ -381,6 +395,9 @@ def main(argv=None):
                       'past': 'That job is past Applied (a confirmation or an interview is recorded), so its stage is not changed here.'}
             print(json.dumps({'ok': outcome == 'updated', 'notion': outcome, 'events': dropped,
                               **({} if outcome == 'updated' else {'error': errors[outcome]})}))
+            return 0
+        if args.command == 'calendar':
+            print(json.dumps(calendar_jobs(tracker), ensure_ascii=False))
             return 0
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))

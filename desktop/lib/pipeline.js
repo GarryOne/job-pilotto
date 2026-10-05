@@ -212,6 +212,13 @@ export async function jobs(storage) {
   return JSON.parse(stdout.trim().split('\n').pop());
 }
 
+// The Calendar's jobs: Applications rows only (src/desktop.py calendar), a fraction of the full list's read.
+export async function calendarJobs(storage) {
+  const {code, stdout} = await run(storage, ['src.desktop', 'calendar']);
+  if (code !== 0) throw new Error('Could not read the calendar');
+  return JSON.parse(stdout.trim().split('\n').pop());
+}
+
 // A job applied to elsewhere: Applications row (Applied, with the date), the event, the frozen record, a Gmail
 // check, and the job in the Jobs list as Applied. Waits for it, so the list can refresh; returns its one line.
 // details: {title, company, text, origin} (origin: 'inbound' when a recruiter or company wrote first) for pages that aren't read (LinkedIn…); the AI stages then score it like a found job.

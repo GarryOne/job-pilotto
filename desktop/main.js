@@ -753,6 +753,8 @@ function handlers() {
     }
     return viewCache.remember(storage, 'jobs', result);
   });
+  ipcMain.handle('calendarJobs', async () => (DEMO ? {jobs: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8')).jobs}
+    : needsNotion('interviews') || viewCache.remember(storage, 'calendar', await pipeline.calendarJobs(storage))));
   // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).
   ipcMain.handle('cached', (_, name) => (DEMO ? null : viewCache.recall(storage, name)));
   ipcMain.handle('refresh', async () => {

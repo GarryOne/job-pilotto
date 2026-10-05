@@ -3,7 +3,7 @@
 // data rules' sense: rebuilt by the next read, never the only copy, edited only to mirror a write the app has just
 // made to Notion (statusChanged). Tied to the Notion workspace, so
 // switching workspaces never shows another workspace's jobs.
-export const NAMES = ['jobs', 'focus', 'strategy', 'contact', 'knowledge', 'interviews'];
+export const NAMES = ['jobs', 'focus', 'strategy', 'contact', 'knowledge', 'interviews', 'calendar'];
 // contact, knowledge: what a form fill needs from Notion (your details, learned answers), so a fill never waits on
 // Notion nor fails when it's busy (lib/server.js me(): answered from here, refreshed in the background).
 // Not "cache/": on a Mac that's Chromium's own Cache folder (case-insensitive), which Electron may clear.

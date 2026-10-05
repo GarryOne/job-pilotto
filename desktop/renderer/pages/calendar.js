@@ -12,6 +12,7 @@ const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const KINDS = {screening: ['Screening', 'teal'], interview: ['Interview', 'info']};
 let month = null;        // {year, month} shown
 let pastShown = 20;      // how many past meetings the Recent list shows (Load more adds 20)
+let calJobs = [];        // the jobs the meetings come from (the Calendar's own small read; the full list only while it is the one at hand)
 let recordings = [];     // saved interview rows
 // What is on screen: 'loading' (nothing to show yet), 'updating' (a saved copy shown while Notion is read), 'ready', 'failed'.
 let phase = 'loading', savedAt = '', failure = '';
@@ -95,8 +96,7 @@ function status() {
 
 export function render() {
   status();
-  const jobs = Array.isArray(shared.allJobs) ? shared.allJobs : [];
-  const list = visible(cal.meetings(jobs, recordings, {zone: ZONE}));
+  const list = visible(cal.meetings(calJobs, recordings, {zone: ZONE}));
   const today = cal.dayKey(new Date(), ZONE);
   // Today greys out while the grid already shows this month: pressed there it rightly did nothing, which read as a broken button (#83).
   const now = new Date();
@@ -125,7 +125,7 @@ export function render() {
 // A month with nothing in it, and a meeting coming later: open on that one (until the user picks a month themselves).
 function openOnNext() {
   if (moved) return;
-  const list = visible(cal.meetings(Array.isArray(shared.allJobs) ? shared.allJobs : [], recordings, {zone: ZONE}));
+  const list = visible(cal.meetings(calJobs, recordings, {zone: ZONE}));
   const inMonth = list.some(m => m.day.startsWith(`${month.year}-${String(month.month + 1).padStart(2, '0')}`));
   const next = cal.agenda(list, Date.now(), ZONE).upcoming[0];
   if (!inMonth && next) month = {year: Number(next.day.slice(0, 4)), month: Number(next.day.slice(5, 7)) - 1};
@@ -133,30 +133,38 @@ function openOnNext() {
 
 // Cache first: the last jobs and recordings read (kept on this Mac by main.js) paint at once, then Notion is read and the
 // page swaps in the fresh copy. A failed read keeps what is shown and says so; it never turns into an empty calendar.
+// Two small reads, each painting as it arrives: the Applications rows (the only jobs with a Next interview; the full Jobs
+// list took ~10 s because it also reads every job a search found) and the saved recordings (~4 s).
 export async function loadCalendar() {
   if (!month) { const now = new Date(); month = {year: now.getFullYear(), month: now.getMonth()}; }
   const mine = ++visit;
   const [cachedJobs, cachedRecordings] = await Promise.all([
-    jobsLoaded() ? null : window.pilot.cached('jobs').catch(() => null), window.pilot.cached('interviews').catch(() => null)]);
+    window.pilot.cached('calendar').catch(() => null), window.pilot.cached('interviews').catch(() => null)]);
   if (mine !== visit) return;
-  if (cachedJobs?.result?.jobs?.length && !jobsLoaded()) shared.allJobs = cachedJobs.result.jobs;
+  if (cachedJobs?.result?.jobs?.length) calJobs = cachedJobs.result.jobs;
+  else if (jobsLoaded()) calJobs = shared.allJobs;
   if (cachedRecordings?.result?.interviews) recordings = cachedRecordings.result.interviews;
   savedAt = cachedRecordings?.at || cachedJobs?.at ? savedAgo(cachedRecordings?.at || cachedJobs?.at) : '';
-  phase = jobsLoaded() || cachedRecordings ? 'updating' : 'loading';
+  phase = calJobs.length || cachedRecordings ? 'updating' : 'loading';
   openOnNext();
   render();
-  const [fresh, saved] = await Promise.all([
-    window.pilot.jobs().catch(() => null), window.pilot.interviews.saved().catch(() => null)]);
-  if (mine !== visit) return;
-  if (Array.isArray(fresh?.jobs) && !fresh.stale) shared.allJobs = fresh.jobs;
-  if (Array.isArray(saved?.interviews)) recordings = saved.interviews;
-  const ok = Array.isArray(fresh?.jobs) && !fresh.stale && Array.isArray(saved?.interviews);
-  failure = ok ? '' : String(saved?.error || fresh?.error || 'Try again in a moment; the reason is in the app log.');
-  phase = ok ? 'ready' : 'failed';
-  if (ok) { const still = new Set(cal.meetings(shared.allJobs, recordings, {zone: ZONE}).map(m => m.id)); for (const id of [...gone.keys()]) if (!still.has(id)) gone.delete(id); }
-  if (ok) savedAt = '';
-  openOnNext();
-  render();
+  let jobsOk = false, recordingsOk = false, error = '';
+  const finish = () => {
+    if (mine !== visit) return;
+    if (jobsOk && recordingsOk) {
+      phase = 'ready'; failure = ''; savedAt = '';
+      const still = new Set(cal.meetings(calJobs, recordings, {zone: ZONE}).map(m => m.id)); for (const id of [...gone.keys()]) if (!still.has(id)) gone.delete(id);
+    } else if (jobsOk === null || recordingsOk === null) { phase = 'failed'; failure = error || 'Try again in a moment; the reason is in the app log.'; }
+    else phase = 'updating';
+    openOnNext();
+    render();
+  };
+  window.pilot.calendarJobs().then(fresh => {
+    if (Array.isArray(fresh?.jobs) && !fresh.error) { calJobs = fresh.jobs; jobsOk = true; } else { jobsOk = null; error ||= String(fresh?.error || ''); }
+  }, () => { jobsOk = null; }).then(finish);
+  window.pilot.interviews.saved().then(saved => {
+    if (Array.isArray(saved?.interviews)) { recordings = saved.interviews; recordingsOk = true; } else { recordingsOk = null; error ||= String(saved?.error || ''); }
+  }, () => { recordingsOk = null; }).then(finish);
 }
 
 const step = by => { moved = true; const d = new Date(Date.UTC(month.year, month.month + by, 1)); month = {year: d.getUTCFullYear(), month: d.getUTCMonth()}; render(); };
