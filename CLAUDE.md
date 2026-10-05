@@ -175,6 +175,7 @@ fails, so only green builds reach GitHub. It also lints the workflow files (`act
 shellcheck on each `run:` script) and, when a `package.json` or lock file changed, proves `npm ci`
 works from scratch, the two CI-only failure classes the tests can't see. Two more guards: `build.yml` must
 install dev dependencies like a developer does (an `--omit=dev` there once hid a missing esbuild from this hook
-and left 8 commits red), and a push is blocked while the latest `build` run on main is red; push the fix itself
-with `CI_RED_OK=1 git push ...`.
+and left 8 commits red), and a push is blocked while the latest `build` run on main is red: the first session to see
+it fixes it forward or reverts it, pushed with `CI_RED_OK=1 git push ...` (AGENTS.md "Red main"). The suites run on a
+clean checkout of what is pushed, one area at a time like CI, so leftovers in your folder can't hide a break.
 A Stop hook (`tools/stop-test-check.sh`) runs the suites your changes vs origin/main touch, as CI does, before you say done.

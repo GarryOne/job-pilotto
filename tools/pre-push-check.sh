@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code PreToolUse hook (.claude/settings.json): before any `git push` from this repo (or one of its
-# worktrees), run every test suite CI runs, and block the push if one fails, so only green builds reach
+# worktrees), run every test suite CI runs on a clean checkout of what is pushed, and block the push if one fails, so only green builds reach
 # GitHub. Reads the hook's JSON on stdin; exit 2 blocks the command and shows the reason to Claude.
 #   python: unittest, normally and as CI sees it (no Notion/Telegram/Google/SerpApi credentials)
 #   worker, site: npm test  desktop: npm test (npm ci first when node_modules is missing)
@@ -22,16 +22,31 @@ fi
 repo="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [ -f "$repo/src/daily.py" ] && [ -d "$repo/worker" ] || exit 0   # only this project
 
-# Don't stack commits on a red main: when the latest finished `build` run on main failed, block the push
-# (it says why) unless the command says it is the fix: `CI_RED_OK=1 git push ...`. No gh or no network: skip.
+# Don't stack commits on a red main: when the latest finished `build` run on main failed, block the push unless the command says it
+# is the fix or a revert: `CI_RED_OK=1 git push ...`. No gh or no network: skip. A newer main commit still building (a fix in flight)
+# lets a push that contains it through: its own suites still run below, on a clean checkout that includes that fix.
+# The first session to meet a red main unblocks everyone (AGENTS.md "Red main"): fix it forward if it is small, else revert it.
 case "$command" in *CI_RED_OK=1*) ;; *)
   if command -v gh >/dev/null; then
     last="$(cd "$repo" && gh run list --workflow build.yml --branch main --status completed -L 1 \
       --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
     case "$last" in failure*|cancelled*|timed_out*)
-      echo "Push blocked: CI 'build' on main is red ($last). See why (gh run view --log-failed), fix it," \
-        "and push the fix with CI_RED_OK=1 git push ...; don't add more commits on top of a red build." >&2
-      exit 2 ;;
+      bad="$(cut -d' ' -f2 <<<"$last")"
+      building="$(cd "$repo" && gh run list --workflow build.yml --branch main -L 1 \
+        --json status,headSha --jq '.[0] | select(.status != "completed") | .headSha' 2>/dev/null)"
+      if [ -n "$building" ] && [ "${building:0:7}" != "$bad" ] && git -C "$repo" merge-base --is-ancestor "$building" HEAD 2>/dev/null; then
+        echo "pre-push: main is red at $bad, but ${building:0:7} (on top of it, in this push) is building: checking this push on its own." >&2
+      else
+        {
+          echo "Push blocked: CI 'build' on main is red ($last)."
+          echo "Unblock it now, you are not waiting for its author (AGENTS.md \"Red main\"):"
+          echo "  1. See why: gh run view --log-failed $(sed 's|.*/runs/||' <<<"$last")"
+          echo "  2. A small, obvious fix (missing file, import, test expectation): fix it forward, push it with CI_RED_OK=1 git push ..."
+          echo "  3. Otherwise: git revert --no-edit $bad (a new commit, never a force-push), push it with CI_RED_OK=1, and tell the user what was reverted."
+          echo "  Then push your own work normally. Never just add commits on top of a red build."
+        } >&2
+        exit 2
+      fi ;;
     esac
   fi ;;
 esac
@@ -94,7 +109,26 @@ ci_installs_dev() {
 run "CI installs dev dependencies (build.yml)" ci_installs_dev
 if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
 else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
-run "project verification" bash tools/check.sh --clean-install
+# The suites run on exactly what is pushed, each area in its own fresh checkout of HEAD, as CI does: a forgotten file or a git-ignored
+# file left by another area's run (5 Oct 2026: desktop/shared/ from a desktop run let the worker's tests pass here, fa1f838 went red in CI and
+# blocked every session) fails here, not on main. Dependencies are linked from this checkout (same lockfiles; --clean-install verifies them).
+verify_area() {  # area [extra check.sh flags]
+  local area="$1"; shift
+  local tree; tree="$(mktemp -d)/$area"
+  git -C "$repo" worktree add -q --detach "$tree" HEAD || return 1
+  for dir in desktop desktop/e2e worker site; do
+    [ -e "$repo/$dir/node_modules" ] && ln -s "$repo/$dir/node_modules" "$tree/$dir/node_modules"
+  done
+  [ -e "$repo/.venv" ] && ln -s "$repo/.venv" "$tree/.venv"
+  (cd "$tree" && bash tools/check.sh --area "$area" "$@"); local status=$?
+  git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"
+  return $status
+}
+run "python (clean checkout)" verify_area python --clean-install
+run "worker (clean checkout)" verify_area worker
+run "site (clean checkout)" verify_area site
+run "desktop (clean checkout)" verify_area desktop
+git -C "$repo" worktree prune 2>/dev/null
 
 if [ ${#failed[@]} -gt 0 ]; then
   {

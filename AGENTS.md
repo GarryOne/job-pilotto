@@ -117,6 +117,22 @@ them from colliding in one checkout:
 - Never use a bare `git stash`/`stash pop`: the stash stack is shared across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
 
+### Red main: the first session to see it unblocks everyone (5 Oct 2026)
+A red `build` on `main` blocks every session's push (the pre-push hook). Waiting for its author left four sessions stuck
+until the owner stepped in. So whoever meets it fixes it, in the same turn, before their own push:
+1. `gh run view --log-failed <run>`: what broke.
+2. **Small and obvious** (a missing file, an import, a test expectation): fix it forward in its own commit,
+   `CI_RED_OK=1 git push origin <topic>:main`.
+3. **Otherwise** `git revert --no-edit <bad sha>` (a new commit, never a force-push), push it with `CI_RED_OK=1`, and tell
+   the user which commit was reverted; its author lands it again, fixed.
+4. Then push your own work normally. Never add your commits on top of a red build, and never push with `CI_RED_OK=1` for
+   anything but the fix or the revert.
+
+The hook runs the suites on a **clean checkout of what is pushed**, one area at a time, as CI does, so leftovers in your
+folder can't hide a break: `fa1f838` passed locally on a `desktop/shared/` left by a desktop run, and the worker's CI job,
+which never stages it, went red. While a fix on top of a red commit is still building, a push that contains it goes
+through (its own suites still run).
+
 ### Commit messages
 - **Every fix leaves a permanent check** (3 Oct 2026). A commit that says `Fixes #N` also adds the test that would have caught the bug: a unit test, an e2e unit test,
   or a step in an e2e suite (for a bug that only shows in a state, like the AI failing, the step puts the app in that state). Scripted checks found 17 of the first 36
@@ -142,7 +158,8 @@ cd desktop && npm test
 ```
 
 - **`desktop/npm test` needs its `pretest`** (`scripts/stage.mjs`): in a fresh worktree, without staging, seven files
-  fail on a missing `desktop/shared/` and look like real regressions.
+  fail on a missing `desktop/shared/` and look like real regressions. The reverse trap: a `desktop/shared/` left behind
+  makes another area pass here and fail in CI. Run the suites in a fresh worktree of your commit (the hook does).
 - **A read-only `<repo>/data`** makes the Python suite error on `data/insights.lock` (14 tests): pass
   `JOB_PILOTTO_DATA_DIR=<a writable folder>`. The DSH sandbox starts that way for this repo, since the session
   workspace is elsewhere; the first write needs the user to widen the policy, after which the rules above apply as they
