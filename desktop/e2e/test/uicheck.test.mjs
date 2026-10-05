@@ -189,6 +189,26 @@ test('the reference case: a raw digest marked as a fallback, above its card, is 
   for (const kind of ['card-fallback', 'raw-markup', 'duplicate-content']) assert.ok(found.includes(kind), `${kind} missing: ${found}`);
 }));
 
+// The owner's find of 5 Oct 2026, word for word: a finished "Search analysis" on the Actions page as the chat message it was written for.
+const WEEKLY = '📊 Search analysis:\n\n📊 Search analysis · last 7 days\nNot enough data yet: 0 jobs found, 0 applications sent\n💡 Begin by running a market search to understand regional demand for SRE and platform engineering roles matching your profile.\n'
+  + 'The market scan has found no open positions yet. No applications have been sent, so there is no reply or interview data.\n🔧 Change next week\n• Run a market search in Jobs to populate eligible roles\n🎯 Run a market search in Jobs to find eligible roles.\n'
+  + 'Full report in Notion (https://app.notion.com/p/Not-enough-data-yet-0-jobs-found-0-applications-sent-3f0699c9deff819d851ee04ec0dee5ae)';
+const pre = text => `<div id="command-answer" style="white-space:pre-wrap">${text}</div>`;
+
+test('the chat report of 5 Oct 2026 shown as plain text is caught with and without the window\'s own marker', () => withChrome(async page => {
+  assert.ok((await kinds(page, pre(WEEKLY))).includes('raw-markup'), 'with no marker, the text itself gives it away');
+  assert.ok((await kinds(page, pre(WEEKLY).replace('<div ', '<div data-fallback="weekly" '))).includes('card-fallback'), 'with the marker, it is a card-fallback');
+  assert.ok((await kinds(page, '<div style="white-space:pre-wrap">Not enough data yet.\nFull report in Notion (https://app.notion.com/p/abc)</div>')).includes('raw-markup'), 'a labelled bare link alone is enough');
+}));
+
+test('the new checks stay quiet on screens that are fine', () => withChrome(async page => {
+  // icon-led rows that are separate elements (a list), a link written as a link, a sentence with an address in it, and a card
+  assert.deepEqual(await kinds(page, '<ul><li>📨 Apply to 5 more jobs</li><li>📬 Answer the recruiter</li><li>🎤 Prepare Friday\'s interview</li></ul>'), []);
+  assert.deepEqual(await kinds(page, '<p>Full report in <a href="https://app.notion.com/p/abc">Notion</a></p>'), []);
+  assert.deepEqual(await kinds(page, '<p>Open the page (https://app.notion.com/p/abc) to see everything, then come back.</p>'), []);
+  assert.deepEqual(await kinds(page, '<div class="run-card"><div class="insight-card"><h3>📊 Search analysis · last 7 days</h3><p>Not enough data yet</p><p>💡 Begin with a market search</p></div></div>'), []);
+}));
+
 test('the same type, other forms: Markdown, HTML typed out, an entity, an insight shown as text', () => withChrome(async page => {
   assert.ok((await kinds(page, '<p>**Focus next:** apply to 3 roles in Zurich</p>')).includes('raw-markup'));
   assert.ok((await kinds(page, '<p>Your &lt;b&gt;weekly&lt;/b&gt; review is ready</p>')).includes('raw-markup'));

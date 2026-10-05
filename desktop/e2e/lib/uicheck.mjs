@@ -102,14 +102,19 @@ export function inspect({view, limits}) {
   // "Tap a job number…", /commands, the engine's message markers), Markdown, HTML tags or entities typed out as text.
   const RAW = [[/Tap a job number\b/i, 'chat'], [/(?:^|\s)\d+\.\s[^\n]{3,200}?\(https?:\/\/[^)\s]+\)/, 'chat'], [/(?:^|\s)\/(?:apply|save|dismiss|more)_\w+/, 'chat'],
     [/<<<message|message>>>/, 'engine marker'], [/\*\*[^*\n]{2,80}\*\*/, 'Markdown'], [/(?:^|\n)#{1,3} \S/, 'Markdown'], [/\[[^\]\n]{1,80}\]\(https?:\/\//, 'Markdown'],
-    [/<\/?(?:b|i|a|p|br|div|span|ul|li|strong|em)\b[^>]*>/i, 'HTML'], [/&(?:amp|lt|gt|quot|nbsp|#\d{2,5});/, 'HTML entity']];
+    [/<\/?(?:b|i|a|p|br|div|span|ul|li|strong|em)\b[^>]*>/i, 'HTML'], [/&(?:amp|lt|gt|quot|nbsp|#\d{2,5});/, 'HTML entity'],
+    // A line that ends in a bare address in brackets ("Full report in Notion (https://…)"): how a chat message links, never how this app does.
+    [/(?:^|\n)[^\n(]{3,80} \(https?:\/\/[^)\s]+\)[ \t]*(?=\n|$)/, 'chat link']];
+  // A chat report typed out in one plain box: three or more lines that each start with an emoji ("📊 …", "💡 …", "🔧 …"). Only a box with no elements inside,
+  // so a list of separate rows that each start with an icon is not it.
+  const emojiReport = host => host.children.length === 0 && ((host.innerText || '').match(/(?:^|\n)\p{Extended_Pictographic}/gu) || []).length >= 3;
   const rawSeen = new Set();
   for (const scope of [root, ...document.querySelectorAll('dialog[open], #toasts, #activity, #activity-panel')]) {
     for (const host of scope.querySelectorAll('div, p, section, li, span, pre')) {
       if (rawSeen.size >= 2 || rawSeen.has(host) || (host.closest(ON_PURPOSE) && !host.closest('[data-fallback]')) || !visible(host)) continue;
       if ([...host.children].some(child => RAW.some(([pattern]) => pattern.test(child.innerText || '')))) continue;   // the innermost box only
       const text = host.innerText || '';
-      const hit = RAW.find(([pattern]) => pattern.test(text));
+      const hit = RAW.find(([pattern]) => pattern.test(text)) || (emojiReport(host) ? [null, 'chat report'] : null);
       if (!hit) continue;
       rawSeen.add(host);
       found.push({view, severity: 'warning', kind: 'raw-markup', detail: `${label(host)} shows ${hit[1]} formatting as raw text: "${text.replace(/\s+/g, ' ').trim().slice(0, 140)}"`});

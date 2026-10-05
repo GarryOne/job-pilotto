@@ -14,6 +14,18 @@ export const name = 'activity';
 export const keepGoing = true;
 // The app reads Notion's run history every 15 s and picks up the jobs of the last session 20 s after launch: both shortened for the journey (never for a user).
 export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_MS: '3000', JOB_PILOTTO_E2E_EXPECTS_FAILURES: '1'};   // this suite breaks things on purpose: its Sentry reports are tagged expected
+// The Actions page's answer to the task that just ended: waits for it, reads what form it is in, and gives it the same checks every screen gets (layout, raw text,
+// "a carded run shown as text"). Before 5 Oct 2026 the page was checked once, after all tasks, so each result had been replaced by the next one before anyone looked:
+// a finished Search analysis showed as raw Telegram text and no check ever saw it.
+async function inspectResult(ctx, task) {
+  const {page} = ctx;
+  await page.waitForFunction(() => ['actions-result', 'command-answer'].some(id => { const box = document.getElementById(id); return box && !box.hidden; }), null, {timeout: 15000}).catch(() => {});
+  const shown = await page.evaluate(() => ({card: !!document.querySelector('#actions-result:not([hidden]) #actions-card > *'),
+    text: document.getElementById('command-answer')?.hidden ? '' : (document.getElementById('command-answer')?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 160)}));
+  await snap(ctx, `actions-result-${task.command}`, {view: 'actions'});
+  return shown;
+}
+
 export async function run(ctx) {
   const page = await prepare(ctx);
   // ---------- (1) every task card ----------
@@ -48,6 +60,10 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
       ctx.taskRuns[task.command] = own[0];
       await noRowStaysRunning(ctx);
+      const result = await inspectResult(ctx, task);
+      console.log(`  ${task.command}: the Actions page shows ${result.card ? 'a card' : result.text ? `text "${result.text.slice(0, 60)}"` : 'nothing'}`);
+      // The report has a card of its own (renderer/pages/activity.js cardFor): the same one Recent activity draws, never the chat message it was written as.
+      if (task.command === 'weekly' && !result.card) throw new Error(`the Actions page shows the finished Search analysis as text, not as its card: "${result.text || 'nothing at all'}"`);
     }, {needs: ctx.needs});
   }
   // ---------- (4) Recent activity itself ----------

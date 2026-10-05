@@ -131,11 +131,30 @@ export function outcome(run) {
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
-function showActionsResult(run, kind, card) {
+// The card a finished run's message makes, as a function that draws it into a card box, or null when the message has no card shape (then it is shown as text).
+// One place for both views: the Actions page and Recent activity must never show the same run as a card in one and as Telegram text in the other (5 Oct 2026:
+// "Search analysis" was raw text on the Actions page, with its emoji lines and a bare Notion address).
+export function cardFor(run, text) {
+  if (!text) return null;
+  const card = parseRunMessage(text);
+  if (card) return target => renderRunCard(card, run, target);
+  if (kindOf(run) === 'mail' && (text || run.report?.length)) {
+    const mail = parseMailReport(text, run.result, run.report || []);
+    if (mail) return target => renderMailCard(mail, pendingMailQuestions(), lastAnswered(), target);
+  }
+  const insight = parseInsight(text);
+  if (insight) return target => renderInsightCard(insight, target);
+  const weekly = parseWeekly(text);
+  if (weekly) return target => renderWeeklyCard(weekly, target);
+  const review = kindOf(run) === 'interview' ? parseInterviewReview(text) : null;
+  if (review) return target => renderInterviewCard(review, target);
+  return null;
+}
+function showActionsResult(run, kind, draw) {
   show($('command-answer'), false);
   const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
   $('actions-result-head').replaceChildren(el('b', '', `${kind.icon} ${kind.name}`), pill(label, tone), el('span', 'muted', `Finished ${clockTime(run.endedAt || run.startedAt)}`));
-  renderRunCard(card, run, $('actions-card'));
+  draw($('actions-card'));
   show($('actions-result'));
   $('actions-result').scrollIntoView({behavior: 'smooth', block: 'nearest'});
 }
@@ -148,8 +167,8 @@ function showAwaitedResult(runs) {
     const text = `${kind.icon} ${kind.name}: ${message ? `\n\n${message}` : capital(outcome(run))}`;
     if ($('activity-panel').hidden) {
       // On the Actions page: the same card as in Recent activity (counts, top matches), not the raw text of the run.
-      const card = message ? parseRunMessage(message) : null;
-      if (card) { showActionsResult(run, kind, card); return; }
+      const draw = cardFor(run, message);
+      if (draw) { showActionsResult(run, kind, draw); return; }
       answer(text);
       markFallback($('command-answer'), kindOf(run), message);
       return;
@@ -741,7 +760,7 @@ function questionBlock(state, key) {
   block.append(original);
   return block;
 }
-function renderMailCard(report, pending = [], answered = null) {
+function renderMailCard(report, pending = [], answered = null, target = $('activity-card')) {
   const box = el('div', 'mail-card');
   const status = el('div', 'mail-status');
   const tick = el('span', 'mail-tick');
@@ -818,13 +837,13 @@ function renderMailCard(report, pending = [], answered = null) {
     consent.append(icon('mic'), report.consent);
     box.append(consent);
   }
-  $('activity-card').replaceChildren(box);
+  target.replaceChildren(box);
 }
 
 // A daily insight's card: the finding, the numbers behind it, the one action and where it came from (the mockup,
 // 30 Sep). Its subtitle, its numbers strip and its labelled evidence groups are drawn only when the insight carries
 // them — structured data the AI does not emit yet — so nothing is guessed from the bullets and nothing is left blank.
-export function renderInsightCard(insight) {
+export function renderInsightCard(insight, target = $('activity-card')) {
   const box = el('div', 'insight-card');
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
@@ -872,12 +891,12 @@ export function renderInsightCard(insight) {
   }
   const source = sourceLine(insight);
   if (source) box.append(el('p', 'insight-source', source));
-  $('activity-card').replaceChildren(box);
+  target.replaceChildren(box);
 }
 
 // An interview review as a card, wearing the insight card's shape (as the weekly report does): the round it was,
 // the job, what happened, what was strong and weak, what to practise, and the next step. Every word is the review's.
-export function renderInterviewCard(review) {
+export function renderInterviewCard(review, target = $('activity-card')) {
   const box = el('div', 'insight-card');
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
@@ -903,14 +922,14 @@ export function renderInterviewCard(review) {
     next.append(el('span', 'insight-next-icon', icon('target')), words);
     box.append(next);
   }
-  $('activity-card').replaceChildren(box);
+  target.replaceChildren(box);
 }
 
 // The week's report as a card, wearing the insight card's shape: the headline sentence, the paragraph under it, the
 // one focus to carry into next week on the same warm band, then what worked and what to change. A report without a
 // focus, or without worked items, simply has no such block, and its lists are drawn only when they have something in
 // them. The report's confidence and its recurring-evidence priorities sit on the Notion page, not in this message.
-export function renderWeeklyCard(weekly) {
+export function renderWeeklyCard(weekly, target = $('activity-card')) {
   const box = el('div', 'insight-card');
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
@@ -935,7 +954,7 @@ export function renderWeeklyCard(weekly) {
     section.append(list);
     box.append(section);
   }
-  $('activity-card').replaceChildren(box);
+  target.replaceChildren(box);
 }
 
 // The header's filter menu: every kind in the run history with how many, and "All runs".
