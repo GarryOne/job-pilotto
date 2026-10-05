@@ -82,7 +82,7 @@ export default {
     const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView,
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView}[pathname];
     if (admin) return adminPage(await admin(request, env), pathname);
-    const moved = redirectOld(request, env);   // /stats, /telemetry, /intel, /self-heal, /ai-cost, /smart-form-filling, /feedback
+    const moved = await redirectOld(request, env);   // /stats, /telemetry, /intel, /self-heal, /ai-cost, /smart-form-filling, /feedback
     if (moved) return moved;
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);

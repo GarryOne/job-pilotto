@@ -4,7 +4,7 @@
 //   GET /api/playbook?board=greenhouse   Bearer <recipes token> + X-Install-Id: {board, text}  (a few boards a day per install)
 //   PUT /api/playbook                    the owner's key: {board, text} (the private repo's playbooks/ publishes here)
 import {authorize, flag} from './guard.js';
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 
 const BOARD = /^[a-z0-9-]{2,30}$/, MAX_TEXT = 40000, PER_INSTALL_PER_DAY = 30;
 const day = date => date.toISOString().slice(0, 10);
@@ -13,7 +13,7 @@ const json = (body, status = 200, headers = {}) => Response.json(body, {status, 
 export async function playbook(request, env, now = new Date()) {
   if (!env.WAITLIST) return json({ok: false, error: 'not configured'}, 503);
   if (request.method === 'PUT') {
-    if (!allowed(request, env)) return new Response('Not found', {status: 404});
+    if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
     const body = await request.json().catch(() => ({}));
     const board = String(body.board || '').toLowerCase(), text = String(body.text ?? '');
     if (!BOARD.test(board) || text.length > MAX_TEXT) return json({ok: false, error: 'bad board or text too long'}, 400);

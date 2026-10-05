@@ -10,7 +10,7 @@
 //                       evidence). Product data only: no user data, no text, no answers.
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
 import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
 import {storeProposals as storeAliasProposals, storeUse as storeAliasUse} from './aliases.js';
 import {store as storeIntelligence} from './intelligence.js';
@@ -30,7 +30,7 @@ const digest = digestOf;
 export async function recipes(request, env, now = new Date()) {
   if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
   if (request.method === 'GET') {
-    if (!allowed(request, env)) return new Response('Not found', {status: 404});
+    if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
     const wanted = new URL(request.url).searchParams.get('status') === 'candidate' ? ['candidate'] : ['canary', 'verified'];
     const rows = (await env.STATS.prepare(`SELECT fingerprint, version, status, rollout, body FROM recipes WHERE status IN (${wanted.map(() => '?').join(', ')})
       ORDER BY fingerprint, version DESC`).bind(...wanted).all()).results || [];
@@ -48,7 +48,7 @@ export async function recipes(request, env, now = new Date()) {
     return new Response(JSON.stringify({generated: now.toISOString(), recipes: out}), {headers});
   }
   if (request.method !== 'PUT') return new Response('Method not allowed', {status: 405});
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const input = await request.json().catch(() => ({}));
   const checked = validateRecipe(input.recipe);
   if (!checked.ok) return Response.json({ok: false, error: checked.error}, {status: 400});
@@ -193,11 +193,11 @@ export const publicUrl = value => { try { const url = new URL(String(value)); re
 // {runs: [{site, fingerprint, kind, recipe, ok, why}], samples: [{fingerprint, kind, skeleton, question}]}
 export async function lab(request, env, now = new Date()) {
   if (request.method === 'GET') {
-    if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+    if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
     return Response.json(await labPlan(env.STATS, now), {headers: {'Cache-Control': 'private, no-store'}});
   }
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const body = await request.json().catch(() => ({}));
   let runs = 0, samples = 0;
   for (const item of (Array.isArray(body.runs) ? body.runs : []).slice(0, 500)) {
@@ -274,7 +274,7 @@ const MAX_ATTEMPTS = 3, USER_WEIGHT = 3;
 export async function targets(request, env, now = new Date(), limit = 20, days = 30) {
   if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
   if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const db = env.STATS, from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const asked = Number(new URL(request.url).searchParams.get('limit'));
   const max = Math.max(1, Math.min(50, Number.isFinite(asked) && asked > 0 ? Math.round(asked) : limit));

@@ -3,7 +3,7 @@
 //   POST /api/controls (src/recipes.js) hands {questions, flows} here.   GET /api/knowledge (owner): what the proposers work from.
 import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 
 export {cleanLabel};
 export const LEFT_REASONS = ['no_answer', 'not_taken', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];   // desktop/lib/question-labels.js
@@ -115,7 +115,7 @@ export async function benchmarks(db, now = new Date()) {
 
 // GET /api/knowledge (owner).
 export async function knowledge(request, env, now = new Date()) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
   return Response.json({generated: now.toISOString(), ...(await report(env.STATS, 30, now))}, {headers: {'Cache-Control': 'private, no-store'}});
 }

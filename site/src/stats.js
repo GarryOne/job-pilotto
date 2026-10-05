@@ -7,7 +7,6 @@
 const RELEASE = 'https://github.com/GarryOne/job-pilotto/releases/latest/download/';
 export const FILES = {mac: 'Job-Pilotto-mac-arm64.dmg', windows: 'Job-Pilotto-windows-x64.exe'};
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse|curl|wget|python|monitor/i;
-const KEY_COOKIE = 'jp_stats';
 
 const clip = (value, max = 80) => String(value || '').replace(/[^\w.\-/: ]/g, '').slice(0, max);
 const today = (now = new Date()) => now.toISOString().slice(0, 10);
@@ -108,14 +107,9 @@ export async function download(request, env, ctx, now = new Date()) {
 
 // ---- /stats ----
 
-// The key: ?key= once (then the cookie), or `Authorization: Bearer <key>` for scripts (tools/canary_promote.py).
-export function allowed(request, env) {
-  if (!env.STATS_KEY) return false;
-  if (request.headers.get('Authorization') === `Bearer ${env.STATS_KEY}`) return true;
-  const url = new URL(request.url);
-  const cookie = (request.headers.get('Cookie') || '').split(/;\s*/).find(part => part.startsWith(`${KEY_COOKIE}=`));
-  return url.searchParams.get('key') === env.STATS_KEY || cookie?.slice(KEY_COOKIE.length + 1) === env.STATS_KEY;
-}
+// Who may open the owner's pages: src/auth.js (a session cookie, the scripts' key).
+import {isOwner, remember} from './auth.js';
+export {isOwner, remember};
 
 export async function report(db, days, now = new Date()) {
   const from = today(new Date(now.getTime() - (days - 1) * 86400000));
@@ -202,19 +196,12 @@ ${list.map(row => `<tr><td>${esc(row.email)}</td><td class="muted">${esc(row.rol
 </main></body></html>`;
 }
 
-// ?key=… once: saved in a cookie for every private page (/stats and /telemetry: Path=/), then taken out of the
-// address bar and history.
-export function remember(url, env) {
-  url.searchParams.delete('key');
-  return new Response(null, {status: 302, headers: {Location: url.pathname + url.search,
-    'Set-Cookie': `${KEY_COOKIE}=${env.STATS_KEY}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`}});
-}
 
 // GET /stats?days=30
 export async function stats(request, env, now = new Date()) {
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
-  if (url.searchParams.has('key')) return remember(url, env);
+  if (url.searchParams.has('key')) return remember(url, env, request);
   const days = [7, 30, 90].includes(Number(url.searchParams.get('days'))) ? Number(url.searchParams.get('days')) : 30;
   const [data, list] = await Promise.all([report(env.STATS, days, now), signups(env.WAITLIST)]);
   return new Response(page(data, list), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',

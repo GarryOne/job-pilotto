@@ -1,7 +1,7 @@
 // GET /api/signals?days=7 (the /stats key, as `Authorization: Bearer`): the numbers the daily product brief reads
 // (.github/workflows/product-brain.yml): website visits and downloads, app problems and outcome totals, how many
 // joined the Pro waitlist, and users' feedback (their words, never their contact). No emails, visitor hashes or samples.
-import {allowed, report, signups} from './stats.js';
+import {isOwner, report, signups} from './stats.js';
 import {funnel, problems} from './telemetry.js';
 import {recentFeedback} from './feedback.js';
 
@@ -21,7 +21,7 @@ export async function licensesSeen(db, now = new Date()) {
 }
 
 export async function signals(request, env, now = new Date()) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const asked = Number(new URL(request.url).searchParams.get('days'));
   const days = [1, 7, 30].includes(asked) ? asked : 7;
   const [site, app, waitlist, said] = await Promise.all([report(env.STATS, days, now), problems(env.STATS, days, now, 20), signups(env.WAITLIST),

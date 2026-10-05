@@ -1,6 +1,6 @@
 // The owner's page /self-heal: what the self-healing loops (the Finder's AI screenshot review, the UI and Sentry fixers) spend on AI.
 // Owner-only like /stats (STATS_KEY), never a static page: static assets are public. The figures are a snapshot read from the CI logs.
-import {allowed, esc, remember} from './stats.js';
+import {isOwner, esc, remember} from './stats.js';
 import {equal} from './guard.js';
 import {changesSection, dayLabel, TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
 
@@ -193,9 +193,9 @@ ${principlesSection()}
 
 // GET /self-heal (?key=<STATS_KEY> once; the cookie after that)
 export async function view(request, env) {
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
-  if (url.searchParams.has('key')) return remember(url, env);
+  if (url.searchParams.has('key')) return remember(url, env, request);
   const history = env.STATS ? await snapshots(env) : [];
   return new Response(page(undefined, history[0] || null, history), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

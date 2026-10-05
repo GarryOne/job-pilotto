@@ -1,7 +1,7 @@
 // Recurring problems wait in D1 for the private repo's daily triage to take them (GET /api/triage, the owner's key), which files the
 // issues there. Replaces the old push into the public repo's workflows: no token for a private repository on the website, and
 // nothing about which sites or fields fail is published.
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 
 const KINDS = {'fill-failure-intake.yml': 'report', 'telemetry-triage.yml': 'problems'};
 const KEEP_DAYS = 30, MAX_BYTES = 64 * 1024;
@@ -17,7 +17,7 @@ export const queued = workflow => workflow in KINDS;
 
 // GET /api/triage -> the items not yet taken; POST /api/triage {ids} -> mark them taken. Old taken items are dropped.
 export async function triage(request, env, now = new Date()) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   if (request.method === 'GET') {
     const rows = (await env.STATS.prepare('SELECT id, kind, payload, created_at FROM triage_queue WHERE taken_at IS NULL ORDER BY id LIMIT 50').all()).results || [];
     return Response.json({items: rows.map(row => ({id: row.id, kind: row.kind, at: row.created_at, payload: JSON.parse(row.payload)}))}, {headers: {'Cache-Control': 'private, no-store'}});

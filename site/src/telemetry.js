@@ -10,7 +10,7 @@ import {feedbackList} from './feedback.js';
 import {flags} from './guard.js';
 import {report as knowledgeReport} from './knowledge.js';
 import {labPlan, labReport} from './recipes.js';
-import {allowed, esc, remember} from './stats.js';
+import {isOwner, esc, remember} from './stats.js';
 
 export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control'];
 export const TRIAGE_MIN_USERS = 3, TRIAGE_MIN_TIMES = 20;
@@ -287,8 +287,8 @@ ${(data.feedback || []).map(row => `<tr><td class="muted" style="white-space:now
 
 // GET /telemetry?days=7 (same key or cookie as /stats)
 export async function view(request, env, now = new Date()) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
-  if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env);
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env, request);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
     const [data, feedback, setup, byChannel, gate] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
@@ -327,7 +327,7 @@ export async function versionEvidence(db, version) {
     runs: {ok: runsOk, failed: runsFailed, reports: runsReported}, events};
 }
 export async function evidence(request, env) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const params = new URL(request.url).searchParams;
   const versions = [params.get('v'), params.get('compare')].filter(Boolean);
   if (!versions.length || !versions.every(v => VERSION.test(v))) return Response.json({ok: false, error: 'give ?v=<app version>'}, {status: 400});

@@ -1,6 +1,6 @@
 // The owner's page /ai-cost: everything the product's own scheduled jobs spend on AI (central scout, self-heal, product brain, proposers, form lab...).
 // Not the users' Always-on runs: those are paid with their own keys. Owner-only like /stats (STATS_KEY), never a static page.
-import {allowed, esc, remember} from './stats.js';
+import {isOwner, esc, remember} from './stats.js';
 import {equal} from './guard.js';
 
 export const JOBS = {   // job id -> [label, group]; an unknown id still shows, under "other"
@@ -118,9 +118,9 @@ async function read(env) {
 
 // GET /ai-cost (?key=<STATS_KEY> once; the cookie after that)
 export async function view(request, env) {
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
-  if (url.searchParams.has('key')) return remember(url, env);
+  if (url.searchParams.has('key')) return remember(url, env, request);
   const {runs, billed} = env.STATS ? await read(env) : {runs: [], billed: []};
   return new Response(page(runs, billed), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

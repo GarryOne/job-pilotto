@@ -1,7 +1,7 @@
 // The owner's admin area: every private page under /admin, one menu on all of them, and the old addresses redirected (for the
 // owner only: anyone else still gets a 404, so the redirect tells nobody a page is there). Same key as before: ?key= once, then
-// the cookie (stats.js allowed). The pages keep their own code; this file adds the menu and the small trend charts they share.
-import {allowed, esc} from './stats.js';
+// a session cookie (src/auth.js isOwner). The pages keep their own code; this file adds the menu and the small trend charts they share.
+import {isOwner, esc} from './stats.js';
 
 export const PAGES = [
   {path: '/admin', name: 'Overview', icon: '🧭'},
@@ -16,13 +16,20 @@ export const PAGES = [
 const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.old, page.path]));
 
 // An old address: the owner is sent to the new one (query kept, so ?key= and ?days= still work); anyone else gets the 404 they got.
-export function redirectOld(request, env) {
+export async function redirectOld(request, env) {
   const url = new URL(request.url), target = OLD[url.pathname];
   if (!target || request.method !== 'GET') return null;
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   return new Response(null, {status: 301, headers: {Location: `${target}${url.search}`, 'Cache-Control': 'no-store'}});
 }
 
+// One look on every admin page: the shared base comes after each page's own styles, so the width, type, colours, cards and
+// tables are the same everywhere; a page keeps only what is its own (its charts, badges, grids).
+export const BASE_STYLE = `body{margin:0;background:#0b0d10;color:#f4efe3;font:15px/1.45 system-ui,-apple-system,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:0 16px 48px}h1{margin:0;font-size:24px;line-height:1.2}h2{font-size:15px}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 18px}
+a{color:#f5b54a}.muted{color:#8d949c}.card{background:#14181d;border:1px solid #262c33;border-radius:14px}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:#8d949c;font-size:12px}td{border-top:1px solid #262c33}`;
 export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:#0b0d10ee;backdrop-filter:blur(6px);border-bottom:1px solid #262c33;margin:0 0 18px}
 .admin-nav div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;font:14px/1.3 system-ui,-apple-system,sans-serif}
 .admin-nav b{color:#f4efe3;margin-right:10px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 9px;border-radius:999px;white-space:nowrap}
@@ -36,7 +43,7 @@ export function nav(active) {
 }
 // The menu and the shared styles, added to a page's HTML (its own design stays): after <body>, and before </head>.
 export function withNav(html, active) {
-  return String(html).replace('</head>', `<style>${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active)}`);
+  return String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active)}`);
 }
 // A page response with the menu added; anything that is not an HTML page (a 404, a redirect, JSON) passes untouched.
 export async function adminPage(response, active) {

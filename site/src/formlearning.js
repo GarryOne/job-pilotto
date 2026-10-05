@@ -6,7 +6,7 @@
 //     per 100 forms for apps older than 0.8.96, which send no count)
 //   3 the recipe funnel (candidate -> canary -> verified, disabled), and the questions the lab could not read, to fix next.
 // Counts and the forms' own public wording only. Owner-only, like /self-heal.
-import {allowed, esc, remember} from './stats.js';
+import {isOwner, esc, remember} from './stats.js';
 
 export const WEEK = 7;
 export const READING_KIND = 'question';
@@ -131,9 +131,9 @@ ${data.unread.map(u => `<tr><td>${esc(u.question || u.fingerprint)}</td><td>${es
 }
 
 export async function view(request, env, now = new Date()) {
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
-  if (url.searchParams.has('key')) return remember(url, env);
+  if (url.searchParams.has('key')) return remember(url, env, request);
   if (!env.STATS) return new Response('No database', {status: 503});
   return new Response(page(await report(env.STATS, now)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

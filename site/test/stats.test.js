@@ -68,7 +68,13 @@ test('/stats needs the key, then keeps it in a cookie and out of the address bar
   const first = await worker.fetch(request('/admin/website?key=k3y&days=7'), e, {});
   assert.equal(first.status, 302);
   assert.equal(first.headers.get('Location'), '/admin/website?days=7');
-  assert.match(first.headers.get('Set-Cookie'), /jp_stats=k3y; Path=\/;.*HttpOnly; Secure/);
+  // A session cookie, never the key itself (src/auth.js); the old raw-key cookie is removed.
+  const cookies = first.headers.get('Set-Cookie');
+  assert.match(cookies, /jp_admin=v1\.\d{10}\.[\w-]+; Path=\/; Max-Age=2592000; HttpOnly; Secure; SameSite=Strict/);
+  assert.ok(!cookies.includes('k3y'));
+  assert.match(cookies, /jp_stats=; Path=\/; Max-Age=0/);
+  const session = cookies.match(/jp_admin=([^;]+)/)[1];
+  assert.equal((await worker.fetch(request('/admin/website', {headers: {Cookie: `jp_admin=${session}`}}), e, {})).status, 200);
   assert.equal((await worker.fetch(request('/admin/website', {headers: {Cookie: 'jp_stats=k3y'}}), {...e, STATS_KEY: ''}, {})).status, 404);
 });
 

@@ -16,7 +16,7 @@ import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
 import {load as loadScouting, section as scoutingSection} from './scouting.js';
 import {LEFT_REASONS} from './knowledge.js';
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 
 export const REASONS = ['seniority', 'location', 'tech', 'company', 'role', 'other'];
 export const BUCKETS = ['0-39', '40-59', '60-79', '80-100', 'unscored'];
@@ -248,7 +248,7 @@ ${data.cost.steps.map(row => `<tr><td>${esc(row.action)}</td><td>${row.calls}</t
 
 // GET /intel?days=30 (the /stats key or cookie)
 export async function view(request, env, now = new Date()) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const asked = Number(new URL(request.url).searchParams.get('days'));
   const data = await report(env.STATS, [7, 30, 90].includes(asked) ? asked : 30, now);
   data.trends = await insightTrends(env.STATS, now).catch(() => null);

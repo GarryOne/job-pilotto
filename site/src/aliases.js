@@ -10,7 +10,7 @@ import {BUTTON_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias} from 
 import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, digestOf, flag} from './guard.js';
 import {benchmarks, report} from './knowledge.js';
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];
@@ -60,7 +60,7 @@ export async function evaluateVerifiedAliases(db, now = new Date()) {
 // GET / PUT /api/aliases (owner)
 export async function aliases(request, env, now = new Date()) {
   if (!env.STATS) return json({ok: false, error: 'not configured'}, 503);
-  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (request.method === 'GET') {
     const all = (await env.STATS.prepare('SELECT key, phrase, status, rollout, source, note FROM aliases ORDER BY phrase').all()).results || [];

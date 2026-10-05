@@ -4,7 +4,7 @@
 //   fingerprint no real form produces) revokes whoever asks for it. The owner reads it all on /telemetry and at GET /api/guard.
 // The honest limit: this adds friction and traceability. Anything a running app can download, a determined user can copy; the aim is that
 // copying costs effort and leaves a trace. Every database call is allowed to fail (a missing table must never block a real user).
-import {allowed} from './stats.js';
+import {isOwner} from './stats.js';
 
 const day = date => date.toISOString().slice(0, 10);
 
@@ -57,7 +57,7 @@ export async function flags(db, days = 7, now = new Date()) {
 
 // GET /api/guard (owner): the flags. POST {action: 'honeypots', count} plants decoys; {action: 'revoke'|'unrevoke', who}.
 export async function guard(request, env, now = new Date()) {
-  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   if (request.method === 'GET') return Response.json(await flags(env.STATS, 7, now), {headers: {'Cache-Control': 'private, no-store'}});
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
   const body = await request.json().catch(() => ({}));
