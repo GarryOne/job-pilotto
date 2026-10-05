@@ -12,5 +12,6 @@ const issues = JSON.parse(execFileSync('gh', ['issue', 'list', '--label', 'auto-
 let judged = [];
 try { judged = asIssues(registerEntries(JSON.parse(execFileSync('gh', REGISTER_LIST, {encoding: 'utf8'}))[0]?.body)); } catch { judged = []; }
 fs.mkdirSync(out, {recursive: true});
-fs.writeFileSync(path.join(out, 'facts.md'), weekFacts([...issues, ...judged]));
+const lessons = fs.existsSync(path.join(out, 'lessons.md')) ? fs.readFileSync(path.join(out, 'lessons.md'), 'utf8') : '';   // finder-review.yml runs reversals.mjs first
+fs.writeFileSync(path.join(out, 'facts.md'), weekFacts([...issues, ...judged]) + (lessons ? `\n## Verdicts a person corrected (the strongest lessons: make the rules decide these the way the person did)\n${lessons}` : ''));
 console.log(`${path.join(out, 'facts.md')}: ${issues.length} loop issues read`);

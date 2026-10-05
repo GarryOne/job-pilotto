@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, capNewAi, droppedTable, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {FLAKY, REGRESSION, fixedBefore, flakyOn, flakyComment, regressionComment} from './lib/triage.mjs';
 import {asIssues, entryOf, NOISE_WORDS, pendingOf, REGISTER_LABEL, registerBody, registerEntries, wordOf} from './lib/prejudge.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
@@ -198,11 +199,14 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
-      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : []), ...(word === 'real' ? [CONFIRMED] : word === 'needs-human' ? [NEEDS_HUMAN] : [])];
-      for (const label of labels.slice(1).filter(name => name !== CONFIRMED && name !== NEEDS_HUMAN)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
+      const regressed = fixedBefore(finding, everything);   // the same defect a fix closed: the fix did not hold
+      const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : []), ...(word === 'real' ? [CONFIRMED] : word === 'needs-human' ? [NEEDS_HUMAN] : []), ...(regressed ? [REGRESSION] : [])];
+      if (regressed) gh(['label', 'create', REGRESSION, '--force', '--color', 'B60205', '--description', 'A defect a fix had closed came back']);
+      for (const label of labels.slice(1).filter(name => name !== CONFIRMED && name !== NEEDS_HUMAN && name !== REGRESSION)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]) || '').trim();
       if (/\/issues\/\d+$/.test(url)) createdNow.push(Number(url.split('/').pop()));
       // Judged before filing: the verdict is the issue's first comment (the same layout as the verdict pass's).
+      if (regressed && /\/issues\/\d+$/.test(url)) { out.regressions = [...(out.regressions || []), Number(url.split('/').pop())]; gh(['issue', 'comment', url.split('/').pop(), '--body', regressionComment(regressed, runUrl)]); }
       if (judged && /\/issues\/\d+$/.test(url)) gh(['issue', 'comment', url.split('/').pop(), '--body', verdictComment(judged, {number: Number(url.split('/').pop())})]);
       out.filed.push(finding.id);
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {
@@ -235,6 +239,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     } catch { return null; }
   };
   for (const {issue, view} of gone) {
+    // Failed on this very commit, and its suite passed now: flaky, whatever happens next (it still closes after two clean runs).
+    if (suiteCleared(issue) && flakyOn(issue, testedSha(build)) && !(issue.labels || []).some(item => (item.name || item) === FLAKY)) {
+      gh(['label', 'create', FLAKY, '--force', '--color', 'FEF2C0', '--description', 'A test step that failed and passed on the same commit']);
+      gh(['issue', 'edit', String(issue.number), '--add-label', FLAKY]);
+      gh(['issue', 'comment', String(issue.number), '--body', flakyComment(testedSha(build), runUrl)]);
+      out.flaky = [...(out.flaky || []), issue.number];
+    }
     const fix = fixOf(issue);
     if (fix && !(issue.labels || []).some(item => (item.name || item) === NOT_SEEN)) {
       gh(['issue', 'comment', String(issue.number), '--body', closedByFixComment(runUrl, fix.sha, build)]);
@@ -324,7 +335,9 @@ export const chooseVerdictCandidate = options => chooseVerdictCandidates({...opt
 export function writeCandidate(candidate, outDir) {
   const base = fs.readFileSync(new URL(candidate.mode === 'verdict' ? './ui-verdict-prompt.md' : './ui-fix-prompt.md', import.meta.url), 'utf8');
   fs.writeFileSync(path.join(outDir, 'candidate.json'), JSON.stringify({mode: candidate.mode || 'fix', number: candidate.number, title: candidate.title, id: candidate.labels.map(l => l.name).find(n => n.startsWith('fp:')).slice(3), screenshot: screenshotOf(candidate)}));
-  fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base));
+  // The owner's corrections (reversals.mjs writes them first): the judge learns from the cases a person decided the other way.
+  const lessons = candidate.mode === 'verdict' && fs.existsSync(path.join(outDir, 'lessons.md')) ? fs.readFileSync(path.join(outDir, 'lessons.md'), 'utf8') : '';
+  fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base) + lessons);
 }
 
 // What people wrote on the issue: the loop's own comments (Seen again, Not seen, Closed, verdicts) are left out; a person's note often names the real cause. Until 3 Oct 2026 the
@@ -362,7 +375,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const verdictsFile = option('verdicts');
   const verdicts = verdictsFile && fs.existsSync(verdictsFile) ? JSON.parse(fs.readFileSync(verdictsFile, 'utf8')) : null;
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac', verdicts});
-  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.judgedNoise?.length ? `, ${result.judgedNoise.length} judged noise before filing (not filed)` : ''}${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
+  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.judgedNoise?.length ? `, ${result.judgedNoise.length} judged noise before filing (not filed)` : ''}${result.regressions?.length ? `, ${result.regressions.length} regression(s) (a fixed defect came back)` : ''}${result.flaky?.length ? `, ${result.flaky.length} step(s) marked flaky` : ''}${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
     const candidate = result.candidate;

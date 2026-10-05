@@ -18,6 +18,7 @@ if (at('--parse')) {
   fs.mkdirSync(path.join(out, 'shots'), {recursive: true});
   for (const item of pending) if (item.screenshot && fs.existsSync(item.screenshot)) { const to = path.join(out, 'shots', `${item.id}.png`); fs.copyFileSync(item.screenshot, to); item.screenshot = to; } else item.screenshot = '';
   const base = fs.readFileSync(new URL('./ui-verdict-prompt.md', import.meta.url), 'utf8').replace(/\n3\. Write \.heal\/verdict\.md\./, '\n3. Write the verdict (see THIS RUN below for the file).');
-  fs.writeFileSync(path.join(out, 'prejudge-prompt.md'), prejudgePrompt(pending, base));
+  const lessons = fs.existsSync(path.join(out, 'lessons.md')) ? fs.readFileSync(path.join(out, 'lessons.md'), 'utf8') : '';   // the owner's corrections (reversals.mjs)
+  fs.writeFileSync(path.join(out, 'prejudge-prompt.md'), prejudgePrompt(pending, base) + lessons);
   console.log(`${pending.length} finding(s) to judge: ${path.join(out, 'prejudge-prompt.md')}`);
 }

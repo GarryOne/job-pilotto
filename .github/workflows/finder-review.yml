@@ -39,7 +39,9 @@ jobs:
         run: node desktop/e2e/ai-budget.mjs --check
       - name: Gather the Finder's week (no AI)
         if: steps.budget.outputs.skip != 'true'
-        run: node desktop/e2e/finder-review.mjs .finder-review
+        run: |
+          node desktop/e2e/reversals.mjs --out .finder-review/lessons.md   # the owner's corrections: the strongest lessons of the week
+          node desktop/e2e/finder-review.mjs .finder-review
       - name: Claude Code proposes Finder changes
         if: steps.budget.outputs.skip != 'true'
         id: claude

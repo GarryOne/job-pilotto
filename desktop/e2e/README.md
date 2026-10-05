@@ -240,3 +240,8 @@ Every open UI-loop issue carries one label `priority:P0` to `P3`, recomputed aft
 
 ## One failed step never hides the rest (5 Oct 2026)
 A suite that exports `keepGoing = true` (activityfailures, activity, focus, settings, interactions; calendar and interviews use `independent()`) records a failed step and runs the next one (`lib/runner.mjs`); the suite still fails at the end. Setup steps the others need pass `{critical: true}` and still stop it. Why: one outdated step hid fifteen later ones, twice in one day. The Finder still files the first failed step and lists the later ones under it.
+
+## Regressions, flaky steps and the owner's corrections (5 Oct 2026)
+- **Regression:** a new finding that matches an issue a FIX closed (a commit said it fixes it, or the fixer merged) is labelled `regression`, gets a comment naming the old issue, and is P1 at least (`fixedBefore`).
+- **Flaky:** a failed-step issue whose suite passes on the same commit it failed on is labelled `flaky`, gets a comment, and is ranked P3: the product did not change, so the test is the problem (`flakyOn`).
+- **Corrections:** `reversals.mjs` reads the repository's issue events: a person reopening an issue the loop closed as noise, removing `confirmed`, or closing a confirmed issue as not planned. Each becomes a lesson, with the person's words, appended to the verdict pass's prompt, the judgement before filing and the weekly Finder self-review (`lib/reversals.mjs`). The loop's own events never count.

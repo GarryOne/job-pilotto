@@ -59,6 +59,7 @@ jobs:
           node-version: '22'
       - name: The finding and its screenshot
         run: |
+          node desktop/e2e/reversals.mjs --out .heal/lessons.md   # the owner's corrections, appended to the prompt
           node desktop/e2e/pick.mjs --out .heal --issue "$NUMBER"
           shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
           if [ -n "$shot" ]; then curl -fsSL -o .heal/screenshot.png "$shot" || echo "screenshot not downloaded"; fi

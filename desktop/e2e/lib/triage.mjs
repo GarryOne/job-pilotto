@@ -309,6 +309,19 @@ function sightingKeys(issue, keep = () => true) {
 export const sightings = issue => Math.max(1, sightingKeys(issue).size);
 
 // Sightings of an issue in the last `days` days, one per commit: the issue itself (when it was filed that recently) and each "Seen again" comment. Undated ones (older data, tests) count.
+// REGRESSIONS and FLAKY steps (5 Oct 2026). A new finding that matches an issue a FIX closed (a commit said it fixes it, or the fixer's merge) is a regression:
+// labelled, raised to P1 at least, so a fix that did not hold is never a quiet new P3. A failed step whose suite then passed on the SAME commit is flaky: the
+// product did not change, so the test is the problem; labelled, ranked last, and listed as such (13 of 28 failed-step issues cleared on their own).
+export const REGRESSION = 'regression', FLAKY = 'flaky';
+const FIXED = /^(?:Closed: commit [0-9a-f]+ says it fixes this|Fixed by https?:\/\/)/;
+export const closedByFix = issue => issue.state === 'CLOSED' && issue.stateReason !== 'NOT_PLANNED' && (issue.comments || []).some(comment => FIXED.test(comment.body || ''));
+export const fixedBefore = (finding, issues) => matchExisting(finding, (issues || []).filter(closedByFix), 0.3, 'CLOSED');
+// The commits a failed-step issue was seen failing on (its body and its "Seen again" comments).
+export const failedCommits = issue => new Set([commitOf(issue.body), ...(issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).map(comment => commitOf(comment.body))].filter(Boolean));
+export const flakyOn = (issue, sha7) => !!sha7 && /·\s*test-failure\s*·/.test(issue.body || '') && failedCommits(issue).has(sha7);
+export const regressionComment = (issue, runUrl) => `↩️ **Regression:** this looks like #${issue.number} ("${String(issue.title || '').replace(/^\[auto-ui\] /, '').slice(0, 80)}"), which a fix closed. The fix did not hold (${runUrl}).`;
+export const flakyComment = (sha7, runUrl) => `🎲 **Flaky:** this step failed and then passed on the same commit \`${sha7}\` (${runUrl}). The product did not change, so the test is the problem: labelled \`flaky\`, ranked last, never offered to the fixer.`;
+
 export function recentSightings(issue, now = Date.now(), days = 7) {
   return sightingKeys(issue, date => !date || now - Date.parse(date) <= days * 86400000).size;
 }
@@ -333,8 +346,10 @@ export function priorityOf(issue, now = Date.now()) {
   const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
   const seen = recentSightings(issue, now), points = score(issue, now);
   if (labels.includes(NOT_SEEN)) return 'P3';   // already clean in the latest run: waiting to close, never above the rest
+  if (labels.includes(FLAKY)) return 'P3';   // the test, not the product
+  const regressed = labels.includes(REGRESSION);
   if (severity === 'HIGH' && BLOCKING_KINDS.includes(kind) && (seen >= 2 || labels.includes(CONFIRMED))) return 'P0';
-  return points >= 6 ? 'P1' : points >= 3 ? 'P2' : 'P3';
+  return points >= 6 || regressed ? 'P1' : points >= 3 ? 'P2' : 'P3';   // a fix that did not hold is never a quiet P3
 }
 
 // What breaks the product outranks what is only rough: a wrong result > a dead or broken control > a missing spinner; a crashed test step is the harness, not the product.
