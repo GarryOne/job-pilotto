@@ -47,6 +47,8 @@ async function replay(spec, html) {
     trace: (summary.trace || []).find((row) => row.label === spec.label) || null,
     // The fill's trace names the field by its question (not one of its choices) and knows whether it is required.
     traced: (summary.trace || []).some((row) => row.label === spec.label),
+    // Read: traced as a question the reader understood, not as one it missed (a reading failure's fixture is red until fixed).
+    read: (summary.trace || []).some((row) => row.label === spec.label && !/^question (on the page not read|text not found)/.test(row.reason || '')),
     required: !!(summary.trace || []).find((row) => row.label === spec.label)?.required,
     error: summary.error || null,
   };

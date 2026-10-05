@@ -67,11 +67,21 @@
     return entries;
   };
 
+  // A field's own title when nothing ties it to the field (Ashby's location: <label for="…"> naming no element): the one label
+  // tied to no control in the field's entry, within three levels; never two (that is a group's title, not this field's).
+  const looseLabel = el => {
+    for (let up = el.parentElement, i = 0; up && i < 3; up = up.parentElement, i++) {
+      const loose = Array.from(up.querySelectorAll('label')).filter(l => !l.control && !l.querySelector('input, select, textarea'));
+      if (loose.length === 1) return loose[0].textContent;
+      if (loose.length > 1) return '';
+    }
+    return '';
+  };
   const labelOf = el => {
     const own = Array.from(el.labels || [], l => l.textContent).join(' ') || el.getAttribute('aria-label');
     const byId = el.getAttribute('aria-labelledby');
     const labelled = byId && byId.split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ');
-    return clean(own || labelled || el.getAttribute('placeholder') || el.name || el.id);
+    return clean(own || labelled || looseLabel(el) || el.getAttribute('placeholder') || el.name || el.id);
   };
   // The question a radio group or checkbox belongs to: its fieldset legend or group label.
   // A fieldset's title: its <legend>, or (Ashby) a <label> whose `for` points at no control. Required when the title says so:
@@ -123,7 +133,10 @@
       !el.disabled && el.getAttribute('aria-hidden') !== 'true' &&
       !['hidden', 'submit', 'button', 'reset', 'search', 'file', 'image'].includes(el.type));
     const groups = new Set();
+    let unnamed = 0;
     for (const el of controls) {
+      // A field with neither id nor name (Ashby's location box) gets one, so it can be answered and filled like any other.
+      if (!el.id && !el.name && el.type !== 'radio' && el.type !== 'checkbox') el.id = `jp-field-${++unnamed}`;
       if (el.type === 'radio') {
         if (!el.name || groups.has(el.name)) continue;
         groups.add(el.name);
@@ -431,6 +444,7 @@
         if (result.ok) filled += 1; else todo.push(`Pick "${result.value}" for: ${result.question}${result.why ? ` (${result.why})` : ''}`);
       }
       // Which kind of control and fingerprint worked or not: no question, no answer.
+      window.__jobPilottoOperatedQuestions = operated.map(result => result.question);
       window.__jobPilottoOperated = operated.map(({kind, fp, recipe, ok, why}) => ({kind, fp, recipe: recipe || 0, ok, why: why || ''}));
     }
     const resumeAttached = resume?.data ? attachResume(resume) : false;
@@ -465,6 +479,22 @@
       seenGroups.add(q);
       return [{...row, field: `group:${q}`, label: q, filled: boxes.some(b => b.checked), required: boxes.some(b => b.required) || row.required}];
     });
+    // Required questions the page shows that nothing above read (page/coverage.js): a layout the reader doesn't know. Each is
+    // listed for you, counted as required, and traced as a reading failure, so it is reported (with its HTML) and learned.
+    const unread = [];
+    if (window.__jobPilottoCoverage) {
+      // Read = asked about: the described fields and the widgets an operator answered. Not the audit's rows: a field can be on
+      // the page (and in the audit) without its question ever having been asked.
+      const read = [...form.map(row => row.label), ...(window.__jobPilottoOperatedQuestions || [])];
+      for (const item of window.__jobPilottoCoverage.unread(document, read, visible)) {
+        item.area.setAttribute('data-jobpilotto-unread', item.question);
+        unread.push(item);
+        const same = after.find(row => norm(row.label) === norm(item.question));
+        if (same) Object.assign(same, {required: true, unread: true});
+        else after.push({field: `unread:${item.question}`, label: item.question, type: item.kinds[0] || '', required: true,
+          filled: window.__jobPilottoCoverage.answered(item.area), legal: LEGAL.test(item.question), unread: true});
+      }
+    }
     const open = after.filter(row => row.required && !row.filled);
     if (open.some(row => row.field === 'resume') && !resumeAttached) todo.unshift('Upload your CV');
     const armedFields = new Set(answers.filter(a => rowOf[a.field]?.type === 'combobox').map(a => a.field));
@@ -494,6 +524,14 @@
       };
       el.addEventListener('input', once); el.addEventListener('change', once);
     };
+    // Every field the fill set carries a mark, so the panel tells at Submit what you answered yourself (extension/review.js).
+    const markFilled = field => {
+      const name = String(field);
+      const els = name.startsWith('radio:') ? document.querySelectorAll(`input[type=radio][name="${CSS.escape(name.slice(6))}"]`)
+        : name.startsWith('group:') ? Array.from(document.querySelectorAll('input[type=checkbox]')).filter(b => questionOf(b) === name.slice(6))
+        : [document.getElementById(name) || document.querySelector(`[name="${CSS.escape(name)}"]`)];
+      for (const el of els) el?.setAttribute('data-jobpilotto-filled', '');
+    };
     // Field-by-field log for the run record: where each answer came from and what happened.
     const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));
     // Upload widgets' own buttons (Attach, Dropbox, Enter manually…) aren't questions: not in the log.
@@ -504,12 +542,14 @@
       let outcome = row.filled ? 'filled' : 'left';
       let reason = '';
       if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
+      else if (row.unread && !row.filled) reason = 'question on the page not read';
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
       // The question read as one of its own choices (or nothing): the page's title wasn't found, so no answer could be right.
       else if (!row.filled && !answer && (!label || (rowOf[row.field]?.options || []).some(o => norm(o) === norm(label)))) reason = 'question text not found on the page';
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
+      if (outcome === 'filled' && source) markFilled(row.field);
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};

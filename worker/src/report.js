@@ -10,7 +10,9 @@ const MECHANICAL = [
   'dropdown that opens only on a real click',
   'answer given, but the field did not take it',
   'question text not found on the page',
+  'question on the page not read',
 ];
+const READING = /^question (on the page not read|text not found)/;
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 // All snapshots of one report together stay under this, so the intake workflow's input (64 KB) always fits.
@@ -68,7 +70,10 @@ export async function handleReport(request, env, dispatch, now = Date.now()) {
     const seen = JSON.parse((await kv.get(key)) || '{"senders":[],"n":0,"sent":false}');
     seen.n += 1;
     if (!seen.senders.includes(who) && seen.senders.length < 20) seen.senders.push(who);
-    const recurs = seen.senders.length >= ISSUE_MIN_SENDERS || seen.n >= ISSUE_MIN_REPORTS;
+    // On first sight: the owner's own app (trusted: it is how the owner tests a new board) and a required question the
+    // reader did not read (a whole question missed on every install, not one widget's quirk). Others wait until they recur.
+    const firstSight = trusted || report.fields.some((f) => READING.test(f.reason));
+    const recurs = firstSight || seen.senders.length >= ISSUE_MIN_SENDERS || seen.n >= ISSUE_MIN_REPORTS;
     const open = recurs && !seen.sent;
     if (open) seen.sent = true;
     await kv.put(key, JSON.stringify(seen), { expirationTtl: open ? WEEK : 14 * 24 * 3600 });

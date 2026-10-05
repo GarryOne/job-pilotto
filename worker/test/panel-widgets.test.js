@@ -64,3 +64,28 @@ test('a required Ashby radio group (titled by a label, "*" drawn by CSS) is one 
   assert.equal(before.pill, '1 left');
   assert.equal(after.pill, 'Ready to submit');
 });
+
+// Signal 3, at Submit: the panel tells the app which questions you answered yourself that the fill left or never read (labels
+// and kinds only), so the product counts what each board's fill misses. A required question nothing read is listed meanwhile.
+const UNREAD = `<div class="entry"><div class="question-title is-required">How many players at most?</div>
+  <div><input type="radio" id="p4"><label for="p4">4</label><input type="radio" id="p6"><label for="p6">6</label></div></div>`;
+test('a required question nothing read is listed; answering it yourself is reported at Submit as never read', { skip: !JSDOM }, async () => {
+  const { window } = openPage(JSDOM, FORM(`${UNREAD}<button type="button" id="go">Submit application</button>`));
+  const sent = [];
+  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.eval(read('extension/page/skeleton.js'));
+  window.eval(read('extension/page/coverage.js'));
+  window.eval(read('extension/review.js'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const pill = () => window.document.getElementById('jobpilotto-review-host').shadowRoot.querySelector('.pill b').textContent;
+  assert.equal(pill(), '1 left');
+  const trusted = (el, type) => { const event = new window.MouseEvent(type, { bubbles: true }); event.__jpTrusted = true; el.dispatchEvent(event); };
+  window.document.getElementById('p6').checked = true;
+  trusted(window.document.getElementById('p6'), 'click');
+  trusted(window.document.getElementById('go'), 'click');
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.close();
+  const learning = sent.find((m) => m.type === 'formLearning');
+  assert.deepEqual(JSON.parse(JSON.stringify(learning?.byYou)), [{ label: 'How many players at most?', kind: 'unread', unread: true }]);
+  assert.ok(!JSON.stringify(learning).includes('"6"'), 'never the answer');
+});

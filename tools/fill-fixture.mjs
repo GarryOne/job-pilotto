@@ -1,11 +1,13 @@
 // Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 //   node tools/fill-fixture.mjs <issue> [--answer "Master's"] [--expect-picked "Master's Degree" | --expect-checked Yes | --expect-value …]
 //   node tools/fill-fixture.mjs --body-file issue.md --issue 16 …    (offline: the issue's text saved in a file)
+//   node tools/fill-fixture.mjs 12 --repo GarryOne/job-pilotto-internal   (a private triage issue: one fixture per reported field)
 // Then run `cd worker && node --test test/fill-replay.test.js`: the new fixture should fail until the fix lands.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { snapshotFromReport } from '../worker/src/snapshot.js';
 
 export const MARK = '<!-- job-pilotto:snapshot v1 -->';
 export const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../worker/test/fixtures/fill');
@@ -27,6 +29,30 @@ export function fromIssue({ number, body = '', comments = [] }, { answer = null,
     spec: { source: `issue #${number}`, site, label, reason, note: `From issue #${number}'s snapshot.`, answer, expect } };
 }
 
+// Reading failures (a question the reader did not read, or read as one of its own choices): the fixture's test is that the
+// fill names the question and knows it is required. It stays red until the reader is fixed.
+const READING = /^question (on the page not read|text not found)/;
+
+// Fixtures straight from a report's fields (the private triage's issue carries them as JSON, each with its snapshot): one per
+// field that has a snapshot; a field without one is skipped.
+export function fromFields(site, fields, { source = 'synthetic', answer = null } = {}) {
+  const out = [];
+  for (const field of Array.isArray(fields) ? fields : []) {
+    // As the Worker keeps it (scrubbed HTML), or as the page sent it (a tree, scrubbed here).
+    const html = typeof field?.snapshot === 'string' ? field.snapshot : field?.snapshot ? snapshotFromReport(field.snapshot) : '';
+    if (!html || !site || !field.label) continue;
+    const reading = READING.test(field.reason || '');
+    out.push({ name: `${site}--${slug(field.label)}`, html,
+      spec: { source, site, label: field.label, reason: field.reason || '', note: `From a fill-failure report (${source}).`,
+        answer: reading ? '' : answer, expect: reading ? { read: true, required: true } : {} } });
+  }
+  return out;
+}
+// A private triage issue's report fields: the ```json block of its "Snapshots" section.
+export function fieldsOfIssue(body) {
+  try { return JSON.parse(String(body).match(/```json\n([\s\S]*?)```/)?.[1] || '[]'); } catch { return []; }
+}
+
 export function write(fixture, { dir = DIR, force = false } = {}) {
   const base = path.join(dir, fixture.name);
   if (!force && fs.existsSync(`${base}.json`)) throw new Error(`${base}.json exists (--force replaces it)`);
@@ -46,8 +72,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(2);
   }
   const issue = bodyFile ? { number, body: fs.readFileSync(bodyFile, 'utf8'), comments: [] }
-    : JSON.parse(execFileSync('gh', ['issue', 'view', number, '--json', 'number,body,comments'], { encoding: 'utf8' }));
+    : JSON.parse(execFileSync('gh', ['issue', 'view', number, '--json', 'number,title,body,comments', ...(option('--repo') ? ['--repo', option('--repo')] : [])], { encoding: 'utf8' }));
   const expect = Object.fromEntries(['picked', 'checked', 'value'].map((key) => [key, option(`--expect-${key}`)]).filter(([, v]) => v !== undefined));
+  // A private triage issue (job-pilotto-internal, --repo): its fields JSON, one fixture per field with a snapshot.
+  const site = issue.title?.match(/^Fill failure: ([a-z0-9.-]+)/)?.[1] || '';
+  const fromTriage = site ? fromFields(site, fieldsOfIssue(issue.body), { source: `issue #${number}`, answer: option('--answer') ?? null }) : [];
+  if (fromTriage.length) {
+    for (const each of fromTriage) console.log(`Wrote ${write(each, { force: args.includes('--force') })}.html and .json.`);
+    console.log('Then: cd worker && node --test test/fill-replay.test.js  (it should fail before the fix, pass after)');
+    process.exit(0);
+  }
   const fixture = fromIssue(issue, { answer: option('--answer') ?? null, expect });
   if (!fixture) {
     console.error(`Issue #${number} has no snapshot (only reports sent since snapshots were added carry one). Build the fixture by hand from the ` +

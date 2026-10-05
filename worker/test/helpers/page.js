@@ -4,7 +4,7 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(new URL(`../../../${path}`, import.meta.url), 'utf8');
 export const PAGE_SCRIPTS = ['extension/page/browser-submit-guard.js', 'extension/page/browser-form-fastpath.js',
-  'extension/page/snapshot.js', 'extension/page/fill.js'];
+  'extension/page/snapshot.js', 'extension/page/skeleton.js', 'extension/page/controls.js', 'extension/page/coverage.js', 'extension/page/fill.js'];
 
 // jsdom is a dev dependency: CI installs it (npm ci). A worktree whose linked node_modules predates it skips the
 // DOM tests locally with a note instead of failing every other suite; `npm install` in worker/ brings it.
@@ -15,7 +15,8 @@ export async function loadJsdom() {
   }
 }
 
-export function openPage(JSDOM, html, { url = 'https://job-boards.greenhouse.io/replay/jobs/1' } = {}) {
+// patch: {path: source => source}, a planted bug for the learning-loop test (worker/test/fill-learning.test.js).
+export function openPage(JSDOM, html, { url = 'https://job-boards.greenhouse.io/replay/jobs/1', patch = {} } = {}) {
   const dom = new JSDOM(`<!doctype html><html><head></head><body>${html}</body></html>`, { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   const hidden = (el) => !!el.closest('[hidden], [style*="display: none"], [style*="display:none"]');
@@ -23,6 +24,9 @@ export function openPage(JSDOM, html, { url = 'https://job-boards.greenhouse.io/
   window.Element.prototype.getBoundingClientRect = function () { return { left: 0, top: 0, width: 100, height: 20, right: 100, bottom: 20 }; };
   Object.defineProperty(window.HTMLElement.prototype, 'offsetParent', { get() { return hidden(this) ? null : window.document.body; } });
   window.Element.prototype.scrollIntoView = () => {};
+  // jsdom has no ::before/::after styles (Chrome does: coverage.js reads a "*" drawn there): an empty one, not a console error.
+  const styleOf = window.getComputedStyle.bind(window);
+  window.getComputedStyle = (el, pseudo) => (pseudo ? { content: 'none', getPropertyValue: () => '' } : styleOf(el));
   window.CSS = { escape: (s) => String(s).replace(/["\\\]\[]/g, '\\$&') };
   // Chrome only opens a menu for a real (trusted) click; the test's "user click" is marked and reads as trusted.
   const listeners = new WeakMap();
@@ -41,7 +45,7 @@ export function openPage(JSDOM, html, { url = 'https://job-boards.greenhouse.io/
     return remove.call(this, type, listeners.get(listener) || listener, options);
   };
   window.__jobPilottoNoGuard = true;
-  for (const path of PAGE_SCRIPTS) window.eval(read(path));
+  for (const path of PAGE_SCRIPTS) window.eval(patch[path] ? patch[path](read(path)) : read(path));
   return window;
 }
 

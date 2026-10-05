@@ -8,6 +8,7 @@
  "expect": {
   "checked": "2x",
   "traced": true,
+  "read": true,
   "required": true
  }
 }

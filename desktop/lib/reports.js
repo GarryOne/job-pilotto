@@ -17,7 +17,8 @@ export function reportToken(storage) {
 
 export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://www.jobpilotto.workers.dev/report/fill-failure';
 export const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
-  'answer given, but the field did not take it', 'question text not found on the page'];
+  'answer given, but the field did not take it', 'question text not found on the page',
+  'question on the page not read'];
 const SNAPPED = '#snapshot';  // reportedFailures entry "<label key> #snapshot": reported with its snapshot
 const key = label => String(label || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 

@@ -104,7 +104,8 @@ export async function api(config, path, init = {}, retry = true) {
 
 // Why a field was left that is the extension's fault, not missing data (desktop/lib/reports.js reports these).
 const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
-  'answer given, but the field did not take it', 'question text not found on the page'];
+  'answer given, but the field did not take it', 'question text not found on the page',
+  'question on the page not read'];
 
 const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
   .then(([result]) => result?.result);
@@ -142,7 +143,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
-    files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js', 'page/fill.js']});
+    files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js', 'page/coverage.js', 'page/fill.js']});
   // Recipes for the kinds of control on this form, asked of the app by fingerprint (it asks the site, and remembers). A recipe
   // only configures a generic operator; no recipe, or no answer, and the operators work with their own defaults.
   try {

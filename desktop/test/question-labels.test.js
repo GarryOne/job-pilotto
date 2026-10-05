@@ -1,7 +1,7 @@
 // The questions a form asked that no answer matched are reported as wording only; anything that could be personal stays on this Mac.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {cleanLabel, flowState, unplaced} from '../lib/question-labels.js';
+import {cleanLabel, flowState, leftCounts, missedQuestions, submitCounts, unplaced} from '../lib/question-labels.js';
 
 test('a label is lower-cased and tidied, and what could carry personal data is dropped', () => {
   assert.equal(cleanLabel('  Heimatort *'), 'heimatort');
@@ -30,4 +30,24 @@ test('a page of an application becomes one word', () => {
   assert.equal(flowState({role: 'no-form'}), 'no-form');
   assert.equal(flowState({role: 'weird'}), '');
   assert.equal(flowState(null), '');
+});
+
+test('a required question the reader did not read counts as "unread", whichever wording the fill used', () => {
+  assert.deepEqual(leftCounts([{outcome: 'left', reason: 'question on the page not read'}, {outcome: 'left', reason: 'question text not found on the page'},
+    {outcome: 'left', reason: 'no answer in the kit, Profile or your details'}, {outcome: 'filled', reason: ''}]),
+  [{reason: 'unread', n: 2}, {reason: 'no_answer', n: 1}]);
+});
+
+test('at Submit: what you answered yourself (left vs never read) and what the page flagged, as counts and cleaned labels', () => {
+  const payload = {byYou: [{label: 'Notice period', kind: 'text'}, {label: 'How much has AI increased your speed?', kind: 'unread', unread: true}],
+    invalid: ['Phone']};
+  assert.deepEqual(submitCounts(payload), [{reason: 'by_you', n: 1}, {reason: 'by_you_unread', n: 1}, {reason: 'page_error', n: 1}]);
+  assert.deepEqual(missedQuestions(payload).map(q => q.kind), ['text', 'unread']);
+  assert.deepEqual(submitCounts({}), []);
+});
+
+test('the site accepts exactly the reason words the app sends (site/src/knowledge.js)', async () => {
+  const {LEFT_REASONS} = await import('../lib/question-labels.js');
+  const site = (await import('node:fs')).readFileSync(new URL('../../site/src/knowledge.js', import.meta.url), 'utf8');
+  assert.deepEqual(JSON.parse(site.match(/export const LEFT_REASONS = (\[[^\]]*\])/)[1].replace(/'/g, '"')), LEFT_REASONS);
 });

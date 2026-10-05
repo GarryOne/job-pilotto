@@ -119,7 +119,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     // Fields of one fill that stayed empty, counted by board and a fixed reason word (lib/question-labels.js leftCounts): which reason costs the most forms.
     unfilled(board, counts) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;
-      for (const item of Array.isArray(counts) ? counts.slice(0, 5) : []) {
+      for (const item of Array.isArray(counts) ? counts.slice(0, 8) : []) {
         if (!LEFT_REASONS.includes(item?.reason) || !(Number(item.n) > 0)) continue;
         const key = `${board}|${item.reason}`;
         unfilled.set(key, {board, reason: item.reason, n: (unfilled.get(key)?.n || 0) + Math.min(100, Math.round(Number(item.n)))});

@@ -85,9 +85,10 @@
       const key = grouped ? `group:${question(el)}` : el.type === 'radio' ? `radio:${el.name}` : el;
       const filled = el.type === 'file' ? !!el.files?.length : el.getAttribute('role') === 'combobox' ? comboFilled(el)
         : ['checkbox', 'radio'].includes(el.type) ? el.checked : !!String(el.value || '').trim();
-      const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false};
+      const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai');
+      entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai');
       entry.filled ||= filled;
       groups.set(key, entry);
     }
@@ -122,6 +123,15 @@
       const state = widgetState(el);
       if (!firstState.has(el)) firstState.set(el, state);
       groups.set(el, {el, label: question(el), required: true, filled: state !== firstState.get(el), ai: false, custom: true});   // custom: still a miss for reportMisses
+    }
+    // Required questions the page shows that none of the readers above read (page/coverage.js): left for you until something in
+    // their area is answered, and told apart at Submit (a question the fill never saw).
+    const cover = window.__jobPilottoCoverage;
+    if (cover) {
+      const read = [...groups.values()].map(entry => entry.label);
+      for (const item of cover.unread(document, read, visible)) {
+        groups.set(item.area, {el: item.area, label: item.question, required: true, filled: cover.answered(item.area), ai: false, unread: true});
+      }
     }
     return [...groups.values()];
   }
@@ -573,7 +583,48 @@
     return [...out.values()].slice(0, 40);
   };
   const noteLearned = () => { const items = learned(); if (items.length) send({type: 'learned', url: location.href, items}).catch(() => {}); };
-  const noteSubmit = () => { noteLearned(); send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {}); };
+  // What the fill missed, seen at Submit: the questions you answered yourself that the fill left (by_you) or never read
+  // (by_you_unread), and those the page then flags as wrong or missing. Labels (the form's wording) and kinds only, never a
+  // value. Counted per board by the product; a question the fill never read is a reading failure to learn from.
+  const touched = new Set();
+  document.addEventListener('click', event => { if (event.isTrusted && event.target instanceof Element) touched.add(event.target); }, true);
+  const kindOf = el => el.getAttribute?.('role') || (el.tagName === 'INPUT' ? el.type : el.tagName?.toLowerCase()) || '';
+  const byYou = list => {
+    const mine = [...typed, ...touched].filter(el => el.isConnected);
+    const out = [];
+    for (const entry of list) {
+      if (entry.byUs || entry.ai || !entry.filled || !entry.label) continue;
+      const area = entry.unread || entry.custom ? entry.el : entry.el.closest?.('fieldset') || entry.el;
+      const name = entry.el.name;
+      if (!mine.some(el => el === entry.el || area.contains(el) || (name && el.name === name))) continue;
+      out.push({label: entry.label.slice(0, 120), kind: entry.unread ? 'unread' : kindOf(entry.el), unread: !!entry.unread});
+    }
+    return out.slice(0, 30);
+  };
+  const flagged = () => {
+    const list = fields();
+    const bad = list.filter(entry => entry.required && !entry.filled).map(entry => entry.label);
+    for (const el of document.querySelectorAll('[aria-invalid=true]')) {
+      if (!visible(el)) continue;
+      const label = question(el);
+      if (label && !bad.includes(label)) bad.push(label);
+    }
+    return bad.filter(Boolean).slice(0, 20).map(label => label.slice(0, 120));
+  };
+  let submitNoted = 0;
+  const noteMissed = () => {
+    if (Date.now() - submitNoted < 3000) return;   // a form's submit event and its button's click are one press
+    submitNoted = Date.now();
+    const answered = byYou(fields());
+    if (answered.length) send({type: 'formLearning', url: location.href, byYou: answered}).catch(() => {});
+    // Still here a moment later: the page refused the submit; what it flags is what was missed or wrong.
+    setTimeout(() => {
+      if (!host.isConnected) return;
+      const invalid = flagged();
+      if (invalid.length) send({type: 'formLearning', url: location.href, invalid}).catch(() => {});
+    }, 2500);
+  };
+  const noteSubmit = () => { noteLearned(); noteMissed(); send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {}); };
   document.addEventListener('submit', () => noteSubmit(), true);
   document.addEventListener('click', event => {
     const button = event.target?.closest?.('button, input[type=submit], [role=button]');

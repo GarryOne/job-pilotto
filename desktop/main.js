@@ -79,7 +79,7 @@ import {installId as telemetryInstallId} from './lib/app-feedback.js';
 import * as applicationOutcomes from './lib/outcomes.js';
 import * as benchmarkLib from './lib/benchmarks.js';
 import * as aliasLibrary from './lib/aliases.js';
-import {flowState, leftCounts, unplaced} from './lib/question-labels.js';
+import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './lib/question-labels.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -2030,8 +2030,17 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     recipeReporter.alias(payload.aliasUse);   // which label meanings from the service placed a question, and whether the field took it
     recipeReporter.fillQuality(payload.filled, payload.corrections);   // which answers were filled, and which the person changed by hand (labels only)
     recipeReporter.question(unplaced(payload.trace), board);   // the form's own wording for questions no answer matched
-    recipeReporter.unfilled(board, leftCounts(payload.trace));   // why fields stayed empty: counts per fixed reason word
+    const left = leftCounts(payload.trace);
+    recipeReporter.unfilled(board, left);   // why fields stayed empty: counts per fixed reason word
+    const unreadCount = left.find(c => c.reason === 'unread')?.n || 0;
+    if (unreadCount) appLog('review', `fill: ${unreadCount} required question(s) on the page not read`, {board});
     if (payload.flow) recipeReporter.flow(board, flowState(payload.flow));   // where an application got to on this board
+    if (payload.byYou || payload.invalid) {   // at Submit: what the fill missed (the person answered it, or the page flagged it)
+      const counts = submitCounts(payload);
+      recipeReporter.unfilled(board, counts);
+      recipeReporter.question(missedQuestions(payload), board);
+      appLog('review', `at submit: ${counts.map(c => `${c.n} ${c.reason}`).join(', ') || 'nothing missed'}`, {board});
+    }
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
   server.setTabsHandler(report => review.noteTabs(report));

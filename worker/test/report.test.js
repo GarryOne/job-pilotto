@@ -69,3 +69,18 @@ test('a failure becomes an issue only when it recurs: three different senders, o
   await handleReport(new Request('https://x', { method: 'POST', body: JSON.stringify(report) }), {}, dispatch, now);
   assert.equal(calls.length, 3);
 });
+
+test('the owner\'s signed report and a required question nobody read go to triage on first sight; others wait', async () => {
+  const store = new Map();
+  const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
+  const calls = [];
+  const dispatch = async () => calls.push(1);
+  const post = (body, auth) => handleReport(new Request('https://x/report/fill-failure', { method: 'POST', body: JSON.stringify(body),
+    headers: { 'CF-Connecting-IP': '5.5.5.5', ...(auth ? { Authorization: `Bearer ${auth}` } : {}) } }), { WAITLIST: kv, REPORT_TOKEN: 't0k' }, dispatch);
+  await post({ site: 'boards.example.com', fields: [{ label: 'Pick one', reason: 'dropdown clicked, but no option matched' }] });
+  assert.equal(calls.length, 0);   // a stranger's widget quirk: counted, waits for others
+  await post({ site: 'boards.example.com', fields: [{ label: 'Team size', reason: 'question on the page not read' }] });
+  assert.equal(calls.length, 1);   // a whole question missed: at once
+  await post({ site: 'own.example.com', fields: [{ label: 'Pick one', reason: 'dropdown clicked, but no option matched' }] }, 't0k');
+  assert.equal(calls.length, 2);   // the owner's app: at once
+});

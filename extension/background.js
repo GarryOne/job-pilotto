@@ -263,7 +263,7 @@ async function arm(tabId, why = 'app tab') {
     armedLogged.add(mark);
     decide('panel', 'panel on a tab the app opened', {host, why});
   }
-  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/coverage.js', 'hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
 }
 // The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
@@ -410,8 +410,11 @@ function reportControls(config, tab, operated, trace) {
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-  const unplaced = (Array.isArray(trace) ? trace : []).filter(row => row && row.reason === NO_ANSWER && row.type !== 'file').slice(0, 25)
-    .map(row => ({label: String(row.label || '').slice(0, 100), type: String(row.type || '').slice(0, 20), required: !!row.required, reason: NO_ANSWER}));
+  // Every field left and why, so the app counts each reason per board (lib/question-labels.js leftCounts); the wording only of
+  // the rows no answer matched (the app learns it), never of the others.
+  const unplaced = (Array.isArray(trace) ? trace : []).filter(row => row && row.outcome !== 'filled' && row.reason && row.type !== 'file').slice(0, 25)
+    .map(row => ({label: row.reason === NO_ANSWER ? String(row.label || '').slice(0, 100) : '', type: String(row.type || '').slice(0, 20),
+      required: !!row.required, outcome: 'left', reason: String(row.reason).slice(0, 80)}));
   // Which service meanings placed a question, and whether the field took the value (counts only: the canary's evidence).
   const aliasUse = (Array.isArray(trace) ? trace : []).filter(row => row && row.alias).slice(0, 20).map(row => ({phrase: String(row.alias).slice(0, 60), ok: row.outcome === 'filled'}));
   // The questions the fill did answer (form wording only), so corrections can be counted against them.
@@ -580,6 +583,15 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       reply({ok});
     }, () => reply({ok: false}));
     return true;
+  }
+  // At Submit, what the fill missed (review.js noteMissed): labels and kinds only, counted per board by the app.
+  if (message?.type === 'formLearning' && sender.tab) {
+    const labels = list => (Array.isArray(list) ? list : []).slice(0, 30);
+    const byYou = labels(message.byYou).map(item => ({label: String(item?.label || '').slice(0, 120), kind: String(item?.kind || '').slice(0, 20), unread: !!item?.unread}));
+    const invalid = labels(message.invalid).map(label => String(label || '').slice(0, 120));
+    reportFlow(sender.tab, null, {...(byYou.length ? {byYou} : {}), ...(invalid.length ? {invalid} : {})});
+    reply({ok: true});
+    return false;
   }
   if (message?.type === 'submitted' && sender.tab?.id != null) {
     const tabId = sender.tab.id;

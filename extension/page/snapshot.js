@@ -118,7 +118,10 @@
     const byName = name && (document.getElementById(name) || document.querySelector(`[name="${CSS.escape(name)}"]`));
     if (byName) return byName;
     const armed = label && Array.from(document.querySelectorAll('[data-jobpilotto-armed]')).find(el => el.dataset.jobpilottoArmed === label);
-    return armed ? armed.querySelector('input, [role=combobox]') || armed : null;
+    if (armed) return armed.querySelector('input, [role=combobox]') || armed;
+    // A required question the reader did not read (page/coverage.js): its area, marked by the fill.
+    const unread = label && Array.from(document.querySelectorAll('[data-jobpilotto-unread]')).find(el => el.dataset.jobpilottoUnread === label);
+    return unread ? unread.querySelector('input, textarea, select, [role]') || unread : null;
   };
   // Containers from widest to narrowest: the group of a radio/checkbox, else the first ancestor holding the field's
   // label (three levels up without one), then each ancestor down to the field itself.
