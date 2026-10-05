@@ -8,7 +8,7 @@ import {startAiProxy} from './ai-proxy.mjs';
 import {startNotionProxy} from './notion-proxy.mjs';
 import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
-import {appKey, DUMMY_KEY, isCi, pickEngine, testKey} from './engine.mjs';
+import {appKey, appModelEnv, DUMMY_KEY, isCi, pickEngine, testKey} from './engine.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
 import {startForms} from './forms.mjs';
 import {createVariation, placeOf} from './variation.mjs';
@@ -70,7 +70,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     Object.assign(browserEnv, {PATH: `${ctx.shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: ctx.shim.spool, JOB_PILOTTO_PORT: String(ctx.appPort)});
     if (process.platform === 'win32') browserEnv.JOB_PILOTTO_E2E_OPENER = ctx.shim.script;   // no `open` on Windows (lib/apply.js chromeCommand)
   }
-  const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
+  const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
   // A seeded run of a suite that opts in lives somewhere else: another time zone (window and engine) and language (lib/variation.mjs placeOf).

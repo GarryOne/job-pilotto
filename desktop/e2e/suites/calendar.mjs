@@ -1,6 +1,7 @@
 /* global document */
 // Calendar: meetings from the Job Tracker ("Next interview") and from saved recordings, on dummy rows written through the Notion API, with the app running in a fixed time
 // zone (Asia/Tokyo, no daylight saving) and then in another (Pacific/Honolulu). Starts from a set-up install; resets only its own rows.
+import {appModelEnv} from '../lib/engine.mjs';
 import {launch} from '../lib/app.mjs';
 import {addDays, interviewProps, showsClock, trackerProps, weekDays} from '../lib/interview-data.mjs';
 import {createRow, emptyDatabase} from '../lib/notion.mjs';
@@ -153,7 +154,7 @@ export async function run(ctx) {
   });
 
   await step('the same meetings fall on other days and hours in another time zone', async () => {
-    const options = {env: {TZ: 'Pacific/Honolulu', JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url}};
+    const options = {env: {TZ: 'Pacific/Honolulu', ...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url}};
     // A second Electron next to the first sometimes misses its first window on a busy machine: one more try, then fail loudly.
     const other = await launch(options).catch(error => { console.log(`  second app did not open (${error.message.split('\n')[0]}): trying once more`); return launch(options); });
     try {

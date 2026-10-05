@@ -2,7 +2,7 @@
 // plan's fixed price); no suite loads, reads or spends an Anthropic key there. A step the AI proxy answers runs on the API engine with a placeholder key.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {appKey, DUMMY_KEY, isCi, pickEngine, testKey} from '../lib/engine.mjs';
+import {appKey, appModelEnv, DUMMY_KEY, isCi, pickEngine, testKey} from '../lib/engine.mjs';
 
 const yes = () => true, no = () => false;
 
@@ -36,4 +36,9 @@ test('the key an app holds on a Mac is the placeholder; in CI the real one', () 
 test('the placeholder key is shaped like a key and is never a real one', () => {
   assert.match(DUMMY_KEY, /^sk-ant-/);
   assert.match(DUMMY_KEY, /not-a-real-key/);
+});
+
+test('CI forces the cheap model; a Mac lets the app use its own production models', () => {
+  assert.deepEqual(appModelEnv({CI: 'true'}), {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5'});
+  assert.deepEqual(appModelEnv({}), {});
 });
