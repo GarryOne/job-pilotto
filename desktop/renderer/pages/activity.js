@@ -114,7 +114,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 // One line on what a finished run did.
 export function outcome(run) {
-  if (kindOf(run) === 'mail' && run.problem) return run.problem;   // why it read nothing comes before the counts a Notion row says (#290)
+  if (run.problem && (kindOf(run) === 'mail' || !run.ok)) return run.problem;   // why it read nothing or did not arrive comes before the counts a Notion row says (#290, #298)
   if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
   if (kindOf(run) === 'mail') {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';

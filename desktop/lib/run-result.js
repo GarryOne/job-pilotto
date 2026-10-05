@@ -19,6 +19,17 @@ export function readResult(file) {
 
 // Why a Gmail check read nothing, from the result when the engine wrote one, else from the sentences it still prints
 // (a GitHub log from before this contract, or a run whose result file was lost).
+// A digest the Telegram bot could not deliver (#298, 5 Oct 2026: the run was Failed and "1 new job", and nothing said the digest never reached the person). From the log's lines.
+export const DELIVERY_PROBLEMS = [
+  [/bot was blocked by the user|Forbidden: bot was blocked/i, 'not delivered: Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram)'],
+  [/chat not found/i, 'not delivered: Telegram cannot find the chat (check the chat id in Settings → Telegram)'],
+  [/Telegram[^\n]*\b(?:Unauthorized|401)\b|\b(?:Unauthorized|401)\b[^\n]*Telegram/i, 'not delivered: Telegram refused the bot token (Settings → Telegram)'],
+];
+export function deliveryProblem(lines) {
+  const text = (Array.isArray(lines) ? lines : [String(lines || '')]).join('\n');
+  return DELIVERY_PROBLEMS.find(([pattern]) => pattern.test(text))?.[1] || null;
+}
+
 export function mailProblem(stdout, result) {
   const code = result?.mail?.skipped;
   if (code && MAIL_SKIPPED[code]) return MAIL_SKIPPED[code];

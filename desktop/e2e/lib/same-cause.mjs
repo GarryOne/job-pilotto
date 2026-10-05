@@ -4,11 +4,19 @@
 // as a duplicate, not as a second bug. Pure.
 export const POSSIBLE_DUPLICATE = 'possible-duplicate';
 
-// created: [{number, source, suite, view}] the issues this run filed -> [{later, earlier}]
+// The same suite and run is not enough: #298 (Telegram refuses the digest) was linked to #295 (the Gmail check's Google sign-in) on that alone, two different defects. The two must
+// also share at least two words that name the thing (Notion, HTML, Telegram, Google…), not the generic ones every finding uses.
+const GENERIC = new Set('about after again also because before being check could does doing error errors failed failing from have here into just line lines more nothing other page pane people person says shown shows step still that their them then there these this those what when which while with without would your jobs run runs text found says same'.split(' '));
+export const wordsOf = text => new Set((String(text || '').toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || []).filter(word => !GENERIC.has(word)));
+export const sharedWords = (a, b) => { const left = wordsOf(a), shared = []; for (const word of wordsOf(b)) if (left.has(word)) shared.push(word); return shared; };
+export const NEEDED_WORDS = 2;
+
+// created: [{number, source, suite, view, text}] the issues this run filed -> [{later, earlier, shared}]
 export function sameCauseLinks(created = []) {
   const links = [];
   for (const item of created.filter(row => row.source === 'suite-failure' && row.suite)) {
-    const earlier = created.find(row => row.number !== item.number && row.source !== 'suite-failure' && row.suite === item.suite && row.view !== item.view);
+    const earlier = created.find(row => row.number !== item.number && row.source !== 'suite-failure' && row.suite === item.suite && row.view !== item.view
+      && (row.text === undefined || item.text === undefined || sharedWords(row.text, item.text).length >= NEEDED_WORDS));
     if (earlier) links.push({later: item.number, earlier: earlier.number});
   }
   return links;

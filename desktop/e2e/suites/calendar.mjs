@@ -59,7 +59,7 @@ export async function run(ctx) {
 
   await step('an empty calendar says nothing is scheduled and shows no meeting', async () => {
     await openCalendar();
-    if (!/Nothing scheduled/.test(await page.locator('#cal-upcoming').innerText())) throw new Error('"Coming up" does not say "Nothing scheduled"');
+    if (!/No upcoming interviews/.test(await page.locator('#cal-upcoming').innerText())) throw new Error('"Coming up" does not say "No upcoming interviews"');   // the empty card's words since fe415fb (#299: the suite still expected "Nothing scheduled")
     if (!/No past meetings yet/.test(await page.locator('#cal-past').innerText())) throw new Error('"Past" does not say there are no past meetings');
     if (await page.locator('#cal-grid .cal-chip').count()) throw new Error('the grid shows a meeting in an empty calendar');
     if ((await page.locator('#cal-title').innerText()) !== monthTitle(today)) throw new Error(`the grid opens on "${await page.locator('#cal-title').innerText()}", not the current month`);
@@ -112,7 +112,7 @@ export async function run(ctx) {
     const upcomingNames = upcoming.filter((name, i) => !(name === 'E2E Acme' && i > 0 && upcoming[i - 1] === 'E2E Zeta'));
     if (!expectUpcoming.every(name => upcomingNames.includes(name))) throw new Error(`"Coming up" lists ${JSON.stringify(upcoming)}, expected ${JSON.stringify(expectUpcoming)} in order`);
     if (future && upcomingNames.indexOf('E2E Beta') > upcomingNames.indexOf('E2E Gamma')) throw new Error('"Coming up" is not soonest first');
-    if (/Nothing scheduled/.test(await page.locator('#cal-upcoming').innerText())) throw new Error('"Coming up" says "Nothing scheduled" although meetings are coming');
+    if (/No upcoming interviews/.test(await page.locator('#cal-upcoming').innerText())) throw new Error('"Coming up" says "No upcoming interviews" although meetings are coming');
     if (!past.includes('E2E Old call')) throw new Error(`"Past" lacks the old call: ${JSON.stringify(past)}`);
     if (future && past.length !== 1) throw new Error(`"Past" lists ${JSON.stringify(past)}, expected only the old call`);
   });

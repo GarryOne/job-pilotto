@@ -5,7 +5,7 @@ import * as demo from './demo.js';
 import * as notionGate from './notion-gate.js';
 import * as requestLog from './request-log.js';
 import {jobFrom, jobFromResult} from './job-line.js';
-import {mailProblem as mailProblemFrom, readResult} from './run-result.js';
+import {deliveryProblem, mailProblem as mailProblemFrom, readResult} from './run-result.js';
 import {spawn} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import fs from 'node:fs';
@@ -350,12 +350,13 @@ export async function whenIdle(poll = 2000) {
 }
 
 export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
-  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), {mode}, record => {
+  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), {mode}, (record, log) => {
+    const problem = deliveryProblem(log);   // the digest the bot could not deliver: said on the run, not only as "Failed"
     let summary = {};
     try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
     const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
-    return fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
-      scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {};
+    return {...(problem ? {problem} : {}), ...(fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
+      scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {})};
   });
 }
 

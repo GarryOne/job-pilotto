@@ -57,7 +57,7 @@ test('the toast of a finished run agrees with its status: done, done with warnin
 
 test('a failed run says so in its own box, with its reason and the fix the app can open, never "Completed with warnings" (#290)', () => {
   const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
-  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'Not checked: the Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Connect Google again', view: 'settings'}]);
+  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Connect Google again', view: 'settings'}]);
   assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)'}).fix.label, 'Open AI settings');
   assert.equal(failureHead({ok: false, problem: 'not checked: the Anthropic API spend limit was reached'}).fix, null, 'a limit has its own link on the page');
   assert.deepEqual([failureHead({ok: false}).title, failureHead({ok: false}).fix], ['Had problems', null]);
@@ -65,4 +65,11 @@ test('a failed run says so in its own box, with its reason and the fix the app c
   assert.equal(failureHead({ok: true, warned: true}), null, 'nor one that only warned');
   assert.equal(failureHead({ok: false, live: true}), null, 'nor one still running');
   assert.equal(failureHead({ok: true, off: true}).title, 'Had problems', 'a check that is switched off counts as not done');
+});
+
+test('a digest Telegram refused is a failed run that says so, with the Telegram settings as the way out (#298); the title says it once, the sentence gives the reason', () => {
+  const blocked = failureHead({ok: false, problem: 'not delivered: Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram)'});
+  assert.deepEqual([blocked.title, blocked.summary, blocked.fix], ['Not delivered', 'Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram).', {label: 'Open Telegram settings', view: 'settings'}]);
+  const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
+  assert.deepEqual([google.title, google.summary], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).'], 'no "Not checked: Not checked" twice (#295)');
 });
