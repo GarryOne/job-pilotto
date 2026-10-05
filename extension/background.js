@@ -419,7 +419,9 @@ function reportControls(config, tab, operated, trace) {
   const aliasUse = (Array.isArray(trace) ? trace : []).filter(row => row && row.alias).slice(0, 20).map(row => ({phrase: String(row.alias).slice(0, 60), ok: row.outcome === 'filled'}));
   // The questions the fill did answer (form wording only), so corrections can be counted against them.
   const filled = (Array.isArray(trace) ? trace : []).filter(row => row && row.outcome === 'filled' && row.source && row.type !== 'file').slice(0, 30).map(row => String(row.label || '').slice(0, 100));
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled})}).catch(() => {});
+  // How many required questions the form had (the CV and consents aside): the denominator of the per-board rates.
+  const required = (Array.isArray(trace) ? trace : []).filter(row => row && row.required && row.type !== 'file' && !/^legal/.test(String(row.reason || ''))).length;
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled, required})}).catch(() => {});
 }
 // Labels of filled fields the person later changed by hand (page/fill.js watchCorrection): sent once, then forgotten.
 async function reportCorrections(config, tabId) {

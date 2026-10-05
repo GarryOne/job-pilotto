@@ -9,6 +9,7 @@ import {guard} from './guard.js';
 import {view as intelligenceView} from './intelligence.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
+import {view as formLearningView} from './formlearning.js';
 import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack} from './aliases.js';
 import {tidy as tidyIntelligence} from './intelligence.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
@@ -86,6 +87,7 @@ export default {
     if (pathname === '/self-heal') return selfHealView(request, env);   // owner-only: not in public/, or it would be served to anyone
     if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
     if (pathname === '/ai-cost') return jobCostView(request, env);   // owner-only, like /self-heal
+    if (pathname === '/smart-form-filling') return formLearningView(request, env);   // owner-only: is form filling getting better
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);

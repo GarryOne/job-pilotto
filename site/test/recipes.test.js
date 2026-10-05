@@ -9,7 +9,7 @@ import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, ins
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0006_exposure.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0008_guard.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0006_exposure.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0008_guard.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0022_form_required.sql', import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};

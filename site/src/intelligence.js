@@ -22,7 +22,8 @@ export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response
 const GOOD = ['reply', 'screening', 'offer'];
 const BOARD_KIND = /^[a-z]{3,20}$/;
 const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
-const REASON_TEXT = {no_answer: 'No answer in the profile', not_taken: 'Answer given, field did not take it', real_click: 'Dropdown needs a real click', no_option: 'Dropdown opened, no option matched', other: 'Other'};
+const REASON_TEXT = {no_answer: 'No answer in the profile', not_taken: 'Answer given, field did not take it', real_click: 'Dropdown needs a real click', no_option: 'Dropdown opened, no option matched',
+  unread: 'Required question not read', by_you: 'You answered a question the fill left', by_you_unread: 'You answered a question the fill never read', page_error: 'The page flagged it after Submit', other: 'Other'};
 const day = date => date.toISOString().slice(0, 10);
 const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 const int = (value, max) => Math.max(0, Math.min(max, Math.round(Number(value)) || 0));

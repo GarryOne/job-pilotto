@@ -97,6 +97,10 @@ test('each filled form counts for its board and goes in the same batch; nothing 
   reporter.fill('ashby'); reporter.fill('ashby'); reporter.fill('h:0123456789'); reporter.fill('bad board!'); reporter.fill('');
   assert.deepEqual(await reporter.flush(), {sent: 2});
   assert.deepEqual(sent[0].exposure, [{board: 'ashby', n: 2}, {board: 'h:0123456789', n: 1}]);
+  // With the required questions each form had (the denominator of /smart-form-filling's rates), summed per board.
+  reporter.fill('ashby', 9); reporter.fill('ashby', 3); reporter.fill('lever', 'x');
+  await reporter.flush();
+  assert.deepEqual(sent[1].exposure, [{board: 'ashby', n: 2, required: 12}, {board: 'lever', n: 1}]);
   storage.saveSettings({telemetry: false});
   reporter.fill('ashby');
   assert.deepEqual(await reporter.flush(), {sent: 0});

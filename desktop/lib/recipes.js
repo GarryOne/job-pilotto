@@ -74,7 +74,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout, onSent = null} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), unfilled = new Map(), intel = emptyIntel(), timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), unfilled = new Map(), intel = emptyIntel(), timer = null, requiredBy = new Map();
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -90,9 +90,12 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       schedule();
     },
     // One form filled on this board (lib/control-events.js boardName): how often users meet each board, to aim the form lab.
-    fill(board) {
+    // `required`: how many required questions it had, the denominator of the real-use rates on /smart-form-filling.
+    fill(board, required = 0) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;
       fills.set(board, (fills.get(board) || 0) + 1);
+      const asked = Math.max(0, Math.min(200, Math.round(Number(required)) || 0));
+      if (asked) requiredBy.set(board, (requiredBy.get(board) || 0) + asked);
       schedule();
     },
     // Questions of one fill that no answer matched (lib/question-labels.js unplaced): the form's own wording, counted per board.
@@ -245,13 +248,14 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
   }
   async function flush() {
     if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !unfilled.size && !hasIntel())) return {sent: 0};
-    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n})),
+    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n, ...(requiredBy.get(board) ? {required: requiredBy.get(board)} : {})})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
       applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), unfilled: [...unfilled.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
-    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse, applications, proposals, unfilled, intel: body.intel};
+    const taken = {samples: samples.slice(0, 10), outcomes, fills, requiredBy, questions, flows, aliasUse, applications, proposals, unfilled, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
+    requiredBy = new Map();
     questions = new Map();
     flows = new Map();
     aliasUse = new Map();
@@ -272,6 +276,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
         outcomes.set(key, again);
       }
       for (const [board, n] of taken.fills) fills.set(board, (fills.get(board) || 0) + n);
+      for (const [board, n] of taken.requiredBy) requiredBy.set(board, (requiredBy.get(board) || 0) + n);
       for (const [key, entry] of taken.questions) questions.set(key, entry);
       for (const [key, entry] of taken.flows) flows.set(key, {...entry, n: entry.n + (flows.get(key)?.n || 0)});
       if (taken.intel) putBackIntel(taken.intel);
