@@ -744,15 +744,25 @@ def main():
         print('\nNo new jobs since the last run; nothing sent.')
         run['telegram'] = 'nothing new; not sent'
     else:
+        refused = None
         for message, keyboard in zip(messages, keyboards):
-            telegram.send(message, token, chat_id, keyboard)
-        if args.mode != 'more':
-            # '➕ Next' runs don't save the database, so only first pages count for rotation.
-            with store.connect(args.db) as db:
-                digest.mark_shown(db, shown_ids, seed)
-        print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
-        run['telegram'] = f'sent {len(messages)} message(s), {new_count} new'
-    if spend:
+            try:
+                telegram.send(message, token, chat_id, keyboard)
+            except Exception as error:  # a blocked bot, a removed chat, no network: the run says so in words, it does not crash
+                refused = telegram.failure_words(error)
+                break
+        if refused:
+            # The jobs are imported and saved; only the delivery failed. Not marked as shown, so the next digest lists them again.
+            print(f'Warning: {refused}')
+            run['telegram'] = 'not sent: Telegram refused it'
+        else:
+            if args.mode != 'more':
+                # '➕ Next' runs don't save the database, so only first pages count for rotation.
+                with store.connect(args.db) as db:
+                    digest.mark_shown(db, shown_ids, seed)
+            print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
+            run['telegram'] = f'sent {len(messages)} message(s), {new_count} new'
+    if spend and not run.get('telegram', '').startswith('not sent'):
         with store.connect(args.db) as db:
             budget.alert_once(db, spend, lambda text: telegram.send(text, token, chat_id))
     if tracker and args.mode == 'scheduled' and datetime.now(timezone.utc).hour == doctor.HEALTH_HOUR_UTC:

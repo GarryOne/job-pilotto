@@ -62,6 +62,20 @@ def send(text, token, chat_id, reply_markup=None):
     return payload
 
 
+def failure_words(error):
+    """What to tell the person when Telegram did not take the digest: one plain sentence, never Telegram's own JSON or the error class."""
+    code = getattr(error, 'code', None)
+    if code in (401, 404):
+        return 'Telegram refused the digest: the bot token is not valid. Connect Telegram again in Settings.'
+    if code == 403:
+        return 'Telegram refused the digest: the bot was blocked or removed from the chat. Start the bot again in Telegram, or connect it again in Settings.'
+    if code == 429:
+        return 'Telegram is limiting the bot for a moment, so the digest was not sent. It is listed again next time.'
+    if code:
+        return f'Telegram did not accept the digest (error {code}). It is listed again next time.'
+    return 'Telegram could not be reached, so the digest was not sent. It is listed again next time.'
+
+
 def keychain_token():
     """Read the optional local macOS Keychain token without printing it."""
     # sys.platform, not os.uname(): Windows has no os.uname, so `focus remind --send` crashed on every Windows run (found in the Windows e2e log, 3 Oct 2026)
