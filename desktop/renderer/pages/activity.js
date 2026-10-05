@@ -10,6 +10,7 @@ import {mailChanges, parseMailReport, settleQuestion} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {parseInterviewReview} from '../interview-review.js';
+import {parseKitsReady} from '../kits-ready.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
@@ -148,6 +149,8 @@ export function cardFor(run, text) {
   if (weekly) return target => renderWeeklyCard(weekly, target);
   const review = kindOf(run) === 'interview' ? parseInterviewReview(text) : null;
   if (review) return target => renderInterviewCard(review, target);
+  const kits = kindOf(run) === 'kits' ? parseKitsReady(text) : null;
+  if (kits) return target => renderKitsCard(kits, target);
   return null;
 }
 function showActionsResult(run, kind, draw) {
@@ -451,6 +454,7 @@ export function renderActivity(fresh) {
   // An interview review: the same card shape as the others, from the message src/ai/interviews.py wrote.
   const review = !run?.live && !card && !mail && !insight && !weekly && kindOf(run) === 'interview' && run?.message
     ? parseInterviewReview(run.message) : null;
+  const kits = !run?.live && !card && !mail && !insight && !weekly && !review && kindOf(run) === 'kits' && run?.message ? parseKitsReady(run.message) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) {
@@ -459,10 +463,11 @@ export function renderActivity(fresh) {
   else if (insight) renderInsightCard(insight);
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
+  else if (kits) renderKitsCard(kits);
   else if (reading) renderCardSkeleton();
   if (card || insight || weekly) show($('activity-result'), false);  // the card shows the same, laid out
-  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || reading);
-  const plain = !run?.live && !card && !mail && !insight && !weekly && !review && run?.message;
+  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || reading);
+  const plain = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message;
   $('activity-message').textContent = plain ? plainMessage(plain) : '';
   show($('activity-message'), !!plain && !reading);
   markFallback($('activity-message'), kindOf(run), plain && !reading ? plain : '');
@@ -922,6 +927,30 @@ export function renderInterviewCard(review, target = $('activity-card')) {
     next.append(el('span', 'insight-next-icon', icon('target')), words);
     box.append(next);
   }
+  target.replaceChildren(box);
+}
+
+// The kits a "Prepare top matches" run drafted, on the insight card's shape: the count, then one row per job with its
+// title (linked to the posting) and company. Every word is the run's own.
+export function renderKitsCard(kits, target = $('activity-card')) {
+  const box = el('div', 'insight-card');
+  const head = el('header', 'insight-head');
+  const kicker = el('div', 'insight-kicker');
+  kicker.append(el('span', 'insight-category', 'Application kits'));
+  head.append(kicker, el('h3', 'insight-title', `${plural(kits.jobs.length, 'kit')} ready`));
+  if (kits.subtitle) head.append(el('p', 'insight-subtitle', kits.subtitle));
+  const list = el('ul', 'insight-evidence kits-jobs');
+  for (const job of kits.jobs) {
+    const row = el('li', '');
+    const link = el('a', 'link', job.title);
+    link.href = job.url; link.target = '_blank'; link.rel = 'noopener';
+    row.append(link);
+    if (job.company) row.append(el('span', 'muted', ` · ${job.company}`));
+    list.append(row);
+  }
+  const section = el('section', 'insight-section');
+  section.append(list);
+  box.append(head, section);
   target.replaceChildren(box);
 }
 
