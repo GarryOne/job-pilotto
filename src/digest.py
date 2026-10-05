@@ -385,9 +385,10 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         key = (kind, in_places(job))
         if key != section:
             section = key
-            place = 'In your preferred locations' if key[1] else 'Outside your preferred locations'
+            # The one emoji in the digest besides its title: it makes the two groups easy to tell apart at a glance (owner, 5 Oct 2026).
+            place = '📍 <b>In your preferred locations</b>' if key[1] else '🌍 <b>Outside your preferred locations</b>'
             count = group_sizes[key]
-            blocks.append(tgcard.block(place, f"{SECTION_LABELS[kind]} · {count} {'job' if count == 1 else 'jobs'}"))
+            blocks.append(f"{place}\n{SECTION_LABELS[kind]} · {count} {'job' if count == 1 else 'jobs'}")
         blocks.append(_job_block(index, job))
         if shown_ids is not None:
             shown_ids.append(job['id'])

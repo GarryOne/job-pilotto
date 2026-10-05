@@ -36,6 +36,8 @@ class DigestFormatTests(unittest.TestCase):
                 message = digest.format_digest(db)
         for heading in ('In your preferred locations', 'Outside your preferred locations'):
             self.assertLessEqual(message.count(heading), 1, heading)
+        self.assertIn('📍 <b>In your preferred locations</b>', message)
+        self.assertIn('🌍 <b>Outside your preferred locations</b>', message)
         # the numbers run 1..n in the order shown, and each job sits under the heading that names its place
         numbers = [int(n) for n in re.findall(r'(?m)^(\d+)\. ', message)]
         self.assertEqual(numbers, list(range(1, len(numbers) + 1)))
