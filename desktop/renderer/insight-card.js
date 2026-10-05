@@ -13,7 +13,10 @@
 // source labels are the richer card's optional parts, and they come from `structured` — which nothing passes yet,
 // because the insight's own schema has no such fields. They are never guessed from this text: a bullet that mentions
 // a number is not a measured figure, and its wording is not a source. Absent, the card simply does not draw them.
-const HEAD = /^💡\s*Insight\s*·\s*(.+?)\s*$/;
+const HEAD = /^💡\s*Insight(?:\s*·\s*(.+?))?\s*$/;   // the plain layout (src/tgcard.py) has the category on the next line
+const NEXT_HEAD = /^Next step\s*$/;                    // plain layout: a heading, the action on the next line
+const LEVEL = /^Confidence:\s*(\w+)\s*$/i;              // plain layout: the level, then "Based on jobs data, 12 jobs."
+const BASED = /^Based on\s+(\w+)\s+data,\s*(\d+)\s+(applications?|jobs?)\.?\s*$/i;
 const BULLET = /^[•·]\s+(.+)$/;
 const ACTION = /^👉\s*(.+)$/;
 const CONFIDENCE = /^Confidence\s+(\w+)\s*·\s*(.*?)\s*data,\s*(\d+)\s+(applications|jobs)\s*$/i;
@@ -25,9 +28,21 @@ export function parseInsight(text, structured = {}) {
   const lines = String(text ?? '').split('\n').map(plain).filter(Boolean);
   const head = lines[0]?.match(HEAD);
   if (!head) return null;  // not a daily insight: another card's message, or plain text
-  const insight = {category: head[1], headline: '', evidence: [], action: '', confidence: '', basis: '',
+  const insight = {category: head[1] || '', headline: '', evidence: [], action: '', confidence: '', basis: '',
     sample: 0, sampleUnit: '', ...optional(structured)};
+  let expectAction = false;
   for (const line of lines.slice(1)) {
+    if (NEXT_HEAD.test(line)) { expectAction = true; continue; }
+    if (expectAction) { insight.action = line; expectAction = false; continue; }
+    const level = line.match(LEVEL);
+    if (level) { insight.confidence = level[1].toLowerCase(); continue; }
+    const based = line.match(BASED);
+    if (based) {
+      const unit = /^app/i.test(based[3]) ? 'applications' : 'jobs';
+      Object.assign(insight, {basis: based[1].toLowerCase(), sample: Number(based[2]), sampleUnit: unit});
+      continue;
+    }
+    if (!insight.category) { insight.category = line; continue; }   // plain layout: the line under the title
     const confidence = line.match(CONFIDENCE);
     if (confidence) {
       const [, level, basis, sample, unit] = confidence;

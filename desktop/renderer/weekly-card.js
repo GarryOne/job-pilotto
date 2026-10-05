@@ -16,13 +16,15 @@
 // Only what the message holds is read out of it; the link line at the end belongs to Telegram, and the report's
 // confidence and its "priorities from recurring evidence" live on the Notion page, not here, so the card omits them
 // rather than inventing them.
-const HEAD = /^📊\s*(?:Weekly report|Search analysis(?:\s*·\s*last 7 days)?)\s*$/;
-const FINDING = /^💡\s*(.+)$/;
-const WORKED = /^✅\s*Worked\s*$/;
-const CHANGE = /^🔧\s*Change next week\s*$/;
+const HEAD = /^📊\s*(?:Weekly report|Search analysis)(?:\s*·\s*last 7 days)?\s*:?$/;
+const SUBTITLE = /^Last 7 days$/i;   // the plain layout (src/tgcard.py) puts it on its own line under the title
+const FINDING = /^(?:💡\s*|Finding:\s*)(.+)$/;
+const WORKED = /^(?:✅\s*)?Worked\s*$/;
+const CHANGE = /^(?:🔧\s*)?Change next week\s*$/;
 const FOCUS = /^🎯\s*(.+)$/;
+const FOCUS_HEAD = /^Focus\s*$/;   // plain layout: a heading, the sentence on the next line
 const BULLET = /^[•·]\s+(.+)$/;
-const LINK = /^Full report in Notion$/;
+const LINK = /^Full report in Notion(?:\s*\(https?:\/\/[^)\s]*\))?$/;
 // The engine writes its message up for Telegram (<b>, <i>, <a>); Notion hands it back plain.
 const plain = line => line.replace(/<\/?[bia](?:\s[^>]*)?>/g, '').trim();
 
@@ -32,6 +34,9 @@ export function parseWeekly(text) {
   const weekly = {headline: '', finding: '', summary: '', worked: [], change: [], focus: ''};
   let section = '';
   for (const line of lines.slice(1)) {
+    if (SUBTITLE.test(line) && !weekly.headline) continue;
+    if (FOCUS_HEAD.test(line)) { section = 'focus'; continue; }
+    if (section === 'focus' && !weekly.focus && !LINK.test(line)) { weekly.focus = line; continue; }
     if (WORKED.test(line)) { section = 'worked'; continue; }
     if (CHANGE.test(line)) { section = 'change'; continue; }
     const focus = line.match(FOCUS);
