@@ -27,7 +27,6 @@ export async function init() {
     if (task) {
       // On the Actions page its banner and Recent runs follow it; from elsewhere (⌘K), Recent activity opens.
       if (document.querySelector('.view[data-view="actions"]').hidden) openActivity(true);
-      shared.awaitedRun = {kind: COMMAND_KIND[command], since: Date.now() - 2000};
       show($('actions-result'), false);  // the last result makes way for the one coming
       refreshActivity();
     }

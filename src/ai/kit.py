@@ -251,7 +251,8 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
         client = engine.client(action='kit')
     profile, answers = tracker.page_text(), standard_answers(tracker)
     drafted_jobs, failures = [], 0
-    for job in pending:
+    for number, job in enumerate(pending, 1):
+        print(f"Kits: drafting {number} of {len(pending)}: {job['title']}")
         try:
             _, _, page, usage = prepare_one(client, model, job, tracker, profile, answers, opener)
             cost.add(stats, model, usage)

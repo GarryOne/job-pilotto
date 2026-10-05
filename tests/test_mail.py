@@ -170,7 +170,7 @@ class MailTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             self.run_mail(tracker, google, [[result(0, 0, 'Rejected', 'Rejected for Staff Software Engineer position')]])
         self.assertEqual(out.getvalue().splitlines(),
-                         ['Updates:', '❌ Rejected · Grafana Labs — Staff Software Engineer - Databases SRE | Sweden'
+                         ['Gmail: reading new emails…', 'Updates:', '❌ Rejected · Grafana Labs — Staff Software Engineer - Databases SRE | Sweden'
                                       ' · Stage Applied → Rejected'])
 
     def test_the_run_keeps_one_record_per_email_with_its_link_and_what_it_did(self):

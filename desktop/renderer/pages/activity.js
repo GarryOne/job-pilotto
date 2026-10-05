@@ -14,7 +14,6 @@ import {parseKitsReady} from '../kits-ready.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
-import {answer} from './actions.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions} from './focus.js';
@@ -161,27 +160,42 @@ function showActionsResult(run, kind, draw) {
   show($('actions-result'));
   $('actions-result').scrollIntoView({behavior: 'smooth', block: 'nearest'});
 }
+// The Actions page shows the newest finished run's result as a card at the top, for every kind of task, however it started (your click, a schedule, Always on,
+// before a reload): the run the owner has not seen yet. "Seen" is the id of the last run whose card was shown here or dismissed, kept on this Mac; the first start
+// only marks what is already there as seen. Before 5 Oct 2026 it was only for the task clicked in this window, forgot a run whose Notion page had no Result yet, and
+// then fell back to raw chat text.
+const SEEN_KEY = 'actionsResultSeen';
+const seenResult = () => { try { return Number(localStorage.getItem(SEEN_KEY)) || 0; } catch { return 0; } };
+const markResultSeen = id => { try { localStorage.setItem(SEEN_KEY, String(id)); } catch { /* private window: it shows again after a reload */ } };
+const waitingForResult = new Set();   // run ids whose Notion page is being read for the result
 function showAwaitedResult(runs) {
-  const run = shared.awaitedRun && runs.find(r => kindOf(r) === shared.awaitedRun.kind && r.id >= shared.awaitedRun.since && r.endedAt);
-  if (!run) return;
-  shared.awaitedRun = null;
+  const newest = runs.find(r => r.endedAt && !r.live && KIND[kindOf(r)]);
+  if (!seenResult()) { markResultSeen(newest ? newest.id : 1); return; }   // first start: what is there already is not news (1: no run yet, every later one is)
+  if (!newest) return;
+  const run = runs.find(r => r.endedAt && !r.live && KIND[kindOf(r)] && r.id > seenResult());
+  if (!run || waitingForResult.has(run.id)) return;
+  const onActions = !document.querySelector('.view[data-view="actions"]').hidden;
+  if (!onActions && $('activity-panel').hidden) return;   // shown when the Actions page is opened
   const kind = KIND[kindOf(run)];
   const show = message => {
-    const text = `${kind.icon} ${kind.name}: ${message ? `\n\n${message}` : capital(outcome(run))}`;
-    if ($('activity-panel').hidden) {
-      // On the Actions page: the same card as in Recent activity (counts, top matches), not the raw text of the run.
-      const draw = cardFor(run, message);
-      if (draw) { showActionsResult(run, kind, draw); return; }
-      answer(text);
-      markFallback($('command-answer'), kindOf(run), message);
+    if (!$('activity-panel').hidden) {
+      runResults.set(run.id, message || capital(outcome(run)));  // shown under the run in Recent activity
+      shared.selectedRun = run.id;
+      markResultSeen(run.id);
+      renderActivity(lastActivity);
       return;
     }
-    runResults.set(run.id, message || capital(outcome(run)));  // shown under the run in Recent activity
-    shared.selectedRun = run.id;
-    renderActivity(lastActivity);
+    // The same card as in Recent activity (counts, top matches, the report); a run without one gets its outcome in the same frame, never raw text.
+    const draw = cardFor(run, message) || (target => target.replaceChildren(el('p', 'run-card-note', message ? plainMessage(message) : capital(outcome(run)))));
+    showActionsResult(run, kind, draw);
+    markResultSeen(run.id);
   };
-  if (run.message || !run.pageId) show(run.message);
-  else window.pilot.runDetail(run.pageId).then(detail => show(detail.message), () => show(null));  // on its Notion page
+  if (run.message || !run.pageId) { show(run.message); return; }
+  // A run recorded on this Mac has no message when it was sent to Telegram: it is on its Notion page, written a moment after the run ends.
+  waitingForResult.add(run.id);
+  const read = (tries = 0) => window.pilot.runDetail(run.pageId).then(detail => detail?.message || tries >= 6 ? detail?.message : new Promise(resolve => setTimeout(resolve, 4000)).then(() => read(tries + 1)))
+    .catch(() => null);
+  read().then(message => { waitingForResult.delete(run.id); show(message || null); });
 }
 // The status bar's last finished state, kept on this Mac: shown the moment the window opens, instead of
 // "No jobs check yet" until the run history has been read (from Notion). A running state is never kept.

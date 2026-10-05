@@ -1641,6 +1641,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
    or over its groups side by side when the card carries source labels. Both cards share it, so they read alike. */
 .insight-section { display: grid; gap: var(--sp-3); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
 .insight-section h4 { margin: 0; font-size: var(--fs-lg); }
+.run-card-note { margin: 0; padding: var(--sp-4) var(--sp-5); color: var(--ink-2); }
 .insight-evidence { margin: 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-2); color: var(--ink-2); }
 .insight-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-5); }
 .insight-group { display: grid; gap: var(--sp-2); align-content: start; }

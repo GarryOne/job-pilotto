@@ -391,12 +391,14 @@ def weekly_blocks(report, stats):
 def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None, stats=None):
     """Make, save and send the weekly report; returns a one-line summary."""
     now = now or datetime.now(timezone.utc)
+    print('Search analysis: reading your numbers…')   # each step says so: the app shows the latest line while the run works
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
             'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now),
             'learning': learning.evidence(tracker, now)}
     if client is None:
         client = engine.client(action='insight')
+    print('Search analysis: asking the AI to write the report…')
     response = client.messages.create(
         model=model, max_tokens=MAX_TOKENS,
         system=[{'type': 'text', 'text': WEEKLY_SYSTEM.format(min_group=MIN_GROUP) + profile}],
@@ -412,6 +414,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     usd = cost.usd(model, response.usage)
     if stats is not None:
         stats.update(pending=1, done=1)
+    print('Search analysis: saving it to Notion…')
     text = lambda value: {'rich_text': [{'text': {'content': value[:2000]}}]}
     page = tracker._request('POST', 'pages', {'parent': {'database_id': INSIGHTS_DATABASE_ID}, 'properties': {
         'Insight': {'title': [{'text': {'content': report['headline'][:200]}}]},
@@ -484,6 +487,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
         return 'Insight: not due'
     if not force and now.weekday() == WEEKLY_DAY:
         return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats)
+    print('Insight: reading your numbers…')
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
             'interviews': interviews.stats_for_insights(tracker), 'recent_insights': recent_insights(tracker),
@@ -491,6 +495,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
     if client is None:
         from . import engine
         client = engine.client(action='insight')
+    print('Insight: asking the AI for today\'s finding…')
     insight, usage = generate(client, model, profile, data)
     insight['issues'] = learning.validate(insight.get('issues') or [], data['learning'])
     _log_quality('insight', insight['headline'], insight.get('action'), insight.get('sample_size'))

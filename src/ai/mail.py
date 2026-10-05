@@ -1090,6 +1090,7 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         from . import engine
         client = engine.client(action='mail')
     rejected = []
+    print('Gmail: reading new emails…')
     lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected,
                              None if dry_run else on_new)
     if stats is not None:
@@ -1097,6 +1098,7 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     sent_pass(tracker, google, apps, index, days, stats, dry_run)  # your own replies: for Focus's follow-ups
     notes = []
     if calendar:
+        print('Gmail: checking the calendar…')
         cal_lines, notes = calendar_pass(tracker, google, client, model, apps, index, state, stats, now, dry_run)
         lines += cal_lines
     if not dry_run:
