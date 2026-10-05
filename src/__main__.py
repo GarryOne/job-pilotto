@@ -4,7 +4,7 @@ Commands:
   check     check for new jobs: crawl your sources, read and score new jobs, send the digest
             (modes: scheduled, run, today, more, apply); "daily" is the old name and still works
   scout     find new employers: probe a batch of candidate employers for public job feeds
-  discover  crawl the Swiss job boards (jobs.ch, TechTree) for employers, when your places include Switzerland
+  discover  crawl the job boards for employers (TechTree always; jobs.ch and SwissDevJobs when your places include Switzerland)
   feeds     crawl employer feeds only and write a local HTML report
   enrich    run AI stage 1 on pending jobs
   doctor    readiness checklist and the one next step (--next, --json)

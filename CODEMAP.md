@@ -307,7 +307,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/service.py` — The Job Pilotto service as the engine sees it: a random local install id, the token the website gives that id, and the private
 - `src/sources/aggregators.py` — Job aggregators with public APIs: more jobs straight away, and every employer they name becomes a scout candidate (via the jobs table).
 - `src/sources/ats.py` — Public job feeds of common applicant-tracking systems, normalised to one shape.
-- `src/sources/boards.py` — Discover employers from the Swiss job boards (jobs.ch, SwissDevJobs, TechTree), then follow career links. Runs only when the
+- `src/sources/boards.py` — Discover employers from the job boards (TechTree: Europe, any place; jobs.ch and SwissDevJobs: only when the user's places
 - `src/sources/careers.py` — A company's own careers page, for employers with no job-system feed (Greenhouse, Lever, ...).
 - `src/sources/describe.py` — Descriptions for jobs that arrived without one.
 - `src/sources/feeds.py` — Small, dependency-free job watcher. Python 3.10+."""
