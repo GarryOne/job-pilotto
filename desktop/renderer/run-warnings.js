@@ -87,7 +87,8 @@ export function groupWarnings(warnings) {
 }
 
 // The grouped lines minus those that only say again what the banner's "AI service is busy" sentence says.
-export const newDetails = grouped => grouped.filter(line => !/^(?!Skipped )(?:[^:]*: )?the AI service is rate-limited right now$/.test(line));
+// A line the summary above already says word for word is no detail either (#285: one warning was printed as the summary and again under "Hide details").
+export const newDetails = (grouped, summary = '') => grouped.filter(line => !/^(?!Skipped )(?:[^:]*: )?the AI service is rate-limited right now$/.test(line) && line.trim() !== String(summary).trim());
 
 // How many jobs the spend limit left unscored: the ones that failed on it, and those the run stopped before.
 export function limitedJobs(warnings) {

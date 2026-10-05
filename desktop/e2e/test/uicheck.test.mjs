@@ -238,3 +238,16 @@ test('clean screens stay quiet: a card alone, a technical log, a box inside a bo
   assert.deepEqual(of(await kinds(page, `<div><div>${ITEMS}</div></div><div><div>Interview with Northwind on Thursday at ten: prepare the system design story, the incident review and three questions about the on-call rotation and team size</div></div>`)), []);
   assert.deepEqual(of(await kinds(page, '<p>Applied · Saved &amp; ready</p>'.replace('&amp;', '&'))), []);
 }));
+
+test('rows of one list that look alike are not duplicates; a box printed twice outside a list still is (#288)', () => withChrome(async page => {
+  const row = text => `<div class="job-card"><div class="role">${text}</div></div>`;
+  const alike = 'Senior Infrastructure Engineer Kubernetes New E2E Acme Zurich Switzerland hybrid platform reliability on-call terraform observability';
+  assert.ok(!(await kinds(page, [row(alike), row(`${alike} Berlin`), row(`${alike} Basel`)].join(''))).includes('duplicate-content'), 'three rows of the same class');
+  assert.ok((await kinds(page, `<div class="warn"><div>${ITEMS}</div></div><div class="warn2"><div>${ITEMS} again</div></div>`)).includes('duplicate-content'), 'two boxes of different classes, still caught');
+}));
+
+test('with the Recent activity panel open, the page behind it is not compared with the panel (#284)', () => withChrome(async page => {
+  const behind = `<section class="card actions-result">${ITEMS}</section>`;
+  assert.ok((await kinds(page, `${behind}<div class="other-box">${ITEMS} again</div>`)).includes('duplicate-content'), 'no panel: two boxes in sight are compared');
+  assert.ok(!(await kinds(page, `${behind}<div id="activity-panel"><pre id="activity-message">${ITEMS}</pre></div>`)).includes('duplicate-content'), 'panel open: the page behind it is not what is read');
+}));

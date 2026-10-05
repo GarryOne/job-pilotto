@@ -1,4 +1,4 @@
-/* global document, getComputedStyle, NodeFilter */
+/* global CSS, document, getComputedStyle, NodeFilter */
 // Deterministic UI checks, run on every page the journey visits: the layout bugs a person sees at a glance and a unit test never does
 // (2 Oct 2026: one job row was twenty lines tall). Cheap and exact, no AI. Each finding: {view, severity, kind, detail}.
 //   severe  -> fails the journey (the page is visibly broken)
@@ -139,7 +139,11 @@ export function inspect({view, limits}) {
   // (3) duplicate-content: two separate boxes in sight that say mostly the same thing (a card and its raw source, a warning printed
   // twice, a summary above its own details). Compared by their words; one box inside the other is not a duplicate.
   const words = el => new Set((el.innerText || '').toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []);
-  const blocks = [...document.querySelectorAll('.view:not([hidden]) div, .view:not([hidden]) section, .view:not([hidden]) pre, #activity-panel div, #activity-panel pre, dialog[open] div')]
+  // The Recent activity panel is a sheet over the page: with it open, the page's own boxes behind it are not what the person reads, so only the panel's boxes are compared (#284: the Actions result card
+  // behind the panel and the panel's message said the same, by design, and were never on screen together).
+  const panel = document.getElementById('activity-panel'), panelOpen = !!panel && !panel.hidden && panel.getBoundingClientRect().height > 0;
+  const scope = panelOpen ? '#activity-panel div, #activity-panel pre, dialog[open] div' : '.view:not([hidden]) div, .view:not([hidden]) section, .view:not([hidden]) pre, #activity-panel div, #activity-panel pre, dialog[open] div';
+  const blocks = [...document.querySelectorAll(scope)]
     .filter(el => visible(el) && !el.closest('pre code, .xterm, textarea, details:not([open])') && (el.innerText || '').length >= 120)
     .filter(el => ![...el.children].some(child => (child.innerText || '').length >= 0.8 * (el.innerText || '').length))   // the innermost box that holds the text
     .slice(0, 80).map(el => ({el, set: words(el)})).filter(item => item.set.size >= 15);
@@ -148,6 +152,9 @@ export function inspect({view, limits}) {
     for (let b = a + 1; b < blocks.length && dupes.length < 2; b++) {
       const [x, y] = [blocks[a], blocks[b]];
       if (x.el.contains(y.el) || y.el.contains(x.el)) continue;
+      // Rows of one list (the same class three or more times: the job rows of Jobs, the runs of Recent activity) are alike by design: two postings for similar roles are two rows (#288).
+      const rowClass = x.el.className && x.el.className === y.el.className && typeof x.el.className === 'string' ? x.el.className.trim().split(/\s+/)[0] : '';
+      if (rowClass && document.querySelectorAll(`.${CSS.escape(rowClass)}`).length >= 3) continue;
       let shared = 0;
       for (const word of x.set) if (y.set.has(word)) shared++;
       const overlap = shared / Math.min(x.set.size, y.set.size);

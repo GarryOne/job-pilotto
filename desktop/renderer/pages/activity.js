@@ -2,7 +2,7 @@
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {barState, doneTitle, phaseStatus, runStatus, runWarned} from '../run-status.js';
+import {barState, doneTitle, failureHead, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -114,6 +114,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 // One line on what a finished run did.
 export function outcome(run) {
+  if (kindOf(run) === 'mail' && run.problem) return run.problem;   // why it read nothing comes before the counts a Notion row says (#290)
   if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
   if (kindOf(run) === 'mail') {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
@@ -499,17 +500,21 @@ export function renderActivity(fresh) {
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
   const warnings = detailWarnings;
-  const warnedOnly = !warnings.length && !run?.live && !!run?.warned;
+  const head = failureHead(run);   // a failed run says so in its box, with its reason and the fix the app can open (#290)
+  const warnedOnly = !warnings.length && !run?.live && !!run?.warned && !head;
   const limited = limitedJobs(warnings);
-  show($('activity-warnings'), warnings.length > 0 || warnedOnly);
-  if (warnings.length || warnedOnly) {
+  show($('activity-warnings'), warnings.length > 0 || warnedOnly || !!head?.problem);
+  if (warnings.length || warnedOnly || head?.problem) {
     // The headline says what it means for you ("9 jobs still need scoring"), not which card this is.
     $('activity-warnings-title').textContent = limited ? `${plural(limited, 'job')} still ${limited === 1 ? 'needs' : 'need'} scoring`
-      : run?.live ? 'Running with warnings' : 'Completed with warnings';
-    $('activity-warnings-summary').textContent = warnings.length ? warningSummary(warnings)
-      : 'The run recorded warnings, with no line about them in its log or report.';
+      : head ? head.title : run?.live ? 'Running with warnings' : 'Completed with warnings';
+    const summary = head?.problem ? head.summary : warnings.length ? warningSummary(warnings) : 'The run recorded warnings, with no line about them in its log or report.';
+    $('activity-warnings-summary').textContent = summary;
+    show($('activity-warnings-fix'), !!head?.fix);
+    $('activity-warnings-fix').textContent = head?.fix ? head.fix.label : '';
+    $('activity-warnings-fix').dataset.view = head?.fix?.view || '';
     show($('activity-warnings-limit'), limited > 0);
-    const grouped = newDetails(groupWarnings(warnings));
+    const grouped = newDetails(groupWarnings(warnings), summary);
     // One line needs no toggle: it is shown. Two or more fold behind "View N details".
     const single = grouped.length === 1;
     const listShown = single || (grouped.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));
@@ -1142,6 +1147,7 @@ export async function init() {
     if (height) setPanelHeight(height, false);
   });
   // The Anthropic console, where the spending limit lives: the warning card's one action.
+  $('activity-warnings-fix').addEventListener('click', event => { event.preventDefault(); const view = event.currentTarget.dataset.view; if (view) openView(view); });
   $('activity-warnings-limit').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal('https://console.anthropic.com/settings/limits'); });
   $('activity-warnings-fold').addEventListener('click', () => {
     foldedWarnings = foldedWarnings === String(detailRunId) ? '' : String(detailRunId);

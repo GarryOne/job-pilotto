@@ -2,7 +2,7 @@
 // warnings" and "Failed" while the Actions page said plain "Completed" for a run with warnings).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {barState, doneTitle, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
+import {barState, doneTitle, failureHead, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
 
 test('a finished run is Completed, With warnings or Failed, a running one Running, a waiting one Queued', () => {
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
@@ -53,4 +53,16 @@ test('the toast of a finished run agrees with its status: done, done with warnin
   assert.equal(doneTitle('Jobs check', {ok: true, warned: true}), '⚠️ Jobs check done with warnings', 'no green check for a run that detail pane calls "Completed with warnings"');
   assert.equal(doneTitle('Jobs check', {ok: false}), '⚠️ Jobs check had problems');
   assert.equal(doneTitle('Jobs check', {ok: true, off: true}), '⚠️ Jobs check had problems');
+});
+
+test('a failed run says so in its own box, with its reason and the fix the app can open, never "Completed with warnings" (#290)', () => {
+  const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
+  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'Not checked: the Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Connect Google again', view: 'settings'}]);
+  assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)'}).fix.label, 'Open AI settings');
+  assert.equal(failureHead({ok: false, problem: 'not checked: the Anthropic API spend limit was reached'}).fix, null, 'a limit has its own link on the page');
+  assert.deepEqual([failureHead({ok: false}).title, failureHead({ok: false}).fix], ['Had problems', null]);
+  assert.equal(failureHead({ok: true}), null, 'a run that worked has no failure head');
+  assert.equal(failureHead({ok: true, warned: true}), null, 'nor one that only warned');
+  assert.equal(failureHead({ok: false, live: true}), null, 'nor one still running');
+  assert.equal(failureHead({ok: true, off: true}).title, 'Had problems', 'a check that is switched off counts as not done');
 });

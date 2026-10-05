@@ -10,6 +10,17 @@ export function doneTitle(name, run) {
   return runWarned(run) ? `⚠️ ${name} done with warnings` : `✅ ${name} done`;
 }
 
+// What a failed run says in the box above its log, in its own words (#290, 5 Oct 2026: a Gmail check whose Google sign-in was revoked was "Failed" in the pill and "Completed with
+// warnings" in the box, with no reason and no way out). The reason is the run's `problem`; a fix the app can open is named next to it.
+export const PROBLEM_FIXES = [[/Google sign-in/i, 'Connect Google again', 'settings'], [/Claude Code is not ready/i, 'Open AI settings', 'settings']];
+export function failureHead(run) {
+  if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
+  const problem = String(run.problem || '').trim();
+  const fix = PROBLEM_FIXES.find(([pattern]) => pattern.test(problem));
+  return {problem, title: problem ? 'Not checked' : 'Had problems',
+    summary: problem ? `${problem.replace(/^./, c => c.toUpperCase())}.` : 'The run failed: its log shows where it stopped.', fix: fix ? {label: fix[1], view: fix[2]} : null};
+}
+
 // One checklist step of a search: 'done', 'now', 'todo', 'warn' (the step a warned run stopped at) or 'fail' (the step a failed run stopped at).
 // `at` is the index of the last step the log reached; a failed run's steps after it never ran, so they stay 'todo'.
 export function phaseStatus(run, i, at) {
