@@ -148,7 +148,7 @@ export function inspect({view, limits}) {
   const panel = document.getElementById('activity-panel'), panelOpen = !!panel && !panel.hidden && panel.getBoundingClientRect().height > 0;
   const scope = panelOpen ? '#activity-panel div, #activity-panel pre, dialog[open] div' : '.view:not([hidden]) div, .view:not([hidden]) section, .view:not([hidden]) pre, #activity-panel div, #activity-panel pre, dialog[open] div';
   const blocks = [...document.querySelectorAll(scope)]
-    .filter(el => visible(el) && !el.closest('pre code, .xterm, textarea, details:not([open])') && (el.innerText || '').length >= 120)
+    .filter(el => visible(el) && !el.closest('pre code, .xterm, textarea, details:not([open]), #log, pre.log, .tech-log, [data-technical]') && (el.innerText || '').length >= 120)   // the run's own log repeats the card's words on purpose (#282, #283, #285)
     .filter(el => ![...el.children].some(child => (child.innerText || '').length >= 0.8 * (el.innerText || '').length))   // the innermost box that holds the text
     .slice(0, 80).map(el => ({el, set: words(el)})).filter(item => item.set.size >= 15);
   const dupes = [];

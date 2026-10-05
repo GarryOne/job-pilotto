@@ -258,3 +258,10 @@ test('technical text inside an on-purpose log is not shown to the person; the sa
   assert.ok(!(await kinds(page, `<div id="activity-panel"><h2>Jobs check</h2><div class="tech-log">${trace}</div></div>`)).includes('error-shown'), 'a block marked technical');
   assert.ok((await kinds(page, `<div id="activity-panel"><h2>Jobs check</h2><p>${trace}</p></div>`)).includes('error-shown'), 'the same words in a plain paragraph');
 }));
+
+test('a result card and the run\'s own open log say the same words on purpose and are not a duplicate (#282, #283); two plain boxes still are', () => withChrome(async page => {
+  const card = `<div class="run-card">${ITEMS}</div>`;
+  assert.ok(!(await kinds(page, `${card}<pre id="log" class="log">${ITEMS}</pre>`)).includes('duplicate-content'), 'the log');
+  assert.ok(!(await kinds(page, `${card}<details open><summary>Full log</summary><pre class="log">${ITEMS}</pre></details>`)).includes('duplicate-content'), 'a log in details');
+  assert.ok((await kinds(page, `<div class="warn"><div>${ITEMS}</div></div><div class="warn2"><div>${ITEMS} again</div></div>`)).includes('duplicate-content'), 'plain boxes');
+}));
