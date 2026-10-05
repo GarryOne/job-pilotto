@@ -494,7 +494,7 @@ export function renderActivity(fresh) {
   else if (review) renderInterviewCard(review);
   else if (kits) renderKitsCard(kits);
   else if (reading) renderCardSkeleton();
-  if (card || insight || weekly) show($('activity-result'), false);  // the card shows the same, laid out
+  if (card || insight || weekly || mail || review || kits) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || reading);
   const plain = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message;
   $('activity-message').textContent = plain ? plainMessage(plain) : '';
