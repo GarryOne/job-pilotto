@@ -362,6 +362,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.
 - `tools/send-to-chatgpt.sh` — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
 - `tools/site-shots.mjs` — The website as visitors see it, for the product brain (.github/workflows/product-brain.yml): a desktop and a
+- `tools/stale-expectations.mjs` — Pre-push check (tools/pre-push-check.sh): the words this push removes from the window's code that an end-to-end suite still expects (desktop/e2e/lib/stale-expectations.mjs).
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the
 - `tools/sync_release_labels.py` — Make the release list readable: every release's title says what it IS, and a pinned issue names the ones that matter.
 - `tools/wait-and-mark-applied.sh` — wait-and-mark-applied.sh <job URL> — wait until that job's application is submitted, then mark

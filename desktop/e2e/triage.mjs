@@ -14,6 +14,7 @@ import {contextLine, stepAgeLine} from './lib/run-context.mjs';
 import {runSummary} from './lib/run-summary.mjs';
 import {pathSummary, replayFromSeed} from './lib/replay.mjs';
 import {staleComment, staleSighting} from './lib/stale.mjs';
+import {holdFinding, holdReason} from './lib/freshness.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
@@ -115,6 +116,14 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   if (!Number.isFinite(behind)) behind = null;
   out.behind = behind;
   out.paths = pathSummary(found['replay.json'].map(read));   // the paths this run walked (replay.json of every suite): fixed or seeded, windows, places, themes
+  // The files that changed between the tested build and main, once per run: a finding about code that has changed since is held for a recheck (lib/freshness.mjs).
+  let changedFiles = null;
+  const changedSince = () => {
+    if (changedFiles) return changedFiles;
+    changedFiles = [];
+    try { if (repo && testedSha(build) && behind > 0) changedFiles = JSON.parse(String(gh(['api', `repos/${repo}/compare/${testedSha(build)}...main`, '--jq', '[.files[].filename]']) || '[]')); } catch { changedFiles = []; }
+    return changedFiles;
+  };
   const suiteFile = new Map();
   const lastChange = suite => {
     if (!repo || !suite) return null;
@@ -225,6 +234,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
         if (!(closedBefore.comments || []).some(comment => (comment.body || '').includes(runUrl))) gh(['issue', 'comment', String(closedBefore.number), '--body', staleComment(closedBefore, {fix: stale.fix, tested: testedSha(build)}, runUrl)]);
         out.stale = [...(out.stale || []), {id: finding.id, issue: closedBefore.number}];
         dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: `stale sighting: the fix ${stale.fix.slice(0, 7)} of #${closedBefore.number} is newer than the tested build ${testedSha(build)}`});
+        continue;
+      }
+      // About code that has changed since the tested build: not filed now, filed by the next run on a newer build if it is still there (counted in the run summary).
+      const held = holdFinding(finding, {suite, behind, changed: changedSince()});
+      if (held.hold) {
+        out.held = [...(out.held || []), {id: finding.id, files: held.files}];
+        dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: holdReason(held.files, testedSha(build))});
         continue;
       }
       const judged = verdictFor(finding), word = judged ? wordOf(judged) : '';

@@ -105,7 +105,7 @@ test('a producer run is kept as numbers: filed, stale, dropped by reason, behind
   const one = runSummary(result, {runUrl: 'https://x/runs/2', build: 'main @ 3806ebe', incomplete: ['interactions'], at: '2026-10-05T12:00:00Z'});
   assert.deepEqual([one.filed, one.stale, one.behind, one.incomplete, one.dropped], [1, 1, 12, ['interactions'], {'stale-sighting': 1, 'over-the-cap': 1, 'known-false-positive': 1}]);
   const total = totalRuns([one, {...one, behind: 40, incomplete: [], dropped: {'over-the-cap': 2}}, null, {v: 2}]);
-  assert.deepEqual(total, {runs: 2, filed: 2, stale: 2, incompleteRuns: 1, behindMax: 40, dropped: {'stale-sighting': 1, 'over-the-cap': 3, 'known-false-positive': 1},
+  assert.deepEqual(total, {runs: 2, filed: 2, stale: 2, held: 0, incompleteRuns: 1, behindMax: 40, dropped: {'stale-sighting': 1, 'over-the-cap': 3, 'known-false-positive': 1},
     paths: {suites: 0, fixed: 0, seeded: 0, steps: 0, failedSteps: 0, windows: {}, zones: {}, themes: {}, events: {}}});
   assert.equal(dropReason('nothing in particular'), 'other');
 });

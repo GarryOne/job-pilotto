@@ -66,6 +66,14 @@ if [ -n "$untested" ]; then
   exit 2
 fi
 
+# Words a push removes from the window that an end-to-end suite still expects (5 Oct 2026: #299 and #300 were suites reporting outdated copy as bugs): update the step in the same change.
+# `STALE_EXPECT_OK=1 git push ...` skips it. No node, or no origin/main to compare: skipped.
+case "$command" in *STALE_EXPECT_OK=1*) ;; *)
+  if command -v node >/dev/null && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+    stale="$(cd "$repo" && node tools/stale-expectations.mjs --base origin/main 2>&1)" || { echo "Push blocked: $stale" >&2; exit 2; }
+  fi ;;
+esac
+
 failed=()
 log="$(mktemp)"
 run() {  # name, then the command
