@@ -1986,8 +1986,9 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-chip { text-align: left; border: 0; border-radius: var(--r-sm); padding: 2px 6px; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: var(--info-soft); color: inherit; }
 .cal-chip-time { display: block; font-size: var(--fs-xs); color: var(--muted); }
 .cal-chip-name { display: block; overflow: hidden; text-overflow: ellipsis; }
-.cal-chip { border-left: 3px solid var(--info); }
-.cal-chip.kind-screening { background: var(--teal-soft); border-left-color: var(--teal); }
+.cal-chip { background: var(--info); color: var(--on-accent); }
+.cal-chip.kind-screening { background: var(--teal); }
+.cal-chip .cal-chip-time { color: inherit; opacity: .85; }
 .cal-chip.held { opacity: .65; }
 .cal-chip-wrap { position: relative; display: block; }
 .cal-chip-wrap .cal-chip { width: 100%; padding-right: 20px; }
@@ -1999,6 +2000,16 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-side { display: flex; flex-direction: column; gap: 16px; }
 .cal-row { display: grid; gap: 2px; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); padding: 8px 0; cursor: pointer; color: inherit; }
 .cal-when { font-size: var(--fs-sm); color: var(--muted); }
+.cal-side h2 { font-size: var(--fs-md); margin: 0 0 var(--sp-2); }
+.cal-side-head { display: flex; align-items: center; gap: 8px; }
+.cal-side-head .nav-badge { margin-left: 0; }
+.cal-side-head .nav-badge:empty { display: none; }
+.cal-row { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
+.cal-detail { display: grid; gap: 1px; }
+.cal-stage { font-size: var(--fs-sm); font-weight: 600; color: var(--info); }
+.cal-stage.kind-screening { color: var(--teal); }
+.cal-empty { display: flex; align-items: center; gap: 8px; margin: 0; }
+.cal-empty svg { width: 16px; height: 16px; flex: none; }
 @media (max-width: 1100px) { .cal-layout { grid-template-columns: 1fr; } }
 
 .cal-status { display: inline-flex; align-items: center; gap: 8px; }
