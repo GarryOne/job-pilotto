@@ -1,3 +1,4 @@
+/* global document */
 // Wander: a seeded random walk (lib/wander.mjs). It starts from a state nobody scripted (setup left half-way, the CV gone), takes steps nobody scripted (three pages in a row without
 // waiting, a control pressed twice, a dialog left open while the page changes, a reload, a hard crash and restart) and has Notion or the AI fail for a stretch of the walk.
 // Nothing here asserts one right answer: after every step the page must still answer, show no technical text or broken layout (the layout checks), and the whole walk must raise no
