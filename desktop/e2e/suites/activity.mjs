@@ -4,7 +4,7 @@
 // What goes WRONG (the AI failing, two things at once, a quit in the middle) is the activityfailures suite, in parallel, on its own Notion page.
 import fs from 'node:fs';
 import path from 'node:path';
-import {badSummary, leaks} from '../lib/activity.mjs';
+import {badSummary, leaks, liveLogProblems} from '../lib/activity.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {LABEL, appReady, chooseMenu, noRowStaysRunning, openPanel, openRun, panelRows, prepare, problemsWith, runTask, runsData, sleep} from '../lib/activity-steps.mjs';
 
@@ -49,14 +49,14 @@ export async function run(ctx) {
   }
   for (const task of order) {
     await ctx.run(`${task.what}: one Recent runs row, an end, plain words, a clean log, and no row left Running`, async () => {
-      const {fresh, shown, seconds} = await runTask(ctx, task.command, {maxMs: task.maxMs, kind: task.kind});
+      const {fresh, shown, seconds, samples} = await runTask(ctx, task.command, {maxMs: task.maxMs, kind: task.kind});
       const mine = shown.find(row => row.id === String(fresh[0].id));
       if (!mine) throw new Error(`the Actions page's Recent runs shows no row for the run that just ended (it shows: ${shown.map(row => row.kind).join(', ')})`);
       const own = fresh.filter(run => run.kind === task.kind);
       console.log(`  ${task.command}: ${fresh.length} row(s) [${fresh.map(run => `${run.kind}:${run.ok ? 'ok' : 'failed'}`).join(', ')}] in ${seconds}s; "${mine?.result.slice(0, 90)}" [${mine?.pill}]`);
       if (own.length !== 1 || fresh.length !== 1) throw new Error(`expected exactly one new Recent runs row of kind ${task.kind}, got ${fresh.length} (${fresh.map(run => `${run.kind} by ${run.trigger} at ${run.startedAt}`).join(', ') || 'none'})`);
       if (process.env.E2E_DEBUG) console.log(JSON.stringify({shown: mine, log: own[0].log.slice(0, 40), ok: own[0].ok, result: own[0].result, summary: own[0].summary}, null, 1));
-      const problems = problemsWith(ctx, own[0], {label: task.command, shown: mine});
+      const problems = [...problemsWith(ctx, own[0], {label: task.command, shown: mine}), ...liveLogProblems(samples, {label: task.what})];
       if (problems.length) throw new Error(problems.join('; '));
       ctx.taskRuns[task.command] = own[0];
       await noRowStaysRunning(ctx);
@@ -64,6 +64,21 @@ export async function run(ctx) {
       console.log(`  ${task.command}: the Actions page shows ${result.card ? 'a card' : result.text ? `text "${result.text.slice(0, 60)}"` : 'nothing'}`);
       // The report has a card of its own (renderer/pages/activity.js cardFor): the same one Recent activity draws, never the chat message it was written as.
       if (task.command === 'weekly' && !result.card) throw new Error(`the Actions page shows the finished Search analysis as text, not as its card: "${result.text || 'nothing at all'}"`);
+    }, {needs: ctx.needs});
+  }
+  // A task that works for a while must say what it is doing (5 Oct 2026: Find new employers showed "Nothing to show yet" for four minutes). The AI is made slow, so the
+  // silence is long enough to see on fixtures: every AI-using task must still show its first line within seconds, and keep showing lines as it goes.
+  for (const task of [{command: 'scout', kind: 'scout', what: 'Find new employers'}]) {
+    await ctx.run(`${task.what} with a slow AI still streams its live log while it works`, async () => {
+      ctx.proxy.setDelay(8000);
+      try {
+        const {samples, fresh} = await runTask(ctx, task.command, {maxMs: 420000, kind: task.kind});
+        const problems = liveLogProblems(samples, {label: task.what, firstWithin: 20000});
+        const lines = Math.max(0, ...samples.map(item => item.logShown));
+        console.log(`  ${task.command}: ${samples.length} samples while running, up to ${lines} log line(s) shown, ${fresh.length} row(s)`);
+        if (lines < 3) problems.push(`its live log never grew past ${lines} line(s) in a run of ${samples.length * 1.5} s: it does not say what it is doing between its first and last line`);
+        if (problems.length) throw new Error(problems.join('; '));
+      } finally { ctx.proxy.setDelay(0); }
     }, {needs: ctx.needs});
   }
   // ---------- (4) Recent activity itself ----------

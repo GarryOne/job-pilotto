@@ -3,7 +3,7 @@
 // its rows, the feed the engine reads, and the common start (a set-up install, its own run rows cleared, no schedule, the app quiet). The suites themselves are in suites/.
 import fs from 'node:fs';
 import path from 'node:path';
-import {badSummary, leaks} from './activity.mjs';
+import {badSummary, leaks, sample} from './activity.mjs';
 import {emptyDatabase, runRows} from './notion.mjs';
 import {snap} from './layout.mjs';
 import {ensureSetUp} from './seed.mjs';
@@ -49,14 +49,16 @@ export async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
   const started = Date.now();
   await page.click(`[data-command="${command}"]`);
   let data, seen = false;
+  const samples = [];   // what a person could see while it ran (the live log above all): liveLogProblems()
   while (Date.now() - started < maxMs) {
     await sleep(page, 1500);
     data = await runsData(page);
+    if (data.running) samples.push(await sample(page).catch(() => null));
     const {mine, twice} = own(data.runs.filter(run => !before.has(run.id) && run.trigger !== 'schedule' && (!kind || run.kind === kind)));
     if (twice.length) throw new Error(`the app lists one run twice: its own record and the same Notion page again (${twice.map(run => run.kind).join(', ')})`);
     const added = mine;
     seen = seen || !!data.running || added.length > 0;
-    if (seen && !data.running && !data.queued.length && added.length) return {fresh: added, data, shown: await shownWith(page, added[0].id), seconds: Math.round((Date.now() - started) / 1000)};
+    if (seen && !data.running && !data.queued.length && added.length) return {fresh: added, data, shown: await shownWith(page, added[0].id), seconds: Math.round((Date.now() - started) / 1000), samples: samples.filter(Boolean)};
   }
   throw new Error(`the ${command} task was still ${data?.running ? 'running' : 'not finished'} after ${Math.round(maxMs / 1000)} s`);
 }

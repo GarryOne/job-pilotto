@@ -50,6 +50,17 @@ export function longestSilence(samples) {
   return longest;
 }
 
+// Did the Technical log speak while the task ran? samples: from sample() (or the ones runTask keeps). A task that works for minutes and prints nothing shows
+// "Nothing to show yet" the whole time: the owner's find on Find new employers, 5 Oct 2026 (the scout printed only at its end). -> a list of problems.
+export function liveLogProblems(samples, {firstWithin = 40000, label = 'the task'} = {}) {
+  const running = samples.filter(s => s.running);
+  if (!running.length) return [];
+  const first = running.find(s => s.logShown > 0);
+  const last = running.at(-1).at - running[0].at;
+  if (!first) return last > firstWithin ? [`${label} ran for ${Math.round(last / 1000)} s and its Technical log never showed a line ("Nothing to show yet" the whole time)`] : [];
+  return first.at - running[0].at > firstWithin ? [`${label}'s Technical log showed nothing for the first ${Math.round((first.at - running[0].at) / 1000)} s`] : [];
+}
+
 // ---------- what a run may show a person ----------
 // A summary line that says nothing, or says it in the machine's words: empty, "undefined", "[object Object]", or a JSON dump. -> a reason, or ''.
 export function badSummary(text) {

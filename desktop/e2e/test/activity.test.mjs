@@ -1,7 +1,7 @@
 // The checks the activity suite applies to a run's words: they must flag what they claim to, and let a good line through.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {badSummary, leaks} from '../lib/activity.mjs';
+import {badSummary, leaks, liveLogProblems} from '../lib/activity.mjs';
 
 test('a good summary line passes', () => {
   for (const line of ['3 new jobs', 'nothing new', 'Gmail not connected (Settings → Gmail and Calendar)', 'Your Anthropic API spending limit was reached, so 2 jobs weren\'t scored.']) assert.equal(badSummary(line), '');
@@ -29,4 +29,16 @@ test('a log with a key, a token, an email or a home path is flagged; a clean one
 });
 test('the saved secret is never repeated in the finding', () => {
   assert.ok(!leaks('the value hunter2hunter2 leaked', {secrets: ['hunter2hunter2']}).join().includes('hunter2hunter2'));
+});
+
+test('a task that ran for minutes with an empty live log is flagged; one that spoke at once is not', () => {
+  const at = ms => ({running: {kind: 'scout'}, at: 1000 + ms});
+  const silent = [0, 10000, 30000, 60000, 120000].map(ms => ({...at(ms), logShown: 0}));
+  assert.match(liveLogProblems(silent, {label: 'Find new employers'})[0], /never showed a line/);
+  const late = [0, 10000, 50000, 60000].map(ms => ({...at(ms), logShown: ms >= 50000 ? 2 : 0}));
+  assert.match(liveLogProblems(late)[0], /showed nothing for the first 50 s/);
+  const talks = [0, 10000, 30000].map(ms => ({...at(ms), logShown: ms >= 0 ? 3 : 0}));
+  assert.deepEqual(liveLogProblems(talks), []);
+  assert.deepEqual(liveLogProblems([{running: null, at: 1, logShown: 0}]), []);   // never saw it running: nothing to say
+  assert.deepEqual(liveLogProblems(silent.slice(0, 2)), []);                       // a short run may be silent: no judgement under the limit
 });

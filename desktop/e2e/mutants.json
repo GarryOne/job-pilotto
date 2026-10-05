@@ -38,5 +38,13 @@
   "find": "    await publishSearchSettings(storage, {run, ensurePage, writePage});\n  } catch (error) {\n    storage.writeText('config/preferences.json', before);",
   "replace": "    void publishSearchSettings;\n  } catch (error) {\n    storage.writeText('config/preferences.json', before);",
   "what": "a changed daily target is kept on this Mac but never reaches Notion (silent data loss)"
+ },
+ {
+  "id": "scout-silent",
+  "suite": "activity",
+  "file": "src/scout.py",
+  "find": "    # Each step says so as it starts:",
+  "replace": "    print = lambda *args, **kwargs: None\n    # Each step says so as it starts:",
+  "what": "Find new employers prints nothing while it works: the live log says Nothing to show yet for minutes (5 Oct 2026)"
  }
 ]

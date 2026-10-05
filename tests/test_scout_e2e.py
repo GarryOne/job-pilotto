@@ -51,8 +51,15 @@ class ScoutEndToEnd(unittest.TestCase):
     def test_a_website_becomes_a_feed_and_the_crawl_reads_its_job(self):
         db = sqlite3.connect(':memory:')
         db.row_factory = sqlite3.Row
-        summary, results = scout.run(db, batch=5, tracker=None, seeds={'excluded': []}, static=[],
-                                     harvest_sources=[lambda: [dict(name='Acme AG', origin='SwissDevJobs employer', priority=88, website='https://acme.example')]])
+        import contextlib
+        import io
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            summary, results = scout.run(db, batch=5, tracker=None, seeds={'excluded': []}, static=[],
+                                         harvest_sources=[lambda: [dict(name='Acme AG', origin='SwissDevJobs employer', priority=88, website='https://acme.example')]])
+        # The app streams these lines into Recent activity while the run works: a silent four-minute crawl showed "Nothing to show yet" (5 Oct 2026).
+        for line in ('Scout: reading the employer lists', 'Scout: checking 1 employer', 'Scout: checked 1 of 1: Acme AG'):
+            self.assertIn(line, said.getvalue())
         (candidate, outcome), = results
         self.assertEqual((outcome['status'], outcome['ats'], outcome['slug']), ('found', 'careers', 'acme.example__karriere'))
         self.assertEqual(db.execute("SELECT ats, slug, company FROM feed_sources").fetchall()[0][:], ('careers', 'acme.example__karriere', 'Acme AG'))

@@ -662,17 +662,31 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     if static is None:
         starter = CONFIG / 'sources.json'
         static = json.loads(starter.read_text()) if starter.exists() else []
+    # Each step says so as it starts: a run takes minutes, and the app's live log shows these lines ("Nothing to show yet" for four
+    # minutes was the owner's find of 5 Oct 2026).
+    print('Scout: reading the employer lists…')
     added = harvest(db, seeds, harvest_sources)
+    print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
     ideas = ai_ideas(db, harvest_sources)
     if ideas:
         added += harvest(db, seeds, [lambda: ideas['candidates']])
     candidates = next_batch(db, batch)
+    print(f'Scout: checking {len(candidates)} employer(s)…')
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
 
     unread = []   # job systems a careers page named that could not be read: (system, why, company)
 
+    done = []
+
     def check(candidate):
+        try:
+            return check_one(candidate)
+        finally:
+            done.append(candidate['name'])
+            print(f"Scout: checked {len(done)} of {len(candidates)}: {candidate['name']}")
+
+    def check_one(candidate):
         if candidate['status'] == 'manual':
             return {'status': 'manual'}
         found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])))
