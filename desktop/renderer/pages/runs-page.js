@@ -35,8 +35,8 @@ export async function showStatusCard() {
 }
 
 // Actions page: the live banner (what runs now), Recent runs, and Telegram's state. Fed by the activity data.
-const TASK_ICON = {search: 'search', mail: 'mail', insight: 'chart', weekly: 'file', today: 'send', scout: 'building', kits: 'file-text'};
-const TASK_TITLE = {search: 'Search for new jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Analyze my job search', kits: 'Prepare top matches',
+const TASK_ICON = {search: 'search', mail: 'mail', insight: 'chart', weekly: 'file', today: 'send', scout: 'building', kits: 'file-text', tailor: 'scissors'};
+const TASK_TITLE = {search: 'Search for new jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Analyze my job search', kits: 'Prepare top matches', tailor: 'Tailor CVs for top matches',
   today: "Today's matches", scout: 'Find new employers'};
 export function renderActionsPage(data) {
   if (!data) return;

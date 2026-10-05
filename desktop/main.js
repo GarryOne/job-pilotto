@@ -1591,15 +1591,26 @@ function handlers() {
     const picked = apply.pickUntailored((await pipeline.jobs(storage)).jobs, n);
     if (!picked.length) return {ok: true, text: 'Every one of your best matches already has a tailored CV.'};
     appLog('cv', 'tailor top matches', {asked: n, jobs: picked.length, by: 'you'});
-    let done = 0, failed = 0, usd = 0;
-    for (const job of picked) {
-      const result = await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false, quiet: true});
-      if (result.ok) { done++; usd += result.usd || 0; } else { failed++; appLog('cv', 'tailor top matches: one failed', {job: job.code, reason: String(result.error || '').slice(0, 80)}); }
-    }
-    appLog('cv', 'tailor top matches done', {done, failed, usd: Math.round(usd * 100) / 100});
-    const text = `Tailored ${done} of ${picked.length} CV${picked.length === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}. Open each job's 📄 Tailored CV to check it before you apply.`;
-    notify('Tailored CVs ready ✓', text, {view: 'jobs'});
-    return {ok: done > 0, text};
+    // A tracked task like a Jobs check: the banner, a live log, a row in Recent activity and the result line. Started, not awaited: the window follows it.
+    pipeline.work(storage, 'tailor', log, async tee => {
+      let done = 0, failed = 0, usd = 0;
+      tee(`Tailoring ${picked.length} CV${picked.length === 1 ? '' : 's'} for your best matches (1-2 minutes each)`);
+      for (const [index, job] of picked.entries()) {
+        tee(`Tailoring ${index + 1} of ${picked.length}: ${job.title} · ${job.company}`);
+        const result = await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false, quiet: true});
+        if (result.ok) { done++; usd += result.usd || 0; tee(`  ✓ ${job.title} · ${job.company}`); } else {
+          failed++;
+          tee(`  ✗ ${job.title} · ${job.company}: ${String(result.error || 'something went wrong').slice(0, 120)}`);
+          appLog('cv', 'tailor top matches: one failed', {job: job.code, reason: String(result.error || '').slice(0, 80)});
+        }
+      }
+      appLog('cv', 'tailor top matches done', {done, failed, usd: Math.round(usd * 100) / 100});
+      const text = `Tailored ${done} of ${picked.length} CV${picked.length === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}. Open each job's 📄 Tailored CV to check it before you apply.`;
+      tee(text);
+      tee('<<<message'); tee(text); tee('message>>>');
+      return done > 0;
+    }).catch(error => log(`Tailor CVs failed: ${error.message}`));
+    return {ok: true, started: true, text: `Tailoring ${picked.length} CV${picked.length === 1 ? '' : 's'}.`};
   });
   // CV match (Jobs ⋯ and the session card): this job's posting against the CV, on request. The last answer is kept per job for the CV it was made with.
   ipcMain.handle('matchSaved', (_, code) => { if (DEMO) return demo.matchSaved; const cv = cvlib.baseCv(storage); return cv ? matchCheck.saved(storage, String(code), cv) : null; });

@@ -132,6 +132,12 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - `npm run gallery` (in `desktop/`) shows every token and component on one page; check it after changing one.
 - New colour or size? Add a token (and say why) instead of a literal. The website (`site/`) has its own styles.
 
+### Every new screen and action goes in the ⌘K palette
+The command palette (`paletteCommands()` in `desktop/renderer/pages/nav.js`) is how a person finds anything without knowing the page. A new page is a `.nav` button (listed automatically).
+A new Actions card needs `data-command` (a Telegram command) or `data-palette` on its Run button (`test/palette-covers-actions.test.js` fails otherwise). Any other new top-level
+button a person would look for (Add a job, Log activity…) is added with `button(view, id, keywords)` in `paletteCommands()`. A long or paid action opens its card and focuses its
+input instead of running at once. A new long task that runs on this Mac is a tracked task (`pipeline.work` / `pipeline.task`), so the banner, Recent activity and the result follow it.
+
 ## Facts that are easy to get wrong
 - **A ⏱️ Search runs row's `Summary` is only the report's first line** (`src/notion/cron_runs.py`,
   `Summary: _text(lines[0])`). The rest — where a GitHub run's `Warning: …` lines are — is the page's Report bullets:

@@ -379,9 +379,15 @@ export async function run(ctx) {
     if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
     await page.fill('#tailor-top-n', '2');
     await page.click('#tailor-top');
-    await page.waitForFunction(() => /Tailored \d+ of \d+ CV/.test(document.getElementById('command-answer')?.textContent || ''), null, {timeout: 420000, polling: 2000});
-    const said = await page.textContent('#command-answer');
-    if (!/Tailored 2 of 2 CVs/.test(said)) throw new Error(`the result does not say two CVs were tailored: "${said}"`);
+    // A tracked task: the banner follows it and Recent activity holds its row, with the result line as its summary.
+    await page.waitForFunction(() => /Tailor CVs/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
+      .catch(() => { throw new Error('the Actions banner never showed Tailor CVs running'); });
+    let said = '';
+    for (let waited = 0; !/Tailored \d+ of \d+ CV/.test(said) && waited < 420000; waited += 3000) {
+      await pause(3000);
+      said = await page.evaluate(async () => ((await window.pilot.runs()).runs || []).find(run => run.kind === 'tailor')?.summary || '');
+    }
+    if (!/Tailored 2 of 2 CVs/.test(said)) throw new Error(`Recent activity has no Tailor CVs run that says two CVs were tailored: "${said}"`);
     const made = topUrls.map(url => fs.existsSync(tailoredAt(url)));
     if (made.join() !== 'true,true,false') throw new Error(`expected CVs for the 99 and 98 fit jobs only, got ${JSON.stringify(Object.fromEntries(topUrls.map((url, i) => [url.slice(-6), made[i]])))}`);
     await page.reload();   // the list is read again from Notion, where the CVs now sit on their rows

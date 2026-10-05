@@ -37,13 +37,15 @@ export async function init() {
     if (task && !/^⚠️/.test(result?.text || '')) { refreshActivity(); show($('command-answer'), false); return; }  // its row, then its result, show in Recent activity
     answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
   }));
-  // Tailor CVs for top matches: runs here for minutes, so the button says so; the answer shows like an instant command's.
+  // Tailor CVs for top matches: a tracked task like the others, so the banner, Recent activity and the result follow it; only a refusal (Notion, allowance, nothing to do) is answered here.
   $('tailor-top').addEventListener('click', async event => {
     const button = event.currentTarget, count = Math.max(1, Math.min(10, Number($('tailor-top-n').value) || 5));
+    show($('actions-result'), false);
     button.disabled = true;
-    button.classList.add('busy');
-    answer(`Tailoring CVs for your ${count} best matches, one at a time (1–2 minutes each). You can keep using the app.`);
-    try { answer((await window.pilot.tailorTop(count)).text || 'Done.'); } finally { button.disabled = false; button.classList.remove('busy'); }
+    const result = await window.pilot.tailorTop(count).catch(error => ({text: `⚠️ ${error.message}`}));
+    button.disabled = false;
+    if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }
+    answer(result?.text || result?.error || 'Done.');
   });
   // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
   // the fit scores) is offered, never applied by itself.

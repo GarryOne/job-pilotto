@@ -47,6 +47,7 @@ export function openView(name, {fromHistory = false} = {}) {
 // ⌘K / Ctrl+K: the command palette. Its commands are the app's own buttons, read when it opens (so a disabled
 // button or a missing Notion link isn't offered); running one opens its page, then clicks it.
 const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search jobs find refresh',
+  tailor: 'tailor cv resume top matches',
   scout: 'employers companies discover', status: 'health check', weekly: 'report stats weekly insight review', insight: 'tip advice', kits: 'kits prepare applications cover letter', tune: 'strategy settings roles places tune',
   today: 'telegram list', applied: 'applications', saved: 'bookmarks starred'};
 // A button's own words: the count badge and the dot inside a nav button are not part of its label.
@@ -66,9 +67,14 @@ function paletteCommands() {
   document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => nav.click()));
   document.querySelectorAll('.action[data-command]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
     labelOf(node.querySelector('span')), PALETTE_KEYWORDS[node.dataset.command], () => { openView('actions'); node.click(); }));
+  // An action card with its own handler (not a Telegram command): "Tailor CVs" costs minutes of AI, so the palette opens its card and focuses the count; Run stays a click.
+  document.querySelectorAll('.action[data-palette]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
+    labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => { openView('actions'); if (node.dataset.palette !== 'tailor') { node.click(); return; } const count = $('tailor-top-n'); count.focus(); count.select(); }));
   button('jobs', 'refresh', 'find jobs scan');
   button('jobs', 'apply-open', 'apply fill forms');
   button('jobs', 'applied-open', 'track add application outside');
+  button('jobs', 'import-open', 'add job link paste posting');
+  button('jobs', 'lead-open', 'log activity recruiter message email screenshot');
   button('interviews', 'iv-add', 'upload audio video transcript file');
   button('interviews', 'iv-record', 'start call audio', 'Record a call (everyone agreed)');
   button('interviews', 'iv-recordings', 'files folder finder');

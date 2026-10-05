@@ -421,6 +421,7 @@ export const TASKS = {
   insight: {name: 'Insight', result: /^(Insight sent: |Insight: )/},
   weekly: {name: 'Search analysis', result: /^Weekly report sent: /},
   kits: {name: 'Prepare top matches', result: /^Kits ready: /},
+  tailor: {name: 'Tailor CVs', result: /^Tailored \d+ of \d+ CV/},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · \d+ new sources?/},   // the older wording, and the card's second line
 };
@@ -430,6 +431,10 @@ export function scout(storage, onLine, trigger = 'you', batch = 15) {
   const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
   storage.saveSettings({lastScoutAt: new Date().toISOString()});
   return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', '--batch', String(batch)], onLine, trigger);
+}
+// A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
+export function work(storage, kind, onLine, doWork, trigger = 'you') {
+  return tracked(storage, kind, trigger, onLine, async tee => ({ok: !!(await doWork(tee))}), null, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
 }
 export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
