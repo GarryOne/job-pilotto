@@ -4,6 +4,7 @@
 // activity suite, in parallel, on its own Notion page (this split halves the wall-clock time).
 import {badSummary, leaks, sample, watch} from '../lib/activity.mjs';
 import {digestProblems} from '../lib/telegram-fake.mjs';
+import {rows as notionRows} from '../lib/notion.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {LABEL, appReady, idsNow, noRowStaysRunning, openPanel, openRun, own, prepare, quiet, runTask, runsData, searchRows, setFeed, sleep} from '../lib/activity-steps.mjs';
 
@@ -113,6 +114,27 @@ export async function run(ctx) {
       await noRowStaysRunning(ctx);
     }, {needs: ctx.needs, faults: true});
   }
+  // A save Notion refuses must never look saved: the engine writes Notion first and changes nothing when it fails (src/desktop.py), so the person is told,
+  // the row in Notion is as it was, and the list does not claim the job is saved. A silent loss here is a job the person thinks they kept (5 Oct 2026).
+  await ctx.run('a Save that Notion refuses is never shown as saved: the person is told in words, and Notion and the list still agree', async () => {
+    const job = await page.evaluate(() => (window.__jp.shared.allJobs || []).find(item => /^E2E /.test(item.company || '') && item.url && item.status !== 'saved'));
+    if (!job) throw new Error('no E2E job in the list to save (the searches above found none)');
+    const statusIn = async () => (await notionRows(ctx.token, 'Job Matches — AI Scored')).find(row => String(row.properties?.['Job URL']?.url || '').replace(/\/$/, '') === job.url.replace(/\/$/, ''))?.properties?.Status?.select?.name || '';
+    const before = await statusIn();
+    ctx.notion.fail('server-error', {writes: true});
+    let result;
+    try { result = await page.evaluate(url => window.pilot.setStatus(url, 'saved').catch(error => ({ok: false, error: error.message})), job.url); } finally { ctx.notion.pass(); }
+    const after = await statusIn();
+    const listed = await page.evaluate(url => (window.__jp.shared.allJobs || []).find(item => item.url === url)?.status, job.url);
+    console.log(`  save refused: answer ${JSON.stringify(result).slice(0, 160)}; Notion "${before}" -> "${after}"; list "${listed}"`);
+    const problems = [];
+    if (result?.ok && after === before) problems.push('the app answered "saved" but Notion never got it: a silent loss');
+    if (!result?.ok && after !== before) problems.push(`the app said it failed but Notion changed ("${before}" -> "${after}")`);
+    if (!result?.ok && listed === 'saved') problems.push('the list shows the job as saved though the save failed');
+    if (!result?.ok && /<!DOCTYPE|internal_server_error|"object":|Traceback/.test(String(result?.error || ''))) problems.push('the message for the person carries Notion\'s raw answer');
+    if (problems.length) throw new Error(problems.join('; '));
+  }, {needs: ctx.needs, faults: true});
+
   // ---------- (2c) Telegram (5 Oct 2026) ----------
   // The digest a person receives, read from the fake Bot API: one message to their chat, readable, every promised job listed. Then Telegram refuses it.
   const CHAT = '424242';
