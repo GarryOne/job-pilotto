@@ -12,6 +12,7 @@ import {POSSIBLE_DUPLICATE, sameCauseComment, sameCauseLinks} from './lib/same-c
 import {setResolution} from './lib/resolution.mjs';
 import {contextLine, stepAgeLine} from './lib/run-context.mjs';
 import {runSummary} from './lib/run-summary.mjs';
+import {pathSummary, replayFromSeed} from './lib/replay.mjs';
 import {staleComment, staleSighting} from './lib/stale.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
@@ -19,7 +20,7 @@ import {publishFiles} from './lib/evidence.mjs';
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 // The findings files below a folder, whatever the suite folders are called.
 export function filesNamed(folder) {
-  const out = {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': [], 'a11y.json': []};
+  const out = {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': [], 'interactions.json': [], 'a11y.json': [], 'replay.json': []};
   const walk = dir => { for (const entry of fs.existsSync(dir) ? fs.readdirSync(dir, {withFileTypes: true}) : []) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full); else if (out[entry.name]) out[entry.name].push(full);
@@ -113,6 +114,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   try { if (repo && testedSha(build)) behind = Number(String(gh(['api', `repos/${repo}/compare/${testedSha(build)}...main`, '--jq', '.ahead_by']) || '').trim()); } catch { behind = null; }
   if (!Number.isFinite(behind)) behind = null;
   out.behind = behind;
+  out.paths = pathSummary(found['replay.json'].map(read));   // the paths this run walked (replay.json of every suite): fixed or seeded, windows, places, themes
   const suiteFile = new Map();
   const lastChange = suite => {
     if (!repo || !suite) return null;
@@ -230,7 +232,9 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const logs = finding.source === 'suite-failure' && finding.dir ? {'engine.log': tail(path.join(finding.dir, 'logs', 'engine.log')), 'app.log': tail(path.join(finding.dir, 'logs', 'app.log'))} : {};
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
-      const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
+      // How the run was walked (replay.json, every suite since 5 Oct 2026); an older artifact has only seed.json, which still gives its path.
+      const replay = finding.dir ? (read(path.join(finding.dir, 'replay.json')) || (variation ? replayFromSeed(variation, {suite}) : null)) : null;
+      const evidence = {replay, suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
       const regressed = closedBefore;   // the same defect a fix closed, on a build that has the fix: it did not hold
       const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : []), ...(word === 'real' ? [CONFIRMED] : word === 'needs-human' ? [NEEDS_HUMAN] : []), ...(regressed ? [REGRESSION] : [])];
       if (regressed) gh(['label', 'create', REGRESSION, '--force', '--color', 'B60205', '--description', 'A defect a fix had closed came back']);

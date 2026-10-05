@@ -1,5 +1,6 @@
 // The self-healing loop's judgement, as plain functions (no network): which findings are worth an issue, which one is ready for a fix, and
 // what a fix may touch. triage.mjs (the producer's CLI), pick.mjs (the fixer's) and .github/workflows/ui-findings.yml, ui-fix.yml call these; tests/triage.test.mjs pins the rules.
+import {replayBlock, replayCommand, replayComment} from './replay.mjs';
 import {afterEpoch} from './stats-epoch.mjs';
 import {fingerprint, cappedSeverity} from './vision.mjs';
 
@@ -165,7 +166,11 @@ export function issueBody(finding, runUrl, evidence = {}) {
   if (rows.length) out.push('', '<details><summary>App state when this was taken</summary>', '', ...rows.map(([name, value]) => `- **${name}:** ${value}`), '', '</details>');
   if (finding.also?.length) out.push('', '### Failed after it', ...finding.also.slice(0, 8).map(step => `- ${step}`), ...(finding.also.length > 8 ? [`- … and ${finding.also.length - 8} more`] : []), '', '<sub>Probably consequences of the first failure (later steps of the same suite).</sub>');
   for (const [name, text] of logs) out.push('', `<details><summary>${name} (last lines)</summary>`, '', fence(text), '', '</details>');
-  if (suite) {
+  if (suite && evidence.replay) {
+    // How it was found (lib/replay.mjs): the run's type, path, window, place, theme and steps, the exact command, and the same facts as one hidden JSON line.
+    out.push('', '### Reproduce', fence(replayCommand(evidence.replay), 'sh'), `The step that photographs \`${view}\` (\`snap(ctx, '${view}')\`) shows it.`,
+      '', replayBlock(evidence.replay, {platform, withCommand: false}));
+  } else if (suite) {
     out.push('', '### Reproduce', fence([`cd desktop/e2e`, `node suite.mjs ${suite}${evidence.seed ? `    # the fixed path` : ''}`, ...(evidence.seed ? [`E2E_SEED=${evidence.seed} node suite.mjs ${suite}    # this run's path`] : [])].join('\n'), 'sh'),
       `The step that photographs \`${view}\` (\`snap(ctx, '${view}')\`) shows it.`);
     if (evidence.seed) out.push('', `<details><summary>Variation of this run: seed ${evidence.seed}${evidence.window ? `, window ${evidence.window.join('x')}` : ''}</summary>`, '',
@@ -175,6 +180,7 @@ export function issueBody(finding, runUrl, evidence = {}) {
   if (evidence.codeFile) where.push(`- Code: \`${evidence.codeFile}\``);
   if (suite) where.push(`- The run's artifacts: \`e2e-artifacts-${suite}\` (\`ui-${view}.png\`, \`ui-${view}.json\`, the findings files)`);
   if (where.length) out.push('', '### Where to look', ...where);
+  if (evidence.replay) out.push('', replayComment(evidence.replay));
   out.push('', `<!-- fingerprint: ${finding.id} -->`);
   return out.join('\n');
 }

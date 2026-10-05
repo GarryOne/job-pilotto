@@ -111,3 +111,10 @@ test('the page lists the rules the loop works by, each with what it means in pra
   assert.ok(PRINCIPLES.length >= 8 && PRINCIPLES.every(row => row.length === 4 && row.every(Boolean)), 'every principle says what, how, status and where');
   assert.match(principlesSection(), /A miss is closed only when a guard exists/);
 });
+
+test('the page shows the paths the suites walked, from the run summaries', () => {
+  const live = {at: '2026-10-05T06:15:46Z', totals: {}, byDetector: [], runs: {runs: 3, filed: 2, stale: 1, incompleteRuns: 0, behindMax: 4, dropped: {}, paths: {suites: 14, fixed: 9, seeded: 5, steps: 120, failedSteps: 3, windows: {'1024x640': 2, '1280x820': 12}, zones: {'Asia/Tokyo': 2}, themes: {dark: 4, light: 10}, events: {schedule: 14}}}};
+  const html = liveSection(live, [], new Date('2026-10-05T07:00:00Z'));
+  assert.match(html, /Paths walked by the suites in those runs: <b>14<\/b> suite runs · 9 on the fixed path, 5 seeded · windows 1024x640 ×2, 1280x820 ×12 · themes dark ×4, light ×10 · places Asia\/Tokyo ×2 · 3 of 120 steps failed/);
+  assert.doesNotMatch(liveSection({...live, runs: {...live.runs, paths: null}}, [], new Date('2026-10-05T07:00:00Z')), /Paths walked/);
+});

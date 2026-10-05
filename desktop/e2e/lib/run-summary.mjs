@@ -15,18 +15,23 @@ export function runSummary(result, {runUrl = '', build = '', incomplete = [], at
   for (const item of result.dropped || []) { const key = dropReason(item.why); dropped[key] = (dropped[key] || 0) + 1; }
   return {v: 1, at, run: runUrl, build, behind: Number.isFinite(result.behind) ? result.behind : null, incomplete,
     findings: (result.findings || []).length, filed: (result.filed || []).length, again: (result.again || []).length, gone: (result.gone || []).length,
-    closed: (result.closed || []).length, stale: (result.stale || []).length, sameCause: (result.sameCause || []).length, dropped};
+    closed: (result.closed || []).length, stale: (result.stale || []).length, sameCause: (result.sameCause || []).length, dropped, paths: result.paths || null};
 }
 
 // Many summaries -> totals for the page: {runs, filed, stale, dropped: {reason: n}, incompleteRuns, behindMax}.
 export function totalRuns(list) {
-  const out = {runs: 0, filed: 0, stale: 0, incompleteRuns: 0, behindMax: 0, dropped: {}};
+  const out = {runs: 0, filed: 0, stale: 0, incompleteRuns: 0, behindMax: 0, dropped: {}, paths: {suites: 0, fixed: 0, seeded: 0, steps: 0, failedSteps: 0, windows: {}, zones: {}, themes: {}, events: {}}};
   for (const item of list) {
     if (!item || item.v !== 1) continue;
     out.runs++; out.filed += item.filed || 0; out.stale += item.stale || 0;
     if ((item.incomplete || []).length) out.incompleteRuns++;
     out.behindMax = Math.max(out.behindMax, item.behind || 0);
     for (const [key, count] of Object.entries(item.dropped || {})) out.dropped[key] = (out.dropped[key] || 0) + count;
+    if (item.paths) {   // the paths the suites walked (lib/replay.mjs pathSummary): how often a fixed and a seeded path, in which windows, zones and themes
+      out.paths.suites += item.paths.suites || 0; out.paths.fixed += item.paths.fixed || 0; out.paths.seeded += item.paths.seeded || 0;
+      out.paths.steps += item.paths.steps || 0; out.paths.failedSteps += item.paths.failedSteps || 0;
+      for (const group of ['windows', 'zones', 'themes', 'events']) for (const [key, count] of Object.entries(item.paths[group] || {})) out.paths[group][key] = (out.paths[group][key] || 0) + count;
+    }
   }
   return out;
 }

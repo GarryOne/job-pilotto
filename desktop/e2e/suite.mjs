@@ -22,7 +22,7 @@ process.env.JOB_PILOTTO_E2E_SUITE = name;   // the app tags its Sentry reports w
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 const {assertNothingQueued} = await import('./lib/app.mjs');
 const {SUITES, openContext} = await import('./lib/context.mjs');
-const {writeFindings, writeSuiteFailures} = await import('./lib/artifacts.mjs');
+const {writeFindings, writeReplay, writeSuiteFailures} = await import('./lib/artifacts.mjs');
 const {skipExitCode, skipMessage} = await import('./lib/skip.mjs');
 if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); process.exit(2); }
 const suite = await import(`./suites/${name}.mjs`);
@@ -54,6 +54,7 @@ try {
     }
   }
   if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
+  if (ctx && !ctx.skipAll) { try { await writeReplay(ctx, name); } catch (error) { console.log(`  (replay.json not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }
   // The app and Playwright can leave handles open: exit explicitly, never hang a CI job.
   process.exit(process.exitCode || 0);

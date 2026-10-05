@@ -29,6 +29,7 @@ export async function run(ctx) {
   const {page, app, ARTIFACTS} = ctx;
   ctx.findings = [];
   const all = [];
+  ctx.replayPath = {pages: [], pressed: []};   // the probe's own path, kept in replay.json for every issue it files (lib/replay.mjs)
   await ensureSetUp(ctx);
   seedCoverage(ctx);   // the search has been run before: the Strategy page has its "too narrow" card to show
   // The calls the window made to the app, recorded by main.js in an end-to-end run (lib/e2e-ipc.js).
@@ -69,6 +70,8 @@ export async function run(ctx) {
       const {results, findings, skipped} = await probePage({page, view, ipc, scope: `.view[data-view="${view}"]`, arrange: vary.shuffle, reset: async () => { await page.click(`.nav[data-view="${view}"]`); await settle(page); },
         onFlag: async (_control, flagged) => { const shot = `probe-${view}-${++shots}`; await ctx.session.shot(`ui-${shot}`); for (const item of flagged) item.shot = shot; }});
       all.push(...results.map(item => ({...item, view})));
+      ctx.replayPath.pages.push(view);
+      ctx.replayPath.pressed.push(...results.map(item => ({view, name: item.control, effects: (item.effects || []).join(', '), flagged: !!item.rechecked})));
       ctx.findings.push(...findings);
       console.log(`  ${view}: ${results.length} controls pressed, ${findings.length} flagged, ${skipped.length} left alone (${skipped.slice(0, 6).join(' | ')})`);
     }, {needs: ctx.needs});

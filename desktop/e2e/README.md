@@ -262,3 +262,10 @@ A suite that exports `keepGoing = true` (activityfailures, activity, focus, sett
 
 ## Real forms from the fill log (5 Oct 2026)
 `tools/fixture-from-fills.py` reads the extension's fill log (the Agent Runs that `tools/fill-failures.py` reads) and writes `desktop/e2e/fixtures/real-forms/<board>-<hash>.json` for each run that left a required field: the labels and a kind per field (text, textarea, select, checkbox, widget), never a value, link or contact detail. `apply` serves each as a form (`realPage`) on its board's host and requires the extension to fill the person's details, list every one of those fields as left for them by name, and leave Submit untouched. Each field it failed on must now be filled or listed for the person by name: never skipped in silence. Review the files before committing them. First 5 (5 Oct 2026): sponsorship and visa dropdowns, in-person and background questions, school results, time zone, nationality, a GDPR box and a references question, from real Greenhouse and other forms.
+
+## How a finding was found (replay.json)
+Every suite writes `replay.json` next to its findings (`lib/replay.mjs`, `writeReplay` in `lib/artifacts.mjs`, called by `suite.mjs` before the app closes): the run type (scheduled, release gate, by hand, local),
+the path (`fixed`, or the seed), the window, theme, time zone and language, the commit, the steps it took (name, passed or failed, seconds) and, for the interaction probe, the pages in order and the
+controls pressed. Every issue the loop files then shows it as **How it was found**: a table, the exact command (`cd desktop/e2e && E2E_SEED=<n> node suite.mjs <suite>`, or no seed for the fixed path), the
+folded steps and probe path, and the same facts as one hidden `<!-- replay: {…} -->` line a script can read (`parseReplay`). The producer's run summary adds up the paths a run walked
+(`finder-run-summary` artifact), so "which paths find bugs" has data. An older artifact with only `seed.json` still says its seed and window (`replayFromSeed`).

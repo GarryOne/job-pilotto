@@ -1,3 +1,4 @@
+/* global document */
 // What a suite leaves behind for the UI loop (ui-findings.yml), written even when the suite stops at a failing step: its layout findings so far, and which steps failed.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -5,6 +6,26 @@ import path from 'node:path';
 // The layout findings collected so far (a suite that stops early used to leave none, hiding that night's findings).
 export function writeFindings(ctx) {
   fs.writeFileSync(path.join(ctx.ARTIFACTS, 'ui-findings.json'), JSON.stringify(ctx.findings || [], null, 2));
+}
+
+// replay.json, every run, every suite (lib/replay.mjs): how this run walked, so each issue it files can say how it was found and how to walk the same path again. Called before the app
+// closes, so the window and the theme are the ones the run ended with; whatever is missing (a closed page, a light suite) is left out, never a reason to lose the file.
+export async function writeReplay(ctx, suite, env = process.env) {
+  const {buildReplay, replayFromSeed} = await import('./replay.mjs');
+  const {createVariation} = await import('./variation.mjs');
+  let seedFile = null;
+  try { seedFile = JSON.parse(fs.readFileSync(path.join(ctx.ARTIFACTS, 'seed.json'), 'utf8')); } catch { seedFile = null; }
+  let window = seedFile?.window || null, theme = '';
+  try {
+    const seen = await ctx.page?.evaluate(() => ({w: window.innerWidth, h: window.innerHeight, theme: document.documentElement.dataset.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}));
+    if (seen) { window = window || [seen.w, seen.h]; theme = seen.theme; }
+  } catch { /* the page is gone: the window of the seed file, if any */ }
+  const vary = ctx.vary || createVariation(env);
+  const fromSeed = seedFile ? replayFromSeed(seedFile, {suite, env}) : null;
+  const replay = buildReplay({suite, env, vary: seedFile ? {seed: fromSeed.seed, fixed: fromSeed.mode === 'fixed'} : vary, place: ctx.place || null, window, theme, trail: ctx.runner?.results || [], path: ctx.replayPath || null, detail: seedFile?.detail || ''});
+  fs.mkdirSync(ctx.ARTIFACTS, {recursive: true});
+  fs.writeFileSync(path.join(ctx.ARTIFACTS, 'replay.json'), JSON.stringify(replay, null, 2));
+  return replay;
 }
 
 // The steps that failed, as records the loop files as issues (message cut to a readable length).
