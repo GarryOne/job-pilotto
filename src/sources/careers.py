@@ -404,6 +404,18 @@ def _shell(markup):
     return len(re.sub(r'\s+', ' ', text).strip()) < 800 or bool(re.search(r'id="(root|__next|app)"|__NEXT_DATA__|ng-version|data-reactroot', markup))
 
 
+# A careers site on its own subdomain of the company's domain (jobs.ethz.ch), for a home page that does not link it. Only the company's own registrable domain; the page fetch refuses a
+# private address like every other (get_text).
+CAREER_SUBDOMAINS = ('jobs', 'karriere', 'careers', 'stellen', 'recruiting', 'jobportal')
+# Domains whose last two labels are not a company's (acme.co.uk: the company is acme, not co.uk).
+SECOND_LEVEL = {'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'com.au', 'org.au', 'co.nz', 'co.jp', 'com.br', 'co.za', 'com.cn', 'com.sg', 'co.in', 'com.mx', 'com.tr', 'com.ar'}
+
+
+def company_domain(host):
+    """The company's own domain of a host name: acme.ch for www.acme.ch, acme.co.uk for jobs.acme.co.uk; '' when the host has no company part (co.uk)."""
+    labels = (host or '').lower().removeprefix('www.').split('.')
+    take = 3 if '.'.join(labels[-2:]) in SECOND_LEVEL else 2
+    return '.'.join(labels[-take:]) if len(labels) >= take else ''
 COMMON_PATHS = ('/karriere', '/jobs', '/careers', '/stellen', '/offene-stellen', '/de/karriere', '/de/jobs', '/en/careers', '/en/jobs', '/fr/carrieres')
 
 
@@ -425,7 +437,9 @@ def guessed_links(website, fetch_page):
     except Exception:  # noqa: BLE001 — no site map: the common paths are still tried
         pass
     found.sort(key=lambda loc: (not STRONG_WORDS.search(loc), len(loc)))
-    return list(dict.fromkeys(found[:4] + [origin + path for path in COMMON_PATHS]))
+    domain = company_domain(parts.hostname or '')
+    subdomains = [f'{parts.scheme}://{name}.{domain}' for name in CAREER_SUBDOMAINS if domain and (parts.hostname or '') != f'{name}.{domain}']
+    return list(dict.fromkeys(found[:4] + subdomains + [origin + path for path in COMMON_PATHS]))
 
 
 def _quiet(fetch_page, url):
@@ -497,7 +511,7 @@ def discover(website, fetch_page=get_text):
     show = renderer() if fetch_page is get_text else None
     found = _explore(website, home, fetch_page, show)
     if not found or found.get('empty'):   # nothing linked, or only an empty page: try the site map and the usual addresses too
-        guessed = _explore(website, home, fetch_page, show, links=guessed_links(website, fetch_page), limit=14)
+        guessed = _explore(website, home, fetch_page, show, links=guessed_links(website, fetch_page), limit=20)
         if guessed and (not found or not guessed.get('empty')):
             found = guessed
     if (not found or found.get('empty')) and (choose := chooser()):   # a model reads the home page's links and picks the job list

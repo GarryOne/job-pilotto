@@ -320,7 +320,25 @@ class ReadMoreSitesTests(unittest.TestCase):
         pages = {'https://acme.ch': '<p>Welcome</p>', 'https://acme.ch/sitemap.xml': '<sitemapindex><sitemap><loc>https://acme.ch/page-sitemap.xml</loc></sitemap></sitemapindex>',
                  'https://acme.ch/page-sitemap.xml': '<urlset><url><loc>https://acme.ch/news</loc></url></urlset>', 'https://acme.ch/jobs': page(POSTING)}
         self.assertEqual(careers.discover('acme.ch', site(pages))['slug'], 'acme.ch__jobs')
-        self.assertEqual(careers.guessed_links('https://acme.ch', site({}))[:3], ['https://acme.ch/karriere', 'https://acme.ch/jobs', 'https://acme.ch/careers'])
+        guessed = careers.guessed_links('https://acme.ch', site({}))
+        self.assertEqual(guessed[:3], ['https://jobs.acme.ch', 'https://karriere.acme.ch', 'https://careers.acme.ch'])   # a careers site on the company's own subdomain first
+        self.assertEqual(guessed[6:9], ['https://acme.ch/karriere', 'https://acme.ch/jobs', 'https://acme.ch/careers'])   # then the common paths
+
+    def test_a_careers_site_on_its_own_subdomain_is_found_when_the_home_page_links_nothing(self):
+        # 5 Oct 2026: ETH's jobs live on jobs.ethz.ch and its home page links no careers page
+        pages = {'https://www.ethz.ch': page(body='<p>Welcome</p>'), 'https://jobs.ethz.ch': page(POSTING)}
+        found = careers.discover('https://www.ethz.ch', site(pages))
+        self.assertIsNotNone(found)
+        self.assertEqual(found['ats'], 'careers')
+        self.assertIn('jobs.ethz.ch', careers.decode(found['slug']))
+
+    def test_the_subdomain_guesses_stay_on_the_companys_own_domain(self):
+        self.assertEqual(careers.company_domain('www.acme.ch'), 'acme.ch')
+        self.assertEqual(careers.company_domain('jobs.acme.co.uk'), 'acme.co.uk')
+        self.assertEqual(careers.company_domain('co.uk'), '')   # no company part: jobs.co.uk is someone else's
+        self.assertEqual([url for url in careers.guessed_links('https://www.acme.co.uk', site({})) if 'co.uk' in url.split('/')[2]][:2], ['https://jobs.acme.co.uk', 'https://karriere.acme.co.uk'])
+        self.assertFalse([url for url in careers.guessed_links('https://co.uk', site({})) if url.startswith('https://jobs.')])
+        self.assertNotIn('https://jobs.acme.ch', careers.guessed_links('https://jobs.acme.ch', site({})))   # a site that is already the careers subdomain does not guess itself
 
     def test_a_careers_page_with_no_open_jobs_is_watched_in_any_language(self):
         for text in ('Zurzeit keine offenen Stellen.', 'There are no open positions at the moment.', "Aucun poste ouvert pour l'instant."):

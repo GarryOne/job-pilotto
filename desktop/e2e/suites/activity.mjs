@@ -149,10 +149,14 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
 
   await ctx.run('a run read only from Notion (a fresh start, no local record) still shows its log', async () => {
+    const restartedAt = Date.now();
     await ctx.relaunch({}, profile => fs.rmSync(path.join(profile, 'runs.json'), {force: true}));
     await appReady(ctx);
     const data = await runsData(page);
-    if (data.runs.some(run => run.log.length)) throw new Error(`the local run record was not removed: this would test nothing (runs with a log: ${data.runs.filter(run => run.log.length).map(run => `${run.kind || 'search'} by ${run.trigger} at ${run.startedAt}, ${run.log.length} line(s)`).join('; ')})`);
+    // A run recorded BEFORE the restart that still has a log means the record was not removed. A run the new app started itself (its catch-up checks begin a few seconds after launch,
+    // and carry a log) is not: judged by "any run with a log" this step failed on timing alone (2 of 5 runs on 5 Oct 2026).
+    const kept = data.runs.filter(run => run.log.length && !(Date.parse(run.startedAt) >= restartedAt));
+    if (kept.length) throw new Error(`the local run record was not removed: this would test nothing (runs from before the restart with a log: ${kept.map(run => `${run.kind || 'search'} by ${run.trigger} at ${run.startedAt}, ${run.log.length} line(s)`).join('; ')})`);
     if (!data.runs.length) throw new Error('the history read from Notion is empty after a fresh start');
     const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
     const lines = opened.log.split('\n').filter(Boolean).length;
