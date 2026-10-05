@@ -57,6 +57,11 @@ Set `E2E_REQUIRE_SECRETS=1` (CI on this repo, release gates) and a skipped suite
 3. A suite that writes to Notion needs **its own Notion test page and connection** (suites share nothing): add `E2E_NOTION_TOKEN_<NAME>: ${{ secrets.E2E_NOTION_TOKEN_<NAME> }}` to the `env:` block of `.github/workflows/e2e.yml` and the secret to GitHub. Without the token the suite is skipped in CI and falls back to the wizard's page on a Mac.
 4. Reset only your own data, keep the isolation rules below, put dummy data in through the Notion API (`lib/notion.mjs`) rather than the AI where you can.
 
+## The quality suite for another profession
+`E2E_QUALITY_PERSONA=photographer npm run all -- --only quality` runs the quality checks (facts, ranking, duplicates, stability, invented facts, CV match) for a fictional commercial photographer in Zurich:
+`fixtures/golden-photographer/` holds her CV, her Profile (`profile.md`, which the engine reads instead of the test page's Profile: `JOB_PILOTTO_E2E_PROFILE_FILE`), 12 postings with a known truth and her CV-match data.
+It costs about $0.3 a run, like the default (the SRE). It is how scoring is proven for a profession that is not IT.
+
 ## What a strategy returns, without the app
 `tests/test_matching_matrix.py` is the fast proof (seconds, no Notion, no AI): strategy inputs (Swiss cities, regions and region words, levels, remote, skipped titles, accents) against fixture postings, with the kept and dropped lists written out; a known gap (`Asia`) is an expected failure so it stays visible. The `strategy` suite proves the same words through the real app and the Notion page.
 

@@ -90,6 +90,8 @@ export function pipelineEnv(storage, parent = process.env) {
   if (parent.JOB_PILOTTO_E2E) {
     for (const name of ['JOB_PILOTTO_E2E_NOTION_BASE_URL', 'JOB_PILOTTO_E2E_TELEGRAM_BASE_URL', 'JOB_PILOTTO_E2E_GOOGLE_BASE_URL']) if (parent[name]) env[name] = parent[name];
     if (parent.JOB_PILOTTO_E2E_GOOGLE_BASE_URL) for (const name of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN']) if (parent[name]) env[name] = parent[name];
+    // A fictional candidate's Profile (the quality suite's personas, desktop/e2e/fixtures/golden-*): a file the engine scores against instead of the test page's Profile. Test runs only.
+    if (parent.JOB_PILOTTO_E2E_PROFILE_FILE) env.JOB_PILOTTO_PROFILE_FILE = parent.JOB_PILOTTO_E2E_PROFILE_FILE;
   }
   // The AI engine the user chose (lib/claude-code.js): their own Claude Code on this Mac, or the API key.
   Object.assign(env, claudeCode.pipelineVariables(settings, !!env.ANTHROPIC_API_KEY));

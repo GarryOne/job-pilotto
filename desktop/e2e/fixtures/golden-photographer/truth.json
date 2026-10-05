@@ -1,0 +1,213 @@
+[
+ {
+  "id": 3001,
+  "title": "Senior Photographer, E-Commerce Studio",
+  "url": "https://boards.e2e.test/job/3001",
+  "location": "Zurich, Switzerland",
+  "description": "Run the shoots of our fashion and home e-commerce studio: about 150 products a day with studio lighting, Capture One tethering and Photoshop retouching to our style guide. Senior role, six or more years of professional product or fashion photography. On-site in our Zurich studio, five days a week. English is our working language; German is helpful. Salary CHF 92,000 – 108,000 per year plus 13th month.",
+  "seniority": "Senior",
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [
+   "German +"
+  ],
+  "salary": [
+   "92000",
+   "108000"
+  ],
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "high"
+ },
+ {
+  "id": 3002,
+  "title": "Product Photographer & Retoucher",
+  "url": "https://boards.e2e.test/job/3002",
+  "location": "Zurich, Switzerland",
+  "description": "Shoot and retouch products for our web shop: studio lighting, Capture One, Photoshop, colour-accurate files for print and web. Two to five years of experience. On-site in the Zurich studio. English is our working language in the studio; German is not required.",
+  "seniority": "Mid",
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "high"
+ },
+ {
+  "id": 3003,
+  "title": "Editorial Photographer (60%)",
+  "url": "https://boards.e2e.test/job/3003",
+  "location": "Basel, Switzerland",
+  "description": "Mid-level editorial photographer for a regional magazine: portraits, reportage and event coverage, about three assignments a week, picture editing from home or in our newsroom. Part-time, 60 percent. Hybrid. Working language English or German.",
+  "seniority": "Mid",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "mid",
+  "mayBeEmpty": [
+   "Technologies"
+  ]
+ },
+ {
+  "id": 3004,
+  "title": "Junior Photographer (Trainee)",
+  "url": "https://boards.e2e.test/job/3004",
+  "location": "Winterthur, Switzerland",
+  "description": "Your first photography job. Junior position for someone with up to two years of experience: assist on shoots, prepare equipment, sort and rate files under close guidance. On-site in Winterthur, five days a week. English is fine.",
+  "seniority": "Junior",
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "low",
+  "mayBeEmpty": [
+   "Technologies"
+  ]
+ },
+ {
+  "id": 3005,
+  "title": "Fotograf:in (m/w/d), Deutsch erforderlich",
+  "url": "https://boards.e2e.test/job/3005",
+  "location": "Bern, Switzerland",
+  "description": "Fotograf:in für unsere kantonale Kommunikationsstelle: Porträts, Veranstaltungen und Dokumentation. Fliessend Deutsch (C1) ist Voraussetzung: das Team, die Abläufe und alle Sitzungen sind auf Deutsch, Englisch genügt nicht. Mid-level, hybrid, Bern.",
+  "seniority": "Mid",
+  "workMode": "Hybrid",
+  "english": false,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "low",
+  "mustMention": "german|deutsch|language",
+  "mayBeEmpty": [
+   "Technologies"
+  ]
+ },
+ {
+  "id": 3006,
+  "title": "Photography Course Instructor",
+  "url": "https://boards.e2e.test/job/3006",
+  "location": "Zurich, Switzerland",
+  "description": "Teach our evening photography courses for adult beginners: exposure, composition and editing basics, two classes a week in our Zurich school. This is a teaching role, not a photographer position; no commercial shoots. On-site. The courses run in English; German is not required.",
+  "seniority": null,
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "low",
+  "mayBeEmpty": [
+   "Seniority",
+   "Technologies"
+  ]
+ },
+ {
+  "id": 3007,
+  "title": "Account Manager, Camera Retail",
+  "url": "https://boards.e2e.test/job/3007",
+  "location": "Zurich, Switzerland",
+  "description": "Sell cameras and lenses to retail partners across the DACH region and manage the relationships and targets. Sales experience required.",
+  "seniority": null,
+  "workMode": null,
+  "english": null,
+  "languagePlus": null,
+  "salary": null,
+  "roleFamily": null,
+  "fit": "low",
+  "filterMayDrop": true
+ },
+ {
+  "id": 3008,
+  "title": "Senior Photographer, Fashion & Lifestyle",
+  "url": "https://boards.e2e.test/job/3008",
+  "location": "Geneva, Switzerland",
+  "description": "Senior photographer for campaigns of a Geneva fashion house: lookbooks, editorials and e-commerce, with studio and location work. Hybrid. English is our working language; French is a plus for contact with the Geneva ateliers.",
+  "seniority": "Senior",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [
+   "French +"
+  ],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "mid",
+  "mayBeEmpty": [
+   "Technologies"
+  ]
+ },
+ {
+  "id": 3009,
+  "title": "Real Estate Photographer",
+  "url": "https://boards.e2e.test/job/3009",
+  "location": "Zurich, Switzerland",
+  "description": "Photograph apartments and houses across the canton of Zurich for our property portal: interiors, exteriors and drone views, edit in Lightroom. Three years of experience wanted. On-site at the properties, with your own car. Salary CHF 72,000 – 82,000 per year. English or German.",
+  "seniority": "Mid",
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [],
+  "salary": [
+   "72000",
+   "82000"
+  ],
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "mid"
+ },
+ {
+  "id": 3010,
+  "title": "Senior Photo & Video Producer",
+  "url": "https://boards.e2e.test/job/3010",
+  "location": "Remote - Switzerland",
+  "description": "Senior producer for our brand content: plan, shoot and edit photo and video campaigns with studio lighting, Lightroom and Photoshop, working with a small team across Switzerland. Fully remote within Switzerland, with travel to shoots. English is the working language; German is a plus.",
+  "seniority": "Senior",
+  "workMode": "Remote",
+  "english": true,
+  "languagePlus": [
+   "German +"
+  ],
+  "salary": "",
+  "roleFamily": [
+   "other"
+  ],
+  "fit": "high"
+ },
+ {
+  "id": 3011,
+  "title": "Head of Photography",
+  "url": "https://boards.e2e.test/job/3011",
+  "location": "Zurich, Switzerland",
+  "description": "Lead our six photographers and the studio: planning, quality and budgets, plus some shoots yourself. Management role. Hybrid. The team works in English; German is not required.",
+  "seniority": "Lead/Manager",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": null,
+  "fit": "mid",
+  "mayBeEmpty": [
+   "Technologies"
+  ]
+ },
+ {
+  "id": 3012,
+  "title": "Senior Photographer, E-Commerce Studio",
+  "url": "https://boards.e2e.test/job/3001?utm_source=linkedin&utm_medium=social",
+  "duplicateOf": 3001
+ }
+]

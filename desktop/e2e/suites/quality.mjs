@@ -20,7 +20,13 @@ export const watches = ['src/ai/score.py', 'src/ai/enrich.py', 'src/ai/hints.py'
 // This suite measures what a user gets, so the app under test runs on the shipped model (about $0.3 a run); the other suites run on Haiku. For a cheap run:
 // E2E_APP_MODEL=claude-haiku-4-5 (Haiku scores the same job up to 10 points apart between two scorings, Sonnet within 6).
 export const env = {JOB_PILOTTO_MODEL_OVERRIDE: process.env.E2E_APP_MODEL || 'claude-sonnet-5-5'};
-const GOLDEN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'golden');
+// A persona's Profile is a file the engine reads instead of the test page's Profile (test-only: desktop/lib/pipeline.js JOB_PILOTTO_E2E_PROFILE_FILE).
+if (process.env.E2E_QUALITY_PERSONA) env.JOB_PILOTTO_E2E_PROFILE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', `golden-${process.env.E2E_QUALITY_PERSONA}`, 'profile.md');
+// E2E_QUALITY_PERSONA=photographer runs the same checks for a fictional commercial photographer in Zurich (fixtures/golden-photographer: her CV, her Profile, 12 postings with a
+// known truth, and her CV for the CV-match step), so scoring, ranking, facts and the judge are proven for a profession that is not IT. Default: the SRE.
+const PERSONA = process.env.E2E_QUALITY_PERSONA || '';
+const GOLDEN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', PERSONA ? `golden-${PERSONA}` : 'golden');
+const persona = PERSONA ? JSON.parse(fs.readFileSync(path.join(GOLDEN, 'persona.json'), 'utf8')) : null;
 const read = file => JSON.parse(fs.readFileSync(path.join(GOLDEN, file), 'utf8'));
 const MATCHES = 'Job Matches — AI Scored';
 
@@ -76,9 +82,11 @@ export async function run(ctx) {
     await ctx.run('this suite starts with no jobs and no runs in its Notion page', async () => {
       await emptyDatabase(NOTION, MATCHES); await emptyDatabase(NOTION, 'Cronjob Runs');
       // The candidate's compensation is known, not whatever the wizard's AI drafted from the CV ("CHF 180,000 (estimate)"): target 170k, minimum 140k.
+    if (!persona) {   // a persona states its own compensation in its Profile file
     const set = [await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Target:/, 'Target: CHF 170,000 per year in Switzerland'),
       await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Minimum acceptable:/, 'Minimum acceptable: CHF 140,000 per year in Switzerland')];
     if (set.some(count => count !== 1)) throw new Error(`the Profile page should have one Target line and one Minimum acceptable line, found ${set.join(' and ')}`);
+    }
     // The golden postings replace the shared fixture feeds: one board, twelve postings (one is a duplicate).
       for (const file of fs.readdirSync(ctx.feeds)) fs.rmSync(path.join(ctx.feeds, file), {force: true, recursive: true});
       for (const file of ['board.json', 'routes.json']) fs.copyFileSync(path.join(GOLDEN, file), path.join(ctx.feeds, file));
@@ -88,7 +96,7 @@ export async function run(ctx) {
       const search = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.json'), 'utf8'));
       fs.writeFileSync(path.join(ctx.profile, 'config', 'search.json'), JSON.stringify({...search,
         role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
-        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}}, null, 2));
+        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})}, null, 2));
     }, {needs: ctx.needs});
 
     await ctx.run('a Jobs check on the golden postings finishes and scores them', async () => { await check('first Jobs check'); await read2(); if (!rows.length) {
@@ -179,7 +187,7 @@ export async function run(ctx) {
       const logs = path.join(ctx.profile, 'logs');
       const text = fs.existsSync(logs) ? fs.readdirSync(logs).filter(file => file.endsWith('.log')).map(file => fs.readFileSync(path.join(logs, file), 'utf8')).join('\n') : '';
       if (text.length < 200) throw new Error('the logs are empty: there is nothing to check');
-      const needles = [...postings.flatMap(item => fingerprints(item.description)), ...fingerprints(candidate), 'alex.example@example.test', ctx.key, ctx.token];
+      const needles = [...postings.flatMap(item => fingerprints(item.description)), ...fingerprints(candidate), persona?.email || 'alex.example@example.test', ctx.key, ctx.token];
       const found = leaks(text, needles.filter(Boolean));
       if (found.length) throw new Error(`${found.length} piece(s) of private data are in the logs: ${found.map(needle => needle === ctx.key || needle === ctx.token ? '(a secret)' : `"${needle.slice(0, 40)}"`).join(', ')}`);
     }, {needs: ctx.needs}));
@@ -187,7 +195,7 @@ export async function run(ctx) {
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
       const {byId} = matchRows(truth, rows);
       // The candidate as the app knows them: the CV text plus the Profile page the scoring read (figures such as a salary minimum may come from there).
-      const profile = `${candidate}\n\nPROFILE PAGE IN NOTION\n${await profileText(NOTION, 'Profile — CV and Preferences').catch(() => '')}`.slice(0, 30000);
+      const profile = `${candidate}\n\nPROFILE PAGE IN NOTION\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await profileText(NOTION, 'Profile — CV and Preferences').catch(() => '')}`.slice(0, 30000);
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {
@@ -215,12 +223,12 @@ export async function run(ctx) {
     await soft(() => ctx.run('the CV match is right about the CV on golden postings: required terms found, few claims corrected', async () => {
       process.env.JOB_PILOTTO_MODEL_OVERRIDE ||= env.JOB_PILOTTO_MODEL_OVERRIDE;
       const {check, cvText} = await import('../../lib/match-check.js');
-      const cv = {summary: 'Senior Site Reliability Engineer, nine years in cloud infrastructure, Kubernetes, observability and incident response.', skills: 'Kubernetes, Terraform, AWS, Datadog, OpenTelemetry, SLOs',
+      const cv = persona?.cvMatch?.cv ?? {summary: 'Senior Site Reliability Engineer, nine years in cloud infrastructure, Kubernetes, observability and incident response.', skills: 'Kubernetes, Terraform, AWS, Datadog, OpenTelemetry, SLOs',
         jobs: [{company: 'Acme Cloud', roles: [{title: 'Senior SRE', period: '2022 – Present', place: 'Zurich', skills: 'AWS EKS, Terraform, Datadog',
           bullets: ['Ran 400 microservices on Kubernetes (AWS EKS)', 'Cut incident time by 40 percent with Datadog and OpenTelemetry', 'Built the Terraform platform used by 120 engineers', 'Led the on-call rotation of 8 people']}]},
           {company: 'Beta Systems', roles: [{title: 'Platform Engineer', period: '2018 – 2022', place: 'Berlin', bullets: ['Migrated 60 services to Kubernetes', 'Introduced SLOs and error budgets']}]}]};
       const text = cvText(cv).toLowerCase();
-      const TERMS = ['kubernetes', 'terraform', 'aws', 'datadog', 'opentelemetry', 'slos'];
+      const TERMS = persona?.cvMatch?.terms ?? ['kubernetes', 'terraform', 'aws', 'datadog', 'opentelemetry', 'slos'];
       let expected = 0, got = 0, corrected = 0;
       for (const item of postings.filter(entry => entry.fit === 'high').slice(0, 3)) {
         const result = await check({}, ctx.key, {job: item, cv});

@@ -1,0 +1,71 @@
+{
+ "name": "photographer",
+ "person": "A fictional commercial photographer in Zurich (studio, product, fashion, portrait; Capture One, Lightroom, Photoshop), English fluent and German B1, looking for photographer roles in Switzerland.",
+ "email": "mira.example@example.test",
+ "search": {
+  "role_keywords": [
+   "photograph",
+   "fotograf",
+   "videograph",
+   "\\bphoto\\b",
+   "photo editor",
+   "retouch"
+  ],
+  "locations": {
+   "top_tier": [
+    "zurich",
+    "geneva"
+   ],
+   "country_wide": [
+    "switzerland",
+    "basel",
+    "bern"
+   ],
+   "abroad": []
+  }
+ },
+ "cvMatch": {
+  "terms": [
+   "capture one",
+   "lightroom",
+   "photoshop",
+   "studio lighting"
+  ],
+  "cv": {
+   "summary": "Senior commercial photographer, seven years of product, fashion and portrait photography for e-commerce and magazines.",
+   "skills": "studio lighting, Capture One, Lightroom, Photoshop, product photography, retouching, drone photography",
+   "jobs": [
+    {
+     "company": "Atelier Nord",
+     "roles": [
+      {
+       "title": "Senior Photographer",
+       "period": "2021 – Present",
+       "place": "Zurich",
+       "skills": "Capture One, Photoshop, studio lighting",
+       "bullets": [
+        "Shot 120 products a day with strobe studio lighting and Capture One tethering",
+        "Built the Photoshop retouching style guide used by 4 retouchers",
+        "Led the fashion lookbook shoots"
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Studio Lumen",
+     "roles": [
+      {
+       "title": "Photographer",
+       "period": "2018 – 2021",
+       "place": "Basel",
+       "bullets": [
+        "Portraits, events and magazine reportage",
+        "Picture editing in Lightroom"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
