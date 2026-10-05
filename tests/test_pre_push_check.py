@@ -19,7 +19,7 @@ echo "$PWD $*" >> "$CHECK_LOG"
 '''
 # The stub gh: `run list --status completed` answers the last finished build, any other `run list` the newest build.
 GH = '''#!/usr/bin/env bash
-case "$*" in *"--status completed"*) echo "$GH_COMPLETED" ;; *"run list"*) echo "$GH_LATEST" ;; esac
+case "$*" in *"--status completed"*) echo "$GH_COMPLETED" ;; *"run view"*) echo "$GH_FAILED_JOBS" ;; *"run rerun"*) echo "$*" >> "$CHECK_LOG.rerun" ;; *"run list"*) echo "$GH_LATEST" ;; esac
 '''
 
 
@@ -55,7 +55,7 @@ class PrePushCheckTest(unittest.TestCase):
         git(self.repo, 'push', '-q', 'origin', 'main')
         self.log = self.tmp / 'check.log'
         self.env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'CHECK_LOG': str(self.log),
-                    'GH_COMPLETED': f'success {git(self.repo, "rev-parse", "--short=7", "HEAD")} https://x/runs/1', 'GH_LATEST': ''}
+                    'GH_COMPLETED': f'success {git(self.repo, "rev-parse", "--short=7", "HEAD")} https://x/runs/1', 'GH_LATEST': '', 'GH_FAILED_JOBS': ''}
 
     def hook(self, command, **env):
         payload = json.dumps({'tool_input': {'command': command}, 'cwd': str(self.repo)})
@@ -106,11 +106,50 @@ class PrePushCheckTest(unittest.TestCase):
 
     def test_each_area_runs_alone_and_no_worktree_is_left(self):
         self.needed_committed()
-        self.assertEqual(self.hook('git push origin HEAD:main'), (0, ''))
+        self.assertEqual(self.hook('PUSH_FULL=1 git push origin HEAD:main'), (0, ''))
         runs = self.log.read_text().splitlines()
         self.assertEqual([line.split(' --area ')[1].split()[0] for line in runs], ['python', 'worker', 'site', 'desktop'])
         self.assertEqual(len({line.split()[0] for line in runs}), 4, 'a fresh checkout per area')
         self.assertEqual(len(git(self.repo, 'worktree', 'list').splitlines()), 1)
+
+    def areas_run(self, command='git push origin HEAD:main'):
+        self.log.unlink(missing_ok=True)
+        code, err = self.hook(command)
+        runs = self.log.read_text().splitlines() if self.log.exists() else []
+        return code, [line.split(' --area ')[1].split()[0] for line in runs], err
+
+    def test_only_the_areas_a_push_touches_run(self):
+        self.needed_committed()
+        self.assertEqual(self.areas_run()[:2], (0, ['desktop']))
+        self.commit('Worker only', {'worker/a.js': 'x'})
+        self.assertEqual(self.areas_run()[:2], (0, ['worker', 'desktop']))   # origin/main..HEAD still holds the desktop commit
+        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
+        self.commit('Engine change', {'src/ai/x.py': 'x'})
+        self.assertEqual(self.areas_run()[:2], (0, ['python', 'desktop']), 'the engine also runs its desktop callers')
+        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
+        self.commit('Site only', {'site/p.html': 'x'})
+        self.assertEqual(self.areas_run()[:2], (0, ['site']))
+        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
+        self.commit('Unknown top-level file', {'Makefile': 'x'})
+        self.assertEqual(self.areas_run()[:2], (0, ['python', 'worker', 'site', 'desktop']), 'an unknown path runs everything')
+
+    def test_docs_alone_run_no_suite_and_full_forces_all(self):
+        self.needed_committed()
+        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
+        self.commit('Docs', {'README.md': 'x', 'docs/a.md': 'y'})
+        self.assertEqual(self.areas_run()[:2], (0, []))
+        self.assertEqual(self.areas_run('PUSH_FULL=1 git push origin HEAD:main')[:2], (0, ['python', 'worker', 'site', 'desktop']))
+
+    def test_a_red_main_with_no_failed_job_is_rerun_not_blocking(self):
+        self.needed_committed()
+        bad = git(self.repo, 'rev-parse', '--short=7', 'HEAD')
+        code, err = self.hook('git push origin HEAD:main', GH_COMPLETED=f'cancelled {bad} https://x/runs/42', GH_FAILED_JOBS='0')
+        self.assertEqual(code, 0, err)
+        self.assertIn('re-running it', err)
+        self.assertIn('run rerun 42 --failed', Path(f'{self.log}.rerun').read_text())
+        # One job that really failed still blocks.
+        code, _ = self.hook('git push origin HEAD:main', GH_COMPLETED=f'failure {bad} https://x/runs/42', GH_FAILED_JOBS='1')
+        self.assertEqual(code, 2)
 
     def test_a_red_main_blocks_with_the_way_to_unblock_it(self):
         self.needed_committed()

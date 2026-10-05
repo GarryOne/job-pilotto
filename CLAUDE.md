@@ -33,7 +33,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 
 ## The change loop (Superpowers plugin dropped 30 Sep 2026: its process cost more tokens than it saved)
 - Worktrees: `tools/worktree.sh <topic>` (`.claude/worktrees/`).
-- Finish: rebase on `origin/main`, tests, push to `main` (no local merge, no PR unless asked), then Notion.
+- Finish: `tools/ship.sh` (rebase on `origin/main`, the hook's tests, push with retry, update the main checkout; no local merge, no PR unless asked), then Notion. **Pick a change tier first and say it** (AGENTS.md "Change tiers"): most changes are Tier 0/1 (~1–5 min); stop when the tier is met.
 - **Commit subject: one line, at most 72 characters** (GitHub cuts the list at about that, 2 Oct 2026: subjects of 150+ characters
   with version numbers and reasons made the history unreadable). Imperative, what changed: `Extension: drop "Use on this tab"`.
   No version number, no reasons, no "because…" in the subject; those go in the body (blank line, then wrapped text).
@@ -175,7 +175,7 @@ input instead of running at once. A new long task that runs on this Mac is a tra
 
 ## Tests
 `python3 -m unittest discover -s tests`, `cd worker && npm test` and `cd desktop && npm test`.
-A Claude Code hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs all of them, plus the
+A Claude Code hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches (`PUSH_FULL=1`: all; AGENTS.md "Change tiers"), plus the
 Python suite without credentials as CI sees it, before every `git push` and blocks the push if one
 fails, so only green builds reach GitHub. It also lints the workflow files (`actionlint`, with
 shellcheck on each `run:` script) and, when a `package.json` or lock file changed, proves `npm ci`

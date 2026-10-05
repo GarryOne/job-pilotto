@@ -4,7 +4,8 @@
 # GitHub. Reads the hook's JSON on stdin; exit 2 blocks the command and shows the reason to Claude.
 #   python: unittest, normally and as CI sees it (no Notion/Telegram/Google/SerpApi credentials)
 #   worker, site: npm test  desktop: npm test (npm ci first when node_modules is missing)
-# Also blocks a push on top of a red CI build on main, and a build.yml that installs without dev dependencies.
+# Runs only the suites the push touches (AGENTS.md "Change tiers"; PUSH_FULL=1 for all). Also blocks a push on top of a red CI build on main
+# (not one that was only cancelled), and a build.yml that installs without dev dependencies.
 set -uo pipefail
 
 input="$(cat)"
@@ -42,6 +43,14 @@ case "$command" in *CI_RED_OK=1*) ;; *)
     last="$(cd "$repo" && gh run list --workflow build.yml --branch main --status completed -L 1 \
       --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
     case "$last" in failure*|cancelled*|timed_out*)
+      # A run whose jobs were only cancelled or never started (a busy runner pool, 6 Oct 2026: 15 min queued, then cancelled) has no broken
+      # test in it: it is re-run, and nobody is blocked. Only a run with a job that really failed blocks.
+      url="${last##* }"; run_id="${url##*/runs/}"
+      real="$(cd "$repo" && gh run view "$run_id" --json jobs --jq '[.jobs[] | select(.conclusion == "failure")] | length' 2>/dev/null)"
+      if [ "$real" = "0" ]; then
+        echo "pre-push: main's last build ($run_id) has no failed job (cancelled or never started): re-running it, not blocking this push." >&2
+        (cd "$repo" && gh run rerun "$run_id" --failed >/dev/null 2>&1) || true
+      else
       bad="$(cut -d' ' -f2 <<<"$last")"
       building="$(cd "$repo" && gh run list --workflow build.yml --branch main -L 1 \
         --json status,headSha --jq '.[0] | select(.status != "completed") | .headSha' 2>/dev/null)"
@@ -57,6 +66,7 @@ case "$command" in *CI_RED_OK=1*) ;; *)
           echo "  Then push your own work normally. Never just add commits on top of a red build."
         } >&2
         exit 2
+      fi
       fi ;;
     esac
   fi ;;
@@ -101,6 +111,27 @@ case "$command" in *STALE_EXPECT_OK=1*) ;; *)
   fi ;;
 esac
 
+# Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path
+# this list does not know runs everything. The engine (src/, tests/) also runs desktop: its callers. A clean pip install only when dependencies changed.
+changed="$(git -C "$repo" diff --name-only origin/main..HEAD 2>/dev/null)"
+want_python=0; want_worker=0; want_site=0; want_desktop=0; want_workflows=0; clean_install=""
+if [ -z "$changed" ]; then want_python=1; want_worker=1; want_site=1; want_desktop=1; want_workflows=1; clean_install=--clean-install
+else
+  while IFS= read -r file; do
+    case "$file" in
+      *.md|docs/*|LICENSE*|.gitignore|*/.gitignore) ;;
+      worker/*) want_worker=1 ;;
+      site/*) want_site=1 ;;
+      desktop/*|extension/*) want_desktop=1 ;;
+      requirements*|pyproject.toml) want_python=1; want_desktop=1; clean_install=--clean-install ;;
+      src/*|tests/*) want_python=1; want_desktop=1 ;;
+      .github/*) want_workflows=1 ;;
+      *) want_python=1; want_worker=1; want_site=1; want_desktop=1; want_workflows=1 ;;
+    esac
+  done <<<"$changed"
+fi
+case "$command" in *PUSH_FULL=1*) want_python=1; want_worker=1; want_site=1; want_desktop=1; want_workflows=1; clean_install=--clean-install ;; esac
+
 failed=()
 log="$(mktemp)"
 run() {  # name, then the command
@@ -118,9 +149,11 @@ ci_installs_dev() {
     return 1
   fi
 }
-run "CI installs dev dependencies (build.yml)" ci_installs_dev
-if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
-else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
+if [ "$want_workflows" = 1 ]; then
+  run "CI installs dev dependencies (build.yml)" ci_installs_dev
+  if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
+  else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
+fi
 # The suites run on exactly what is pushed, each area in its own fresh checkout of HEAD, as CI does: a forgotten file or a git-ignored
 # file left by another area's run (5 Oct 2026: desktop/shared/ from a desktop run let the worker's tests pass here, fa1f838 went red in CI and
 # blocked every session) fails here, not on main. Dependencies are linked from this checkout (same lockfiles; --clean-install verifies them).
@@ -136,10 +169,10 @@ verify_area() {  # area [extra check.sh flags]
   git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"
   return $status
 }
-run "python (clean checkout)" verify_area python --clean-install
-run "worker (clean checkout)" verify_area worker
-run "site (clean checkout)" verify_area site
-run "desktop (clean checkout)" verify_area desktop
+[ "$want_python" = 1 ] && run "python (clean checkout)" verify_area python $clean_install
+[ "$want_worker" = 1 ] && run "worker (clean checkout)" verify_area worker
+[ "$want_site" = 1 ] && run "site (clean checkout)" verify_area site
+[ "$want_desktop" = 1 ] && run "desktop (clean checkout)" verify_area desktop
 git -C "$repo" worktree prune 2>/dev/null
 
 if [ ${#failed[@]} -gt 0 ]; then

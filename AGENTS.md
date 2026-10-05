@@ -101,10 +101,11 @@ them from colliding in one checkout:
 - Make every code change in its own git worktree on its own branch, never directly in the main
   checkout: `tools/worktree.sh <topic>` (a worktree in `.claude/worktrees/<topic>` from `origin/main`, with the main
   checkout's `node_modules` linked in, so the tests run at once; `node_modules` is git-ignored: leave the links alone).
-- Commit there. Before landing: `git fetch && git rebase origin/main`, run both test suites
-  (`python3 -m unittest discover -s tests`, `cd worker && npm test`), then
-  `git push origin <topic>:main` (fast-forward only; if it's rejected, fetch, rebase and test again).
-- Remove the worktree afterwards: `tools/worktree.sh --done <topic>`.
+- Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks once (the suites of the
+  areas you touched), push with a retry when another session pushed in between, update the main checkout, remove the worktree.
+  `--full` for Tier 2, `--fix` for the fix/revert of a red main, `--keep` to keep the worktree. By hand it is still
+  `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
+- Remove the worktree afterwards: `tools/worktree.sh --done <topic>` (`ship.sh` does it).
 - Never force-push `main` — not `--force`, not `--force-with-lease`. Several agents push here in
   parallel, and a force-push deletes every commit that landed since your last fetch, silently. This
   happened on 1 Oct 2026: a `--force-with-lease` during a rebase dropped `8dce9ba` ("Windows update:
@@ -116,6 +117,26 @@ them from colliding in one checkout:
   (`git reflog` → the old `origin/main` tip → `git rebase <sha>` → normal push) and say what happened.
 - Never use a bare `git stash`/`stash pop`: the stash stack is shared across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
+
+### Change tiers: pick one, say it in one line, stop when it is met (6 Oct 2026)
+A transcription banner took 1–2 hours: harnesses, real downloads, e2e runs, CI waits, three rejected pushes. Before the gates, commits landed
+every 30 seconds. Keep the guardrails that catch real breakage; stop paying the full price for every change.
+
+| Tier | For | What you do | Target |
+|---|---|---|---|
+| **0** | copy, CSS, a label, a small UI or logic fix | the affected tests, `tools/ship.sh`; CI runs after | ~1 min |
+| **1** (default) | a feature, a new screen or state | Tier 0 + **one** look at the new state: `npm run shot -- <page> --js "<force the state>" --select '#id'` (~5 s) | ~5 min |
+| **2** | money, writes to Notion, the apply flow, the installer, the engine pipeline, data migrations | the area's e2e suite (`E2E_STEPS=…` for one step), a real run once, `tools/ship.sh --full` | as long as it takes |
+
+- **Say the tier in one line before you start** ("Tier 1: new banner"). Unsure: take the lower one and say why. Go up only when the change can lose
+  data, spend money, or break the install. A state that is hard to reach (a first-run banner, an error) is forced with `--js`, not with a harness,
+  a real download or a fake backend.
+- **Stop when the tier is met.** No extra harness, no real end-to-end run, no new check "while we're here" at Tier 0/1.
+- **One change, one push.** A follow-up you think of (prefetch, a Finder check, a new tool) is offered in one line and built only when the owner says yes.
+- **Land with `tools/ship.sh`**, not by hand. The pre-push hook runs only the suites of the areas the push touches (docs: none; engine: python +
+  desktop; an unknown path: everything; `PUSH_FULL=1` forces all). Do not wait for CI of your own push before the next task: look at it later.
+  A red main whose jobs were only cancelled or never started (busy runners) is infrastructure: the hook re-runs it and does not block.
+- The e2e suites run nightly and on demand, not per change; the Finder files what they find. Do not run one to "be sure" at Tier 0/1.
 
 ### Red main: the first session to see it unblocks everyone (5 Oct 2026)
 A red `build` on `main` blocks every session's push (the pre-push hook). Waiting for its author left four sessions stuck
