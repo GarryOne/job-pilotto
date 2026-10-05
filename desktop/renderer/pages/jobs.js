@@ -301,19 +301,21 @@ export function renderJobs() {
         }
       }
     } else if (job.status !== 'applied' && job.url && job.code) {
-      // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).
+      // No kit yet: Apply drafts it first (reads the form's questions, answers each, writes a cover letter), then opens
+      // the form in Chrome as it does for a job with a kit. "Prepare only" is in the ⋯ menu.
       const state = prepareState(job);
-      const prepare = Object.assign(el('button', 'row-main state-prepare', state === 'failed' ? 'Retry prepare' : state === 'cloud' ? 'Preparing…' : state ? 'Preparing' : 'Prepare'), {
-        title: state === 'cloud' ? 'Preparing on GitHub: the list reloads when it is done' : state === 'local' ? 'Drafting the kit: usually 15–30 s'
-          : 'Draft the application kit (form answers and cover letter) in your Notion; then Apply'});
-      if (state === 'local' || state === 'cloud') { prepare.disabled = true; if (state === 'local') prepare.classList.add('busy', 'state-busy'); }  // spinner only; the fixed width keeps the row still
+      const busy = state === 'local' || state === 'cloud';
+      const prepare = Object.assign(el('button', busy ? 'row-main state-prepare' : 'row-main state-apply', state === 'failed' ? 'Retry apply' : state === 'cloud' ? 'Preparing…' : state ? 'Preparing' : 'Apply'), {
+        title: state === 'cloud' ? 'Preparing on GitHub: the list reloads when it is done' : state === 'local' ? 'Drafting the kit (usually 15–30 s), then the form opens in Chrome'
+          : 'Drafts the application kit (form answers and cover letter) first, then opens the form in Chrome; you review and submit'});
+      if (busy) { prepare.disabled = true; if (state === 'local') prepare.classList.add('busy', 'state-busy'); }  // spinner only; the fixed width keeps the row still
       prepare.addEventListener('click', async () => {
         preparing.set(job.code, 'local');
         renderJobs();  // the row is rebuilt as Preparing, and stays so through any later re-render
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
-        // On GitHub (Always on): the row says so; the list reloads when it's done.
+        // On GitHub (Always on): the row says so; the list reloads when it's done, and the form is not opened for you.
         if (result.cloud) preparing.set(job.code, 'cloud');
-        else if (result.ok) { preparing.delete(job.code); for (const item of shared.allJobs) if (item.code === job.code) item.kit = true; job.kit = true; }
+        else if (result.ok) { preparing.delete(job.code); for (const item of shared.allJobs) if (item.code === job.code) item.kit = true; job.kit = true; await fillInChrome(); return; }
         else preparing.set(job.code, 'failed');
         renderJobs();
       });
@@ -346,6 +348,13 @@ export function renderJobs() {
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
+        })});
+    }
+    if (!job.kit && job.code && job.url && job.status !== 'applied' && !prepareState(job)) {
+      menu.push({icon: 'layers', label: 'Prepare only', title: 'Draft the kit (about 20 s, a few cents) without opening the form: read it first, then Apply', run: () =>
+        background('Preparing kit…', async () => {
+          const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
+          if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Prepare failed', result.error || 'Try again.');
         })});
     }
     if (job.page_id) menu.push({icon: 'chat', label: 'Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
