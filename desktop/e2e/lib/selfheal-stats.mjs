@@ -35,6 +35,30 @@ export function classify(issue) {
 const empty = () => Object.fromEntries(CATEGORIES.map(name => [name, 0]));
 const day = date => String(date || '').slice(0, 10);
 
+// How the Finder is evolving: every issue it ever filed, by the day it was filed, and how it ended (5 Oct 2026). Unlike the totals, this is not cut at the stats cutoff: the earlier days are
+// the point of a trend. Real = fixed or queued; false = a false positive or a test mistake; stale = a stale sighting or a duplicate; open = not judged yet. Continuous: a day with nothing filed is a zero.
+export function dailyHistory(all = []) {
+  const days = {};
+  for (const issue of all) {
+    const d = day(issue.createdAt); if (!d) continue;
+    const row = (days[d] ??= {day: d, filed: 0, real: 0, falsePositive: 0, stale: 0, open: 0});
+    const kind = classify(issue);
+    row.filed++;
+    if (kind === 'fixed' || kind === 'queued') row.real++;
+    else if (kind === 'falsePositive' || kind === 'harness') row.falsePositive++;
+    else if (kind === 'stale' || kind === 'duplicate') row.stale++;
+    else row.open++;
+  }
+  const keys = Object.keys(days).sort();
+  if (!keys.length) return [];
+  const out = [];
+  for (let at = Date.parse(`${keys[0]}T00:00:00Z`); at <= Date.parse(`${keys.at(-1)}T00:00:00Z`); at += 86400000) {
+    const d = new Date(at).toISOString().slice(0, 10);
+    out.push(days[d] || {day: d, filed: 0, real: 0, falsePositive: 0, stale: 0, open: 0});
+  }
+  return out;
+}
+
 // -> the snapshot the site stores (one per day) and shows.
 export function build({issues: all = [], prs = [], costs = [], recall = null, runs = null, breaker = null, signatures = null, now = new Date()} = {}) {
   const issues = all.filter(afterEpoch), totals = {filed: 0, ...empty()}, by = {};
@@ -60,6 +84,8 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, ru
   // 4 real bugs since 4 Oct, $2.57 each, about 8 times too high). A cost without a date (an old artifact) is left out rather than guessed into the window.
   const inWindow = costs.filter(item => item.at && Date.parse(item.at) >= Date.parse(STATS_SINCE));
   const usd = inWindow.reduce((sum, item) => sum + (Number(item.usd) || 0), 0);
+  const costDays = {};
+  for (const item of costs) { const d = day(item.at); if (d) costDays[d] = Number(((costDays[d] || 0) + (Number(item.usd) || 0)).toFixed(3)); }   // every dated run, not only the window: a trend
   const byJob = {};
   for (const item of inWindow) { const job = String(item.job || 'other').replace(/ .*$/, ''); byJob[job] = Number(((byJob[job] || 0) + (Number(item.usd) || 0)).toFixed(3)); }
   const daily = {};
@@ -72,7 +98,7 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, ru
   const notable = issues.filter(issue => ['fixed', 'queued'].includes(classify(issue))).sort((a, b) => b.number - a.number).slice(0, 15)
     .map(issue => ({number: issue.number, title: String(issue.title || '').replace(/^\[auto-ui\]\s*/, '').slice(0, 110), url: issue.url || '', detector: DETECTORS[detectorOf(issue)] || detectorOf(issue),
       status: classify(issue) === 'fixed' ? 'fixed' : 'queued', severity: (names(issue).find(name => name.startsWith('severity:')) || 'severity:medium').slice(9)}));
-  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, breaker, signatures, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
+  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, breaker, signatures, history: dailyHistory(all), costDays, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
     byDetector: Object.values(by).sort((a, b) => b.filed - a.filed), fixer, verdicts,
     cost: {usd: Number(usd.toFixed(2)), runs: inWindow.length, outside: costs.length - inWindow.length, byJob, perRealBug: real ? Number((usd / real).toFixed(2)) : null},
     recall: recall && Number.isInteger(recall.planted) ? {planted: recall.planted, caught: recall.caught, missed: (recall.rows || []).filter(row => !row.caught).map(row => row.id)} : null,

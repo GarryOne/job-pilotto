@@ -58,3 +58,18 @@ test('precision counts a test or harness mistake against its detector; a duplica
   const data = build({issues, now: new Date('2026-10-05T12:00:00Z')});
   assert.deepEqual([data.totals.real, data.totals.harness, data.totals.duplicate, data.totals.unjudged, data.totals.judged, data.totals.precision], [1, 2, 1, 1, 3, 33]);
 });
+
+test('the history is every issue by the day it was filed and how it ended, continuous, not cut at the cutoff', async () => {
+  const {dailyHistory} = await import('../lib/selfheal-stats.mjs');
+  const at = (number, date, labels, extra = {}) => ({number, state: 'CLOSED', stateReason: 'COMPLETED', title: `[auto-ui] x: t${number}`, createdAt: `${date}T10:00:00Z`, labels: labels.map(name => ({name})), comments: [], ...extra});
+  const history = dailyHistory([at(1, '2026-10-02', ['auto-ui', 'resolution:fixed']), at(2, '2026-10-02', ['auto-ui', 'resolution:fp:detector']), at(3, '2026-10-04', ['auto-ui', 'resolution:stale-sighting']),
+    at(4, '2026-10-04', ['auto-ui', 'resolution:fp:harness']), at(5, '2026-10-04', ['auto-ui'], {state: 'OPEN', stateReason: null}), at(6, '2026-10-04', ['auto-ui', 'confirmed'], {state: 'OPEN', stateReason: null})]);
+  assert.deepEqual(history.map(row => row.day), ['2026-10-02', '2026-10-03', '2026-10-04'], 'a day with nothing filed is a zero, not a gap');
+  assert.deepEqual(history[0], {day: '2026-10-02', filed: 2, real: 1, falsePositive: 1, stale: 0, open: 0});
+  assert.deepEqual(history[1], {day: '2026-10-03', filed: 0, real: 0, falsePositive: 0, stale: 0, open: 0});
+  assert.deepEqual(history[2], {day: '2026-10-04', filed: 4, real: 1, falsePositive: 1, stale: 1, open: 1});
+  assert.deepEqual(dailyHistory([]), []);
+  const data = build({issues: [at(1, '2026-10-02', ['auto-ui', 'resolution:fixed'])], costs: [{job: 'fixer', usd: 0.4, at: '2026-10-02T09:00:00Z'}, {job: 'review', usd: 0.1, at: '2026-10-02T11:00:00Z'}, {job: 'x', usd: 1, at: '2026-10-03T09:00:00Z'}], now: new Date('2026-10-05T12:00:00Z')});
+  assert.equal(data.history.length, 1);
+  assert.deepEqual(data.costDays, {'2026-10-02': 0.5, '2026-10-03': 1}, 'cost per day over every dated run');
+});

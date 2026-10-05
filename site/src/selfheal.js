@@ -2,6 +2,7 @@
 // Owner-only like /stats (STATS_KEY), never a static page: static assets are public. The figures are a snapshot read from the CI logs.
 import {allowed, esc, remember} from './stats.js';
 import {equal} from './guard.js';
+import {TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
 
 // 2-3 Oct 2026, from GitHub Actions logs. Fixer: claude-code-action's own total_cost_usd. Finder: estimated (the review then dropped usage).
 export const SNAPSHOT = {
@@ -116,6 +117,7 @@ export function liveSection(live, history = [], now = new Date()) {
   const banner = age.level === 'fresh' ? '' : `<section class="card ${age.level}"><b>${age.level === 'stale' ? '⛔ These numbers are stale' : '⚠️ A publish is late'}</b> · last published ${esc(age.text)}; CI publishes every 3 hours (the Worker's cron, GitHub's schedule as backup).${age.level === 'stale' ? ' More than one run was missed: check the "CI · Self-heal stats" workflow.' : ''}</section>`;
   return `${banner}<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC (${esc(age.text)}) · every issue the loop filed${since ? ` since ${esc(since)}` : ''}, by what found it and how it ended${since ? `. ${num(live.excluded)} earlier issues, filed under noisier rules, stay on GitHub and are not counted, so the figures cover only this window` : ''}</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
+${trendSection(live)}
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 ${causesSection(live)}
 ${watchSection(live)}
@@ -171,7 +173,7 @@ export function page(data = SNAPSHOT, live = null, history = []) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Job Pilotto self-healing spend</title><link rel="icon" href="/favicon-32.png">
 <style>
-:root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--teal:#5ec4b6}
+:root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--teal:#5ec4b6;--s1:#3987e5;--s2:#d95926;--s3:#199e70}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
 main{max-width:1040px;margin:0 auto;padding:24px 16px 48px}h1{margin:0;font-size:24px}h2{margin:0;font-size:15px}
 a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:18px}
@@ -181,6 +183,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}tr.total td{font-weight:700}
 ul{margin:8px 0 0;padding-left:18px}li{margin-top:6px}
+${TREND_STYLE}
 </style></head><body><main>
 <header><h1>✈ Job Pilotto · self-healing loop</h1><span class="muted">${esc(data.period)} · <a href="/stats">Website stats →</a> · <a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a></span></header>
 ${liveSection(live, history)}
@@ -200,7 +203,7 @@ ${data.finder.map(row => `<tr><td>${esc(row.day)}</td><td class="n">${row.review
 <tr class="total"><td>Total</td><td class="n">${reviews}</td><td class="n">${rejected}</td><td class="n">${range(low, high)}</td></tr>
 </table></div><small class="muted">${data.findings} findings. Per review ≈ 2.6–3.8k input tokens ($0.005–0.008) + 150–1,200 output ($0.0015–0.012); rejected calls counted as free.</small></section>
 <section class="card"><h2>🙈 Not counted</h2><ul>${data.notCounted.map(line => `<li>${esc(line)}</li>`).join('')}</ul></section>
-</div></main></body></html>`;
+</div></main><div id="tip" role="tooltip" hidden></div><script>${TREND_SCRIPT}</script></body></html>`;
 }
 
 // GET /self-heal (?key=<STATS_KEY> once; the cookie after that)
