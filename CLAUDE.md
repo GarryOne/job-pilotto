@@ -116,6 +116,12 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - **Before building or changing any screen, read the skill `ui-look-and-feel`** (`.claude/skills/ui-look-and-feel/SKILL.md`):
   the reference screenshots (`desktop/docs/ui/`, refreshed with `npm run ui-shots`), the page and card patterns the
   owner approved, and how to render your change in demo mode and look at it before saying it's done.
+- **A new feature looks like the old ones (5 Oct 2026: "Prepare top matches" shipped as raw Telegram text while every other task had a card).**
+  Whatever a task, run or message shows in the window, find the nearest existing one first (`pages/activity.js` render*Card,
+  `components.js`) and reuse its card/component; never show engine or Telegram text in a `<pre>`. So a new task kind needs, in
+  the same change: (1) a parser for its message + a render*Card on the insight-card shape, with a test; (2) its kind in
+  `CARD_KINDS` (`renderer/run-cards.js`) so the Finder's `card-fallback` check covers it; (3) a look at the rendered result
+  next to a sibling task's. Not done until it passes that comparison.
 - Values live in `desktop/renderer/tokens.css` only: colours, corner radii (`--r-sm|md|lg|pill`), the type scale
   (`--fs-…`), fonts, spacing (`--sp-…`), shadows. Screens use `var(--…)`. `desktop/test/design.test.js` fails on a
   raw colour, radius, font size or font family anywhere else, so a new one-off value can't reach `main`.

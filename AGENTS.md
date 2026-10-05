@@ -185,6 +185,7 @@ you launch Chrome yourself in a script, kill it on exit (`trap 'kill $!' EXIT`),
 ## Desktop UI
 Before building or changing a screen in `desktop/renderer`, read `.claude/skills/ui-look-and-feel/SKILL.md` (patterns, reference
 screenshots in `desktop/docs/ui/`, and how to render the change in demo mode to check it).
+A new task kind or result must reuse an existing card/component and be registered in `CARD_KINDS` (see CLAUDE.md "Desktop UI"); never show raw message text.
 
 ## Logging: when a debug session makes you wish for a line, add it then and there (1 Oct 2026)
 Debugging that had to lean on file mtimes, Notion timestamps and GitHub runs — because nothing was written
