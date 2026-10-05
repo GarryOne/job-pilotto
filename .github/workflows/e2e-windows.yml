@@ -137,6 +137,14 @@ jobs:
         run: |
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
           node suite.mjs ${{ matrix.suite }}
+      - name: The apply suite again in Microsoft Edge (the Windows default; preinstalled on the runner)
+        if: matrix.suite == 'apply'
+        working-directory: desktop/e2e
+        timeout-minutes: 30
+        env:
+          E2E_BROWSER: msedge
+          E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/apply-edge   # its own folder: the Chromium run's evidence stays
+        run: node suite.mjs apply
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
         uses: actions/cache/restore@v5

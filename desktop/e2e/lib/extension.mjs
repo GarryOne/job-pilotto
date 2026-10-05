@@ -54,11 +54,15 @@ export function makeOpenShim() {
   return {bin, spool, script};
 }
 
+// E2E_BROWSER=msedge: the same suite in Microsoft Edge (preinstalled on the Windows runners) instead of Playwright's Chromium. Edge 153 loads the
+// unpacked extension with --load-extension (checked 5 Oct 2026, edge-check.yml).
+export const browserChannel = (env = process.env) => (env.E2E_BROWSER === 'msedge' ? {channel: 'msedge'} : {});
+
 // -> {context, opened: [url], serviceWorker(), page(url), close()}. Every URL the app opens is opened here, in a new tab.
 export async function launchBrowser({port, spool, extensionDir}) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
   const context = await chromium.launchPersistentContext(profile, {
-    headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions'],
+    ...browserChannel(), headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions'],
     args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
       `--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors', '--no-first-run', '--no-default-browser-check'],
   });
