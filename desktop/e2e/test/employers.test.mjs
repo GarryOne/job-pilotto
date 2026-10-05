@@ -35,6 +35,8 @@ test('blank means empty, whitespace or a leaked "undefined"', () => {
 test("the run line is read as numbers, and a line that says neither is not guessed at", () => {
   assert.deepEqual(parseRunLine('checked 7 · 🆕 2 new sources'), {checked: 7, added: 2});
   assert.deepEqual(parseRunLine('checked 0 · 🆕 0 new sources'), {checked: 0, added: 0});
+  assert.deepEqual(parseRunLine('New employer sources · 7 checked · 2 new sources'), {checked: 7, added: 2});   // the card wording of 5 Oct 2026
+  assert.equal(parseRunLine('New employer sources (AI cost $0.003)'), null, 'a headline with no counts says neither');
   assert.deepEqual(parseRunLine('checked 7 · 1 new source'), {checked: 7, added: 1});
   assert.deepEqual(parseRunLine('2 new feeds'), {checked: null, added: 2});
   assert.equal(parseRunLine('Done.'), null);

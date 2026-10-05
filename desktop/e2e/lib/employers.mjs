@@ -32,8 +32,8 @@ export function rowProblems(row, kind) {
 
 // -> what the scout's run row says ("Source scout · checked 7 · 🆕 2 new sources", or the run's subject) as numbers, or null when it says neither.
 export function parseRunLine(text) {
-  const checked = /checked\s+(\d+)/i.exec(text || ''), fresh = /(\d+)\s+new\s+(?:source|feed)s?/i.exec(text || '');
-  return checked || fresh ? {checked: checked ? Number(checked[1]) : null, added: fresh ? Number(fresh[1]) : 0} : null;
+  const checked = /checked\s+(\d+)|(\d+)\s+checked/i.exec(text || ''), fresh = /(\d+)\s+new\s+(?:source|feed)s?/i.exec(text || '');
+  return checked || fresh ? {checked: checked ? Number(checked[1] || checked[2]) : null, added: fresh ? Number(fresh[1]) : 0} : null;
 }
 
 // -> ordered best first by quality, to compare with what a person would expect.

@@ -137,7 +137,7 @@ export async function run(ctx) {
     await ctx.relaunch({}, profile => fs.rmSync(path.join(profile, 'runs.json'), {force: true}));
     await appReady(ctx);
     const data = await runsData(page);
-    if (data.runs.some(run => run.log.length)) throw new Error('the local run record was not removed: this would test nothing');
+    if (data.runs.some(run => run.log.length)) throw new Error(`the local run record was not removed: this would test nothing (runs with a log: ${data.runs.filter(run => run.log.length).map(run => `${run.kind || 'search'} by ${run.trigger} at ${run.startedAt}, ${run.log.length} line(s)`).join('; ')})`);
     if (!data.runs.length) throw new Error('the history read from Notion is empty after a fresh start');
     const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
     const lines = opened.log.split('\n').filter(Boolean).length;

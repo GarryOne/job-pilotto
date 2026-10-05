@@ -524,6 +524,12 @@ def market_coverage(titles, get=None, terms=MARKET_TERMS, pause=1.0):
     return out
 
 
+def run_headline(message):
+    """What the run row and Recent activity say about this run: the card's title and its second line ("New employer sources · 7 checked · 2 new sources"). The title alone
+    says nothing about the run (5 Oct 2026: the Notion row read "New employer sources (AI cost $0.003)")."""
+    return ' · '.join(line for line in cron_runs.plain(message).split('\n')[:2] if line.strip())
+
+
 def record_unread(db, unread):
     """Keep which job systems were named by a careers page but could not be read (table unread_systems: one row per system and company), and say so in the
     run's log with the vendor's count: the list of what is worth teaching next (an adapter, or a recipe learned once per vendor)."""
@@ -805,7 +811,7 @@ def main():
         log['sources'] = dict(ai_cost.SIDE)
     report_ai_cost(ai_cost.SIDE)
     message = telegram_summary(summary, results)
-    log['headline'] = cron_runs.plain(message).split('\n')[0]
+    log['headline'] = run_headline(message)
     log['subject'] = cron_runs.counted(sum(1 for _, outcome in results if outcome['status'] == 'found'), 'new feed')
     if args.send and not disabled('telegram'):
         print(message)

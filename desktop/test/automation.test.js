@@ -236,3 +236,10 @@ test('Find new employers runs on this Mac on its schedule (after the first searc
   assert.equal(nextScoutAt({...daily, schedule: {scout: 'off'}}), null);
   assert.equal(nextScoutAt({...daily, cloud: {repo: 'me/job-pilotto-private'}}), null);  // GitHub runs it
 });
+
+test('Find new employers: the result line is the card\'s second line, as well as the older wording', async () => {
+  const pipeline = await import('../lib/pipeline.js');
+  assert.equal(pipeline.taskSummary('scout', ['Cronjob run logged: x', '7 checked · 2 new sources', 'other']), '7 checked · 2 new sources');
+  assert.equal(pipeline.taskSummary('scout', ['🔎 Source scout · checked 7 · 🆕 2 new sources']), 'checked 7 · 🆕 2 new sources');
+  assert.equal(pipeline.taskSummary('scout', ['nothing relevant']), null);
+});

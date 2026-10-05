@@ -181,5 +181,13 @@ class ExportSourcesTests(unittest.TestCase):
         self.assertEqual([(s['company'], s['ats'], s['slug']) for s in sources], [('Anthropic', 'greenhouse', 'anthropic')])
 
 
+
+class RunHeadlineTest(unittest.TestCase):
+    def test_the_headline_keeps_the_counts_the_card_puts_on_its_second_line(self):
+        from src import tgcard
+        card = tgcard.card('New employer sources', tgcard.dot('7 checked', '2 new sources'), [tgcard.block('Not added', 'x')], '🔎')
+        self.assertEqual(scout.run_headline(card), '🔎 New employer sources · 7 checked · 2 new sources')
+        self.assertEqual(scout.run_headline(tgcard.card('Quiet', '')), 'Quiet')
+
 if __name__ == '__main__':
     unittest.main()

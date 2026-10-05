@@ -414,7 +414,7 @@ export const TASKS = {
   weekly: {name: 'Search analysis', result: /^Weekly report sent: /},
   kits: {name: 'Prepare top matches', result: /^Kits ready: /},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
-  scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off/},
+  scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · \d+ new sources?/},   // the older wording, and the card's second line
 };
 export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Jobs check');
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
