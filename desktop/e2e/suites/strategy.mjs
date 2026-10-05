@@ -81,9 +81,19 @@ export async function run(ctx) {
     const found = await findPagesBeside(NOTION, profileId, TITLE);
     // A page left changed by an earlier run goes back to the plain strategy first.
     const now = await pageSections(NOTION, pageId);
+    // A run that failed leaves its words on the page (5 Oct 2026: the suite then failed on every run, even on the last commit that had passed: one dirty page, kept dirty by each failure).
+    // Everything found is removed, said in the log, and the app reconnects once more so the cleaned page is what it works from.
+    const cleaned = [];
     for (const [heading, word] of [['Roles to look for', ROLE], ['Roles to look for', GIRAFFE], ['Best places', PLACE], ['Companies to skip', SKIP],
       ...EDITED.map(word => ['Companies to skip', word]), ...REGIONS.map(word => ['Remote jobs: regions to skip', word])]) {
-      if (has(now[heading], word)) await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word)));
+      if (has(now[heading], word)) { cleaned.push(`${heading}: ${word}`); await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word))); }
+    }
+    if (cleaned.length) {
+      console.log(`  the page had words left by an earlier run, removed: ${cleaned.join(' | ')}`);
+      const after = await pageSections(NOTION, pageId);
+      const left = ['Roles to look for', 'Best places', 'Companies to skip'].flatMap(heading => (after[heading] || []).filter(entry => [ROLE, GIRAFFE, PLACE, SKIP].some(word => has([entry], word))).map(entry => `${heading}: ${entry}`));
+      if (left.length) throw new Error(`the page still holds words of an earlier run after the cleanup: ${left.join(' | ')}`);
+      await reconnect(page);   // the app takes the cleaned page, not the dirty one it read when it first connected
     }
     if (found.length !== 1 || found[0].id.replace(/-/g, '') !== pageId.replace(/-/g, '')) throw new Error(`expected exactly the linked ${TITLE} page, found ${found.length}`);
     // Connecting ran a Jobs check on whatever strategy the page held then (the previous run's end state: the Giraffe role). Wait for it, then forget what it kept, or the next
