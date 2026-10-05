@@ -1113,7 +1113,7 @@ export async function init() {
     $('apply-go').disabled = true;
     $('apply-go').classList.add('busy');
     $('apply-go').textContent = 'Starting…';
-    message('apply-message', `Finding your best ${n} job${n === 1 ? '' : 's'} with a kit and checking the postings are still open…`, 'waiting');
+    message('apply-message', `Finding your best ${n} job${n === 1 ? '' : 's'}, drafting any missing kit first (about 20 s each), and checking the postings are still open…`, 'waiting');
     try {
       const result = await window.pilot.apply({n, mode});
       if (result.ok && result.inApp) {  // the sessions show in the dock: close the dialog and let them be watched

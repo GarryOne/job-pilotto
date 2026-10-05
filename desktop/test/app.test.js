@@ -101,6 +101,34 @@ test('Chrome mode marks each job link so the extension fills every tab by itself
     'https://job-boards.greenhouse.io/a/jobs/1#jobpilotto-fill']);
 });
 
+test('an Apply batch drafts the missing kits for the best jobs first, quietly, and says so', {skip: process.platform === 'win32' && 'Mac launcher'}, async () => {
+  const storage = tempStorage();
+  const spawned = [];
+  const fakeSpawn = (cmd, args) => { spawned.push([cmd, ...args]); return {unref() {}}; };
+  const jobs = [{code: 'a', url: 'https://a/1', status: 'unreviewed', fit: 90, title: 'SRE', company: 'A', kit: true},
+    {code: 'b', url: 'https://b/2', status: 'unreviewed', fit: 85, title: 'Ops', company: 'B'},
+    {code: 'c', url: 'https://c/3', status: 'unreviewed', fit: 70, title: 'Dev', company: 'C'}];
+  const prepared = [];
+  const prepare = async code => { prepared.push(code); jobs.find(job => job.code === code).kit = true; return {ok: true}; };
+  const result = await apply.start(storage, {n: 2, mode: 'chrome'}, fakeSpawn, async () => ({jobs}), undefined, undefined, prepare);
+  assert.deepEqual(prepared, ['b']);  // only the shortfall, best fit first
+  assert.match(result.message, /^Drafted 1 kit first\. Opened 2 job/);
+  assert.equal(spawned[0].length, 3 + 2);
+});
+
+test('an Apply batch does not wait for kits drafted on GitHub, and says so', async () => {
+  const jobs = [{code: 'b', url: 'https://b/2', status: 'unreviewed', fit: 85, title: 'Ops', company: 'B'}];
+  const result = await apply.start(tempStorage(), {n: 1, mode: 'chrome'}, () => ({unref() {}}), async () => ({jobs}), undefined, undefined, async () => ({ok: true, cloud: true}));
+  assert.equal(result.ok, false);
+  assert.match(result.error, /GitHub/);
+});
+
+test('missing kits are picked saved first, then by fit, open jobs only', () => {
+  const jobs = [{code: 'a', url: 'u', status: 'unreviewed', fit: 90}, {code: 'b', url: 'u', status: 'saved', fit: 50}, {code: 'c', url: 'u', status: 'applied', fit: 99},
+    {code: 'd', url: 'u', status: 'unreviewed', fit: 95, kit: true}];
+  assert.deepEqual(apply.pickMissing(jobs, 5).map(job => job.code), ['b', 'a']);
+});
+
 test('strategy draft: CV as a PDF document, structured output; only the search settings cache is saved on the Mac', async () => {
   const storage = tempStorage();
   pipeline.ensureConfig(storage);
@@ -446,7 +474,7 @@ test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then start
   assert.equal(apply.claudeReady(storage, found, 'win32', () => 'C:\\Git\\bin\\bash.exe').ok, true);
 });
 
-test('Apply to N with Claude: the best N jobs with a kit, one session each; none says Prepare', async () => {
+test('Apply to N with Claude: the best N jobs with a kit, one session each; none says so', async () => {
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_test');
   const launched = [];
@@ -458,7 +486,7 @@ test('Apply to N with Claude: the best N jobs with a kit, one session each; none
   assert.equal(result.ok, true);
   assert.deepEqual(launched[0], ['https://a/1', 'https://b/2']);
   assert.match(result.message, /Starting 2 Claude/);
-  assert.match((await apply.start(storage, {n: 3, mode: 'agents'}, null, null, launch, async () => [])).error, /Prepare/);
+  assert.match((await apply.start(storage, {n: 3, mode: 'agents'}, null, null, launch, async () => [])).error, /no application kit|application kit yet/i);
 });
 
 test('the next jobs with a kit come from apply_batch --next, links only', async () => {
@@ -469,13 +497,13 @@ test('the next jobs with a kit come from apply_batch --next, links only', async 
   assert.deepEqual([...await apply.nextWithKits({}, 2, async () => ({code: 1, stdout: 'https://a/1'}))], []);
 });
 
-test('the kit check asks Notion through apply_batch --has-kit and says to Prepare when there is none', async () => {
+test('the kit check asks Notion through apply_batch --has-kit and says how to draft one when there is none', async () => {
   const seen = [];
   const run = async (_, args, onLine) => { seen.push(args); onLine('No Applications row for x — prepare a kit first (📝 Prepare).'); return {code: 1}; };
   const result = await apply.hasKit({}, 'https://x', run);
   assert.deepEqual(seen[0], ['src.ai.apply_batch', '--has-kit', 'https://x']);
   assert.equal(result.ok, false);
-  assert.match(result.error, /press Prepare first/);
+  assert.match(result.error, /Prepare only/);
   assert.deepEqual(await apply.hasKit({}, 'https://x', async () => ({code: 0})), {ok: true});
 });
 

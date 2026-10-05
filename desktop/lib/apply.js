@@ -16,12 +16,34 @@ import * as extensionInstall from './extension-install.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
+// Saved jobs first, then by fit.
+const best = (a, b) => (b.status === 'saved') - (a.status === 'saved') || (b.fit ?? -1) - (a.fit ?? -1);
+const open = job => ['unreviewed', 'saved'].includes(job.status) && job.url;
+
 // Only jobs with a drafted kit (their form is already answered), best first.
 export function pick(jobs, n) {
-  return jobs.filter(job => ['unreviewed', 'saved'].includes(job.status) && job.url && job.kit)
-    .sort((a, b) => (b.status === 'saved') - (a.status === 'saved') || (b.fit ?? -1) - (a.fit ?? -1))
-    .slice(0, n);
+  return jobs.filter(job => open(job) && job.kit).sort(best).slice(0, n);
 }
+
+// The best open jobs that still have no kit: what an Apply batch drafts first when fewer than N are ready.
+export function pickMissing(jobs, n) {
+  return jobs.filter(job => open(job) && job.code && !job.kit).sort(best).slice(0, n);
+}
+
+// Draft the missing kits one after the other (about 20 s each). `prepare(code, name)` is the app's prepareKit.
+// Returns how many are ready now, or {cloud: true} when they are drafted on GitHub and cannot be waited for here.
+export async function draftMissing(jobs, shortfall, prepare) {
+  let done = 0;
+  for (const job of pickMissing(jobs, shortfall)) {
+    const result = await prepare(job.code, `${job.title} · ${job.company}`).catch(() => ({ok: false}));
+    if (result.cloud) return {cloud: true, done};
+    if (result.ok) done++;
+  }
+  return {done};
+}
+
+const NO_KITS = 'No job has an application kit yet, and none could be drafted. Press Apply on one job to see why.';
+const ON_GITHUB = 'Kits are being drafted on GitHub (Always on). Press Apply again in a few minutes, when the jobs show 📝 Kit.';
 
 // Tier 1: where the application form lives for a known site, when the posting page only has an "Apply" button in front of it.
 // Ashby: <posting>/application, Lever: <posting>/apply, Workable: <posting>/apply. Anything else (or a URL already there) opens as it is.
@@ -143,7 +165,7 @@ export function claudeReady(storage, binary = claudeBinary, platform = process.p
 export async function hasKit(storage, url, run = pipeline.run) {
   const lines = [];
   const {code} = await run(storage, ['src.ai.apply_batch', '--has-kit', url], line => lines.push(line));
-  return code === 0 ? {ok: true} : {ok: false, error: `No application kit for this job yet: press Prepare first. ${lines.slice(-1)[0] || ''}`.trim()};
+  return code === 0 ? {ok: true} : {ok: false, error: `No application kit for this job yet: draft it first with ⋯ → Prepare only. ${lines.slice(-1)[0] || ''}`.trim()};
 }
 
 // The N best jobs with a kit that aren't started yet (Kit ready, or Saved with a kit), from Notion.
@@ -191,28 +213,44 @@ export async function resumeSession(storage, id, binary = claudeBinary) {
   return session.resumeInApp(storage, id, {claude: binary()});
 }
 
-export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits) {
+// `prepare` drafts a missing kit (the app's prepareKit): with it, a batch with fewer than N ready jobs drafts the rest first.
+export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits, prepare = null) {
   n = Math.max(1, Math.min(10, Number(n) || 1));
   if (mode === 'agents') {
     const ready = claudeReady(storage);
     if (!ready.ok) return ready;
-    const urls = await next(storage, n);
-    if (!urls.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
+    let urls = await next(storage, n);
+    let drafted = 0;
+    if (urls.length < n && prepare) {
+      const result = await draftMissing((await list(storage)).jobs, n - urls.length, prepare);
+      if (result.cloud) return {ok: false, error: ON_GITHUB};
+      drafted = result.done;
+      if (drafted) urls = await next(storage, n);
+    }
+    if (!urls.length) return {ok: false, error: NO_KITS};
     const here = launch === session.launch && await inApp(storage);
     (here ? session.launchInApp(storage, urls, {claude: claudeBinary(), open: openForm, details: urls.details || {}}) : launch(storage, urls, {claude: claudeBinary(), open: openForm})).catch(() => {});
     n = urls.length;
-    return {ok: true, inApp: here, message: here
+    const first = drafted ? `Drafted ${drafted} kit${drafted === 1 ? '' : 's'} first. ` : '';
+    return {ok: true, inApp: here, message: first + (here
       ? `Starting ${n} Claude session(s) in the app, a few seconds apart. Each shows in Application sessions at the bottom; you're notified when one needs you. It stops before Submit for your review.`
-      : `Starting ${n} Claude session(s), one window per job. Each reads sign-up emails itself, asks you in its window for a CAPTCHA, and stops before Submit for your review.`};
+      : `Starting ${n} Claude session(s), one window per job. Each reads sign-up emails itself, asks you in its window for a CAPTCHA, and stops before Submit for your review.`)};
   }
-  const {jobs} = await list(storage);
-  const chosen = pick(jobs, n);
-  if (!chosen.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
+  let {jobs} = await list(storage);
+  let chosen = pick(jobs, n);
+  let drafted = 0;
+  if (chosen.length < n && prepare) {
+    const result = await draftMissing(jobs, n - chosen.length, prepare);
+    if (result.cloud) return {ok: false, error: ON_GITHUB};
+    drafted = result.done;
+    if (drafted) { ({jobs} = await list(storage)); chosen = pick(jobs, n); }
+  }
+  if (!chosen.length) return {ok: false, error: NO_KITS};
   // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel.
   const chrome = chromeCommand(chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`), process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true, jobs: chosen.map(job => `${job.title} · ${job.company}`),
-    message: `Opened ${chosen.length} job(s) in Chrome; each fills itself in a few seconds. Review every tab and submit yourself. ` +
+    message: `${drafted ? `Drafted ${drafted} kit${drafted === 1 ? '' : 's'} first. ` : ''}Opened ${chosen.length} job(s) in Chrome; each fills itself in a few seconds. Review every tab and submit yourself. ` +
       '(If a form sits behind an "Apply" button, open it and click ✈️ → Fill with AI.)'};
 }

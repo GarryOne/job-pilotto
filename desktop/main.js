@@ -1275,7 +1275,7 @@ function handlers() {
     try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
   ipcMain.handle('apply', async (_, options) => needsNotion('apply') || allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
-    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options)));
+    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}))));
   ipcMain.handle('applyOne', async (_, url, details) => {
     const gate = needsNotion('apply');
     if (gate) return gate;
@@ -1509,7 +1509,7 @@ function handlers() {
     .map(name => [name, storage.secret(name)]).filter(([, value]) => value).map(([name, value]) => [name, `${'•'.repeat(12)}${value.slice(-4)}`])));
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
-  ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
+  const prepareKitFor = async (code, name = 'this job', {quiet = false} = {}) => {
     const gate = needsNotion('prepare');
     if (gate) return gate;
     const blocked = allowanceBlock();
@@ -1525,11 +1525,13 @@ function handlers() {
     const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), line => lines.push(line),
       pipeline.triggerEnv('you'));
     const ineligible = lines.map(line => line.replace(/<[^>]+>/g, '')).find(line => line.includes('Not eligible:'));
+    if (quiet) { if (exit === 0) track('kit_prepared', {}); return {ok: exit === 0}; }  // an Apply batch: it reports once at the end
     if (exit !== 0) notify('Kit not prepared', `${name}: ${lines.filter(Boolean).slice(-1)[0] || 'something went wrong'}`, {view: 'jobs', job: code});
     else notify('Application kit ready ✓', ineligible ? `${name}. ${ineligible.trim()}` : `${name}. Press Apply to fill the form.`, {view: 'jobs', job: code});
     if (exit === 0) track('kit_prepared', {});
     return {ok: exit === 0, ineligible: ineligible || ''};
-  });
+  };
+  ipcMain.handle('prepareKit', (_, code, name) => prepareKitFor(code, name));
   // Tailored CV for one job: base CV (imported from the CV PDF the first time) + the posting -> Claude ->
   // checked -> PDF. A fixed-page design that overflows gets one second try with that feedback.
   const tailorCv = async (code, name = 'this job', {show = true} = {}) => {
