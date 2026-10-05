@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Discover employers from the Swiss job boards (jobs.ch, SwissDevJobs, TechTree), then follow career links. Runs only when the
-user's places include Switzerland: those boards list nothing elsewhere."""
+"""Discover employers from the job boards (TechTree: Europe, any place; jobs.ch and SwissDevJobs: only when the user's places
+include Switzerland, they list nothing elsewhere), then follow career links."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -154,13 +154,10 @@ def parse_tree(source):
         loc=re.search(r'<span[^>]+class="[^"]*truncate text-foreground[^"]*"[^>]*>(.*?)</span>',block,re.S)
         if not(title and company and loc):continue
         title,company,loc=map(lambda x:text(x[1]),(title,company,loc))
-        swiss_hint = re.search(r'switzerland|schweiz|suisse',loc,re.I) or any(
-            re.search(r'(?<!\w)'+re.escape(a)+r'(?!\w)',loc,re.I)
-            for aliases in CITIES.values() for a in aliases)
-        if not ROLE.search(title) or not swiss_hint: continue
+        if not ROLE.search(title): continue   # TechTree lists Europe, not only Switzerland: any place is kept
         jobs.append({'company':company,'profile':'','website':'','title':title,'location':loc,'city':city(loc),
             'work_mode':mode(loc),'url':urljoin('https://jobs.techtree.dev',url),'source':'TechTree',
-            'date_posted':'','evidence':'Swiss city on board; employer identity may be undisclosed'})
+            'date_posted':'','evidence':'Listed on TechTree; employer identity may be undisclosed'})
     return jobs
 
 
@@ -244,11 +241,10 @@ def main():
         print('job board discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
     if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # the end-to-end journey (desktop/e2e): only its fixture feeds, no live crawl
         print('job board discovery is off (fixture feeds only).');return 0
-    if not swiss_places(_SEARCH):   # these boards list Swiss employers only: nothing to find for places elsewhere
-        print('job board discovery is skipped: those boards list Swiss employers only and your places are elsewhere.');return 0
+    swiss=swiss_places(_SEARCH)   # jobs.ch and SwissDevJobs list Swiss employers only; TechTree lists Europe, so it runs for any place
     client=Client(args.refresh);jobs=[];sources=[]
-    print('Job boards: jobs.ch, SwissDevJobs, TechTree',flush=True)   # the app's activity list shows these names as they are
-    for query in _SEARCH['jobs_board_search_queries']:
+    print('Job boards: '+', '.join((['jobs.ch','SwissDevJobs'] if swiss else [])+['TechTree']),flush=True)   # the app's activity list shows these names as they are
+    for query in _SEARCH['jobs_board_search_queries'] if swiss else []:
         for page in range(1,args.pages+1):
             url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,'page':page})
             try:
@@ -256,6 +252,7 @@ def main():
                 sources.append({'source':url,'status':f'{len(found)} Swiss software matches' if found else 'No parsed Swiss software matches; page may be empty or format changed'})
             except Exception as e:sources.append({'source':url,'status':str(e)})
     for label,url in [('SwissDevJobs','https://swissdevjobs.ch/api/jobsLight'),('TechTree','https://jobs.techtree.dev/')]:
+        if label=='SwissDevJobs' and not swiss:continue
         try:
             page=client.get(url)['html']
             found=parse_tree(page) if label=='TechTree' else parse_swissdevjobs(json.loads(page),wanted_title);jobs.extend(found)

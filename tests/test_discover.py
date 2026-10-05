@@ -48,7 +48,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(links,['https://example.com/careers'])
     def test_tree_does_not_include_global_remote(self):
         block='<a href="/job/1"><h3>Software Engineer</h3><p>Example</p><span class="truncate text-foreground">{}</span></a>'
-        self.assertEqual(parse_tree(block.format('Remote')),[])
+        self.assertEqual(len(parse_tree(block.format('Remote'))),1)   # any place: TechTree lists Europe
         self.assertEqual(len(parse_tree(block.format('Zürich'))),1)
 
     def test_board_discovery_only_for_swiss_places(self):
