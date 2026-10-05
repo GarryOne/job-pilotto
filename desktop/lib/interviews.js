@@ -134,6 +134,7 @@ export function progressOf(line) {
   const match = /^progress (\S+) (\d+)/.exec(line);
   if (!match) return null;
   const [stage, percent] = [match[1], Number(match[2])];
+  if (stage === 'addon') return {percent: null, text: 'Installing the transcription add-on, only the first time (about 115 MB)'};
   if (stage.startsWith('download-')) {
     return {percent: null, text: `Downloading the speech models, only the first time (about 520 MB): ${stage.slice(9)} ${percent}%`};
   }
@@ -167,7 +168,7 @@ export function transcribe(storage, id, {speakers: count = 0} = {}, onProgress =
     }
     const reason = errors.filter(line => /Error|No module/.test(line)).pop() || errors.pop() || 'Transcription failed';
     return update(storage, id, {status: 'failed', error: /No module named '(sherpa_onnx|av|numpy)'/.test(reason)
-      ? 'The transcription add-on is missing: pip install -r requirements-transcribe.txt' : reason});
+      ? 'The transcription add-on is missing: it installs itself on the next try, when this Mac is online' : reason});
   }).finally(() => running.delete(id));
   running.set(id, task);
   return task;

@@ -22,15 +22,14 @@ echo "Downloading $url"
 mkdir -p "$here/build/pilot"
 curl -fsSL "$url" | tar -xz -C "$here/build/pilot"   # unpacks to build/pilot/python
 "$py" -m pip install --quiet --disable-pip-version-check -r "$here/../requirements.txt"
-# Interview recordings -> transcript with speakers, on the Mac (sherpa-onnx, PyAV, numpy; about 115 MB).
-"$py" -m pip install --quiet --disable-pip-version-check -r "$here/../requirements-transcribe.txt"
+# Interview transcription (sherpa-onnx, PyAV, numpy; ~115 MB) is not bundled: src/ai/transcribe.py installs it on the first recording.
 # Parts of Python the pipeline never uses: its own tests, the Tk GUI toolkit, IDLE, caches.
 rm -rf "$lib/test" "$lib/idlelib" "$lib/tkinter" "$lib/turtledemo" "$lib/lib2to3" "$lib/ensurepip" \
        "$target"/lib/libtcl* "$target"/lib/libtk* "$target"/lib/tcl* "$target"/lib/tk* "$target/share" "$target/tcl"
-# Installer tooling, type stubs, test suites and the C headers the app never uses (~15 MB).
-rm -rf "$lib/site-packages/pip" "$lib/site-packages/setuptools" "$lib/site-packages/pkg_resources" "$lib/site-packages/_distutils_hack" \
-       "$lib/site-packages"/pip-*.dist-info "$lib/site-packages"/setuptools-*.dist-info "$target/include" "$lib"/config-3.12-*
+# setuptools (pip stays: it installs the transcription add-on), type stubs, test suites and the C headers the app never uses (~15 MB).
+rm -rf "$lib/site-packages/setuptools" "$lib/site-packages/pkg_resources" "$lib/site-packages/_distutils_hack" \
+       "$lib/site-packages"/setuptools-*.dist-info "$target/include" "$lib"/config-3.12-*
 find "$lib/site-packages" \( -name tests -o -name test \) -type d -prune -exec rm -rf {} +
 find "$lib/site-packages" -name "*.pyi" -delete
 find "$target" -name "__pycache__" -type d -prune -exec rm -rf {} +
-"$py" -c "import anthropic, sqlite3, ssl, json, sys, sherpa_onnx, av, numpy; print('Bundled Python', sys.version.split()[0], 'anthropic', anthropic.__version__, 'sherpa-onnx', sherpa_onnx.__version__)"
+"$py" -c "import anthropic, sqlite3, ssl, json, sys, pip; print('Bundled Python', sys.version.split()[0], 'anthropic', anthropic.__version__)"

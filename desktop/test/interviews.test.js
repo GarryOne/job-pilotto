@@ -22,6 +22,7 @@ test('transcribe.py progress lines become one percent and a sentence', () => {
   assert.deepEqual(interviews.progressOf('progress transcribe 50'), {percent: 37, text: 'Writing down what was said'});
   assert.equal(interviews.progressOf('progress speakers 100').percent, 100);
   assert.equal(interviews.progressOf('progress download-asr 0').percent, null);
+  assert.match(interviews.progressOf('progress addon 0').text, /transcription add-on/);
   assert.equal(interviews.progressOf('Warning: something'), null);
 });
 
@@ -111,7 +112,7 @@ test('a failed Notion save keeps the draft; a missing add-on says how to install
   const result = await interviews.transcribe(storage, recording.id, {}, () => {},
     async (_s, _a, onLine) => { onLine("ModuleNotFoundError: No module named 'sherpa_onnx'"); return {code: 1}; });
   assert.equal(result.status, 'failed');
-  assert.match(result.error, /requirements-transcribe/);
+  assert.match(result.error, /add-on is missing/);
 });
 
 test('a review runs the interview mode on the saved Notion row and returns its summary', async () => {

@@ -43,7 +43,7 @@ FEATURES = (
     Feature('google_jobs', 'Google Jobs via SerpApi', ('SERPAPI_API_KEY',), 'free tier',
             'SERPAPI_API_KEY from serpapi.com (free plan: 250 searches/month)'),
     Feature('transcribe', 'Interview recordings -> transcript with speakers (on this machine)', (), 'free',
-            'pip install -r requirements-transcribe.txt (bundled in the Mac app); models download once (~520 MB)'),
+            'pip install -r requirements-transcribe.txt (the app installs it on the first recording, ~115 MB); models download once (~520 MB)'),
     Feature('focus', 'Focus: what to do next, and reminders against a daily target', ('NOTION_TOKEN',), 'free',
             'on with Notion (the Desktop App: Focus)'),
     Feature('feedback', 'Employer feedback requests, collection and learning', ('NOTION_TOKEN',), 'free',

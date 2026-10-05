@@ -11,7 +11,7 @@ Open-source parts, run through sherpa-onnx (k2-fsa, Apache-2.0: ONNX Runtime, no
 This is the WhisperX recipe (ASR + diarization, aligned by word time) without the heavy stack.
 
 Audio is decoded by PyAV (bundled FFmpeg), so webm/opus from the app's recorder, m4a, mp3, wav, mp4
-and Telegram voice notes all work. Models (~520 MB) download once into MODELS_DIR.
+and Telegram voice notes all work. The libraries (~115 MB) and the models (~520 MB) download once, on the first recording.
 
 The output is plain text that interviews.run() reads like any transcript:
     [00:00:03] Speaker 1: Thanks for joining. Could you ...
@@ -23,6 +23,7 @@ Progress goes to stderr as lines "progress <stage> <0-100>", for the desktop app
 import argparse
 import bisect
 import os
+import subprocess
 import sys
 import tarfile
 import urllib.request
@@ -50,17 +51,43 @@ def models_dir():
     return Path.home() / ('Library/Caches' if sys.platform == 'darwin' else '.cache') / 'job-pilotto' / 'models'
 
 
-def available():
-    """True when the transcription libraries are installed (they're optional: the core doesn't need them)
-    and JOB_PILOTTO_DISABLE doesn't list "transcribe"."""
-    from .. import features
-    if features.disabled('transcribe'):
-        return False
+def addon_dir():
+    """Where the app puts the transcription libraries (av, numpy, sherpa-onnx, ~115 MB) the first time they're needed:
+    the installer doesn't carry them. Next to the models, so JOB_PILOTTO_MODELS_DIR moves both."""
+    return models_dir().parent / 'addon'
+
+
+def use_addon():
+    folder = addon_dir()
+    if folder.is_dir() and str(folder) not in sys.path:
+        sys.path.insert(0, str(folder))
+
+
+def libraries():
+    use_addon()
     try:
         import av, numpy, sherpa_onnx  # noqa: F401
         return True
     except ImportError:
         return False
+
+
+def install_addon(run=subprocess.run):
+    """pip-install requirements-transcribe.txt into addon_dir() (wheels exist for the Mac and Windows builds)."""
+    requirements = Path(__file__).resolve().parents[2] / 'requirements-transcribe.txt'
+    progress('addon', 0)
+    done = run([sys.executable, '-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', '--no-input',
+                '--upgrade', '--target', str(addon_dir()), '-r', str(requirements)], capture_output=True, text=True)
+    if done.returncode != 0:
+        raise RuntimeError(f'Installing the transcription add-on failed (is this Mac online?): {(done.stderr or "").strip()[-300:]}')
+    progress('addon', 100)
+
+
+def available():
+    """True when the transcription libraries are installed (they're optional: the core doesn't need them)
+    and JOB_PILOTTO_DISABLE doesn't list "transcribe"."""
+    from .. import features
+    return not features.disabled('transcribe') and libraries()
 
 
 def progress(stage, percent):
@@ -306,6 +333,10 @@ def main(argv=None):
     parser.add_argument('--call-offset', type=float, default=0.0, help='seconds the call recording started after the main one')
     parser.add_argument('--download-only', action='store_true', help='fetch the models and stop')
     args = parser.parse_args(argv)
+    if not libraries():
+        install_addon()
+        if not libraries():
+            raise RuntimeError('The transcription add-on installed but cannot be loaded')
     if args.download_only:
         ensure_models()
         return 0

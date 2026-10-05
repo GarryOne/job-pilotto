@@ -80,7 +80,7 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | Chrome extension | fills the form from its kit in seconds, you Submit | Chrome + the Mac app (or the Worker; [extension/README.md](extension/README.md)) | free | 5 min |
 | Tailored CV | a version of your CV per job, every change highlighted | the Mac app, `ANTHROPIC_API_KEY` | ~$0.12/CV | 1 min |
 | Apply with Claude (recommended) | from the job board through the employer's sign-up to a filled form, you Submit | the Mac app, Claude Code, Notion; Gmail for confirmation emails | your Claude plan | 5 min |
-| `transcribe` | interview recordings → transcript with speakers, on your machine | `pip install -r requirements-transcribe.txt` (bundled in the Mac app) | free (models ~520 MB, downloaded once) | 2 min |
+| `transcribe` | interview recordings → transcript with speakers, on your machine | `pip install -r requirements-transcribe.txt` (the app installs it on the first recording) | free (models ~520 MB, downloaded once) | 2 min |
 | Form filling by an AI agent | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
 
 A sensible order: Telegram and scheduled runs first (free, 10 minutes), then Notion, then the AI
