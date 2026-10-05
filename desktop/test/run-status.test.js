@@ -2,7 +2,7 @@
 // warnings" and "Failed" while the Actions page said plain "Completed" for a run with warnings).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {barState, doneTitle, failureHead, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
+import {barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
 
 test('a finished run is Completed, With warnings or Failed, a running one Running, a waiting one Queued', () => {
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
@@ -72,4 +72,13 @@ test('a digest Telegram refused is a failed run that says so, with the Telegram 
   assert.deepEqual([blocked.title, blocked.summary, blocked.fix], ['Not delivered', 'Telegram blocked the bot (open the chat with it and press Start; Settings → Telegram).', {label: 'Open Telegram settings', view: 'settings'}]);
   const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
   assert.deepEqual([google.title, google.summary], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).'], 'no "Not checked: Not checked" twice (#295)');
+});
+
+test('a failed run never reads like a success: it says it had problems first, and keeps what its row reported (#301)', () => {
+  assert.equal(failedOutcome({ok: false, result: '1 new job'}), 'had problems · 1 new job');
+  assert.equal(failedOutcome({ok: true, off: true, result: 'Gmail not connected'}), 'had problems · Gmail not connected');
+  assert.equal(failedOutcome({ok: false}), null, 'nothing reported: the caller has its own "had problems"');
+  assert.equal(failedOutcome({ok: true, result: '1 new job'}), null, 'a run that worked is unchanged');
+  assert.equal(failedOutcome({ok: true, warned: true, result: '1 new job'}), null, 'a warned run too: its pill says it');
+  assert.equal(failedOutcome({ok: false, live: true, result: 'x'}), null, 'still running');
 });

@@ -2,7 +2,7 @@
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {barState, doneTitle, failureHead, phaseStatus, runStatus, runWarned} from '../run-status.js';
+import {barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -115,6 +115,8 @@ export const capital = text => String(text || '').replace(/^./, c => c.toUpperCa
 // One line on what a finished run did.
 export function outcome(run) {
   if (run.problem && (kindOf(run) === 'mail' || !run.ok)) return run.problem;   // why it read nothing or did not arrive comes before the counts a Notion row says (#290, #298)
+  const failed = failedOutcome(run);
+  if (failed) return failed;   // a failed run says so before what its Notion row reports (#301)
   if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
   if (kindOf(run) === 'mail') {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';

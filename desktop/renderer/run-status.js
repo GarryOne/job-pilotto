@@ -23,6 +23,14 @@ export function failureHead(run) {
     summary: problem ? `${reason.replace(/^./, c => c.toUpperCase())}.` : 'The run failed: its log shows where it stopped.', fix: fix ? {label: fix[1], view: fix[2]} : null};
 }
 
+// What a failed run says about itself when no reason was recognised (#301, 5 Oct 2026: a Jobs check that was Failed read "1 new job", like a success, because the result a Notion row
+// carries won). It says it failed first, and keeps what the run did report.
+export function failedOutcome(run) {
+  if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
+  const said = String(run.result || '').trim();
+  return said ? `had problems · ${said}` : null;
+}
+
 // One checklist step of a search: 'done', 'now', 'todo', 'warn' (the step a warned run stopped at) or 'fail' (the step a failed run stopped at).
 // `at` is the index of the last step the log reached; a failed run's steps after it never ran, so they stay 'todo'.
 export function phaseStatus(run, i, at) {
