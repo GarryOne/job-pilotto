@@ -155,6 +155,7 @@ export function issueBody(finding, runUrl, evidence = {}) {
   const out = [`${DOT[finding.severity] || ''} **${finding.severity.toUpperCase()}** · ${finding.kind} · found by ${sourceWords(finding)}`.trim(), ''];
   out.push(`> 📍 Page \`${view}\`${suite ? ` · suite \`${suite}\`` : ''}${platform ? ` · ${platform}` : ''}`);
   if (evidence.build) out.push(`> 🏷️ Build tested: ${evidence.build}`);
+  for (const line of [evidence.context, evidence.stepAge]) if (line) out.push(`> ${line}`);
   out.push(`> 🔗 First seen: ${runUrl}`, '', '### What was found', formatDetail(finding));
   if (finding.impact) out.push('', '### Why it matters', finding.impact);
   if (finding.workaround) out.push('', '### What the person has to do to get past it', finding.workaround);

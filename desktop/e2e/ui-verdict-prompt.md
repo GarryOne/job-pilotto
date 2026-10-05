@@ -37,6 +37,8 @@ HOW (you have about 15 turns; be quick):
    desktop/renderer/ could fix it) or `harness` (the finding is the TEST's doing, not the product's: a wrong expectation, a fixture or environment difference such as the time zone,
    a favicon or a dev-only request failing, a planted test bug leaking, a step that presses something it should not) or `needs-human` (you cannot tell, or the cause is outside desktop/renderer/). Then two labelled lines: `Why: <one or two sentences naming the file:line, with the full path such as desktop/renderer/pages/activity.js:420>` and, only for `needs-human`, `Check: <what a person should look at>`.
 
+For a `false-positive` add one more line, `Cause: <one word>`, so the numbers can say why the finding was false: `detector` (the check read the screen wrong: hidden or covered content, a list read as a duplicate), `probe-race` (the interaction probe pressed or read while the app was re-rendering), `by-design` (it is how the app is meant to work), `stale` (the finding is already fixed on main, the tested build is older), or `duplicate` (the same cause as another issue; name it in Why). A `harness` verdict needs no Cause.
+
 A `real` verdict MUST cite a file:line you opened in this run; one that does not exist is turned into `needs-human` automatically.
 
 Never invent a problem: when the handler works and the finding is about timing or state, it is a false positive. Do not write any other file. No git commands, no network.

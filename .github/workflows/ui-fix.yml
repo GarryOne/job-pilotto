@@ -181,11 +181,15 @@ jobs:
                 fi ;;
               false-positive)
                 gh issue edit "$number" --repo "$REPO" --add-label wontfix-auto
+                resolution=$(node desktop/e2e/resolution.mjs --file .heal/verdict.md || true)
+                if [ -n "$resolution" ]; then gh label create "$resolution" --repo "$REPO" --force --color F9D0C4 --description 'Why this issue was closed (desktop/e2e/lib/resolution.mjs)'; gh issue edit "$number" --repo "$REPO" --add-label "$resolution"; fi
                 gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)"
                 echo "Issue #$number closed as a false positive." >> "$GITHUB_STEP_SUMMARY" ;;
               harness)
                 gh label create harness --repo "$REPO" --force --color BFD4F2 --description 'The test was wrong, not the product: the Finder self-review fixes the test'
                 gh issue edit "$number" --repo "$REPO" --add-label harness --add-label wontfix-auto
+                resolution=$(node desktop/e2e/resolution.mjs --file .heal/verdict.md || true)
+                if [ -n "$resolution" ]; then gh label create "$resolution" --repo "$REPO" --force --color F9D0C4 --description 'Why this issue was closed (desktop/e2e/lib/resolution.mjs)'; gh issue edit "$number" --repo "$REPO" --add-label "$resolution"; fi
                 gh issue close "$number" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)"
                 echo "Issue #$number closed as a test-harness problem." >> "$GITHUB_STEP_SUMMARY" ;;
               *)
@@ -247,6 +251,7 @@ jobs:
                 echo "Could not merge automatically (probably a conflict with a fix merged meanwhile): a person merges it." >> "$GITHUB_STEP_SUMMARY"; exit 0
               fi
               # A merge by the workflow's own token does not apply "Fixes #N" (4 Oct 2026: #122, #123, #135 stayed open after their fixes landed): close it here.
+              gh label create resolution:fixed --repo "$REPO" --force --color 0E8A16 --description 'A fix landed (desktop/e2e/lib/resolution.mjs)' || true; gh issue edit "$number" --repo "$REPO" --add-label resolution:fixed || true
               gh issue close "$number" --repo "$REPO" --comment "Fixed by $url (merged by the UI loop). The page's suite runs again now: the next findings run checks it stays gone." || true
               gh pr comment "$url" --repo "$REPO" --body "Merged by the UI loop ($kind fix, $lines line(s), passed every suite and the lint). Its suite runs again now; revert this commit if it was wrong."
               echo "Merged automatically ($kind, $lines lines)." >> "$GITHUB_STEP_SUMMARY"

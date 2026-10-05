@@ -9,6 +9,10 @@ import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIR
 import {FLAKY, REGRESSION, fixedBefore, flakyOn, flakyComment, regressionComment} from './lib/triage.mjs';
 import {asIssues, entryOf, NOISE_WORDS, pendingOf, REGISTER_LABEL, registerBody, registerEntries, signatureVerdict, wordOf} from './lib/prejudge.mjs';
 import {POSSIBLE_DUPLICATE, sameCauseComment, sameCauseLinks} from './lib/same-cause.mjs';
+import {setResolution} from './lib/resolution.mjs';
+import {contextLine, stepAgeLine} from './lib/run-context.mjs';
+import {runSummary} from './lib/run-summary.mjs';
+import {staleComment, staleSighting} from './lib/stale.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
@@ -70,7 +74,7 @@ export function refreshRanking({gh = realGh, issues, repo = '', now = Date.now()
 
 // -> {filed, again, gone, candidate}. `gh` and `publish` (the screenshot upload: files -> {to: url}) are injected so the rules can be tested without GitHub.
 // `pendingOnly`: plan, then return the new findings to judge before filing (lib/prejudge.mjs), with no write to GitHub. `verdicts`: {id: raw verdict} from that judgement.
-export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = '', platform = 'mac', pendingOnly = false, verdicts = null, today = new Date().toISOString().slice(0, 10)}) {
+export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = '', platform = 'mac', pendingOnly = false, verdicts = null, incomplete = [], today = new Date().toISOString().slice(0, 10)}) {
   const found = filesNamed(artifacts);   // every suite's folder (e2e-artifacts/e2e-artifacts-<suite>/…), or one flat folder
   const withDir = (file, items) => items.map(item => ({...item, _dir: path.dirname(file)}));
   // A suite's failed steps: only the first is a finding (the later ones are its consequences), and none when the AI had no credit (not a product problem).
@@ -104,6 +108,21 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
   const tested = appVersionAt(testedSha(build), {gh, repo});
   const versionOfRun = tested ? versionLabel(tested.version) : '';
+  // What the issues should say about this run (lib/run-context.mjs): how far the tested build is behind main, and when each suite's file last changed. One lookup each, never fatal.
+  let behind = null;
+  try { if (repo && testedSha(build)) behind = Number(String(gh(['api', `repos/${repo}/compare/${testedSha(build)}...main`, '--jq', '.ahead_by']) || '').trim()); } catch { behind = null; }
+  if (!Number.isFinite(behind)) behind = null;
+  out.behind = behind;
+  const suiteFile = new Map();
+  const lastChange = suite => {
+    if (!repo || !suite) return null;
+    if (!suiteFile.has(suite)) {
+      let last = null;
+      try { const [sha, date] = String(gh(['api', `repos/${repo}/commits?path=desktop/e2e/suites/${suite}.mjs&per_page=1`, '--jq', '.[0] | "\(.sha) \(.commit.committer.date)"']) || '').trim().split(' '); if (sha && date) last = {sha, date}; } catch { last = null; }
+      suiteFile.set(suite, last);
+    }
+    return suiteFile.get(suite);
+  };
   // A commit between releases says which release it follows ("after 0.5.0 · main @ 9f5e0ad"): the line then always names a version.
   if (tested && !tested.exact && build && !/\d+\.\d+\.\d+[^@]*@/.test(build)) build = `after ${tested.version} · ${build}`;
   const addVersion = number => { if (!versionOfRun) return; gh(['label', 'create', versionOfRun, '--force', '--color', 'C5DEF5', '--description', 'The app version the finding was seen on']); gh(['issue', 'edit', String(number), '--add-label', versionOfRun]); };
@@ -195,17 +214,28 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     const picture = urlOf(urls, to);
     if (!existing && noiseNow.some(item => item.finding === finding)) continue;
     if (!existing) {
+      // The same defect a fix closed, seen on a build older than that fix: a stale sighting, not a regression and not a new issue (lib/stale.mjs).
+      const closedBefore = fixedBefore(finding, everything);
+      const stale = closedBefore && repo ? staleSighting({issue: closedBefore, tested: testedSha(build),
+        compare: (base, head) => String(gh(['api', `repos/${repo}/compare/${base}...${head}`, '--jq', '.status']) || '').trim(),
+        merged: number => String(gh(['pr', 'view', String(number), '--repo', repo, '--json', 'mergeCommit', '-q', '.mergeCommit.oid']) || '').trim()}) : null;
+      if (stale?.stale) {
+        if (!(closedBefore.comments || []).some(comment => (comment.body || '').includes(runUrl))) gh(['issue', 'comment', String(closedBefore.number), '--body', staleComment(closedBefore, {fix: stale.fix, tested: testedSha(build)}, runUrl)]);
+        out.stale = [...(out.stale || []), {id: finding.id, issue: closedBefore.number}];
+        dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: `stale sighting: the fix ${stale.fix.slice(0, 7)} of #${closedBefore.number} is newer than the tested build ${testedSha(build)}`});
+        continue;
+      }
       const judged = verdictFor(finding), word = judged ? wordOf(judged) : '';
       const facts = finding.dir ? read(path.join(finding.dir, `ui-${finding.view}.json`)) : null;
       const logs = finding.source === 'suite-failure' && finding.dir ? {'engine.log': tail(path.join(finding.dir, 'logs', 'engine.log')), 'app.log': tail(path.join(finding.dir, 'logs', 'app.log'))} : {};
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
       const variation = finding.dir ? read(path.join(finding.dir, 'seed.json')) : null;   // a run that walked a seeded path says which (lib/variation.mjs)
       const evidence = {suite, seed: variation && !variation.fixed ? variation.seed : 0, window: variation?.window, detail: variation?.detail, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
-      const regressed = fixedBefore(finding, everything);   // the same defect a fix closed: the fix did not hold
+      const regressed = closedBefore;   // the same defect a fix closed, on a build that has the fix: it did not hold
       const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite), `platform:${platform}`, ...(versionOfRun ? [versionOfRun] : []), ...(word === 'real' ? [CONFIRMED] : word === 'needs-human' ? [NEEDS_HUMAN] : []), ...(regressed ? [REGRESSION] : [])];
       if (regressed) gh(['label', 'create', REGRESSION, '--force', '--color', 'B60205', '--description', 'A defect a fix had closed came back']);
       for (const label of labels.slice(1).filter(name => name !== CONFIRMED && name !== NEEDS_HUMAN && name !== REGRESSION)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
-      const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]) || '').trim();
+      const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform, context: contextLine({behind, incomplete, suite}), stepAge: finding.source === 'suite-failure' ? stepAgeLine({last: lastChange(suite)}) : ''}), '--label', labels.join(',')]) || '').trim();
       if (/\/issues\/\d+$/.test(url)) { createdNow.push(Number(url.split('/').pop())); createdRows.push({number: Number(url.split('/').pop()), source: finding.source, suite, view: finding.view}); }
       // Judged before filing: the verdict is the issue's first comment (the same layout as the verdict pass's).
       if (regressed && /\/issues\/\d+$/.test(url)) { out.regressions = [...(out.regressions || []), Number(url.split('/').pop())]; gh(['issue', 'comment', url.split('/').pop(), '--body', regressionComment(regressed, runUrl)]); }
@@ -257,6 +287,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     if (fix && !(issue.labels || []).some(item => (item.name || item) === NOT_SEEN)) {
       gh(['issue', 'comment', String(issue.number), '--body', closedByFixComment(runUrl, fix.sha, build)]);
       gh(['issue', 'close', String(issue.number), '--reason', 'completed']);
+      setResolution(gh, issue.number, 'fixed');
       out.closed.push(issue.number);
       continue;
     }
@@ -275,6 +306,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   for (const issue of toClose(issues, matched, runUrl, clearedNow)) {
     gh(['issue', 'comment', String(issue.number), '--body', closedComment(runUrl, build)]);
     gh(['issue', 'close', String(issue.number), '--reason', 'completed']);
+    setResolution(gh, issue.number, 'not-seen');
     out.closed.push(issue.number);
   }
   issues = list();
@@ -381,7 +413,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   }
   const verdictsFile = option('verdicts');
   const verdicts = verdictsFile && fs.existsSync(verdictsFile) ? JSON.parse(fs.readFileSync(verdictsFile, 'utf8')) : null;
-  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac', verdicts});
+  const incomplete = String(option('incomplete') || '').split(',').map(name => name.trim()).filter(Boolean);   // the suites whose job was cancelled or timed out (ui-findings.yml)
+  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac', verdicts, incomplete});
   const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.judgedNoise?.length ? `, ${result.judgedNoise.length} judged noise before filing (not filed)` : ''}${result.regressions?.length ? `, ${result.regressions.length} regression(s) (a fixed defect came back)` : ''}${result.flaky?.length ? `, ${result.flaky.length} step(s) marked flaky` : ''}${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
@@ -391,6 +424,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${candidate ? candidate.number : 'none'}\n`);
   }
   if (result.dropped?.length) lines.push(droppedTable(result.dropped));
+  fs.writeFileSync(path.join(outDir, 'run-summary.json'), JSON.stringify(runSummary(result, {runUrl: option('run-url'), build: option('build'), incomplete})));
   console.log(lines.join('\n'));
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }

@@ -2,8 +2,11 @@
 // how it ended (real and fixed, real and queued, false positive, duplicate, test or harness, unclear), the fixer's pull requests, the verdict pass, what the
 // AI cost, the recall of the planted bugs, and the real bugs worth knowing. Pure: the CLI (selfheal-stats.mjs) fetches, this computes. 4 Oct 2026.
 import {afterEpoch, STATS_SINCE} from './stats-epoch.mjs';
+import {resolutionCounts, resolutionOf} from './resolution.mjs';
 export const SCHEMA = 1;
-export const CATEGORIES = ['fixed', 'queued', 'falsePositive', 'duplicate', 'harness', 'unclear', 'open'];
+export const CATEGORIES = ['fixed', 'queued', 'falsePositive', 'duplicate', 'stale', 'harness', 'unclear', 'open'];
+// The resolution label an issue was closed with (lib/resolution.mjs) is the loop's own word for why: it is read before any guess from the comments.
+const BY_RESOLUTION = {fixed: 'fixed', 'not-seen': 'unclear', 'fp:harness': 'harness', 'fp:detector': 'falsePositive', 'fp:probe-race': 'falsePositive', 'fp:unknown': 'falsePositive', 'by-design': 'falsePositive', 'stale-sighting': 'stale', duplicate: 'duplicate'};
 export const DETECTORS = {'ai-review': 'AI screenshot review', 'suite-failure': 'Failed test steps', 'interaction-probe': 'Interaction probe',
   'layout-check': 'Layout and DOM checks', 'code-review': 'AI code review', explorer: 'AI explorer'};
 
@@ -14,6 +17,8 @@ export const detectorOf = issue => (names(issue).find(name => name.startsWith('s
 // How an issue ended. Real = confirmed by the verdict pass or a person (queued while open), or closed by a fix (a commit or a merged pull request).
 export function classify(issue) {
   const labels = names(issue), text = said(issue), last = (issue.comments || []).at(-1)?.body || '';
+  const resolved = BY_RESOLUTION[resolutionOf(issue)];
+  if (resolved && !(issue.state === 'OPEN' && resolved === 'fixed')) return resolved;
   if (labels.includes('harness')) return 'harness';   // the verdict pass: the test was wrong, not the product (also wontfix-auto, so it is never filed again)
   if (labels.includes('wontfix-auto')) return 'falsePositive';
   if (/Duplicate of #\d+/.test(text) || (labels.includes('possible-duplicate') && !labels.includes('confirmed'))) return 'duplicate';   // a person's `confirmed` wins: it was a real second defect
@@ -31,7 +36,7 @@ const empty = () => Object.fromEntries(CATEGORIES.map(name => [name, 0]));
 const day = date => String(date || '').slice(0, 10);
 
 // -> the snapshot the site stores (one per day) and shows.
-export function build({issues: all = [], prs = [], costs = [], recall = null, now = new Date()} = {}) {
+export function build({issues: all = [], prs = [], costs = [], recall = null, runs = null, now = new Date()} = {}) {
   const issues = all.filter(afterEpoch), totals = {filed: 0, ...empty()}, by = {};
   for (const issue of issues) {
     const kind = classify(issue), source = detectorOf(issue);
@@ -67,7 +72,7 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, no
   const notable = issues.filter(issue => ['fixed', 'queued'].includes(classify(issue))).sort((a, b) => b.number - a.number).slice(0, 15)
     .map(issue => ({number: issue.number, title: String(issue.title || '').replace(/^\[auto-ui\]\s*/, '').slice(0, 110), url: issue.url || '', detector: DETECTORS[detectorOf(issue)] || detectorOf(issue),
       status: classify(issue) === 'fixed' ? 'fixed' : 'queued', severity: (names(issue).find(name => name.startsWith('severity:')) || 'severity:medium').slice(9)}));
-  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
+  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
     byDetector: Object.values(by).sort((a, b) => b.filed - a.filed), fixer, verdicts,
     cost: {usd: Number(usd.toFixed(2)), runs: inWindow.length, outside: costs.length - inWindow.length, byJob, perRealBug: real ? Number((usd / real).toFixed(2)) : null},
     recall: recall && Number.isInteger(recall.planted) ? {planted: recall.planted, caught: recall.caught, missed: (recall.rows || []).filter(row => !row.caught).map(row => row.id)} : null,

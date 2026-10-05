@@ -24,7 +24,7 @@ test('each verdict has its own banner and next step; an unknown word is "needs a
   assert.match(verdictComment('banana\nWhy: ?'), /^<!-- ui-loop-verdict:needs-human -->/);
   assert.match(verdictComment(''), /_The verdict pass wrote no reason\._/);
   assert.deepEqual(refsIn('see src/a.py:3 and desktop/lib/b.js, not foo.js'), ['src/a.py:3', 'desktop/lib/b.js']);
-  assert.deepEqual(parse('real\nplain sentence one.\nsecond line.'), {word: 'real', why: 'plain sentence one. second line.', check: ''});
+  assert.deepEqual(parse('real\nplain sentence one.\nsecond line.'), {word: 'real', why: 'plain sentence one. second line.', check: '', cause: ''});
 });
 
 test('the loop still reads its own decorated comments: the verdict count, the review reason, and the fixer ignoring them', () => {

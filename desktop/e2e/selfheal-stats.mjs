@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {build} from './lib/selfheal-stats.mjs';
+import {totalRuns} from './lib/run-summary.mjs';
 
 const gh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
 const repo = () => process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/job-pilotto';
@@ -36,6 +37,18 @@ export async function collect({days = 30} = {}) {
       costs.push({...cost, at: cost.at || item.created_at});   // dated by the artifact when the file has no time
     } catch { /* an artifact that cannot be read is left out */ }
   }
+  // What the producer filtered out and called stale, run by run (finder-run-summary artifacts, lib/run-summary.mjs).
+  const summaries = [];
+  try {
+    const found = gh(['api', `repos/${repo()}/actions/artifacts?per_page=100`, '--paginate', '--jq', '[.artifacts[] | select(.name == "finder-run-summary") | {id, created_at, expired}]']).split('\n').filter(line => line.trim()).flatMap(line => JSON.parse(line));
+    for (const item of found.filter(entry => !entry.expired && Date.parse(entry.created_at) >= since).slice(0, 100)) {
+      try {
+        const zip = path.join(tmp, `summary-${item.id}.zip`);
+        fs.writeFileSync(zip, execFileSync('gh', ['api', `repos/${repo()}/actions/artifacts/${item.id}/zip`], {maxBuffer: 5 * 1024 * 1024}));
+        summaries.push(JSON.parse(execFileSync('unzip', ['-p', zip, 'run-summary.json'], {encoding: 'utf8'})));
+      } catch { /* a summary that cannot be read is left out */ }
+    }
+  } catch { /* none yet */ }
   // Recall: the planted bugs of the latest interactions run that has a recall.json.
   let recall = null;
   try {
@@ -59,7 +72,7 @@ export async function collect({days = 30} = {}) {
     }
   } catch { mutation = null; }
   ({tracker, trackerWhy} = await readTracker());
-  return {...build({issues, prs, costs, recall}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy})};
+  return {...build({issues, prs, costs, recall, runs: summaries.length ? totalRuns(summaries) : null}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy})};
 }
 
 

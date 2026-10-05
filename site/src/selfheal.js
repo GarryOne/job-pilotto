@@ -48,6 +48,8 @@ export const PRINCIPLES = [
   ['Link, never merge, what has one cause', 'A failed step and a screenshot finding of the same suite and run are linked and labelled possible-duplicate, and counted as a duplicate.', 'new', 'lib/same-cause.mjs'],
   ['Test at the extremes a person can reach', 'The smallest window of the sweep is the app\'s own minimum (1024 × 640), kept in sync by a test.', 'new', 'lib/variation.mjs'],
   ['Measure the judge', 'Five random verdicts a week are ticked right or wrong by the owner; the score appears under "How well it does".', 'first audit open', 'verdict-audit.mjs'],
+  ['Never call it a regression before checking the build', 'A finding that matches an issue a fix closed is a regression only if the tested build contains the fix (git\'s compare says); on an older build it is a stale sighting, commented on the closed issue and not filed.', 'new', 'lib/stale.mjs'],
+  ['Say why, in a field', 'Every closed issue carries one `resolution:` label (fixed, false by cause, stale, duplicate, by design); every issue states how far its build was behind main and whether its suite finished; every producer run is kept as numbers. Conclusions about causes come from these, not from comments.', 'new', 'lib/resolution.mjs, lib/run-context.mjs, lib/run-summary.mjs'],
   ['Be on time, and say when not', 'The Worker cron starts the publish every 3 hours, GitHub\'s schedule is the backup; this page shows its own age and turns amber, then red.', 'new', 'worker/src/scheduler.js'],
   ['Learn from the owner\'s corrections', 'A reopened noise issue, a removed `confirmed` or a hand closure becomes a lesson for every judge; the weekly self-review proposes at most 3 rule changes as a PR that never merges itself.', 'in force', 'lib/reversals.mjs, finder-review.yml'],
 ];
@@ -55,6 +57,18 @@ export function principlesSection() {
   return `<section class="card"><h2>🧭 How the loop works and learns</h2><small class="muted">The rules it follows, what each one came from, and whether it is new</small><div class="wrap"><table><tr><th>Principle</th><th>In practice</th><th>Status</th><th>Where</th></tr>
 ${PRINCIPLES.map(([rule, practice, status, where]) => `<tr><td><b>${esc(rule)}</b></td><td>${esc(practice)}</td><td>${status === 'new' ? '🆕 new' : status === 'in force' ? '✅ in force' : esc(status)}</td><td class="muted">${esc(where)}</td></tr>`).join('')}
 </table></div></section>`;
+}
+
+// Why the loop's issues were closed (the `resolution:` labels, desktop/e2e/lib/resolution.mjs) and what each producer run dropped: the causes behind the false and stale numbers.
+export const RESOLUTION_WORDS = {fixed: 'A fix landed', 'not-seen': 'Two clean runs: a fix or a one-off', 'fp:harness': 'False: the test was wrong', 'fp:detector': 'False: the detector read the screen wrong',
+  'fp:probe-race': 'False: the probe raced the app', 'fp:unknown': 'False: cause not named', 'by-design': 'By design', 'stale-sighting': 'Stale: seen on a build older than the fix', duplicate: 'Duplicate of another issue'};
+export function causesSection(live) {
+  const causes = Object.entries(live.causes || {}).sort((a, b) => b[1] - a[1]), runs = live.runs;
+  if (!causes.length && !runs) return `<section class="card"><h2>🏷️ Why issues were closed</h2><p class="muted">No issue carries a resolution label yet: the loop sets one when it closes an issue (false positive by cause, fixed, stale, duplicate). Until it has some, the causes are only in the closing comments.</p></section>`;
+  const dropped = Object.entries(runs?.dropped || {}).sort((a, b) => b[1] - a[1]);
+  return `<section class="card"><h2>🏷️ Why issues were closed</h2><small class="muted">The label the loop (or a person) puts on a closed issue, counted since the cutoff</small>
+${causes.length ? `<div class="wrap"><table><tr><th>Resolution</th><th>Meaning</th><th>Issues</th></tr>${causes.map(([name, count]) => `<tr><td><code>${esc(name)}</code></td><td>${esc(RESOLUTION_WORDS[name] || '')}</td><td class="n">${count}</td></tr>`).join('')}</table></div>` : '<p class="muted">No closed issue has a resolution label yet.</p>'}
+${runs ? `<p class="muted">Producer runs recorded: <b>${num(runs.runs)}</b> · issues filed ${num(runs.filed)} · stale sightings not filed ${num(runs.stale)} · runs with a suite that did not finish ${num(runs.incompleteRuns)} · furthest behind main ${num(runs.behindMax)} commits${dropped.length ? ` · dropped: ${dropped.map(([reason, count]) => `${esc(reason)} ${count}`).join(', ')}` : ''}</p>` : '<p class="muted">No producer run summary yet.</p>'}</section>`;
 }
 
 // How old the published numbers are. CI publishes every 3 hours: past 4 h a run is late, past 7 h more than one was missed (5 Oct 2026: GitHub's scheduler left them 5.5 h old).
@@ -80,14 +94,15 @@ export function liveSection(live, history = [], now = new Date()) {
   const q = live.quality || {};
   const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🛡️ Misses guarded', q.guard, 'higher is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy', q.verdicts, 'higher is better'],
     ['↩️ Regression rate', q.regression, 'lower is better'], ['🎲 Flake rate', q.flake, 'lower is better']].filter(([, value]) => value);
-  const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'harness', 'unclear', 'open'];
-  const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Test / harness', 'Unclear', 'Open, unjudged'];
+  const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'stale', 'harness', 'unclear', 'open'];
+  const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Stale', 'Test / harness', 'Unclear', 'Open, unjudged'];
   const trend = history.slice().sort((a, b) => a.day.localeCompare(b.day)).slice(-30);
   const age = freshness(live.at, now), since = sinceText(live);
   const banner = age.level === 'fresh' ? '' : `<section class="card ${age.level}"><b>${age.level === 'stale' ? '⛔ These numbers are stale' : '⚠️ A publish is late'}</b> · last published ${esc(age.text)}; CI publishes every 3 hours (the Worker's cron, GitHub's schedule as backup).${age.level === 'stale' ? ' More than one run was missed: check the "CI · Self-heal stats" workflow.' : ''}</section>`;
   return `${banner}<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC (${esc(age.text)}) · every issue the loop filed${since ? ` since ${esc(since)}` : ''}, by what found it and how it ended${since ? `. ${num(live.excluded)} earlier issues, filed under noisier rules, stay on GitHub and are not counted, so the figures cover only this window` : ''}</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
+${causesSection(live)}
 <section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
 ${(live.byDetector || []).map(row => `<tr><td>${esc(row.detector)}</td>${cols.map(col => `<td class="n">${num(row[col])}</td>`).join('')}</tr>`).join('')}
 <tr class="total"><td>Total</td>${cols.map(col => `<td class="n">${num(t[col])}</td>`).join('')}</tr></table></div>
