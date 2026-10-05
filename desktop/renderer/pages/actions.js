@@ -43,8 +43,8 @@ export async function init() {
     show($('actions-result'), false);
     button.disabled = true;
     const result = await window.pilot.tailorTop(count).catch(error => ({text: `⚠️ ${error.message}`}));
+    if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }   // the Actions page keeps Run off while the task runs, and on again when it ends
     button.disabled = false;
-    if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }
     answer(result?.text || result?.error || 'Done.');
   });
   $('tailor-top-n').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('tailor-top').click(); } });   // Enter in the count box = Run

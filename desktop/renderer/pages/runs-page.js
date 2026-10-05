@@ -44,6 +44,11 @@ export function renderActionsPage(data) {
   const connected = !!(shared.state.settings.telegramChatId || shared.state.settings.telegramCloud);
   $('actions-telegram').replaceChildren(el('span', `dot ${connected ? 'is-on' : ''}`), document.createTextNode(connected ? 'Telegram connected' : 'Telegram not connected'));
   show($('run-banner'), !!running);
+  // Tailor CVs runs for minutes: its Run and count stay off while it does (a second click would only join it), and come back when it ends.
+  const tailoring = !!running && kindOf(running) === 'tailor';
+  $('tailor-top').disabled = tailoring;
+  $('tailor-top-n').disabled = tailoring;
+  $('tailor-top').title = tailoring ? 'Tailor CVs is running: follow it in the banner above' : '';
   // The menu says so too, on every screen: a spinner on Actions while a task runs (not a count: the other badges mean "waiting for you").
   const dot = $('nav-actions-running');
   dot.hidden = !running;
@@ -75,7 +80,7 @@ export function renderActionsPage(data) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   $('run-banner-log').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(event.currentTarget.dataset.url); });
-  $('run-banner-view').addEventListener('click', () => openActivity(true));
+  $('run-banner-view').addEventListener('click', () => { shared.selectedRun = null; openActivity(true); });   // null = the running task, not whichever row was open last
   $('actions-result-close').addEventListener('click', () => show($('actions-result'), false));
   $('runs-all').addEventListener('click', event => { event.preventDefault(); openActivity(true); });
   $('actions-automation').addEventListener('click', event => {

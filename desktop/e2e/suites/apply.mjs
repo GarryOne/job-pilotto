@@ -382,11 +382,20 @@ export async function run(ctx) {
     // A tracked task: the banner follows it and Recent activity holds its row, with the result line as its summary.
     await page.waitForFunction(() => /Tailor CVs/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
       .catch(() => { throw new Error('the Actions banner never showed Tailor CVs running'); });
+    // "View activity" on the banner opens the RUNNING task, even when a finished row was open before.
+    await page.click('#run-banner-view');
+    const finished = page.locator('#activity-recent .recent-row').filter({hasNotText: 'Running'}).first();
+    if (await finished.count()) { await finished.click(); await page.click('#activity-toggle').catch(() => {}); }
+    await page.click('#run-banner-view');
+    await page.waitForFunction(() => /Running/.test(document.querySelector('#activity-recent .recent-row.current')?.textContent || ''), null, {timeout: 10000})
+      .catch(() => { throw new Error('"View activity" did not open the running Tailor CVs task'); });
+    if (!(await page.locator('#tailor-top').isDisabled())) throw new Error('Run is still pressable while Tailor CVs is running');
     let said = '';
     for (let waited = 0; !/Tailored \d+ of \d+ CV/.test(said) && waited < 420000; waited += 3000) {
       await pause(3000);
       said = await page.evaluate(async () => ((await window.pilot.runs()).runs || []).find(run => run.kind === 'tailor')?.summary || '');
     }
+    await page.waitForFunction(() => !document.getElementById('tailor-top').disabled, null, {timeout: 20000}).catch(() => { throw new Error('Run stayed disabled after Tailor CVs ended'); });
     if (!/Tailored 2 of 2 CVs/.test(said)) throw new Error(`Recent activity has no Tailor CVs run that says two CVs were tailored: "${said}"`);
     const made = topUrls.map(url => fs.existsSync(tailoredAt(url)));
     if (made.join() !== 'true,true,false') throw new Error(`expected CVs for the 99 and 98 fit jobs only, got ${JSON.stringify(Object.fromEntries(topUrls.map((url, i) => [url.slice(-6), made[i]])))}`);
