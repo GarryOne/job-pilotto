@@ -154,7 +154,7 @@ export async function run(ctx) {
     if (linked.length) throw new Error('Notion still links the interview to a job after it was unlinked');
   });
 
-  await step('a transcript that fails to review leaves one saved row, not reviewed, and a clear message', async () => {
+  await step('a transcript that fails to review leaves one saved row, not reviewed, and a clear message', () => ctx.withApi(async () => {   // the proxy's refusal needs the API engine (dummy key)
     const file = path.join(ctx.profile, 'recruiter-call-failing.txt');
     fs.writeFileSync(file, TRANSCRIPT);
     const before = (await notionRows()).length;
@@ -187,7 +187,7 @@ export async function run(ctx) {
     await page.waitForFunction(id => /^Review$/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] .iv-main`)?.textContent.trim() || ''), saved.id, {timeout: 60000}).catch(() => {});
     const label = (await row(saved.id).locator('.iv-main').innerText()).trim();
     if (label !== 'Review') throw new Error(`the row's button says "${label}" after the failure, so it cannot be retried`);
-  });
+  }));
 
   await step('a transcript imported through the page is reviewed for real: outcome, strengths, next step, the right job, and the insights follow', async () => {
     const file = path.join(ctx.profile, 'recruiter-call-gamma.txt');
@@ -227,6 +227,7 @@ export async function run(ctx) {
 
   await step('Review again right after a review starts nothing: no second call, no duplicate row, no duplicate review', async () => {
     if (!seed.imported) throw new Error('needs the imported interview of the previous step');
+    if (ctx.engine !== 'api') return console.log('  not checked on Claude Code: this step counts AI calls at the proxy, which Claude Code does not use (CI checks it)');
     await openInterviews();
     const before = await notionRows();
     const calls = proxy.stats.calls;
@@ -249,7 +250,7 @@ export async function run(ctx) {
     await page.waitForFunction(() => /was replaced|failed/i.test(document.getElementById('iv-message').textContent), null, {timeout: REVIEW_MS, polling: 2000});
     const said = (await message()).trim();
     if (!/was replaced/.test(said)) throw new Error(`review again did not finish: "${said.slice(0, 240)}"`);
-    if (proxy.stats.calls === calls) throw new Error('review again made no AI call');
+    if (ctx.engine === 'api' && proxy.stats.calls === calls) throw new Error('review again made no AI call');   // Claude Code does not go through the proxy; "was replaced" above proves a review ran
     const after = await notionRows();
     if (after.length !== before.length) throw new Error(`review again changed the number of rows: ${before.length} → ${after.length}`);
     const blocks = await pageBlocks(NOTION, seed.ivPositive.page);
