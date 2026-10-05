@@ -613,8 +613,10 @@
         <button class="secondary" id="iv-stop">Stop</button>
       </section>
       <section class="notice setup" id="iv-setup" hidden>
-        <span><span class="spinner"></span> <b>Setting up transcription: this happens once.</b> <span id="iv-setup-text"></span></span>
+        <span class="spinner small"></span>
+        <span class="setup-text"><b>Setting up transcription: this happens once.</b> <span id="iv-setup-text"></span></span>
         <span class="muted small">Every later transcription starts straight away. You can keep recording meanwhile.</span>
+        <div class="bar" id="iv-setup-bar" hidden><span id="iv-setup-fill"></span></div>
       </section>
       <section class="notice permission" id="iv-permission" hidden>
         <span id="iv-permission-text"></span>

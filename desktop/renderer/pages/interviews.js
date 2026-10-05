@@ -725,7 +725,11 @@ export async function init() {
   window.pilot.onInterviewProgress(({id, percent, text, setup}) => {
     // The one-time downloads show at the top of the page whichever draft is open, or none.
     show($('iv-setup'), !!setup);
-    if (setup) $('iv-setup-text').textContent = `${text}${percent == null ? '' : ` ${percent}%`}`;
+    if (setup) {
+      $('iv-setup-text').textContent = `${text}${percent == null ? '' : ` ${percent}%`}`;
+      show($('iv-setup-bar'), percent != null);
+      if (percent != null) $('iv-setup-fill').style.width = `${Math.max(2, percent)}%`;
+    }
     if (id !== ivOpen) return;
     show($('iv-progress'));
     $('iv-progress-text').textContent = text;
