@@ -46,5 +46,45 @@
   "find": "    # Each step says so as it starts:",
   "replace": "    print = lambda *args, **kwargs: None\n    # Each step says so as it starts:",
   "what": "Find new employers prints nothing while it works: the live log says Nothing to show yet for minutes (5 Oct 2026)"
+ },
+ {
+  "id": "focus-hold-not-kept",
+  "suite": "focus",
+  "file": "desktop/renderer/pages/focus.js",
+  "find": "  settled.set(itemKey(item), Date.now() + HOLD_MS);\n  keepHolds();",
+  "replace": "  settled.set(itemKey(item), Date.now() + HOLD_MS);",
+  "what": "a dismissed Up next card is held in memory only: a reload paints it back from the saved Focus (5 Oct 2026)"
+ },
+ {
+  "id": "focus-hold-one-minute",
+  "suite": "focus",
+  "file": "desktop/renderer/pages/focus.js",
+  "find": "const HOLD_MS = 10 * 60000,",
+  "replace": "const HOLD_MS = 5000,",
+  "what": "the hold on a dismissed card ends before Notion lists the write: the card returns after a refresh (5 Oct 2026)"
+ },
+ {
+  "id": "feedback-skip-not-held",
+  "suite": "focus",
+  "file": "desktop/renderer/pages/focus.js",
+  "find": "    dismiss(item);   // it leaves at once, like Done and Skip; undone if Notion refuses it\n",
+  "replace": "",
+  "what": "Skip this request waits for Notion before the card leaves (5 Oct 2026)"
+ },
+ {
+  "id": "local-run-skips-notion-page",
+  "suite": "activity",
+  "file": "desktop/renderer/pages/activity.js",
+  "find": "(!r.log || !r.message || (kindOf(r) === 'mail' && !r.report?.length))",
+  "replace": "!r.log",
+  "what": "a run recorded on this Mac never reads its Notion page: Search analysis opens empty, Gmail check loses its header (5 Oct 2026)"
+ },
+ {
+  "id": "weekly-plain-layout-unread",
+  "suite": "activity",
+  "file": "desktop/renderer/weekly-card.js",
+  "find": "const FINDING = /^(?:💡\\s*|Finding:\\s*)(.+)$/;",
+  "replace": "const FINDING = /^💡\\s*(.+)$/;",
+  "what": "the Search analysis card reads only the old emoji layout: its sections run together (5 Oct 2026)"
  }
 ]
