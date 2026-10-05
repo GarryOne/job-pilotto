@@ -47,6 +47,7 @@ export async function init() {
     if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }
     answer(result?.text || result?.error || 'Done.');
   });
+  $('tailor-top-n').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('tailor-top').click(); } });   // Enter in the count box = Run
   // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
   // the fit scores) is offered, never applied by itself.
   $('replace-cv').addEventListener('click', async () => {
