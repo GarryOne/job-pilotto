@@ -6,6 +6,10 @@ import {openCvChange, showCvChanged} from './cv-change.js';
 import {openView} from './nav.js';
 import {showStatusCard} from './runs-page.js';
 
+// A pressed task button is held off (syncRunButtons in runs-page.js turns it on again when its task ends); a refusal releases it at once.
+const hold = button => { button.disabled = true; button.dataset.runBusy = '1'; };
+const release = button => { button.disabled = false; delete button.dataset.runBusy; };
+
 // ---------- actions (every Telegram command) ----------
 export function answer(text) { const box = $('command-answer'); delete box.dataset.fallback; show(box); box.textContent = text; box.scrollIntoView({behavior: 'smooth'}); }
 // Lists the app already shows: the Jobs list with that filter (the Telegram bot sends them as messages).
@@ -31,20 +35,20 @@ export async function init() {
       refreshActivity();
     }
     if (command === 'status') { showStatusCard(); return; }
-    button.disabled = true;
+    hold(button);
     const result = await window.pilot.command(command);
-    button.disabled = false;
-    if (task && !/^⚠️/.test(result?.text || '')) { refreshActivity(); show($('command-answer'), false); return; }  // its row, then its result, show in Recent activity
+    if (task && !/^⚠️/.test(result?.text || '')) { refreshActivity(); show($('command-answer'), false); return; }   // a started task keeps its button off until it ends (syncRunButtons)
+    release(button);  // its row, then its result, show in Recent activity
     answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
   }));
   // Tailor CVs for top matches: a tracked task like the others, so the banner, Recent activity and the result follow it; only a refusal (Notion, allowance, nothing to do) is answered here.
   $('tailor-top').addEventListener('click', async event => {
     const button = event.currentTarget, count = Math.max(1, Math.min(10, Number($('tailor-top-n').value) || 5));
     show($('actions-result'), false);
-    button.disabled = true;
+    hold(button);
     const result = await window.pilot.tailorTop(count).catch(error => ({text: `⚠️ ${error.message}`}));
     if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }   // the Actions page keeps Run off while the task runs, and on again when it ends
-    button.disabled = false;
+    release(button);
     answer(result?.text || result?.error || 'Done.');
   });
   $('tailor-top-n').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('tailor-top').click(); } });   // Enter in the count box = Run

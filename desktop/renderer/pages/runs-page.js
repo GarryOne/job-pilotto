@@ -2,7 +2,7 @@
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
-import {KIND, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity} from './activity.js';
+import {COMMAND_KIND, KIND, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity} from './activity.js';
 import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
 import {runStatus, runWarned} from '../run-status.js';
@@ -38,17 +38,32 @@ export async function showStatusCard() {
 const TASK_ICON = {search: 'search', mail: 'mail', insight: 'chart', weekly: 'file', today: 'send', scout: 'building', kits: 'file-text', tailor: 'scissors'};
 const TASK_TITLE = {search: 'Search for new jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Analyze my job search', kits: 'Prepare top matches', tailor: 'Tailor CVs for top matches',
   today: "Today's matches", scout: 'Find new employers'};
+// Every button that starts a task is off while that task runs or waits (a second press would only join it), and back when it ends: the Actions cards, Tailor CVs, and the same
+// task's other buttons (Jobs → Check for new jobs, Settings → Check Gmail now). `busy` is the kinds running or queued now. Only a button this turned off is turned on again.
+const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['tailor', '#tailor-top', '#tailor-top-n']];
+export function syncRunButtons(busy) {
+  const set = (node, kind) => {
+    if (!node) return;
+    const now = busy.includes(kind);
+    if (now) {
+      if (!node.disabled) { node.disabled = true; node.dataset.runBusy = '1'; }
+      if (node.dataset.title0 === undefined) node.dataset.title0 = node.title || '';
+      node.title = `${(TASK_TITLE[kind] || KIND[kind]?.name || 'This task')} is running: follow it in the banner above`;
+    } else if (node.dataset.runBusy) {
+      node.disabled = false; delete node.dataset.runBusy;
+    }
+    if (!now && node.dataset.title0 !== undefined) { node.title = node.dataset.title0; delete node.dataset.title0; }
+  };
+  for (const node of document.querySelectorAll('.action[data-command]')) if (COMMAND_KIND[node.dataset.command]) set(node, COMMAND_KIND[node.dataset.command]);
+  for (const [kind, ...selectors] of TASK_BUTTONS) for (const selector of selectors) set(document.querySelector(selector), kind);
+}
 export function renderActionsPage(data) {
   if (!data) return;
   const {running, runs = []} = data;
   const connected = !!(shared.state.settings.telegramChatId || shared.state.settings.telegramCloud);
   $('actions-telegram').replaceChildren(el('span', `dot ${connected ? 'is-on' : ''}`), document.createTextNode(connected ? 'Telegram connected' : 'Telegram not connected'));
   show($('run-banner'), !!running);
-  // Tailor CVs runs for minutes: its Run and count stay off while it does (a second click would only join it), and come back when it ends.
-  const tailoring = !!running && kindOf(running) === 'tailor';
-  $('tailor-top').disabled = tailoring;
-  $('tailor-top-n').disabled = tailoring;
-  $('tailor-top').title = tailoring ? 'Tailor CVs is running: follow it in the banner above' : '';
+  syncRunButtons([running, ...(data.queued || [])].filter(Boolean).map(kindOf));
   // The menu says so too, on every screen: a spinner on Actions while a task runs (not a count: the other badges mean "waiting for you").
   const dot = $('nav-actions-running');
   dot.hidden = !running;
