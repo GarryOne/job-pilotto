@@ -66,8 +66,9 @@ export function mergeSameRun(findings) {
 export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
-    const finding = {view: item.view, severity: probed ? probeSeverity(item) : layoutSeverity(item), kind: item.kind,
-      title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${probed ? `"${item.control}"` : String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: probed ? 'interaction-probe' : 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
+    const explored = item.source === 'explorer';   // a bug the AI explorer met AND a script proved again without AI (lib/explore.mjs): its own title and severity
+    const finding = {view: item.view, severity: explored ? cappedSeverity(['high', 'medium', 'low'].includes(item.severity) ? item.severity : 'medium', item.kind) : probed ? probeSeverity(item) : layoutSeverity(item), kind: item.kind,
+      title: explored ? `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${String(item.title || '').slice(0, 60)}` : `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${probed ? `"${item.control}"` : String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: explored ? 'explorer' : probed ? 'interaction-probe' : 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
     // `shown` is only the issue's title: a layout finding says what is on the page ("spill on settings-narrow: p#cv-message.message: "400 {"type":"error"…""), not just a selector. The fingerprint
     // keeps using `title`, so issues filed before this still match.
     const quoted = !probed && /:\s*"([\s\S]{3,})$/.exec(String(item.detail || ''))?.[1]?.replace(/"$/, '');
@@ -116,7 +117,7 @@ export function blockers(findings, issues) {
 export const NO_CREDIT = /credit balance is too low|spend limit is reached|AI limit reached|usage limits?\b/i;
 export const LIMIT_TESTED = ['activityfailures'];
 
-const SOURCE_WORDS = {'layout-check': 'the layout check', 'suite-failure': 'a run of the suite (a step failed)', 'ai-review': 'the AI screenshot review', 'interaction-probe': 'the interaction probe (it pressed the control and recorded what happened)'};
+const SOURCE_WORDS = {'layout-check': 'the layout check', 'suite-failure': 'a run of the suite (a step failed)', 'ai-review': 'the AI screenshot review', 'explorer': 'the AI explorer (an AI found it, a script proved it again without AI)', 'interaction-probe': 'the interaction probe (it pressed the control and recorded what happened)'};
 const sourceWords = finding => (finding.source === 'suite-failure' ? `a run of the ${finding.view} suite (a step of the ${finding.view} suite failed)` : SOURCE_WORDS[finding.source] || SOURCE_WORDS['ai-review']);
 
 // The app's own words for its state when the picture was taken (ui-<view>.json), as table rows; empty ones are left out.
