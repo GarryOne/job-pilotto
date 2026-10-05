@@ -177,17 +177,33 @@ test('the real menu at the smallest window height: the old hidden-scrollbar colu
   } finally { await browser.close(); }
 });
 
-// 5 Oct 2026: the Jobs check's digest shown as raw Telegram text in the run's detail pane; no check flagged it.
-test('a Telegram message shown as raw text is flagged; the same words in a technical log are not', async () => {
-  const browser = await chromium.launch({channel: 'chrome'});
-  try {
-    const page = await browser.newPage({viewport: {width: 1280, height: 800}});
-    const digest = '✈️ Job Pilotto · 🆕 1 new · top 1 of 1<br>1 open · 1 📍<br>1. Senior Site Reliability Engineer (https://boards.e2e.test/job/1791157080)<br>&nbsp;&nbsp;E2E Acme · Zurich<br>Tap a job number to mark it applied, save or dismiss it.';
-    const shown = await findings(page, `<section class="view" data-view="jobs"><div class="activity-result" id="activity-result">${digest}</div></section>`);
-    const chat = shown.filter(item => item.kind === 'chat-text');
-    assert.equal(chat.length, 1, JSON.stringify(shown));
-    assert.match(chat[0].detail, /div#activity-result/);
-    const logged = await findings(page, `<section class="view" data-view="jobs"><details open><pre>${digest}</pre></details><p>4 new jobs · Finished 01:38</p></section>`);
-    assert.deepEqual(logged.filter(item => item.kind === 'chat-text'), []);
-  } finally { await browser.close(); }
-});
+// CONTENT SHOWN IN THE WRONG FORM (5 Oct 2026 is the reference case: a Jobs check's digest as raw Telegram text above its own card).
+// The checks must catch that case AND others of the same type, and stay quiet on clean screens.
+const DIGEST = '✈️ Job Pilotto · 🆕 1 new · top 1 of 1<br>1 open · 1 📍<br>1. Senior Site Reliability Engineer (https://boards.e2e.test/job/1791157080)<br>&nbsp;&nbsp;E2E Acme · Zurich<br>Tap a job number to mark it applied, save or dismiss it.';
+const ITEMS = 'Senior Site Reliability Engineer at E2E Acme in Zurich, hybrid, strong match on Kubernetes, Terraform, AWS and service level objectives; no salary stated; English only; posted two days ago by the platform team';
+const kinds = async (page, body) => (await findings(page, `<section class="view" data-view="jobs">${body}</section>`)).map(item => item.kind);
+const withChrome = async run => { const browser = await chromium.launch({channel: 'chrome'}); try { await run(await browser.newPage({viewport: {width: 1280, height: 800}})); } finally { await browser.close(); } };
+
+test('the reference case: a raw digest marked as a fallback, above its card, is flagged three ways', () => withChrome(async page => {
+  const found = await kinds(page, `<div id="activity-result" data-fallback="search">${DIGEST}</div><div class="run-card"><div>${ITEMS}</div></div><div class="note"><div>${ITEMS}</div></div>`);
+  for (const kind of ['card-fallback', 'raw-markup', 'duplicate-content']) assert.ok(found.includes(kind), `${kind} missing: ${found}`);
+}));
+
+test('the same type, other forms: Markdown, HTML typed out, an entity, an insight shown as text', () => withChrome(async page => {
+  assert.ok((await kinds(page, '<p>**Focus next:** apply to 3 roles in Zurich</p>')).includes('raw-markup'));
+  assert.ok((await kinds(page, '<p>Your &lt;b&gt;weekly&lt;/b&gt; review is ready</p>')).includes('raw-markup'));
+  assert.ok((await kinds(page, '<p>Search &amp;amp; apply</p>')).includes('raw-markup'));
+  assert.ok((await kinds(page, '<p>See [the job](https://boards.e2e.test/job/1)</p>')).includes('raw-markup'));
+  assert.ok((await kinds(page, '<pre data-fallback="insight">Skills\nGo appears in 40%\nAdd it to your CV</pre>')).includes('card-fallback'));
+  assert.ok((await kinds(page, `<div class="warn"><div>${ITEMS}</div></div><div class="warn2"><div>${ITEMS} again</div></div>`)).includes('duplicate-content'));
+}));
+
+test('clean screens stay quiet: a card alone, a technical log, a box inside a box, two different texts', () => withChrome(async page => {
+  const quiet = ['card-fallback', 'raw-markup', 'duplicate-content'];
+  const of = found => found.filter(kind => quiet.includes(kind));
+  assert.deepEqual(of(await kinds(page, `<div class="run-card"><div>${ITEMS}</div></div>`)), []);
+  assert.deepEqual(of(await kinds(page, `<details open><pre>${DIGEST}\n**bold** &amp;</pre></details><p>4 new jobs · Finished 01:38</p>`)), []);
+  assert.deepEqual(of(await kinds(page, `<div class="outer"><div class="inner">${ITEMS}</div></div>`)), []);
+  assert.deepEqual(of(await kinds(page, `<div><div>${ITEMS}</div></div><div><div>Interview with Northwind on Thursday at ten: prepare the system design story, the incident review and three questions about the on-call rotation and team size</div></div>`)), []);
+  assert.deepEqual(of(await kinds(page, '<p>Applied · Saved &amp; ready</p>'.replace('&amp;', '&'))), []);
+}));

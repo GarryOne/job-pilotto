@@ -68,3 +68,14 @@ test('a run without a message of its own is drawn from the result the window kep
   assert.equal(cardText({...local, live: true}, kept), null);                // a running job has no card yet
   assert.equal(cardText(null, kept), null);
 });
+
+// A carded run kind showing its message as plain text is a fallback the window marks for the e2e checks (uicheck.mjs card-fallback).
+test('a multi-line message of a carded kind shown as text is a fallback; a short note or another kind is not', async () => {
+  const {isFallback} = await import('../renderer/run-cards.js');
+  const three = 'line one\nline two\nline three';
+  assert.equal(isFallback('search', three), true);
+  assert.equal(isFallback('weekly', three), true);
+  assert.equal(isFallback('search', 'No new jobs since your last check.'), false);
+  assert.equal(isFallback('add', three), false);       // Logged activity has no card: its text is the answer
+  assert.equal(isFallback('search', ''), false);
+});

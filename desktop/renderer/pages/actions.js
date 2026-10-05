@@ -7,7 +7,7 @@ import {openView} from './nav.js';
 import {showStatusCard} from './runs-page.js';
 
 // ---------- actions (every Telegram command) ----------
-export function answer(text) { const box = $('command-answer'); show(box); box.textContent = text; box.scrollIntoView({behavior: 'smooth'}); }
+export function answer(text) { const box = $('command-answer'); delete box.dataset.fallback; show(box); box.textContent = text; box.scrollIntoView({behavior: 'smooth'}); }
 // Lists the app already shows: the Jobs list with that filter (the Telegram bot sends them as messages).
 const COMMAND_FILTER = {saved: 'saved', applied: 'applied'};
 

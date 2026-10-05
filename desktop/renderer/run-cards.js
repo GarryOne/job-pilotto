@@ -48,6 +48,18 @@ export const parseRunMessage = text => parseDigest(text) || parseScout(text);
 // The text a finished run's card is drawn from: its own message (read from its Notion page), else the result the window
 // kept when it watched the run end (renderer/pages/activity.js runResults). A search run recorded on this Mac carries a log
 // but no message, so without the kept one its digest showed as raw Telegram text under a "Completed" pill (5 Oct 2026).
+// The run kinds the window draws as a card. When one of them shows its message as plain text instead, a parser failed or was never
+// reached: the screen still looks tidy, so the window says so on the element (data-fallback), and the e2e checks treat it as a
+// finding (desktop/e2e/lib/uicheck.mjs 'card-fallback'). A one- or two-line note ("No new jobs since…") is a plain answer, not a fallback.
+export const CARD_KINDS = new Set(['search', 'today', 'scout', 'mail', 'insight', 'weekly', 'interview']);
+export const isFallback = (kind, text) => CARD_KINDS.has(kind) && String(text || '').split('\n').filter(line => line.trim()).length >= 3;
+// Marks (or clears) a box that shows a run's message as plain text.
+export function markFallback(node, kind, text) {
+  if (!node) return;
+  if (text && isFallback(kind, text)) node.dataset.fallback = kind;
+  else delete node.dataset.fallback;
+}
+
 export const cardText = (run, kept) => (!run || run.live ? null : run.message || kept || null);
 
 // A run's message that is not a card is shown as text: written for Telegram, so its tags and the "Tap a job number…" hint

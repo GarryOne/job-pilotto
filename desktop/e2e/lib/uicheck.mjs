@@ -91,23 +91,49 @@ export function inspect({view, limits}) {
       found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(host)} shows technical text to the person: "${text.slice(0, 160)}"`});
     }
   }
-  // A message written for Telegram shown as plain text where the app has a card for it: a numbered job list with raw links in
-  // brackets, "Tap a job number…", a /command, the engine's <<<message markers. 5 Oct 2026: a Jobs check that ended while Recent
-  // activity was open showed its digest this way above the card; every check passed, because the text was neither JSON nor clipped.
-  const CHAT = [/Tap a job number\b/i, /(?:^|\s)\d+\.\s[^\n]{3,200}?\(https?:\/\/[^)\s]+\)/, /(?:^|\s)\/(?:apply|save|dismiss|more)_\w+/, /<<<message|message>>>/,
-    /✈️[^\n]{0,40}🆕\s*\d+ new/];
-  const chatSeen = new Set();
+  // CONTENT SHOWN IN THE WRONG FORM. The type of bug behind 5 Oct 2026: a Jobs check's digest showed as raw Telegram text in the run's
+  // detail pane, above its own card. The screen looked tidy, so no layout check fired. Three checks, from exact to heuristic:
+  // (1) card-fallback: the window marks a box that shows a carded run's message as plain text (renderer/run-cards.js markFallback).
+  for (const host of document.querySelectorAll('[data-fallback]')) {
+    if (!visible(host)) continue;
+    found.push({view, severity: 'warning', kind: 'card-fallback', detail: `${label(host)} shows a ${host.dataset.fallback} run's message as plain text instead of its card: "${snippet(host)}"`});
+  }
+  // (2) raw-markup: text formatted for somewhere else, shown unrendered: chat formatting (a numbered list with raw links in brackets,
+  // "Tap a job number…", /commands, the engine's message markers), Markdown, HTML tags or entities typed out as text.
+  const RAW = [[/Tap a job number\b/i, 'chat'], [/(?:^|\s)\d+\.\s[^\n]{3,200}?\(https?:\/\/[^)\s]+\)/, 'chat'], [/(?:^|\s)\/(?:apply|save|dismiss|more)_\w+/, 'chat'],
+    [/<<<message|message>>>/, 'engine marker'], [/\*\*[^*\n]{2,80}\*\*/, 'Markdown'], [/(?:^|\n)#{1,3} \S/, 'Markdown'], [/\[[^\]\n]{1,80}\]\(https?:\/\//, 'Markdown'],
+    [/<\/?(?:b|i|a|p|br|div|span|ul|li|strong|em)\b[^>]*>/i, 'HTML'], [/&(?:amp|lt|gt|quot|nbsp|#\d{2,5});/, 'HTML entity']];
+  const rawSeen = new Set();
   for (const scope of [root, ...document.querySelectorAll('dialog[open], #toasts, #activity, #activity-panel')]) {
-    for (const host of scope.querySelectorAll('div, p, section, li, span')) {
-      if (chatSeen.size >= 2 || chatSeen.has(host) || host.closest(ON_PURPOSE) || !visible(host)) continue;
-      if ([...host.children].some(child => CHAT.some(pattern => pattern.test(child.innerText || '')))) continue;   // report the innermost box only
+    for (const host of scope.querySelectorAll('div, p, section, li, span, pre')) {
+      if (rawSeen.size >= 2 || rawSeen.has(host) || (host.closest(ON_PURPOSE) && !host.closest('[data-fallback]')) || !visible(host)) continue;
+      if ([...host.children].some(child => RAW.some(([pattern]) => pattern.test(child.innerText || '')))) continue;   // the innermost box only
       const text = host.innerText || '';
-      const hit = CHAT.find(pattern => pattern.test(text));
+      const hit = RAW.find(([pattern]) => pattern.test(text));
       if (!hit) continue;
-      chatSeen.add(host);
-      found.push({view, severity: 'warning', kind: 'chat-text', detail: `${label(host)} shows a message written for Telegram as raw text (${hit.source.slice(0, 30)}): "${text.replace(/\s+/g, ' ').trim().slice(0, 140)}"`});
+      rawSeen.add(host);
+      found.push({view, severity: 'warning', kind: 'raw-markup', detail: `${label(host)} shows ${hit[1]} formatting as raw text: "${text.replace(/\s+/g, ' ').trim().slice(0, 140)}"`});
     }
   }
+  // (3) duplicate-content: two separate boxes in sight that say mostly the same thing (a card and its raw source, a warning printed
+  // twice, a summary above its own details). Compared by their words; one box inside the other is not a duplicate.
+  const words = el => new Set((el.innerText || '').toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []);
+  const blocks = [...document.querySelectorAll('.view:not([hidden]) div, .view:not([hidden]) section, .view:not([hidden]) pre, #activity-panel div, #activity-panel pre, dialog[open] div')]
+    .filter(el => visible(el) && !el.closest('pre code, .xterm, textarea, details:not([open])') && (el.innerText || '').length >= 120)
+    .filter(el => ![...el.children].some(child => (child.innerText || '').length >= 0.8 * (el.innerText || '').length))   // the innermost box that holds the text
+    .slice(0, 80).map(el => ({el, set: words(el)})).filter(item => item.set.size >= 15);
+  const dupes = [];
+  for (let a = 0; a < blocks.length && dupes.length < 2; a++) {
+    for (let b = a + 1; b < blocks.length && dupes.length < 2; b++) {
+      const [x, y] = [blocks[a], blocks[b]];
+      if (x.el.contains(y.el) || y.el.contains(x.el)) continue;
+      let shared = 0;
+      for (const word of x.set) if (y.set.has(word)) shared++;
+      const overlap = shared / Math.min(x.set.size, y.set.size);
+      if (overlap >= 0.7) dupes.push(`${label(x.el)} and ${label(y.el)} share ${Math.round(overlap * 100)}% of their words: "${snippet(x.el)}"`);
+    }
+  }
+  for (const detail of dupes) found.push({view, severity: 'warning', kind: 'duplicate-content', detail});
   // The window's menu: every one of its buttons must be reachable. The owner (4 Oct 2026) shrank the window to its smallest height and could not reach the bottom menu items: the column
   // scrolled, but its scrollbar was hidden and nothing showed it. A control cut off by the window edge (or by an ancestor that clips) with nothing to scroll is "unreachable-control";
   // one whose scroll container shows no scrollbar is "hidden-scroll". A scrollable list with a visible scrollbar is fine.

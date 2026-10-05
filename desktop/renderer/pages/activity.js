@@ -5,7 +5,7 @@ import {barState, phaseStatus, runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
-import {cardText, parseRunMessage, plainMessage} from '../run-cards.js';
+import {cardText, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
 import {mailChanges, parseMailReport, settleQuestion} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
@@ -151,6 +151,7 @@ function showAwaitedResult(runs) {
       const card = message ? parseRunMessage(message) : null;
       if (card) { showActionsResult(run, kind, card); return; }
       answer(text);
+      markFallback($('command-answer'), kindOf(run), message);
       return;
     }
     runResults.set(run.id, message || capital(outcome(run)));  // shown under the run in Recent activity
@@ -445,6 +446,8 @@ export function renderActivity(fresh) {
   const plain = !run?.live && !card && !mail && !insight && !weekly && !review && run?.message;
   $('activity-message').textContent = plain ? plainMessage(plain) : '';
   show($('activity-message'), !!plain && !reading);
+  markFallback($('activity-message'), kindOf(run), plain && !reading ? plain : '');
+  markFallback($('activity-result'), kindOf(run), $('activity-result').hidden ? '' : $('activity-result').textContent);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
