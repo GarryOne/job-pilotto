@@ -29,3 +29,19 @@ test('a seed adds one match and one decoy the suite checks, the same way every t
   for (const title of DECOYS) assert.match(title, /account executive|product designer|intern/i);
   for (const title of MATCHES) assert.match(title, /reliability|devops|platform/i);
 });
+
+test('a seeded run may add a crowd of wrong-role postings, never a matching one', async () => {
+  const {varyFeeds: vary, SHAPES, CROWD} = await import('../lib/feeds.mjs');
+  assert.deepEqual(SHAPES, ['plain', 'crowd']);
+  let crowded = null;
+  for (let seed = 1; seed < 40 && !crowded; seed++) {
+    const dir = copy();
+    const result = vary(dir, createVariation({E2E_SEED: String(seed)}));
+    if (result.shape === 'crowd') crowded = dir;
+  }
+  assert.ok(crowded, 'some seed picks the crowd');
+  const beta = JSON.parse(fs.readFileSync(path.join(crowded, 'beta.json'), 'utf8')).jobs;
+  const extra = beta.filter(job => job.id >= 3001);
+  assert.equal(extra.length, CROWD);
+  assert.ok(extra.every(job => !/reliability|devops|platform/i.test(job.title)));
+});

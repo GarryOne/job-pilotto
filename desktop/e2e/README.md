@@ -161,7 +161,8 @@ The suites follow scripted paths on fixed fixtures, so running them again re-wal
 - **No seed (or 0) is the FIXED path.** The release gate (`workflow_run`) and the stable canary run fixed, so a build is judged on a path that does not move under it.
 - Plus one deterministic pass: `visitNarrow` (`lib/layout.mjs`) visits focus, jobs, actions and settings at **1024 px**, where the sidebar becomes an icon rail (under 1180 px). Its findings are warnings (they file issues, they never fail a journey or hold a release).
 - **The apply suite varies its data and timing too** (`lib/forms.mjs` `varyForms`): free-text answers from hazard lists (apostrophes, quotes, `&`, `<tags>`, accents, emoji, a newline, a 900-character answer; short answers stay short and the long one stays long), the greenhouse questions in another order, the late-rendered Lever field after 0 to 1200 ms. The kit is changed before anything reads it, so the suite's expectations stay right; the seed and the picks are in the issue.
-- Not varied yet: the strategy / jobs / Notion starting state, and the platform (there is no Windows e2e).
+- Not varied yet: the strategy and Notion starting state. (Windows runs its own e2e: `e2e-windows.yml`.)
+- **The jobs feeds vary their shape too** (`lib/feeds.mjs`, 5 Oct 2026): titles with accents, a gender tag and an emoji, or one long enough to wrap; and a `crowd` of 150 wrong-role postings that the rules must drop before any AI call.
 - **Which runs vary:** scheduled and manual runs. The release gate, the soak top-ups (their three green runs must be comparable), the by-hand gate (`gate_tag`) and the stable canary walk the fixed path.
 - **A by-hand gate** (`gh workflow run e2e.yml -f gate_tag=desktop-v0.5.3`): a build started by hand is never gated by the nightly path; this runs the same suites on that tag's commit, then the promote job approves it for beta (soak on) or promotes it (soak off).
 

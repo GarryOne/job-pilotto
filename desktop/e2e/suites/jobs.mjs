@@ -59,10 +59,12 @@ export async function run(ctx) {
     const titles = jobs.map(job => job.title);
     console.log(`  scored: ${jobs.map(job => `${job.title} (${job.fit})`).join('; ')}`);
     if (jobs.some(job => !(job.fit >= 0 && job.fit <= 100))) throw new Error('a score is outside 0 to 100');
-    const wrong = titles.filter(title => /account executive|product designer|intern/i.test(title));
+    const wrong = titles.filter(title => /account executive|product designer|intern|sales development|marketing manager|recruiter \d/i.test(title));   // the crowd's roles too (lib/feeds.mjs)
     if (wrong.length) throw new Error(`jobs for the wrong role were kept: ${wrong.join(', ')}`);
     if (varied) {   // the added match is kept and scored like the written ones, whatever way Zurich is written
-      const has = async () => (await scored()).some(job => job.title === varied.match);
+      // As a person reads it: a gender tag such as (m/w/d) may be dropped for display (src/digest.py), spacing and case may change.
+      const read = title => String(title || '').toLowerCase().replace(/\((?:m\/w\/d|m\/f\/d|f\/m\/d|w\/m\/d|all genders|a)\)/g, '').replace(/\s+/g, ' ').trim();
+      const has = async () => (await scored()).some(job => read(job.title) === read(varied.match));
       for (let waited = 0; !(await has()) && waited < 120000; waited += 5000) await page.waitForTimeout(5000);
       if (!(await has())) throw new Error(`the added match "${varied.match}" (in "${varied.place}") was not kept and scored; scored: ${(await scored()).map(job => job.title).join('; ')}`);
     }
