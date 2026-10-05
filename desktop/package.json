@@ -20,7 +20,8 @@
     "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",
     "apply-demo": "node scripts/apply-demo.mjs",
-    "lint": "cd .. && eslint --config eslint.config.mjs --max-warnings 0 desktop extension"
+    "lint": "cd .. && eslint --config eslint.config.mjs --max-warnings 0 desktop extension",
+    "mail-states": "node scripts/stage.mjs && node e2e/mail-states.mjs"
   },
   "devDependencies": {
     "electron": "^44.4.5",

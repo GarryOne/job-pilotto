@@ -26,7 +26,8 @@ const HEAD = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)\s*/u
 // (the status strip already says both), then per update "Company · Role · Kind" (mail._head) with its summary under it,
 // and a rejection's review line (src/ai/rejection.py line()):
 // "🛠 Why rejected · Anthropic — Staff+ SWE: Hard skills (medium). <summary>".
-const UPDATES_TITLE = /^(?:Job emails & calendar|\d+ updates?)$/;
+// "📧 Gmail checked / No new job emails / Nothing that changes your applications." say what the strip already says.
+const UPDATES_TITLE = /^(?:Job emails (?:&|and) calendar|\d+ updates?|Gmail checked(?::\s*no new job emails\.?)?|No new job emails|\d+ new emails?|Nothing that changes your applications\.?)$/i;
 const OUTCOME = /^([^·]+?)\s+·\s+(.+?)\s+·\s+([^·]+)$/;
 const WHY = /Why rejected\s+·\s+(.+?):\s+([^():]+?)\s+\((low|medium|high)\)\.\s*(.*)$/u;
 // "…role needing X; your experience is SRE/platform." reads as what the role wanted and what you bring.
@@ -42,7 +43,9 @@ function assessment(line) {
 
 // The row's own result line as one sentence: "Gmail check: 1 new email(s) read, 0 update(s) recorded".
 export function mailStatus(result) {
-  const found = /(\d+)\s+new email\(s\)\s+read,\s*(\d+)\s+update\(s\)\s+recorded/i.exec(String(result || ''));
+  // "Gmail check: 1 new email(s) read, 0 update(s) recorded" (a Notion row), or "Mail: 6 new email(s) classified, 1 update(s)"
+  // (a run this Mac kept from its own log): one card for both.
+  const found = /(\d+)\s+new email\(s\)\s+(?:read|classified),\s*(\d+)\s+update\(s\)/i.exec(String(result || ''));
   if (!found) return {title: 'Check complete', sentence: '', emails: null, updates: null};
   const emails = Number(found[1]), updates = Number(found[2]);
   if (!emails && !updates) return {title: 'Check complete', sentence: 'No new job emails, and no application records changed.', emails, updates};
@@ -164,7 +167,8 @@ export function parseMailReport(message, result = '', fromRow = []) {
   const lines = [...(message ? said.map(text => [text, false]) : []),
                  ...fromRow.slice(1).map(text => [text, true]).filter(([line]) => DID.test(String(line)))]
     .map(([line, fromRow_]) => [line.trim(), fromRow_]);  // blank lines kept: they end a message block
-  if (!lines.some(([line]) => line) && !parsed.emails.length) return null;
+  const counted = /\d+\s+new email\(s\)/i.test(String(result || ''));   // nothing to list still has its counts to say
+  if (!lines.some(([line]) => line) && !parsed.emails.length && !counted) return null;
   const report = {status: mailStatus(result), interview: null, topics: [], nextSteps: [], consent: '', notes: [],
                   url: '', updates: parsed.updates, emails: parsed.emails, outcomes: [], assessments: parsed.assessments};
   let reading = '';  // what the last line put us inside: the meeting's own lines, its topics, or the next step
@@ -217,7 +221,7 @@ export function parseMailReport(message, result = '', fromRow = []) {
   report.notes = report.notes.filter(note => !/which job\?.*Answer in Job Pilotto/.test(note.text));
   const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length
     && !report.outcomes.length && !report.assessments.length;
-  return empty && !report.status.sentence ? null : report;
+  return empty && !report.status.sentence && !parsed.updates.length && !parsed.emails.length ? null : report;
 }
 
 // A "which job?" line a Gmail check wrote stays in its run for good, long after the owner answered it in Focus.

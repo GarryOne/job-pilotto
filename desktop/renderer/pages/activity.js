@@ -145,14 +145,20 @@ export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today
 // The card a finished run's message makes, as a function that draws it into a card box, or null when the message has no card shape (then it is shown as text).
 // One place for both views: the Actions page and Recent activity must never show the same run as a card in one and as Telegram text in the other (5 Oct 2026:
 // "Search analysis" was raw text on the Actions page, with its emoji lines and a bare Notion address).
+// A Gmail check's card, wherever the run came from: a Notion row (its report lines and result) or a run this Mac kept
+// (its `updates` from the log and a "Mail: …" summary). Always on and on-the-Mac runs read the same card (6 Oct 2026: a
+// Mac run's "💬 Reply received · …" was a bare bullet, and "1 new email read, 0 updates" had no card at all).
+export function mailReportOf(run, message = run?.message) {
+  if (!run || kindOf(run) !== 'mail' || run.off) return null;
+  const rows = run.report?.length ? run.report : run.updates?.length ? ['', ...run.updates] : [];
+  return parseMailReport(message || '', run.result || run.summary || '', rows);
+}
 export function cardFor(run, text) {
-  if (!text) return null;
-  const card = parseRunMessage(text);
+  const card = text ? parseRunMessage(text) : null;
   if (card) return target => renderRunCard(card, run, target);
-  if (kindOf(run) === 'mail' && (text || run.report?.length)) {
-    const mail = parseMailReport(text, run.result, run.report || []);
-    if (mail) return target => renderMailCard(mail, pendingMailQuestions(), lastAnswered(), target);
-  }
+  const mail = mailReportOf(run, text === run?.result ? '' : text);
+  if (mail) return target => renderMailCard(mail, pendingMailQuestions(), lastAnswered(), target);
+  if (!text) return null;
   const insight = parseInsight(text);
   if (insight) return target => renderInsightCard(insight, target);
   const weekly = parseWeekly(text);
@@ -461,7 +467,8 @@ export function renderActivity(fresh) {
   show($('activity-result'), !!result);
   showRunJob(!run?.live && kindOf(run) === 'add' ? run.job : null);
   const asked = lastQuestions();
-  const updates = !run?.live && kindOf(run) === 'mail' ? (run.updates || []).map(text => settleQuestion(text, asked)) : [];
+  // A finished check's updates are the card's "What changed" (mailReportOf): listed here too they were a second box.
+  const updates = !run?.live && kindOf(run) === 'mail' && !mailReportOf(run) ? (run.updates || []).map(text => settleQuestion(text, asked)) : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
   $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
     : PHASES.map((phase, i) => {
@@ -475,8 +482,7 @@ export function renderActivity(fresh) {
   const card = shownText ? parseRunMessage(shownText) : null;
   // A Gmail check's message has no digest header but plenty of structure (the interview it is about, the topics to
   // strengthen, the recruiter's next step): it gets its own card, not its raw lines in a <pre>.
-  const mail = !run?.live && !card && kindOf(run) === 'mail' && (run?.message || run?.report?.length)
-    ? parseMailReport(run.message, run.result, run.report || []) : null;
+  const mail = !run?.live && !card ? mailReportOf(run) : null;
   // An insight is written to be sent, not read: its card is the finding, the numbers behind it and the one action
   // (the mockup, 30 Sep). Only what the insight carries is drawn — anything else is absent, never an empty slot.
   const insight = !card && !mail && shownText ? parseInsight(shownText) : null;

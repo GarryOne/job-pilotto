@@ -1,0 +1,145 @@
+{
+ "_": "Every state a Gmail check's card draws, from real runs' lines (5 Oct 2026). e2e/mail-states.mjs seeds them as runs in one demo window (Recent activity lists one Gmail check per state); `focus` is the open and the answered 'which job?' question. Add a state here when the card learns one.",
+ "states": [
+  {
+   "name": "Rejection + AI assessment (Always on)",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "where": "github",
+    "result": "Gmail check: 2 new email(s) read, 2 update(s) recorded",
+    "message": "📧 Job emails & calendar\n2 updates\n\nAnthropic · Staff+ Software Engineer, Data Infrastructure · Rejected\nApplication rejected after consideration\n\n🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.",
+    "report": [
+     "Gmail check: 2 new email(s) read, 2 update(s) recorded",
+     "❌ Rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure · Stage Confirmation received → Rejected",
+     "🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.",
+     "Anthropic Follow-Up for Staff+ Software Engineer, Data Infrastructure | Igor · us.greenhouse-mail.io · 05 Oct 21:50 — [recorded] · Anthropic — Staff+ Software Engineer, Data Infrastructure · changed Stage Confirmation received → Rejected"
+    ]
+   }
+  },
+  {
+   "name": "Upcoming interview + prep",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 1 new email(s) read, 0 update(s) recorded",
+    "message": "🗓 Tomorrow 08:30 — Huxley — Principal SRE\nFollow up Igor / Jaya - SRE\nMicrosoft Teams Meeting\nWith: Seosahai - Nejati, Jayantie\n🏋️ Answered weakly in past interviews\n• Tenure / commitment\n• Customer bridge calls\n• Non-public-cloud infrastructure and security\n📝 Recruiter to follow up on nationality/location constraints and salary expectations, with a further call planned to discuss compensation and contractual setup (B2B vs employee).\nRecording? Ask everyone for consent at the start.\nApplication in Notion (https://app.notion.com/p/demo)"
+   }
+  },
+  {
+   "name": "Which job? — before answering",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 5 new email(s) read, 1 update(s) recorded",
+    "report": [
+     "Gmail check: 5 new email(s) read, 1 update(s) recorded",
+     "❓ Interview · Blockdaemon — which job?",
+     "Notification: Follow up Igor / Jaya – SRE · Google Calendar · 01 Oct 05:59 — [already known] · Huxley — Principal SRE",
+     "Invitation from an unknown sender: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30–22:15 (CEST) · Blockdaemon DM · 01 Oct 13:37 — [needs you] · Blockdaemon",
+     "Reminder: Role Discussion between Arjun Gillard and Igor Mardari · Arjun Gillard · 01 Oct 13:47 — [already known] · Blinq — Senior DevOps Engineer"
+    ]
+   }
+  },
+  {
+   "name": "Which job? — after answering",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 5 new email(s) read, 1 update(s) recorded",
+    "report": [
+     "Gmail check: 5 new email(s) read, 1 update(s) recorded",
+     "❓ Interview · Kraken — which job?",
+     "Notification: Follow up Igor / Jaya – SRE · Google Calendar · 01 Oct 05:59 — [already known] · Huxley — Principal SRE",
+     "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Thu 1 Oct 2026 16:00–16:30 (CEST) · Kraken DM · 30 Sep 18:05 — [needs you] · Kraken",
+     "Reminder: Role Discussion between Arjun Gillard and Igor Mardari · Arjun Gillard · 01 Oct 13:47 — [already known] · Blinq — Senior DevOps Engineer"
+    ]
+   }
+  },
+  {
+   "name": "Interview scheduled + question (Mac run)",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "where": "mac",
+    "result": "Gmail check: 22 new email(s) read, 2 update(s) recorded",
+    "report": [
+     "Gmail check: 22 new email(s) read, 2 update(s) recorded",
+     "❓ Interview · Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - 22:15 (CEST) (Igor Mardari) — which job? Add details",
+     "🗓 Interview scheduled · Google Calendar — Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - · Fri 02 Oct 21:30 · Stage Screening → Interview scheduled",
+     "Notification: Follow up Igor / Jaya - SRE @ Thu 1 Oct 2026 08:30 - 09:00 (CEST) (Igor Mardari) · Google Calendar · 01 Oct 07:59 — [read] · Huxley — Principal SRE",
+     "Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - 22:15 (CEST) (Igor Mardari) · Google Calendar · 02 Oct 21:00 — [recorded] · Google Calendar — Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 20 · changed Stage Screening → Interview scheduled",
+     "An update on your application to Canonical - Software Engineer - Data Infrastructure - OpenSearch/ElasticSearch · us.greenhouse-mail.io · 03 Oct 09:00 — [already known] · Canonical — Software Engineer - Data Infrastructure - OpenSearch/Elastic · nothing to record (Rejected)"
+    ]
+   }
+  },
+  {
+   "name": "Reply received (kept on this Mac)",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "updates": [
+     "💬 Reply received · Acme Robotics — SRE"
+    ],
+    "summary": "Mail: 6 new email(s) classified, 1 update(s)"
+   }
+  },
+  {
+   "name": "1 email read, nothing changed",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 1 new email(s) read, 0 update(s) recorded",
+    "report": [
+     "Gmail check: 1 new email(s) read, 0 update(s) recorded"
+    ]
+   }
+  },
+  {
+   "name": "Nothing new",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 0 new email(s) read, 0 update(s) recorded",
+    "message": "📧 Gmail checked\nNo new job emails"
+   }
+  },
+  {
+   "name": "AI limit reached (failed)",
+   "run": {
+    "kind": "mail",
+    "ok": false,
+    "billing": "Anthropic API credits",
+    "log": [
+     "Gmail: reading new emails…",
+     "anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'message': 'You have reached your specified API usage limits.'}}"
+    ]
+   }
+  }
+ ],
+ "focus": {
+  "open": [
+   {
+    "priority": 1,
+    "kind": "which_job",
+    "icon": "help",
+    "badge": "Which job?",
+    "tone": "warn",
+    "headline": "Which job is the Blockdaemon invitation about?",
+    "title": "Which job is this email about?",
+    "detail": "Blockdaemon DM · Fri 2 Oct 21:30",
+    "subject": "Invitation from an unknown sender: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30–22:15 (CEST)",
+    "company": "Blockdaemon",
+    "page_id": "demo-q1",
+    "notion_url": "",
+    "meta": []
+   }
+  ],
+  "answered": [
+   {
+    "subject": "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Thu 1 Oct 2026 16:00–16:30 (CEST)",
+    "job": "Kraken — Senior Site Reliability Engineer"
+   }
+  ]
+ }
+}

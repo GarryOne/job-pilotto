@@ -58,13 +58,13 @@ test('the other three shapes are notes, and none of them is read as an interview
     '🗓 Huxley — SRE: Teams meeting scheduled with recruiter Jayantie Nejati · Wed 30 Sep 08:30',
   ].join('\n'), 'Gmail check: 3 new email(s) read, 2 update(s) recorded');
   assert.equal(calendar.interview, null);                     // a colon after the company, not " — " around the title
-  assert.equal(calendar.notes.length, 3);
-  assert.equal(calendar.notes[1].icon, '❓');
-  assert.match(calendar.notes[1].text, /^Huxley — SRE: an interview/);
+  assert.equal(calendar.notes.length, 2);                    // its heading repeats the strip (6 Oct 2026)
+  assert.equal(calendar.notes[0].icon, '❓');
+  assert.match(calendar.notes[0].text, /^Huxley — SRE: an interview/);
 
   const quiet = parseMailReport('📧 Gmail checked: no new job emails.', 'Gmail check: 0 new email(s) read, 0 update(s) recorded');
   assert.equal(quiet.status.sentence, 'No new job emails, and no application records changed.');
-  assert.deepEqual(quiet.notes, [{icon: '📧', text: 'Gmail checked: no new job emails.', fromRow: false}]);
+  assert.deepEqual(quiet.notes, []);                          // the strip says it: no second "no new emails" under it
   assert.equal(parseMailReport('', ''), null);
   assert.equal(parseMailReport(null, null), null);
 });
@@ -209,4 +209,24 @@ test('every recorded update stays in "What changed", whatever its emoji, whereve
 test('emails the check read but left out are counted, so the card never claims rows it does not show', () => {
   const report = parseMailReport('', GITHUB_RUN[0], GITHUB_RUN);
   assert.equal(mailResults(report).hidden, 1);
+});
+
+// 6 Oct 2026: a run this Mac kept ("updates" from its log, a "Mail: …" summary) drew a bare bullet, and a check that read
+// one email and changed nothing drew no card at all. Both are the same card as a Notion row's.
+test('a run kept on this Mac reads as the same card: its updates go to What changed, its summary gives the counts', () => {
+  const report = parseMailReport('', 'Mail: 6 new email(s) classified, 1 update(s)', ['', '💬 Reply received · Acme Robotics — SRE']);
+  assert.deepEqual([report.status.emails, report.status.updates], [6, 1]);
+  assert.deepEqual(report.updates.map(u => [u.summary, u.job]), [['Reply received', 'Acme Robotics — SRE']]);
+});
+
+test('a check that read an email and changed nothing still has its card: the counts and the email it set aside', () => {
+  const report = parseMailReport('', 'Gmail check: 1 new email(s) read, 0 update(s) recorded', ['Gmail check: 1 new email(s) read, 0 update(s) recorded']);
+  assert.ok(report);
+  assert.deepEqual([report.status.emails, report.status.updates, mailResults(report).hidden], [1, 0, 1]);
+});
+
+test('"No new job emails" is the strip\'s own sentence: the message adds no notes under it', () => {
+  const report = parseMailReport('📧 Gmail checked\nNo new job emails', 'Gmail check: 0 new email(s) read, 0 update(s) recorded', []);
+  assert.deepEqual(report.notes, []);
+  assert.equal(report.status.sentence, 'No new job emails, and no application records changed.');
 });

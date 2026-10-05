@@ -93,7 +93,7 @@ async function confirmQuiet(profile) {
   const log = path.join(profile, 'logs', 'app.log');
   for (let waited = 0; waited < 20000; waited += 500) {
     const text = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
-    if (/\[telemetry\] reporting is off: the end-to-end journey/.test(text)) return;
+    if (/\[telemetry\] reporting is off: (?:the end-to-end journey|demo mode)/.test(text)) return;   // demo mode never reports either
     if (/\[telemetry\] reporting follows/.test(text)) throw new Error('the app would report to the live product: refusing to run the journey');
     await new Promise(resolve => setTimeout(resolve, 500));
   }
