@@ -712,6 +712,14 @@ function mailDiff(changes) {
 }
 function mailSections(box, report, pending = [], answered = null) {
   const {results, updates} = mailResults(report);
+  // What changed is always said once the check found new emails, "nothing" included: a person should not have to infer it
+  // from a missing section (owner, 6 Oct 2026). With no new emails there is nothing to say and the strip says it.
+  const found = report.status.emails ?? report.emails.length;
+  if (!updates.length && found > 0) {
+    const section = el('section', 'mail-changed');
+    section.append(el('h4', 'run-card-title', 'What changed'), el('p', 'muted', 'No application records changed.'));
+    box.append(section);
+  }
   if (updates.length) {
     const section = el('section', 'mail-changed');
     section.append(el('h4', 'run-card-title', 'What changed'));
