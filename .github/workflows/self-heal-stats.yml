@@ -26,6 +26,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}
+      NOTION_BRAIN_TOKEN: ${{ secrets.NOTION_BRAIN_TOKEN }}   # the escape rate: the Bug Tracker, read-only (it must be shared with the "Job Pilotto Brain" connection)
+      BUG_TRACKER_DB: ${{ vars.BUG_TRACKER_DB }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

@@ -71,3 +71,13 @@ test('the page shows the live numbers on top, the detectors, the trend and the r
   assert.ok(html.indexOf('The loop, live') < html.indexOf('Snapshot: self-healing AI spend'), 'live first, the old snapshot below');
   assert.match(liveSection(null), /No numbers published yet/);
 });
+
+test('the loop-quality numbers are shown with what they count, and "not measured yet" with the reason', () => {
+  const live = {at: '2026-10-05T12:00:00Z', totals: {}, byDetector: [], quality: {
+    mutation: {rate: 80, note: '4 of 5 planted code bugs caught'}, escape: {rate: null, note: 'the Bug Tracker is not shared'}}};
+  const html = liveSection(live);
+  assert.match(html, /How well it does/);
+  assert.match(html, /🧬 Mutation catch rate<\/span><b>80%<\/b><small class="muted">4 of 5 planted code bugs caught · higher is better/);
+  assert.match(html, /🕳️ Escape rate<\/span><b>–<\/b><small class="muted">not measured yet: the Bug Tracker is not shared/);
+  assert.doesNotMatch(liveSection({...live, quality: undefined}), /How well it does/);
+});

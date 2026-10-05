@@ -49,11 +49,16 @@ export function liveSection(live, history = []) {
     ['🛠️ Fixer', `${num(fixer.landed ?? fixer.merged)} landed`, `${num(fixer.opened)} PRs · ${num(fixer.open)} open · verdicts ${num(live.verdicts?.real)} real / ${num(live.verdicts?.falsePositive)} false`],
     ['💸 AI cost', `$${(cost.usd || 0).toFixed(2)}`, cost.perRealBug ? `$${cost.perRealBug} per real bug · ${cost.runs} runs recorded` : `${num(cost.runs)} runs recorded`],
   ];
+  // How well the loop does (desktop/e2e/lib/loop-quality.mjs): each number with what it counts, or why it is not measured yet. Lower is better for escape, regression, flake.
+  const q = live.quality || {};
+  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy', q.verdicts, 'higher is better'],
+    ['↩️ Regression rate', q.regression, 'lower is better'], ['🎲 Flake rate', q.flake, 'lower is better']].filter(([, value]) => value);
   const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'harness', 'unclear', 'open'];
   const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Test / harness', 'Unclear', 'Open, unjudged'];
   const trend = history.slice().sort((a, b) => a.day.localeCompare(b.day)).slice(-30);
   return `<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC · every issue the loop filed, by what found it and how it ended</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
+${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 <section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
 ${(live.byDetector || []).map(row => `<tr><td>${esc(row.detector)}</td>${cols.map(col => `<td class="n">${num(row[col])}</td>`).join('')}</tr>`).join('')}
 <tr class="total"><td>Total</td>${cols.map(col => `<td class="n">${num(t[col])}</td>`).join('')}</tr></table></div>
