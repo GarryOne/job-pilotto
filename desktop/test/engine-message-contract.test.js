@@ -104,3 +104,10 @@ test('Gmail check: a rejection reads as the job\'s update and the AI\'s assessme
   assert.deepEqual([result.assessment.verdict, result.assessment.confidence, result.assessment.background],
     ['Hard skills', 'medium', 'SRE/platform.'], lookAt('mail_rejected'));
 });
+
+test('Gmail check: a newly recorded interview is an update on its job, not the interview reminder', () => {
+  const mail = parseMailReport(said.mail_updates, 'Gmail check: 1 new email(s) read, 1 update(s) recorded', []);
+  assert.equal(mail.interview, null, lookAt('mail_updates'));
+  assert.deepEqual(mail.outcomes.map(o => [o.company, o.role, o.kind]), [['Huxley', 'Principal SRE', 'Interview']], lookAt('mail_updates'));
+  assert.deepEqual(mail.notes, [], lookAt('mail_updates'));
+});

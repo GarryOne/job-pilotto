@@ -717,7 +717,10 @@ function mailSections(box, report, pending = [], answered = null) {
   const found = report.status.emails ?? report.emails.length;
   if (!updates.length && found > 0) {
     const section = el('section', 'mail-changed');
-    section.append(el('h4', 'run-card-title', 'What changed'), el('p', 'muted', 'No application records changed.'));
+    // An interview card with nothing moved is the day-before reminder: the interview was recorded by an earlier check
+    // (src/ai/mail.py calendar_pass: a new one moves the stage and is listed here instead).
+    section.append(el('h4', 'run-card-title', 'What changed'), el('p', 'muted', report.interview
+      ? 'No application records changed: this interview was already on record.' : 'No application records changed.'));
     box.append(section);
   }
   if (updates.length) {

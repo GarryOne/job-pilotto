@@ -18,12 +18,26 @@
    }
   },
   {
-   "name": "Upcoming interview + prep",
+   "name": "Interview reminder (already on record)",
    "run": {
     "kind": "mail",
     "ok": true,
     "result": "Gmail check: 1 new email(s) read, 0 update(s) recorded",
     "message": "🗓 Tomorrow 08:30 — Huxley — Principal SRE\nFollow up Igor / Jaya - SRE\nMicrosoft Teams Meeting\nWith: Seosahai - Nejati, Jayantie\n🏋️ Answered weakly in past interviews\n• Tenure / commitment\n• Customer bridge calls\n• Non-public-cloud infrastructure and security\n📝 Recruiter to follow up on nationality/location constraints and salary expectations, with a further call planned to discuss compensation and contractual setup (B2B vs employee).\nRecording? Ask everyone for consent at the start.\nApplication in Notion (https://app.notion.com/p/demo)"
+   }
+  },
+  {
+   "name": "New interview detected (Screening → Interview scheduled)",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 1 new email(s) read, 1 update(s) recorded",
+    "message": "📧 Job emails & calendar\n1 update\n\nHuxley · Principal SRE · Interview\nTue 06 Oct · 08:30\nEvent: Follow up Igor / Jaya - SRE\nSource: Google Calendar\n\n🗓 Tomorrow 08:30 — Huxley — Principal SRE\nFollow up Igor / Jaya - SRE\nMicrosoft Teams Meeting\n🏋️ Answered weakly in past interviews\n• Tenure / commitment\n📝 Recruiter to follow up on salary expectations.\nRecording? Ask everyone for consent at the start.",
+    "report": [
+     "Gmail check: 1 new email(s) read, 1 update(s) recorded",
+     "🗓 Interview scheduled · Huxley — Principal SRE · Tue 06 Oct 08:30 · Stage Screening → Interview scheduled",
+     "Invitation: Follow up Igor / Jaya - SRE @ Tue 6 Oct 2026 08:30 · Google Calendar · 05 Oct 17:10 — [recorded] · Huxley — Principal SRE · changed Stage Screening → Interview scheduled"
+    ]
    }
   },
   {

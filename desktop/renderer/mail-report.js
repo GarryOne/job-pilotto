@@ -129,6 +129,7 @@ const EMAIL_HEAD = /^(.*?)\s+—\s+/;
 // the summary ("Application received"), the job, then what moved. The job's own name has a "—" in it, so the change
 // is found by what a change looks like (an arrow, or one of the fields an email can move), not by counting "·"s.
 const UPDATED = /^([^·]+?)\s*·\s*(.*)$/;
+const WHEN_PART = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}\s+\w{3}\b/;
 const CHANGE = /→|^(?:Stage|Next interview|Confirmation email|Feedback status)\b/;
 function parseUpdated(line) {
   const parsed = parseUpdate(line);
@@ -141,8 +142,11 @@ function parseUpdate(line) {
   if (!summary || rest === undefined) return {summary: '', job: (summary || '').trim(), changes: ''};
   const parts = rest.split(/\s*·\s*/);
   const at = parts.findIndex(part => CHANGE.test(part));
-  return at < 0 ? {summary: summary.trim(), job: parts.join(' · ').trim(), changes: ''}
-                : {summary: summary.trim(), job: parts.slice(0, at).join(' · ').trim(), changes: parts.slice(at).join(' · ').trim()};
+  const named = at < 0 ? parts : parts.slice(0, at);
+  // "Tue 06 Oct 08:30" after the job is when, not part of its name ("Mapped to Huxley — SRE · Tue 06 Oct 08:30").
+  const job = named.filter(part => !WHEN_PART.test(part)).join(' · ').trim();
+  const when = named.find(part => WHEN_PART.test(part)) || '';
+  return {summary: summary.trim(), job, ...(when ? {when} : {}), changes: at < 0 ? '' : parts.slice(at).join(' · ').trim()};
 }
 // Any leading emoji (❌ Rejected, 📬 Application received, ❓ … which job?, …) or a "[recorded]" tag: a fixed list of
 // emojis once missed ❌ and the rejection never reached "What changed" (5 Oct 2026).
@@ -193,8 +197,10 @@ export function parseMailReport(message, result = '', fromRow = []) {
     const link = NOTION_LINK.exec(line);
     if (link) { report.url = link[1]; reading = ''; continue; }
     if (CONSENT.test(line)) { report.consent = line; reading = ''; continue; }
-    if (PREP_TITLE.test(line)) { reading = ''; continue; }   // the card's own title says it
-    const prep = PREP_HEAD.exec(line);
+    if (PREP_TITLE.test(line)) { reading = 'prepTitle'; continue; }   // the card's own title says it
+    // "Huxley · Principal SRE · Interview" heads the reminder only under "🗓 Interview tomorrow"; anywhere else it is an
+    // update the check recorded (a new interview, with its date, event and source under it), not the reminder.
+    const prep = reading === 'prepTitle' && PREP_HEAD.exec(line);
     if (prep && !report.interview) { report.interview = {when: '', company: prep[1], title: prep[2], summary: '', where: '', people: []}; reading = 'prep'; continue; }
     const prepWhen = reading === 'prep' && report.interview && !report.interview.when && PREP_WHEN.exec(line);
     if (prepWhen) { report.interview.when = `${prepWhen[1]} ${prepWhen[2]}`; reading = 'meeting'; continue; }
