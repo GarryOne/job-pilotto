@@ -35,6 +35,7 @@ import {e2eMs} from './lib/e2e-timing.js';
 import {resumeDelay, scheduleResume} from './lib/resume-queue.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
+import {watchOrphans} from './lib/orphans.js';
 import * as server from './lib/server.js';
 import * as extensionInstall from './lib/extension-install.js';
 import * as terminals from './lib/terminals.js';
@@ -2129,6 +2130,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       storage.saveSettings({reminded: Object.fromEntries(Object.entries(next).slice(-200))});
     };
     setInterval(remind, 30000);
+    if (!DEMO) watchOrphans(appLog);   // an engine run left behind by a restart, stuck: stop it (lib/orphans.js)
     setTimeout(remind, 15000);
     if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
       error => log(`GitHub repo not updated: ${error.message}`));

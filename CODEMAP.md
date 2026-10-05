@@ -66,6 +66,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/notion-pace.js` — One Notion pace for every process on this computer that uses the same Notion connection: the app, the Python
 - `desktop/lib/notion-workspace.js` — Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
+- `desktop/lib/orphans.js` — An engine run (`python -m src daily|check|scout|discover|feeds`) the app started and then lost: the app restarted, so the run's parent is now
 - `desktop/lib/outcomes.js` — "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
