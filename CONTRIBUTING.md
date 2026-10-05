@@ -18,7 +18,7 @@ Your own keys live in the macOS Keychain (`job-pilotto.*`), never in files you c
 
 1. **Worktree:** `tools/worktree.sh <topic>` → `.claude/worktrees/<topic>`, branch `<topic>`, packages already linked.
    Several people and agents push to `main` at once: never edit the main checkout, never bare `git stash`.
-2. **Find the file:** read [`CODEMAP.md`](CODEMAP.md) (every file → what it's for), open only that file.
+2. **Find the file:** `grep -i <keyword> CODEMAP.md` (every file → what it's for; don't read it whole, it is long), open only that file.
 3. **Change it**, with a test for anything that can break again (`tests/` for Python, `desktop/test/` for the app).
 4. **Check it:** every AI tool and CI use the same runner, which selects supported Python and Node runtimes:
 

@@ -5,7 +5,7 @@ reading this because a session is rooted in this folder, don't keep separate not
 duplicate what's here — read these instead, and update them if something's missing or wrong:
 
 - **`docs/ARCHITECTURE.md`** — the session-start map (engine, app, extension, website, bot, Notion).
-  Read it once at the start of a session, then `CODEMAP.md` for the file. Written for every agent:
+  Read it once at the start of a session, then `grep -i <keyword> CODEMAP.md` for the file (not the whole map). Written for every agent:
   Grok, Claude Code, Codex, DeepSeek.
 - **`CLAUDE.md`** — project overview, working rules (never auto-apply, ask before AI spend,
   secrets policy), code layout, how to run tests. Written for Claude Code but applies to any agent.

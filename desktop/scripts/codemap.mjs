@@ -1,5 +1,5 @@
 // CODEMAP.md at the repo root: every source file and what it's for, from its own first comment (JS) or docstring
-// (Python), so a session finds the right file in one read instead of grepping. `node scripts/codemap.mjs` writes it;
+// (Python), so a session finds the right file with `grep -i <word> CODEMAP.md` instead of reading it whole or grepping source. `node scripts/codemap.mjs` writes it;
 // test/codemap.test.js fails when it's out of date. A file without a header comment is listed as such: add one.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,16 +17,18 @@ const GROUPS = [
   ['Tools', 'tools', /\.(py|sh|mjs)$/],
 ];
 
-function purpose(file) {
+export function purpose(file) {
   const text = fs.readFileSync(file, 'utf8');
+  const own = path.basename(file).replace(/[.+*?^${}()|[\]\\]/g, '\\$&');
+  const bare = line => line.replace(new RegExp(`^${own}( \\[[^\\]]*\\])?\\s*[—:-]+\\s*`), '');
   const lines = text.split('\n');
   if (file.endsWith('.py')) {
     const doc = text.match(/^(?:#![^\n]*\n)?(?:#[^\n]*\n)*\s*(?:"""|''')\s*([^\n]*)/);
-    if (doc?.[1]?.trim()) return doc[1].trim();
+    if (doc?.[1]?.trim()) return bare(doc[1].trim());
   }
   const comment = lines.find(line => /^\s*(\/\/|#(?!!))/.test(line) && !/eslint|@ts-|noqa|coding[:=]/.test(line));
   const first = lines.findIndex(line => line.trim() && !/^#!/.test(line) && !/^['"]use strict/.test(line));
-  if (comment && lines.indexOf(comment) <= Math.max(first, 0) + 1) return comment.replace(/^\s*(\/\/|#)\s*/, '').trim();
+  if (comment && lines.indexOf(comment) <= Math.max(first, 0) + 1) return bare(comment.replace(/^\s*(\/\/|#)\s*/, '').trim());
   return '(no header comment: add one)';
 }
 

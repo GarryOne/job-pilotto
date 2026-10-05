@@ -1,4 +1,4 @@
-// Build staging.
+// Build staging: copies the worker, recipe format and (with --app) the pipeline, config and extension into the app.
 //   node scripts/stage.mjs          copy worker/src into shared/worker and the recipe format into shared/ (the app imports them; also run by
 //                                   npm start and npm test, so dev and packaged use the same files)
 //   node scripts/stage.mjs --app    also stage build/pilot: what a packaged app runs (the Python

@@ -1,4 +1,4 @@
-// Strategy page.
+// Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there.
 import {compensationText} from '../compensation.js';
 import {openInNotion} from './notion-connect.js';
 import {el, tile} from '../components.js';

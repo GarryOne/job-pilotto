@@ -1,4 +1,4 @@
-// Interviews page.
+// Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
 import * as pendingReviews from '../review-pending.js';
 import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';

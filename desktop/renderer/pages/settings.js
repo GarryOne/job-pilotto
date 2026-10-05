@@ -1,4 +1,4 @@
-// Settings: its sub-pages.
+// Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {betaText, updateText} from '../update-text.js';

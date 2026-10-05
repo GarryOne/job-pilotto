@@ -1,4 +1,4 @@
-// The setup wizard.
+// Setup wizard: the first-run steps (welcome, AI, CV, draft, extras) and saving each step's answers.
 import {shared} from './shared.js';
 import {refreshCv} from './activity.js';
 import {$, STEPS, message, show} from './core.js';

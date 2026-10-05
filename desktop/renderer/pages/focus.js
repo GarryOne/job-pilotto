@@ -1,4 +1,4 @@
-// Focus page.
+// Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
 import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {EMPTY_FUNNEL_HINT, funnelIsEmpty, funnelSteps, inboundSteps} from '../funnel-view.js';

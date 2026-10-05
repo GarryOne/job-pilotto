@@ -121,9 +121,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/dismiss-reason.js` — After Dismiss: a one-tap "why?" (optional, gone in 12 seconds). The reason is one of a fixed list and is counted with the job's score band only
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.
 - `desktop/renderer/pages/find.js` — ⌘F on every page: a small find bar (top right) that highlights what the page shows (CSS Highlight API) and scrolls to each
-- `desktop/renderer/pages/focus.js` — Focus page.
+- `desktop/renderer/pages/focus.js` — Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
-- `desktop/renderer/pages/interviews.js` — Interviews page.
+- `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
@@ -139,17 +139,17 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/session-log.js` — Session page: opening a session and its log.
 - `desktop/renderer/pages/session-needs.js` — Session page: what Claude needs from you, and the form page in step.
 - `desktop/renderer/pages/sessions.js` — Application sessions: the dock, the list, the next step.
-- `desktop/renderer/pages/settings.js` — Settings: its sub-pages.
+- `desktop/renderer/pages/settings.js` — Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
 - `desktop/renderer/pages/shared.js` — State more than one page changes (an imported binding is read-only, so it lives on one object).
 - `desktop/renderer/pages/startup.js` — Start-up: what the window opens on.
 - `desktop/renderer/pages/strategy-review.js` — Setup step 5: review the drafted strategy.
-- `desktop/renderer/pages/strategy.js` — Strategy page.
+- `desktop/renderer/pages/strategy.js` — Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there.
 - `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
 - `desktop/renderer/pages/tune.js` — Tune my strategy (Actions page): the changes your own results support (src/tune.py, no AI), each one ticked or not;
 - `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads
 - `desktop/renderer/pages/why-stop.js` — Why setup stopped: asked once when quitting mid-setup ("Leaving setup?"), or any time from "Stuck? Tell us" in the
-- `desktop/renderer/pages/wizard.js` — The setup wizard.
+- `desktop/renderer/pages/wizard.js` — Setup wizard: the first-run steps (welcome, AI, CV, draft, extras) and saving each step's answers.
 
 ## Desktop window: shared modules
 
@@ -221,7 +221,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/scripts/shot.mjs` — One screen, fast (~5 s), to check a change: npm run shot -- <page> [options]. Fictional demo data only (demo/).
 - `desktop/scripts/sign.cjs` — electron-builder afterPack hook: sign the whole app bundle.
 - `desktop/scripts/site-demo.mjs` — The website's demo: the app's screens (fictional demo data, never a real profile) as one silent looping video,
-- `desktop/scripts/stage.mjs` — Build staging.
+- `desktop/scripts/stage.mjs` — Build staging: copies the worker, recipe format and (with --app) the pipeline, config and extension into the app.
 - `desktop/scripts/ui-shots.mjs` — Reference screenshots of every screen, for the ui-look-and-feel skill (.claude/skills/ui-look-and-feel):
 - `desktop/scripts/windows-smoke.mjs` — Windows smoke test (CI, after the installer is built): installs Job Pilotto the way a user would, then checks
 
@@ -327,8 +327,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Tools
 
-- `tools/apply-batch-chatgpt.sh` — apply-batch-chatgpt.sh — queue every ready application kit into the ChatGPT/Codex desktop app.
-- `tools/apply-batch-claude.sh` — apply-batch-claude.sh — open one new Terminal window per job, each running its own
+- `tools/apply-batch-chatgpt.sh` — queue every ready application kit into the ChatGPT/Codex desktop app.
+- `tools/apply-batch-claude.sh` — open one new Terminal window per job, each running its own
 - `tools/apply-batch-codex-terminal.sh` — Open one Codex CLI session per application in Terminal, using Playwright MCP's
 - `tools/benchmark-apply-runs.py` — Score local browser-run reports against human-checked, unsubmitted ATS forms.
 - `tools/beta-approve.sh` — Mark a pre-release as approved for beta testers: it passed the unit suites and every end-to-end suite on its own commit.
@@ -348,13 +348,13 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/notion_schema.py` — The Job Pilotto Notion workspace as code: config/notion_schema.json.
 - `tools/notion_template.py` — Build the public Job Pilotto Notion template from the live workspace's schemas (no data).
 - `tools/pre-push-check.sh` — Claude Code PreToolUse hook (.claude/settings.json): before any `git push` from this repo (or one of its
-- `tools/prepare-top.sh` — prepare-top.sh [N] — draft application kits for your N best-matching jobs that don't have one yet.
+- `tools/prepare-top.sh` — draft application kits for your N best-matching jobs that don't have one yet.
 - `tools/product_brain.py` — The product brain's plumbing (.github/workflows/product-brain.yml): Claude decides, this script reads and writes.
 - `tools/prune-releases.sh` — Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases).
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.
-- `tools/send-to-chatgpt.sh` — send-to-chatgpt.sh — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
+- `tools/send-to-chatgpt.sh` — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
 - `tools/site-shots.mjs` — The website as visitors see it, for the product brain (.github/workflows/product-brain.yml): a desktop and a
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the
 - `tools/sync_release_labels.py` — Make the release list readable: every release's title says what it IS, and a pinned issue names the ones that matter.
