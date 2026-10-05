@@ -1278,7 +1278,7 @@ function handlers() {
     try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
   ipcMain.handle('apply', async (_, options) => needsNotion('apply') || allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
-    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}))));
+    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}), text => toWindow('applyProgress', text))));
   ipcMain.handle('applyOne', async (_, url, details) => {
     const gate = needsNotion('apply');
     if (gate) return gate;

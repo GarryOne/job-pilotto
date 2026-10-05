@@ -37,9 +37,11 @@ export function pickUntailored(jobs, n) {
 
 // Draft the missing kits one after the other (about 20 s each). `prepare(code, name)` is the app's prepareKit.
 // Returns how many are ready now, or {cloud: true} when they are drafted on GitHub and cannot be waited for here.
-export async function draftMissing(jobs, shortfall, prepare) {
+export async function draftMissing(jobs, shortfall, prepare, report = () => {}) {
   let done = 0;
-  for (const job of pickMissing(jobs, shortfall)) {
+  const missing = pickMissing(jobs, shortfall);
+  for (const [index, job] of missing.entries()) {
+    report(`Drafting kit ${index + 1} of ${missing.length}: ${job.title} · ${job.company} (about 20 s each)…`);
     const result = await prepare(job.code, `${job.title} · ${job.company}`).catch(() => ({ok: false}));
     if (result.cloud) return {cloud: true, done};
     if (result.ok) done++;
@@ -219,7 +221,7 @@ export async function resumeSession(storage, id, binary = claudeBinary) {
 }
 
 // `prepare` drafts a missing kit (the app's prepareKit): with it, a batch with fewer than N ready jobs drafts the rest first.
-export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits, prepare = null) {
+export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits, prepare = null, report = () => {}) {
   n = Math.max(1, Math.min(10, Number(n) || 1));
   if (mode === 'agents') {
     const ready = claudeReady(storage);
@@ -227,7 +229,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
     let urls = await next(storage, n);
     let drafted = 0;
     if (urls.length < n && prepare) {
-      const result = await draftMissing((await list(storage)).jobs, n - urls.length, prepare);
+      const result = await draftMissing((await list(storage)).jobs, n - urls.length, prepare, report);
       if (result.cloud) return {ok: false, error: ON_GITHUB};
       drafted = result.done;
       if (drafted) urls = await next(storage, n);
@@ -245,7 +247,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
   let chosen = pick(jobs, n);
   let drafted = 0;
   if (chosen.length < n && prepare) {
-    const result = await draftMissing(jobs, n - chosen.length, prepare);
+    const result = await draftMissing(jobs, n - chosen.length, prepare, report);
     if (result.cloud) return {ok: false, error: ON_GITHUB};
     drafted = result.done;
     if (drafted) { ({jobs} = await list(storage)); chosen = pick(jobs, n); }

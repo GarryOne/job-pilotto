@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onDraftProgress: callback => ipcRenderer.on('draftProgress', (_, progress) => callback(progress)),
   onExportProgress: callback => ipcRenderer.on('exportProgress', (_, count) => callback(count)),
   onSaveProgress: callback => ipcRenderer.on('saveProgress', (_, progress) => callback(progress)),
+  onApplyProgress: callback => ipcRenderer.on('applyProgress', (_, text) => callback(text)),
   onToast: callback => ipcRenderer.on('toast', (_, toast) => callback(toast)),
   onOpenTarget: callback => ipcRenderer.on('openTarget', (_, target) => callback(target)),   // a clicked notification (lib/targets.js)
   onReview: callback => ipcRenderer.on('review', (_, state) => callback(state)),

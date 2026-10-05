@@ -69,7 +69,7 @@ export function prompt(url, {auditFile}) {
     `(Gmail, read-only). Whenever a CAPTCHA or a terms checkbox blocks you, run tools/notify.sh ${url} "Needs your input — see Terminal", ` +
     `tell me in one line what to do in Chrome, wait for my reply, then carry on. ${handoff}Fill it per the skill's rules (fast-path dropdowns via JS, ` +
     'leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. If the --context call below finds no kit ' +
-    `for this job, stop right there: fill nothing, run tools/notify.sh ${url} "No kit yet — press Prepare first", say so in one line and finish. ` +
+    `for this job, stop right there: fill nothing, run tools/notify.sh ${url} "No kit yet — press Apply on the job first", say so in one line and finish. ` +
     "Get everything in ONE call first — the kit, Profile, Application Answers and earlier runs' learnings for this job board: " +
     `python3 -m src.ai.apply_run --context ${url} (don't fetch those pages separately). For every dropdown, open it and pick with ` +
     "window.__jobPilottoClickOption('<exact option text>') — never type + Return, which picks partial matches (\"Male\" -> \"Female\"). " +

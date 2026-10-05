@@ -1,4 +1,4 @@
-/* global window */
+/* global window, document */
 // Actions + Recent activity + Jobs: the core of every workflow. Starts from a set-up install; resets only its own data (jobs and run rows) in Notion.
 import fs from 'node:fs';
 import path from 'node:path';

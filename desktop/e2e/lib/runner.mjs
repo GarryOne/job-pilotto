@@ -7,6 +7,9 @@ import {isEnvironment, RETRY_WAIT_MS} from './environment.mjs';
 export function createRunner(getSession, {keepGoing = false} = {}) {
   const results = [];
   async function run(name, fn, {needs = [], faults = false, critical = false} = {}) {   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
+    // E2E_STEPS=tailor,seeded runs only the steps whose name contains one of these words (and the critical setup): a quick way to re-run one step of a long suite.
+    const only = (process.env.E2E_STEPS || '').split(',').map(word => word.trim().toLowerCase()).filter(Boolean);
+    if (only.length && !critical && !only.some(word => name.toLowerCase().includes(word))) return;
     const missing = needs.filter(item => !item.value);
     if (missing.length) { results.push({name, status: 'skipped'}); console.log(`- ${name}: skipped (needs ${missing.map(item => item.name).join(', ')})`); return; }
     const started = Date.now();

@@ -295,8 +295,8 @@ export function renderJobs() {
             run: async () => {
               const result = await window.pilot.applyWithClaude(job.url, {title: job.title, company: job.company, location: job.location, workMode: job.work_mode});
               if (result.ok) { claudeStarted.add(pageKey(job.url)); if (result.session) await refreshSessions(); renderJobs(); return; }
-              // The list said there was a kit but Notion has none (removed or redrafting): show Prepare again.
-              if (/kit/i.test(result.error || '')) { toastMessage('Kit not found', 'Prepare it again.'); loadJobs(); } else toastMessage('Claude could not start', result.error || 'Try again.');
+              // The list said there was a kit but Notion has none (removed or redrafting): Apply drafts it again.
+              if (/kit/i.test(result.error || '')) { toastMessage('Kit not found', 'Press Apply to draft it again.'); loadJobs(); } else toastMessage('Claude could not start', result.error || 'Try again.');
             }});
         }
       }
@@ -1105,6 +1105,7 @@ export async function init() {
     document.querySelector(`input[name="apply-mode"][value="${claudeReady ? 'agents' : 'chrome'}"]`).checked = true;
     $('apply-dialog').showModal();
   });
+  window.pilot.onApplyProgress(text => message('apply-message', text, 'waiting'));   // "Drafting kit 2 of 3…" while the batch drafts what is missing
   $('apply-go').addEventListener('click', async event => {
     event.preventDefault();
     const mode = document.querySelector('input[name="apply-mode"]:checked').value;

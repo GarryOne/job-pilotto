@@ -11,6 +11,7 @@ Report only a real bug you can show from the code, in one of these kinds:
 - error-shown: technical text (an API's JSON, a stack trace) that reaches the screen;
 - security: a secret written to a log or a file, a stranger's input reaching a command or a prompt;
 - release: a change that breaks building, updating or the release gate.
+- a stale reference (file it as kind "functionality"): a commit renames, removes or changes a button, step or message, and another file still tells the person to use the old one (an error text, a notification, a prompt to Claude, a tooltip). Grep the whole repo for the old words before you report: `grep -rn "<old label>" desktop src extension`. (5 Oct 2026: "Press Prepare first" stayed in the batch errors after the Prepare button became Apply.)
 Never report: style, naming, comments, missing tests on their own, performance guesses, anything you cannot point to in the code.
 
 For each bug: the file and line, what goes wrong as a concrete scenario (this input or state -> that wrong result), and the test that would fail today.
