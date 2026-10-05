@@ -23,6 +23,8 @@ export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_M
 export async function run(ctx) {
   const {proxy} = ctx;
   const page = await prepare(ctx);
+  // The steps that need the AI proxy in front of the app (a refusal, a delay, silence) run on the API engine with a dummy key when the Mac uses Claude Code (lib/engine.mjs).
+  const api = fn => () => ctx.withApi(fn);
   // ---------- (2) the AI fails ----------
   // A search with one new posting: the AI is asked, and the proxy answers the way the real API does when it is in trouble.
   const FAILURES = [
@@ -32,7 +34,7 @@ export async function run(ctx) {
     {mode: 'no-credit', what: 'the AI says the credit balance is empty (the spending limit)', limit: true},
   ];
   for (const failure of FAILURES) {
-    await ctx.run(`${failure.what}: the run ends as Failed or with warnings, in words, with nothing left Running`, async () => {
+    await ctx.run(`${failure.what}: the run ends as Failed or with warnings, in words, with nothing left Running`, api(async () => {
       setFeed(ctx, [`Senior Site Reliability Engineer, ${failure.mode}`]);
       proxy.setMode(failure.mode);
       const callsBefore = proxy.stats.calls;
@@ -58,9 +60,9 @@ export async function run(ctx) {
         if (problems.length) throw new Error(problems.join('; '));
         await noRowStaysRunning(ctx);
       } finally { proxy.setMode('pass'); }
-    }, {needs: ctx.needs});
+    }), {needs: ctx.needs});
   }
-  await ctx.run('a search analysis paused by the spending limit is a run with a warning that names the limit, not a failure', async () => {
+  await ctx.run('a search analysis paused by the spending limit is a run with a warning that names the limit, not a failure', api(async () => {
     proxy.setMode('no-credit');
     try {
       const {fresh, shown} = await runTask(ctx, 'weekly', {maxMs: 240000, kind: 'weekly'});
@@ -75,13 +77,13 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
       await noRowStaysRunning(ctx);
     } finally { proxy.setMode('pass'); }
-  }, {needs: ctx.needs});
+  }), {needs: ctx.needs});
   await ctx.run('after the failures, the next Jobs check works again (the AI is back)', async () => {
     setFeed(ctx, ['Staff Platform Engineer, recovery']);
     const callsBefore = proxy.stats.calls;
     const {fresh} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
     if (fresh.length !== 1 || !fresh[0].ok) throw new Error(`the run after the failures did not end ok (${fresh.length} row(s), ok=${fresh[0]?.ok})`);
-    if (proxy.stats.calls - callsBefore < 1) throw new Error('the AI was never asked, so nothing was tested');
+    if (ctx.engine === 'api' && proxy.stats.calls - callsBefore < 1) throw new Error('the AI was never asked, so nothing was tested');   // with Claude Code the proxy is not in the way
     await noRowStaysRunning(ctx);
   }, {needs: ctx.needs});
 
@@ -218,7 +220,7 @@ export async function run(ctx) {
       await noRowStaysRunning(ctx);
     } finally { ctx.google.pass(); }
   }, {needs: ctx.needs, faults: true});
-  await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', async () => {
+  await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', api(async () => {
     // The app stops a run that prints nothing for 15 minutes; this test shortens that to 10 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
     await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '10000'});
     await appReady(ctx);
@@ -239,12 +241,12 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
       await noRowStaysRunning(ctx);
     } finally { proxy.setMode('pass'); }
-  }, {needs: ctx.needs});
+  }), {needs: ctx.needs});
 
   // ---------- (2b) the AI fails where a person asked for something on the spot (not a run) ----------
   // #94 (3 Oct 2026): with the AI out of credit, "Read my CV PDF" put the API's JSON in the CV card ("400 {"type":"error",…,"request_id":…}"). A failure state is where
   // such text shows, so the card is read here, and photographed: the layout check flags technical text shown to a person, and the AI review sees the page.
-  await ctx.run('the AI out of credit while reading the CV: the card says it in words, never the API\'s JSON (#94)', async () => {
+  await ctx.run('the AI out of credit while reading the CV: the card says it in words, never the API\'s JSON (#94)', api(async () => {
     proxy.setMode('no-credit');
     try {
       await page.click('.nav[data-view="settings"]');
@@ -257,10 +259,10 @@ export async function run(ctx) {
       if (!/credit|limit/i.test(said)) throw new Error(`the CV card does not say the AI is out of credit: ${said.slice(0, 200)}`);
       await snap(ctx, 'settings-cv-no-credit', {view: 'settings', situation: 'Read my CV PDF pressed while the AI has no credit'});
     } finally { proxy.setMode('pass'); }
-  }, {needs: ctx.needs});
+  }), {needs: ctx.needs});
 
   // ---------- (3) two things at once, and a quit in the middle ----------
-  await ctx.run('Run double-clicked, and asked again from elsewhere while it runs: one row, not two', async () => {
+  await ctx.run('Run double-clicked, and asked again from elsewhere while it runs: one row, not two', api(async () => {
     await ctx.relaunch();
     await appReady(ctx);
     setFeed(ctx, ['Staff Platform Engineer, double']);
@@ -280,9 +282,9 @@ export async function run(ctx) {
       if (rows.length !== 1) throw new Error(`${rows.length} Jobs check rows for one task pressed twice`);
       await noRowStaysRunning(ctx);
     } finally { proxy.setDelay(0); }
-  }, {needs: ctx.needs});
+  }), {needs: ctx.needs});
 
-  await ctx.run('a Gmail check started while a search runs shows Queued, then runs after it', async () => {
+  await ctx.run('a Gmail check started while a search runs shows Queued, then runs after it', api(async () => {
     setFeed(ctx, ['Principal Platform Engineer, queue']);
     proxy.setDelay(6000);
     try {
@@ -321,9 +323,9 @@ export async function run(ctx) {
       if (Date.parse(mail.startedAt) < Date.parse(search.endedAt) - 2000) throw new Error('the Gmail check started before the search had ended');
       await noRowStaysRunning(ctx);
     } finally { proxy.setDelay(0); }
-  }, {needs: ctx.needs});
+  }), {needs: ctx.needs});
 
-  await ctx.run('quitting the app in the middle of a run: it is not shown Running for ever, and the app says what became of it', async () => {
+  await ctx.run('quitting the app in the middle of a run: it is not shown Running for ever, and the app says what became of it', api(async () => {
     setFeed(ctx, ['Senior Platform Engineer, restart']);
     proxy.setDelay(10000);
     try {
@@ -346,7 +348,7 @@ export async function run(ctx) {
       if (!rows.some(run => run.ok)) throw new Error('the search you had started was not picked up again after the restart');
       await noRowStaysRunning(ctx, {waitMs: 90000});
     } finally { proxy.setDelay(0); }
-  }, {needs: ctx.needs});
+  }), {needs: ctx.needs});
 
   await ctx.run('the failure and queued states render without layout problems', async () => {
     finish(ctx);

@@ -3,17 +3,24 @@
 // (which finds the workspace already built in this suite's page) and "setup done". About ten seconds. A suite whose page is empty bootstraps with the real wizard path instead.
 import fs from 'node:fs';
 import path from 'node:path';
+import {DUMMY_KEY} from './engine.mjs';
 import {runWizard} from './wizard.mjs';
 
 export async function fastSeed(ctx) {
   const {page} = ctx;
-  await page.evaluate(async ({key, token}) => {
+  // The Claude Code engine (a Mac): a placeholder key is saved (a key is "saved" in every install), Claude Code is verified and chosen the way the engine panel does it.
+  await page.evaluate(async ({key, token, cli}) => {
     const keyed = await window.pilot.saveSecret('ANTHROPIC_API_KEY', key);
     if (keyed?.ok === false) throw new Error(`the key was refused: ${keyed.error}`);
     const connected = await window.pilot.notionConnect(token);
     if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || 'unknown'}`);
-    await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', aiEngine: 'api', cvName: 'cv.pdf'});
-  }, {key: ctx.key, token: ctx.token});
+    if (cli) {
+      const status = await window.pilot.verifyClaudeCode();
+      if (!status?.authenticated) throw new Error(`Claude Code is not ready on this Mac (${status?.error || 'not signed in'}): sign in with claude, or E2E_AI_ENGINE=api with E2E_ANTHROPIC_KEY`);
+      await window.pilot.setAiEngine('cli');
+    }
+    await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', ...(cli ? {} : {aiEngine: 'api'}), cvName: 'cv.pdf'});
+  }, {key: ctx.engine === 'cli' ? DUMMY_KEY : ctx.key, token: ctx.token, cli: ctx.engine === 'cli'});
   fs.copyFileSync(ctx.cv, path.join(ctx.profile, 'cv.pdf'));   // forms and tailoring read the CV from the data folder
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});

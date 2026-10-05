@@ -47,19 +47,14 @@ export function stale(runs, seen, now = Date.now(), limits = ORPHAN) {
 const ps = () => new Promise(resolve => execFile('ps', ['-axo', 'pid=,ppid=,etime=,time=,command='], {maxBuffer: 8e6}, (error, out) => resolve(error ? '' : out)));
 
 // Check now and then; every stop is one line in app.log (what, how long, why), with no command-line values.
-// onStopped(run) runs once the run is gone (SIGTERM lets it close its own Notion row; a SIGKILLed one cannot, so the caller closes it:
-// otherwise the app listed the killed search as "Running" for 3 h, 5 Oct 2026).
-export function watchOrphans(log, {every = 2 * 60 * 1000, limits = ORPHAN, list = ps, kill = process.kill.bind(process), onStopped = async () => {}, platform = process.platform} = {}) {
-  if (platform === 'win32') return () => {};
+export function watchOrphans(log, {every = 2 * 60 * 1000, limits = ORPHAN, list = ps, kill = process.kill.bind(process)} = {}) {
+  if (process.platform === 'win32') return () => {};
   const seen = new Map();
   const sweep = async () => {
     for (const run of stale(orphans(await list()), seen, Date.now(), limits)) {
       log('run', 'stopping an engine run the app lost track of', {pid: run.pid, running_min: Math.round(run.elapsed / 60), why: run.why, decidedBy: 'orphan watchdog'});
       try { kill(run.pid, 'SIGTERM'); } catch { continue; }
-      setTimeout(() => {
-        try { kill(run.pid, 0); kill(run.pid, 'SIGKILL'); } catch {}
-        setTimeout(() => Promise.resolve(onStopped(run)).catch(error => log('run', 'the stopped run\'s row was not closed', {pid: run.pid, error: error.message})), limits.killAfterMs / 4).unref?.();
-      }, limits.killAfterMs).unref?.();
+      setTimeout(() => { try { kill(run.pid, 0); kill(run.pid, 'SIGKILL'); } catch {} }, limits.killAfterMs).unref?.();
       seen.delete(run.pid);
     }
   };

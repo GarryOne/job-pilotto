@@ -102,15 +102,6 @@ export async function closeInterrupted(storage, jobs, {fetcher, size = 25, windo
   return closed;
 }
 
-// A run the app stopped without knowing which row was its (an orphaned engine run, lib/orphans.js): the Mac's Running rows that began when it did (Notion keeps the
-// minute). `startedAt`: when the run began. Returns the rows it closed.
-export async function closeLost(storage, startedAt, reason, {fetcher, size = 25, windowMs = 3 * 60 * 1000} = {}) {
-  const rows = (await list(storage, {fetcher, size}) || []).filter(row => row.live && row.where === 'mac' && Math.abs(Date.parse(row.startedAt) - startedAt) <= windowMs);
-  const closed = [];
-  for (const row of rows) if (await closeStopped(storage, row.notionUrl, reason, {fetcher})) closed.push({kind: row.kind, pageId: row.pageId, startedAt: row.startedAt});
-  return closed;
-}
-
 // A run's page: what it produced (under "Result") and its technical log (the toggle's code blocks).
 export async function detail(storage, pageId, {fetcher} = {}) {
   const token = storage.secret('NOTION_TOKEN');

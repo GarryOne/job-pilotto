@@ -23,6 +23,12 @@ export async function run(ctx) {
     }
   }, {needs: ctx.needs});
   await ctx.run('the AI engine panel is coherent with each engine chosen (a key is saved in both)', async () => {
+    // This step goes from the API key to Claude Code and back. A Mac is seeded on Claude Code (lib/seed.mjs): start from the API key, as CI does.
+    if (ctx.engine === 'cli') {
+      await page.evaluate(async () => { await window.pilot.setAiEngine('api'); await window.pilot.saveSettings({claudeCodeNotice: false}); });   // the seed accepted the one-time notice
+      await page.reload();
+      await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    }
     await page.click('[data-settings-go="connections"]');
     // The engine panel opens from its service row's Manage button ("AI (Claude)"), as it does for a person.
     await page.locator('#conn-on .service-card, #conn-off .service-card').filter({hasText: 'AI (Claude)'}).first().getByRole('button').click();

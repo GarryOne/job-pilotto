@@ -88,7 +88,8 @@ export async function run(ctx) {
     }
     if (!listed) throw new Error('"E2E Gamma" was not listed in Notion (Employers & Sources) within 4 minutes');
   }, {needs: ctx.needs});
-  await ctx.run('a slow Jobs check keeps showing that it is working, and ends cleanly', async () => {
+  // Real answers, only slower, through the AI proxy: that needs the API engine and the real key (a Mac that uses Claude Code skips this step without E2E_ANTHROPIC_KEY).
+  await ctx.run('a slow Jobs check keeps showing that it is working, and ends cleanly', () => ctx.withApi(async () => {
     // Four new matching postings appear, and every AI call now takes 8 seconds: the shape of a friend's 35-minute check (2 Oct 2026).
     const acme = JSON.parse(fs.readFileSync(path.join(feeds, 'acme.json'), 'utf8'));
     const more = ['Senior Site Reliability Engineer, Payments', 'Staff Platform Engineer, Observability', 'Senior DevOps Engineer, Cloud', 'Senior Infrastructure Engineer, Kubernetes'];
@@ -122,7 +123,7 @@ export async function run(ctx) {
     if (endedAt != null && last.unscored > 0) problems.push(`${last.unscored} job(s) are still "Not scored" after the task ended`);
     if (proxy.stats.calls - callsBefore < 1) problems.push('the test never reached the slow AI path (no AI call went through the proxy)');
     if (problems.length) throw new Error(problems.join('; '));
-  }, {needs: ctx.needs});
+  }, {real: true}), {needs: [...ctx.needs, ...ctx.needsKey]});
   await ctx.run('the pages of this suite render without layout problems', async () => {
     await visit(ctx, ['focus', 'jobs', 'actions']);
     finish(ctx);

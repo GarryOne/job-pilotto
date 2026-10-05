@@ -15,6 +15,7 @@ import {ensureSetUp} from '../lib/seed.mjs';
 export const varies = true;
 export const minutes = 12;
 export const browser = true;
+export const engine = 'api';   // the form's open question is answered by the AI proxy, which needs the API engine
 export const name = 'apply';
 
 // The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).

@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window */
 // Everything a suite needs, built once: its own Notion test page (token per suite), the fixture feeds (a copy a step can change), the slow-AI proxy, and the
 // launched app. A suite is a short file in suites/ that calls ctx.run(...) with its steps. See README.md.
 import fs from 'node:fs';
@@ -8,6 +8,7 @@ import {startAiProxy} from './ai-proxy.mjs';
 import {startNotionProxy} from './notion-proxy.mjs';
 import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
+import {DUMMY_KEY, pickEngine} from './engine.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
 import {startForms} from './forms.mjs';
 import {createVariation, placeOf} from './variation.mjs';
@@ -29,15 +30,20 @@ export function notionToken(suite) {
 }
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false, variesPlace = false} = {}) {
+// engine: a suite that needs real API answers through the proxy pins 'api' (lib/engine.mjs); otherwise a Mac uses Claude Code, CI the API key.
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false, variesPlace = false, engine: suiteEngine = ''} = {}) {
   const key = KEY(), token = light ? '' : notionToken(suite);
+  const engine = pickEngine({suiteEngine});
   let session = null;
   const runner = createRunner(() => session, {keepGoing});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
   if (light) return {suite, key, runner, run: runner.run, ARTIFACTS, E2E, needs: [{name: 'E2E_ANTHROPIC_KEY', value: key}], skipAll: !key, close: async () => {}};
   const ctx = {suite, key, token, runner, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
-    needs: [{name: `E2E_ANTHROPIC_KEY`, value: key}, {name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${suite.toUpperCase()}`})`, value: token}]};
-  if (!key || !token) { ctx.skipAll = true; return ctx; }
+    engine, needsKey: [{name: 'E2E_ANTHROPIC_KEY', value: key}],   // needsKey: a step that needs real Anthropic answers (the key), even when the app uses Claude Code
+    needs: [...(engine === 'api' ? [{name: `E2E_ANTHROPIC_KEY`, value: key}] : []),
+      {name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${suite.toUpperCase()}`})`, value: token}]};
+  if (ctx.needs.some(item => !item.value)) { ctx.skipAll = true; return ctx; }
+  if (engine === 'cli') console.log('  AI engine: the Claude Code on this Mac (your plan, not the test key). E2E_AI_ENGINE=api uses E2E_ANTHROPIC_KEY.');
   ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
   if (fresh) console.log(`Notion test page "${ctx.root.title}": ${await clearRoot(token, ctx.root.id)} item(s) moved to the trash`);
   ctx.built = !fresh && await workspaceReady(token);
@@ -79,5 +85,14 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });
   };
   ctx.pickCv = () => pickFile(ctx.app, ctx.cv);
+  // Run `fn` with the app on the API engine and the AI proxy in front of it, then put the engine back. With a dummy key (the default) nothing reaches Anthropic that the
+  // proxy does not answer itself (429, 500, a delay then a refusal), so it costs nothing; `real: true` saves the real key for a step that needs real answers.
+  ctx.withApi = async (fn, {real = false} = {}) => {
+    if (ctx.engine === 'api') return fn();
+    if (real && !key) throw new Error('this step needs E2E_ANTHROPIC_KEY (real answers through the proxy)');
+    const set = (mode, secret) => ctx.page.evaluate(async ({mode, secret}) => { if (secret) await window.pilot.saveSecret('ANTHROPIC_API_KEY', secret); await window.pilot.setAiEngine(mode); }, {mode, secret});
+    await set('api', real ? key : DUMMY_KEY);
+    try { return await fn(); } finally { await set('cli', DUMMY_KEY); }
+  };
   return ctx;
 }
