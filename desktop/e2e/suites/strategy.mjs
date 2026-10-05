@@ -14,6 +14,7 @@ export const minutes = 30;
 export const name = 'strategy';
 const TITLE = '⚙️ Search settings';
 const ROLE = 'zebra wrangler', GIRAFFE = 'giraffe keeper', PLACE = 'lugano', SKIP = 'E2E Initech';
+const BASELINE_ROLE = 'Site Reliability Engineer';   // no fixture posting of this suite has it in its title
 // Free words (no fixture feed depends on them): a company added on the Notion page and a region accepted in the app. A seeded run picks one of each, so a word an
 // earlier run left behind can never make the "edit kept" check pass; every variant is removed first.
 const EDITED = ['E2E Hooli', 'E2E Pied Piper', 'E2E Vandelay', 'E2E Globex'], REGIONS = ['atlantis', 'lemuria', 'hyperborea', 'avalon'];
@@ -88,8 +89,11 @@ export async function run(ctx) {
       ...EDITED.map(word => ['Companies to skip', word]), ...REGIONS.map(word => ['Remote jobs: regions to skip', word])]) {
       if (has(now[heading], word)) { cleaned.push(`${heading}: ${word}`); await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word))); }
     }
+    // An empty "Roles to look for" means every role matches: the cleanup above can leave it empty when the page held only the words this suite adds (5 Oct 2026: the check then kept all three
+    // fixture postings, on the last good commit too). The page always has one baseline role that no fixture posting matches.
+    if (!(((await pageSections(NOTION, pageId))['Roles to look for']) || []).length) { await setSection(NOTION, pageId, 'Roles to look for', [BASELINE_ROLE]); cleaned.push(`baseline role restored: ${BASELINE_ROLE}`); }
     if (cleaned.length) {
-      console.log(`  the page had words left by an earlier run, removed: ${cleaned.join(' | ')}`);
+      console.log(`  the page had words left by an earlier run, or no role at all, fixed: ${cleaned.join(' | ')}`);
       const after = await pageSections(NOTION, pageId);
       const left = ['Roles to look for', 'Best places', 'Companies to skip'].flatMap(heading => (after[heading] || []).filter(entry => [ROLE, GIRAFFE, PLACE, SKIP].some(word => has([entry], word))).map(entry => `${heading}: ${entry}`));
       if (left.length) throw new Error(`the page still holds words of an earlier run after the cleanup: ${left.join(' | ')}`);
