@@ -753,11 +753,15 @@ function mailResult(result, pending, answered) {
   const {email, outcome, assessment: review, update} = result;
   const row = el('li', 'run-card-row mail-row');
   const words = el('span', 'run-card-words');
-  words.append(el('b', '', [result.company, result.role].filter(Boolean).join(' — ') || email?.subject || 'Email'));
+  const asked = email && NEEDS_YOU.has(email.action) ? questionState(email, pending, answered) : null;
+  const job = [result.company, result.role].filter(Boolean).join(' — ');
+  // An email that raised "which job?" leads with its subject, then sender · time, then the job, as it did since 2 Oct
+  // (942a2fe, b10d60e): the job is what is unclear. 5f4f740 led every row with the job and lost this; other rows keep it.
+  words.append(el('b', asked ? 'mail-row-subject-title' : '', (asked ? email.subject : job) || email?.subject || 'Email'));
   const meta = [email?.sender, email?.time].filter(Boolean).join(' · ');
   if (meta) words.append(el('span', 'muted', meta));
+  if (asked && job) words.append(el('span', 'muted', job));
   row.append(words);
-  const asked = email && NEEDS_YOU.has(email.action) ? questionState(email, pending, answered) : null;
   if (email) row.append(asked?.answered ? pill('Confirmed by you', 'good')
     : pill(email.action.replace(/^./, c => c.toUpperCase()), email.action === 'recorded' ? 'good' : asked ? 'warn' : 'neutral'));
   const detail = el('div', 'mail-row-detail');
@@ -772,7 +776,7 @@ function mailResult(result, pending, answered) {
   }
   if (review) detail.append(assessmentPanel(review));
   if (asked) detail.append(questionBlock(asked, subjectKey(email.subject)));
-  if (email?.subject && result.company) {
+  if (email?.subject && result.company && !asked) {   // a question row already shows its subject
     const key = subjectKey(email.subject);
     const fold = el('div', 'mail-row-subject');
     const toggle = el('button', 'mail-result-toggle');

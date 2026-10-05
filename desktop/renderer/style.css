@@ -1599,6 +1599,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
 /* One email in the run card's list (.run-card-row, as Find employers): what it recorded and the AI's reading under it. */
 .mail-row { flex-wrap: wrap; }
+.run-card-words b.mail-row-subject-title { white-space: normal; }   /* a long invitation subject wraps, as before 5f4f740 */
 .run-card-stats.mail-stats { align-items: center; }
 .mail-done { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .mail-done .icon { width: 18px; height: 18px; color: var(--good); }
