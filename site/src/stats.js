@@ -108,6 +108,7 @@ export async function download(request, env, ctx, now = new Date()) {
 // ---- /stats ----
 
 // Who may open the owner's pages: src/auth.js (a session cookie, the scripts' key).
+import {viewer} from './auth.js';   // admins (invited) read this page too
 import {isOwner, remember} from './auth.js';
 export {isOwner, remember};
 
@@ -199,7 +200,7 @@ ${list.map(row => `<tr><td>${esc(row.email)}</td><td class="muted">${esc(row.rol
 
 // GET /stats?days=30
 export async function stats(request, env, now = new Date()) {
-  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
+  if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   const days = [7, 30, 90].includes(Number(url.searchParams.get('days'))) ? Number(url.searchParams.get('days')) : 30;

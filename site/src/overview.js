@@ -1,9 +1,9 @@
 // /admin: the owner's overview of every admin page. At the top, what needs attention this week (pulled from each page's numbers);
 // below, one card per page with its key numbers, their last 8 weeks and a link. Everything from the tables the pages already read.
+import {viewer} from './auth.js';   // admins (invited) read this page too
 import {PAGES, byWeek, ratio, since, spark, sum} from './admin.js';
 import {isOwner, esc, remember} from './stats.js';
 import {appTrends, insightTrends} from './trends.js';
-import {recentLogins} from './auth.js';
 
 const rows = async (db, sql, ...binds) => { try { return (await db.prepare(sql).bind(...binds).all()).results || []; } catch { return []; } };
 const DAY = 86400000;
@@ -56,15 +56,15 @@ export async function report(db, now = new Date()) {
   if (last(p) != null && prev(p) != null && last(p) > prev(p)) attention.push({page: '/admin/app', text: `Problem reports up from ${prev(p)} to ${last(p)}`, tone: 'warn'});
   const f = app.feedback.values;
   if (last(f)) attention.push({page: '/admin/feedback', text: `${last(f)} feedback message${last(f) === 1 ? '' : 's'} this week`, tone: 'info'});
-  // Logins to these pages (src/auth.js): a wrong key this week is flagged.
-  const logins = await recentLogins(db, 8);
+  // Refused logins this week (a wrong key, a used or removed invite): for the super admin, on the Access page.
   const failed = (await rows(db, 'SELECT COUNT(*) AS n FROM admin_logins WHERE ok = 0 AND day >= ?', weekAgo))[0]?.n || 0;
-  if (failed) attention.unshift({page: '/admin', text: `${failed} login${failed === 1 ? '' : 's'} with a wrong key this week (see Logins below)`, tone: 'bad'});
-  return {cards, attention, recall, logins, from, to: dayOf(now)};
+  if (failed) attention.unshift({page: '/admin/access', text: `${failed} refused login${failed === 1 ? '' : 's'} this week`, tone: 'bad', superadmin: true});
+  return {cards, attention, recall, from, to: dayOf(now)};
 }
 
-export function page(data) {
-  const cards = PAGES.filter(item => item.path !== '/admin').map(item => {
+export function page(data, who = {role: 'superadmin'}) {
+  const attention = data.attention.filter(item => !item.superadmin || who.role === 'superadmin');
+  const cards = PAGES.filter(item => item.path !== '/admin' && !item.superadmin).map(item => {   // Access is not a dashboard
     const key = item.path.slice('/admin/'.length), series = data.cards[key] || [];
     return `<a class="card dash" href="${item.path}"><h2>${item.icon} ${esc(item.name)}</h2>${series.map(s =>
       `<div class="metric"><small class="muted">${esc(s.label)}</small><div class="line">${spark(s.values, {...s, width: 140, height: 30})}</div></div>`).join('')}
@@ -85,21 +85,18 @@ header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
 .up{color:#3fb68b;font-size:14px}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}td{padding:6px 4px;border-top:1px solid var(--line)}.down{color:#e5484d;font-size:14px}
 </style></head><body><main>
 <header><h1>🧭 Overview</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · weeks, oldest first · the last bar is this week</span></header>
-<section class="card attention"><h2>Needs your attention</h2>${data.attention.length
-  ? `<ul>${data.attention.map(item => `<li>${tone[item.tone]} <a href="${item.page}">${esc(item.text)} →</a></li>`).join('')}</ul>`
+<section class="card attention"><h2>Needs your attention</h2>${attention.length
+  ? `<ul>${attention.map(item => `<li>${tone[item.tone]} <a href="${item.page}">${esc(item.text)} →</a></li>`).join('')}</ul>`
   : '<p class="muted">✅ Nothing needs you this week.</p>'}</section>
 <div class="grid">${cards}</div>
-<section class="card" style="margin-top:12px"><h2>🔐 Logins</h2><small class="muted">Each sign-in with the key (a session then lasts 30 days). Never the key itself.</small>
-<table><tr><th>When (UTC)</th><th>Result</th><th>Country</th><th>Device</th><th>Page</th></tr>${(data.logins || []).map(row =>
-  `<tr><td>${esc(String(row.at).slice(0, 16).replace('T', ' '))}</td><td>${row.ok ? '✅ signed in' : '🔴 wrong key'}</td><td>${esc(row.country || '–')}</td><td>${esc(row.device)}</td><td>${esc(row.path)}</td></tr>`).join('')
-  || '<tr><td colspan="5" class="muted">No logins recorded yet.</td></tr>'}</table></section>
 </main></body></html>`;
 }
 
 export async function view(request, env, now = new Date()) {
-  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
+  const who = await viewer(request, env);
+  if (!who) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   if (!env.STATS) return new Response('No database', {status: 503});
-  return new Response(page(await report(env.STATS, now)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+  return new Response(page(await report(env.STATS, now), who), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
 }

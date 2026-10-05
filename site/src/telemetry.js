@@ -2,6 +2,7 @@
 // stores them (D1 "telemetry", 90 days), /telemetry shows the problems users hit (same key as /stats), and a daily
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
+import {viewer} from './auth.js';   // admins (invited) read this page too
 import {trendChip} from './admin.js';
 import {appTrends} from './trends.js';
 const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].label, data.trends[key].values, data.trends[key]) : '');   // its weeks (src/trends.js)
@@ -287,7 +288,7 @@ ${(data.feedback || []).map(row => `<tr><td class="muted" style="white-space:now
 
 // GET /telemetry?days=7 (same key or cookie as /stats)
 export async function view(request, env, now = new Date()) {
-  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await viewer(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env, request);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {

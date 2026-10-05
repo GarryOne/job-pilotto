@@ -82,7 +82,7 @@ test('the overview: a card per page and what needs attention, pulled from their 
   for (const want of ['/admin/app 1 new problem', '/admin/form-filling 1 required question', 'Form reading fell from 100% to 0%', '/admin/self-healing Self-healing missed 1 of 15', '/admin/feedback 1 feedback message'])
     assert.ok(texts.some(text => text.includes(want)), want);
   const html = await (await get(e, '/admin', owner)).text();
-  for (const page of PAGES.filter(p => p.path !== '/admin')) assert.ok(html.includes(`class="card dash" href="${page.path}"`), page.path);
+  for (const page of PAGES.filter(p => p.path !== '/admin' && !p.superadmin)) assert.ok(html.includes(`class="card dash" href="${page.path}"`), page.path);
   assert.match(html, /recall 14\/15/);
 });
 

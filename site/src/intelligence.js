@@ -6,6 +6,7 @@
 //   3 why a job was dismissed (a one-tap reason), by the job's fit-score band
 //   4 a daily snapshot of score band vs what became of the job (new, saved, applied, replied ...): does the score predict action?
 // store() takes the `intel` part of POST /api/controls; view() is the owner's /intel page (/intelligence is the public one).
+import {viewer} from './auth.js';   // admins (invited) read this page too
 import {trendChip} from './admin.js';
 import {insightTrends} from './trends.js';
 const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].label, data.trends[key].values, data.trends[key]) : '');   // its weeks (src/trends.js)
@@ -248,7 +249,7 @@ ${data.cost.steps.map(row => `<tr><td>${esc(row.action)}</td><td>${row.calls}</t
 
 // GET /intel?days=30 (the /stats key or cookie)
 export async function view(request, env, now = new Date()) {
-  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await viewer(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const asked = Number(new URL(request.url).searchParams.get('days'));
   const data = await report(env.STATS, [7, 30, 90].includes(asked) ? asked : 30, now);
   data.trends = await insightTrends(env.STATS, now).catch(() => null);

@@ -1,7 +1,8 @@
 // The owner's admin area: every private page under /admin, one menu on all of them, and the old addresses redirected (for the
 // owner only: anyone else still gets a 404, so the redirect tells nobody a page is there). Same key as before: ?key= once, then
 // a session cookie (src/auth.js isOwner). The pages keep their own code; this file adds the menu and the small trend charts they share.
-import {isOwner, esc} from './stats.js';
+import {esc} from './stats.js';
+import {viewer} from './auth.js';
 
 export const PAGES = [
   {path: '/admin', name: 'Overview', icon: '🧭'},
@@ -12,6 +13,7 @@ export const PAGES = [
   {path: '/admin/ai-cost', old: '/ai-cost', name: 'AI cost', icon: '💸'},
   {path: '/admin/form-filling', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
   {path: '/admin/feedback', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/access', name: 'Access', icon: '🔐', superadmin: true},
 ];
 const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.old, page.path]));
 
@@ -19,7 +21,7 @@ const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.
 export async function redirectOld(request, env) {
   const url = new URL(request.url), target = OLD[url.pathname];
   if (!target || request.method !== 'GET') return null;
-  if (!await isOwner(request, env)) return new Response('Not found', {status: 404});
+  if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   return new Response(null, {status: 301, headers: {Location: `${target}${url.search}`, 'Cache-Control': 'no-store'}});
 }
 
@@ -33,24 +35,27 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;col
 export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:#0b0d10ee;backdrop-filter:blur(6px);border-bottom:1px solid #262c33;margin:0 0 18px}
 .admin-nav div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;font:14px/1.3 system-ui,-apple-system,sans-serif}
 .admin-nav b{color:#f4efe3;margin-right:10px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 9px;border-radius:999px;white-space:nowrap}
-.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
+.admin-nav .me{margin-left:auto;color:#8d949c;font-size:12px}.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
 .trend{float:right;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#8d949c;margin-left:12px}.trend svg{display:block}
 .trend .up{color:#3fb68b}.trend .down{color:#e5484d}`;
 
-export function nav(active) {
-  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Job Pilotto admin</b>${PAGES.map(page =>
-    `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div></nav>`;
+// The menu for this viewer: the Access page only for the super admin; who is signed in, on the right.
+export function nav(active, who = {role: 'superadmin'}) {
+  const shown = PAGES.filter(page => !page.superadmin || who.role === 'superadmin');
+  const me = who.role === 'superadmin' ? 'super admin' : `${who.name} · admin`;
+  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${shown.map(page =>
+    `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}<span class="me">${esc(me)}</span></div></nav>`;
 }
 // The menu and the shared styles, added to a page's HTML (its own design stays): after <body>, and before </head>.
-export function withNav(html, active) {
-  return String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active)}`);
+export function withNav(html, active, who) {
+  return String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
 }
 // A page response with the menu added; anything that is not an HTML page (a 404, a redirect, JSON) passes untouched.
-export async function adminPage(response, active) {
+export async function adminPage(response, active, who) {
   if (!response.ok || !/text\/html/.test(response.headers.get('Content-Type') || '')) return response;
   const headers = new Headers(response.headers);
   headers.set('X-Robots-Tag', 'noindex');
-  return new Response(withNav(await response.text(), active), {status: response.status, headers});
+  return new Response(withNav(await response.text(), active, who), {status: response.status, headers});
 }
 
 // ---- trends: one number per week, oldest first ----

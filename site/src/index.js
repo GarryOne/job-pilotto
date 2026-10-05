@@ -12,6 +12,8 @@ import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
 import {view as formLearningView} from './formlearning.js';
 import {adminPage, redirectOld} from './admin.js';
 import {view as overviewView} from './overview.js';
+import {view as accessView} from './access.js';
+import {join, viewer} from './auth.js';
 import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack} from './aliases.js';
 import {tidy as tidyIntelligence} from './intelligence.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
@@ -80,8 +82,13 @@ export default {
     if (pathname === '/api/hit') return stats.hit(request, env);
     // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
     const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView,
-      '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView}[pathname];
-    if (admin) return adminPage(await admin(request, env), pathname);
+      '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
+      '/admin/access': accessView}[pathname];   // access: the super admin's only (src/access.js)
+    if (pathname === '/admin/join') return join(request, env);   // an invite link, opened once
+    if (admin) {
+      const who = await viewer(request, env);
+      return adminPage(await admin(request, env), pathname, who || undefined);
+    }
     const moved = await redirectOld(request, env);   // /stats, /telemetry, /intel, /self-heal, /ai-cost, /smart-form-filling, /feedback
     if (moved) return moved;
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);

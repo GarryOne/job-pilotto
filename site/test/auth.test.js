@@ -8,7 +8,7 @@ import {SESSION_DAYS, isOwner, recentLogins, remember, same, sessionToken, valid
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0024_admin_logins.sql', import.meta.url), 'utf8'));
+  for (const file of ['0024_admin_logins.sql', '0025_admin_people.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -48,8 +48,8 @@ test('every ?key= login is logged, good and bad, with country and device and nev
   assert.equal(await isOwner(req('/admin?key=browser-key'), env, now), true);
   await remember(new URL('https://x/admin?key=browser-key'), env, req('/admin?key=browser-key'), now + 1000);
   const logins = await recentLogins(env.STATS);
-  assert.deepEqual(logins.map(row => [row.ok, row.country, row.device, row.path]), [[1, 'CH', 'Mac', '/admin'], [0, 'CH', 'Mac', '/admin']]);
-  assert.ok(!JSON.stringify(logins).includes('key'));
+  assert.deepEqual(logins.map(row => [row.ok, row.country, row.device, row.path, row.person]), [[1, 'CH', 'Mac', '/admin', 'super admin'], [0, 'CH', 'Mac', '/admin', 'wrong key']]);
+  assert.ok(!/browser-key|guess/.test(JSON.stringify(logins)), 'never the key, right or wrong');
 });
 
 test('keys are compared in constant time and never match an empty value', () => {
@@ -59,12 +59,12 @@ test('keys are compared in constant time and never match an empty value', () => 
   assert.equal(same(undefined, undefined), false);
 });
 
-test('every call site awaits isOwner (a forgotten await is a truthy Promise: everyone would be let in)', () => {
+test('every call site awaits isOwner and viewer (a forgotten await is a truthy Promise: everyone would be let in)', () => {
   const dir = new URL('../src/', import.meta.url);
   for (const file of readdirSync(dir).filter(name => name.endsWith('.js'))) {
     const source = readFileSync(new URL(file, dir), 'utf8');
-    for (const line of source.split('\n').filter(l => /isOwner\(/.test(l) && !/export async function isOwner/.test(l))) {
-      assert.match(line, /await isOwner\(/, `${file}: ${line.trim()}`);
+    for (const line of source.split('\n').filter(l => /\b(isOwner|viewer)\(/.test(l) && !/export async function (isOwner|viewer)/.test(l) && !/^\s*\/\//.test(l))) {
+      assert.match(line, /await (isOwner|viewer)\(/, `${file}: ${line.trim()}`);
     }
     assert.ok(!/\ballowed\(request/.test(source), `${file} still calls allowed()`);
   }

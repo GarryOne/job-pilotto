@@ -2,6 +2,7 @@
 // (migrations/0003_feedback.sql) and sent at once to the owner's Job Pilotto Brain bot. Stage 1's exit criterion is
 // feedback from real users, so it must be one click away. At most 10 a day per install; ≤ 2000 characters.
 
+import {viewer} from './auth.js';   // admins (invited) read this page too
 import {isOwner, remember} from './stats.js';
 
 const PER_INSTALL_PER_DAY = 10;
@@ -49,7 +50,7 @@ export async function recentFeedback(db, days = 30, now = new Date()) {
 // GET /feedback: the owner's live page (same key or cookie as /stats). It polls /feedback?json=1 every 10 s and puts
 // new messages on top, marked, so feedback can be read as it arrives. Everything is escaped on the page (textContent).
 export async function view(request, env, now = new Date()) {
-  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (!await viewer(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   if (url.searchParams.has('json')) {
