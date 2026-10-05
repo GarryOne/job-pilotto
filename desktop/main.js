@@ -2130,7 +2130,10 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       storage.saveSettings({reminded: Object.fromEntries(Object.entries(next).slice(-200))});
     };
     setInterval(remind, 30000);
-    if (!DEMO) watchOrphans(appLog);   // an engine run left behind by a restart, stuck: stop it (lib/orphans.js)
+    if (!DEMO) watchOrphans(appLog, {onStopped: async run => {
+      const closed = await runHistory.closeLost(storage, Date.now() - run.elapsed * 1000, `Stopped: the app had lost this run (${run.why}).`);
+      for (const row of closed) appLog('run', 'closed the row of a run the app stopped', {kind: row.kind, started: row.startedAt, decidedBy: 'orphan watchdog'});
+    }});   // an engine run left behind by a restart, stuck: stop it (lib/orphans.js)
     setTimeout(remind, 15000);
     if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
       error => log(`GitHub repo not updated: ${error.message}`));

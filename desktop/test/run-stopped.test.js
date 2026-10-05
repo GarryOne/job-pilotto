@@ -71,3 +71,20 @@ test('closeInterrupted closes the Running row of the run the quit killed, not an
   assert.match(patched[0][1], /aaaaaaaa/, 'the search row at the job\'s start time, not the mail row, the 40-minute-later row, the finished row or the GitHub row');
   assert.deepEqual(await runHistory.closeInterrupted(storage, [{...job, interrupted: false}], {fetcher}), [], 'a job that was only waiting has no row to close');
 });
+
+test('closeLost closes the Mac\'s Running rows that began with the lost run, and no other', async () => {
+  const calls = [], began = Date.now() - 30 * 60 * 1000;
+  const row = (id, status, minutes, trigger = 'Mac schedule') => ({id, url: `https://app.notion.com/p/${id}`, created_time: new Date(began).toISOString(),
+    properties: {Started: {date: {start: new Date(began + minutes * 60000).toISOString()}}, Mode: {select: {name: 'run'}}, Status: {select: {name: status}}, Trigger: {select: {name: trigger}}, Summary: {rich_text: []}}});
+  const pages = [row('a'.repeat(32), 'Running', 0.5), row('b'.repeat(32), 'Running', 20), row('c'.repeat(32), 'OK', 0.2), row('d'.repeat(32), 'Running', 0.2, 'Schedule')];
+  const fetcher = async (url, init) => {
+    const route = String(url).replace('https://api.notion.com/v1/', '');
+    calls.push([init.method, route]);
+    if (init.method === 'POST') return json({results: pages});
+    return json(pages.find(page => route.endsWith(page.id)) || {properties: {}});
+  };
+  const storage = {secret: () => 'token', settings: () => ({notionIds: {NOTION_CRON_RUNS_DB: 'db'}})};
+  const closed = await runHistory.closeLost(storage, began, 'Stopped: lost.', {fetcher});
+  assert.equal(closed.length, 1);
+  assert.deepEqual(calls.filter(call => call[0] === 'PATCH').map(call => call[1].slice(-32)), ['a'.repeat(32)]);
+});
