@@ -73,3 +73,16 @@ test('the history is every issue by the day it was filed and how it ended, conti
   assert.equal(data.history.length, 1);
   assert.deepEqual(data.costDays, {'2026-10-02': 0.5, '2026-10-03': 1}, 'cost per day over every dated run');
 });
+
+test('the snapshot carries three periods: all time, the last 7 days and since the cutoff, each with its totals, detectors and cost', async () => {
+  const {summarize} = await import('../lib/selfheal-stats.mjs');
+  const at = (number, date, labels, source = 'ai-review') => ({number, state: 'CLOSED', stateReason: 'COMPLETED', title: `[auto-ui] x: t${number}`, createdAt: `${date}T10:00:00Z`, labels: [...labels, `source:${source}`, 'auto-ui'].map(name => ({name})), comments: []});
+  const issues = [at(1, '2026-10-02', ['resolution:fixed']), at(2, '2026-10-03', ['resolution:fp:detector'], 'layout-check'), at(3, '2026-10-05', ['resolution:fixed']), at(4, '2026-10-05', ['resolution:stale-sighting'])];
+  const costs = [{job: 'review', usd: 1, at: '2026-10-02T09:00:00Z'}, {job: 'review', usd: 2, at: '2026-10-05T09:00:00Z'}];
+  const data = build({issues, costs, now: new Date('2026-10-09T12:00:00Z')});
+  assert.deepEqual([data.periods.all.totals.filed, data.periods.all.totals.real, data.periods.all.totals.falsePositive, data.periods.all.totals.stale, data.periods.all.totals.precision], [4, 2, 1, 1, 67]);
+  assert.deepEqual([data.periods.last7.totals.filed, data.periods.last7.totals.real], [3, 1], '9 Oct minus 7 days is 2 Oct 12:00: the issue of 2 Oct 10:00 is out; 3 Oct and both of 5 Oct are in');
+  assert.deepEqual([data.periods.cutoff.totals.filed, data.periods.all.cost.usd, data.periods.cutoff.cost.usd, data.periods.cutoff.cost.perRealBug], [2, 3, 2, 2], 'cost counts the same window as the issues');
+  assert.deepEqual(data.periods.all.byDetector.map(row => [row.detector, row.filed]), [['AI screenshot review', 3], ['Layout and DOM checks', 1]]);
+  assert.deepEqual(summarize([]).totals.precision, null);
+});

@@ -2,41 +2,9 @@
 // Owner-only like /stats (STATS_KEY), never a static page: static assets are public. The figures are a snapshot read from the CI logs.
 import {allowed, esc, remember} from './stats.js';
 import {equal} from './guard.js';
-import {TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
+import {dayLabel, TREND_SCRIPT, TREND_STYLE, trendSection} from './trend.js';
 
 // 2-3 Oct 2026, from GitHub Actions logs. Fixer: claude-code-action's own total_cost_usd. Finder: estimated (the review then dropped usage).
-export const SNAPSHOT = {
-  period: '2–3 Oct 2026',
-  fixer: [
-    {at: '3 Oct 17:35', issue: '#63 focus: “More actions” expand broken', turns: 20, usd: 0.253, result: 'PR #85, closed'},
-    {at: '3 Oct 16:48', issue: '#66 strategy: no loading state on “Edit in Notion”', turns: 19, usd: 0.208, result: 'PR #79, merged'},
-    {at: '3 Oct 10:31', issue: '#49 sidebar spill (second try)', turns: 19, usd: 0.232, result: 'no PR (run failed)'},
-    {at: '2 Oct 23:31', issue: '#49 sidebar spill', turns: 14, usd: 0.172, result: 'PR #62, closed'},
-    {at: '2 Oct 21:43', issue: '#50 activity: vague warning reason', turns: 22, usd: 0.252, result: 'PR #54, merged'},
-    {at: '2 Oct 21:19', issue: '#38 activity: rate-limit detail', turns: 1, usd: 0, result: 'Claude errored at once'},
-    {at: '2–3 Oct', issue: 'Sentry fixer, 3 runs: nothing qualified', turns: 0, usd: 0, result: 'Claude never ran'},
-  ],
-  finder: [
-    {day: '2 Oct', reviews: 292, rejected: 58, low: 1.9, high: 5.8},
-    {day: '3 Oct', reviews: 184, rejected: 0, low: 1.2, high: 3.7},
-  ],
-  findings: 220,
-  drivers: [
-    'Volume of screenshot reviews: 476, about one per screenshot in every e2e suite, four e2e runs a day.',
-    'Thinking tokens: Sonnet 5.5 thinks by default, billed as output at $10 per million tokens, up to the 1,200-token cap. That is roughly half to two-thirds of a review.',
-    'Until 3 Oct the prompt was resent uncached on every review. Since e92c3d0 it is cached, and an unchanged screenshot is not reviewed again.',
-    'The Fixer is cheap per attempt ($0.17–0.25, 14–22 turns). Its cost is in the attempts that end in a closed PR: 2 of 4.',
-  ],
-  notCounted: [
-    'The e2e fact judges (the quality and employers suites) and the app\'s own AI calls during e2e runs: test spend, not the Finder.',
-    'PR #35 (2 Oct 13:29): no run left in the history.',
-    'From e92c3d0 on, each review logs its exact cost in the e2e job summary and artifacts/ai-review-usage.json.',
-  ],
-};
-
-const usd = n => `$${n.toFixed(n < 1 ? 3 : 2)}`;
-const range = (low, high) => `≈ $${low.toFixed(1)}–${high.toFixed(1)}`;
-
 // ---------- live: the loop's numbers, published by CI (self-heal-stats.yml) ----------
 const pct = value => (value === null || value === undefined ? '–' : `${value}%`);
 const num = value => (value === null || value === undefined ? '–' : String(value));
@@ -96,15 +64,55 @@ export function freshness(at, now = new Date()) {
 }
 const sinceText = live => (live.since ? `${String(live.since).slice(0, 10)} ${String(live.since).slice(11, 16)} UTC` : null);
 
+// The days the numbers cover, for the header: from the first issue the loop ever filed.
+const rangeText = live => { const first = live?.history?.[0]?.day; return first ? `Data from ${dayLabel(first)} to today · ` : ''; };
+
+// The three periods side by side, switched by the buttons (all time first): what the Finder filed, how it ended, how often it was right and what it cost, with the table by detector.
+const PERIODS = [['all', 'All time'], ['last7', 'Last 7 days'], ['cutoff', 'Since the cutoff']];
+export function periodsSection(live) {
+  if (!live?.periods) return '';
+  const first = live.history?.[0]?.day, since = sinceText(live);
+  const notes = {all: first ? `Every issue the loop filed since ${dayLabel(first)}.` : 'Every issue the loop filed.', last7: 'Issues filed in the last 7 days.',
+    cutoff: `Issues filed since ${since || 'the cutoff'}: the stats were recalibrated then, and the ${num(live.excluded)} earlier issues, filed under noisier rules, are not in this view.`};
+  const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'stale', 'harness', 'unclear', 'open'];
+  const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Stale', 'Test / harness', 'Unclear', 'Open, unjudged'];
+  const block = ([key]) => {
+    const p = live.periods[key];
+    if (!p) return '';
+    const t = p.totals || {}, wrong = (t.falsePositive || 0) + (t.harness || 0), cost = p.cost || {};
+    const tiles = [
+      ['📥 Filed', num(t.filed), `${num(t.unjudged)} not judged yet`],
+      ['🐞 Real bugs caught', num(t.real), `${num(t.fixed)} fixed · ${num(t.queued)} queued for the fixer`],
+      ['❌ False positives', num(wrong), `${num(t.falsePositive)} false · ${num(t.harness)} test mistakes`],
+      ['♻️ Stale or duplicate', num((t.stale || 0) + (t.duplicate || 0)), `${num(t.stale)} stale · ${num(t.duplicate)} duplicate`],
+      ['🎯 Precision', pct(t.precision), `${num(t.real)} real of ${num(t.judged)} judged`],
+      ['💸 AI cost', `$${(cost.usd || 0).toFixed(2)}`, cost.perRealBug ? `$${cost.perRealBug} per real bug` : 'no cost recorded'],
+    ];
+    return `<div class="period" data-period="${key}"${key === 'all' ? '' : ' hidden'}><small class="muted">${esc(notes[key])}</small>
+<div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
+<div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
+${(p.byDetector || []).map(row => `<tr><td>${esc(row.detector)}</td>${cols.map(col => `<td class="n">${num(row[col])}</td>`).join('')}</tr>`).join('')}
+<tr class="total"><td>Total</td>${cols.map(col => `<td class="n">${num(t[col])}</td>`).join('')}</tr></table></div></div>`;
+  };
+  return `<section class="card"><h2>🔎 What the Finder found</h2><div class="seg" role="group" aria-label="Period">${PERIODS.map(([key, label]) => `<button type="button" data-period-btn="${key}" aria-pressed="${key === 'all'}">${label}</button>`).join('')}</div>
+${PERIODS.map(block).join('\n')}
+<small class="muted">Real = confirmed by the verdict pass or a person, or closed by a fix. False = a false positive or a test mistake. Unclear = closed as "not seen twice" or with a note: neither proven real nor false.</small></section>`;
+}
+
 export function liveSection(live, history = [], now = new Date()) {
   if (!live) return `<section class="card"><h2>🩺 The loop, live</h2><p class="muted">No numbers published yet: they arrive every 3 hours from CI (self-heal-stats.yml).</p></section>`;
   const t = live.totals || {}, fixer = live.fixer || {}, cost = live.cost || {}, recall = live.recall;
+  const periods = !!live.periods;
   const tiles = [
-    ['🐞 Real bugs caught', num(t.real), `${num(t.fixed)} fixed · ${num(t.queued)} queued for the fixer`],
-    ['🎯 Precision', pct(t.precision), `${num(t.real)} real vs ${num((t.falsePositive || 0) + (t.harness || 0))} wrong (false positive or test mistake) · ${num(t.judged ?? (t.real || 0) + (t.falsePositive || 0))} judged, ${num(t.unjudged ?? t.open)} open not counted`],
+    ...(periods ? [] : [
+      ['🐞 Real bugs caught', num(t.real), `${num(t.fixed)} fixed · ${num(t.queued)} queued for the fixer`],
+      ['🎯 Precision', pct(t.precision), `${num(t.real)} real vs ${num((t.falsePositive || 0) + (t.harness || 0))} wrong (false positive or test mistake) · ${num(t.judged ?? (t.real || 0) + (t.falsePositive || 0))} judged, ${num(t.unjudged ?? t.open)} open not counted`],
+    ]),
     ['🧪 Recall', recall ? `${recall.caught}/${recall.planted}` : '–', recall ? (recall.missed.length ? `missed: ${recall.missed.join(', ')}` : 'every planted bug caught') : 'no interactions run yet'],
     ['🛠️ Fixer', `${num(fixer.landed ?? fixer.merged)} landed`, `${num(fixer.opened)} PRs · ${num(fixer.open)} open · verdicts ${num(live.verdicts?.real)} real / ${num(live.verdicts?.falsePositive)} false`],
-    ['💸 AI cost', `$${(cost.usd || 0).toFixed(2)}`, cost.perRealBug ? `$${cost.perRealBug} per real bug · ${cost.runs} runs recorded${live.since ? ' since the cutoff' : ''}` : `${num(cost.runs)} runs recorded`],
+    ...(periods ? [] : [
+      ['💸 AI cost', `$${(cost.usd || 0).toFixed(2)}`, cost.perRealBug ? `$${cost.perRealBug} per real bug · ${cost.runs} runs recorded${live.since ? ' since the cutoff' : ''}` : `${num(cost.runs)} runs recorded`],
+    ]),
   ];
   // How well the loop does (desktop/e2e/lib/loop-quality.mjs): each number with what it counts, or why it is not measured yet. Lower is better for escape, regression, flake.
   const q = live.quality || {};
@@ -117,14 +125,15 @@ export function liveSection(live, history = [], now = new Date()) {
   const banner = age.level === 'fresh' ? '' : `<section class="card ${age.level}"><b>${age.level === 'stale' ? '⛔ These numbers are stale' : '⚠️ A publish is late'}</b> · last published ${esc(age.text)}; CI publishes every 3 hours (the Worker's cron, GitHub's schedule as backup).${age.level === 'stale' ? ' More than one run was missed: check the "CI · Self-heal stats" workflow.' : ''}</section>`;
   return `${banner}<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC (${esc(age.text)}) · every issue the loop filed${since ? ` since ${esc(since)}` : ''}, by what found it and how it ended${since ? `. ${num(live.excluded)} earlier issues, filed under noisier rules, stay on GitHub and are not counted, so the figures cover only this window` : ''}</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
+${periodsSection(live)}
 ${trendSection(live)}
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 ${causesSection(live)}
 ${watchSection(live)}
-<section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
+${periods ? '' : `<section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
 ${(live.byDetector || []).map(row => `<tr><td>${esc(row.detector)}</td>${cols.map(col => `<td class="n">${num(row[col])}</td>`).join('')}</tr>`).join('')}
 <tr class="total"><td>Total</td>${cols.map(col => `<td class="n">${num(t[col])}</td>`).join('')}</tr></table></div>
-<small class="muted">Real = confirmed by the verdict pass or a person, or closed by a fix. Unclear = closed as "not seen twice" or with a note: neither proven real nor false.</small></section>
+<small class="muted">Real = confirmed by the verdict pass or a person, or closed by a fix. Unclear = closed as "not seen twice" or with a note: neither proven real nor false.</small></section>`}
 <div class="grid">
 <section class="card"><h2>📈 Trend</h2><small class="muted">One snapshot per day</small><div class="wrap"><table><tr><th>Day</th><th>Filed</th><th>Real</th><th>False pos.</th><th>Precision</th><th>Recall</th><th>AI cost</th></tr>
 ${trend.map(row => `<tr><td>${esc(row.day)}</td><td class="n">${num(row.totals?.filed)}</td><td class="n">${num(row.totals?.real)}</td><td class="n">${num(row.totals?.falsePositive)}</td><td class="n">${pct(row.totals?.precision)}</td><td class="n">${row.recall ? `${row.recall.caught}/${row.recall.planted}` : '–'}</td><td class="n">$${(row.cost?.usd || 0).toFixed(2)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">The first day: the trend grows from here.</td></tr>'}
@@ -159,17 +168,7 @@ async function snapshots(env) {
   } catch { return []; }
 }
 
-export function page(data = SNAPSHOT, live = null, history = []) {
-  const fixerUsd = data.fixer.reduce((sum, row) => sum + row.usd, 0);
-  const prs = data.fixer.filter(row => /^PR #/.test(row.result)), merged = prs.filter(row => /merged/.test(row.result));
-  const reviews = data.finder.reduce((sum, row) => sum + row.reviews, 0), rejected = data.finder.reduce((sum, row) => sum + row.rejected, 0);
-  const low = data.finder.reduce((sum, row) => sum + row.low, 0), high = data.finder.reduce((sum, row) => sum + row.high, 0);
-  const tiles = [
-    ['💸 Total AI spend', range(fixerUsd + low, fixerUsd + high), data.period],
-    ['🛠️ Fixer', usd(fixerUsd), 'measured'],
-    ['🔎 Finder', range(low, high), `estimated · ${reviews} reviews`],
-    ['✅ Merged fixes', `${merged.length} of ${prs.length}`, merged.length ? `${usd(fixerUsd / merged.length)} per merged fix` : 'none yet'],
-  ];
+export function page(_legacy, live = null, history = []) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Job Pilotto self-healing spend</title><link rel="icon" href="/favicon-32.png">
 <style>
@@ -185,25 +184,10 @@ td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-v
 ul{margin:8px 0 0;padding-left:18px}li{margin-top:6px}
 ${TREND_STYLE}
 </style></head><body><main>
-<header><h1>✈ Job Pilotto · self-healing loop</h1><span class="muted">${esc(data.period)} · <a href="/stats">Website stats →</a> · <a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a></span></header>
+<header><h1>✈ Job Pilotto · self-healing loop</h1><span class="muted">${esc(rangeText(live))}<a href="/stats">Website stats →</a> · <a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a></span></header>
 ${liveSection(live, history)}
 ${principlesSection()}
-<section class="card"><h2>💸 Snapshot: self-healing AI spend, ${esc(data.period)}</h2><small class="muted">Measured by hand from the CI logs, before each run recorded its own cost</small></section>
-<div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
-<section class="card"><h2>🧭 What drives the cost</h2><ul>${data.drivers.map(line => `<li>${esc(line)}</li>`).join('')}</ul></section>
-<section class="card"><h2>🛠️ Fixer runs</h2><small class="muted">claude-code-action's own cost, Sonnet 5.5</small><div class="wrap"><table>
-<tr><th>Run (UTC)</th><th>Issue</th><th>Turns</th><th>Cost</th><th>Result</th></tr>
-${data.fixer.map(row => `<tr><td>${esc(row.at)}</td><td>${esc(row.issue)}</td><td class="n">${row.turns}</td><td class="n">${usd(row.usd)}</td><td class="muted">${esc(row.result)}</td></tr>`).join('')}
-<tr class="total"><td>Total</td><td></td><td class="n">${data.fixer.reduce((sum, row) => sum + row.turns, 0)}</td><td class="n">${usd(fixerUsd)}</td><td>${prs.length} PRs, ${merged.length} merged</td></tr>
-</table></div></section>
-<div class="grid">
-<section class="card"><h2>🔎 Finder reviews</h2><small class="muted">AI screenshot review, estimated</small><div class="wrap"><table>
-<tr><th>Day</th><th>Reviews</th><th>Rejected (400)</th><th>Est. cost</th></tr>
-${data.finder.map(row => `<tr><td>${esc(row.day)}</td><td class="n">${row.reviews}</td><td class="n">${row.rejected}</td><td class="n">${range(row.low, row.high)}</td></tr>`).join('')}
-<tr class="total"><td>Total</td><td class="n">${reviews}</td><td class="n">${rejected}</td><td class="n">${range(low, high)}</td></tr>
-</table></div><small class="muted">${data.findings} findings. Per review ≈ 2.6–3.8k input tokens ($0.005–0.008) + 150–1,200 output ($0.0015–0.012); rejected calls counted as free.</small></section>
-<section class="card"><h2>🙈 Not counted</h2><ul>${data.notCounted.map(line => `<li>${esc(line)}</li>`).join('')}</ul></section>
-</div></main><div id="tip" role="tooltip" hidden></div><script>${TREND_SCRIPT}</script></body></html>`;
+</main><noscript><style>.period[hidden]{display:block!important}</style></noscript><div id="tip" role="tooltip" hidden></div><script>${TREND_SCRIPT}</script></body></html>`;
 }
 
 // GET /self-heal (?key=<STATS_KEY> once; the cookie after that)
@@ -212,5 +196,5 @@ export async function view(request, env) {
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env);
   const history = env.STATS ? await snapshots(env) : [];
-  return new Response(page(SNAPSHOT, history[0] || null, history), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(undefined, history[0] || null, history), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

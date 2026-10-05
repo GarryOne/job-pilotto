@@ -59,6 +59,20 @@ export function dailyHistory(all = []) {
   return out;
 }
 
+// The same counts for any list of issues: the totals and the table by detector. The page shows three periods side by side (all time, the last 7 days, since the stats cutoff), so the numbers are
+// not only those of the days after the recalibration (5 Oct 2026: "Real bugs caught" showed 12 while the Finder had found 37).
+export function summarize(list = []) {
+  const totals = {filed: 0, ...empty()}, by = {};
+  for (const issue of list) {
+    const kind = classify(issue), source = detectorOf(issue);
+    totals.filed++; totals[kind]++;
+    const row = (by[source] ??= {detector: DETECTORS[source] || source, filed: 0, ...empty()});
+    row.filed++; row[kind]++;
+  }
+  const real = totals.fixed + totals.queued, judged = real + totals.falsePositive + totals.harness;
+  return {totals: {...totals, real, judged, unjudged: totals.open + totals.unclear, precision: judged ? Math.round(100 * real / judged) : null}, byDetector: Object.values(by).sort((a, b) => b.filed - a.filed)};
+}
+
 // -> the snapshot the site stores (one per day) and shows.
 export function build({issues: all = [], prs = [], costs = [], recall = null, runs = null, breaker = null, signatures = null, now = new Date()} = {}) {
   const issues = all.filter(afterEpoch), totals = {filed: 0, ...empty()}, by = {};
@@ -72,6 +86,10 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, ru
   // (5 Oct 2026: left out, the page said 80% while the failed-step detector was wrong 7 times in 10); a duplicate is redundant, not wrong; an open or unclear one is not judged yet.
   const real = totals.fixed + totals.queued, judged = real + totals.falsePositive + totals.harness;
   totals.judged = judged; totals.unjudged = totals.open + totals.unclear;
+  // The three periods the page can show. Cost counts the runs that have a date in the same window as the issues.
+  const weekAgo = new Date(now).getTime() - 7 * 86400000;
+  const period = (list, from) => { const summary = summarize(list); const usd = Number(costs.filter(item => item.at && Date.parse(item.at) >= from).reduce((sum, item) => sum + (Number(item.usd) || 0), 0).toFixed(2)); return {...summary, cost: {usd, perRealBug: summary.totals.real ? Number((usd / summary.totals.real).toFixed(2)) : null}}; };
+  const periods = {all: period(all, 0), last7: period(all.filter(issue => Date.parse(issue.createdAt || 0) >= weekAgo), weekAgo), cutoff: period(issues, Date.parse(STATS_SINCE))};
   const verdicts = {real: 0, falsePositive: 0};
   for (const issue of issues) for (const comment of issue.comments || []) {
     if (/^(?:<!-- ui-loop-verdict:real -->|Judged real by the UI loop's verdict pass)/.test(comment.body || '')) verdicts.real++;
@@ -98,7 +116,7 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, ru
   const notable = issues.filter(issue => ['fixed', 'queued'].includes(classify(issue))).sort((a, b) => b.number - a.number).slice(0, 15)
     .map(issue => ({number: issue.number, title: String(issue.title || '').replace(/^\[auto-ui\]\s*/, '').slice(0, 110), url: issue.url || '', detector: DETECTORS[detectorOf(issue)] || detectorOf(issue),
       status: classify(issue) === 'fixed' ? 'fixed' : 'queued', severity: (names(issue).find(name => name.startsWith('severity:')) || 'severity:medium').slice(9)}));
-  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, breaker, signatures, history: dailyHistory(all), costDays, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
+  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, breaker, signatures, history: dailyHistory(all), costDays, periods, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
     byDetector: Object.values(by).sort((a, b) => b.filed - a.filed), fixer, verdicts,
     cost: {usd: Number(usd.toFixed(2)), runs: inWindow.length, outside: costs.length - inWindow.length, byJob, perRealBug: real ? Number((usd / real).toFixed(2)) : null},
     recall: recall && Number.isInteger(recall.planted) ? {planted: recall.planted, caught: recall.caught, missed: (recall.rows || []).filter(row => !row.caught).map(row => row.id)} : null,

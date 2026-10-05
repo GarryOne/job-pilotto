@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {freshness, ingest, liveSection, page, PRINCIPLES, principlesSection, view, watchSection} from '../src/selfheal.js';
+import {freshness, ingest, liveSection, page, periodsSection, PRINCIPLES, principlesSection, view, watchSection} from '../src/selfheal.js';
 
 const env = {STATS_KEY: 'secret'};
 
@@ -16,19 +16,17 @@ test('/self-heal is owner-only: a stranger gets 404, the key sets the cookie, th
   const opened = await view(new Request('https://x.dev/self-heal', {headers: {Cookie: cookie}}), env);
   assert.equal(opened.status, 200);
   assert.equal(opened.headers.get('X-Robots-Tag'), 'noindex');
-  assert.match(await opened.text(), /self-healing AI spend/);
+  assert.match(await opened.text(), /self-healing/);
 });
 
 test('it is never a static page: static assets are served to anyone before the Worker', () => {
   assert.equal(existsSync(new URL('../public/self-heal.html', import.meta.url)), false);
 });
 
-test('totals are computed from the rows: Fixer $1.117, 4 PRs, 2 merged, 476 Finder reviews', () => {
+test('no hand-measured snapshot is left on the page: every number comes from a published snapshot', () => {
   const html = page();
-  assert.match(html, /\$1\.12<\/b>/);
-  assert.match(html, /4 PRs, 2 merged/);
-  assert.match(html, /<td class="n">476<\/td>/);
-  assert.match(html, /2 of 4/);
+  assert.doesNotMatch(html, /Snapshot: self-healing AI spend/);
+  assert.doesNotMatch(html, /\$1\.12<\/b>/);
 });
 
 // The live part (4 Oct 2026): CI publishes the loop's numbers every 3 hours; one row per day; the page shows today, the trend and the real bugs.
@@ -56,7 +54,7 @@ test('publishing needs the key and the expected shape; one row per day, the late
   assert.equal(JSON.parse(STATS.rows.get('2026-10-04').body).totals.real, 26, 'the latest publish of the day wins');
 });
 
-test('the page shows the live numbers on top, the detectors, the trend and the real bugs; the spend snapshot stays below', async () => {
+test('the page shows the live numbers on top, the detectors, the trend and the real bugs', async () => {
   const STATS = fakeD1();
   STATS.rows.set('2026-10-03', {day: '2026-10-03', body: JSON.stringify(snapshot('2026-10-03T22:00:00Z', 20))});
   STATS.rows.set('2026-10-04', {day: '2026-10-04', body: JSON.stringify(snapshot('2026-10-04T04:00:00Z', 26))});
@@ -68,7 +66,6 @@ test('the page shows the live numbers on top, the detectors, the trend and the r
   assert.match(html, /<b>11\/13<\/b><small class="muted">missed: page-overflow, a11y-contrast/);
   assert.match(html, /<td>2026-10-03<\/td><td class="n">95<\/td><td class="n">20<\/td>/, 'yesterday in the trend');
   assert.match(html, /href="https:\/\/github.com\/o\/r\/issues\/109">#109<\/a>/);
-  assert.ok(html.indexOf('The loop, live') < html.indexOf('Snapshot: self-healing AI spend'), 'live first, the old snapshot below');
   assert.match(liveSection(null), /No numbers published yet/);
 });
 
@@ -106,7 +103,7 @@ test('the page names its cutoff and what it leaves out, and its precision tile s
 test('the page lists the rules the loop works by, each with what it means in practice and where it lives', () => {
   const html = page();
   assert.match(html, /How the loop works and learns/);
-  assert.ok(html.indexOf('The loop, live') < html.indexOf('How the loop works and learns') && html.indexOf('How the loop works and learns') < html.indexOf('Snapshot: self-healing AI spend'));
+  assert.ok(html.indexOf('The loop, live') < html.indexOf('How the loop works and learns'));
   for (const [rule] of PRINCIPLES) assert.ok(html.includes(rule.replace(/'/g, '&#39;')) || html.includes(rule), rule);
   assert.ok(PRINCIPLES.length >= 8 && PRINCIPLES.every(row => row.length === 4 && row.every(Boolean)), 'every principle says what, how, status and where');
   assert.match(principlesSection(), /A miss is closed only when a guard exists/);
@@ -130,4 +127,20 @@ test('the page shows which detectors are under watch, how many mistakes were lea
   assert.match(html, /2 test mistake\(s\) learned/);
   assert.equal(watchSection({}), '', 'nothing to show before the first snapshot has them');
   assert.match(liveSection(live, [], new Date('2026-10-05T07:00:00Z')), /Judge exam \(planted\)<\/span><b>90%<\/b>/);
+});
+
+test('a snapshot with periods shows all time first, then the last 7 days, and its tiles come from the period', () => {
+  const t = real => ({filed: real + 2, real, falsePositive: 2, judged: real + 2, unjudged: 0, precision: 0.5, fixed: real, queued: 0});
+  const live = {...snapshot('2026-10-05T04:00:00Z', 26), periods: {
+    all: {totals: t(40), byDetector: [], cost: {usd: 9.5, perRealBug: 0.24}},
+    last7: {totals: t(12), byDetector: [], cost: {usd: 2, perRealBug: 0.17}},
+    cutoff: {totals: t(26), byDetector: [], cost: {usd: 4, perRealBug: 0.15}}}};
+  const html = liveSection(live, []);
+  assert.ok(html.indexOf('data-period="all"') < html.indexOf('data-period="last7"'));
+  assert.match(html, /data-period="last7" hidden/);
+  assert.doesNotMatch(html, /data-period="all" hidden/);
+  assert.match(html, /data-period-btn="last7"/);
+  assert.equal((html.match(/Real bugs caught/g) || []).length, 3, 'one per period, not a fourth from the cutoff totals');
+  assert.match(periodsSection(live), /\$9\.50/);
+  assert.equal(periodsSection({}), '');
 });
