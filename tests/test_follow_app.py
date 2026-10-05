@@ -1,10 +1,13 @@
 """The terminal follows the Desktop App: its Notion IDs and data folders, unless the environment says otherwise."""
+import io
 import json
 import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest import mock
 
@@ -62,6 +65,42 @@ class RunLockTests(unittest.TestCase):
             order.append('first done')
         second.join(2)
         self.assertEqual(order, ['first done', 'second'])
+
+    def test_a_waiting_run_says_what_it_waits_for_and_since_when(self):
+        import io
+        from contextlib import redirect_stderr
+        folder = tempfile.mkdtemp()
+        out, done = io.StringIO(), threading.Event()
+
+        def wait():
+            with redirect_stderr(out), paths.run_lock(folder, poll=0.05):
+                done.set()
+        with paths.run_lock(folder, label='daily scheduled'):
+            holder = json.loads((Path(folder) / 'run.lock').read_text())
+            self.assertEqual((holder['pid'], holder['label']), (os.getpid(), 'daily scheduled'))
+            line = paths._waiting_line(holder, time.time() - 125)
+            self.assertIn('waiting for a daily scheduled run started', line)
+            self.assertIn(f"(pid {os.getpid()})", line)
+            self.assertIn('waited 2 min', line)
+            thread = threading.Thread(target=wait)
+            thread.start()
+            time.sleep(0.3)
+            self.assertFalse(done.is_set())
+        thread.join(3)
+        self.assertTrue(done.is_set())
+        self.assertIn('Another Job Pilotto search is running (app or terminal): waiting for a daily scheduled run', out.getvalue())
+
+    def test_a_run_gives_up_on_a_holder_that_never_lets_go(self):
+        folder = tempfile.mkdtemp()
+        with paths.run_lock(folder, label='daily scheduled'):
+            with redirect_stderr(io.StringIO()), self.assertRaises(paths.LockTimeout) as caught:
+                paths.run_lock(folder, poll=0.05, wait_max=0.2).__enter__()
+        self.assertIn('waiting for a daily scheduled run', str(caught.exception))
+        self.assertIn(f'pid {os.getpid()}', str(caught.exception))
+        self.assertIn('looks stuck', str(caught.exception))
+
+    def test_a_lock_from_before_the_holder_wrote_anything_still_reads_well(self):
+        self.assertIn('waiting for another run;', paths._waiting_line({}, time.time()))
 
 
 if __name__ == '__main__':

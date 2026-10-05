@@ -1069,6 +1069,9 @@ export async function init() {
 
   window.pilot.onLog(line => {
     if (shared.idleSeen || /^Searching job boards/.test(line)) { shared.logLines = []; shared.idleSeen = false; shared.selectedRun = null; }
+    // "Still running · no new output for 1 min" and the wait for another run: only the newest of a row stays (lib/pipeline.js STATUS_LINE).
+    const status = /^(?:⏳ Still running|Another Job Pilotto search is running)/;
+    if (status.test(line) && status.test(shared.logLines.at(-1) || '')) shared.logLines.pop();
     shared.logLines.push(line);
     refreshActivity();
   });

@@ -28,14 +28,19 @@ def main():
     import importlib
     if name in ('check', 'daily', 'scout', 'discover', 'feeds'):
         # One search at a time: the app and the terminal share the job cache (src/paths.py run_lock).
-        from .paths import run_lock
-        with run_lock():
-            # ⚙️ Search settings in Notion are the source of truth: refresh the cached config before it's imported.
-            from .notion import search_settings
-            search_settings.sync_quietly()
-            from . import places
-            places.refresh_quietly()   # "Germany", "Asia": the cities they stand for, worked out once and kept (src/places.py)
-            return importlib.import_module(commands[name]).main() or 0
+        from .paths import LockTimeout, run_lock
+        mode = sys.argv[sys.argv.index('--mode') + 1] if '--mode' in sys.argv[:-1] else ''
+        try:
+            with run_lock(label=f'{name} {mode}'.strip()):
+                # ⚙️ Search settings in Notion are the source of truth: refresh the cached config before it's imported.
+                from .notion import search_settings
+                search_settings.sync_quietly()
+                from . import places
+                places.refresh_quietly()   # "Germany", "Asia": the cities they stand for, worked out once and kept (src/places.py)
+                return importlib.import_module(commands[name]).main() or 0
+        except LockTimeout as error:   # the holder is stuck: say so plainly, not as a crash
+            print(f'⚠️ {error}', file=sys.stderr)
+            return 1
     return importlib.import_module(commands[name]).main() or 0
 
 

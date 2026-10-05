@@ -1,5 +1,6 @@
 """Repository paths shared by every module."""
 import contextlib
+from datetime import datetime
 import json
 import os
 import re
@@ -113,11 +114,36 @@ REPORTS = DATA / 'reports' if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'rep
 JOBS_DB = DATA / 'jobs.sqlite'
 
 
+def _holder(handle):
+    """Who holds a run lock: {'pid', 'label', 'at'} as its holder wrote it, or {} (a lock from before this was written)."""
+    try:
+        handle.seek(0)
+        info = json.loads(handle.read() or '{}')
+        return info if isinstance(info, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _waiting_line(info, since):
+    """The line a run waiting for the lock prints: what it waits for, since when, so the log is not one silent sentence."""
+    mins = int((time.time() - since) // 60)
+    what = f"a {info['label']} run" if info.get('label') else 'another run'
+    began = f" started {datetime.fromtimestamp(info['at']).strftime('%H:%M')}" if info.get('at') else ''
+    pid = f" (pid {info['pid']})" if info.get('pid') else ''
+    return f'Another Job Pilotto search is running (app or terminal): waiting for {what}{began}{pid}; waited {mins} min so far…'
+
+
+class LockTimeout(RuntimeError):
+    """The run lock stayed taken for the whole wait: its holder is probably stuck (said so, with its pid, in the message)."""
+
+
 @contextlib.contextmanager
-def run_lock(folder=None, on_wait=lambda: print('Another Job Pilotto search is running (app or terminal): waiting for it…',
-                                                file=sys.stderr), poll=5, name='run'):
+def run_lock(folder=None, on_wait=None, poll=5, name='run', label='', wait_max=20 * 60):
     """One search at a time per data folder, whether the app or the terminal started it (they share the cache). name: another
-    job that must take turns the same way, with its own lock (e.g. 'insights': one interview-insights refresh at a time)."""
+    job that must take turns the same way, with its own lock (e.g. 'insights': one interview-insights refresh at a time).
+    A run that waits more than wait_max seconds (default 20 min, only without on_wait) gives up with LockTimeout instead of
+    waiting for a stuck holder for ever (5 Oct 2026: a hung search kept "Prepare top matches" waiting 9+ min, unseen). The holder writes its pid, label and start time into the lock file, and a waiting run says what it waits for, again every
+    minute (on_wait, when given, is called once with no arguments instead)."""
     folder = Path(folder or DATA)
     folder.mkdir(parents=True, exist_ok=True)
     handle = open(folder / f'{name}.lock', 'a+')
@@ -130,17 +156,34 @@ def run_lock(folder=None, on_wait=lambda: print('Another Job Pilotto search is r
             import fcntl
             lock = lambda: fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             unlock = lambda: fcntl.flock(handle, fcntl.LOCK_UN)
-        told = False
+        since, told = time.time(), 0
         while True:
             try:
                 lock()
                 break
             except OSError:
-                if not told:
-                    on_wait()
-                    told = True
+                if on_wait:
+                    if not told:
+                        on_wait()
+                        told = 1
+                elif time.time() - since > wait_max:
+                    info = _holder(handle)
+                    what = f"a {info['label']} run" if info.get('label') else 'another run'
+                    pid = f" (pid {info['pid']})" if info.get('pid') else ''
+                    raise LockTimeout(f'Gave up after {int(wait_max // 60)} min waiting for {what}{pid}. It looks stuck: stop it '
+                                      '(Activity Monitor) and run this again.')
+                elif time.time() - told >= 30:
+                    print(_waiting_line(_holder(handle), since), file=sys.stderr, flush=True)
+                    told = time.time()
                 time.sleep(poll)
         try:
+            try:   # best effort: the lock itself is the flock, this is only for whoever waits
+                handle.seek(0)
+                handle.truncate()
+                handle.write(json.dumps({'pid': os.getpid(), 'label': label, 'at': time.time()}))
+                handle.flush()
+            except OSError:
+                pass
             yield
         finally:
             unlock()

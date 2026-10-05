@@ -456,6 +456,11 @@ export function taskSummary(kind, log) {
 const CRASH_LINE = /^(?:Traceback \(most recent call last\)|(?:[\w.]+\.)?[A-Z]\w*(?:Error|Exception|Exit|Interrupt)\b)/;
 export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged/.test(line) && line.length < 120 && !CRASH_LINE.test(line);
 
+// A line that says "still here" (the engine's wait for the run lock, or the app's own heartbeat): one in a row is kept, the newest, so a long
+// quiet stretch reads as one live line, not a wall of them (the window does the same, renderer/pages/jobs.js).
+export const STATUS_LINE = /^(?:⏳ Still running|Another Job Pilotto search is running)/;
+export const HEARTBEAT_MS = {every: 15 * 1000, quiet: 30 * 1000};
+
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
 function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
@@ -474,16 +479,24 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
     current = {...record, step: 'Starting', resume};
     saveQueue(storage);
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
+    let lastAt = Date.now();
     const tee = line => {
+      if (STATUS_LINE.test(line) && STATUS_LINE.test(log.at(-1) || '')) log.pop();
       log.push(line);
+      if (!line.startsWith('⏳ Still running')) lastAt = Date.now();
       current = {...current, log: log.slice(-300)};   // the window can be reloaded (⌘R) without losing what the run said so far
       const rowUrl = /^Cronjob run logged: (\S+)/.exec(line)?.[1];
       if (rowUrl) current = {...current, rowUrl};   // the banner's "View log" link; the line itself is not a step
       if (line === '<<<message' || line === 'message>>>') inMessage = line === '<<<message';
-      else if (!inMessage && isProgressStep(line)) current = {...current, step: line};
+      else if (!inMessage && !line.startsWith('⏳ Still running') && isProgressStep(line)) current = {...current, step: line};
       onLine(line);
     };
     let ok = false, result = null;
+    // A task can go quiet for minutes (an AI call, a wait for another run): say it is still alive, with how long it has been quiet (tasks 'tracked' here are all of them).
+    const beat = setInterval(() => {
+      const quiet = Date.now() - lastAt;
+      if (quiet >= HEARTBEAT_MS.quiet) tee(`⏳ Still running · no new output for ${quietText(quiet)}`);
+    }, HEARTBEAT_MS.every);
     try {
       const outcome = (await work(tee)) || {};
       ok = outcome.ok;
@@ -491,6 +504,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
     } catch (error) {
       tee(`${taskName(kind)} failed: ${error.message}`);
     } finally {
+      clearInterval(beat);
       const notionUrl = result?.notion_url || log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
       Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, runId: result?.run_id || null,
         log: log.slice(-400), ...summarize(record, log)});
