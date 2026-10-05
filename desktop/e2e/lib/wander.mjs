@@ -19,6 +19,7 @@ export const FAULTS = [
   {id: 'notion-down', target: 'notion', mode: 'server-error'},
   {id: 'notion-offline', target: 'notion', mode: 'offline', times: 6},
   {id: 'notion-refuses-saves', target: 'notion', mode: 'server-error', writes: true},
+  {id: 'notion-flaky', target: 'notion', mode: 'unavailable', every: 2},   // a network that drops every second call
   {id: 'notion-silent', target: 'notion', mode: 'hang', times: 2},
   {id: 'ai-rate-limit', target: 'ai', mode: 'rate-limit'},
   {id: 'ai-no-credit', target: 'ai', mode: 'no-credit'},

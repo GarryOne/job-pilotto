@@ -20,6 +20,11 @@ test('the plan: N failures then pass; only writes; every call', () => {
   assert.equal(decide({mode: 'server-error'}, 'GET', '/v1/x'), 'server-error');
 });
 
+test('a flaky network: every Nth call fails, the others pass', () => {
+  const plan = {mode: 'unavailable', every: 2};
+  assert.deepEqual([1, 2, 3, 4].map(() => decide(plan, 'GET', '/v1/pages/x')), ['pass', 'unavailable', 'pass', 'unavailable']);
+});
+
 test('the server answers an HTML page, a 429 with retry-after, refuses a connection, and passes through', async () => {
   const notion = http.createServer((req, res) => { res.writeHead(200, {'content-type': 'application/json'}); res.end(JSON.stringify({object: 'page', path: req.url})); });
   await new Promise(done => notion.listen(0, '127.0.0.1', done));

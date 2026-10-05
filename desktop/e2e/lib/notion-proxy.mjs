@@ -18,6 +18,7 @@ export const isWrite = (method, url) => WRITES.has(method) && !/\/(?:databases|d
 export function decide(plan, method, url) {
   if (plan.mode === 'pass') return 'pass';
   if (plan.writes && !isWrite(method, url)) return 'pass';
+  if (plan.every) { plan.seen = (plan.seen || 0) + 1; if (plan.seen % plan.every !== 0) return 'pass'; }   // a flaky network: every Nth call fails, the rest get through
   if (plan.times != null) { if (plan.times <= 0) return 'pass'; plan.times--; }
   return plan.mode;
 }
@@ -54,7 +55,7 @@ export async function startNotionProxy({target = 'https://api.notion.com'} = {})
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return {url: `http://127.0.0.1:${server.address().port}`, stats,
-    fail: (mode, {times = null, writes = false} = {}) => { if (!MODES.includes(mode)) throw new Error(`unknown Notion proxy mode: ${mode}`); plan = {mode, times, writes}; },
+    fail: (mode, {times = null, writes = false, every = 0} = {}) => { if (!MODES.includes(mode)) throw new Error(`unknown Notion proxy mode: ${mode}`); plan = {mode, times, writes, every}; },
     pass: () => { plan = {mode: 'pass'}; },
     close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }

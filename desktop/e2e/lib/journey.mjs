@@ -6,6 +6,10 @@ export const resetJourney = () => { journey.pageErrors.length = 0; journey.conso
 
 // What a suite that breaks the AI on purpose expects to see in the console (the app logging the refusals it then shows in words).
 const EXPECTED_AI = /\b(?:429|500|529|401|overloaded|rate.?limit|credit balance|usage limits?|spend(?:ing)? limit|anthropic|AI service)\b/i;
+// The same for a suite that makes Notion fail on purpose (wander, 5 Oct 2026): the app logging "busy", "unavailable" or "connection lost" is the refusal it then shows in words.
+// A rejection nobody caught ("Uncaught ...") is still the app's bug, outage or not.
+const EXPECTED_OUTAGE = /\b(?:502|503|bad gateway|service.?unavailable|notion is unavailable|rate.?limited|failed to fetch|fetch failed|ERR_CONNECTION\w*|ERR_NETWORK\w*|ECONNRESET|socket hang up)\b/i;
+const expected = (text, expectsFailures) => expectsFailures && (EXPECTED_AI.test(text) || (EXPECTED_OUTAGE.test(text) && !/^Uncaught/.test(String(text).trim())));
 // Noise that is not the app's: a page outside the app, the dev tools, an aborted load while a page is replaced.
 // Also the test profile's seeded secrets: a keychain that did not encrypt them cannot decrypt them (#217), which no real install does.
 const NOISE = /DevTools|Electron Security Warning|ERR_ABORTED|net::ERR_INTERNET_DISCONNECTED|safeStorage|decryptString|decrypting the ciphertext/;
@@ -21,7 +25,7 @@ export function journeyFindings(store, {suite, expectsFailures = false, max = 3}
     out.push({view, severity, kind, detail: `${sig}: "${firstLine(text)}"`});
   };
   for (const text of store.pageErrors) if (!NOISE.test(text)) add('console-error', 'warning', `window threw ${signature(text)}`, text);
-  for (const text of store.consoleErrors) if (!NOISE.test(text) && !(expectsFailures && EXPECTED_AI.test(text))) add('console-error', 'warning', `console ${signature(text)}`, text);
+  for (const text of store.consoleErrors) if (!NOISE.test(text) && !expected(text, expectsFailures)) add('console-error', 'warning', `console ${signature(text)}`, text);
   for (const url of store.failedLoads) add('broken-resource', 'warning', 'failed to load', url);
   return out;
 }

@@ -17,6 +17,13 @@ test('distinct window errors become findings, each once, at most a few per kind'
   assert.ok(expecting.some(item => /TypeError/.test(item.detail)), 'an exception is still a bug there');
 });
 
+test('a Notion outage the suite causes is expected in the console; an uncaught rejection never is', () => {
+  const store = {pageErrors: [], consoleErrors: ['Notion is unavailable, please try again later. 503', 'TypeError: Failed to fetch', 'Uncaught (in promise) Error: notion 502'], failedLoads: []};
+  assert.equal(journeyFindings(store, {suite: 'jobs'}).length, 3, 'no suite expects it by default');
+  const expecting = journeyFindings(store, {suite: 'wander', expectsFailures: true});
+  assert.deepEqual(expecting.map(item => item.detail.split(':')[0]), ['console Uncaught-in-promise']);
+});
+
 test('a journey error is filed with a title that names the error', () => {
   const [finding] = normalize({ui: journeyFindings({pageErrors: ['TypeError: x is undefined'], consoleErrors: [], failedLoads: []}, {suite: 'focus'})});
   assert.equal(issueTitle(finding), '[auto-ui] focus-journey: console error on focus-journey: window: "TypeError: x is undefined"');

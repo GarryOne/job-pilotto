@@ -65,7 +65,7 @@ export async function run(ctx) {
   for (const [i, step] of plan.steps.entries()) {
     const fault = plan.fault;
     const where = `step ${i + 1} (${step.move}${step.view ? `: ${step.view}` : ''})`;
-    if (fault && i === fault.from) { if (fault.target === 'notion') ctx.notion.fail(fault.mode, {times: fault.times ?? null, writes: !!fault.writes}); else ctx.proxy.setMode(fault.mode); console.log(`  fault on: ${fault.id}`); }
+    if (fault && i === fault.from) { if (fault.target === 'notion') ctx.notion.fail(fault.mode, {times: fault.times ?? null, writes: !!fault.writes, every: fault.every || 0}); else ctx.proxy.setMode(fault.mode); console.log(`  fault on: ${fault.id}`); }
     if (fault && i === fault.until) { ctx.notion.pass(); ctx.proxy.setMode('pass'); console.log(`  fault off: ${fault.id}`); }
     await ctx.run(`${where}${fault && i >= fault.from && i < fault.until ? ` while ${fault.id}` : ''}`, async () => {
       const {page} = ctx;
