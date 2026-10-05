@@ -18,7 +18,7 @@ test('Coming up has a card empty state with a calendar icon', () => {
 });
 
 test('each side event is a small bordered card', () => {
-  assert.match(read('style.css'), /\.cal-row \{[^}]*border: 1px solid var\(--border\)[^}]*border-radius: var\(--r-md\)/);
+  assert.match(read('style.css'), /\.cal-row \{[^}]*border: 1px solid var\(--line-strong\)[^}]*border-radius: var\(--r-md\)/);
 });
 
 test('Recent interviews: count, View all, scrolling list, Load more', () => {
