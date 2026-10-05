@@ -50,7 +50,7 @@ export async function showSearchStatus() {
 // ---------- activity bar (bottom of every screen) ----------
 // Plain-language phases of a search, recognised from its log lines.
 const PHASES = [
-  {match: /^Searching job boards/, label: 'Job boards (jobs.ch, TechTree)'},
+  {match: /^(Searching job boards|Job boards:)/, label: 'Job boards'},
   {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
 ];
 // A search's current log line as a short phrase for the header and the bottom bar (the raw line is in the log).
@@ -104,6 +104,11 @@ function warningSummary(warnings) {
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
+// A phase's label, with the sources the engine said it used ("Job boards: jobs.ch, …") instead of a fixed list.
+function phaseLabel(phase, lines) {
+  const named = phase.match.test('Job boards:') && lines.map(line => /^Job boards: (.+)/.exec(line)).filter(Boolean).pop();
+  return named ? `${phase.label} (${named[1]})` : phase.label;
+}
 function phaseIndex(lines) {
   let index = -1;
   lines.forEach(line => PHASES.forEach((phase, i) => { if (phase.match.test(line)) index = i; }));
@@ -459,7 +464,7 @@ export function renderActivity(fresh) {
   $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
     : PHASES.map((phase, i) => {
       // The step a run that warned stopped at is not a clean tick: a refused AI call under "reading and scoring" must not look done (UI loop #51).
-      return Object.assign(document.createElement('li'), {className: phaseStatus(run, i, at), textContent: phase.label});
+      return Object.assign(document.createElement('li'), {className: phaseStatus(run, i, at), textContent: phaseLabel(phase, lines)});
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and

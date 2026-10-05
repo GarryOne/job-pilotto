@@ -241,12 +241,13 @@ def main():
     if not 1<=args.pages<=10 or not 1<=args.max_companies<=200:p.error('pages: 1–10; max-companies: 1–200')
     from ..features import disabled
     if disabled('discover'):
-        print('jobs.ch/TechTree discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
+        print('job board discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
     if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # the end-to-end journey (desktop/e2e): only its fixture feeds, no live crawl
-        print('jobs.ch/TechTree discovery is off (fixture feeds only).');return 0
+        print('job board discovery is off (fixture feeds only).');return 0
     if not swiss_places(_SEARCH):   # these boards list Swiss employers only: nothing to find for places elsewhere
-        print('jobs.ch/TechTree discovery is skipped: those boards list Swiss employers only and your places are elsewhere.');return 0
+        print('job board discovery is skipped: those boards list Swiss employers only and your places are elsewhere.');return 0
     client=Client(args.refresh);jobs=[];sources=[]
+    print('Job boards: jobs.ch, SwissDevJobs, TechTree',flush=True)   # the app's activity list shows these names as they are
     for query in _SEARCH['jobs_board_search_queries']:
         for page in range(1,args.pages+1):
             url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,'page':page})

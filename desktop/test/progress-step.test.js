@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import {isProgressStep} from '../lib/pipeline.js';
 
 test('an engine progress line is a step', () => {
-  for (const line of ['Searching job boards (jobs.ch, TechTree)…', 'Checking employer career pages, then reading and scoring new jobs…', 'Scoring 12 jobs', 'Errors found: 0 feeds failed'])
+  for (const line of ['Searching job boards…', 'Checking employer career pages, then reading and scoring new jobs…', 'Scoring 12 jobs', 'Errors found: 0 feeds failed'])
     assert.equal(isProgressStep(line), true, line);
 });
 test('a traceback line, an exception line, an indented line or a warning is not', () => {
