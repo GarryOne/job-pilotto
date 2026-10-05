@@ -7,6 +7,7 @@
 //   3 the recipe funnel (candidate -> canary -> verified, disabled), and the questions the lab could not read, to fix next.
 // Counts and the forms' own public wording only. Owner-only, like /self-heal.
 import {viewer} from './auth.js';   // admins (invited) read this page too
+import {digest, markdown} from './digest.js';
 import {isOwner, esc, remember} from './stats.js';
 
 export const WEEK = 7;
@@ -72,7 +73,8 @@ export async function report(db, now = new Date()) {
     FROM lab_runs r WHERE r.kind = ? AND r.ok = 0 AND r.day >= ? GROUP BY r.fingerprint, r.site ORDER BY n DESC, last DESC LIMIT 15`)
     .bind(READING_KIND, thisWeek).all()).results || []).map(row => ({...row}));
 
-  return {lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
+  const learning = await digest(db, now).catch(() => null);
+  return {learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
     totals, use: {...use, unitNow: per('now').unit, reasons}, recipes, unread, from: lastWeek, to: day(now)};
 }
 
@@ -85,6 +87,20 @@ function trend(now, before, higherIsBetter = true) {
   if (Math.abs(delta) < 1e-9) return '<span class="muted">=</span>';
   const good = higherIsBetter ? delta > 0 : delta < 0;
   return `<span class="${good ? 'up' : 'down'}">${delta > 0 ? '▲' : '▼'}</span>`;
+}
+
+// From the learning digest (src/digest.js): efficiency day by day from every fill's record, and the top weaknesses.
+function learningSections(d) {
+  if (!d) return '';
+  const p = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
+  const days = d.daily.slice(-14).reverse();
+  return `<section class="card"><h2>📈 Efficiency, day by day</h2><small class="muted">One anonymous record per fill (apps from 0.8.97). Filled = required questions the fill answered; needing nothing = forms complete with nothing answered by hand.</small>
+<div class="wrap"><table><tr><th>Day</th><th class="n">Forms</th><th class="n">Filled</th><th class="n">Needing nothing</th><th class="n">Never read /100</th><th class="n">Submitted</th><th class="n">Median time</th></tr>
+${days.map(x => `<tr><td>${esc(x.day)}</td><td class="n">${x.forms}</td><td class="n">${p(x.filledShare)}</td><td class="n">${p(x.formsNeedingNothing)}</td><td class="n">${x.unreadPer100 ?? '–'}</td><td class="n">${p(x.submittedShare)}</td><td class="n">${x.medianSeconds == null ? '–' : `${x.medianSeconds} s`}</td></tr>`).join('')
+  || '<tr><td colspan="7" class="muted">No fill records yet: they start with extension 0.8.97.</td></tr>'}</table></div></section>
+<section class="card"><h2>🎯 Top weaknesses</h2><small class="muted">Ranked by impact (forms affected × required questions lost). The full digest, with evidence per release, for people and the weekly AI pass:
+<a href="/admin/form-filling/digest.md">Markdown</a> · <a href="/admin/form-filling/digest.json">JSON</a></small>
+<ol>${d.weaknesses.slice(0, 5).map(w => `<li><b>${esc(w.title)}</b> <span class="muted">· impact ${w.impact} · ${esc(w.area.split(':')[0])}</span></li>`).join('') || '<li class="muted">Nothing ranked yet.</li>'}</ol></section>`;
 }
 
 export function page(data) {
@@ -113,6 +129,7 @@ ${tile('🖱️ Operating (lab)', pct(o.now), trend(o.now.rate, o.before.rate), 
 ${tile('🕳️ Blind spots (real use)', haveUse ? num(blindNow) : '–', haveUse ? trend(blindNow, blindBefore, false) : '', `per 100 ${esc(data.use.unitNow)}: questions the fill never read · ${data.use.now.fills} forms this week`)}
 ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${data.recipes.canary.n} canary</span>`, `verified · ${data.recipes.candidate.n} candidates (${data.recipes.candidate.fresh} new this week) · ${data.recipes.disabled.n} retired`)}
 </div>
+${learningSections(data.learning)}
 <section class="card"><h2>📖 The lab, per board</h2><small class="muted">The extension's own code on public application forms, daily, never submitted. Reading = required questions it read (what it would ask Claude); operating = widgets its operators set.</small>
 <div class="wrap"><table><tr><th>Board</th><th class="n">Reading</th><th></th><th class="n">Last week</th><th class="n">Operating</th><th></th><th class="n">Last week</th><th class="n">Runs</th></tr>
 ${data.lab.map(b => `<tr><td>${esc(b.board)}</td><td class="n">${pct(b.reading.now)}</td><td>${trend(b.reading.now.rate, b.reading.before.rate)}</td><td class="n muted">${pct(b.reading.before)}</td>
@@ -129,6 +146,14 @@ ${data.unread.map(u => `<tr><td>${esc(u.question || u.fingerprint)}</td><td>${es
 <section class="card"><h2>🧩 Recipe funnel</h2><small class="muted">Learned fixes for widgets, as data: proposed by a small model, tested in the lab, rolled out by canary.</small>
 <table><tr><th class="n">Candidate</th><th class="n">Canary</th><th class="n">Verified</th><th class="n">Retired</th></tr><tr>${['candidate', 'canary', 'verified', 'disabled'].map(s => `<td class="n">${data.recipes[s].n}${data.recipes[s].fresh ? ` <span class="muted">(+${data.recipes[s].fresh})</span>` : ''}</td>`).join('')}</tr></table></section>
 </main></body></html>`;
+}
+
+// GET /admin/form-filling/digest.json | .md: the learning digest (any admin, or the scripts' key for the weekly AI pass).
+export async function digestView(request, env, now = new Date()) {
+  if (!await viewer(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  const d = await digest(env.STATS, now);
+  if (new URL(request.url).pathname.endsWith('.md')) return new Response(markdown(d), {headers: {'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return Response.json(d, {headers: {'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
 
 export async function view(request, env, now = new Date()) {

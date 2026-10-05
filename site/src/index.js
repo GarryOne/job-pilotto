@@ -9,7 +9,7 @@ import {guard} from './guard.js';
 import {view as intelligenceView} from './intelligence.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
-import {view as formLearningView} from './formlearning.js';
+import {digestView, view as formLearningView} from './formlearning.js';
 import {adminPage, redirectOld} from './admin.js';
 import {view as overviewView} from './overview.js';
 import {view as accessView} from './access.js';
@@ -85,6 +85,7 @@ export default {
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
       '/admin/access': accessView}[pathname];   // access: the super admin's only (src/access.js)
     if (pathname === '/admin/join') return join(request, env);   // an invite link, opened once
+    if (pathname === '/admin/form-filling/digest.json' || pathname === '/admin/form-filling/digest.md') return digestView(request, env);
     if (admin) {
       const who = await viewer(request, env);
       return adminPage(await admin(request, env), pathname, who || undefined);

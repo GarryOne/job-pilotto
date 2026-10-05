@@ -236,6 +236,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
+- `extension/fill-card.js` — One anonymous record per fill (a "fill card"), for learning how well the form filling does and why: counts and fixed words only,
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.

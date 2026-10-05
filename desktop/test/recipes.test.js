@@ -265,3 +265,20 @@ test('empty-field reasons are summed per board and reason word; unknown words an
   await reporter.flush();
   assert.deepEqual(sent[0].unfilled, [{board: 'ashby', reason: 'no_answer', n: 3}]);
 });
+
+test('each fill\'s record and what Submit added go in the batch, with the board; nothing when reports are off', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({})});
+  reporter.card('ashby', {id: 'fill-0001-abc', v: '0.8.97', required: 5, filled: 4, causes: {ai_unsure: 1}});
+  reporter.card('ashby', {id: 'x'});   // not a record's id: dropped
+  reporter.submit('fill-0001-abc', {submitted: true, by_you: 1});
+  reporter.submit('fill-0001-abc', {page_error: 2});
+  await reporter.flush();
+  assert.deepEqual(sent[0].cards.map(c => [c.id, c.board]), [['fill-0001-abc', 'ashby']]);
+  assert.deepEqual(sent[0].submits, [{id: 'fill-0001-abc', submitted: true, by_you: 1, by_you_unread: 0, page_error: 2}]);
+  storage.saveSettings({telemetry: false});
+  reporter.card('ashby', {id: 'fill-0002-abc'});
+  assert.deepEqual(await reporter.flush(), {sent: 0});
+});

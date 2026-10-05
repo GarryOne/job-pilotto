@@ -2037,8 +2037,10 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const unreadCount = left.find(c => c.reason === 'unread')?.n || 0;
     if (unreadCount) appLog('review', `fill: ${unreadCount} required question(s) on the page not read`, {board});
     if (payload.flow) recipeReporter.flow(board, flowState(payload.flow));   // where an application got to on this board
-    if (payload.byYou || payload.invalid) {   // at Submit: what the fill missed (the person answered it, or the page flagged it)
+    if (payload.card) recipeReporter.card(board, payload.card);   // this fill's anonymous record (extension/fill-card.js)
+    if (payload.byYou || payload.invalid || payload.fillId) {   // at Submit: what the fill missed (the person answered it, or the page flagged it)
       const counts = submitCounts(payload);
+      if (payload.fillId) recipeReporter.submit(payload.fillId, {submitted: payload.submitted, ...Object.fromEntries(counts.map(c => [c.reason, c.n]))});
       recipeReporter.unfilled(board, counts);
       recipeReporter.question(missedQuestions(payload), board);
       appLog('review', `at submit: ${counts.map(c => `${c.n} ${c.reason}`).join(', ') || 'nothing missed'}`, {board});

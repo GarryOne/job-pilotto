@@ -616,12 +616,14 @@
     if (Date.now() - submitNoted < 3000) return;   // a form's submit event and its button's click are one press
     submitNoted = Date.now();
     const answered = byYou(fields());
-    if (answered.length) send({type: 'formLearning', url: location.href, byYou: answered}).catch(() => {});
+    // The fill's record (fill-card.js), so the digest knows this form was submitted and what you answered yourself.
+    const fillId = document.documentElement.dataset.jobpilottoFill || '';
+    if (answered.length || fillId) send({type: 'formLearning', url: location.href, byYou: answered, fillId, submitted: true}).catch(() => {});
     // Still here a moment later: the page refused the submit; what it flags is what was missed or wrong.
     setTimeout(() => {
       if (!host.isConnected) return;
       const invalid = flagged();
-      if (invalid.length) send({type: 'formLearning', url: location.href, invalid}).catch(() => {});
+      if (invalid.length) send({type: 'formLearning', url: location.href, invalid, fillId: document.documentElement.dataset.jobpilottoFill || ''}).catch(() => {});
     }, 2500);
   };
   const noteSubmit = () => { noteLearned(); noteMissed(); send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {}); };

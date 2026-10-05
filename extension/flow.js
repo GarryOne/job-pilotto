@@ -1,6 +1,7 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {kitStance} from './tab-pages.js';
+import {fillCard} from './fill-card.js';
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -308,6 +309,11 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     [(summary.trace || []).filter(row => MECHANICAL.some(reason => String(row.reason || '').startsWith(reason))).map(row =>
       ({label: row.label, field: (debug.form || []).find(f => f.label === row.label)?.field || ''})),
     Object.values(me?.contact || config.profile || {}).filter(value => typeof value === 'string')]).catch(() => ({}));
+  // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
+  // the panel can add, at Submit, what you answered yourself.
+  summary.card = fillCard({id: crypto.randomUUID(), trace: summary.trace || [], form: debug.form || [],
+    sent: [...(debug.sentToClaude || []), ...later.map(f => f.field)], ai, aiError, useAI, kit: withKit, version: debug.version, startedAt});
+  await inPage(tab.id, id => { document.documentElement.dataset.jobpilottoFill = id; }, [summary.card.id]).catch(() => {});
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: job, started: startedAt.toISOString(),

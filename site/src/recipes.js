@@ -10,6 +10,7 @@
 //                       evidence). Product data only: no user data, no text, no answers.
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
 import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
+import {cleanCard} from '../../extension/fill-card.js';
 import {isOwner} from './stats.js';
 import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
 import {storeProposals as storeAliasProposals, storeUse as storeAliasUse} from './aliases.js';
@@ -141,13 +142,27 @@ export async function controls(request, env, now = new Date()) {
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
-  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0) + (Array.isArray(body.unfilled) ? Math.min(20, body.unfilled.length) : 0)
+  const extra = (Array.isArray(body.cards) ? Math.min(20, body.cards.length) : 0) + (Array.isArray(body.submits) ? Math.min(20, body.submits.length) : 0) + (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0) + (Array.isArray(body.unfilled) ? Math.min(20, body.unfilled.length) : 0)
     + (body.intel && typeof body.intel === 'object' ? 1 + Math.min(5, (body.intel.terms || []).length) + Math.min(20, (body.intel.dismissals || []).length) + Math.min(60, (body.intel.snapshot || []).length) : 0);
   const kv = env.WAITLIST, countKey = `controls:${install}:${day(now)}`;
   const count = kv ? Number(await kv.get(countKey)) || 0 : 0;
   if (count + samples.length + outcomes.length + extra > PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
   if (kv) await kv.put(countKey, String(count + samples.length + outcomes.length + extra), {expirationTtl: 2 * 86400});
   let storedSamples = 0, storedOutcomes = 0;
+  // One row per fill (extension/fill-card.js, checked again here), then what Submit added to it: the learning digest's material.
+  for (const raw of (Array.isArray(body.cards) ? body.cards : []).slice(0, 20)) {
+    const card = cleanCard(raw), board = text(raw?.board, 40).toLowerCase();
+    if (!card || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board)) continue;
+    await env.STATS.prepare(`INSERT OR IGNORE INTO fill_cards (id, day, board, version, required, filled, left_n, unread, optional, optional_filled, causes, kinds, ai, kit, seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(card.id, day(now), board, card.v, card.required, card.filled, card.left, card.unread, card.optional,
+      card.optionalFilled, JSON.stringify(card.causes), JSON.stringify(card.kinds), card.ai, card.kit ? 1 : 0, card.seconds).run();
+  }
+  for (const item of (Array.isArray(body.submits) ? body.submits : []).slice(0, 20)) {
+    const id = String(item?.id || ''), n = value => Math.max(0, Math.min(100, Math.round(Number(value)) || 0));
+    if (!/^[\w-]{8,40}$/.test(id)) continue;
+    await env.STATS.prepare(`UPDATE fill_cards SET submitted = MAX(submitted, ?), by_you = MAX(by_you, ?), by_you_unread = MAX(by_you_unread, ?), page_error = MAX(page_error, ?) WHERE id = ?`)
+      .bind(item.submitted ? 1 : 0, n(item.by_you), n(item.by_you_unread), n(item.page_error), id).run();
+  }
   for (const item of (Array.isArray(body.exposure) ? body.exposure : []).slice(0, 20)) {
     const board = text(item?.board, 40).toLowerCase();
     const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
