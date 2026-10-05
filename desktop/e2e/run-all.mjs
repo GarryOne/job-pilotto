@@ -23,9 +23,10 @@ export function pickSuites({all, cadence = {}, only = '', skip = '', manual = fa
   return chosen.filter(suite => !names(skip).includes(suite));
 }
 
-// -> how many suites run at once when --parallel is not given: 8 when every chosen suite has its own Notion token (they then share no page), else one after the other
-// (a suite without its own token falls back to the wizard's page, and two on one page break each other).
-export function defaultParallel(suites, env = {}, {most = 8} = {}) {
+// -> how many suites run at once when --parallel is not given: 4 when every chosen suite has its own Notion token (they then share no page), else one after the other
+// (a suite without its own token falls back to the wizard's page, and two on one page break each other). Four, not eight: on a 16 GB Mac more windows run it out of memory
+// and Chromium kills their renderers (6 Oct 2026: "renderer gone, killed" with 373 MB free).
+export function defaultParallel(suites, env = {}, {most = 4} = {}) {
   return suites.length > 1 && suites.every(suite => env[`E2E_NOTION_TOKEN_${suite.toUpperCase()}`]) ? Math.min(most, suites.length) : 1;
 }
 

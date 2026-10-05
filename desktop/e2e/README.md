@@ -32,7 +32,7 @@ The paid AI-judge steps (`employers`) also run only in the nightly gate and in m
 
 ## Running them all on this Mac
 `npm run all` runs every suite that is not manual, one after the other, and prints one table. `-- --only jobs,quality` runs exactly those (even a manual one), `-- --skip wizard` leaves some out,
-`-- --manual` adds the manual ones, `-- --parallel 3` runs three at a time (each suite then needs its own Notion token; without the flag, `run-all` runs up to 8 at once when every chosen suite has one, longest first). Secrets come from the environment, else from the Keychain
+`-- --manual` adds the manual ones, `-- --parallel 3` runs three at a time (each suite then needs its own Notion token; without the flag, `run-all` runs up to 4 at once when every chosen suite has one, longest first). Secrets come from the environment, else from the Keychain
 (`job-pilotto.e2e.anthropic_key`, `.notion_token`, `.notion_token_<suite>`).
 
 ```

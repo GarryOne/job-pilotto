@@ -32,5 +32,5 @@ test('run-all runs suites in parallel by default only when each has its own Noti
   assert.equal(defaultParallel(['jobs', 'settings', 'wizard'], env), 1, 'wizard has no token of its own');
   assert.equal(defaultParallel(['jobs'], env), 1, 'one suite is just one');
   const ten = 'abcdefghij'.split('');
-  assert.equal(defaultParallel(ten, Object.fromEntries(ten.map(x => [`E2E_NOTION_TOKEN_${x.toUpperCase()}`, 'x']))), 8, 'at most eight');
+  assert.equal(defaultParallel(ten, Object.fromEntries(ten.map(x => [`E2E_NOTION_TOKEN_${x.toUpperCase()}`, 'x']))), 4, 'at most four');
 });
