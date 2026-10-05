@@ -20,8 +20,10 @@ class DesktopWorkflowTest(unittest.TestCase):
         triggers = WORKFLOW.split('permissions:')[0]
         self.assertIsNone(re.search(r'^\s*push:', triggers, re.M))   # a trigger key, not the word inside a comment
         # 04:00 in Zurich all year (2 Oct 2026): UTC+2 in summer, UTC+1 in winter, so both UTC hours are scheduled and a guard lets the one at 04:xx/05:xx Zurich time go on.
-        self.assertIn("cron: '0 2 * * *'", triggers)
-        self.assertIn("cron: '0 3 * * *'", triggers)
+        # Not on the hour (5 Oct 2026): 0 2 and 0 3 were started six hours late two days running. Four slots at :17, and none on the busy :00.
+        for hour in (2, 3, 4, 5):
+            self.assertIn(f"cron: '17 {hour} * * *'", triggers)
+        self.assertNotRegex(triggers, r"cron: '0 \d+ ")
         self.assertIn('TZ=Europe/Zurich date +%H', WORKFLOW)
         # A late start still builds (4 Oct 2026: both runs came six hours late and the old 04-05 guard skipped them): 04:00-15:59.
         self.assertIn('[ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]', WORKFLOW)

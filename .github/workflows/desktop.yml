@@ -12,8 +12,12 @@ on:
   schedule:
     # 04:00 in Zurich all year: cron is UTC and Zurich is UTC+2 in summer, UTC+1 in winter, so both hours are scheduled and the step below lets only the one that falls
     # between 04:00 and 15:59 Zurich time go on (GitHub starts scheduled runs late, by up to six hours). If both pass, the second finds nothing new to build.
-    - cron: '0 2 * * *'
-    - cron: '0 3 * * *'
+    # Not on the hour: 0 2 and 0 3 were started six hours late on 3 and 4 Oct 2026 (07:43/08:58 and 07:52/09:29 UTC), GitHub's busiest minute. Four slots at :17 give it four
+    # chances; every one after the first build finds nothing new since that release.
+    - cron: '17 2 * * *'
+    - cron: '17 3 * * *'
+    - cron: '17 4 * * *'
+    - cron: '17 5 * * *'
   workflow_dispatch:
 
 permissions:
