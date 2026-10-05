@@ -452,7 +452,7 @@ def ask(tracker, email, result, suggested, index, lines, stats):
     index[0].add(email['id'])
     guess = f" (maybe {_label(suggested)})" if suggested is not None else ''
     lines.append(tgcard.block('Which job is this for?', escape(result.get('company') or email['subject'][:60]) + ': '
-                              + escape(result.get('summary') or kind) + (f' Maybe {escape(_label(suggested))}.' if suggested is not None else ''),
+                              + escape(result.get('summary') or kind) + (f' Maybe {_label(suggested)}.' if suggested is not None else ''),
                               tgcard.fact('Next step', 'answer in Job Pilotto: Focus')))
     if stats is not None:
         stats.setdefault('updates', []).append(f"❓ {kind} · {result.get('company') or subject[:60]} — which job?"[:140])
@@ -605,7 +605,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             # email and let Focus ask for the missing details, rather than drop it or name the job after the agency.
             row = interview_lead(tracker, client, model, email, apps, result, stats)
             if row is not None:
-                lines.append(tgcard.block('Which job is this for?', f"{escape(_label(row))}: the interview was detected, but the role could not be identified.",
+                lines.append(tgcard.block('Which job is this for?', f"{_label(row)}: the interview was detected, but the role could not be identified.",
                                           tgcard.fact('Next step', 'In Job Pilotto: Focus → Add details. Paste the job link or LinkedIn conversation.')))
         if not row and named:
             # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.

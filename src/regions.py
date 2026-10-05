@@ -9,14 +9,18 @@ import re
 import unicodedata
 
 # Cities and towns with their own job markets, each as a regex fragment (accents and the common German, French, Italian and English spellings).
-ZURICH = r'z(?:[uü]|ue)rich|winterthur|uster|d[uü]bendorf|wallisellen|opfikon|kloten|glattbrugg|schlieren|dietikon|w[aä]denswil|horgen|thalwil|pf[aä]ffikon|volketswil|regensdorf'
+ZURICH = r'z(?:[uü]|ue)rich|winterthur|\buster\b|d[uü]bendorf|wallisellen|opfikon|kloten|glattbrugg|schlieren|dietikon|w[aä]denswil|horgen|thalwil|pf[aä]ffikon|volketswil|regensdorf'
 BASEL = r'basel|bâle|liestal|muttenz|pratteln|allschwil|riehen|binningen|reinach|arlesheim|rheinfelden'
-BERN = r'\bbern\b|berne\b|biel|bienne|thun|k[oö]niz|burgdorf|langenthal|solothurn|aarau|olten|baden\b|fribourg|freiburg|schwarzenburg'
-GENEVA = r'gen[eè]v[ea]?|genf|lausanne|nyon|morges|vevey|montreux|renens|yverdon|\bpully\b|meyrin|carouge'
-OTHER_ROMANDIE = r'neuch[aâ]tel|sion\b|sitten|delémont|del[eé]mont|martigny|sierre|monthey|la chaux-de-fonds'
-CENTRAL = r'l[uü]cerne?|luzern|\bzug\b|\bcham\b|\bbaar\b|schwyz|altdorf|stans|sarnen|\bkriens\b|emmen'
-EAST = r'st\.? ?gallen|saint-gall|\bchur\b|frauenfeld|herisau|rapperswil|davos|schaffhausen|kreuzlingen|arbon|wil\b|appenzell|glarus|buchs'
-TICINO = r'lugano|bellinzona|locarno|mendrisio|chiasso|ticino|tessin|\bcadenazzo\b|manno'
+# A fragment that is also inside a longer word is anchored (#278, 5 Oct 2026): 'biel' was in Bielefeld, 'baden' in Baden-Württemberg, 'freiburg' in Freiburg im Breisgau, 'uster' in Custer,
+# 'nyon' in Canyon, 'sion' in Mission, 'arbon' in Carbonia, 'thun' in Thunder Bay, 'stans' in Stansted: German and other towns that let a wrong job in and cost an AI scoring.
+BIEL = r'\bbiel\b|bienne'
+FRIBOURG = r'fribourg|freiburg(?!\s+(?:im\s+breisgau|i\.\s*br))'
+BERN = r'\bbern\b|\bberne\b|' + BIEL + r'|\bthun\b|k[oö]niz|burgdorf|langenthal|solothurn|aarau|\bolten\b|(?<![-\w])baden\b(?!-)|' + FRIBOURG + r'|schwarzenburg'
+GENEVA = r'gen[eè]v[ea]?|genf|lausanne|\bnyon\b|morges|vevey|montreux|renens|yverdon|\bpully\b|meyrin|carouge'
+OTHER_ROMANDIE = r'neuch[aâ]tel|\bsion\b|sitten|delémont|del[eé]mont|martigny|sierre|monthey|la chaux-de-fonds'
+CENTRAL = r'l[uü]cerne?|luzern|\bzug\b|\bcham\b|\bbaar\b|schwyz|altdorf|\bstans\b|sarnen|\bkriens\b|\bemmen\b'
+EAST = r'st\.? ?gallen|saint-gall|\bchur\b|frauenfeld|herisau|rapperswil|davos|schaffhausen|kreuzlingen|\barbon\b|\bwil\b|appenzell|glarus|\bbuchs\b'
+TICINO = r'lugano|bellinzona|locarno|mendrisio|chiasso|ticino|tessin|\bcadenazzo\b|\bmanno\b'
 COUNTRY_WORDS = r'switzerland|schweiz|suisse|svizzera|svizra|\bch\b|\bsui\b'
 
 SWITZERLAND = '|'.join((ZURICH, BASEL, BERN, GENEVA, OTHER_ROMANDIE, CENTRAL, EAST, TICINO, COUNTRY_WORDS))
@@ -25,7 +29,7 @@ SWITZERLAND = '|'.join((ZURICH, BASEL, BERN, GENEVA, OTHER_ROMANDIE, CENTRAL, EA
 REGIONS = {
     'Switzerland': (('switzerland', 'schweiz', 'suisse', 'svizzera', 'svizra', 'swiss', 'ch', 'whole switzerland', 'all of switzerland'), SWITZERLAND),
     'Romandie': (('romandie', 'suisse romande', 'french speaking switzerland', 'western switzerland', 'westschweiz', 'welschschweiz', 'svizzera francese'),
-                 '|'.join((GENEVA, OTHER_ROMANDIE, r'fribourg|freiburg|biel|bienne|\bvaud\b|valais|wallis|\bjura\b'))),
+                 '|'.join((GENEVA, OTHER_ROMANDIE, FRIBOURG + '|' + BIEL + r'|\bvaud\b|valais|wallis|\bjura\b'))),
     'German-speaking Switzerland': (('deutschschweiz', 'german speaking switzerland', 'suisse alémanique', 'suisse alemanique', 'svizzera tedesca'),
                                     '|'.join((ZURICH, BASEL, BERN, CENTRAL, EAST))),
     'Ticino': (('ticino', 'tessin', 'italian speaking switzerland', 'svizzera italiana', 'suisse italienne'), TICINO),

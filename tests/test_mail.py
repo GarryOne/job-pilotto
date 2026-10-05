@@ -513,6 +513,21 @@ class MailTests(unittest.TestCase):
         self.assertIn('Interview scheduled', kinds)
         self.assertIn('Which job is this for?', sent[0])
 
+    def test_the_which_job_message_escapes_a_company_name_once(self):
+        # #279: _label() already escapes; escaping it again showed "AT&amp;T" to the owner in Telegram.
+        tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
+        google = FakeGoogle([email('h2', 'Connect Igor - SRE', sender='Jaya <j@att.test>')])
+
+        def track(tracker_, lead, text_, **options):
+            return app('new-lead', 'AT&T', lead['title'], stage='Screening', via=lead.get('recruiter_company', '')), ''
+        with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
+                mock.patch('src.ai.opportunity.track', track):
+            _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='AT&T',
+                                                              interview_at='2026-09-30T08:30:00+02:00')]])
+        message = ' '.join(sent)
+        self.assertIn('AT&amp;T', message)
+        self.assertNotIn('AT&amp;amp;T', message)
+
     def test_irrelevant_and_untracked_mail(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
         google = FakeGoogle([email('m5', 'Jobs you may like'), email('m6', 'Thanks for applying to Zeta')])
