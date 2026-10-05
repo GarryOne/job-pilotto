@@ -6,7 +6,7 @@ name: CI · End-to-end journey
 #  2. IMPROVEMENT LOOP. Three runs on main in the working day (09:47, 13:47, 17:47 UTC) feed ui-findings.yml (issues; ui-fix.yml turns the most critical into a pull request once a day). A scheduled run
 #     goes ahead on a new commit; on an unchanged one it takes a second and a third look (each a different seeded path, lib/variation.mjs) and then stops until the next commit:
 #     at most 3 runs per commit (lib/plan.mjs exploreDecision), so a busy day costs the schedule (3 runs) and an idle weekend 3 runs in all. A look at an unchanged commit runs ONLY the suites that
-#     walk a different path each time (`export const varies`, today `interactions` and `apply`): the others would repeat themselves.
+#     walk a different path each time (`export const varies`, today `interactions`, `apply` and `wander`): the others would repeat themselves.
 #     The AI review of screenshots (the costly part) runs when the UI or its tests changed, a finding waits, or the run is exploring. A push to main runs NO e2e (decided: e2e never runs on commit); by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
