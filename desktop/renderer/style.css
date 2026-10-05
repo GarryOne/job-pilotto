@@ -275,8 +275,8 @@ details.questions > p { margin: 0 0 6px; }
 .toast b { font-size: var(--fs-base); } .toast small { color: var(--on-navy-2); }
 /* Row main button: one colour per step, so the next action stands out. */
 .row-actions .row-main { border-radius: var(--r-md); font-weight: 700; border: 1.5px solid transparent; }
-.row-actions .state-prepare { background: var(--surface); color: var(--signal); border-color: var(--signal); }
-.row-actions .state-prepare:hover { background: var(--signal-soft); }
+.row-actions .state-prepare { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.row-actions .state-prepare:hover { background: var(--bg); }
 .row-actions .state-busy { background: var(--signal-soft); color: var(--signal-ink); border-color: var(--signal-line); }
 .row-actions .row-main.state-busy::before { border-color: color-mix(in srgb, var(--signal-ink) 30%, transparent); border-top-color: var(--signal-ink); }
 .row-actions .state-apply { background: var(--signal); color: var(--on-accent); }
@@ -498,11 +498,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .row-actions { flex-wrap: nowrap; gap: 6px; padding-top: 2px; justify-content: flex-end; align-items: center; }
 /* Wide enough for the longest label ("Apply with Claude"); every row shares it so the rows line up. */
 .row-actions .row-main { width: 10em; padding: 7px 6px; font-size: var(--fs-sm); border-radius: var(--r-sm); overflow: hidden; text-overflow: ellipsis; }
-/* One filled orange button in the list: the top row's. The other rows' next step is an outline button. */
-.job-row:first-child .row-actions .state-prepare { background: var(--signal); color: var(--on-accent); border-color: var(--signal); }
-.job-row:first-child .row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
-.job-row:not(:first-child) .row-actions .state-apply { background: var(--surface); color: var(--signal); border-color: var(--signal); }
-.job-row:not(:first-child) .row-actions .state-apply:hover { background: var(--signal-soft); filter: none; }
+/* Apply is always the filled orange button; Prepare is a neutral outline, so a ready kit and a missing one read apart. */
 .icon-btn { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
 .icon-btn:hover { background: var(--bg); }
 .bookmark { display: none; }
