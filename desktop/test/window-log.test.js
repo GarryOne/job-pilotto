@@ -43,7 +43,7 @@ test('a load that fails, a crashed or frozen renderer, a broken preload, and no 
   win.emit('preload-error', {}, '/x/preload.cjs', new Error('boom'));
   await win.runTimers();
   const text = win.lines.join('\n');
-  for (const want of [/load failed .*ERR_FILE_NOT_FOUND.*renderer\/index\.html/, /renderer gone .*crashed/, /not responding/, /responding again/, /preload failed .*preload\.cjs.*boom/, /not loaded after 30 s/]) assert.match(text, want);
+  for (const want of [/load failed .*ERR_FILE_NOT_FOUND.*renderer\/index\.html/, /renderer gone .*crashed.*freeMb.*ppid/, /not responding/, /responding again/, /preload failed .*preload\.cjs.*boom/, /not loaded after 30 s/]) assert.match(text, want);
 });
 
 test('the first start of a new version says which version it came from, once', () => {

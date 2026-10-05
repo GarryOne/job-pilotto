@@ -3,6 +3,10 @@
 // 3 Oct 2026: the first start after an update showed an empty window for minutes and nothing was written down, so the
 // cause could not be found. Error texts are the code's own messages (capped), never page content.
 
+import os from 'node:os';
+// exitCode 15 with reason "killed" is a SIGTERM from outside the app (6 Oct 2026, an e2e run lost its window and nothing said who or why): the free memory and the parent process help tell a killer from a crash.
+const machine = () => { try { return {freeMb: Math.round(os.freemem() / 1048576), appUpS: Math.round(process.uptime()), ppid: process.ppid}; } catch { return {}; } };
+
 const BLANK_CHECK = "document.querySelectorAll('.view:not([hidden])').length";   // a page is up when one view shows
 const MAX_ERRORS = 20;   // a broken page can throw on every frame: the first ones say enough
 
@@ -24,7 +28,7 @@ export function watchWindow(contents, {log, now = Date.now, setTimer = setTimeou
   contents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     if (isMainFrame !== false) log('window', `${label}: load failed`, {code, error: String(description).slice(0, 200), file: String(url).split('/').slice(-2).join('/')});
   });
-  contents.on('render-process-gone', (_event, details) => log('window', `${label}: renderer gone`, {reason: details?.reason, exitCode: details?.exitCode, error: 'renderer gone'}));
+  contents.on('render-process-gone', (_event, details) => log('window', `${label}: renderer gone`, {reason: details?.reason, exitCode: details?.exitCode, error: 'renderer gone', ...machine()}));
   contents.on('unresponsive', () => log('window', `${label}: not responding (error)`));
   contents.on('responsive', () => log('window', `${label}: responding again`));
   contents.on('preload-error', (_event, file, error) => log('window', `${label}: preload failed`, {file: String(file).split('/').pop(), error: String(error?.message || error).slice(0, 200)}));
