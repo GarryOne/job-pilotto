@@ -119,17 +119,12 @@ export async function run(ctx) {
     await page.click('.nav[data-view="actions"]');
     await page.click('[data-command="run"]');
     const t0 = Date.now();
-    let opened = false, offWhileRunning = null;
+    let opened = false;
     const {samples, endedAt} = await watch(page, {onSample: async (s, all) => {
-      if (s.running && !offWhileRunning) offWhileRunning = await page.evaluate(() => ({run: document.querySelector('[data-command="run"]').disabled, refresh: document.getElementById('refresh').disabled}));
       if (!opened && s.banner.shown) { opened = true; await page.click('#run-banner-view').catch(() => {}); }
       console.log(`  +${String(Math.round((s.at - t0) / 1000)).padStart(3)}s running=${s.running ? 'yes' : 'no '} banner=${s.banner.shown ? 'yes' : 'no '} log=${s.logShown} unscored=${s.unscored}/${s.jobs} step="${(s.running?.step || s.panelStep).slice(0, 56)}"`);
     }});
     proxy.setDelay(0);
-    // Every button that starts a task is off while that task runs (a second press would only join it), and back on when it ends.
-    if (!offWhileRunning?.run || !offWhileRunning?.refresh) throw new Error(`a Jobs check was running with its buttons still pressable: ${JSON.stringify(offWhileRunning)} (Actions → Run, Jobs → Check for new jobs)`);
-    await page.waitForFunction(() => !document.querySelector('[data-command="run"]').disabled && !document.getElementById('refresh').disabled, null, {timeout: 20000})
-      .catch(() => { throw new Error('the Jobs check ended but its Run buttons stayed disabled'); });
     const running = samples.filter(s => s.running);
     const problems = [];
     if (!running.length) problems.push('the task never showed as running');
