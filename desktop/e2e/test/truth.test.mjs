@@ -43,3 +43,17 @@ test('a run whose pill and steps disagree is wrong; agreeing ones are not', asyn
 test('a wrong result is filed high', () => {
   assert.equal(layoutSeverity({kind: 'wrong-result', severity: 'warning'}), 'high');
 });
+
+test('two runs on one page: each status is judged against its own steps, not the other run\'s', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage();
+    // The real panel: its status shows, its step list is hidden (as in the app while recall plants run).
+    const panel = `<div class="panel">${run('Failed', [['done', 'Search'], ['fail', 'Score']]).replace('<ol id="activity-phases">', '<ol id="activity-phases" hidden>')}</div>`;
+    const plant = `<div class="plant">${run('Completed', [['done', 'Search'], ['fail', 'Score']])}</div>`;
+    const found = await wrong(page, panel + plant);
+    assert.equal(found.length, 1, JSON.stringify(found));
+    assert.match(found[0].detail, /says "Completed" but a step is marked failed/);
+    assert.deepEqual(await wrong(page, `<div>${run('Failed', [['done', 'Search'], ['fail', 'Score']])}</div><div>${run('Completed', [['done', 'Search'], ['done', 'Score']])}</div>`), [], 'both right in their own box');
+  } finally { await browser.close(); }
+});

@@ -182,8 +182,11 @@ export function inspect({view, limits}) {
     }
   }
   // A run's status pill and its steps must tell the same story: #104 showed a Failed run with every step ticked green.
-  for (const [i, status] of shown('activity-status').entries()) {
-    const phases = shown('activity-phases')[i];
+  // Each status with the step list of its OWN run: the nearest container holding both. Pairing by position mixed the real Activity panel with another
+  // copy on the page (the recall plant): a "Completed" plant was judged against the panel's "Failed" (5 Oct 2026, a missed plant).
+  const ownPhases = status => { for (let box = status.parentElement; box; box = box.parentElement) { const list = box.querySelector('[id="activity-phases"]'); if (list) return visible(list) ? list : null; } return null; };   // the nearest list decides; hidden = nothing to compare
+  for (const status of shown('activity-status')) {
+    const phases = ownPhases(status);
     if (!phases) continue;
     const said = (status.textContent || '').trim();
     const steps = [...phases.children].filter(item => visible(item) && !item.classList.contains('update'));
