@@ -365,6 +365,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.
 - `tools/send-to-chatgpt.sh` — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
+- `tools/ship.sh` — Land this worktree's branch on main in one command (AGENTS.md "Change tiers"). It does what the checklist did by hand, and retries the
 - `tools/site-shots.mjs` — The website as visitors see it, for the product brain (.github/workflows/product-brain.yml): a desktop and a
 - `tools/stale-expectations.mjs` — Pre-push check (tools/pre-push-check.sh): the words this push removes from the window's code that an end-to-end suite still expects (desktop/e2e/lib/stale-expectations.mjs).
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the
