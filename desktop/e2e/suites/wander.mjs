@@ -32,7 +32,14 @@ export async function run(ctx) {
     mark: () => ctx.app.evaluate(() => (globalThis.__jpIpc || []).at(-1)?.seq || 0),
     since: mark => ctx.app.evaluate((_electron, from) => (globalThis.__jpIpc || []).filter(call => call.seq > from).map(({channel, start, ms, failed}) => ({channel, start, ms, failed})), mark),
   });
-  const hasNav = () => ctx.page.locator('.nav[data-view]').count().then(count => count > 0).catch(() => false);
+  // The app is showing a page or a setup step. When it is not, say what IS on screen: a blank window after a reload is the finding, and the words say where it stopped.
+  const ready = async () => {
+    await ctx.page.waitForSelector('.view:not([hidden]), .step:not([hidden])', {state: 'attached', timeout: 30000}).catch(async error => {
+      const seen = await ctx.page.evaluate(() => ({text: (document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 160), views: [...document.querySelectorAll('.view, .step')].map(el => `${el.className.split(' ')[0]}${el.dataset.view || el.dataset.step ? `:${el.dataset.view || el.dataset.step}` : ''}${el.hidden ? '(hidden)' : ''}`).slice(0, 12)})).catch(() => null);
+      throw new Error(`no page or setup step is showing (${error.message.split('\n')[0]}); the window shows ${seen ? `"${seen.text}", blocks ${seen.views.join(' ')}` : 'nothing (it is closed)'}`);
+    });
+  };
+  const hasNav = () => ctx.page.locator('.nav[data-view]').first().isVisible().catch(() => false);   // setup left half-way hides the menu: only the setup steps can be pressed
   const goto = async view => { if (await hasNav()) await ctx.page.click(`.nav[data-view="${view}"]`, {timeout: 5000}); };
   // The page still answers, and what it shows is not technical text or a broken layout. `where` names the step in a finding.
   const check = async where => {
@@ -50,7 +57,7 @@ export async function run(ctx) {
     if (plan.state.removeCv) fs.rmSync(path.join(ctx.profile, 'cv.pdf'), {force: true});
     if (plan.state.settings) await ctx.page.evaluate(settings => window.pilot.saveSettings(settings), plan.state.settings);   // eslint-disable-line no-undef
     await ctx.page.reload();
-    await ctx.page.waitForSelector('.view:not([hidden]), .step:not([hidden])', {timeout: 60000});
+    await ready();
     await check('the start state');
   }, {needs: ctx.needs});
 
@@ -72,8 +79,8 @@ export async function run(ctx) {
         const choices = (await safeControls()).filter(isSafe);
         if (choices.length) await pressNth(vary.pick(choices).at, 1);   // left open on purpose: the next step changes the page under it
       } else if (step.move === 'resize') await ctx.app.evaluate(({BrowserWindow}, [w, h]) => BrowserWindow.getAllWindows()[0].setSize(w, h), step.size);
-      else if (step.move === 'reload') { await page.reload(); await page.waitForSelector('.view:not([hidden]), .step:not([hidden])', {timeout: 60000}); }
-      else if (step.move === 'crash') { await ctx.relaunch(); await ctx.page.waitForSelector('.view:not([hidden]), .step:not([hidden])', {timeout: 60000}); }
+      else if (step.move === 'reload') { await page.reload(); await ready(); }
+      else if (step.move === 'crash') { await ctx.relaunch(); await ready(); }
       else if (step.move === 'idle') await page.waitForTimeout(step.ms);
       else if (step.move === 'probe') {
         await goto(step.view); await settle(page);
