@@ -21,6 +21,9 @@ export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts'
 // -> {app, page, profile, shot(name), close()}. `env` adds to the app's environment (models, test hooks).
 export const zoneOf = (env = {}) => env.TZ || 'Europe/Zurich';
 
+// Hidden windows (lib/e2e-hidden.js) only on the owner's Mac, so a run doesn't steal focus; CI is unchanged. E2E_HIDDEN=0 to watch, =1 to force.
+const hidden = (env = process.env) => (env.E2E_HIDDEN ? (env.E2E_HIDDEN === '1' ? '1' : '0') : (process.platform === 'darwin' && !env.CI ? '1' : '0'));
+
 export async function launch({env = {}, executablePath, args, profile: again, lang = ''} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place
   const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
@@ -32,7 +35,7 @@ export async function launch({env = {}, executablePath, args, profile: again, la
     // The app counts days in the computer's own zone; the suites check it against Europe/Zurich (lib/focus-data.mjs). On a CI runner in UTC the two disagreed
     // about "today" from 0:00 to 2:00 Zurich time, and Focus's 14-day count failed only then (4 Oct 2026). A suite that tests another zone sets TZ, and the engine follows it
     // (it reads JOB_PILOTTO_TZ first: the calendar suite's Tokyo and Honolulu must reach both the window and the engine).
-    env: {...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: process.env.E2E_HIDDEN === '0' ? '0' : '1', ...env},
+    env: {...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: hidden(), ...env},
     timeout: 90000,
   });
   const page = await app.firstWindow();
