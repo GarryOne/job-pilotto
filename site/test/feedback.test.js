@@ -53,7 +53,7 @@ test('the live page is the owner\'s only: 404 without the key, the page and its 
   const auth = {Authorization: 'Bearer secret'};
   const page = await open('', auth);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /Job Pilotto · feedback/);
+  assert.match(await page.text(), /💬 Feedback/);
   const data = await (await open('?json=1', auth)).json();
   assert.equal(data.rows.length, 1);
   assert.equal(data.rows[0].text, good.text);

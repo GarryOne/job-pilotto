@@ -8,7 +8,7 @@ import {report, store, tidy, view} from '../src/intelligence.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0014_intelligence.sql', '0009_knowledge.sql', '0016_intel_signals.sql', '0017_alias_proposals.sql', '0019_scouting.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0014_intelligence.sql', '0009_knowledge.sql', '0016_intel_signals.sql', '0023_intel_fix_days.sql', '0017_alias_proposals.sql', '0019_scouting.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -148,11 +148,11 @@ test('why fields stay empty: fixed reason words per board are summed, the rest i
   assert.match(html, /No answer in the profile/);
 });
 
-test('the owner page is not shadowed by the public one: /intel has no static asset', async () => {
+test('the owner page is not shadowed by the public one: /intel (now /admin/insights) has no static asset', async () => {
   const fs = await import('node:fs');
   const assets = fs.readdirSync(new URL('../public/', import.meta.url));
   assert.ok(assets.includes('intelligence.html'));  // public, served before the Worker
   assert.ok(!assets.some(name => name === 'intel' || name.startsWith('intel.')));
   const index = fs.readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
-  assert.match(index, /pathname === '\/intel'\) return intelligenceView/);
+  assert.match(index, /'\/admin\/insights': intelligenceView/);   // the owner page, under /admin since 6 Oct 2026
 });

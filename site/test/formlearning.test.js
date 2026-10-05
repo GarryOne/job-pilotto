@@ -42,7 +42,7 @@ test('this week vs last: lab reading and operating per board, real-use misses pe
   assert.deepEqual([data.recipes.verified.n, data.recipes.candidate.n, data.recipes.candidate.fresh], [1, 1, 1]);
   assert.deepEqual(data.unread.map(u => [u.question, u.site]), [['Team size', 'greenhouse']]);
   const html = page(data);
-  for (const text of ['smart form filling', 'Reading (lab)', 'Team size', 'Required question on the page, not read']) assert.ok(html.includes(text), text);
+  for (const text of ['Form filling', 'Reading (lab)', 'Team size', 'Required question on the page, not read']) assert.ok(html.includes(text), text);
 });
 
 test('an app that sends no required count is measured per 100 forms', async () => {

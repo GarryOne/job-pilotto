@@ -93,7 +93,7 @@ export function page(data) {
   const haveUse = data.use.now.fills || data.use.before.fills;
   const tile = (title, value, change, note) => `<section class="card tile"><small class="muted">${title}</small><b>${value} ${change}</b><small class="muted">${note}</small></section>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>Smart form filling</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex"><title>Form filling · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--good:#3fb68b;--bad:#e5484d}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
@@ -105,8 +105,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}th.n{text-align:right}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 </style></head><body><main>
-<header><h1>✈ Job Pilotto · smart form filling</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · this week vs last ·
-<a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a> · <a href="/self-heal">Self-healing →</a></span></header>
+<header><h1>📝 Form filling</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · this week vs last</span></header>
 <div class="tiles">
 ${tile('📖 Reading (lab)', pct(r.now), trend(r.now.rate, r.before.rate), `required questions read on public forms · ${r.now.n} this week, ${pct(r.before)} last`)}
 ${tile('🖱️ Operating (lab)', pct(o.now), trend(o.now.rate, o.before.rate), `widgets set by the operators · ${o.now.n} this week, ${pct(o.before)} last`)}

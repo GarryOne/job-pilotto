@@ -60,7 +60,7 @@ export async function view(request, env, now = new Date()) {
 }
 
 const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>Job Pilotto feedback</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex"><title>Feedback · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--green:#5ec47a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,sans-serif}
@@ -71,7 +71,7 @@ h1{margin:0;font-size:24px}a{color:var(--amber)}.muted{color:var(--muted)}.live{
 .card.fresh{border-color:var(--amber)}.meta{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap}
 .text{white-space:pre-wrap;overflow-wrap:anywhere}.reply{margin-top:8px;font-size:13px}.badge{color:var(--amber);font-weight:700}
 </style></head><body><main>
-<header><h1>💬 Job Pilotto · feedback</h1><span class="muted"><span class="live" id="live"><span class="dot"></span><span id="state">connecting…</span></span> · <a href="/telemetry">App reports →</a></span></header>
+<header><h1>💬 Feedback</h1><span class="muted"><span class="live" id="live"><span class="dot"></span><span id="state">connecting…</span></span></span></header>
 <div id="list"><p class="muted">Loading…</p></div>
 <script>
 const list = document.getElementById('list'), state = document.getElementById('state'), live = document.getElementById('live');

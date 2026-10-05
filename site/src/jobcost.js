@@ -55,7 +55,7 @@ export function page(rows, billed = []) {
     ['🧾 Billed by Anthropic', billed.length ? money(s.billedTotal) : '–', billed.length ? `the jobs explain ${s.covered === null ? '–' : s.covered + '%'} of it` : 'no billing report yet (ANTHROPIC_ADMIN_KEY)'],
   ];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>Job Pilotto AI cost</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex"><title>AI cost · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
@@ -67,7 +67,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}tr.total td{font-weight:700}
 </style></head><body><main>
-<header><h1>✈ Job Pilotto · AI cost</h1><span class="muted">scheduled jobs of the product · <a href="/self-heal">Self-heal →</a> · <a href="/stats">Website stats →</a></span></header>
+<header><h1>💸 AI cost</h1><span class="muted">scheduled jobs of the product</span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 <div class="grid">
 <section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>Last 30 days</th></tr>

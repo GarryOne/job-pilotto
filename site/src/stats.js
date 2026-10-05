@@ -166,7 +166,7 @@ export function page(data, list) {
     ['🎯 Conversion', pct(downloads.people || 0, visits.visitors || 0), 'visitors who download'],
     ['✉️ Pro waitlist', list.length, 'sign-ups, all time']];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>Job Pilotto stats</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex"><title>Website · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--teal:#5ec4b6}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
@@ -183,7 +183,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar i{height:10px;width:var(--w);background:var(--amber);border-radius:5px}.bar b{text-align:right}
 table{width:100%;border-collapse:collapse;margin-top:8px}td{padding:6px 4px;border-top:1px solid var(--line);overflow-wrap:anywhere}
 </style></head><body><main>
-<header><h1>✈ Job Pilotto · website stats</h1><span class="muted">${range} · <a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a> · <a href="/self-heal">Self-heal →</a></span></header>
+<header><h1>🌐 Website</h1><span class="muted">${range}</span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>Per day</h2><small class="legend muted"><i></i>visitors<i class="t"></i>downloaders</small>
 <div class="chart">${chart || '<p class="muted">Nothing yet</p>'}</div><div style="height:18px"></div></section>

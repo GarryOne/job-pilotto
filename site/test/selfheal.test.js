@@ -17,7 +17,7 @@ test('/self-heal is owner-only: a stranger gets 404, the key sets the cookie, th
   const opened = await view(new Request('https://x.dev/self-heal', {headers: {Cookie: cookie}}), env);
   assert.equal(opened.status, 200);
   assert.equal(opened.headers.get('X-Robots-Tag'), 'noindex');
-  assert.match(await opened.text(), /self-healing/);
+  assert.match(await opened.text(), /Self-healing/);
 });
 
 test('it is never a static page: static assets are served to anyone before the Worker', () => {

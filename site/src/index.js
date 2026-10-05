@@ -10,6 +10,8 @@ import {view as intelligenceView} from './intelligence.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
 import {view as formLearningView} from './formlearning.js';
+import {adminPage, redirectOld} from './admin.js';
+import {view as overviewView} from './overview.js';
 import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack} from './aliases.js';
 import {tidy as tidyIntelligence} from './intelligence.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
@@ -76,18 +78,16 @@ export default {
     if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
     if (pathname === '/install') return install(request, env, ctx, stats.record);
     if (pathname === '/api/hit') return stats.hit(request, env);
-    if (pathname === '/stats') return stats.stats(request, env);
+    // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
+    const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView,
+      '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView}[pathname];
+    if (admin) return adminPage(await admin(request, env), pathname);
+    const moved = redirectOld(request, env);   // /stats, /telemetry, /intel, /self-heal, /ai-cost, /smart-form-filling, /feedback
+    if (moved) return moved;
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
-    if (pathname === '/telemetry') return telemetry.view(request, env);
-    // The owner's dashboard. Not /intelligence: that is the public page (public/intelligence.html), and static assets are
-    // served before this Worker, so a route there is never reached.
-    if (pathname === '/intel') return intelligenceView(request, env);
     if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
-    if (pathname === '/self-heal') return selfHealView(request, env);   // owner-only: not in public/, or it would be served to anyone
     if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
-    if (pathname === '/ai-cost') return jobCostView(request, env);   // owner-only, like /self-heal
-    if (pathname === '/smart-form-filling') return formLearningView(request, env);   // owner-only: is form filling getting better
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
@@ -105,7 +105,6 @@ export default {
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);
     if (pathname === '/api/feedback') return feedback(request, env);
-    if (pathname === '/feedback') return feedbackView(request, env);
     if (pathname.startsWith('/api/ai/')) return trial(request, env);
     if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
     if (pathname === '/telemetry/version') return telemetry.evidence(request, env);

@@ -72,4 +72,4 @@ off in Settings; never from `npm start`).
 ## 🗂️ Where things live
 - **Code map:** `CODEMAP.md` · **change loop:** CONTRIBUTING.md · **releases:** RELEASE.md · **rules:** CLAUDE.md
 - **Notion (product):** Project Hub → Session Handoff (current state), Run Log, Decision Log, 🧭 Product Brain · Decisions
-- **Numbers:** `/stats` (website), `/telemetry` (apps), `/api/signals` (both, JSON; the /stats key)
+- **Numbers:** the owner's admin pages under `/admin` (overview, website, app, insights, self-healing, AI cost, form filling, feedback; one menu, the stats key; the old `/stats`, `/telemetry`, `/intel`, `/self-heal`, `/ai-cost`, `/feedback` addresses redirect the owner there), and `/api/signals` (JSON; the same key)

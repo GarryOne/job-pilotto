@@ -29,7 +29,7 @@ test('reports are stored, and the same problem from two users (other line number
   const rows = e.STATS.db.prepare('SELECT fingerprint, summary, data FROM telemetry').all();
   assert.equal(new Set(rows.filter(r => r.summary.startsWith('TypeError')).map(r => r.fingerprint)).size, 1);
   assert.ok(!rows.some(r => r.data.includes('igor@gmail.com')));  // scrubbed again on the server
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /TypeError: Cannot read properties/);
   assert.match(html, /<td><b>2<\/b><\/td>/);  // two users
   assert.match(html, /src\.ai\.prep build: JSONDecodeError/);
@@ -37,7 +37,7 @@ test('reports are stored, and the same problem from two users (other line number
 
 test('without the key the page does not exist; junk is refused', async () => {
   const e = env();
-  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry'), e, {})).status, 404);
+  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app'), e, {})).status, 404);
   assert.equal((await send(e, [{kind: 'nonsense', install: 'x'}])).status, 400);
 });
 
@@ -90,7 +90,7 @@ test('How it helped: each install\'s latest daily totals, summed', async () => {
   const e = env();
   const health = (install, at, applied, interviews) => ({kind: 'health', install, version: '0.4.1', platform: 'darwin', at, applied, interviews, offers: 0, formsFilled: 3});
   await send(e, [health('install-aaaa', '2026-09-28T08:00:00Z', 5, 0), health('install-aaaa', '2026-09-29T08:00:00Z', 7, 1), health('install-bbbb', '2026-09-29T09:00:00Z', 2, 1)]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📨 Applications<\/span><b>9<\/b>/);   // 7 (latest of the first install) + 2
   assert.match(html, /🧑‍💻 Interviews<\/span><b>2<\/b>/);
   assert.match(html, /all 2 installs reporting/);
@@ -98,17 +98,17 @@ test('How it helped: each install\'s latest daily totals, summed', async () => {
 
 test('the key, given once on either page, opens both (the cookie is for the whole site)', async () => {
   const e = env();
-  const first = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/stats?key=k3y'), e, {});
+  const first = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/website?key=k3y'), e, {});
   const cookie = first.headers.get('Set-Cookie');
   assert.match(cookie, /Path=\/;/);
-  const later = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Cookie: cookie.split(';')[0]}}), e, {});
+  const later = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app', {headers: {Cookie: cookie.split(';')[0]}}), e, {});
   assert.equal(later.status, 200);
 });
 
 test('an install whose report has no counts yet shows "–", not 0', async () => {
   const e = env();
   await send(e, [{kind: 'health', install: 'install-cccc', version: '0.4.0', platform: 'darwin', at: '2026-09-29T08:00:00Z', ai: true}]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📨 Applications<\/span><b>–<\/b>/);
   assert.match(html, /No counts yet/);
 });
@@ -137,12 +137,12 @@ test('the private page lists feedback with its contact; without the key it is no
   const e = env();
   e.STATS.db.prepare('INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(new Date().toISOString(), new Date().toISOString().slice(0, 10), 'install-aaaa', '0.5.75', 'darwin', 'Setup took 20 <min>', 'ana@example.com');
-  const open = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {});
+  const open = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   const html = await open.text();
   assert.match(html, /💬 Feedback, newest first/);
   assert.match(html, /Setup took 20 &lt;min&gt;/);
   assert.match(html, /ana@example\.com/);
-  const closed = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry'), e, {});
+  const closed = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app'), e, {});
   assert.equal(closed.status, 404);
 });
 
@@ -154,7 +154,7 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
     step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
     step('install-bbbb', 'goals'), step('install-bbbb', 'draft'), step('install-bbbb', 'extras'), step('install-bbbb', 'done', {minutes: 12})]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(html, /🚦 Setup funnel/);
   assert.match(html, /median time to finish: 12 min/);
   assert.match(html, /1 used the free AI credit/);
@@ -185,7 +185,7 @@ test('a control report reads as one problem per fingerprint, outcome and reason,
 test('the owner\'s page shows the access guard: what hit a limit or a decoy, only as digests', async () => {
   const e = env();
   e.STATS.db.exec(readFileSync(new URL('../migrations/0008_guard.sql', import.meta.url), 'utf8'));
-  const page = async () => (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  const page = async () => (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(await page(), /Access guard[\s\S]*Nothing odd/);
   const day = new Date().toISOString().slice(0, 10);
   e.STATS.db.prepare("INSERT INTO anomalies (day, kind, who, n, detail) VALUES (?, 'honeypot', 'abcdef0123456789', 2, 'x')").run(day);
@@ -199,7 +199,7 @@ test('Machines reporting counts each install once, however many versions it ran'
   const e = env();
   const ev = (install, version, platform) => ({kind: 'health', install, version, platform, at: '2026-09-29T08:00:00Z'});
   await send(e, [ev('install-aaaa', '0.4.0', 'darwin'), ev('install-aaaa', '0.4.1', 'darwin'), ev('install-aaaa', '0.4.2', 'darwin'), ev('install-bbbb', '0.4.2', 'win32')]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /Machines reporting<\/span><b>2<\/b><small class="muted">2 ever seen · 1 (macOS|Windows), 1 (macOS|Windows)/);
 });
 
@@ -207,7 +207,7 @@ test('Machines table: the version each install runs now, and the versions it has
   const e = env();
   const ev = (version, at) => ({kind: 'health', install: 'install-aaaa', version, platform: 'darwin', at});
   await send(e, [ev('0.4.0', '2026-09-28T08:00:00Z'), ev('0.4.2', '2026-09-30T08:00:00Z'), ev('0.4.1', '2026-09-29T08:00:00Z')]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /<span class="v now">0\.4\.2<\/span>/);
   assert.match(html, /<span class="v">0\.4\.0<\/span><span class="v">0\.4\.1<\/span><\/td>/);   // earlier versions only; the current one is the amber chip
 });
@@ -224,7 +224,7 @@ test('Channels: machines, finished setup and active, by the channel each install
   const {channels} = await import('../src/telemetry.js');
   const rows = await channels(e.STATS, 30, new Date('2026-10-01T00:00:00Z'));
   assert.deepEqual(rows.map(r => [r.source, r.machines, r.done, r.active]), [['reddit-devops', 2, 1, 1], ['unknown', 1, 0, 0]]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📣 Channels/);   // (the page reads the last 30 days from today, so only the heading is checked here)
 });
 
@@ -248,7 +248,7 @@ test('Notion prompt: connect rate per reason, why not, and the revisit trigger; 
   assert.equal(g.reasons.find(r => r.reason === 'focus').viewed, 1);
   assert.equal(g.revisit, false);         // far below 30 installs
   assert.equal((await funnel(e.STATS, 30)).started, 0);  // these are not setup steps
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
   assert.match(html, /🗂️ Notion prompt/);
   assert.match(html, /No problems reported/);
 });

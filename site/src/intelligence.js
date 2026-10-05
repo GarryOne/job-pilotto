@@ -6,6 +6,10 @@
 //   3 why a job was dismissed (a one-tap reason), by the job's fit-score band
 //   4 a daily snapshot of score band vs what became of the job (new, saved, applied, replied ...): does the score predict action?
 // store() takes the `intel` part of POST /api/controls; view() is the owner's /intel page (/intelligence is the public one).
+import {trendChip} from './admin.js';
+import {insightTrends} from './trends.js';
+const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].label, data.trends[key].values, data.trends[key]) : '');   // its weeks (src/trends.js)
+
 import {report as aiCost} from './aicost.js';
 import {REGIONS, ROLES} from './pool.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
@@ -98,6 +102,8 @@ export async function store(env, intel, now = new Date(), install = '') {
     await env.STATS.prepare(`INSERT INTO intel_fixes (label, filled, corrected, installs, last_day) VALUES (?, ?, ?, ?, ?)
       ON CONFLICT (label) DO UPDATE SET filled = filled + excluded.filled, corrected = corrected + excluded.corrected, installs = excluded.installs, last_day = excluded.last_day`)
       .bind(label, filled, corrected, JSON.stringify(installs), d).run();
+    await env.STATS.prepare(`INSERT INTO intel_fix_days (day, filled, corrected) VALUES (?, ?, ?)
+      ON CONFLICT (day) DO UPDATE SET filled = filled + excluded.filled, corrected = corrected + excluded.corrected`).bind(d, filled, corrected).run();
     out.fixes++;
   }
   return out;
@@ -193,7 +199,7 @@ export function page(data) {
   const dismissAll = dismissTotals.reduce((sum, [, n]) => sum + n, 0);
   const range = [7, 30, 90].map(n => (n === data.days ? `<b>${n} days</b>` : `<a href="?days=${n}">${n} days</a>`)).join(' · ');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>Job Pilotto intelligence</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex"><title>Insights · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--red:#e5776b;--teal:#5ec4b6}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,sans-serif}
@@ -203,36 +209,36 @@ header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
 table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px 4px}
 td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}.bar{height:8px;border-radius:99px;background:var(--amber);min-width:2px}
 </style></head><body><main>
-<header><div><h1>🧠 What the installs teach</h1><small class="muted">Counts only, by coarse tags: no job title, company or text. A role word is named only once ${MIN_PEOPLE}+ people chose it.</small></div>
-<div class="muted">Last ${range} · <a href="/telemetry">App reports</a> · <a href="/stats">Stats</a> · <a href="/intelligence">Public page</a></div></header>
-<section class="card"><h2>🔎 Is the search too narrow?</h2><small class="muted">Share of postings in people's wanted places that their role keywords catch (reports from each crawl), by role and region.</small>
+<header><div><h1>🧠 Insights</h1><small class="muted">Counts only, by coarse tags: no job title, company or text. A role word is named only once ${MIN_PEOPLE}+ people chose it.</small></div>
+<div class="muted">Last ${range} · <a href="/intelligence">Public page</a></div></header>
+<section class="card"><h2>🔎 Is the search too narrow?${chip(data, 'coverage')}</h2><small class="muted">Share of postings in people's wanted places that their role keywords catch (reports from each crawl), by role and region.</small>
 <table><tr><th>Role</th><th>Region</th><th>Reports</th><th>Keywords catch</th></tr>
 ${data.coverage.map(row => `<tr><td>${esc(row.role)}</td><td>${esc(row.region)}</td><td>${row.reports}</td><td>${pct(row.share)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No crawl reports yet.</td></tr>'}</table>
 <table><tr><th>Role word the keywords miss</th><th>Postings per report</th><th>Reports</th></tr>
 ${data.missed.map(row => `<tr><td>${esc(row.term)}</td><td>${row.perReport}</td><td>${row.reports}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing yet.</td></tr>'}</table></section>
-<section class="card"><h2>➕ Role words people accept</h2><small class="muted">From the card's one-click add. This becomes the starter keyword pack for new searches.</small>
+<section class="card"><h2>➕ Role words people accept${chip(data, 'terms')}</h2><small class="muted">From the card's one-click add. This becomes the starter keyword pack for new searches.</small>
 <table><tr><th>Word</th><th>People</th><th>Role / region</th></tr>
 ${data.terms.map(row => `<tr><td>${esc(row.term)}</td><td><b>${row.n}</b></td><td class="muted">${esc(row.where.slice(0, 4).join(' · '))}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">No word chosen by ${MIN_PEOPLE}+ people yet${data.hiddenTerms ? ` (${data.hiddenTerms} chosen by fewer)` : ''}.</td></tr>`}</table></section>
-<section class="card"><h2>🙅 Why jobs are dismissed</h2><small class="muted">${data.hints.length ? `Shipped to apps as scoring hints: ${esc(data.hints.map(h => `${h.reason} ${Math.round(h.share * 100)}%`).join(', '))}.` : 'No scoring hint shipped yet (needs 50+ dismissals, a reason at 30%+).'}</small><br><small class="muted">The one-tap reason after Dismiss. If most reasons are "seniority", the filters or the extraction need work.</small>
+<section class="card"><h2>🙅 Why jobs are dismissed${chip(data, 'dismiss')}</h2><small class="muted">${data.hints.length ? `Shipped to apps as scoring hints: ${esc(data.hints.map(h => `${h.reason} ${Math.round(h.share * 100)}%`).join(', '))}.` : 'No scoring hint shipped yet (needs 50+ dismissals, a reason at 30%+).'}</small><br><small class="muted">The one-tap reason after Dismiss. If most reasons are "seniority", the filters or the extraction need work.</small>
 <table>${dismissTotals.map(([reason, n]) => `<tr><td style="width:110px">${esc(reason)}</td><td><div class="bar" style="width:${Math.round(n / dismissAll * 100)}%"></div></td><td style="width:80px"><b>${n}</b> · ${Math.round(n / dismissAll * 100)}%</td></tr>`).join('') || '<tr><td class="muted">No reasons yet.</td></tr>'}</table></section>
-<section class="card"><h2>🎯 Does the score predict action?</h2><small class="muted">Per fit-score band: the share of jobs that were acted on (saved, applied or past it), dismissed, or reached a call or interview. If the 80+ band is not clearly better than 60–79, the scoring rubric needs fixing.</small>
+<section class="card"><h2>🎯 Does the score predict action?${chip(data, 'scores')}</h2><small class="muted">Per fit-score band: the share of jobs that were acted on (saved, applied or past it), dismissed, or reached a call or interview. If the 80+ band is not clearly better than 60–79, the scoring rubric needs fixing.</small>
 <table><tr><th>Score band</th><th>Jobs seen</th><th>Acted on</th><th>Dismissed</th><th>Reached a call / interview</th></tr>
 ${data.scores.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.acted)}</td><td>${pct(row.dismissed)}</td><td>${pct(row.interviewed)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No snapshots yet.</td></tr>'}</table></section>
-<section class="card"><h2>📬 Do higher scores get replies?</h2><small class="muted">Of the applications people marked, the share that got a reply, a call or an offer, per fit-score band (shown from 20 outcomes). Calibrates the scoring.</small>
+<section class="card"><h2>📬 Do higher scores get replies?${chip(data, 'replies')}</h2><small class="muted">Of the applications people marked, the share that got a reply, a call or an offer, per fit-score band (shown from 20 outcomes). Calibrates the scoring.</small>
 <p><b>${data.calibration.status === 'ok' ? '✅' : data.calibration.status === 'thin' ? '⏳' : '⚠️'} ${esc(data.calibration.note)}</b></p>
 <table><tr><th>Score band</th><th>Outcomes marked</th><th>Reply or better</th></tr>
 ${data.replies.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.rate)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">No marked outcomes yet.</td></tr>'}</table></section>
-<section class="card"><h2>🧭 Which sources give useful jobs?</h2><small class="muted">Per source kind (job systems, job boards, aggregators): the share of jobs scored 70+, acted on or dismissed, how many acted ones got a call, and how many hours after posting the jobs were found. "other" is every company site.</small>
+<section class="card"><h2>🧭 Which sources give useful jobs?${chip(data, 'sources')}</h2><small class="muted">Per source kind (job systems, job boards, aggregators): the share of jobs scored 70+, acted on or dismissed, how many acted ones got a call, and how many hours after posting the jobs were found. "other" is every company site.</small>
 <table><tr><th>Source</th><th>Jobs seen</th><th>Scored 70+</th><th>Acted on</th><th>Dismissed</th><th>Heard back (of acted)</th><th>Hours posted → found</th></tr>
 ${data.sources.map(row => `<tr><td>${esc(row.board)}</td><td>${row.seen}</td><td>${pct(row.goodShare)}</td><td>${pct(row.actedShare)}</td><td>${pct(row.dismissedShare)}</td><td>${pct(row.heardShare)}</td><td>${row.hours == null ? '—' : Math.round(row.hours)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No snapshots yet.</td></tr>'}</table></section>
 ${scoutingSection(data.scouting)}
-<section class="card"><h2>✏️ Answers people change</h2><small class="muted">Questions the filler answered that the person then edited by hand, once ${MIN_PEOPLE}+ people and 10+ fills have reported them. The top of this list is where the alias or profile mapping is wrong.</small>
+<section class="card"><h2>✏️ Answers people change${chip(data, 'fixes')}</h2><small class="muted">Questions the filler answered that the person then edited by hand, once ${MIN_PEOPLE}+ people and 10+ fills have reported them. The top of this list is where the alias or profile mapping is wrong.</small>
 <table><tr><th>Question wording</th><th>Filled</th><th>Changed by hand</th></tr>
 ${data.fixes.map(row => `<tr><td>${esc(row.label)}</td><td>${row.filled}</td><td><b>${pct(row.rate)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported by enough people yet.</td></tr>'}</table></section>
-<section class="card"><h2>🕳️ Why fields stay empty</h2><small class="muted">Fields the filler left empty, by reason (all boards). "No answer" means the profile has nothing for it; "not taken" means the field refused the value; "real click" and "no option" are dropdowns.</small>
+<section class="card"><h2>🕳️ Why fields stay empty${chip(data, 'empty')}</h2><small class="muted">Fields the filler left empty, by reason (all boards). "No answer" means the profile has nothing for it; "not taken" means the field refused the value; "real click" and "no option" are dropdowns.</small>
 <table><tr><th>Reason</th><th>Fields</th><th>Share</th></tr>
 ${data.reasons.map(row => `<tr><td>${esc(REASON_TEXT[row.reason] || row.reason)}</td><td>${row.n}</td><td>${pct(row.share)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported yet.</td></tr>'}</table></section>
-<section class="card"><h2>💸 What the AI costs us</h2><small class="muted">Included AI through the relay (founder and friend keys today, Pro later): money per step and per user per active day. This is what a pass price and a credit budget must cover.</small>
+<section class="card"><h2>💸 What the AI costs us${chip(data, 'cost')}</h2><small class="muted">Included AI through the relay (founder and friend keys today, Pro later): money per step and per user per active day. This is what a pass price and a credit budget must cover.</small>
 <table><tr><th>Users</th><th>Total</th><th>Per user per active day</th><th>Median · 95th · max</th><th>Per user per month</th></tr>
 <tr><td>${data.cost.users}</td><td>$${data.cost.total.toFixed(2)}</td><td>$${data.cost.perUserDay.mean.toFixed(3)}</td><td>$${data.cost.perUserDay.median.toFixed(3)} · $${data.cost.perUserDay.p95.toFixed(3)} · $${data.cost.perUserDay.max.toFixed(3)}</td><td><b>$${data.cost.monthPerActiveUser.toFixed(2)}</b></td></tr></table>
 <table><tr><th>Step</th><th>Calls</th><th>Cost</th><th>Per call</th></tr>
@@ -245,5 +251,6 @@ export async function view(request, env, now = new Date()) {
   if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const asked = Number(new URL(request.url).searchParams.get('days'));
   const data = await report(env.STATS, [7, 30, 90].includes(asked) ? asked : 30, now);
+  data.trends = await insightTrends(env.STATS, now).catch(() => null);
   return new Response(page(data), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
 }
