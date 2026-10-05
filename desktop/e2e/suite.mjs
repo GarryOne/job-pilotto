@@ -28,7 +28,7 @@ if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
 try {
-  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, keepGoing: !!suite.keepGoing});
+  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, keepGoing: !!suite.keepGoing, variesPlace: !!suite.variesPlace});
   if (ctx.skipAll) {
     console.log(skipMessage(name, ctx.needs.filter(item => !item.value).map(item => item.name)));
     process.exit(skipExitCode());

@@ -70,3 +70,12 @@ test('Zurich days and offsets follow daylight saving', () => {
 test('every Up next row names a button list', () => {
   assert.equal(EXPECTED_UP_NEXT.length, 6);
 });
+
+test('the hand-edited rows are what people type: an unknown stage, an empty title, a 2,000-character note, other scripts', async () => {
+  const {HAND_EDITS, rowProperties} = await import('../lib/focus-data.mjs');
+  const props = HAND_EDITS.map(rowProperties);
+  assert.equal(props[0].Stage.select.name, 'On hold (my own stage)');
+  assert.equal(props[0].Job.title[0]?.text?.content ?? '', '');
+  assert.equal(props[1].Notes.rich_text.map(part => part.text.content).join('').length, 2000);
+  assert.match(HAND_EDITS.map(row => row.Company).join(' '), /株式会社.*شركة|شركة.*株式会社/s);
+});

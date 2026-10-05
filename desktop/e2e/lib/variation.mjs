@@ -31,3 +31,15 @@ export function createVariation(env = process.env) {
   const pick = list => (fixed ? list.find(item => Array.isArray(item) && item[0] === 1280) || list[0] : list[Math.floor(next() * list.length)]);
   return {seed, fixed, shuffle, pick};
 }
+
+// Where the person lives (5 Oct 2026): a seeded run of a suite that opts in (`export const variesPlace = true`) starts the app in another time zone and
+// language, because date and number bugs hide there (the calendar lost Sunday 4 October in one zone, #120 and #122). The fixed path stays in Zurich, in the
+// system language. Its own generator: it never shifts the suite's other picks.
+export const ZONES = ['Europe/Zurich', 'America/Los_Angeles', 'Pacific/Honolulu', 'Asia/Tokyo', 'Australia/Sydney', 'America/Sao_Paulo', 'Asia/Kolkata', 'Pacific/Auckland'];
+export const LOCALES = ['en-US', 'en-GB', 'de-CH', 'fr-FR', 'ja-JP', 'pt-BR', 'hi-IN'];
+export function placeOf(env = process.env) {
+  const {seed, fixed} = createVariation(env);
+  if (fixed) return null;
+  const next = generator((seed * 2654435761) % 4294967296 || 7);
+  return {zone: ZONES[Math.floor(next() * ZONES.length)], locale: LOCALES[Math.floor(next() * LOCALES.length)]};
+}

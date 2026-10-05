@@ -14,6 +14,8 @@ import {measureRecall, recallFindings} from '../lib/recall.mjs';
 export const name = 'interactions';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;
+// A seeded run visits every page from another time zone and language (lib/variation.mjs placeOf): the truth and layout checks see dates and numbers as a person there would.
+export const variesPlace = true;
 export const minutes = 10;
 // A suite that walks a different seeded path on each scheduled run (lib/variation.mjs). Exploring runs on an unchanged commit run only these: the other suites would repeat themselves.
 export const varies = true;
@@ -35,7 +37,7 @@ export async function run(ctx) {
   const vary = createVariation();
   const size = vary.pick(WINDOW_SIZES);
   if (!vary.fixed) await app.evaluate(({BrowserWindow}, [w, h]) => BrowserWindow.getAllWindows()[0].setSize(w, h), size);
-  fs.writeFileSync(path.join(ARTIFACTS, 'seed.json'), JSON.stringify({seed: vary.seed, fixed: vary.fixed, window: size}));
+  fs.writeFileSync(path.join(ARTIFACTS, 'seed.json'), JSON.stringify({seed: vary.seed, fixed: vary.fixed, window: size, ...(ctx.place ? {detail: `time zone ${ctx.place.zone}, language ${ctx.place.locale}`} : {})}));
   console.log(vary.fixed ? '  variation: fixed path' : `  variation: seed ${vary.seed}, window ${size.join('x')}; replay with E2E_SEED=${vary.seed}`);
   for (const view of vary.shuffle(VIEWS)) {
     await ctx.run(`${view}: every safe control does something`, async () => {

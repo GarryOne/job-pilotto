@@ -34,3 +34,13 @@ test('over many seeds the page order and the window size really vary', () => {
   assert.ok(orders.size > 30, `${orders.size} different orders in 40 seeds`);
   assert.equal(sizes.size, WINDOW_SIZES.length);
 });
+
+test('a seeded run lives in a seeded time zone and language; the fixed path stays in Zurich', async () => {
+  const {placeOf, ZONES, LOCALES} = await import('../lib/variation.mjs');
+  assert.equal(placeOf({E2E_SEED: '0'}), null);
+  const a = placeOf({E2E_SEED: '42'}), b = placeOf({E2E_SEED: '42'});
+  assert.deepEqual(a, b, 'the same seed, the same place: replayable');
+  assert.ok(ZONES.includes(a.zone) && LOCALES.includes(a.locale));
+  const places = new Set(Array.from({length: 40}, (_, i) => JSON.stringify(placeOf({E2E_SEED: String(i + 1)}))));
+  assert.ok(places.size > 10, 'seeds spread over many places');
+});

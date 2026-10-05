@@ -2,8 +2,10 @@
 // Focus: what a person sees on the first page they open each day. Dummy applications in every stage are written to Notion, then the page is
 // judged as a person would: the Up next rows in the right order with the right buttons, every number against the Notion rows, the target, finishing
 // an action, the Insight card, a fresh account. Starts from a set-up install; resets only this suite's own rows (never the workspace).
-import {call} from '../lib/notion.mjs';
-import {expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, idsFromApp, queryAll, readTargetLine, resetFocusData, scenario} from '../lib/focus-data.mjs';
+import {call, createRowIn} from '../lib/notion.mjs';
+import {LIMITS, inspect} from '../lib/uicheck.mjs';
+import {journey} from '../lib/journey.mjs';
+import {expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, HAND_EDITS, idsFromApp, queryAll, readTargetLine, resetFocusData, rowProperties, scenario} from '../lib/focus-data.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
@@ -220,6 +222,20 @@ export async function run(ctx) {
     await page.waitForTimeout(3000);
     if (await ember().count()) throw new Error(`after a reload the dismissed job is back in the In process list: "${(await ember().innerText()).replace(/\s+/g, ' ')}" (Notion says ${await stageInNotion()})`);
     await goFocus();   // the next step starts on Focus
+  }, {needs: ctx.needs});
+
+  // People edit Notion by hand (5 Oct 2026: the README listed the Notion starting state as "not varied yet"): a stage the app does not know, an empty title,
+  // a 2,000-character note, other scripts and emoji. The app must still draw Focus with no error text and no window error, and its numbers must still be Notion's.
+  await ctx.run('rows edited by hand in Notion (an unknown stage, an empty title, a very long note, other scripts) leave Focus working and its numbers right', async () => {
+    const errorsBefore = journey.pageErrors.length + journey.consoleErrors.length;
+    for (const fields of HAND_EDITS) { await createRowIn(NOTION, ids.tracker, rowProperties(fields)); await page.waitForTimeout(350); }
+    await goFocus();
+    await refresh();
+    const shownErrors = (await page.evaluate(inspect, {view: 'focus', limits: LIMITS})).filter(item => item.kind === 'error-shown');
+    if (shownErrors.length) throw new Error(`Focus shows technical text after the hand edits: ${shownErrors.map(item => item.detail).join(' | ').slice(0, 300)}`);
+    const errors = [...journey.pageErrors, ...journey.consoleErrors].slice(errorsBefore);
+    if (errors.length) throw new Error(`the window threw after the hand edits: ${errors.join(' | ').slice(0, 300)}`);
+    await numbersMatchSource('after hand edits in Notion');
   }, {needs: ctx.needs});
 
   await ctx.run('a fresh account gets a helpful Focus: one next step, zeros, a funnel that says it fills in later, no insight, no raw errors', async () => {

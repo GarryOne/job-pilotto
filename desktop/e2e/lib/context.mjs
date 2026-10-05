@@ -10,7 +10,7 @@ import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
 import {startForms} from './forms.mjs';
-import {createVariation} from './variation.mjs';
+import {createVariation, placeOf} from './variation.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
@@ -29,7 +29,7 @@ export function notionToken(suite) {
 }
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false} = {}) {
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false, variesPlace = false} = {}) {
   const key = KEY(), token = light ? '' : notionToken(suite);
   let session = null;
   const runner = createRunner(() => session, {keepGoing});
@@ -67,10 +67,13 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
-  adopt(await launch({env}));
+  // A seeded run of a suite that opts in lives somewhere else: another time zone (window and engine) and language (lib/variation.mjs placeOf).
+  ctx.place = variesPlace ? placeOf() : null;
+  if (ctx.place) { Object.assign(env, {TZ: ctx.place.zone, JOB_PILOTTO_TZ: ctx.place.zone, LANG: `${ctx.place.locale.replace('-', '_')}.UTF-8`}); console.log(`  place: ${ctx.place.zone}, ${ctx.place.locale}`); }
+  adopt(await launch({env, lang: ctx.place?.locale || ''}));
   ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close(); await ctx.proxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.forms?.close(); };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
-  ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close(); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile})); };
+  ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close(); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile, lang: ctx.place?.locale || ''})); };
   ctx.expectStep = async (name, timeout = 20000) => {
     await ctx.page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout})
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });

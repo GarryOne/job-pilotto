@@ -70,6 +70,14 @@ export const EXPECTED_UP_NEXT = [
 
 
 // The Notion properties of a scenario row / event (the one place that knows the column types).
+// What people really type into the Job Tracker by hand (5 Oct 2026): a stage the app has no word for, an empty title, a note of 2,000 characters, other
+// scripts and emoji. The Focus suite adds them after its own checks: nothing may break, and the numbers must still be Notion's.
+export const HAND_EDITS = [
+  {Job: '', Company: 'Ünïcødé Systèmes 株式会社 🚀', Stage: 'On hold (my own stage)', Origin: 'Outbound', 'Job URL': 'https://jobs.e2e.test/hand/unknown-stage'},
+  {Job: `Staff Site Reliability Engineer ${'and Platform Lead '.repeat(12).trim()}`, Company: 'شركة الاختبار', Stage: 'Applied', 'Applied on': '2026-01-15', Origin: 'Outbound',
+    'Job URL': 'https://jobs.e2e.test/hand/long-title', Notes: `${'Called the recruiter, sent the portfolio, waiting. '.repeat(40)}`.slice(0, 2000)},
+];
+
 export function rowProperties(fields) {
   const out = {Job: props.title(fields.Job)};
   for (const [name, value] of Object.entries(fields)) {

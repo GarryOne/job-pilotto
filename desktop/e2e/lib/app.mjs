@@ -21,14 +21,14 @@ export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts'
 // -> {app, page, profile, shot(name), close()}. `env` adds to the app's environment (models, test hooks).
 export const zoneOf = (env = {}) => env.TZ || 'Europe/Zurich';
 
-export async function launch({env = {}, executablePath, args, profile: again} = {}) {
+export async function launch({env = {}, executablePath, args, profile: again, lang = ''} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place
   const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
   if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
   const app = await electron.launch({
     executablePath: executablePath || electronPath(),
-    args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+    args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : []), ...(lang ? [`--lang=${lang}`] : [])],
     // The app counts days in the computer's own zone; the suites check it against Europe/Zurich (lib/focus-data.mjs). On a CI runner in UTC the two disagreed
     // about "today" from 0:00 to 2:00 Zurich time, and Focus's 14-day count failed only then (4 Oct 2026). A suite that tests another zone sets TZ, and the engine follows it
     // (it reads JOB_PILOTTO_TZ first: the calendar suite's Tokyo and Honolulu must reach both the window and the engine).
