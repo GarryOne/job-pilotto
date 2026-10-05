@@ -98,6 +98,11 @@ export function inspect({view, limits}) {
     if (!visible(host)) continue;
     found.push({view, severity: 'warning', kind: 'card-fallback', detail: `${label(host)} shows a ${host.dataset.fallback} run's message as plain text instead of its card: "${snippet(host)}"`});
   }
+  // (0) empty-result: a finished run that always leaves a result (Search analysis, Gmail check, insight…) opened to a pane with none (renderer/run-cards.js emptyResult).
+  for (const host of document.querySelectorAll('[data-empty-result]')) {
+    if (!visible(host)) continue;
+    found.push({view, severity: 'warning', kind: 'empty-result', detail: `${label(host)} opened a finished ${host.dataset.emptyResult} run and shows no result: only its header and log`});
+  }
   // (2) raw-markup: text formatted for somewhere else, shown unrendered: chat formatting (a numbered list with raw links in brackets,
   // "Tap a job number…", /commands, the engine's message markers), Markdown, HTML tags or entities typed out as text.
   const RAW = [[/Tap a job number\b/i, 'chat'], [/(?:^|\s)\d+\.\s[^\n]{3,200}?\(https?:\/\/[^)\s]+\)/, 'chat'], [/(?:^|\s)\/(?:apply|save|dismiss|more)_\w+/, 'chat'],

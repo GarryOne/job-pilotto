@@ -218,6 +218,11 @@ test('the same type, other forms: Markdown, HTML typed out, an entity, an insigh
   assert.ok((await kinds(page, `<div class="warn"><div>${ITEMS}</div></div><div class="warn2"><div>${ITEMS} again</div></div>`)).includes('duplicate-content'));
 }));
 
+test('a finished Search analysis opened to an empty pane is an empty-result finding (5 Oct 2026); a drawn card is not', () => withChrome(async page => {
+  assert.ok((await kinds(page, '<div id="activity-panel" data-empty-result="weekly"><h2>Search analysis</h2><details><summary>Technical log</summary></details></div>')).includes('empty-result'));
+  assert.ok(!(await kinds(page, '<div id="activity-panel"><h2>Search analysis</h2><div class="run-card"><div class="insight-card">The report</div></div></div>')).includes('empty-result'));
+}));
+
 test('clean screens stay quiet: a card alone, a technical log, a box inside a box, two different texts', () => withChrome(async page => {
   const quiet = ['card-fallback', 'raw-markup', 'duplicate-content'];
   const of = found => found.filter(kind => quiet.includes(kind));

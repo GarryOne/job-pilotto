@@ -53,6 +53,10 @@ export const parseRunMessage = text => parseDigest(text) || parseScout(text);
 // finding (desktop/e2e/lib/uicheck.mjs 'card-fallback'). A one- or two-line note ("No new jobs since…") is a plain answer, not a fallback.
 export const CARD_KINDS = new Set(['search', 'today', 'scout', 'mail', 'insight', 'weekly', 'interview', 'kits']);
 export const isFallback = (kind, text) => CARD_KINDS.has(kind) && String(text || '').split('\n').filter(line => line.trim()).length >= 3;
+// The run kinds that always leave a result to read (not a Jobs check, which may find nothing). A finished one whose pane drew no
+// card, no text and no result is a finding too ("Search analysis" opened to an empty pane, 5 Oct 2026): data-empty-result on the
+// panel, read by the e2e checks ('empty-result').
+export const emptyResult = (kind, run, drew) => !!run && !run.live && !!run.ok && !!run.pageId && !drew && CARD_KINDS.has(kind) && kind !== 'search';
 // Marks (or clears) a box that shows a run's message as plain text.
 export function markFallback(node, kind, text) {
   if (!node) return;

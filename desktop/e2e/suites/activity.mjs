@@ -118,6 +118,21 @@ export async function run(ctx) {
     await page.click('#activity-close');
   }, {needs: ctx.needs});
 
+  // 5 Oct 2026: a run sent to Telegram (--send) leaves no message in this Mac's record; the report lives on its Notion page only.
+  // With Always on off, the Search analysis opened to an empty pane. Same record, message stripped: the result must still be drawn.
+  await ctx.run('a run recorded on this Mac without its message still shows its result from the Notion page', async () => {
+    await ctx.relaunch({}, profile => {
+      const file = path.join(profile, 'runs.json');
+      const runs = JSON.parse(fs.readFileSync(file, 'utf8')).map(run => ({...run, message: null, report: undefined}));
+      fs.writeFileSync(file, JSON.stringify(runs));
+    });
+    await appReady(ctx);
+    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
+    const words = `${opened.message} ${opened.card} ${opened.result}`.trim();
+    if (words.length < 20) throw new Error(`a local run without its message opens to no result ("${words}"): its Notion page is not read`);
+    if (!opened.log.trim()) throw new Error('reading the Notion page replaced the run\'s own log with nothing');
+  }, {needs: ctx.needs});
+
   await ctx.run('a run read only from Notion (a fresh start, no local record) still shows its log', async () => {
     await ctx.relaunch({}, profile => fs.rmSync(path.join(profile, 'runs.json'), {force: true}));
     await appReady(ctx);

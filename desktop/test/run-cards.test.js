@@ -79,3 +79,13 @@ test('a multi-line message of a carded kind shown as text is a fallback; a short
   assert.equal(isFallback('add', three), false);       // Logged activity has no card: its text is the answer
   assert.equal(isFallback('search', ''), false);
 });
+
+test('emptyResult: only a finished, ok, Notion-backed run of a result kind that drew nothing', async () => {
+  const {emptyResult} = await import('../renderer/run-cards.js');
+  const run = {ok: true, pageId: 'p'};
+  assert.equal(emptyResult('weekly', run, false), true);
+  assert.equal(emptyResult('weekly', run, true), false);                  // a card or text was drawn
+  assert.equal(emptyResult('weekly', {...run, live: true}, false), false); // still running
+  assert.equal(emptyResult('search', run, false), false);                  // a Jobs check may find nothing
+  assert.equal(emptyResult('add', run, false), false);                     // Logged activity has no card
+});
