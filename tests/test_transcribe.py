@@ -97,6 +97,18 @@ class TranscribeTests(unittest.TestCase):
             self.assertEqual(len(fetched), 4)
             self.assertFalse(list(Path(folder).glob('*.part')))
 
+    def test_download_reports_real_percent_and_unpacking(self):
+        class Response(io.BytesIO):
+            headers = {'Content-Length': str(4 << 20)}
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as folder, mock.patch('sys.stderr', out), \
+                mock.patch.dict(transcribe.MODELS, {'vad': ('https://x/v.onnx', 'v.onnx')}, clear=True):
+            transcribe.ensure_models(folder, lambda url, timeout=None: Response(b'x' * (4 << 20)))
+        lines = out.getvalue().splitlines()
+        self.assertIn('progress download-vad 25', lines)
+        self.assertIn('progress download-vad 75', lines)
+        self.assertEqual(lines[-1], 'progress download-vad 100')
+
     def test_available_follows_the_switch(self):
         with mock.patch.dict(transcribe.os.environ, {'JOB_PILOTTO_DISABLE': 'transcribe'}):
             self.assertFalse(transcribe.available())

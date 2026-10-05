@@ -134,15 +134,30 @@ export function progressOf(line) {
   const match = /^progress (\S+) (\d+)/.exec(line);
   if (!match) return null;
   const [stage, percent] = [match[1], Number(match[2])];
-  if (stage === 'addon') return {percent: null, text: 'Installing the transcription add-on, only the first time (about 115 MB)'};
+  // `setup` marks the one-time downloads: the page shows them as a banner at its top.
+  if (stage === 'addon') return {percent: null, setup: true, text: 'Installing the transcription add-on, only the first time (about 115 MB)'};
   if (stage.startsWith('download-')) {
-    return {percent: null, text: `Downloading the speech models, only the first time (about 520 MB): ${stage.slice(9)} ${percent}%`};
+    return {percent, setup: true, text: `Downloading the speech models, only the first time (about 520 MB): ${stage.slice(9)}`};
   }
+  if (stage.startsWith('extract-')) return {percent: null, setup: true, text: `Unpacking the speech models (${stage.slice(8)}), a minute or two`};
   const [from, to, text] = STAGES[stage] || [0, 100, stage];
   return {percent: Math.round(from + (to - from) * percent / 100), text};
 }
 
 const running = new Map();
+
+// The one-time setup (add-on + speech models) ahead of the first recording, when the Interviews page opens. Quick no-op
+// once installed. One at a time; a transcription waits for it instead of installing in parallel.
+let setupRun = null;
+export function prefetch(storage, onProgress = () => {}, run = pipeline.run) {
+  if (!setupRun) {
+    setupRun = run(storage, ['src.ai.transcribe', '--download-only'], line => {
+      const step = progressOf(line);
+      if (step) onProgress({id: 'setup', ...step});
+    }).then(({code}) => ({ok: code === 0}), error => ({ok: false, error: error.message})).finally(() => { setupRun = null; });
+  }
+  return setupRun;
+}
 
 // Transcribe a draft's recording on this Mac. onProgress({id, percent, text}); resolves with the draft.
 export function transcribe(storage, id, {speakers: count = 0} = {}, onProgress = () => {}, run = pipeline.run) {
@@ -156,12 +171,12 @@ export function transcribe(storage, id, {speakers: count = 0} = {}, onProgress =
   const call = meta.callFile && path.join(folder(storage, id), meta.callFile);
   const withCall = call && fs.existsSync(call) && fs.statSync(call).size > 0
     ? ['--call', call, '--call-offset', String(Math.max(-60, Math.min(60, ((meta.callStartedAt || 0) - (meta.micStartedAt || meta.callStartedAt || 0)) / 1000)))] : [];
-  const task = run(storage, ['src.ai.transcribe', path.join(folder(storage, id), meta.file), '--out', out,
+  const task = (setupRun || Promise.resolve()).then(() => run(storage, ['src.ai.transcribe', path.join(folder(storage, id), meta.file), '--out', out,
     '--speakers', String(Number(count) || 0), ...withCall], line => {
     const step = progressOf(line);
     if (step) onProgress({id, ...step});
     else if (line.trim()) errors.push(line.trim());
-  }).then(async ({code}) => {
+  })).then(async ({code}) => {
     if (code === 0 && fs.existsSync(out)) {
       update(storage, id, {status: 'ready'});
       return (await toNotion(storage, id, run).catch(() => null)) || get(storage, id);

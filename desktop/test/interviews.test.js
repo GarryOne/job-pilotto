@@ -21,7 +21,9 @@ test('speakers are listed and renamed on every line of theirs only', () => {
 test('transcribe.py progress lines become one percent and a sentence', () => {
   assert.deepEqual(interviews.progressOf('progress transcribe 50'), {percent: 37, text: 'Writing down what was said'});
   assert.equal(interviews.progressOf('progress speakers 100').percent, 100);
-  assert.equal(interviews.progressOf('progress download-asr 0').percent, null);
+  assert.deepEqual(interviews.progressOf('progress download-asr 40'), {percent: 40, setup: true, text: 'Downloading the speech models, only the first time (about 520 MB): asr'});
+  assert.equal(interviews.progressOf('progress extract-asr 0').setup, true);
+  assert.equal(interviews.progressOf('progress transcribe 10').setup, undefined);
   assert.match(interviews.progressOf('progress addon 0').text, /transcription add-on/);
   assert.equal(interviews.progressOf('Warning: something'), null);
 });
@@ -135,4 +137,24 @@ test('the library row links to its job: clickable Job cell, Open job/interview i
   assert.match(source, /Open job in Notion/);
   assert.match(source, /'Link a job'/);
   assert.match(source, /Link a job…/);
+});
+
+test('the one-time setup runs once at a time, reports as the setup banner, and a transcription waits for it', async () => {
+  const calls = [], shown = [];
+  let finish;
+  const run = (storage, args, onLine) => {
+    calls.push(args);
+    if (args.includes('--download-only')) {
+      onLine('progress download-asr 50');
+      return new Promise(resolve => { finish = () => resolve({code: 0}); });
+    }
+    return Promise.resolve({code: 1, stdout: ''});
+  };
+  const first = interviews.prefetch({}, step => shown.push(step), run);
+  assert.equal(interviews.prefetch({}, () => {}, run), first);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(shown[0], {id: 'setup', percent: 50, setup: true, text: 'Downloading the speech models, only the first time (about 520 MB): asr'});
+  finish();
+  assert.deepEqual(await first, {ok: true});
+  assert.equal(interviews.prefetch({}, () => {}, () => Promise.resolve({code: 1})) === first, false);
 });

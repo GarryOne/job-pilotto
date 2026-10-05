@@ -105,9 +105,16 @@ def ensure_models(folder=None, opener=urllib.request.urlopen):
             progress(f'download-{name}', 0)
             partial = folder / (url.rsplit('/', 1)[-1] + '.part')
             with opener(url, timeout=60) as response, open(partial, 'wb') as out:
+                total = int(getattr(response, 'headers', {}).get('Content-Length') or 0)
+                done, shown = 0, 0
                 while chunk := response.read(1 << 20):
                     out.write(chunk)
+                    done += len(chunk)
+                    if total and done * 100 // total > shown:  # real bytes, so the app's bar moves while it downloads
+                        shown = done * 100 // total
+                        progress(f'download-{name}', min(shown, 99))
             if url.endswith('.tar.bz2'):
+                progress(f'extract-{name}', 0)  # unpacking a bz2 is one slow CPU thread: say so instead of looking stuck
                 with tarfile.open(partial, 'r:bz2') as archive:
                     archive.extractall(folder, filter='data')
                 partial.unlink()
@@ -326,12 +333,12 @@ def transcribe(path, speakers=0, models=None, threads=None, call=None, call_offs
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('audio', type=Path)
+    parser.add_argument('audio', type=Path, nargs='?')
     parser.add_argument('--speakers', type=int, default=0, help='number of people on the call, if known (0 = detect)')
     parser.add_argument('--out', type=Path, help='write the transcript here (default: print it)')
     parser.add_argument('--call', type=Path, help="the call's audio recorded separately (AudioTee .pcm or any audio file)")
     parser.add_argument('--call-offset', type=float, default=0.0, help='seconds the call recording started after the main one')
-    parser.add_argument('--download-only', action='store_true', help='fetch the models and stop')
+    parser.add_argument('--download-only', action='store_true', help='install the add-on, fetch the models and stop (no audio needed: the app does this when Interviews opens)')
     args = parser.parse_args(argv)
     if not libraries():
         install_addon()
@@ -340,6 +347,8 @@ def main(argv=None):
     if args.download_only:
         ensure_models()
         return 0
+    if not args.audio:
+        parser.error('an audio file is needed unless --download-only')
     text = transcribe(args.audio, args.speakers, call=args.call, call_offset=args.call_offset)
     if args.out:
         args.out.write_text(text + '\n', encoding='utf-8')

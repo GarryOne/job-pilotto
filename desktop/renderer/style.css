@@ -309,6 +309,7 @@ details.questions > p { margin: 0 0 6px; }
   border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: var(--r-md); padding: 8px 12px; margin-bottom: 8px; }
 .notice > span:first-child { flex: 1; min-width: 280px; }
 .notice.permission { border-left-color: var(--teal); }
+.notice.setup { border-left-color: var(--teal); }
 .notice-actions { display: flex; gap: 8px; align-items: center; }
 .small-btn { padding: 4px 10px; font-size: var(--fs-sm); }
 .consent-check { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; white-space: nowrap; cursor: pointer; }

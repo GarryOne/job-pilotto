@@ -65,7 +65,10 @@ async function showPermission(noCallAudio = false) {
 
 // Each part on its own, none waiting for another (owner, 30 Sep 2026: this awaited a fresh job list, a Python run of
 // 10–60 s at start-up, before drawing anything, so the page showed only its table header).
+let prefetched = false;
 export function loadInterviews() {
+  // Once per app session: installs what transcribing needs now, so the first Transcribe does not wait for it.
+  if (!prefetched) { prefetched = true; iv.prefetch().catch(() => {}).finally(() => show($('iv-setup'), false)); }
   showPermission().catch(error => failed('permission', error));
   loadSaved();
   loadDrafts();
@@ -715,10 +718,14 @@ export async function init() {
     $('iv-progress-text').textContent = 'Starting';
     $('iv-progress-bar').style.width = '2%';
     const meta = await iv.transcribe(id, {speakers: Number($('iv-count').value)});
+    show($('iv-setup'), false);
     if (ivOpen === id) openDraft(id);
     if (meta.status !== 'ready') message('iv-message', meta.error || 'Transcription failed', 'error');
   });
-  window.pilot.onInterviewProgress(({id, percent, text}) => {
+  window.pilot.onInterviewProgress(({id, percent, text, setup}) => {
+    // The one-time downloads show at the top of the page whichever draft is open, or none.
+    show($('iv-setup'), !!setup);
+    if (setup) $('iv-setup-text').textContent = `${text}${percent == null ? '' : ` ${percent}%`}`;
     if (id !== ivOpen) return;
     show($('iv-progress'));
     $('iv-progress-text').textContent = text;

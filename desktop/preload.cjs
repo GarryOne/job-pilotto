@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onTelegramWaiting: callback => ipcRenderer.on('telegramWaiting', (_, username) => callback(username)),
   command: call('command'),
   interviews: {drafts: call('ivDrafts'), transcript: call('ivTranscript'), add: call('ivAdd'), recordStart: call('ivRecordStart'),
-    recordChunk: call('ivRecordChunk'), recordStop: call('ivRecordStop'), transcribe: call('ivTranscribe'), saveDraft: call('ivSaveDraft'),
+    recordChunk: call('ivRecordChunk'), recordStop: call('ivRecordStop'), transcribe: call('ivTranscribe'), prefetch: call('ivPrefetch'), saveDraft: call('ivSaveDraft'),
     discard: call('ivDiscard'), save: call('ivSave'), saved: call('ivSaved'), link: call('ivLink'), review: call('ivReview'), insights: call('ivInsights'), insightStep: call('ivInsightStep'), remove: call('ivDelete'),
     remindGet: call('ivRemindGet'), remindSet: call('ivRemindSet'), recordings: call('ivRecordings'), access: call('mediaAccess'), tapAvailable: call('ivTapAvailable'), tapStart: call('ivTapStart'), openPrivacy: call('openPrivacy'), relaunch: call('relaunch')},
   onInterviewProgress: callback => ipcRenderer.on('ivProgress', (_, step) => callback(step)),

@@ -1074,6 +1074,7 @@ function handlers() {
       return {ok: false, error: error.message};
     }
   });
+  ipcMain.handle('ivPrefetch', () => (DEMO ? {ok: true} : interviews.prefetch(storage, step => toWindow('ivProgress', step))));
   ipcMain.handle('ivTranscribe', async (_, id, options) => {
     const meta = await interviews.transcribe(storage, id, options, step => toWindow('ivProgress', step));
     if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`, {view: 'interviews'});
