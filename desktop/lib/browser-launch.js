@@ -3,6 +3,7 @@
 // a form opened anywhere else would never be filled.
 import fs from 'node:fs';
 import path from 'node:path';
+import {hiddenRun} from './e2e-hidden.js';
 
 // scheme: how that browser spells its own pages (chrome://extensions, edge://extensions).
 // win: the folder below Program Files / Program Files (x86) / %LOCALAPPDATA% where the installer puts the exe.
@@ -29,7 +30,7 @@ export function browserCommand(urls, platform = process.platform, env = process.
     const there = browser => [`/Applications/${browser.app}.app`, home && path.join(home, 'Applications', `${browser.app}.app`)]
       .filter(Boolean).some(file => exists(file));
     const browser = order.find(there) || LAUNCH[0];
-    return ['open', ['-a', browser.app, ...urls]];
+    return ['open', [...(hiddenRun(env) ? ['-g'] : []), '-a', browser.app, ...urls]];   // -g: an e2e run opens tabs in the background
   }
   for (const browser of order) {
     const exe = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean)

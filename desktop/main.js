@@ -2,6 +2,7 @@
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {smallCopy} from './lib/shots.js';
 import {recordIpc} from './lib/e2e-ipc.js';
+import {hideWindows} from './lib/e2e-hidden.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -212,6 +213,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const DEMO_FOLDER = demo.folderFrom(process.argv);
 const LOOK_AROUND = !!DEMO_FOLDER;
 const DEMO = !!process.env.JOB_PILOTTO_DEMO || LOOK_AROUND;
+const HIDDEN = hideWindows({app, BrowserWindow, shell});   // an e2e run: windows never show or take focus (lib/e2e-hidden.js)
 pipeline.setDemo(DEMO);  // Python: only the jobs that read the demo folder
 // Always on also gives the repo the Google sign-in (kept in the Keychain by the Python side, not the app's store).
 github.setExtraSecrets(() => (DEMO ? {} : googleSecrets()));
@@ -239,7 +241,7 @@ let notionWindow = null;
 function openNotion(url) {
   if (!/^https:\/\/(www\.)?notion\.(so|site)\//.test(url)) return shell.openExternal(url);
   if (!notionWindow || notionWindow.isDestroyed()) {
-    notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Job Pilotto',
+    notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Job Pilotto', show: !HIDDEN,
       webPreferences: {partition: 'persist:notion', contextIsolation: true, sandbox: true}});
     const outside = target => !/^https:\/\/([a-z0-9-]+\.)*notion\.(so|site|com)\//.test(target);
     notionWindow.webContents.setWindowOpenHandler(({url: target}) => {
@@ -267,9 +269,9 @@ function windowBackground() { return nativeTheme.shouldUseDarkColors ? '#0b1016'
 function createWindow() {
   const windowTitle = devMarker.title(!app.isPackaged && !DEMO, app.isPackaged ? '' : devMarker.branch(here));
   window = new BrowserWindow({
-    width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: windowTitle, show: !process.env.JOB_PILOTTO_SMOKE,
+    width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: windowTitle, show: !process.env.JOB_PILOTTO_SMOKE && !HIDDEN,
     backgroundColor: windowBackground(),
-    webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false},
+    webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: !HIDDEN},   // hidden e2e window: still animates, so Playwright's clicks don't wait
   });
   watchWindow(window.webContents, {log: appLog});   // load time, load failures, crashes, freezes, page errors, a blank window
   window.on('page-title-updated', event => { event.preventDefault(); window.setTitle(windowTitle); });
@@ -369,7 +371,7 @@ async function printPdf(htmlFile) {
 function openTailoredCv(code) {
   const record = cvlib.load(storage, code);
   if (!record) return false;
-  const review = new BrowserWindow({width: 1280, height: 920, title: `Tailored CV · ${record.job.company}`,
+  const review = new BrowserWindow({width: 1280, height: 920, title: `Tailored CV · ${record.job.company}`, show: !HIDDEN,
     webPreferences: {sandbox: true, contextIsolation: true}});
   review.webContents.setWindowOpenHandler(({url}) => {
     if (url.startsWith('file:')) shell.openPath(fileURLToPath(url)); else shell.openExternal(url);
