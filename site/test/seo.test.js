@@ -12,8 +12,9 @@ test('Google can find the public pages: robots, sitemap, canonical, structured d
   assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/compare<\/loc>/);
   assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/intelligence<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/platforms<\/loc>/);
   assert.doesNotMatch(sitemap, /friends/);
-  for (const [page, canonical] of [['index.html', '/'], ['compare.html', '/compare'], ['intelligence.html', '/intelligence']]) {
+  for (const [page, canonical] of [['index.html', '/'], ['compare.html', '/compare'], ['intelligence.html', '/intelligence'], ['platforms.html', '/platforms']]) {
     const html = file(page);
     assert.ok(html.includes(`<link rel="canonical" href="https://www.jobpilotto.workers.dev${canonical}">`), page);
     assert.match(html, /<meta property="og:title"/);
@@ -24,4 +25,10 @@ test('Google can find the public pages: robots, sitemap, canonical, structured d
   assert.equal(JSON.parse(ld[1])['@type'], 'SoftwareApplication');
   assert.match(file('index.html'), /<meta name="google-site-verification" content="[\w-]{20,}">/);   // Search Console ownership: keep it, removing it un-verifies the site
   assert.match(file('friends.html'), /<meta name="robots" content="noindex">/);
+});
+
+test('the landing page links to the platform support page, which lists what is supported and what is coming', () => {
+  assert.match(file('index.html'), /href="platforms\.html"/);
+  const page = file('platforms.html');
+  for (const word of ['Supported now', 'Next on the list', 'Under consideration', 'Microsoft Edge', 'Gmail', 'Outlook']) assert.ok(page.includes(word), word);
 });
