@@ -37,11 +37,13 @@ found = ({'name': 'Acme', 'tier': 'Tier 1'}, {'status': 'found', 'quality': 82, 
 out['scout'] = plain(scout.telegram_summary({'checked': 15, 'harvested': 0, 'queued': 4, 'total_feeds': 30, 'ideas': None},
                                             [found, ({'name': 'B', 'tier': ''}, {'status': 'none', 'quality': 0, 'ats': '', 'stats': {}})]))
 
-with tempfile.TemporaryDirectory() as tmp:
+# Windows will not delete a folder holding a database file that is still open: the connection is closed before the folder goes (WinError 32 broke the Windows build, 5 Oct 2026).
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
     with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
         job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '1', 'title': 'Site Reliability Engineer',
                                                      'location': 'Zurich', 'work_mode': 'Hybrid (stated)', 'url': 'https://example.test/jobs/1'}]})
         out['digest'] = plain(digest.format_digest(db)[0] if isinstance(digest.format_digest(db), tuple) else digest.format_digest(db))
+    db.close()
 
 text = lambda value: {'rich_text': [{'text': {'content': value}}]}
 row = {'id': 'abc', 'url': 'https://app.notion.com/p/app', 'properties': {'Company': {'rich_text': [{'plain_text': 'Huxley', 'text': {'content': 'Huxley'}}]}, 'Job': {'title': [{'text': {'content': 'Principal SRE'}}]},
