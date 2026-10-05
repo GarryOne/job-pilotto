@@ -12,10 +12,7 @@ test('chips and legend dots share the solid stage colours', () => {
   assert.match(css, /\.cal-legend \.dot\.kind-screening \{ background: var\(--teal\)/);
 });
 
-test('side rows: date column, stage in its kind colour, count badge and compact empty state', () => {
-  const page = read('pages/calendar.js');
-  assert.match(page, /cal-stage kind-\$\{m\.kind\}/);
-  assert.match(page, /cal-past-count/);
-  assert.match(page, /const empty = /);
-  assert.match(read('index.html'), /id="cal-past-count"/);
+test('Coming up has a card empty state with a calendar icon', () => {
+  assert.match(read('pages/calendar.js'), /No upcoming interviews/);
+  assert.match(read('index.html'), /<h2>Coming up<\/h2>/);
 });

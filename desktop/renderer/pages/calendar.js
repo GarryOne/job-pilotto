@@ -1,6 +1,6 @@
 // Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
 // list (Next interview) and the saved recordings (Notion 🎤 Interviews); clicking a meeting opens its job in Notion.
-import {el} from '../components.js';
+import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import * as cal from '../calendar.js';
 import {shared} from './shared.js';
@@ -62,10 +62,9 @@ function chip(m) {
 
 function row(m) {
   const line = el('button', 'cal-row');
-  const detail = el('span', 'cal-detail');
-  detail.append(el('b', 'cal-who', name(m)), ...(m.title !== name(m) ? [el('span', 'muted small', m.title)] : []),
-    el('span', `cal-stage kind-${m.kind}`, m.round || KINDS[m.kind][0]));
-  line.append(el('span', 'cal-when', `${dayLabel(m)}${timeOf(m) ? ` · ${timeOf(m)}` : ''}`), detail);
+  line.append(el('span', 'cal-when', `${dayLabel(m)}${timeOf(m) ? ` · ${timeOf(m)}` : ''}`),
+    el('b', 'cal-who', name(m)), el('span', 'muted small', [m.title !== name(m) ? m.title : '', m.round].filter(Boolean).join(' · ')),
+    pill(KINDS[m.kind][0], KINDS[m.kind][1]));
   line.onclick = () => open(m);
   const x = cross(m);
   if (!x) return line;
@@ -74,7 +73,11 @@ function row(m) {
   return wrap;
 }
 
-const empty = text => { const p = el('p', 'cal-empty muted small'); p.append(icon('calendar'), text); return p; };
+function emptyUpcoming() {
+  const box = el('div', 'cal-empty');
+  box.append(icon('calendar'), el('b', '', 'No upcoming interviews'), el('span', 'muted small', 'Email bookings appear after the next Gmail check.'));
+  return box;
+}
 const skeletons = () => [0, 1, 2].map(() => { const box = el('div', 'cal-row'); box.append(el('span', 'skeleton w-40'), el('span', 'skeleton w-80')); return box; });
 
 function status() {
@@ -108,9 +111,8 @@ export function render() {
   $('cal-grid').replaceChildren(...head, ...cells);
   const {upcoming, past} = cal.agenda(list, Date.now(), ZONE);
   if (phase === 'loading') { $('cal-upcoming').replaceChildren(...skeletons()); $('cal-past').replaceChildren(...skeletons()); return; }
-  $('cal-past-count').textContent = past.length || '';
-  $('cal-upcoming').replaceChildren(...(upcoming.length ? upcoming.map(row) : [empty('Nothing scheduled. Email bookings appear after the next Gmail check.')]));
-  $('cal-past').replaceChildren(...(past.length ? past.slice(0, 20).map(row) : [empty('No past meetings yet.')]));
+  $('cal-upcoming').replaceChildren(...(upcoming.length ? upcoming.map(row) : [emptyUpcoming()]));
+  $('cal-past').replaceChildren(...(past.length ? past.slice(0, 20).map(row) : [el('p', 'muted small', 'No past meetings yet.')]));
 }
 
 // A month with nothing in it, and a meeting coming later: open on that one (until the user picks a month themselves).
