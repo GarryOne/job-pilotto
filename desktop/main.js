@@ -1588,12 +1588,18 @@ function handlers() {
     if (gate) return gate;
     const blocked = allowanceBlock();
     if (blocked) return blocked;
-    const picked = apply.pickUntailored((await pipeline.jobs(storage)).jobs, n);
-    if (!picked.length) return {ok: true, text: 'Every one of your best matches already has a tailored CV.'};
-    appLog('cv', 'tailor top matches', {asked: n, jobs: picked.length, by: 'you'});
+    appLog('cv', 'tailor top matches', {asked: n, by: 'you'});
     // A tracked task like a Jobs check: the banner, a live log, a row in Recent activity and the result line. Started, not awaited: the window follows it.
     pipeline.work(storage, 'tailor', log, async tee => {
       let done = 0, failed = 0, usd = 0;
+      tee(`Finding your ${n} best matches without a tailored CV…`);   // reading the job list takes a few seconds: the banner is already up
+      const picked = apply.pickUntailored((await pipeline.jobs(storage)).jobs, n);
+      appLog('cv', 'tailor top matches picked', {asked: n, jobs: picked.length});
+      if (!picked.length) {
+        const none = 'Every one of your best matches already has a tailored CV.';
+        tee(none); tee('<<<message'); tee(none); tee('message>>>');
+        return true;
+      }
       tee(`Tailoring ${picked.length} CV${picked.length === 1 ? '' : 's'} for your best matches (1-2 minutes each)`);
       for (const [index, job] of picked.entries()) {
         tee(`Tailoring ${index + 1} of ${picked.length}: ${job.title} · ${job.company}`);
@@ -1610,7 +1616,7 @@ function handlers() {
       tee('<<<message'); tee(text); tee('message>>>');
       return done > 0;
     }).catch(error => log(`Tailor CVs failed: ${error.message}`));
-    return {ok: true, started: true, text: `Tailoring ${picked.length} CV${picked.length === 1 ? '' : 's'}.`};
+    return {ok: true, started: true, text: 'Tailoring started.'};
   });
   // CV match (Jobs ⋯ and the session card): this job's posting against the CV, on request. The last answer is kept per job for the CV it was made with.
   ipcMain.handle('matchSaved', (_, code) => { if (DEMO) return demo.matchSaved; const cv = cvlib.baseCv(storage); return cv ? matchCheck.saved(storage, String(code), cv) : null; });
