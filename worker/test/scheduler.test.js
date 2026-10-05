@@ -18,7 +18,11 @@ test('the three-a-day e2e runs start the scheduled plan; an unknown cron starts 
   assert.deepEqual(jobsFor('47 9,13,17 * * *', at('2026-10-05T09:47:00Z')), [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}]);
   assert.deepEqual(jobsFor('1 1 * * *', at('2026-10-05T01:01:00Z')), []);
   assert.deepEqual(jobsFor('40 */3 * * *', at('2026-10-05T09:40:00Z')), [{workflow: 'self-heal-stats.yml', inputs: {}}]);
-  assert.deepEqual(CRONS, ['0 2 * * *', '0 3 * * *', '47 9,13,17 * * *', '40 */3 * * *']);
+  assert.deepEqual(jobsFor('0 2,3 * * *', at('2026-10-05T02:00:00Z')), [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}], 'the one nightly trigger fires at 02:00 UTC in summer');
+  assert.deepEqual(jobsFor('0 2,3 * * *', at('2026-10-05T03:00:00Z')), [], 'and at 03:00 UTC it is 05:00 in summer: not its turn');
+  assert.deepEqual(jobsFor('0 2,3 * * *', at('2026-12-05T03:00:00Z')), [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}], 'in winter 03:00 UTC is 04:00');
+  assert.ok(CRONS.length <= 4, 'the account has room for at most 5 cron triggers across all Workers');
+  assert.deepEqual(CRONS, ['0 2,3 * * *', '47 9,13,17 * * *', '40 */3 * * *']);
 });
 
 test('a scheduled start calls the dispatcher; a failed one tells the owner and does not throw', async () => {

@@ -12,7 +12,21 @@ export const REGISTER_KEEP = 300;
 
 // Which new findings are worth a judgement: a detector's one-off reading (the AI review, the layout and truth checks, the probe), and a failed step that only ran out of
 // time. A plain failed step is the suite's own judgement, so it is filed as it is.
-export const judgeable = finding => finding.source !== 'suite-failure' || TIMEOUT_FAILURE.test(finding.detail || '');
+// A finding that is the harness's own mistake by its signature, never a product bug (5 Oct 2026: 11 of the first 47 findings were such noise, filed, read and closed by hand): the test
+// or the probe lost its page, or the recall benchmark's planted broken image leaked into the record. Judged `harness` without a model: no issue, a line in the register.
+export const HARNESS_SIGNATURES = [
+  {re: /Target page, context or browser has been closed|Target closed|browser has been closed/i, why: 'the test or the probe lost its page (the app was closed or relaunched under the step), so the step failed without a product fault: the same signature closed #84'},
+  {re: /nonexistent-recall-plant/i, why: 'the recall benchmark\'s planted broken image leaked into the journey\'s record: it is the harness\'s own bug, not the app\'s (#116, #117)'},
+];
+export const signatureVerdict = finding => {
+  const text = `${finding.title || ''}\n${finding.detail || ''}`;
+  const hit = HARNESS_SIGNATURES.find(({re}) => re.test(text));
+  return hit ? `harness\nWhy: ${hit.why}.` : '';
+};
+// A failed step that may be the test's mistake or the product's: it pressed a control that was disabled, hidden or covered. Judged (with the screenshot) rather than filed raw: a button that is
+// wrongly disabled is a real bug, one that is disabled by design on this page is not (#92, #95).
+export const STEP_NEEDS_LOOK = /element is not enabled|element is not visible|intercepts pointer events|detached from the DOM/i;
+export const judgeable = finding => !signatureVerdict(finding) && (finding.source !== 'suite-failure' || TIMEOUT_FAILURE.test(finding.detail || '') || STEP_NEEDS_LOOK.test(finding.detail || ''));
 // The most severe first, so the cap never leaves a high finding unjudged for a medium one.
 export function pendingOf(findings, max = PREJUDGE_MAX) {
   const rank = {high: 0, medium: 1, low: 2};

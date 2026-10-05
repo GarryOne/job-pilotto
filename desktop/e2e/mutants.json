@@ -19,8 +19,8 @@
   "id": "raw-api-error",
   "suite": "activityfailures",
   "file": "desktop/renderer/run-warnings.js",
-  "find": "  const raw = String(text || '').trim();\n  if (!PROVIDER.test(raw))",
-  "replace": "  const raw = String(text || '').trim();\n  if (raw) return raw;\n  if (!PROVIDER.test(raw))",
+  "find": "  if (!PROVIDER.test(raw)) return raw.replace(",
+  "replace": "  if (raw) return raw;\n  if (!PROVIDER.test(raw)) return raw.replace(",
   "what": "the AI provider's raw JSON error reaches the screen"
  },
  {
@@ -86,5 +86,13 @@
   "find": "const FINDING = /^(?:💡\\s*|Finding:\\s*)(.+)$/;",
   "replace": "const FINDING = /^💡\\s*(.+)$/;",
   "what": "the Search analysis card reads only the old emoji layout: its sections run together (5 Oct 2026)"
+ },
+ {
+  "id": "raw-http-error",
+  "suite": "activityfailures",
+  "file": "desktop/renderer/run-warnings.js",
+  "find": "  if (!PROVIDER.test(raw) && (HTTP.test(raw) || HTML.test(raw))) {",
+  "replace": "  if (false) {",
+  "what": "a web service's HTTP error page reaches the screen as raw markup (#275)"
  }
 ]

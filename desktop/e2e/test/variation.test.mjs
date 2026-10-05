@@ -44,3 +44,11 @@ test('a seeded run lives in a seeded time zone and language; the fixed path stay
   const places = new Set(Array.from({length: 40}, (_, i) => JSON.stringify(placeOf({E2E_SEED: String(i + 1)}))));
   assert.ok(places.size > 10, 'seeds spread over many places');
 });
+
+test('the smallest window of the sweep is the app\'s own minimum, so a control cut off at the shortest allowed height is seen (#118)', async () => {
+  const {readFileSync} = await import('node:fs');
+  const main = readFileSync(new URL('../../main.js', import.meta.url), 'utf8');
+  const [, minWidth, minHeight] = /minWidth: (\d+), minHeight: (\d+)/.exec(main);
+  assert.deepEqual(WINDOW_SIZES[0], [Number(minWidth), Number(minHeight)]);
+  assert.ok(WINDOW_SIZES.every(([width, height]) => width >= Number(minWidth) && height >= Number(minHeight)), 'no size is below what the window allows');
+});

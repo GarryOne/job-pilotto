@@ -1,7 +1,7 @@
 // The five loop-quality numbers: real counts, and null with a reason when there is no data (never a made-up value).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {escapeRate, loopQuality} from '../lib/loop-quality.mjs';
+import {escapeRate, guardRate, loopQuality} from '../lib/loop-quality.mjs';
 
 const row = (caught, at = '2026-10-04') => ({properties: {'Caught by e2e': {select: {name: caught}}, 'Found on': {date: {start: at}}}});
 const now = Date.parse('2026-10-06T00:00:00Z');
@@ -26,4 +26,14 @@ test('every number says why when there is no data, and counts when there is', ()
   assert.equal(full.verdicts.rate, 50);
   assert.equal(full.mutation.rate, 80);
   assert.equal(full.escape.rate, 50);
+});
+
+test('guard rate: a missed bug is closed only when a guard is built, not when there is only an idea', () => {
+  const missed = (caught, idea, at = '2026-10-04') => ({properties: {...row(caught, at).properties, 'e2e test idea': {rich_text: [{plain_text: idea}]}}});
+  const rows = [missed('No - gap', 'Built: matching matrix case'), missed('Late (only after users or manual)', 'Added: uicheck chat-text check'), missed('No - gap', 'A fixture page must yield both jobs'),
+    missed('No - gap', 'a contract test (exists)'), missed('Yes', 'Built: not a miss'), missed('No - gap', 'Built: too old', '2026-07-01')];
+  assert.deepEqual(guardRate(rows, {now}), {rate: 75, missed: 4, guarded: 3, ideaOnly: 1});
+  assert.deepEqual(guardRate([], {now}), {rate: null, missed: 0, guarded: 0, ideaOnly: 0});
+  assert.match(loopQuality({tracker: rows}).guard.note, /^3 of 4 missed bugs have a guard built; 1 still only an idea$/);
+  assert.equal(loopQuality({tracker: null, trackerWhy: 'not connected'}).guard.rate, null);
 });

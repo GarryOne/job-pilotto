@@ -39,6 +39,24 @@ const range = (low, high) => `≈ $${low.toFixed(1)}–${high.toFixed(1)}`;
 // ---------- live: the loop's numbers, published by CI (self-heal-stats.yml) ----------
 const pct = value => (value === null || value === undefined ? '–' : `${value}%`);
 const num = value => (value === null || value === undefined ? '–' : String(value));
+// The rules the loop works by (5 Oct 2026), each with where it lives and whether it is already measured: what was learned from the first 47 findings, as a page, not only as code.
+export const PRINCIPLES = [
+  ['Count only what costs the person something', 'A finding is real when it costs the person time, trust or data: the severity rubric, wording rules and the "fit" judge.', 'in force', 'lib/triage.mjs, lib/fit.mjs'],
+  ['Judge before filing', 'A known harness signature (page closed under the step, planted-bug leak) is dropped without a model; a step on a disabled control is judged with its picture; the rest of the noise is remembered in the register.', 'new', 'lib/prejudge.mjs'],
+  ['A miss is closed only when a guard exists', 'Every bug the Finder missed must end in a test, a check or a planted bug, not only an idea. Measured as "misses guarded".', 'new', 'lib/loop-quality.mjs'],
+  ['One window, one denominator', 'Issues, cost and precision count the same period; test mistakes count against their detector; the cutoff and what it leaves out are on this page.', 'new', 'lib/selfheal-stats.mjs'],
+  ['Link, never merge, what has one cause', 'A failed step and a screenshot finding of the same suite and run are linked and labelled possible-duplicate, and counted as a duplicate.', 'new', 'lib/same-cause.mjs'],
+  ['Test at the extremes a person can reach', 'The smallest window of the sweep is the app\'s own minimum (1024 × 640), kept in sync by a test.', 'new', 'lib/variation.mjs'],
+  ['Measure the judge', 'Five random verdicts a week are ticked right or wrong by the owner; the score appears under "How well it does".', 'first audit open', 'verdict-audit.mjs'],
+  ['Be on time, and say when not', 'The Worker cron starts the publish every 3 hours, GitHub\'s schedule is the backup; this page shows its own age and turns amber, then red.', 'new', 'worker/src/scheduler.js'],
+  ['Learn from the owner\'s corrections', 'A reopened noise issue, a removed `confirmed` or a hand closure becomes a lesson for every judge; the weekly self-review proposes at most 3 rule changes as a PR that never merges itself.', 'in force', 'lib/reversals.mjs, finder-review.yml'],
+];
+export function principlesSection() {
+  return `<section class="card"><h2>🧭 How the loop works and learns</h2><small class="muted">The rules it follows, what each one came from, and whether it is new</small><div class="wrap"><table><tr><th>Principle</th><th>In practice</th><th>Status</th><th>Where</th></tr>
+${PRINCIPLES.map(([rule, practice, status, where]) => `<tr><td><b>${esc(rule)}</b></td><td>${esc(practice)}</td><td>${status === 'new' ? '🆕 new' : status === 'in force' ? '✅ in force' : esc(status)}</td><td class="muted">${esc(where)}</td></tr>`).join('')}
+</table></div></section>`;
+}
+
 // How old the published numbers are. CI publishes every 3 hours: past 4 h a run is late, past 7 h more than one was missed (5 Oct 2026: GitHub's scheduler left them 5.5 h old).
 export function freshness(at, now = new Date()) {
   const hours = (now - Date.parse(at)) / 3600000;
@@ -60,7 +78,7 @@ export function liveSection(live, history = [], now = new Date()) {
   ];
   // How well the loop does (desktop/e2e/lib/loop-quality.mjs): each number with what it counts, or why it is not measured yet. Lower is better for escape, regression, flake.
   const q = live.quality || {};
-  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy', q.verdicts, 'higher is better'],
+  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🛡️ Misses guarded', q.guard, 'higher is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy', q.verdicts, 'higher is better'],
     ['↩️ Regression rate', q.regression, 'lower is better'], ['🎲 Flake rate', q.flake, 'lower is better']].filter(([, value]) => value);
   const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'harness', 'unclear', 'open'];
   const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Test / harness', 'Unclear', 'Open, unjudged'];
@@ -135,6 +153,7 @@ ul{margin:8px 0 0;padding-left:18px}li{margin-top:6px}
 </style></head><body><main>
 <header><h1>✈ Job Pilotto · self-healing loop</h1><span class="muted">${esc(data.period)} · <a href="/stats">Website stats →</a> · <a href="/telemetry">App reports →</a> · <a href="/intel">Intelligence →</a></span></header>
 ${liveSection(live, history)}
+${principlesSection()}
 <section class="card"><h2>💸 Snapshot: self-healing AI spend, ${esc(data.period)}</h2><small class="muted">Measured by hand from the CI logs, before each run recorded its own cost</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 <section class="card"><h2>🧭 What drives the cost</h2><ul>${data.drivers.map(line => `<li>${esc(line)}</li>`).join('')}</ul></section>

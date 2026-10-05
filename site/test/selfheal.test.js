@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {freshness, ingest, liveSection, page, view} from '../src/selfheal.js';
+import {freshness, ingest, liveSection, page, PRINCIPLES, principlesSection, view} from '../src/selfheal.js';
 
 const env = {STATS_KEY: 'secret'};
 
@@ -101,4 +101,13 @@ test('the page names its cutoff and what it leaves out, and its precision tile s
   assert.match(html, /39 earlier issues[^<]*not counted/);
   assert.match(html, /4 real vs 3 wrong \(false positive or test mistake\) · 7 judged, 4 open not counted/);
   assert.match(html, /\$0\.25 per real bug · 3 runs recorded since the cutoff/);
+});
+
+test('the page lists the rules the loop works by, each with what it means in practice and where it lives', () => {
+  const html = page();
+  assert.match(html, /How the loop works and learns/);
+  assert.ok(html.indexOf('The loop, live') < html.indexOf('How the loop works and learns') && html.indexOf('How the loop works and learns') < html.indexOf('Snapshot: self-healing AI spend'));
+  for (const [rule] of PRINCIPLES) assert.ok(html.includes(rule.replace(/'/g, '&#39;')) || html.includes(rule), rule);
+  assert.ok(PRINCIPLES.length >= 8 && PRINCIPLES.every(row => row.length === 4 && row.every(Boolean)), 'every principle says what, how, status and where');
+  assert.match(principlesSection(), /A miss is closed only when a guard exists/);
 });

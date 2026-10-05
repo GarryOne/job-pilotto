@@ -1,7 +1,7 @@
 // Judging before filing (lib/prejudge.mjs): which findings, the prompt, the answer, and the noise register that remembers what was not filed.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {asIssues, entryOf, parseVerdicts, pendingOf, prejudgePrompt, registerBody, registerEntries, wordOf} from '../lib/prejudge.mjs';
+import {asIssues, entryOf, judgeable, parseVerdicts, pendingOf, prejudgePrompt, registerBody, registerEntries, signatureVerdict, wordOf} from '../lib/prejudge.mjs';
 import {suppressedBy} from '../lib/triage.mjs';
 
 const finding = (id, severity, extra = {}) => ({id, view: 'app-chrome', kind: 'layout', severity, source: 'ai-review', title: `Sidebar clipped ${id}`, detail: 'the last icon is cut at 640 px', ...extra});
@@ -94,4 +94,16 @@ test('noise judged before filing still counts: a false positive of its detector 
   assert.equal(snapshot.verdicts.falsePositive, 6, 'the decorated verdict is counted');
   const facts = weekFacts(judged, {now: Date.parse('2026-10-07T00:00:00Z')});
   assert.match(facts, /the ticker scrolls on purpose 1/);
+});
+
+test('a known harness signature is judged harness without a model, and a step on a disabled control is judged, not filed raw (#84, #92, #95, #116, #117)', () => {
+  const step = detail => ({...finding('s', 'high'), source: 'suite-failure', kind: 'test-failure', detail});
+  assert.equal(wordOf(signatureVerdict(step('page.evaluate: Target page, context or browser has been closed'))), 'harness');
+  assert.match(signatureVerdict(step('page.evaluate: Target page, context or browser has been closed')), /Why: the test or the probe lost its page/);
+  assert.equal(wordOf(signatureVerdict({...finding('p', 'medium'), source: 'layout-check', kind: 'broken-resource', detail: 'failed to load: "file:///nonexistent-recall-plant.png"'})), 'harness');
+  assert.equal(signatureVerdict(step('expected 3, saw 2')), '', 'an ordinary failed step is not a signature');
+  assert.equal(judgeable(step('Target page, context or browser has been closed')), false, 'no model is needed for it');
+  assert.equal(judgeable(step('page.click: waiting for element to be visible, enabled and stable - element is not enabled')), true, 'a disabled control may be a real bug: it is judged with the picture');
+  assert.equal(judgeable(step('expected 3, saw 2')), false, 'the suite\'s own assertion is still filed as it is');
+  assert.deepEqual(pendingOf([step('Target page, context or browser has been closed'), step('element is not enabled')].map((item, i) => ({...item, id: `x${i}`}))).map(item => item.id), ['x1']);
 });

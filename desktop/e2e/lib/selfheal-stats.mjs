@@ -16,7 +16,7 @@ export function classify(issue) {
   const labels = names(issue), text = said(issue), last = (issue.comments || []).at(-1)?.body || '';
   if (labels.includes('harness')) return 'harness';   // the verdict pass: the test was wrong, not the product (also wontfix-auto, so it is never filed again)
   if (labels.includes('wontfix-auto')) return 'falsePositive';
-  if (/Duplicate of #\d+/.test(text)) return 'duplicate';
+  if (/Duplicate of #\d+/.test(text) || (labels.includes('possible-duplicate') && !labels.includes('confirmed'))) return 'duplicate';   // a person's `confirmed` wins: it was a real second defect
   if (!labels.includes('confirmed') && /Not a product (?:bug|finding)|plant(?:ed)? .*leak|the probe pressed|harness|test bug|e2e app counted|Dry run|Closing so the producer/i.test(text)) return 'harness';
   // A person (or the loop) closed it as "not planned" with a reason: it was not worth a fix, whether or not it carries the wontfix-auto label (4 Oct 2026: ~70 were closed by hand
   // and the weekly self-review could not learn from them). A closure by the "not seen in two runs" rule is not a judgement.

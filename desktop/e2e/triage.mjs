@@ -7,7 +7,8 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {pickCandidates, fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, capNewAi, droppedTable, macTwin, matchExisting, normalize, TIMEOUT_FAILURE, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {FLAKY, REGRESSION, fixedBefore, flakyOn, flakyComment, regressionComment} from './lib/triage.mjs';
-import {asIssues, entryOf, NOISE_WORDS, pendingOf, REGISTER_LABEL, registerBody, registerEntries, wordOf} from './lib/prejudge.mjs';
+import {asIssues, entryOf, NOISE_WORDS, pendingOf, REGISTER_LABEL, registerBody, registerEntries, signatureVerdict, wordOf} from './lib/prejudge.mjs';
+import {POSSIBLE_DUPLICATE, sameCauseComment, sameCauseLinks} from './lib/same-cause.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
@@ -98,6 +99,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   let issues = everything.filter(issue => platformOf(issue) === platform);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null, dropped};
   const createdNow = [];   // the numbers of the issues this run filed
+  const createdRows = [];  // the same, with what found each (lib/same-cause.mjs)
   const runId = String(runUrl).split('/').pop() || 'run';
   // The app version this run tested (one lookup for the whole run): the label every issue it files or sees again carries.
   const tested = appVersionAt(testedSha(build), {gh, repo});
@@ -127,7 +129,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     return {...out, findings, pending: pendingOf(fresh)};
   }
   // Judged noise before filing: never filed, listed in the summary and remembered in the register.
-  const verdictFor = finding => (verdicts && verdicts[finding.id]) || '';
+  const verdictFor = finding => (verdicts && verdicts[finding.id]) || signatureVerdict(finding);   // a known harness signature needs no model
   const noiseNow = plan.filter(({finding, existing, twin}) => !existing && !twin && verdictFor(finding) && NOISE_WORDS.includes(wordOf(verdictFor(finding))));
   for (const {finding} of noiseNow) dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: `judged ${wordOf(verdictFor(finding))} before filing`});
   out.judgedNoise = noiseNow.map(({finding}) => finding.id);
@@ -204,7 +206,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       if (regressed) gh(['label', 'create', REGRESSION, '--force', '--color', 'B60205', '--description', 'A defect a fix had closed came back']);
       for (const label of labels.slice(1).filter(name => name !== CONFIRMED && name !== NEEDS_HUMAN && name !== REGRESSION)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform}), '--label', labels.join(',')]) || '').trim();
-      if (/\/issues\/\d+$/.test(url)) createdNow.push(Number(url.split('/').pop()));
+      if (/\/issues\/\d+$/.test(url)) { createdNow.push(Number(url.split('/').pop())); createdRows.push({number: Number(url.split('/').pop()), source: finding.source, suite, view: finding.view}); }
       // Judged before filing: the verdict is the issue's first comment (the same layout as the verdict pass's).
       if (regressed && /\/issues\/\d+$/.test(url)) { out.regressions = [...(out.regressions || []), Number(url.split('/').pop())]; gh(['issue', 'comment', url.split('/').pop(), '--body', regressionComment(regressed, runUrl)]); }
       if (judged && /\/issues\/\d+$/.test(url)) gh(['issue', 'comment', url.split('/').pop(), '--body', verdictComment(judged, {number: Number(url.split('/').pop())})]);
@@ -222,6 +224,11 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       out.again.push(finding.id);
     }
   }
+  // A failed step and a screenshot or layout finding of the same suite in this run: probably one defect, linked and labelled, not merged.
+  const links = sameCauseLinks(createdRows);
+  if (links.length) gh(['label', 'create', POSSIBLE_DUPLICATE, '--force', '--color', 'CFD3D7', '--description', 'Probably the same cause as another issue filed by the same run']);
+  for (const {later, earlier} of links) { gh(['issue', 'edit', String(later), '--add-label', POSSIBLE_DUPLICATE]); gh(['issue', 'comment', String(later), '--body', sameCauseComment(earlier, runUrl)]); }
+  out.sameCause = links;
   // The register remembers this run's noise (one pinned issue, created on first use).
   if (noiseNow.length) {
     const entries = [...remembered, ...noiseNow.map(({finding}) => entryOf(finding, verdictFor(finding), today))];

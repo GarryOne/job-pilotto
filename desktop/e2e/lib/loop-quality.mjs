@@ -1,6 +1,7 @@
 // How well the loop does, beyond precision and planted-bug recall (5 Oct 2026): five numbers for /self-heal. Each is null with a reason until it has data,
 // never a made-up value. Pure: selfheal-stats.mjs gathers the inputs.
 //   escape     bugs the Finder did NOT catch (the Notion Bug Tracker's "Caught by e2e": No - gap) of all bugs it could judge, last 30 days
+//   guard      of the bugs it missed, how many got a guard (a test, a check, a plant) and not only an idea: whether a miss is closed, not just logged
 //   mutation   the weekly mutation test's catch rate (mutation.yml)
 //   verdicts   the verdict pass's accuracy from the owner's ticks in the weekly audits (verdict-audit issues)
 //   regression fixed defects that came back (label `regression`) per defect closed by a fix
@@ -23,14 +24,25 @@ export function escapeRate(rows, {now = Date.now(), days = 30} = {}) {
   return {rate: rate(missed, judged), missed, late, caught, judged};
 }
 
+// The missed bugs (No - gap, Late) whose "e2e test idea" says the guard exists ("Built: …", "Added: …", "(exists)") of all the missed ones, last `days`: a miss is only closed when
+// something now catches its class. -> {rate, missed, guarded, ideaOnly}
+export function guardRate(rows, {now = Date.now(), days = 30} = {}) {
+  const prop = (row, name) => { const p = row.properties?.[name] || {}; return (p.title || p.rich_text || []).map(part => part.plain_text).join('') || p.select?.name || ''; };
+  const missed = rows.filter(row => /^(No|Late)\b/i.test(prop(row, 'Caught by e2e')))
+    .filter(row => { const at = row.properties?.['Found on']?.date?.start; return !at || now - Date.parse(at) <= days * 86400000; });
+  const guarded = missed.filter(row => /\b(built|added|exists)\b/i.test(prop(row, 'e2e test idea'))).length;
+  return {rate: rate(guarded, missed.length), missed: missed.length, guarded, ideaOnly: missed.length - guarded};
+}
+
 export function loopQuality({issues = [], audits = [], mutation = null, tracker = null, trackerWhy = ''}) {
   const counted = issues.filter(afterEpoch);
   const regressions = counted.filter(issue => has(issue, REGRESSION)).length, fixed = counted.filter(closedByFix).length;
   const steps = counted.filter(issue => /·\s*test-failure\s*·/.test(issue.body || '') || has(issue, 'kind:test-failure')), flaky = steps.filter(issue => has(issue, FLAKY)).length;
   const ticks = audits.slice(0, 4).map(issue => auditScore(issue.body)).reduce((sum, item) => ({right: sum.right + item.right, wrong: sum.wrong + item.wrong}), {right: 0, wrong: 0});
-  const escape = tracker ? escapeRate(tracker) : null;
+  const escape = tracker ? escapeRate(tracker) : null, guard = tracker ? guardRate(tracker) : null;
   return {
     escape: escape && escape.judged ? {rate: escape.rate, note: `${escape.missed} of ${escape.judged} bugs found outside the Finder (${escape.late} caught late)`} : {rate: null, note: trackerWhy || 'no Bug Tracker rows with "Caught by e2e" yet'},
+    guard: guard && guard.missed ? {rate: guard.rate, note: `${guard.guarded} of ${guard.missed} missed bugs have a guard built; ${guard.ideaOnly} still only an idea`} : {rate: null, note: trackerWhy || 'no missed bug logged yet'},
     mutation: mutation && mutation.score !== null && mutation.score !== undefined ? {rate: mutation.score, note: `${mutation.killed} of ${mutation.killed + mutation.survived} planted code bugs caught${mutation.unknown ? `, ${mutation.unknown} unknown` : ''} (${String(mutation.at || '').slice(0, 10)})`} : {rate: null, note: 'no mutation run yet (mutation.yml, Sundays)'},
     verdicts: ticks.right + ticks.wrong ? {rate: rate(ticks.right, ticks.right + ticks.wrong), note: `${ticks.right} of ${ticks.right + ticks.wrong} audited verdicts right`} : {rate: null, note: 'no audit ticked yet (verdict-audit issue, Saturdays)'},
     regression: {rate: rate(regressions, fixed), note: fixed ? `${regressions} came back of ${fixed} closed by a fix` : 'no defect closed by a fix yet'},
