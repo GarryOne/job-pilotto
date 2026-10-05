@@ -22,15 +22,61 @@ const NOTION_LINK = /^Application in Notion\s*\((\S+)\)\s*$/i;
 const PEOPLE = /^With:\s*(.+)$/i;
 const HEAD = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)\s*/u;
 
+// The "Job emails & calendar" message's own blocks (src/ai/mail.py, tgcard.card): its title and "N updates" subtitle
+// (the status strip already says both), then per update "Company · Role · Kind" (mail._head) with its summary under it,
+// and a rejection's review line (src/ai/rejection.py line()):
+// "🛠 Why rejected · Anthropic — Staff+ SWE: Hard skills (medium). <summary>".
+const UPDATES_TITLE = /^(?:Job emails & calendar|\d+ updates?)$/;
+const OUTCOME = /^([^·]+?)\s+·\s+(.+?)\s+·\s+([^·]+)$/;
+const WHY = /Why rejected\s+·\s+(.+?):\s+([^():]+?)\s+\((low|medium|high)\)\.\s*(.*)$/u;
+// "…role needing X; your experience is SRE/platform." reads as what the role wanted and what you bring.
+const GAP = /^(.*?);\s*(?:but\s+)?your (?:experience|background|profile) (?:is|was|lies in|is in|centres on|centers on)\s+(.+)$/i;
+function assessment(line) {
+  const [, job, verdict, confidence, summary] = WHY.exec(line) || [];
+  if (!job) return null;
+  const gap = GAP.exec(summary);
+  const sentence = text => { const t = text.trim().replace(/^./, c => c.toUpperCase()); return /[.!?]$/.test(t) ? t : `${t}.`; };
+  return {job: job.trim(), verdict: verdict.trim(), confidence, summary: summary.trim(),
+          focus: gap ? sentence(gap[1]) : '', background: gap ? sentence(gap[2]) : ''};
+}
+
 // The row's own result line as one sentence: "Gmail check: 1 new email(s) read, 0 update(s) recorded".
 export function mailStatus(result) {
   const found = /(\d+)\s+new email\(s\)\s+read,\s*(\d+)\s+update\(s\)\s+recorded/i.exec(String(result || ''));
-  if (!found) return {title: 'Check complete', sentence: ''};
+  if (!found) return {title: 'Check complete', sentence: '', emails: null, updates: null};
   const emails = Number(found[1]), updates = Number(found[2]);
-  if (!emails && !updates) return {title: 'Check complete', sentence: 'No new job emails, and no application records changed.'};
+  if (!emails && !updates) return {title: 'Check complete', sentence: 'No new job emails, and no application records changed.', emails, updates};
   const read = emails ? `${emails} email${emails === 1 ? '' : 's'} reviewed.` : 'No new job emails.';
   const changed = updates ? `${updates} application record${updates === 1 ? '' : 's'} changed.` : 'No application records changed.';
-  return {title: 'Check complete', sentence: `${read} ${changed}`};
+  return {title: 'Check complete', sentence: `${read} ${changed}`, emails, updates};
+}
+
+// One card per email the check read, with what it recorded on that job and the AI's reading of a rejection attached;
+// an update or review no email row claims gets a card of its own. Matched on "Company — Role" (each writer cuts the
+// role at 60 characters, so a prefix decides). Returns the cards and the report-row updates left for "What changed".
+const jobKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const sameJob = (a, b) => { const x = jobKey(a), y = jobKey(b); return !!x && !!y && (x.startsWith(y) || y.startsWith(x)); };
+const splitJob = label => { const [company = '', ...role] = String(label || '').split(/\s+—\s+/); return {company: company.trim(), role: role.join(' — ').trim()}; };
+export function mailResults(report) {
+  const results = report.emails.map(email => ({...splitJob(email.by), email, outcome: null, assessment: null, update: null}));
+  const claim = (label, make) => {
+    const found = results.find(result => result.company && sameJob(`${result.company} — ${result.role}`, label));
+    if (found) return found;
+    const made = {...splitJob(label), email: null, outcome: null, assessment: null, update: null, ...make};
+    results.push(made);
+    return made;
+  };
+  for (const outcome of report.outcomes || []) {
+    const result = claim(`${outcome.company} — ${outcome.role}`);
+    if (!result.outcome) result.outcome = outcome;
+  }
+  for (const review of report.assessments || []) claim(review.job).assessment = review;
+  const left = [];
+  for (const update of report.updates) {
+    const result = !/which job\?$/.test(update.job) && results.find(r => r.company && sameJob(`${r.company} — ${r.role}`, update.job));
+    if (result && !result.update) result.update = update; else left.push(update);
+  }
+  return {results, updates: left};
 }
 
 // A next step with a clause in it reads as two paragraphs ("…salary expectations, with a further call planned to
@@ -109,12 +155,13 @@ export function parseMailReport(message, result = '', fromRow = []) {
   // it came from: the card draws the report lines as its own structured sections, never as loose text.
   const lines = [...(message ? said.map(text => [text, false]) : []),
                  ...fromRow.slice(1).map(text => [text, true]).filter(([line]) => DID.test(String(line)))]
-    .map(([line, fromRow_]) => [line.trim(), fromRow_]).filter(([line]) => line);
-  if (!lines.length && !parsed.emails.length) return null;
+    .map(([line, fromRow_]) => [line.trim(), fromRow_]);  // blank lines kept: they end a message block
+  if (!lines.some(([line]) => line) && !parsed.emails.length) return null;
   const report = {status: mailStatus(result), interview: null, topics: [], nextSteps: [], consent: '', notes: [],
-                  url: '', updates: parsed.updates, emails: parsed.emails};
+                  url: '', updates: parsed.updates, emails: parsed.emails, outcomes: [], assessments: []};
   let reading = '';  // what the last line put us inside: the meeting's own lines, its topics, or the next step
   for (const [line, fromRow_] of lines) {
+    if (!line) { if (reading === 'outcome') reading = ''; continue; }
     const link = NOTION_LINK.exec(line);
     if (link) { report.url = link[1]; reading = ''; continue; }
     if (CONSENT.test(line)) { report.consent = line; reading = ''; continue; }
@@ -141,13 +188,27 @@ export function parseMailReport(message, result = '', fromRow = []) {
       if (!report.interview.summary) { report.interview.summary = line; continue; }
       if (!report.interview.where) { report.interview.where = line; continue; }
     }
+    if (!fromRow_) {
+      const review = assessment(line);
+      if (review) { report.assessments.push(review); reading = ''; continue; }
+      if (UPDATES_TITLE.test(line.replace(HEAD, ''))) { reading = ''; continue; }
+      const outcome = OUTCOME.exec(line);
+      if (outcome && !HEAD.test(line)) {
+        report.outcomes.push({company: outcome[1].trim(), role: outcome[2].trim(), kind: outcome[3].trim(), summary: '', details: []});
+        reading = 'outcome';
+        continue;
+      }
+      const current = reading === 'outcome' && report.outcomes.at(-1);
+      if (current) { if (current.summary) current.details.push(line); else current.summary = line; continue; }
+    }
     const head = HEAD.exec(line);
     report.notes.push({icon: head ? head[1] : '', text: head ? line.slice(head[0].length) : line, fromRow: fromRow_});
     reading = '';
   }
   // The "which job?" note repeats the question the email's row already asks: drop it.
   report.notes = report.notes.filter(note => !/which job\?.*Answer in Job Pilotto/.test(note.text));
-  const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length;
+  const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length
+    && !report.outcomes.length && !report.assessments.length;
   return empty && !report.status.sentence ? null : report;
 }
 

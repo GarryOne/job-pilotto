@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const {mailChanges, mailStatus, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
+const {mailChanges, mailResults, mailStatus, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
 
 const PREP = [
   '🗓 Tomorrow 08:30 — Huxley — Principal SRE',
@@ -20,12 +20,12 @@ const PREP = [
 
 test('a Gmail check tells what it did, in the row\'s own numbers', () => {
   assert.deepEqual(mailStatus('Gmail check: 1 new email(s) read, 0 update(s) recorded'),
-    {title: 'Check complete', sentence: '1 email reviewed. No application records changed.'});
+    {title: 'Check complete', sentence: '1 email reviewed. No application records changed.', emails: 1, updates: 0});
   assert.deepEqual(mailStatus('Gmail check: 3 new email(s) read, 2 update(s) recorded'),
-    {title: 'Check complete', sentence: '3 emails reviewed. 2 application records changed.'});
+    {title: 'Check complete', sentence: '3 emails reviewed. 2 application records changed.', emails: 3, updates: 2});
   assert.deepEqual(mailStatus('Gmail check: 0 new email(s) read, 0 update(s) recorded'),
-    {title: 'Check complete', sentence: 'No new job emails, and no application records changed.'});
-  assert.deepEqual(mailStatus(''), {title: 'Check complete', sentence: ''});  // nothing to claim
+    {title: 'Check complete', sentence: 'No new job emails, and no application records changed.', emails: 0, updates: 0});
+  assert.deepEqual(mailStatus(''), {title: 'Check complete', sentence: '', emails: null, updates: null});  // nothing to claim
 });
 
 test('the prep message becomes the interview, its topics, the next step and the consent line', () => {
@@ -90,7 +90,7 @@ test('without a message the report lines say what the check recorded and changed
                '📬 Application received · Canonical — Software Engineer - Data Infrastructure · Stage Applied → Confirmation received',
                'Emails with claude-haiku-4-5: 2 of 2; tokens in 3252 (+0 cached), out 142; $0.0040'];  // not about the emails
   const report = parseMailReport(null, 'Gmail check: 2 new email(s) read, 1 update(s) recorded', row);
-  assert.deepEqual(report.status, {title: 'Check complete', sentence: '2 emails reviewed. 1 application record changed.'});
+  assert.deepEqual(report.status, {title: 'Check complete', sentence: '2 emails reviewed. 1 application record changed.', emails: 2, updates: 1});
   // The update is its own line — the job, and what moved on it — not a note.
   assert.deepEqual(report.updates, [{summary: 'Application received', job: 'Canonical — Software Engineer - Data Infrastructure',
                                      changes: 'Stage Applied → Confirmation received'}]);
@@ -153,4 +153,32 @@ test('a "which job?" stays an update (a side effect) and the email that raised i
     'Meeting invitation · Cal.com · 02 Oct 21:30 — [needs you] · Blockdaemon']);
   assert.deepEqual(report.updates.map(update => update.job), ['Canonical — SRE', 'Blockdaemon — which job?']);
   assert.equal(report.emails[0].action, 'needs you');
+});
+
+// The check of 5 Oct 2026 (the owner's screenshot): one email read, the rejection it recorded, and the AI's reading of it.
+test('a rejection becomes the email\'s result: the update, its stage, and the AI assessment split in two', () => {
+  const message = ['📧 Job emails & calendar', '2 updates', '',
+    'Anthropic · Staff+ Software Engineer, Data Infrastructure · Rejected', 'Application rejected after consideration', '',
+    '🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.'].join('\n');
+  const rows = ['Gmail check: 1 new email(s) read, 2 update(s) recorded',
+    'Anthropic Follow-Up for Staff+ Software Engineer, Data Infrastructure | Igor · us.greenhouse-mail.io · 05 Oct 21:50 — [recorded] · Anthropic — Staff+ Software Engineer, Data Infrastructure'];
+  const report = parseMailReport(message, rows[0], rows);
+  assert.deepEqual(report.notes.filter(note => !note.fromRow), []);   // nothing left to draw as loose text (the card skips row lines)
+  const {results, updates} = mailResults(report);
+  assert.equal(results.length, 1);
+  assert.deepEqual(updates, []);
+  const [result] = results;
+  assert.deepEqual([result.company, result.role, result.email.sender, result.email.time],
+    ['Anthropic', 'Staff+ Software Engineer, Data Infrastructure', 'us.greenhouse-mail.io', '05 Oct 21:50']);
+  assert.deepEqual([result.outcome.kind, result.outcome.summary], ['Rejected', 'Application rejected after consideration']);
+  assert.deepEqual([result.assessment.verdict, result.assessment.confidence, result.assessment.focus, result.assessment.background],
+    ['Hard skills', 'medium', 'Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark).', 'SRE/platform.']);
+});
+
+test('an assessment with no "your experience" clause stays one sentence, and an unmatched update gets its own card', () => {
+  const report = parseMailReport(['Acme · SRE · Rejected', 'No reason given', '',
+    '❔ Why rejected · Acme — SRE: Unclear (low). The email gave no reason.'].join('\n'), 'Gmail check: 0 new email(s) read, 1 update(s) recorded', []);
+  const [result] = mailResults(report).results;
+  assert.equal(result.email, null);
+  assert.deepEqual([result.company, result.role, result.assessment.focus, result.assessment.summary], ['Acme', 'SRE', '', 'The email gave no reason.']);
 });

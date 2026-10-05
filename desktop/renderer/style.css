@@ -1553,8 +1553,12 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .alert-actions .link:focus-visible { outline-width: 2px; outline-offset: 1px; border-radius: var(--r-sm); }
 /* A Gmail check's card (renderer/mail-report.js): one surface whose bands are the parts of the check — what it did,
    the interview it is about, what to prepare and the recruiter's next step, and the consent line (the mockup, 30 Sep). */
-.mail-card { display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
-.mail-status { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); }
+.mail-card { display: grid; gap: var(--sp-5); }
+.mail-card > :is(.mail-interview, .mail-columns, .mail-notes, .mail-consent, .mail-changed) { border: 1px solid var(--line); border-radius: var(--r-lg); }
+.mail-status { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); padding: var(--sp-4) var(--sp-5);
+  background: var(--strip); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.mail-status-stat { color: var(--muted); padding-left: var(--sp-5); border-left: 1px solid var(--line); }
+.mail-status-stat b { color: var(--ink); margin-left: var(--sp-2); font-variant-numeric: tabular-nums; }
 .mail-tick { display: inline-flex; color: var(--good); flex: none; }
 .mail-tick .icon { width: 20px; height: 20px; }
 .mail-status-text { color: var(--muted); padding-left: var(--sp-3); border-left: 1px solid var(--line); }
@@ -1580,15 +1584,13 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-block p { margin: var(--sp-3) 0 0; color: var(--ink-2); }
 .mail-sub { margin-top: var(--sp-1); color: var(--muted); }
 .mail-topics { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-2); color: var(--ink-2); }
-.mail-notes { list-style: none; margin: 0; padding: 0 var(--sp-4) var(--sp-4); display: grid; gap: var(--sp-2); }
+.mail-notes { list-style: none; margin: 0; padding: var(--sp-4); display: grid; gap: var(--sp-2); }
 .mail-notes li { display: flex; gap: var(--sp-2); color: var(--ink-2); }
 .mail-note-icon { flex: none; }
 /* A Gmail check's own record: its counts, what it changed on a job, and every email it read (1 Oct 2026). The card
    is one column of children, so these sections carry their own inset — and, stacked rather than side by side, none of
    the border-left that .mail-block + .mail-block draws for the two columns. */
-.mail-stats { padding: var(--sp-3) var(--sp-4) 0; }
-.mail-changed, .mail-read { padding: var(--sp-4); }
-.mail-changed + .mail-read { border-left: 0; padding-left: var(--sp-4); border-top: 1px solid var(--line); }
+.mail-changed { padding: var(--sp-4); }
 .mail-changed-row { display: grid; gap: var(--sp-2); padding-top: var(--sp-3); margin-top: var(--sp-3); border-top: 1px solid var(--line); }
 .mail-changed-row:first-of-type { padding-top: 0; margin-top: 0; border-top: 0; }
 .mail-changed-job { color: var(--ink); }
@@ -1604,13 +1606,35 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-confirm-words { min-width: 0; display: grid; gap: 2px; }
 .mail-confirm-words p { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
 .mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
-.mail-read-rows { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; }
-.mail-read-row { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
-.mail-read-row:first-child { border-top: 0; }
-.mail-read-words { display: grid; gap: 2px; min-width: 0; }
-.mail-read-words b { font-weight: 600; }
-.mail-read-meta { color: var(--muted); }
-.mail-read-by { grid-column: 1 / -1; color: var(--muted); }
+/* One email's result (the mockup, 6 Oct 2026): the job, the update it recorded, the AI's reading, the subject folded. */
+.mail-results { display: grid; gap: var(--sp-3); }
+.mail-results-title { margin: 0; font-size: var(--fs-xl); font-weight: 700; }
+.mail-result { display: grid; gap: var(--sp-4); padding: var(--sp-5); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.mail-result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.mail-result-words { display: grid; gap: 2px; min-width: 0; }
+.mail-result-words h3 { margin: 0 0 var(--sp-1); font-size: var(--fs-xl); font-weight: 700; color: var(--ink); }
+.mail-result-role { margin: 0; color: var(--ink-2); }
+.mail-result-meta { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+.mail-result-part { display: grid; gap: var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.mail-result-kicker { display: flex; align-items: center; gap: var(--sp-3); }
+.mail-result-summary { margin: 0; color: var(--ink); }
+.mail-result-detail { margin: 0; color: var(--muted); }
+.mail-assessment { display: grid; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.mail-assessment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.mail-assessment-head .ui-pill { background: var(--surface); border: 1px solid var(--next-line); }
+.mail-assessment-head h4 { margin: var(--sp-1) 0 0; font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
+.mail-assessment-facts { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: var(--sp-2) var(--sp-5); margin: 0; }
+.mail-assessment-facts dt { color: var(--muted); }
+.mail-assessment-facts dd { margin: 0; color: var(--ink); }
+.mail-assessment-text { margin: 0; color: var(--ink); }
+.mail-assessment-note { margin: 0; padding-top: var(--sp-3); border-top: 1px solid var(--warn-line); color: var(--muted); font-size: var(--fs-sm); }
+.mail-result-subject { padding-top: var(--sp-3); border-top: 1px solid var(--line); color: var(--muted); }
+.mail-result-subject p { margin: var(--sp-2) 0 0 calc(16px + var(--sp-2)); color: var(--ink-2); }
+.mail-result-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); }
+.mail-result-toggle .icon { width: 16px; height: 16px; transition: transform .15s; }
+.mail-result-toggle.is-open .icon { transform: rotate(90deg); }
+.mail-result-toggle:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
 .mail-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--line); color: var(--muted); }
 .mail-consent .icon { width: 18px; height: 18px; flex: none; }

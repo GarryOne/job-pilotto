@@ -54,5 +54,9 @@ with mock.patch.object(interviews, 'stats_for_insights', return_value={'topics_a
     out['mail_prep'] = plain(mail.prep_message(None, row, event, start, 'Tomorrow'))
 scheduled = mail.tgcard.block(mail._head(row, 'Interview'), 'Tue 06 Oct · 08:30', mail.tgcard.fact('Event', 'Interview with Huxley'), mail.tgcard.fact('Source', 'Google Calendar'))
 out['mail_updates'] = plain(mail.tgcard.card('Job emails & calendar', '1 update', [scheduled], emoji='📧'))
+from src.ai import rejection
+outcome = mail.tgcard.block(mail._head(row, 'Rejected'), 'Application rejected after consideration')
+why = rejection.line(row, {'verdict': 'Hard skills', 'confidence': 'medium', 'summary': 'Staff-level role needing a deep data background (BigQuery, Spark); your experience is SRE/platform.'})
+out['mail_rejected'] = plain(mail.tgcard.card('Job emails & calendar', '2 updates', [outcome, why], emoji='📧'))
 out['mail_none'] = plain(mail.tgcard.card('Gmail checked', 'No new job emails', [], emoji='📧'))
 print(json.dumps(out))

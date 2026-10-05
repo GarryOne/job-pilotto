@@ -11,7 +11,7 @@ import {parseWeekly} from '../renderer/weekly-card.js';
 import {parseInsight} from '../renderer/insight-card.js';
 import {parseKitsReady} from '../renderer/kits-ready.js';
 import {parseInterviewReview} from '../renderer/interview-review.js';
-import {parseMailReport} from '../renderer/mail-report.js';
+import {mailResults, parseMailReport} from '../renderer/mail-report.js';
 import {parseRunMessage} from '../renderer/run-cards.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -83,4 +83,15 @@ test('Gmail check: the updates message and the "no new emails" message give no r
     const loose = mail.notes.map(note => note.text).filter(text => /^(Job emails & calendar|Gmail checked)\b/.test(text) && text.length > 40);
     assert.deepEqual(loose, [], lookAt(name));
   }
+});
+
+test('Gmail check: a rejection reads as the job\'s update and the AI\'s assessment, not loose notes', () => {
+  const mail = parseMailReport(said.mail_rejected, 'Gmail check: 1 new email(s) read, 2 update(s) recorded', []);
+  assert.ok(mail, lookAt('mail_rejected'));
+  assert.deepEqual(mail.notes, [], lookAt('mail_rejected'));
+  const [result] = mailResults(mail).results;
+  assert.deepEqual([result.company, result.role, result.outcome.kind, result.outcome.summary],
+    ['Huxley', 'Principal SRE', 'Rejected', 'Application rejected after consideration'], lookAt('mail_rejected'));
+  assert.deepEqual([result.assessment.verdict, result.assessment.confidence, result.assessment.background],
+    ['Hard skills', 'medium', 'SRE/platform.'], lookAt('mail_rejected'));
 });
