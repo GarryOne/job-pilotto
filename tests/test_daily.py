@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+import re
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import daily, digest
@@ -24,6 +25,23 @@ class DigestFormatTests(unittest.TestCase):
         self.assertNotIn('<blockquote>', message)
         self.assertIn('Hybrid', message)
         self.assertNotIn('<Labs>', message)
+
+    def test_each_group_heading_appears_once_with_its_jobs_listed_under_it(self):
+        # 5 Oct 2026: "In your preferred locations" and "Outside..." were printed again every time the ranking switched between them.
+        jobs = [{'id': str(i), 'title': f'Site Reliability Engineer {i}', 'company': f'Acme {i}', 'location': place, 'url': f'https://example.test/{i}'}
+                for i, place in enumerate(['Zurich', 'London, UK', 'Zurich', 'Berlin', 'Zurich', 'Toronto'], 1)]
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': jobs})
+                message = digest.format_digest(db)
+        for heading in ('In your preferred locations', 'Outside your preferred locations'):
+            self.assertLessEqual(message.count(heading), 1, heading)
+        # the numbers run 1..n in the order shown, and each job sits under the heading that names its place
+        numbers = [int(n) for n in re.findall(r'(?m)^(\d+)\. ', message)]
+        self.assertEqual(numbers, list(range(1, len(numbers) + 1)))
+        inside = message.split('In your preferred locations')[1].split('Outside your preferred locations')[0] if 'Outside your preferred locations' in message else message
+        for city in ('Zurich',):
+            self.assertIn(city, inside)
 
     def test_ranking_prefers_zurich_then_switzerland_then_berlin_london_dubai_remote(self):
         jobs = [{'title': 'Accountant', 'location': 'Toronto'},

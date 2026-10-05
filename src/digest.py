@@ -365,6 +365,10 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         return [f'✈️ <b>{BRAND_NAME}</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
 
     SECTION_LABELS = {'new': 'New since your last run', 'best': 'Best matches', 'older': 'More to explore'}
+    # One heading per group, jobs in the order they are listed: why they are listed first (new, best, more), your places before elsewhere. The ranking mixes the two
+    # (a 62 outside your places sits between two 58s inside them), and a heading per change of group printed "In your preferred locations · 3 jobs" three times
+    # with the same count (5 Oct 2026). The sort is stable: inside a group the ranking stays.
+    shown = sorted(shown, key=lambda entry: (list(SECTION_LABELS).index(entry[0]), 0 if in_places(entry[1]) else 1))
     group_sizes = {}
     for kind, job in shown:
         key = (kind, in_places(job))
