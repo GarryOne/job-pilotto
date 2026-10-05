@@ -80,6 +80,22 @@ export function mailResults(report) {
   return {results, updates: report.updates, hidden};
 }
 
+// The strip's numbers, counted from what the card lists so they never disagree (owner, 6 Oct 2026: "2 emails reviewed, 2 updates"
+// over one email row and one change). Emails the check set aside (not about your applications) are said in the strip, not
+// in small print under the rows: "2 new emails · 1 relevant". The engine counts a rejection's AI review as an update too;
+// the card shows it on the email, so "updates" is What changed's rows. A run kept on this Mac has no email rows: its
+// own count stays, with no claim about which were relevant. -> [{value, label}], or [] when there is nothing to count.
+export function mailCounts(report) {
+  const plural = (n, one, many) => `${n === 1 ? one : many}`;
+  const listed = report.emails.length;
+  const seen = report.status.emails ?? listed;
+  const changes = report.updates.length || report.status.updates || 0;
+  if (!seen && !changes) return [];
+  const updates = {value: changes, label: plural(changes, 'update recorded', 'updates recorded')};
+  if (listed && seen > listed) return [{value: seen, label: plural(seen, 'new email', 'new emails')}, {value: listed, label: 'relevant'}, updates];
+  return [{value: seen, label: plural(seen, 'email reviewed', 'emails reviewed')}, updates];
+}
+
 // A next step with a clause in it reads as two paragraphs ("…salary expectations, with a further call planned to
 // discuss …"): the pipeline's own punctuation decides the breaks, no word is added or dropped.
 const paragraphs = text => String(text).split(/,\s+(?=with\b)/i)

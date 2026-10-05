@@ -7,7 +7,7 @@ import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {cardText, emptyResult, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
-import {mailChanges, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
+import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {parseInterviewReview} from '../interview-review.js';
@@ -711,7 +711,7 @@ function mailDiff(changes) {
   return row;
 }
 function mailSections(box, report, pending = [], answered = null) {
-  const {results, updates, hidden} = mailResults(report);
+  const {results, updates} = mailResults(report);
   if (updates.length) {
     const section = el('section', 'mail-changed');
     section.append(el('h4', 'run-card-title', 'What changed'));
@@ -745,7 +745,6 @@ function mailSections(box, report, pending = [], answered = null) {
     const rows = el('ol', 'run-card-rows');
     for (const result of results) rows.append(mailResult(result, pending, answered));
     box.append(el('h4', 'run-card-title', results.length === 1 ? 'Email result' : 'Email results'), rows);
-    if (hidden) box.append(el('p', 'muted', `${hidden} more email${hidden === 1 ? '' : 's'} read, not about your applications.`));
   }
 }
 
@@ -880,10 +879,8 @@ export function renderMailCard(report, pending = [], answered = null, target = $
   const done = el('span', 'run-card-stat mail-done');
   done.append(icon('check-circle'), el('b', '', report.status.title));
   status.append(done);
-  // The counts, from the row's own result line (the report rows list only some of the updates).
-  const emails = report.status.emails ?? report.emails.length, updates = report.status.updates ?? report.updates.length;
-  if (emails || updates) status.append(stat(emails, emails === 1 ? 'email reviewed' : 'emails reviewed'),
-                                       stat(updates, updates === 1 ? 'update recorded' : 'updates recorded'));
+  const counts = mailCounts(report);   // counted from the rows the card lists (mail-report.js)
+  if (counts.length) status.append(...counts.map(({value, label}) => stat(value, label)));
   else if (report.status.sentence) status.append(el('span', 'run-card-stat', report.status.sentence));
   const box = el('div', 'run-card-body mail-card');
   mailSections(box, report, pending, answered);

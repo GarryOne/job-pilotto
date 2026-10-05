@@ -230,3 +230,21 @@ test('"No new job emails" is the strip\'s own sentence: the message adds no note
   assert.deepEqual(report.notes, []);
   assert.equal(report.status.sentence, 'No new job emails, and no application records changed.');
 });
+
+// 6 Oct 2026: "2 emails reviewed, 2 updates recorded" over one email row and one change. The strip counts what the card lists.
+test('the strip counts the rows the card shows: new emails, the relevant ones, and What changed', async () => {
+  const {mailCounts} = await import('../renderer/mail-report.js');
+  const rows = ['Gmail check: 2 new email(s) read, 2 update(s) recorded',
+    '❌ Rejected · Anthropic — Staff+ SWE · Stage Confirmation received → Rejected',
+    '🛠 Why rejected · Anthropic — Staff+ SWE: Hard skills (medium). Needs data depth.',
+    'Follow-Up | Igor · us.greenhouse-mail.io · 05 Oct 21:50 — [recorded] · Anthropic — Staff+ SWE · changed Stage Confirmation received → Rejected'];
+  assert.deepEqual(mailCounts(parseMailReport('', rows[0], rows)),
+    [{value: 2, label: 'new emails'}, {value: 1, label: 'relevant'}, {value: 1, label: 'update recorded'}]);
+  // every email listed: just "reviewed"
+  assert.deepEqual(mailCounts(parseMailReport('', 'Gmail check: 1 new email(s) read, 1 update(s) recorded', [rows[0], rows[1], rows[3]])).map(c => c.label),
+    ['email reviewed', 'update recorded']);
+  // a run kept on this Mac lists no emails: its own count, no claim about relevance
+  assert.deepEqual(mailCounts(parseMailReport('', 'Mail: 6 new email(s) classified, 1 update(s)', ['', '💬 Reply received · Acme — SRE'])),
+    [{value: 6, label: 'emails reviewed'}, {value: 1, label: 'update recorded'}]);
+  assert.deepEqual(mailCounts(parseMailReport('', 'Gmail check: 0 new email(s) read, 0 update(s) recorded', [])), []);
+});
