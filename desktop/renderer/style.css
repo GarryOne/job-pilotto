@@ -1418,6 +1418,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .task-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
+.task-card input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
+.task-card input.task-count::-webkit-inner-spin-button, .task-card input.task-count::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }
