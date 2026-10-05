@@ -58,24 +58,34 @@ function focusStatus(text, busy = false) {
   $('focus-status').replaceChildren(...(busy ? [el('span', 'spinner small')] : []), document.createTextNode(text));
 }
 let focusUpdatedAt = 0;
-// A row you just finished (Skip, Done) leaves the list at once. Notion is slow, so the next read can still
-// contain it: keep it hidden for a minute, and drop the hold as soon as a read no longer has it.
-const settled = new Map();
+// A row you just finished (Skip, Done) leaves the list at once. Notion is slow: its next read, and the saved Focus painted first on every
+// reload or start (lib/view-cache.js), can still contain it. So the hold lives on this Mac (localStorage, survives a reload) for ten minutes,
+// longer than Notion takes to list a new write, and is dropped as soon as a read no longer has the row (5 Oct 2026: a dismissed card came back
+// after a refresh or a reload, then left again; the hold was in memory only and ended after a minute).
+const HOLD_MS = 10 * 60000, HOLD_KEY = 'focusHolds';
+const savedHolds = () => {
+  try { return Object.entries(JSON.parse(localStorage.getItem(HOLD_KEY) || '{}')).filter(([, until]) => until > Date.now()); } catch { return []; }
+};
+const settled = new Map(savedHolds());
+const keepHolds = () => { try { localStorage.setItem(HOLD_KEY, JSON.stringify(Object.fromEntries(settled))); } catch { /* private window: the hold lasts until reload */ } };
 const itemKey = item => `${item.kind}:${item.page_id || ''}${item.event_id ? `:${item.event_id}` : ''}`;
 function hideSettled(items, now = Date.now()) {
+  const before = settled.size;
   for (const [key, until] of [...settled]) {
     if (now > until || !items.some(item => itemKey(item) === key)) settled.delete(key);
   }
+  if (settled.size !== before) keepHolds();
   return items.filter(item => !settled.has(itemKey(item)));
 }
 function dismiss(item) {
-  settled.set(itemKey(item), Date.now() + 60000);
+  settled.set(itemKey(item), Date.now() + HOLD_MS);
+  keepHolds();
   if (lastFocus) renderFocus(lastFocus);
   focusStatus('Saving…', true);
 }
 // A question answered in a dialog (Which job?) leaves the list at once too; undone if Notion refuses it.
 export const holdItem = item => dismiss(item);
-export function releaseItem(item) { settled.delete(itemKey(item)); if (lastFocus) renderFocus(lastFocus); }
+export function releaseItem(item) { settled.delete(itemKey(item)); keepHolds(); if (lastFocus) renderFocus(lastFocus); }
 async function finishItem(item, save) {
   dismiss(item);
   let done;
@@ -83,6 +93,7 @@ async function finishItem(item, save) {
   catch (error) { done = {ok: false, error: error.message}; }
   if (!done?.ok) {
     settled.delete(itemKey(item));
+    keepHolds();
     if (lastFocus) renderFocus(lastFocus);
     toastMessage('Not saved', done?.error || 'Notion refused it. Try again.');
     return;
@@ -211,8 +222,9 @@ function focusCard(item) {
   const more = [];
   if (item.kind.startsWith('feedback') && item.kind !== 'feedback_wait') more.push({label: 'Add employer feedback', run: () => openFeedback(item, 'receive')});
   if (item.kind === 'feedback') more.push({label: 'Skip this request', run: async () => {
+    dismiss(item);   // it leaves at once, like Done and Skip; undone if Notion refuses it
     const result = await saveFeedbackAction(item, 'skip');
-    if (!result.ok) toastMessage('Not saved', result.error);
+    if (!result.ok) { releaseItem(item); toastMessage('Not saved', result.error); }
   }});
   if (item.notion_url) more.push({icon: 'layers', label: 'Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.job_url)});

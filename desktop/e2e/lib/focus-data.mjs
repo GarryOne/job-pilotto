@@ -57,6 +57,49 @@ export function scenario(now = new Date()) {
   return {rows, events};
 }
 
+// Up next cards that each offer a way to finish them, one per way (5 Oct 2026: a dismissed card came back after a reload). Added to a running suite
+// after its own checks, so the six-card scenario above keeps its exact order and counts. `how` is what the person clicks.
+export function actionScenario(now = new Date()) {
+  const today = zurichDay(now), ago = days => shiftDay(today, -days), tomorrow = shiftDay(today, 1);
+  const midday = days => `${ago(days)}T12:00:00Z`;
+  const row = (key, fields) => ({key, fields});
+  const event = (rowKey, kind, at, note = '', extra = {}) => ({rowKey, kind, at, note, source: 'Job Pilotto app', ...extra});
+  const rows = [
+    row('osprey', {Job: 'Principal Platform Engineer', Via: 'Osprey Agency', Stage: 'Interviewing', 'Job URL': 'https://jobs.e2e.test/osprey/principal', Origin: 'Inbound'}),
+    row('plover', {Job: 'Staff SRE', Via: 'Plover Partners', Stage: 'Recruiter lead', Salary: 'CHF 150k', Location: 'Zurich', 'Reached via': 'Email', 'Job URL': 'https://jobs.e2e.test/plover/staff-sre', Origin: 'Inbound'}),
+    row('wren', {Job: 'Cloud Engineer', Company: 'Wren Labs', Stage: 'Rejected', 'Applied on': ago(14), 'Fit score': 66, 'Job URL': 'https://jobs.e2e.test/wren/cloud', Origin: 'Outbound'}),
+    row('heron', {Job: 'Data Platform Engineer', Company: 'Heron Data', Stage: 'Interview scheduled', 'Applied on': ago(8), 'Next interview': zurichAt(tomorrow, '10:00'), 'Fit score': 80,
+      'Job URL': 'https://jobs.e2e.test/heron/data', Origin: 'Outbound'}),
+    row('lark', {Job: 'Platform Engineer', Company: 'Lark Systems', Stage: 'Interviewing', 'Applied on': ago(9), 'Fit score': 77, 'Job URL': 'https://jobs.e2e.test/lark/platform', Origin: 'Outbound'}),
+  ];
+  const events = [
+    event('osprey', 'Interviewing', midday(2), 'An agency with a client under NDA. A first call took place.', {source: 'Gmail', sourceId: 'e2e-action-1'}),
+    event('plover', 'Recruiter lead', new Date(now.getTime() - 5 * 3600e3).toISOString(), 'Are you open to a Staff SRE role in Zurich? CHF 150k, hybrid.', {source: 'Gmail', sourceId: 'e2e-action-2'}),
+    event('wren', 'Applied', midday(14)), event('wren', 'Screening', midday(9)), event('wren', 'Rejected', midday(3)),
+    event('heron', 'Applied', midday(8)), event('heron', 'Screening', midday(5)), event('heron', 'Interview scheduled', midday(2)),
+    event('lark', 'Applied', midday(9)), event('lark', 'Interviewing', midday(5)),
+  ];
+  const actions = [
+    {who: 'Osprey', kind: 'details', how: {button: 'Skip'}},
+    {who: 'Plover', kind: 'reply', how: {button: 'Done'}},
+    {who: 'Wren', kind: 'feedback', how: {menu: 'Skip this request'}},
+    {who: 'Heron', kind: 'prepare', how: {menu: 'Dismiss interview', confirm: true}},
+    {who: 'Lark', kind: 'nudge', how: {menu: "I'm out: withdraw"}},
+  ];
+  return {rows, events, actions};
+}
+
+// Writes rows and their events into the running workspace (no reset).
+export async function addFocusData(token, ids, data) {
+  const pages = {};
+  for (const {key, fields} of data.rows) { pages[key] = await createRowIn(token, ids.tracker, rowProperties(fields)); await sleep(350); }
+  for (const item of data.events) {
+    await createRowIn(token, ids.events, eventProperties(item, data.rows.find(r => r.key === item.rowKey).fields, pages[item.rowKey].id));
+    await sleep(350);
+  }
+  return pages;
+}
+
 // What Focus must list for that scenario, in order: [kind label on the badge, the primary button]. Written from the product spec
 // (who needs an answer first, then what is soonest), not read back from the app.
 export const EXPECTED_UP_NEXT = [
@@ -143,12 +186,7 @@ export async function resetFocusData(token, ids, {data = null, target = 5} = {})
   for (const id of [ids.tracker, ids.events, ids.insights, ids.interviews]) await emptyById(token, id);
   await setTargetLine(token, ids.profile, target);
   if (!data) return ids;
-  const pages = {};
-  for (const {key, fields} of data.rows) { pages[key] = await createRowIn(token, ids.tracker, rowProperties(fields)); await sleep(350); }
-  for (const item of data.events) {
-    await createRowIn(token, ids.events, eventProperties(item, data.rows.find(r => r.key === item.rowKey).fields, pages[item.rowKey].id));
-    await sleep(350);
-  }
+  const pages = await addFocusData(token, ids, data);
   // On a Mac without this suite's own Notion page the suite shares the wizard's page, and another session's app may write into it meanwhile:
   // an event that belongs to none of this scenario's applications is not part of the data under test. Remove it, and say so.
   const mine = new Set(Object.values(pages).map(page => page.id));

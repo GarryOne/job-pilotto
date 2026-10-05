@@ -5,7 +5,7 @@
 import {call, createRowIn} from '../lib/notion.mjs';
 import {LIMITS, inspect} from '../lib/uicheck.mjs';
 import {journey} from '../lib/journey.mjs';
-import {expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, HAND_EDITS, idsFromApp, queryAll, readTargetLine, resetFocusData, rowProperties, scenario} from '../lib/focus-data.mjs';
+import {actionScenario, addFocusData, expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, HAND_EDITS, idsFromApp, queryAll, readTargetLine, resetFocusData, rowProperties, scenario} from '../lib/focus-data.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
@@ -199,6 +199,58 @@ export async function run(ctx) {
     if (left.length !== 4) throw new Error(`4 actions should remain (prepare, apply, add feedback, waiting), Focus lists ${left.length}: ${left.map(item => item.headline).join(' | ')}`);
     if ((await eventsOf('Details skipped', 'Kestrel Agency')).length !== 1) throw new Error('Skip should write one "Details skipped" event to Notion');
     await numbersMatchSource('after Skip');
+  }, {needs: ctx.needs});
+
+  // 5 Oct 2026 (owner): a card was dismissed from Up next, came back after a refresh, then left again. One card per way of finishing one (actionScenario):
+  // each must leave at once, stay gone after a refresh, after a reload straight away (the saved Focus in lib/view-cache.js is painted first on every load)
+  // and after a reload once Notion has had time. A MutationObserver from the first paint of every load records any moment the card is in the list.
+  const actions = actionScenario(now);
+  await ctx.run('five more Up next cards, one for each way to finish one, are written to Notion', async () => {
+    await addFocusData(NOTION, ids, actions);
+    await page.addInitScript(() => {
+      const watch = () => { try { return JSON.parse(localStorage.getItem('__e2eWatch') || '[]'); } catch { return []; } };
+      new MutationObserver(() => {
+        const names = watch();
+        if (!names.length) return;
+        for (const node of document.querySelectorAll('#focus-list .focus-headline')) for (const name of names) if (node.textContent.includes(name)) sessionStorage.setItem(`__e2eSeen_${name}`, String(Date.now()));
+      }).observe(document, {childList: true, subtree: true, characterData: true});
+    });
+  }, {needs: ctx.needs, critical: true});
+  const seenOf = who => page.evaluate(name => sessionStorage.getItem(`__e2eSeen_${name}`), who);
+  for (const action of actions.actions) {
+    const [how, label] = Object.entries(action.how)[0];
+    await ctx.run(`Up next "${action.kind}" card: ${how === 'button' ? `${label} button` : `⋯ ${label}`} removes it for good (leaves at once, not back after a refresh or a reload)`, async () => {
+      const card = () => page.locator('#focus-list .focus-item', {has: page.locator('.focus-headline', {hasText: action.who})});
+      await goFocus();
+      for (let i = 0; i < 12 && !(await card().count()); i++) { await refresh(); if (!(await card().count())) await page.waitForTimeout(4000); }   // Notion lists new rows a moment later
+      if (!(await card().count())) throw new Error(`no ${action.kind} card for ${action.who} appeared; Focus lists: ${(await upNext()).map(item => item.headline).join(' | ')}`);
+      await page.evaluate(name => { localStorage.setItem('__e2eWatch', JSON.stringify([name])); sessionStorage.removeItem(`__e2eSeen_${name}`); }, action.who);
+      if (action.how.confirm) page.once('dialog', dialog => dialog.accept());
+      if (how === 'button') await card().getByRole('button', {name: label, exact: true}).click();
+      else { await card().getByRole('button', {name: 'More'}).click(); await page.getByRole('menuitem', {name: label}).click(); }
+      await card().waitFor({state: 'detached', timeout: 5000}).catch(() => { throw new Error(`the ${action.kind} card for ${action.who} is still listed 5 seconds after ${label}`); });
+      await page.evaluate(name => sessionStorage.removeItem(`__e2eSeen_${name}`), action.who);   // watch from here: it must not return
+      await page.waitForTimeout(800);
+      await focusReady();
+      await refresh();
+      if ((await card().count()) || await seenOf(action.who)) throw new Error(`the ${action.kind} card for ${action.who} came back after a refresh`);
+      for (const [when, wait] of [['straight away', 0], ['once Notion has had time', 6000]]) {
+        await page.waitForTimeout(wait);
+        await page.reload();
+        await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+        await goFocus();
+        await focusReady();
+        if (await seenOf(action.who)) throw new Error(`the ${action.kind} card for ${action.who} was painted back after a reload ${when} (from the saved Focus, before the fresh read removed it)`);
+        if (await card().count()) throw new Error(`the ${action.kind} card for ${action.who} is listed again after a reload ${when}`);
+      }
+    }, {needs: ctx.needs});
+  }
+  await ctx.run('after the 60-second hold ends, none of the dismissed Up next cards comes back from Notion', async () => {
+    await page.waitForTimeout(65000);
+    await goFocus();
+    await refresh();
+    const back = (await upNext()).filter(item => actions.actions.some(action => item.headline.includes(action.who)));
+    if (back.length) throw new Error(`dismissed cards are listed again once the in-app hold is over: ${back.map(item => item.headline).join(' | ')} (Notion has not recorded the dismissal)`);
   }, {needs: ctx.needs});
 
   await ctx.run('Dismiss on a job in process leaves the In process list at once, and is still gone after a reload (it was bouncing back to "Interview scheduled", 3 Oct 2026)', async () => {
