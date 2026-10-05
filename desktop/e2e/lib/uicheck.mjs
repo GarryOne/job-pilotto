@@ -85,7 +85,11 @@ export function inspect({view, limits}) {
     for (let node = walker.nextNode(); node && seen.size < 3; node = walker.nextNode()) {
       const host = node.parentElement;
       if (!host || seen.has(host) || host.closest(ON_PURPOSE) || !visible(host)) continue;
-      const text = (host.innerText || host.textContent || '').replace(/\s+/g, ' ').trim();
+      // The host's own words without the on-purpose blocks inside it: a panel whose full log is open (a failed run opens it by itself) holds the log's Traceback, and so did every
+      // ancestor of it (#298: three severe findings on a page whose reason was in plain words).
+      const copy = host.cloneNode(true);
+      for (const block of copy.querySelectorAll(ON_PURPOSE)) block.remove();
+      const text = (copy.textContent || '').replace(/\s+/g, ' ').trim();
       if (!TECH.some(pattern => pattern.test(text))) continue;
       seen.add(host);
       found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(host)} shows technical text to the person: "${text.slice(0, 160)}"`});

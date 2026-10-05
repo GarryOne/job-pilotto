@@ -251,3 +251,10 @@ test('with the Recent activity panel open, the page behind it is not compared wi
   assert.ok((await kinds(page, `${behind}<div class="other-box">${ITEMS} again</div>`)).includes('duplicate-content'), 'no panel: two boxes in sight are compared');
   assert.ok(!(await kinds(page, `${behind}<div id="activity-panel"><pre id="activity-message">${ITEMS}</pre></div>`)).includes('duplicate-content'), 'panel open: the page behind it is not what is read');
 }));
+
+test('technical text inside an on-purpose log is not shown to the person; the same text in plain view still is (#298)', () => withChrome(async page => {
+  const trace = 'Traceback (most recent call last): RuntimeError: Forbidden: bot was blocked by the user';
+  assert.ok(!(await kinds(page, `<div id="activity-panel"><h2>Jobs check</h2><p>Not delivered: Telegram blocked the bot.</p><details open><summary>Full log</summary><pre>${trace}</pre></details></div>`)).includes('error-shown'), 'a log folded in details');
+  assert.ok(!(await kinds(page, `<div id="activity-panel"><h2>Jobs check</h2><div class="tech-log">${trace}</div></div>`)).includes('error-shown'), 'a block marked technical');
+  assert.ok((await kinds(page, `<div id="activity-panel"><h2>Jobs check</h2><p>${trace}</p></div>`)).includes('error-shown'), 'the same words in a plain paragraph');
+}));
