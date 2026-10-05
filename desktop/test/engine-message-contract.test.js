@@ -11,7 +11,9 @@ import {parseInsight} from '../renderer/insight-card.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const fromEngine = code => {
-  const run = spawnSync('python3', ['-c', `import json\nfrom src.ai import insights\nfrom src.notion import cron_runs\n${code}`], {cwd: root, encoding: 'utf8'});
+  // Windows has `python`, not `python3`, and its console code page cannot print the engine's text: UTF-8 on, as the app itself runs the engine (lib/pipeline.js PYTHONUTF8).
+  const python = process.env.JOB_PILOTTO_CHECK_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  const run = spawnSync(python, ['-c', `import json\nfrom src.ai import insights\nfrom src.notion import cron_runs\n${code}`], {cwd: root, encoding: 'utf8', env: {...process.env, PYTHONUTF8: '1'}});
   assert.equal(run.status, 0, run.stderr);
   return JSON.parse(run.stdout);
 };
