@@ -138,6 +138,13 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
   A red main whose jobs were only cancelled or never started (busy runners) is infrastructure: the hook re-runs it and does not block.
 - The e2e suites run nightly and on demand, not per change; the Finder files what they find. Do not run one to "be sure" at Tier 0/1.
 
+### Re-checking a failing e2e step: the step, not the suite (6 Oct 2026)
+A full suite is 3-17 minutes; the step that failed is usually under one. Two sessions on 6 Oct 2026 re-ran whole suites to read a failure message that was already on disk.
+
+- **Read the failure first:** `desktop/e2e/artifacts/<suite>/suite-failures.json` (step + message) and `artifacts/<suite>.run.log`. A worktree's `artifacts/` goes with it: copy what you still need before `worktree.sh --done`.
+- **Re-run only the step:** `E2E_STEPS="<words from the step name>,<its prerequisite steps>" node run-all.mjs --only <suite>` (setup steps marked critical always run; `run-all` reads the Notion tokens, `suite.mjs` alone does not). A step often builds on the one before it, so name both.
+- **Full suite or full `run-all` only as the last check** before a push that touches that area, never to look at a failure.
+
 ### Red main: the first session to see it unblocks everyone (5 Oct 2026)
 A red `build` on `main` blocks every session's push (the pre-push hook). Waiting for its author left four sessions stuck
 until the owner stepped in. So whoever meets it fixes it, in the same turn, before their own push:
