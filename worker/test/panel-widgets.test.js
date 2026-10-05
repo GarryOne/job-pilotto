@@ -52,3 +52,15 @@ test('once the person moves the slider it counts as answered', { skip: !JSDOM },
   assert.equal(before.pill, '1 left');
   assert.equal(after.pill, 'Ready to submit');
 });
+
+// Ashby titles a radio group with a <label> inside the <fieldset> and marks it required only by a CSS "*" (class _required_):
+// the panel listed neither of two such questions (Colonist, 5 Oct 2026).
+const ASHBY_RADIOS = `<fieldset><label class="_heading _required_f7cvd_91" for="nowhere">How much has AI increased your speed?</label>
+  <div><input type="radio" id="r0" name="speed"><label for="r0">20%</label></div>
+  <div><input type="radio" id="r1" name="speed"><label for="r1">2x</label></div></fieldset>`;
+
+test('a required Ashby radio group (titled by a label, "*" drawn by CSS) is one left until answered', { skip: !JSDOM }, async () => {
+  const { before, after } = await panel(FORM(ASHBY_RADIOS), (document) => document.getElementById('r1').click());
+  assert.equal(before.pill, '1 left');
+  assert.equal(after.pill, 'Ready to submit');
+});

@@ -104,7 +104,7 @@ export async function api(config, path, init = {}, retry = true) {
 
 // Why a field was left that is the extension's fault, not missing data (desktop/lib/reports.js reports these).
 const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
-  'answer given, but the field did not take it'];
+  'answer given, but the field did not take it', 'question text not found on the page'];
 
 const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
   .then(([result]) => result?.result);

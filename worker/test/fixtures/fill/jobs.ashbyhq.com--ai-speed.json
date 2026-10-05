@@ -1,0 +1,13 @@
+{
+ "source": "synthetic",
+ "site": "jobs.ashbyhq.com",
+ "label": "How much has AI increased your speed?",
+ "reason": "question text not found on the page",
+ "note": "Ashby: a radio group titled by a <label> inside the <fieldset> (no <legend>), required only by a CSS '*' (class _required_). Read as its first option, so it was never answered (Colonist, 5 Oct 2026).",
+ "answer": "2x",
+ "expect": {
+  "checked": "2x",
+  "traced": true,
+  "required": true
+ }
+}

@@ -31,7 +31,7 @@
   function question(el) {
     const byIds = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent).filter(Boolean).join(' ');
     const own = byIds || el.getAttribute('aria-label') || Array.from(el.labels || [], label => label.textContent).join(' ');
-    const legend = el.closest('fieldset')?.querySelector('legend')?.textContent;
+    const legend = fieldsetTitle(el.closest('fieldset'))?.textContent;
     if (['checkbox', 'radio'].includes(el.type) && legend) return clean(legend);
     if (clean(own)) return clean(own);
     if (legend) return clean(legend);
@@ -42,8 +42,15 @@
     }
     return clean(el.name || el.id);
   }
+  // A fieldset's title: its <legend>, or (Ashby) a <label> whose `for` points at no control. Ashby marks a required radio group only
+  // by a "*" its CSS draws after that title (no attribute), so the class and the drawn "*" count too.
+  const fieldsetTitle = set => set && (set.querySelector('legend') ||
+    Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea')));
+  const titleRequired = title => !!title && (/\*\s*$/.test(String(title.textContent || '').trim()) || /required/i.test(String(title.className || '')) ||
+    String(getComputedStyle(title, '::after').content || '').includes('*'));
   const required = el => el.required || el.getAttribute('aria-required') === 'true' ||
-    /\*\s*$/.test(String(el.labels?.[0]?.textContent || el.closest('fieldset')?.querySelector('legend')?.textContent || '').trim());
+    /\*\s*$/.test(String(el.labels?.[0]?.textContent || '').trim()) ||
+    (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset'))));
   // A custom dropdown (react-select) shows its answer in a sibling of the input, not inside the input's own container:
   // look in the control around it (input < input-container < value-container < control).
   const comboFilled = el => {

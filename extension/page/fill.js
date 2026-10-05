@@ -74,7 +74,13 @@
     return clean(own || labelled || el.getAttribute('placeholder') || el.name || el.id);
   };
   // The question a radio group or checkbox belongs to: its fieldset legend or group label.
-  const questionOf = el => clean(el.closest('fieldset')?.querySelector('legend')?.textContent ||
+  // A fieldset's title: its <legend>, or (Ashby) a <label> whose `for` points at no control. Required when the title says so:
+  // a trailing "*", a "required" class, or a "*" drawn by CSS (Ashby marks its radio groups only that way, no attribute).
+  const fieldsetTitle = set => set && (set.querySelector('legend') ||
+    Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea')));
+  const titleRequired = title => !!title && (/\*\s*$/.test(title.textContent || '') || /required/i.test(String(title.className || '')) ||
+    String(getComputedStyle(title, '::after').content || '').includes('*'));
+  const questionOf = el => clean(fieldsetTitle(el.closest('fieldset'))?.textContent ||
     el.closest('[role=radiogroup], [role=group]')?.getAttribute('aria-label') ||
     el.closest('[role=radiogroup], [role=group]')?.querySelector('label, legend, span')?.textContent || '');
   const isCombo = el => el.getAttribute('role') === 'combobox';
@@ -123,7 +129,8 @@
         groups.add(el.name);
         const radios = controls.filter(r => r.type === 'radio' && r.name === el.name);
         const question = questionOf(el) || labelOf(el);
-        fields.push({field: `radio:${el.name}`, label: question, type: 'radio', required: radios.some(r => r.required),
+        fields.push({field: `radio:${el.name}`, label: question, type: 'radio',
+          required: radios.some(r => r.required || r.getAttribute('aria-required') === 'true') || titleRequired(fieldsetTitle(el.closest('fieldset'))),
           options: radios.map(labelOf), filled: radios.some(r => r.checked), legal: LEGAL.test(question)});
       } else if (el.type === 'checkbox') {
         const label = labelOf(el);
@@ -439,6 +446,17 @@
     }
     const seenGroups = new Set();
     const after = window.__jobPilottoAuditVisibleFields().flatMap(row => {
+      // The audit lists each radio option on its own: one row per group instead, named and required as the form described it.
+      if (row.type === 'radio') {
+        const el = document.getElementById(row.field) || document.querySelector(`input[type=radio][name="${CSS.escape(row.field)}"]`);
+        if (!el?.name) return [row];
+        const key = `radio:${el.name}`;
+        if (seenGroups.has(key)) return [];
+        seenGroups.add(key);
+        const radios = Array.from(document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`));
+        return [{...row, field: key, label: rowOf[key]?.label || questionOf(el) || row.label, filled: radios.some(r => r.checked),
+          required: row.required || !!rowOf[key]?.required}];
+      }
       const q = row.type === 'checkbox' && groupOf.get(row.field);
       if (!q) return [row];
       const boxes = Array.from(document.querySelectorAll('input[type=checkbox]')).filter(b => questionOf(b) === q);
@@ -487,6 +505,8 @@
       let reason = '';
       if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
+      // The question read as one of its own choices (or nothing): the page's title wasn't found, so no answer could be right.
+      else if (!row.filled && !answer && (!label || (rowOf[row.field]?.options || []).some(o => norm(o) === norm(label)))) reason = 'question text not found on the page';
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);

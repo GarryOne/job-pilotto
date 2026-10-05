@@ -45,6 +45,9 @@ async function replay(spec, html) {
     checked: radio ? (radio.labels?.[0]?.textContent || radio.value).replace(/\s+/g, ' ').trim() : null,
     value: input && !/^(radio|checkbox)$/.test(input.type) && input.getAttribute('role') !== 'combobox' ? input.value : null,
     trace: (summary.trace || []).find((row) => row.label === spec.label) || null,
+    // The fill's trace names the field by its question (not one of its choices) and knows whether it is required.
+    traced: (summary.trace || []).some((row) => row.label === spec.label),
+    required: !!(summary.trace || []).find((row) => row.label === spec.label)?.required,
     error: summary.error || null,
   };
 }

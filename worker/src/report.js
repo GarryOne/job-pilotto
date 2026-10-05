@@ -9,6 +9,7 @@ const MECHANICAL = [
   'dropdown clicked, but no option matched',
   'dropdown that opens only on a real click',
   'answer given, but the field did not take it',
+  'question text not found on the page',
 ];
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
