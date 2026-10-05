@@ -1978,7 +1978,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); }
 .cal-dow { background: var(--surface); padding: 6px 8px; font-size: var(--fs-sm); color: var(--muted); }
 .cal-cell { background: var(--surface); min-height: 84px; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
-.cal-cell.out { opacity: .5; }
+.cal-cell.out .cal-num { opacity: .5; }
 .cal-cell.weekend { background: var(--surface-2, var(--surface)); }
 .cal-cell.today { background: var(--signal-soft); }
 .cal-cell.today .cal-num { background: var(--signal); color: var(--on-accent); border-radius: var(--r-pill); padding: 0 6px; }
@@ -1989,7 +1989,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-chip { background: var(--info); color: var(--on-accent); }
 .cal-chip.kind-screening { background: var(--teal); }
 .cal-chip .cal-chip-time { color: inherit; opacity: .85; }
-.cal-chip.held { opacity: .65; }
 .cal-chip-wrap { position: relative; display: block; }
 .cal-chip-wrap .cal-chip { width: 100%; padding-right: 20px; }
 .cal-row-wrap { position: relative; }
