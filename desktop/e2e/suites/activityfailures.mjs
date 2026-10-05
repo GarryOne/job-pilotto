@@ -140,7 +140,18 @@ export async function run(ctx) {
   // ---------- (2c) Telegram (5 Oct 2026) ----------
   // The digest a person receives, read from the fake Bot API: one message to their chat, readable, every promised job listed. Then Telegram refuses it.
   const CHAT = '424242';
-  const connectTelegram = on => page.evaluate(async ([chat, on]) => { if (on) await window.pilot.saveSecret('TELEGRAM_BOT_TOKEN', '123456:e2e-fake-token'); await window.pilot.saveSettings({telegramChatId: on ? chat : ''}); }, [CHAT, on]);
+  // Connect or disconnect Telegram, and say what the app kept (#302, 5 Oct 2026: the second connect of a run did not take, the engine said "Telegram isn't connected", and the step failed
+  // without saying why): a connect that the app did not keep fails here, with the words, before the scenario starts.
+  const connectTelegram = async on => {
+    const kept = await page.evaluate(async ([chat, on]) => {
+      if (on) await window.pilot.saveSecret('TELEGRAM_BOT_TOKEN', '123456:e2e-fake-token');
+      await window.pilot.saveSettings({telegramChatId: on ? chat : ''});
+      const state = await window.pilot.state();
+      return {chat: state?.settings?.telegramChatId || '', secret: !!state?.secrets?.TELEGRAM_BOT_TOKEN || !!state?.telegramToken};
+    }, [CHAT, on]);
+    console.log(`  telegram ${on ? 'connected' : 'disconnected'}: the app keeps chat "${kept.chat}"`);
+    if (on && kept.chat !== String(CHAT)) throw new Error(`the app did not keep the Telegram chat after connecting (it holds "${kept.chat}"): the scenario cannot start`);
+  };
   await ctx.run('with Telegram connected, a Jobs check sends one readable digest to the person\'s chat', async () => {
     await connectTelegram(true);
     try {
