@@ -109,6 +109,20 @@ class TranscribeTests(unittest.TestCase):
         self.assertIn('progress download-vad 75', lines)
         self.assertEqual(lines[-1], 'progress download-vad 100')
 
+    def test_unpacking_is_reported_after_the_download_finishes(self):
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as folder, mock.patch('sys.stderr', out):
+            def opener(url, timeout=None):
+                data = io.BytesIO()
+                with tarfile.open(fileobj=data, mode='w:bz2') as tar:
+                    info = tarfile.TarInfo('m/model.onnx'); info.size = 2
+                    tar.addfile(info, io.BytesIO(b'ok'))
+                return io.BytesIO(data.getvalue())
+            with mock.patch.dict(transcribe.MODELS, {'m': ('https://x/m.tar.bz2', 'm/model.onnx')}, clear=True):
+                transcribe.ensure_models(folder, opener)
+        lines = out.getvalue().splitlines()
+        self.assertEqual(lines[-2:], ['progress download-m 100', 'progress extract-m 0'])
+
     def test_available_follows_the_switch(self):
         with mock.patch.dict(transcribe.os.environ, {'JOB_PILOTTO_DISABLE': 'transcribe'}):
             self.assertFalse(transcribe.available())

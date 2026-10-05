@@ -113,6 +113,7 @@ def ensure_models(folder=None, opener=urllib.request.urlopen):
                     if total and done * 100 // total > shown:  # real bytes, so the app's bar moves while it downloads
                         shown = done * 100 // total
                         progress(f'download-{name}', min(shown, 99))
+            progress(f'download-{name}', 100)
             if url.endswith('.tar.bz2'):
                 progress(f'extract-{name}', 0)  # unpacking a bz2 is one slow CPU thread: say so instead of looking stuck
                 with tarfile.open(partial, 'r:bz2') as archive:
@@ -120,7 +121,6 @@ def ensure_models(folder=None, opener=urllib.request.urlopen):
                 partial.unlink()
             else:
                 partial.rename(target)
-            progress(f'download-{name}', 100)
         paths[name] = target
     return paths
 
