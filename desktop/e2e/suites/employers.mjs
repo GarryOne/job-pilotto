@@ -222,9 +222,9 @@ export async function run(ctx) {
     if (ctx.audience === 'non-it') {
       // The app learns who the candidate is from config/search.json (the roles they look for); the crawl rewrites it from the test page, which holds the SRE's search. Say it is the persona's.
       const file = path.join(ctx.profile, 'config', 'search.json'), current = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
-      const roles = JSON.parse(fs.readFileSync(path.join(E2E, 'fixtures', 'feeds', persona.dir, 'person.json'), 'utf8')).role_keywords;
+      const person = JSON.parse(fs.readFileSync(path.join(E2E, 'fixtures', 'feeds', persona.dir, 'person.json'), 'utf8')), roles = person.role_keywords;
       // The roles the Strategy page shows come from the job-board searches first: they must be the persona's too, or the page contradicts the candidate it is judged against.
-      fs.writeFileSync(file, JSON.stringify({...current, role_keywords: roles, jobs_board_search_queries: roles.map(role => role.replace(/\\b/g, '')).filter(role => /^[a-z ]+$/i.test(role))}));
+      fs.writeFileSync(file, JSON.stringify({...current, role_keywords: roles, locations: person.locations, title_exclude_keywords: person.title_exclude_keywords, jobs_board_search_queries: roles.map(role => role.replace(/\\b/g, '')).filter(role => /^[a-z ]+$/i.test(role))}));
       await ctx.page.reload();
       await ctx.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
       await ctx.page.waitForTimeout(3000);

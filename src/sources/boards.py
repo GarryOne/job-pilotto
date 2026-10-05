@@ -29,10 +29,16 @@ SWISS_PLACE = re.compile(r'switzerland|swiss|schweiz|suisse|svizzera|z[uü]e?ric
 
 
 def swiss_places(config):
-    """True when the places the user searches in (config/search.json locations) include Switzerland."""
+    """True when the places the user searches in (config/search.json locations) include Switzerland. A place is read as written and as plain words: the drafted
+    fragment \\bz[uü]rich\\b is the word Zürich (5 Oct 2026: tested as written it matched nothing, so a Zurich-only search was not seen as Swiss)."""
+    from .. import regions
+    from ..notion.search_settings import terms
     places = config.get('locations') or {}
-    from .. import regions   # a Swiss region word (Romandie, Ticino, Deutschschweiz…) is a Swiss place too
-    return any(SWISS_PLACE.search(str(p)) or regions.region_of(p) for key in ('top_tier', 'country_wide', 'abroad') for p in places.get(key) or [])
+    for key in ('top_tier', 'country_wide', 'abroad'):
+        fragments = places.get(key) or []
+        if any(SWISS_PLACE.search(str(word)) or regions.region_of(word) for word in [*fragments, *terms(fragments)]):
+            return True
+    return False
 
 
 def text(s):

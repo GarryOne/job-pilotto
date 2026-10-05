@@ -26,6 +26,14 @@ LISTING = ('<html><head><script type="application/ld+json">' + json.dumps({'@con
 SWISS = {'role_keywords': ['data analyst'], 'jobs_board_search_queries': ['data analyst'], 'locations': {'top_tier': ['zurich'], 'country_wide': ['switzerland'], 'abroad': []}}
 
 
+class SwissPlacesTable(unittest.TestCase):
+    def test_it_agrees_with_the_window_on_the_shared_table_of_cases(self):
+        from src.sources import boards
+        table = json.loads((Path(__file__).parent / 'fixtures' / 'swiss_cases.json').read_text())['cases']
+        for case in table:   # desktop/renderer/audience.js swissPlaces is held to the same rows (desktop/test/audience.test.js)
+            self.assertEqual(boards.swiss_places({'locations': {'top_tier': case['places'], 'country_wide': [], 'abroad': []}}), case['swiss'], case['places'])
+
+
 class JobsChTests(unittest.TestCase):
     """jobs.ch as a job source for any profession (5 Oct 2026): its robots.txt allows the search pages and disallows the job detail pages."""
     def test_the_search_listing_becomes_jobs_with_their_own_address_and_a_swiss_place(self):

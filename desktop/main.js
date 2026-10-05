@@ -1215,9 +1215,13 @@ function handlers() {
   // Is the candidate looking for IT work? The tips keep their IT examples for those who are (renderer/audience.js; with no roles known yet the general version is shown).
   ipcMain.handle('audience', () => {
     if (DEMO) return {technical: true};   // the demo candidate is an SRE
-    let keywords = [];
-    try { keywords = JSON.parse(fs.readFileSync(path.join(storage.path('config'), 'search.json'), 'utf8')).role_keywords || []; } catch { /* no search yet */ }
-    return {technical: clearlyTechnical(keywords)};
+    let keywords = [], places = [];
+    try {
+      const search = JSON.parse(fs.readFileSync(path.join(storage.path('config'), 'search.json'), 'utf8'));
+      keywords = search.role_keywords || [];
+      places = ['top_tier', 'country_wide', 'abroad'].flatMap(key => search.locations?.[key] || []);   // top cities first: the first one is the candidate's own example
+    } catch { /* no search yet */ }
+    return {technical: clearlyTechnical(keywords), places: places.slice(0, 12)};
   });
   ipcMain.handle('setDailyTarget', async (_, value) => {
     if (DEMO) return {ok: true, target: strategy.clampTarget(value)};

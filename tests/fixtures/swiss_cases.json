@@ -1,0 +1,15 @@
+{"_comment": "One table, two implementations: src/sources/boards.py swiss_places and desktop/renderer/audience.js swissPlaces must agree on every row (tests/test_aggregators.py, desktop/test/audience.test.js). A row is the place fragments of a search (top cities, country, abroad).",
+ "cases": [
+  {"places": ["zurich"], "swiss": true},
+  {"places": ["\\bz[u\u00fc]rich\\b", "berlin"], "swiss": true},
+  {"places": ["switzerland"], "swiss": true},
+  {"places": ["romandie"], "swiss": true},
+  {"places": ["Deutschschweiz"], "swiss": true},
+  {"places": ["ticino"], "swiss": true},
+  {"places": ["lausanne"], "swiss": true},
+  {"places": ["manchester", "united kingdom"], "swiss": false},
+  {"places": ["berlin", "germany"], "swiss": false},
+  {"places": ["austin", "united states"], "swiss": false},
+  {"places": ["asia"], "swiss": false},
+  {"places": [], "swiss": false}
+ ]}

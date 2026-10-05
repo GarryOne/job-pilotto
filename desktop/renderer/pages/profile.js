@@ -1,4 +1,5 @@
 // Settings → Application profile.
+import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -229,9 +230,20 @@ export async function loadSettings() {
   renderOverview().catch(() => {});
 }
 // ---------- your details for application forms (the extension asks the app for them) ----------
+// The example city is the candidate's own, the date example names its month, and the Swiss "place of origin" shows only for a candidate with Swiss places (renderer/audience.js).
+function fitDetailsToCandidate(contact) {
+  window.pilot.audience?.().then(answer => {
+    const hints = contactHints(answer || {}, contact);
+    document.querySelector('[data-contact="location"]').placeholder = hints.locationExample;
+    document.querySelector('[data-contact="birth_date"]').placeholder = hints.dateExample;
+    const origin = document.querySelector('[data-swiss-only]');
+    if (origin) origin.hidden = !hints.showOrigin;
+  }).catch(() => {});
+}
 export function showContact() {
   window.pilot.contact().then(contact => {
     document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
+    fitDetailsToCandidate(contact);
     showLinks();
   }).catch(error => message('contact-message', `Couldn't read them from Notion: ${error.message}`, 'error'));
   $('contact-cv').textContent = shared.state.settings.cvName || 'None yet';
