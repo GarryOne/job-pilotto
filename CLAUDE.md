@@ -119,7 +119,7 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - **A new feature looks like the old ones (5 Oct 2026: "Prepare top matches" shipped as raw Telegram text while every other task had a card).**
   Whatever a task, run or message shows in the window, find the nearest existing one first (`pages/activity.js` render*Card,
   `components.js`) and reuse its card/component; never show engine or Telegram text in a `<pre>`. So a new task kind needs, in
-  the same change: (1) a parser for its message + a render*Card on the insight-card shape, with a test; (2) its kind in
+  the same change: (1) a parser for its message + a render*Card on the insight-card shape, with a test; a line for its message in `desktop/test/fixtures/engine_messages.py` (made by the engine's OWN writer) and a case in `engine-message-contract.test.js`, so a format change on either side fails a test (5 Oct 2026: four cards had drifted); (2) its kind in
   `CARD_KINDS` (`renderer/run-cards.js`) so the Finder's `card-fallback` check covers it; (3) a look at the rendered result
   next to a sibling task's. Not done until it passes that comparison.
 - Values live in `desktop/renderer/tokens.css` only: colours, corner radii (`--r-sm|md|lg|pill`), the type scale

@@ -223,6 +223,12 @@ test('a finished Search analysis opened to an empty pane is an empty-result find
   assert.ok(!(await kinds(page, '<div id="activity-panel"><h2>Search analysis</h2><div class="run-card"><div class="insight-card">The report</div></div></div>')).includes('empty-result'));
 }));
 
+test('a card whose message ran together is a card-unstructured finding (the Search analysis of 5 Oct 2026); a split one is not', () => withChrome(async page => {
+  const joined = '5 interviews from 20 applications. Finding: Recruiter-sourced applications went 5 of 5. You sent 5 applications. Worked Change next week Focus Send kits. Full report in Notion (https://app.notion.com/p/abc)';
+  assert.ok((await kinds(page, `<div class="run-card"><div class="insight-card"><h3>Last 7 days</h3><p>${joined}</p></div></div>`)).includes('card-unstructured'));
+  assert.ok(!(await kinds(page, '<div class="run-card"><div class="insight-card"><h3>5 interviews from 20 applications</h3><p>You sent 5 applications.</p><ul><li>Recruiter channel: 5 of 5</li></ul></div></div>')).includes('card-unstructured'));
+}));
+
 test('clean screens stay quiet: a card alone, a technical log, a box inside a box, two different texts', () => withChrome(async page => {
   const quiet = ['card-fallback', 'raw-markup', 'duplicate-content'];
   const of = found => found.filter(kind => quiet.includes(kind));

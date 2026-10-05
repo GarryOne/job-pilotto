@@ -8,7 +8,13 @@
 //   📧 Job emails and calendar / ❓ … / 🗓 …                                    → notes
 //   📧 Gmail checked: no new job emails.                                      → the status line alone
 const SCHEDULED = /^🗓\s+(.+?)\s+—\s+(.+?)\s+—\s+(.+)$/;
-const WEAK = /^🏋️\s*Answered weakly in past interviews/i;
+const WEAK = /^(?:🏋️\s*)?Answered weakly in past interviews/i;
+// Since the plain layout (src/tgcard.py; mail.prep_message()): "🗓 Interview tomorrow", then "Huxley · Principal SRE · Interview",
+// "Tomorrow · 08:30", the event, the link, "With: …", the weak topics, "Next step" and its text on the next line.
+const PREP_TITLE = /^🗓\s+Interview (?:today|tomorrow)\s*$/i;
+const PREP_HEAD = /^(.+?)\s+·\s+(.+?)\s+·\s+Interview\s*$/;
+const PREP_WHEN = /^(Today|Tomorrow)\s+·\s+(\d{1,2}:\d{2})\s*$/;
+const NEXT_HEAD = /^Next step\s*$/;
 const TOPIC = /^[•·]\s*(.+)$/;
 const NEXT_STEP = /^📝\s*(.+)$/;
 const CONSENT = /^Recording\?/i;
@@ -112,6 +118,13 @@ export function parseMailReport(message, result = '', fromRow = []) {
     const link = NOTION_LINK.exec(line);
     if (link) { report.url = link[1]; reading = ''; continue; }
     if (CONSENT.test(line)) { report.consent = line; reading = ''; continue; }
+    if (PREP_TITLE.test(line)) { reading = ''; continue; }   // the card's own title says it
+    const prep = PREP_HEAD.exec(line);
+    if (prep && !report.interview) { report.interview = {when: '', company: prep[1], title: prep[2], summary: '', where: '', people: []}; reading = 'prep'; continue; }
+    const prepWhen = reading === 'prep' && report.interview && !report.interview.when && PREP_WHEN.exec(line);
+    if (prepWhen) { report.interview.when = `${prepWhen[1]} ${prepWhen[2]}`; reading = 'meeting'; continue; }
+    if (NEXT_HEAD.test(line)) { reading = 'nextHead'; continue; }
+    if (reading === 'nextHead') { report.nextSteps.push(...paragraphs(line)); reading = 'next'; continue; }
     const at = SCHEDULED.exec(line);
     if (at) { report.interview = {when: at[1], company: at[2], title: at[3], summary: '', where: '', people: []}; reading = 'meeting'; continue; }
     if (WEAK.test(line)) { reading = 'topics'; continue; }

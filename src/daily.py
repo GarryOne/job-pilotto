@@ -168,6 +168,14 @@ def log_text(html):
     return telegram.plain(html)
 
 
+def kits_message(drafted):
+    """The "Prepare top matches" message: the count, then each drafted job's linked title and company (the window's
+    kits card reads it: desktop/renderer/kits-ready.js, checked against this writer in desktop/test/engine-message-contract.test.js)."""
+    return tgcard.card('Application kits ready', f"{len(drafted)} drafted for your top matches · nothing sent", [
+        f"<a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a>\n{escape(job['company'])}"
+        for job, _ in drafted], emoji='📝')
+
+
 def log_ai_run(tracker, run, args, failed=False):
     """⏰ Cronjob Runs row for an on-demand AI job (kit, interview, insight, weekly), so the month's rows add
     up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
@@ -381,9 +389,7 @@ def main():
                                             args.auto_kit_min_score, stats=run['kits'])
         print(summary)
         if drafted:
-            message = tgcard.card('Application kits ready', f"{len(drafted)} drafted for your top matches · nothing sent", [
-                f"<a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a>\n{escape(job['company'])}"
-                for job, _ in drafted], emoji='📝')
+            message = kits_message(drafted)
         else:
             message = (f"No kit to prepare: every open match scoring {args.auto_kit_min_score}+ already has one. "
                        "Run a search for new jobs first.")

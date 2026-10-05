@@ -5,42 +5,52 @@
 // A "New since last run" line instead carries a title-match percentage after the title: "1. Title - 100% (https://…)".
 // Two different numbers: the percentage is not a fit score, and reading it as part of the title put "(Cloud + On-Prem,
 // Windows + Linux) - 100%" beside a "Not scored" pill.
-const DIGEST_ITEM = /^(\d+)\.\s+(?:⭐\s*)?(.+?)(?:\s+\((https?:\/\/[^)\s]+)\))?(?:\s+·\s+🎯\s*(\d+))?\s*$/;
+const DIGEST_ITEM = /^(\d+)\.\s+(?:⭐\s*)?(.+?)(?:\s+\((https?:\/\/[^)\s]+)\))?(?:\s+·\s+(?:🎯\s*(\d+)|(\d+)\/100))?\s*$/;   // the fit: "· 🎯 78" (older) or "· 78/100"
 const TITLE_PERCENT = /\s+-\s+(\d+)%\s*$/;
 const SCOUT_ITEM = /^(\d+)\.\s+(.+?)\s+·\s+(\w[\w ]*?)\s+·\s+quality\s+(\d+)(?:\s+·\s+⭐\s*(.+))?$/;
+// Since the plain layout: "1. Acme · Source quality 82 · Tier 1", then "6 matching roles · 2 in preferred locations", "Platform: Greenhouse".
+const SCOUT_ITEM_PLAIN = /^(\d+)\.\s+(.+?)\s+·\s+Source quality\s+(\d+)(?:\s+·\s+(Tier \d))?$/;
 const num = (text, pattern) => { const m = String(text).match(pattern); return m ? Number(m[1]) : null; };
 
 export function parseDigest(text) {
   const lines = String(text || '').trim().split('\n');
-  if (!/^✈️.*(🆕|jobs \d)/.test(lines[0] || '')) return null;  // with or without the brand name
+  if (!/^✈️.*(🆕|jobs \d|Job digest)/.test(lines[0] || '')) return null;  // with or without the brand name; "Job Pilotto · Job digest" since the plain layout
   const items = [];
   lines.forEach((line, i) => {
     const m = line.match(DIGEST_ITEM);
     if (m && /^\s/.test(lines[i + 1] || '')) {
       const percent = TITLE_PERCENT.exec(m[2]);
       items.push({title: (percent ? m[2].slice(0, percent.index) : m[2]).replace(/\s*\|.*$/, ''), url: m[3] || '',
-        fit: m[4] ? Number(m[4]) : null, percent: percent ? Number(percent[1]) : null,
+        fit: m[4] || m[5] ? Number(m[4] || m[5]) : null, percent: percent ? Number(percent[1]) : null,
         company: (lines[i + 1] || '').trim().split(' · ')[0]});
     }
   });
-  return {kind: 'digest', fresh: num(lines[0], /🆕\s*(\d+) new/), open: num(lines[1], /(\d+) open/),
-    local: num(lines[1], /·\s*(\d+)\s*(?:🇨🇭|📍)/), applied: num(lines[1], /(\d+) applied/), items};
+  // The counts: on the header lines ("🆕 3 new", "3 new · Top 3 of 50 ranked jobs") and in the "Your pipeline" block ("173 open · 4 pinned · 2 applied").
+  const head = lines.slice(0, 2).join('\n'), counts = lines.filter(line => !/^\d+\./.test(line) && /^\d+ open\b/.test(line.trim())).join(' · ') || lines[1];
+  return {kind: 'digest', fresh: num(head, /🆕\s*(\d+) new/) ?? num(lines[1], /^(\d+) new\b/), open: num(counts, /(\d+) open/),
+    local: num(counts, /·\s*(\d+)\s*(?:🇨🇭|📍)/) ?? num(counts, /(\d+) pinned/), applied: num(counts, /(\d+) applied/), items};
 }
 
 export function parseScout(text) {
   const lines = String(text || '').split('\n');
-  if (!/Source scout/.test(lines[0] || '')) return null;
+  if (!/Source scout|New employer sources/.test(lines[0] || '')) return null;
   const items = [];
   lines.forEach((line, i) => {
     const m = line.match(SCOUT_ITEM);
-    if (!m) return;
+    const plain = !m && line.match(SCOUT_ITEM_PLAIN);
+    if (!m && !plain) return;
     const roles = (lines[i + 1] || '').trim();
-    items.push({company: m[2], ats: m[3], quality: Number(m[4]), tier: m[5] || '',
-      roles: num(roles, /(\d+) (?:matching|SRE-type) roles?/), yours: num(roles, /(\d+) in your places/)});
+    let ats = '';
+    if (plain) for (const next of lines.slice(i + 1, i + 6)) { if (/^\d+\./.test(next.trim())) break; ats = ats || (/^Platform:\s*(.+)$/.exec(next.trim()) || [])[1] || ''; }
+    items.push(m ? {company: m[2], ats: m[3], quality: Number(m[4]), tier: m[5] || '', roles: num(roles, /(\d+) (?:matching|SRE-type) roles?/), yours: num(roles, /(\d+) in your places/)}
+      : {company: plain[2], ats, quality: Number(plain[3]), tier: plain[4] || '', roles: num(roles, /(\d+) matching roles?/), yours: num(roles, /(\d+) in (?:your|preferred) (?:places|locations)/)});
   });
+  const head = lines.slice(0, 2).join('\n');
   const last = lines[lines.length - 1] || '';
-  return {kind: 'scout', checked: num(lines[0], /checked (\d+)/), fresh: num(lines[0], /(\d+) new sources?/), items,
-    note: /^\d+\./.test(last.trim()) || /^\s/.test(last) ? '' : last.trim()};
+  // The older message ended on a sentence; the plain one has a "Not added" block (what was left out, and why) before its footer.
+  const notAdded = lines.findIndex(line => /^Not added$/.test(line.trim()));
+  const note = notAdded >= 0 ? (lines[notAdded + 1] || '').trim() : /^\d+\./.test(last.trim()) || /^\s/.test(last) ? '' : last.trim();
+  return {kind: 'scout', checked: num(head, /checked (\d+)/) ?? num(head, /(\d+) checked/), fresh: num(head, /(\d+) new sources?/), items, note};
 }
 
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);

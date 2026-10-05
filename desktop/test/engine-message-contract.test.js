@@ -1,6 +1,7 @@
-// The engine writes each task's message (src/ai/insights.py); the window reads it back from the run's Notion page (cron_runs.plain
-// flattens it). Two copies of one format drift: on 5 Oct 2026 weekly_message moved to the plain layout and parseWeekly still wanted
-// emoji headings, so the Search analysis card ran its sections together. These tests run the engine's own writer, not a copy of its text.
+// The engine writes each task's message; the window reads it back from the run's Notion page (cron_runs.plain flattens it). Two copies
+// of one format drift: on 5 Oct 2026 weekly_message moved to the plain layout (src/tgcard.py) and parseWeekly still wanted emoji headings,
+// so the Search analysis card ran its sections together. test/fixtures/engine_messages.py runs the engine's OWN writers (no copy of
+// their text here); each card's parser must read what they write. A new card kind = a new line in that fixture and a test here.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import path from 'node:path';
@@ -8,31 +9,78 @@ import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 import {parseWeekly} from '../renderer/weekly-card.js';
 import {parseInsight} from '../renderer/insight-card.js';
+import {parseKitsReady} from '../renderer/kits-ready.js';
+import {parseInterviewReview} from '../renderer/interview-review.js';
+import {parseMailReport} from '../renderer/mail-report.js';
+import {parseRunMessage} from '../renderer/run-cards.js';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const fromEngine = code => {
-  // Windows has `python`, not `python3`, and its console code page cannot print the engine's text: UTF-8 on, as the app itself runs the engine (lib/pipeline.js PYTHONUTF8).
-  const python = process.env.JOB_PILOTTO_CHECK_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
-  const run = spawnSync(python, ['-c', `import json\nfrom src.ai import insights\nfrom src.notion import cron_runs\n${code}`], {cwd: root, encoding: 'utf8', env: {...process.env, PYTHONUTF8: '1'}});
-  assert.equal(run.status, 0, run.stderr);
-  return JSON.parse(run.stdout);
-};
+const here = path.dirname(fileURLToPath(import.meta.url));
+// Windows has `python`, not `python3`; its console code page cannot print the engine's text: UTF-8 on (as lib/pipeline.js runs the engine).
+const python = process.env.JOB_PILOTTO_CHECK_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+const run = spawnSync(python, [path.join(here, 'fixtures/engine_messages.py')], {cwd: path.join(here, '../..'), encoding: 'utf8', env: {...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8'}});
+assert.equal(run.status, 0, run.stderr);
+const said = JSON.parse(run.stdout);
+const lookAt = name => `${name}: ${JSON.stringify(said[name])}`;
 
-test('the weekly report the engine writes is read back as a card: headline, finding, worked, change, focus', () => {
-  const text = fromEngine(`report = {'headline': 'Quiet week: 2 applications', 'finding': 'Replies came from fresh jobs', 'summary': 'You sent 2 applications.',
-  'worked': ['Recruiter channel: 5 of 5'], 'change': ['Send the drafted kits', 'Log salary answers'], 'focus': 'Send kits scored 60+'}
-print(json.dumps(cron_runs.plain(insights.weekly_message(report, 'https://app.notion.com/p/x'))))`);
-  const weekly = parseWeekly(text);
-  assert.ok(weekly, `not parsed: ${text}`);
+test('weekly: headline, finding, summary, worked, change, focus', () => {
+  const weekly = parseWeekly(said.weekly);
+  assert.ok(weekly, lookAt('weekly'));
   assert.deepEqual([weekly.headline, weekly.finding, weekly.summary, weekly.worked, weekly.change, weekly.focus],
     ['Quiet week: 2 applications', 'Replies came from fresh jobs', 'You sent 2 applications.', ['Recruiter channel: 5 of 5'], ['Send the drafted kits', 'Log salary answers'], 'Send kits scored 60+']);
 });
 
-test('the daily insight the engine writes is read back as a card: evidence, next step, confidence', () => {
-  const text = fromEngine(`insight = {'headline': 'Go appears in 40% of roles', 'category': 'Skills', 'basis': 'Jobs', 'confidence': 'Medium', 'sample_size': 12,
-  'evidence': ['9 of 12 postings'], 'action': 'Add Go to your CV'}
-print(json.dumps(cron_runs.plain(insights.message(insight))))`);
-  const insight = parseInsight(text);
-  assert.ok(insight, `not parsed: ${text}`);
-  assert.deepEqual([insight.headline, insight.evidence, insight.action], ['Go appears in 40% of roles', ['9 of 12 postings'], 'Add Go to your CV']);
+test('insight: category, headline, evidence, next step, confidence', () => {
+  const insight = parseInsight(said.insight);
+  assert.ok(insight, lookAt('insight'));
+  assert.deepEqual([insight.category, insight.headline, insight.evidence, insight.action, insight.confidence, insight.sample],
+    ['Skills', 'Go appears in 40% of roles', ['9 of 12 postings'], 'Add Go to your CV', 'medium', 12]);
+});
+
+test('kits: the count line and each job with its link and company', () => {
+  const kits = parseKitsReady(said.kits);
+  assert.ok(kits, lookAt('kits'));
+  assert.deepEqual(kits.jobs.map(job => [job.title, job.company, job.url]),
+    [['Site Reliability Engineer', 'DeepJudge AG', 'https://jobs.example.com/1'], ['Senior SRE (x/f/m)', 'Doctolib', 'https://jobs.example.com/2']]);
+});
+
+test('interview review: round, job, summary, sections, next step, stage', () => {
+  const review = parseInterviewReview(said.interview);
+  assert.ok(review, lookAt('interview'));
+  assert.equal(review.round, 'Recruiter screen');
+  assert.match(review.title, /Huxley/);
+  assert.match(review.summary, /first call/);
+  assert.deepEqual(review.sections.map(section => section.label.replace(/\s*\(.*/, '')), ['Strong', 'Weak answers', 'Practise']);
+  assert.match(review.next, /updated CV/);
+  assert.match(review.stage, /Interview scheduled/);
+});
+
+test('Find new employers: the counts and the source found', () => {
+  const scout = parseRunMessage(said.scout);
+  assert.ok(scout && scout.kind === 'scout', lookAt('scout'));
+  assert.deepEqual([scout.checked, scout.fresh, scout.items.map(item => item.company)], [15, 1, ['Acme']]);
+});
+
+test('job digest: the new count, the open count and the job listed', () => {
+  const digest = parseRunMessage(said.digest);
+  assert.ok(digest && digest.kind === 'digest', lookAt('digest'));
+  assert.equal(digest.items[0]?.title, 'Site Reliability Engineer');
+  assert.equal(digest.items[0]?.company, 'Acme');
+});
+
+test('Gmail check: the interview prep message reads as the interview card, not loose notes', () => {
+  const mail = parseMailReport(said.mail_prep, 'Gmail check: 1 new email(s) read, 0 update(s) recorded', []);
+  assert.ok(mail?.interview, lookAt('mail_prep'));
+  assert.match(`${mail.interview.company} ${mail.interview.title}`, /Huxley.*Principal SRE/);
+  assert.deepEqual(mail.topics, ['Salary expectations']);
+  assert.match(mail.nextSteps.join(' '), /updated CV/);
+  assert.equal(mail.url, 'https://app.notion.com/p/app');
+});
+
+test('Gmail check: the updates message and the "no new emails" message give no raw headings as notes', () => {
+  for (const name of ['mail_updates', 'mail_none']) {
+    const mail = parseMailReport(said[name], 'Gmail check: 0 new email(s) read, 0 update(s) recorded', []);
+    assert.ok(mail, lookAt(name));
+    const loose = mail.notes.map(note => note.text).filter(text => /^(Job emails & calendar|Gmail checked)\b/.test(text) && text.length > 40);
+    assert.deepEqual(loose, [], lookAt(name));
+  }
 });

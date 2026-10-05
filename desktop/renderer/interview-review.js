@@ -24,8 +24,37 @@ const NEXT = /^➡️\s*Next:\s*(.*)$/;
 const STAGE = /^📈\s*(.*)$/;
 const BULLET = /^[•·]\s*(.*)$/;
 
+// Since the plain layout (src/tgcard.py; interviews.message()):
+//
+//   🎤 Interview review / Recruiter screen / Huxley · Principal SRE / <summary> / Strong / • … / Weak answers (1 of 4) / • … /
+//   Practise / • … / Next step / <what> / Stage → Interview scheduled / [Changes / …] / Full analysis and transcript (url) · $0.01
+const HEAD_PLAIN = /^🎤\s*Interview review\s*$/;
+const SECTION_PLAIN = /^(Strong|Weak answers.*|Practise|Changes)$/;
+const ICONS = {Strong: '✅', Weak: '⚠️', Practise: '🏋️', Changes: '🔁'};
+function parsePlain(lines, head) {
+  const review = {round: lines[head + 1] || 'Interview', title: '', summary: '', sections: [], next: '', stage: ''};
+  let section = null, summary = [], expectNext = false, done = false;
+  for (const line of lines.slice(head + 2)) {
+    if (!line) continue;
+    if (/^Full analysis and transcript\b/.test(line)) break;
+    const stage = /^Stage\s*→\s*(.*)$/.exec(line);
+    if (stage) { review.stage = stage[1]; section = null; done = true; continue; }
+    if (/^Next step$/.test(line)) { expectNext = true; section = null; continue; }
+    if (expectNext) { review.next = line; expectNext = false; continue; }
+    if (SECTION_PLAIN.test(line)) { section = {icon: ICONS[line.split(/\s/)[0]] || '', label: line, items: []}; review.sections.push(section); continue; }
+    const bullet = BULLET.exec(line);
+    if (section) { section.items.push(bullet ? bullet[1] : line); continue; }
+    if (done) continue;   // the notes after the stage ("Link it to its application…") are for Telegram
+    if (!review.title) review.title = line; else summary.push(line);
+  }
+  review.summary = summary.join(' ');
+  return review.summary || review.sections.length ? review : null;
+}
+
 export function parseInterviewReview(message) {
   const lines = String(message || '').split('\n').map(line => line.trim());
+  const plainHead = lines.findIndex(line => HEAD_PLAIN.test(line));
+  if (plainHead >= 0) return parsePlain(lines, plainHead);
   const head = lines.findIndex(line => HEAD.test(line));
   if (head < 0) return null;
   const round = HEAD.exec(lines[head])[1] || 'Interview';

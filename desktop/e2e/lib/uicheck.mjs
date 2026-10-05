@@ -98,6 +98,17 @@ export function inspect({view, limits}) {
     if (!visible(host)) continue;
     found.push({view, severity: 'warning', kind: 'card-fallback', detail: `${label(host)} shows a ${host.dataset.fallback} run's message as plain text instead of its card: "${snippet(host)}"`});
   }
+  // (00) card-unstructured: a card that DRAWS but whose parser did not read the message (5 Oct 2026: the Search analysis card was one
+  // 800-character paragraph with "Finding:", "Worked", "Focus" and "Full report in Notion (https://…)" run together under the wrong title).
+  // A paragraph or list item inside a card that is very long, or still carries the chat message's own markers, was never split into parts.
+  for (const host of document.querySelectorAll('.insight-card p, .insight-card li, .run-card p, .run-card li, .mail-card p, .mail-card li')) {
+    if (!visible(host)) continue;
+    const words = (host.innerText || '').replace(/\s+/g, ' ').trim();
+    const why = words.length > 450 ? `one ${words.length}-character paragraph` : /Full report in Notion\s*\(https?:|\bFinding:\s|Tap a job number|Full analysis and transcript\s*\(/.test(words) ? 'the chat message\'s own markers' : '';
+    if (!why) continue;
+    found.push({view, severity: 'warning', kind: 'card-unstructured', detail: `${label(host)} in a card is ${why}, so its message was not split into parts: "${snippet(host)}"`});
+    break;
+  }
   // (0) empty-result: a finished run that always leaves a result (Search analysis, Gmail check, insight…) opened to a pane with none (renderer/run-cards.js emptyResult).
   for (const host of document.querySelectorAll('[data-empty-result]')) {
     if (!visible(host)) continue;
