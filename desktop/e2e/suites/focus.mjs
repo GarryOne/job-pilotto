@@ -210,9 +210,9 @@ export async function run(ctx) {
     await page.addInitScript(() => {
       const watch = () => { try { return JSON.parse(localStorage.getItem('__e2eWatch') || '[]'); } catch { return []; } };
       new MutationObserver(() => {
-        const names = watch();
-        if (!names.length) return;
-        for (const node of document.querySelectorAll('#focus-list .focus-headline')) for (const name of names) if (node.textContent.includes(name)) sessionStorage.setItem(`__e2eSeen_${name}`, String(Date.now()));
+        const watched = watch();   // [{key, source}]: the card's name and the pattern its headline matches
+        if (!watched.length) return;
+        for (const node of document.querySelectorAll('#focus-list .focus-headline')) for (const {key, source} of watched) if (new RegExp(source).test(node.textContent)) sessionStorage.setItem(`__e2eSeen_${key}`, String(Date.now()));
       }).observe(document, {childList: true, subtree: true, characterData: true});
     });
   }, {needs: ctx.needs, critical: true});
@@ -220,11 +220,11 @@ export async function run(ctx) {
   for (const action of actions.actions) {
     const [how, label] = Object.entries(action.how)[0];
     await ctx.run(`Up next "${action.kind}" card: ${how === 'button' ? `${label} button` : `⋯ ${label}`} removes it for good (leaves at once, not back after a refresh or a reload)`, async () => {
-      const card = () => page.locator('#focus-list .focus-item', {has: page.locator('.focus-headline', {hasText: action.who})});
+      const card = () => page.locator('#focus-list .focus-item', {has: page.locator('.focus-headline', {hasText: new RegExp(action.card || action.who)})});
       await goFocus();
       for (let i = 0; i < 12 && !(await card().count()); i++) { await refresh(); if (!(await card().count())) await page.waitForTimeout(4000); }   // Notion lists new rows a moment later
       if (!(await card().count())) throw new Error(`no ${action.kind} card for ${action.who} appeared; Focus lists: ${(await upNext()).map(item => item.headline).join(' | ')}`);
-      await page.evaluate(name => { localStorage.setItem('__e2eWatch', JSON.stringify([name])); sessionStorage.removeItem(`__e2eSeen_${name}`); }, action.who);
+      await page.evaluate(({key, source}) => { localStorage.setItem('__e2eWatch', JSON.stringify([{key, source}])); sessionStorage.removeItem(`__e2eSeen_${key}`); }, {key: action.who, source: action.card || action.who});
       if (action.how.confirm) page.once('dialog', dialog => dialog.accept());
       if (how === 'button') await card().getByRole('button', {name: label, exact: true}).click();
       else { await card().getByRole('button', {name: 'More'}).click(); await page.getByRole('menuitem', {name: label}).click(); }
@@ -249,7 +249,7 @@ export async function run(ctx) {
     await page.waitForTimeout(65000);
     await goFocus();
     await refresh();
-    const back = (await upNext()).filter(item => actions.actions.some(action => item.headline.includes(action.who)));
+    const back = (await upNext()).filter(item => actions.actions.some(action => new RegExp(action.card || action.who).test(item.headline)));
     if (back.length) throw new Error(`dismissed cards are listed again once the in-app hold is over: ${back.map(item => item.headline).join(' | ')} (Notion has not recorded the dismissal)`);
   }, {needs: ctx.needs});
 
