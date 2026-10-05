@@ -158,3 +158,8 @@ test('a manual gate for a tag runs the nightly gate\'s suites on that tag\'s com
   const plain = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha'}, gh: stub, all: ALL, minutes: () => 15});
   assert.equal(plain.tag, '', 'a plain manual run promotes nothing');
 });
+
+test('the interactions suite has the time it needs: a job limit under what it takes cancels it and files its partial findings (5 Oct 2026)', async () => {
+  const {minutes} = await import('../suites/interactions.mjs');
+  assert.ok(minutes >= 20, `interactions is given ${minutes} minutes: it ran past 11 and was cancelled twice at 10`);
+});
