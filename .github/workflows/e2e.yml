@@ -177,7 +177,7 @@ jobs:
         run: |
           node -e 'const fs=require("fs"); const u=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); fs.writeFileSync(process.argv[2], JSON.stringify({job: "review", usd: Number(u.usd)||0, turns: Number(u.calls)||0, at: new Date().toISOString(), limit: false}))' "$E2E_ARTIFACTS/ai-review-usage.json" "$RUNNER_TEMP/ai-cost.json"
       - name: Report the AI cost to /ai-cost
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != '' && hashFiles('desktop/e2e/ai-cost-report.mjs') != ''   # a soak checks out an older release tag, which may predate the script: skip, don't fail the suite
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: node desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "${{ matrix.suite }}" --file "$RUNNER_TEMP/ai-cost.json"
