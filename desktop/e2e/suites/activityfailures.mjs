@@ -56,7 +56,7 @@ export async function run(ctx) {
         const shownWords = `${opened.warnings} ${opened.warningList} ${opened.result} ${opened.message} ${mine?.result}`;
         if (/rate_limit_error|api_error|authentication_error|invalid_request_error|\{'type': 'error'|Traceback/.test(shownWords)) problems.push(`raw API words are shown: "${shownWords.slice(0, 120)}"`);
         if (failure.limit && !/spending limit|AI limit/i.test(shownWords)) problems.push(`the spending limit is not named as such: "${shownWords.slice(0, 160)}"`);
-        for (const leak of leaks(`${opened.log}\n${shownWords}`, {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the log shows ${leak}`);
+        for (const leak of leaks(`${opened.log}\n${shownWords}`, {secrets: [ctx.appKey, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the log shows ${leak}`);
         if (problems.length) throw new Error(problems.join('; '));
         await noRowStaysRunning(ctx);
       } finally { proxy.setMode('pass'); }
@@ -168,7 +168,7 @@ export async function run(ctx) {
       const digests = mine.filter(item => /^✈️/.test(item.text.replace(/<[^>]+>/g, '').trim()));
       if (digests.length > 1) problems.push(`${digests.length} digests for one check`);
       for (const item of digests) for (const problem of digestProblems(item.text)) problems.push(`the digest: ${problem}`);
-      for (const leak of leaks(mine.map(item => item.text).join('\n'), {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the message shows ${leak}`);
+      for (const leak of leaks(mine.map(item => item.text).join('\n'), {secrets: [ctx.appKey, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the message shows ${leak}`);
       if (problems.length) throw new Error(problems.join('; '));
     } finally { await connectTelegram(false).catch(() => {}); }
   }, {needs: ctx.needs, faults: true});

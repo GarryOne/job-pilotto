@@ -3,6 +3,7 @@
 // go through the real check; the Notion Job Matches rows and the app's own list are then compared with the truth: facts exact, a duplicate collapsed, relevant jobs
 // above irrelevant ones, scores in range and stable, every column filled, no programming accident in any text, no job text in the logs. A Sonnet judge reads the
 // free text (reason, strengths, gaps) for invented facts. Starts from a set-up install; resets only its own job and run rows.
+import {modelClient} from '../lib/model.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -187,9 +188,9 @@ export async function run(ctx) {
       const logs = path.join(ctx.profile, 'logs');
       const text = fs.existsSync(logs) ? fs.readdirSync(logs).filter(file => file.endsWith('.log')).map(file => fs.readFileSync(path.join(logs, file), 'utf8')).join('\n') : '';
       if (text.length < 200) throw new Error('the logs are empty: there is nothing to check');
-      const needles = [...postings.flatMap(item => fingerprints(item.description)), ...fingerprints(candidate), persona?.email || 'alex.example@example.test', ctx.key, ctx.token];
+      const needles = [...postings.flatMap(item => fingerprints(item.description)), ...fingerprints(candidate), persona?.email || 'alex.example@example.test', ctx.appKey, ctx.token];
       const found = leaks(text, needles.filter(Boolean));
-      if (found.length) throw new Error(`${found.length} piece(s) of private data are in the logs: ${found.map(needle => needle === ctx.key || needle === ctx.token ? '(a secret)' : `"${needle.slice(0, 40)}"`).join(', ')}`);
+      if (found.length) throw new Error(`${found.length} piece(s) of private data are in the logs: ${found.map(needle => needle === ctx.appKey || needle === ctx.token ? '(a secret)' : `"${needle.slice(0, 40)}"`).join(', ')}`);
     }, {needs: ctx.needs}));
 
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
@@ -231,7 +232,7 @@ export async function run(ctx) {
       const TERMS = persona?.cvMatch?.terms ?? ['kubernetes', 'terraform', 'aws', 'datadog', 'opentelemetry', 'slos'];
       let expected = 0, got = 0, corrected = 0;
       for (const item of postings.filter(entry => entry.fit === 'high').slice(0, 3)) {
-        const result = await check({}, ctx.key, {job: item, cv});
+        const result = await check({}, ctx.key, {job: item, cv, client: ctx.engine === 'cli' ? modelClient() : null});
         corrected += result.corrected;
         for (const term of TERMS.filter(candidateTerm => text.includes(candidateTerm) && item.description.toLowerCase().includes(candidateTerm))) {
           expected++;

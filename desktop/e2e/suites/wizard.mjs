@@ -5,7 +5,6 @@ import {runWizard} from '../lib/wizard.mjs';
 export const minutes = 20;
 export const name = 'wizard';
 export const fresh = true;
-export const engine = 'api';   // the first-run path checks the API key itself
 export async function run(ctx) {
   ctx.findings = [];
   await runWizard(ctx);

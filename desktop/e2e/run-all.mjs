@@ -3,7 +3,7 @@
 //   npm run all -- --only jobs,quality  exactly these, even a manual one
 //   npm run all -- --manual            also the manual suites (personas)
 //   npm run all -- --skip quality,wizard  leave these out;   --parallel 3  three at a time (needs each suite's own Notion token)
-// Secrets come from the environment, else from the macOS Keychain (job-pilotto.e2e.anthropic_key, .notion_token, .notion_token_<suite>). A suite without its
+// Secrets come from the environment, else from the macOS Keychain (job-pilotto.e2e.notion_token, .notion_token_<suite>; never the Anthropic key). A suite without its
 // own token falls back to the wizard's (lib/context.mjs), so on a Mac without them the suites must run one at a time (the default).
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
@@ -25,7 +25,8 @@ export function pickSuites({all, cadence = {}, only = '', skip = '', manual = fa
 
 // -> the secrets a run needs that are not in the environment yet, read from the Keychain (nothing is printed or written).
 export function keychainEnv(suites, {env = process.env, read = defaultRead} = {}) {
-  const wanted = [['E2E_ANTHROPIC_KEY', 'anthropic_key'], ['E2E_NOTION_TOKEN', 'notion_token'], ...suites.map(suite => [`E2E_NOTION_TOKEN_${suite.toUpperCase()}`, `notion_token_${suite}`])];
+  // The Anthropic key is never read here: the e2e on a Mac runs on Claude Code (lib/engine.mjs), and CI gets its key from GitHub's secrets.
+  const wanted = [['E2E_NOTION_TOKEN', 'notion_token'], ...suites.map(suite => [`E2E_NOTION_TOKEN_${suite.toUpperCase()}`, `notion_token_${suite}`])];
   const found = {};
   for (const [variable, item] of wanted) {
     if (env[variable]) continue;

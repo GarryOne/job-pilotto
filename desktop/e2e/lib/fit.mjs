@@ -3,6 +3,7 @@
 // industry, country, seniority, language) read as an app made for someone else, while nothing in the layout is wrong (5 Oct 2026: a nurse and a photographer were shown IT examples).
 // The Finder holds no list of professions or words. It collects what the app shows and judges it against who the candidate is, with a model; the checks around the model are plain code:
 // its quotes must really be on the page (a quote it made up is dropped), and an unreadable reply is never a pass. Pure functions here; `judge` makes the one call.
+import {modelFetch} from './model.mjs';
 export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5-5';
 const MAX_PAGE_CHARS = 6000;
 
@@ -42,7 +43,7 @@ export function parseIssues(reply, pages) {
 export const toFindings = issues => issues.map(item => ({view: item.view, severity: 'warning', kind: 'audience-mismatch',
   detail: `shows text written for ${item.assumes || 'another kind of candidate'}: "${item.quote}" (${item.why})`}));
 
-export async function judge({key, candidate, pages, fetchImpl = fetch}) {
+export async function judge({key, candidate, pages, fetchImpl = modelFetch}) {
   const response = await fetchImpl('https://api.anthropic.com/v1/messages', {method: 'POST',
     headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: JSON.stringify(buildRequest({candidate, pages}))});
   const data = await response.json();

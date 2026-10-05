@@ -1,5 +1,6 @@
 // A Sonnet judge for what a feature wrote: it reads the rows and says, per item, whether they make sense for a stated person. Pure functions here (build the request,
 // validate the answer, apply the verdict); `judge` makes the one call. Sonnet only as a judge, never inside the app under test (that runs on Haiku).
+import {modelFetch} from './model.mjs';
 export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5-5';
 
 export const SYSTEM = `You are a strict reviewer of what a job-search tool wrote down for one person. You get the person and a list of items the tool wrote (each with its facts).
@@ -31,7 +32,7 @@ export function problems(names, verdicts) {
   return out;
 }
 
-export async function judge({key, person, items, fetchImpl = fetch}) {
+export async function judge({key, person, items, fetchImpl = modelFetch}) {
   const response = await fetchImpl('https://api.anthropic.com/v1/messages', {method: 'POST',
     headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: JSON.stringify(buildRequest({person, items}))});
   const data = await response.json();

@@ -18,16 +18,27 @@ export async function runWizard(ctx) {
     await page.locator('[data-choice="api"]').waitFor();
     await page.locator('[data-choice="cli"]').waitFor();
   });
-  await ctx.run('the AI step will not continue without a key', async () => {
-    await page.locator('[data-choice="api"]').click();
-    await page.locator('#anthropic-key').waitFor();
-    if (!(await page.locator('#ai-save').isDisabled())) throw new Error('"Check and save" is enabled with no key typed');
-  });
-  await ctx.run('a valid API key is accepted and saved', async () => {
-    await page.fill('#anthropic-key', KEY);
-    await page.click('#ai-save');
-    await ctx.expectStep('cv');
-  }, {needs: [{name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  if (ctx.engine === 'cli') {
+    // A Mac: no key is ever typed (lib/engine.mjs). The app asks once whether to use Claude Code, then checks it, and the step continues.
+    await ctx.run('Claude Code is chosen (confirmed once, then checked) and the AI step continues', async () => {
+      await page.locator('[data-choice="cli"]').click();
+      await page.getByRole('button', {name: 'Use Claude Code CLI'}).click({timeout: 5000}).catch(() => {});   // the notice shows only the first time
+      await page.waitForFunction(() => !document.getElementById('ai-save')?.disabled, null, {timeout: 90000});
+      await page.click('#ai-save');
+      await ctx.expectStep('cv');
+    });
+  } else {
+    await ctx.run('the AI step will not continue without a key', async () => {
+      await page.locator('[data-choice="api"]').click();
+      await page.locator('#anthropic-key').waitFor();
+      if (!(await page.locator('#ai-save').isDisabled())) throw new Error('"Check and save" is enabled with no key typed');
+    });
+    await ctx.run('a valid API key is accepted and saved', async () => {
+      await page.fill('#anthropic-key', KEY);
+      await page.click('#ai-save');
+      await ctx.expectStep('cv');
+    }, {needs: [{name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  }
   await ctx.run('a CV is chosen and read', async () => {
     await ctx.pickCv();
     await page.click('#cv-choose');

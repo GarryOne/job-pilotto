@@ -7,11 +7,20 @@ export const DUMMY_KEY = 'sk-ant-api03-e2e-local-not-a-real-key-0000000000000000
 
 const claudeInstalled = () => { try { execFileSync('claude', ['--version'], {stdio: 'ignore', timeout: 20000}); return true; } catch { return false; } };
 
-// 'api' or 'cli'. A suite may pin 'api' (it needs real API answers); E2E_AI_ENGINE overrides; CI uses the API key; a Mac with Claude Code uses it.
+// THE RULE (owner, 5 Oct 2026): the e2e key is for CI only. On a Mac no suite loads, reads or spends an Anthropic key: the app under test and every judge use this Mac's
+// Claude Code (the plan, a fixed price). A step that needs the proxy in front of the app (a refusal, a delay) runs on the API engine with DUMMY_KEY, so it costs nothing.
+export const isCi = (env = process.env) => !!env.CI;
+export const testKey = (env = process.env) => isCi(env) ? env.E2E_ANTHROPIC_KEY || '' : '';
+export const appKey = (key, env = process.env) => isCi(env) ? key : DUMMY_KEY;
+
+// 'api' or 'cli'. CI: the API key, as it ships to users. A Mac: Claude Code, always. A suite may pin 'api' (its steps are answered by the proxy), which on a Mac runs with the
+// placeholder key. E2E_AI_ENGINE=cli forces Claude Code in CI too; E2E_AI_ENGINE=api is refused on a Mac.
 export function pickEngine({env = process.env, suiteEngine = '', installed = claudeInstalled} = {}) {
-  if (suiteEngine === 'api') return 'api';
   const chosen = env.E2E_AI_ENGINE;
-  if (chosen) { if (!['api', 'cli'].includes(chosen)) throw new Error(`E2E_AI_ENGINE must be api or cli, not "${chosen}"`); return chosen; }
-  if (env.CI) return 'api';
-  return installed() ? 'cli' : 'api';
+  if (chosen && !['api', 'cli'].includes(chosen)) throw new Error(`E2E_AI_ENGINE must be api or cli, not "${chosen}"`);
+  if (isCi(env)) return chosen === 'cli' ? 'cli' : 'api';
+  if (chosen === 'api') throw new Error('E2E_AI_ENGINE=api is for CI only: on a Mac the e2e never uses an Anthropic key (it uses Claude Code)');
+  if (suiteEngine === 'api') return 'api';
+  if (!installed()) throw new Error('Claude Code is not installed or not on the PATH: the e2e on a Mac runs on it (it never uses an Anthropic key). Install it and sign in with `claude`.');
+  return 'cli';
 }

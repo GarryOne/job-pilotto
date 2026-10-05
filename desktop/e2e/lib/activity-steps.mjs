@@ -132,7 +132,7 @@ export function problemsWith(ctx, run, {label, shown}) {
   if (bad) found.push(`${label}: the summary line is wrong: ${bad}`);
   const log = run.log.join('\n');
   if (!run.log.length) found.push(`${label}: the Technical log is empty`);
-  const secrets = [ctx.key, ctx.token];
+  const secrets = [ctx.appKey, ctx.token];
   for (const leak of leaks(`${log}\n${words}`, {secrets, dirs: [ctx.profile, ctx.feeds]})) found.push(`${label}: the log or summary shows ${leak}`);
   return found;
 }

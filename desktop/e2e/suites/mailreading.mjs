@@ -19,7 +19,7 @@ export async function run(ctx) {
   await ctx.run('the model reads the invented emails through the check\'s own prompt', async () => {
     report = await new Promise(resolve => execFile(python(), [path.join(repo, 'tools', 'mail_eval.py')], {
       cwd: repo, timeout: 4 * 60 * 1000, maxBuffer: 4 << 20,
-      env: {...process.env, ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: 'api'},
+      env: {...process.env, ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: ctx.engine},
     }, (error, stdout, stderr) => resolve({code: error ? (error.code ?? 1) : 0, out: String(stdout), err: String(stderr)})));
     console.log(report.out.split('\n').filter(line => /^(ok|MISS)|right/.test(line)).map(line => `  ${line}`).join('\n'));
     if (!/\d+\/\d+ right/.test(report.out)) throw new Error(`the eval did not run: ${(report.err || report.out).trim().split('\n').slice(-3).join(' | ')}`);

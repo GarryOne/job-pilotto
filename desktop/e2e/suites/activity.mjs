@@ -162,7 +162,7 @@ export async function run(ctx) {
     const lines = opened.log.split('\n').filter(Boolean).length;
     console.log(`  from Notion: ${data.runs.length} run(s); weekly log ${lines} line(s)`);
     if (/^(Nothing to show yet|No log for this run)/.test(opened.log.trim()) || !lines) throw new Error('a run read from Notion shows no log');
-    for (const leak of leaks(opened.log, {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) throw new Error(`a Notion run's log shows ${leak}`);
+    for (const leak of leaks(opened.log, {secrets: [ctx.appKey, ctx.token], dirs: [ctx.profile, ctx.feeds]})) throw new Error(`a Notion run's log shows ${leak}`);
   }, {needs: ctx.needs});
 
   await ctx.run('the Actions page and Recent runs render without layout problems after every task', async () => {

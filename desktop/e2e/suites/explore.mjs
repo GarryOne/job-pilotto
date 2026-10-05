@@ -1,7 +1,8 @@
 /* global document */
 // The AI explorer (lib/explore.mjs): Claude uses the app on a path no suite scripted, and reports what looks wrong with a CHECK a script can verify. Every report is then REPLAYED
 // without AI from a fresh page; only a bug whose check holds again becomes a finding (source explorer). BY HAND ONLY: it spends the owner's AI credit (a budget of about $0.50 a run),
-// so it never runs on a schedule or a push:   gh workflow run e2e.yml -f suite=explore     or     node suite.mjs explore   (needs E2E_ANTHROPIC_KEY and E2E_NOTION_TOKEN_EXPLORE).
+// so it never runs on a schedule or a push:   gh workflow run e2e.yml -f suite=explore     or     node suite.mjs explore   (a Mac needs Claude Code and E2E_NOTION_TOKEN_EXPLORE; CI also E2E_ANTHROPIC_KEY).
+import {modelFetch} from '../lib/model.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {finish} from '../lib/layout.mjs';
@@ -57,7 +58,7 @@ export async function run(ctx) {
   };
   const usage = {calls: 0, usd: 0, input: 0, output: 0};
   const ask = async messages => {
-    const answer = await fetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': ctx.key, 'anthropic-version': '2023-06-01'},
+    const answer = await modelFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': ctx.key, 'anthropic-version': '2023-06-01'},
       body: JSON.stringify({model: MODEL, max_tokens: 1024, system: SYSTEM, tools: tools(VIEWS), messages})});
     const body = await answer.json();
     if (!answer.ok) throw new Error(`${answer.status} ${body?.error?.message || ''}`);

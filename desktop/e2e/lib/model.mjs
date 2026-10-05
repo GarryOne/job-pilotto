@@ -1,0 +1,70 @@
+// How test code (the judges, the explorer) asks a model. CI posts to the Anthropic API with the test key; a Mac runs `claude -p` (this Mac's Claude Code, the plan's fixed price,
+// never a key). `modelFetch` has fetch's shape for the Messages API, so a caller keeps its own request and answer handling and only the transport changes.
+import {spawn} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {pickEngine} from './engine.mjs';
+
+// A bare `claude -p` loads the owner's MCP servers, skills and settings: 106k tokens for a one-word answer. These flags leave about 400.
+export const CLI_FLAGS = ['-p', '--output-format', 'json', '--tools', '', '--no-session-persistence', '--strict-mcp-config', '--disable-slash-commands', '--setting-sources', ''];
+
+const text = content => typeof content === 'string' ? content : (content || []).map(part => part.text ?? (part.type === 'tool_use' ? `[you called ${part.name} ${JSON.stringify(part.input)}]` : part.type === 'tool_result' ? `[result] ${typeof part.content === 'string' ? part.content : JSON.stringify(part.content)}` : '')).join('\n');
+
+// A Messages request -> the arguments and the prompt for `claude -p`.
+export function cliCall(body) {
+  const schema = body.output_config?.format?.schema;
+  const system = [body.system, ...(schema ? [`Reply with ONE JSON object that matches this JSON schema, and nothing else:\n${JSON.stringify(schema)}`] : []), ...(body.tools?.length ? [`You act by replying with ONE JSON object and nothing else: {"tool": "<name>", "input": {...}}, using exactly one of these tools:\n${JSON.stringify(body.tools.map(({name, description, input_schema}) => ({name, description, input_schema})))}`] : [])].filter(Boolean).join('\n\n');
+  const prompt = body.messages.map(message => `${message.role === 'assistant' ? 'You' : 'User'}:\n${text(message.content)}`).join('\n\n');
+  return {args: [...CLI_FLAGS, '--model', body.model, ...(system ? ['--system-prompt', system] : [])], prompt};
+}
+
+// The CLI's JSON -> a Messages answer (a tool call becomes a tool_use block).
+export function messagesAnswer(out, body) {
+  const result = String(out.result ?? '').trim();
+  let content = [{type: 'text', text: result}];
+  if (body.tools?.length) {
+    try {
+      const call = JSON.parse(result.slice(result.indexOf('{'), result.lastIndexOf('}') + 1));
+      if (call && typeof call.tool === 'string') content = [{type: 'tool_use', id: `cli_${Date.now()}`, name: call.tool, input: call.input || {}}];
+    } catch { /* plain text: the caller decides what that means */ }
+  }
+  const usage = out.usage || {};
+  return {content, stop_reason: content[0].type === 'tool_use' ? 'tool_use' : 'end_turn', usage: {input_tokens: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0), output_tokens: usage.output_tokens || 0}};
+}
+
+const run = ({args, prompt, cwd, timeoutMs}) => new Promise(resolve => {
+  const child = spawn('claude', args, {cwd, stdio: ['pipe', 'pipe', 'pipe']});
+  let stdout = '', stderr = '';
+  const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.on('error', error => { clearTimeout(timer); resolve({code: 1, stdout, stderr: error.message}); });
+  child.on('close', code => { clearTimeout(timer); resolve({code, stdout, stderr}); });
+  child.stdin.end(prompt);
+});
+
+// What the SDK's `client.messages.create(body)` is for code that takes a client (desktop/lib/match-check.js): the same call through `modelFetch`.
+export const modelClient = ({key = '', ...options} = {}) => ({messages: {create: async body => {
+  const response = await modelFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01'}, body: JSON.stringify(body)}, options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(`${response.status} ${data?.error?.message || ''}`);
+  return data;
+}}});
+
+const reply = (status, data) => ({ok: status < 400, status, json: async () => data});
+
+// fetch-shaped. `engine`/`exec` can be replaced by a test.
+export async function modelFetch(url, init, {engine = () => pickEngine(), exec = run, timeoutMs = 5 * 60 * 1000} = {}) {
+  if (engine() === 'api') return fetch(url, init);
+  const body = JSON.parse(init.body);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-model-'));   // no project, no CLAUDE.md, no hooks around the call
+  try {
+    const {args, prompt} = cliCall(body);
+    const done = await exec({args, prompt, cwd: dir, timeoutMs});
+    let out;
+    try { out = JSON.parse(done.stdout); } catch { return reply(500, {error: {message: `Claude Code gave no JSON (exit ${done.code}): ${(done.stderr || done.stdout).trim().slice(0, 200)}`}}); }
+    if (done.code !== 0 || out.is_error) return reply(500, {error: {message: `Claude Code failed: ${String(out.result || done.stderr).slice(0, 200)}`}});
+    return reply(200, messagesAnswer(out, body));
+  } finally { fs.rmSync(dir, {recursive: true, force: true}); }
+}

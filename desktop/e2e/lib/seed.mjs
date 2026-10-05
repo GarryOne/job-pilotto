@@ -3,7 +3,7 @@
 // (which finds the workspace already built in this suite's page) and "setup done". About ten seconds. A suite whose page is empty bootstraps with the real wizard path instead.
 import fs from 'node:fs';
 import path from 'node:path';
-import {DUMMY_KEY} from './engine.mjs';
+import {appKey, DUMMY_KEY} from './engine.mjs';
 import {runWizard} from './wizard.mjs';
 
 export async function fastSeed(ctx) {
@@ -16,11 +16,11 @@ export async function fastSeed(ctx) {
     if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || 'unknown'}`);
     if (cli) {
       const status = await window.pilot.verifyClaudeCode();
-      if (!status?.authenticated) throw new Error(`Claude Code is not ready on this Mac (${status?.error || 'not signed in'}): sign in with claude, or E2E_AI_ENGINE=api with E2E_ANTHROPIC_KEY`);
+      if (!status?.authenticated) throw new Error(`Claude Code is not ready on this Mac (${status?.error || 'not signed in'}): sign in with claude`);
       await window.pilot.setAiEngine('cli');
     }
     await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', ...(cli ? {} : {aiEngine: 'api'}), cvName: 'cv.pdf'});
-  }, {key: ctx.engine === 'cli' ? DUMMY_KEY : ctx.key, token: ctx.token, cli: ctx.engine === 'cli'});
+  }, {key: ctx.engine === 'cli' ? DUMMY_KEY : appKey(ctx.key), token: ctx.token, cli: ctx.engine === 'cli'});
   fs.copyFileSync(ctx.cv, path.join(ctx.profile, 'cv.pdf'));   // forms and tailoring read the CV from the data folder
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});

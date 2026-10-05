@@ -37,7 +37,7 @@ The paid AI-judge steps (`employers`) also run only in the nightly gate and in m
 cd desktop/e2e && npm install
 node suite.mjs settings            # one suite, about half a minute (npm run settings)
 node suite.mjs wizard              # or jobs, interviews, focus
-E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
+E2E_NOTION_TOKEN=ntn_… node suite.mjs settings     # runs on Claude Code: no Anthropic key on a Mac
 ```
 
 ## A skipped suite is not a pass
@@ -86,7 +86,7 @@ It costs about $0.3 a run, like the default (the SRE). It is how scoring is prov
 `E2E_CV=/path/to/cv.pdf node suite.mjs wizard` uses a real CV for a local run. It is only read from that path and sent to the test Anthropic key and the test Notion page; it is never copied into the repo (public). CI always uses `fixtures/cv.pdf`.
 
 ## Secrets
-- `E2E_ANTHROPIC_KEY`: a dedicated Anthropic key with a small monthly spend limit.
+- `E2E_ANTHROPIC_KEY`: a dedicated Anthropic key with a small monthly spend limit. **CI only**: a Mac never uses it.
 - `E2E_NOTION_TOKEN`: the test connection's token. Never use your own Notion.
 Both live in GitHub (Settings → Secrets → Actions) and, for local runs, in the macOS Keychain
 (`job-pilotto.e2e.anthropic_key`, `job-pilotto.e2e.notion_token`). Never in code.
@@ -275,11 +275,12 @@ folded steps and probe path, and the same facts as one hidden `<!-- replay: {…
 - **Learned test mistakes** (`lib/signatures.mjs`): three issues closed as `resolution:fp:harness` with the same normalised error text become a signature the producer drops without a model. The list is one pinned issue (label `harness-signatures`), not code; a real fix closing with the same text removes the signature. Delete an entry in that issue to unlearn it.
 - **The judge's exam** (`lib/judge-exam.mjs`, `judge-exam.yml`): the ten planted findings in `fixtures/judge-exam/` (four real, six false, each with its code excerpt as of its build and a known answer) go through the verdict pass every Sunday and are scored; the rate and the real bugs dismissed or false alarms believed are on `/self-heal`. It costs about ten judgements, so it is off until `gh variable set JOB_PILOTTO_JUDGE_EXAM --body on`. To add an item, copy a folder, write `finding.json` (with `expect`: real, false-positive or harness) and an excerpt of the code at the tested build.
 - **Bug Tracker rows from CI** (`lib/tracker-write.mjs`, `tracker-sync.yml`): a planted bug no detector caught (a `detector-miss` issue, written by the producer) and a bug a person reported on GitHub that the Finder had not (written when it closes) become Bug Tracker rows with the replay command. Needs the secret `NOTION_BRAIN_WRITE_TOKEN` (an integration with insert rights on the tracker) and the variable `BUG_TRACKER_DB`; without them nothing is written.
-## Which AI the app under test uses (the test key's credit is for CI)
-- **CI:** the API key (`E2E_ANTHROPIC_KEY`), as it ships to users.
-- **A Mac with Claude Code (`claude` signed in):** the app uses **your Claude Code** (your plan's usage, not the key): the seed verifies it and chooses it the way Settings →
-  Connections does, with a placeholder key saved (`lib/engine.mjs` `DUMMY_KEY`, never valid). `E2E_AI_ENGINE=api` (with `E2E_ANTHROPIC_KEY`) overrides it. It is slower: each AI call starts `claude`.
-- **Steps that need the AI proxy in front of the app** (a refusal, a delay, silence: the activity suite's failure and concurrency steps) switch to the API engine for the step with
-  the placeholder key through `ctx.withApi(fn)`: the proxy answers or delays before anything reaches Anthropic, so it costs nothing, then the engine goes back.
-- **Needs the real key, skipped on a Mac without it:** the `wizard` and `apply` suites (they pin `export const engine = 'api'`), the jobs suite's slow-AI step (real answers through
-  the proxy, `ctx.withApi(fn, {real: true})`), the employers suite's Sonnet judge, and the AI screenshot review (`review-ui.mjs`, CI only).
+## No Anthropic key on a Mac: the e2e runs on Claude Code (owner, 5 Oct 2026)
+**The e2e key is for CI only.** On a developer's Mac no suite loads, reads or spends an Anthropic key; the cost is the plan's fixed price. This is independent of the AI engine the developer chose in their own app.
+- **The app under test** runs on **your Claude Code** (`claude` signed in): the seed verifies it and chooses it the way Settings → Connections does, with a placeholder key saved (`lib/engine.mjs` `DUMMY_KEY`, never valid). It is slower: each AI call starts `claude`.
+- **Every judge and the explorer** (`lib/judge.mjs`, `lib/fit.mjs`, `lib/factjudge.mjs`, `suites/explore.mjs`, the CV match check in `quality`) ask through `lib/model.mjs`: `claude -p` on a Mac, with flags that drop your MCP servers, skills and settings (a bare call loads about 106k tokens; this one about 400), the API in CI. The mail eval (`mailreading`) runs the engine the same way.
+- **Steps that need the AI proxy in front of the app** (a refusal, a delay, silence, a canned answer: the activity suite's failure and concurrency steps, the whole `apply` suite) switch to the API engine **with the placeholder key** (`ctx.withApi(fn)`, or `export const engine = 'api'`): the proxy answers before anything reaches Anthropic, so it costs nothing.
+- **The wizard suite** picks the Claude Code choice on a Mac; CI types the key, so both paths stay tested. The product's own wizard is unchanged.
+- **How it is enforced:** `testKey()` is empty on a Mac whatever the environment holds; `run-all.mjs` never reads the Keychain item `job-pilotto.e2e.anthropic_key`; `E2E_AI_ENGINE=api` is refused on a Mac; `test/no-local-key.test.mjs` fails when a suite or helper fetches the API itself or reads the key, so **a new suite must ask a model through `lib/model.mjs`**. The AI screenshot review (`review-ui.mjs`) and the Finder's CI tooling keep the CI key.
+- **To check the spend:** the Claude Console's API keys page shows the cost per key (`job-pilotto-e2e-testing` was $34.89 on 5 Oct 2026); it should not grow from local runs.
+

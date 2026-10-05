@@ -216,7 +216,7 @@ export async function run(ctx) {
     console.log(`  judge: ${verdicts.map(item => `${item.name}: ${item.makes_sense ? 'yes' : 'NO'} (${item.reason})`).join(' | ')}`);
     const problems = judgeProblems(items.map(item => item.name), verdicts);
     if (problems.length) throw new Error(problems.join('; '));
-  }, {needs: [...ctx.needs, FULL, ...ctx.needsKey]});   // the judge is Sonnet through the API: a Mac without the test key skips it
+  }, {needs: [...ctx.needs, FULL, ...ctx.needsKey]});   // the judge is Sonnet: through the API in CI (it needs the key there), through Claude Code on a Mac
 
   await ctx.run('the Actions page renders without layout problems after the runs', async () => {
     if (ctx.audience === 'non-it') {
