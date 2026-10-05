@@ -4,6 +4,8 @@
 // Honesty rule: no invented numbers, nothing that tells users to deceive an employer. Keep each text under 150 characters.
 // evidence: 'recruiters' = what recruiters report in a few Reddit threads (shown as "Recruiters say"): firsthand, but not a survey (docs/research/ats-reddit-2026-10.md).
 // ats: shown only while the session is on that application system (see atsOf in tips.js).
+// for: 'it' = carries an IT example: shown only to a candidate looking for IT work (renderer/audience.js), and never in the Chrome extension, which cannot know. Every other tip must read
+// the same for a nurse, a photographer and an accountant (desktop/test/tips.test.js checks it).
 const HUNTR = 'https://huntr.co/blog/how-applicant-tracking-systems-work';
 const TRUFFLE = 'https://www.hiretruffle.com/blog/knockout-questions';
 const JOBSCAN = 'https://www.jobscan.co/blog/blog-ai-resume-screening/';
@@ -26,8 +28,10 @@ export const TIPS = [
     text: 'Name a skill where you used it. A list of keywords reads thin to a recruiter, and nobody has shown a stuffing penalty.'},
   {id: 'no-white-text', evidence: 'research', category: 'cv', source: BUILTIN,
     text: 'Hidden white text is read by parsers and can get you flagged or blacklisted. It is never worth it.'},
-  {id: 'posting-words', evidence: 'advice', category: 'cv',
+  {id: 'posting-words', evidence: 'advice', category: 'cv', for: 'it',
     text: 'Use the posting\'s own words for skills you really have: "Kubernetes", not "k8s".'},
+  {id: 'posting-words-general', evidence: 'advice', category: 'cv',
+    text: 'Use the posting\'s own words for the skills and tools you really have: if it spells a name out, write it that way, not as your own abbreviation.'},
   {id: 'one-column', evidence: 'advice', category: 'cv',
     text: 'One column and standard headings (Experience, Education, Skills) are what parsers read best.'},
   {id: 'no-tables', evidence: 'to-test', category: 'cv',
@@ -36,8 +40,10 @@ export const TIPS = [
     text: 'Paste your CV into a plain text editor. If the order is scrambled there, a parser will struggle too.'},
   {id: 'skill-with-result', evidence: 'advice', category: 'cv',
     text: 'A skill next to a real result counts for more than the same word in a list.'},
-  {id: 'quantify', evidence: 'advice', category: 'cv',
+  {id: 'quantify', evidence: 'advice', category: 'cv', for: 'it',
     text: '"Cut deploy time from 40 to 8 minutes" says more than "improved deployments".'},
+  {id: 'quantify-general', evidence: 'advice', category: 'cv',
+    text: 'A real number says more than an adjective: "cut the wait from 20 to 12 minutes" beats "worked quickly".'},
   {id: 'tailor', evidence: 'advice', category: 'tailor',
     text: 'One tailored application to a good match beats five generic ones. Fewer, better.'},
   {id: 'cover-letter', evidence: 'advice', category: 'tailor',

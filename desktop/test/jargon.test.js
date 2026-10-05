@@ -17,6 +17,7 @@ const ALLOWED = {
   'strategy-review.js': 'capitalises acronyms in a list the user wrote or the draft proposed',
   'run-cards.js': 'parses the scout\'s run note ("N matching roles", and "N SRE-type roles" in notes written before 5 Oct 2026), never displayed as written',
   'demo.js': 'the demo data',
+  'audience.js': 'the words that tell whether a candidate looks for IT work: matched against role keywords, never shown',
 };
 // phrases that stay: an IT example shown next to a non-IT one, or one tip not yet reworded
 const ALLOWED_PHRASES = [

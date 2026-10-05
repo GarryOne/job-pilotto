@@ -856,6 +856,7 @@ function renderMailCard(report, pending = [], answered = null, target = $('activ
 // them — structured data the AI does not emit yet — so nothing is guessed from the bullets and nothing is left blank.
 export function renderInsightCard(insight, target = $('activity-card')) {
   const box = el('div', 'insight-card');
+  box.dataset.guidance = 'insight';   // the UI Finder checks its words against who the candidate is
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
   kicker.append(el('span', 'insight-category', insight.category));
@@ -909,6 +910,7 @@ export function renderInsightCard(insight, target = $('activity-card')) {
 // the job, what happened, what was strong and weak, what to practise, and the next step. Every word is the review's.
 export function renderInterviewCard(review, target = $('activity-card')) {
   const box = el('div', 'insight-card');
+  box.dataset.guidance = 'interview';   // the UI Finder checks its words against who the candidate is
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
   kicker.append(el('span', 'insight-category', `Interview · ${review.round}`));
@@ -966,6 +968,7 @@ export function renderKitsCard(kits, target = $('activity-card')) {
 // them. The report's confidence and its recurring-evidence priorities sit on the Notion page, not in this message.
 export function renderWeeklyCard(weekly, target = $('activity-card')) {
   const box = el('div', 'insight-card');
+  box.dataset.guidance = 'weekly';   // the UI Finder checks its words against who the candidate is
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
   kicker.append(el('span', 'insight-category', 'Search analysis · last 7 days'));

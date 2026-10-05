@@ -40,7 +40,7 @@ test('nextTip shows every tip once before any repeats', () => {
   let seen = [];
   const shown = [];
   for (let i = 0; i < TIPS.filter(tip => !tip.ats).length; i++) {
-    const picked = nextTip({seen});
+    const picked = nextTip({seen, technical: true});   // the whole pool, IT tips included
     shown.push(picked.tip.id);
     seen = picked.seen;
   }
@@ -82,4 +82,31 @@ test('no tip promises an outcome or states a figure it cannot source', () => {
 });
 test('a tip that says something rejects you says it conditionally', () => {
   for (const tip of TIPS.filter(item => /\breject(s|ed)?\b|auto-reject/i.test(item.text))) assert.match(tip.text, /\b(if|can|may|some|no major|not|never|or only)\b/i, `${tip.id}: reject needs a condition`);
+});
+
+// ---- who sees which tip (5 Oct 2026: a nurse or a photographer must not be told to write "Kubernetes, not k8s") ----
+// The words only an IT candidate would recognise: the same vocabulary the UI Finder looks for on a non-IT screen (desktop/e2e/lib/uicheck.mjs).
+const IT_ONLY = /\b(kubernetes|k8s|terraform|devops|sre|site reliability|ci\/cd|on-?call|deploy(?:ment)?s?|microservices?|docker|aws|gcp|azure|github|stack overflow|leetcode|system design|pull requests?|codebase|refactor)\b/i;
+
+test('every tip with an IT example is marked for IT, and the others read the same for any profession', () => {
+  for (const tip of TIPS) {
+    if (tip.for) assert.equal(tip.for, 'it', `${tip.id}: the only audience is it`);
+    else assert.doesNotMatch(tip.text, IT_ONLY, `${tip.id} has an IT example but is shown to everyone: mark it for: 'it' and give everyone a general tip`);
+  }
+  assert.ok(TIPS.some(tip => tip.for === 'it') && TIPS.filter(tip => !tip.for).length > TIPS.length / 2, 'most of the pool is general');
+});
+
+test('a tip for IT is shown to a technical candidate only; with no audience known the general ones are', async () => {
+  const {nextTip} = await import('../renderer/tips.js');
+  const all = (technical) => { const shown = []; let seen = []; for (let i = 0; i < TIPS.length; i++) { const next = nextTip({seen, technical, random: () => 0}); if (!next.tip) break; shown.push(next.tip); seen = next.seen; } return shown.filter((tip, i) => shown.findIndex(other => other.id === tip.id) === i); };
+  assert.ok(all(false).every(tip => tip.for !== 'it'), 'a non-technical candidate is never shown an IT tip');
+  assert.equal(all(false).length, TIPS.filter(tip => tip.for !== 'it' && !tip.ats).length, 'and still sees every general tip (system tips need their system)');
+  assert.ok(all(true).some(tip => tip.for === 'it'), 'a technical candidate sees them');
+  assert.ok(all(undefined).every(tip => tip.for !== 'it'), 'the default is the general pool');
+});
+
+test('the extension never shows a tip marked for IT: it cannot know the candidate', async () => {
+  const {readFileSync} = await import('node:fs');
+  const source = readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
+  assert.match(source, /TIPS\.filter\(tip => !tip\.for && /);
 });

@@ -4,6 +4,14 @@
 import {el} from './components.js';
 import {TIPS} from './tips-pool.js';
 
+// A tip that carries an IT example is marked `for: 'it'` in the pool and shown only to a candidate who is looking for IT work (renderer/audience.js, asked of the app once).
+let technical = false, audienceAt = 0;
+function askAudience() {   // at most once a minute: a changed strategy reaches the tips without a restart
+  if (Date.now() - audienceAt < 60000) return;
+  audienceAt = Date.now();
+  window.pilot?.audience?.().then(answer => { technical = Boolean(answer?.technical); }).catch(() => {});
+}
+
 const SEEN_KEY = 'jp.tips.seen', HIDDEN_KEY = 'jp.tips.hidden';
 const PIXELS_PER_SECOND = 55, MIN_SECONDS = 10, STILL_MS = 14000;
 
@@ -21,8 +29,8 @@ export function atsOf(url) {
 
 // The next tip: never one already shown until all have been, system-specific tips only on their own system and first.
 // Returns {tip, seen}; once everything was shown the list starts over (without repeating the last tip straight away).
-export function nextTip({pool = TIPS, seen = [], ats = '', categories = null, random = Math.random} = {}) {
-  const system = pool.filter(tip => !tip.ats || tip.ats === ats);
+export function nextTip({pool = TIPS, seen = [], ats = '', categories = null, random = Math.random, technical: it = false} = {}) {
+  const system = pool.filter(tip => (!tip.ats || tip.ats === ats) && (tip.for !== 'it' || it));
   const topical = categories?.length ? system.filter(tip => categories.includes(tip.category)) : [];
   const fits = topical.length ? topical : system;   // a page's own topics, else any tip
   if (!fits.length) return {tip: null, seen};
@@ -48,7 +56,8 @@ const still = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').
 const ATS = new WeakMap(), TICK = new WeakMap();
 
 function advance(slot) {
-  const picked = nextTip({seen: read(SEEN_KEY, []), ats: ATS.get(slot) || '', categories: slot.dataset.categories?.split(',') || null});
+  askAudience();
+  const picked = nextTip({seen: read(SEEN_KEY, []), ats: ATS.get(slot) || '', categories: slot.dataset.categories?.split(',') || null, technical});
   if (!picked.tip) return;
   write(SEEN_KEY, picked.seen);
   const chip = slot.querySelector('.ss-tip-chip'), text = slot.querySelector('.ss-tip-text');
@@ -66,6 +75,7 @@ function build(slot) {
   hide.type = 'button';
   hide.title = 'Hide tips';
   hide.addEventListener('click', () => { write(HIDDEN_KEY, true); repaintAll(); });
+  slot.dataset.guidance = 'tip';   // the UI Finder checks the words of guidance against who the candidate is (desktop/e2e/lib/uicheck.mjs)
   slot.replaceChildren(el('span', 'ss-tip-chip'), frame, hide);
   // The next tip starts when the last one has left the frame (the animation ran once through).
   text.addEventListener('animationiteration', () => advance(slot));
@@ -96,6 +106,7 @@ function repaintAll() { for (const slot of barsOnScreen()) paint(slot); }
 export function mountStageTips(id, categories) {
   const slot = document.getElementById(id);
   if (!slot || slot.dataset.ready) return;
+  askAudience();
   slot.dataset.categories = categories.join(',');
   slot.dataset.ready = '1';
   paint(slot);
@@ -108,5 +119,6 @@ export function syncTips({active, url = ''}) {
   slot.hidden = !active;
   if (!active) return;
   ATS.set(slot, atsOf(url));
+  askAudience();
   if (!slot.dataset.ready) { slot.dataset.ready = '1'; paint(slot); }
 }

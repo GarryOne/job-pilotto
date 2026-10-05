@@ -659,7 +659,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const host = String(message.host || ''), ats = /greenhouse\.io$/.test(host) ? 'greenhouse' : /lever\.co$/.test(host) ? 'lever' : /ashbyhq\.com$/.test(host) ? 'ashby'
         : /myworkdayjobs\.com$|workday\.com$/.test(host) ? 'workday' : /smartrecruiters\.com$/.test(host) ? 'smartrecruiters' : '';
       const {tipsSeen = []} = await chrome.storage.local.get('tipsSeen');
-      const fits = TIPS.filter(tip => !tip.ats || tip.ats === ats);
+      const fits = TIPS.filter(tip => !tip.for && (!tip.ats || tip.ats === ats));   // a tip with an IT example is for the app, which knows the candidate
       const topical = fits.filter(tip => tip.category === message.prefer);
       const pool = topical.length ? topical : fits;
       const next = [...pool].sort((a, b) => tipsSeen.indexOf(a.id) - tipsSeen.indexOf(b.id) || (Math.random() - 0.5))[0];   // never shown first, then the oldest

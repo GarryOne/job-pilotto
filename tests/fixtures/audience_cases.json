@@ -1,0 +1,16 @@
+{"_comment": "One table, two implementations: src/coverage.py looks_technical and desktop/renderer/audience.js looksTechnical must agree on every row (tests/test_coverage.py, desktop/test/audience.test.js).",
+ "cases": [
+  {"keywords": ["\\bsre\\b", "devops"], "technical": true},
+  {"keywords": ["site reliability", "platform engineer"], "technical": true},
+  {"keywords": ["data analyst"], "technical": true},
+  {"keywords": ["\\bit\\b support"], "technical": true},
+  {"keywords": ["Softwareentwickler"], "technical": true},
+  {"keywords": ["ingénieur système"], "technical": true},
+  {"keywords": ["registered nurse", "\\bnurse\\b"], "technical": false},
+  {"keywords": ["photograph", "fotograf", "\\bphoto\\b", "retouch"], "technical": false},
+  {"keywords": ["accountant", "bilanzbuchhalter"], "technical": false},
+  {"keywords": ["mechanical engineer"], "technical": false},
+  {"keywords": ["primary school teacher"], "technical": false},
+  {"keywords": ["infirmière"], "technical": false},
+  {"keywords": [], "technical": true}
+ ]}

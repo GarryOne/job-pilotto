@@ -6,6 +6,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {E2E} from '../lib/app.mjs';
+import {collect, judge as fitJudge, toFindings as fitFindings} from '../lib/fit.mjs';
 import {duplicates, EXPECTED, parseRunLine, rowProblems} from '../lib/employers.mjs';
 import {judge, problems as judgeProblems} from '../lib/judge.mjs';
 import {finish, visit} from '../lib/layout.mjs';
@@ -98,6 +99,7 @@ async function notionRuns(token) {
 export async function run(ctx) {
   const {token: NOTION} = ctx;
   ctx.findings = [];
+  ctx.audience = persona.dir === 'employers' ? undefined : 'non-it';   // the UI Finder checks that the app's tips and insights suit a candidate who is not in IT
   await ensureSetUp(ctx);
   const state = {};
 
@@ -217,7 +219,25 @@ export async function run(ctx) {
   }, {needs: [...ctx.needs, FULL]});
 
   await ctx.run('the Actions page renders without layout problems after the runs', async () => {
-    await visit(ctx, ['actions']);
+    if (ctx.audience === 'non-it') {
+      // The app learns who the candidate is from config/search.json (the roles they look for); the crawl rewrites it from the test page, which holds the SRE's search. Say it is the persona's.
+      const file = path.join(ctx.profile, 'config', 'search.json'), current = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+      const roles = JSON.parse(fs.readFileSync(path.join(E2E, 'fixtures', 'feeds', persona.dir, 'person.json'), 'utf8')).role_keywords;
+      // The roles the Strategy page shows come from the job-board searches first: they must be the persona's too, or the page contradicts the candidate it is judged against.
+      fs.writeFileSync(file, JSON.stringify({...current, role_keywords: roles, jobs_board_search_queries: roles.map(role => role.replace(/\\b/g, '')).filter(role => /^[a-z ]+$/i.test(role))}));
+      await ctx.page.reload();
+      await ctx.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+      await ctx.page.waitForTimeout(3000);
+    }
+    await visit(ctx, ctx.audience ? ['focus', 'jobs', 'interviews', 'strategy', 'actions'] : ['actions']);
+    if (ctx.audience === 'non-it') {
+      // Does the app speak to THIS candidate? Everything the pages show, every tip the bars can show, judged against who the candidate is (lib/fit.mjs): no word list, any profession.
+      const pages = await collect(ctx.page, ['focus', 'jobs', 'interviews', 'strategy', 'actions', 'settings']);
+      const verdict = await fitJudge({key: ctx.key, candidate: persona.person, pages});
+      console.log(`  fit judge: ${pages.length} pages read, ${verdict.issues.length} line(s) written for another kind of candidate${verdict.unverified ? `, ${verdict.unverified} quote(s) not on the page dropped` : ''}`);
+      if (verdict.unreadable) throw new Error('the fit judge gave a reply that cannot be read: that is not a pass');
+      ctx.findings.push(...fitFindings(verdict.issues));
+    }
     finish(ctx);
   }, {needs: ctx.needs});
 }

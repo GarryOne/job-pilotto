@@ -100,6 +100,12 @@ class VerdictTest(unittest.TestCase):
         said = coverage.verdict(self.SUMMARY, keywords=['backend', 'Software Engineer'])
         self.assertEqual([s['term'] for s in said['suggestions']], ['systems engineer', 'distributed systems'])
 
+    def test_it_agrees_with_the_window_on_the_shared_table_of_cases(self):
+        import json
+        table = json.loads((Path(__file__).parent / 'fixtures' / 'audience_cases.json').read_text())['cases']
+        for case in table:   # desktop/renderer/audience.js is held to the same rows (desktop/test/audience.test.js)
+            self.assertEqual(coverage.looks_technical(case['keywords']), case['technical'], case['keywords'])
+
     def test_a_search_with_no_technical_keyword_gets_no_engineering_suggestions(self):
         for keywords in (['registered nurse', '\\bnurse\\b'], ['accountant', 'tax advisor'], ['mechanical engineer'], ['infirmière']):
             said = coverage.verdict(self.SUMMARY, keywords=keywords)

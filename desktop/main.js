@@ -25,7 +25,8 @@ import * as requestLog from './lib/request-log.js';
 import * as notifyWatch from './lib/notify-watch.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
-import * as targets from './renderer/targets.js';   // pure (no DOM), shared with the window
+import * as targets from './renderer/targets.js';
+import {clearlyTechnical} from './renderer/audience.js';   // pure (no DOM), the same rule as src/coverage.py   // pure (no DOM), shared with the window
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
@@ -1211,6 +1212,13 @@ function handlers() {
   });
   // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
   ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
+  // Is the candidate looking for IT work? The tips keep their IT examples for those who are (renderer/audience.js; with no roles known yet the general version is shown).
+  ipcMain.handle('audience', () => {
+    if (DEMO) return {technical: true};   // the demo candidate is an SRE
+    let keywords = [];
+    try { keywords = JSON.parse(fs.readFileSync(path.join(storage.path('config'), 'search.json'), 'utf8')).role_keywords || []; } catch { /* no search yet */ }
+    return {technical: clearlyTechnical(keywords)};
+  });
   ipcMain.handle('setDailyTarget', async (_, value) => {
     if (DEMO) return {ok: true, target: strategy.clampTarget(value)};
     const gate = needsNotion('focus');
