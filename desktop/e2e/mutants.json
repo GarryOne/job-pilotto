@@ -1,0 +1,42 @@
+[
+ {
+  "id": "calendar-day-dropped",
+  "suite": "calendar",
+  "file": "desktop/renderer/calendar.js",
+  "find": "inMonth: date.getUTCMonth() === month,",
+  "replace": "inMonth: date.getUTCMonth() === month && date.getUTCDate() !== 4,",
+  "what": "the month grid loses day 4 (#120, #122 were this bug)"
+ },
+ {
+  "id": "failed-run-ticked",
+  "suite": "activityfailures",
+  "file": "desktop/renderer/run-status.js",
+  "find": "if (i === at && !live && !run?.waiting && (!run?.ok || run?.off)) return 'fail';",
+  "replace": "if (i === at && !live && !run?.waiting && (!run?.ok || run?.off)) return 'done';",
+  "what": "a failed run shows every step ticked done (#104)"
+ },
+ {
+  "id": "raw-api-error",
+  "suite": "activityfailures",
+  "file": "desktop/renderer/run-warnings.js",
+  "find": "  const raw = String(text || '').trim();\n  if (!PROVIDER.test(raw))",
+  "replace": "  const raw = String(text || '').trim();\n  if (raw) return raw;\n  if (!PROVIDER.test(raw))",
+  "what": "the AI provider's raw JSON error reaches the screen"
+ },
+ {
+  "id": "focus-count-off-by-one",
+  "suite": "focus",
+  "file": "desktop/renderer/pages/focus.js",
+  "find": "$('focus-count').textContent = String(today.applied);",
+  "replace": "$('focus-count').textContent = String(today.applied + 1);",
+  "what": "Focus counts one application too many today"
+ },
+ {
+  "id": "target-not-written",
+  "suite": "focus",
+  "file": "desktop/lib/strategy.js",
+  "find": "    await publishSearchSettings(storage, {run, ensurePage, writePage});\n  } catch (error) {\n    storage.writeText('config/preferences.json', before);",
+  "replace": "    void publishSearchSettings;\n  } catch (error) {\n    storage.writeText('config/preferences.json', before);",
+  "what": "a changed daily target is kept on this Mac but never reaches Notion (silent data loss)"
+ }
+]

@@ -10,7 +10,7 @@ name: CI · End-to-end journey
 #     The AI review of screenshots (the costly part) runs when the UI or its tests changed, a finding waits, or the run is exploring. A push to main runs NO e2e (decided: e2e never runs on commit); by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
-run-name: ${{ inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Gate {0}', inputs.gate_tag) || github.event_name == 'workflow_run' && format('Gate {0}', github.event.workflow_run.head_sha) || '' }}   # empty = GitHub's default name. Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' and 'Gate <sha>' (the release gate: GitHub gives a workflow_run its own commit as main's, so the tested one is in the name) for gate 4
+run-name: ${{ inputs.mutant && format('Mutant {0}', inputs.mutant) || inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Gate {0}', inputs.gate_tag) || github.event_name == 'workflow_run' && format('Gate {0}', github.event.workflow_run.head_sha) || '' }}   # empty = GitHub's default name. Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' and 'Gate <sha>' (the release gate: GitHub gives a workflow_run its own commit as main's, so the tested one is in the name) for gate 4
 
 on:
   workflow_dispatch:
@@ -34,6 +34,9 @@ on:
         description: 'A top-up run on a release candidate (canary-promote.yml): no paid AI judge; its findings ARE filed, naming the build'
       promote_tag:
         description: 'DRY RUN of the promotion step for this release tag (runs no suite, promotes nothing)'
+        required: false
+      mutant:
+        description: 'MUTATION TEST (mutation.yml): write this mutant of desktop/e2e/mutants.json into the app first, or "baseline". Fixed path, no AI review, nothing filed, no Windows run'
         required: false
   schedule:
     - cron: '47 9,13,17 * * *'   # 11:47, 15:47, 19:47 in Zurich in summer (the UI loop's producer, ui-findings.yml, follows each run)
@@ -114,8 +117,9 @@ jobs:
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
-      E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
-      E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
+      JOB_PILOTTO_E2E_EXPECTS_FAILURES: ${{ inputs.mutant && '1' || '' }}   # a mutant run breaks the app on purpose: its crash reports are tagged expected, so the Sentry loop ignores them
+      E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
+      E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
       - uses: actions/checkout@v5
         with:
@@ -142,6 +146,11 @@ jobs:
         run: npx playwright-core install chromium
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
+      - name: Write the mutant into the app (mutation test only)
+        if: inputs.mutant != '' && inputs.mutant != 'baseline'
+        env:
+          MUTANT: ${{ inputs.mutant }}
+        run: node desktop/e2e/mutate.mjs "$MUTANT"
       - name: Run the ${{ matrix.suite }} suite
         working-directory: desktop/e2e
         timeout-minutes: 25   # a hung suite stops here, not after the job's limit
@@ -150,35 +159,35 @@ jobs:
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
           node suite.mjs ${{ matrix.suite }}
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''
         uses: actions/cache/restore@v5
         with:
           path: desktop/e2e/.review-cache
           key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ai-review-${{ matrix.suite }}-
       - name: AI review of the screenshots
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # the costly part: only when the UI or its tests changed, or a finding waits
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''   # the costly part: only when the UI or its tests changed, or a finding waits
         working-directory: desktop/e2e
         timeout-minutes: 15   # the batch waits up to 6 min, then asks what is left directly
         run: node review-ui.mjs
       # Its cost, as the other AI jobs leave theirs (ai-cost artifacts): /self-heal sums them (desktop/e2e/selfheal-stats.mjs). It was the one AI cost not summed.
       - name: The AI review's cost
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
         run: |
           node -e 'const fs=require("fs"); const u=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); fs.writeFileSync(process.argv[2], JSON.stringify({job: "review", usd: Number(u.usd)||0, turns: Number(u.calls)||0, at: new Date().toISOString(), limit: false}))' "$E2E_ARTIFACTS/ai-review-usage.json" "$RUNNER_TEMP/ai-cost.json"
       - name: Report the AI cost to /ai-cost
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: node desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "${{ matrix.suite }}" --file "$RUNNER_TEMP/ai-cost.json"
       - uses: actions/upload-artifact@v6
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
         with:
           name: ai-cost-review-${{ matrix.suite }}
           path: ${{ runner.temp }}/ai-cost.json
           if-no-files-found: ignore
       - name: Keep the AI reviews for the next run
-        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
         uses: actions/cache/save@v5
         with:
           path: desktop/e2e/.review-cache
@@ -258,7 +267,7 @@ jobs:
     # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. Never a release gate.
     name: Windows follows
     needs: [plan, suite]
-    if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == ''
+    if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == '' && inputs.mutant == ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

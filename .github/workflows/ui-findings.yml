@@ -33,7 +33,7 @@ jobs:
   findings:
     # Scheduled, chained or by hand only; a push-triggered e2e run (a change to the tests themselves) is not evidence about the product.
     # The daily stable canary (stable-canary.yml) names its runs "Stable canary …": it alarms by itself and never files into the backlog.
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event != 'push' && !startsWith(github.event.workflow_run.display_title, 'Stable canary'))
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event != 'push' && !startsWith(github.event.workflow_run.display_title, 'Stable canary') && !startsWith(github.event.workflow_run.display_title, 'Mutant'))   # a mutation test breaks the app on purpose: never filed
     runs-on: ubuntu-latest
     timeout-minutes: 35   # 15 for filing, up to 15 more for judging before filing (its own step limit below)
     env:

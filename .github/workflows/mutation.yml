@@ -1,0 +1,70 @@
+name: CI · Mutation test
+# Does the Finder catch SERIOUS bugs in the app's own code? (5 Oct 2026) Each mutant of desktop/e2e/mutants.json writes one real bug into critical-path code
+# (a lost calendar day, a failed run shown done, raw API text, a wrong count, a write that never reaches Notion) and runs the suite that should catch it
+# (e2e.yml, input `mutant`): red = caught, green = missed (one detector-miss issue). Each suite also runs once unmutated: red there makes its mutants "unknown".
+# The runs go one at a time: a suite owns one Notion page and its queue keeps one waiting run, so parallel dispatches would cancel each other. No AI review.
+on:
+  schedule:
+    - cron: '0 1 * * 0'   # Sunday 01:00 UTC: a quiet hour, before the weekly reviews
+  workflow_dispatch:
+
+permissions:
+  actions: write    # start e2e.yml runs and read them
+  issues: write     # a missed mutant files a detector-miss issue
+  contents: read
+
+concurrency:
+  group: mutation
+  cancel-in-progress: false
+
+jobs:
+  mutate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Run each baseline and mutant, one at a time
+        run: |
+          set -uo pipefail
+          echo '{}' > runs.json
+          node desktop/e2e/mutate.mjs --plan > plan.json
+          count=$(jq length plan.json)
+          for i in $(seq 0 $((count - 1))); do
+            mutant=$(jq -r ".[$i].mutant" plan.json); suite=$(jq -r ".[$i].suite" plan.json)
+            key="$mutant"; [ "$mutant" = baseline ] && key="baseline:$suite"
+            since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            gh workflow run e2e.yml --ref main -f suite="$suite" -f mutant="$mutant"
+            id=""
+            for _ in $(seq 1 30); do
+              sleep 10
+              id=$(gh run list --workflow e2e.yml --event workflow_dispatch --limit 20 --json databaseId,displayTitle,createdAt \
+                --jq "[.[] | select(.displayTitle == \"Mutant $mutant\" and .createdAt >= \"$since\")] | last | .databaseId // empty")
+              [ -n "$id" ] && break
+            done
+            if [ -z "$id" ]; then echo "$key: the run never started"; jq --arg k "$key" '.[$k] = "not started"' runs.json > tmp.json && mv tmp.json runs.json; continue; fi
+            gh run watch "$id" --interval 60 > /dev/null 2>&1 || true
+            # The suite job's own result: the run as a whole also holds skipped jobs (Windows, promote).
+            result=$(gh run view "$id" --json jobs --jq "[.jobs[] | select(.name == \"$suite\")][0].conclusion // \"none\"")
+            # What the detectors raised (kind|view): a truth check files a finding without turning the suite red, so it counts as a catch too.
+            rm -rf art && mkdir art && gh run download "$id" --pattern 'e2e-artifacts-*' --dir art > /dev/null 2>&1 || true
+            findings=$(find art -name ui-findings.json -exec jq -c '[.[] | select(.kind) | "\(.kind)|\(.view)"]' {} \; 2>/dev/null | jq -s -c 'add // [] | unique')
+            echo "$key ($suite): $result, findings $findings  https://github.com/$GH_REPO/actions/runs/$id"
+            jq --arg k "$key" --arg v "$result" --argjson f "${findings:-[]}" '.[$k] = {conclusion: $v, findings: $f}' runs.json > tmp.json && mv tmp.json runs.json
+          done
+      - name: Score, and file what no suite caught
+        if: always()
+        run: node desktop/e2e/mutation-score.mjs runs.json mutation-result.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: mutation-result
+          path: mutation-result.json
+          retention-days: 90
+          if-no-files-found: ignore
