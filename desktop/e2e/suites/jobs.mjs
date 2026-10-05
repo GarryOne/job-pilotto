@@ -76,6 +76,24 @@ export async function run(ctx) {
     const problems = compareJobs(app, notion);
     if (problems.length) throw new Error(problems.slice(0, 5).join('; '));
   }, {needs: ctx.needs});
+  // One Apply button (5 Oct 2026): a scored job with no kit is applied to like any other (the kit is drafted when Apply is pressed), and Prepare is only in the ⋯ menu.
+  await ctx.run('a scored job without a kit shows the Apply button, never Prepare, and "Prepare only" in its ⋯ menu', async () => {
+    await page.click('.nav[data-view="jobs"]');
+    await page.waitForSelector('article.job-row', {timeout: 60000});
+    const rows = await page.evaluate(() => [...document.querySelectorAll('article.job-row')].map(row => ({text: row.textContent, label: row.querySelector('.row-main')?.textContent.trim(), cls: row.querySelector('.row-main')?.className || ''})));
+    const kitless = rows.filter(row => !/📝 Kit/.test(row.text));
+    if (!kitless.length) throw new Error(`no kitless job in the list to check (rows: ${rows.length})`);
+    const wrong = kitless.filter(row => row.label !== 'Apply' || !/state-apply/.test(row.cls) || /Prepare/.test(row.text));
+    if (wrong.length) throw new Error(`${wrong.length} of ${kitless.length} jobs without a kit do not show a plain Apply button: ${wrong.slice(0, 3).map(row => `"${row.label}" (${row.cls})`).join('; ')}`);
+    let items = [];
+    for (let attempt = 0; attempt < 8 && !items.some(text => /Prepare only/.test(text)); attempt++) {   // the list redraws and closes an open ⋯ menu: open it again
+      await page.locator('article.job-row').filter({hasNotText: '📝 Kit'}).first().getByRole('button', {name: 'More actions'}).click();
+      await page.waitForTimeout(600);
+      items = await page.getByRole('menuitem').allInnerTexts();
+    }
+    if (!items.some(text => /Prepare only/.test(text))) throw new Error(`the ⋯ menu of a job without a kit has no "Prepare only" (it lists: ${items.join(' | ')})`);
+    await page.keyboard.press('Escape');
+  }, {needs: ctx.needs});
   await ctx.run('Find new employers probes the seed company and lists it in Notion', async () => {
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(ctx.profile, 'config', 'scout_seeds.json'));
     await page.click('.nav[data-view="actions"]');
