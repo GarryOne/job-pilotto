@@ -362,22 +362,26 @@ export function renderActivity(fresh) {
   // The selected run (or the live / latest one): what it did, its phases, and its full log. A run read from
   // Notion brings its result and log from its page the first time it's shown.
   const picked = shown || (running ? {...running, live: true} : last);
-  const run = picked?.pageId && !picked.log && !picked.live ? {...picked, ...runDetails.get(picked.pageId)} : picked;
+  // A run recorded on this Mac has a log of its own but, when it was sent to Telegram (--send) or is a Gmail check, not
+  // the message and report lines its Notion page holds: those are read from the page too, the local log kept (5 Oct 2026:
+  // with Always on off, a Search analysis showed nothing and a Gmail check lost its header, as only GitHub runs read the page).
+  const needsPage = r => !!r?.pageId && !r.live && (!r.log || !r.message || (kindOf(r) === 'mail' && !r.report?.length));
+  const run = needsPage(picked) ? {...picked, ...runDetails.get(picked.pageId), ...(picked.log ? {log: picked.log} : {})} : picked;
   detailRunId = run?.id ?? '';
-  if (run?.pageId && !run.log && !run.live && !runDetails.has(run.pageId)) {
-    const pageId = run.pageId;
-    readingPages.add(pageId);
-    runDetails.set(pageId, {log: ['Reading from Notion…']});
+  if (needsPage(picked) && !runDetails.has(picked.pageId)) {
+    const pageId = picked.pageId, hasLog = !!picked.log;
+    if (!hasLog) readingPages.add(pageId);   // only a run with nothing yet shows skeleton bars; a local one keeps what it has
+    runDetails.set(pageId, hasLog ? {} : {log: ['Reading from Notion…']});
     // A run that just finished may not have its log on its page yet (it's written a moment after the status):
     // an empty answer is read again a few times before it's kept.
     const read = (tries = 0) => window.pilot.runDetail(pageId).then(detail => {
       const empty = !detail?.message && !(detail?.log || []).length;
-      if (empty && tries < 4) {
+      if (empty && tries < 4 && !hasLog) {
         runDetails.set(pageId, {log: ['Waiting for the log from Notion…']});
         setTimeout(() => read(tries + 1), 5000);
       } else {
         readingPages.delete(pageId);
-        runDetails.set(pageId, empty ? {log: ['This run left no log on its Notion page.']} : detail);
+        runDetails.set(pageId, empty ? (hasLog ? {} : {log: ['This run left no log on its Notion page.']}) : detail);
       }
       renderActivity(lastActivity);
     }).catch(() => { readingPages.delete(pageId); renderActivity(lastActivity); });
