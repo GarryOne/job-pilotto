@@ -114,7 +114,7 @@ test('/saved lists saved jobs', () => {
   assert.match(formatSaved([], 'x'), /No saved jobs/);
   const page = { properties: { Job: { title: [{ plain_text: 'SRE' }] }, Company: { rich_text: [{ plain_text: 'Acme' }] },
     'Job URL': { url: 'https://x.test/1' } } };
-  assert.match(formatSaved([page], 'https://n.test'), /Saved jobs<\/b> \(1\)/);
+  assert.match(formatSaved([page], 'https://n.test'), /Saved jobs<\/b>\n1 saved/);
 });
 
 test('legacy ✅ button dispatches apply and answers the tap', async () => {
@@ -161,9 +161,9 @@ test('/applied queries Notion and formats rows', async () => {
   await send('/applied');
   assert.deepEqual(calls[0].body.filter.and.map((f) => f.select.does_not_equal), ['Saved', 'Kit ready', 'Dismissed', 'Closed']);
   const text = calls[1].body.text;
-  assert.match(text, /Applications<\/b> \(1\)/);
+  assert.match(text, /Applications<\/b>\n1 tracked/);
   assert.match(text, /SRE &lt;Zurich&gt;/);
-  assert.match(text, /🗓 Interview scheduled · 📅 applied 2026-09-24 · 🗓 2026-10-01T10:00/);
+  assert.match(text, /Acme · 🗓 Interview scheduled\nApplied: 2026-09-24\nInterview: 2026-10-01 · 10:00/);
   assert.deepEqual(calls[1].body.reply_markup.inline_keyboard,
     [[{ text: '1', callback_data: 'opick:1:3e562be8fd8681af9a4dd8732964fd94' }]]);
 });

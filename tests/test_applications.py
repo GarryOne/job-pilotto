@@ -110,7 +110,7 @@ class TrackedJobFallbackTests(unittest.TestCase):
                 job = daily.tracked_job(url, tracker)
                 self.assertEqual((job['title'], job['company'], job['id']), ('Staff SRE', 'Acme', None))
                 self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
-                self.assertIn('✅ Marked applied', daily.apply_message(db, url, tracker))
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, tracker))
                 self.assertIsNone(daily.tracked_job('https://x.test/untracked', tracker))
 
     def test_falls_back_to_job_matches_when_the_applications_row_is_gone(self):
@@ -139,10 +139,10 @@ class DigestIntegrationTests(unittest.TestCase):
                 buttons = [b for row in keyboards[0]['inline_keyboard'] for b in row]
                 self.assertTrue(any(b['callback_data'].startswith(f'pick:{code}:') for b in buttons))
                 self.assertEqual([b['text'] for b in buttons], ['1', '2', '3'])
-                self.assertIn('✅ Marked applied', daily.apply_message(db, code, tracker))
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, code, tracker))
                 self.assertIn('Already tracked', daily.apply_message(db, code, tracker))
                 self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', tracker))
-                self.assertIn('⭐ Saved', daily.apply_message(db, applications.job_code('https://x.test/0'), tracker, 'saved'))
+                self.assertIn('⭐ <b>Saved</b>', daily.apply_message(db, applications.job_code('https://x.test/0'), tracker, 'saved'))
                 stages = tracker.url_stages()
                 saved = frozenset(u for u, s in stages.items() if s == 'Saved')
                 message = digest.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)

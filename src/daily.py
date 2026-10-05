@@ -10,7 +10,7 @@ import random
 import re
 import sys
 
-from . import contribute, digest, employer_index, features, import_url, scout, store, telegram
+from . import contribute, digest, employer_index, features, import_url, scout, store, telegram, tgcard
 from . import doctor
 from . import coverage
 from .ai import added, budget, cost, enrich, inbox, insights, interview_insights, interviews, kit, provenance, score
@@ -120,7 +120,7 @@ def apply_message(db, code, tracker, action='applied'):
     """Record a Telegram button action for the job with this code in Notion; return the reply text."""
     job = find_job(db, code) or tracked_job(code, tracker)
     if not job:
-        return f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
+        return f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
     stage = ACTIONS[action]
     page, outcome = tracker.mark(job, stage)
     if stage == 'Applied' and outcome != 'unchanged':
@@ -133,13 +133,13 @@ def apply_message(db, code, tracker, action='applied'):
             print(f'Warning: application record skipped: {type(error).__name__}: {error}')
         queue_mail_check()
     link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>'
-    title = f"<b>{escape(job['title'])}</b> — {escape(job['company'])}"
+    title = f"{escape(job['title'])}\n{escape(job['company'])}"
     if outcome == 'unchanged':
-        return f"ℹ️ Already tracked: {title}\nSee {link}."
+        return f"ℹ️ <b>Already tracked</b>\n{title}\n\n<b>Next step</b>\nSee {link}."
     return {
-        'Applied': f"✅ Marked applied: {title}\nIt won't appear in digests again. Track the stage in {link}.",
-        'Saved': f"⭐ Saved: {title}\nIt stays in digests with a star; /saved lists your saved jobs.",
-        'Dismissed': f"❌ Dismissed: {title}\nIt won't appear again, and helps tune the scores.",
+        'Applied': f"✅ <b>Marked applied</b>\n{title}\n\n<b>Next step</b>\nIt won't appear in digests again. Track the stage in {link}.",
+        'Saved': f"⭐ <b>Saved</b>\n{title}\n\n<b>Next step</b>\nIt stays in digests with a star; /saved lists your saved jobs.",
+        'Dismissed': f"❌ <b>Dismissed</b>\n{title}\n\n<b>Next step</b>\nIt won't appear again, and helps tune the scores.",
     }[stage]
 
 
@@ -185,7 +185,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
     job = find_job(db, code) or tracked_job(code, tracker)
     if not job:
-        return [f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
+        return [f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
     if job['id'] is not None:
         job = dict(job, ai=enrich.load(db).get(job['id']), fit=score.load(db).get(job['id']))
     try:
@@ -363,11 +363,7 @@ def main():
             messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run)
         print(log)
         log_ai_run(tracker, run, args)
-        print('\n\n'.join(messages))
-        if args.send:
-            credentials = telegram.credentials()
-            for message in messages:
-                telegram.send(message, *credentials)
+        print('\n\n'.join(messages))  # the kit is saved in Notion; no Telegram message (owner, 5 Oct 2026: not relevant)
         return 0
     if args.mode == 'kits':
         # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
@@ -385,10 +381,9 @@ def main():
                                             args.auto_kit_min_score, stats=run['kits'])
         print(summary)
         if drafted:
-            lines = [f"📝 <b>{len(drafted)} application kit(s) ready</b>: drafted for your top matches, nothing sent."]
-            lines += [f"• <a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a> — {escape(job['company'])}"
-                      for job, _ in drafted]
-            message = '\n'.join(lines)
+            message = tgcard.card('Application kits ready', f"{len(drafted)} drafted for your top matches · nothing sent", [
+                f"<a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a>\n{escape(job['company'])}"
+                for job, _ in drafted], emoji='📝')
         else:
             message = (f"No kit to prepare: every open match scoring {args.auto_kit_min_score}+ already has one. "
                        "Run a search for new jobs first.")
@@ -396,10 +391,7 @@ def main():
         run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted]
         print(run['headline'])
         log_ai_run(tracker, run, args)
-        if args.send:
-            telegram.send(message, *telegram.credentials())
-        else:
-            telegram.to_app(message)
+        telegram.to_app(message)  # shown in the app only; kits get no Telegram message (owner, 5 Oct 2026)
         return 0
     if args.mode == 'add' and not args.job:
         # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
@@ -695,14 +687,6 @@ def main():
                                                          stats=run['kits'])
                     run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted_jobs]
                     print(summary)
-                    if drafted_jobs and args.send:
-                        lines = [f"📝 <b>{len(drafted_jobs)} application kit(s) ready</b> — drafted automatically, "
-                                 "nothing sent."]
-                        for job, page in drafted_jobs:
-                            lines.append(f"• <a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a>"
-                                         f" — {escape(job['company'])} · "
-                                         f"<a href=\"{escape(page.get('url', ''), quote=True)}\">Notion</a>")
-                        telegram.send('\n'.join(lines), *telegram.credentials())
             except Exception as error:
                 print(f'Warning: Notion Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')

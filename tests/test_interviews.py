@@ -210,7 +210,7 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(tracker.updates, [('g-1', {'Stage': {'select': {'name': 'Interviewing'}},
                                                      'Next step': {'rich_text': [{'text': {'content': 'System design next week'}}]}})])
         self.assertIn('Stage → Interviewing', log)
-        self.assertIn('⚠️ <b>Weak answers (1 of 2)</b>', sent[0])
+        self.assertIn('<b>Weak answers (1 of 2)</b>', sent[0])
         self.assertIn('Mention Patroni', sent[0])
         self.assertEqual(stats['tokens_in'], 15000)
 
@@ -586,8 +586,8 @@ class FactsTests(unittest.TestCase):
         self.assertIn('Facts from the call', page)
         self.assertIn('“two days a week in Zurich” ⚠️ Different from the job (it says “Remote”): not changed', page)
         self.assertIn('Salary: CHF 160-180k/year — “the band is 160 to 180 thousand francs” (added to the job)', page)
-        self.assertIn('📋 Added to the job: Salary: CHF 160-180k/year', sent[0])
-        self.assertIn('⚠️ Location: the call said “Hybrid, Zurich 2 days”, the job says “Remote” (not changed)', sent[0])
+        self.assertIn('Added to the job: Salary: CHF 160-180k/year', sent[0])
+        self.assertIn('Location: the call said “Hybrid, Zurich 2 days”, the job says “Remote” (not changed)', sent[0])
         self.assertIn('facts', interviews.SCHEMA['required'])  # the same single call extracts them
 
 

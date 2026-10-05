@@ -27,7 +27,7 @@ import re
 import urllib.parse
 import urllib.request
 
-from . import contribute, employer_index, store, telegram
+from . import contribute, employer_index, store, telegram, tgcard
 from .notion import client as notion, cron_runs
 from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, careers, feeds
@@ -38,7 +38,7 @@ EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', '')
 DEFAULT_BATCH = 40      # candidates probed per run (15 until 3 Oct 2026: the queue then held 400+ names and moved too slowly)
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90, 'watch': 7}   # watch: a careers page with no open jobs today, looked at again weekly
-# Tier 1 feeds are crawled with this many SRE-type roles anywhere: their Zurich/London roles come and go.
+# Tier 1 feeds are crawled with this many matching roles anywhere: their Zurich/London roles come and go.
 TIER1_MIN_RELEVANT = 3
 
 TABLES = """
@@ -122,7 +122,7 @@ def seed_candidates(seeds):
 
 
 def hacker_news_candidates(threads=HN_THREADS, get=_get_json):
-    """Companies from recent 'Ask HN: Who is hiring?' posts that mention our places and SRE-type roles.
+    """Companies from recent 'Ask HN: Who is hiring?' posts that mention our places and matching roles.
 
     Uses the official Hacker News search API (hn.algolia.com)."""
     stories = get('https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&query=hiring&hitsPerPage=6')
@@ -293,7 +293,7 @@ def quality(jobs):
     dated = [j for j in relevant if j.get('date_posted')]
     fresh_share = (len(fresh) / len(dated)) if dated else 0.5
     salary = any(j.get('salary') for j in preferred)
-    # Up to 20 for SRE-type roles anywhere, 40 for roles in preferred places, 10 each for Switzerland,
+    # Up to 20 for matching roles anywhere, 40 for roles in preferred places, 10 each for Switzerland,
     # stack overlap with the CV, freshness and published salaries.
     score = (min(20, 4 * len(relevant)) + min(40, 10 * len(preferred)) + (10 if swiss else 0)
              + round(10 * (len(stack) / len(relevant) if relevant else 0)) + round(10 * fresh_share if relevant else 0)
@@ -398,7 +398,7 @@ def relevant_roles(jobs):
 
 
 def job_places(jobs, limit=40):
-    """Where a feed has SRE-type roles: its most common location strings, so a client can skip feeds with none in
+    """Where a feed has matching roles: its most common location strings, so a client can skip feeds with none in
     its own places without downloading them."""
     counts = Counter((j.get('location') or '').strip()[:60] for j in jobs if feeds.TITLES.search(j['title']))
     return [place for place, _ in counts.most_common(limit + 1) if place][:limit]
@@ -695,18 +695,18 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
 def telegram_summary(summary, results):
     found = sorted([(c, o) for c, o in results if o['status'] == 'found'], key=lambda x: -x[1]['quality'])
     counts = {s: sum(1 for _, o in results if o['status'] == s) for s in ('none', 'low', 'manual', 'duplicate', 'watch')}
-    lines = [f"🔎 <b>Source scout</b> · checked {summary['checked']} · 🆕 {len(found)} new source"
-             + ('s' if len(found) != 1 else '')]
+    blocks = []
     for i, (c, o) in enumerate(found, 1):
         s = o['stats']
-        tier = ' · ⭐ Tier 1' if c['tier'] == 'Tier 1' else ''
-        where = f" ({s['swiss']} 📍)" if s['swiss'] else ''
-        places = ', '.join(s['places'][:3])
-        lines.append(f"\n{i}. <b>{escape(c['name'])}</b> · {o['ats'].capitalize()} · quality <b>{o['quality']}</b>{tier}\n"
-                     f"   {s['relevant']} matching roles · {s['preferred']} in your places{where}"
-                     + (f"\n   <i>{escape(places)}</i>" if places else ''))
+        tier = ' · Tier 1' if c['tier'] == 'Tier 1' else ''
+        places = s['places'][:3]
+        blocks.append(tgcard.block(
+            f"{i}. {escape(c['name'])} · Source quality {o['quality']}{tier}",
+            escape(tgcard.dot(f"{s['relevant']} matching roles", f"{s['preferred']} in preferred locations")),
+            tgcard.fact('Location' if len(places) == 1 else 'Locations', ', '.join(places)),
+            tgcard.fact('Platform', o['ats'].capitalize())))
     if not found:
-        lines.append('\nNo new useful feeds in this batch.')
+        blocks.append('No new useful feeds in this batch.')
     detail = [f"{counts['none']} without public feed", f"{counts['low']} low relevance"]
     if counts['watch']:
         detail.append(f"{counts['watch']} careers page{'s' if counts['watch'] != 1 else ''} with no open jobs today (watched weekly)")
@@ -714,10 +714,14 @@ def telegram_summary(summary, results):
         detail.append(f"{counts['manual']} Tier 1 on manual watch")
     if summary.get('ideas'):
         ideas = summary['ideas']
-        lines.append(f"\n🧠 <b>New ideas</b> · {ideas['companies']} companies and {ideas['directories']} from company lists queued\n<i>{escape(ideas['note'])}</i>")
-    lines.append(f"\n<i>{' · '.join(detail)} · {summary['total_feeds']} feeds crawled · {summary['queued']} candidates "
-                 f"queued{' · ' + str(summary['harvested']) + ' new candidates found' if summary['harvested'] else ''}</i>")
-    return '\n'.join(lines)
+        blocks.append(tgcard.block('New ideas', escape(f"{ideas['companies']} companies and {ideas['directories']} from company lists queued"),
+                                   escape(ideas['note'])))
+    rest = tgcard.dot(*detail, f"{summary['total_feeds']} feeds crawled", f"{summary['queued']} candidates queued",
+                      f"{summary['harvested']} new candidates found" if summary['harvested'] else '')
+    blocks.append(tgcard.block('Not added', escape(rest)))
+    plural = 's' if len(found) != 1 else ''
+    return tgcard.card('New employer sources', tgcard.dot(f"{summary['checked']} checked", f"{len(found)} new source{plural}"), blocks,
+                       emoji='🔎', footer='Source quality measures the source, not your job fit.')
 
 
 def report_ai_cost(side):

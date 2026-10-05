@@ -108,12 +108,12 @@ def alert_once(db, info, send, now=None):
     if db.execute('SELECT 1 FROM budget_alerts WHERE month=? AND level=?', (month, info['level'])).fetchone():
         return False
     if info['level'] == 'pause':
-        text = (f"⚠️ <b>AI budget {info['pct']:.0%} used</b> — {describe(info)}.\nAuto-kits and extra scoring are "
-                "paused until the limit resets on the 1st; mail, insights and interview reviews keep running. "
-                "To resume now, raise the limit in the Anthropic console and JOB_PILOTTO_MONTHLY_BUDGET_USD.")
+        text = (f"⚠️ <b>AI budget</b>\n{info['pct']:.0%} used · {describe(info)}\n\n<b>What is paused</b>\n"
+                "Auto-kits and extra scoring, until the limit resets on the 1st. Mail, insights and interview reviews keep running.\n\n"
+                "<b>Next step</b>\nTo resume now, raise the limit in the Anthropic console and JOB_PILOTTO_MONTHLY_BUDGET_USD.")
     else:
-        text = (f"💸 <b>AI budget {info['pct']:.0%} used</b> — {describe(info)}.\nAt 90% the optional AI steps "
-                "pause so the essentials keep running.")
+        text = (f"💸 <b>AI budget</b>\n{info['pct']:.0%} used · {describe(info)}\n\n<b>What happens next</b>\n"
+                "At 90% the optional AI steps pause so the essentials keep running.")
     send(text)
     db.execute('INSERT OR IGNORE INTO budget_alerts VALUES (?, ?)', (month, info['level']))
     db.commit()

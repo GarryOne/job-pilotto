@@ -199,7 +199,7 @@ class RunTests(unittest.TestCase):
         self.assertIn('Insight sent: Skills', summary)
         text, keyboard = sent[0]
         self.assertIn('&amp; not on your CV', text)  # HTML-escaped
-        self.assertIn('👉 Add Prometheus', text)
+        self.assertIn('<b>Next step</b>\nAdd Prometheus', text)
         self.assertEqual([b['callback_data'] for b in keyboard['inline_keyboard'][0]],
                          [f'ins:{k}:4c79aec091df4dcc8a8827cd4d43a5ef' for k in 'una'])
         props = tracker.created[0][1]
@@ -255,7 +255,7 @@ class WeeklyTests(unittest.TestCase):
         payload = json.loads(client.calls[0]['messages'][0]['content'].split('\n', 1)[1])
         self.assertEqual(payload['week']['event_counts'], {'Screening': 1})  # backfill events don't count
         self.assertIn('Full report in Notion', sent[0][0])
-        self.assertIn('🔧 <b>Change next week</b>', sent[0][0])
+        self.assertIn('<b>Change next week</b>', sent[0][0])
         self.assertNotIn('✅ <b>Worked</b>', sent[0][0])  # empty list, no padding
         self.assertEqual(stats['done'], 1)
 
@@ -314,13 +314,13 @@ class SearchAnalysisMessageTests(unittest.TestCase):
 
     def test_the_message_opens_with_the_finding_when_there_is_one(self):
         lines = insights.weekly_message(self.REPORT).split('\n')
-        self.assertEqual(lines[0], '📊 <b>Search analysis · last 7 days</b>')
-        self.assertEqual(lines[2], '<b>Quiet week: 2 applications, no replies yet</b>')
-        self.assertEqual(lines[3], '💡 Replies came only from jobs posted under 3 days ago (4 of 4)')
+        self.assertEqual(lines[:2], ['📊 <b>Search analysis</b>', 'Last 7 days'])
+        self.assertEqual(lines[3], '<b>Quiet week: 2 applications, no replies yet</b>')
+        self.assertEqual(lines[4], '<b>Finding:</b> Replies came only from jobs posted under 3 days ago (4 of 4)')
 
     def test_a_report_without_a_finding_has_no_empty_line_for_it(self):
         text = insights.weekly_message(dict(self.REPORT, finding=''))
-        self.assertNotIn('💡', text)
+        self.assertNotIn('Finding', text)
         self.assertNotIn('Search review', text)
 
     def test_the_notion_page_starts_with_the_finding_as_a_callout(self):

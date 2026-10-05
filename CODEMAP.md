@@ -314,6 +314,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
+- `src/tgcard.py` — One look for every Telegram message Job Pilotto sends (Telegram HTML).
 - `src/tune.py` — Tune my strategy (Actions page): what your own outcomes say about your search settings. Counts only, no AI.
 - `src/tz.py` — The user's own time zone: JOB_PILOTTO_TZ (the desktop app sets it from the computer), else the machine's, else UTC.
 

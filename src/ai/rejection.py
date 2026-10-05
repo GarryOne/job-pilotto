@@ -31,7 +31,7 @@ import json
 import os
 import sys
 
-from .. import telegram
+from .. import telegram, tgcard
 from ..notion import client as notion, cron_runs
 from ..notion.ledger import EVENTS_DATABASE_ID, RECORD_HEADING, plain
 from . import cost
@@ -242,7 +242,8 @@ def main(argv=None):
         cron_runs.log_run(tracker, log)
     if args.send and lines:
         token, chat_id = telegram.credentials()
-        telegram.send('🔎 <b>Why it was rejected</b>\n' + '\n'.join(map(escape, lines)), token, chat_id)
+        telegram.send(tgcard.card('Why it was rejected', f"{len(lines)} application{'s' if len(lines) != 1 else ''} reviewed",
+                                  ['\n'.join(map(escape, lines))], emoji='🔎'), token, chat_id)
     print(f"Rejection review: {len(lines)} application(s) (${(stats or {}).get('usd', 0.0):.3f})")
     return 0
 

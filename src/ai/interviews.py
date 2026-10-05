@@ -36,6 +36,7 @@ import urllib.request
 from ..notion import client as notion
 from ..notion import titles
 from . import engine
+from .. import tgcard
 from ..telegram import api_base as telegram_api_base
 from ..notion.titles import named  # noqa: F401 — the one placeholder rule (job titles too)
 from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
@@ -395,27 +396,27 @@ def properties(result, app, today, model, usd, source):
 
 
 def message(result, app, page_url, usd, truncated=False, merged=None, stage=None):
-    title = (f"{escape(plain(app['properties'].get('Company')) or '')} — {escape(titles.row_role(app))}"
-             if app else f"{escape(named(result['company']) or 'Unknown company')} (not linked to an application)")
+    title = (tgcard.dot(plain(app['properties'].get('Company')), titles.row_role(app))
+             if app else f"{named(result['company']) or 'Unknown company'} · not linked to an application")
     weak = [q for q in result['questions'] if q['quality'] in ('weak', 'not_answered')]
-    lines = [f"🎤 <b>Interview · {escape(result['round'])}</b>", title, '', escape(result['summary'])]
+    blocks = [tgcard.block(escape(title), escape(result['summary']))]
     if result['strengths']:
-        lines += ['', '✅ <b>Strong</b>'] + [f'• {escape(s)}' for s in result['strengths'][:3]]
+        blocks.append(tgcard.block('Strong', *[f'• {escape(s)}' for s in result['strengths'][:3]]))
     if weak:
-        lines += ['', f'⚠️ <b>Weak answers ({len(weak)} of {len(result["questions"])})</b>'] + [
-            f"• {escape(q['topic'])}: {escape(q['better'] or q['question'])}" for q in weak[:3]]
+        blocks.append(tgcard.block(f'Weak answers ({len(weak)} of {len(result["questions"])})', *[
+            f"• {escape(q['topic'])}: {escape(q['better'] or q['question'])}" for q in weak[:3]]))
     if result['practice']:
-        lines += ['', '🏋️ <b>Practise</b>'] + [f'• {escape(p)}' for p in result['practice'][:3]]
-    lines += ['', f"➡️ Next: {escape(result['next_step'])}"]
-    if stage:
-        lines.append(f'📈 Stage → {escape(stage)}')
-    lines += changes_lines(merged)
-    if truncated:
-        lines.append('<i>The transcript was very long; only the first part was analysed.</i>')
-    if not app:
-        lines.append('<i>Link it to its application in Notion (Application column).</i>')
-    lines.append(f'<a href="{escape(page_url, quote=True)}">Full analysis and transcript</a> · ${usd:.3f}')
-    return '\n'.join(lines)
+        blocks.append(tgcard.block('Practise', *[f'• {escape(p)}' for p in result['practice'][:3]]))
+    blocks.append(tgcard.block('Next step', escape(result['next_step']), f'Stage → {escape(stage)}' if stage else ''))
+    extra = changes_lines(merged)
+    if extra:
+        blocks.append(tgcard.block('Changes', *extra))
+    notes = (['The transcript was very long; only the first part was analysed.'] if truncated else []) \
+        + ([] if app else ['Link it to its application in Notion (Application column).'])
+    if notes:
+        blocks.append('\n'.join(escape(n) for n in notes))
+    return tgcard.card('Interview review', result['round'], blocks, emoji='🎤',
+                       footer=f'<a href="{escape(page_url, quote=True)}">Full analysis and transcript</a> · ${usd:.3f}')
 
 
 def changes_lines(merged):
@@ -424,9 +425,9 @@ def changes_lines(merged):
         return []
     lines = []
     if merged['filled']:
-        lines.append('📋 Added to the job: ' + escape('; '.join(f"{f['label']}: {f['value']}" for f in merged['filled'])))
+        lines.append('Added to the job: ' + escape('; '.join(f"{f['label']}: {f['value']}" for f in merged['filled'])))
     for fact in merged['differs']:
-        lines.append(f"⚠️ {escape(fact['label'])}: the call said “{escape(fact['value'])}”, the job says "
+        lines.append(f"{escape(fact['label'])}: the call said “{escape(fact['value'])}”, the job says "
                      f"“{escape(fact['current'])}” (not changed)")
     return lines
 

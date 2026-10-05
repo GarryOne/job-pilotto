@@ -338,9 +338,10 @@ def alert(tracker, send, now=None):
     problems = [c for c in health_checks(tracker, now) if c.state in (WARN, FAIL)]
     if not problems:
         return 'Health: all good'
-    lines = [f"{'❌' if c.state == FAIL else '⚠️'} {c.name}: {c.detail}" + (f' — {c.fix}' if c.fix else '')
-             for c in problems]
-    text = '🩺 <b>Job Pilotto health</b>\n' + '\n'.join(html.escape(line) for line in lines)
+    blocks = [f"<b>{html.escape(c.name)} · {'Failed' if c.state == FAIL else 'Warning'}</b>\n{html.escape(c.detail)}"
+              + (f"\n<b>Next step:</b> {html.escape(c.fix)}" if c.fix else '') for c in problems]
+    count = f"{len(problems)} problem{'s' if len(problems) != 1 else ''}"
+    text = f"🩺 <b>Job Pilotto health</b>\n{count}\n\n" + '\n\n'.join(blocks)
     if send:
         send(text)
     return text

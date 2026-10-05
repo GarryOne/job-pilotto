@@ -304,19 +304,20 @@ def telegram_messages(job, kit, questions, notion_url=None, limit=3800):
     """Copyable Telegram HTML messages: header, cover letter, answers (split to fit 4096 chars)."""
     title = f"<a href=\"{escape(job['url'], quote=True)}\"><b>{escape(job['title'])}</b></a> — {escape(job['company'])}"
     source = 'form questions from Greenhouse' if questions else 'no form read; likely questions'
-    header = [f'📝 <b>Application kit</b>\n{title}', f'<i>{source}. Tap a block to copy it. Nothing was sent.</i>']
+    header = [f"📝 <b>Application kit</b>\n{escape(source[0].upper() + source[1:])} · tap a block to copy it · nothing was sent",
+              f'<b>Job</b>\n{title}']
     if notion_url:
         header.append(f'<a href="{escape(notion_url, quote=True)}">Open in Notion</a>')
     if kit.get('eligible') is False:
-        header.append(f"⛔ <b>Not eligible:</b> {escape(kit.get('eligibility_note') or '')}")
+        header.append(f"<b>Not eligible</b>\n{escape(kit.get('eligibility_note') or '')}")
     if kit['check_before_sending']:
-        header.append('⚠️ <b>Check before sending</b>\n' + '\n'.join(f'• {escape(c)}' for c in kit['check_before_sending']))
+        header.append('<b>Check before sending</b>\n' + '\n'.join(f'• {escape(c)}' for c in kit['check_before_sending']))
     if kit['highlights']:
-        header.append('💡 <b>Lead with</b>\n' + '\n'.join(f'• {escape(h)}' for h in kit['highlights']))
-    blocks = ['\n\n'.join(header), f"✉️ <b>Cover letter</b>\n<pre>{escape(kit['cover_letter'])}</pre>"]
+        header.append('<b>Lead with</b>\n' + '\n'.join(f'• {escape(h)}' for h in kit['highlights']))
+    blocks = ['\n\n'.join(header), f"<b>Cover letter</b>\n<pre>{escape(kit['cover_letter'])}</pre>"]
     for item in kit['answers']:
-        flag = ' ❓' if item['needs_review'] else ''
-        blocks.append(f"<b>{escape(item['question'])}</b>{flag}\n<code>{escape(item['answer'])}</code>")
+        flag = ' · check this answer' if item['needs_review'] else ''
+        blocks.append(f"<b>{escape(item['question'])}{flag}</b>\n<code>{escape(item['answer'])}</code>")
     messages, current = [], ''
     for block in blocks:
         if len(block) > limit:  # a very long cover letter: cut the block, the full text is in Notion

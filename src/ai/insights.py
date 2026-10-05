@@ -26,7 +26,7 @@ import os
 import re
 from statistics import mean
 
-from .. import digest, store
+from .. import digest, store, tgcard
 from ..notion import client as notion
 from ..notion import funnel
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
@@ -340,17 +340,13 @@ def week_stats(tracker, now):
 
 
 def weekly_message(report, page_url=''):
-    lines = ['📊 <b>Search analysis · last 7 days</b>', '', f"<b>{escape(report['headline'])}</b>"]
-    if report.get('finding'):
-        lines.append(f"💡 {escape(report['finding'])}")
-    lines.append(escape(report['summary']))
+    blocks = [tgcard.block(escape(report['headline']), tgcard.fact('Finding', report.get('finding')), escape(report['summary']))]
     if report['worked']:
-        lines += ['', '✅ <b>Worked</b>'] + [f'• {escape(item)}' for item in report['worked']]
-    lines += ['', '🔧 <b>Change next week</b>'] + [f'• {escape(item)}' for item in report['change']]
-    lines += ['', f"🎯 {escape(report['focus'])}"]
-    if page_url:
-        lines += ['', f'<a href="{escape(page_url, quote=True)}">Full report in Notion</a>']
-    return '\n'.join(lines)
+        blocks.append(tgcard.block('Worked', *[f'• {escape(item)}' for item in report['worked']]))
+    blocks.append(tgcard.block('Change next week', *[f'• {escape(item)}' for item in report['change']]))
+    blocks.append(tgcard.block('Focus', escape(report['focus'])))
+    footer = f'<a href="{escape(page_url, quote=True)}">Full report in Notion</a>' if page_url else ''
+    return tgcard.card('Search analysis', 'Last 7 days', blocks, emoji='📊', footer=footer)
 
 
 def weekly_blocks(report, stats):
@@ -441,12 +437,12 @@ def plural(count, singular):
 
 
 def message(insight):
-    lines = [f"💡 <b>Insight · {escape(insight['category'])}</b>", '', f"<b>{escape(insight['headline'])}</b>"]
-    lines += [f'• {escape(line)}' for line in insight['evidence']]
-    lines += ['', f"👉 {escape(insight['action'])}", '',
-              f"<i>Confidence {escape(insight['confidence'])} · {escape(insight['basis'].lower())} data, "
-              f"{plural(insight['sample_size'], 'application' if insight['basis'] == 'Applications' else 'job')}</i>"]
-    return '\n'.join(lines)
+    basis = 'application' if insight['basis'] == 'Applications' else 'job'
+    blocks = [tgcard.block(escape(insight['headline']), *[f'• {escape(line)}' for line in insight['evidence']]),
+              tgcard.block('Next step', escape(insight['action'])),
+              tgcard.block(f"Confidence: {escape(insight['confidence'].lower())}",
+                           escape(f"Based on {insight['basis'].lower()} data, {plural(insight['sample_size'], basis)}."))]
+    return tgcard.card('Insight', insight['category'], blocks, emoji='💡')
 
 
 def keyboard(page_id):

@@ -125,7 +125,7 @@ class MailTests(unittest.TestCase):
         self.assertEqual((event['Kind']['select']['name'], event['Source']['select']['name']), ('Rejected', 'Gmail'))
         self.assertEqual(event['At']['date']['start'], '2026-09-26T09:00:00+02:00')  # the email's own time
         self.assertIn(('p1', {'Stage': {'select': {'name': 'Rejected'}}}), tracker.updates)
-        self.assertIn('❌ Scale AI', sent[0])
+        self.assertIn('<b>Scale AI · Infrastructure Software Engineer · Rejected</b>', sent[0])
         # Next run: the email is in the state file, so it isn't fetched or classified again.
         summary, sent = self.run_mail(tracker, google, [])
         self.assertIn('0 new email(s)', summary)
@@ -149,7 +149,7 @@ class MailTests(unittest.TestCase):
         with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
             mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Other', relevant=False)]]), days=2, send=sent.append,
                      calendar=False, now=NOW, state_path=self.state, stats={}, always_report=True)
-        self.assertEqual(sent, ['📧 Gmail checked: 1 new email(s), nothing that changes your applications.'])
+        self.assertEqual(sent, ['📧 <b>Gmail checked</b>\n1 new email\n\nNothing that changes your applications.'])
 
     def test_a_quiet_check_without_that_flag_says_nothing(self):
         # The mail workflow no longer sets it (the app dispatches it for "Check Gmail now"): a check that recorded
@@ -313,7 +313,7 @@ class MailTests(unittest.TestCase):
         [question] = tracker.created
         self.assertEqual(question['Kind'], {'select': {'name': 'Rejected'}})
         self.assertEqual(question['Suggested job'], {'url': 'https://x.test/p1'})
-        self.assertIn('which job', sent[0])
+        self.assertIn('Which job is this for?', sent[0])
         self.assertIn('Rejected · Grafana Labs', stats['updates'][0])
         self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])  # no job moved on a guess
 
@@ -427,7 +427,7 @@ class MailTests(unittest.TestCase):
         self.assertTrue(tracker.created[0]['Needs you']['checkbox'])
         self.assertIn('Which job', tracker.created[0]['Event']['title'][0]['text']['content'])
         self.assertEqual(tracker.updates, [])
-        self.assertIn('which job', ' '.join(sent))
+        self.assertIn('Which job is this for?', ' '.join(sent))
 
     def test_an_invitation_whose_calendar_file_could_not_be_read_is_still_asked_about(self):
         self.assertTrue(mail._unread_invitation(email('b3', 'Invitation from an unknown sender: Igor and Acme DM @ Mon 5 Oct')))
@@ -511,7 +511,7 @@ class MailTests(unittest.TestCase):
         self.assertEqual(tracked[0]['title'], 'Connect Igor / Jaya - SRE')
         kinds = [p['Kind']['select']['name'] for p in tracker.created if 'Kind' in p]
         self.assertIn('Interview scheduled', kinds)
-        self.assertIn('which job?', sent[0])
+        self.assertIn('Which job is this for?', sent[0])
 
     def test_irrelevant_and_untracked_mail(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
@@ -522,7 +522,7 @@ class MailTests(unittest.TestCase):
         self.assertTrue(question['Needs you']['checkbox'])
         self.assertNotIn('Suggested job', question)
         self.assertIn('Zeta', sent[0])
-        self.assertIn('which job', sent[0])
+        self.assertIn('Which job is this for?', sent[0])
 
     def test_calendar_match_by_contact_email_sets_interview_and_sends_prep_once(self):
         start = NOW + timedelta(hours=20)  # tomorrow 14:00 in Zurich
@@ -537,12 +537,12 @@ class MailTests(unittest.TestCase):
         created = tracker.created[0]
         self.assertEqual((created['Kind']['select']['name'], created['Source']['select']['name']), ('Interview scheduled', 'Calendar'))
         self.assertEqual(dict(tracker.updates)['p1']['Next interview'], {'date': {'start': start.isoformat()}})
-        prep = [m for m in sent if m.startswith('🗓 <b>Tomorrow')]
+        prep = [m for m in sent if m.startswith('🗓 <b>Interview tomorrow')]
         self.assertEqual(len(prep), 1)
         self.assertIn('Postgres', prep[0])
-        self.assertIn('With: Alex Morgan', prep[0])
+        self.assertIn('With:</b> Alex Morgan', prep[0])
         _, sent = self.run_mail(tracker, google, [], calendar=True)
-        self.assertFalse([m for m in sent if m.startswith('🗓 <b>Tomorrow')])  # once only
+        self.assertFalse([m for m in sent if m.startswith('🗓 <b>Interview tomorrow')])  # once only
 
     def test_after_the_interview_asks_for_the_transcript(self):
         start = NOW - timedelta(hours=3)
@@ -573,7 +573,7 @@ class MailTests(unittest.TestCase):
     def test_a_review_of_another_job_does_not_stop_the_nudge_and_the_caption_names_the_employer(self):
         asked = [m for m in self.reviewed_run('other') if 'How did' in m]
         self.assertEqual(len(asked), 1)
-        self.assertIn('caption "AG Talent, AG Talent role', asked[0])
+        self.assertIn('Caption:</b> AG Talent, AG Talent role', asked[0])
 
 
 class HuxleyFirstInviteTests(unittest.TestCase):

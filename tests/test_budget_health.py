@@ -117,7 +117,7 @@ class HealthTests(unittest.TestCase):
         with mock.patch.object(doctor, 'health_checks', return_value=[bad, good]):
             doctor.alert(None, sent.append, NOW)
         self.assertEqual(len(sent), 1)
-        self.assertIn('❌ Gmail + Calendar: sign-in expired or revoked — Sign in again', sent[0])
+        self.assertIn('<b>Gmail + Calendar · Failed</b>\nsign-in expired or revoked\n<b>Next step:</b> Sign in again', sent[0])
         sent.clear()
         with mock.patch.object(doctor, 'health_checks', return_value=[good]):
             self.assertEqual(doctor.alert(None, sent.append, NOW), 'Health: all good')

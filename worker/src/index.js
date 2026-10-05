@@ -8,22 +8,13 @@ import { handleReport } from './report.js';
 import { handleExtension } from './extension.js';
 
 const HELP = [
-  '✈️ <b>SRE Job Pilotto commands</b>',
-  '',
-  '/check — check for new jobs now: crawl, read and score them, send the digest (~3 min; /run works too)',
-  '/today — send the current ranked list (~1 min)',
-  '/applied — jobs you applied to, with stage; tap a number to record a reply (screening, interview, offer, rejection)',
-  '/saved — jobs you saved with ⭐',
-  '/insight — one insight about your search now (~1 min)',
-  '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
-  '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… two days ago (or 23 Sep, on or before 23 Sep)',
-  '📥 A recruiter wrote, an employer replied, you applied somewhere? Send me a screenshot (LinkedIn, Gmail, WhatsApp…), forward the message, or /add followed by its text: I find the job it\'s about and update it, or add it. Emails are picked up by the Gmail check',
-  '/mail — check Gmail and Calendar for application news now (also runs 3 times a day)',
-  '🎤 After an interview: send the recording (only if everyone on the call agreed to it; a voice note, audio or video up to 20 MB) or the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
-  'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
-  '/status — last workflow runs',
-  '/employers — find new employers with a public job feed now (~1 min; /scout works too)',
-].join('\n');
+  '✈️ <b>Job Pilotto</b>\nCommands',
+  '<b>Jobs</b>\n/check — find and score new jobs, then send the digest (~3 min; /run works too)\n/today — the current ranked list (~1 min)\n/saved — jobs you saved with ⭐\n/employers — find new employers with a public job feed (~1 min; /scout works too)',
+  '<b>Applications</b>\n/applied — your applications with their stage; tap a number to record a reply\n/add &lt;job URL&gt; [date] — track an application made elsewhere, e.g. /add https://… two days ago\n/mail — check Gmail and Calendar now (also runs 3 times a day)',
+  '<b>Reports</b>\n/insight — one insight about your search (~1 min)\n/weekly — the weekly report (~1 min); it also arrives every Monday\n/status — latest runs',
+  '<b>Send me</b>\nA screenshot, a forwarded message or /add with its text: I find the job it is about and update it.\nAfter an interview: the recording (only if everyone agreed) or a transcript (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 and your notes.',
+  '<b>Under a digest</b>\nTap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (saves a cover letter and form answers in Notion)',
+].join('\n\n');
 
 const STAGE_EMOJI = {
   Saved: '⭐', Applied: '📨', 'Confirmation received': '📬', Screening: '📞',
@@ -102,7 +93,7 @@ export function formatRuns(runs) {
     const when = run.created_at.replace('T', ' ').slice(0, 16);
     return `${icon(run)} <a href="${escapeHtml(run.html_url)}">${escapeHtml(run.display_title)}</a> · ${when} UTC`;
   });
-  return ['🛠 <b>Recent runs</b>', ...lines].join('\n');
+  return [`🛠 <b>Recent runs</b>\n${lines.length} latest`, lines.join('\n\n')].join('\n\n');
 }
 
 // /status: the latest ⏱️ Search runs rows, wherever they ran (the Mac, GitHub, a button here), with the one running.
@@ -117,9 +108,9 @@ export function formatNotionRuns(pages) {
     const where = p['Run URL']?.url ? ' · GitHub' : /^Mac/.test(p.Trigger?.select?.name || '') ? ' · Mac' : '';
     const summary = text(p.Summary).replace(/;?\s*\(?AI cost \$[\d.]+\)?\.?$/, '');
     return `${ICON[status] || '✅'} <a href="${escapeHtml(page.url)}">${escapeHtml(p.Mode?.select?.name || 'run')}</a> · ${when} UTC${where}`
-      + (summary ? `\n   ${escapeHtml(summary.slice(0, 160))}` : '');
+      + (summary ? `\n${escapeHtml(summary.slice(0, 160))}` : '');
   });
-  return ['🛠 <b>Recent runs</b>', ...lines].join('\n');
+  return [`🛠 <b>Recent runs</b>\n${lines.length} latest`, lines.join('\n\n')].join('\n\n');
 }
 
 export function formatApplied(pages, databaseUrl) {
@@ -131,11 +122,12 @@ export function formatApplied(pages, databaseUrl) {
     const applied = p['Applied on']?.date?.start || 'date not set';
     const url = p['Job URL']?.url;
     const title = `<b>${escapeHtml(text(p.Job) || 'Untitled')}</b>`;
-    const interview = p['Next interview']?.date?.start ? ` · 🗓 ${p['Next interview'].date.start.slice(0, 16)}` : '';
-    return `${index + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title} — ${escapeHtml(text(p.Company))}\n`
-      + `${STAGE_EMOJI[stage] || '•'} ${escapeHtml(stage)} · 📅 applied ${applied}${interview}`;
+    const interview = p['Next interview']?.date?.start ? `\nInterview: ${p['Next interview'].date.start.slice(0, 16).replace('T', ' · ')}` : '';
+    return `${index + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title}\n`
+      + `${escapeHtml(text(p.Company))} · ${STAGE_EMOJI[stage] || ''} ${escapeHtml(stage)}\n`
+      + `Applied: ${applied}${interview}`;
   });
-  return [`📋 <b>Applications</b> (${pages.length}) · <a href="${databaseUrl}">open in Notion</a>`, '', lines.join('\n\n')].join('\n');
+  return [`📋 <b>Applications</b>\n${pages.length} tracked · <a href="${databaseUrl}">Open in Notion</a>`, lines.join('\n\n')].join('\n\n');
 }
 
 function notion(env, path, method = 'GET', body) {
@@ -231,9 +223,9 @@ export function formatSaved(pages, databaseUrl) {
     const p = page.properties;
     const url = p['Job URL']?.url;
     const title = `<b>${escapeHtml(text(p.Job) || 'Untitled')}</b>`;
-    return `${i + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title} — ${escapeHtml(text(p.Company))}`;
+    return `${i + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title}\n${escapeHtml(text(p.Company))}`;
   });
-  return [`⭐ <b>Saved jobs</b> (${pages.length}) · <a href="${databaseUrl}">open in Notion</a>`, '', lines.join('\n')].join('\n');
+  return [`⭐ <b>Saved jobs</b>\n${pages.length} saved · <a href="${databaseUrl}">Open in Notion</a>`, lines.join('\n\n')].join('\n\n');
 }
 
 async function saved(env) {
@@ -260,7 +252,7 @@ async function applied(env) {
   const { results } = await response.json();
   const text = formatApplied(results, `https://www.notion.so/${env.NOTION_APPLICATIONS_DB}`);
   const keyboard = appliedKeyboard(results);
-  return keyboard ? { text: `${text}\n\nTap a number when you hear back.`, keyboard } : text;
+  return keyboard ? { text: `${text}\n\n<b>Next step</b>\nTap a number when you hear back.`, keyboard } : text;
 }
 
 export async function handleCommand(env, command) {

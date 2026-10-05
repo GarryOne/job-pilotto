@@ -169,7 +169,7 @@ class MailOutreachTests(unittest.TestCase):
         self.assertEqual(row['Job URL']['url'], 'https://mail.google.com/mail/u/0/#all/m1')
         self.assertEqual(event['At'], {'date': {'start': '2026-09-26T09:00:00+02:00'}})
         self.assertIn(('new-2', {'Source ID': {'rich_text': [{'text': {'content': 'm1'}}]}}), tracker.updates)
-        self.assertIn('🤝 New recruiter lead: <b>Senior DevOps Engineer', sent[0])
+        self.assertIn('<b>New recruiter lead · Senior DevOps Engineer', sent[0])
         self.assertIn('Recruiter outreach', client.calls[0]['system'][0]['text'])
 
     def test_the_recruiters_follow_up_is_a_reply_on_the_lead_not_a_second_lead(self):

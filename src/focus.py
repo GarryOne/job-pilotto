@@ -34,7 +34,7 @@ import re
 import sys
 from zoneinfo import ZoneInfo
 
-from . import telegram, tz
+from . import telegram, tgcard, tz
 from . import feedback
 from .features import disabled
 from .notion import client as notion, titles
@@ -709,6 +709,30 @@ def reminder(focus, now=None):
     return '\n'.join(parts)
 
 
+def reminder_card(focus, now=None):
+    """The reminder as a Telegram card: "Your focus", one block per thing that needs you, then "Today"."""
+    now = now or datetime.now(timezone.utc)
+    today, items = focus['today'], focus['items']
+    waiting = [i for i in items if i['kind'] in ('offer', 'book', 'reply')]
+    soon = [i for i in items if i['kind'] == 'prepare' and i['priority'] == 1]
+    learning = [i for i in items if i['kind'] in ('feedback', 'feedback_review')]
+    hour = now.astimezone(TZ).hour + now.astimezone(TZ).minute / 60
+    behind = today['applied'] < today['target'] * min(max((hour - 8) / 12, 0), 1)
+    blocks = []
+    for item in waiting[:3]:
+        blocks.append(tgcard.block(escape(item['company'] or 'A recruiter'), 'Waiting for your answer.'))
+    for item in soon[:2]:
+        blocks.append(tgcard.block(escape(item['company']), 'Interview soon.'))
+    for item in learning[:3]:
+        blocks.append(tgcard.block(escape(item['company']), 'Review one learning point before your next interview.'))
+    if behind or not blocks:
+        kits = f"{today['kits_ready']} kits ready" if today['kits_ready'] else ''
+        blocks.append(tgcard.block('Today', escape(tgcard.dot(f"{today['applied']} of {today['target']} applications", kits))))
+    counts = [f"{len(waiting)} waiting for you" if waiting else '', f"{len(soon)} interview soon" if soon else '',
+              f"{len(learning)} feedback item{'s' if len(learning) != 1 else ''} to review" if learning else '']
+    return tgcard.card('Your focus', tgcard.dot(*counts), blocks, emoji='🧭')
+
+
 # ---- history: what you resolved from Focus (Notion keeps it: 📈 Application Events from the app, and 💡 Insights you rated)
 HISTORY_TITLES = {
     'Replied': ('💬', 'Replied to {company}'),
@@ -800,7 +824,7 @@ def main(argv=None):
             if not disabled('telegram'):
                 token, chat_id = telegram.credentials()
                 if token and chat_id:
-                    telegram.send('🧭 <b>Focus</b>\n' + escape(text), token, chat_id)
+                    telegram.send(reminder_card(focus), token, chat_id)
         print(json.dumps({'text': text}))
         return 0
     print(json.dumps(focus, ensure_ascii=False))

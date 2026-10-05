@@ -32,7 +32,7 @@ import sys
 import urllib.error
 from zoneinfo import ZoneInfo
 
-from .. import telegram, tz
+from .. import telegram, tgcard, tz
 from ..notion import client as notion, cron_runs, ledger
 from ..notion import origin as origin_rule, titles
 from ..notion.funnel import PREPARED_STAGES
@@ -451,8 +451,9 @@ def ask(tracker, email, result, suggested, index, lines, stats):
         tracker.create_page(EVENTS_DATABASE_ID, {k: v for k, v in properties.items() if k not in NEW_COLUMNS})
     index[0].add(email['id'])
     guess = f" (maybe {_label(suggested)})" if suggested is not None else ''
-    lines.append(f"❓ {escape(result.get('company') or email['subject'][:60])}: {escape(result.get('summary') or kind)}"
-                 f" — which job{escape(guess)}? Answer in Job Pilotto (Focus).")
+    lines.append(tgcard.block('Which job is this for?', escape(result.get('company') or email['subject'][:60]) + ': '
+                              + escape(result.get('summary') or kind) + (f' Maybe {escape(_label(suggested))}.' if suggested is not None else ''),
+                              tgcard.fact('Next step', 'answer in Job Pilotto: Focus')))
     if stats is not None:
         stats.setdefault('updates', []).append(f"❓ {kind} · {result.get('company') or subject[:60]} — which job?"[:140])
 
@@ -494,6 +495,11 @@ def _short(stats, kind, row, extra='', changes=''):
 def _who(row):
     """The employer, or for a recruiter lead with a hidden one, the agency."""
     return _field(row, 'Company') or _field(row, 'Via') or _field(row, 'Contact').split(' · ')[0] or '?'
+
+
+def _head(row, kind=''):
+    """Bold heading of a Telegram block: 'Company · Role · Kind'."""
+    return tgcard.dot(escape(_who(row)), escape(_role(row))[:60], escape(SHORT_KIND.get(kind, kind)))
 
 
 def _label(row):
@@ -576,8 +582,8 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
         if row:
             note(email, 'reviewed', _label(row), link='')  # an outcome below replaces this: it says what was done
         if row and result.get('relevant') and re.search(r'transcript|recording', email['subject'], re.I):
-            lines.append(f"📝 {_label(row)}: {escape(email['subject'][:90])} — download it and send it to me "
-                         "for an interview review.")
+            lines.append(tgcard.block(_head(row, 'Transcript'), escape(email['subject'][:90]),
+                                      tgcard.fact('Next step', 'download it and send it to me for an interview review')))
         if result.get('kind') == 'Other':
             note(email, 'reviewed', _label(row) if row else (result.get('company') or ''), 'nothing to record')
             continue
@@ -599,8 +605,8 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             # email and let Focus ask for the missing details, rather than drop it or name the job after the agency.
             row = interview_lead(tracker, client, model, email, apps, result, stats)
             if row is not None:
-                lines.append(f"❓ {_label(row)}: an interview, but which job? Add the details in Job Pilotto "
-                             "(Focus → Add details: paste the LinkedIn chat or the job link).")
+                lines.append(tgcard.block('Which job is this for?', f"{escape(_label(row))}: the interview was detected, but the role could not be identified.",
+                                          tgcard.fact('Next step', 'In Job Pilotto: Focus → Add details. Paste the job link or LinkedIn conversation.')))
         if not row and named:
             # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.
             row = _from_email(tracker, apps, result, email, stats, lines, on_new)
@@ -628,7 +634,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             continue
         when = _when(result['interview_at'] or '')
         extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''
-        lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
+        lines.append(tgcard.block(_head(row, result['kind']), escape(result['summary']) + escape(extra)))
         _short(stats, result['kind'], row, extra, changes=changes_readable(fields))
         note(email, 'recorded', _label(row), changes_readable(fields))
         if changed == 'Rejected' and rejected is not None:
@@ -793,7 +799,7 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
         add_event(tracker, row, 'Applied', 'Gmail', at=applied or None,
                   note=f'Applied without marking it; found in the email "{email["subject"][:120]}" (date is an upper bound)')
         apps.append(row)
-        lines.append(f"➕ {_label(row)}: marked applied from this email (it was {escape(before)}).")
+        lines.append(tgcard.block(_head(row, 'Applied'), f"Marked applied from this email (it was {escape(before)})."))
         if stats is not None:
             stats.setdefault('updates', []).append(f"➕ Marked applied · {company} — {role[:70]}")
         return row
@@ -816,7 +822,7 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     apps.append(row)
     if on_new:  # facts and fit score from the email, like a found job (src/ai/added.py)
         on_new(url, {'title': role, 'company': company, 'description': f"{email['subject']}\n\n{email['body']}"[:8000]}, row)
-    lines.append(f"➕ {_label(row)}: tracked from this email (applied elsewhere).")
+    lines.append(tgcard.block(_head(row, 'Applied'), 'Tracked from this email (applied elsewhere).'))
     if stats is not None:
         stats.setdefault('updates', []).append(f"➕ Tracked · {company} — {role[:70]}")
     return row
@@ -891,10 +897,10 @@ def new_lead(tracker, client, model, email, apps, stats, on_new=None):
         'work_mode': lead.get('work_mode') or '', 'description': text[:8000]}, row) if on_new else None
     if stats is not None:
         stats.setdefault('updates', []).append(f"🤝 Recruiter lead · {opportunity.label(lead)}"[:140])
-    link = (f"\n<a href=\"{escape(row['url'], quote=True)}\">In Notion</a> — set Stage to Screening once you reply"
-            if row.get('url') else '')
-    return [f"🤝 New recruiter lead: <b>{escape(opportunity.label(lead))}</b>"
-            + (f" · {escape(lead['salary'])}" if lead.get('salary') else '') + (f" · {escape(fit)}" if fit else '') + link]
+    link = (f"<a href=\"{escape(row['url'], quote=True)}\">In Notion</a>" if row.get('url') else '')
+    return [tgcard.block(f"New recruiter lead · {escape(opportunity.label(lead))}",
+                         escape(tgcard.dot(lead.get('salary'), fit)), link,
+                         tgcard.fact('Next step', 'set Stage to Screening once you reply'))]
 
 
 def _contact_names(row):
@@ -1015,7 +1021,8 @@ def calendar_pass(tracker, google, client, model, apps, index, state, stats, now
                              f"cal:{event['id']}", f"Calendar: {event.get('summary', '')[:150]} at {start.astimezone(TZ):%a %d %b %H:%M}",
                              index, start.isoformat(), now)
             if changed:
-                lines.append(f"🗓 {_label(row)}: {escape(event.get('summary', ''))[:80]} · {start.astimezone(TZ):%a %d %b %H:%M}")
+                lines.append(tgcard.block(_head(row, 'Interview'), f"{start.astimezone(TZ):%a %d %b · %H:%M}",
+                                          tgcard.fact('Event', event.get('summary', '')[:80]), tgcard.fact('Source', 'Google Calendar')))
                 _short(stats, 'Interview scheduled', row, f" · {start.astimezone(TZ):%a %d %b %H:%M}")
         notes += reminders(tracker, row, event, start, end, state, now)
     return lines, notes
@@ -1034,9 +1041,9 @@ def reminders(tracker, row, event, start, end, state, now):
         state['notified'].append(key_after)
         # Already reviewed (a recording or notes saved from the app, Telegram or /interview on or after the call's day): don't ask.
         if not reviewed_since(tracker, row, start.astimezone(TZ).date().isoformat()):
-            messages.append(f"🎤 How did <b>{_label(row)}</b> go? Send the transcript (or /interview with your notes) "
-                            f"with the caption \"{escape(_who(row))}, {escape(event.get('summary', 'interview'))[:40]}\" "
-                            "for a review.")
+            messages.append(tgcard.card('How did it go?', '', [tgcard.block(_head(row, 'Interview'),
+                tgcard.fact('Next step', 'send the transcript (or /interview with your notes) for a review'),
+                tgcard.fact('Caption', f"{_who(row)}, {event.get('summary', 'interview')[:40]}"))], emoji='🎤'))
     return messages
 
 
@@ -1056,21 +1063,19 @@ def reviewed_since(tracker, row, day):
 
 def prep_message(tracker, row, event, start, day):
     from . import interviews  # local import: interviews imports the ledger too
-    lines = [f"🗓 <b>{day} {start.astimezone(TZ):%H:%M} — {_label(row)}</b>", escape(event.get('summary', ''))]
-    link = event.get('hangoutLink') or event.get('location') or ''
-    if link:
-        lines.append(escape(link))
     people = [a.get('displayName') or a.get('email', '') for a in event.get('attendees', []) if not a.get('self')]
-    if people:
-        lines.append('With: ' + escape(', '.join(people[:5])))
     stats = interviews.stats_for_insights(tracker)
     weak = list(stats['topics_answered_weakly'])[:3]
+    link = event.get('hangoutLink') or event.get('location') or ''
+    blocks = [tgcard.block(_head(row, 'Interview'), escape(f"{day} · {start.astimezone(TZ):%H:%M}"), escape(event.get('summary', '')),
+                           escape(link), tgcard.fact('With', ', '.join(people[:5])))]
     if weak:
-        lines += ['', '🏋️ <b>Answered weakly in past interviews</b>'] + [f'• {escape(t)}' for t in weak]
+        blocks.append(tgcard.block('Answered weakly in past interviews', *[f'• {escape(t)}' for t in weak]))
     if _field(row, 'Next step'):
-        lines += ['', f"📝 {escape(_field(row, 'Next step'))[:300]}"]
-    lines += ['', 'Recording? Ask everyone for consent at the start.', f"<a href=\"{escape(row.get('url', ''), quote=True)}\">Application in Notion</a>"]
-    return '\n'.join(lines)
+        blocks.append(tgcard.block('Next step', escape(_field(row, 'Next step'))[:300]))
+    blocks.append('Recording? Ask everyone for consent at the start.\n'
+                  f"<a href=\"{escape(row.get('url', ''), quote=True)}\">Application in Notion</a>")
+    return tgcard.card('Interview ' + day.lower(), '', blocks, emoji='🗓')
 
 
 def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None, calendar=True, dry_run=False,
@@ -1098,10 +1103,10 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         save_state(state, state_path)
         lines += review_rejections(tracker, client, rejected, stats)
     if send and lines:
-        send('📧 <b>Job emails and calendar</b>\n' + '\n'.join(lines))
+        send(tgcard.card('Job emails & calendar', f"{len(lines)} update{'s' if len(lines) != 1 else ''}", lines, emoji='📧'))
     elif send and always_report and not notes:
-        send(f'📧 Gmail checked: {count} new email(s), nothing that changes your applications.' if count
-             else '📧 Gmail checked: no new job emails.')
+        send(tgcard.card('Gmail checked', f'{count} new email{"s" if count != 1 else ""}' if count else 'No new job emails',
+                         ['Nothing that changes your applications.'] if count else [], emoji='📧'))
     for note in notes:
         if send:
             send(note)
