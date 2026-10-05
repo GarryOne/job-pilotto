@@ -698,7 +698,7 @@ function mailSections(box, report, pending = [], answered = null) {
   const {results, updates} = mailResults(report);
   if (updates.length) {
     const section = el('section', 'mail-block mail-changed');
-    section.append(el('h4', '', 'What changed'));
+    section.append(el('h4', 'run-card-title', 'What changed'));
     const questions = report.emails.filter(email => NEEDS_YOU.has(email.action)).map(email => ({email, ...questionState(email, pending, answered)}));
     for (const update of updates) {
       const row = el('div', 'mail-changed-row');
@@ -725,10 +725,10 @@ function mailSections(box, report, pending = [], answered = null) {
     box.append(section);
   }
   if (results.length) {
-    const section = el('section', 'insight-section');
-    section.append(el('h4', '', results.length === 1 ? 'Email result' : 'Email results'));
-    for (const result of results) section.append(mailResult(result, pending, answered));
-    box.append(section);
+    // The run card's list, as Find employers draws its employers: a small title, then one divided row per email.
+    const rows = el('ol', 'run-card-rows');
+    for (const result of results) rows.append(mailResult(result, pending, answered));
+    box.append(el('h4', 'run-card-title', results.length === 1 ? 'Email result' : 'Email results'), rows);
   }
 }
 
@@ -740,35 +740,30 @@ const VERDICT_TITLE = {'Hard skills': 'Possible gap: hard skills', 'Soft skills'
 const openSubjects = new Set();   // which subjects are unfolded, kept across the card's redraws
 function mailResult(result, pending, answered) {
   const {email, outcome, assessment: review, update} = result;
-  const card = el('article', 'summary-card mail-result');
-  const head = el('header', 'insight-kicker mail-result-head');
-  const words = el('div', 'insight-head');
-  words.append(el('h3', 'insight-title', result.company || email?.subject || 'Email'));
-  if (result.role) words.append(el('p', 'insight-subtitle', result.role));
+  const row = el('li', 'run-card-row mail-row');
+  const words = el('span', 'run-card-words');
+  words.append(el('b', '', [result.company, result.role].filter(Boolean).join(' — ') || email?.subject || 'Email'));
   const meta = [email?.sender, email?.time].filter(Boolean).join(' · ');
-  if (meta) words.append(el('p', 'insight-source', meta));
-  head.append(words);
+  if (meta) words.append(el('span', 'muted', meta));
+  row.append(words);
   const asked = email && NEEDS_YOU.has(email.action) ? questionState(email, pending, answered) : null;
-  if (email) head.append(asked?.answered ? pill('Confirmed by you', 'good')
+  if (email) row.append(asked?.answered ? pill('Confirmed by you', 'good')
     : pill(email.action.replace(/^./, c => c.toUpperCase()), email.action === 'recorded' ? 'good' : asked ? 'warn' : 'neutral'));
-  card.append(head);
+  const detail = el('div', 'mail-row-detail');
   if (outcome || update) {
-    const part = el('div', 'insight-section');
-    const kicker = el('div', 'mail-result-kicker');
-    kicker.append(el('span', 'insight-category', 'Application update'));
+    const line = el('p', 'mail-row-update');
     const kind = outcome?.kind || update?.summary;
-    if (kind) kicker.append(pill(kind, KIND_TONE[kind] || 'neutral'));
-    part.append(kicker);
-    if (outcome?.summary) part.append(el('p', 'mail-result-text', /[.!?]$/.test(outcome.summary) ? outcome.summary : `${outcome.summary}.`));
-    outcome?.details.forEach(line => part.append(el('p', 'insight-source', line)));
-    if (update?.changes) part.append(mailDiff(update.changes));
-    card.append(part);
+    if (kind) line.append(pill(kind, KIND_TONE[kind] || 'neutral'));
+    if (outcome?.summary) line.append(el('span', '', /[.!?]$/.test(outcome.summary) ? outcome.summary : `${outcome.summary}.`));
+    detail.append(line);
+    outcome?.details.forEach(text => detail.append(el('p', 'muted', text)));
+    if (update?.changes) detail.append(mailDiff(update.changes));
   }
-  if (review) card.append(assessmentPanel(review));
-  if (asked) card.append(questionBlock(asked, subjectKey(email.subject)));
+  if (review) detail.append(assessmentPanel(review));
+  if (asked) detail.append(questionBlock(asked, subjectKey(email.subject)));
   if (email?.subject && result.company) {
     const key = subjectKey(email.subject);
-    const fold = el('div', 'insight-section mail-result-subject');
+    const fold = el('div', 'mail-row-subject');
     const toggle = el('button', 'mail-result-toggle');
     toggle.type = 'button';
     const text = el('p', '', email.subject);
@@ -782,22 +777,23 @@ function mailResult(result, pending, answered) {
     toggle.addEventListener('click', () => { if (openSubjects.has(key)) openSubjects.delete(key); else openSubjects.add(key); show(); });
     show();
     fold.append(toggle, text);
-    card.append(fold);
+    detail.append(fold);
   }
-  return card;
+  if (detail.childNodes.length) row.append(detail);
+  return row;
 }
 function assessmentPanel(review) {
   const panel = el('aside', 'insight-next mail-assessment');
   const head = el('div', 'insight-kicker');
   const words = el('div', 'insight-head');
-  words.append(el('span', 'insight-category', 'AI assessment'), el('h4', '', VERDICT_TITLE[review.verdict] || review.verdict));
+  words.append(el('span', 'insight-category', 'AI assessment'), el('b', '', VERDICT_TITLE[review.verdict] || review.verdict));
   head.append(words, pill(`${review.confidence.replace(/^./, c => c.toUpperCase())} confidence`, 'warn'));
   panel.append(head);
   if (review.focus) {
     const facts = el('dl', 'mail-assessment-facts');
     facts.append(el('dt', '', 'Role focus'), el('dd', '', review.focus), el('dt', '', 'Your background'), el('dd', '', review.background));
     panel.append(facts);
-  } else if (review.summary) panel.append(el('p', 'mail-result-text', review.summary));
+  } else if (review.summary) panel.append(el('p', '', review.summary));
   panel.append(el('p', 'insight-source mail-assessment-note', 'AI interpretation; the employer did not confirm this reason.'));
   return panel;
 }
@@ -856,19 +852,15 @@ function questionBlock(state, key) {
   return block;
 }
 export function renderMailCard(report, pending = [], answered = null, target = $('activity-card')) {
-  // The insight card's shape (box, numbers strip, sections, warm band), so every task's result reads alike.
-  const box = el('div', 'insight-card mail-card');
-  const status = el('div', 'insight-numbers');
-  const cell = (label, value) => { const it = el('div', 'insight-number'); it.append(el('span', 'insight-number-label', label), value); return it; };
-  const done = el('span', 'insight-number-value mail-done');
-  done.append(icon('check-circle'), report.status.title);
-  status.append(cell('Gmail check', done));
+  // The run card's shape, as every other run (Find employers, Search): the counts strip, then the body straight in the panel.
+  const status = el('div', 'run-card-stats');
+  const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
   // The counts, from the row's own result line (the report rows list only some of the updates).
   const emails = report.status.emails ?? report.emails.length, updates = report.status.updates ?? report.updates.length;
-  if (emails || updates) status.append(cell('Emails reviewed', el('span', 'insight-number-value', String(emails))),
-                                       cell('Updates recorded', el('span', 'insight-number-value', String(updates))));
-  else if (report.status.sentence) status.append(cell('Result', el('span', 'insight-subtitle', report.status.sentence)));
-  box.append(status);
+  if (emails || updates) status.append(stat(emails, emails === 1 ? 'email reviewed' : 'emails reviewed'),
+                                       stat(updates, updates === 1 ? 'update recorded' : 'updates recorded'));
+  else status.append(el('span', 'run-card-stat', report.status.sentence || report.status.title));
+  const box = el('div', 'run-card-body mail-card');
   mailSections(box, report, pending, answered);
   const {interview} = report;
   if (interview) {
@@ -932,7 +924,7 @@ export function renderMailCard(report, pending = [], answered = null, target = $
     consent.append(icon('mic'), report.consent);
     box.append(consent);
   }
-  target.replaceChildren(box);
+  target.replaceChildren(status, box);
 }
 
 // A daily insight's card: the finding, the numbers behind it, the one action and where it came from (the mockup,

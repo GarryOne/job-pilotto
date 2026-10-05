@@ -1553,7 +1553,6 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .alert-actions .link:focus-visible { outline-width: 2px; outline-offset: 1px; border-radius: var(--r-sm); }
 /* A Gmail check's card (renderer/mail-report.js): one surface whose bands are the parts of the check — what it did,
    the interview it is about, what to prepare and the recruiter's next step, and the consent line (the mockup, 30 Sep). */
-.mail-card > :is(.mail-interview, .mail-columns, .mail-notes, .mail-consent, .mail-changed) { border: 1px solid var(--line); border-radius: var(--r-md); }
 /* The interview, on its own tinted band right across the card. */
 .mail-interview { display: flex; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-4);
   background: var(--strip); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -1581,7 +1580,6 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* A Gmail check's own record: its counts, what it changed on a job, and every email it read (1 Oct 2026). The card
    is one column of children, so these sections carry their own inset — and, stacked rather than side by side, none of
    the border-left that .mail-block + .mail-block draws for the two columns. */
-.mail-changed { padding: var(--sp-4); }
 .mail-changed-row { display: grid; gap: var(--sp-2); padding-top: var(--sp-3); margin-top: var(--sp-3); border-top: 1px solid var(--line); }
 .mail-changed-row:first-of-type { padding-top: 0; margin-top: 0; border-top: 0; }
 .mail-changed-job { color: var(--ink); }
@@ -1597,23 +1595,21 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-confirm-words { min-width: 0; display: grid; gap: 2px; }
 .mail-confirm-words p { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
 .mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
-/* One email's result (the mockup, 6 Oct 2026): built from the insight card's parts and .summary-card; only what they lack is here. */
-.mail-result { display: grid; gap: var(--sp-4); }
-.mail-card .mail-result-head { align-items: flex-start; flex-wrap: nowrap; }
-.mail-result-kicker { display: flex; align-items: center; gap: var(--sp-3); }
-.mail-result-text { margin: 0; color: var(--ink); }
-.mail-done { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.mail-done .icon { width: 18px; height: 18px; color: var(--good); }
-.mail-card .mail-assessment { display: grid; gap: var(--sp-3); }
-.mail-assessment h4 { margin: 0; font-size: var(--fs-lg); }
+/* One email in the run card's list (.run-card-row, as Find employers): what it recorded and the AI's reading under it. */
+.mail-row { flex-wrap: wrap; }
+.mail-row-detail { flex-basis: 100%; display: grid; gap: var(--sp-2); padding-bottom: var(--sp-1); }
+.mail-row-update { display: flex; align-items: center; gap: var(--sp-2); margin: 0; color: var(--ink-2); }
+.mail-row-detail p { margin: 0; }
+.mail-card .mail-assessment { display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
 .mail-assessment .ui-pill { background: var(--surface); border: 1px solid var(--next-line); }
-.mail-assessment-facts { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: var(--sp-2) var(--sp-5); margin: 0; }
+.mail-assessment-facts { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: var(--sp-1) var(--sp-4); margin: 0; }
 .mail-assessment-facts dt { color: var(--muted); }
 .mail-assessment-facts dd { margin: 0; color: var(--ink); }
-.mail-assessment-note { padding-top: var(--sp-3); border-top: 1px solid var(--warn-line); }
-.mail-result-subject p { margin: 0 0 0 calc(16px + var(--sp-2)); color: var(--ink-2); }
-.mail-result-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); }
-.mail-result-toggle .icon { width: 16px; height: 16px; transition: transform .15s; }
+.mail-assessment-note { padding-top: var(--sp-2); border-top: 1px solid var(--warn-line); }
+.mail-row-subject { color: var(--muted); }
+.mail-row-subject p { margin: var(--sp-1) 0 0 calc(14px + var(--sp-2)); color: var(--ink-2); }
+.mail-result-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-xs); }
+.mail-result-toggle .icon { width: 14px; height: 14px; transition: transform .15s; }
 .mail-result-toggle.is-open .icon { transform: rotate(90deg); }
 .mail-result-toggle:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
 .mail-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-4);
