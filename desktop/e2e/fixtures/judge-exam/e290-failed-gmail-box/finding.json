@@ -1,0 +1,12 @@
+{
+ "id": "e290-failed-gmail-box",
+ "expect": "real",
+ "note": "#290/#295: fixed by 0dae8ce",
+ "view": "activity-google-revoked",
+ "kind": "text",
+ "severity": "high",
+ "source": "ai-review",
+ "title": "Failed Gmail check gives no reason or fix",
+ "detail": "The Gmail check header shows a red \"Failed\" pill. The box below it says \"Completed with warnings: The run recorded warnings, with no line about them in its log or report.\" The pill and the box disagree, and nothing says the Google sign-in was revoked or offers a way to reconnect.",
+ "impact": "Gmail tracking has stopped and the person is told only that there were unexplained warnings."
+}

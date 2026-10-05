@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {freshness, ingest, liveSection, page, PRINCIPLES, principlesSection, view} from '../src/selfheal.js';
+import {freshness, ingest, liveSection, page, PRINCIPLES, principlesSection, view, watchSection} from '../src/selfheal.js';
 
 const env = {STATS_KEY: 'secret'};
 
@@ -117,4 +117,17 @@ test('the page shows the paths the suites walked, from the run summaries', () =>
   const html = liveSection(live, [], new Date('2026-10-05T07:00:00Z'));
   assert.match(html, /Paths walked by the suites in those runs: <b>14<\/b> suite runs · 9 on the fixed path, 5 seeded · windows 1024x640 ×2, 1280x820 ×12 · themes dark ×4, light ×10 · places Asia\/Tokyo ×2 · 3 of 120 steps failed/);
   assert.doesNotMatch(liveSection({...live, runs: {...live.runs, paths: null}}, [], new Date('2026-10-05T07:00:00Z')), /Paths walked/);
+});
+
+test('the page shows which detectors are under watch, how many mistakes were learned, and the judge exam', () => {
+  const live = {at: '2026-10-05T06:15:46Z', totals: {}, byDetector: [], signatures: 2, breaker: {'layout-check': {judged: 8, wrong: 5, rate: 63, tripped: true}, 'ai-review': {judged: 10, wrong: 1, rate: 10, tripped: false}, 'interaction-probe': {judged: 3, wrong: 1, rate: 33, tripped: false}},
+    quality: {judge: {rate: 90, note: '9 of 10 planted findings judged right (1 real bug(s) dismissed, 0 false alarm(s) believed, 0 unanswered)'}}};
+  const html = watchSection(live);
+  assert.match(html, /Detectors under watch/);
+  assert.match(html, /layout-check<\/td><td class="n">8<\/td><td class="n">5 \(63%\)<\/td><td>🧯 under watch/);
+  assert.match(html, /ai-review<\/td><td class="n">10<\/td><td class="n">1 \(10%\)<\/td><td>✅ trusted/);
+  assert.match(html, /interaction-probe<\/td><td class="n">3<\/td><td class="n">1 \(33%\)<\/td><td>too few to judge/);
+  assert.match(html, /2 test mistake\(s\) learned/);
+  assert.equal(watchSection({}), '', 'nothing to show before the first snapshot has them');
+  assert.match(liveSection(live, [], new Date('2026-10-05T07:00:00Z')), /Judge exam \(planted\)<\/span><b>90%<\/b>/);
 });

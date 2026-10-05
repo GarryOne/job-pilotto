@@ -2,6 +2,7 @@
 // never a made-up value. Pure: selfheal-stats.mjs gathers the inputs.
 //   escape     bugs the Finder did NOT catch (the Notion Bug Tracker's "Caught by e2e": No - gap) of all bugs it could judge, last 30 days
 //   guard      of the bugs it missed, how many got a guard (a test, a check, a plant) and not only an idea: whether a miss is closed, not just logged
+//   judge      the verdict pass's exam: planted findings with known answers (lib/judge-exam.mjs), scored every week with no one ticking anything
 //   mutation   the weekly mutation test's catch rate (mutation.yml)
 //   verdicts   the verdict pass's accuracy from the owner's ticks in the weekly audits (verdict-audit issues)
 //   regression fixed defects that came back (label `regression`) per defect closed by a fix
@@ -34,7 +35,7 @@ export function guardRate(rows, {now = Date.now(), days = 30} = {}) {
   return {rate: rate(guarded, missed.length), missed: missed.length, guarded, ideaOnly: missed.length - guarded};
 }
 
-export function loopQuality({issues = [], audits = [], mutation = null, tracker = null, trackerWhy = ''}) {
+export function loopQuality({issues = [], audits = [], mutation = null, tracker = null, trackerWhy = '', judgeExam = null}) {
   const counted = issues.filter(afterEpoch);
   const regressions = counted.filter(issue => has(issue, REGRESSION)).length, fixed = counted.filter(closedByFix).length;
   const steps = counted.filter(issue => /·\s*test-failure\s*·/.test(issue.body || '') || has(issue, 'kind:test-failure')), flaky = steps.filter(issue => has(issue, FLAKY)).length;
@@ -43,6 +44,7 @@ export function loopQuality({issues = [], audits = [], mutation = null, tracker 
   return {
     escape: escape && escape.judged ? {rate: escape.rate, note: `${escape.missed} of ${escape.judged} bugs found outside the Finder (${escape.late} caught late)`} : {rate: null, note: trackerWhy || 'no Bug Tracker rows with "Caught by e2e" yet'},
     guard: guard && guard.missed ? {rate: guard.rate, note: `${guard.guarded} of ${guard.missed} missed bugs have a guard built; ${guard.ideaOnly} still only an idea`} : {rate: null, note: trackerWhy || 'no missed bug logged yet'},
+    judge: judgeExam && judgeExam.total ? {rate: judgeExam.rate, note: `${judgeExam.right} of ${judgeExam.total} planted findings judged right (${judgeExam.dismissed} real bug(s) dismissed, ${judgeExam.believed} false alarm(s) believed, ${judgeExam.missing} unanswered)`} : {rate: null, note: 'no exam yet (judge-exam.yml is off until JOB_PILOTTO_JUDGE_EXAM is on)'},
     mutation: mutation && mutation.score !== null && mutation.score !== undefined ? {rate: mutation.score, note: `${mutation.killed} of ${mutation.killed + mutation.survived} planted code bugs caught${mutation.unknown ? `, ${mutation.unknown} unknown` : ''} (${String(mutation.at || '').slice(0, 10)})`} : {rate: null, note: 'no mutation run yet (mutation.yml, Sundays)'},
     verdicts: ticks.right + ticks.wrong ? {rate: rate(ticks.right, ticks.right + ticks.wrong), note: `${ticks.right} of ${ticks.right + ticks.wrong} audited verdicts right`} : {rate: null, note: 'no audit ticked yet (verdict-audit issue, Saturdays)'},
     regression: {rate: rate(regressions, fixed), note: fixed ? `${regressions} came back of ${fixed} closed by a fix` : 'no defect closed by a fix yet'},

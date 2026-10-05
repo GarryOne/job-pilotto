@@ -12,9 +12,12 @@ import {POSSIBLE_DUPLICATE, sameCauseComment, sameCauseLinks} from './lib/same-c
 import {setResolution} from './lib/resolution.mjs';
 import {contextLine, stepAgeLine} from './lib/run-context.mjs';
 import {runSummary} from './lib/run-summary.mjs';
+import {trackerRow, writeTrackerRow} from './lib/tracker-write.mjs';
 import {pathSummary, replayFromSeed} from './lib/replay.mjs';
 import {staleComment, staleSighting} from './lib/stale.mjs';
 import {holdFinding, holdReason} from './lib/freshness.mjs';
+import {breakerState, trippedSources} from './lib/breaker.mjs';
+import {learnSignatures, SIGNATURE_LABEL, signaturesBody, signaturesFromBody} from './lib/signatures.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
@@ -103,6 +106,11 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   // Only this platform's issues are matched, marked "not seen" and closed here (the ranking below reads them all again).
   const everything = list();
   let issues = everything.filter(issue => platformOf(issue) === platform);
+  // What the loop has learned about itself (lib/breaker.mjs, lib/signatures.mjs): the detectors whose last ten outcomes were poor, and the test mistakes it taught itself to drop.
+  const breaker = breakerState(everything), tripped = trippedSources(breaker);
+  let signatureIssue = null;
+  try { signatureIssue = JSON.parse(gh(['issue', 'list', '--label', SIGNATURE_LABEL, '--state', 'open', '--limit', '1', '--json', 'number,body']))[0] || null; } catch { signatureIssue = null; }
+  const learned = signaturesFromBody(signatureIssue?.body);
   const out = {filed: [], again: [], gone: [], closed: [], skipped, unreviewed: [], candidate: null, dropped};
   const createdNow = [];   // the numbers of the issues this run filed
   const createdRows = [];  // the same, with what found each (lib/same-cause.mjs)
@@ -115,6 +123,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   try { if (repo && testedSha(build)) behind = Number(String(gh(['api', `repos/${repo}/compare/${testedSha(build)}...main`, '--jq', '.ahead_by']) || '').trim()); } catch { behind = null; }
   if (!Number.isFinite(behind)) behind = null;
   out.behind = behind;
+  out.breaker = breaker;
   out.paths = pathSummary(found['replay.json'].map(read));   // the paths this run walked (replay.json of every suite): fixed or seeded, windows, places, themes
   // The files that changed between the tested build and main, once per run: a finding about code that has changed since is held for a recheck (lib/freshness.mjs).
   let changedFiles = null;
@@ -156,10 +165,10 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
 
   if (pendingOnly) {
     const fresh = plan.filter(({existing, twin}) => !existing && !twin).map(({finding}) => ({...finding, screenshot: evidenceFile(finding)}));
-    return {...out, findings, pending: pendingOf(fresh)};
+    return {...out, findings, pending: pendingOf(fresh, undefined, {tripped, learned})};
   }
   // Judged noise before filing: never filed, listed in the summary and remembered in the register.
-  const verdictFor = finding => (verdicts && verdicts[finding.id]) || signatureVerdict(finding);   // a known harness signature needs no model
+  const verdictFor = finding => (verdicts && verdicts[finding.id]) || signatureVerdict(finding, learned);   // a known harness signature needs no model
   const noiseNow = plan.filter(({finding, existing, twin}) => !existing && !twin && verdictFor(finding) && NOISE_WORDS.includes(wordOf(verdictFor(finding))));
   for (const {finding} of noiseNow) dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: `judged ${wordOf(verdictFor(finding))} before filing`});
   out.judgedNoise = noiseNow.map(({finding}) => finding.id);
@@ -244,6 +253,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
         continue;
       }
       const judged = verdictFor(finding), word = judged ? wordOf(judged) : '';
+      // A detector whose last ten outcomes were poor files nothing that no one has judged: held for a later run's judgement (lib/breaker.mjs).
+      if (tripped.has(finding.source) && !judged) {
+        const row = breaker[finding.source];
+        out.watched = [...(out.watched || []), finding.id];
+        dropped.push({view: finding.view, severity: finding.severity, title: finding.title, source: finding.source, why: `held, detector under watch: ${row.wrong} of its last ${row.judged} outcomes were wrong, so nothing it finds is filed unjudged`});
+        continue;
+      }
       const facts = finding.dir ? read(path.join(finding.dir, `ui-${finding.view}.json`)) : null;
       const logs = finding.source === 'suite-failure' && finding.dir ? {'engine.log': tail(path.join(finding.dir, 'logs', 'engine.log')), 'app.log': tail(path.join(finding.dir, 'logs', 'app.log'))} : {};
       const codeFile = fs.existsSync(new URL(`../../renderer/pages/${finding.view}.js`, import.meta.url)) ? `desktop/renderer/pages/${finding.view}.js` : '';
@@ -256,7 +272,8 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       if (regressed) gh(['label', 'create', REGRESSION, '--force', '--color', 'B60205', '--description', 'A defect a fix had closed came back']);
       for (const label of labels.slice(1).filter(name => name !== CONFIRMED && name !== NEEDS_HUMAN && name !== REGRESSION)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label === 'severity:low' ? '0E8A16' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
       const url = String(gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build, platform, context: contextLine({behind, incomplete, suite}), stepAge: finding.source === 'suite-failure' ? stepAgeLine({last: lastChange(suite)}) : ''}), '--label', labels.join(',')]) || '').trim();
-      if (/\/issues\/\d+$/.test(url)) { createdNow.push(Number(url.split('/').pop())); createdRows.push({number: Number(url.split('/').pop()), source: finding.source, suite, view: finding.view, text: `${finding.title} ${finding.detail || ''} ${finding.impact || ''}`}); }
+      if (/\/issues\/\d+$/.test(url)) { createdNow.push(Number(url.split('/').pop())); if (finding.kind === 'detector-miss') out.trackerRows = [...(out.trackerRows || []), {number: Number(url.split('/').pop()), url, title: issueTitle(finding), labels: [...labels], body: ''}];   // a planted bug no detector caught: a Bug Tracker row (lib/tracker-write.mjs)
+      createdRows.push({number: Number(url.split('/').pop()), source: finding.source, suite, view: finding.view, text: `${finding.title} ${finding.detail || ''} ${finding.impact || ''}`}); }
       // Judged before filing: the verdict is the issue's first comment (the same layout as the verdict pass's).
       if (regressed && /\/issues\/\d+$/.test(url)) { out.regressions = [...(out.regressions || []), Number(url.split('/').pop())]; gh(['issue', 'comment', url.split('/').pop(), '--body', regressionComment(regressed, runUrl)]); }
       if (judged && /\/issues\/\d+$/.test(url)) gh(['issue', 'comment', url.split('/').pop(), '--body', verdictComment(judged, {number: Number(url.split('/').pop())})]);
@@ -336,6 +353,16 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     try { issues.push(JSON.parse(gh(['issue', 'view', String(number), '--json', 'number,state,stateReason,labels,body,comments,title,createdAt']))); } catch { /* the next run ranks it */ }
   }
   refreshRanking({gh, issues, repo});
+  // Test mistakes the loop teaches itself: a text that closed as a harness mistake three times is dropped from now on; one a real fix closed is unlearned (lib/signatures.mjs).
+  const taught = learnSignatures(everything, learned);
+  out.learned = {added: taught.added.map(item => item.id), revoked: taught.revoked, total: taught.all.length};
+  if (taught.added.length || taught.revoked.length) {
+    try {
+      gh(['label', 'create', SIGNATURE_LABEL, '--force', '--color', 'CCCCCC', '--description', 'The pinned list of test mistakes the Finder learned to drop before filing']);
+      if (signatureIssue) gh(['issue', 'edit', String(signatureIssue.number), '--body', signaturesBody(taught.all)]);
+      else gh(['issue', 'create', '--title', '🧠 Test mistakes the Finder learned (kept automatically)', '--label', SIGNATURE_LABEL, '--body', signaturesBody(taught.all)]);
+    } catch (error) { console.error(`learned signatures not stored: ${error.message}`); }
+  }
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
   out.candidate = pickCandidate(issues, {openBranches: branches});
   return {...out, findings};
@@ -435,6 +462,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const verdicts = verdictsFile && fs.existsSync(verdictsFile) ? JSON.parse(fs.readFileSync(verdictsFile, 'utf8')) : null;
   const incomplete = String(option('incomplete') || '').split(',').map(name => name.trim()).filter(Boolean);   // the suites whose job was cancelled or timed out (ui-findings.yml)
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac', verdicts, incomplete});
+  for (const item of result.trackerRows || []) console.log(`Bug Tracker row for #${item.number}: ${(await writeTrackerRow({token: process.env.NOTION_BRAIN_WRITE_TOKEN, db: process.env.BUG_TRACKER_DB, row: trackerRow(item)})).status}`);
   const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.judgedNoise?.length ? `, ${result.judgedNoise.length} judged noise before filing (not filed)` : ''}${result.regressions?.length ? `, ${result.regressions.length} regression(s) (a fixed defect came back)` : ''}${result.flaky?.length ? `, ${result.flaky.length} step(s) marked flaky` : ''}${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}${result.unreviewed.length ? `; the AI could not review ${result.unreviewed.length} page(s) (${[...new Set(result.unreviewed.map(item => `${item.view}: ${item.why}`))].join(', ')}): nothing filed or cleared for them` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {

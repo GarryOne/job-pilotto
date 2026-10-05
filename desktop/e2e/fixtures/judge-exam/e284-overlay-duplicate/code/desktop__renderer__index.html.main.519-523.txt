@@ -1,0 +1,6 @@
+// Excerpt of desktop/renderer/index.html as of main (lines 519-523); the numbers on the left are the file's own line numbers.
+  519        <section class="card actions-result" id="actions-result" hidden>
+  520          <header class="actions-result-head"><span id="actions-result-head"></span><button class="link small" id="actions-result-close" aria-label="Dismiss">Dismiss</button></header>
+  521          <div class="run-card" id="actions-card"></div>
+  522        </section>
+  523        <pre class="answer" id="command-answer" hidden></pre>

@@ -1,0 +1,22 @@
+// Excerpt of desktop/renderer/pages/activity.js as of 880fbcf (lines 496-516); the numbers on the left are the file's own line numbers.
+  496    if (emptyResult(kindOf(run), run, drew)) $('activity-panel').dataset.emptyResult = kindOf(run); else delete $('activity-panel').dataset.emptyResult;
+  497    markFallback($('activity-result'), kindOf(run), $('activity-result').hidden ? '' : $('activity-result').textContent);
+  498    // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
+  499    // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
+  500    // pill and this card never contradict each other.
+  501    const warnings = detailWarnings;
+  502    const warnedOnly = !warnings.length && !run?.live && !!run?.warned;
+  503    const limited = limitedJobs(warnings);
+  504    show($('activity-warnings'), warnings.length > 0 || warnedOnly);
+  505    if (warnings.length || warnedOnly) {
+  506      // The headline says what it means for you ("9 jobs still need scoring"), not which card this is.
+  507      $('activity-warnings-title').textContent = limited ? `${plural(limited, 'job')} still ${limited === 1 ? 'needs' : 'need'} scoring`
+  508        : run?.live ? 'Running with warnings' : 'Completed with warnings';
+  509      $('activity-warnings-summary').textContent = warnings.length ? warningSummary(warnings)
+  510        : 'The run recorded warnings, with no line about them in its log or report.';
+  511      show($('activity-warnings-limit'), limited > 0);
+  512      const grouped = newDetails(groupWarnings(warnings));
+  513      // One line needs no toggle: it is shown. Two or more fold behind "View N details".
+  514      const single = grouped.length === 1;
+  515      const listShown = single || (grouped.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));
+  516      $('activity-warnings-list').dataset.for = String(run?.id);

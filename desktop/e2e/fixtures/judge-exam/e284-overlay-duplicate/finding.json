@@ -1,0 +1,13 @@
+{
+ "id": "e284-overlay-duplicate",
+ "expect": "false-positive",
+ "cause": "detector",
+ "note": "#284: the card is behind the open panel",
+ "view": "activity-limit-paused",
+ "kind": "duplicate-content",
+ "severity": "medium",
+ "source": "layout-check",
+ "title": "duplicate content on activity-limit-paused",
+ "detail": "section#actions-result.card.actions-result and pre#activity-message.activity-message share 100% of their words: \"Search analysis Completed Finished Mon 01:57 PM Dismiss ...\"",
+ "impact": ""
+}

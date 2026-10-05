@@ -1,0 +1,8 @@
+// Excerpt of desktop/e2e/suites/calendar.mjs as of 880fbcf (lines 58-64); the numbers on the left are the file's own line numbers.
+   58    });
+   59  
+   60    await step('an empty calendar says nothing is scheduled and shows no meeting', async () => {
+   61      await openCalendar();
+   62      if (!/Nothing scheduled/.test(await page.locator('#cal-upcoming').innerText())) throw new Error('"Coming up" does not say "Nothing scheduled"');
+   63      if (!/No past meetings yet/.test(await page.locator('#cal-past').innerText())) throw new Error('"Past" does not say there are no past meetings');
+   64      if (await page.locator('#cal-grid .cal-chip').count()) throw new Error('the grid shows a meeting in an empty calendar');

@@ -36,7 +36,7 @@ const empty = () => Object.fromEntries(CATEGORIES.map(name => [name, 0]));
 const day = date => String(date || '').slice(0, 10);
 
 // -> the snapshot the site stores (one per day) and shows.
-export function build({issues: all = [], prs = [], costs = [], recall = null, runs = null, now = new Date()} = {}) {
+export function build({issues: all = [], prs = [], costs = [], recall = null, runs = null, breaker = null, signatures = null, now = new Date()} = {}) {
   const issues = all.filter(afterEpoch), totals = {filed: 0, ...empty()}, by = {};
   for (const issue of issues) {
     const kind = classify(issue), source = detectorOf(issue);
@@ -72,7 +72,7 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, ru
   const notable = issues.filter(issue => ['fixed', 'queued'].includes(classify(issue))).sort((a, b) => b.number - a.number).slice(0, 15)
     .map(issue => ({number: issue.number, title: String(issue.title || '').replace(/^\[auto-ui\]\s*/, '').slice(0, 110), url: issue.url || '', detector: DETECTORS[detectorOf(issue)] || detectorOf(issue),
       status: classify(issue) === 'fixed' ? 'fixed' : 'queued', severity: (names(issue).find(name => name.startsWith('severity:')) || 'severity:medium').slice(9)}));
-  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
+  return {schema: SCHEMA, at: new Date(now).toISOString(), since: STATS_SINCE, excluded: all.length - issues.length, causes: resolutionCounts(issues), runs, breaker, signatures, totals: {...totals, real, precision: judged ? Math.round(100 * real / judged) : null},
     byDetector: Object.values(by).sort((a, b) => b.filed - a.filed), fixer, verdicts,
     cost: {usd: Number(usd.toFixed(2)), runs: inWindow.length, outside: costs.length - inWindow.length, byJob, perRealBug: real ? Number((usd / real).toFixed(2)) : null},
     recall: recall && Number.isInteger(recall.planted) ? {planted: recall.planted, caught: recall.caught, missed: (recall.rows || []).filter(row => !row.caught).map(row => row.id)} : null,

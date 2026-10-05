@@ -1,0 +1,16 @@
+// Excerpt of desktop/renderer/pages/jobs.js as of origin/ (lines 186-200); the numbers on the left are the file's own line numbers.
+  186        : canOpen ? 'Why this score? Click to see' : matchLabel(job.fit);
+  187      const live = sessionFor(job.url);
+  188      const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
+  189  
+  190      const role = el('div', 'role');
+  191      const titleLine = el('div', 'title-line');
+  192      // An opportunity that found you has no posting (its link is the email or chat): the title opens its Notion page.
+  193      const inNotion = isInbound(job) && !!job.notion_url;
+  194      const link = Object.assign(el('a', '', job.title), {href: '#', title: inNotion ? 'Open in Notion' : 'Open the posting'});
+  195      link.addEventListener('click', event => { event.preventDefault(); if (inNotion) window.pilot.openNotion(job.notion_url, event.metaKey); else window.pilot.openExternal(job.url); });
+  196      titleLine.append(link, Object.assign(pill(statusLabel, statusTone), {className: `ui-pill tone-${statusTone} status-inline`}));
+  197      role.append(titleLine);
+  198      // Compact list: company · place · mode · age on one line, in place of those columns.
+  199      const meta = el('div', 'meta');
+  200      const small = avatar(job.company);

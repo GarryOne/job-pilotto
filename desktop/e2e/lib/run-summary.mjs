@@ -4,6 +4,7 @@ export function dropReason(why = '') {
   const text = String(why);
   if (/^stale sighting/i.test(text)) return 'stale-sighting';
   if (/^held for recheck/i.test(text)) return 'held-for-recheck';
+  if (/^held, detector under watch/i.test(text)) return 'held-detector-under-watch';
   if (/cap\b/i.test(text)) return 'over-the-cap';
   if (/closed as a false positive|judged noise|false.positive/i.test(text)) return 'known-false-positive';
   if (/judged (?:false-positive|harness)/i.test(text)) return 'judged-before-filing';
@@ -16,7 +17,7 @@ export function runSummary(result, {runUrl = '', build = '', incomplete = [], at
   for (const item of result.dropped || []) { const key = dropReason(item.why); dropped[key] = (dropped[key] || 0) + 1; }
   return {v: 1, at, run: runUrl, build, behind: Number.isFinite(result.behind) ? result.behind : null, incomplete,
     findings: (result.findings || []).length, filed: (result.filed || []).length, again: (result.again || []).length, gone: (result.gone || []).length,
-    closed: (result.closed || []).length, stale: (result.stale || []).length, held: (result.held || []).length, sameCause: (result.sameCause || []).length, dropped, paths: result.paths || null};
+    closed: (result.closed || []).length, stale: (result.stale || []).length, held: (result.held || []).length, watched: (result.watched || []).length, tripped: Object.entries(result.breaker || {}).filter(([, row]) => row.tripped).map(([name]) => name), learned: (result.learned?.added || []).length, sameCause: (result.sameCause || []).length, dropped, paths: result.paths || null};
 }
 
 // Many summaries -> totals for the page: {runs, filed, stale, dropped: {reason: n}, incompleteRuns, behindMax}.

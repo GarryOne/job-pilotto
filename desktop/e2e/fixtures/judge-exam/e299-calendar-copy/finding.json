@@ -1,0 +1,12 @@
+{
+ "id": "e299-calendar-copy",
+ "expect": "harness",
+ "note": "#299: the suite expects words the redesign removed",
+ "view": "calendar",
+ "kind": "test-failure",
+ "severity": "medium",
+ "source": "suite-failure",
+ "title": "step failed: an empty calendar says nothing is scheduled and shows no meeting",
+ "detail": "\"Coming up\" does not say \"Nothing scheduled\"",
+ "impact": ""
+}

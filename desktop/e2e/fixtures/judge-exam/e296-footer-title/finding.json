@@ -1,0 +1,13 @@
+{
+ "id": "e296-footer-title",
+ "expect": "false-positive",
+ "cause": "by-design",
+ "note": "#296: the footer title is about the last Jobs check",
+ "view": "activity-google-revoked",
+ "kind": "text",
+ "severity": "medium",
+ "source": "ai-review",
+ "title": "Footer blames jobs check for Gmail failure",
+ "detail": "The bottom status bar reads \"Last jobs check had problems\" in red, but the text after it is \"Gmail check: 0 new email(s) read, 0 update(s) recorded\". The Jobs check rows in the list are mostly Completed or With warnings.",
+ "impact": ""
+}

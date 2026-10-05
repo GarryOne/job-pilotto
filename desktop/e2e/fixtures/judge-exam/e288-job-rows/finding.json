@@ -1,0 +1,13 @@
+{
+ "id": "e288-job-rows",
+ "expect": "false-positive",
+ "cause": "detector",
+ "note": "#288: two rows of one list",
+ "view": "jobs",
+ "kind": "duplicate-content",
+ "severity": "medium",
+ "source": "layout-check",
+ "title": "duplicate content on jobs",
+ "detail": "div.role and div.role share 82% of their words: \"Senior Infrastructure Engineer, Kubernetes New E2E Acme Zurich ...\"",
+ "impact": ""
+}

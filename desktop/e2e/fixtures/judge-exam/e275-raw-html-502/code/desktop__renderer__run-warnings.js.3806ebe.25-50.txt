@@ -1,0 +1,27 @@
+// Excerpt of desktop/renderer/run-warnings.js as of 3806ebe (lines 25-50); the numbers on the left are the file's own line numbers.
+   25  
+   26  // A raw provider error as the sentence it means. The API's own dumping — "BadRequestError: Error code: 400 - {'type':
+   27  // 'error', 'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified API usage limits…" —
+   28  // is never shown to the owner: the message inside it is, or the fact that the account's spending limit was reached.
+   29  // Also the JavaScript SDK's form, "400 {"type":"error","error":{…}}": it reached the CV message as it was (#94, 3 Oct 2026).
+   30  const PROVIDER = /\b(?:BadRequestError|APIError|RateLimitError|AuthenticationError|PermissionDeniedError|InternalServerError|APIConnectionError|OverloadedError|Error code: \d{3})\b|^\d{3}\s*\{|["']type["']\s*:\s*["']error["']/i;
+   31  const MESSAGE = /['"]message['"]\s*:\s*['"]([^'"]{4,240})/i;
+   32  const BACK = /(?:regain access|resets?)[^.\d]{0,40}(\d{4}-\d{2}-\d{2})/i;
+   33  // The AI service answering "too many requests" / "overloaded" (429, 529): busy, not a key or permission problem.
+   34  export const AI_BUSY = /RateLimitError|OverloadedError|Error code: (?:429|529)\b/i;
+   35  export function humanError(text, limit = false) {
+   36    const raw = String(text || '').trim();
+   37    if (!PROVIDER.test(raw)) return raw.replace(/^\w*Error:\s*/, '') || raw;
+   38    const message = (MESSAGE.exec(raw)?.[1] || '').replace(/\s+/g, ' ').trim();
+   39    if (limit || LIMIT.test(raw) || LIMIT.test(message)) {
+   40      const back = (BACK.exec(raw) || BACK.exec(message) || [])[1];
+   41      return `the Anthropic API spending limit was reached${back ? ` (back on ${back})` : ''}`;
+   42    }
+   43    if (AI_BUSY.test(raw)) return 'the AI service is rate-limited right now';
+   44    return message || 'the AI service refused the call';
+   45  }
+   46  
+   47  // Warnings as you read them: the same error on many jobs is one line ("Skipped 23 jobs (6, 7, 8, …): the Anthropic API
+   48  // spending limit was reached"), the API's raw dumping is a sentence, and the three wordings of "jobs the limit left"
+   49  // count once each and add up to one line — not six that say the same thing.
+   50  export function groupWarnings(warnings) {

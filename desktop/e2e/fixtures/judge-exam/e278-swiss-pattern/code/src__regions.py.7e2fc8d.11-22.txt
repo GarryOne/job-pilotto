@@ -1,0 +1,13 @@
+// Excerpt of src/regions.py as of 7e2fc8d (lines 11-22); the numbers on the left are the file's own line numbers.
+   11  # Cities and towns with their own job markets, each as a regex fragment (accents and the common German, French, Italian and English spellings).
+   12  ZURICH = r'z(?:[uü]|ue)rich|winterthur|uster|d[uü]bendorf|wallisellen|opfikon|kloten|glattbrugg|schlieren|dietikon|w[aä]denswil|horgen|thalwil|pf[aä]ffikon|volketswil|regensdorf'
+   13  BASEL = r'basel|bâle|liestal|muttenz|pratteln|allschwil|riehen|binningen|reinach|arlesheim|rheinfelden'
+   14  BERN = r'\bbern\b|berne\b|biel|bienne|thun|k[oö]niz|burgdorf|langenthal|solothurn|aarau|olten|baden\b|fribourg|freiburg|schwarzenburg'
+   15  GENEVA = r'gen[eè]v[ea]?|genf|lausanne|nyon|morges|vevey|montreux|renens|yverdon|\bpully\b|meyrin|carouge'
+   16  OTHER_ROMANDIE = r'neuch[aâ]tel|sion\b|sitten|delémont|del[eé]mont|martigny|sierre|monthey|la chaux-de-fonds'
+   17  CENTRAL = r'l[uü]cerne?|luzern|\bzug\b|\bcham\b|\bbaar\b|schwyz|altdorf|stans|sarnen|\bkriens\b|emmen'
+   18  EAST = r'st\.? ?gallen|saint-gall|\bchur\b|frauenfeld|herisau|rapperswil|davos|schaffhausen|kreuzlingen|arbon|wil\b|appenzell|glarus|buchs'
+   19  TICINO = r'lugano|bellinzona|locarno|mendrisio|chiasso|ticino|tessin|\bcadenazzo\b|manno'
+   20  COUNTRY_WORDS = r'switzerland|schweiz|suisse|svizzera|svizra|\bch\b|\bsui\b'
+   21  
+   22  SWITZERLAND = '|'.join((ZURICH, BASEL, BERN, GENEVA, OTHER_ROMANDIE, CENTRAL, EAST, TICINO, COUNTRY_WORDS))

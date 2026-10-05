@@ -1,0 +1,12 @@
+{
+ "id": "e275-raw-html-502",
+ "expect": "real",
+ "note": "#275: fixed by e47ad68",
+ "view": "activity-notion-html",
+ "kind": "error-shown",
+ "severity": "high",
+ "source": "ai-review",
+ "title": "Raw HTML 502 error shown as warning reason",
+ "detail": "The Jobs check detail reads \"cronjob run not opened in Notion: HTTPError: HTTP Error 502: <!DOCTYPE html><html><head><title>502 Bad Gateway</title>...\" as the warning reason, and again under \"Hide details\".",
+ "impact": "The person cannot tell that Notion was temporarily down, or whether the job reached Notion."
+}

@@ -11,9 +11,16 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {build} from './lib/selfheal-stats.mjs';
 import {totalRuns} from './lib/run-summary.mjs';
+import {breakerState} from './lib/breaker.mjs';
+import {SIGNATURE_LABEL, signaturesFromBody} from './lib/signatures.mjs';
 
 const gh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
 const repo = () => process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/job-pilotto';
+
+// How many test mistakes the loop has taught itself (the pinned issue, lib/signatures.mjs).
+function learnedCount() {
+  try { return signaturesFromBody(JSON.parse(gh(['issue', 'list', '--label', SIGNATURE_LABEL, '--state', 'open', '--limit', '1', '--json', 'body']))[0]?.body).length; } catch { return 0; }
+}
 
 export async function collect({days = 30} = {}) {
   const filed = JSON.parse(gh(['issue', 'list', '--label', 'auto-ui', '--state', 'all', '--limit', '1000', '--json', 'number,title,state,stateReason,labels,comments,createdAt,url']));
@@ -71,8 +78,18 @@ export async function collect({days = 30} = {}) {
       mutation = JSON.parse(execFileSync('unzip', ['-p', zip, 'mutation-result.json'], {encoding: 'utf8'}));
     }
   } catch { mutation = null; }
+  // The verdict pass's latest exam (judge-exam.yml, lib/judge-exam.mjs), when the exam is on.
+  let judgeExam = null;
+  try {
+    const [latest] = JSON.parse(gh(['api', `repos/${repo()}/actions/artifacts?name=judge-exam&per_page=1`, '--jq', '[.artifacts[] | select(.expired | not) | {id}]']));
+    if (latest) {
+      const zip = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'exam-')), 'e.zip');
+      fs.writeFileSync(zip, execFileSync('gh', ['api', `repos/${repo()}/actions/artifacts/${latest.id}/zip`], {maxBuffer: 5 * 1024 * 1024}));
+      judgeExam = JSON.parse(execFileSync('unzip', ['-p', zip, 'judge-exam.json'], {encoding: 'utf8'}));
+    }
+  } catch { judgeExam = null; }
   ({tracker, trackerWhy} = await readTracker());
-  return {...build({issues, prs, costs, recall, runs: summaries.length ? totalRuns(summaries) : null}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy})};
+  return {...build({issues, prs, costs, recall, runs: summaries.length ? totalRuns(summaries) : null, breaker: breakerState(issues), signatures: learnedCount()}), quality: loopQuality({issues, audits, mutation, tracker, trackerWhy, judgeExam})};
 }
 
 

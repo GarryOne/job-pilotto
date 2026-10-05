@@ -1,0 +1,30 @@
+name: CI · Bug Tracker rows
+
+# A bug a person reported on GitHub (an issue the Finder did not file) is a bug the Finder missed: when it closes, it gets a row in the Notion Bug Tracker (desktop/e2e/lib/tracker-write.mjs),
+# so the weekly self-review and the escape rate on /self-heal see it. A planted bug no detector caught is written by the producer itself (ui-findings.yml). Needs the secret
+# NOTION_BRAIN_WRITE_TOKEN (an integration with insert rights on the tracker) and the variable BUG_TRACKER_DB; without them the step says so and does nothing.
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  row:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ !contains(join(github.event.issue.labels.*.name, ','), 'auto-ui') }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      NOTION_BRAIN_WRITE_TOKEN: ${{ secrets.NOTION_BRAIN_WRITE_TOKEN }}
+      BUG_TRACKER_DB: ${{ vars.BUG_TRACKER_DB }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Write the row
+        run: node desktop/e2e/tracker-sync.mjs --issue "${{ github.event.issue.number }}"

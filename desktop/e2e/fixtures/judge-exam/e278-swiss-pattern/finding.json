@@ -1,0 +1,12 @@
+{
+ "id": "e278-swiss-pattern",
+ "expect": "real",
+ "note": "#278: fixed by c1c7e4d",
+ "view": "src",
+ "kind": "functionality",
+ "severity": "medium",
+ "source": "code-review",
+ "title": "Switzerland pattern matches German towns",
+ "detail": "A user whose places include \"Switzerland\" gets unanchored fragments such as biel, baden, freiburg, arbon and uster. A posting located \"Bielefeld, Germany\", \"Baden-Württemberg, Germany\" or \"Freiburg im Breisgau\" passes the location filter and reaches the digest and the AI scoring.",
+ "impact": "Jobs outside the search spend AI money and clutter the digest."
+}

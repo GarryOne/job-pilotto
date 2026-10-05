@@ -1,0 +1,13 @@
+{
+ "id": "e287-more-actions",
+ "expect": "false-positive",
+ "cause": "probe-race",
+ "note": "#287: moreButton toggles aria-expanded on every press",
+ "view": "focus",
+ "kind": "expand-broken",
+ "severity": "medium",
+ "source": "interaction-probe",
+ "title": "expand broken on focus: \"More actions\"",
+ "detail": "\"More actions\" is an expandable control but clicking it did not expand or collapse anything.",
+ "impact": ""
+}

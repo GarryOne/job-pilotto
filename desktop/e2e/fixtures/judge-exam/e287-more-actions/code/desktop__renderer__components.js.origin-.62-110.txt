@@ -1,0 +1,50 @@
+// Excerpt of desktop/renderer/components.js as of origin/ (lines 62-110); the numbers on the left are the file's own line numbers.
+   62  
+   63  // ⋯ menu: one floating list for the whole window, closed by Esc, a click outside, scrolling or picking an item.
+   64  // Items: {label, run(event), title?, danger?, icon?} (icon: a name from icons.js) or '-' for a divider.
+   65  const menu = el('div', 'ui-menu');
+   66  menu.hidden = true;
+   67  menu.setAttribute('role', 'menu');
+   68  document.body.append(menu);
+   69  export function closeMenu() {
+   70    menu.hidden = true;
+   71    for (const open of document.querySelectorAll('.ui-more[aria-expanded="true"]')) open.setAttribute('aria-expanded', 'false');
+   72  }
+   73  export function openMenu(anchor, items) {
+   74    const wasOpen = anchor.getAttribute('aria-expanded') === 'true';
+   75    closeMenu();
+   76    if (wasOpen) return;
+   77    menu.replaceChildren(...items.map(item => {
+   78      if (item === '-') return document.createElement('hr');
+   79      const button = el('button', `${item.danger ? 'danger' : ''}${item.icon ? ' with-menu-icon' : ''}`.trim(), item.icon ? icon(item.icon) : null);
+   80      if (item.icon) button.append(item.label); else button.textContent = item.label;
+   81      button.title = item.title || '';
+   82      button.disabled = !!item.disabled;
+   83      button.setAttribute('role', 'menuitem');
+   84      button.addEventListener('click', event => { closeMenu(); item.run(event); });
+   85      return button;
+   86    }));
+   87    menu.hidden = false;
+   88    anchor.setAttribute('aria-expanded', 'true');
+   89    const box = anchor.getBoundingClientRect();
+   90    const below = box.bottom + 6 + menu.offsetHeight <= window.innerHeight;
+   91    menu.style.top = `${Math.max(8, below ? box.bottom + 6 : box.top - menu.offsetHeight - 6)}px`;
+   92    menu.style.left = `${Math.max(8, box.right - menu.offsetWidth)}px`;
+   93    menu.querySelector('button')?.focus();
+   94  }
+   95  document.addEventListener('click', event => { if (!menu.hidden && !event.target.closest('.ui-menu, .ui-more')) closeMenu(); });
+   96  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
+   97  document.addEventListener('scroll', closeMenu, true);
+   98  
+   99  // The ⋯ button that opens a menu. items: an array, or a function returning one (built when opened).
+  100  export function moreButton(items, title = 'More actions') {
+  101    const button = el('button', 'secondary ui-more');
+  102    button.title = title;
+  103    button.setAttribute('aria-label', 'More actions');
+  104    button.setAttribute('aria-haspopup', 'menu');
+  105    button.setAttribute('aria-expanded', 'false');
+  106    button.append(icon('more'));
+  107    button.addEventListener('click', () => openMenu(button, typeof items === 'function' ? items() : items));
+  108    return button;
+  109  }
+  110  

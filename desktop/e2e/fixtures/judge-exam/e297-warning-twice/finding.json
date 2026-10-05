@@ -1,0 +1,13 @@
+{
+ "id": "e297-warning-twice",
+ "expect": "false-positive",
+ "cause": "stale",
+ "note": "#297: already fixed on main (0dae8ce)",
+ "view": "activity-notion-html",
+ "kind": "text",
+ "severity": "medium",
+ "source": "ai-review",
+ "title": "Same warning shown twice in the detail",
+ "detail": "The warning summary says \"cronjob run not opened in Notion: HTTP Error 502\" and the same text is repeated in the details list directly below it.",
+ "impact": ""
+}

@@ -1,0 +1,6 @@
+// Excerpt of desktop/renderer/index.html as of main (lines 1333-1337); the numbers on the left are the file's own line numbers.
+ 1333            </div>
+ 1334            <ol class="activity-phases ap-card" id="activity-phases"></ol>
+ 1335            <pre class="activity-message" id="activity-message" hidden></pre>
+ 1336            <div class="run-card ap-card" id="activity-card" hidden></div>
+ 1337            <details class="activity-log ap-card" id="activity-log"><summary><i data-icon="file"></i><b>Technical log</b><span class="muted" id="log-count"></span></summary><pre id="log" class="log"></pre></details>

@@ -1,0 +1,10 @@
+// Excerpt of desktop/renderer/pages/calendar.js as of origin/ (lines 76-84); the numbers on the left are the file's own line numbers.
+   76  }
+   77  
+   78  function emptyUpcoming() {
+   79    const box = el('div', 'cal-empty');
+   80    box.append(icon('calendar'), el('b', '', 'No upcoming interviews'), el('span', 'muted small', 'Email bookings appear after the next Gmail check.'));
+   81    return box;
+   82  }
+   83  const skeletons = () => [0, 1, 2].map(() => { const box = el('div', 'cal-row'); box.append(el('span', 'skeleton w-40'), el('span', 'skeleton w-80')); return box; });
+   84  

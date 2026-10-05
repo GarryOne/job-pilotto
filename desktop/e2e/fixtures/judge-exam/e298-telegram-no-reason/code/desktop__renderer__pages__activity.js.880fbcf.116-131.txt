@@ -1,0 +1,17 @@
+// Excerpt of desktop/renderer/pages/activity.js as of 880fbcf (lines 116-131); the numbers on the left are the file's own line numbers.
+  116  export function outcome(run) {
+  117    if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
+  118    if (kindOf(run) === 'mail') {
+  119      if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
+  120      if (run.problem) return run.problem;
+  121      if (!run.ok) return 'had problems';
+  122      if (run.updates?.length) return plural(run.updates.length, 'application update');
+  123      // "Mail: 2 new email(s) classified, 0 update(s), …": emails were read but none changed an application.
+  124      const read = Number(/^Mail: (\d+) new email/.exec(run.summary || '')?.[1] || 0);
+  125      return read ? `${plural(read, 'email')} checked · no updates` : 'nothing new';
+  126    }
+  127    if (!run.ok) return 'had problems';
+  128    // A one-off job (insight, weekly report, today's list, find employers): the result line it printed.
+  129    if (kindOf(run) !== 'search') return run.summary || 'done';
+  130    return run.new != null ? plural(run.new, 'new job') : 'done';
+  131  }

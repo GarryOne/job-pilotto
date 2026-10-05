@@ -1,0 +1,20 @@
+// Excerpt of desktop/renderer/pages/activity.js as of origin/ (lines 506-524); the numbers on the left are the file's own line numbers.
+  506    show($('activity-warnings'), warnings.length > 0 || warnedOnly || !!head?.problem);
+  507    if (warnings.length || warnedOnly || head?.problem) {
+  508      // The headline says what it means for you ("9 jobs still need scoring"), not which card this is.
+  509      $('activity-warnings-title').textContent = limited ? `${plural(limited, 'job')} still ${limited === 1 ? 'needs' : 'need'} scoring`
+  510        : head ? head.title : run?.live ? 'Running with warnings' : 'Completed with warnings';
+  511      const summary = head?.problem ? head.summary : warnings.length ? warningSummary(warnings) : 'The run recorded warnings, with no line about them in its log or report.';
+  512      $('activity-warnings-summary').textContent = summary;
+  513      show($('activity-warnings-fix'), !!head?.fix);
+  514      $('activity-warnings-fix').textContent = head?.fix ? head.fix.label : '';
+  515      $('activity-warnings-fix').dataset.view = head?.fix?.view || '';
+  516      show($('activity-warnings-limit'), limited > 0);
+  517      const grouped = newDetails(groupWarnings(warnings), summary);
+  518      // One line needs no toggle: it is shown. Two or more fold behind "View N details".
+  519      const single = grouped.length === 1;
+  520      const listShown = single || (grouped.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));
+  521      $('activity-warnings-list').dataset.for = String(run?.id);
+  522      show($('activity-warnings-list'), listShown);
+  523      show($('activity-warnings-more'), grouped.length > 1);
+  524      $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;

@@ -1,0 +1,8 @@
+// Excerpt of desktop/renderer/run-warnings.js as of origin/ (lines 86-92); the numbers on the left are the file's own line numbers.
+   86    return out;
+   87  }
+   88  
+   89  // The grouped lines minus those that only say again what the banner's "AI service is busy" sentence says.
+   90  // A line the summary above already says word for word is no detail either (#285: one warning was printed as the summary and again under "Hide details").
+   91  export const newDetails = (grouped, summary = '') => grouped.filter(line => !/^(?!Skipped )(?:[^:]*: )?the AI service is rate-limited right now$/.test(line) && line.trim() !== String(summary).trim());
+   92  

@@ -38,6 +38,8 @@ jobs:
     timeout-minutes: 35   # 15 for filing, up to 15 more for judging before filing (its own step limit below)
     env:
       GH_TOKEN: ${{ github.token }}
+      NOTION_BRAIN_WRITE_TOKEN: ${{ secrets.NOTION_BRAIN_WRITE_TOKEN }}   # a planted bug no detector caught becomes a Bug Tracker row (desktop/e2e/lib/tracker-write.mjs); no token, no row
+      BUG_TRACKER_DB: ${{ vars.BUG_TRACKER_DB }}
       REPO: ${{ github.repository }}
       RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
       RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.run_id || github.run_id) }}

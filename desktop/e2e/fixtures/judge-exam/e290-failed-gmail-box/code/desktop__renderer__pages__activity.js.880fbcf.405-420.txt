@@ -1,0 +1,17 @@
+// Excerpt of desktop/renderer/pages/activity.js as of 880fbcf (lines 405-420); the numbers on the left are the file's own line numbers.
+  405      read();
+  406    }
+  407    // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).
+  408    // A GitHub run has no local lines: the sidebar link opens the job. A local run streams shared.logLines.
+  409    const githubLive = !!run?.live && run?.where === 'github';
+  410    // The window's own buffer is empty after a reload (⌘R): then the app's copy of the running job's log (run.log) is what to show.
+  411    const lines = githubLive ? (run?.log || []) : (shown ? run?.log || [] : (liveLines?.length ? liveLines : run?.log) || []);
+  412    const kind = run ? KIND[kindOf(run)] : null;
+  413    const detailWarnings = runWarningLines(run);
+  414    // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
+  415    // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
+  416    const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
+  417      : !run.ok || run.off ? ['Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
+  418    $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
+  419    $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
+  420    $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));

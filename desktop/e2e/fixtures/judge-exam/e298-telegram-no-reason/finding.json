@@ -1,0 +1,12 @@
+{
+ "id": "e298-telegram-no-reason",
+ "expect": "real",
+ "note": "#298: fixed by b6a63a2",
+ "view": "activity-telegram-blocked",
+ "kind": "text",
+ "severity": "medium",
+ "source": "ai-review",
+ "title": "A Jobs check whose Telegram digest was refused is Failed with no reason",
+ "detail": "The run list shows a red \"Failed\" pill on a Jobs check that says \"1 new job\". The toast says \"Jobs check had problems / 1 new job\". Nothing names Telegram or says the digest was not delivered because the bot was blocked.",
+ "impact": "The digest never reaches the person and the app never says why."
+}

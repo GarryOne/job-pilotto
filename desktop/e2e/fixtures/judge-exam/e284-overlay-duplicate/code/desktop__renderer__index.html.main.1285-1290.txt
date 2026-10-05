@@ -1,0 +1,7 @@
+// Excerpt of desktop/renderer/index.html as of main (lines 1285-1290); the numbers on the left are the file's own line numbers.
+ 1285    <footer class="activity" id="activity">
+ 1286      <div class="activity-backdrop" id="activity-backdrop" hidden></div>
+ 1287      <div class="activity-panel" id="activity-panel" hidden role="dialog" aria-labelledby="activity-heading">
+ 1288        <div class="ap-resize" id="activity-resize" title="Drag to make the panel taller or shorter"></div>
+ 1289        <div class="ap-grid">
+ 1290          <aside class="ap-list">

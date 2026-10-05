@@ -1,0 +1,15 @@
+// Excerpt of desktop/lib/pipeline.js as of 880fbcf (lines 349-362); the numbers on the left are the file's own line numbers.
+  349    while (current || waiting.length) await new Promise(resolve => setTimeout(resolve, poll));
+  350  }
+  351  
+  352  export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
+  353    return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), {mode}, record => {
+  354      let summary = {};
+  355      try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
+  356      const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
+  357      return fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
+  358        scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {};
+  359    });
+  360  }
+  361  
+  362  // Notion just connected after a time of trying: one run that spends no AI (every cap at 0), so the Job Matches sync

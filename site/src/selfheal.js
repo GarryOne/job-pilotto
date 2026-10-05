@@ -50,6 +50,10 @@ export const PRINCIPLES = [
   ['Measure the judge', 'Five random verdicts a week are ticked right or wrong by the owner; the score appears under "How well it does".', 'first audit open', 'verdict-audit.mjs'],
   ['Say how it was found', 'Every suite writes replay.json (run type, fixed or seeded path, window, theme, time zone, commit, its steps, the probe\'s pages and controls); every issue shows it as a table with the command that walks the same path again, plus one hidden JSON line for scripts.', 'new', 'lib/replay.mjs'],
   ['Do not file what the code has already left behind', 'A finding about a page whose files changed between the tested build and main is held, not filed: the next run on a newer build files it if it is still there. A push that removes words an end-to-end step still expects is blocked until the step is updated.', 'new', 'lib/freshness.mjs, lib/stale-expectations.mjs'],
+  ['A detector with a poor record earns trust back', 'A detector wrong in 4 of its last 10 judged outcomes (6 at least) files nothing that no one has judged, until its record recovers: the window slides, nothing is switched off and no one is asked.', 'new', 'lib/breaker.mjs'],
+  ['Learn test mistakes from closures', 'A test mistake that closed as a harness mistake three times becomes a signature the producer drops without a model; one a real fix contradicts is unlearned. It lives in one pinned issue, not in the code.', 'new', 'lib/signatures.mjs'],
+  ['Examine the judge with known answers', 'Ten findings from the loop\'s own history (four real, six false) with the code as it was at their build go through the verdict pass every week and are scored: the number of real bugs dismissed and false alarms believed, without anyone ticking a box. Off until JOB_PILOTTO_JUDGE_EXAM is on.', 'new', 'lib/judge-exam.mjs'],
+  ['Let CI log the misses it can see', 'A planted bug no detector caught, and a bug a person reported on GitHub that the Finder had not, get a Bug Tracker row with the replay command, so the weekly review sees them. Needs NOTION_BRAIN_WRITE_TOKEN.', 'new', 'lib/tracker-write.mjs'],
   ['Never call it a regression before checking the build', 'A finding that matches an issue a fix closed is a regression only if the tested build contains the fix (git\'s compare says); on an older build it is a stale sighting, commented on the closed issue and not filed.', 'new', 'lib/stale.mjs'],
   ['Say why, in a field', 'Every closed issue carries one `resolution:` label (fixed, false by cause, stale, duplicate, by design); every issue states how far its build was behind main and whether its suite finished; every producer run is kept as numbers. Conclusions about causes come from these, not from comments.', 'new', 'lib/resolution.mjs, lib/run-context.mjs, lib/run-summary.mjs'],
   ['Be on time, and say when not', 'The Worker cron starts the publish every 3 hours, GitHub\'s schedule is the backup; this page shows its own age and turns amber, then red.', 'new', 'worker/src/scheduler.js'],
@@ -74,6 +78,14 @@ ${runs?.paths?.suites ? `<p class="muted">Paths walked by the suites in those ru
 ${runs ? `<p class="muted">Producer runs recorded: <b>${num(runs.runs)}</b> · issues filed ${num(runs.filed)} · stale sightings not filed ${num(runs.stale)} · findings held for a recheck ${num(runs.held)} · runs with a suite that did not finish ${num(runs.incompleteRuns)} · furthest behind main ${num(runs.behindMax)} commits${dropped.length ? ` · dropped: ${dropped.map(([reason, count]) => `${esc(reason)} ${count}`).join(', ')}` : ''}</p>` : '<p class="muted">No producer run summary yet.</p>'}</section>`;
 }
 
+// The detectors' last ten outcomes and what the loop taught itself (desktop/e2e/lib/breaker.mjs, lib/signatures.mjs): a detector that was wrong in four of its last ten is "under watch".
+export function watchSection(live) {
+  const rows = Object.entries(live.breaker || {}).sort((a, b) => (b[1].rate ?? -1) - (a[1].rate ?? -1));
+  if (!rows.length && live.signatures == null) return '';
+  return `<section class="card"><h2>🧯 Detectors under watch</h2><small class="muted">A detector wrong in 4 of its last 10 outcomes (6 judged at least) files nothing that no one has judged, until its record recovers. ${num(live.signatures ?? 0)} test mistake(s) learned and dropped before filing.</small>
+${rows.length ? `<div class="wrap"><table><tr><th>Detector</th><th>Last outcomes</th><th>Wrong</th><th>State</th></tr>${rows.map(([name, row]) => `<tr><td>${esc(name)}</td><td class="n">${num(row.judged)}</td><td class="n">${row.rate === null ? '–' : `${row.wrong} (${row.rate}%)`}</td><td>${row.tripped ? '🧯 under watch' : row.judged < 6 ? 'too few to judge' : '✅ trusted'}</td></tr>`).join('')}</table></div>` : '<p class="muted">No detector has enough judged outcomes yet.</p>'}</section>`;
+}
+
 // How old the published numbers are. CI publishes every 3 hours: past 4 h a run is late, past 7 h more than one was missed (5 Oct 2026: GitHub's scheduler left them 5.5 h old).
 export function freshness(at, now = new Date()) {
   const hours = (now - Date.parse(at)) / 3600000;
@@ -95,7 +107,7 @@ export function liveSection(live, history = [], now = new Date()) {
   ];
   // How well the loop does (desktop/e2e/lib/loop-quality.mjs): each number with what it counts, or why it is not measured yet. Lower is better for escape, regression, flake.
   const q = live.quality || {};
-  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🛡️ Misses guarded', q.guard, 'higher is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy', q.verdicts, 'higher is better'],
+  const quality = [['🕳️ Escape rate', q.escape, 'lower is better'], ['🛡️ Misses guarded', q.guard, 'higher is better'], ['🧬 Mutation catch rate', q.mutation, 'higher is better'], ['⚖️ Verdict accuracy (owner\'s ticks)', q.verdicts, 'higher is better'], ['🧑‍⚖️ Judge exam (planted)', q.judge, 'higher is better'],
     ['↩️ Regression rate', q.regression, 'lower is better'], ['🎲 Flake rate', q.flake, 'lower is better']].filter(([, value]) => value);
   const cols = ['filed', 'fixed', 'queued', 'falsePositive', 'duplicate', 'stale', 'harness', 'unclear', 'open'];
   const heads = ['Filed', 'Real, fixed', 'Real, queued', 'False positives', 'Duplicates', 'Stale', 'Test / harness', 'Unclear', 'Open, unjudged'];
@@ -106,6 +118,7 @@ export function liveSection(live, history = [], now = new Date()) {
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 ${causesSection(live)}
+${watchSection(live)}
 <section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
 ${(live.byDetector || []).map(row => `<tr><td>${esc(row.detector)}</td>${cols.map(col => `<td class="n">${num(row[col])}</td>`).join('')}</tr>`).join('')}
 <tr class="total"><td>Total</td>${cols.map(col => `<td class="n">${num(t[col])}</td>`).join('')}</tr></table></div>

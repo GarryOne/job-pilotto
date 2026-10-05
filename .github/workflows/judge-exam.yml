@@ -1,0 +1,62 @@
+name: CI · Judge exam
+
+# The verdict pass's exam (desktop/e2e/lib/judge-exam.mjs): ten findings from this loop's own history, each with the code as it was at its build and a known answer (four real, six false),
+# judged by the same prompt as a real finding and scored. A judge that dismisses a real bug or believes a false alarm shows it as a number on /self-heal, without anyone ticking a box.
+# It costs one judgement per finding (about ten), so it is OFF until the owner turns it on:  gh variable set JOB_PILOTTO_JUDGE_EXAM --body on
+on:
+  schedule:
+    - cron: '17 8 * * 0'   # Sunday morning, before the Saturday audit is read
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: judge-exam
+  cancel-in-progress: false
+
+jobs:
+  exam:
+    if: vars.JOB_PILOTTO_JUDGE_EXAM == 'on'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Prepare the exam
+        run: |
+          mkdir -p .heal
+          node desktop/e2e/ai-budget.mjs --check
+          if grep -q '^skip=true' "$GITHUB_OUTPUT"; then echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          node desktop/e2e/judge-exam.mjs --prepare .heal
+        id: prepare
+      - name: Claude judges the planted findings (read-only)
+        if: steps.prepare.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: >-
+            --model claude-sonnet-5-5 --max-turns 40
+            --allowedTools "Read,Glob,Grep,Write"
+          prompt: Read .heal/exam-prompt.md and follow it exactly. Write only .heal/verdicts.md.
+      - name: Score it
+        if: steps.prepare.outputs.skip != 'true'
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          node desktop/e2e/judge-exam.mjs --score --verdicts .heal/verdicts.md --out .heal/judge-exam.json
+          node desktop/e2e/ai-budget.mjs --after /home/runner/work/_temp/claude-execution-output.json --job "judge exam" || true
+          node desktop/e2e/ai-cost-report.mjs --job judge-exam --execution /home/runner/work/_temp/claude-execution-output.json --suffix "${{ github.run_id }}" || true
+      - uses: actions/upload-artifact@v6
+        if: always() && hashFiles('.heal/judge-exam.json') != ''
+        with:
+          name: judge-exam
+          path: .heal/judge-exam.json
+          retention-days: 90

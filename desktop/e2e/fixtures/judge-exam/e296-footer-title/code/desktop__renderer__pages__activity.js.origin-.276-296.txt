@@ -1,0 +1,22 @@
+// Excerpt of desktop/renderer/pages/activity.js as of origin/ (lines 276-296); the numbers on the left are the file's own line numbers.
+  276    const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
+  277    const mailNote = lastMail ? `Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
+  278      : nextMailAt ? `First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
+  279    if (running) {
+  280      const kind = KIND[kindOf(running)];
+  281      const next = (data.queued || []).length;
+  282      $('activity-title').textContent = kindOf(running) === 'search' ? `Checking for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
+  283        : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
+  284      $('activity-step').textContent = searchPhase(running.step) || running.step || 'Starting…';
+  285      barLabel();
+  286      $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
+  287    } else if (lastSearch || lastMail) {
+  288      barLabel();
+  289      $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last jobs check' : 'Last jobs check had problems') : 'No jobs check yet';
+  290      $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
+  291        (lastSearch.ok ? '' : ' · click to see why') : '';
+  292      // The next jobs check, unless the open panel's Upcoming checks already says it.
+  293      $('activity-meta').textContent = [mailNote, $('activity-panel').hidden && nextSearchAt && `Next jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
+  294    } else {
+  295      $('activity-title').textContent = 'No jobs check yet';
+  296      $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';

@@ -4,6 +4,7 @@
 // already `confirmed`, `needs-human` is filed parked. A finding over the cap, or a run without AI, is filed as before and judged later (ui-verdict.yml). Pure.
 import {checkEvidence, parse, verdictComment} from './verdict-comment.mjs';
 import {FALSE_POSITIVE, labelFor, TIMEOUT_FAILURE} from './triage.mjs';
+import {matchLearned} from './signatures.mjs';
 
 export const PREJUDGE_MAX = 3;   // per run; four runs a day = at most 12 judgements a day
 export const NOISE_WORDS = ['false-positive', 'harness'];
@@ -18,19 +19,23 @@ export const HARNESS_SIGNATURES = [
   {re: /Target page, context or browser has been closed|Target closed|browser has been closed/i, why: 'the test or the probe lost its page (the app was closed or relaunched under the step), so the step failed without a product fault: the same signature closed #84'},
   {re: /nonexistent-recall-plant/i, why: 'the recall benchmark\'s planted broken image leaked into the journey\'s record: it is the harness\'s own bug, not the app\'s (#116, #117)'},
 ];
-export const signatureVerdict = finding => {
+export const signatureVerdict = (finding, learned = []) => {
   const text = `${finding.title || ''}\n${finding.detail || ''}`;
   const hit = HARNESS_SIGNATURES.find(({re}) => re.test(text));
-  return hit ? `harness\nWhy: ${hit.why}.` : '';
+  if (hit) return `harness\nWhy: ${hit.why}.`;
+  const taught = matchLearned(finding, learned);   // a mistake the loop learned from three closures (lib/signatures.mjs)
+  return taught ? `harness\nWhy: ${taught.why}.` : '';
 };
 // A failed step that may be the test's mistake or the product's: it pressed a control that was disabled, hidden or covered. Judged (with the screenshot) rather than filed raw: a button that is
 // wrongly disabled is a real bug, one that is disabled by design on this page is not (#92, #95).
 export const STEP_NEEDS_LOOK = /element is not enabled|element is not visible|intercepts pointer events|detached from the DOM/i;
-export const judgeable = finding => !signatureVerdict(finding) && (finding.source !== 'suite-failure' || TIMEOUT_FAILURE.test(finding.detail || '') || STEP_NEEDS_LOOK.test(finding.detail || ''));
+// `tripped`: the detectors whose recent record is poor (lib/breaker.mjs): all their findings are judged before filing, whatever they are. `learned`: the signatures the loop taught itself.
+export const judgeable = (finding, {tripped = new Set(), learned = []} = {}) => !signatureVerdict(finding, learned)
+  && (finding.source !== 'suite-failure' || TIMEOUT_FAILURE.test(finding.detail || '') || STEP_NEEDS_LOOK.test(finding.detail || '') || tripped.has(finding.source));
 // The most severe first, so the cap never leaves a high finding unjudged for a medium one.
-export function pendingOf(findings, max = PREJUDGE_MAX) {
+export function pendingOf(findings, max = PREJUDGE_MAX, options = {}) {
   const rank = {high: 0, medium: 1, low: 2};
-  return findings.filter(judgeable).sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3)).slice(0, max)
+  return findings.filter(finding => judgeable(finding, options)).sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3)).slice(0, max)
     .map(item => ({id: item.id, view: item.view, kind: item.kind, severity: item.severity, source: item.source, title: item.title, detail: item.detail,
       impact: item.impact || '', workaround: item.workaround || '', screenshot: item.screenshot || ''}));
 }
