@@ -3,7 +3,7 @@
 // No E2E_SEED (or 0) = FIXED: the same order every time. The release gate runs fixed (e2e.yml), so a build is judged on a path that does not move under it.
 
 // mulberry32: small, fast, good enough to shuffle a menu.
-function generator(seed) {
+export function generator(seed) {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6D2B79F5) >>> 0;
