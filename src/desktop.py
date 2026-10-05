@@ -249,7 +249,8 @@ def strategy(db, tracker=None):
     preferences, the average fit components of the scored open jobs, counts, the Profile's compensation line and
     the latest 💡 Insight."""
     from .paths import CONFIG, load_search_config
-    search = load_search_config()
+    # The user's own words: with the regions and AI place words the crawl adds, the page listed a regex of every city as one "place".
+    search = load_search_config(matching=False)
     try:
         prefs = json.loads((CONFIG / 'preferences.json').read_text())
     except (OSError, ValueError):

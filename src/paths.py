@@ -165,12 +165,14 @@ def local_answers():
     return local_text('JOB_PILOTTO_ANSWERS_FILE')
 
 
-def load_search_config():
+def load_search_config(matching=True):
     """config/search.json: role/location/stack keywords, as regex fragments. Edit to change what
 
     this project searches for and where — role_keywords/board_discovery_keywords/
     jobs_board_search_queries/quality_stack_keywords/locations.{top_tier,country_wide,abroad}/
-    remote_excluded_regions. See README.md's Configuration section."""
+    remote_excluded_regions. See README.md's Configuration section.
+
+    matching=False: the words as the user wrote them, without the regions and AI place words the crawl adds (what a screen lists)."""
     config = json.loads((CONFIG / 'search.json').read_text())
     # The central scout (private repo job-pilotto-internal) judges feeds for everyone in engineering and IT, worldwide, not
     # by one user's example profile: a file named in JOB_PILOTTO_LOCATIONS_FILE replaces those parts of this config.
@@ -179,7 +181,7 @@ def load_search_config():
         extra = json.loads(Path(override).read_text())
         config.update({k: extra[k] for k in ('locations', 'remote_excluded_regions', 'role_keywords', 'title_exclude_keywords',
                         'quality_stack_keywords') if k in extra})
-    return with_matching_words(config)
+    return with_matching_words(config) if matching else config
 
 
 def with_matching_words(config):

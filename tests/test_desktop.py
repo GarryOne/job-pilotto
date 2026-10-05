@@ -131,6 +131,21 @@ if __name__ == '__main__':
 
 
 class StrategyTests(unittest.TestCase):
+    def test_a_screen_lists_the_places_as_written_not_the_regexes_the_crawl_adds(self):
+        # 5 Oct 2026: the Strategy page showed one "place" made of every Swiss city's regex, and ":<!Wzurich!W".
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        from src import paths
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'search.json').write_text(json.dumps({'locations': {'top_tier': ['zurich'], 'country_wide': ['switzerland'], 'abroad': ['berlin']}}))
+            with mock.patch.object(paths, 'CONFIG', Path(tmp)):
+                written = paths.load_search_config(matching=False)['locations']
+                crawled = paths.load_search_config()['locations']
+        self.assertEqual(written, {'top_tier': ['zurich'], 'country_wide': ['switzerland'], 'abroad': ['berlin']})
+        self.assertIn('(?:', ''.join(crawled['country_wide']))  # the crawl still matches the cities of a region
+
     def test_strategy_shows_the_users_own_targets_scores_and_counts(self):
         import tempfile
         from pathlib import Path
@@ -147,7 +162,7 @@ class StrategyTests(unittest.TestCase):
             search = {'jobs_board_search_queries': ['site reliability'], 'locations': {'top_tier': ['z[uü]rich'], 'country_wide': ['switzerland', 'bern'], 'abroad': ['berlin']},
                       'quality_stack_keywords': [r'\bk8s\b'], 'title_exclude_keywords': ['sales']}
             with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([{'id': 1}, {'id': 2}], [])), \
-                    mock.patch.object(desktop.score, 'load', lambda db: fits), mock.patch('src.paths.load_search_config', lambda: search):
+                    mock.patch.object(desktop.score, 'load', lambda db: fits), mock.patch('src.paths.load_search_config', lambda matching=True: search):
                 data = desktop.strategy(db, tracker)
             db.close()
         self.assertEqual(data['roles'], ['site reliability'])
@@ -183,7 +198,7 @@ class StrategyInsightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             db = store.connect(Path(tmp) / 'j.sqlite')
             with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), \
-                    mock.patch.object(desktop.score, 'load', lambda db: {}), mock.patch('src.paths.load_search_config', lambda: {}), \
+                    mock.patch.object(desktop.score, 'load', lambda db: {}), mock.patch('src.paths.load_search_config', lambda matching=True: {}), \
                     mock.patch('src.ai.insights.INSIGHTS_DATABASE_ID', 'insights-db'):
                 data = desktop.strategy(db, tracker)
             db.close()
