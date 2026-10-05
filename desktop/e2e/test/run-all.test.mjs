@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {keychainEnv, pickSuites} from '../run-all.mjs';
+import {defaultParallel, keychainEnv, pickSuites} from '../run-all.mjs';
 
 const ALL = ['jobs', 'personas', 'quality', 'settings', 'wizard'], cadence = {personas: 'manual', quality: 'nightly'};
 
@@ -24,4 +24,13 @@ test('the Anthropic key is never read from the Keychain, even when it is there (
   const found = keychainEnv(['jobs'], {env: {}, read: service => { asked.push(service); return 'secret'; }});
   assert.ok(!asked.some(service => /anthropic/i.test(service)), `asked for ${asked.join(', ')}`);
   assert.ok(!('E2E_ANTHROPIC_KEY' in found));
+});
+
+test('run-all runs suites in parallel by default only when each has its own Notion token', () => {
+  const env = {E2E_NOTION_TOKEN_JOBS: 'x', E2E_NOTION_TOKEN_SETTINGS: 'x', E2E_NOTION_TOKEN_QUALITY: 'x'};
+  assert.equal(defaultParallel(['jobs', 'settings', 'quality'], env), 3);
+  assert.equal(defaultParallel(['jobs', 'settings', 'wizard'], env), 1, 'wizard has no token of its own');
+  assert.equal(defaultParallel(['jobs'], env), 1, 'one suite is just one');
+  const ten = 'abcdefghij'.split('');
+  assert.equal(defaultParallel(ten, Object.fromEntries(ten.map(x => [`E2E_NOTION_TOKEN_${x.toUpperCase()}`, 'x']))), 8, 'at most eight');
 });

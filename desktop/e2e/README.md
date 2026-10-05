@@ -16,6 +16,8 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 | `mailreading` (**watched**) | the AI key only: no app, no Notion, no browser | whether the model still reads the Gmail check's emails right: 16 invented emails with a known answer go through `src/ai/mail.py`'s own prompt (`tools/mail_eval.py`); a rejection, offer, invitation, security code, receipt or vendor alert read wrong fails at once, and 85% of the rest must be right | ~15 s, about a cent |
 | `activity` | a set-up install, its own run rows reset, schedule off | every task on Actions (one row, an end, plain words, a log without keys/emails/paths, no Notion row left Running) and the Recent activity screen: the filter, "View all activity", a finished run's result card, a run read only from Notion | ~4 min |
 | `activityfailures` | the same, on its own Notion page, in parallel | what goes **wrong**: the AI answering **429, 500, 401, no credit** and **never answering** (`lib/ai-proxy.mjs` modes), a spend-limit pause, a double click, a Gmail check queued behind a search, **quitting mid-run**. Shared steps: `lib/activity-steps.mjs` | ~5 min |
+| `failuresnotion` | split from `activityfailures` (6 Oct 2026), own Notion page, in parallel | Notion busy (429), an HTML error page, the connection gone, a refused Save: a clear end in words |
+| `failureschannels` | split from `activityfailures` (6 Oct 2026), own Notion page, in parallel | the Telegram digest and a bot that refuses it, the Gmail check, a revoked Google sign-in |
 | `quality` (**nightly**) | a set-up install, a known compensation target written into its Profile | whether the Jobs check's output is *right*: 11 golden postings with a known truth (`fixtures/golden/`): facts exact, a duplicate collapsed, ranking, scores stable (±8, one job in nine may stray), no `undefined`/raw JSON in any text, no job text in the logs, and a Sonnet judge (`lib/factjudge.mjs`) for invented facts in the score reasons (one text in nine may slip: model noise has an allowance, facts, duplicates, ranking and leaks have none) | ~3 min, ~$0.3 (the app runs on Sonnet; `E2E_APP_MODEL=claude-haiku-4-5` for a cheap run) |
 | `strategy` | a set-up install, its own jobs reset, two small fixture boards | a change to the roles, places or companies to skip reaches ⚙️ Search settings (Notion), `config/search.json` and the next Jobs check, whether it was made in the app or on the Notion page; a region word ("Ticino") and a level ("junior") written on the page decide which postings the next check keeps; accepting a strategy change keeps what was edited on the page meanwhile; a reconnected app keeps the real settings and the same page | ~5 min |
 
@@ -30,7 +32,7 @@ The paid AI-judge steps (`employers`) also run only in the nightly gate and in m
 
 ## Running them all on this Mac
 `npm run all` runs every suite that is not manual, one after the other, and prints one table. `-- --only jobs,quality` runs exactly those (even a manual one), `-- --skip wizard` leaves some out,
-`-- --manual` adds the manual ones, `-- --parallel 3` runs three at a time (each suite then needs its own Notion token). Secrets come from the environment, else from the Keychain
+`-- --manual` adds the manual ones, `-- --parallel 3` runs three at a time (each suite then needs its own Notion token; without the flag, `run-all` runs up to 8 at once when every chosen suite has one, longest first). Secrets come from the environment, else from the Keychain
 (`job-pilotto.e2e.anthropic_key`, `.notion_token`, `.notion_token_<suite>`).
 
 ```

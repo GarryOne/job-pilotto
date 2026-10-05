@@ -23,6 +23,12 @@ export function pickSuites({all, cadence = {}, only = '', skip = '', manual = fa
   return chosen.filter(suite => !names(skip).includes(suite));
 }
 
+// -> how many suites run at once when --parallel is not given: 8 when every chosen suite has its own Notion token (they then share no page), else one after the other
+// (a suite without its own token falls back to the wizard's page, and two on one page break each other).
+export function defaultParallel(suites, env = {}, {most = 8} = {}) {
+  return suites.length > 1 && suites.every(suite => env[`E2E_NOTION_TOKEN_${suite.toUpperCase()}`]) ? Math.min(most, suites.length) : 1;
+}
+
 // -> the secrets a run needs that are not in the environment yet, read from the Keychain (nothing is printed or written).
 export function keychainEnv(suites, {env = process.env, read = defaultRead} = {}) {
   // The Anthropic key is never read here: the e2e on a Mac runs on Claude Code (lib/engine.mjs), and CI gets its key from GitHub's secrets.
@@ -55,10 +61,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   let suites;
   try { suites = pickSuites({all: SUITES, cadence, only: option('--only'), skip: option('--skip'), manual: process.argv.includes('--manual')}); } catch (error) { console.error(error.message); process.exit(2); }
   const env = {...process.env, ...keychainEnv(suites)};
-  const parallel = Math.max(1, Number(option('--parallel')) || 1);
+  const parallel = Math.max(1, Number(option('--parallel')) || defaultParallel(suites, env));
   console.log(`Running ${suites.length} suite(s)${parallel > 1 ? `, ${parallel} at a time` : ' one after the other'}: ${suites.join(', ')}\n`);
   fs.mkdirSync(path.join(HERE, 'artifacts'), {recursive: true});
-  const results = [], queue = [...suites];
+  const minutes = {};
+  for (const suite of suites) minutes[suite] = (await import(`./suites/${suite}.mjs`)).minutes || 15;
+  const results = [], queue = parallel > 1 ? [...suites].sort((a, b) => minutes[b] - minutes[a]) : [...suites];   // the longest first, so the last suite to start is a short one
   await Promise.all(Array.from({length: parallel}, async () => {
     while (queue.length) results.push(await run(queue.shift(), env, parallel > 1));
   }));
