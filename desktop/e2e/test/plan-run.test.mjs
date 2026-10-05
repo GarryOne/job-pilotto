@@ -107,6 +107,13 @@ test('a build somebody started by hand is not verified or promoted by the pipeli
   assert.deepEqual([out.count, out.tag], ['0', '']);
 });
 
+test('the nightly the Worker started on time is gated like the schedule\'s own; a build by hand with another name is not', async () => {
+  const worker = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Nightly build'}, {releases: [['desktop-v1.2', HEAD]]});
+  assert.deepEqual([worker.count, worker.ref, worker.tag], ['4', HEAD, 'desktop-v1.2']);
+  const hand = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Release · Desktop app'}, {releases: [['desktop-v1.2', HEAD]]});
+  assert.deepEqual([hand.count, hand.tag], ['0', '']);
+});
+
 test('a nightly with nothing to build, or a failed build, starts no run', async () => {
   const none = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule'}, {releases: [['desktop-v1.1', OLD]]});
   assert.equal(none.count, '0');

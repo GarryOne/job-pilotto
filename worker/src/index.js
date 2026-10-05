@@ -6,6 +6,7 @@
 
 import { handleReport } from './report.js';
 import { handleExtension } from './extension.js';
+import { runScheduled } from './scheduler.js';
 
 const HELP = [
   '✈️ <b>Job Pilotto</b>\nCommands',
@@ -508,6 +509,10 @@ export async function handleUpdate(env, update) {
 }
 
 export default {
+  // Cloudflare cron triggers (wrangler.toml): the pipeline's schedules start on time, with GitHub's own cron as the backup (src/scheduler.js).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runScheduled(event, env, {dispatch, notify: text => reply(env, escapeHtml(text)).catch(() => {})}));
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/extension/')) return handleExtension(request, env);

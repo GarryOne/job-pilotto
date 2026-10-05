@@ -28,6 +28,10 @@ class DesktopWorkflowTest(unittest.TestCase):
         # A late start still builds (4 Oct 2026: both runs came six hours late and the old 04-05 guard skipped them): 04:00-15:59.
         self.assertIn('[ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]', WORKFLOW)
         self.assertIn('workflow_dispatch:', triggers)
+        # The Worker's cron starts the nightly on time (worker/src/scheduler.js): named, diffed like the schedule, and with no 04:00-15:59 window of its own.
+        self.assertIn("run-name: ${{ inputs.nightly && 'Nightly build'", WORKFLOW)
+        self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ] && [ "$NIGHTLY" != true ]', WORKFLOW)
+        self.assertIn('[ "$GITHUB_EVENT_NAME" = schedule ] && { [ $((10#$hour)) -lt 4 ]', WORKFLOW)
         self.assertIn("if: needs.changes.outputs.build == 'true'", WORKFLOW)
         self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ]', WORKFLOW)   # a manual run always builds
 

@@ -34,7 +34,8 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
   let suites = [], tag = '';
   if (event === 'push') suites = suitesFor(changed(env.BEFORE, sha) || ['desktop/e2e/suite.mjs'], all, {watches, cadence});
   else if (event === 'workflow_run') {
-    if (env.RUN_CONCLUSION === 'success' && env.RUN_EVENT === 'schedule') {   // only the nightly build: one started by hand is for trying
+    // The nightly build: the schedule's own run, or the one the Worker's cron started on time (named Nightly build, worker/src/scheduler.js). One started by hand is for trying.
+    if (env.RUN_CONCLUSION === 'success' && (env.RUN_EVENT === 'schedule' || /^Nightly build$/.test(env.RUN_TITLE || ''))) {
       // The build made a release of this very commit? (A nightly with nothing new builds nothing, and then there is nothing to verify.)
       for (const {tagName} of json(['release', 'list', '-R', repo, '-L', '5', '--exclude-drafts', '--json', 'tagName'])) {
         let built = '';

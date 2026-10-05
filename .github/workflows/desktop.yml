@@ -1,4 +1,6 @@
 name: Release · Desktop app
+# A build started by the Worker's cron (worker/src/scheduler.js) is the nightly: it is named so, and the e2e gate (plan-run.mjs) treats it like the schedule's own.
+run-name: ${{ inputs.nightly && 'Nightly build' || 'Release · Desktop app' }}
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release: nightly at 04:00 Zurich (only when something that goes into the app changed on main since the last release) or on
@@ -19,6 +21,11 @@ on:
     - cron: '17 4 * * *'
     - cron: '17 5 * * *'
   workflow_dispatch:
+    inputs:
+      nightly:
+        description: 'The nightly build, started on time by the Worker (worker/src/scheduler.js): builds only when the app changed since the last release, and the e2e gate follows. Empty = a build by hand, which always builds'
+        type: boolean
+        default: false
 
 permissions:
   contents: write      # create the release
@@ -46,12 +53,13 @@ jobs:
         id: diff
         env:
           GH_TOKEN: ${{ github.token }}
+          NIGHTLY: ${{ inputs.nightly }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != schedule ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" != schedule ] && [ "$NIGHTLY" != true ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           hour=$(TZ=Europe/Zurich date +%H)
           # 04:00-15:59: GitHub starts scheduled runs late, on 4 Oct 2026 by six hours (07:52 and 09:29 UTC), and the old 04:xx-05:xx guard skipped
           # both, so no build and no beta that day. A late run still builds; the second of the two finds nothing new since the first one's release.
-          if [ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]; then echo "It is $hour:xx in Zurich: outside the nightly window (04:00-15:59): not this schedule's turn."; echo "build=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && { [ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]; }; then echo "It is $hour:xx in Zurich: outside the nightly window (04:00-15:59): not this schedule's turn."; echo "build=false" >> "$GITHUB_OUTPUT"; exit 0; fi
           tag=$(gh release list -L 1 --exclude-drafts --json tagName -q '.[0].tagName' || true)
           sha=$([ -n "$tag" ] && git rev-list -n 1 "$tag" 2>/dev/null || true)
           # The tests of the app (desktop/test, desktop/e2e) are not in the app: a night when only they changed builds nothing.
