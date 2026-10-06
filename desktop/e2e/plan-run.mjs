@@ -4,13 +4,13 @@
 // workflow_run (after the nightly build): every suite, on the build's own commit, and `tag` = the release to promote when all of them pass.
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-import {autoSuites, exploreDecision, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
+import {autoSuites, exploreDecision, runnerOf, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
 import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
-export async function planRun({env, gh = realGh, all, minutes, cadence = {}, watches = {}, varies = []}) {
+export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = []}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
   // TARGET_REF (a manual run of the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
   // inputs (canary, soak), so the run is started on main and told which tag to check out.
@@ -72,7 +72,7 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
     } catch { /* cannot tell: the review runs */ }
   }
   const include = [];
-  for (const suite of suites) include.push({suite, minutes: await minutes(suite)});
+  for (const suite of suites) include.push({suite, minutes: await minutes(suite), os: await os(suite)});
   return {matrix: JSON.stringify({include}), count: String(include.length), ref, tag, review: review ? '1' : '0', why};
 }
 
@@ -80,7 +80,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const {SUITES} = await import('./lib/context.mjs');
   const cadence = {}, watches = {}, varies = [];
   for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); }
-  const out = await planRun({env: process.env, all: SUITES, cadence, watches, varies, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15});
+  const out = await planRun({env: process.env, all: SUITES, cadence, watches, varies, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
+    os: async suite => runnerOf(await import(`./suites/${suite}.mjs`))});
   for (const [key, value] of Object.entries(out)) console.log(`${key}=${value}`);
   const summary = `Suites: ${JSON.parse(out.matrix).include.map(item => item.suite).join(', ') || '(none)'} · commit ${String(out.ref).slice(0, 7)}${out.tag ? ` · promotes ${out.tag} when all pass` : ''} · AI review ${out.review === '1' ? 'on' : 'off'}`;
   console.error(out.why ? `${summary} · ${out.why}` : summary);

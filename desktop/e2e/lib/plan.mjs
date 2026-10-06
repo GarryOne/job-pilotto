@@ -80,3 +80,7 @@ export function noiseTripped(issues, {since = NOISE_SINCE, min = NOISE_MIN, shar
   return {tripped: judged >= min && noise / judged >= share, noise, real, judged};
 }
 export const reviewNeeded = ({files, waiting, known}) => !known || waiting > 0 || files.some(file => /^desktop\/(renderer|e2e)\//.test(file));
+
+// Where a suite runs in CI (6 Oct 2026, the 5-minute e2e): Linux by default (20 runner slots, about twice as fast as a Mac); macOS only for a suite that needs the Mac
+// itself (Keychain, `open` to Chrome and the extension, pixels and fonts), which exports `macos = true` with its reason. The Free plan runs at most 5 macOS jobs at once.
+export const runnerOf = module => (module.macos ? 'macos-latest' : 'ubuntu-latest');

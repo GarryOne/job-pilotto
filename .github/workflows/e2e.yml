@@ -39,8 +39,8 @@ on:
       promote_tag:
         description: 'DRY RUN of the promotion step for this release tag (runs no suite, promotes nothing)'
         required: false
-      linux:
-        description: 'Run the suites on Linux runners (ubuntu-latest, a virtual display) instead of macOS: the spike towards a 5-minute e2e (6 Oct 2026)'
+      all_on_mac:
+        description: 'Run every suite on macOS (as before 6 Oct 2026), to compare with the Linux runners'
         type: boolean
         default: false
       mutant:
@@ -102,7 +102,7 @@ jobs:
     name: ${{ matrix.suite }}
     needs: plan
     if: needs.plan.outputs.count != '0'   # a push that changed no suite, a scheduled run with nothing new, or a night with no build: no suites
-    runs-on: ${{ inputs.linux && 'ubuntu-latest' || 'macos-latest' }}   # the Mac app is the product; Linux (a virtual display, Chromium's basic key store) is the spike towards a 5-minute e2e
+    runs-on: ${{ inputs.all_on_mac && 'macos-latest' || matrix.os || 'macos-latest' }}   # Linux unless the suite needs the Mac (lib/plan.mjs runnerOf); a virtual display there
     timeout-minutes: ${{ matrix.minutes }}
     strategy:
       fail-fast: false      # one suite failing must not hide what the others found

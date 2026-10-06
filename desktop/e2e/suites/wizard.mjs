@@ -3,6 +3,7 @@ import {finish, visit} from '../lib/layout.mjs';
 import {runWizard} from '../lib/wizard.mjs';
 
 export const minutes = 20;
+export const macos = true;   // runs on a macOS runner: the first run: the Keychain holds the keys it saves (lib/plan.mjs runnerOf)
 export const name = 'wizard';
 export const fresh = true;
 export async function run(ctx) {

@@ -14,7 +14,8 @@ if (name === '--list') {
   const named = option('--only');
   const chosen = process.argv.includes('--changed') ? suitesFor((await import('node:fs')).readFileSync(0, 'utf8').split('\n'), all, {watches, cadence}) : named ? suitesNamed(named, all) : autoSuites(all, cadence);
   const include = [];
-  for (const suite of chosen) include.push({suite, minutes: (await import(`./suites/${suite}.mjs`)).minutes || 15});
+  const {runnerOf} = await import('./lib/plan.mjs');
+  for (const suite of chosen) { const module = await import(`./suites/${suite}.mjs`); include.push({suite, minutes: module.minutes || 15, os: runnerOf(module)}); }
   console.log(JSON.stringify({include}));
   process.exit(0);
 }
