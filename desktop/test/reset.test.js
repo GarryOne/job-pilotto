@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {fileURLToPath} from 'node:url';
 import * as reset from '../lib/reset.js';
 import {createStorage} from '../lib/storage.js';
 import {tar} from '../lib/tar.js';
@@ -75,7 +76,7 @@ test('every file the app keeps in its data folder is exported, unless it is left
   // The class, not one case: each top-level name main.js or lib/ reads or writes there. A new file is exported by default; one that must not
   // travel goes in reset.LEFT_OUT and in this list, with its reason.
   const ON_PURPOSE = {'secrets.json': 'sealed for this computer; keys travel as keys.json', bin: 'rebuilt at start'};
-  const here = path.dirname(new URL(import.meta.url).pathname);
+  const here = path.dirname(fileURLToPath(import.meta.url));   // not URL.pathname: '/D:/…' on Windows
   const sources = [path.join(here, '..', 'main.js'), ...fs.readdirSync(path.join(here, '..', 'lib')).filter(f => f.endsWith('.js')).map(f => path.join(here, '..', 'lib', f))];
   const names = new Set();
   const pattern = /(?:storage\.(?:writeText|readText|path)\(|writeJson\(|readJson\(|path\.join\(storage\.dir, )'([^'/]+)'/g;
