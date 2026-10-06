@@ -12,9 +12,11 @@ test('a failed step from a suite that passed on its rerun is a flaky finding; on
   assert.equal(flaky.id, real.id, 'the same issue either way: flaky is a label, not a new finding');
 });
 
-test('the workflow reruns a red suite outside the uploaded artifacts and writes flaky.json only on a pass', () => {
+test('a red suite runs once more: green then passes the job (flaky, labelled), red twice fails it; mutants never retry', () => {
   const yml = fs.readFileSync(new URL('../../../.github/workflows/e2e.yml', import.meta.url), 'utf8');
-  assert.match(yml, /if: failure\(\) && steps\.suite_run\.outcome == 'failure'/);
+  assert.match(yml, /continue-on-error: \$\{\{ !inputs\.mutant \}\}/, 'a red first run is not the verdict');
+  assert.match(yml, /if: steps\.suite_run\.outcome == 'failure' && !inputs\.mutant/);
+  assert.match(yml, /a real failure\." \| tee -a "\$GITHUB_STEP_SUMMARY"\n\s+exit 1/, 'red twice fails the job');
   assert.match(yml, /E2E_ARTIFACTS="\$\{\{ github\.workspace \}\}\/e2e-rerun\//);
   assert.match(yml, /then\n\s+echo '\{"rerun": "passed"\}' > "\$first\/flaky\.json"/);
 });
