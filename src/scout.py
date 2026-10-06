@@ -24,6 +24,8 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
+import threading
 import urllib.parse
 import urllib.request
 
@@ -641,6 +643,16 @@ def write_notion(tracker, candidate, outcome):
         tracker.create_page(EMPLOYERS_DB, props)
 
 
+# The employers are checked in parallel threads: print() writes the text and its newline separately, so two lines could join
+# ("…Hochschule BernScout: checked 6 of 15", 6 Oct 2026). One locked write per line, with its count.
+PROGRESS_LOCK = threading.Lock()
+
+
+def progress_line(text):
+    sys.stdout.write(f'{text}\n')
+    sys.stdout.flush()
+
+
 # ---------- one run ----------
 
 def ai_ideas(db, harvest_sources=None):
@@ -688,8 +700,9 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         try:
             return check_one(candidate)
         finally:
-            done.append(candidate['name'])
-            print(f"Scout: checked {len(done)} of {len(candidates)}: {candidate['name']}")
+            with PROGRESS_LOCK:
+                done.append(candidate['name'])
+                progress_line(f"Scout: checked {len(done)} of {len(candidates)}: {candidate['name']}")
 
     def check_one(candidate):
         if candidate['status'] == 'manual':
