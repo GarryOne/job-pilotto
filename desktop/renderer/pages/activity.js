@@ -3,7 +3,7 @@ import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead} from '../run-status.js';
+import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -124,6 +124,10 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 // One line on what a finished run did.
 export function outcome(run) {
+  const said = outcomeOf(run);
+  return deliveryHead({...run, kind: kindOf(run)}) ? `${capital(said)} · Telegram not sent` : said;
+}
+function outcomeOf(run) {
   const stopped = stoppedHead({...run, kind: kindOf(run)});
   if (stopped) return `Stopped · ${stopped.stopped}`;   // the watchdog stopped it: the box says why and where
   if (run.problem && (kindOf(run) === 'mail' || !run.ok)) return run.problem;   // why it read nothing or did not arrive comes before the counts a Notion row says (#290, #298)
@@ -540,7 +544,11 @@ export function renderActivity(fresh) {
   const warnings = detailWarnings;
   // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
-  const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)}))) || failureHead(run);
+  const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)})
+    || deliveryHead({...run, kind: kindOf(run)}))) || failureHead(run);
+  // A message not delivered comes after the run's results; every other box comes first. Its icon says what it is about.
+  if (head?.delivery) $('activity-phases').after($('activity-warnings')); else $('activity-phases').before($('activity-warnings'));
+  $('activity-warnings').querySelector('.ap-warn-icon').replaceChildren(icon(head?.icon || 'alert'));
   const warnedOnly = !warnings.length && !run?.live && !!run?.warned && !head;
   const limited = limitedJobs(warnings);
   show($('activity-warnings'), warnings.length > 0 || warnedOnly || !!head?.problem);
@@ -564,7 +572,7 @@ export function renderActivity(fresh) {
     $('activity-warnings-fix').dataset.rerun = again ? kindOf(run) : '';
     if (head?.fix?.rerun && !again) show($('activity-warnings-fix'), false);
     show($('activity-warnings-limit'), limited > 0);
-    const grouped = newDetails(groupWarnings(warnings), summary);
+    const grouped = newDetails(groupWarnings(head?.delivery ? warnings.filter(line => !head.lines.includes(line)) : warnings), head?.delivery ? head.hint : summary);
     // One line needs no toggle: it is shown. Two or more fold behind "View N details".
     const single = grouped.length === 1;
     const listShown = single || (grouped.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));

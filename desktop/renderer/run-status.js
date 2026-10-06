@@ -2,7 +2,7 @@
 import {AI_BUSY, isSpendingLimit, runWarningLines} from './run-warnings.js';
 
 // A finished run that worked but said something (its row's Status, or a warning line in its log or report).
-export const runWarned = run => !!run && !run.live && !run.waiting && !!run.ok && !run.off && (!!run.warned || runWarningLines(run).length > 0);
+export const runWarned = run => !!run && !run.live && !run.waiting && !!run.ok && !run.off && (!!run.warned || runWarningLines(run).length > 0 || !!deliveryHead(run));
 
 // The title of the toast when a run ends: a run that worked but warned is not "done" with a green check, the detail pane says "Completed with warnings" (#276).
 export function doneTitle(name, run) {
@@ -49,6 +49,22 @@ export function stoppedHead(run) {
     summary: `The run stopped responding${doing ? ` while ${doing}` : ''}. ${search ? 'The search did not finish: final results are unavailable.' : 'It did not finish.'}`,
     hint: 'Run it again; if it keeps stopping, check your AI key or plan in Settings.', fix: {label: 'Run again', rerun: true}};
 }
+// A run that did its work but whose Telegram message did not arrive (lib/run-result.js deliveryProblem, or the engine's own
+// "Warning: Telegram refused the digest: …"): Completed with warnings, its steps ticked, then this box under them with the paper
+// plane and the way to Telegram settings (the owner's targeted fix #5, 6 Oct 2026: a delivery failure read as a failed search).
+const NOT_DELIVERED = /^not delivered:\s*/i;
+const TELEGRAM_SAID = /Telegram (?:refused the digest|did not accept the digest|could not be reached|is limiting the bot)[^\n]*/;
+export function deliveryHead(run) {
+  if (!run || run.live || run.waiting || !run.ok || run.off) return null;
+  const lines = [...(run.log || []), ...(run.report || [])].map(String).filter(line => TELEGRAM_SAID.test(line));
+  const flagged = NOT_DELIVERED.test(run.problem || '') ? String(run.problem).replace(NOT_DELIVERED, '') : '';
+  if (!lines.length && !flagged) return null;
+  const reason = lines.length ? TELEGRAM_SAID.exec(lines.at(-1))[0] : `${flagged.replace(/^./, c => c.toUpperCase())}.`;
+  const what = run.kind === 'search' || !run.kind ? 'search' : 'run';
+  return {problem: reason, delivery: true, lines, icon: 'send', title: 'Telegram message not delivered',
+    summary: `The ${what} completed, but its Telegram message was not sent.`, hint: reason, fix: {label: 'Open Telegram settings', view: 'settings'}};
+}
+
 export function failureHead(run) {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
   const problem = String(run.problem || '').trim();
@@ -71,7 +87,7 @@ export function failedOutcome(run) {
 // `at` is the index of the last step the log reached; a failed run's steps after it never ran, so they stay 'todo'.
 export function phaseStatus(run, i, at) {
   const live = !!run?.live;
-  if (i === at && !live && runWarned(run)) return 'warn';
+  if (i === at && !live && runWarned(run) && !deliveryHead(run)) return 'warn';   // a message not delivered is not a step that went wrong
   if (i === at && !live && !run?.waiting && (!run?.ok || run?.off)) return 'fail';
   return i < at || (i === at && !live) ? 'done' : i === at ? 'now' : 'todo';
 }
