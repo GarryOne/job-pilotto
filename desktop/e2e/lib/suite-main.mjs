@@ -1,0 +1,75 @@
+// One suite, start to end: open its context, run its steps, leave its artifacts, close; -> {code, skipped}. Called by suite.mjs directly (E2E_REPORT=0) or inside
+// Playwright's test runner (report/suite.spec.mjs), which passes `report` so each step is a step of the Playwright HTML report: {step, skipStep, attach}.
+// It never exits the process: the caller does (a Playwright worker must not be killed from inside).
+import fs from 'node:fs';
+import path from 'node:path';
+
+export async function runSuite(name, report = null) {
+  const {assertNothingQueued, traceFiles} = await import('./app.mjs');
+  const {SUITES, openContext} = await import('./context.mjs');
+  const {writeFindings, writeReplay, writeSuiteFailures} = await import('./artifacts.mjs');
+  const {skipExitCode, skipMessage} = await import('./skip.mjs');
+  if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); return {code: 2}; }
+  const suite = await import(`../suites/${name}.mjs`);
+  let ctx, code = 0;
+  try {
+    // Start-up and close-down are one step each in the report, so its top level is the suite's own steps, not Playwright's calls.
+    const open = () => openContext(name, {engine: suite.engine, fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, budgetMinutes: suite.budgetMinutes || 0, stepNeeds: suite.stepNeeds || {}, releases: !!suite.releases, notionStandIn: !!suite.notionStandIn || process.env.E2E_NOTION_STANDIN === '1', notionTokenOf: suite.notionTokenOf || '', notion: suite.notion !== false, keepGoing: !!suite.keepGoing, variesPlace: !!suite.variesPlace, report});
+    ctx = await (report ? report.step('Start the app and its test services', open) : open());
+    if (ctx.skipAll) {
+      const message = skipMessage(name, ctx.needs.filter(item => !item.value).map(item => item.name));
+      console.log(message);
+      return {code: skipExitCode(), skipped: message};
+    }
+    await suite.run(ctx);
+    if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app
+  } catch (error) {
+    if (!ctx?.runner.results.some(result => result.status === 'failed')) console.log(`✗ the ${name} suite stopped: ${error.message}`);
+    if (ctx) ctx.stopped = error.message;   // the trace is kept (lib/context.mjs)
+    code = 1;
+  } finally {
+    // For the nightly loop, whatever happened: the layout findings so far, and the steps that failed (a suite that stops early used to leave neither).
+    // Errors over the whole suite (lib/journey.mjs): added to its findings, so even a suite without layout checks reports a renderer exception.
+    if (ctx && !ctx.skipAll && !suite.light) {
+      const {journey, journeyFindings} = await import('./journey.mjs');
+      const extra = journeyFindings(journey, {suite: name, expectsFailures: !!suite.env?.JOB_PILOTTO_E2E_EXPECTS_FAILURES});
+      if (extra.length) { ctx.findings = [...(ctx.findings || []), ...extra]; console.log(`  journey: ${extra.map(item => item.detail).join(' | ')}`); }
+      // Accessibility: one finding per axe rule over the suite's pages; a11y.json says what was checked, so the Finder can clear a rule that is gone.
+      if (ctx.a11y?.checked) {
+        const {a11yFindings} = await import('./a11y.mjs');
+        const found = a11yFindings(ctx.a11y);
+        if (found.length) ctx.findings = [...(ctx.findings || []), ...found];
+        fs.writeFileSync(path.join(ctx.ARTIFACTS, 'a11y.json'), JSON.stringify({checked: ctx.a11y.checked, rules: Object.keys(ctx.a11y.rules || {})}, null, 2));
+      }
+    }
+    if (ctx && !ctx.skipAll) {
+      const closeDown = async () => {
+      try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); }
+      try { await writeReplay(ctx, name); } catch (error) { console.log(`  (replay.json not written: ${error.message})`); }
+      await ctx.close();
+      };
+      await (report ? report.step('Close the app, save the artifacts', closeDown) : closeDown()).catch(error => console.log(`  (close-down: ${error.message})`));
+      if (ctx.runner.summary()) code = 1;
+      // The steps and the kept traces as data, for the owner's /admin/e2e page (site/src/e2e.js reads it out of the e2e-view-<suite> artifact).
+      try { fs.writeFileSync(path.join(ctx.ARTIFACTS, 'steps.json'), JSON.stringify({v: 1, suite: name, results: ctx.runner.results, traces: traceFiles()}, null, 1)); } catch (error) { console.log(`  (steps.json not written: ${error.message})`); }
+      // The steps as a table on the run's Summary page (lib/step-summary.mjs), after the close so the kept trace is named.
+      if (process.env.GITHUB_STEP_SUMMARY) {
+        try {
+          const {stepSummary} = await import('./step-summary.mjs');
+          const windows = process.platform === 'win32', env = process.env;
+          fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `${stepSummary(name, ctx.runner.results, {traces: traceFiles(), os: windows ? 'Windows' : '', rerun: env.E2E_RERUN === '1',
+            artifact: `e2e-artifacts-${windows ? 'windows-' : ''}${name}`, reportUrl: env.GITHUB_RUN_ID && env.E2E_REPORT !== '0' ? `https://www.jobpilotto.workers.dev/admin/e2e/run/${env.GITHUB_RUN_ID}/report?suite=${name}` : '', runUrl: env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : ''})}\n`);
+        } catch (error) { console.log(`  (step summary not written: ${error.message})`); }
+      }
+      // The HTML report: the trace (the report opens it in Playwright's viewer) and the app's logs, on the suite's test.
+      if (report) {
+        for (const file of traceFiles()) await report.attach('trace', {path: path.join(ctx.ARTIFACTS, file), contentType: 'application/zip'}).catch(() => {});
+        for (const log of ['app.log', 'engine.log']) {
+          const file = path.join(ctx.ARTIFACTS, 'logs', log);
+          if (fs.existsSync(file)) await report.attach(log, {path: file, contentType: 'text/plain'}).catch(() => {});
+        }
+      }
+    }
+  }
+  return {code, failed: (ctx?.runner?.results || []).filter(result => result.status === 'failed').map(result => `✗ ${result.name}: ${String(result.note || '').slice(0, 400)}`), stopped: ctx?.stopped || ''};
+}

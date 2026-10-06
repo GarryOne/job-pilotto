@@ -31,59 +31,14 @@ process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite write
     process.exit(1);
   }, stopAt).unref();
 }
-const {assertNothingQueued} = await import('./lib/app.mjs');
-const {SUITES, openContext} = await import('./lib/context.mjs');
-const {writeFindings, writeReplay, writeSuiteFailures} = await import('./lib/artifacts.mjs');
-const {skipExitCode, skipMessage} = await import('./lib/skip.mjs');
-if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); process.exit(2); }
-const suite = await import(`./suites/${name}.mjs`);
-let ctx;
-try {
-  ctx = await openContext(name, {engine: suite.engine, fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, budgetMinutes: suite.budgetMinutes || 0, stepNeeds: suite.stepNeeds || {}, releases: !!suite.releases, notionStandIn: !!suite.notionStandIn || process.env.E2E_NOTION_STANDIN === '1', notionTokenOf: suite.notionTokenOf || '', notion: suite.notion !== false, keepGoing: !!suite.keepGoing, variesPlace: !!suite.variesPlace});
-  if (ctx.skipAll) {
-    console.log(skipMessage(name, ctx.needs.filter(item => !item.value).map(item => item.name)));
-    process.exit(skipExitCode());
-  }
-  await suite.run(ctx);
-  if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app
-} catch (error) {
-  if (!ctx?.runner.results.some(result => result.status === 'failed')) console.log(`✗ the ${name} suite stopped: ${error.message}`);
-  process.exitCode = 1;
-} finally {
-  // For the nightly loop, whatever happened: the layout findings so far, and the steps that failed (a suite that stops early used to leave neither).
-  // Errors over the whole suite (lib/journey.mjs): added to its findings, so even a suite without layout checks reports a renderer exception.
-  if (ctx && !ctx.skipAll && !suite.light) {
-    const {journey, journeyFindings} = await import('./lib/journey.mjs');
-    const extra = journeyFindings(journey, {suite: name, expectsFailures: !!suite.env?.JOB_PILOTTO_E2E_EXPECTS_FAILURES});
-    if (extra.length) { ctx.findings = [...(ctx.findings || []), ...extra]; console.log(`  journey: ${extra.map(item => item.detail).join(' | ')}`); }
-    // Accessibility: one finding per axe rule over the suite's pages; a11y.json says what was checked, so the Finder can clear a rule that is gone.
-    if (ctx.a11y?.checked) {
-      const {a11yFindings} = await import('./lib/a11y.mjs');
-      const found = a11yFindings(ctx.a11y);
-      if (found.length) ctx.findings = [...(ctx.findings || []), ...found];
-      (await import('node:fs')).writeFileSync((await import('node:path')).join(ctx.ARTIFACTS, 'a11y.json'), JSON.stringify({checked: ctx.a11y.checked, rules: Object.keys(ctx.a11y.rules || {})}, null, 2));
-    }
-  }
-  if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
-  if (ctx && !ctx.skipAll) { try { await writeReplay(ctx, name); } catch (error) { console.log(`  (replay.json not written: ${error.message})`); } }
-  if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }
-  // The steps and the kept traces as data, for the owner's /admin/e2e page (site/src/e2e.js reads it out of the e2e-view-<suite> artifact).
-  if (ctx && !ctx.skipAll) {
-    try {
-      const {traceFiles} = await import('./lib/app.mjs');
-      (await import('node:fs')).writeFileSync((await import('node:path')).join(ctx.ARTIFACTS, 'steps.json'), JSON.stringify({v: 1, suite: name, results: ctx.runner.results, traces: traceFiles()}, null, 1));
-    } catch (error) { console.log(`  (steps.json not written: ${error.message})`); }
-  }
-  // The steps as a table on the run's Summary page (lib/step-summary.mjs), after the close so the kept trace is named.
-  if (ctx && !ctx.skipAll && process.env.GITHUB_STEP_SUMMARY) {
-    try {
-      const {stepSummary} = await import('./lib/step-summary.mjs');
-      const {traceFiles} = await import('./lib/app.mjs');
-      const windows = process.platform === 'win32', env = process.env;
-      (await import('node:fs')).appendFileSync(env.GITHUB_STEP_SUMMARY, `${stepSummary(name, ctx.runner.results, {traces: traceFiles(), os: windows ? 'Windows' : '', rerun: env.E2E_RERUN === '1',
-        artifact: `e2e-artifacts-${windows ? 'windows-' : ''}${name}`, runUrl: env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : ''})}\n`);
-    } catch (error) { console.log(`  (step summary not written: ${error.message})`); }
-  }
-  // The app and Playwright can leave handles open: exit explicitly, never hang a CI job.
-  process.exit(process.exitCode || 0);
+// The Playwright HTML report (6 Oct 2026, owner: the GitHub logs and our own page did not help to debug): the suite runs inside Playwright's test runner
+// (lib/report.mjs, report/suite.spec.mjs), each step a step of the report with a screenshot, the trace and the logs attached; the exit code is the suite's own,
+// so run-all.mjs and the workflows are unchanged. E2E_REPORT=0 runs it directly, as before.
+if (process.env.E2E_REPORT !== '0' && !process.env.E2E_IN_REPORT) {
+  const {runInReport} = await import('./lib/report.mjs');
+  process.exit(await runInReport(name));
 }
+const {runSuite} = await import('./lib/suite-main.mjs');
+const {code} = await runSuite(name);
+// The app and Playwright can leave handles open: exit explicitly, never hang a CI job.
+process.exit(code);

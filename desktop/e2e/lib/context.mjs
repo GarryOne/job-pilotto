@@ -35,14 +35,14 @@ export function notionToken(suite) {
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
 // engine: a suite whose steps the AI proxy answers pins 'api' (a placeholder key on a Mac); otherwise a Mac uses Claude Code, CI the API key (lib/engine.mjs).
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}, report = null} = {}) {
   // A suite on the in-memory Notion (`export const notionStandIn = true`): fresh and private for this run, no token, no shared page (lib/notion-fake.mjs).
   const standIn = notionStandIn && !light ? await startNotionFake() : null;
   if (standIn) useNotionAt(standIn.url);
   const key = KEY(), token = light ? '' : standIn ? 'stand-in' : notionToken(notionTokenOf || suite);
   const engine = pickEngine({suiteEngine});
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
-  const runner = createRunner(() => session, {keepGoing, stepNeeds, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
+  const runner = createRunner(() => session, {keepGoing, stepNeeds, report, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
   if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
   const ctx = {suite, key, token, runner, standIn, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
@@ -91,8 +91,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   ctx.place = variesPlace ? placeOf() : null;
   if (ctx.place) { Object.assign(env, {TZ: ctx.place.zone, JOB_PILOTTO_TZ: ctx.place.zone, LANG: `${ctx.place.locale.replace('-', '_')}.UTF-8`}); console.log(`  place: ${ctx.place.zone}, ${ctx.place.locale}`); }
   adopt(await launch({env, lang: ctx.place?.locale || ''}));
-  // The app's trace is kept when the suite failed so far: a failed step, or an error outside the steps (suite.mjs sets the exit code first).
-  const failed = () => !!process.exitCode || runner.results.some(result => result.status === 'failed');
+  // The app's trace is kept when the suite failed so far: a failed step, or an error outside the steps (lib/suite-main.mjs sets ctx.stopped first).
+  const failed = () => !!ctx.stopped || runner.results.some(result => result.status === 'failed');
   ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); if (ctx.standIn) { try { fs.writeFileSync(path.join(ARTIFACTS, 'notion-standin.json'), JSON.stringify(ctx.standIn.dump(), null, 1)); } catch {} await ctx.standIn.close(); } await ctx.forms?.close(); };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
   ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close({keepTrace: failed()}); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile, lang: ctx.place?.locale || ''})); };

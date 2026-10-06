@@ -135,6 +135,7 @@ jobs:
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
+      E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
       JOB_PILOTTO_E2E_EXPECTS_FAILURES: ${{ inputs.mutant && '1' || '' }}   # a mutant run breaks the app on purpose: its crash reports are tagged expected, so the Sentry loop ignores them
       E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
       E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant && !inputs.scheduled)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
@@ -242,6 +243,14 @@ jobs:
         with:
           path: desktop/e2e/.review-cache
           key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: The suite's part of the HTML report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: blob-${{ matrix.suite }}
+          path: blob-report
+          if-no-files-found: ignore
+          retention-days: 3
       # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
       - name: Steps and trace for /admin/e2e
         if: always()
@@ -260,6 +269,44 @@ jobs:
           name: e2e-artifacts-${{ matrix.suite }}
           path: e2e-artifacts/${{ matrix.suite }}
           if-no-files-found: ignore
+
+  # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
+  # (uncompressed: the owner's site serves its files straight from the artifact, site/src/e2e.js) and linked on the run's Summary page.
+  report:
+    name: HTML report
+    needs: [plan, suite]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: desktop/e2e
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: blob-*
+          path: blob-reports
+          merge-multiple: true
+      - name: Merge the suites into one HTML report
+        id: merge
+        working-directory: desktop/e2e
+        run: |
+          if ! ls "$GITHUB_WORKSPACE"/blob-reports/*.zip > /dev/null 2>&1; then echo "No suite wrote a report (a build older than the HTML report): none for this run." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          npm ci || npm install
+          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports --reporter html "$GITHUB_WORKSPACE/blob-reports"
+          echo "made=1" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        if: steps.merge.outputs.made == '1'
+        with:
+          name: e2e-report
+          path: e2e-report
+          compression-level: 0
+      - name: The link on the run's Summary page
+        if: steps.merge.outputs.made == '1'
+        run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
   # The release gate. Only after the nightly build: every suite passed on the build's commit, and so did build.yml.
   promote:

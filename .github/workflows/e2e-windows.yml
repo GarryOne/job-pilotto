@@ -110,6 +110,7 @@ jobs:
       E2E_FULL: ${{ inputs.full }}   # the paid AI judge steps, as on the Mac run it follows (a nightly gate or a run by hand)
       E2E_SEED: ${{ inputs.fixed && '0' || inputs.mac_run || github.run_id }}   # after a Mac run: the Mac's own seed, the same path on both   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
+      E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
     steps:
       - uses: actions/checkout@v5
         with:
@@ -168,6 +169,14 @@ jobs:
         with:
           path: desktop/e2e/.review-cache
           key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: The suite's part of the HTML report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: blob-windows-${{ matrix.suite }}
+          path: blob-report
+          if-no-files-found: ignore
+          retention-days: 3
       # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
       - name: Steps and trace for /admin/e2e
         if: always()
@@ -186,6 +195,44 @@ jobs:
           name: e2e-artifacts-windows-${{ matrix.suite }}
           path: e2e-artifacts-windows/${{ matrix.suite }}
           if-no-files-found: ignore
+
+  # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
+  # (uncompressed: the owner's site serves its files straight from the artifact, site/src/e2e.js) and linked on the run's Summary page.
+  report:
+    name: Windows HTML report
+    needs: [plan, suite]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: desktop/e2e
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: blob-*
+          path: blob-reports
+          merge-multiple: true
+      - name: Merge the suites into one HTML report
+        id: merge
+        working-directory: desktop/e2e
+        run: |
+          if ! ls "$GITHUB_WORKSPACE"/blob-reports/*.zip > /dev/null 2>&1; then echo "No suite wrote a report (a build older than the HTML report): none for this run." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          npm ci || npm install
+          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports --reporter html "$GITHUB_WORKSPACE/blob-reports"
+          echo "made=1" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        if: steps.merge.outputs.made == '1'
+        with:
+          name: e2e-report
+          path: e2e-report
+          compression-level: 0
+      - name: The link on the run's Summary page
+        if: steps.merge.outputs.made == '1'
+        run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
   # Windows beta approval (owner, 6 Oct 2026): every Windows suite green on a release gate's build adds "Beta-approved (Windows):" to that release. A Windows
   # app takes a beta only with it AND the Mac/Linux line (desktop/lib/updater.js approvedFor): one release, one version; Mac users never wait for Windows.

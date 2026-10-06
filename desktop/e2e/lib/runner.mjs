@@ -1,4 +1,5 @@
 // Runs a suite's steps: names, timings, a screenshot on the first failure, a summary, an exit code. Steps that need a secret that is not there are skipped, loudly.
+import path from 'node:path';
 import {ARTIFACTS} from './app.mjs';
 import {isEnvironment, RETRY_WAIT_MS} from './environment.mjs';
 import {faultCheck, NEVER_FIRED, neverFiredNote} from './faults.mjs';
@@ -46,7 +47,9 @@ export const slowest = (results, count = 5) => results.filter(result => result.s
 export const shotName = name => `failed-${name.replace(/\W+/g, '-').slice(0, 60)}`;
 
 // faultTally: () => the fakes' {armed, failed} counters (lib/faults.mjs), to check that a step's fault fired.
-export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS, stepNeeds = {}, faultTally = null} = {}) {
+// report (the Playwright HTML report, lib/suite-main.mjs): each step runs as a Playwright step, with a screenshot of the window when it ends (the failure's, if it failed).
+const pictureOf = async session => (session?.page ? Promise.race([session.page.screenshot().catch(() => null), new Promise(done => setTimeout(() => done(null), 10000))]) : null);
+export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS, stepNeeds = {}, faultTally = null, report = null} = {}) {
   const results = [], suiteStarted = Date.now();
   let overBudget = false;
   async function run(name, rawFn, {needs = [], faults = false, critical = false, limitMs = STEP_LIMIT_MS} = {}) {
@@ -55,6 +58,7 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
       if (!overBudget) console.log(`✗ the suite is over its ${Math.round(budgetMs / 60000)}-minute budget; slowest steps: ${slowest(results).join('; ')}`);
       overBudget = true;
       results.push({name, status: 'failed', note: `not run: the suite was over its ${Math.round(budgetMs / 60000)}-minute budget`, budget: true});
+      await report?.skipStep(`${name} (not run: over the suite's budget)`).catch(() => {});
       return;
     }
     const fn = () => withLimit(Promise.resolve().then(rawFn), Math.min(limitMs, left), name, getSession, left < limitMs ? budgetMs : 0);   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
@@ -62,26 +66,36 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
     const only = wantedWords((process.env.E2E_STEPS || '').split(',').map(word => word.trim()).filter(Boolean), stepNeeds);
     if (only.length && !critical && !only.some(word => name.toLowerCase().includes(word))) return;
     const missing = needs.filter(item => !item.value);
-    if (missing.length) { results.push({name, status: 'skipped'}); console.log(`- ${name}: skipped (needs ${missing.map(item => item.name).join(', ')})`); return; }
+    if (missing.length) { results.push({name, status: 'skipped'}); console.log(`- ${name}: skipped (needs ${missing.map(item => item.name).join(', ')})`); await report?.skipStep(name).catch(() => {}); return; }
     const started = Date.now(), before = faultTally?.();
     const unfired = () => faultCheck(before, faultTally?.(), {faults});
     let retried = '';
-    await getSession()?.traceGroup?.(name);   // the step's actions sit under its name in the trace (lib/app.mjs)
-    try {
-      try { await fn(); } catch (error) {
-        // The environment answered badly (an HTML error page, a dropped connection): one more try before it counts (#266).
-        if (faults || !isEnvironment(error.message)) throw error;
-        retried = String(error.message).slice(0, 200);
-        console.log(`↻ ${name}: the environment failed (${retried.slice(0, 120)}), trying once more`);
-        await new Promise(done => setTimeout(done, RETRY_WAIT_MS));
-        await fn();
+    const attempt = async () => {
+      await getSession()?.traceGroup?.(name);   // the step's actions sit under its name in the trace (lib/app.mjs), and in the report's step
+      try {
+        try { await fn(); } catch (error) {
+          // The environment answered badly (an HTML error page, a dropped connection): one more try before it counts (#266).
+          if (faults || !isEnvironment(error.message)) throw error;
+          retried = String(error.message).slice(0, 200);
+          console.log(`↻ ${name}: the environment failed (${retried.slice(0, 120)}), trying once more`);
+          await new Promise(done => setTimeout(done, RETRY_WAIT_MS));
+          await fn();
+        }
+      } catch (error) {
+        await getSession()?.shot(shotName(name));   // inside the step, so the report shows it there
+        if (report) await report.attach('screenshot (failed)', {path: path.join(ARTIFACTS, `${shotName(name)}.png`), contentType: 'image/png'}).catch(() => {});
+        throw error;
       }
+      const picture = report && await pictureOf(getSession());
+      if (picture) await report.attach('screenshot', {body: picture, contentType: 'image/png'}).catch(() => {});
+    };
+    try {
+      await (report ? report.step(name, attempt) : attempt());
       const seconds = ((Date.now() - started) / 1000).toFixed(1);
       const vacuous = unfired();
       results.push({name, status: 'passed', seconds, ...(retried ? {retried} : {}), ...(vacuous ? {faultNeverFired: true} : {})});
       console.log(`✓ ${name} (${seconds}s)${retried ? ' after one retry' : ''}${vacuous ? ` ⚠ passed, but ${NEVER_FIRED}: it may test nothing` : ''}`);
     } catch (error) {
-      await getSession()?.shot(shotName(name));
       await getSession()?.keepLogs();   // the app's and the engine's own logs: a screenshot says "nothing new", the log says why
       const note = unfired() ? `${error.message} ${neverFiredNote}` : error.message;
       results.push({name, status: 'failed', note, ...(!faults && isEnvironment(error.message) ? {environment: true} : {}), ...(note !== error.message ? {faultNeverFired: true} : {})});

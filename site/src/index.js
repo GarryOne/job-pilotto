@@ -11,7 +11,7 @@ import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
 import {digestView, view as formLearningView} from './formlearning.js';
 import {adminPage, redirectOld} from './admin.js';
-import {view as e2eView} from './e2e.js';
+import {reportFile as e2eReportFile, view as e2eView} from './e2e.js';
 import {view as overviewView} from './overview.js';
 import {view as accessView} from './access.js';
 import {join, viewer} from './auth.js';
@@ -86,6 +86,8 @@ export default {
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
       '/admin/access': accessView, '/admin/e2e': e2eView}[pathname];   // access: the super admin's only (src/access.js)
     if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
+    if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
+    if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
     if (pathname === '/admin/join') return join(request, env);   // an invite link, opened once
     if (pathname === '/admin/form-filling/digest.json' || pathname === '/admin/form-filling/digest.md') return digestView(request, env);
     if (admin) {
