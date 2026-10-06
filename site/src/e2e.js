@@ -1,0 +1,175 @@
+// /admin/e2e: the end-to-end runs, read live from GitHub (owner, 6 Oct 2026: "I don't want to run npx playwright show-trace every time"). Every run of e2e.yml and
+// e2e-windows.yml with its suites (running, passed, failed), each suite's steps, and a failed suite's Playwright trace opened in the viewer this site serves
+// (public/trace-viewer/, Playwright's own). Nothing is stored here: the data is the run's `e2e-view-<suite>` artifact (steps.json + trace-*.zip, uploaded
+// uncompressed by the workflows), kept by GitHub for its retention. Admins only (src/auth.js viewer); the GitHub token is the site's GITHUB_TOKEN.
+import {viewer} from './auth.js';
+import {remember} from './stats.js';
+
+const WORKFLOWS = [{file: 'e2e.yml', os: ''}, {file: 'e2e-windows.yml', os: 'Windows'}];
+const NOT_SUITES = new Set(['plan', 'promote', 'promote-dry-run', 'Windows follows']);
+const RUNS = 10;
+
+const github = (env, path, fetcher, extra = {}) => fetcher(`https://api.github.com/repos/${env.GITHUB_REPO}${path}`, {...extra, headers: {
+  Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'job-pilotto-site', 'X-GitHub-Api-Version': '2022-11-28'}});
+async function json(env, path, fetcher) {
+  const response = await github(env, path, fetcher);
+  if (!response.ok) throw new Error(`GitHub ${path.split('?')[0]}: ${response.status}`);
+  return response.json();
+}
+const seconds = (from, to) => (from && to ? Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 1000)) : null);
+
+// A suite's job -> its row; its view artifact (steps.json, traces) is named after the suite: e2e-view-<suite> or e2e-view-windows-<suite>.
+export function suiteRows(jobs = [], artifacts = [], os = '') {
+  const views = new Map(artifacts.filter(item => !item.expired).map(item => [item.name, item.id]));
+  return jobs.filter(job => !NOT_SUITES.has(job.name)).map(job => {
+    const name = job.name.replace(/ \(Windows\)$/, '');
+    return {name, status: job.status, conclusion: job.conclusion, seconds: seconds(job.started_at, job.completed_at), url: job.html_url,
+      view: views.get(`e2e-view-${os ? 'windows-' : ''}${name}`) || null};
+  }).sort((a, b) => (b.conclusion === 'failure') - (a.conclusion === 'failure') || a.name.localeCompare(b.name));   // failed first
+}
+
+// The last runs of both workflows, newest first, each with its suites.
+export async function recentRuns(env, fetcher = fetch) {
+  const lists = await Promise.all(WORKFLOWS.map(async ({file, os}) => ((await json(env, `/actions/workflows/${file}/runs?per_page=${RUNS}`, fetcher)).workflow_runs || []).map(run => ({run, os}))));
+  const runs = lists.flat().sort((a, b) => Date.parse(b.run.created_at) - Date.parse(a.run.created_at)).slice(0, RUNS);
+  return Promise.all(runs.map(async ({run, os}) => {
+    const [jobs, artifacts] = await Promise.all([json(env, `/actions/runs/${run.id}/jobs?per_page=100`, fetcher), json(env, `/actions/runs/${run.id}/artifacts?per_page=100`, fetcher)]);
+    return {id: run.id, title: run.display_title, os, event: run.event, sha: (run.head_sha || '').slice(0, 7), status: run.status, conclusion: run.conclusion,
+      created: run.created_at, url: run.html_url, suites: suiteRows(jobs.jobs, artifacts.artifacts, os)};
+  }));
+}
+
+// The files inside a zip (GitHub's artifact download), from its central directory: name -> {method, compressedSize, offset}. Stored (0) and deflated (8) entries.
+export function zipEntries(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let end = -1;
+  for (let at = bytes.length - 22; at >= Math.max(0, bytes.length - 65557); at--) if (view.getUint32(at, true) === 0x06054b50) { end = at; break; }
+  if (end < 0) throw new Error('not a zip');
+  const entries = new Map();
+  let at = view.getUint32(end + 16, true);
+  for (let count = view.getUint16(end + 10, true); count > 0 && view.getUint32(at, true) === 0x02014b50; count--) {
+    const nameLength = view.getUint16(at + 28, true), extraLength = view.getUint16(at + 30, true), commentLength = view.getUint16(at + 32, true);
+    const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
+    entries.set(name, {method: view.getUint16(at + 10, true), compressedSize: view.getUint32(at + 20, true), offset: view.getUint32(at + 42, true)});
+    at += 46 + nameLength + extraLength + commentLength;
+  }
+  return entries;
+}
+// One file's bytes as a stream (inflated when it was deflated).
+export function zipFile(bytes, entry) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const start = entry.offset + 30 + view.getUint16(entry.offset + 26, true) + view.getUint16(entry.offset + 28, true);
+  const data = bytes.subarray(start, start + entry.compressedSize);
+  if (entry.method === 0) return new Blob([data]).stream();
+  if (entry.method === 8) return new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  throw new Error(`zip method ${entry.method}`);
+}
+
+// An artifact of this repo, downloaded. GitHub answers with a redirect to a signed storage address, followed here without the token (it is GitHub's only).
+async function artifact(env, id, fetcher) {
+  let response = await github(env, `/actions/artifacts/${id}/zip`, fetcher, {redirect: 'manual'});
+  const location = response.status >= 300 && response.status < 400 && response.headers.get('Location');
+  if (location) response = await fetcher(location);
+  if (!response.ok) throw new Error(`GitHub artifact ${id}: ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+// GET /admin/e2e (the page), ?json=1 (the runs), ?steps=<artifact> (a suite's steps.json), /admin/e2e/trace/<artifact>/<trace-file>.zip (for the viewer).
+export async function view(request, env, fetcher = fetch) {
+  if (!await viewer(request, env)) return new Response('Not found', {status: 404});
+  const url = new URL(request.url);
+  if (url.searchParams.has('key')) return remember(url, env, request);
+  const noStore = {'Cache-Control': 'no-store'};
+  const data = url.pathname !== '/admin/e2e' || url.searchParams.has('json') || url.searchParams.has('steps');
+  if (data && !env.GITHUB_TOKEN) return Response.json({error: 'GITHUB_TOKEN is not set on the site'}, {status: 503, headers: noStore});   // the page itself still opens and says so
+  try {
+    const trace = url.pathname.match(/^\/admin\/e2e\/trace\/(\d+)\/(trace-[\w.-]+\.zip)$/);
+    if (trace) {
+      const bytes = await artifact(env, trace[1], fetcher), entry = zipEntries(bytes).get(trace[2]);
+      if (!entry) return new Response('No such trace in this artifact', {status: 404});
+      return new Response(zipFile(bytes, entry), {headers: {'Content-Type': 'application/zip', 'Cache-Control': 'private, max-age=86400'}});   // an artifact never changes
+    }
+    if (url.pathname !== '/admin/e2e') return new Response('Not found', {status: 404});
+    const steps = url.searchParams.get('steps');
+    if (steps) {
+      if (!/^\d+$/.test(steps)) return new Response('Not found', {status: 404});
+      const bytes = await artifact(env, steps, fetcher), entry = zipEntries(bytes).get('steps.json');
+      if (!entry) return Response.json({results: [], traces: [], note: 'this run predates steps.json'}, {headers: noStore});
+      return new Response(zipFile(bytes, entry), {headers: {'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=86400'}});
+    }
+    if (url.searchParams.has('json')) return Response.json({runs: await recentRuns(env, fetcher), now: new Date().toISOString()}, {headers: noStore});
+  } catch (error) {
+    console.log('e2e page', error.message);
+    return Response.json({error: error.message}, {status: 502, headers: noStore});
+  }
+  return new Response(PAGE, {headers: {'Content-Type': 'text/html; charset=utf-8', ...noStore}});
+}
+
+const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>E2E runs · Admin</title><link rel="icon" href="/favicon-32.png">
+<style>
+:root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--green:#5ec47a;--red:#e5484d}
+*{box-sizing:border-box}.live{font-size:13px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--muted);margin-right:6px}
+.live.on .dot{background:var(--green);animation:pulse 2s infinite}@keyframes pulse{50%{opacity:.35}}
+.card{padding:14px 16px;margin-bottom:12px}.run-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.run-head b{flex:1;min-width:200px}
+.meta{font-size:12px;color:var(--muted)}details{border-top:1px solid var(--line);padding:6px 0}details:first-of-type{margin-top:10px}
+summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;list-style:none}summary::-webkit-details-marker{display:none}
+summary .name{flex:1}td,th{padding:5px 8px 5px 0;vertical-align:top;font-size:13px}td.what{overflow-wrap:anywhere}
+.steps{margin:8px 0 4px 22px}.button{display:inline-block;margin:6px 8px 0 0;padding:6px 12px;border-radius:999px;background:var(--amber);color:#0b0d10;font-weight:600;text-decoration:none;font-size:13px}
+.failed{color:var(--red)}
+</style></head><body><main>
+<header><h1>🧪 E2E runs</h1><span class="live" id="live"><span class="dot"></span><span id="state">connecting…</span></span></header>
+<p class="muted">The last runs of the end-to-end suites, live from GitHub. Open a suite for its steps; a failed suite has its trace: every action, the page before and after, console and network.</p>
+<div id="list"><p class="muted">Loading…</p></div>
+<script>
+const list = document.getElementById('list'), state = document.getElementById('state'), live = document.getElementById('live');
+const el = (tag, props = {}, ...kids) => { const node = Object.assign(document.createElement(tag), props); node.append(...kids); return node; };
+const icon = item => item.status !== 'completed' ? (item.status === 'in_progress' ? '⏳' : '🕒') : ({success: '✅', failure: '❌', cancelled: '⏹️', skipped: '⏭️'}[item.conclusion] || '⚪');
+const ago = at => { const m = Math.round((Date.now() - Date.parse(at)) / 60000); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+const time = s => s == null ? '' : s < 60 ? s + ' s' : Math.floor(s / 60) + ' min ' + (s % 60) + ' s';
+const opened = new Map(), loaded = new Map();
+async function steps(id, box) {
+  if (!loaded.has(id)) loaded.set(id, fetch('?steps=' + id).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status))));
+  try {
+    const data = await loaded.get(id);
+    const rows = (data.results || []).map(r => el('tr', {}, el('td', {textContent: {passed: '✅', failed: '❌', skipped: '⏭️'}[r.status] || ''}), el('td', {textContent: r.name}),
+      el('td', {textContent: r.seconds ? Math.round(r.seconds) + ' s' : ''}), el('td', {className: 'what' + (r.status === 'failed' ? ' failed' : ''), textContent: r.note || (r.retried ? 'passed after one retry' : '')})));
+    const traces = (data.traces || []).map(file => el('a', {className: 'button', target: '_blank', textContent: '▶ Open trace' + (data.traces.length > 1 ? ' (' + file + ')' : ''),
+      href: '/trace-viewer/index.html?trace=' + encodeURIComponent(location.origin + '/admin/e2e/trace/' + id + '/' + file)}));
+    box.replaceChildren(rows.length ? el('table', {}, el('tr', {}, el('th', {textContent: ''}), el('th', {textContent: 'Step'}), el('th', {textContent: 'Time'}), el('th', {textContent: 'What happened'})), ...rows)
+      : el('p', {className: 'muted', textContent: data.note || 'No step ran.'}), ...traces);
+  } catch (error) { loaded.delete(id); box.textContent = 'Could not read the steps (' + error.message + ').'; }
+}
+function suite(run, s) {
+  const key = run.id + '/' + s.name, box = el('div', {className: 'steps'});
+  const details = el('details', {}, el('summary', {}, el('span', {textContent: icon(s)}), el('span', {className: 'name', textContent: s.name}),
+    el('span', {className: 'meta', textContent: time(s.seconds)}), el('a', {href: s.url, target: '_blank', className: 'meta', textContent: 'log'})), box);
+  if (!s.view) box.append(el('p', {className: 'muted', textContent: s.status === 'completed' ? 'No steps file for this suite (an older run, or it stopped before writing one).' : 'Running: its steps appear when it ends.'}));
+  details.open = opened.get(key) ?? s.conclusion === 'failure';   // a failed suite opens by itself; what you opened or closed stays so across refreshes
+  details.addEventListener('toggle', () => { opened.set(key, details.open); if (details.open && s.view) steps(s.view, box); });
+  if (details.open && s.view) steps(s.view, box);
+  return details;
+}
+function card(run) {
+  const failed = run.suites.filter(s => s.conclusion === 'failure').length;
+  return el('div', {className: 'card'}, el('div', {className: 'run-head'}, el('span', {textContent: icon(run)}), el('b', {textContent: run.title + (run.os ? ' · ' + run.os : '')}),
+    el('span', {className: 'meta', textContent: run.suites.length + ' suites' + (failed ? ', ' + failed + ' failed' : '') + ' · ' + run.event + ' · ' + run.sha + ' · ' + ago(run.created)}),
+    el('a', {href: run.url, target: '_blank', className: 'meta', textContent: 'GitHub'})), ...run.suites.map(s => suite(run, s)));
+}
+let timer;
+async function refresh() {
+  clearTimeout(timer);
+  let running = false;
+  try {
+    const response = await fetch('?json=1', {cache: 'no-store'});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || response.status);
+    running = data.runs.some(run => run.status !== 'completed');
+    list.replaceChildren(...(data.runs.length ? data.runs.map(card) : [el('p', {className: 'muted', textContent: 'No end-to-end runs yet.'})]));
+    state.textContent = (running ? 'live · a run is in progress' : 'up to date') + ' · ' + new Date().toLocaleTimeString();
+    live.classList.toggle('on', running);
+  } catch (error) { state.textContent = 'GitHub did not answer (' + error.message + '), retrying…'; live.classList.remove('on'); }
+  timer = setTimeout(refresh, running ? 30000 : 120000);   // every 30 s while a run is going, else every 2 min
+}
+refresh();
+</script></main></body></html>`;

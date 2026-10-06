@@ -13,6 +13,7 @@ export const PAGES = [
   {path: '/admin/ai-cost', old: '/ai-cost', name: 'AI cost', icon: '💸'},
   {path: '/admin/form-filling', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
   {path: '/admin/feedback', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/e2e', name: 'E2E runs', icon: '🧪'},
   {path: '/admin/access', name: 'Access', icon: '🔐', superadmin: true},
 ];
 const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.old, page.path]));

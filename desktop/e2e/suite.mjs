@@ -67,6 +67,13 @@ try {
   if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { try { await writeReplay(ctx, name); } catch (error) { console.log(`  (replay.json not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }
+  // The steps and the kept traces as data, for the owner's /admin/e2e page (site/src/e2e.js reads it out of the e2e-view-<suite> artifact).
+  if (ctx && !ctx.skipAll) {
+    try {
+      const {traceFiles} = await import('./lib/app.mjs');
+      (await import('node:fs')).writeFileSync((await import('node:path')).join(ctx.ARTIFACTS, 'steps.json'), JSON.stringify({v: 1, suite: name, results: ctx.runner.results, traces: traceFiles()}, null, 1));
+    } catch (error) { console.log(`  (steps.json not written: ${error.message})`); }
+  }
   // The steps as a table on the run's Summary page (lib/step-summary.mjs), after the close so the kept trace is named.
   if (ctx && !ctx.skipAll && process.env.GITHUB_STEP_SUMMARY) {
     try {

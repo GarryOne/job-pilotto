@@ -238,6 +238,17 @@ jobs:
         with:
           path: desktop/e2e/.review-cache
           key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
+      - name: Steps and trace for /admin/e2e
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-view-${{ matrix.suite }}
+          path: |
+            e2e-artifacts/${{ matrix.suite }}/steps.json
+            e2e-artifacts/${{ matrix.suite }}/trace-*.zip
+          compression-level: 0
+          if-no-files-found: ignore
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v6
