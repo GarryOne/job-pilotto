@@ -2,7 +2,7 @@
 //   E2E_ANTHROPIC_KEY=… node review-ui.mjs        (about half a cent a page on Sonnet through the Batch API; the app itself runs on Haiku)
 // A request already answered (the same picture, facts, rules and model, byte for byte) is not asked again: its findings come from the
 // review cache (E2E_REVIEW_CACHE, kept between CI runs), so an unchanged page costs nothing and its issues are still "seen again".
-// The rest go as ONE Message Batches request (half the price, same model and prompt); whatever the batch has not answered within
+// The rest go direct, 4 at a time; 20 or more go as ONE Message Batches request (half the price, same model and prompt); whatever the batch has not answered within
 // E2E_REVIEW_BATCH_WAIT_S (default 360 s) is cancelled and asked directly, so a slow batch never costs a review.
 // An answer cut off by the token cap is not a clean page: it is listed as not reviewed. Every call's tokens and cost are logged,
 // and the totals written to artifacts/ai-review-usage.json.
@@ -78,7 +78,8 @@ function answered(job, message, {batch = false} = {}) {
 }
 
 async function direct(job) {
-  const response = await fetch(`${API}/v1/messages`, {method: 'POST', headers: HEADERS, body: job.body});
+  const response = await fetch(`${API}/v1/messages`, {method: 'POST', headers: HEADERS, body: job.body, signal: AbortSignal.timeout(90000)}).catch(error => error);
+  if (response instanceof Error) return failed(job, 0, `no answer: ${response.message}`);   // a page the AI never answered is a warning, not a stuck job
   if (!response.ok) return failed(job, response.status, (await response.text().catch(() => '')).slice(0, 300));
   return answered(job, await response.json());
 }
@@ -136,9 +137,15 @@ for (const job of jobs) {
   } catch { /* not answered before */ }
 }
 const pending = jobs.filter(job => !answers.has(job.id));
-const fromBatch = pending.length > 1 && process.env.E2E_REVIEW_BATCH !== '0' ? await batch(pending) : new Map();   // one page: a batch saves too little to wait for
+// A batch only for many pages (6 Oct 2026: 4 pages waited 3-6 min in a batch to save about a cent; the owner wants every suite job short). Fewer go direct, 4 at a time.
+const BATCH_MIN = Number(process.env.E2E_REVIEW_BATCH_MIN || 20), PARALLEL = 4;
+const fromBatch = pending.length >= BATCH_MIN && process.env.E2E_REVIEW_BATCH !== '0' ? await batch(pending) : new Map();
 for (const [id, text] of fromBatch) answers.set(id, text);
-for (const job of pending.filter(job => !fromBatch.has(job.id))) answers.set(job.id, await direct(job));
+const left = pending.filter(job => !fromBatch.has(job.id));
+for (let at = 0; at < left.length; at += PARALLEL) {
+  const slice = left.slice(at, at + PARALLEL);
+  (await Promise.all(slice.map(job => direct(job)))).forEach((answer, i) => answers.set(slice[i].id, answer));
+}
 
 for (const job of jobs) {
   const answer = answers.get(job.id);

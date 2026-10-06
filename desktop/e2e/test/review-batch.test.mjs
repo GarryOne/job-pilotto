@@ -37,7 +37,7 @@ async function review(api, extraEnv = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-'));
   const art = path.join(dir, 'art'); fs.mkdirSync(art);
   for (const view of ['jobs', 'settings']) fs.writeFileSync(path.join(art, `ui-${view}.png`), Buffer.from([137, 80, 78, 71, view.length]));
-  const {stdout} = await run(process.execPath, [SCRIPT], {env: {...process.env, E2E_ANTHROPIC_KEY: 'k', E2E_ANTHROPIC_URL: api.url, E2E_ARTIFACTS: art,
+  const {stdout} = await run(process.execPath, [SCRIPT], {env: {...process.env, E2E_ANTHROPIC_KEY: 'k', E2E_ANTHROPIC_URL: api.url, E2E_REVIEW_BATCH_MIN: '2', E2E_ARTIFACTS: art,
     E2E_REVIEW_CACHE: path.join(dir, 'cache'), E2E_REVIEW_POLL_MS: '20', GITHUB_STEP_SUMMARY: '', ...extraEnv}});
   return {stdout, findings: JSON.parse(fs.readFileSync(path.join(art, 'ai-findings.json'), 'utf8')), usage: JSON.parse(fs.readFileSync(path.join(art, 'ai-review-usage.json'), 'utf8'))};
 }
@@ -68,5 +68,16 @@ test('a batch too slow to wait for is cancelled and its pages are asked directly
     assert.deepEqual(findings.reviewed, ['jobs', 'settings']);
     assert.equal(usage.batched, 0);
     assert.equal(usage.calls, 2);
+  } finally { api.close(); }
+});
+
+// 6 Oct 2026: four pages waited minutes in a batch to save about a cent. Below E2E_REVIEW_BATCH_MIN (20) the pages are asked directly, at once.
+test('a few pages skip the batch and are asked directly', async () => {
+  const api = await fakeApi({batchEnds: true});
+  try {
+    const {findings} = await review(api, {E2E_REVIEW_BATCH_MIN: '20'});
+    assert.equal(api.seen.batches, 0);
+    assert.equal(api.seen.direct, 2);
+    assert.deepEqual(findings.reviewed, ['jobs', 'settings']);
   } finally { api.close(); }
 });
