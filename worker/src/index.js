@@ -7,6 +7,7 @@
 import { handleReport } from './report.js';
 import { handleExtension } from './extension.js';
 import { runScheduled } from './scheduler.js';
+import { LABEL as WATCHDOG_LABEL, TITLE as WATCHDOG_TITLE } from './watchdog.js';
 
 const HELP = [
   '✈️ <b>Job Pilotto</b>\nCommands',
@@ -508,11 +509,21 @@ export async function handleUpdate(env, update) {
   }
 }
 
+// A refused scheduled start, on GitHub where the owner looks: a comment on the watchdog's open issue, or that issue opened (src/watchdog.js). Best effort: the
+// GitHub-side watchdog notices the missing run anyway, even when the token is what failed.
+async function reportStart(env, text) {
+  const open = await github(env, `issues?labels=${WATCHDOG_LABEL}&state=open&per_page=1`);
+  const [issue] = open.ok ? await open.json() : [];
+  const body = `${text}\n\n<sub>Reported by the Worker (worker/src/scheduler.js).</sub>`;
+  if (issue) await github(env, `issues/${issue.number}/comments`, {method: 'POST', body: JSON.stringify({body})});
+  else await github(env, 'issues', {method: 'POST', body: JSON.stringify({title: WATCHDOG_TITLE, body, labels: [WATCHDOG_LABEL]})});
+}
+
 export default {
   // Cloudflare cron triggers (wrangler.toml): the pipeline's schedules start on time, with GitHub's own cron as the backup (src/scheduler.js).
   async scheduled(event, env, ctx) {
     // Awaited, not waitUntil: a start that failed then fails the cron itself, where Cloudflare's cron history shows it (scheduler.js).
-    await runScheduled(event, env, {dispatch, notify: text => reply(env, escapeHtml(text)).catch(() => {})});
+    await runScheduled(event, env, {dispatch, notify: text => reply(env, escapeHtml(text)).catch(() => {}), report: text => reportStart(env, text)});
   },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);

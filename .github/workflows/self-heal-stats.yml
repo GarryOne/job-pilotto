@@ -1,4 +1,6 @@
 name: CI · Self-heal stats
+# Who started it, on GitHub: the Worker's on-time start is named so (worker/src/scheduler.js TITLES); GitHub's schedule and a hand start keep the default name.
+run-name: ${{ inputs.scheduled && 'Self-heal stats · on time (Worker cron)' || '' }}
 
 # The self-healing loop's numbers for the owner's page https://www.jobpilotto.workers.dev/self-heal: every issue the loop filed, by detector and how it ended,
 # precision, the fixer's pull requests, the verdict pass, the AI cost per real bug, the recall of the planted bugs, the real bugs it caught. Computed from
@@ -7,6 +9,11 @@ on:
   schedule:   # the backup: the Worker's cron (worker/src/scheduler.js) starts this on time, GitHub's scheduler is best-effort
     - cron: '40 */3 * * *'
   workflow_dispatch:
+    inputs:
+      scheduled:
+        description: 'Started on time by the Worker (worker/src/scheduler.js), not by hand'
+        type: boolean
+        default: false
 
 permissions:
   contents: read

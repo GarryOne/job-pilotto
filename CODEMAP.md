@@ -334,6 +334,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `worker/src/report.js` — Fill-failure reports from the Job Pilotto app: form STRUCTURE only (site, field labels, types, options, why a
 - `worker/src/scheduler.js` — On-time starts for the pipeline's schedules (5 Oct 2026). GitHub's own scheduler is best-effort: the nightly build started six hours late two days running and the
 - `worker/src/snapshot.js` — Fill-failure snapshots, on the Worker's side: every report's snapshot tree is scrubbed again here (anyone can post
+- `worker/src/watchdog.js` — The GitHub-side watchdog of the Worker's on-time starts (6 Oct 2026). The owner looks at GitHub only; the Worker's own warnings live on Cloudflare (its cron history)
 
 ## Tools
 
