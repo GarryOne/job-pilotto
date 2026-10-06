@@ -440,12 +440,30 @@ def plain(html):
     return unescape(re.sub(r'<[^>]+>', '', linked)).strip()
 
 
+RESULT_PARAS = 40   # the page's other blocks (50) + the heading + these + the log toggle stay under Notion's 100 per request
+
+
+def _result_paras(lines):
+    """One paragraph per line, the lines past RESULT_PARAS in the last one (line breaks inside it). The end of a long message is never dropped: a
+    10-job digest is 49 lines and its counts ("10 open · 9 pinned · 5 applied") are the last block, so cutting at 40 showed "– open" on its card (#309)."""
+    head, rest = lines[:RESULT_PARAS - 1], lines[RESULT_PARAS - 1:]
+    paras = [_para(line) for line in head]
+    if rest:
+        text, rich = '\n'.join(rest), []
+        while text and len(rich) < 100:   # Notion: 2000 units per text, 100 texts per block
+            piece = clip(text)
+            rich.append({'text': {'content': piece}})
+            text = text[len(piece):]
+        paras.append({'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': rich}})
+    return paras
+
+
 def extra_blocks(messages, lines):
     """What the run produced (its last message) and a toggle with the last lines of its output."""
     blocks = []
     if messages:
         blocks.append(_para('Result', 'heading_3'))
-        blocks += [_para(line) for line in plain(messages[-1]).split('\n') if line.strip()][:40]
+        blocks += _result_paras([line for line in plain(messages[-1]).split('\n') if line.strip()])
     if lines:
         chunks = ['\n'.join(list(lines)[i:i + 25]) for i in range(0, len(lines), 25)]
         blocks.append({'object': 'block', 'type': 'toggle', 'toggle': {

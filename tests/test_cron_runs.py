@@ -411,6 +411,20 @@ class NotionLimitTest(unittest.TestCase):
         self.assertEqual(clipped, '🔎' * 1000)
         self.assertEqual(cron_runs.clip('short 🔎'), 'short 🔎')
 
+    def test_a_long_message_keeps_its_last_lines(self):
+        # #309: a 10-job digest is 49 lines; the first 40 only lost "Your pipeline" (its counts) and the card showed "– open".
+        lines = [f'{n}. Job {n}' for n in range(1, 48)] + ['Your pipeline', '10 open · 9 pinned · 5 applied']
+        blocks = cron_runs.extra_blocks(['\n'.join(lines)], [])
+        paras = [b for b in blocks if b['type'] == 'paragraph']
+        self.assertEqual(len(paras), cron_runs.RESULT_PARAS)
+        read = '\n'.join(''.join(t['text']['content'] for t in b['paragraph']['rich_text']) for b in paras)
+        self.assertEqual(read, '\n'.join(lines))
+        short = cron_runs.extra_blocks(['one\ntwo'], [])
+        self.assertEqual([b['paragraph']['rich_text'][0]['text']['content'] for b in short[1:]], ['one', 'two'])
+        huge = cron_runs.extra_blocks(['\n'.join(['🔎' * 900] * 80)], [])
+        for t in huge[-1]['paragraph']['rich_text']:
+            self.assertLessEqual(self.units(t['text']['content']), 2000)
+
     def test_a_technical_log_with_emoji_fits_notion(self):
         lines = ['🔎 Source scout · checked 7 · 🆕 0 new sources ' + 'x' * 40] * 25 + ['🆕' * 50] * 25
         blocks = cron_runs.extra_blocks(['done'], lines)

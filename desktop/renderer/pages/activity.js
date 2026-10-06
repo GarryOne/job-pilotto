@@ -688,7 +688,8 @@ let expandedCard = '';  // the employers card showing all its rows (by its compa
 // A run's message as a card: a row of counts, then one line per item (the full text: Open in Notion).
 function renderRunCard(card, run = null, target = $('activity-card')) {
   // One light line of counts ("37 open · 2 in your places · 18 applied"), then one line per item.
-  const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value ?? '–')), ` ${label}`); return cell; };
+  // A count the message does not carry is left out, never drawn as "–" (#309: three dashes beside "4 new this run").
+  const stat = (value, label) => { if (value == null) return ''; const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
   const stats = el('div', 'run-card-stats');
   const rows = el('ol', 'run-card-rows');
   let heading, more = null;
@@ -760,7 +761,7 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
   // box inside a box (the owner, 30 Sep: "a table in table").
   const body = el('div', 'run-card-body');
   body.append(el('h4', 'run-card-title', heading), rows, ...(more && more.childNodes.length ? [more] : []));
-  target.replaceChildren(stats, body);
+  target.replaceChildren(...(stats.childElementCount ? [stats] : []), body);
 }
 
 // A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane
