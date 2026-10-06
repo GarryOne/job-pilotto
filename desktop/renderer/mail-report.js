@@ -173,7 +173,12 @@ export function parseMailLines(fromRow = []) {
       const tail = line.slice(action.index + action[0].length);
       const changed = EMAIL_TAIL.exec(tail);
       const by = (changed ? tail.slice(0, changed.index) : tail).split(/\s*·\s*/).filter(Boolean);
-      const [subject = '', sender = '', time = ''] = (head || '').split(/\s+·\s+/);
+      // "subject · sender · time": read from the right, since a subject may hold " · " itself (the sender is a name or a domain,
+      // the time comes last); cut at the first one, it no longer matched its Focus question and drew it as answered.
+      const parts = (head || '').split(/\s+·\s+/);
+      const time = parts.length > 2 ? parts.pop() : '';
+      const sender = parts.length > 1 ? parts.pop() : '';
+      const subject = parts.join(' · ');
       record.emails.push({subject, sender, time, action: action[1].trim(), by: by[0] || '', changes: (changed?.[1] || changed?.[2] || '')});
       continue;
     }
