@@ -7,7 +7,7 @@ import path from 'node:path';
 import {launch} from '../lib/app.mjs';
 import {digestTitles} from '../lib/digest.mjs';
 import {watch} from '../lib/activity.mjs';
-import {emptyDatabase, ensureSection, findPagesBeside, pageSections, setSection, trashPage} from '../lib/notion.mjs';
+import {emptyDatabase, ensureSection, findPagesBeside, pageSections, restoreSections, setSection, trashPage} from '../lib/notion.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
@@ -16,10 +16,19 @@ export const minutes = 30;
 export const name = 'strategy';
 const TITLE = '⚙️ Search settings';
 const ROLE = 'zebra wrangler', GIRAFFE = 'giraffe keeper', PLACE = 'lugano', SKIP = 'E2E Initech';
-const BASELINE_ROLE = 'Site Reliability Engineer';   // no fixture posting of this suite has it in its title
 // Free words (no fixture feed depends on them): a company added on the Notion page and a region accepted in the app. A seeded run picks one of each, so a word an
 // earlier run left behind can never make the "edit kept" check pass; every variant is removed first.
 const EDITED = ['E2E Hooli', 'E2E Pied Piper', 'E2E Vandelay', 'E2E Globex'], REGIONS = ['atlantis', 'lemuria', 'hyperborea', 'avalon'];
+
+// The start state of every section this suite's steps change (snapshot preseeding, lib/notion.mjs restoreSections). Roles: the persona's own, none of which a fixture
+// posting of this suite matches (so before any change the check keeps neither); places, level and companies empty; regions to skip: the real list, no test word.
+const START = {
+  'Roles to look for': ['data analyst', 'business intelligence', '"bi"', 'analytics engineer', 'reporting analyst'],
+  'Your level': [],
+  'Best places': [],
+  'Companies to skip': [],
+  'Remote jobs: regions to skip': ['/\\busa?\\b/', 'united states', 'canada', 'apac', 'latam'],
+};
 
 export async function run(ctx) {
   const {page, token: NOTION} = ctx;
@@ -82,26 +91,12 @@ export async function run(ctx) {
     // Leftovers of older test runs (a duplicate page used to be made on every connect): keep only the one the app linked, so the checks below start clean.
     for (const extra of (await findPagesBeside(NOTION, profileId, TITLE)).filter(block => block.id.replace(/-/g, '') !== pageId.replace(/-/g, ''))) await trashPage(NOTION, extra.id);
     const found = await findPagesBeside(NOTION, profileId, TITLE);
-    // A page left changed by an earlier run goes back to the plain strategy first.
-    const now = await pageSections(NOTION, pageId);
-    // A run that failed leaves its words on the page (5 Oct 2026: the suite then failed on every run, even on the last commit that had passed: one dirty page, kept dirty by each failure).
-    // Everything found is removed, said in the log, and the app reconnects once more so the cleaned page is what it works from.
-    const cleaned = [];
-    for (const [heading, word] of [['Roles to look for', ROLE], ['Roles to look for', GIRAFFE], ['Best places', PLACE], ['Companies to skip', SKIP],
-      ...EDITED.map(word => ['Companies to skip', word]), ...REGIONS.map(word => ['Remote jobs: regions to skip', word]),
-      // The level step's own words (6 Oct 2026: a run killed inside it left "junior" on the page, and every later check dropped Senior titles: the Zebra failure on all three platforms).
-      ['Your level', 'junior'], ['Best places', 'Ticino']]) {
-      if (has(now[heading], word)) { cleaned.push(`${heading}: ${word}`); await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word))); }
-    }
-    // An empty "Roles to look for" means every role matches: the cleanup above can leave it empty when the page held only the words this suite adds (5 Oct 2026: the check then kept all three
-    // fixture postings, on the last good commit too). The page always has one baseline role that no fixture posting matches.
-    if (!(((await pageSections(NOTION, pageId))['Roles to look for']) || []).length) { await setSection(NOTION, pageId, 'Roles to look for', [BASELINE_ROLE]); cleaned.push(`baseline role restored: ${BASELINE_ROLE}`); }
-    if (cleaned.length) {
-      console.log(`  the page had words left by an earlier run, or no role at all, fixed: ${cleaned.join(' | ')}`);
-      const after = await pageSections(NOTION, pageId);
-      const left = ['Roles to look for', 'Best places', 'Companies to skip'].flatMap(heading => (after[heading] || []).filter(entry => [ROLE, GIRAFFE, PLACE, SKIP].some(word => has([entry], word))).map(entry => `${heading}: ${entry}`));
-      if (left.length) throw new Error(`the page still holds words of an earlier run after the cleanup: ${left.join(' | ')}`);
-      await reconnect(page);   // the app takes the cleaned page, not the dirty one it read when it first connected
+    // The page starts from this suite's declared start state (6 Oct 2026, snapshot preseeding): every section the steps touch is set to START, whatever an
+    // earlier run left (a run killed mid-step left "junior", and every later check dropped Senior titles). A section that differed is said in the log.
+    const restored = await restoreSections(NOTION, pageId, START);
+    if (restored.length) {
+      console.log(`  the page differed from the suite's start state, restored: ${restored.join(' | ')}`);
+      await reconnect(page);   // the app takes the restored page, not the one it read when it first connected
     }
     if (found.length !== 1 || found[0].id.replace(/-/g, '') !== pageId.replace(/-/g, '')) throw new Error(`expected exactly the linked ${TITLE} page, found ${found.length}`);
     // Connecting ran a Jobs check on whatever strategy the page held then (the previous run's end state: the Giraffe role). Wait for it, then forget what it kept, or the next

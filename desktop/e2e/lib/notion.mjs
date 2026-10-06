@@ -341,6 +341,19 @@ export async function setSection(token, id, heading, entries) {
   }
 }
 
+// Snapshot preseeding (6 Oct 2026): set each section to its start state when it differs, in one read; -> the headings that were rewritten. Replaces word-by-word
+// cleanups, which missed every leftover nobody had listed.
+export async function restoreSections(token, id, start) {
+  const now = await pageSections(token, id), restored = [];
+  for (const [heading, entries] of Object.entries(start)) {
+    const have = (now[heading] || []).map(entry => entry.trim());
+    if (have.length === entries.length && have.every((entry, i) => entry === entries[i])) continue;
+    await (heading in now ? setSection : ensureSection)(token, id, heading, entries);
+    restored.push(`${heading}: ${have.join(', ') || 'empty'} → ${entries.join(', ') || 'empty'}`);
+  }
+  return restored;
+}
+
 // setSection, for a heading the page may not have yet (a page written before the setting existed): it is added at the end with its entries.
 export async function ensureSection(token, id, heading, entries) {
   const blocks = await children(token, id);
