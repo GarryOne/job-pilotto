@@ -25,5 +25,5 @@ test('on the Claude subscription the button opens its usage page; a rate limit a
 test('other failures and successful runs keep their own box', () => {
   assert.equal(aiLimitHead({ok: false, kind: 'mail', log: ['Google sign-in expired']}, 'Gmail check'), null);
   assert.equal(aiLimitHead({...limited, ok: true}, 'Gmail check'), null);
-  assert.equal(failureHead({ok: false, problem: 'Google sign-in expired'}).fix.label, 'Connect Google again');
+  assert.equal(failureHead({ok: false, problem: 'Google sign-in expired'}).fix.label, 'Reconnect Google');
 });

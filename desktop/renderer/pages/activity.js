@@ -153,6 +153,18 @@ function outcomeOf(run) {
   return run.new != null ? plural(run.new, 'new job') : 'done';
 }
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
+// Whether Gmail is connected now (true / false / null = not known yet): Settings keeps the last check (localStorage
+// 'serviceChecks'); it is read again from the app when Recent activity opens. A run's own state is history, not this.
+let gmailNow = null;
+const gmailConnected = () => {
+  if (gmailNow !== null) return gmailNow;
+  try { return JSON.parse(localStorage.getItem('serviceChecks') || 'null')?.google?.connected ?? null; } catch { return null; }
+};
+export async function refreshGmailConnection() {
+  const was = gmailConnected();
+  gmailNow = await window.pilot.googleStatus().then(google => !!google?.connected).catch(() => null);
+  if (gmailNow !== was && lastActivity) renderActivity(lastActivity);
+}
 // A kind's Run button on the Actions page (its data-command), or nothing for a kind without one.
 const runButton = kind => {
   if (kind === 'tailor') return document.getElementById('tailor-top');   // no Telegram command: its own button
@@ -408,16 +420,21 @@ export function renderActivity(fresh) {
   const items = [['Job search', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
     ...(cloud ? [['Employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off']] : [])];
   const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
-  $('activity-schedule').replaceChildren(...items.map(([name, , at, none]) => {
+  const gmailOff = gmailConnected() === false;   // Gmail as it is now, not as the selected run found it
+  $('activity-schedule').replaceChildren(...items.map(([name, kind, at, none]) => {
     const item = el('span', `ap-item${at && at === soonest ? ' is-next' : ''}${at ? '' : ' is-off'}`);
     item.append(el('span', 'muted', name), ' ', el('b', '', at ? (at <= Date.now() ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
     // A pill after the time, not a "Next:" before the name: that read as "Next Jobs" from a distance.
-    if (at && at === soonest) item.append(' ', el('span', 'ap-next', 'Next'));
+    if (kind === 'mail' && gmailOff) item.append(' ', pill('Connection required', 'warn'));   // the time stays; it won't check until connected
+    else if (at && at === soonest) item.append(' ', el('span', 'ap-next', 'Next'));
     return item;
   }));
-  // Check Gmail now: with a selected Gmail check, not in the schedule strip.
+  // Check Gmail now: with a selected Gmail check, not in the schedule strip. While Gmail is not connected it connects it instead.
   const selected = shown || (running ? null : last);
-  show($('check-mail'), !!selected && kindOf(selected) === 'mail');
+  // A not-connected run's box already offers Connect Gmail: the header doesn't say it twice.
+  show($('check-mail'), !!selected && kindOf(selected) === 'mail' && !(gmailOff && selected.off));
+  $('check-mail').textContent = gmailOff ? 'Connect Gmail' : 'Check Gmail now';
+  $('check-mail').dataset.connect = gmailOff ? '1' : '';
 
   // The selected run (or the live / latest one): what it did, its phases, and its full log. A run read from
   // Notion brings its result and log from its page the first time it's shown.
@@ -556,7 +573,7 @@ export function renderActivity(fresh) {
   // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
   const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)})
-    || deliveryHead({...run, kind: kindOf(run)}) || notConnectedHead(run) || waitedHead({...run, kind: kindOf(run)})))
+    || deliveryHead({...run, kind: kindOf(run)}) || notConnectedHead(run, gmailConnected()) || waitedHead({...run, kind: kindOf(run)})))
     || failureHead(run && {...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name);
   // A message not delivered comes after the run's results; every other box comes first. Its icon says what it is about.
   if (head?.delivery) $('activity-phases').after($('activity-warnings')); else $('activity-phases').before($('activity-warnings'));
@@ -1352,6 +1369,7 @@ function barLabel() {
 }
 export function openActivity(open) {
   show($('activity-panel'), open);
+  if (open) refreshGmailConnection();   // Gmail's connection as it is now, for the header button and the schedule
   // No dimming: the panel is part of the bottom bar; a press anywhere else on the page closes it (below).
   $('activity').classList.toggle('open', open);
   $('activity-toggle').setAttribute('aria-expanded', open);
@@ -1500,6 +1518,7 @@ export async function init() {
     renderActivity(lastActivity);
   });
   $('check-mail').addEventListener('click', async () => {
+    if ($('check-mail').dataset.connect) { openView('settings'); return; }
     $('check-mail').disabled = true;
     shared.selectedRun = null;
     try {

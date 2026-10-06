@@ -1420,7 +1420,8 @@ function handlers() {
   ipcMain.handle('googleStatus', async () => {
     // Demo mode: the fictional user's account. The real check reads this Mac's Google sign-in (the Keychain, not the
     // demo folder), which put the owner's own address into the reference screenshots.
-    if (DEMO) return {connected: true, email: 'alex.morgan@example.com'};
+    // JOB_PILOTTO_DEMO_GOOGLE=off shows the disconnected states (the state viewer, e2e/mail-states.mjs).
+    if (DEMO) return process.env.JOB_PILOTTO_DEMO_GOOGLE === 'off' ? {connected: false} : {connected: true, email: 'alex.morgan@example.com'};
     try { return await googleStatus(); } catch { return {connected: false}; }
   });
   ipcMain.handle('googleConnect', async () => {

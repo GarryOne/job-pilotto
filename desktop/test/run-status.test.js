@@ -57,7 +57,7 @@ test('the toast of a finished run agrees with its status: done, done with warnin
 
 test('a failed run says so in its own box, with its reason and the fix the app can open, never "Completed with warnings" (#290)', () => {
   const google = failureHead({ok: false, problem: 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)'});
-  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Connect Google again', view: 'settings'}]);
+  assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Reconnect Google', view: 'settings'}]);
   assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)'}).fix.label, 'Open AI settings');
   assert.equal(failureHead({ok: false, problem: 'not checked: the Anthropic API spend limit was reached'}).fix, null, 'a limit has its own link on the page');
   assert.deepEqual([failureHead({ok: false, kind: 'search'}).title, failureHead({ok: false}).fix], ['The job search stopped unexpectedly', {label: 'Run again', rerun: true}]);

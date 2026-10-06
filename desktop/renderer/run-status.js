@@ -12,7 +12,7 @@ export function doneTitle(name, run) {
 
 // What a failed run says in the box above its log, in its own words (#290, 5 Oct 2026: a Gmail check whose Google sign-in was revoked was "Failed" in the pill and "Completed with
 // warnings" in the box, with no reason and no way out). The reason is the run's `problem`; a fix the app can open is named next to it.
-export const PROBLEM_FIXES = [[/Google sign-in/i, 'Connect Google again', 'settings'], [/Claude Code is not ready/i, 'Open AI settings', 'settings'], [/Telegram/i, 'Open Telegram settings', 'settings']];
+export const PROBLEM_FIXES = [[/Google sign-in/i, 'Reconnect Google', 'settings'], [/Claude Code is not ready/i, 'Open AI settings', 'settings'], [/Telegram/i, 'Open Telegram settings', 'settings']];
 // A run the AI provider stopped (usage/spending limit, or rate-limited) — the engine exits with an error, so the run has no
 // problem line and read "Had problems" over a raw log. It says what happened, what it means and the one fix (the owner's
 // mockup, 6 Oct 2026): a variant of the failure box beside the others, not a replacement.
@@ -66,8 +66,11 @@ export function deliveryHead(run) {
 }
 
 // A Gmail check with Gmail not connected: nothing was checked, the box says so and connects it (the owner's fix #6, 6 Oct 2026).
-export function notConnectedHead(run) {
+export function notConnectedHead(run, connectedNow = null) {
   if (!run?.off || run.live || run.waiting) return null;
+  // Connected since: the run stays as it was (history), without a button to connect what already is.
+  if (connectedNow === true) return {problem: 'Gmail was not connected', title: 'Gmail was not connected', icon: 'mail', short: 'Gmail not connected',
+    summary: 'This check ran before Gmail was connected, so nothing was checked.', hint: 'Gmail is connected now: the next check reads your emails.', fix: null};
   return {problem: 'Gmail is not connected', title: 'Gmail is not connected', icon: 'mail', short: 'Gmail not connected',
     summary: 'Connect your Google account before checking for emails and calendar updates.', fix: {label: 'Connect Gmail', view: 'settings'}};
 }
