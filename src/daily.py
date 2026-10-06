@@ -266,6 +266,17 @@ def log_crawl(tracker, run):
         print(f'Cronjob run logged: {url}')  # the desktop app links its activity row to this
 
 
+def starter_sources():
+    """The starter feeds (config/sources.json): 29 software companies (Stripe, Palantir…), so a search outside IT leaves them out like the
+    scout's tech seed lists (6 Oct 2026: a photographer's checks crawled them, and warned when Palantir's feed failed). The end-to-end
+    journey's fixture lists are kept: their personas include a nurse."""
+    sources = json.loads((CONFIG / 'sources.json').read_text())
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR') or coverage.technical_search(load_search_config()):
+        return sources
+    print(f'Employers: the {len(sources)} starter software companies are left out (your roles are outside IT).')
+    return []
+
+
 def downloaded_index():
     """The central employer index (cached, at most one download a day); [] when off or unreachable."""
     if features.disabled('index'):
@@ -612,7 +623,7 @@ def main():
         except Exception as error:  # A Notion outage shouldn't block the digest.
             print(f'Warning: could not read Notion applications: {error}')
             run['warnings'].append(f'Notion applications unreadable: {error}')
-    sources = json.loads((CONFIG / 'sources.json').read_text())
+    sources = starter_sources()
     report, imported = {'jobs': [], 'sources': []}, []
     with store.connect(args.db) as db:
         # A '➕ Next' page reads the stored list as is: importing would mark new jobs
