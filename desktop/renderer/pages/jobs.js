@@ -714,8 +714,12 @@ function setDensity(value) {
 // them (only if they changed, so nothing you're typing is lost). No cache yet: a shimmer where the count goes.
 const QUESTIONS_CACHE = 'questionsCache';
 let questionsShown = '';
-$('questions-retry').addEventListener('click', () => { questionsShown = ''; loadQuestions(); });
-async function loadQuestions() {
+$('questions-retry').addEventListener('click', () => { questionsShown = ''; loadQuestions({force: true}); });
+// Reading the questions walks the whole answers page (about 50 Notion calls, which queue ahead of every other read): not on every Jobs reload (each save, dismiss, kit…).
+// It is read again at the first load, after 10 minutes, and at once when something changed it: Retry, an answer, a fill that added questions (`onMoved`, from lib/server.js).
+const QUESTIONS_FRESH_MS = 10 * 60 * 1000;
+let questionsReadAt = 0;
+async function loadQuestions({force = false} = {}) {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(QUESTIONS_CACHE) || 'null'); } catch {}
   if (!questionsShown) {
@@ -726,8 +730,10 @@ async function loadQuestions() {
       show($('questions'));
     }
   }
+  if (!force && questionsReadAt && Date.now() - questionsReadAt < QUESTIONS_FRESH_MS && Array.isArray(cached)) return;   // fresh enough: what is shown stands
   const {list, error} = await window.pilot.openQuestions();
   $('questions').classList.remove('is-loading');
+  if (!error) questionsReadAt = Date.now();
   if (error && Array.isArray(cached)) return;  // Notion unreachable: keep the saved questions
   if (!error) try { localStorage.setItem(QUESTIONS_CACHE, JSON.stringify(list)); } catch {}
   renderQuestions(list, error);
@@ -758,7 +764,7 @@ function renderQuestions(list, error = '') {
     const answer = async value => {
       save.disabled = skip.disabled = true;
       const result = await window.pilot.answerQuestion(q.key, value);
-      if (result.ok) loadQuestions(); else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !input.value.trim(); }
+      if (result.ok) loadQuestions({force: true}); else { note.className = 'message error'; note.textContent = result.error; skip.disabled = false; save.disabled = !input.value.trim(); }
     };
     // Save waits for an answer: an enabled Save that silently did nothing on an empty field read as broken (UI loop #64).
     save.disabled = true;
@@ -1077,7 +1083,7 @@ export async function init() {
 
   // ---------- questions to answer once ----------
   // The start-up move to Notion can finish after the first read: read them again then.
-  window.pilot.onMoved(steps => { if (steps.includes('open questions')) loadQuestions(); });
+  window.pilot.onMoved(steps => { if (steps.includes('open questions')) loadQuestions({force: true}); });
 
   window.pilot.onLog(line => {
     if (shared.idleSeen || /^Searching job boards/.test(line)) { shared.logLines = []; shared.idleSeen = false; shared.selectedRun = null; }

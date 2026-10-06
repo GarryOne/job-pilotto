@@ -135,6 +135,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
         console.error('Open questions:', error.message);
         return 0;
       });
+      if (added) tellWindow('moved', ['open questions']);   // the Jobs page reads the answers page again (it is not re-read on every reload, 6 Oct 2026)
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`, {view: 'jobs'});
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
       reports.send(storage, run, undefined, sharedLogger).then(report => {  // each field also shows in the app reports (/telemetry)
@@ -258,6 +259,8 @@ export async function me(storage, url = '') {
 // and the application being marked Applied.
 let notify = () => {};
 export const setNotifier = fn => { notify = fn; };
+let tellWindow = () => {};   // (channel, payload) -> the open window
+export const setWindowSignal = fn => { tellWindow = fn; };
 const jobName = job => job ? `${job.title} · ${job.company}` : 'this job';
 
 // Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.

@@ -2028,6 +2028,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   });
   if (!DEMO) {
     server.setNotifier(notify);
+    server.setWindowSignal(toWindow);
   server.start(storage, error => log(error.code === 'EADDRINUSE'
       ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
       : `Chrome extension connection failed: ${error.message}`));
