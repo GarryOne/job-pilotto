@@ -677,6 +677,10 @@ def main():
                 # Only full crawls can tell that a job disappeared.
                 run['closed_stale'] = store.close_stale(db, STALE_DAYS)
                 print(f"Closed {run['closed_stale']} job(s) not seen for {STALE_DAYS} days")
+                if not employer_index.problem:   # a list that failed to download is not a list of dropped employers
+                    dropped = store.close_dropped(db, {source['company'] for source in feed_list})
+                    if dropped:
+                        print(f'Closed {dropped} job(s) from employers your search no longer reads')
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += store.import_company_report(db, company_report)

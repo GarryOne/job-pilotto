@@ -251,6 +251,26 @@ def close_stale(db, days=7, now=None):
     return closed
 
 
+def close_dropped(db, read_names, grace_hours=12, now=None, most=0.5):
+    """Close open jobs of employer feeds this check no longer reads at all (7 Oct 2026: a photographer's search still listed Netflix jobs from
+    before the tech lists were left out, for STALE_DAYS). `read_names`: the companies of every feed this check meant to read, rested ones
+    included. Job boards are never closed here. A job seen again reopens (upsert_job). Nothing is closed when it would be more than `most` of
+    the open feed jobs (a list that failed to load looks like everything dropped). Returns the count."""
+    from datetime import timedelta
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(hours=grace_hours)).isoformat(timespec='seconds')
+    rows = db.execute("""SELECT jobs.id, sources.name FROM jobs JOIN sources ON sources.id = jobs.source_id
+        WHERE jobs.state = 'open' AND sources.kind = 'employer feed' AND jobs.last_seen_at < ?""", (cutoff,)).fetchall()
+    total = db.execute("""SELECT COUNT(*) FROM jobs JOIN sources ON sources.id = jobs.source_id
+        WHERE jobs.state = 'open' AND sources.kind = 'employer feed'""").fetchone()[0]
+    names = set(read_names)
+    dropped = [row[0] for row in rows if row[1] not in names]
+    if not dropped or len(dropped) > most * total:
+        return 0
+    db.executemany("UPDATE jobs SET state='closed' WHERE id = ?", [(job_id,) for job_id in dropped])
+    db.commit()
+    return len(dropped)
+
+
 def digest_jobs(db, limit=10, only_new=False):
     query = """SELECT jobs.*, companies.name company, applications.status application_status
                FROM jobs JOIN companies ON companies.id=jobs.company_id
