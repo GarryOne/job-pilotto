@@ -33,12 +33,12 @@ export async function gather(db, now = new Date()) {
   const sharing = async back => (await all(db, 'SELECT COUNT(DISTINCT install) AS n FROM contributions WHERE day >= ?', day(now, back)))[0]?.n || 0;
   const shared = (await all(db, "SELECT COUNT(DISTINCT ats || ':' || slug) AS n FROM contributions"))[0]?.n || 0;
   const routes = await all(db, "SELECT how, COUNT(DISTINCT ats || ':' || slug) AS feeds, SUM(COALESCE(hits, 0)) AS hits FROM contributions WHERE how IS NOT NULL GROUP BY how ORDER BY feeds DESC");
-  const useful = await all(db, 'SELECT company, ats, slug, SUM(COALESCE(hits, 0)) AS hits, COUNT(*) AS installs, MAX(jobs) AS jobs, MAX(site) AS site FROM contributions GROUP BY ats, slug ORDER BY hits DESC, installs DESC LIMIT 15');
+  const useful = await all(db, `SELECT company, ats, slug, SUM(COALESCE(hits, 0)) AS hits, COUNT(*) AS installs, MAX(jobs) AS jobs, MAX(site) AS site, SUM(COALESCE(json_extract(out_json, '$.applied'), 0)) AS applied, SUM(COALESCE(json_extract(out_json, '$.interview'), 0)) AS interviews FROM contributions GROUP BY ats, slug ORDER BY interviews DESC, hits DESC, installs DESC LIMIT 15`);
   const dead = await all(db, 'SELECT company, host, COUNT(*) AS installs, MAX(day) AS last FROM nofeed GROUP BY key ORDER BY installs DESC, last DESC LIMIT 15');
   const deadTotal = (await all(db, 'SELECT COUNT(DISTINCT key) AS n FROM nofeed'))[0]?.n || 0;
   // Which job boards give matches for which kind of role (src/contribute.py boards, 7 Oct 2026); a missing table (before 0031) reads as none.
   const boards = await all(db, `SELECT board, roles, COUNT(*) AS installs, SUM(CASE WHEN hits > 0 THEN 1 ELSE 0 END) AS matched, SUM(COALESCE(hits, 0)) AS hits,
-    SUM(failed) AS failed FROM board_reads GROUP BY board, roles ORDER BY hits DESC LIMIT 30`).catch(() => []);
+    SUM(COALESCE(dup, 0)) AS dup, SUM(COALESCE(json_extract(out_json, '$.interview'), 0)) AS interviews, SUM(failed) AS failed FROM board_reads GROUP BY board, roles ORDER BY hits DESC LIMIT 30`).catch(() => []);
   return {feeds, daily, boards, sharing7: await sharing(7), sharing30: await sharing(30), shared, routes, useful, dead, deadTotal, central: await loadScouting(db)};
 }
 
@@ -94,11 +94,11 @@ ${rows(Object.entries(kinds).sort((a, b) => b[1] - a[1]), ([kind, count]) => [es
 <table><tr><td>Growing (more jobs than last read)</td><td>${n(up)}</td></tr><tr><td>Shrinking</td><td>${n(down)}</td></tr>
 <tr><td>No open job right now</td><td>${n(emptyNow)}</td></tr><tr><td>Failing (3+ reads in a row)</td><td>${n(failing.length)}</td></tr></table>
 <table><tr><th>Failing</th><th>Reads failed</th><th>Last OK</th></tr>${rows(failing.slice(0, 10), feed => [esc(feed.company), n(feed.fresh.fails), esc(feed.fresh.ok)], 'None failing.')}</table></section>
-<section class="card"><h2>⭐ Most useful employers</h2><small class="muted">Most jobs matched across installs' searches.</small>
-<table><tr><th>Employer</th><th>Matched</th><th>Installs</th><th>Jobs</th></tr>${rows(data.useful, row => [esc(row.company), n(row.hits), n(row.installs), n(row.jobs)], 'Nothing shared yet.')}</table></section>
+<section class="card"><h2>⭐ Most useful employers</h2><small class="muted">Most interviews, then jobs matched, across installs (last 90 days).</small>
+<table><tr><th>Employer</th><th>Interviews</th><th>Applied</th><th>Matched</th><th>Installs</th><th>Jobs</th></tr>${rows(data.useful, row => [esc(row.company), n(row.interviews), n(row.applied), n(row.hits), n(row.installs), n(row.jobs)], 'Nothing shared yet.')}</table></section>
 </div>
 <section class="card"><h2>📋 Job boards by kind of role</h2><small class="muted">Each board installs' jobs checks read, by their kind of role: how many got a match there.</small>
-<table><tr><th>Board</th><th>Kind of role</th><th>Installs</th><th>Got a match</th><th>Jobs matched</th><th>Failed</th></tr>${rows(data.boards || [], row => [esc(row.board), esc(row.roles || '—'), n(row.installs), n(row.matched), n(row.hits), n(row.failed)], 'No board reads shared yet.')}</table></section>
+<table><tr><th>Board</th><th>Kind of role</th><th>Installs</th><th>Got a match</th><th>Jobs matched</th><th>Only on this board</th><th>Interviews</th><th>Failed</th></tr>${rows(data.boards || [], row => [esc(row.board), esc(row.roles || '—'), n(row.installs), n(row.matched), n(row.hits), n(Math.max(0, (row.hits || 0) - (row.dup || 0))), n(row.interviews), n(row.failed)], 'No board reads shared yet.')}</table></section>
 <section class="card"><h2>🕳️ Dead ends</h2><small class="muted">Employers installs found with no readable job site: skipped for 30 days by everyone.</small>
 <table><tr><th>Employer</th><th>Website</th><th>Installs</th><th>Last</th></tr>${rows(data.dead, row => [esc(row.company), esc(row.host || ''), n(row.installs), esc(row.last)], 'None reported yet.')}</table></section>
 ${nightly(data.central)}

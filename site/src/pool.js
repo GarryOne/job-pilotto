@@ -6,6 +6,20 @@ const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 
 export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];   // src/contribute.py: IT families, then src/role_kinds.py's other trades
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
 const MAX_FEEDS = 2000, MAX_NOFEED = 300, MAX_BOARDS = 30, KEEP_DAYS = 90, PER_MINUTE = 30;   // installs share each find as it is made (owner, 6 Oct 2026): many small shares; every feed a check read (7 Oct 2026)
+// Outcome counts (src/contribute.py outcomes): only these names, only whole numbers; anything else is dropped.
+const STEPS = ['strong', 'saved', 'applied', 'interview', 'offer', 'remote'];
+const LANGS = ['English', 'German', 'French', 'Italian', 'Spanish', 'Portuguese', 'Dutch', 'Other'];
+const SENIORITY = ['junior', 'mid', 'senior', 'staff_principal', 'lead_manager'];
+function outOf(value) {
+  if (!value || typeof value !== 'object') return null;
+  const out = {};
+  for (const step of STEPS) if (count(value[step])) out[step] = count(value[step]);
+  for (const [field, names] of [['langs', LANGS], ['senior', SENIORITY]]) {
+    const kept = Object.fromEntries(names.filter(name => count(value[field]?.[name])).map(name => [name, count(value[field][name])]));
+    if (Object.keys(kept).length) out[field] = kept;
+  }
+  return Object.keys(out).length ? JSON.stringify(out) : null;
+}
 // The fixed board ids src/contribute.py BOARDS sends: nothing else is stored.
 const BOARDS = ['jobsch', 'arbeitnow', 'himalayas', 'jobicy', 'adzuna', 'jooble', 'google_jobs', 'alerts_linkedin', 'alerts_jobsch', 'alerts_jobup', 'alerts_indeed', 'alerts_glassdoor'];
 // How an install found a feed (src/contribute.py HOW): fixed words only.
@@ -34,7 +48,7 @@ export async function contribute(request, env, now = new Date()) {
     if (typeof item.company !== 'string' || !item.company.trim() || seen.has(`${item.ats}:${item.slug}`)) continue;
     seen.add(`${item.ats}:${item.slug}`);
     feeds.push({ats: item.ats, slug: item.slug, company: item.company.trim().slice(0, 120), matched: item.matched ? 1 : 0, own: item.own ? 1 : 0,
-      how: HOW.includes(item.how) ? item.how : null, jobs: count(item.jobs), hits: count(item.hits), site: siteOf(item.site), failed: item.failed ? 1 : 0});
+      how: HOW.includes(item.how) ? item.how : null, jobs: count(item.jobs), hits: count(item.hits), site: siteOf(item.site), failed: item.failed ? 1 : 0, out: outOf(item.out)});
   }
   // "No readable job site" (v2): a company name and its website host, both checked; the same key as the scout's (src/scout.py key_for).
   const nofeed = [], keys = new Set();
@@ -49,7 +63,7 @@ export async function contribute(request, env, now = new Date()) {
   for (const item of (Array.isArray(body.boards) ? body.boards : []).slice(0, MAX_BOARDS)) {
     if (!BOARDS.includes(item?.board) || named.has(item.board)) continue;
     named.add(item.board);
-    boards.push({board: item.board, jobs: count(item.jobs), hits: count(item.hits), failed: item.failed ? 1 : 0});
+    boards.push({board: item.board, jobs: count(item.jobs), hits: count(item.hits), dup: count(item.dup), failed: item.failed ? 1 : 0, out: outOf(item.out)});
   }
   if (!feeds.length && !nofeed.length && !boards.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
   const install = await hashed(env, body.install);
@@ -60,23 +74,24 @@ export async function contribute(request, env, now = new Date()) {
   if (kv) await kv.put(minute, String(used + 1), {expirationTtl: 120});
   const today = day(now);
   // matched / own: a one-item share made the same day (matched false) must not undo what that day's jobs check saw.
-  const statements = feeds.map(feed => env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const statements = feeds.map(feed => env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed, out_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, ats, slug) DO UPDATE SET company = excluded.company,
       matched = CASE WHEN day = excluded.day THEN MAX(matched, excluded.matched) ELSE excluded.matched END,
       own = CASE WHEN day = excluded.day THEN MAX(own, excluded.own) ELSE excluded.own END, day = excluded.day,
       roles = excluded.roles, regions = excluded.regions, how = COALESCE(how, excluded.how), jobs = COALESCE(excluded.jobs, jobs),
-      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed`)
+      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json)`)
     .bind(install, today, feed.ats, feed.slug, feed.company, feed.matched, feed.own, roles.join(','), regions.join(','), feed.how, feed.jobs, feed.hits,
-      feed.site, feed.failed));
+      feed.site, feed.failed, feed.out));
   for (const item of nofeed) {
     statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host) VALUES (?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host)')
       .bind(install, today, item.key, item.company, item.host));
   }
   for (const item of boards) {
-    statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, board) DO UPDATE SET day = excluded.day, roles = excluded.roles, regions = excluded.regions, jobs = excluded.jobs,
-      hits = excluded.hits, failed = excluded.failed`).bind(install, today, item.board, roles.join(','), regions.join(','), item.jobs, item.hits, item.failed));
+      hits = excluded.hits, failed = excluded.failed, dup = excluded.dup, out_json = COALESCE(excluded.out_json, out_json)`)
+      .bind(install, today, item.board, roles.join(','), regions.join(','), item.jobs, item.hits, item.failed, item.dup, item.out));
   }
   // D1 runs a batch as one call: 2,000 feeds stay one request's worth of queries.
   for (let i = 0; i < statements.length; i += 500) {
@@ -125,16 +140,33 @@ export async function aggregate(request, env) {
       if (n) for (const tag of String(tags || '').split(',').filter(Boolean)) into[tag] = (into[tag] || 0) + n;
     }
   }
+  await addOutcomes(rows, 'contributions', `${inRange}`, range, row => feeds.get(`${row.ats}:${row.slug}`), 'ats, slug');
   return Response.json({ok: true, feeds: [...feeds.values()], next: page.length === limit ? `${last.ats}:${last.slug}` : null,
     ...(after ? {} : {boards: await boardTotals(rows)})}, {headers});
+}
+
+// Outcome totals into each item's `out` ({strong, saved, applied, interview, offer, remote, langs, senior}), summed across installs in SQL.
+async function addOutcomes(rows, table, where, args, itemOf, keys) {
+  const sums = STEPS.map(step => `SUM(COALESCE(json_extract(out_json, '$.${step}'), 0)) AS ${step}`).join(', ');
+  for (const row of await rows(`SELECT ${keys}, ${sums} FROM ${table} ${where} GROUP BY ${keys}`, ...args)) {
+    const item = itemOf(row);
+    if (item) item.out = Object.fromEntries(STEPS.map(step => [step, row[step] || 0]));
+  }
+  for (const field of ['langs', 'senior']) {
+    for (const row of await rows(`SELECT ${keys}, t.key AS tag, SUM(t.value) AS n FROM ${table}, json_each(${table}.out_json, '$.${field}') AS t ${where} GROUP BY ${keys}, t.key`, ...args)) {
+      const item = itemOf(row);
+      if (item) (item.out[field] ||= {})[row.tag] = row.n;
+    }
+  }
 }
 
 // Per board and role kind / region: installs that read it, installs it gave a match, jobs matched, failed reads (few rows: a dozen boards).
 async function boardTotals(rows) {
   const boards = {};
   for (const row of await rows(`SELECT board, roles, regions, COUNT(*) AS installs, SUM(CASE WHEN hits > 0 THEN 1 ELSE 0 END) AS matched,
-      SUM(COALESCE(hits, 0)) AS hits, SUM(failed) AS failed FROM board_reads GROUP BY board, roles, regions`)) {
-    const board = boards[row.board] ||= {board: row.board, installs: 0, matched_installs: 0, hits: 0, failed_installs: 0, roles: {}, regions: {}};
+      SUM(COALESCE(hits, 0)) AS hits, SUM(COALESCE(dup, 0)) AS dup, SUM(failed) AS failed FROM board_reads GROUP BY board, roles, regions`)) {
+    const board = boards[row.board] ||= {board: row.board, installs: 0, matched_installs: 0, hits: 0, dup: 0, failed_installs: 0, roles: {}, regions: {}};
+    board.dup += row.dup;   // matches from employers whose own feed was read too: hits - dup is what the board alone brought
     board.installs += row.installs;
     board.matched_installs += row.matched;
     board.hits += row.hits;
@@ -147,6 +179,7 @@ async function boardTotals(rows) {
       }
     }
   }
+  await addOutcomes(rows, 'board_reads', '', [], row => boards[row.board], 'board');
   return Object.values(boards);
 }
 

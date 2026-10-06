@@ -29,15 +29,83 @@ BOARDS = {'jobs.ch': 'jobsch', 'Arbeitnow': 'arbeitnow', 'Himalayas': 'himalayas
 def board_id(name):
     """The fixed id of a run source name ('Google Jobs: photographe / Genève' -> 'google_jobs', 'Adzuna CH' -> 'adzuna'), or None."""
     base = str(name or '').split(':')[0].strip()
+    base = f'{base}s' if base.endswith(' alert') else base   # the job store names alert jobs "LinkedIn alert"
     for known, ident in BOARDS.items():
         if base == known or base.startswith(f'{known} ') and not base.endswith(' alerts'):
             return ident
     return None
 
 
-def boards_read(report, feed_names):
-    """One line per board this run read: jobs listed, jobs that matched, and whether every read of it failed. Counts only."""
+# Outcomes and traits per feed and board, counted on this install over 90 days (7 Oct 2026): what a source led to, not only what it matched.
+# Fixed names and counts only; a job's title, company and address never leave.
+STRONG_FIT = 70   # one bar for everyone, so installs compare
+OUTCOME_DAYS = 90
+LADDER = {'saved': {'Saved', 'Kit ready', 'Applying'}, 'applied': {'Applied', 'Confirmation received', 'No response', 'Rejected', 'Withdrawn'},
+          'interview': {'Screening', 'Interview scheduled', 'Interviewing'}, 'offer': {'Offer'}}
+STEPS = ['saved', 'applied', 'interview', 'offer']   # each step counts the ones after it too: an interview was applied to
+SENIORITY = ['junior', 'mid', 'senior', 'staff_principal', 'lead_manager']
+LANGS = ['English', 'German', 'French', 'Italian', 'Spanish', 'Portuguese', 'Dutch', 'Other']
+
+
+def outcomes(db, stages=None, now=None):
+    """{source name: {'strong', 'saved', 'applied', 'interview', 'offer', 'langs', 'senior', 'remote'}} for jobs first seen in the last 90 days.
+    Source name = the feed's company or the board's name, as the job store keeps them."""
+    if db is None:
+        return {}
+    since = ((now or datetime.now(timezone.utc)) - timedelta(days=OUTCOME_DAYS)).isoformat(timespec='seconds')
+    have = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    if 'jobs' not in have:
+        return {}
+    score_sql = "(SELECT data_json FROM scores WHERE job_id = j.id)" if 'scores' in have else 'NULL'
+    facts_sql = "(SELECT data_json FROM enrichments WHERE job_id = j.id)" if 'enrichments' in have else 'NULL'
+    stage_of = {url.strip(): stage for url, stage in (stages or {}).items()}
     out = {}
+    for name, url, score_json, facts_json in db.execute(f"""SELECT s.name, j.url, {score_sql}, {facts_sql} FROM jobs j JOIN sources s ON s.id = j.source_id
+            WHERE j.first_seen_at >= ?""", (since,)):
+        line = out.setdefault(name, {'strong': 0, **{step: 0 for step in STEPS}, 'langs': {}, 'senior': {}, 'remote': 0})
+        try:
+            score = (json.loads(score_json) or {}).get('score') if score_json else None
+        except ValueError:
+            score = None
+        if isinstance(score, (int, float)) and score >= STRONG_FIT:
+            line['strong'] += 1
+        stage = stage_of.get(str(url or '').strip())
+        reached = next((i for i, step in reversed(list(enumerate(STEPS))) if stage in LADDER[step]), None)
+        for step in STEPS[:(reached + 1) if reached is not None else 0]:
+            line[step] += 1
+        if facts_json and isinstance(score, (int, float)):   # traits of the jobs that were scored, i.e. that matched the search
+            try:
+                facts = json.loads(facts_json) or {}
+            except ValueError:
+                facts = {}
+            first = next((l.get('language') for l in facts.get('languages') or [] if l.get('level') == 'required'), None)
+            if first in LANGS:
+                line['langs'][first] = line['langs'].get(first, 0) + 1
+            level = (facts.get('seniority') or {}).get('value')
+            if level in SENIORITY:
+                line['senior'][level] = line['senior'].get(level, 0) + 1
+            if (facts.get('work_mode') or {}).get('value') == 'remote':
+                line['remote'] += 1
+    return out
+
+
+def _with_outcomes(item, line):
+    if not line:
+        return item
+    extra = {key: line[key] for key in ('strong', *STEPS, 'remote') if line.get(key)}
+    extra.update({key: line[key] for key in ('langs', 'senior') if line.get(key)})
+    return {**item, **({'out': extra} if extra else {})}
+
+
+def boards_read(report, feed_names):
+    """One line per board this run read: jobs listed, jobs that matched, how many of those matches came from an employer whose own feed this
+    run also read (`dup`: the board added nothing there), and whether every read of it failed. Counts only."""
+    out = {}
+    dups = {}
+    for job in report.get('jobs', []):
+        ident = board_id(job.get('source'))
+        if ident and job.get('company') in feed_names:
+            dups[ident] = dups.get(ident, 0) + 1
     for source in report.get('sources', []):
         if source.get('company') in feed_names:
             continue
@@ -49,6 +117,8 @@ def boards_read(report, feed_names):
             line['jobs'] += int(source.get('total') or 0)
             line['hits'] += int(source.get('matches') or 0)
             line['failed'] = False
+    for ident, line in out.items():
+        line['dup'] = min(dups.get(ident, 0), line['hits'])
     return list(out.values())
 
 # Fixed lists: the only tags that ever leave the machine.
@@ -147,7 +217,7 @@ def dead_ends(db, days=30):
     return [{'company': str(row[0])[:120], 'host': host(row[1])} for row in rows]
 
 
-def payload(feed_list, report, tracker=None, install=None, search=None, db=None):
+def payload(feed_list, report, tracker=None, install=None, search=None, db=None, stages=None):
     """What would be sent (v2): every feed this install's scout verified, the feeds that gave this user a job (`matched`) and the ones they
     added themselves (`own`), each with how it was found, jobs listed, jobs that matched in their places, its job site and a failed read
     (6 Oct 2026: only matched or own feeds went, without numbers, so most finds stayed on the Mac)."""
@@ -174,9 +244,27 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None)
                           **({'jobs': int(seen.get('total') or 0), 'hits': int(seen.get('matches') or 0)} if seen.get('ok') else {}),
                           'failed': bool(seen) and not seen.get('ok')})
     feeds.sort(key=lambda f: (not (f['matched'] or f['own'] or f['how'] != 'index'), -(f.get('hits') or 0), -(f.get('jobs') or 0)))
+    if stages is None and tracker:
+        try:
+            stages = tracker.url_stages()
+        except Exception as error:  # noqa: BLE001 — Notion trouble just means no outcomes this time
+            print(f'Warning: outcomes not read for the pool: {type(error).__name__}')
+    led = outcomes(db, stages)
+    feeds = [_with_outcomes(feed, led.get(feed['company'])) for feed in feeds]
     roles, regions = tags(search)
     nofeed = dead_ends(db)
     boards = boards_read(report, {s['company'] for s in feed_list})
+    by_board = {}
+    for name, line in led.items():
+        ident = board_id(name)
+        if ident:   # Google Jobs is one board, whatever search found it
+            merged = by_board.setdefault(ident, {'strong': 0, **{step: 0 for step in STEPS}, 'langs': {}, 'senior': {}, 'remote': 0})
+            for key in ('strong', *STEPS, 'remote'):
+                merged[key] += line[key]
+            for key in ('langs', 'senior'):
+                for tag, n in line[key].items():
+                    merged[key][tag] = merged[key].get(tag, 0) + n
+    boards = [_with_outcomes(board, by_board.get(board['board'])) for board in boards]
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
             'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {})}
 
@@ -246,11 +334,11 @@ def _signatures(body):
     tags_sig = f"{','.join(body.get('roles') or [])}|{','.join(body.get('regions') or [])}"
     for feed in body.get('feeds') or []:
         yield ('feeds', feed, f"feed:{feed['ats']}:{feed['slug']}", json.dumps([tags_sig, feed.get('matched'), feed.get('own'), feed.get('failed'), feed.get('how'),
-                                                                           feed.get('site'), feed.get('hits'), _bucket(feed.get('jobs'))]))
+                                                                           feed.get('site'), feed.get('hits'), _bucket(feed.get('jobs')), feed.get('out')]))
     for dead in body.get('nofeed') or []:
         yield ('nofeed', dead, f"dead:{dead.get('company')}", json.dumps([tags_sig, dead.get('host')]))
     for board in body.get('boards') or []:
-        yield ('boards', board, f"board:{board['board']}", json.dumps([tags_sig, board.get('failed'), board.get('hits'), _bucket(board.get('jobs'))]))
+        yield ('boards', board, f"board:{board['board']}", json.dumps([tags_sig, board.get('failed'), board.get('hits'), board.get('dup'), _bucket(board.get('jobs')), board.get('out')]))
 
 
 def only_changed(db, body, now=None):
@@ -288,7 +376,7 @@ def maybe_send(feed_list, report, tracker=None, **kwargs):
     """Called after a full crawl and after a scout run: does nothing unless the user opted in, and at most every EVERY."""
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
-    body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db')), kwargs.get('now'))
+    body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'), stages=kwargs.get('stages')), kwargs.get('now'))
     if not body['feeds'] and not body.get('nofeed') and not body.get('boards'):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))

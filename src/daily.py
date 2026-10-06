@@ -609,6 +609,7 @@ def main():
         except Exception as error:
             print(f'Warning: budget check skipped: {type(error).__name__}: {error}')
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
+    stages = None   # job URL -> Stage: also what the pool's outcome counts read (src/contribute.py outcomes)
     if tracker:
         try:
             stages = tracker.url_stages()
@@ -665,7 +666,7 @@ def main():
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run', 'today'):
                 try:  # opt-in (src/contribute.py); the pool never affects a run
-                    contribute.maybe_send(feed_list, report, tracker, db=db)
+                    contribute.maybe_send(feed_list, report, tracker, db=db, stages=stages)
                 except Exception as error:  # noqa: BLE001
                     print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
             if args.mode in ('scheduled', 'run'):

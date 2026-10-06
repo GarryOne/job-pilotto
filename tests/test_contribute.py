@@ -224,3 +224,39 @@ class OnlyChangedTests(unittest.TestCase):
         self.assertEqual((changed['feeds'], [b['board'] for b in changed['boards']]), ([], ['jobsch']))
         later, _ = contribute.only_changed(db, body, NOW + timedelta(hours=21))
         self.assertEqual(len(later['feeds']), 1, 'once a day anyway: the site keeps it as still read')
+
+
+class OutcomeTests(unittest.TestCase):
+    """7 Oct 2026, owner: what each feed and board led to (strong fit, saved, applied, interview, offer) and the traits of its matches, as counts."""
+    def test_outcomes_traits_and_board_duplicates_are_counted_by_fixed_names(self):
+        from src import store
+        from src.ai import enrich, score
+        with tempfile.TemporaryDirectory() as tmp, store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            db.execute('CREATE TABLE IF NOT EXISTS scores (job_id INTEGER PRIMARY KEY, scorer_version INTEGER, input_hash TEXT, model TEXT, created_at TEXT, data_json TEXT)')
+            db.execute('CREATE TABLE IF NOT EXISTS enrichments (job_id INTEGER PRIMARY KEY, extractor_version INTEGER, description_hash TEXT, model TEXT, created_at TEXT, data_json TEXT)')
+            now = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            db.execute("INSERT INTO companies (id, name, updated_at) VALUES (1, 'Migros', ?)", (now,))
+            db.executemany('INSERT INTO sources (id, name, kind) VALUES (?, ?, ?)', [(1, 'Migros', 'employer feed'), (2, 'Google Jobs', 'job board'), (3, 'LinkedIn alert', 'job board')])
+            jobs = [(1, 1, 'https://m/1', 85, 'Interviewing'), (2, 1, 'https://m/2', 72, 'Applied'), (3, 1, 'https://m/3', 40, None), (4, 2, 'https://g/1', 90, 'Saved'), (5, 3, 'https://l/1', 75, 'Offer')]
+            for job_id, source, url, fit, _ in jobs:
+                db.execute("INSERT INTO jobs (id, canonical_key, source_id, company_id, title, url, first_seen_at, last_seen_at) VALUES (?, ?, ?, 1, 'Vendeur', ?, ?, ?)", (job_id, url, source, url, now, now))
+                db.execute('INSERT INTO scores (job_id, data_json) VALUES (?, ?)', (job_id, json.dumps({'score': fit})))
+                db.execute('INSERT INTO enrichments (job_id, data_json) VALUES (?, ?)', (job_id, json.dumps({'languages': [{'language': 'French', 'level': 'required'}],
+                           'seniority': {'value': 'junior'}, 'work_mode': {'value': 'onsite'}})))
+            stages = {url: stage for _, _, url, _, stage in jobs if stage}
+            led = contribute.outcomes(db, stages)
+            self.assertEqual({k: led['Migros'][k] for k in ('strong', 'saved', 'applied', 'interview', 'offer')}, {'strong': 2, 'saved': 2, 'applied': 2, 'interview': 1, 'offer': 0},
+                             'an interview was applied to and saved: each step counts the ones after it')
+            self.assertEqual((led['Migros']['langs'], led['Migros']['senior']), ({'French': 3}, {'junior': 3}))
+            feed_list = [{'ats': 'successfactors', 'slug': 'migros', 'company': 'Migros'}]
+            report = {'sources': [{'company': 'Migros', 'ok': True, 'total': 50, 'matches': 3}, {'company': 'Google Jobs: vendeur / Genève', 'ok': True, 'total': 20, 'matches': 2},
+                                  {'company': 'LinkedIn alerts', 'ok': True, 'total': 4, 'matches': 1}],
+                      'jobs': [{'source': 'Google Jobs', 'company': 'Migros'}, {'source': 'Google Jobs', 'company': 'Small Shop'}]}
+            with mock.patch.object(contribute, 'tags', lambda search=None: (['sales_retail'], ['europe'])):
+                body = contribute.payload(feed_list, report, None, install='abc-12345678', db=db, stages=stages)
+        self.assertEqual(body['feeds'][0]['out']['interview'], 1)
+        boards = {b['board']: b for b in body['boards']}
+        self.assertEqual((boards['google_jobs']['dup'], boards['google_jobs']['out']['saved']), (1, 1), 'one Google match was Migros, read directly too')
+        self.assertEqual(boards['alerts_linkedin']['out']['offer'], 1, '"LinkedIn alert" in the job store is the LinkedIn alerts board')
+        self.assertNotIn('Vendeur', json.dumps(body))
+        self.assertNotIn('https://m/1', json.dumps(body))

@@ -8,7 +8,7 @@ import {purge} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -128,4 +128,19 @@ test('the totals are added up in SQL and paged: every feed comes back once, what
   } while (after && pages < 10);
   assert.deepEqual(seen, ['a', 'b', 'c', 'd', 'e'].map(slug => [slug, 2, 2, 2]));
   assert.equal(pages, 3);
+});
+
+test('outcomes and traits are kept in fixed names only and summed per feed and board; a board counts matches it shares with employer feeds', async () => {
+  const env = setup();
+  const out = {strong: 2, applied: 2, interview: 1, langs: {French: 3, Klingon: 9}, senior: {junior: 3}, secret: 'x'};
+  for (const install of ['install-aaaa1111', 'install-bbbb2222']) {
+    await post(env, {v: 2, install, roles: ['sales_retail'], regions: ['europe'], feeds: [feed('migros', {out})], boards: [{board: 'google_jobs', jobs: 20, hits: 2, dup: 1, out: {saved: 1}}]});
+  }
+  const stored = JSON.parse(env.STATS.db.prepare('SELECT out_json FROM contributions LIMIT 1').get().out_json);
+  assert.deepEqual(stored, {strong: 2, applied: 2, interview: 1, langs: {French: 3}, senior: {junior: 3}});
+  const all = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const migros = all.feeds.find(f => f.slug === 'migros');
+  assert.deepEqual([migros.out.interview, migros.out.applied, migros.out.langs, migros.out.senior], [2, 4, {French: 6}, {junior: 6}]);
+  const google = all.boards.find(b => b.board === 'google_jobs');
+  assert.deepEqual([google.dup, google.out.saved], [2, 2]);
 });
