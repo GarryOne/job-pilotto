@@ -906,7 +906,7 @@ function handlers() {
   });
   ipcMain.handle('benchmarkLines', (_, urls) => ({ok: true, lines: benchmarkLib.lines(storage, urls, controlEvents.boardName)}));
   ipcMain.handle('searchCoverage', async () => {
-    if (DEMO) return {ok: true, coverage: null};
+    if (DEMO) return {ok: true, coverage: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'coverage.json'), 'utf8'))};   // the Strategy cards and the few-jobs buttons, shown
     // A test run can make the engine's answer as slow as it is on a real machine (a Python start over a big data folder): the card must not arrive late and push the page.
     if (process.env.JOB_PILOTTO_E2E && Number(process.env.JOB_PILOTTO_E2E_COVERAGE_MS) > 0) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_E2E_COVERAGE_MS)));
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);

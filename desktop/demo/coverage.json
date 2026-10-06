@@ -1,0 +1,75 @@
+{
+ "narrow": true,
+ "local": false,
+ "share": 0.01,
+ "matched": 2,
+ "in_places": 6477,
+ "fetched": 18675,
+ "feeds": 190,
+ "at": "2026-09-27T17:09:00+00:00",
+ "suggestions": [
+  {
+   "term": "social media",
+   "count": 30,
+   "examples": [
+    "Social Media Manager"
+   ],
+   "local": false
+  },
+  {
+   "term": "retail",
+   "count": 6,
+   "examples": [
+    "Retail Sales Associate"
+   ],
+   "local": false
+  }
+ ],
+ "places": {
+  "title_hits": 9,
+  "matched": 2,
+  "elsewhere": 0,
+  "options": [
+   {
+    "place": "France",
+    "count": 5,
+    "examples": [
+     "Vendeur, Annemasse"
+    ],
+    "fragment": "france"
+   }
+  ]
+ },
+ "sources": [
+  {
+   "id": "brave",
+   "name": "Web search (Brave)",
+   "effort": "A free key, about 2 minutes",
+   "gain": "finds employers' own job sites when their name leads nowhere"
+  },
+  {
+   "id": "aggregators",
+   "name": "Adzuna and Jooble",
+   "effort": "Two free keys, about 3 minutes",
+   "gain": "job search engines across all trades and countries"
+  }
+ ],
+ "excluded": [
+  {
+   "fragment": "\\bsenior\\b",
+   "count": 4,
+   "examples": [
+    "Senior Sales Associate"
+   ]
+  }
+ ],
+ "languages": [
+  {
+   "language": "english",
+   "count": 9,
+   "examples": [
+    "Client Advisor"
+   ]
+  }
+ ]
+}

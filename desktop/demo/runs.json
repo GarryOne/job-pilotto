@@ -1,95 +1,108 @@
 [
-  {
-    "id": 1790622000000,
-    "kind": "insight",
-    "mode": "insight",
-    "trigger": "you",
-    "startedAt": "2026-09-28T17:20:00Z",
-    "endedAt": "2026-09-28T17:20:40Z",
-    "ok": true,
-    "summary": "Salary — the advertised ceiling sits under your floor",
-    "log": [],
-    "message": "💡 Insight · Salary\nNorthwind AI's Staff SRE role caps pay at EUR 100-150k/year, below your CHF150k floor\n• Recruiter call: the budget was stated as '100 to 150 K per year' for a ~500-person finance company.\n• The same role was posted as Principal, but the CTO wants a hands-on senior operational SRE.\n• 9 of 15 disclosed remote salaries last month sit in the EUR 94-141k range.\n👉 Ask for the budget range before agreeing to a screening call; skip it if the cap is under your floor.\nConfidence low · applications data, 1 applications"
+ {
+  "id": 1790622000000,
+  "kind": "insight",
+  "mode": "insight",
+  "trigger": "you",
+  "startedAt": "2026-09-28T17:20:00Z",
+  "endedAt": "2026-09-28T17:20:40Z",
+  "ok": true,
+  "summary": "Salary — the advertised ceiling sits under your floor",
+  "log": [],
+  "message": "💡 Insight · Salary\nNorthwind AI's Staff SRE role caps pay at EUR 100-150k/year, below your CHF150k floor\n• Recruiter call: the budget was stated as '100 to 150 K per year' for a ~500-person finance company.\n• The same role was posted as Principal, but the CTO wants a hands-on senior operational SRE.\n• 9 of 15 disclosed remote salaries last month sit in the EUR 94-141k range.\n👉 Ask for the budget range before agreeing to a screening call; skip it if the cap is under your floor.\nConfidence low · applications data, 1 applications"
+ },
+ {
+  "id": 1790620000000,
+  "kind": "search",
+  "trigger": "schedule",
+  "startedAt": "2026-09-28T17:08:00Z",
+  "endedAt": "2026-09-28T17:10:00Z",
+  "ok": true,
+  "found": 214,
+  "new": 12,
+  "changed": 3,
+  "log": []
+ },
+ {
+  "id": 1790618400000,
+  "kind": "add",
+  "trigger": "you",
+  "startedAt": "2026-09-28T16:40:00Z",
+  "endedAt": "2026-09-28T16:40:25Z",
+  "ok": true,
+  "summary": "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100",
+  "job": {
+   "pageId": "demo-lead-9",
+   "url": "https://www.notion.so/demo-lead-9",
+   "title": "Platform Engineer",
+   "jobUrl": "https://example.com/lead/9",
+   "created": true
   },
-  {
-    "id": 1790620000000,
-    "kind": "search",
-    "trigger": "schedule",
-    "startedAt": "2026-09-28T17:08:00Z",
-    "endedAt": "2026-09-28T17:10:00Z",
-    "ok": true,
-    "found": 214,
-    "new": 12,
-    "changed": 3,
-    "log": []
-  },
-  {
-    "id": 1790618400000,
-    "kind": "add",
-    "trigger": "you",
-    "startedAt": "2026-09-28T16:40:00Z",
-    "endedAt": "2026-09-28T16:40:25Z",
-    "ok": true,
-    "summary": "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100",
-    "job": {
-      "pageId": "demo-lead-9",
-      "url": "https://www.notion.so/demo-lead-9",
-      "title": "Platform Engineer",
-      "jobUrl": "https://example.com/lead/9",
-      "created": true
-    },
-    "log": [
-      "⏳ Reading your jobs in Notion",
-      "⏳ Claude is reading the message",
-      "⏳ Claude found: Recruiter outreach · Platform Engineer — updating the job in Notion",
-      "Job logged: {\"page_id\": \"demo-lead-9\", \"url\": \"https://www.notion.so/demo-lead-9\", \"title\": \"Platform Engineer\", \"job_url\": \"https://example.com/lead/9\", \"created\": true}",
-      "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100"
-    ]
-  },
-  {
-    "id": 1790616000000,
-    "kind": "mail",
-    "trigger": "schedule",
-    "startedAt": "2026-09-28T16:00:00Z",
-    "endedAt": "2026-09-28T16:00:40Z",
-    "ok": true,
-    "updates": [
-      "💬 Reply received · Acme Robotics — SRE"
-    ],
-    "summary": "Mail: 6 new email(s) classified, 1 update(s)",
-    "log": []
-  },
-  {
-    "id": 1790500000000,
-    "kind": "weekly",
-    "trigger": "schedule",
-    "startedAt": "2026-09-28T06:00:00Z",
-    "endedAt": "2026-09-28T06:01:00Z",
-    "ok": true,
-    "summary": "9 applications sent, 2 interviews landed",
-    "log": [],
-    "message": "📊 Weekly report\nQuiet week: 9 applications sent, 2 interviews landed\nIn the last 7 days you sent 9 of 13 total applications, heard back on 10 (77% reply rate), and converted 5 of 10 decided applications to interviews (50%). Six rejections came in this week (Northwind AI x4, Lakeside Payments x2) against two recruiter screens.\n✅ Worked\n• All 5 interview outcomes recorded to date came through the Recruiter channel, while direct applications produced none.\n• Applying within three days of a posting matched every interview that followed.\n🔧 Change next week\n• Send more of the 31 already-drafted kits: only 9 were applied this week.\n• Prefer SRE and Platform titles over generic software listings, which converted far less often.\n🎯 Push more of the 31 drafted-but-unsent kits out the door this week, favouring SRE and Platform titles.\nFull report in Notion"
-  },
-  {
-    "id": 1790590000000,
-    "kind": "scout",
-    "mode": "scout",
-    "trigger": "schedule",
-    "startedAt": "2026-09-28T08:15:00Z",
-    "endedAt": "2026-09-28T08:15:40Z",
-    "ok": true,
-    "log": [],
-    "message": "🔎 Source scout · checked 12 · 🆕 7 new sources\n1. Northwind AI · Ashby · quality 61 · ⭐ Tier 1\n   5 SRE-type roles · 3 in your places\n   Zurich\n2. Lakeside Payments · Greenhouse · quality 48 · ⭐ Tier 1\n   3 SRE-type roles · 2 in your places\n   Geneva\n3. Acme Robotics · Lever · quality 35\n   2 SRE-type roles · 1 in your places\n   Remote - Europe\n4. Example Labs · Greenhouse · quality 22\n   1 SRE-type roles · 0 in your places\n5. Harbor Health · Ashby · quality 20\n   1 SRE-type roles · 1 in your places\n6. Pine Cloud · Greenhouse · quality 18\n   2 SRE-type roles · 0 in your places\n7. Summit Games · Lever · quality 15\n   1 SRE-type roles · 0 in your places\n3 without public feed · 2 low relevance · 18 feeds crawled · 240 candidates queued"
-  },
-  {
-    "id": 1790580000000,
-    "kind": "today",
-    "mode": "today",
-    "trigger": "you",
-    "startedAt": "2026-09-28T07:30:00Z",
-    "endedAt": "2026-09-28T07:32:00Z",
-    "ok": true,
-    "log": [],
-    "message": "✈️ Job Pilotto · 🆕 0 new · top 10 of 24\n24 open · 5 🇨🇭 · 9 applied · 37 filtered · 80 low fit\n🎯 Best matches\n1. Staff SRE, Observability (https://example.com/jobs/alpine-1) · 🎯 84\n   Alpine Data · Remote (Europe) · Staff\n2. Platform Engineer, Developer Experience (https://example.com/jobs/northwind-2) · 🎯 78\n   Northwind AI · Zurich · Senior\n3. DevOps Engineer (https://example.com/jobs/lakeside-3) · 🎯 71\n   Lakeside Payments · Geneva · Mid\n4. Cloud Engineer (https://example.com/jobs/acme-4) · 🎯 66\n   Acme Robotics · Remote"
-  }
+  "log": [
+   "⏳ Reading your jobs in Notion",
+   "⏳ Claude is reading the message",
+   "⏳ Claude found: Recruiter outreach · Platform Engineer — updating the job in Notion",
+   "Job logged: {\"page_id\": \"demo-lead-9\", \"url\": \"https://www.notion.so/demo-lead-9\", \"title\": \"Platform Engineer\", \"job_url\": \"https://example.com/lead/9\", \"created\": true}",
+   "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100"
+  ]
+ },
+ {
+  "id": 1790616000000,
+  "kind": "mail",
+  "trigger": "schedule",
+  "startedAt": "2026-09-28T16:00:00Z",
+  "endedAt": "2026-09-28T16:00:40Z",
+  "ok": true,
+  "updates": [
+   "💬 Reply received · Acme Robotics — SRE"
+  ],
+  "summary": "Mail: 6 new email(s) classified, 1 update(s)",
+  "log": []
+ },
+ {
+  "id": 1790500000000,
+  "kind": "weekly",
+  "trigger": "schedule",
+  "startedAt": "2026-09-28T06:00:00Z",
+  "endedAt": "2026-09-28T06:01:00Z",
+  "ok": true,
+  "summary": "9 applications sent, 2 interviews landed",
+  "log": [],
+  "message": "📊 Weekly report\nQuiet week: 9 applications sent, 2 interviews landed\nIn the last 7 days you sent 9 of 13 total applications, heard back on 10 (77% reply rate), and converted 5 of 10 decided applications to interviews (50%). Six rejections came in this week (Northwind AI x4, Lakeside Payments x2) against two recruiter screens.\n✅ Worked\n• All 5 interview outcomes recorded to date came through the Recruiter channel, while direct applications produced none.\n• Applying within three days of a posting matched every interview that followed.\n🔧 Change next week\n• Send more of the 31 already-drafted kits: only 9 were applied this week.\n• Prefer SRE and Platform titles over generic software listings, which converted far less often.\n🎯 Push more of the 31 drafted-but-unsent kits out the door this week, favouring SRE and Platform titles.\nFull report in Notion"
+ },
+ {
+  "id": 1790590000000,
+  "kind": "scout",
+  "mode": "scout",
+  "trigger": "schedule",
+  "startedAt": "2026-09-28T08:15:00Z",
+  "endedAt": "2026-09-28T08:15:40Z",
+  "ok": true,
+  "log": [],
+  "message": "🔎 Source scout · checked 12 · 🆕 7 new sources\n1. Northwind AI · Ashby · quality 61 · ⭐ Tier 1\n   5 SRE-type roles · 3 in your places\n   Zurich\n2. Lakeside Payments · Greenhouse · quality 48 · ⭐ Tier 1\n   3 SRE-type roles · 2 in your places\n   Geneva\n3. Acme Robotics · Lever · quality 35\n   2 SRE-type roles · 1 in your places\n   Remote - Europe\n4. Example Labs · Greenhouse · quality 22\n   1 SRE-type roles · 0 in your places\n5. Harbor Health · Ashby · quality 20\n   1 SRE-type roles · 1 in your places\n6. Pine Cloud · Greenhouse · quality 18\n   2 SRE-type roles · 0 in your places\n7. Summit Games · Lever · quality 15\n   1 SRE-type roles · 0 in your places\n3 without public feed · 2 low relevance · 18 feeds crawled · 240 candidates queued"
+ },
+ {
+  "id": 1790580000000,
+  "kind": "today",
+  "mode": "today",
+  "trigger": "you",
+  "startedAt": "2026-09-28T07:30:00Z",
+  "endedAt": "2026-09-28T07:32:00Z",
+  "ok": true,
+  "log": [],
+  "message": "✈️ Job Pilotto · 🆕 0 new · top 10 of 24\n24 open · 5 🇨🇭 · 9 applied · 37 filtered · 80 low fit\n🎯 Best matches\n1. Staff SRE, Observability (https://example.com/jobs/alpine-1) · 🎯 84\n   Alpine Data · Remote (Europe) · Staff\n2. Platform Engineer, Developer Experience (https://example.com/jobs/northwind-2) · 🎯 78\n   Northwind AI · Zurich · Senior\n3. DevOps Engineer (https://example.com/jobs/lakeside-3) · 🎯 71\n   Lakeside Payments · Geneva · Mid\n4. Cloud Engineer (https://example.com/jobs/acme-4) · 🎯 66\n   Acme Robotics · Remote"
+ },
+ {
+  "id": 1790540000000,
+  "kind": "search",
+  "trigger": "you",
+  "startedAt": "2026-09-27T17:08:00Z",
+  "endedAt": "2026-09-27T17:09:00Z",
+  "ok": true,
+  "found": 9,
+  "new": 1,
+  "changed": 0,
+  "message": "✈️ Job digest\n1 new · Top 1 of 1 ranked jobs\n\n📍 In your preferred locations\nNew since your last run · 1 job\n\n1. Sales Associate 80% (https://example.test/jobs/demo-sales-1)\nNorthwind Retail · Geneva · On-site\n\nYour pipeline\n1 open · 1 pinned\n\nTap a job number to mark it applied, save or dismiss it.",
+  "log": []
+ }
 ]
