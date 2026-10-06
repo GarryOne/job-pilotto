@@ -63,6 +63,8 @@ async function build() {
   }
 }
 
+// The build running for a job, or null: Recent activity's interview card shows "Building…" until it settles.
+export const prepRunning = pageId => (running?.pageId === pageId ? running.promise : null);
 export function openPrep(item) {
   markPrep(item.page_id, 'building');  // the row changes before the dialog opens
   reset(item);

@@ -23,6 +23,40 @@
    }
   },
   {
+   "name": "3 kinds, which job? — before answering",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 3 new email(s) read, 3 update(s) recorded",
+    "report": [
+     "Gmail check: 3 new email(s) read, 3 update(s) recorded",
+     "❓ Interview · Kraken — which job?",
+     "❓ Rejected · Orbit Labs — which job?",
+     "❓ Reply received · Lumen Data — which job?",
+     "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Thu 8 Oct 2026 16:00–16:30 (CEST) · Kraken DM · 05 Oct 18:05 — [needs you] · Kraken",
+     "Update on your application · Orbit Labs Talent Team · talent@orbitlabs.example · 05 Oct 11:20 — [needs you] · Orbit Labs",
+     "Re: your application · Lumen Data recruiting · Sam Rivera · 05 Oct 09:40 — [needs you] · Lumen Data"
+    ]
+   }
+  },
+  {
+   "name": "3 kinds, which job? — after answering",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 3 new email(s) read, 3 update(s) recorded",
+    "report": [
+     "Gmail check: 3 new email(s) read, 3 update(s) recorded",
+     "❓ Interview · Kraken — which job?",
+     "❓ Rejected · Orbit Labs — which job?",
+     "❓ Reply received · Lumen Data — which job?",
+     "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Fri 9 Oct 2026 16:00–16:30 (CEST) · Kraken DM · 05 Oct 18:05 — [needs you] · Kraken",
+     "Your application at Orbit Labs · talent@orbitlabs.example · 05 Oct 11:20 — [needs you] · Orbit Labs",
+     "Re: next steps · Lumen Data recruiting · Sam Rivera · 05 Oct 09:40 — [needs you] · Lumen Data"
+    ]
+   }
+  },
+  {
    "name": "Rejection + AI assessment (Always on)",
    "run": {
     "kind": "mail",
@@ -167,7 +201,8 @@
     "company": "Blockdaemon",
     "page_id": "demo-q1",
     "notion_url": "",
-    "meta": []
+    "meta": [],
+    "event_id": "demo-event-0"
    },
    {
     "priority": 3,
@@ -188,12 +223,75 @@
     "notion_url": "https://app.notion.com/p/demo-prep-huxley",
     "prep_at": "",
     "prep_stale": false
+   },
+   {
+    "priority": 1,
+    "kind": "which_job",
+    "icon": "help",
+    "badge": "Which job?",
+    "tone": "warn",
+    "headline": "Which job is the Kraken invitation about?",
+    "title": "Which job is this email about?",
+    "detail": "Kraken DM · Thu 8 Oct 16:00",
+    "subject": "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Thu 8 Oct 2026 16:00–16:30 (CEST)",
+    "company": "Kraken",
+    "event_kind": "Interview",
+    "page_id": "demo-q-kraken",
+    "notion_url": "",
+    "meta": [],
+    "event_id": "demo-event-2"
+   },
+   {
+    "priority": 1,
+    "kind": "which_job",
+    "icon": "help",
+    "badge": "Which job?",
+    "tone": "warn",
+    "headline": "Which job is the Orbit Labs email about?",
+    "title": "Which job is this email about?",
+    "detail": "Orbit Labs · rejection",
+    "subject": "Update on your application · Orbit Labs Talent Team",
+    "company": "Orbit Labs",
+    "event_kind": "Rejected",
+    "page_id": "demo-q-orbit",
+    "notion_url": "",
+    "meta": [],
+    "event_id": "demo-event-3"
+   },
+   {
+    "priority": 1,
+    "kind": "which_job",
+    "icon": "help",
+    "badge": "Which job?",
+    "tone": "warn",
+    "headline": "Which job is the Lumen Data email about?",
+    "title": "Which job is this email about?",
+    "detail": "Lumen Data · reply",
+    "subject": "Re: your application · Lumen Data recruiting",
+    "company": "Lumen Data",
+    "event_kind": "Reply received",
+    "page_id": "demo-q-lumen",
+    "notion_url": "",
+    "meta": [],
+    "event_id": "demo-event-4"
    }
   ],
   "answered": [
    {
     "subject": "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Thu 1 Oct 2026 16:00–16:30 (CEST)",
     "job": "Kraken — Senior Site Reliability Engineer"
+   },
+   {
+    "subject": "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Fri 9 Oct 2026 16:00–16:30 (CEST)",
+    "job": "Kraken — Senior Site Reliability Engineer"
+   },
+   {
+    "subject": "Your application at Orbit Labs",
+    "job": "Orbit Labs — Platform Engineer"
+   },
+   {
+    "subject": "Re: next steps · Lumen Data recruiting",
+    "job": "Lumen Data — Senior SRE"
    }
   ]
  }

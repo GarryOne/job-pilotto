@@ -1215,12 +1215,16 @@ function handlers() {
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
   // Demo mode: the fictional list in demo/focus.json (JOB_PILOTTO_DEMO_FOCUS_DELAY ms first, to see the loading state;
   // JOB_PILOTTO_DEMO_FOCUS=<file> another fictional list, e.g. e2e/mail-states.mjs's open and answered questions).
+  // Demo mode remembers what you do there, as Notion would for a person: an answered "which job?" leaves Focus and is
+  // answered, a built prep kit is ready. Without it every re-read of the file undid it (owner, 6 Oct 2026).
+  let demoFocus = null;
+  const demoFocusData = () => demoFocus || (demoFocus = JSON.parse(fs.readFileSync(process.env.JOB_PILOTTO_DEMO_FOCUS || path.join(here, 'demo', 'focus.json'), 'utf8')));
   ipcMain.handle('focus', async () => {
     const gate = needsNotion('focus');
     if (gate) return gate;
     if (!DEMO) return viewCache.remember(storage, 'focus', await pipeline.focus(storage));
     await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_FOCUS_DELAY) || 0));
-    return {ok: true, focus: JSON.parse(fs.readFileSync(process.env.JOB_PILOTTO_DEMO_FOCUS || path.join(here, 'demo', 'focus.json'), 'utf8'))};
+    return {ok: true, focus: demoFocusData()};
   });
   // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
   ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
@@ -1254,7 +1258,11 @@ function handlers() {
   };
   // Interview prep kit (Focus → Prepare): runs here (you wait for it), steps shown in its dialog.
   ipcMain.handle('interviewPrep', (_, pageId) => {
-    if (DEMO) return {ok: true, text: 'Prep kit ready (demo): nothing was written.'};
+    if (DEMO) {
+      const item = demoFocusData().items.find(one => one.kind === 'prepare' && one.page_id === pageId);
+      if (item) Object.assign(item, {prep_at: new Date().toLocaleDateString('en-CA'), prep_stale: false});
+      return {ok: true, text: 'Prep kit ready (demo): nothing was written.'};
+    }
     if (!aiReady()) return {ok: false, text: 'The prep kit needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'};
     // Its lines and result also go to logs/app.log (a failed kit left no trace before).
     return pipeline.interviewPrep(storage, String(pageId), line => {
@@ -1266,8 +1274,18 @@ function handlers() {
   ipcMain.handle('describeJob', (_, pageId, text = '', url = '') => (DEMO ? {ok: true, text: 'Saved (demo).'}
     : pipeline.describeJob(storage, String(pageId), String(text || ''), String(url || ''))));
   // Where an email belongs: Focus → "Is this about …?" (src/ai/reassign.py).
-  ipcMain.handle('reassignEmail', (_, eventId, target) => (DEMO ? {ok: true, text: 'Moved (demo): nothing was written.'}
-    : pipeline.reassignEmail(storage, String(eventId), String(target))));
+  ipcMain.handle('reassignEmail', (_, eventId, target) => {
+    if (!DEMO) return pipeline.reassignEmail(storage, String(eventId), String(target));
+    const focus = demoFocusData();
+    const at = focus.items.findIndex(one => one.kind === 'which_job' && one.event_id === eventId);
+    if (at >= 0) {
+      const [item] = focus.items.splice(at, 1);
+      const job = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8')).jobs.find(one => one.url === target);
+      const label = target === 'none' ? '' : job ? `${job.company || job.via} — ${job.title}` : `${item.company || 'New job'} — new job`;
+      focus.answered_questions = [{subject: item.subject, job: label, at: new Date().toISOString()}, ...(focus.answered_questions || [])];
+    }
+    return {ok: true, text: 'Moved (demo): nothing was written.'};
+  });
   ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : needsNotion('focus') || pipeline.focusHistory(storage)));
   ipcMain.handle('focusDone', (_, pageId, what = 'replied') => (DEMO ? {ok: true} : needsNotion('focus') || pipeline.focusDone(storage, String(pageId), String(what))));
   // Focus → "Did the interview happen?": held (notes), moved (a new time) or cancelled; Notion first.

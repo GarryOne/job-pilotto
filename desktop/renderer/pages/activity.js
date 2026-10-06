@@ -20,6 +20,7 @@ import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions, prepAction} from './focus.js';
 import {openView} from './nav.js';
 import {whichJob} from './reassign.js';
+import {openPrep, prepRunning} from './prep.js';
 import {renderSessionPage} from './session-log.js';
 import {renderActionsPage} from './runs-page.js';
 import {openSetting} from './settings.js';
@@ -820,47 +821,71 @@ function emailCard(result, pending, answered, meetingPanel) {
   const said = meetingPanel ? '' : outcome ? [outcome.summary, ...outcome.details.filter(line => !/^Source:/i.test(line))].filter(Boolean).join(' · ')
     : update?.when || '';
   const noun = emailNoun(email);
-  // An interview invitation you placed on a job is that job's interview now: the same card as any interview (the owner,
-  // 6 Oct 2026: the two showed so differently), with your answer one line under it.
-  if (asked?.answered && asked.job && noun === 'invitation') return {card: placedInvitationCard(result, asked), waiting: 0};
+  // "Which job?" is not a kind of email: it is the job missing from an email that is an interview, a rejection, a reply…
+  // Placed on a job, it is that kind's card for that job, with your answer one line under it (owner, 6 Oct 2026).
+  const asking = asked ? questionKind(result, asked, noun) : '';
+  if (asked?.answered && asked.job) return {card: placedCard(result, asked, asking), waiting: 0};
+  // An interview this check recorded with no reminder message (a run on this Mac): the same panel, from what it knows.
+  const interviewHere = !meetingPanel && !asked && /^Interview/.test(kind)
+    ? () => interviewPanel({interview: {when: update?.when || (outcome?.summary || '').replace(/\s*·\s*/, ' '), company: result.company, title: result.role,
+      where: (outcome?.details || []).map(line => /^Event:\s*(.+)$/i.exec(line)?.[1]).find(Boolean) || '', summary: '', people: []}, topics: [], nextSteps: [], consent: '', url: ''}) : null;
   const card = mailCardRow({
-    company: result.company || email?.subject, role: asked && !asked.answered ? `${noun === 'invitation' ? 'Interview invitation' : 'Email'} · Role unidentified` : result.role,
+    company: result.company || email?.subject, role: asked && !asked.answered ? `${KIND_NOUN[asking] || 'Email'} · Role unidentified` : result.role,
     lines: [[email?.sender, email?.time].filter(Boolean).join(' · ')],
-    tag, summary: said, changes: update && !update.question ? update.changes : changeOf(email?.changes),
-    panel: review ? assessmentPanel(review) : meetingPanel ? meetingPanel()
+    tag, summary: interviewHere ? '' : said, changes: update && !update.question ? update.changes : changeOf(email?.changes),
+    panel: review ? assessmentPanel(review) : meetingPanel ? meetingPanel() : interviewHere ? interviewHere()
       : asked ? questionPanel(asked, subjectKey(email.subject), email.subject, {noun, company: result.company}) : null,
     details: email?.subject && result.company ? email.subject : '', noDetails: email?.subject ? 'The subject is the title above.' : ''});
   return {card, waiting: asked && !asked.answered ? 1 : 0};
 }
+// What the email itself is, while its job is the question: the engine's question line says it ("❓ Interview · Blockdaemon —
+// which job?"), Focus's question too (event_kind); an invitation without either is an interview.
+const KIND_NOUN = {Interview: 'Interview invitation', 'Interview scheduled': 'Interview invitation', Rejected: 'Rejection',
+  'Reply received': 'Reply', 'Application received': 'Application confirmation', Offer: 'Offer'};
+function questionKind(result, asked, noun) {
+  const said = result.update?.question ? result.update.summary : asked.open?.event_kind || '';
+  return said || (noun === 'invitation' ? 'Interview' : '');
+}
 // "Invitation …: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30–22:15 (CEST)" -> "Fri 2 Oct 2026 21:30".
 const whenOf = subject => { const m = /@\s*((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+\d{1,2}\s+\w+(?:\s+\d{4})?)\s+(\d{1,2}:\d{2})/.exec(subject || ''); return m ? `${m[1]} ${m[2]}` : ''; };
-function placedInvitationCard(result, asked) {
+// The card of what the email is (interview, rejection, reply…), for the job you placed it on. Its stage move and a
+// rejection's AI reading come with the engine's next record for that job: here, only what this email and your answer say.
+function placedCard(result, asked, kind) {
   const {email} = result;
   const [company, ...title] = asked.job.split(/\s+—\s+/);
-  const meeting = {when: whenOf(email.subject), company, title: title.join(' — '), summary: '', where: '', people: []};
-  const panel = el('div', 'mail-placed');
+  const interview = /^Interview/.test(kind);
   const note = el('div', 'mail-mapped');
   const line = el('p', 'mail-mapped-line');
   line.append(icon('check-circle'), 'Mapped by you to ', jobLink(asked.job, 'span'));
-  const why = `The invitation names ${result.company || 'the sender'} but doesn't specify the role.`;
+  const why = `The ${interview ? 'invitation' : 'email'} names ${result.company || 'the sender'} but doesn't specify the role.`;
   note.append(line, fold(`asked:${subjectKey(email.subject)}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
-  // Its time comes from the invitation; what to prepare arrives with the engine's day-before reminder for this interview.
-  panel.append(interviewPanel({interview: meeting, topics: [], nextSteps: [], consent: '', url: ''}), note);
-  return mailCardRow({company, role: meeting.title, lines: [[email.sender, email.time].filter(Boolean).join(' · ')],
-    tag: outcomePill('Interview scheduled'), panel, details: email.subject});
+  let panel = note;
+  if (interview) {
+    panel = el('div', 'mail-placed');
+    const meeting = {when: whenOf(email.subject), company, title: title.join(' — '), summary: '', where: '', people: []};
+    panel.append(interviewPanel({interview: meeting, topics: [], nextSteps: [], consent: '', url: ''}), note);
+  }
+  return mailCardRow({company, role: title.join(' — '), lines: [[email.sender, email.time].filter(Boolean).join(' · ')],
+    tag: kind ? outcomePill(interview ? 'Interview scheduled' : kind) : pill('Answered', 'good'), panel, details: email.subject});
 }
 // An update no email claims: its job, what it moved, or the which-job question it raised.
 function updateCard(update, pending, answered, meetingPanel) {
   const [company, ...role] = String(update.job).split(/\s+—\s+/);
   if (update.question) {
     const open = pending.find(item => item.company && jobKey(update.job).includes(jobKey(item.company)));
-    const state = open ? {open} : answered ? {answered: true, job: ''} : {};
-    const card = mailCardRow({company, role: role.join(' — ') || 'Role unidentified', tag: state.answered ? pill('Answered', 'good') : pill('Needs your answer', 'warn'),
+    const here = open ? answeredHere.get(subjectKey(open.subject)) : undefined;
+    const state = here !== undefined ? {answered: true, job: here} : open ? {open} : answered ? {answered: true, job: ''} : {};
+    if (state.answered && state.job && open) {   // placed: the card of what it is, for that job, as for an email
+      return {card: placedCard({email: {subject: open.subject, sender: '', time: ''}, company: open.company}, state, update.summary), waiting: 0};
+    }
+    const card = mailCardRow({company: open?.company || company, role: `${KIND_NOUN[update.summary] || 'Email'} · Role unidentified`, tag: state.answered ? pill('Answered', 'good') : pill('Needs your answer', 'warn'),
       panel: questionPanel(state, subjectKey(update.job), open?.subject || '', {noun: 'email', company: ''}), details: open?.subject || ''});
     return {card, waiting: state.answered ? 0 : 1};
   }
   return {card: mailCardRow({company, role: role.join(' — '), lines: [update.source || ''], tag: outcomePill(update.summary),
-    summary: meetingPanel ? '' : update.when || '', changes: update.changes, panel: meetingPanel ? meetingPanel() : null,
+    summary: meetingPanel || /^Interview/.test(update.summary) ? '' : update.when || '', changes: update.changes,
+    panel: meetingPanel ? meetingPanel() : /^Interview/.test(update.summary)
+      ? interviewPanel({interview: {when: update.when || '', company, title: role.join(' — '), where: '', summary: '', people: []}, topics: [], nextSteps: [], consent: '', url: ''}) : null,
     noDetails: 'This run recorded the update without listing its email (a run on this Mac, or a calendar event).'}), waiting: 0};
 }
 
@@ -908,11 +933,13 @@ function interviewPanel(report) {
   when.append(tile, words);
   // The call to action: the interview's prep kit, built or opened from here as Focus does (focus.js prepAction).
   const side = el('div', 'mail-meeting-side');
-  const prep = prepAction(interview.company);
-  const go = el('button', prep?.busy ? 'secondary' : 'primary', prep ? prep.label : 'Prep kit in Focus');
+  const prep = prepAction(interview.company) || jobPrep(interview.company, interview.title);
+  const go = el('button', prep?.busy ? 'secondary' : 'primary', prep ? prep.label : 'Build prep kit');
   go.type = 'button';
-  if (prep?.title) go.title = prep.title;
-  go.addEventListener('click', event => (prep ? prep.run(event) : openView('focus')));
+  if (prep?.busy) go.prepend(el('span', 'spinner small'));
+  go.title = prep ? prep.title || '' : 'Place this interview on a job first: the kit is built on the job\'s page.';
+  go.disabled = !prep || !!prep.busy;
+  go.addEventListener('click', event => prep?.run(event));
   side.append(go);
   if (report.url) {
     const view = Object.assign(el('a', 'link', 'Application in Notion ↗'), {href: '#'});
@@ -948,6 +975,26 @@ function interviewPanel(report) {
   return box;
 }
 
+// The prep kit for a job Focus holds no item for yet (an interview you have just placed on it): built on the job's own
+// page, as Focus builds it; "Building…" with a spinner until it settles, then "Open prep kit".
+const kitBuilding = new Set(), kitReady = new Set();
+function jobPrep(company, title) {
+  const found = (shared.allJobs || []).find(one => jobKey(one.company || one.via) === jobKey(company) && jobKey(one.title).startsWith(jobKey(title).slice(0, 40)));
+  if (!found?.page_id) return null;
+  const id = found.page_id;
+  if (kitBuilding.has(id)) return {label: 'Building…', busy: true, run: () => {}};
+  if (kitReady.has(id) && found.notion_url) return {label: 'Open prep kit', run: event => window.pilot.openNotion(found.notion_url, event?.metaKey)};
+  return {label: 'Build prep kit', title: 'Claude Sonnet builds it from the job, your Profile and your earlier interviews (about $0.04)', run: () => {
+    openPrep({page_id: id, company: found.company || found.via, job: found.title, notion_url: found.notion_url, badge: ''});
+    kitBuilding.add(id);
+    document.dispatchEvent(new Event('focus-rendered'));
+    prepRunning(id)?.then(result => {
+      kitBuilding.delete(id);
+      if (result?.ok) kitReady.add(id);
+      document.dispatchEvent(new Event('focus-rendered'));
+    });
+  }};
+}
 // The which-job question on its email's card. Open: the reason and "Choose the job", which opens the popup Focus uses
 // (reassign.js); answered: the job you picked, the original question folded under it.
 const subjectKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 100);
