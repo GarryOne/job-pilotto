@@ -2,7 +2,7 @@
 
 Nothing about the user goes up: a plain GET with a random install id and the token the website gives that id
 (the full list is not a public download; the website's own counters use a separate public summary). The result
-is cached on disk and fetched at most once a day; if the service is down the cache is used (however old), else nothing, and
+is cached on disk and checked about hourly (an unchanged list is a 304 by its publish time); if the service is down the cache is used (however old), else nothing, and
 `merge` then falls back to the user's own starter feeds (config/sources.json, empty unless they added some: every starting source is central
 since 6 Oct 2026), so a run never fails because of this.
 """
@@ -22,7 +22,7 @@ REGION_NAMES = ('europe', 'north_america', 'latin_america', 'asia_pacific', 'mid
 
 URL = 'https://www.jobpilotto.workers.dev/api/index'
 CACHE = DATA / 'employer_index.json'
-MAX_AGE = timedelta(hours=20)     # "at most daily", with slack for a run that starts a little early
+MAX_AGE = timedelta(minutes=55)   # checked about hourly (7 Oct 2026): an unchanged list costs one tiny 304, the central scout publishes every 6 h
 TIMEOUT = 10
 
 
@@ -166,7 +166,8 @@ def _read(cache):
     try:
         data = json.loads(cache.read_text())
         return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds')),
-                'install': data.get('install'), 'regions': data.get('regions') or [], 'nofeed': clean_nofeed(data.get('nofeed')), 'boards': clean_boards(data.get('boards'))}
+                'install': data.get('install'), 'regions': data.get('regions') or [], 'nofeed': clean_nofeed(data.get('nofeed')), 'boards': clean_boards(data.get('boards')),
+                'generated': data.get('generated') if isinstance(data.get('generated'), str) else None}
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -200,7 +201,7 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
         url = f"{url}{'&' if '?' in url else '?'}regions={','.join(regions)}"
     stored = _read(cache)
     if stored and stored['regions'] != regions:
-        stored = {**stored, 'fetched': None, 'etag': None}   # the search moved to other regions: download the new slice
+        stored = {**stored, 'fetched': None, 'etag': None, 'generated': None}   # the search moved to other regions: download the new slice
     if stored and stored['fetched']:
         try:
             if now - datetime.fromisoformat(stored['fetched']) < MAX_AGE:
@@ -213,6 +214,8 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
     if not (install_id and re.fullmatch(r'[A-Za-z0-9_-]{8,64}', install_id)):
         install_id = secrets.token_hex(12)
     headers['X-Install-Id'] = install_id
+    if stored and stored.get('generated'):   # "still this publish?": answered without a download or a count against the day's quota
+        headers['X-Index-Generated'] = stored['generated']
     mint = mint if mint is not None else (_mint if get is _get else (lambda base, install: ''))
     token = mint(url.rsplit('/api/', 1)[0], install_id)
     if token:
@@ -224,16 +227,18 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
             try:
                 status, body, etag = get(url, headers)
                 if status == 304 and stored:
-                    feeds, etag, dead, boards = stored['feeds'], stored['etag'], stored.get('nofeed') or [], stored.get('boards') or []
+                    feeds, etag, dead, boards = stored['feeds'], stored['etag'] or etag, stored.get('nofeed') or [], stored.get('boards') or []
+                    generated = stored.get('generated')
                 else:
                     parsed = json.loads(body)
                     feeds, dead, boards = clean(parsed.get('feeds')), clean_nofeed(parsed.get('nofeed')), clean_boards(parsed.get('boards'))
+                    generated = parsed.get('generated') if isinstance(parsed.get('generated'), str) else None
                 break
             except Exception:  # noqa: BLE001 — once more after a short wait, then the outer handler decides
                 if attempt == 2:
                     raise
                 time.sleep(retry_wait)
-        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds, 'nofeed': dead, 'boards': boards}
+        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds, 'nofeed': dead, 'boards': boards, 'generated': generated}
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
         return feeds

@@ -273,7 +273,7 @@ def starter_sources():
 
 
 def downloaded_index():
-    """The central employer index (cached, at most one download a day); [] when off or unreachable."""
+    """The central employer index (cached, checked about hourly); [] when off or unreachable."""
     if features.disabled('index'):
         return []
     index = employer_index.load()

@@ -9,6 +9,7 @@ import {store as storeScouting} from './scouting.js';
 import {snapshot, storeSnapshot} from './scoutingadmin.js';
 const KEY = 'index:employers';
 const NOFEED_KEY = 'index:nofeed';
+const GENERATED_KEY = 'index:generated';   // when the central scout last published: installs ask "still this one?" hourly, answered from KV alone
 const BOARDS_KEY = 'index:boards';   // per job board, what it gives people by role, family and place (src/scout.py board_stats): installs order the boards they suggest   // employers with no readable job site, published by the central scout: installs skip them 30 days
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 const MAX_BYTES = 1_000_000;          // the KV copy older app versions download (one KV value)
@@ -143,6 +144,9 @@ async function download(request, env, now = new Date()) {
       return text(200, request.method === 'HEAD' ? null : stored, {'Content-Type': 'application/json', ETag: open, 'Cache-Control': 'private, max-age=3600'});
     }
     if (!access.ok) return text(401, JSON.stringify({ok: false, error: 'token needed', hint: "POST /api/install-token {install, purpose: 'index'}"}), {'Content-Type': 'application/json'});
+    // Still the same publish? One KV read, no database, not counted against the day's downloads (7 Oct 2026: installs check hourly).
+    const have = request.headers.get('X-Index-Generated') || '';
+    if (have && have === (await env.WAITLIST.get(GENERATED_KEY))) return text(304, null, {'Cache-Control': 'private, max-age=3600'});
     const key = `index-get:${install}:${day(now)}`;
     const used = Number(await env.WAITLIST.get(key)) || 0;
     if (used >= INDEX_PER_INSTALL_PER_DAY) { await flag(env, 'index-quota', access.who, 'index downloads', now); return text(429, JSON.stringify({ok: false, error: 'limit reached for today'}), {'Content-Type': 'application/json'}); }
@@ -170,6 +174,7 @@ async function publish(request, env) {
   if (previous >= 10 && feeds.length < previous / 2) return text(409, `Refused: ${feeds.length} feeds would replace ${previous}`);
   const generated = new Date().toISOString();
   if (env.STATS) await store(env.STATS, feeds, generated);
+  await env.WAITLIST?.put(GENERATED_KEY, generated);
   // "No readable job site", checked here like everything published: a key, a name, a host, a date.
   const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
     .slice(0, 5000).map(item => ({key: item.key, company: String(item.company || '').slice(0, 120), host: /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host || '') ? item.host : null, last: item.last}));

@@ -12,7 +12,7 @@ The public repo at `~/job-pilotto` is the engine plus the Mac/Windows app. A use
 sources → crawl → SQLite cache → AI → Notion + Telegram → you submit → learn
 ```
 
-1. **Discover.** Employer feeds (Greenhouse, Lever, Ashby, Workable, and others) plus jobs.ch and TechTree. A shared employer index is downloaded at most once a day (`GET /api/index`); a run crawls only feeds that match the user's places. LinkedIn, Glassdoor, levels.fyi, and Reddit are never scraped.
+1. **Discover.** Employer feeds (Greenhouse, Lever, Ashby, Workable, and others) plus jobs.ch and TechTree. A shared employer index is checked about hourly (`GET /api/index`, a 304 when unchanged; the central scout publishes every 6 h); a run crawls only feeds that match the user's places. LinkedIn, Glassdoor, levels.fyi, and Reddit are never scraped.
 2. **Cache.** `data/jobs.sqlite` remembers what was already seen. It is a cache, not the record.
 3. **Read and rank.** Stage 1 (Haiku) extracts facts from the posting. Stage 2 (Sonnet) scores fit against the Notion profile. Top matches get an application kit (cover letter and form answers).
 4. **Deliver.** A ranked Telegram digest, plus rows in Notion. Every run writes a row in Search runs.

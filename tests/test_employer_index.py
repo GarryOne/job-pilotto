@@ -71,13 +71,13 @@ class LoadTest(unittest.TestCase):
         self.assertEqual([f['slug'] for f in feeds], ['bigco'])            # the old cache, and the run says why
         self.assertIn('401', employer_index.problem)
 
-    def test_at_most_daily(self):
+    def test_at_most_hourly(self):   # was daily until 7 Oct 2026; an unchanged list is a cheap 304 now
         calls = []
         employer_index.load(self.cache, 'u', server(calls), NOW)
-        again = employer_index.load(self.cache, 'u', server(calls), NOW + timedelta(hours=5))
+        again = employer_index.load(self.cache, 'u', server(calls), NOW + timedelta(minutes=30))
         self.assertEqual(len(calls), 1)
         self.assertEqual(len(again), 1)
-        employer_index.load(self.cache, 'u', server(calls), NOW + timedelta(hours=21))
+        employer_index.load(self.cache, 'u', server(calls), NOW + timedelta(hours=1))
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[1][1]['If-None-Match'], '"v1"')   # revalidates instead of re-downloading
 
@@ -396,3 +396,22 @@ class CentralRankTests(unittest.TestCase):
         boards = scout.board_stats([{'board': 'jooble', 'installs': 10, 'matched_installs': 4, 'families': {'photography': {'installs': 5, 'matched': 4}, 'nursing_care': {'installs': 1, 'matched': 1}}},
                                     {'board': 'jobicy', 'installs': 2}])
         self.assertEqual(boards, [{'board': 'jooble', 'installs': 10, 'matched': 4, 'by': {'families': {'photography': [5, 4]}}}])
+
+
+class HourlyCheckTests(unittest.TestCase):
+    """7 Oct 2026: installs check the central list about hourly; an unchanged list is a 304 asked by its publish time."""
+    def test_an_hour_old_cache_asks_still_this_publish_and_keeps_its_list_on_304(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / 'index.json'
+            feed = {'company': 'Migros', 'ats': 'lever', 'slug': 'migros'}
+            first = lambda url, headers: (200, json.dumps({'generated': '2026-10-07T04:50:00Z', 'feeds': [feed]}), '"e1"')  # noqa: E731
+            now = datetime(2026, 10, 7, 6, 0, tzinfo=timezone.utc)
+            with mock.patch.object(employer_index, 'my_regions', lambda: []):
+                self.assertEqual(len(employer_index.load(cache, url='https://x.test/api/index', get=first, now=now, install_id='abcdefgh12')), 1)
+                asked = []
+                again = lambda url, headers: asked.append(headers) or (304, '', None)  # noqa: E731
+                employer_index.load(cache, url='https://x.test/api/index', get=again, now=now + timedelta(minutes=30), install_id='abcdefgh12')
+                self.assertEqual(asked, [], 'under an hour: the cache answers')
+                kept = employer_index.load(cache, url='https://x.test/api/index', get=again, now=now + timedelta(minutes=61), install_id='abcdefgh12')
+        self.assertEqual(asked[0]['X-Index-Generated'], '2026-10-07T04:50:00Z')
+        self.assertEqual([f['company'] for f in kept], ['Migros'])

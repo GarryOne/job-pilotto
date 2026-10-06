@@ -240,3 +240,11 @@ test('the index keeps who a feed fits (finer labels, quiet), its outcome totals 
   assert.deepEqual(boardsOf([{board: 'jooble', installs: 10, matched: 4, by: {families: {photography: [5, 4], spy: [9, 9]}, metros: {'ch-geneva': [2, 1]}}}, {board: 'evil'}]),
     [{board: 'jooble', installs: 10, matched: 4, by: {roles: {}, regions: {}, countries: {}, metros: {}, families: {photography: [5, 4]}}}]);
 });
+
+test('"still this publish?" is answered 304 from KV alone and not counted against the day\'s downloads (7 Oct 2026)', async () => {
+  const {readFileSync} = await import('node:fs');
+  const source = readFileSync(new URL('../src/employers.js', import.meta.url), 'utf8');
+  const check = source.indexOf("request.headers.get('X-Index-Generated')"), quota = source.indexOf('if (used >= INDEX_PER_INSTALL_PER_DAY)');
+  assert.ok(check > 0 && check < quota, 'the publish-time check comes before the daily count');
+  assert.match(source, /await env\.WAITLIST\?\.put\(GENERATED_KEY, generated\)/);
+});
