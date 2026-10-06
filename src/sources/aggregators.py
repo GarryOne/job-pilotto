@@ -18,6 +18,7 @@ from . import ats, feeds
 
 SPACING_HOURS = 6
 PAGES = 2
+JOBSCH_PAGES = 5   # jobs.ch pages read at most per search and place (20 postings a page)
 TIMEOUT = 30
 TABLE = 'CREATE TABLE IF NOT EXISTS aggregator_runs (source TEXT PRIMARY KEY, at TEXT NOT NULL)'
 # Search-place country words -> Adzuna's country codes (the countries it covers).
@@ -121,11 +122,23 @@ def jobsch(search, get=None):
     if not boards.swiss_places(search):
         return []
     fetch = get or (lambda url, client=boards.Client(): client.get(url)['html'])
-    jobs = []
-    for query in _queries(search):
-        for page in range(1, PAGES + 1):
-            markup = fetch('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': query, 'page': page}))
-            for j in boards.walk(boards.Page(markup).schemas, 'JobPosting'):
+    jobs, seen = [], set()
+    # The same searches as the employer discovery (boards.py, 6 Oct 2026): in the user's Swiss cities (and the whole country when wanted), each
+    # board word on its own too, page by page until a short page or one with nothing new. Before: 4 searches, all of Switzerland, 2 pages: a
+    # Geneva search got St. Gallen and Wallisellen, and two runs in a row found the same few jobs.
+    for query in boards.jobsch_terms(search) or _queries(search):
+        for place in boards.jobsch_places(search):
+          for page in range(1, JOBSCH_PAGES + 1):
+            try:
+                markup = fetch('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': query, **({'location': place} if place else {}), 'page': page}))
+            except urllib.error.HTTPError as error:
+                if error.code in (403, 429):   # jobs.ch asks us to slow down: a block is taken as it is, what was read is kept (6 Oct 2026)
+                    print(f'Warning: jobs.ch refused more searches for now (HTTP {error.code}); {len(jobs)} job(s) read before that are kept')
+                    return jobs
+                raise
+            listed = list(boards.walk(boards.Page(markup).schemas, 'JobPosting'))
+            fresh = 0
+            for j in listed:
                 places = j.get('jobLocation') or []
                 places = places if isinstance(places, list) else [places]
                 where = []
@@ -136,10 +149,14 @@ def jobsch(search, get=None):
                         where.append(town)
                 url = j.get('url') or ''
                 key = re.search(r'/detail/([0-9a-f-]{36})', url)
-                if not (url and j.get('title') and key):
+                if not (url and j.get('title') and key) or key.group(1) in seen:
                     continue
+                seen.add(key.group(1))
+                fresh += 1
                 jobs.append(_job('jobsch', key.group(1), j['title'], (j.get('hiringOrganization') or {}).get('name'), ', '.join(f'{town}, Switzerland' for town in where) or 'Switzerland',
                                  url, str(j.get('datePosted') or '')[:10], j.get('description')))
+            if len(listed) < boards.PAGE_SIZE or not fresh:
+                break
     return jobs
 
 

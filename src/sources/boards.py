@@ -98,7 +98,7 @@ class Client:
         path=directory/(hashlib.sha256(url.encode()).hexdigest()+'.json')
         if not self.refresh and path.exists() and time.time()-path.stat().st_mtime<21600:
             return json.loads(path.read_text())
-        time.sleep(.35)
+        time.sleep(1.0)   # jobs.ch refused a fast burst (403, 6 Oct 2026): one page a second
         with urlopen(Request(url,headers={'User-Agent':'JobPilotto/0.1 (personal job discovery)'}),timeout=15) as r:
             data={'url':r.url,'html':r.read(5_000_000).decode('utf-8',errors='replace')}
         path.write_text(json.dumps(data));return data

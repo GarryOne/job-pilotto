@@ -49,7 +49,10 @@ class JobsChTests(unittest.TestCase):
     def test_only_the_search_pages_are_asked_never_a_job_detail_page(self):
         asked = []
         aggregators.jobsch({**SWISS, 'jobs_board_search_queries': ['data analyst', 'pflegefachperson']}, lambda url: asked.append(url) or LISTING)
-        self.assertEqual(len(asked), 2 * aggregators.PAGES)
+        from src.sources import boards
+        search = {**SWISS, 'jobs_board_search_queries': ['data analyst', 'pflegefachperson']}
+        self.assertEqual(len(asked), len(boards.jobsch_terms(search)) * len(boards.jobsch_places(search)),
+                         'each search once in each place: a short page is the last')
         for url in asked:
             self.assertTrue(url.startswith('https://www.jobs.ch/en/vacancies/?term='), url)
             self.assertNotIn('/detail/', url)
@@ -150,3 +153,17 @@ class LocalLanguageTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class JobsChRefusalTests(unittest.TestCase):
+    def test_a_403_stops_jobs_ch_for_the_run_and_keeps_what_was_read(self):
+        import urllib.error
+        calls = []
+        def fetch(url):
+            calls.append(url)
+            if len(calls) > 1:
+                raise urllib.error.HTTPError(url, 403, 'Forbidden', {}, None)
+            return LISTING
+        jobs = aggregators.jobsch({**SWISS, 'jobs_board_search_queries': ['data analyst', 'pflegefachperson']}, fetch)
+        self.assertEqual(len(calls), 2, 'nothing more is asked after the refusal')
+        self.assertTrue(jobs, 'the jobs of the first page are kept')
