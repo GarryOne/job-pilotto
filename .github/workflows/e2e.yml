@@ -285,7 +285,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: blob-*
           path: blob-reports
