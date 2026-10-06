@@ -969,6 +969,15 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
                 VALUES (?, ?, ?, ?, ?, ?)""", (outcome['ats'], outcome['slug'], candidate['name'], candidate['tier'],
                                                outcome['quality'], stamp.isoformat(timespec='seconds')))
         db.commit()
+        if not CENTRAL and outcome['status'] in ('found', 'none'):   # to the central list right away (opt-in): closing the app loses nothing
+            from . import contribute
+            if outcome['status'] == 'found':
+                contribute.share_now(feed={'ats': outcome['ats'], 'slug': outcome['slug'], 'company': candidate['name'][:120],
+                                           'how': contribute.how_of(candidate.get('origin')), 'site': candidate.get('careers') if str(candidate.get('careers') or '').startswith('https://') else None,
+                                           'jobs': int((outcome.get('stats') or {}).get('jobs') or 0)})
+            else:
+                site = re.sub(r'^https?://(www\.)?', '', candidate.get('website') or '').split('/')[0].lower() or None
+                contribute.share_now(dead={'company': candidate['name'][:120], 'host': site})
         if tracker and outcome['status'] != 'duplicate':
             try:
                 write_notion(tracker, candidate, outcome)

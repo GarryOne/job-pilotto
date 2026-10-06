@@ -41,11 +41,11 @@ test('invalid bodies and a wrong method are refused', async () => {
   assert.equal((await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute'), env, {})).status, 405);
 });
 
-test('one contribution per install per 10 minutes (shared after every run)', async () => {
+test('many small shares a minute per install (each find as it is made), then a pause', async () => {
   const env = setup();
-  assert.equal((await post(env, body('install-aaaa1111', [feed('a')]))).status, 200);
-  assert.equal((await post(env, body('install-aaaa1111', [feed('b')]))).status, 429);
-  assert.equal((await post(env, body('install-bbbb2222', [feed('b')]))).status, 200);
+  for (let i = 0; i < 30; i++) assert.equal((await post(env, body('install-aaaa1111', [feed(`f${i}`)]))).status, 200, `share ${i}`);
+  assert.equal((await post(env, body('install-aaaa1111', [feed('one-too-many')]))).status, 429);
+  assert.equal((await post(env, body('install-bbbb2222', [feed('b')]))).status, 200, 'another install is not held back');
 });
 
 test('the aggregate is for the scout only, counts distinct installs, and keeps tags of matched installs', async () => {

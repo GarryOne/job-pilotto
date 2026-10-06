@@ -5,7 +5,7 @@
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];   // src/contribute.py: IT families, then src/role_kinds.py's other trades
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
-const MAX_FEEDS = 500, MAX_NOFEED = 300, KEEP_DAYS = 90, EVERY_MINUTES = 10;   // shared after every run (was once in 12 hours: owner, 6 Oct 2026)
+const MAX_FEEDS = 500, MAX_NOFEED = 300, KEEP_DAYS = 90, PER_MINUTE = 30;   // installs share each find as it is made (owner, 6 Oct 2026): many small shares
 // How an install found a feed (src/contribute.py HOW): fixed words only.
 export const HOW = ['ai_idea', 'ai_list', 'jobs_ch', 'wikidata', 'seed', 'hn', 'whiteboards', 'swissdevjobs', 'index', 'own', 'other'];
 const siteOf = value => { try { const url = new URL(String(value || '')); return url.protocol === 'https:' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(url.hostname) ? url.href.slice(0, 200) : null; } catch { return null; } };
@@ -46,8 +46,10 @@ export async function contribute(request, env, now = new Date()) {
   if (!feeds.length && !nofeed.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
   const install = await hashed(env, body.install);
   const kv = env.WAITLIST, limit = `pool:${install}`;
-  if (kv && await kv.get(limit)) return Response.json({ok: false, error: `one contribution per ${EVERY_MINUTES} minutes`}, {status: 429});
-  if (kv) await kv.put(limit, '1', {expirationTtl: EVERY_MINUTES * 60});
+  const minute = `${limit}:${Math.floor(now.getTime() / 60000)}`;
+  const used = kv ? Number(await kv.get(minute)) || 0 : 0;
+  if (used >= PER_MINUTE) return Response.json({ok: false, error: `at most ${PER_MINUTE} contributions a minute`}, {status: 429});
+  if (kv) await kv.put(minute, String(used + 1), {expirationTtl: 120});
   const today = day(now);
   for (const feed of feeds) {
     await env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed)

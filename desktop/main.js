@@ -2305,6 +2305,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };
     backupIfDue();
     setInterval(backupIfDue, 6 * 3600 * 1000);
+    // Catch-up share to the central pool: what a cut-short or offline run could not send (finds go out one by one as they happen).
+    if (!DEMO && storage.settings().setupDone && poolShare.on(storage)) setTimeout(() => pipeline.run(storage, ['src.contribute', '--send'])
+      .then(({code}) => appLog('pool', 'catch-up share at start', {code}), error => appLog('pool', 'catch-up share failed', {error: error.message})), 60000);
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts; every finished run: announceRuns (every 5 s).

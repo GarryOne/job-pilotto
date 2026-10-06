@@ -16,7 +16,7 @@ from .sources import ats
 
 URL = 'https://www.jobpilotto.workers.dev/api/contribute'
 STAMP = DATA / 'contribution_sent.json'
-EVERY = timedelta(minutes=10)   # shared after every jobs check and every 'Find new employers' (owner, 6 Oct 2026; was once a day)
+EVERY = timedelta(0)   # no wait: shared as it is produced (owner, 6 Oct 2026; was once a day, then 10 minutes); the site allows 30 a minute
 MAX_FEEDS = 500
 
 # Fixed lists: the only tags that ever leave the machine.
@@ -164,7 +164,7 @@ def due(now=None, stamp=None):
 
 def send(body, url=None, post=None, now=None, stamp=None):
     """POST the payload; True when accepted. Never raises: the pool is a favour, not part of the run."""
-    stamp = stamp or STAMP
+    stamp = STAMP if stamp is None else stamp
     url = url or os.getenv('JOB_PILOTTO_CONTRIBUTE_URL') or URL
 
     def default_post(request):
@@ -180,9 +180,22 @@ def send(body, url=None, post=None, now=None, stamp=None):
     if status != 200:
         print(f'Warning: pool contribution refused ({status})')
         return False
-    stamp.parent.mkdir(parents=True, exist_ok=True)
-    stamp.write_text(json.dumps({'sent': (now or datetime.now(timezone.utc)).isoformat(timespec='seconds'), 'feeds': len(body['feeds'])}))
+    if stamp is not False:
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(json.dumps({'sent': (now or datetime.now(timezone.utc)).isoformat(timespec='seconds'), 'feeds': len(body['feeds'])}))
     return True
+
+
+def share_now(feed=None, dead=None, post=None, url=None):
+    """One employer the scout just verified (`feed`: ats, slug, company, how, site) or found with no readable job site (`dead`: company,
+    host), sent the moment it is known (owner, 6 Oct 2026: "send it right away", so closing the app loses nothing). Opt-in; never raises.
+    Whatever fails here goes again with the end-of-run share and the app's catch-up at start (both rebuilt from the local data)."""
+    if not enabled():
+        return False
+    roles, regions = tags()
+    body = {'v': 2, 'install': os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
+            'feeds': [{'matched': False, 'own': False, 'failed': False, **feed}] if feed else [], **({'nofeed': [dead]} if dead else {})}
+    return send(body, url=url, post=post, stamp=False)   # a one-item share does not mark the full share as done
 
 
 def maybe_send(feed_list, report, tracker=None, **kwargs):
@@ -201,6 +214,7 @@ def maybe_send(feed_list, report, tracker=None, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--show', action='store_true', help='print exactly what would be sent (nothing is sent)')
+    parser.add_argument('--send', action='store_true', help='send it now (the app\'s catch-up at start), when sharing is on')
     args = parser.parse_args()
     from . import scout, store
     from .notion import client as notion
@@ -210,6 +224,10 @@ def main():
         feed_list = scout.active_sources(db, tracker, scout.starter_list())
         # Without a crawl in hand: the feeds the scout verified and the user's own are shown; matched ones and counts join after a crawl.
         body = payload(feed_list, {'sources': []}, tracker, db=db)
+    if args.send:   # the app's catch-up at start: whatever a failed or cut-short share left behind
+        sent = enabled() and (body['feeds'] or body.get('nofeed')) and send(body)
+        print(f"Pool catch-up: {'sent' if sent else 'nothing sent'} ({len(body['feeds'])} employers)")
+        return 0
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'
     print(json.dumps(body, indent=1, ensure_ascii=False))
     print('\nThis is a preview and nothing is sent by it. After each jobs check and each "Find new employers" (at most every 10 minutes, '
