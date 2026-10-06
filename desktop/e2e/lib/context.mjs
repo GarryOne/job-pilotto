@@ -31,11 +31,11 @@ export function notionToken(suite) {
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
 // engine: a suite whose steps the AI proxy answers pins 'api' (a placeholder key on a Mac); otherwise a Mac uses Claude Code, CI the API key (lib/engine.mjs).
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0} = {}) {
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
   const key = KEY(), token = light ? '' : notionToken(suite);
   const engine = pickEngine({suiteEngine});
   let session = null;
-  const runner = createRunner(() => session, {keepGoing, ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
+  const runner = createRunner(() => session, {keepGoing, stepNeeds, ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
   if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
   const ctx = {suite, key, token, runner, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),

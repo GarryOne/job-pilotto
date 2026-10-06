@@ -6,6 +6,8 @@ import path from 'node:path';
 import {FIXTURES} from '../lib/cvfixtures.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
+// What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords).
+export const stepNeeds = {'AI engine panel': ['every Settings section renders']};
 export const name = 'settings';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;

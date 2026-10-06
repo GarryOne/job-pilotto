@@ -10,6 +10,8 @@ import {finish, snap} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 15;
+// What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords).
+export const stepNeeds = {'in-app hold': ['five more Up next', 'removes it for good'], 'removes it for good': ['five more Up next']};
 export const name = 'focus';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;

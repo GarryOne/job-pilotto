@@ -22,12 +22,26 @@ export function withLimit(promise, ms, name, getSession = () => null, budget = 0
   return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
 }
 
+// E2E_STEPS=<words> runs only the steps whose name contains one; `stepNeeds` (a suite's export: {'step name words': ['words of a step it needs', ...]}) adds the
+// steps a chosen one depends on, transitively (6 Oct 2026: a filtered run lacked the earlier step that opened Settings, made the second run, set the proxy up...).
+export function wantedWords(words, stepNeeds = {}) {
+  const wanted = new Set(words.map(word => word.toLowerCase()));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const [step, needs] of Object.entries(stepNeeds)) {
+      if (![...wanted].some(word => step.toLowerCase().includes(word))) continue;
+      for (const need of needs) if (!wanted.has(need.toLowerCase())) { wanted.add(need.toLowerCase()); grew = true; }
+    }
+  }
+  return [...wanted];
+}
+
 // A whole suite has a budget too (owner, 6 Oct 2026: no suite over 5-7 minutes). Past it, the steps left are recorded as not run and the suite fails, naming its
 // slowest steps; a running step is cut at the budget's end. A suite that truly needs more says so (`export const budgetMinutes`), only for manual suites.
 export const SUITE_BUDGET_MS = Number(process.env.E2E_SUITE_BUDGET_MS) || 7 * 60000;
 export const slowest = (results, count = 5) => results.filter(result => result.seconds).sort((a, b) => b.seconds - a.seconds).slice(0, count).map(result => `${result.name.slice(0, 70)} (${Math.round(result.seconds)} s)`);
 
-export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS} = {}) {
+export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS, stepNeeds = {}} = {}) {
   const results = [], suiteStarted = Date.now();
   let overBudget = false;
   async function run(name, rawFn, {needs = [], faults = false, critical = false, limitMs = STEP_LIMIT_MS} = {}) {
@@ -40,7 +54,7 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
     }
     const fn = () => withLimit(Promise.resolve().then(rawFn), Math.min(limitMs, left), name, getSession, left < limitMs ? budgetMs : 0);   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
     // E2E_STEPS=tailor,seeded runs only the steps whose name contains one of these words (and the critical setup): a quick way to re-run one step of a long suite.
-    const only = (process.env.E2E_STEPS || '').split(',').map(word => word.trim().toLowerCase()).filter(Boolean);
+    const only = wantedWords((process.env.E2E_STEPS || '').split(',').map(word => word.trim()).filter(Boolean), stepNeeds);
     if (only.length && !critical && !only.some(word => name.toLowerCase().includes(word))) return;
     const missing = needs.filter(item => !item.value);
     if (missing.length) { results.push({name, status: 'skipped'}); console.log(`- ${name}: skipped (needs ${missing.map(item => item.name).join(', ')})`); return; }
