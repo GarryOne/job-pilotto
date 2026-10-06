@@ -312,6 +312,7 @@ function renderFocus(data) {
     if (item.kind === 'prepare' && before) item.building = true;
   }
   lastFocus = data;
+  document.dispatchEvent(new Event('focus-rendered'));   // Recent activity's Gmail card shows the questions' state
   const items = hideSettled(data.items);
   window.dispatchEvent(new Event('focus-updated'));
   focusShown = true;

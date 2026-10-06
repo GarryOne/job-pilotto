@@ -74,10 +74,19 @@ export function mailResults(report) {
     if (!result.outcome) result.outcome = outcome;
   }
   for (const review of report.assessments || []) claim(review.job).assessment = review;
-  // Every recorded update stays in "What changed" (the data the check moved); the email rows say what each email was.
-  // Emails the check read but did not list (not about your applications) are counted, so the card's numbers add up.
+  // One row per email, holding its own change: each recorded update goes to the email about the same job. An update no email
+  // row claims (a Mac-kept run lists none, a calendar event has no email) stays on its own, so none is ever dropped.
+  const left = [];
+  for (const update of report.updates) {
+    const result = results.find(r => !r.update && r.company && sameJob(`${r.company} — ${r.role}`, update.job));
+    if (result) result.update = update; else left.push(update);
+  }
+  // An email about the very interview the card's "Upcoming interview" band describes: that band already says when, where,
+  // the event and the source, so its row keeps only the job and the stage it moved to (owner, 6 Oct 2026).
+  const meeting = report.interview;
+  if (meeting) for (const result of results) result.covered = !!result.company && sameJob(`${result.company} — ${result.role}`, `${meeting.company} — ${meeting.title}`);
   const hidden = Math.max(0, (report.status?.emails ?? 0) - report.emails.length);
-  return {results, updates: report.updates, hidden};
+  return {results, updates: left, hidden};
 }
 
 // The strip's numbers, counted from what the card lists so they never disagree (owner, 6 Oct 2026: "2 emails reviewed, 2 updates"
@@ -89,7 +98,8 @@ export function mailCounts(report) {
   const plural = (n, one, many) => `${n === 1 ? one : many}`;
   const listed = report.emails.length;
   const seen = report.status.emails ?? listed;
-  const changes = report.updates.length || report.status.updates || 0;
+  // A "which job?" moved nothing: it is a question, not a change.
+  const changes = report.updates.length ? report.updates.filter(update => !update.question).length : report.status.updates || 0;
   if (!seen && !changes) return [];
   const updates = {value: changes, label: plural(changes, 'update recorded', 'updates recorded')};
   if (listed && seen > listed) return [{value: seen, label: plural(seen, 'new email', 'new emails')}, {value: listed, label: 'relevant'}, updates];

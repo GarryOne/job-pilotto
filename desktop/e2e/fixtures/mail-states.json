@@ -2,6 +2,27 @@
  "_": "Every state a Gmail check's card draws, from real runs' lines (5 Oct 2026). e2e/mail-states.mjs seeds them as runs in one demo window (Recent activity lists one Gmail check per state); `focus` is the open and the answered 'which job?' question. Add a state here when the card learns one.",
  "states": [
   {
+   "name": "4 emails: rejection, interview, reply, which job?",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 6 new email(s) read, 4 update(s) recorded",
+    "message": "📧 Job emails & calendar\n4 updates\n\nAnthropic · Staff+ Software Engineer, Data Infrastructure · Rejected\nApplication rejected after consideration\n\nHuxley · Principal SRE · Interview\nTue 06 Oct · 08:30\nEvent: Follow up Igor / Jaya - SRE\nSource: Google Calendar\n\nNorthwind Robotics · Platform Engineer · Reply received\nThe recruiter asked for your availability for a first call this week.\n\n🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.\n\n🗓 Tomorrow 08:30 — Huxley — Principal SRE\nFollow up Igor / Jaya - SRE\nMicrosoft Teams Meeting\nWith: Seosahai - Nejati, Jayantie\n🏋️ Answered weakly in past interviews\n• Tenure / commitment\n• Customer bridge calls\n📝 Recruiter to follow up on nationality/location constraints and salary expectations, with a further call planned to discuss compensation and contractual setup (B2B vs employee).\nRecording? Ask everyone for consent at the start.",
+    "report": [
+     "Gmail check: 6 new email(s) read, 4 update(s) recorded",
+     "❌ Rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure · Stage Confirmation received → Rejected",
+     "🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.",
+     "🗓 Interview scheduled · Huxley — Principal SRE · Tue 06 Oct 08:30 · Stage Screening → Interview scheduled",
+     "💬 Reply received · Northwind Robotics — Platform Engineer · Stage Applied → Screening",
+     "❓ Interview · Blockdaemon — which job?",
+     "Anthropic Follow-Up for Staff+ Software Engineer, Data Infrastructure | Igor · us.greenhouse-mail.io · 05 Oct 21:50 — [recorded] · Anthropic — Staff+ Software Engineer, Data Infrastructure · changed Stage Confirmation received → Rejected",
+     "Invitation: Follow up Igor / Jaya - SRE @ Tue 6 Oct 2026 08:30 · Google Calendar · 05 Oct 17:10 — [recorded] · Huxley — Principal SRE · changed Stage Screening → Interview scheduled",
+     "Re: Platform Engineer — next steps · Jordan Lee · 05 Oct 16:20 — [recorded] · Northwind Robotics — Platform Engineer · changed Stage Applied → Screening",
+     "Invitation from an unknown sender: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30–22:15 (CEST) · Blockdaemon DM · 01 Oct 13:37 — [needs you] · Blockdaemon"
+    ]
+   }
+  },
+  {
    "name": "Rejection + AI assessment (Always on)",
    "run": {
     "kind": "mail",

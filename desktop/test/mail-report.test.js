@@ -1,5 +1,6 @@
 // The four shapes a Gmail check's stored message really has (read from Notion, 30 Sep 2026), and the row's result line.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 const {mailChanges, mailResults, mailStatus, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
@@ -197,13 +198,15 @@ const MAC_RUN = [
   'Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30 - 22:15 (CEST) (Igor Mardari) · Google Calendar · 02 Oct 21:00 — [recorded] · Google Calendar — Notification: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 20 · changed Stage Screening → Interview scheduled',
 ];
 
-test('every recorded update stays in "What changed", whatever its emoji, wherever the check ran', () => {
+test('every recorded update is on screen, on its email\'s row or on its own, wherever the check ran', () => {
+  const all = ({results, updates}) => [...results.map(r => r.update).filter(Boolean), ...updates];
   const github = mailResults(parseMailReport('', GITHUB_RUN[0], GITHUB_RUN));
-  assert.deepEqual(github.updates.map(u => [u.summary, u.changes]), [['Rejected', 'Stage Confirmation received → Rejected']]);
+  assert.deepEqual(all(github).map(u => [u.summary, u.changes]), [['Rejected', 'Stage Confirmation received → Rejected']]);
+  assert.equal(github.results[0].update.summary, 'Rejected');             // on the Anthropic email's row
   assert.equal(github.results[0].assessment?.verdict, 'Hard skills');   // the review line is the assessment, not an update
   const mac = mailResults(parseMailReport('', MAC_RUN[0], MAC_RUN));
-  assert.equal(mac.updates.length, 2);
-  assert.ok(mac.updates.some(u => u.question));                          // "— which job? Add details" is the question
+  assert.equal(all(mac).length, 2);
+  assert.ok(all(mac).some(u => u.question));                              // "— which job? Add details" is the question
 });
 
 test('emails the check read but left out are counted, so the card never claims rows it does not show', () => {
@@ -247,4 +250,17 @@ test('the strip counts the rows the card shows: new emails, the relevant ones, a
   assert.deepEqual(mailCounts(parseMailReport('', 'Mail: 6 new email(s) classified, 1 update(s)', ['', '💬 Reply received · Acme — SRE'])),
     [{value: 6, label: 'emails reviewed'}, {value: 1, label: 'update recorded'}]);
   assert.deepEqual(mailCounts(parseMailReport('', 'Gmail check: 0 new email(s) read, 0 update(s) recorded', [])), []);
+});
+
+test('an email about the interview the band describes is covered: its row keeps the job and the stage move only', () => {
+  const run = JSON.parse(fs.readFileSync(new URL('../e2e/fixtures/mail-states.json', import.meta.url), 'utf8')).states
+    .find(state => state.name.startsWith('New interview detected')).run;
+  const {results, updates} = mailResults(parseMailReport(run.message, run.result, run.report));
+  assert.equal(results.length, 1);
+  assert.equal(results[0].covered, true);
+  assert.equal(results[0].update.changes, 'Stage Screening → Interview scheduled');
+  assert.deepEqual(updates, []);
+  // another job's email is not covered by this interview's band
+  const other = mailResults(parseMailReport(run.message, run.result, [...run.report, 'Reminder: Role Discussion · Arjun Gillard · 01 Oct 13:47 — [already known] · Blinq — Senior DevOps Engineer']));
+  assert.deepEqual(other.results.map(r => !!r.covered), [true, false]);
 });

@@ -1210,13 +1210,14 @@ function handlers() {
     return result;
   });
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
-  // Demo mode: the fictional list in demo/focus.json (JOB_PILOTTO_DEMO_FOCUS_DELAY ms first, to see the loading state).
+  // Demo mode: the fictional list in demo/focus.json (JOB_PILOTTO_DEMO_FOCUS_DELAY ms first, to see the loading state;
+  // JOB_PILOTTO_DEMO_FOCUS=<file> another fictional list, e.g. e2e/mail-states.mjs's open and answered questions).
   ipcMain.handle('focus', async () => {
     const gate = needsNotion('focus');
     if (gate) return gate;
     if (!DEMO) return viewCache.remember(storage, 'focus', await pipeline.focus(storage));
     await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_FOCUS_DELAY) || 0));
-    return {ok: true, focus: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8'))};
+    return {ok: true, focus: JSON.parse(fs.readFileSync(process.env.JOB_PILOTTO_DEMO_FOCUS || path.join(here, 'demo', 'focus.json'), 'utf8'))};
   });
   // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
   ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));

@@ -23,7 +23,8 @@ const focusFile = path.join(profile, 'focus.json');
 const demoFocus = JSON.parse(fs.readFileSync(focusFile, 'utf8'));
 fs.writeFileSync(focusFile, JSON.stringify({...demoFocus, items: [...focus.open, ...demoFocus.items], answered_questions: focus.answered}, null, 1));
 
-const session = await launch({profile, env: {JOB_PILOTTO_DEMO: '1'}});
+// Demo mode reads Focus from the app's demo/focus.json unless told otherwise: without this the question states drew as answered.
+const session = await launch({profile, env: {JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_DEMO_FOCUS: focusFile}});
 await session.page.waitForSelector('.nav[data-view=focus]:not([hidden])', {timeout: 30000});
 await session.app.evaluate(({BrowserWindow}) => {
   const win = BrowserWindow.getAllWindows()[0];
@@ -33,6 +34,27 @@ await session.app.evaluate(({BrowserWindow}) => {
   win.focus();
 });
 await session.page.evaluate(async () => { (await import('./pages/activity.js')).openActivity(true); });
+// Every state in the list: it shows 8 runs, then "View more".
+for (let i = 0; i < 3 && await session.page.locator('#activity-all:visible').count(); i++) await session.page.click('#activity-all');
+// MAIL_STATES_SHOTS=<folder>: click each state and save the panel, to check them without looking (then the window stays open).
+if (process.env.MAIL_STATES_SHOTS) {
+  fs.mkdirSync(process.env.MAIL_STATES_SHOTS, {recursive: true});
+  const rows = session.page.locator('#activity-recent li:not(.recent-group) button');
+  for (let i = 0; i < states.length; i++) {
+    await rows.nth(i).click();
+    await session.page.waitForTimeout(600);
+    await session.page.locator('#activity-panel').screenshot({path: path.join(process.env.MAIL_STATES_SHOTS, `${String(i + 1).padStart(2, '0')}.png`)});
+  }
+  // The open question's button opens the job picker in a popup (not Focus): click it and keep a picture of the dialog.
+  const asking = states.findIndex(state => state.name.startsWith('Which job? — before'));
+  await rows.nth(asking).click();
+  await session.page.waitForTimeout(500);
+  await session.page.click('.mail-question-go');
+  await session.page.waitForSelector('#reassign-dialog[open]', {timeout: 5000});
+  await session.page.screenshot({path: path.join(process.env.MAIL_STATES_SHOTS, 'popup.png')});
+  await session.page.keyboard.press('Escape');
+  console.log(`Saved ${states.length} pictures in ${process.env.MAIL_STATES_SHOTS}`);
+}
 console.log(states.map((state, i) => `  ${i + 1}. ${state.name}`).join('\n'));
 console.log('One window open: Recent activity lists one Gmail check per state, in this order. Ctrl+C closes it.');
 const close = async () => { await session.app.close().catch(() => {}); fs.rmSync(profile, {recursive: true, force: true}); process.exit(0); };
