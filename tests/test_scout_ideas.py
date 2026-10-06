@@ -141,17 +141,18 @@ class RunTests(unittest.TestCase):
         self.assertEqual(len(client.calls), 2, 'the LinkedIn list is never fetched or read')
         self.assertIn('untrusted', client.calls[1]['system'][0]['text'])
 
-    def test_it_runs_every_few_days_not_every_time(self):
+    def test_it_asks_for_new_ideas_on_every_run_and_ranks_them_above_the_fixed_lists(self):
         db = database()
         scout_ideas.run(db, SEARCH, FakeClient({'companies': [], 'directories': [], 'note': 'n'}), NOW)
-        self.assertIsNone(scout_ideas.run(db, SEARCH, FakeClient(), NOW + timedelta(days=1)))
-        self.assertIsNotNone(scout_ideas.run(db, SEARCH, FakeClient({'companies': [], 'directories': [], 'note': 'n'}), NOW + timedelta(days=4)))
+        found = scout_ideas.run(db, SEARCH, FakeClient(IDEAS), NOW + timedelta(minutes=2), get=self.fetch)
+        self.assertTrue(found['candidates'])
+        self.assertTrue(all(c['priority'] > 88 for c in found['candidates']), 'above SwissDevJobs (88) and Hacker News (85)')
 
-    def test_a_cut_off_answer_raises_and_leaves_the_schedule_alone(self):
+    def test_a_cut_off_answer_raises_and_records_nothing(self):
         db = database()
         with self.assertRaises(RuntimeError):
             scout_ideas.run(db, SEARCH, FakeClient(IDEAS, stop='max_tokens'), NOW)
-        self.assertTrue(scout_ideas.due(db, NOW))
+        self.assertIsNone(db.execute("SELECT value FROM scout_meta WHERE key = 'ideas_at'").fetchone())
 
     def test_the_scout_carries_on_when_the_ideas_fail_and_when_they_are_off(self):
         db = database()

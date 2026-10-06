@@ -42,6 +42,12 @@ HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90, 'watch': 7}   # watch: a careers page with no open jobs today, looked at again weekly
 # Tier 1 feeds are crawled with this many matching roles anywhere: their Zurich/London roles come and go.
 TIER1_MIN_RELEVANT = 3
+# Lists of software employers only: Hacker News "Who is hiring?", hiring-without-whiteboards, SwissDevJobs, and the seed lists unless the seed file
+# says "tech_only": false (absent means true: every app copied the shipped tech list at first run). A search outside IT neither harvests nor probes
+# them (6 Oct 2026: a photographer's runs checked Netflix, Stripe and Databricks while the AI's Geneva retail and watchmaking ideas waited in the
+# queue). Wikidata, jobs.ch employers and the AI's ideas cover every trade.
+TECH_LIST_ORIGINS = ('Hacker News', 'hiring-without-whiteboards', 'SwissDevJobs')
+SEED_ORIGINS = ('Tier 1 seed', 'Seed list:')
 
 TABLES = """
 CREATE TABLE IF NOT EXISTS scout_candidates (
@@ -195,8 +201,15 @@ def wikidata_candidates(get=_get_json):
         yield dict(name=name, origin='Wikidata: Swiss companies', priority=60 if staff >= 200 else 50, website=site)
 
 
-def harvest(db, seeds, sources=None):
-    """Add unseen candidates; returns how many were new. Failing sources are skipped."""
+def skipped_origins(seeds, technical):
+    """The origins (prefixes) a search does not harvest or probe: none for an IT search, the tech-only lists for any other."""
+    if technical:
+        return ()
+    return TECH_LIST_ORIGINS + (SEED_ORIGINS if seeds.get('tech_only', True) else ())
+
+
+def harvest(db, seeds, sources=None, skip=()):
+    """Add unseen candidates; returns how many were new. Failing sources are skipped, and so are candidates whose origin is in `skip`."""
     db.executescript(TABLES)
     if 'website' not in {row[1] for row in db.execute('PRAGMA table_info(scout_candidates)')}:
         db.execute('ALTER TABLE scout_candidates ADD COLUMN website TEXT')   # a table made before 3 Oct 2026
@@ -208,6 +221,8 @@ def harvest(db, seeds, sources=None):
         sources = [lambda: seed_candidates(seeds)] if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else [
             lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates, lambda: local_company_candidates(db),
             swissdevjobs_candidates, wikidata_candidates]
+        if skip:   # a search outside IT: the lists of software employers are not even read
+            sources = [lambda: seed_candidates(seeds), lambda: local_company_candidates(db), wikidata_candidates]
     added = 0
     for source in sources:
         try:
@@ -219,7 +234,7 @@ def harvest(db, seeds, sources=None):
             key = key_for(c['name'])
             if key in known and c.get('website'):   # a name first seen without an address (Hacker News) learns it from a catalog
                 db.execute('UPDATE scout_candidates SET website = COALESCE(website, ?) WHERE key = ?', (c['website'], key))
-            if not key or key in excluded or key in known:
+            if not key or key in excluded or key in known or c['origin'].startswith(skip):
                 continue
             known.add(key)
             db.execute("""INSERT INTO scout_candidates (key, name, origin, priority, tier, ats, slug, careers, website, status, added_at)
@@ -231,12 +246,21 @@ def harvest(db, seeds, sources=None):
     return added
 
 
-def next_batch(db, size):
+def next_batch(db, size, skip=()):
+    """The next candidates to probe, best first; a search outside IT skips those a tech-only list queued earlier (or before its roles changed)."""
     stamp = now().isoformat(timespec='seconds')
-    return [dict(row) for row in db.execute("""SELECT * FROM scout_candidates
-        WHERE status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
-           OR (status IN ('low', 'none', 'watch') AND next_check <= ?)
-        ORDER BY priority DESC, added_at ASC LIMIT ?""", (stamp, size))]
+    where, params = skipping(skip)
+    return [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
+        WHERE (status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
+           OR (status IN ('low', 'none', 'watch') AND next_check <= ?)) {where}
+        ORDER BY priority DESC, added_at ASC LIMIT ?""", (stamp, *params, size))]
+
+
+def skipping(skip):
+    """SQL (and its parameters) that leaves out the candidates whose origin starts with one of `skip`."""
+    if not skip:
+        return '', []
+    return 'AND NOT (' + ' OR '.join('origin LIKE ?' for _ in skip) + ')', [origin + '%' for origin in skip]
 
 
 # ---------- probing and quality ----------
@@ -656,7 +680,7 @@ def progress_line(text):
 # ---------- one run ----------
 
 def ai_ideas(db, harvest_sources=None):
-    """Claude's ideas for new candidates when it is time (every few days), or None: off, no AI available, tests that pass their own
+    """Claude's ideas for new candidates (every run), or None: off, no AI available, tests that pass their own
     harvest sources, or a failure (the scout then simply carries on with the usual sources)."""
     from . import features
     from .ai import engine, scout_ideas
@@ -681,13 +705,16 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         static = json.loads(starter.read_text()) if starter.exists() else []
     # Each step says so as it starts: a run takes minutes, and the app's live log shows these lines ("Nothing to show yet" for four
     # minutes was the owner's find of 5 Oct 2026).
-    print('Scout: reading the employer lists…')
-    added = harvest(db, seeds, harvest_sources)
+    from .ai import scout_ideas
+    skip = skipped_origins(seeds, scout_ideas.technical(load_search_config()))
+    print('Scout: reading the employer lists…' if not skip else
+          'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are skipped)…')
+    added = harvest(db, seeds, harvest_sources, skip)
     print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
     ideas = ai_ideas(db, harvest_sources)
     if ideas:
-        added += harvest(db, seeds, [lambda: ideas['candidates']])
-    candidates = next_batch(db, batch)
+        added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
+    candidates = next_batch(db, batch, skip)
     print(f'Scout: checking {len(candidates)} employer(s)…')
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
@@ -743,7 +770,8 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
             except Exception as error:
                 print(f"Warning: Notion not updated for {candidate['name']}: {type(error).__name__}: {error}")
 
-    queued = db.execute("SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending'").fetchone()[0]
+    where, params = skipping(skip)
+    queued = db.execute(f"SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending' {where}", params).fetchone()[0]
     total_feeds = db.execute('SELECT COUNT(*) FROM feed_sources WHERE active = 1').fetchone()[0]
     return {'checked': len(candidates), 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
             'ideas': {k: ideas[k] for k in ('companies', 'directories', 'note')} if ideas else None}, \

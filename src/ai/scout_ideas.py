@@ -1,7 +1,7 @@
 """The scout's own ideas: Claude proposes employers and public company lists to look at, and learns from what the probes found.
 
 Everything else in the scout is rules (seed lists, Hacker News, catalogs): it can only find what someone already wrote down. This step
-lets the search evolve. Once every few days Claude is shown the user's roles and places, how well each kind of source has done so far
+lets the search evolve. On every run Claude is shown the user's roles and places, how well each kind of source has done so far
 (feeds found per candidate probed, by origin) and which ideas it had last time and how they ended. It answers with
   - companies it is confident exist and would hire for those roles in those places (name + official website), and
   - public pages that list companies (association members, conference sponsors, startup rankings): each is read, politely, and a
@@ -14,7 +14,7 @@ import json
 import re
 import urllib.parse
 import urllib.robotparser
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from . import engine
 from .. import coverage
@@ -22,7 +22,8 @@ from ..sources import ats, careers
 
 IDEAS_MODEL = 'claude-sonnet-5-5'
 READ_MODEL = 'claude-haiku-4-5'
-EVERY_DAYS = 3            # how often Claude is asked for new ideas
+IDEA_PRIORITY = 92        # probed before the fixed lists (SwissDevJobs 88, Hacker News 85): each run tries new ground first (6 Oct 2026)
+LIST_PRIORITY = 90
 MAX_COMPANIES = 30
 MAX_DIRECTORIES = 5
 MAX_PAGE_TEXT = 30000
@@ -235,29 +236,22 @@ def read_directory(client, directory, known, get=careers.get_text, search=None):
     roles = '' if search is None or technical(search) else 'Roles the owner looks for: ' + ', '.join(strategy_terms(search)['roles'][:12]) + '\n\n'
     answer, _ = _ask(client, READ_MODEL, read_system(search), f'{roles}Page: {url}\n\n{page_text(markup, url)}', READ_SCHEMA)
     host = (parts.hostname or '').removeprefix('www.')
-    return clean_candidates(answer['companies'], f'AI list: {host}', 76, known, MAX_FROM_PAGE)
+    return clean_candidates(answer['companies'], f'AI list: {host}', LIST_PRIORITY, known, MAX_FROM_PAGE)
 
 
 # ---------- the whole step ----------
 
-def due(db, now, every=EVERY_DAYS):
-    db.execute(TABLE)
-    row = db.execute("SELECT value FROM scout_meta WHERE key = 'ideas_at'").fetchone()
-    return not row or datetime.fromisoformat(row[0]) <= now - timedelta(days=every)
-
-
-def run(db, search, client=None, now=None, force=False, get=careers.get_text):
-    """Ask for ideas when it is time. Returns {'candidates', 'companies', 'directories', 'note'} or None when it is not due.
+def run(db, search, client=None, now=None, get=careers.get_text):
+    """Ask for new ideas: every run, since 6 Oct 2026 (every 3 days before, so most runs only worked through the same fixed lists; a
+    photographer's search probed Netflix and Stripe twice in a row). Returns {'candidates', 'companies', 'directories', 'note'}.
     The candidates are not inserted here: the scout's harvest does that, with its usual rules (duplicates, excluded names)."""
     now = now or datetime.now(timezone.utc)
     db.execute(TABLE)
-    if not force and not due(db, now):
-        return None
     client = client or engine.client(action='scout')
     answer, _ = _ask(client, IDEAS_MODEL, ideas_system(search), 'Where the search stands (JSON):\n' + json.dumps(payload(db, search), ensure_ascii=False), IDEAS_SCHEMA)
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
     stamp = now.date().isoformat()
-    candidates = clean_candidates(answer['companies'], f'AI idea {stamp}', 78, known)
+    candidates = clean_candidates(answer['companies'], f'AI idea {stamp}', IDEA_PRIORITY, known)
     listed = []
     for directory in answer['directories'][:MAX_DIRECTORIES]:
         try:

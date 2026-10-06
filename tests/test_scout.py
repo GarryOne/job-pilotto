@@ -50,6 +50,45 @@ class ScoutTests(unittest.TestCase):
     def run_scout(self, db, tracker=None, batch=10):
         return scout.run(db, batch, tracker, SEEDS, fake_probe, harvest_sources=[lambda: scout.seed_candidates(SEEDS)])
 
+    def test_every_tech_only_list_is_marked_and_the_trade_agnostic_ones_are_not(self):
+        """The class, not one case: each source of software employers yields origins a non-IT search skips, so a new one cannot slip past."""
+        skip = scout.skipped_origins(SEEDS, technical=False)
+        import re
+        hn = {'hits': [{'title': 'Ask HN: Who is hiring? (October 2026)', 'objectID': '1'}]}
+        get_hn = lambda url: hn if 'search_by_date' in url else {'children': [{'text': 'Acme | Engineer | Geneva'}]}
+        readme = '- [Acme](https://acme.test/jobs) | Geneva | x'
+        with mock.patch.object(scout, 'LOCATION_WORDS', re.compile('.')), mock.patch.object(scout, 'ROLE_WORDS', re.compile('.')):
+            tech = {'seeds': list(scout.seed_candidates(SEEDS)), 'hacker news': list(scout.hacker_news_candidates(get=get_hn)),
+                    'whiteboards': list(scout.whiteboards_candidates(get=lambda url: readme)),
+                    'swissdevjobs': list(scout.swissdevjobs_candidates(get=lambda url: [{'company': 'Acme', 'companyWebsiteLink': 'acme.test'}]))}
+        wikidata = {'results': {'bindings': [{'label': {'value': 'Hotelco'}, 'site': {'value': 'https://hotel.test'}}]}}
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            db.execute("INSERT INTO companies (name, careers_url, website, updated_at) VALUES ('Shopco', '', 'https://shop.test', '2026-10-06')")
+            general = list(scout.local_company_candidates(db)) + list(scout.wikidata_candidates(get=lambda url: wikidata))
+        for source, found in tech.items():
+            self.assertTrue(found, source)
+            self.assertTrue(all(c['origin'].startswith(skip) for c in found), source)
+        self.assertTrue(general)
+        self.assertFalse(any(c['origin'].startswith(skip) for c in general))
+        self.assertFalse('AI idea 2026-10-06'.startswith(skip) or 'AI list: gva.ch'.startswith(skip))
+        self.assertEqual(scout.skipped_origins(SEEDS, technical=True), (), 'an IT search skips nothing')
+        own = scout.skipped_origins(dict(SEEDS, tech_only=False), technical=False)
+        self.assertFalse(any(c['origin'].startswith(own) for c in tech['seeds']), 'a seed list of your own trade is kept')
+
+    def test_a_search_outside_it_never_harvests_nor_probes_the_tech_lists(self):
+        """6 Oct 2026: a photographer's scout checked Netflix and Stripe while the AI's Geneva retail ideas waited."""
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            # A queue left from before (roles changed, or an older version): tech seeds rank highest.
+            scout.harvest(db, SEEDS, sources=[lambda: scout.seed_candidates(SEEDS)])
+            ideas = [dict(name='Manor', origin='AI idea 2026-10-06', priority=92), dict(name='Fnac', origin='AI list: gva.ch', priority=90),
+                     dict(name='Stack Co', origin='SwissDevJobs employer', priority=88)]
+            skip = scout.skipped_origins(SEEDS, technical=False)
+            scout.harvest(db, SEEDS, sources=[lambda: ideas], skip=skip)
+            names = {row['name'] for row in db.execute('SELECT name FROM scout_candidates')}
+            self.assertNotIn('Stack Co', names, 'a tech list is not harvested for a non-tech search')
+            self.assertEqual([c['name'] for c in scout.next_batch(db, 10, skip)], ['Manor', 'Fnac'])
+            self.assertEqual(scout.next_batch(db, 1)[0]['name'], 'Bigco', 'an IT search keeps its Tier 1 seeds first')
+
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])
         with tempfile.TemporaryDirectory() as tmp, \
