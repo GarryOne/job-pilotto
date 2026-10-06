@@ -6,7 +6,7 @@ import {test} from '@playwright/test';
 const name = process.env.E2E_SUITE;
 const platform = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'Mac' : 'Linux';
 
-test(name, {tag: [`@${platform}`, ...(process.env.E2E_BROWSER ? [`@${process.env.E2E_BROWSER}`] : [])]}, async ({}, testInfo) => {   // eslint-disable-line no-empty-pattern
+test(name, {tag: [`@${platform}`, ...(process.env.E2E_BROWSER ? [`@${process.env.E2E_BROWSER}`] : [])]}, async ({}, testInfo) => {   // Playwright needs the fixtures argument, even empty
   const {runSuite} = await import('../lib/suite-main.mjs');
   const result = await runSuite(name, {
     step: (title, body) => test.step(title, body),
