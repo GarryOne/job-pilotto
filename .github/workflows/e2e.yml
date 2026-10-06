@@ -39,6 +39,10 @@ on:
       promote_tag:
         description: 'DRY RUN of the promotion step for this release tag (runs no suite, promotes nothing)'
         required: false
+      linux:
+        description: 'Run the suites on Linux runners (ubuntu-latest, a virtual display) instead of macOS: the spike towards a 5-minute e2e (6 Oct 2026)'
+        type: boolean
+        default: false
       mutant:
         description: 'MUTATION TEST (mutation.yml): write this mutant of desktop/e2e/mutants.json into the app first, or "baseline". Fixed path, no AI review, nothing filed, no Windows run'
         required: false
@@ -98,7 +102,7 @@ jobs:
     name: ${{ matrix.suite }}
     needs: plan
     if: needs.plan.outputs.count != '0'   # a push that changed no suite, a scheduled run with nothing new, or a night with no build: no suites
-    runs-on: macos-latest   # the Mac app is the product: real Keychain, no virtual display (on Linux Electron has no keyring to save the key in)
+    runs-on: ${{ inputs.linux && 'ubuntu-latest' || 'macos-latest' }}   # the Mac app is the product; Linux (a virtual display, Chromium's basic key store) is the spike towards a 5-minute e2e
     timeout-minutes: ${{ matrix.minutes }}
     strategy:
       fail-fast: false      # one suite failing must not hide what the others found
@@ -158,6 +162,9 @@ jobs:
         run: npx playwright-core install chromium
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
+      - name: A virtual display and Electron's libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libnss3 libgbm1 libasound2t64 libgtk-3-0 libxss1 fonts-noto-color-emoji fonts-dejavu-core >/dev/null
       - name: Write the mutant into the app (mutation test only)
         if: inputs.mutant != '' && inputs.mutant != 'baseline'
         env:
@@ -169,7 +176,7 @@ jobs:
         run: |
           # A run on an older commit (target_ref: the stable canary, a release candidate) plans with main's suite list; a suite added since does not exist in that build.
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
-          node suite.mjs ${{ matrix.suite }}
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs ${{ matrix.suite }}; else node suite.mjs ${{ matrix.suite }}; fi
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''
         uses: actions/cache/restore@v5

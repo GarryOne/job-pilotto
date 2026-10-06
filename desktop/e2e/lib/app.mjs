@@ -29,9 +29,10 @@ export async function launch({env = {}, executablePath, args, profile: again, la
   fs.mkdirSync(ARTIFACTS, {recursive: true});
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
   if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
+  // Linux (CI runners, 6 Oct 2026): no keyring there, so Chromium's basic password store keeps the app's keys (test keys only, a throwaway profile).
   const app = await electron.launch({
     executablePath: executablePath || electronPath(),
-    args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : []), ...(lang ? [`--lang=${lang}`] : [])],
+    args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox', '--password-store=basic'] : []), ...(lang ? [`--lang=${lang}`] : [])],
     // The app counts days in the computer's own zone; the suites check it against Europe/Zurich (lib/focus-data.mjs). On a CI runner in UTC the two disagreed
     // about "today" from 0:00 to 2:00 Zurich time, and Focus's 14-day count failed only then (4 Oct 2026). A suite that tests another zone sets TZ, and the engine follows it
     // (it reads JOB_PILOTTO_TZ first: the calendar suite's Tokyo and Honolulu must reach both the window and the engine).
