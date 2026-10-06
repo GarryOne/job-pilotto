@@ -30,3 +30,12 @@ test('past the allowance it says so plainly, and a licensed install shows no cou
   assert.equal(chip(state({licensed: true})), null);
   assert.equal(chip(null), null);
 });
+
+test('Settings → License counts the same thing as the chip: applications left, from the chip, never "used"', async () => {
+  const {readFile} = await import('node:fs/promises');
+  const page = await readFile(new URL('../renderer/pages/license.js', import.meta.url), 'utf8');
+  assert.match(page, /\$\{shown\.left\} of \$\{state\.limit\}/, 'the Settings number is the chip\'s left');
+  assert.match(page, /style\.width = `\$\{shown\.percent\}%`/, 'the Settings bar is the chip\'s draining bar');
+  assert.doesNotMatch(page, /state\.used \/ state\.limit/, 'no second, filling bar');
+  assert.deepEqual([chip(state({used: 0})).left, chip(state({used: 12})).left, chip(state({used: 50})).left], [40, 28, 0]);
+});

@@ -24,11 +24,14 @@ export function showLicense(state) {
   const {licensed, ended} = state;
   $('license-pill').textContent = licensed ? `${KIND[state.license.kind]} key` : ended ? 'Free period over' : 'Free';
   $('license-pill').className = `ui-pill tone-${licensed ? 'good' : ended ? 'warn' : 'info'}`;
-  $('license-used').textContent = licensed ? `${state.used} · no limit` : `${state.used} of ${state.limit}`;
+  // Same count as the sidebar chip: what is LEFT, draining, like "Days left" beside it (not "used", which read 0 of 40 next to the chip's 40 of 40).
+  const shown = chip(state);
+  $('license-used-label').textContent = licensed ? 'Applications sent' : 'Applications left';
+  $('license-used').textContent = licensed ? `${state.used} · no limit` : `${shown.left} of ${state.limit}`;
   $('license-days-label').textContent = licensed ? 'Licensed to' : 'Days left';
   $('license-days').textContent = licensed ? state.license.name : `${state.daysLeft} of 60`;
   $('license-bar').hidden = licensed;
-  $('license-bar').firstElementChild.style.width = `${Math.max(2, Math.min(100, state.used / state.limit * 100))}%`;
+  if (shown) $('license-bar').firstElementChild.style.width = `${shown.percent}%`;
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
     : ended ? 'New applications, kits and searches are paused. Tracking, Notion, export and your data keep working.'
       : `Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later.`;
