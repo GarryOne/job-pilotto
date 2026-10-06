@@ -10,6 +10,7 @@ import path from 'node:path';
 import * as apply from './lib/apply.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import * as critical from './lib/critical.js';
+import * as pageRender from './lib/page-render.js';
 import {registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
 import * as cvLook from './lib/cv-look.js';
@@ -2059,6 +2060,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) {
     server.setNotifier(notify);
     server.setWindowSignal(toWindow);
+  // The engine's pages that need their scripts run, in this app's own Chromium (lib/page-render.js): the address reaches engine runs (lib/pipeline.js).
+  server.setRenderer((url, userAgent) => pageRender.renderPage(url, {BrowserWindow, userAgent}));
+  pageRender.setAddress(`http://127.0.0.1:${server.PORT}/engine/render`);
   server.start(storage, error => log(error.code === 'EADDRINUSE'
       ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
       : `Chrome extension connection failed: ${error.message}`));

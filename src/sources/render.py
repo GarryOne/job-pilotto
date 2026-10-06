@@ -6,9 +6,12 @@ getting past a site that refuses automated visitors. It shows who it is (the sam
 reads robots.txt first, waits between pages of one site, loads no images, fonts or media, and gives up at the first 401/403/429 or
 bot-check page. A refusal is an answer. No stealth settings, no fingerprint changes, no proxies, no CAPTCHA solving.
 """
+import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 import urllib.parse
+import urllib.request
 import urllib.robotparser
 
 from . import ats, careers
@@ -29,8 +32,16 @@ _worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='render')
 _state = {'playwright': None, 'browser': None, 'pages': 0, 'last': {}, 'robots': {}}
 
 
+def _app():
+    """The desktop app's own Chromium (desktop/lib/page-render.js), when this run was started by the app: (address, key) or None."""
+    url, key = os.getenv('JOB_PILOTTO_RENDER_URL', ''), os.getenv('JOB_PILOTTO_RENDER_TOKEN', '')
+    return (url, key) if url.startswith('http://127.0.0.1:') and key else None
+
+
 def available():
-    """Playwright is installed (the browser itself is checked when it first starts)."""
+    """The app's browser (a run the desktop app started), or Playwright installed (the browser itself is checked when it first starts)."""
+    if _app():
+        return True
     try:
         import playwright.sync_api  # noqa: F401
         return True
@@ -80,6 +91,22 @@ def render(url):
     return _worker.submit(_render, url, parts).result()
 
 
+def _through_app(url):
+    address, key = _app()
+    request = urllib.request.Request(address, data=json.dumps({'url': url, 'user_agent': f'{ats.USER_AGENT} browser'}).encode(),
+                                     headers={'Content-Type': 'application/json', 'X-Job-Pilotto-Render': key})
+    with urllib.request.urlopen(request, timeout=TIMEOUT_MS / 1000 + 15) as response:
+        answer = json.load(response)
+    if answer.get('status') in (401, 403, 429):
+        raise Refused(f"HTTP {answer['status']}")
+    if answer.get('error'):
+        raise ValueError(f"the app could not show the page: {answer['error']}")
+    markup = answer.get('html') or ''
+    if any(word in markup[:6000].lower() for word in CHALLENGE) and len(markup) < 20000:
+        raise Refused('bot check page')
+    return markup
+
+
 def _render(url, parts):
     if _state['pages'] >= MAX_PAGES:
         raise ValueError('page limit for this run reached')
@@ -88,6 +115,12 @@ def _render(url, parts):
     wait = HOST_DELAY_S - (time.monotonic() - _state['last'].get(parts.hostname, 0))
     if wait > 0:
         time.sleep(wait)
+    if _app():
+        try:
+            return _through_app(url)
+        finally:
+            _state['pages'] += 1
+            _state['last'][parts.hostname] = time.monotonic()
     context = _browser().new_context(user_agent=f'{ats.USER_AGENT} browser', java_script_enabled=True)
     try:
         context.route('**/*', lambda route: route.abort() if route.request.resource_type in ('image', 'media', 'font') else route.continue_())

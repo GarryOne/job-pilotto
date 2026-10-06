@@ -2,6 +2,7 @@
 // Same endpoints and code as the Worker (worker/src/extension.js), with the user's local Profile,
 // keys from the Keychain-backed store, and the local job list. Only this computer can connect, and
 // every call still needs the extension token.
+import * as pageRender from './page-render.js';
 import * as cv from './cv.js';
 import {isFormOf} from './apply.js';
 import * as letters from './cover-letter.js';
@@ -268,6 +269,8 @@ let tabs = new Set();
 let tabsHandler = () => {};
 let appliedHook = () => {};   // the app counts an application the extension saw submitted (lib/analytics.js)
 export function setAppliedHook(fn) { appliedHook = fn; }
+let renderer = null;
+export function setRenderer(fn) { renderer = fn; }   // (url) -> {status, html} | {error}: lib/page-render.js, bound in main.js
 export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot}): which Chrome tabs exist (lib/review.js binds sessions to them)
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;
@@ -385,6 +388,15 @@ export function start(storage, onError = () => {}) {
         const ours = req.headers.origin === `chrome-extension://${EXTENSION_ID}`;
         res.writeHead(ours ? 200 : 403, {'Content-Type': 'application/json', ...(ours ? {'Access-Control-Allow-Origin': req.headers.origin} : {})});
         res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Job Pilotto extension can pair'}));
+        return;
+      }
+      if (req.url === '/engine/render') {
+        // The engine asks for a page after its scripts ran (lib/page-render.js): a local program with this run's key, never a web page (Origin).
+        const allowed = req.method === 'POST' && !req.headers.origin && req.headers['x-job-pilotto-render'] === pageRender.TOKEN && renderer;
+        const asked = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        const result = allowed ? await renderer(String(asked.url || ''), pageRender.agentOf(asked.user_agent)) : {error: 'Not allowed'};
+        res.writeHead(allowed ? 200 : 403, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify(result));
         return;
       }
       if (req.url === '/claude/ticket') {

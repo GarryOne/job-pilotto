@@ -1,5 +1,6 @@
 """A web search for an employer's own job site (src/sources/web_search.py), the scout's last step (6 Oct 2026: Coop's jobs are on coopjobs.ch and
 jobs.coop.ch, Rolex's on carrieres-rolex.com: no guess from the name reaches them, a person finds them with one search)."""
+import json
 import os
 import unittest
 from pathlib import Path
@@ -75,3 +76,23 @@ class ClaudeCodeSearchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AppRenderTests(unittest.TestCase):
+    def test_the_engine_renders_through_the_app_and_takes_a_403_as_a_refusal(self):
+        from src.sources import render
+        answers = {'ok': {'status': 200, 'html': '<html><a href="/job/1">Vendeur</a></html>'}, 'no': {'status': 403, 'html': 'Forbidden'}}
+        sent = []
+        def urlopen(request, timeout=None):
+            body = json.loads(request.data)
+            sent.append((request.full_url, request.get_header('X-job-pilotto-render'), body['user_agent']))
+            import io
+            return mock.MagicMock(__enter__=lambda self: io.BytesIO(json.dumps(answers['no' if 'coop' in body['url'] else 'ok']).encode()), __exit__=lambda *a: None)
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_RENDER_URL': 'http://127.0.0.1:47111/engine/render', 'JOB_PILOTTO_RENDER_TOKEN': 'k'}), \
+                mock.patch.object(render.urllib.request, 'urlopen', urlopen), mock.patch.object(render, '_allowed', lambda url: True):
+            self.assertTrue(render.available())
+            self.assertIn('Vendeur', render.render('https://jobs.migros.ch/de'))
+            with self.assertRaises(render.Refused):
+                render.render('https://www.coop.ch/')
+        self.assertEqual(sent[0][1], 'k')
+        self.assertTrue(sent[0][2].startswith('JobPilotto/') and sent[0][2].endswith(' browser'))

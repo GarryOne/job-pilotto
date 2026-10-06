@@ -4,6 +4,7 @@ import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
 import * as notionGate from './notion-gate.js';
 import * as requestLog from './request-log.js';
+import * as pageRender from './page-render.js';
 import {jobFrom, jobFromResult} from './job-line.js';
 import {deliveryProblem, mailProblem as mailProblemFrom, readResult} from './run-result.js';
 import {spawn} from 'node:child_process';
@@ -68,6 +69,8 @@ export function pipelineEnv(storage, parent = process.env) {
     JOB_PILOTTO_DATA_DIR: storage.path('data'),
     JOB_PILOTTO_CV_PATH: storage.path('cv.pdf'),
     ...(requestLog.logPath() ? {JOB_PILOTTO_NOTION_LOG: requestLog.logPath()} : {}),  // Python's Notion requests: same file
+    // Pages that only exist after their scripts run, rendered in the app's own Chromium (lib/page-render.js, src/sources/render.py).
+    ...(pageRender.address() ? {JOB_PILOTTO_RENDER_URL: pageRender.address(), JOB_PILOTTO_RENDER_TOKEN: pageRender.TOKEN} : {}),
     ...(crashReports?.enabled() ? {JOB_PILOTTO_SENTRY_DSN: crashReports.dsn, JOB_PILOTTO_APP_VERSION: crashReports.version, JOB_PILOTTO_INSTALL_ID: crashReports.installId} : {}),
   };
   // The Profile and standard answers are read from Notion; before it is connected (Trying) from this Mac's files
