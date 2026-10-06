@@ -66,8 +66,13 @@ const menu = el('div', 'ui-menu');
 menu.hidden = true;
 menu.setAttribute('role', 'menu');
 document.body.append(menu);
-export function closeMenu() {
+let menuAnchor = null;   // the ⋯ button the open menu belongs to
+// within: close it only when its ⋯ button is inside that element. A list that redraws passes its own page, so a background redraw of Jobs
+// does not close a menu open on Focus (6 Oct 2026: the e2e "I'm out: withdraw" click found no menu, closed by a Jobs read finishing).
+export function closeMenu(within = null) {
+  if (within && !(menuAnchor && within.contains(menuAnchor))) return;
   menu.hidden = true;
+  menuAnchor = null;
   for (const open of document.querySelectorAll('.ui-more[aria-expanded="true"]')) open.setAttribute('aria-expanded', 'false');
 }
 export function openMenu(anchor, items) {
@@ -85,7 +90,7 @@ export function openMenu(anchor, items) {
     return button;
   }));
   menu.hidden = false;
-  anchor.setAttribute('aria-expanded', 'true');
+  anchor.setAttribute('aria-expanded', 'true'); menuAnchor = anchor;
   const box = anchor.getBoundingClientRect();
   const below = box.bottom + 6 + menu.offsetHeight <= window.innerHeight;
   menu.style.top = `${Math.max(8, below ? box.bottom + 6 : box.top - menu.offsetHeight - 6)}px`;

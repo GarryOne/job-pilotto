@@ -145,7 +145,7 @@ function renderTalking(narrowed = false) {
   }));
 }
 export function renderJobs() {
-  closeMenu();
+  closeMenu(document.querySelector('.view[data-view="jobs"]'));   // only a menu on this page
   const filter = $('filter-status').value;
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.

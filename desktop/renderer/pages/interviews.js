@@ -423,7 +423,7 @@ async function refreshInsights() {
   renderInsight();
 }
 function renderSaved() {
-  closeMenu();
+  closeMenu(document.querySelector('.view[data-view="interviews"]'));   // only a menu on this page
   const text = $('iv-filter').value.trim().toLowerCase(), outcome = $('iv-outcome').value;
   const rows = ivSavedRows.filter(row => {
     const job = row.application?.[0] ? jobForPage(row.application[0]) : null;
