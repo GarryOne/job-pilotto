@@ -704,95 +704,106 @@ function mailDiff(changes) {
   for (const part of mailChanges(changes)) {
     // "Stage Applied → Confirmation received" reads as a label and its movement; "Confirmation email set" is one flag.
     // el() takes one node or text, never an array of both (that renders "[object HTMLElement]"): append them here.
+    // "Stage Applied → Screening" reads as a field and its move: [Stage | Applied → Screening] (owner's mockup, 6 Oct 2026).
     const pill = el('span', part.flag ? 'mail-diff-flag' : 'mail-diff-move');
+    const field = !part.flag && /^(Stage|Next interview|Feedback status|Confirmation email)\s+(.+)$/.exec(part.from);
     if (part.flag) pill.textContent = part.flag;
+    else if (field) pill.append(el('span', 'mail-diff-field', field[1]), el('span', '', `${field[2]} → ${part.to}`));
     else pill.append(el('b', '', part.from), ` → ${part.to}`);
     row.append(pill);
   }
   return row;
 }
-// A Gmail check's card: one shape for every outcome (owner, 6 Oct 2026, after its states had drifted apart). The counts
-// strip, then EMAILS: one row per email, and every row has the same five parts —
-//   ① its title (the job; the email's subject while the job is the open question) and ONE outcome pill, top right;
-//   ② sender · date, then the engine's own sentence ("Application rejected after consideration.");
-//   ③ what moved on the job ("Stage Confirmation received → Rejected"), only when something did;
-//   ④ at most one panel, chosen by the outcome: the AI's reading of a rejection (amber), the interview (when, where, what
-//      to prepare, the recruiter's next step, consent), or the which-job question / your answer;
-//   ⑤ the subject, folded.
-// An update no email claims (a calendar event, a Mac-kept run) and a day-before interview reminder are rows of the same
-// shape. With no relevant email, one line says nothing changed; with no new email the strip alone says it.
+// A Gmail check's card (the owner's mockup, 6 Oct 2026): a strip of counts with icons, then one card per email, every card
+// built from the same parts in the same order, whatever happened —
+//   ① the company, the role, sender · date, and ONE outcome pill top right (Rejected, Interview scheduled, Reply received,
+//      Needs your answer, Answered, No change…);
+//   ② the engine's own sentence ("Application rejected after consideration.");
+//   ③ the move it made: [Stage | Confirmation received → Rejected], only when something moved;
+//   ④ at most one panel, by outcome: the AI's reading of a rejection, the interview (when and where, what to prepare, the
+//      recruiter's next step, consent), or the which-job question / your answer;
+//   ⑤ "Email details", folded: the subject.
+// An update no email claims (a calendar event, a run kept on this Mac) and a day-before interview reminder are cards of the
+// same shape. With no relevant email one line says nothing changed; with no new email the strip alone says it.
 const OUTCOME = {Rejected: ['Rejected', 'bad'], Interview: ['Interview scheduled', 'good'], 'Interview scheduled': ['Interview scheduled', 'good'],
   Offer: ['Offer', 'good'], 'Reply received': ['Reply received', 'info'], 'Application received': ['Application received', 'info'],
   Applied: ['Applied', 'info'], 'You replied': ['You replied', 'neutral']};
 const outcomePill = kind => { const [text, tone] = OUTCOME[kind] || [kind, 'info']; return pill(text, tone); };
 const sentence = text => (text && !/[.!?]$/.test(text) ? `${text}.` : text || '');
 const changeOf = text => (/→/.test(text || '') ? text : '');   // "nothing to record (Rejected)" is not a change
-const VERDICT_TITLE = {'Hard skills': 'Possible gap: hard skills', 'Soft skills': 'Possible gap: soft skills',
+const VERDICT_TITLE = {'Hard skills': 'Possible skills gap', 'Soft skills': 'Possible soft-skills gap',
   Presentation: 'Possible gap: how the application read', Unclear: 'Reason unclear'};
-const openSubjects = new Set();   // which subjects are unfolded, kept across the card's redraws
+const openFolds = new Set();   // which folds are open, kept across the card's redraws (it is drawn again on every refresh)
+const jobKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-function mailRow({title, titleClass = '', lines = [], tag = null, summary = '', changes = '', panel = null, subject = ''}) {
-  const row = el('li', 'run-card-row mail-row');
-  const words = el('span', 'run-card-words');
-  words.append(el('b', titleClass, title));
-  lines.filter(Boolean).forEach(line => words.append(el('span', 'muted', line)));
-  row.append(words);
-  if (tag) row.append(tag);
-  const detail = el('div', 'mail-row-detail');
-  if (summary) detail.append(el('p', 'mail-row-summary', sentence(summary)));
-  if (changes) detail.append(mailDiff(changes));
-  if (panel) detail.append(panel);
-  if (subject) detail.append(subjectFold(subject));
-  if (detail.childNodes.length) row.append(detail);
-  return row;
-}
-function subjectFold(subject) {
-  const key = subjectKey(subject);
-  const fold = el('div', 'mail-row-subject');
-  const toggle = el('button', 'mail-result-toggle');
+// One fold, the same everywhere: a chevron and a label, its content hidden until opened.
+function fold(key, label, content, className = 'mail-fold') {
+  const box = el('div', className);
+  const toggle = el('button', 'mail-fold-toggle');
   toggle.type = 'button';
-  const text = el('p', '', subject);
   const show = () => {
-    const open = openSubjects.has(key);
-    toggle.replaceChildren(icon('chevron'), 'Email subject');
+    const open = openFolds.has(key);
+    toggle.replaceChildren(icon('chevron'), label);
     toggle.classList.toggle('is-open', open);
     toggle.setAttribute('aria-expanded', String(open));
-    text.hidden = !open;
+    content.hidden = !open;
   };
-  toggle.addEventListener('click', () => { if (openSubjects.has(key)) openSubjects.delete(key); else openSubjects.add(key); show(); });
+  toggle.addEventListener('click', () => { if (openFolds.has(key)) openFolds.delete(key); else openFolds.add(key); show(); });
   show();
-  fold.append(toggle, text);
-  return fold;
+  box.append(toggle, content);
+  return box;
 }
 
+function mailCardRow({company, role = '', lines = [], tag = null, summary = '', changes = '', panel = null, details = ''}) {
+  const card = el('li', 'mail-email');
+  const head = el('div', 'mail-email-head');
+  const words = el('div', 'mail-email-words');
+  words.append(el('h3', '', company || 'Email'));
+  if (role) words.append(el('p', 'mail-email-role', role));
+  lines.filter(Boolean).forEach(line => words.append(el('p', 'mail-email-meta', line)));
+  head.append(words);
+  if (tag) head.append(tag);
+  card.append(head);
+  if (summary) card.append(el('p', 'mail-email-summary', sentence(summary)));
+  if (changes) card.append(mailDiff(changes));
+  if (panel) card.append(panel);
+  if (details) card.append(fold(`details:${subjectKey(details)}`, 'Email details', el('p', 'mail-fold-text', `Subject: ${details}`), 'mail-fold mail-email-details'));
+  return card;
+}
+
+// -> the number of questions still waiting for you (the strip says it).
 function mailSections(box, report, pending = [], answered = null) {
   const {results, updates} = mailResults(report);
   const found = report.status.emails ?? report.emails.length;
   const meeting = report.interview;
-  let meetingShown = false;
+  let meetingShown = false, waiting = 0;
   const meetingPanel = () => { meetingShown = true; return interviewPanel(report); };
   const aboutMeeting = job => !!meeting && jobKey(job).includes(jobKey(meeting.company)) && jobKey(job).includes(jobKey(meeting.title).slice(0, 24));
-  const rows = [
-    ...updates.map(update => updateRow(update, pending, answered, aboutMeeting(update.job) && !meetingShown ? meetingPanel : null)),
-    ...results.map(result => emailRow(result, pending, answered, result.covered && !meetingShown ? meetingPanel : null)),
-  ];
-  if (meeting && !meetingShown) {   // the day-before reminder: the interview was recorded by an earlier check
-    rows.push(mailRow({title: [meeting.company, meeting.title].filter(Boolean).join(' — '), lines: ['Already on record'],
-      tag: pill('Reminder', 'neutral'), panel: meetingPanel()}));
+  const cards = [];
+  for (const update of updates) {
+    const made = updateCard(update, pending, answered, aboutMeeting(update.job) && !meetingShown ? meetingPanel : null);
+    waiting += made.waiting;
+    cards.push(made.card);
   }
-  if (!rows.length && !(found > 0)) return;
-  box.append(el('h4', 'run-card-title', 'Emails'));
-  if (!rows.length) { box.append(el('p', 'muted mail-nochange', 'No application records changed.')); return; }
-  const list = el('ol', 'run-card-rows');
-  list.append(...rows);
+  for (const result of results) {
+    const made = emailCard(result, pending, answered, result.covered && !meetingShown ? meetingPanel : null);
+    waiting += made.waiting;
+    cards.push(made.card);
+  }
+  if (meeting && !meetingShown) {   // the day-before reminder: the interview was recorded by an earlier check
+    cards.push(mailCardRow({company: meeting.company, role: meeting.title, lines: ['Already on record'], tag: pill('Reminder', 'neutral'), panel: meetingPanel()}));
+  }
+  if (!cards.length && !(found > 0)) return 0;
+  if (!cards.length) { box.append(el('p', 'muted mail-nochange', 'No application records changed.')); return 0; }
+  const list = el('ol', 'mail-emails');
+  list.append(...cards);
   box.append(list);
+  return waiting;
 }
-const jobKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-function emailRow(result, pending, answered, meetingPanel) {
+function emailCard(result, pending, answered, meetingPanel) {
   const {email, outcome, assessment: review, update} = result;
   const asked = email && NEEDS_YOU.has(email.action) ? questionState(email, pending, answered) : null;
-  const job = [result.company, result.role].filter(Boolean).join(' — ');
   const kind = outcome?.kind || (update && !update.question ? update.summary : '');
   const tag = asked ? (asked.answered ? pill('Answered', 'good') : pill('Needs your answer', 'warn'))
     : kind ? outcomePill(kind) : meetingPanel ? outcomePill('Interview scheduled')
@@ -800,97 +811,100 @@ function emailRow(result, pending, answered, meetingPanel) {
   // The engine's sentence, unless the interview panel says the same (its date, event and source).
   const said = meetingPanel ? '' : outcome ? [outcome.summary, ...outcome.details.filter(line => !/^Source:/i.test(line))].filter(Boolean).join(' · ')
     : update?.when || '';
-  return mailRow({
-    // While "which job?" is open the subject leads, as it has since 2 Oct (942a2fe): the job is what is unclear.
-    title: asked ? email.subject : job || email?.subject || 'Email', titleClass: asked ? 'mail-row-subject-title' : '',
-    lines: [[email?.sender, email?.time].filter(Boolean).join(' · '), asked ? job : ''],
+  const noun = emailNoun(email);
+  const card = mailCardRow({
+    company: result.company || email?.subject, role: asked && !asked.answered ? `${noun === 'invitation' ? 'Interview invitation' : 'Email'} · Role unidentified` : result.role,
+    lines: [[email?.sender, email?.time].filter(Boolean).join(' · ')],
     tag, summary: said, changes: update && !update.question ? update.changes : changeOf(email?.changes),
-    panel: review ? assessmentPanel(review) : meetingPanel ? meetingPanel() : asked ? questionBlock(asked, subjectKey(email.subject), email.subject) : null,
-    subject: !asked && job ? email?.subject : ''});
+    panel: review ? assessmentPanel(review) : meetingPanel ? meetingPanel()
+      : asked ? questionPanel(asked, subjectKey(email.subject), email.subject, {noun, company: result.company}) : null,
+    details: result.company ? email?.subject : ''});
+  return {card, waiting: asked && !asked.answered ? 1 : 0};
 }
-// An update no email row claims: its job, what it moved, or the which-job question it raised.
-function updateRow(update, pending, answered, meetingPanel) {
+// An update no email claims: its job, what it moved, or the which-job question it raised.
+function updateCard(update, pending, answered, meetingPanel) {
+  const [company, ...role] = String(update.job).split(/\s+—\s+/);
   if (update.question) {
     const open = pending.find(item => item.company && jobKey(update.job).includes(jobKey(item.company)));
     const state = open ? {open} : answered ? {answered: true, job: ''} : {};
-    return mailRow({title: update.job, tag: state.answered ? pill('Answered', 'good') : pill('Needs your answer', 'warn'),
-      panel: questionBlock(state, subjectKey(update.job), open?.subject || '')});
+    const card = mailCardRow({company, role: role.join(' — ') || 'Role unidentified', tag: state.answered ? pill('Answered', 'good') : pill('Needs your answer', 'warn'),
+      panel: questionPanel(state, subjectKey(update.job), open?.subject || '', {noun: 'email', company: ''})});
+    return {card, waiting: state.answered ? 0 : 1};
   }
-  return mailRow({title: update.job, tag: outcomePill(update.summary), summary: meetingPanel ? '' : update.when || '',
-    changes: update.changes, panel: meetingPanel ? meetingPanel() : null});
+  return {card: mailCardRow({company, role: role.join(' — '), lines: [update.source || ''], tag: outcomePill(update.summary),
+    summary: meetingPanel ? '' : update.when || '', changes: update.changes, panel: meetingPanel ? meetingPanel() : null}), waiting: 0};
 }
 
+// The AI's reading of a rejection: its verdict and one line on what the role wanted, marked as a guess; the role-vs-you
+// comparison folds open under "AI assessment".
 function assessmentPanel(review) {
-  const panel = el('aside', 'insight-next mail-assessment');
-  const head = el('div', 'insight-kicker');
-  const words = el('div', 'insight-head');
-  words.append(el('span', 'insight-category', 'AI assessment'), el('b', '', VERDICT_TITLE[review.verdict] || review.verdict));
-  head.append(words, pill(`${review.confidence.replace(/^./, c => c.toUpperCase())} confidence`, 'warn'));
-  panel.append(head);
+  const panel = el('aside', 'mail-ai');
+  const label = el('div', 'mail-ai-label');
+  label.append(icon('sparkle'), el('b', '', 'AI assessment'));
+  const words = el('div', 'mail-ai-words');
+  const top = el('div', 'mail-ai-top');
+  top.append(el('b', '', VERDICT_TITLE[review.verdict] || review.verdict), pill(`${review.confidence.replace(/^./, c => c.toUpperCase())} confidence`, 'warn'));
+  words.append(top, el('p', '', review.focus || review.summary));
   if (review.focus) {
     const facts = el('dl', 'mail-assessment-facts');
     facts.append(el('dt', '', 'Role focus'), el('dd', '', review.focus), el('dt', '', 'Your background'), el('dd', '', review.background));
-    panel.append(facts);
-  } else if (review.summary) panel.append(el('p', '', review.summary));
-  panel.append(el('p', 'insight-source mail-assessment-note', 'AI interpretation; the employer did not confirm this reason.'));
+    words.append(fold(`ai:${jobKey(review.job)}`, 'Role vs your background', facts));
+  }
+  words.append(el('p', 'mail-ai-note', 'AI interpretation; the employer did not confirm this reason.'));
+  panel.append(label, words);
   return panel;
 }
-// The interview, in its email's row: when and where, who, what to prepare, the recruiter's next step and the consent line
-// (the owner's mockup, 30 Sep, 957e32d), one framed panel instead of bands across the card.
+// The interview: when, where and who in a calendar box; what to prepare and the recruiter's next step side by side; consent.
 function interviewPanel(report) {
   const {interview} = report;
   const box = el('div', 'mail-meeting');
-  const top = el('section', 'mail-interview');
-  const words = el('div', 'mail-interview-words');
-  words.append(el('span', 'insight-category', 'Upcoming interview'), el('h3', '', [interview.title, interview.company].filter(Boolean).join(' · ')));
+  const when = el('div', 'mail-meeting-when');
+  const tile = el('span', 'mail-meeting-tile');
+  tile.append(icon('calendar'));
+  const words = el('div', 'mail-meeting-words');
+  words.append(el('b', '', interview.when ? interview.when.replace(/\s+(\d{1,2}:\d{2})$/, ' · $1') : [interview.title, interview.company].filter(Boolean).join(' · ')));
   const line = [interview.where, interview.summary].filter(Boolean).join(' · ');
-  if (line) words.append(el('p', 'mail-where', line));
-  if (interview.people.length) words.append(el('p', 'mail-people', `Participants: ${interview.people.join(' – ')}`));
-  const side = el('div', 'mail-interview-side');
-  if (interview.when) {
-    const when = el('span', 'mail-when');
-    when.append(icon('calendar'), interview.when.replace(/\s+(\d{1,2}:\d{2})$/, ' · $1'));
-    side.append(when);
-  }
+  if (line) words.append(el('p', '', line));
+  if (interview.people.length) words.append(el('p', '', `Participants: ${interview.people.join(' · ')}`));
+  when.append(tile, words);
   if (report.url) {
-    const view = Object.assign(el('a', 'link', 'View application in Notion ↗'), {href: '#'});
+    const view = Object.assign(el('a', 'link', 'Application in Notion ↗'), {href: '#'});
     view.dataset.link = report.url;
-    side.append(view);
+    when.append(view);
   }
-  top.append(words, side);
-  box.append(top);
+  box.append(when);
   if (report.topics.length || report.nextSteps.length) {
-    const columns = el('div', 'mail-columns');
+    const columns = el('div', 'mail-meeting-columns');
     if (report.topics.length) {
-      const left = el('section', 'mail-block');
-      left.append(el('h4', '', 'Prepare for the conversation'), el('p', 'mail-sub', 'Topics to strengthen from previous interviews'));
+      const left = el('section', '');
+      left.append(el('h4', '', 'Prepare for the conversation'));
       const list = el('ul', 'mail-topics');
       report.topics.forEach(topic => list.append(el('li', '', topic)));
       left.append(list);
       columns.append(left);
     }
     if (report.nextSteps.length) {
-      const right = el('section', 'mail-block');
+      const right = el('section', '');
       const heading = el('div', 'mail-block-head');
       heading.append(el('h4', '', 'Recruiter follow-up'), pill('Pending with recruiter', 'neutral'));
-      right.append(heading);
-      report.nextSteps.forEach(text => right.append(el('p', '', text)));
+      right.append(heading, ...report.nextSteps.map(text => el('p', '', text)));
       columns.append(right);
     }
     box.append(columns);
   }
   if (report.consent) {
-    const consent = el('p', 'mail-consent');
+    const consent = el('p', 'mail-meeting-consent');
     consent.append(icon('mic'), report.consent);
     box.append(consent);
   }
   return box;
 }
 
-// The which-job question on its email's row. Open: the reason and "Choose the job", which opens the popup Focus uses
-// (reassign.js); answered: the job you picked, the original question one click away.
+// The which-job question on its email's card. Open: the reason and "Choose the job", which opens the popup Focus uses
+// (reassign.js); answered: the job you picked, the original question folded under it.
 const subjectKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 100);
 const NEEDS_YOU = new Set(['needs you', 'asked']);
+const emailNoun = email => (/invit|calendar|meeting/i.test(`${email?.subject || ''} ${email?.sender || ''}`) ? 'invitation' : 'email');
 // Answers saved from this card, by subject: the card turns to "Answered" at once, before Focus is read again from Notion.
 const answeredHere = new Map();
 function questionState(email, pending, answered) {
@@ -904,63 +918,36 @@ function questionState(email, pending, answered) {
   return answered ? {answered: true, job: ''} : {};   // Focus read, no record of it: answered before the app kept the job
 }
 const QUESTION = 'Which job is this email about?';
-const QUESTION_WHY = "The check couldn't tell which job this is about, so it moved nothing. Your answer places the email.";
-// The card is drawn again on every refresh: which original questions are open is remembered here, or they would snap shut.
-const openQuestions = new Set();
-function questionBlock(state, key, subject = '') {
-  const block = el('div', state.answered ? 'mail-question is-answered' : 'mail-question');
-  const head = el('div', 'mail-question-head');
+function questionPanel(state, key, subject = '', {noun = 'email', company = ''} = {}) {
+  const why = company ? `The ${noun} names ${company} but doesn't specify the role.` : "The check couldn't tell which job this is about, so it moved nothing.";
+  const panel = el('div', state.answered ? 'mail-ask is-answered' : 'mail-ask');
+  const mark = el('span', 'mail-ask-icon');
+  mark.append(icon(state.answered ? 'check-circle' : 'help'));
+  const words = el('div', 'mail-ask-words');
   if (!state.answered) {
-    head.append(icon('help'), el('b', '', state.open?.title || QUESTION));
-    block.append(head, el('p', 'mail-question-text', QUESTION_WHY));
-    // Without Focus's question to hand (Focus has not loaded yet) Focus itself is the way.
-    const go = el('button', 'primary mail-question-go', state.open ? 'Choose the job' : 'Answer in Focus ');
+    words.append(el('b', '', state.open?.title || QUESTION), el('p', '', why));
+    const go = el('button', 'primary mail-question-go', state.open ? 'Choose the job ' : 'Answer in Focus ');
     go.type = 'button';
-    if (!state.open) go.append(icon('external'));
+    go.append(icon(state.open ? 'chevron' : 'external'));
     go.addEventListener('click', () => {
       if (!state.open) { openView('focus'); return; }
       whichJob(state.open, job => {
         answeredHere.set(subjectKey(subject || state.open.subject), job);
-        document.dispatchEvent(new Event('focus-rendered'));   // draw the card again: the row reads "Answered"
+        document.dispatchEvent(new Event('focus-rendered'));   // draw the card again: it reads "Answered"
       });
     });
-    block.append(go);
-    return block;
+    panel.append(mark, words, go);
+    return panel;
   }
-  head.append(icon('check-circle'), el('b', '', 'Answered by you'));
-  block.append(head, el('p', 'mail-question-answer', state.job ? state.role : 'Not about a job, or the job was not recorded'),
-    el('p', 'mail-question-text', state.job ? 'Role confirmed for this email.' : 'Nothing was moved for this email.'));
-  // A button and a set, not <details>: the card is drawn again on every refresh, and the set is read by each drawing.
-  const original = el('div', 'mail-question-original');
-  const toggle = el('button', 'mail-question-toggle');
-  toggle.type = 'button';
-  const text = el('p', '', `${QUESTION} ${QUESTION_WHY}`);
-  const show = () => {
-    const open = openQuestions.has(key);
-    toggle.textContent = `${open ? '▾' : '▸'} Original question`;
-    toggle.setAttribute('aria-expanded', String(open));
-    text.hidden = !open;
-  };
-  toggle.addEventListener('click', () => { if (openQuestions.has(key)) openQuestions.delete(key); else openQuestions.add(key); show(); });
-  show();
-  original.append(toggle, text);
-  block.append(original);
-  return block;
+  words.append(el('b', '', 'Answered by you'), el('p', 'mail-ask-answer', state.job ? state.role : 'Not about a job, or the job was not recorded'),
+    fold(`asked:${key}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
+  panel.append(mark, words);
+  return panel;
 }
 export function renderMailCard(report, pending = [], answered = null, target = $('activity-card')) {
-  // The run card's shape, as every other run (Find employers, Search): the counts strip, then the body straight in the panel.
-  const status = el('div', 'run-card-stats mail-stats');
-  const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
-  // "✓ Check complete" first, as the owner's mockup (30 Sep, commit 957e32d), then the counts.
-  const done = el('span', 'run-card-stat mail-done');
-  done.append(icon('check-circle'), el('b', '', report.status.title));
-  status.append(done);
-  const counts = mailCounts(report);   // counted from the rows the card lists (mail-report.js)
-  if (counts.length) status.append(...counts.map(({value, label}) => stat(value, label)));
-  else if (report.status.sentence) status.append(el('span', 'run-card-stat', report.status.sentence));
   const box = el('div', 'run-card-body mail-card');
-  mailSections(box, report, pending, answered);
-  // The message's own lines (instructions to you) that are none of the above.
+  const waiting = mailSections(box, report, pending, answered);
+  // The notes the message carries that are none of the above (instructions to you).
   const notes = report.notes.filter(note => !note.fromRow);
   if (notes.length) {
     const list = el('ul', 'mail-notes');
@@ -972,7 +959,24 @@ export function renderMailCard(report, pending = [], answered = null, target = $
     });
     box.append(list);
   }
-  target.replaceChildren(status, ...(box.childNodes.length ? [box] : []));
+  // The strip: each count with its icon, counted from the cards (mail-report.js), and the questions still waiting for you.
+  const status = el('div', 'mail-strip');
+  const ICONS = [[/new email|reviewed/, 'mail', ''], [/relevant/, 'file', ''], [/update/, 'check-circle', 'is-good']];
+  const stat = (value, label, glyph, tone = '') => {
+    const cell = el('span', `mail-strip-stat ${tone}`.trim());
+    cell.append(icon(glyph), el('b', '', String(value)), ` ${label}`);
+    return cell;
+  };
+  const counts = mailCounts(report);
+  counts.forEach(({value, label}) => { const [, glyph, tone] = ICONS.find(([pattern]) => pattern.test(label)) || [null, 'mail', '']; status.append(stat(value, label, glyph, tone)); });
+  if (waiting) status.append(stat(waiting, waiting === 1 ? 'needs your answer' : 'need your answer', 'bang-circle', 'is-warn'));
+  if (!counts.length) {   // no new email: the strip alone says so
+    const cell = el('span', 'mail-strip-stat is-good');
+    cell.append(icon('check-circle'), report.status.sentence || report.status.title);
+    status.append(cell);
+  }
+  box.prepend(status);
+  target.replaceChildren(box);
 }
 
 // A daily insight's card: the finding, the numbers behind it, the one action and where it came from (the mockup,

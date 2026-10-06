@@ -1599,21 +1599,68 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
 /* One email in the run card's list (.run-card-row, as Find employers): what it recorded and the AI's reading under it. */
 .mail-row { flex-wrap: wrap; }
-/* Each email edge to edge of the card, divided by a firmer line; its interview panel spans the full width too, no
-   rounded box inside the row (owner, 6 Oct 2026). The row's own padding keeps its words where the title is. */
-.mail-card .run-card-rows > .mail-row { margin: 0 calc(-1 * var(--sp-4)); padding-left: var(--sp-4); padding-right: var(--sp-4); }
-/* Between two emails: a band of the page's own colour with a firm line on each side, so each email reads as its own block. */
-.mail-card .run-card-rows > .mail-row:not(:last-child) { border-bottom: 1px solid var(--line-strong); }
-.mail-card .run-card-rows > .mail-row + .mail-row { border-top: 10px solid var(--bg); box-shadow: inset 0 1px 0 var(--line-strong); padding-top: var(--sp-4); }
-.mail-card .run-card-rows > .mail-row { padding-bottom: var(--sp-3); }
-/* A row's panel (the interview, the AI's reading of a rejection, the question or your answer) spans the card, square. */
-.mail-row-detail > :is(.mail-meeting, .mail-assessment, .mail-question) {
-  margin-left: calc(-1 * var(--sp-4)); margin-right: calc(-1 * var(--sp-4)); border-radius: 0; border-left: 0; border-right: 0; }
-.mail-meeting { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-/* A panel that ends its email meets the band below it: no white strip between them. */
-.mail-card .run-card-rows > .mail-row:has(> .mail-row-detail > :is(.mail-meeting, .mail-assessment, .mail-question):last-child) { padding-bottom: 0; }
-.mail-row-detail:has(> :is(.mail-meeting, .mail-assessment, .mail-question):last-child) { padding-bottom: 0; }
-.mail-row-detail > :is(.mail-meeting, .mail-assessment, .mail-question):last-child { border-bottom: 0; }
+/* A Gmail check's card (owner's mockup, 6 Oct 2026): the counts strip, then one card per email, all built from the same
+   parts (activity.js mailCardRow): head (company, role, meta, one pill), sentence, stage chip, one panel, "Email details". */
+.mail-card { background: var(--bg); padding: var(--sp-3); gap: var(--sp-3); }
+.mail-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--muted); }
+.mail-strip-stat { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.mail-strip-stat + .mail-strip-stat { padding-left: var(--sp-5); border-left: 1px solid var(--line); }
+.mail-strip-stat .icon { width: 18px; height: 18px; color: var(--info); flex: none; }
+.mail-strip-stat.is-good .icon { color: var(--good); }
+.mail-strip-stat.is-warn .icon { color: var(--signal); }
+.mail-strip-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.mail-emails { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
+.mail-email { display: grid; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.mail-email-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); }
+.mail-email-words { min-width: 0; }
+.mail-email-words h3 { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink); }
+.mail-email-role { margin: 2px 0 0; font-weight: 600; color: var(--ink); }
+.mail-email-meta { margin: 2px 0 0; color: var(--muted); font-size: var(--fs-sm); }
+.mail-email-summary { margin: 0; color: var(--ink-2); }
+.mail-diff-field { color: var(--muted); padding-right: var(--sp-2); margin-right: var(--sp-2); border-right: 1px solid var(--line); font-weight: 600; }
+/* The AI's reading of a rejection: label on the left, the verdict and one line on the right, a guess and said so. */
+.mail-ai { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--r-md); }
+.mail-ai-label { display: flex; align-items: center; gap: var(--sp-2); align-self: start; padding-right: var(--sp-4); border-right: 1px solid var(--warn-line); color: var(--ink); }
+.mail-ai-label .icon { width: 18px; height: 18px; color: var(--signal); }
+.mail-ai-words { display: grid; gap: var(--sp-1); min-width: 0; }
+.mail-ai-words p { margin: 0; color: var(--ink-2); }
+.mail-ai-top { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.mail-ai-top .ui-pill { background: var(--surface); border: 1px solid var(--next-line); }
+.mail-ai-words .mail-ai-note { font-size: var(--fs-xs); color: var(--muted); }
+/* The interview: when, where and who in a calendar box; then what to prepare and the recruiter's next step; consent. */
+.mail-meeting { display: grid; gap: var(--sp-3); }
+.mail-meeting-when { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.mail-meeting-tile { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--r-sm); background: var(--info-soft); color: var(--info); }
+.mail-meeting-words { flex: 1; min-width: 0; }
+.mail-meeting-words b { font-size: var(--fs-lg); color: var(--ink); }
+.mail-meeting-words p { margin: 2px 0 0; color: var(--ink-2); }
+.mail-meeting-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-5); }
+.mail-meeting-columns section + section { border-left: 1px solid var(--line); padding-left: var(--sp-5); }
+.mail-meeting-columns h4 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); color: var(--ink); }
+.mail-meeting-columns p { margin: 0 0 var(--sp-1); color: var(--ink-2); }
+.mail-meeting-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding-top: var(--sp-3); border-top: 1px solid var(--line); color: var(--muted); }
+.mail-meeting-consent .icon { width: 18px; height: 18px; flex: none; }
+/* The which-job question in a row: icon, question and reason, the button on the right; answered, the job you picked. */
+.mail-ask { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--r-md); }
+.mail-ask.is-answered { align-items: flex-start; background: var(--good-soft); border-color: var(--good-soft); }
+.mail-ask-icon { display: inline-flex; flex: none; color: var(--signal); }
+.mail-ask.is-answered .mail-ask-icon { color: var(--good); }
+.mail-ask-icon .icon { width: 24px; height: 24px; }
+.mail-ask-words { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.mail-ask-words p { margin: 0; color: var(--ink-2); }
+.mail-ask-words .mail-ask-answer { font-weight: 600; color: var(--ink); }
+.mail-ask .mail-question-go { flex: none; }
+/* One fold everywhere ("Email details", "Original question", "Role vs your background"). */
+.mail-fold-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-sm); }
+.mail-fold-toggle .icon { width: 14px; height: 14px; transition: transform .15s; }
+.mail-fold-toggle.is-open .icon { transform: rotate(90deg); }
+.mail-fold-toggle:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
+.mail-fold-text { margin: var(--sp-1) 0 0; color: var(--ink-2); font-size: var(--fs-sm); }
+.mail-email-details { padding-top: var(--sp-3); border-top: 1px solid var(--line); }
 .mail-row-detail > :is(.mail-assessment, .mail-question) { padding-left: var(--sp-4); padding-right: var(--sp-4); }
 .mail-row-summary { margin: 0; color: var(--ink-2); }
 .run-card-words b.mail-row-subject-title { white-space: normal; }   /* a long invitation subject wraps, as before 5f4f740 */
