@@ -10,6 +10,7 @@ import ipaddress
 import json
 import os
 import re
+import time
 import socket
 import urllib.parse
 import urllib.request
@@ -21,6 +22,7 @@ MAX_BYTES = 2_000_000
 MAX_JOB_PAGES = 40       # job pages read when the listing carries no data itself
 CAREER_WORDS = re.compile(r'career|karriere|carri[eè]re|jobs?\b|stellen|offene.?stellen|vacanc|join.?us|work.?with.?us|emploi|recrut|lavora', re.I)
 JOB_PATH = re.compile(r'/(?:job|jobs|stelle|stellen|vacanc\w*|position|positions|offre|offres|emploi|posting|opening|openings|career|careers|karriere|job-advertisement|advertisement)/[^/?#]+', re.I)
+JOB_ID = re.compile(r'/(?:[^/]*-)?(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{5,}|[0-9a-z]{16,})$', re.I)
 COUNTRIES = {'CH': 'Switzerland', 'DE': 'Germany', 'AT': 'Austria', 'FR': 'France', 'IT': 'Italy', 'GB': 'United Kingdom', 'UK': 'United Kingdom',
              'NL': 'Netherlands', 'IE': 'Ireland', 'ES': 'Spain', 'PT': 'Portugal', 'PL': 'Poland', 'SE': 'Sweden', 'US': 'United States'}
 
@@ -242,22 +244,69 @@ def job_links(markup, base):
         parts = urllib.parse.urlsplit(url)
         if (parts.hostname or '').removeprefix('www.') == host and JOB_PATH.search(parts.path) and parts.path.rstrip('/') != own:
             out.append(url.split('#')[0])
-    return list(dict.fromkeys(out))[:MAX_JOB_PAGES]
+    out = list(dict.fromkeys(out))
+    # Single job pages end in an id (a UUID, a long number): when the page has some, those are the jobs and the rest is its menu
+    # ("/karriere/trainee"). 6 Oct 2026: Migros's menu links filled the quota before its 31 job links on the page.
+    with_id = [url for url in out if JOB_ID.search(urllib.parse.urlsplit(url).path.rstrip('/'))]
+    return (with_id if len(with_id) >= 3 else out)[:MAX_JOB_PAGES]
 
 
-def read_page(url, fetch=get_text):
+def read_page(url, fetch=None):
     """Jobs a careers page publishes: its own data, or the data of the job pages it links to. Raises when the page cannot be read."""
+    fetch = fetch or get_text   # looked up when called: a test's or a run's own fetcher applies
     markup = fetch(url)
     jobs = jsonld_jobs(markup, url) or read_page_from(markup, url, fetch)
     return _asked(url, markup, jobs, fetch)
 
 
-def fetch(slug):
-    """The ats 'careers' feed: the jobs on the page this slug stands for; read again through the browser when the plain page has none."""
+MAX_LIST_PAGES = 20   # numbered pages of one job list read at most: each job on them is one more request to the site
+PAGE_PAUSE_S = 0.5
+
+
+def page_links(url, markup):
+    """The numbered pages of the job list at `url` that it links to, in order: the same address with ?page=N (or &p=N, /page/N/), N >= 2.
+    6 Oct 2026: Migros lists 1,335 jobs over 67 pages; only the first was read."""
+    base = urllib.parse.urlsplit(url)
+    found = {}
+    for link, _ in links(markup or '', url):
+        parts = urllib.parse.urlsplit(link)
+        if parts.netloc != base.netloc:
+            continue
+        query = dict(urllib.parse.parse_qsl(parts.query))
+        number = next((query[key] for key in ('page', 'p', 'pg', 'seite') if query.get(key, '').isdigit()), None)
+        path = parts.path.rstrip('/')
+        if number is None and (match := re.search(r'/page/(\d+)$', path)):
+            number, path = match.group(1), path[:match.start()]
+        if number and int(number) >= 2 and path == base.path.rstrip('/'):
+            found.setdefault(int(number), link)
+    return [found[n] for n in sorted(found)][:MAX_LIST_PAGES - 1]
+
+
+def fetch(slug, sleep=time.sleep):
+    """The ats 'careers' feed: the jobs on the page this slug stands for, and on its numbered pages; read again through the browser when the
+    plain page has none."""
     url = decode(slug)
     jobs = read_page(url)
     show = renderer() if not jobs else None
-    return read_page(url, show) if show else jobs
+    jobs = read_page(url, show) if show else jobs
+    if not jobs:
+        return jobs
+    try:
+        more = page_links(url, get_text(url))
+    except Exception:  # noqa: BLE001 — the first page is read; its page links are a bonus
+        more = []
+    seen = {job.get('url') for job in jobs}
+    for link in more:
+        sleep(PAGE_PAUSE_S)
+        try:
+            fresh = [job for job in read_page(link, show) if job.get("url") not in seen]
+        except Exception:  # noqa: BLE001 — a page that fails ends the list here
+            break
+        if not fresh:
+            break
+        seen.update(job.get('url') for job in fresh)
+        jobs = jobs + fresh
+    return jobs
 
 
 READER = 'auto'   # 'auto': Claude reads pages the rules cannot (ai/page_reader.py) when an AI is available; None: never; or a function (url, html) -> jobs (tests)
