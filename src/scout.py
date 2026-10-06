@@ -221,7 +221,7 @@ def harvest(db, seeds, sources=None, skip=()):
         sources = [lambda: seed_candidates(seeds)] if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else [
             lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates, lambda: local_company_candidates(db),
             swissdevjobs_candidates, wikidata_candidates]
-        if skip:   # a search outside IT: the lists of software employers are not even read
+        if skip and not os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # a search outside IT: the lists of software employers are not even read
             sources = [lambda: seed_candidates(seeds), lambda: local_company_candidates(db), wikidata_candidates]
     added = 0
     for source in sources:
