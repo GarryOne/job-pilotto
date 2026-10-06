@@ -106,8 +106,13 @@ jobs:
       group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
       cancel-in-progress: false
     env:
+      # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels
+      # had never run (no token) and showed ✓. Forks have no secrets: they still skip with a warning.
+      E2E_REQUIRE_SECRETS: ${{ github.repository == 'GarryOne/job-pilotto' && '1' || '' }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
+      E2E_NOTION_TOKEN_FAILURESNOTION: ${{ secrets.E2E_NOTION_TOKEN_FAILURESNOTION }}
+      E2E_NOTION_TOKEN_FAILURESCHANNELS: ${{ secrets.E2E_NOTION_TOKEN_FAILURESCHANNELS }}
       E2E_NOTION_TOKEN_JOBS: ${{ secrets.E2E_NOTION_TOKEN_JOBS }}
       E2E_NOTION_TOKEN_INTERVIEWS: ${{ secrets.E2E_NOTION_TOKEN_INTERVIEWS }}
       E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}

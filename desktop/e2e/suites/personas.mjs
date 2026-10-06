@@ -12,8 +12,7 @@ import {DESKTOP} from '../lib/app.mjs';
 import {databaseText, emptyDatabase, findPage, pageText} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
-export const minutes = 40;
-export const budgetMinutes = 15;   // manual only, two users one after the other: the one suite allowed past the 7-minute budget (lib/runner.mjs)
+export const minutes = 15;
 // MANUAL (2 Oct 2026, kept, not deleted): It proves nothing is hard-coded to the owner (Swiss/EU wording, visa flag, currencies): one-time hygiene that costs 15 minutes and two
 // full AI runs each time. No schedule, push or release gate runs it (cadence 'manual', lib/plan.mjs); run it by hand when a change could bring owner-specific text back:
 //   gh workflow run e2e.yml -f suite=personas        or        node suite.mjs personas
@@ -25,7 +24,10 @@ export const FORBIDDEN = /switzerland|swiss|schweiz|suisse|z[uü]rich|🇨🇭|\
 
 const REPO = path.resolve(DESKTOP, '..');
 const personaDir = key => path.join(DESKTOP, 'e2e', 'fixtures', 'personas', key);
-const PERSONAS = ['austin', 'sao_paulo'];
+// One persona per run (6 Oct 2026, 7-minute suite budget: both took ~15 min). E2E_PERSONA=austin|sao_paulo picks one, else they alternate by day.
+const ALL_PERSONAS = ['austin', 'sao_paulo'];
+export const pickPersona = (env = process.env, day = Math.floor(Date.now() / 86400000)) => (ALL_PERSONAS.includes(env.E2E_PERSONA) ? env.E2E_PERSONA : ALL_PERSONAS[day % ALL_PERSONAS.length]);
+const PERSONAS = [pickPersona()];
 
 // The engine's own code, run against this install's folders: what the digest and the settings say for this user.
 function engine(ctx, code, args = []) {
