@@ -10,12 +10,13 @@ const HEAD = 'a'.repeat(40), OLD = 'b'.repeat(40);
 const issue = (comments = 0, labels = [], kind = 'layout') => ({number: 1, state: 'OPEN', body: `**MEDIUM** · ${kind} · found by the AI screenshot review`, labels: [{name: 'auto-ui'}, ...labels.map(name => ({name}))], comments: Array.from({length: comments}, () => ({body: 'Seen again in run x'}))});
 
 // A gh that answers the calls the plan makes. `files`: what changed between two commits; `runs`: finished e2e runs, newest first; `issues`: open auto-ui issues; `releases`: [tag, sha] newest first.
-function gh({files = [], runs = [], issues = [], releases = []} = {}) {
+function gh({files = [], runs = [], issues = [], releases = [], build = 'success'} = {}) {
   return args => {
     const text = args.join(' ');
     if (/^api repos\/[^/]+\/[^/]+\/compare\//.test(text)) return files.join('\n');
     if (args[0] === 'run' && args[1] === 'list') return JSON.stringify(runs);
     if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(issues);
+    if (/^api repos\/[^/]+\/[^/]+\/actions\/runs\/\d+\/jobs/.test(text)) return build;
     if (args[0] === 'release' && args[1] === 'list') return JSON.stringify(releases.map(([tagName]) => ({tagName})));
     const commit = /commits\/(desktop-v\S+)/.exec(text);
     if (commit) return (releases.find(([tag]) => tag === commit[1]) || [])[1] || '';
@@ -169,4 +170,13 @@ test('a manual gate for a tag runs the nightly gate\'s suites on that tag\'s com
 test('the interactions suite has the time it needs: a job limit under what it takes cancels it and files its partial findings (5 Oct 2026)', async () => {
   const {minutes} = await import('../suites/interactions.mjs');
   assert.ok(minutes >= 20, `interactions is given ${minutes} minutes: it ran past 11 and was cancelled twice at 10`);
+});
+
+// 6 Oct 2026: a nightly with nothing new skipped its build but ended "success", found the release a beta by hand had just made of that commit, and gated it a second time.
+test('a build run that built nothing is not gated; one that built is', async () => {
+  const env = {EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule', RUN_ID: '42'};
+  const skipped = await plan(env, {releases: [['desktop-v1.2', HEAD]], build: 'skipped'});
+  assert.equal(skipped.count, '0');
+  assert.match(skipped.why, /built nothing/);
+  assert.notEqual((await plan(env, {releases: [['desktop-v1.2', HEAD]], build: 'success'})).count, '0');
 });

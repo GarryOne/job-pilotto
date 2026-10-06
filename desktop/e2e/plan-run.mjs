@@ -43,7 +43,12 @@ export async function planRun({env, gh = realGh, all, minutes, cadence = {}, wat
         try { built = gh(['api', `repos/${repo}/commits/${tagName}`, '-q', '.sha']).trim(); } catch { /* an unreadable tag is not it */ }
         if (built === ref) { tag = tagName; break; }
       }
-      if (tag) suites = autoSuites(all, cadence);   // the nightly gate: always + nightly suites, not the manual ones
+      // Only a run that BUILT something is gated (6 Oct 2026): a nightly that found nothing new skips its build but still ends "success", and then found the release a
+      // beta by hand had just made of the same commit, so that commit was gated twice. RUN_ID is the build's run; its `build` job ran or was skipped.
+      let built = true;
+      if (tag && env.RUN_ID) { try { built = gh(['api', `repos/${repo}/actions/runs/${env.RUN_ID}/jobs`, '-q', '.jobs[] | select(.name == "build") | .conclusion']).trim() === 'success'; } catch { /* unreadable: gate, as before */ } }
+      if (tag && !built) why = `the build run ${env.RUN_ID} built nothing (nothing new since ${tag}): ${tag} is gated by the run that built it`;
+      else if (tag) suites = autoSuites(all, cadence);   // the nightly gate: always + nightly suites, not the manual ones
     }
   } else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
   else if (event === 'workflow_dispatch' && env.GATE_TAG) { tag = env.GATE_TAG; suites = autoSuites(all, cadence); }   // the gate for one tag, by hand: the same suites as the nightly gate, on that tag's commit, and the promote job follows
