@@ -64,8 +64,13 @@ function advance(slot) {
   chip.textContent = {research: 'Fact', recruiters: 'Recruiters say', 'to-test': 'Worth trying'}[picked.tip.evidence] || 'Tip';
   text.textContent = picked.tip.text;
   slot.title = picked.tip.source ? `Source: ${picked.tip.source}` : picked.tip.evidence === 'recruiters' ? 'What recruiters report in Reddit threads (2025-26): firsthand, a few threads each, not a survey' : '';
-  if (!still()) text.style.animationDuration = `${Math.max(MIN_SECONDS, text.scrollWidth / PIXELS_PER_SECOND)}s`;
+  pace(text);
 }
+
+// The same speed on every bar and window width. A bar built while its page is hidden measures 0 wide, so it falls back to
+// MIN_SECONDS for a strip later ~2,500px wide (Focus/Jobs/Interviews ran 3-5x too fast, 6 Oct 2026): build() measures again on resize.
+export function secondsFor(width) { return Math.max(MIN_SECONDS, width / PIXELS_PER_SECOND); }
+function pace(text) { if (!still() && text.scrollWidth) text.style.animationDuration = `${secondsFor(text.scrollWidth)}s`; }
 
 function build(slot) {
   const frame = el('div', 'ss-tip-frame');
@@ -80,6 +85,7 @@ function build(slot) {
   // The next tip starts when the last one has left the frame (the animation ran once through).
   text.addEventListener('animationiteration', () => advance(slot));
   advance(slot);
+  globalThis.ResizeObserver && new ResizeObserver(() => pace(text)).observe(frame);   // shown for the first time, or the window resized
   clearInterval(TICK.get(slot));
   if (still()) TICK.set(slot, setInterval(() => advance(slot), STILL_MS));   // no motion: swap the line instead
 }

@@ -10,7 +10,7 @@ globalThis.Node ??= FakeNode;
 globalThis.document ??= {createElement: () => new FakeNode(), createElementNS: () => new FakeNode(), body: new FakeNode(),
   addEventListener() {}, querySelector: () => null, getElementById: () => null};
 globalThis.window ??= {addEventListener() {}};
-const {atsOf, nextTip} = await import('../renderer/tips.js');
+const {atsOf, nextTip, secondsFor} = await import('../renderer/tips.js');
 
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'workday', 'smartrecruiters'];
 
@@ -109,4 +109,15 @@ test('the extension never shows a tip marked for IT: it cannot know the candidat
   const {readFileSync} = await import('node:fs');
   const source = readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
   assert.match(source, /TIPS\.filter\(tip => !tip\.for && /);
+});
+
+// 6 Oct 2026: the bars on Jobs, Focus and Interviews are built while their page is hidden (0 wide), and ran 3-5x too fast.
+test('every tip bar scrolls at one speed, measured again when it is shown or resized', async () => {
+  const fs = await import('node:fs');
+  const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
+  assert.equal(Math.round(1000 / secondsFor(1000)), Math.round(2500 / secondsFor(2500)), 'same pixels per second on any width');
+  assert.match(read('../renderer/tips.js'), /new ResizeObserver\(\(\) => pace\(text\)\)\.observe\(frame\)/, 'build() paces again on resize');
+  const app = read('../renderer/app.js');
+  for (const [, id] of read('../renderer/index.html').matchAll(/class="ss-tips" id="([^"]+)"/g))
+    assert.ok(id === 'ss-tips' || app.includes(`mountStageTips('${id}'`), `${id} is built by tips.js (and so paced on resize)`);
 });
