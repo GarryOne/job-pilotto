@@ -5,6 +5,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'product_brain.py'
@@ -88,3 +89,66 @@ class StatusTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SiteLogTest(unittest.TestCase):
+    """Every brain message also goes to the site's log (POST /api/brain/log -> D1 brain_messages, /admin/brain)."""
+
+    def setUp(self):
+        self.logged, self.saved = [], {k: getattr(brain, k) for k in ('notion', 'telegram', 'site_log', 'DATABASE')}
+        brain.DATABASE = 'db'
+        brain.site_log = lambda messages: self.logged.extend(messages) or len(messages)
+
+    def tearDown(self):
+        for name, value in self.saved.items():
+            setattr(brain, name, value)
+
+    def test_post_logs_the_recommendation_with_its_telegram_id_and_full_text(self):
+        brain.notion = lambda path, method='GET', body=None: {'id': 'abcd-ef', 'url': 'https://www.notion.so/x'}
+        brain.telegram = lambda text, buttons=None: 812
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as file:
+            json.dump({'action': 'Ship the page', 'lens': 'Product', 'why': 'taps are lost', 'details': '## Evidence\n- 3 taps'}, file)
+        brain.post(file.name, dt.date(2026, 10, 7))
+        [row] = self.logged
+        self.assertEqual((row['decision'], row['kind'], row['status'], row['telegram_id'], row['notion_url']),
+                         ('abcdef', 'recommendation', 'Proposed', 812, 'https://www.notion.so/x'))
+        self.assertIn('Why: taps are lost', row['text'])
+        self.assertIn('- 3 taps', row['text'])
+
+    def test_plan_and_status_are_logged(self):
+        row = {'url': 'https://www.notion.so/x', 'properties': {'Action': {'type': 'title', 'title': [{'plain_text': 'Ship'}]}}}
+        brain.notion = lambda path, method='GET', body=None: row
+        brain.telegram = lambda text, buttons=None: 9
+        with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False) as file:
+            file.write('# Build a D1 table\n1. migrate')
+        brain.plan('ab-cd', file.name)
+        brain.status('ab-cd', 'Approved', 'go')
+        self.assertEqual([(m['kind'], m['status'], m['decision'], m.get('telegram_id')) for m in self.logged],
+                         [('plan', 'Plan ready', 'abcd', 9), ('status', 'Approved', 'abcd', None)])
+        self.assertEqual(self.logged[0]['title'], 'Build a D1 table')
+        self.assertEqual(self.logged[1]['text'], 'go')
+
+    def test_a_log_write_never_fails_the_step(self):
+        brain.site_log = self.saved['site_log']
+        with unittest.mock.patch.dict('os.environ', {'JOB_PILOTTO_TELEMETRY_KEY': 'k'}), \
+             unittest.mock.patch.object(brain, '_request', side_effect=SystemExit('POST failed: 500')):
+            self.assertEqual(brain.site_log([{'decision': 'a', 'kind': 'status'}]), 0)
+
+    def test_sync_turns_a_decisions_row_into_its_messages(self):
+        def prop(kind, value):
+            return {'type': kind, kind: {'name': value} if kind == 'select' else [{'plain_text': value}]}
+        row = {'id': 'ab-cd', 'url': 'https://www.notion.so/r', 'created_time': '2026-10-01T05:00:00.000Z',
+               'last_edited_time': '2026-10-02T09:00:00.000Z',
+               'properties': {'Action': prop('title', 'Ship'), 'Status': prop('select', 'Approved'), 'Lens': prop('select', 'UX'),
+                              'Result': prop('rich_text', 'built')}}
+        lines = [('2026-10-01T05:00:00.000Z', 'Evidence'), ('2026-10-01T06:00:00.000Z', 'Explored plan'), ('2026-10-01T06:00:00.000Z', '1. table')]
+        messages = brain.row_messages(row, lines)
+        self.assertEqual([(m['kind'], m['status'], m['at']) for m in messages],
+                         [('recommendation', 'Proposed', '2026-10-01T05:00:00.000Z'), ('plan', 'Plan ready', '2026-10-01T06:00:00.000Z'),
+                          ('status', 'Approved', '2026-10-02T09:00:00.000Z')])
+        self.assertIn('Lens: UX', messages[0]['text'])
+        self.assertIn('Evidence', messages[0]['text'])
+        self.assertEqual(messages[1]['text'], '1. table')
+        self.assertTrue(all(m['source'] == 'backfill' and m['decision'] == 'abcd' for m in messages))
+        proposed = {**row, 'properties': {**row['properties'], 'Status': prop('select', 'Proposed')}}
+        self.assertEqual([m['kind'] for m in brain.row_messages(proposed, lines[:1])], ['recommendation'])

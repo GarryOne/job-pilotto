@@ -7,6 +7,10 @@
   decision --id <page>           a decision as text (the explore step's input)
   plan     --id <page> --file plan.md   the explored plan -> the decision's page, Telegram: ✅ Approve / ✖ Drop
   status   --id <page> --status <name> [--note text]   a button's answer, recorded (and acknowledged in Telegram)
+  sync                           every Decisions row -> the site's log (D1 brain_messages, /admin/brain); safe to re-run:
+                                 rows it already has are skipped. Filled the log once; re-run if a log write was missed.
+
+post, plan and status also write each message to that log (POST /api/brain/log); a failed log write is said, never fatal.
 
 Nothing here decides or builds: the two approval gates are the owner's taps in the "Job Pilotto Brain" Telegram bot
 (site/src/brain.js). Needs NOTION_BRAIN_TOKEN (a Notion connection that sees only the Decisions database),
@@ -27,6 +31,7 @@ import urllib.request
 
 DATABASE = os.environ.get('BRAIN_DATABASE_ID', '')  # repository variable; Notion IDs never default in code
 SIGNALS_URL = 'https://www.jobpilotto.workers.dev/api/signals?days={days}'
+LOG_URL = 'https://www.jobpilotto.workers.dev/api/brain/log'
 NOTION = 'https://api.notion.com/v1'
 LENSES = ['Growth', 'Product', 'Quality', 'UX', 'Business']  # Monday..Friday; the weekend picks by evidence
 STATUSES = ['Proposed', 'Exploring', 'Plan ready', 'Approved', 'Not now', 'Done']
@@ -62,15 +67,36 @@ def notion(path: str, method: str = 'GET', body: dict | None = None) -> dict:
     return _request(f'{NOTION}/{path}', method, body, {'Authorization': f'Bearer {token}', 'Notion-Version': '2022-06-28'})
 
 
-def telegram(text: str, buttons: list[list[dict]] | None = None) -> None:
+def telegram(text: str, buttons: list[list[dict]] | None = None) -> int | None:
+    """Sends to the Brain bot; returns the Telegram message id (None when not sent)."""
     token, chat = os.environ.get('BRAIN_BOT_TOKEN'), os.environ.get('BRAIN_CHAT_ID')  # the Brain bot, not the job bot
     if not token or not chat:
         print('Telegram not configured: message not sent.', file=sys.stderr)
-        return
+        return None
     body = {'chat_id': chat, 'text': text[:4000], 'parse_mode': 'HTML', 'disable_web_page_preview': True}
     if buttons:
         body['reply_markup'] = {'inline_keyboard': buttons}
-    _request(f'https://api.telegram.org/bot{token}/sendMessage', 'POST', body)
+    return (_request(f'https://api.telegram.org/bot{token}/sendMessage', 'POST', body).get('result') or {}).get('message_id')
+
+
+def site_log(messages: list[dict]) -> int:
+    """Messages -> the site's log (D1 brain_messages, read by /admin/brain). Never fails the step: Notion stays the record."""
+    key = os.environ.get('JOB_PILOTTO_TELEMETRY_KEY')
+    if not key or not messages:
+        print('Brain log: not written (JOB_PILOTTO_TELEMETRY_KEY missing).' if not key else 'Brain log: nothing to write.', file=sys.stderr)
+        return 0
+    saved = 0
+    for start in range(0, len(messages), 200):
+        try:
+            saved += _request(LOG_URL, 'POST', {'messages': messages[start:start + 200]}, {'Authorization': f'Bearer {key}'}).get('saved', 0)
+        except SystemExit as error:
+            print(f'Brain log: not written: {error}', file=sys.stderr)
+    print(f'Brain log: {saved} of {len(messages)} written.', file=sys.stderr)
+    return saved
+
+
+def now_iso() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
 
 
 def esc(text: str) -> str:
@@ -140,8 +166,8 @@ def past_decisions(limit: int = 30) -> list[dict]:
     return [{'id': row['id'], **{name: plain(prop) for name, prop in row['properties'].items()}} for row in found.get('results', [])]
 
 
-def page_text(page: str, limit: int = 8000) -> str:
-    """A page's text, one level of nested blocks (toggles, lists) included, cut at `limit` characters."""
+def page_lines(page: str, limit: int = 8000) -> list[tuple[str, str]]:
+    """A page's lines as (block created time, text), one level of nested blocks (toggles, lists) included, about `limit` characters."""
     lines, size = [], 0
     def walk(block_id: str, depth: int) -> None:
         nonlocal size
@@ -150,12 +176,17 @@ def page_text(page: str, limit: int = 8000) -> str:
                 return
             line = ''.join(part.get('plain_text', '') for part in (block.get(block['type']) or {}).get('rich_text', []))
             if line:
-                lines.append('  ' * depth + line)
+                lines.append((block.get('created_time', ''), '  ' * depth + line))
                 size += len(line)
             if block.get('has_children') and depth < 1 and block['type'] not in ('child_page', 'child_database'):
                 walk(block['id'], depth + 1)
     walk(page, 0)
-    return '\n'.join(lines)[:limit]
+    return lines
+
+
+def page_text(page: str, limit: int = 8000) -> str:
+    """A page's text, one level of nested blocks (toggles, lists) included, cut at `limit` characters."""
+    return '\n'.join(line for _, line in page_lines(page, limit))[:limit]
 
 
 def find_compass() -> str | None:
@@ -228,6 +259,14 @@ def card(brief: dict, page_url: str) -> str:
     return '\n\n'.join(b for b in blocks if b)
 
 
+def brief_text(brief: dict) -> str:
+    """The recommendation as plain text, for the log: what the card says, then the details."""
+    rows = [('Lens', brief.get('lens')), ('Evidence', brief.get('evidence')), ('Action', brief.get('action')), ('Serves', brief.get('serves')),
+            ('Why', brief.get('why')), ('Effort', brief.get('effort')), ('Expected', brief.get('expected'))]
+    text = '\n'.join(f'{name}: {value}' for name, value in rows if value)
+    return text + (f'\n\n{brief["details"]}' if brief.get('details') else '')
+
+
 def post(path: str, today: dt.date) -> str:
     brief = json.load(open(path, encoding='utf-8'))
     for field in ('action', 'lens'):
@@ -243,15 +282,15 @@ def post(path: str, today: dt.date) -> str:
     append(page['id'], brief.get('details', ''))
     ident = page['id'].replace('-', '')
     if lens == 'Strategy':  # the weekly review: its proposal is the plan; approving writes it into the Compass
-        telegram(card({**brief, 'lens': lens}, page['url']), [[
-            {'text': '✅ Update the compass', 'callback_data': f'pb:ok:{ident}'},
-            {'text': '⏭ Keep it as is', 'callback_data': f'pb:n:{ident}'}]])
-        print(page['url'])
-        return page['id']
-    telegram(card({**brief, 'lens': lens}, page['url']), [[
-        {'text': '✅ Explore it', 'callback_data': f'pb:x:{ident}'},
-        {'text': '⏭ Not now', 'callback_data': f'pb:n:{ident}'},
-        {'text': '🔁 Another idea', 'callback_data': f'pb:a:{ident}'}]])
+        buttons = [[{'text': '✅ Update the compass', 'callback_data': f'pb:ok:{ident}'},
+                    {'text': '⏭ Keep it as is', 'callback_data': f'pb:n:{ident}'}]]
+    else:
+        buttons = [[{'text': '✅ Explore it', 'callback_data': f'pb:x:{ident}'},
+                    {'text': '⏭ Not now', 'callback_data': f'pb:n:{ident}'},
+                    {'text': '🔁 Another idea', 'callback_data': f'pb:a:{ident}'}]]
+    message = telegram(card({**brief, 'lens': lens}, page['url']), buttons)
+    site_log([{'decision': ident, 'kind': 'recommendation', 'title': brief['action'], 'text': brief_text({**brief, 'lens': lens}),
+               'status': 'Proposed', 'notion_url': page['url'], 'telegram_id': message, 'at': now_iso()}])
     print(page['url'])
     return page['id']
 
@@ -271,8 +310,10 @@ def plan(page: str, path: str) -> None:
     row = notion(f'pages/{page}', 'PATCH', {'properties': {'Status': {'select': {'name': 'Plan ready'}}}})
     summary = next((line.strip('# ').strip() for line in markdown.splitlines() if line.strip()), 'Plan ready')
     ident = page.replace('-', '')
-    telegram(f'🧭 <b>Plan ready</b>: {esc(plain(row["properties"]["Action"]))}\n{esc(summary)}\n<a href="{row["url"]}">Read the plan</a>',
-             [[{'text': '✅ Approve plan', 'callback_data': f'pb:ok:{ident}'}, {'text': '✖ Drop it', 'callback_data': f'pb:n:{ident}'}]])
+    message = telegram(f'🧭 <b>Plan ready</b>: {esc(plain(row["properties"]["Action"]))}\n{esc(summary)}\n<a href="{row["url"]}">Read the plan</a>',
+                       [[{'text': '✅ Approve plan', 'callback_data': f'pb:ok:{ident}'}, {'text': '✖ Drop it', 'callback_data': f'pb:n:{ident}'}]])
+    site_log([{'decision': ident, 'kind': 'plan', 'title': summary, 'text': markdown, 'status': 'Plan ready',
+               'notion_url': row['url'], 'telegram_id': message, 'at': now_iso()}])
 
 
 def status(page: str, name: str, note: str = '') -> None:
@@ -283,11 +324,58 @@ def status(page: str, name: str, note: str = '') -> None:
         props['Result'] = {'rich_text': text(note)}
     row = notion(f'pages/{page}', 'PATCH', {'properties': props})
     print(f'{plain(row["properties"]["Action"])}: {name}')
+    site_log([{'decision': page.replace('-', ''), 'kind': 'status', 'title': f'Status → {name}', 'text': note, 'status': name,
+               'notion_url': row['url'], 'at': now_iso()}])
     if name == 'Approved' and plain(row['properties'].get('Lens', {})) == 'Strategy':
         compass = find_compass()
         if compass:  # the owner approved the weekly review: its proposal goes into the Compass, dated
             append(compass, f'## Approved changes ({dt.date.today().isoformat()})\n' + page_text(page))
             telegram('📍 Compass updated with the approved changes. Edit the page to fold them in.')
+
+
+# ---- sync: the Decisions rows -> the site's log ----
+
+PLAN_HEADING = 'Explored plan'
+
+
+def all_decisions() -> list[dict]:
+    rows, cursor = [], None
+    while True:
+        found = notion(f'databases/{DATABASE}/query', 'POST', {'page_size': 100, **({'start_cursor': cursor} if cursor else {}),
+                                                               'sorts': [{'timestamp': 'created_time', 'direction': 'ascending'}]})
+        rows += found.get('results', [])
+        if not found.get('has_more'):
+            return rows
+        cursor = found.get('next_cursor')
+
+
+def row_messages(row: dict, lines: list[tuple[str, str]]) -> list[dict]:
+    """One Decisions row and its page lines -> its log messages: the recommendation, the plan if explored, its status now."""
+    props = {name: plain(prop) for name, prop in row['properties'].items()}
+    ident, url = row['id'].replace('-', ''), row.get('url', '')
+    at = next((i for i, (_, line) in enumerate(lines) if line.strip() == PLAN_HEADING), None)
+    details, plan_lines = (lines, []) if at is None else (lines[:at], lines[at + 1:])
+    fields = [f'{name}: {props[name]}' for name in ('Lens', 'Why now', 'Effort', 'Expected', 'Check on') if props.get(name)]
+    out = [{'decision': ident, 'kind': 'recommendation', 'title': props.get('Action', ''), 'status': 'Proposed', 'notion_url': url,
+            'text': '\n'.join(fields) + ('\n\n' + '\n'.join(line for _, line in details) if details else ''),
+            'at': row.get('created_time'), 'source': 'backfill'}]
+    if at is not None:
+        plan_text = '\n'.join(line for _, line in plan_lines)
+        summary = next((line.strip('# ').strip() for _, line in plan_lines if line.strip()), 'Plan ready')
+        out.append({'decision': ident, 'kind': 'plan', 'title': summary, 'text': plan_text, 'status': 'Plan ready', 'notion_url': url,
+                    'at': lines[at][0] or row.get('last_edited_time'), 'source': 'backfill'})
+    now = props.get('Status', '')
+    if now and now not in ('Proposed', 'Plan ready' if at is not None else ''):
+        out.append({'decision': ident, 'kind': 'status', 'title': f'Status → {now}', 'text': props.get('Result', ''), 'status': now,
+                    'notion_url': url, 'at': row.get('last_edited_time'), 'source': 'backfill'})
+    return out
+
+
+def sync() -> int:
+    messages = []
+    for row in all_decisions():
+        messages += row_messages(row, page_lines(row['id'], 20000))
+    return site_log(messages)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -305,6 +393,7 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument('--id', required=True)
     s.add_argument('--status', required=True)
     s.add_argument('--note', default='')
+    sub.add_parser('sync')
     args = parser.parse_args(argv)
     today = dt.datetime.now(dt.timezone.utc).date()
     if args.cmd == 'signals':
@@ -315,6 +404,8 @@ def main(argv: list[str] | None = None) -> None:
         print(decision(args.id))
     elif args.cmd == 'plan':
         plan(args.id, args.file)
+    elif args.cmd == 'sync':
+        sync()
     else:
         status(args.id, args.status, args.note)
 

@@ -6,6 +6,7 @@ name: Product brain · Daily brief
 #   ✅ Approve plan -> step approve: marked Approved (building it is a normal session, with the owner)
 #   ⏭ / ✖           -> step skip: Not now      🔁 -> step another: Not now + a different recommendation
 # Sundays: step review, a 30-day strategy review (Opus, web research) that proposes Compass changes; ✅ writes them in.
+# Every message and tap is also logged in the site's D1 (brain_messages) for /admin/brain; step sync copies Notion's rows there.
 # Buttons: the bot's webhook is the website (site/src/brain.js). Plumbing: tools/product_brain.py, tools/site-shots.mjs.
 # Secrets: ANTHROPIC_API_KEY, NOTION_BRAIN_TOKEN (Notion connection "Job Pilotto Brain": the Decisions database and
 # the pages the owner shares with it), BRAIN_BOT_TOKEN, BRAIN_CHAT_ID, JOB_PILOTTO_TELEMETRY_KEY; variable BRAIN_DATABASE_ID.
@@ -19,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       step:
-        description: brief, explore, approve, skip, another or review
+        description: brief, explore, approve, skip, another, review or sync (Notion rows -> /admin/brain's log)
         type: choice
-        options: [brief, explore, approve, skip, another, review]
+        options: [brief, explore, approve, skip, another, review, sync]
         default: brief
       id:
         description: The decision's Notion page id (explore, approve, skip, another)
@@ -66,6 +67,10 @@ jobs:
             *)       python tools/product_brain.py status --id "$DECISION" --status 'Not now' ;;
           esac
 
+      - name: Copy the Decisions rows into the site's log (/admin/brain)
+        if: env.STEP == 'sync'
+        run: python tools/product_brain.py sync
+
       - name: Which day (web research on Growth and Business days)
         id: day
         run: |
@@ -77,7 +82,7 @@ jobs:
         run: python tools/product_brain.py signals --out .brain/signals.md --days "$([ "$STEP" = review ] && echo 30 || echo 7)"
 
       - name: See the website as visitors do (desktop and phone)
-        if: env.STEP != 'skip' && env.STEP != 'approve'
+        if: env.STEP != 'skip' && env.STEP != 'approve' && env.STEP != 'sync'
         continue-on-error: true   # the brief still runs on the page source
         run: |
           mkdir -p "$RUNNER_TEMP/shots" && cp tools/site-shots.mjs "$RUNNER_TEMP/shots/"

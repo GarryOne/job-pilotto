@@ -24,6 +24,7 @@ export async function report(db, now = new Date()) {
   const relay = (await rows(db, 'SELECT day, micro_usd FROM ai_calls WHERE day >= ?', from)).map(row => ({day: row.day, usd: row.micro_usd / 1e6}));
   const snaps = (await rows(db, 'SELECT day, body FROM selfheal_snapshots WHERE day >= ? ORDER BY day', from))
     .map(row => { try { const body = JSON.parse(row.body); return {day: row.day, precision: body.totals?.precision ?? null, recall: body.recall || null}; } catch { return null; } }).filter(Boolean);
+  const brain = await rows(db, "SELECT substr(at, 1, 10) AS day, kind FROM brain_messages WHERE kind = 'recommendation' AND at >= ?", from);
   const weekly = list => list.map(row => ({...row}));
   const latest = (list, key) => (week => (week.length ? week.at(-1)[key] : null));
   const cards = {
@@ -37,6 +38,7 @@ export async function report(db, now = new Date()) {
       {label: 'blind spots per 100', values: byWeek([...blind, ...exposure], now, list => { const base = sum('base')(list); return base ? (100 * sum('blind')(list)) / base : null; }),
         format: v => v.toFixed(1), higherIsBetter: false}],
     feedback: [app.feedback],
+    brain: [{label: 'recommendations', values: byWeek(brain, now, list => list.length)}],
   };
   const recall = snaps.at(-1)?.recall || null;
 

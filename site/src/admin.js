@@ -14,6 +14,7 @@ export const PAGES = [
   {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
   {path: '/admin/form-filling', group: 'Intelligence', question: 'How well are application forms filled, and what still trips the filler?', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
   {path: '/admin/e2e', group: 'Operations', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];

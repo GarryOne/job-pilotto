@@ -27,6 +27,7 @@ import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {trial} from './trial.js';
 import {brain} from './brain.js';
+import {log as brainLog, view as brainView} from './brainlog.js';
 import {index as employerIndex} from './employers.js';
 import * as pool from './pool.js';
 import {handleReport} from '../../worker/src/report.js';
@@ -85,7 +86,7 @@ export default {
     // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
     const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
-      '/admin/access': accessView, '/admin/e2e': e2eView}[pathname];   // access: the super admin's only (src/access.js)
+      '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/brain': brainView}[pathname];   // access: the super admin's only (src/access.js)
     if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
     if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
     if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
@@ -120,6 +121,7 @@ export default {
     if (pathname === '/api/feedback') return feedback(request, env);
     if (pathname.startsWith('/api/ai/')) return trial(request, env);
     if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
+    if (pathname === '/api/brain/log') return brainLog(request, env);   // tools/product_brain.py, the scripts' key
     if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
     if (pathname === '/api/waitlist') return waitlist(request, env);
     if (pathname === '/api/notion/start') return notion.start(request, env);
