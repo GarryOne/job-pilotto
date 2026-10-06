@@ -153,7 +153,8 @@ const testerOn = betaOn;
 // The tester's run-log switch. Saved as `alphaLogs` before 0.5: that choice still counts until the switch is touched.
 const testerLogsOn = () => { const s = storage.settings(); return (s.testerLogs ?? s.alphaLogs) === true; };
 async function checkForUpdate(asked = false) {
-  if (FROM_SOURCE) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
+  // From source there is nothing to update, except under the e2e's fake release server (JOB_PILOTTO_E2E_UPDATES_URL): the update flow is tested on the real check.
+  if (FROM_SOURCE && !(process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_E2E_UPDATES_URL)) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
   try {
     updateOffer = await updater.check(app.getVersion(), {channel: betaOn() ? 'beta' : 'stable'});
     updateCheckedAt = new Date().toISOString();

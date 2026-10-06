@@ -51,6 +51,8 @@ const offerOf = (release, platform, extra = {}) => {
   return {version, name: release.name || version, notes: String(release.body || '').slice(0, 2000), url: release.html_url,
     download: download.browser_download_url, size: download.size, ...extra};
 };
+// Where the releases are read: GitHub, or the e2e's fake release server (JOB_PILOTTO_E2E_UPDATES_URL), only under the e2e (JOB_PILOTTO_E2E), never for a person.
+export const apiBase = (env = process.env) => (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_UPDATES_URL) || 'https://api.github.com';
 const getJson = async (fetcher, url) => {
   const response = await fetcher(url, {headers: {Accept: 'application/vnd.github+json'}});
   if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
@@ -61,19 +63,19 @@ const getJson = async (fetcher, url) => {
 // channel 'beta' (the person switched it on, Settings → Diagnostics → Beta): also pre-releases carrying the beta-approved line; the newest of them all wins.
 export async function check(current, {channel = 'stable', fetcher = globalThis.fetch, platform = process.platform} = {}) {
   if (channel === 'beta') {
-    const list = await getJson(fetcher, `https://api.github.com/repos/${REPO}/releases?per_page=30`);
+    const list = await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases?per_page=30`);
     const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || BETA_MARK.test(release.body || '')))
       .map(release => offerOf(release, platform, {beta: !!release.prerelease})).filter(Boolean);
     const best = open.reduce((top, offer) => (!top || newer(offer.version, top.version) ? offer : top), null);
     return best && newer(best.version, current) ? best : null;
   }
-  const offer = offerOf(await getJson(fetcher, `https://api.github.com/repos/${REPO}/releases/latest`), platform);
+  const offer = offerOf(await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases/latest`), platform);
   return offer && newer(offer.version, current) ? offer : null;
 }
 
 // -> the latest stable release as an offer even when it is OLDER than `current` ("Back to stable"), or null. `ahead`: this install is newer than it.
 export async function stableRelease(current, {fetcher = globalThis.fetch, platform = process.platform} = {}) {
-  const offer = offerOf(await getJson(fetcher, `https://api.github.com/repos/${REPO}/releases/latest`), platform, {rollback: true});
+  const offer = offerOf(await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases/latest`), platform, {rollback: true});
   return offer && {...offer, ahead: newer(current, offer.version)};
 }
 

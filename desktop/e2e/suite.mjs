@@ -39,7 +39,7 @@ if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
 try {
-  ctx = await openContext(name, {engine: suite.engine, fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, budgetMinutes: suite.budgetMinutes || 0, stepNeeds: suite.stepNeeds || {}, keepGoing: !!suite.keepGoing, variesPlace: !!suite.variesPlace});
+  ctx = await openContext(name, {engine: suite.engine, fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, budgetMinutes: suite.budgetMinutes || 0, stepNeeds: suite.stepNeeds || {}, releases: !!suite.releases, notion: suite.notion !== false, keepGoing: !!suite.keepGoing, variesPlace: !!suite.variesPlace});
   if (ctx.skipAll) {
     console.log(skipMessage(name, ctx.needs.filter(item => !item.value).map(item => item.name)));
     process.exit(skipExitCode());
