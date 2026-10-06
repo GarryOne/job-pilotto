@@ -11,6 +11,7 @@ import {profileTab, showContact} from './profile.js';
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 export function settingsPage(name) {
   remembered('settingsPage', name);
+  if (name === 'connections' && lastStatus) setTimeout(() => autoConnect(lastStatus), 0);  // after the page is shown
   if (name === 'profile') openProfile();
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   // The menu: Profile is a Settings page of its own there.
@@ -84,7 +85,7 @@ function statusFrom({extension, google}) {
     cloud: shared.state.settings.cloud?.repo, 'tg-cloud': shared.state.settings.telegramCloud?.url?.replace('https://', '')};
   const words = {extension: extension.on || extension.checking ? '' : extension.words};
   const checking = {google: !google, extension: extension.checking};
-  return {on, detail, words, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
+  return {on, detail, words, checking, extensionIdle: extension.state === 'idle', missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
 }
 // The extension's state, from both facts: what the browser recorded (whether it is installed, and on) and its last
 // report (whether it is awake). The profile read is instant, so nothing here waits a minute to decide.
@@ -110,24 +111,49 @@ export function stateLine(on, detail = '', checking = false, words = '') {
   line.title = text;
   return line;
 }
-function showAlert(prefix, missing) {
+// An extension that is installed but not talking to the app needs one press (its options page pairs itself on
+// opening), not the install steps: every button that would send the user to those steps connects instead.
+const connectsNow = (service, status) => service.id === 'extension' && !!status.extensionIdle;
+let connecting = false, autoTried = false, lastStatus = null;
+export async function connectExtension({auto = false} = {}) {
+  if (connecting) return;
+  connecting = true;
+  try {
+    const result = await window.pilot.extensionOptions().catch(() => null);
+    const {toastMessage} = await import('./startup.js');  // dynamic: startup.js imports this file
+    if (result?.opened) toastMessage('Connecting the Chrome extension', auto ? 'Its settings page opened and connects by itself. You can close that tab.' : 'Its settings page is open and connects by itself. You can close that tab.');
+    else if (!auto) { toastMessage('Couldn\'t open the extension', 'Open it from Chrome: 🧩 → ⋮ next to Job Pilotto → Options.'); openSetting('extension'); }
+    for (const wait of [3000, 8000]) setTimeout(() => import('./connections.js').then(page => page.showExtensionStatus()), wait);
+  } finally { connecting = false; }
+}
+// Nobody has to press it: once per app session, while the Connections page is the one in front, the connection is made.
+function autoConnect(status) {
+  lastStatus = status;
+  const page = document.querySelector('[data-settings-page="connections"]');
+  const here = page && !page.hidden && !document.querySelector('.view[data-view="settings"]')?.hidden;
+  if (autoTried || !here || !status.extensionIdle || status.checking?.extension) return;
+  autoTried = true;
+  connectExtension({auto: true});
+}
+function showAlert(prefix, missing, status) {
   show($(`${prefix}-alert`), !!missing);
   if (!missing) return;
+  const connect = connectsNow(missing, status);
   $(`${prefix}-alert-title`).textContent = prefix === 'ov' ? `Finish connecting ${missing.name}` : `${missing.name} is not connected`;
   $(`${prefix}-alert-text`).textContent = missing.why;
-  $(`${prefix}-alert-go`).textContent = prefix === 'ov' ? `Connect ${missing.name}` : `Set up ${missing.name}`;
-  $(`${prefix}-alert-go`).onclick = () => openSetting(missing.id);
+  $(`${prefix}-alert-go`).textContent = prefix === 'ov' || connect ? `Connect ${missing.name}` : `Set up ${missing.name}`;
+  $(`${prefix}-alert-go`).onclick = () => (connect ? connectExtension() : openSetting(missing.id));
 }
 function renderConnections(status) {
   const {on, detail, words = {}, missing, checking = {}} = status;
   show($('connections-dot'), !!missing);
-  showAlert('conn', missing);
+  showAlert('conn', missing, status);
   const card = service => {
     const box = el('div', 'service-card is-row');
     const text = el('span', 'service-text');
     text.append(el('b', '', service.name), el('span', 'muted small', service.what));
     const button = el('button', on[service.id] ? 'secondary' : 'secondary is-signal', on[service.id] ? 'Manage' : service.connect || 'Connect');
-    button.addEventListener('click', () => openSetting(service.id));
+    button.addEventListener('click', () => (connectsNow(service, status) ? connectExtension() : openSetting(service.id)));
     const actions = el('span', 'service-actions');
     actions.append(stateLine(on[service.id], detail[service.id], checking[service.id], words[service.id]), button);  // state, then the way in
     box.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text, actions);
@@ -139,6 +165,7 @@ function renderConnections(status) {
   $('conn-on').replaceChildren(...listed.filter(connected).map(card));
   $('conn-off').replaceChildren(...listed.filter(service => !connected(service)).map(card));
   show($('conn-off-head'), listed.some(service => !connected(service)));
+  autoConnect(status);
 }
 export async function renderOverview() {
   // Each part as soon as it's known: the cards and the settings at once, then the backup, the contact details
@@ -200,7 +227,7 @@ function renderServices(status) {
   renderDiagnostics(status);
   renderUpdate();
   renderBeta();
-  showAlert('ov', missing);
+  showAlert('ov', missing, status);
   $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
     const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
     const text = el('span', 'service-text');

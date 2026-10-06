@@ -55,7 +55,7 @@ function showStray(entry) {
 const EXT_LINE = {
   connected: 'Connected: it fills application forms with your details and CV.',
   closed: 'Installed in Chrome. Chrome isn\'t running, so it can\'t reach this app: open it and it reports within 30 seconds.',
-  idle: 'Installed in Chrome but not connected to this app yet. Press Connect the extension, then Connect to the Job Pilotto app.',
+  idle: 'Installed in Chrome, connecting to this app. If it stays amber, press Connect the extension below and then Connect to the Job Pilotto app.',
   off: 'Installed in Chrome but turned off: switch it back on in chrome://extensions.',
   absent: 'Not installed in Chrome yet — the three steps below take a minute.',
   checking: 'Looking for it in Chrome…',
