@@ -1601,7 +1601,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-row { flex-wrap: wrap; }
 /* A Gmail check's card (owner's mockup, 6 Oct 2026): the counts strip, then one card per email, all built from the same
    parts (activity.js mailCardRow): head (company, role, meta, one pill), sentence, stage chip, one panel, "Email details". */
-.mail-card { background: var(--bg); padding: var(--sp-3); gap: var(--sp-3); }
+.mail-card { background: var(--surface); padding: var(--sp-3); gap: var(--sp-3); }   /* the wrapper stays white */
 .mail-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--muted); }
 .mail-strip-stat { display: inline-flex; align-items: center; gap: var(--sp-2); }
@@ -1611,7 +1611,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-strip-stat.is-warn .icon { color: var(--signal); }
 .mail-strip-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .mail-emails { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
-.mail-email { display: grid; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.mail-email { display: grid; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); }   /* each email: a quieter card on the white wrapper */
 .mail-email-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); }
 .mail-email-words { min-width: 0; }
 .mail-email-words h3 { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink); }
