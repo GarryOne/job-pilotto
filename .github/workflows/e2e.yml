@@ -87,7 +87,7 @@ jobs:
           RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_EVENT: ${{ github.event.workflow_run.event }}
-          RUN_TITLE: ${{ github.event.workflow_run.display_title }}   # a build named Nightly build was started on time by the Worker, not by hand
+          RUN_TITLE: ${{ github.event.workflow_run.display_title }}   # a build named Nightly build (the Worker, on time) or Beta build (a beta by hand) is gated; any other is for trying
           ONLY: ${{ inputs.suite }}
           PROMOTE_TAG: ${{ inputs.promote_tag }}
           TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}

@@ -114,6 +114,13 @@ test('the nightly the Worker started on time is gated like the schedule\'s own; 
   assert.deepEqual([hand.count, hand.tag], ['0', '']);
 });
 
+test('a beta started by hand (Beta build) gets the full nightly gate, and its tag is the one approved', async () => {
+  const beta = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Beta build'}, {releases: [['desktop-v1.2', HEAD]]});
+  assert.deepEqual([beta.count, beta.ref, beta.tag], ['4', HEAD, 'desktop-v1.2']);
+  const failed = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'failure', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Beta build'}, {releases: [['desktop-v1.2', HEAD]]});
+  assert.deepEqual([failed.count, failed.tag], ['0', '']);
+});
+
 test('a nightly with nothing to build, or a failed build, starts no run', async () => {
   const none = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule'}, {releases: [['desktop-v1.1', OLD]]});
   assert.equal(none.count, '0');

@@ -341,6 +341,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/apply-batch-codex-terminal.sh` — Open one Codex CLI session per application in Terminal, using Playwright MCP's
 - `tools/benchmark-apply-runs.py` — Score local browser-run reports against human-checked, unsubmitted ATS forms.
 - `tools/beta-approve.sh` — Mark a pre-release as approved for beta testers: it passed the unit suites and every end-to-end suite on its own commit.
+- `tools/beta-release.sh` — A beta by hand, in one shot: build main now, then the same gate as the nightly approves it for beta testers.
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
 - `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
 - `tools/check_schema_additive.py` — May this build go to beta testers? Its Notion schema (config/notion_schema.json) must be ADDITIVE over the current stable's.

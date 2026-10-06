@@ -1,6 +1,7 @@
 name: Release · Desktop app
 # A build started by the Worker's cron (worker/src/scheduler.js) is the nightly: it is named so, and the e2e gate (plan-run.mjs) treats it like the schedule's own.
-run-name: ${{ inputs.nightly && 'Nightly build' || 'Release · Desktop app' }}
+# A beta by hand (gh workflow run desktop.yml -f beta=true, or tools/beta-release.sh) is named Beta build and gated the same way; it always builds.
+run-name: ${{ inputs.nightly && 'Nightly build' || inputs.beta && 'Beta build' || 'Release · Desktop app' }}
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release: nightly at 04:00 Zurich (only when something that goes into the app changed on main since the last release) or on
@@ -24,6 +25,10 @@ on:
     inputs:
       nightly:
         description: 'The nightly build, started on time by the Worker (worker/src/scheduler.js): builds only when the app changed since the last release, and the e2e gate follows. Empty = a build by hand, which always builds'
+        type: boolean
+        default: false
+      beta:
+        description: 'A beta by hand, in one shot: always builds, then the same e2e gate as the nightly (every gate suite, unit suites green, no high-severity finding, additive Notion schema) approves it for beta testers. Empty = a build for trying, offered to nobody'
         type: boolean
         default: false
 

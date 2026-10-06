@@ -30,6 +30,10 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('workflow_dispatch:', triggers)
         # The Worker's cron starts the nightly on time (worker/src/scheduler.js): named, diffed like the schedule, and with no 04:00-15:59 window of its own.
         self.assertIn("run-name: ${{ inputs.nightly && 'Nightly build'", WORKFLOW)
+        # A beta by hand is named Beta build, and the e2e gate (desktop/e2e/plan-run.mjs) gates exactly the two names: a rename here would ship ungated betas.
+        self.assertIn("inputs.beta && 'Beta build'", WORKFLOW)
+        plan = (pathlib.Path(__file__).resolve().parent.parent / 'desktop/e2e/plan-run.mjs').read_text()
+        self.assertIn("/^(Nightly|Beta) build$/", plan)
         self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ] && [ "$NIGHTLY" != true ]', WORKFLOW)
         self.assertIn('[ "$GITHUB_EVENT_NAME" = schedule ] && { [ $((10#$hour)) -lt 4 ]', WORKFLOW)
         self.assertIn("if: needs.changes.outputs.build == 'true'", WORKFLOW)

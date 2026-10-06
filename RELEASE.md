@@ -3,6 +3,7 @@
 > **In short:** **every night at 04:00 Zurich**, if the app changed, a build is made, **every end-to-end suite runs on it, and when all pass it becomes the stable release**
 > (friends' apps offer it, the website serves it, their Notion and GitHub runs follow by themselves). Red or no build: nothing changes. A build on demand
 > (`gh workflow run desktop.yml`) is only a pre-release to try; promote it with **`tools/release-stable.sh`** (which runs the same gate).
+> **A beta by hand, in one shot: `tools/beta-release.sh`** (= `gh workflow run desktop.yml -f beta=true`): always builds, then the nightly's gate approves it for beta testers or leaves it a pre-release.
 
 ## 1 · Channels
 
