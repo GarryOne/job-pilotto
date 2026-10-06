@@ -30,7 +30,7 @@ test('every card button runs a task the app knows', () => {
 
 test('the cards are the agreed six, and the dropped ones stay dropped', () => {
   const titles = cards.map(card => card.match(/<div class="task-words"><b>([^<]+)<\/b>/)[1].replace('&amp;', '&'));
-  assert.deepEqual(titles, ['Search for new jobs', 'Find new employers', 'Check Gmail & Calendar', 'Tailor CVs for top matches',
+  assert.deepEqual(titles, ['Find new employers', 'Search for new jobs', 'Check Gmail & Calendar', 'Tailor CVs for top matches',
     'Tune my strategy', 'Analyze my job search']);
 });
 
