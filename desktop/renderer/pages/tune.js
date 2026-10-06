@@ -5,15 +5,15 @@ import {$, message, show} from './core.js';
 import {basisLine, proposalTitle} from '../tune-text.js';
 import {toastMessage} from './startup.js';
 
-// One proposal as a ticked row: what changes, then the counts it rests on.
+// One proposal as a ticked row (the shared .check-row): what changes, then the counts it rests on.
 export function proposalRow(item) {
-  const li = el('li', 'cvc-check');
-  const label = el('label', 'tune-row');
+  const li = el('li');
+  const label = el('label', 'check-row');
   const box = el('input');
   box.type = 'checkbox';
   box.checked = true;
   box.value = item.id;
-  const words = el('div');
+  const words = el('span');
   words.append(el('b', '', proposalTitle(item)), el('span', 'muted small', item.why));
   label.append(box, words);
   li.append(label);
