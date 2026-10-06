@@ -306,10 +306,11 @@ class RunsForTests(unittest.TestCase):
             {'head_sha': 'mainsha', 'display_title': 'Gate abc1234def', 'conclusion': 'success', 'created_at': 'f'},                  # the gate: its own commit is main's, the tested one is in the name
             {'head_sha': 'mainsha', 'display_title': 'Gate 999999', 'conclusion': 'success', 'created_at': 'g'},
             {'head_sha': 'mainsha', 'display_title': 'Gate desktop-v0.5.65', 'conclusion': 'success', 'created_at': 'h'},     # the gate run by hand for this tag
+            {'head_sha': 'mainsha', 'display_title': 'Beta E2E tests abc1234def', 'conclusion': 'success', 'created_at': 'j'},  # the gate's new name (6 Oct 2026)
             {'head_sha': 'abc1234def', 'display_title': 'Mutant failed-run-ticked', 'conclusion': 'failure', 'created_at': 'i'},   # a mutation test on that commit: red on purpose
         ]
         got = canary.runs_for(runs, 'abc1234def', 'desktop-v0.5.65')
-        self.assertEqual([r['createdAt'] for r in got], ['a', 'd', 'f', 'h'])
+        self.assertEqual([r['createdAt'] for r in got], ['a', 'd', 'f', 'h', 'j'])
 
 
 class PromotesWithoutStartingARun(unittest.TestCase):

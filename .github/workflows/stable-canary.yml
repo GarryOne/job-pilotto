@@ -33,9 +33,9 @@ jobs:
           tag=$(gh release list -R "$REPO" -L 20 --json tagName,isPrerelease,isDraft -q '[.[] | select(.isDraft | not) | select(.isPrerelease | not)][0].tagName')
           [ -n "$tag" ] || { echo "No stable release yet." >> "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
           sha=$(gh api "repos/$REPO/commits/$tag" -q .sha)
-          # the release gate's own run counts too: it is named "Gate <sha>" (its own commit is main's, the tested one is in the name)
+          # the release gate's own run counts too: it is named "Beta E2E tests <sha>" ("Gate <sha>" before 6 Oct 2026) (its own commit is main's, the tested one is in the name)
           fresh=$(gh run list -R "$REPO" --workflow=e2e.yml --status success -L 40 --json createdAt,headSha,displayTitle \
-            -q "[.[] | select(.headSha == \"$sha\" or .displayTitle == \"Gate $sha\") | select((.createdAt | fromdateiso8601) > (now - 72000))] | length")
+            -q "[.[] | select(.headSha == \"$sha\" or .displayTitle == \"Gate $sha\" or .displayTitle == \"Beta E2E tests $sha\") | select((.createdAt | fromdateiso8601) > (now - 72000))] | length")
           echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "sha=$sha" >> "$GITHUB_OUTPUT"
           if [ "${fresh:-0}" != 0 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "$tag: its own e2e run passed in the last 20 hours; nothing to check today." >> "$GITHUB_STEP_SUMMARY"; else echo "skip=0" >> "$GITHUB_OUTPUT"; fi
       - name: Run the journey on the stable tag and wait for it

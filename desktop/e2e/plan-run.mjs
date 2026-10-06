@@ -28,7 +28,7 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   const issues = json(['issue', 'list', '-R', repo, '--label', 'auto-ui', '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,createdAt']);
   const waiting = waitingFindings(issues);
   // Runs of main's code on this commit (a gate run, a release candidate's top-up or the stable canary tests another commit under main's name: not these).
-  const own = run => run.headSha === ref && run.event !== 'push' && run.event !== 'workflow_run' && !/^(Stable canary|RC soak|Gate) /.test(run.displayTitle || '');
+  const own = run => run.headSha === ref && run.event !== 'push' && run.event !== 'workflow_run' && !/^(Stable canary|RC soak|Gate|Beta E2E tests) /.test(run.displayTitle || '');
   let exploring = false, why = '';
 
   let suites = [], tag = '';

@@ -30,7 +30,7 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # E2E_ALREADY_GREEN=1: the promote job of e2e.yml, which runs after every suite of the nightly run passed on this build's commit (that run is still in progress, so it
 # cannot be looked up; it is its own proof). DRY_RUN=1 prints what would happen and changes nothing.
 if [ "${E2E_ALREADY_GREEN:-0}" = 1 ]; then
-  echo "End-to-end journey: green (the run that is promoting it)."
+  echo "End-to-end (Mac + Linux): green (the run that is promoting it)."
 elif [ "${SKIP_E2E:-0}" != 1 ]; then
   sha=$(gh api "repos/$repo/commits/$tag" -q .sha)
   mode=commit; branch=(); [ "${E2E_NO_START:-0}" = 1 ] && { mode=latest; branch=(--branch main); }
@@ -53,7 +53,7 @@ elif [ "${SKIP_E2E:-0}" != 1 ]; then
     verdict=$(gate)
   fi
   case "$verdict" in
-    green) echo "End-to-end journey: green." ;;
+    green) echo "End-to-end (Mac + Linux): green." ;;
     none) echo "No finished end-to-end run for this build yet. Run it: gh workflow run e2e.yml -R $repo --ref $tag (about 15 minutes), then promote. SKIP_E2E=1 overrides." >&2; exit 1 ;;
     stale) echo "The last green end-to-end run is over two days old. Run it again: gh workflow run e2e.yml -R $repo. SKIP_E2E=1 overrides." >&2; exit 1 ;;
     red*) echo "The end-to-end journey is RED (${verdict#red }): a new user would not get through the app. Fix it, or SKIP_E2E=1 to promote anyway." >&2; exit 1 ;;
