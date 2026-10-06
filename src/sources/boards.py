@@ -252,6 +252,32 @@ def boards(search):
             if (swiss or not board['swiss']) and (board['kind'] == 'any' or wanted is None or board['kind'] in wanted)]
 
 
+PAGE_SIZE = 20   # jobs.ch shows 20 postings a page: a shorter page is the last one
+MAX_TERMS = 8
+
+
+def jobsch_places(search):
+    """The user's Swiss cities as jobs.ch knows them (its local name: Genève, Zürich), or [None] (all of Switzerland) when their places name
+    no city we know. 6 Oct 2026: searching all of Switzerland, a Geneva search got St. Gallen and Wallisellen (41 'vendeur' jobs in Geneva, 1 kept)."""
+    from ..notion.search_settings import terms
+    places = (search or {}).get('locations') or {}
+    words = [w.lower() for w in terms([*places.get('top_tier', []), *places.get('country_wide', [])])]
+    found = [variants[0] for city, variants in CITIES.items() if any(w in variants or w == city for w in words)]
+    whole = any(re.fullmatch(r'switzerland|schweiz|suisse|svizzera|swiss|ch', w) for w in words)   # the whole country is wanted too
+    return found + ([None] if whole or not found else [])
+
+
+def jobsch_terms(search):
+    """The search phrases, then each of their words the board keywords name on its own ("vendeur magasin" -> also "vendeur"): a two-word
+    phrase finds only postings with both words. At most MAX_TERMS."""
+    out, role = [], keyword_regex((search or {}).get('board_discovery_keywords') or [])
+    for phrase in (search or {}).get('jobs_board_search_queries') or []:
+        for term in [phrase, *(word for word in str(phrase).split() if len(word) > 3 and role.search(word))]:
+            if term.lower() not in (t.lower() for t in out):
+                out.append(term)
+    return out[:MAX_TERMS]
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--pages',type=int,default=1);p.add_argument('--max-companies',type=int,default=30);p.add_argument('--refresh',action='store_true');args=p.parse_args()
     if not 1<=args.pages<=10 or not 1<=args.max_companies<=200:p.error('pages: 1–10; max-companies: 1–200')
@@ -266,13 +292,19 @@ def main():
     if not used:
         print('Job boards: none (for these roles and places: SwissDevJobs and TechTree list developer jobs, jobs.ch Swiss ones)',flush=True);return 0
     print('Job boards: '+', '.join(used)+(f' (Swiss place word: {swiss_word})' if swiss else '')+('' if 'TechTree' in used else '; developer boards left out: your roles are outside IT'),flush=True)   # the app's activity list shows these names as they are
-    for query in _SEARCH['jobs_board_search_queries'] if swiss else []:
-        for page in range(1,args.pages+1):
-            url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,'page':page})
-            try:
-                result=client.get(url);found=parse_jobs(result['html'],url,'jobs.ch');jobs.extend(found)
-                sources.append({'source':url,'status':f'{len(found)} Swiss software matches' if found else 'No parsed Swiss software matches; page may be empty or format changed'})
-            except Exception as e:sources.append({'source':url,'status':str(e)})
+    seen_urls=set()
+    for query in jobsch_terms(_SEARCH) if 'jobs.ch' in used else []:
+        for place in jobsch_places(_SEARCH):
+            for page in range(1,args.pages+1):   # --pages is the most read: a short page or one with nothing new ends the search
+                url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,**({'location':place} if place else {}),'page':page})
+                try:
+                    result=client.get(url);found=parse_jobs(result['html'],url,'jobs.ch')
+                    listed=sum(1 for _ in walk(Page(result['html']).schemas,'JobPosting'))
+                    fresh=[job for job in found if job['url'] not in seen_urls];seen_urls.update(job['url'] for job in found);jobs.extend(fresh)
+                    sources.append({'source':url,'status':f'{len(fresh)} for your roles of {listed} listed' if listed else 'No listings on this page'})
+                    if listed<PAGE_SIZE or (page>1 and not fresh and listed):break
+                except Exception as e:
+                    sources.append({'source':url,'status':str(e)});break
     for label,url in [('SwissDevJobs','https://swissdevjobs.ch/api/jobsLight'),('TechTree','https://jobs.techtree.dev/')]:
         if label not in used:continue
         try:

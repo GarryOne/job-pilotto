@@ -118,7 +118,7 @@ jobs:
           restore-keys: job-pilotto-db-
       - name: Discover employers on job boards
         if: env.MODE == 'scheduled' || env.MODE == 'run'
-        run: python -m src discover --pages 2 --max-companies 80
+        run: python -m src discover --pages 5 --max-companies 80   # pages: the most read per search; a short page ends it
       # A voice note or recording sent to the bot is transcribed here, with speakers (src/ai/transcribe.py:
       # open-source models, no API). The models (~520 MB) download on first use and are cached.
       - name: Restore speech models

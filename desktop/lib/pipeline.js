@@ -539,7 +539,7 @@ function searchOnce(storage, onLine, mode, trigger = 'you') {
   return (async () => {
     const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
     onLine('Searching job boards…');
-    await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
+    await run(storage, ['src', 'discover', '--pages', '5', '--max-companies', '40'], onLine);
     onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
     const {code, result} = await run(storage, dailyArgs(storage, {mode}), onLine, triggerEnv(trigger));
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchOk: code === 0});
