@@ -1,0 +1,470 @@
+{
+ "note": "Every Recent activity state the state viewer and the cardstates suite draw: fictional data only (demo/runs.json, fixtures/mail-states.json, made-up companies). Newest first.",
+ "states": [
+  {
+   "name": "gmail--7-emails-3-which-job-questions-open",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 9 new email(s) read, 6 update(s) recorded",
+    "message": "📧 Job emails & calendar\n4 updates\n\nAnthropic · Staff+ Software Engineer, Data Infrastructure · Rejected\nApplication rejected after consideration\n\nHuxley · Principal SRE · Interview\nTue 06 Oct · 08:30\nEvent: Follow up Igor / Jaya - SRE\nSource: Google Calendar\n\nNorthwind Robotics · Platform Engineer · Reply received\nThe recruiter asked for your availability for a first call this week.\n\n🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.\n\n🗓 Tomorrow 08:30 — Huxley — Principal SRE\nFollow up Igor / Jaya - SRE\nMicrosoft Teams Meeting\nWith: Seosahai - Nejati, Jayantie\n🏋️ Answered weakly in past interviews\n• Tenure / commitment\n• Customer bridge calls\n📝 Recruiter to follow up on nationality/location constraints and salary expectations, with a further call planned to discuss compensation and contractual setup (B2B vs employee).\nRecording? Ask everyone for consent at the start.",
+    "report": [
+     "Gmail check: 9 new email(s) read, 6 update(s) recorded",
+     "❌ Rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure · Stage Confirmation received → Rejected",
+     "🛠 Why rejected · Anthropic — Staff+ Software Engineer, Data Infrastructure: Hard skills (medium). Staff-level data-infrastructure role needing a deep data/storage background (BigQuery, Airflow, dbt, Spark); your experience is SRE/platform.",
+     "🗓 Interview scheduled · Huxley — Principal SRE · Tue 06 Oct 08:30 · Stage Screening → Interview scheduled",
+     "💬 Reply received · Northwind Robotics — Platform Engineer · Stage Applied → Screening",
+     "❓ Interview · Kraken — which job?",
+     "❓ Rejected · Orbit Labs — which job?",
+     "❓ Reply received · Lumen Data — which job?",
+     "Anthropic Follow-Up for Staff+ Software Engineer, Data Infrastructure | Igor · us.greenhouse-mail.io · 05 Oct 21:50 — [recorded] · Anthropic — Staff+ Software Engineer, Data Infrastructure · changed Stage Confirmation received → Rejected",
+     "Invitation: Follow up Igor / Jaya - SRE @ Tue 6 Oct 2026 08:30 · Google Calendar · 05 Oct 17:10 — [recorded] · Huxley — Principal SRE · changed Stage Screening → Interview scheduled",
+     "Re: Platform Engineer — next steps · Jordan Lee · 05 Oct 16:20 — [recorded] · Northwind Robotics — Platform Engineer · changed Stage Applied → Screening",
+     "Invitation from an unknown sender: Igor Mardari and Kraken DM @ Thu 8 Oct 2026 16:00–16:30 (CEST) · Kraken DM · 05 Oct 18:05 — [needs you] · Kraken",
+     "Update on your application · Orbit Labs Talent Team · talent@orbitlabs.example · 05 Oct 11:20 — [needs you] · Orbit Labs",
+     "Re: your application · Lumen Data recruiting · Sam Rivera · 05 Oct 09:40 — [needs you] · Lumen Data",
+     "Reminder: Role Discussion between Arjun Gillard and Igor Mardari · Arjun Gillard · 01 Oct 13:47 — [already known] · Blinq — Senior DevOps Engineer"
+    ]
+   }
+  },
+  {
+   "name": "gmail--one-reply-received-old-format-no-report",
+   "run": {
+    "kind": "mail",
+    "trigger": "schedule",
+    "ok": true,
+    "updates": [
+     "💬 Reply received · Acme Robotics — SRE"
+    ],
+    "summary": "Mail: 6 new email(s) classified, 1 update(s)",
+    "log": []
+   }
+  },
+  {
+   "name": "gmail--nothing-new",
+   "run": {
+    "kind": "mail",
+    "ok": true,
+    "result": "Gmail check: 0 new email(s) read, 0 update(s) recorded",
+    "message": "📧 Gmail checked\nNo new job emails"
+   }
+  },
+  {
+   "name": "gmail--failed-ai-api-spend-limit",
+   "run": {
+    "kind": "mail",
+    "ok": false,
+    "billing": "Anthropic API credits",
+    "log": [
+     "Gmail: reading new emails…",
+     "anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'message': 'You have reached your specified API usage limits.'}}"
+    ]
+   }
+  },
+  {
+   "name": "gmail--failed-ai-usage-limit-claude-subscription",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Gmail: reading new emails…",
+     "Claude Code: You have reached your usage limit for this period. Your limit will reset at 3pm."
+    ],
+    "kind": "mail",
+    "ok": false,
+    "billing": "Claude subscription"
+   }
+  },
+  {
+   "name": "gmail--failed-ai-rate-limited-429",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Gmail: reading new emails…",
+     "anthropic.RateLimitError: Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error'}}"
+    ],
+    "kind": "mail",
+    "ok": false
+   }
+  },
+  {
+   "name": "gmail--failed-google-signin-revoked",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Gmail: checking the calendar…",
+     "google.auth.exceptions.RefreshError: invalid_grant: Token has been expired or revoked."
+    ],
+    "kind": "mail",
+    "ok": false,
+    "problem": "Not checked: Google sign-in expired or was revoked"
+   }
+  },
+  {
+   "name": "gmail--gmail-not-connected",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Gmail is not connected: nothing to check."
+    ],
+    "kind": "mail",
+    "ok": true,
+    "off": true
+   }
+  },
+  {
+   "name": "search--12-new-3-changed-of-214",
+   "run": {
+    "kind": "search",
+    "trigger": "schedule",
+    "ok": true,
+    "found": 214,
+    "new": 12,
+    "changed": 3,
+    "log": []
+   }
+  },
+  {
+   "name": "search--1-new-job-with-warnings",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "Scored 12 of 12 job(s)",
+     "Warning: Notion rate limit (429): saved settings were used"
+    ],
+    "kind": "search",
+    "ok": true,
+    "new": 1,
+    "scored": 12
+   }
+  },
+  {
+   "name": "search--0-new-12-scored",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "Scored 12 of 12 job(s)",
+     "Sent 1 Telegram message(s); imported 214 jobs."
+    ],
+    "kind": "search",
+    "ok": true,
+    "new": 0,
+    "scored": 12
+   }
+  },
+  {
+   "name": "search--stopped-no-output-15-min",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "Descriptions: 0 of 17 missing fetched",
+     "⚠️ Stopped by Job Pilotto: no output for 15 min. The run went quiet, so it was stopped. Run it again; if it keeps stopping, check your AI key or plan in Settings. The last thing it did: Descriptions: 0 of 17 missing fetched"
+    ],
+    "kind": "search",
+    "ok": false
+   }
+  },
+  {
+   "name": "search--failed-api-credits-exhausted",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'message': 'Your credit balance is too low to access the Anthropic API.'}}"
+    ],
+    "kind": "search",
+    "ok": false,
+    "billing": "Anthropic API credits"
+   }
+  },
+  {
+   "name": "search--failed-ai-rate-limited-429",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "anthropic.RateLimitError: Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error'}}"
+    ],
+    "kind": "search",
+    "ok": false
+   }
+  },
+  {
+   "name": "search--failed-claude-code-not-ready",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "claude: not logged in"
+    ],
+    "kind": "search",
+    "ok": false,
+    "problem": "Claude Code is not ready: sign in to Claude Code, or add an API key"
+   }
+  },
+  {
+   "name": "search--failed-unexplained",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Fetching feeds…",
+     "Traceback (most recent call last):",
+     "  File \"src/daily.py\", line 412, in main",
+     "KeyError: 'location'"
+    ],
+    "kind": "search",
+    "ok": false
+   }
+  },
+  {
+   "name": "search--completed-telegram-not-delivered",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Searching job boards…",
+     "Job boards: jobs.ch, SwissDevJobs, TechTree (Swiss place word: (?:(?<!\\w)zurich(?!\\w)))",
+     "Checking employer career pages, then reading and scoring new jobs…",
+     "Scored 12 of 12 job(s)",
+     "Warning: Telegram refused the digest: the bot token is not valid. Connect Telegram again in Settings."
+    ],
+    "kind": "search",
+    "ok": true,
+    "new": 0,
+    "scored": 12,
+    "problem": "not delivered: Telegram refused the bot token (Settings → Telegram)"
+   }
+  },
+  {
+   "name": "employers--7-new-sources",
+   "run": {
+    "kind": "scout",
+    "mode": "scout",
+    "trigger": "schedule",
+    "ok": true,
+    "log": [],
+    "message": "🔎 Source scout · checked 12 · 🆕 7 new sources\n1. Northwind AI · Ashby · quality 61 · ⭐ Tier 1\n   5 SRE-type roles · 3 in your places\n   Zurich\n2. Lakeside Payments · Greenhouse · quality 48 · ⭐ Tier 1\n   3 SRE-type roles · 2 in your places\n   Geneva\n3. Acme Robotics · Lever · quality 35\n   2 SRE-type roles · 1 in your places\n   Remote - Europe\n4. Example Labs · Greenhouse · quality 22\n   1 SRE-type roles · 0 in your places\n5. Harbor Health · Ashby · quality 20\n   1 SRE-type roles · 1 in your places\n6. Pine Cloud · Greenhouse · quality 18\n   2 SRE-type roles · 0 in your places\n7. Summit Games · Lever · quality 15\n   1 SRE-type roles · 0 in your places\n3 without public feed · 2 low relevance · 18 feeds crawled · 240 candidates queued"
+   }
+  },
+  {
+   "name": "employers--0-new-sources-warnings",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Find employers: checking 15 candidates…",
+     "Warning: candidate source skipped: TimeoutError: The read operation timed out",
+     "Warning: Notion not updated for Contoso AG: KeyError: 'watch'"
+    ],
+    "kind": "scout",
+    "ok": true,
+    "summary": "15 checked · 0 new sources"
+   }
+  },
+  {
+   "name": "employers--failed-api-spend-limit",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Find employers: scoring candidates…",
+     "anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'message': 'You have reached your specified API usage limits.'}}"
+    ],
+    "kind": "scout",
+    "ok": false,
+    "billing": "Anthropic API credits"
+   }
+  },
+  {
+   "name": "tailor--5-of-5-tailored",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Tailoring 5 CVs for your best matches (1-2 minutes each)"
+    ],
+    "kind": "tailor",
+    "ok": true,
+    "summary": "Tailored 5 of 5 CVs. Open each job's 📄 Tailored CV to check it before you apply.",
+    "message": "✂️ Tailored CVs ready\n5 of 5 tailored · check each before you apply\n\nSite Reliability Engineer (https://jobs.example.test/northwind-sre)\nNorthwind Robotics\n\nPlatform Engineer (https://jobs.example.test/alpenglow-platform)\nAlpenglow Logistics\n\nSenior SRE (https://jobs.example.test/lumen-sre)\nLumen Data\n\nStaff Platform Engineer (https://jobs.example.test/orbit-staff)\nOrbit Labs\n\nCloud Engineer (https://jobs.example.test/kestrel-cloud)\nKestrel Health"
+   }
+  },
+  {
+   "name": "tailor--3-of-5-partial",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Tailoring 5 CVs for your best matches (1-2 minutes each)",
+     "  ✗ Staff Platform Engineer · Orbit Labs: the AI answer could not be read",
+     "  ✗ Cloud Engineer · Kestrel Health: the posting could not be fetched (404)"
+    ],
+    "kind": "tailor",
+    "ok": true,
+    "summary": "Tailored 3 of 5 CVs, 2 failed. Open each job's 📄 Tailored CV to check it before you apply.",
+    "message": "✂️ Tailored CVs ready\n3 of 5 tailored · 2 failed · check each before you apply\n\nSite Reliability Engineer (https://jobs.example.test/northwind-sre)\nNorthwind Robotics\n\nPlatform Engineer (https://jobs.example.test/alpenglow-platform)\nAlpenglow Logistics\n\nSenior SRE (https://jobs.example.test/lumen-sre)\nLumen Data"
+   }
+  },
+  {
+   "name": "tailor--nothing-to-tailor",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Every one of your best matches already has a tailored CV."
+    ],
+    "kind": "tailor",
+    "ok": true,
+    "summary": "Every one of your best matches already has a tailored CV.",
+    "message": "Every one of your best matches already has a tailored CV."
+   }
+  },
+  {
+   "name": "tailor--failed-ai-usage-limit-claude-subscription",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Tailoring CV 1 of 5…",
+     "Claude Code: You have reached your usage limit for this period. Your limit will reset at 3pm."
+    ],
+    "kind": "tailor",
+    "ok": false,
+    "billing": "Claude subscription"
+   }
+  },
+  {
+   "name": "tailor--failed-waiting-behind-another-run",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Another Job Pilotto search is running (app or terminal): waiting for it…"
+    ],
+    "kind": "tailor",
+    "ok": false
+   }
+  },
+  {
+   "name": "analyze--report-with-message",
+   "run": {
+    "kind": "weekly",
+    "trigger": "schedule",
+    "ok": true,
+    "summary": "9 applications sent, 2 interviews landed",
+    "log": [],
+    "message": "📊 Weekly report\nQuiet week: 9 applications sent, 2 interviews landed\nIn the last 7 days you sent 9 of 13 total applications, heard back on 10 (77% reply rate), and converted 5 of 10 decided applications to interviews (50%). Six rejections came in this week (Northwind AI x4, Lakeside Payments x2) against two recruiter screens.\n✅ Worked\n• All 5 interview outcomes recorded to date came through the Recruiter channel, while direct applications produced none.\n• Applying within three days of a posting matched every interview that followed.\n🔧 Change next week\n• Send more of the 31 already-drafted kits: only 9 were applied this week.\n• Prefer SRE and Platform titles over generic software listings, which converted far less often.\n🎯 Push more of the 31 drafted-but-unsent kits out the door this week, favouring SRE and Platform titles.\nFull report in Notion"
+   }
+  },
+  {
+   "name": "analyze--report-summary-only",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Search analysis: saving it to Notion…"
+    ],
+    "kind": "weekly",
+    "ok": true,
+    "summary": "5 interviews from 20 applications, all via recruiters; 0 of 15 non-recruiter applications got one"
+   }
+  },
+  {
+   "name": "analyze--failed-api-spend-limit",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Search analysis: reading your last 7 days…",
+     "anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'message': 'You have reached your specified API usage limits.'}}"
+    ],
+    "kind": "weekly",
+    "ok": false,
+    "billing": "Anthropic API credits"
+   }
+  },
+  {
+   "name": "insight--message-demo",
+   "run": {
+    "kind": "insight",
+    "mode": "insight",
+    "trigger": "you",
+    "ok": true,
+    "summary": "Salary — the advertised ceiling sits under your floor",
+    "log": [],
+    "message": "💡 Insight · Salary\nNorthwind AI's Staff SRE role caps pay at EUR 100-150k/year, below your CHF150k floor\n• Recruiter call: the budget was stated as '100 to 150 K per year' for a ~500-person finance company.\n• The same role was posted as Principal, but the CTO wants a hands-on senior operational SRE.\n• 9 of 15 disclosed remote salaries last month sit in the EUR 94-141k range.\n👉 Ask for the budget range before agreeing to a screening call; skip it if the cap is under your floor.\nConfidence low · applications data, 1 applications"
+   }
+  },
+  {
+   "name": "insight--role-focus-comparison",
+   "run": {
+    "trigger": "you",
+    "log": [],
+    "kind": "insight",
+    "ok": true,
+    "summary": "Role focus — SRE converts best",
+    "message": "💡 Insight · Role focus\nSoftware-titled jobs convert to good-fit at 3% (1/38) vs SRE 37% (7/19)\n• Eligible jobs by family: software 38, platform 43, sre 19\n• Good-fit hits by family: software 1 (2.6%), platform 12 (28%), sre 7 (37%)\n• Scores average 34/100 across 100 scored jobs\n👉 Prioritize SRE and Platform-titled postings\nConfidence high · market data, 100 jobs"
+   }
+  },
+  {
+   "name": "insight--summary-only",
+   "run": {
+    "trigger": "you",
+    "log": [],
+    "kind": "insight",
+    "ok": true,
+    "summary": "Seniority — 4 of 10 applications targeted Staff/Principal roles; none passed screening"
+   }
+  },
+  {
+   "name": "insight--failed-ai-rate-limited",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "Insight: reading your results…",
+     "anthropic.RateLimitError: Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error'}}"
+    ],
+    "kind": "insight",
+    "ok": false
+   }
+  },
+  {
+   "name": "digest--top-10-today",
+   "run": {
+    "kind": "today",
+    "mode": "today",
+    "trigger": "you",
+    "ok": true,
+    "log": [],
+    "message": "✈️ Job Pilotto · 🆕 0 new · top 10 of 24\n24 open · 5 🇨🇭 · 9 applied · 37 filtered · 80 low fit\n🎯 Best matches\n1. Staff SRE, Observability (https://example.com/jobs/alpine-1) · 🎯 84\n   Alpine Data · Remote (Europe) · Staff\n2. Platform Engineer, Developer Experience (https://example.com/jobs/northwind-2) · 🎯 78\n   Northwind AI · Zurich · Senior\n3. DevOps Engineer (https://example.com/jobs/lakeside-3) · 🎯 71\n   Lakeside Payments · Geneva · Mid\n4. Cloud Engineer (https://example.com/jobs/acme-4) · 🎯 66\n   Acme Robotics · Remote"
+   }
+  },
+  {
+   "name": "add-job--recruiter-lead-tracked",
+   "run": {
+    "kind": "add",
+    "trigger": "you",
+    "ok": true,
+    "summary": "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100",
+    "job": {
+     "pageId": "demo-lead-9",
+     "url": "https://www.notion.so/demo-lead-9",
+     "title": "Platform Engineer",
+     "jobUrl": "https://example.com/lead/9",
+     "created": true
+    },
+    "log": [
+     "⏳ Reading your jobs in Notion",
+     "⏳ Claude is reading the message",
+     "⏳ Claude found: Recruiter outreach · Platform Engineer — updating the job in Notion",
+     "Job logged: {\"page_id\": \"demo-lead-9\", \"url\": \"https://www.notion.so/demo-lead-9\", \"title\": \"Platform Engineer\", \"job_url\": \"https://example.com/lead/9\", \"created\": true}",
+     "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100"
+    ]
+   }
+  }
+ ]
+}
