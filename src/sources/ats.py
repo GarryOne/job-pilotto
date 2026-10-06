@@ -197,8 +197,21 @@ def join(slug):
     return jobs
 
 
-WORKDAY_TERMS = ('site reliability', 'sre', 'devops', 'platform engineer', 'infrastructure', 'kubernetes', 'observability', 'cloud engineer')
-WORKDAY_PAGES = 2   # 20 jobs a page per search term: Workday sites list thousands, so each term is searched, not listed
+WORKDAY_PAGES = 2       # 20 jobs a page per search term: Workday sites list thousands, so each of the user's terms is searched
+WORKDAY_ALL_PAGES = 10  # and the newest 200 with no term, for every search: what an employer hires for, not only what one user asks
+WORKDAY_MAX_TERMS = 6
+
+
+def workday_terms(search=None):
+    """The user's own search phrases for a Workday search (6 Oct 2026: the reader searched only SRE and DevOps terms, the first user's, so a
+    photographer could never see Cartier's or Piaget's boutique jobs). Their jobs-board phrases, else their role keywords as words."""
+    if search is None:
+        from ..paths import load_search_config
+        search = load_search_config()
+    phrases = [str(p) for p in search.get('jobs_board_search_queries') or []]
+    if not phrases:
+        phrases = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', str(word)).strip() for word in search.get('role_keywords') or []]
+    return [p for p in dict.fromkeys(' '.join(p.split()) for p in phrases) if len(p) > 2][:WORKDAY_MAX_TERMS]
 
 
 def _split_workday(slug):
@@ -213,8 +226,8 @@ def workday(slug):
     tenant, cluster, site = _split_workday(slug)
     base = f'https://{tenant}.{cluster}.myworkdayjobs.com'
     jobs, seen = [], set()
-    for term in WORKDAY_TERMS:
-        for page in range(WORKDAY_PAGES):
+    for term, pages in [('', WORKDAY_ALL_PAGES), *((term, WORKDAY_PAGES) for term in workday_terms())]:
+        for page in range(pages):
             body = json.dumps({'appliedFacets': {}, 'limit': 20, 'offset': 20 * page, 'searchText': term}).encode()
             request = urllib.request.Request(f'{base}/wday/cxs/{tenant}/{site}/jobs', data=body, headers={
                 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', 'Accept': 'application/json'})
