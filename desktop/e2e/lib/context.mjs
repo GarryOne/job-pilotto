@@ -9,6 +9,8 @@ import {startNotionProxy} from './notion-proxy.mjs';
 import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
 import {startReleasesFake} from './releases-fake.mjs';
+import {startNotionFake} from './notion-fake.mjs';
+import {useNotionAt} from './notion.mjs';
 import {appKey, appModelEnv, DUMMY_KEY, isCi, pickEngine, testKey} from './engine.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
 import {startForms} from './forms.mjs';
@@ -33,14 +35,17 @@ export function notionToken(suite) {
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
 // engine: a suite whose steps the AI proxy answers pins 'api' (a placeholder key on a Mac); otherwise a Mac uses Claude Code, CI the API key (lib/engine.mjs).
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
-  const key = KEY(), token = light ? '' : notionToken(suite);
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
+  // A suite on the in-memory Notion (`export const notionStandIn = true`): fresh and private for this run, no token, no shared page (lib/notion-fake.mjs).
+  const standIn = notionStandIn && !light ? await startNotionFake() : null;
+  if (standIn) useNotionAt(standIn.url);
+  const key = KEY(), token = light ? '' : standIn ? 'stand-in' : notionToken(suite);
   const engine = pickEngine({suiteEngine});
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
   if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
-  const ctx = {suite, key, token, runner, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
+  const ctx = {suite, key, token, runner, standIn, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
     engine, appKey: appKey(key), needsKey: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [],   // CI only: on a Mac nothing needs a key
     needs: [...(engine === 'api' && isCi() ? [{name: `E2E_ANTHROPIC_KEY`, value: key}] : []),
       // A suite with no Notion part (`export const notion = false`, the update flow) needs no Notion token and gets no page.
@@ -76,14 +81,14 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     Object.assign(browserEnv, {PATH: `${ctx.shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: ctx.shim.spool, JOB_PILOTTO_PORT: String(ctx.appPort)});
     if (process.platform === 'win32') browserEnv.JOB_PILOTTO_E2E_OPENER = ctx.shim.script;   // no `open` on Windows (lib/apply.js chromeCommand)
   }
-  const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
+  const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : ctx.standIn ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.standIn.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.releases ? {JOB_PILOTTO_E2E_UPDATES_URL: ctx.releases.url} : {}), ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
   // A seeded run of a suite that opts in lives somewhere else: another time zone (window and engine) and language (lib/variation.mjs placeOf).
   ctx.place = variesPlace ? placeOf() : null;
   if (ctx.place) { Object.assign(env, {TZ: ctx.place.zone, JOB_PILOTTO_TZ: ctx.place.zone, LANG: `${ctx.place.locale.replace('-', '_')}.UTF-8`}); console.log(`  place: ${ctx.place.zone}, ${ctx.place.locale}`); }
   adopt(await launch({env, lang: ctx.place?.locale || ''}));
-  ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close(); await ctx.proxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); await ctx.forms?.close(); };
+  ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close(); await ctx.proxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); await ctx.standIn?.close(); await ctx.forms?.close(); };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
   ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close(); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile, lang: ctx.place?.locale || ''})); };
   ctx.expectStep = async (name, timeout = 20000) => {

@@ -1,7 +1,9 @@
 // The Notion test workspace: the journey needs a page with nothing in it, as a new user has. The page is emptied before a run (what is
 // in it moves to Notion's trash, recoverable for 30 days) and after it. Safety: nothing is touched unless the token belongs to the
 // "Job Pilotto 2" test workspace and sees exactly one top-level page.
-const API = 'https://api.notion.com/v1';
+let API = 'https://api.notion.com/v1';
+// A suite on the in-memory Notion (lib/notion-fake.mjs) seeds and checks there too: the context points this helper at it.
+export const useNotionAt = url => { API = url ? `${url.replace(/\/$/, '')}/v1` : 'https://api.notion.com/v1'; };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // A dropped connection or a 5xx is retried when repeating the request is harmless (reads, PATCH, DELETE); a create (POST) is never repeated: it may have gone through.
