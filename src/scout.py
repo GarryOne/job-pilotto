@@ -598,6 +598,11 @@ def research_links(name):
             f'https://www.levels.fyi/companies/{slug}/salaries')
 
 
+# Each check outcome as Employers & Sources' Feed status (config/notion_schema.json lists the options). 'watch' was missing until
+# 6 Oct 2026: a careers page with no open jobs today failed its Notion write with KeyError: 'watch'.
+FEED_STATUS = {'found': 'Feed found', 'low': 'Low relevance', 'manual': 'Manual watch', 'none': 'No public feed', 'watch': 'No open jobs'}
+
+
 def write_notion(tracker, candidate, outcome):
     """One Employers & Sources row per candidate worth keeping (created or updated by company name)."""
     today = now().date().isoformat()
@@ -605,7 +610,7 @@ def write_notion(tracker, candidate, outcome):
     status, system, slug, score, stats = (outcome.get(k) for k in ('status', 'ats', 'slug', 'quality', 'stats'))
     if status == 'none' and candidate['tier'] != 'Tier 1':
         return  # Keep the database focused: unfeedable standard companies are only tracked locally.
-    feed_status = {'found': 'Feed found', 'low': 'Low relevance', 'manual': 'Manual watch', 'none': 'No public feed'}[status]
+    feed_status = FEED_STATUS[status]
     props = {
         'Company': {'title': [{'text': {'content': candidate['name']}}]},
         'Kind': {'select': {'name': 'Employer'}}, 'Tier': {'select': {'name': candidate['tier']}},

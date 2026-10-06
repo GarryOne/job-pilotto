@@ -137,7 +137,7 @@ the downloaded index, `config/sources.json` and its own local feed table if this
 | Company | Title | |
 | Kind | Select | Option used by code: `Employer` |
 | Tier | Select | Free text from `config/scout_seeds.json`, e.g. `Tier 1` |
-| Feed status | Select | Options: `Feed found`, `Low relevance`, `Manual watch`, `No public feed` |
+| Feed status | Select | Options: `Feed found`, `Low relevance`, `Manual watch`, `No public feed`, `No open jobs` |
 | Active | Checkbox | Whether the crawler includes this feed |
 | Origin | Text | Where the candidate came from (seed list, Hacker News, ...) |
 | Glassdoor | URL | Auto-filled search link |
