@@ -150,7 +150,9 @@ export function merge(notionRuns, localRuns, pending = []) {
     return row.live ? {...row, id: local.id} : {...row, ...local, pageId: row.pageId, url: row.url, where: 'mac', result: row.result};
   });
   const oldest = notionRuns.length ? Math.min(...notionRuns.map(row => row.id)) : 0;
-  const missing = localRuns.filter(run => !used.has(run) && run.id >= oldest);
+  // A run that never got a Notion row (before Notion was connected, or its row write failed) is only here: always kept.
+  // One that had a row is kept while it is inside Notion's window (6 Oct 2026: connecting Notion hid every earlier run).
+  const missing = localRuns.filter(run => !used.has(run) && (!run.notionUrl || run.id >= oldest));
   // A job sent to GitHub is waiting until its row exists. The run URL is the sure match (the row's start can
   // sit outside the one-minute window). The time window covers the moment before the link is known.
   const sameRun = (job, row) => {

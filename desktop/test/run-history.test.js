@@ -118,6 +118,15 @@ test('an interview-insights run is named for what it is, not the daily "Insight"
   assert.equal(daily.kind, 'insight');
 });
 
+test('merge: runs from before Notion was connected stay in Recent activity; an old run that had a row follows Notion\'s window', () => {
+  const notion = [history.fromRow(row('r9', {started: '2026-10-06T21:00:00Z', mode: 'run', status: 'OK', trigger: 'Mac (you)', seconds: 60}), NOW)];
+  const trying = [{id: Date.parse('2026-10-06T20:15:00Z'), kind: 'search', log: ['before Notion']},
+    {id: Date.parse('2026-10-06T14:00:00Z'), kind: 'scout', log: ['before Notion']}];
+  const outside = {id: Date.parse('2026-10-01T10:00:00Z'), kind: 'mail', notionUrl: 'https://www.notion.so/r1', log: ['old']};
+  const {runs} = history.merge(notion, [...trying, outside], []);
+  assert.deepEqual(runs.map(r => r.kind), ['search', 'search', 'scout']);   // Notion's row, then both Trying runs, newest first
+});
+
 test('merge: a run is the same run when its Notion page was renamed (the title slug in the URL changes, the page id does not)', () => {
   // The engine prints the page's address when it creates the row ("… Jobs check"); the row is renamed when the run ends ("… Jobs check, 3 new jobs"),
   // so Notion's address for the same page carries another slug. 2 Oct 2026: one check showed as two runs, with two "Jobs check done" pop-ups.
