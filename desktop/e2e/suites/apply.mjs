@@ -377,7 +377,10 @@ export async function run(ctx) {
     await page.click('.nav[data-view="jobs"]');
     // The NEW rows, by page id (6 Oct 2026: the saved list painted on reload still held the rows just archived, same URLs; Tailor then wrote to an archived page).
     await page.waitForFunction(ids => ids.every(id => (window.__jp.shared.allJobs || []).some(job => String(job.notion_url || '').replace(/-/g, '').includes(id))), added, {timeout: 120000, polling: 2000})
-      .catch(() => { throw new Error('the Jobs list never showed the three new top-match rows (it may still hold the archived ones from an earlier run)'); });
+      .catch(async () => {
+        const held = await page.evaluate(urls => (window.__jp.shared.allJobs || []).filter(job => urls.includes(job.url)).map(job => `${job.url.slice(-6)} → ${String(job.notion_url || 'no page').slice(-32)}`), topUrls);
+        throw new Error(`the Jobs list never showed the three new top-match rows ${added.map(id => id.slice(-8)).join(', ')}; it holds: ${held.join(' | ') || 'none of their URLs'}`);
+      });
     await page.click('.nav[data-view="actions"]');
     if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
     await page.fill('#tailor-top-n', '2');

@@ -1,7 +1,7 @@
 // The Focus suite's data: a dummy job search written to the test workspace through the Notion API (fictional employers only), and an independent
 // "numbers match the source" oracle that works out, from the Notion rows alone, what Focus must show. The oracle is deliberately a second
 // implementation of the rules written from the product's spec (src/focus.py, src/notion/funnel.py), not a port: if the two disagree, one is wrong.
-import {call, createRowIn, queryAll} from './notion.mjs';
+import {call, createRowIn, queryAll, trashPage} from './notion.mjs';
 
 const ZONE = 'Europe/Zurich';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -148,7 +148,7 @@ export const idsFromApp = notionIds => {
 };
 
 // Notion may still list a row it has already trashed: trashing it again is not an error.
-const archive = (token, id) => call(token, 'PATCH', `pages/${id}`, {archived: true}).catch(error => { if (!/archived/i.test(error.message)) throw error; });
+const archive = (token, id) => trashPage(token, id);
 
 async function emptyById(token, databaseId) {   // every row to the trash, then check (Notion shows it a moment later)
   let rows = await queryAll(token, databaseId);

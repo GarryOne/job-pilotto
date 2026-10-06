@@ -269,7 +269,7 @@ export async function removeJobsByUrl(token, urls) {
   let count = 0;
   for (const url of urls) {
     const rows = await call(token, 'POST', `databases/${db.id}/query`, {filter: {property: 'Job URL', url: {equals: url}}, page_size: 20});
-    for (const row of rows.results) { await call(token, 'PATCH', `pages/${row.id}`, {archived: true}); count++; await sleep(350); }
+    for (const row of rows.results.filter(row => !row.archived && !row.in_trash)) { if (await trashPage(token, row.id)) count++; await sleep(350); }
   }
   return count;
 }
@@ -300,7 +300,9 @@ export async function findPagesBeside(token, siblingId, title) {
 }
 
 // Puts a page of the test workspace in the trash (recoverable for 30 days).
-export const trashPage = (token, id) => call(token, 'PATCH', `pages/${id}`, {archived: true});
+// Archive one page; one already archived counts as done. A database query keeps listing a row for a while after it was archived, so a cleanup that
+// runs twice met "Can't edit block that is archived" (6 Oct 2026: the apply suite failed on it in CI and on a Mac). Every e2e archive goes through here.
+export const trashPage = (token, id) => call(token, 'PATCH', `pages/${id}`, {archived: true}).then(() => true, error => { if (/archived/i.test(error.message)) return false; throw error; });
 
 const textOf = block => (block[block.type]?.rich_text || []).map(part => part.plain_text).join('');
 async function children(token, id) {
