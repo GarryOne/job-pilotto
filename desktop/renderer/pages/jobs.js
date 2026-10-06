@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statClick, statPressed, stats, statusPill, tags, toReview, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statClick, statPressed, stats, statusPill, tags, takenDown, toReview, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
@@ -830,6 +830,9 @@ async function askAboutLeftOpen() {
 }
 function showJobsData(data) {
   {
+    for (const job of takenDown(shared.allJobs, data.jobs)) {
+      toastMessage('Posting taken down', `${job.company ? `${job.company} · ` : ''}${job.title || job.url}: its job board no longer lists it, so it moved to Closed. Your kit is kept.`);
+    }
     shared.allJobs = data.jobs;
     const scored = shared.allJobs.filter(job => job.fit != null).length;
     // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".

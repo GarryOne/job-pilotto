@@ -624,6 +624,37 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
     return f'Ledger sync: {len(rows)} applications, {logged} stage change(s) logged, {silent} moved to No response.'
 
 
+# A job you saved or drafted a kit for, but haven't applied to: the only stages a taken-down posting is closed from.
+NOT_STARTED = ('Saved', 'Kit ready')
+
+
+def close_gone(tracker, open_urls=None, dry_run=False):
+    """Saved / Kit ready jobs whose posting was taken down → Stage Closed (never deleted: the kit stays). The crawl
+    not seeing a job only picks what to check (a filter change does that too); the job's own board decides, and a
+    board that can't tell (unsupported, down) closes nothing. Returns (summary line, ["Title (Company)", …])."""
+    rows = tracker.query_database(tracker.database_id, {'or': [
+        {'property': 'Stage', 'select': {'equals': stage}} for stage in NOT_STARTED]})
+    closed = []
+    for row in rows:
+        props = row['properties']
+        url = ((props.get('Job URL') or {}).get('url') or '').strip()
+        if not url or (open_urls is not None and url in open_urls):
+            continue
+        company = plain(props.get('Company'))
+        if ats.is_live(url, company) is not False:
+            continue
+        # Read again just before writing: the owner may have started applying since the query.
+        current = tracker.find(url)
+        if plain((current or {}).get('properties', {}).get('Stage')) not in NOT_STARTED:
+            continue
+        name = f"{plain(props.get('Job')) or url} ({company or '?'})"
+        print(f'Posting taken down, marked Closed: {url} · {name}')
+        if not dry_run:
+            tracker.update_page(current['id'], {'Stage': {'select': {'name': 'Closed'}}})
+        closed.append(name)
+    return f'Taken-down postings: {len(rows)} saved/kit-ready job(s), {len(closed)} closed.', closed
+
+
 MONTHS = {m: i for i, m in enumerate(
     ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'), 1)}
 

@@ -356,5 +356,57 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((tracker.created, tracker.updates), ([], []))
 
 
+class CloseGoneTest(unittest.TestCase):
+    """Saved / Kit ready jobs whose posting was taken down go to Closed; only the board's own answer closes one."""
+
+    def run_with(self, live, rows, open_urls=None, stage_now=None):
+        tracker = FakeTracker(rows)
+        if stage_now:  # the owner moved it between the query and the write
+            tracker.find = lambda url: row(stage=stage_now)
+        with mock.patch.object(ledger.ats, 'is_live', lambda url, company='': live), \
+                mock.patch('sys.stdout', io.StringIO()):
+            summary, closed = ledger.close_gone(tracker, open_urls)
+        return tracker, summary, closed
+
+    def test_a_kit_ready_job_whose_board_dropped_it_is_closed_and_named(self):
+        tracker, summary, closed = self.run_with(False, [row(stage='Kit ready')])
+        self.assertEqual(tracker.updates, [('page-1', {'Stage': {'select': {'name': 'Closed'}}})])
+        self.assertEqual(closed, ['Staff SRE (Acme)'])
+        self.assertIn('1 closed', summary)
+
+    def test_nothing_is_closed_when_the_board_lists_it_or_cannot_tell(self):
+        for live in (True, None):
+            tracker, _, closed = self.run_with(live, [row(stage='Saved')])
+            self.assertEqual((tracker.updates, closed), ([], []), live)
+
+    def test_a_job_the_crawl_still_sees_is_not_checked(self):
+        with mock.patch.object(ledger.ats, 'is_live', side_effect=AssertionError('checked')):
+            _, closed = ledger.close_gone(FakeTracker([row(stage='Kit ready')]), open_urls={URL})
+        self.assertEqual(closed, [])
+
+    def test_a_job_the_owner_started_applying_to_meanwhile_is_left_alone(self):
+        tracker, _, closed = self.run_with(False, [row(stage='Kit ready')], stage_now='Applying')
+        self.assertEqual((tracker.updates, closed), ([], []))
+
+
+class OwnDomainBoardTest(unittest.TestCase):
+    """A Greenhouse posting on the employer's own site is checked on that employer's board, and only that one."""
+    GONE = 'https://n26.com/en-eu/careers/positions/7866309?gh_jid=7866309'
+    BOARD = ({'id': '8184721', 'url': 'https://n26.com/en-eu/careers/positions/8184721?gh_jid=8184721'},)
+
+    def live(self, url, company, board):
+        with mock.patch.object(ledger.ats, '_board', lambda ats, slug: board if slug == 'n26' else ()):
+            return ledger.ats.is_live(url, company)
+
+    def test_gone_when_the_company_board_links_to_the_same_site_and_lacks_the_job(self):
+        self.assertIs(self.live(self.GONE, 'N26', self.BOARD), False)
+        self.assertIs(self.live(self.BOARD[0]['url'], 'N26', self.BOARD), True)
+
+    def test_unknown_when_the_board_is_another_site_or_the_company_is_missing(self):
+        other = ({'id': '1', 'url': 'https://boards.greenhouse.io/n26/jobs/1'},)
+        self.assertIsNone(self.live(self.GONE, 'N26', other))
+        self.assertIsNone(self.live(self.GONE, '', self.BOARD))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -203,6 +203,8 @@ def report_lines(run):
         lines.append(f'{errors} feed(s) failed: {failing}.')
     if run.get('closed_stale'):
         lines.append(f"Closed {run['closed_stale']} job(s) not seen for a week.")
+    if run.get('gone_titles'):
+        lines.append(f"Posting taken down, moved to Closed: {', '.join(run['gone_titles'][:5])}.")
     lines += [f'Warning: {w}' for w in run.get('warnings', [])]
     return lines
 

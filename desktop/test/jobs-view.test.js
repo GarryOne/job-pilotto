@@ -221,3 +221,11 @@ test('a posting that lists many places shows the first two and a count, with all
   assert.deepEqual(shortPlace(''), {text: '', full: ''});
   assert.equal(placeAndMode(many, 'Remote').split(' · ')[0], 'Remote - European Union; Spain +18');   // the compact list too
 });
+
+test('a saved or kit-ready job found Closed on refresh is named; other changes are not', async () => {
+  const {takenDown} = await import('../renderer/jobs-view.js');
+  const before = [{url: 'a', stage: 'Kit ready'}, {url: 'b', stage: 'Saved'}, {url: 'c', stage: 'Applying'}, {url: 'd', stage: 'Kit ready'}];
+  const after = [{url: 'a', stage: 'Closed'}, {url: 'b', stage: 'Dismissed'}, {url: 'c', stage: 'Closed'}, {url: 'd', stage: 'Kit ready'}];
+  assert.deepEqual(takenDown(before, after).map(job => job.url), ['a']);
+  assert.deepEqual(takenDown([], after), []);   // the first load is not news
+});

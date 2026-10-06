@@ -681,6 +681,7 @@ def main():
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'scoring skipped: {type(error).__name__}')
+        open_urls = None   # the crawl's open jobs, set by the Job Matches sync below; None checks every saved job
         if tracker and args.mode in ('scheduled', 'run', 'today'):
             # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
             try:
@@ -708,6 +709,13 @@ def main():
             except Exception as error:
                 print(f'Warning: ledger sync skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'ledger sync skipped: {type(error).__name__}')
+            # Saved / Kit ready jobs whose posting was taken down (their board confirms it) → Closed, named in the report.
+            try:
+                summary, run['gone_titles'] = ledger.close_gone(tracker, open_urls)
+                print(summary)
+            except Exception as error:
+                print(f'Warning: taken-down check skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'taken-down check skipped: {type(error).__name__}')
             # A recorded interview whose application still says Interview scheduled (saved before the app moved it on).
             try:
                 print(interviews.sweep(tracker))

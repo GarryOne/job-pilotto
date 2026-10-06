@@ -452,13 +452,36 @@ def posting(url):
     return next((job for job in jobs if _same_job(job, wanted)), None)
 
 
-def is_live(url):
-    """True if the posting is still on its job board, False if the board no longer lists it,
-    None when we can't tell (unsupported board, or the board didn't answer)."""
-    found = detect(url)
-    if not found:
+def _own_domain_board(url, company):
+    """(ats, slug, job id) for a Greenhouse posting on the employer's own site ("n26.com/…?gh_jid=123"), found from the
+    company name; only a board whose postings link back to that same site counts, so a guessed slug of another
+    company can never say a job is gone. None when there's no such board."""
+    jid = re.search(r'[?&]gh_jid=(\d+)', url or '')
+    host = urllib.parse.urlsplit(url or '').hostname or ''
+    if not jid or not host or not company:
         return None
-    wanted = _wanted(url)
+    for slug in slug_guesses(company):
+        try:
+            jobs = _board('greenhouse', slug)
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError,
+                json.JSONDecodeError, OSError):
+            continue
+        if any(urllib.parse.urlsplit(job['url']).hostname == host for job in jobs):
+            return 'greenhouse', slug, jid.group(1)
+    return None
+
+
+def is_live(url, company=''):
+    """True if the posting is still on its job board, False if the board no longer lists it,
+    None when we can't tell (unsupported board, or the board didn't answer). A Greenhouse posting on the
+    employer's own site is checked on that employer's board when `company` is given."""
+    found = detect(url)
+    wanted = _wanted(url) if found else None
+    if not found:
+        own = _own_domain_board(url, company)
+        if not own:
+            return None
+        found, wanted = own[:2], own[2]
     try:
         jobs = _board(*found)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,

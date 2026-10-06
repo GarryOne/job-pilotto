@@ -201,3 +201,9 @@ export const prepareState = (job, tracker = preparing) => {
   if (job.kit) { tracker.delete(job.code); return ''; }
   return tracker.get(job.code) || '';
 };
+// Jobs you saved or drafted a kit for that a refresh found Closed: their posting was taken down (the daily check, or a
+// batch Apply that found it gone). Said in a pop-up, so a job you were looking at doesn't vanish without a word.
+export function takenDown(before, after) {
+  const was = new Map((before || []).filter(job => ['Saved', 'Kit ready'].includes(job.stage)).map(job => [job.url, job]));
+  return (after || []).filter(job => job.stage === 'Closed' && was.has(job.url));
+}
