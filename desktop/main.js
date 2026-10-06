@@ -913,6 +913,20 @@ function handlers() {
     if (code !== 0) return {ok: false, error: 'Could not read the coverage (see the activity log)'};
     try { return {ok: true, coverage: JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: true, coverage: null}; }
   });
+  // "Your filters drop jobs": only what the engine's own coverage listed can be removed (never a word typed elsewhere).
+  ipcMain.handle('loosenSearch', async (_, asked = {}) => {
+    if (DEMO) return {ok: true, removed: []};
+    try {
+      const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
+      if (code !== 0) throw new Error('Could not read the coverage (see the activity log)');
+      const said = JSON.parse(stdout.trim().split('\n').pop()) || {};
+      const listedWords = new Set((said.excluded || []).map(item => item.fragment)), listedLanguages = new Set((said.languages || []).map(item => item.language));
+      const result = await strategy.loosen(storage, {excludes: (asked.excludes || []).filter(word => listedWords.has(word)),
+        languages: (asked.languages || []).filter(language => listedLanguages.has(language))}, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      appLog('search', `filters loosened: ${result.removed.join(', ') || 'none'}`);
+      return {ok: true, ...result};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('addRoles', async (_, terms) => {
     if (DEMO) return {ok: true, added: []};
     try {

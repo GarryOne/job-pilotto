@@ -158,3 +158,15 @@ class TradeSuggestionsTests(unittest.TestCase):
         self.assertEqual(names, ['brave', 'aggregators', 'serpapi'])
         self.assertEqual([s['id'] for s in coverage.unused_sources({'JOOBLE_API_KEY': 'k', 'JOB_PILOTTO_AI_ENGINE': 'cli'})], ['serpapi'],
                          'Claude Code\'s own web search stands in for the Brave key')
+
+
+class DroppedByFiltersTests(unittest.TestCase):
+    def test_jobs_an_excluded_word_drops_are_counted_and_said(self):
+        t = coverage.Tally()
+        for title in ['Senior Sales Associate'] * 3 + ['Sales Associate']:
+            t.add(title, True, title == 'Sales Associate', excluded=title.startswith('Senior'), dropped_by=r'\bsenior\b' if title.startswith('Senior') else '')
+        summary = t.summary()
+        self.assertEqual([(e['fragment'], e['count']) for e in summary['excluded']], [(r'\bsenior\b', 3)])
+        said = coverage.verdict(summary, ['sales associate'], [], [r'\bsenior\b'])
+        self.assertEqual(said['excluded'][0]['count'], 3)
+        self.assertEqual(coverage.verdict(summary, ['sales associate'], [], [])['excluded'], [], 'a word no longer in the settings is not offered')

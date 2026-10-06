@@ -20,6 +20,23 @@ export function coverageCard(verdict, dismissedAt = '') {
   };
 }
 
+// "Your filters drop jobs" (src/coverage.py): excluded title words and ruled-out languages, each with the jobs it hid; a chip removes it.
+export function filtersCard(verdict, dismissedAt = '') {
+  const words = Array.isArray(verdict?.excluded) ? verdict.excluded : [], languages = Array.isArray(verdict?.languages) ? verdict.languages : [];
+  if (!words.length && !languages.length) return null;
+  if (dismissedAt && verdict.at && dismissedAt === verdict.at) return null;
+  const sample = item => (item.examples?.length ? `, e.g. ${item.examples.join('; ')}` : '');
+  return {
+    title: 'Your own filters hide jobs',
+    text: 'These jobs match your roles and places, but a filter of yours drops them. Remove a filter to see them in the next searches:',
+    chips: [...words.map(item => ({exclude: item.fragment, label: `− "${item.fragment.replace(/\\b/g, '')}" · ${number(item.count)}`,
+      title: `${number(item.count)} job${item.count === 1 ? '' : 's'} with this excluded word in the title${sample(item)}`})),
+    ...languages.map(item => ({language: item.language, label: `− requires ${item.language} · ${number(item.count)}`,
+      title: `${number(item.count)} job${item.count === 1 ? '' : 's'} hidden because they require ${item.language}${sample(item)}`}))],
+    at: verdict.at || '',
+  };
+}
+
 // "More places to find jobs" (src/coverage.py unused_sources): the job sources this install does not use, least effort first, each with what it
 // takes (a free key, a paid plan). Shown whatever the coverage: more sources mean more jobs. A chip opens its panel in Settings → Connections.
 export function sourcesCard(verdict, dismissedAt = '') {

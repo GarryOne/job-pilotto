@@ -9,7 +9,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {coverageCard, placesCard, sourcesCard} from '../coverage-card.js';
+import {coverageCard, filtersCard, placesCard, sourcesCard} from '../coverage-card.js';
 import {openSetting} from './settings.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
@@ -118,6 +118,7 @@ function renderStrategy(data) {
 // of the market and some role word would add real numbers. Adding a term rewrites the search settings, in the app and in Notion.
 const DISMISSED = 'jp.coverage.dismissed';
 const SOURCES_DISMISSED = 'jp.sources.dismissed';
+const FILTERS_DISMISSED = 'jp.filters.dismissed';
 const remembered = (key = DISMISSED) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
 // The last verdict, kept so the cards are in place at the FIRST paint: the engine's answer takes seconds (a Python start), and a card that arrived after the page had stood still
 // pushed everything down while it was being read (5 Oct 2026). With nothing kept yet, a "Checking…" card holds the place; once a visit has found no card, nothing is held.
@@ -128,6 +129,11 @@ const paintCoverage = verdict => {
     chip => window.pilot.addRoles([chip.term]), chip => `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`);
   showCard(placesCard(verdict, remembered(PLACES_DISMISSED)), {box: 'strategy-places', title: 'places-title', text: 'places-text', chips: 'places-chips', dismiss: 'places-dismiss', key: PLACES_DISMISSED},
     chip => window.pilot.addPlaces([chip.place]), chip => `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`);
+  // Filters of the user's own that hide matching jobs: a chip removes that filter (the same showCard as the role words).
+  showCard(filtersCard(verdict, remembered(FILTERS_DISMISSED)), {box: 'strategy-filters', title: 'filters-title', text: 'filters-text', chips: 'filters-chips', dismiss: 'filters-dismiss', key: FILTERS_DISMISSED},
+    chip => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
+    chip => chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. The next searches show them (also in your Search settings in Notion).`
+      : `Jobs that require ${chip.language} are no longer hidden. The next searches show them (also in your Search settings in Notion).`);
   // Unused job sources: a chip opens its panel in Settings → Connections (a key to add there), nothing is turned on from here.
   const sources = sourcesCard(verdict, remembered(SOURCES_DISMISSED));
   show($('strategy-sources'), !!sources);

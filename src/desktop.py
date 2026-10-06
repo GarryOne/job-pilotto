@@ -363,8 +363,11 @@ def main(argv=None):
             from .paths import load_search_config
             search = load_search_config()
             places = search.get('locations') or {}
-            print(json.dumps(coverage.verdict(coverage.load(), search.get('role_keywords') or [],
-                                              [fragment for group in places.values() for fragment in group]), ensure_ascii=False))
+            said = coverage.verdict(coverage.load(), search.get('role_keywords') or [],
+                                    [fragment for group in places.values() for fragment in group], search.get('title_exclude_keywords') or [])
+            if said is not None:
+                said['languages'] = coverage.language_drops()
+            print(json.dumps(said, ensure_ascii=False))
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()

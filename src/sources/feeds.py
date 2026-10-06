@@ -42,6 +42,16 @@ def wanted_title(title):
 def excluded_title(title):
     return bool(EXCLUDED_TITLES.search(title or '') or EXCLUDED_TITLES.search(plain(title)))
 
+
+EXCLUDED_EACH = [(fragment, keyword_regex([fragment])) for fragment in _SEARCH.get('title_exclude_keywords') or []]
+
+
+def dropped_by(title):
+    """The excluded-title word that drops a title the role keywords catch ('' when none): counted, so the app can say what a word costs."""
+    if not (TITLES.search(title or '') or TITLES.search(plain(title))):
+        return ''
+    return next((fragment for fragment, pattern in EXCLUDED_EACH if pattern.search(title or '') or pattern.search(plain(title))), '')
+
 # Feed jobs outside these places (config/search.json's locations, plus generic remote synonyms)
 # are dropped before they reach the digest or the AI stages.
 _PLACES = [*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
@@ -166,7 +176,7 @@ def scan(sources, db, fetcher=fetch, details=None):
             with db:
                 for job in jobs:
                     in_place, hit = wanted_location(job), wanted_title(job["title"])
-                    tally.add(job["title"], in_place, hit, excluded=excluded_title(job["title"]), location=job["location"])
+                    tally.add(job["title"], in_place, hit, excluded=excluded_title(job["title"]), location=job["location"], dropped_by=dropped_by(job["title"]))
                     if hit and in_place:
                         matched.append({
                             "company": source["company"], "id": str(job["id"]),

@@ -78,12 +78,18 @@ class Tally:
         self.near = {term: {'count': 0, 'examples': []} for term in vocab}
         self.title_hits = self.elsewhere = 0   # role-keyword matches anywhere / those outside the wanted places
         self.places = {label: {'count': 0, 'examples': [], 'fragment': fragment} for label, fragment, _ in PLACE_PATTERNS}
+        self.dropped = {}   # excluded-title word -> postings in the places that the role keywords caught and that word dropped
 
     def feed(self):
         self.feeds += 1
 
-    def add(self, title, in_place, matched, excluded=False, location=''):
+    def add(self, title, in_place, matched, excluded=False, location='', dropped_by=''):
         self.fetched += 1
+        if dropped_by and in_place:
+            entry = self.dropped.setdefault(dropped_by, {'count': 0, 'examples': []})
+            entry['count'] += 1
+            if len(entry['examples']) < EXAMPLES and title not in entry['examples']:
+                entry['examples'].append(title)
         if matched and not excluded:
             self.title_hits += 1
             if not in_place:
@@ -117,7 +123,7 @@ class Tally:
                              key=lambda item: -item['count'])
         places = sorted(({'place': label, **entry} for label, entry in self.places.items() if entry['count'] >= MIN_PLACE_POSTINGS),
                         key=lambda item: -item['count'])
-        return {'at': (now or datetime.now(timezone.utc)).isoformat(timespec='seconds'), 'feeds': self.feeds, 'fetched': self.fetched,
+        return {'excluded': sorted(({'fragment': f, **e} for f, e in self.dropped.items()), key=lambda item: -item['count'])[:8], 'at': (now or datetime.now(timezone.utc)).isoformat(timespec='seconds'), 'feeds': self.feeds, 'fetched': self.fetched,
                 'in_places': self.in_places, 'matched': self.matched, 'suggestions': suggestions,
                 'title_hits': self.title_hits, 'places': places, 'elsewhere': self.elsewhere}
 
@@ -162,7 +168,7 @@ def technical_search(search):
     return kinds is None or 'software' in kinds
 
 
-def verdict(summary, keywords=(), locations=()):
+def verdict(summary, keywords=(), locations=(), excludes=None):
     """What to tell the user: {'narrow': bool, 'share': matched / in_places, 'suggestions': those not already keywords}.
     Narrow = the keywords catch under NARROW_BELOW of the in-place postings AND some listed term would add at least 5 more.
     A search with no technical keyword (a nurse, an accountant) gets no engineering suggestions and no "too narrow" warning."""
@@ -180,7 +186,8 @@ def verdict(summary, keywords=(), locations=()):
     local = any(item['local'] and item['count'] >= LOCAL_MIN for item in suggestions)
     return {'narrow': (share < NARROW_BELOW and any(s['count'] >= 5 for s in suggestions)) or local, 'local': local, 'share': share, 'matched': summary['matched'],
             'in_places': summary['in_places'], 'fetched': summary['fetched'], 'feeds': summary['feeds'], 'at': summary.get('at'),
-            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources()}
+            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources(),
+            'excluded': [item for item in summary.get('excluded') or [] if item['fragment'] in set(excludes or ()) and item['count'] >= 2]}
 
 
 # Ways to get more jobs this install does not use yet, least effort first. Fixed list: what each costs is said, nothing is turned on here
@@ -203,6 +210,28 @@ def unused_sources(env=None):
     """[{id, name, effort, gain}] of SOURCES this install does not use, in order (least effort first)."""
     env = os.environ if env is None else env
     return [{key: source[key] for key in ('id', 'name', 'effort', 'gain')} for source in SOURCES if source['unused'](env)]
+
+
+def language_drops(db=None):
+    """[{language, count, examples}]: open jobs in the cache that a language in the user's "languages that rule a job out" hides (the
+    AI read it as required), most first. 6 Oct 2026: a photographer's preferences ruled out English, German, Italian and Spanish."""
+    from . import digest, store
+    from .paths import JOBS_DB
+    try:
+        db = db or store.connect(JOBS_DB)
+        _, hidden = digest.eligible_jobs(db)
+    except Exception:  # noqa: BLE001 — no cache yet: nothing to say
+        return []
+    ruled_out = set(digest.PREFERENCES.get('disqualifying_languages') or [])
+    counts = {}
+    for job in hidden:
+        for item in (job.get('ai') or {}).get('languages') or []:
+            if item.get('level') == 'required' and item.get('language') in ruled_out:
+                entry = counts.setdefault(item['language'], {'language': item['language'], 'count': 0, 'examples': []})
+                entry['count'] += 1
+                if len(entry['examples']) < EXAMPLES:
+                    entry['examples'].append(str(job.get('title') or '')[:80])
+    return sorted(counts.values(), key=lambda item: -item['count'])
 
 
 def places_verdict(summary, locations=()):

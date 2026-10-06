@@ -342,6 +342,37 @@ async function widen(storage, wanted, list, change, {run, ensurePage, writePage,
 }
 const ADD_ROLES_ATTEMPTS = 3;
 
+// The other way to more jobs (owner, 6 Oct 2026: "his strategy may be what stops the app finding jobs"): drop an excluded title word or a
+// language that rules jobs out, after the app said how many jobs it costs (src/coverage.py). Same care as widen: the page is read first,
+// both cached files change, the page is published, the change is checked; Notion refusing puts the files back.
+export async function loosen(storage, {excludes = [], languages = []}, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
+  const lower = list => new Set(list.map(item => String(item).toLowerCase()));
+  const dropWords = lower(excludes), dropLanguages = lower(languages);
+  if (!dropWords.size && !dropLanguages.size) return {removed: []};
+  for (let attempt = 0; attempt < ADD_ROLES_ATTEMPTS; attempt++) {
+    if (attempt) await wait(2000 * attempt);
+    await run(storage, ['src.notion.search_settings', 'sync']);
+    const searchBefore = storage.readText('config/search.json') || '{}', prefsBefore = storage.readText('config/preferences.json') || '{}';
+    const search = JSON.parse(searchBefore), prefs = JSON.parse(prefsBefore);
+    const words = search.title_exclude_keywords || [], spoken = prefs.disqualifying_languages || [];
+    const removed = [...words.filter(word => dropWords.has(String(word).toLowerCase())), ...spoken.filter(language => dropLanguages.has(String(language).toLowerCase()))];
+    if (!removed.length) return {removed: []};
+    storage.writeText('config/search.json', JSON.stringify({...search, title_exclude_keywords: words.filter(word => !dropWords.has(String(word).toLowerCase()))}, null, 2) + '\n');
+    storage.writeText('config/preferences.json', JSON.stringify({...prefs, disqualifying_languages: spoken.filter(language => !dropLanguages.has(String(language).toLowerCase()))}, null, 2) + '\n');
+    try {
+      await publishSearchSettings(storage, {run, ensurePage, writePage});
+      const still = [...(JSON.parse(storage.readText('config/search.json') || '{}').title_exclude_keywords || []), ...(JSON.parse(storage.readText('config/preferences.json') || '{}').disqualifying_languages || [])]
+        .filter(item => dropWords.has(String(item).toLowerCase()) || dropLanguages.has(String(item).toLowerCase()));
+      if (!still.length) return {removed};
+    } catch (error) {
+      storage.writeText('config/search.json', searchBefore);
+      storage.writeText('config/preferences.json', prefsBefore);
+      throw error;
+    }
+  }
+  throw new Error('A search changed your settings while they were being saved. Try again.');
+}
+
 // Tune my strategy: the changes the engine proposed from the user's outcomes (src/tune.py) and the user ticked. The caller
 // passes proposals the engine produced again just now, never the window's copy, so only an offered change is ever written.
 // Same loop as widen(): sync the page, change the cache, publish, check the change stayed.
