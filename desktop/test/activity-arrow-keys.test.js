@@ -5,12 +5,13 @@ import {test} from 'node:test';
 
 const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
 
-test('Recent activity handles ArrowUp/ArrowDown, skips queued rows and keeps the focus on the current row', () => {
-  const block = source.slice(source.indexOf("$('activity-recent').addEventListener('keydown'"));
+test('Recent activity handles ArrowUp/ArrowDown from the current row, not from the focus, and skips queued rows', () => {
+  const block = source.slice(source.indexOf("document.addEventListener('keydown', event => {\n    if (event.key !== 'ArrowDown'"));
   assert.match(block, /ArrowDown/); assert.match(block, /ArrowUp/);
   assert.match(block, /:not\(\[data-state="queued"\]\)/);
-  assert.match(block, /\.recent-row\.current/);
-  assert.match(source, /keepFocus/);   // the redraw gives the focus back, whatever caused it
+  assert.match(block, /classList\.contains\('current'\)/);
+  assert.match(block, /\$\('activity-panel'\)\.hidden/);
+  assert.match(block, /input, textarea, select/);   // typing keeps its own arrows
 });
 
 test('the Recent activity row builder returns its button (a missing return drew "undefined" rows, 6 Oct 2026)', () => {

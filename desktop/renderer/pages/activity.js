@@ -1295,15 +1295,17 @@ export async function init() {
     if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
   });
   $('activity-filter').addEventListener('click', () => openMenu($('activity-filter'), filterMenu()));
-  // ↑/↓ walk Recent activity: the neighbouring run opens, as if clicked. The list is redrawn on every selection, so the
-  // new current row takes the focus back (waiting runs cannot be opened and are skipped).
-  $('activity-recent').addEventListener('keydown', event => {
+  // ↑/↓ walk Recent activity while the panel is open: the neighbouring run opens, as if clicked. It does not depend on where
+  // the focus is (every redraw of the list can drop it, and with live data one does come at any moment): it starts from the
+  // current row. Typing in a field, an open menu and modifier keys keep their own arrows. Waiting runs have nothing to open.
+  document.addEventListener('keydown', event => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    if ($('activity-panel').hidden || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    if (event.target.closest?.('input, textarea, select, [contenteditable], [role="menu"], [role="listbox"], .menu')) return;
     const rows = [...$('activity-recent').querySelectorAll('.recent-row:not([data-state="queued"])')];
-    const at = rows.indexOf(event.target.closest('.recent-row'));
-    const next = rows[at + (event.key === 'ArrowDown' ? 1 : -1)];
+    const next = rows[rows.findIndex(row => row.classList.contains('current')) + (event.key === 'ArrowDown' ? 1 : -1)];
     event.preventDefault();
-    if (at < 0 || !next) return;
+    if (!next) return;
     next.click();
     $('activity-recent').querySelector('.recent-row.current')?.scrollIntoView({block: 'nearest'});
   });
