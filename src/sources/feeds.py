@@ -127,9 +127,24 @@ REST_AFTER, REST_DAYS = 5, 7
 REST_TABLE = 'CREATE TABLE IF NOT EXISTS feed_rest (board TEXT PRIMARY KEY, misses INTEGER NOT NULL, rest_until TEXT, search TEXT NOT NULL)'
 
 
+def _readers():
+    """A fingerprint of the job readers: an employer resting under older readers (which may have read it wrong) is woken by a release."""
+    digest = hashlib.sha256()
+    for name in ('ats.py', 'careers.py', 'render.py', 'feeds.py'):
+        try:
+            digest.update((Path(__file__).parent / name).read_bytes())
+        except OSError:
+            digest.update(name.encode())
+    return digest.hexdigest()[:12]
+
+
+READERS = _readers()
+
+
 def _search_digest(search=None):
+    """What a rest depends on: the roles and places searched, and the readers that found nothing (either changing starts over)."""
     search = search or _SEARCH
-    return hashlib.sha256(json.dumps([search.get('role_keywords'), search.get('locations')], sort_keys=True, default=str).encode()).hexdigest()[:12]
+    return hashlib.sha256(json.dumps([search.get('role_keywords'), search.get('locations'), READERS], sort_keys=True, default=str).encode()).hexdigest()[:12]
 
 
 def resting(db, now, search=None):

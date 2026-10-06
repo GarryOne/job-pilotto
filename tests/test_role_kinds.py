@@ -123,3 +123,11 @@ class RoleFamilyTests(unittest.TestCase):
         from src.ai import enrich
         families = set(enrich.SCHEMA['properties']['role_family']['enum'])
         self.assertTrue(set(role_kinds.KINDS) - {'software', 'other'} <= families)
+
+
+class RestReadersTests(unittest.TestCase):
+    def test_new_readers_wake_every_resting_employer(self):
+        with mock.patch.object(feeds, 'READERS', 'aaaaaaaaaaaa'):
+            old = feeds._search_digest({'role_keywords': ['x'], 'locations': {}})
+        with mock.patch.object(feeds, 'READERS', 'bbbbbbbbbbbb'):
+            self.assertNotEqual(feeds._search_digest({'role_keywords': ['x'], 'locations': {}}), old)
