@@ -24,7 +24,7 @@ export const SCREENS = [
   ['actions', 'Actions: running banner, task cards by category with Run, Recent runs table', `${open('actions')} ${wait(1500)}`],
   ['interviews', 'Interviews: recorder, drafts and the saved library table', `${open('interviews')} ${wait(1200)}`],
   ['settings', 'Settings: setting rows (title, explanation, control)', `${open('settings')} ${wait(1200)}`],
-  ['strategy', 'Strategy: targeting rows with chips, score bars, Avoid; side glance card', `${open('strategy')} ${wait(2500)}`],
+  ['strategy', 'Strategy: targeting rows with chips, score bars, Avoid; side glance card', `${open('strategy')} ${wait(8000)}`],   // its data takes 3-8 s in demo now: 2.5 s caught the loading state (6 Oct 2026)
   ['strategy-loading', 'Strategy loading: each card in its final shape, greyed; "Loading strategy…" pill', `${open('strategy')} ${wait(900)}`,
     {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '60000'}],
 ];
