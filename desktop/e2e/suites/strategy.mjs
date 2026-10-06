@@ -192,18 +192,7 @@ export async function run(ctx) {
     }
   }, {needs: ctx.needs});
 
-  await ctx.run('accepting a strategy change in the app keeps what was edited on the Notion page meanwhile', async () => {
-    const id = await settingsPage();
-    const before = await pageSections(NOTION, id);
-    await setSection(NOTION, id, 'Companies to skip', [...(before['Companies to skip'] || []), edited]);   // edited in Notion, no check has run since
-    const search = read('search.json');
-    const saved = await page.evaluate(draft => window.pilot.saveStrategy(draft, ['search']), {
-      profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search: {...search, remote_excluded_regions: [...(search.remote_excluded_regions || []), region]}, preferences: {}});
-    if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
-    const after = await pageSections(NOTION, id);
-    if (!has(after['Companies to skip'], edited)) throw new Error('the edit made on the Notion page was overwritten when a strategy change was accepted');
-    if (!has(after['Remote jobs: regions to skip'], region)) throw new Error('the accepted change did not reach the page');
-  }, {needs: ctx.needs});
+  // Removed 6 Oct 2026 (7-minute suite budget): accepting a change keeps edits made on the page meanwhile; test/strategy-roles.test.js covers it.
 
   await ctx.run('a fresh install reconnecting to the same Notion page keeps the real settings and links the same page', async () => {
     const id = await settingsPage();

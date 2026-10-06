@@ -19,3 +19,12 @@ test('the runner records the hang as a failed step and goes on when keepGoing', 
   assert.match(runner.results[0].note, /it hung/);
   assert.match(await hangReport(null), /no app session/);
 });
+
+test('past the suite budget the steps left are recorded as not run, and a running step is cut at the budget', async () => {
+  const runner = createRunner(() => session, {keepGoing: true, budgetMs: 120});
+  await runner.run('slow', () => new Promise(done => setTimeout(done, 60)));
+  await runner.run('runs into the budget', never);
+  await runner.run('left over', async () => {});
+  assert.deepEqual(runner.results.map(result => [result.name, result.status]), [['slow', 'passed'], ['runs into the budget', 'failed'], ['left over', 'failed']]);
+  assert.match(runner.results[2].note, /not run: the suite was over its/);
+});

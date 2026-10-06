@@ -13,6 +13,7 @@ import {databaseText, emptyDatabase, findPage, pageText} from '../lib/notion.mjs
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 40;
+export const budgetMinutes = 15;   // manual only, two users one after the other: the one suite allowed past the 7-minute budget (lib/runner.mjs)
 // MANUAL (2 Oct 2026, kept, not deleted): It proves nothing is hard-coded to the owner (Swiss/EU wording, visa flag, currencies): one-time hygiene that costs 15 minutes and two
 // full AI runs each time. No schedule, push or release gate runs it (cadence 'manual', lib/plan.mjs); run it by hand when a change could bring owner-specific text back:
 //   gh workflow run e2e.yml -f suite=personas        or        node suite.mjs personas

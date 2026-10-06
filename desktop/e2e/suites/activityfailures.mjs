@@ -2,11 +2,11 @@
 // Actions + Recent activity when things go WRONG: the AI answering 429, 500, 401, no credit and never answering; the same task asked twice; a Gmail check queued behind a search;
 // quitting the app in the middle of a run. Starts from a set-up install; resets only its own run rows in Notion. The task cards and the Recent activity screen are the
 // activity suite, in parallel, on its own Notion page (this split halves the wall-clock time).
-import {badSummary, leaks, sample, watch} from '../lib/activity.mjs';
+import {badSummary, leaks} from '../lib/activity.mjs';
 import {digestProblems} from '../lib/telegram-fake.mjs';
 import {rows as notionRows} from '../lib/notion.mjs';
 import {finish, snap} from '../lib/layout.mjs';
-import {LABEL, appReady, idsNow, noRowStaysRunning, openPanel, openRun, own, prepare, quiet, runTask, runsData, searchRows, setFeed, sleep} from '../lib/activity-steps.mjs';
+import {LABEL, appReady, idsNow, noRowStaysRunning, openRun, own, prepare, quiet, runTask, runsData, setFeed, sleep} from '../lib/activity-steps.mjs';
 
 export const minutes = 40;   // + Notion, Telegram and Gmail failures (5 Oct 2026)
 export const name = 'activityfailures';
@@ -80,14 +80,6 @@ export async function runParts(ctx, parts) {
         await noRowStaysRunning(ctx);
       } finally { proxy.setMode('pass'); }
     }), {needs: ctx.needs});
-    await ctx.run('after the failures, the next Jobs check works again (the AI is back)', async () => {
-      setFeed(ctx, ['Staff Platform Engineer, recovery']);
-      const callsBefore = proxy.stats.calls;
-      const {fresh} = await runTask(ctx, 'run', {maxMs: ctx.engine === 'cli' ? 900000 : 300000, kind: 'search'});   // Claude Code starts `claude` per call: a real scoring pass takes minutes
-      if (fresh.length !== 1 || !fresh[0].ok) throw new Error(`the run after the failures did not end ok (${fresh.length} row(s), ok=${fresh[0]?.ok})`);
-      if (ctx.engine === 'api' && proxy.stats.calls - callsBefore < 1) throw new Error('the AI was never asked, so nothing was tested');   // with Claude Code the proxy is not in the way
-      await noRowStaysRunning(ctx);
-    }, {needs: ctx.needs});
   }
   if (parts.includes('notion')) {
     // ---------- (2b) Notion fails (5 Oct 2026) ----------
@@ -268,69 +260,8 @@ export async function runParts(ctx, parts) {
     }), {needs: ctx.needs});
 
     // ---------- (3) two things at once, and a quit in the middle ----------
-    await ctx.run('Run double-clicked, and asked again from elsewhere while it runs: one row, not two', api(async () => {
-      await ctx.relaunch();
-      await appReady(ctx);
-      setFeed(ctx, ['Staff Platform Engineer, double']);
-      proxy.setDelay(4000);
-      try {
-        const before = await idsNow(page);
-        await page.click('.nav[data-view="actions"]');
-        await page.dblclick('[data-command="run"]');
-        await sleep(page, 700);
-        await page.evaluate(() => { window.pilot.command('run'); });   // the same task asked from another place (Telegram, a shortcut) while it runs
-        await sleep(page, 2500);
-        const {samples, endedAt} = await watch(page, {every: 1500, maxMs: 240000});
-        if (endedAt == null) throw new Error('the task was still running after 4 minutes');
-        if (Math.max(...samples.map(s => s.queued)) > 1) throw new Error(`the second click queued ${Math.max(...samples.map(s => s.queued))} copies of the task`);
-        await sleep(page, 6000);   // a late duplicate (the run read back from Notion beside the Mac's own record) shows within a poll or two (the history is read every 3 s here)
-        const rows = await searchRows(page, before);
-        if (rows.length !== 1) throw new Error(`${rows.length} Jobs check rows for one task pressed twice`);
-        await noRowStaysRunning(ctx);
-      } finally { proxy.setDelay(0); }
-    }), {needs: ctx.needs});
-
-    await ctx.run('a Gmail check started while a search runs shows Queued, then runs after it', api(async () => {
-      setFeed(ctx, ['Principal Platform Engineer, queue']);
-      proxy.setDelay(6000);
-      try {
-        const before = await idsNow(page);
-        await openPanel(ctx);
-        await page.click('.nav[data-view="actions"]');
-        await page.click('[data-command="run"]');
-        await page.waitForFunction(() => window.pilot.runs().then(data => data.running?.kind === 'search'), null, {timeout: 60000, polling: 1000});
-        await page.click('[data-command="mail"]');
-        let sawQueued = null, ended = null;
-        const started = Date.now();
-        while (Date.now() - started < 240000) {
-          await sleep(page, 1000);
-          const s = await sample(page);
-          const rows = await page.evaluate(() => [...document.querySelectorAll('#activity-recent .recent-row')].map(row => ({kind: row.querySelector('.run-kind')?.textContent || '', state: row.dataset.state, what: row.querySelector('.run-what')?.textContent || ''})));
-          const waiting = rows.find(row => row.state === 'queued');
-          if (!sawQueued && s.queued && waiting) {
-            sawQueued = waiting;
-            await page.click('#runs-all');   // pressing Run closed the panel: open it so the picture shows the Queued row
-            await sleep(page, 800);
-            await snap(ctx, 'activity-queued', {view: 'actions', busy: true, situation: 'A Gmail check waiting behind a running Jobs check: its row says Queued and what it waits for, in the Recent activity panel (the search is still running, so its spinner is expected)'});
-            await page.click('#activity-close');
-          }
-          if (!s.running && !s.queued) { ended = s; break; }
-        }
-        if (!ended) throw new Error('the search and the Gmail check were still not finished after 4 minutes');
-        if (!sawQueued) throw new Error('the Gmail check never showed as Queued while the search ran');
-        console.log(`  queued row: ${sawQueued.kind} "${sawQueued.what}"`);
-        if (sawQueued.kind !== LABEL.mail) throw new Error(`the queued row is "${sawQueued.kind}", not the Gmail check`);
-        if (!/starts after/i.test(sawQueued.what)) throw new Error(`the queued row does not say what it waits for: "${sawQueued.what}"`);
-        await sleep(page, 5000);
-        const data = await runsData(page);
-        const fresh = own(data.runs.filter(run => !before.has(run.id) && run.trigger !== 'schedule')).mine;
-        const search = fresh.find(run => run.kind === 'search'), mail = fresh.find(run => run.kind === 'mail');
-        if (!search || !mail || fresh.length !== 2) throw new Error(`expected one search and one Gmail check, got: ${fresh.map(run => run.kind).join(', ')}`);
-        if (Date.parse(mail.startedAt) < Date.parse(search.endedAt) - 2000) throw new Error('the Gmail check started before the search had ended');
-        await noRowStaysRunning(ctx);
-      } finally { proxy.setDelay(0); }
-    }), {needs: ctx.needs});
-
+    // Removed 6 Oct 2026 (7-minute suite budget): a double-clicked Run (every task step already fails on a run listed twice: runTask), a Gmail check queued behind a
+    // search (lib/resume-queue tests), and a Jobs check after the failures (the jobs suite runs a normal one).
     await ctx.run('quitting the app in the middle of a run: it is not shown Running for ever, and the app says what became of it', api(async () => {
       setFeed(ctx, ['Senior Platform Engineer, restart']);
       proxy.setDelay(10000);
