@@ -3,8 +3,8 @@
 
 What it is for: a company's public careers page built in the browser (the HTML a plain request gets is an empty shell). What it is not for:
 getting past a site that refuses automated visitors. It shows who it is (the same user agent as every other request, plus "browser"),
-reads robots.txt first, waits between pages of one site, loads no images, fonts or media, and gives up at the first 401/403/429 or
-bot-check page. A refusal is an answer. No stealth settings, no fingerprint changes, no proxies, no CAPTCHA solving.
+waits between pages of one site, loads no images, fonts or media, and gives up at the first 401/403/429 or bot-check page: a block is
+taken as it is. robots.txt is not consulted (owner's decision, 6 Oct 2026: "if they block us, they block"). No stealth settings, no fingerprint changes, no proxies, no CAPTCHA solving.
 """
 import json
 import os
@@ -12,7 +12,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import urllib.parse
 import urllib.request
-import urllib.robotparser
 
 from . import ats, careers
 
@@ -29,7 +28,7 @@ class Refused(Exception):
 
 # Playwright's sync API belongs to the thread that started it: every browser call runs on this one worker thread, one page at a time.
 _worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='render')
-_state = {'playwright': None, 'browser': None, 'pages': 0, 'last': {}, 'robots': {}}
+_state = {'playwright': None, 'browser': None, 'pages': 0, 'last': {}}
 
 
 def _app():
@@ -70,17 +69,6 @@ def close():
     _worker.submit(stop).result()
 
 
-def _allowed(url):
-    parts = urllib.parse.urlsplit(url)
-    origin = f'{parts.scheme}://{parts.netloc}'
-    if origin not in _state['robots']:
-        robots = urllib.robotparser.RobotFileParser()
-        try:
-            robots.parse(careers.get_text(f'{origin}/robots.txt').splitlines())
-        except Exception:  # noqa: BLE001 — no readable robots file: no objection
-            robots.parse([])
-        _state['robots'][origin] = robots
-    return _state['robots'][origin].can_fetch(ats.USER_AGENT, url)
 
 
 def render(url):
@@ -110,8 +98,6 @@ def _through_app(url):
 def _render(url, parts):
     if _state['pages'] >= MAX_PAGES:
         raise ValueError('page limit for this run reached')
-    if not _allowed(url):
-        raise ValueError('robots.txt asks not to fetch this page')
     wait = HOST_DELAY_S - (time.monotonic() - _state['last'].get(parts.hostname, 0))
     if wait > 0:
         time.sleep(wait)

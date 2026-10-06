@@ -87,11 +87,10 @@ class RenderGuardTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 render.render(bad)
 
-    def test_robots_txt_is_asked_first(self):
-        render._state['robots'].clear()
-        with mock.patch.object(careers, 'get_text', return_value='User-agent: *\nDisallow: /secret'):
-            self.assertFalse(render._allowed('https://acme.ch/secret/jobs'))
-            self.assertTrue(render._allowed('https://acme.ch/jobs'))
+    def test_robots_txt_is_not_consulted(self):
+        """Owner's decision, 6 Oct 2026: a site that does not want us blocks us (a 401/403/429 or a bot check is still a refusal)."""
+        self.assertFalse(hasattr(render, '_allowed'))
+        self.assertNotIn('robots', render._state)
 
     def test_the_scout_uses_the_browser_only_when_it_is_there(self):
         saved = careers.RENDER

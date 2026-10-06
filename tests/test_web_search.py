@@ -89,7 +89,7 @@ class AppRenderTests(unittest.TestCase):
             import io
             return mock.MagicMock(__enter__=lambda self: io.BytesIO(json.dumps(answers['no' if 'coop' in body['url'] else 'ok']).encode()), __exit__=lambda *a: None)
         with mock.patch.dict(os.environ, {'JOB_PILOTTO_RENDER_URL': 'http://127.0.0.1:47111/engine/render', 'JOB_PILOTTO_RENDER_TOKEN': 'k'}), \
-                mock.patch.object(render.urllib.request, 'urlopen', urlopen), mock.patch.object(render, '_allowed', lambda url: True):
+                mock.patch.object(render.urllib.request, 'urlopen', urlopen):
             self.assertTrue(render.available())
             self.assertIn('Vendeur', render.render('https://jobs.migros.ch/de'))
             with self.assertRaises(render.Refused):

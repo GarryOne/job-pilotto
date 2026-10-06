@@ -1,7 +1,7 @@
 // Careers pages that only exist after their scripts run, rendered for the engine (src/sources/render.py) in the app's own Chromium, so the Mac
 // needs no Playwright download (6 Oct 2026: Migros's job site reads as an empty shell without scripts). A hidden window in its own empty
-// session (no cookies, never the user's browser profile), no images, fonts or media, the engine's user agent plus "browser". The engine checks
-// robots.txt, paces each site and gives up at a 401/403/429 or a bot check: a refusal is an answer, nothing here works around it.
+// session (no cookies, never the user's browser profile), no images, fonts or media, the engine's user agent plus "browser". The engine
+// paces each site and gives up at a 401/403/429 or a bot check: a block is taken as it is (robots.txt is not consulted, owner, 6 Oct 2026).
 import crypto from 'node:crypto';
 import net from 'node:net';
 

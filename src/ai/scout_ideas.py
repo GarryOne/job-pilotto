@@ -13,7 +13,6 @@ for the extraction call, which can only answer in the fixed shape. No CV, no per
 import json
 import re
 import urllib.parse
-import urllib.robotparser
 from datetime import datetime, timezone
 
 from . import engine
@@ -211,17 +210,6 @@ def clean_candidates(items, origin, priority, known, limit=MAX_COMPANIES):
     return out
 
 
-def allowed(url, get=careers.get_text):
-    """The site's robots.txt lets us read this page (a robots file we cannot read means no objection; the page itself may still refuse)."""
-    parts = urllib.parse.urlsplit(url)
-    try:
-        text = get(f'{parts.scheme}://{parts.netloc}/robots.txt')
-    except Exception:  # noqa: BLE001
-        return True
-    robots = urllib.robotparser.RobotFileParser()
-    robots.parse(text.splitlines())
-    return robots.can_fetch(ats.USER_AGENT, url)
-
 
 def page_text(markup, base):
     """The page as plain text plus its outside links ("name -> address"), capped: all the extraction call sees of the page."""
@@ -240,7 +228,7 @@ def read_directory(client, directory, known, get=careers.get_text, search=None):
     """Candidates from one public list page, or [] when it is not allowed, not reachable or not useful."""
     url = str(directory.get('url') or '')
     parts = urllib.parse.urlsplit(url)
-    if parts.scheme not in ('http', 'https') or not careers.own_site(url) or not allowed(url, get):
+    if parts.scheme not in ('http', 'https') or not careers.own_site(url):
         return []
     try:
         markup = get(url)

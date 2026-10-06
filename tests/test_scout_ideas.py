@@ -81,11 +81,8 @@ class CheckingTheAnswerTests(unittest.TestCase):
         self.assertEqual(scout_ideas.origin_of('http://127.0.0.1:8080/x'), '')
         self.assertEqual(scout_ideas.origin_of('acme.ch/careers'), 'https://acme.ch')
 
-    def test_robots_txt_is_respected(self):
-        deny = lambda url: 'User-agent: *\nDisallow: /members'
-        self.assertFalse(scout_ideas.allowed('https://assoc.example/members', deny))
-        self.assertTrue(scout_ideas.allowed('https://assoc.example/other', deny))
-        self.assertTrue(scout_ideas.allowed('https://assoc.example/members', lambda url: (_ for _ in ()).throw(OSError('404'))))
+    def test_robots_txt_is_not_consulted(self):
+        self.assertFalse(hasattr(scout_ideas, 'allowed'), 'owner\'s decision, 6 Oct 2026: a site that does not want us blocks us')
 
     def test_page_text_lists_outside_links_and_drops_scripts(self):
         text = scout_ideas.page_text('<script>evil()</script><p>Hello</p>' + PAGE, 'https://assoc.example/members')
