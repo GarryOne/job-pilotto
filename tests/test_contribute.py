@@ -1,5 +1,6 @@
 """Opt-in contributions: only public facts and coarse tags leave, only when switched on, at most daily, never fatal."""
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -42,7 +43,10 @@ class PayloadTest(unittest.TestCase):
         self.assertEqual({(f['slug'], f['matched'], f['own']) for f in body['feeds']},
                          {('matched', True, False), ('mine', False, True)})   # 'quiet' gave nothing; 'nonsense' is not a feed system
         self.assertEqual(set(body), {'v', 'install', 'roles', 'regions', 'feeds'})
-        self.assertEqual(set(body['feeds'][0]), {'ats', 'slug', 'company', 'matched', 'own'})
+        self.assertEqual(body['v'], 2)
+        self.assertEqual(set(body['feeds'][0]), {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed', 'jobs', 'hits'} & set(body['feeds'][0]) | {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed'})
+        for feed in body['feeds']:
+            self.assertLessEqual(set(feed), {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed', 'jobs', 'hits'}, 'only public facts and counts')
         self.assertNotIn('Zurich', json.dumps(body))    # no search text: only fixed tags
 
 
@@ -67,13 +71,13 @@ class SendTest(unittest.TestCase):
             self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=posts.append, stamp=self.stamp, search=SEARCH, now=NOW))
         self.assertEqual(posts, [])
 
-    def test_sends_once_a_day_and_survives_a_dead_service(self):
+    def test_sends_after_every_run_ten_minutes_apart_and_survives_a_dead_service(self):
         posts = []
         with mock.patch.dict('os.environ', self.env, clear=True):
             ok = lambda request: posts.append(request) or 200  # noqa: E731
             self.assertTrue(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW, url='https://x.test/c'))
-            self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW + timedelta(hours=3)))
-            self.assertTrue(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW + timedelta(hours=25)))
+            self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW + timedelta(minutes=5)))
+            self.assertTrue(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW + timedelta(minutes=11)))
             self.assertEqual(len(posts), 2)
             self.assertEqual(json.loads(posts[0].data)['install'], 'abc-12345678')
 
@@ -101,3 +105,23 @@ class TradeTagsTests(unittest.TestCase):
         self.assertEqual(set(contribute.TRADE_ROLES), set(role_kinds.KINDS) - {'software', 'other'})
         roles, _ = contribute.tags({'role_keywords': ['vendeu(r|se)', 'magasinier', 'photograph(e|er)?'], 'locations': {'top_tier': ['geneva']}})
         self.assertEqual(roles, ['creative_media', 'logistics', 'sales_retail'])
+
+
+class FoundHereTests(unittest.TestCase):
+    def test_every_feed_the_scout_verified_is_shared_with_how_it_was_found(self):
+        """6 Oct 2026: only feeds that had matched a job went, so Coop or Manor stayed on the Mac until one of their jobs matched."""
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE feed_sources (ats TEXT, slug TEXT, company TEXT, active INTEGER)')
+        db.execute('CREATE TABLE scout_candidates (ats TEXT, slug TEXT, origin TEXT, careers TEXT)')
+        db.execute("INSERT INTO feed_sources VALUES ('successfactors', 'jobs.coop.ch', 'Coop', 1)")
+        db.execute("INSERT INTO scout_candidates VALUES ('successfactors', 'jobs.coop.ch', 'AI idea 2026-10-06', 'https://jobs.coop.ch/')")
+        feeds = [{'company': 'Coop', 'ats': 'successfactors', 'slug': 'jobs.coop.ch'}]
+        report = {'sources': [{'company': 'Coop', 'ok': True, 'total': 3142, 'matches': 0}]}
+        body = contribute.payload(feeds, report, None, install='abc-12345678', search=SEARCH, db=db)
+        self.assertEqual(body['feeds'], [{'ats': 'successfactors', 'slug': 'jobs.coop.ch', 'company': 'Coop', 'matched': False, 'own': False,
+                                         'how': 'ai_idea', 'site': 'https://jobs.coop.ch/', 'jobs': 3142, 'hits': 0, 'failed': False}])
+        self.assertEqual(set(word for _, word in contribute.HOW) | {'index', 'own', 'other'},
+                         set(re.findall(r"'(\w+)'", re.search(r'export const HOW = \[([^\]]+)\]',
+                             (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()).group(1))),
+                         'the words the app sends are the words the site keeps')

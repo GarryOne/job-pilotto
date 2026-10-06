@@ -16,7 +16,7 @@ from .sources import ats
 
 URL = 'https://www.jobpilotto.workers.dev/api/contribute'
 STAMP = DATA / 'contribution_sent.json'
-EVERY = timedelta(hours=24)
+EVERY = timedelta(minutes=10)   # shared after every jobs check and every 'Find new employers' (owner, 6 Oct 2026; was once a day)
 MAX_FEEDS = 500
 
 # Fixed lists: the only tags that ever leave the machine.
@@ -77,10 +77,36 @@ def tags(search=None):
     return sorted(roles) or ['other'], sorted(regions)
 
 
-def payload(feed_list, report, tracker=None, install=None, search=None):
-    """What would be sent: the feeds that gave this user a job (`matched`) and the ones they added themselves (`own`)."""
+# How an install found a feed, from the scout's candidate origin: fixed words only (the site accepts this same list: site/src/pool.js HOW).
+HOW = (('AI idea', 'ai_idea'), ('AI list', 'ai_list'), ('jobs.ch employer', 'jobs_ch'), ('Wikidata', 'wikidata'), ('Tier 1 seed', 'seed'),
+       ('Seed list', 'seed'), ('Hacker News', 'hn'), ('hiring-without-whiteboards', 'whiteboards'), ('SwissDevJobs', 'swissdevjobs'))
+
+
+def how_of(origin):
+    return next((word for prefix, word in HOW if str(origin or '').startswith(prefix)), 'other')
+
+
+def found_here(db):
+    """{(ats, slug): {'how', 'site'}} of the feeds this install's own scout verified (src/scout.py feed_sources), with how it found them."""
+    if db is None:
+        return {}
+    try:
+        rows = db.execute("""SELECT f.ats, f.slug, c.origin, c.careers FROM feed_sources f
+            LEFT JOIN scout_candidates c ON c.ats = f.ats AND c.slug = f.slug WHERE f.active = 1""").fetchall()
+    except Exception:  # noqa: BLE001 — no scout tables yet: nothing found here
+        return {}
+    site = lambda url: url if isinstance(url, str) and url.startswith('https://') and len(url) <= 200 else None
+    return {(row[0], row[1]): {'how': how_of(row[2]), 'site': site(row[3])} for row in rows}
+
+
+def payload(feed_list, report, tracker=None, install=None, search=None, db=None):
+    """What would be sent (v2): every feed this install's scout verified, the feeds that gave this user a job (`matched`) and the ones they
+    added themselves (`own`), each with how it was found, jobs listed, jobs that matched in their places, its job site and a failed read
+    (6 Oct 2026: only matched or own feeds went, without numbers, so most finds stayed on the Mac)."""
     from . import scout
     matched = {s['company'] for s in report.get('sources', []) if s.get('ok') and s.get('matches')}
+    read = {s['company']: s for s in report.get('sources', [])}
+    found = found_here(db)
     own = set()
     if tracker:
         try:
@@ -92,11 +118,15 @@ def payload(feed_list, report, tracker=None, install=None, search=None):
         system, slug = source.get('ats', 'greenhouse'), source.get('slug') or source.get('board')
         if system not in ats.FETCHERS or not slug:
             continue
-        is_own, is_matched = (system, slug) in own, source['company'] in matched
-        if is_own or is_matched:
-            feeds.append({'ats': system, 'slug': slug, 'company': source['company'][:120], 'matched': is_matched, 'own': is_own})
+        is_own, is_matched, here = (system, slug) in own, source['company'] in matched, found.get((system, slug))
+        if is_own or is_matched or here:
+            seen = read.get(source['company']) or {}
+            feeds.append({'ats': system, 'slug': slug, 'company': source['company'][:120], 'matched': is_matched, 'own': is_own,
+                          'how': (here or {}).get('how') or ('own' if is_own else 'index'), 'site': (here or {}).get('site'),
+                          **({'jobs': int(seen.get('total') or 0), 'hits': int(seen.get('matches') or 0)} if seen.get('ok') else {}),
+                          'failed': bool(seen) and not seen.get('ok')})
     roles, regions = tags(search)
-    return {'v': 1, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
+    return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
             'feeds': feeds[:MAX_FEEDS]}
 
 
@@ -139,10 +169,10 @@ def send(body, url=None, post=None, now=None, stamp=None):
 
 
 def maybe_send(feed_list, report, tracker=None, **kwargs):
-    """Called after a full crawl: does nothing unless the user opted in, and at most once a day."""
+    """Called after a full crawl and after a scout run: does nothing unless the user opted in, and at most every EVERY."""
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
-    body = payload(feed_list, report, tracker, search=kwargs.get('search'))
+    body = payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'))
     if not body['feeds']:
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
@@ -161,12 +191,13 @@ def main():
     tracker = notion.Tracker.from_env()
     with store.connect(JOBS_DB) as db:
         feed_list = scout.active_sources(db, tracker, scout.starter_list())
-    # Without a crawl in hand: every feed that is the user's own is shown; matched ones join after a crawl.
-    body = payload(feed_list, {'sources': []}, tracker)
+        # Without a crawl in hand: the feeds the scout verified and the user's own are shown; matched ones and counts join after a crawl.
+        body = payload(feed_list, {'sources': []}, tracker, db=db)
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'
     print(json.dumps(body, indent=1, ensure_ascii=False))
-    print('\nThis is a preview and nothing is sent by it. After each full crawl (at most once a day, and only when '
-          'this is switched on) the feeds that gave you a job are added to "feeds"; employers you added yourself are listed above.')
+    print('\nThis is a preview and nothing is sent by it. After each jobs check and each "Find new employers" (at most every 10 minutes, '
+          'and only when this is switched on) every feed your scout verified, the ones that gave you a job and the ones you added are sent, '
+          'with how each was found and how many jobs it listed and matched: public facts and counts, never your jobs, CV or search words.')
     return 0
 
 

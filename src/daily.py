@@ -665,7 +665,7 @@ def main():
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run'):
                 try:  # opt-in and at most daily (src/contribute.py); the pool never affects a run
-                    contribute.maybe_send(feed_list, report, tracker)
+                    contribute.maybe_send(feed_list, report, tracker, db=db)
                 except Exception as error:  # noqa: BLE001
                     print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
             if args.mode in ('scheduled', 'run'):

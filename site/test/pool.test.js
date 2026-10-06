@@ -8,7 +8,7 @@ import {purge} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -35,13 +35,13 @@ test('stores only the fixed shape: unknown systems, bad slugs and tags outside t
 
 test('invalid bodies and a wrong method are refused', async () => {
   const env = setup();
-  assert.equal((await post(env, {v: 2, install: 'install-aaaa1111', feeds: [feed('a')]})).status, 400);
+  assert.equal((await post(env, {v: 3, install: 'install-aaaa1111', feeds: [feed('a')]})).status, 400);   // v1 and v2 are known
   assert.equal((await post(env, {v: 1, install: 'x', feeds: [feed('a')]})).status, 400);
   assert.equal((await post(env, body('install-aaaa1111', []))).status, 400);
   assert.equal((await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute'), env, {})).status, 405);
 });
 
-test('one contribution per install per 12 hours', async () => {
+test('one contribution per install per 10 minutes (shared after every run)', async () => {
   const env = setup();
   assert.equal((await post(env, body('install-aaaa1111', [feed('a')]))).status, 200);
   assert.equal((await post(env, body('install-aaaa1111', [feed('b')]))).status, 429);
@@ -70,4 +70,18 @@ test('rows older than 90 days are dropped', async () => {
   env.STATS.db.prepare("UPDATE contributions SET day = '2026-01-01'").run();
   await purge(env, new Date('2026-09-30T12:00:00Z'));
   assert.equal(env.STATS.db.prepare('SELECT COUNT(*) AS n FROM contributions').get().n, 0);
+});
+
+test('share v2: how it was found, jobs listed, matches, its job site and a failed read are kept, checked, and added up for the scout', async () => {
+  const env = setup();
+  const v2 = (install, extra) => ({...body(install, [feed('coop', {ats: 'successfactors', slug: 'jobs.coop.ch', ...extra})]), v: 2});
+  assert.equal((await post(env, v2('install-aaaa1111', {how: 'ai_idea', jobs: 3142, hits: 7, site: 'https://jobs.coop.ch/viewalljobs/', failed: false}))).status, 200);
+  assert.equal((await post(env, v2('install-bbbb2222', {how: 'made-up', jobs: 3200, hits: 2, site: 'javascript:alert(1)', failed: true}))).status, 200);
+  const rows = env.STATS.db.prepare('SELECT how, jobs, hits, site, failed FROM contributions ORDER BY jobs').all();
+  assert.deepEqual(rows.map(row => ({...row})), [{how: 'ai_idea', jobs: 3142, hits: 7, site: 'https://jobs.coop.ch/viewalljobs/', failed: 0},
+    {how: null, jobs: 3200, hits: 2, site: null, failed: 1}]);
+  const all = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const coop = all.feeds.find(item => item.slug === 'jobs.coop.ch');
+  assert.deepEqual({how: coop.how, jobs: coop.jobs, hits: coop.hits, failed: coop.failed_installs, site: coop.site, installs: coop.installs},
+    {how: {ai_idea: 1}, jobs: 3200, hits: 9, failed: 1, site: 'https://jobs.coop.ch/viewalljobs/', installs: 2});
 });

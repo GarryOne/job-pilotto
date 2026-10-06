@@ -1006,6 +1006,12 @@ def main():
     log = cron_runs.new_run('scout')
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
+        if not CENTRAL:   # what this run found goes to the central list right away (opt-in; src/contribute.py), not with the next jobs check
+            try:
+                from . import contribute
+                contribute.maybe_send(active_sources(db, tracker, starter_list()), {'sources': []}, tracker, db=db)
+            except Exception as error:  # noqa: BLE001 — the pool never affects a run
+                print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
         if args.publish_index:
             key = os.getenv('INDEX_PUBLISH_KEY')
             if not key:
