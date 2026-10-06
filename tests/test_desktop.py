@@ -169,6 +169,11 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual(data['locations'], ['zürich', 'switzerland', 'berlin'])
         self.assertEqual(data['stack'], ['k8s'])
         self.assertEqual(data['compensation'], 'Target: CHF 150k')
+        # The full lists for editing on the Strategy page: every entry, stored form (to remove it) and words, each place list on its own.
+        self.assertEqual(data['lists']['places'], [{'fragment': 'z[uü]rich', 'label': 'zürich'}])
+        self.assertEqual([e['label'] for e in data['lists']['country']], ['switzerland', 'bern'])
+        self.assertEqual(data['lists']['stack'], [{'fragment': r'\bk8s\b', 'label': 'k8s'}])
+        self.assertEqual(data['lists']['roles'], [])
         self.assertIn('Title: sales', data['avoid'])
         self.assertEqual({c['key']: c['value'] for c in data['components']},
                          {'role_fit': 70, 'location': 50, 'compensation': 50, 'growth': 50, 'risk': 80})  # risk shown as "low risk"

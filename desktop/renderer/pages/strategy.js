@@ -62,8 +62,86 @@ function strategySkeleton() {
   pill.id = 'strategy-view-loading';
   $('strategy-synced').replaceChildren(pill);
 }
+// ---------- What you're targeting → Edit: the lists, edited here (lib/strategy.js editLists), not in Notion ----------
+// [list, icon, label, what the add field asks]: the places in their three lists, so it is clear which one "Switzerland" sits in.
+export const TARGET_LISTS = [['roles', 'briefcase', 'Roles', 'Add a job title'], ['places', 'pin', 'Best places', 'Add a city or region'],
+  ['country', 'pin', 'Anywhere in', 'Add a country or region'], ['abroad', 'pin', 'Places abroad', 'Add a city abroad'],
+  ['stack', 'layers', 'Key skills and tools', 'Add a skill or tool']];
+let lastStrategy = null, targetEdits = null;   // targetEdits: {list: {add: [words], remove: [stored fragments]}} while editing
+const pendingCount = () => Object.values(targetEdits || {}).reduce((n, edit) => n + edit.add.length + edit.remove.length, 0);
+// One list as it will be after Save: the stored entries not removed, then the words added.
+export function editedList(entries, edit = {add: [], remove: []}) {
+  const gone = new Set(edit.remove);
+  return [...entries.filter(entry => !gone.has(entry.fragment)).map(entry => ({...entry, added: false})),
+    ...edit.add.map(word => ({fragment: '', label: word, added: true}))];
+}
+function editableRow(name, glyph, label, placeholder) {
+  const edit = targetEdits[name] ||= {add: [], remove: []};
+  const dt = el('dt'); dt.append(icon(glyph), label);
+  const dd = el('dd');
+  const box = el('div', 'chips');
+  box.append(...editedList(lastStrategy.lists?.[name] || [], edit).map(entry => {
+    const pill = el('span', `chip removable${entry.added ? ' is-added' : ''}`);
+    const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${entry.label}`});
+    remove.setAttribute('aria-label', `Remove ${entry.label}`);
+    remove.addEventListener('click', () => {
+      if (entry.added) edit.add = edit.add.filter(word => word !== entry.label); else edit.remove.push(entry.fragment);
+      renderTargets();
+    });
+    pill.append(el('span', '', titleCase(entry.label)), remove);
+    return pill;
+  }));
+  const input = Object.assign(document.createElement('input'), {className: 'add', placeholder: `${placeholder}, then Enter`});
+  input.dataset.list = name;
+  input.addEventListener('keydown', event => {
+    const word = input.value.trim().toLowerCase();
+    if (event.key !== 'Enter' || !word) return;
+    const back = (lastStrategy.lists?.[name] || []).find(entry => edit.remove.includes(entry.fragment) && entry.label.toLowerCase() === word);
+    if (back) edit.remove = edit.remove.filter(fragment => fragment !== back.fragment);   // removed, then typed again: kept
+    else if (!edit.add.includes(word) && !(lastStrategy.lists?.[name] || []).some(entry => entry.label.toLowerCase() === word)) edit.add.push(word);
+    renderTargets();
+    document.querySelector(`#strategy-targets input.add[data-list="${name}"]`)?.focus();
+  });
+  box.append(input);
+  dd.append(box);
+  return [dt, dd];
+}
+function renderTargets() {
+  const editing = !!targetEdits;
+  $('strategy-targets').classList.toggle('is-editing', editing);
+  show($('targets-actions'), editing);
+  $('open-profile').hidden = editing;
+  if (!editing) { renderStrategy(lastStrategy); return; }
+  $('strategy-targets').replaceChildren(...TARGET_LISTS.flatMap(([name, glyph, label, placeholder]) => editableRow(name, glyph, label, placeholder)));
+  $('targets-save').disabled = !pendingCount();
+}
+function startTargetsEdit() {
+  if (!lastStrategy?.lists) return;
+  targetEdits = {};
+  message('targets-message', '');
+  renderTargets();
+}
+async function saveTargets() {
+  const button = $('targets-save');
+  button.disabled = true; button.textContent = 'Saving…';
+  // A word typed but not yet added with Enter still counts: people press Save straight after typing.
+  document.querySelectorAll('#strategy-targets input.add').forEach(input => {
+    const word = input.value.trim().toLowerCase(), edit = targetEdits[input.dataset.list];
+    if (word && !edit.add.includes(word)) edit.add.push(word);
+  });
+  const result = await window.pilot.editTargets(targetEdits).catch(error => ({ok: false, error: error.message}));
+  button.textContent = 'Save';
+  if (!result.ok) { message('targets-message', result.error || 'Not saved.', 'error'); button.disabled = false; return; }
+  targetEdits = null;
+  toastMessage('Strategy saved ✓', 'The next search uses it.');
+  await loadStrategy();
+  renderTargets();
+}
+
 function renderStrategy(data) {
   strategyShown = true;
+  lastStrategy = data;
+  if (targetEdits) { renderTargets(); return; }   // a fresh read while editing keeps the edits on screen
   $('strategy-insight').classList.remove('is-loading');
   const row = (glyph, label, value) => {
     const dt = el('dt');
@@ -228,6 +306,9 @@ export async function init() {
   // A page read through the extension (Sites only you can open): said wherever the window is, once per page.
   window.pilot.onVisitRead?.(answer => toastMessage(`Read ${answer.jobs} jobs from ${answer.name}`,
     `${answer.added} new on this visit. Your next jobs check filters and scores them like any other.`));
+  $('open-profile').addEventListener('click', startTargetsEdit);
+  $('targets-cancel').addEventListener('click', () => { targetEdits = null; message('targets-message', ''); renderTargets(); });
+  $('targets-save').addEventListener('click', saveTargets);
   $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
   $('strategy-rescore').addEventListener('click', async () => {

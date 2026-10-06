@@ -416,6 +416,60 @@ export async function retune(storage, chosen, {run, ensurePage, writePage, wait 
   throw new Error('A search changed your settings while they were being saved. Try again.');
 }
 
+// The Strategy page's "What you're targeting", edited in the app (owner, 7 Oct 2026: "Edit preferences" opened the Profile page, where
+// the places shown on the card are not, and he wants to edit here, not in Notion). A fixed set of lists; the window sends, per list,
+// the stored fragments to remove and the words to add. Same loop as retune(): sync the page, change the cache, publish, check it stayed.
+export const EDITABLE_LISTS = {roles: ['role_keywords'], places: ['locations', 'top_tier'], country: ['locations', 'country_wide'],
+  abroad: ['locations', 'abroad'], stack: ['quality_stack_keywords']};
+const listAt = (search, path) => (path.length === 1 ? search[path[0]] : search[path[0]]?.[path[1]]) || [];
+const lowerSet = list => new Set(list.map(item => String(item).toLowerCase()));
+export function cleanEdits(edits) {
+  const out = {};
+  for (const [name, edit] of Object.entries(edits && typeof edits === 'object' ? edits : {})) {
+    if (!EDITABLE_LISTS[name] || !edit || typeof edit !== 'object') continue;
+    const add = [...new Set((Array.isArray(edit.add) ? edit.add : []).map(word => String(word).trim().toLowerCase())
+      .filter(word => word.length >= 2 && word.length <= 60 && !/[\n\r]/.test(word)).map(escapeRegex))].slice(0, 20);
+    const remove = (Array.isArray(edit.remove) ? edit.remove : []).map(String).filter(Boolean).slice(0, 100);
+    if (add.length || remove.length) out[name] = {add, remove};
+  }
+  return out;
+}
+export function applyEdits(search, edits) {
+  const next = {...search, locations: {...search.locations}};
+  for (const [name, {add, remove}] of Object.entries(edits)) {
+    const path = EDITABLE_LISTS[name], gone = lowerSet(remove);
+    const kept = listAt(next, path).filter(item => !gone.has(String(item).toLowerCase()));
+    const have = lowerSet(kept);
+    const list = [...kept, ...add.filter(item => !have.has(item.toLowerCase()))];
+    if (path.length === 1) next[path[0]] = list; else next[path[0]][path[1]] = list;
+  }
+  return next;
+}
+export const edited = (search, edits) => Object.entries(edits).every(([name, {add, remove}]) => {
+  const have = lowerSet(listAt(search, EDITABLE_LISTS[name]));
+  return add.every(item => have.has(item.toLowerCase())) && remove.every(item => !have.has(item.toLowerCase()));
+});
+export async function editLists(storage, asked, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
+  const edits = cleanEdits(asked);
+  if (!Object.keys(edits).length) return {changed: []};
+  for (let attempt = 0; attempt < ADD_ROLES_ATTEMPTS; attempt++) {
+    if (attempt) await wait(2000 * attempt);
+    await run(storage, ['src.notion.search_settings', 'sync']);
+    const before = storage.readText('config/search.json') || '{}';
+    const search = JSON.parse(before);
+    if (edited(search, edits)) return {changed: Object.keys(edits)};
+    storage.writeText('config/search.json', JSON.stringify(applyEdits(search, edits), null, 2) + '\n');
+    try {
+      await publishSearchSettings(storage, {run, ensurePage, writePage});
+      if (edited(JSON.parse(storage.readText('config/search.json') || '{}'), edits)) return {changed: Object.keys(edits)};
+    } catch (error) {
+      storage.writeText('config/search.json', before);
+      throw error;
+    }
+  }
+  throw new Error('A search changed your settings while they were being saved. Try again.');
+}
+
 export function save(storage, accepted) {
   // The Profile, standard answers and contact details go to Notion (main.js saveStrategy); here only the
   // search settings' cache is written (published to ⚙️ Search settings right after).

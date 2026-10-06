@@ -77,6 +77,7 @@ function paletteCommands() {
   document.querySelectorAll('.action[data-palette]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
     labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => { openView('actions'); if (node.dataset.palette !== 'tailor') { node.click(); return; } const count = $('tailor-top-n'); count.focus(); count.select(); }));
   button('jobs', 'refresh', 'find jobs scan');
+  button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');
   button('jobs', 'applied-open', 'track add application outside');
   button('jobs', 'import-open', 'add job link paste posting');

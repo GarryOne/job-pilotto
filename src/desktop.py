@@ -306,6 +306,11 @@ def strategy(db, tracker=None):
         # The top cities, the country, the cities abroad (the long lists of nearby towns and spellings stay out).
         'locations': unique((places.get('top_tier') or [])[:3] + (places.get('country_wide') or [])[:1] + (places.get('abroad') or [])),
         'stack': unique(search.get('quality_stack_keywords'))[:8],
+        # The same lists in full, for editing them on the Strategy page: each entry as stored (removing sends it back) and as words.
+        'lists': {name: [{'fragment': str(item), 'label': _readable(item)} for item in items or [] if _readable(item)]
+                  for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
+                                      ('country', places.get('country_wide')), ('abroad', places.get('abroad')),
+                                      ('stack', search.get('quality_stack_keywords')))},
         'level': levels.level_of(search.get('level')),
         'compensation': compensation,
         'avoid': [f'Requires {language}' for language in prefs.get('disqualifying_languages') or []]

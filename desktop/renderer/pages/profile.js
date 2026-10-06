@@ -262,7 +262,6 @@ export async function init() {
     $('links-edit').textContent = editing ? 'Done' : 'Edit';
     if (!editing) showLinks();
   });
-  $('open-profile').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   $('open-answers').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   renderNotionLinks();
   $('strategy-redo').addEventListener('click', () => { shared.rebuildAsked = true; show($('app'), false); show($('wizard')); goStep('cv'); });

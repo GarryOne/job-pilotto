@@ -988,6 +988,17 @@ function handlers() {
     appLog('strategy', 'tune proposals', {ok: !!answer.ok, proposals: answer.proposals?.length || 0, jobs: answer.basis?.jobs, dismissed: answer.basis?.dismissed});
     return answer;
   });
+  // Strategy → What you're targeting → Edit: the lists edited in the app, written to ⚙️ Search settings (lib/strategy.js editLists).
+  ipcMain.handle('editTargets', async (_, edits) => {
+    if (DEMO) return {ok: true, changed: Object.keys(edits || {})};
+    try {
+      const result = await strategy.editLists(storage, edits, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      const asked = strategy.cleanEdits(edits);
+      appLog('strategy', 'targets edited', {lists: result.changed.join(','), added: Object.values(asked).reduce((n, e) => n + e.add.length, 0),
+        removed: Object.values(asked).reduce((n, e) => n + e.remove.length, 0), notion: !!storage.secret('NOTION_TOKEN')});
+      return {ok: true, ...result};
+    } catch (error) { appLog('strategy', 'targets not saved', {error: error.message}); return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('tuneApply', async (_, ids) => {
     if (DEMO) return {ok: true, changed: []};
     const gate = needsNotion('tune');

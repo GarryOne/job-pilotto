@@ -782,8 +782,6 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .review .goal-value[contenteditable="plaintext-only"] { display: block; -webkit-line-clamp: unset; }
 .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .review .chips { gap: 6px; }
-.review .chip.removable { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: var(--fs-sm); background: var(--sky); }
-.review .chip .x { background: transparent; border: 0; padding: 0 4px; color: var(--muted); font-size: var(--fs-md); line-height: 1; cursor: pointer; }
 .review .chip.more { font-size: var(--fs-sm); font-weight: 600; padding: 2px 10px; white-space: nowrap; flex: none; width: auto; min-width: max-content; line-height: 1.5; display: inline-flex; align-items: center; }
 .review #draft-summary { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
 .review #draft-summary.open { -webkit-line-clamp: unset; }
@@ -795,13 +793,11 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .review .note-box .step-field { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
 .review .note-box .step-field label { display: none; }
 .review .note-box[open] #note-summary { display: none; }
-.review .chip .x:hover { color: var(--bad); }
 .review .chip.more { border-style: dashed; background: transparent; color: var(--muted); cursor: pointer; }
 .review .chips.bad .chip.removable { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
 .review .priority { background: var(--good-soft); border-radius: var(--r-md); padding: 8px 10px; display: grid; gap: 6px; }
 .review .priority b { color: var(--good); font-size: var(--fs-md); }
 .review .sub { margin: 2px 0 0; font-size: var(--fs-md); color: var(--muted); }
-.review input.add { font-size: var(--fs-md); padding: 6px 10px; }
 .review .questions-card { background: var(--signal-soft); border-color: var(--signal-line); }
 .review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal); color: var(--on-accent); font-size: var(--fs-md); margin-right: 4px; }
 .review .q-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; background: var(--surface); border-radius: var(--r-md); padding: 8px 12px; font-size: var(--fs-base); }
@@ -2219,3 +2215,5 @@ button.is-busy { cursor: progress; opacity: .7; }
 .reassign-note { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; font-size: var(--fs-md); }
 .reassign-note svg { width: 16px; height: 16px; flex: none; }
 .reassign-note + .message:empty { display: none; }
+/* Strategy → What you're targeting → Edit: the add field sits after the chips at one width (the shared input.add stretches otherwise). */
+#strategy-targets.is-editing input.add { flex: 0 1 240px; min-width: 0; }
