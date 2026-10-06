@@ -914,6 +914,13 @@ function handlers() {
     try { return {ok: true, coverage: JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: true, coverage: null}; }
   });
   // "Your filters drop jobs": only what the engine's own coverage listed can be removed (never a word typed elsewhere).
+  // "Explain with AI" on a jobs check with few new jobs: on the user's click only (src/ai/few_jobs.py; counts, never the CV).
+  ipcMain.handle('explainCoverage', async () => {
+    if (DEMO) return {ok: true, why: 'Demo data: your role words catch most postings in your places.', first_steps: []};
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'explain-coverage']);
+    if (code !== 0) return {ok: false, error: 'Claude could not answer now (see the activity log)'};
+    try { return {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: false, error: 'Claude\'s answer could not be read'}; }
+  });
   ipcMain.handle('loosenSearch', async (_, asked = {}) => {
     if (DEMO) return {ok: true, removed: []};
     try {

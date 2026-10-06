@@ -166,6 +166,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
 - `desktop/renderer/compensation.js` — The Profile's unanswered "Target: ❓" is a placeholder, not a value: with no real figure it reads as not set (UI loop #272).
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
+- `desktop/renderer/coverage-actions.js` — What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards
 - `desktop/renderer/coverage-card.js` — The Strategy page's "your search may be too narrow" card (src/coverage.py says it; desktop/lib/strategy.js addRoles acts on it).
 - `desktop/renderer/cv-state.js` — The one-glance caption beside "Current CV": ready, not read yet, or the read failed (then the error below says it, not a promise).
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
@@ -261,6 +262,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/cost.py` — API prices and per-call cost, shared by the AI stages and the cronjob run report.
 - `src/ai/engine.py` — The AI engine every AI step calls through: the Anthropic API (the user's key) or the user's own Claude Code.
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
+- `src/ai/few_jobs.py` — 'Explain with AI' on a jobs check that found few new jobs: Claude reads the search's coverage counts and says why, and what to do first.
 - `src/ai/hints.py` — Scoring hints learned from what people dismiss (site/src/intelligence.js hints, fetched by desktop/lib/aliases.js into data/hints.json).
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.

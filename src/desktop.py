@@ -344,6 +344,7 @@ def main(argv=None):
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
+    sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
@@ -357,6 +358,18 @@ def main(argv=None):
                 except Exception as error:  # noqa: BLE001 — the first answer ("job not found") stays when Notion can't be read
                     print(f'Notion posting not read: {type(error).__name__}: {error}', file=sys.stderr)
             print(json.dumps(found, ensure_ascii=False))
+            return 0
+        if args.command == 'explain-coverage':
+            from . import coverage
+            from .ai import few_jobs
+            from .paths import load_search_config
+            search = load_search_config()
+            places = search.get('locations') or {}
+            said = coverage.verdict(coverage.load(), search.get('role_keywords') or [], [f for group in places.values() for f in group],
+                                    search.get('title_exclude_keywords') or [])
+            if said is not None:
+                said['languages'] = coverage.language_drops()
+            print(json.dumps(few_jobs.explain(said, search), ensure_ascii=False))
             return 0
         if args.command == 'coverage':
             from . import coverage

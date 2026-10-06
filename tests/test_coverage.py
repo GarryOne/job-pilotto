@@ -1,4 +1,5 @@
 """How much of the market the role keywords catch (src/coverage.py): the funnel of a crawl, the near misses, and what the app tells the user."""
+import json
 import sqlite3
 import sys
 import tempfile
@@ -170,3 +171,12 @@ class DroppedByFiltersTests(unittest.TestCase):
         said = coverage.verdict(summary, ['sales associate'], [], [r'\bsenior\b'])
         self.assertEqual(said['excluded'][0]['count'], 3)
         self.assertEqual(coverage.verdict(summary, ['sales associate'], [], [])['excluded'], [], 'a word no longer in the settings is not offered')
+
+
+class ExplainFactsTests(unittest.TestCase):
+    def test_claude_is_given_counts_and_role_words_never_the_cv(self):
+        from src.ai import few_jobs
+        facts = few_jobs.facts({'in_places': 6477, 'matched': 2, 'suggestions': [{'term': 'retail', 'count': 6, 'examples': ['Sales Associate at X']}]},
+                               {'role_keywords': ['photograph(e|er)?'], 'locations': {'top_tier': ['geneva']}, 'cv_text': 'secret'})
+        self.assertEqual(facts['missing_role_words'], [{'term': 'retail', 'count': 6}], 'counts only: no job titles or examples')
+        self.assertNotIn('secret', json.dumps(facts))
