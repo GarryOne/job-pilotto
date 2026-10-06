@@ -524,6 +524,23 @@ export async function workspaceRoot(token, ids, fetcher) {
   return root.replace(/-/g, '');
 }
 
+// A new workspace page gets a name that tells it apart ("Job Pilotto · Igor's MacBook Pro · 7 Oct 2026"): two installs that each
+// connected the same Notion made two pages both called "Job Pilotto" (6 Oct 2026). Only a page still called exactly "Job Pilotto"
+// (the template's or the app's own) is renamed: a name the user chose is kept. -> {id, title, renamed}.
+export function workspaceTitle(computer, when = new Date()) {
+  const day = when.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+  return ['Job Pilotto', String(computer || '').trim().slice(0, 40), day].filter(Boolean).join(' · ');
+}
+export async function nameWorkspace(token, ids, title, fetcher) {
+  const root = await workspaceRoot(token, ids, fetcher);
+  const page = await call(token, 'GET', `pages/${root}`, null, fetcher);
+  const now = titleOf(page).trim();
+  if (now !== 'Job Pilotto') return {id: root, title: now, renamed: false};
+  const [key] = Object.entries(page.properties || {}).find(([, p]) => p.type === 'title') || ['title'];
+  await call(token, 'PATCH', `pages/${root}`, {properties: {[key]: {title: [{type: 'text', text: {content: title}}]}}}, fetcher);
+  return {id: root, title, renamed: true};
+}
+
 // Rename the workspace page to "<title> (archived <when>)": nothing is deleted or moved, and the app won't
 // connect to it again (see liveOnly). -> {id, title, url}.
 export async function archiveWorkspace(token, ids, when, fetcher) {

@@ -6,6 +6,7 @@ import {hideWindows} from './lib/e2e-hidden.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import os from 'node:os';
+import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
@@ -493,6 +494,11 @@ function handlers() {
   });
   // Connect to the user's Notion with a token (pasted, or from "Connect with Notion"): find the workspace, or
   // build it from the schema (lib/notion-workspace.js; templateRoot: the page Notion just copied the template into).
+  // This computer's own name ("Igor's MacBook Pro"), as the person named it; the host name without ".local" elsewhere.
+  const computerName = () => {
+    if (process.platform === 'darwin') { try { return execFileSync('scutil', ['--get', 'ComputerName'], {encoding: 'utf8', timeout: 2000}).trim(); } catch {} }
+    return os.hostname().replace(/\.local$/, '');
+  };
   let notionFrom = 'token';
   async function connectNotion(token, {templateRoot = null} = {}) {
     try {
@@ -513,7 +519,12 @@ function handlers() {
           const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now
           kept = storage.settings().notionKeptFolder || null;
           if (kept) storage.saveSettings({notionKeptFolder: undefined});
-          appLog('notion', 'connected', {from: notionFrom, fresh: !!(result.built?.length || templateRoot), moved, kept: !!kept, hadLocal});
+          // A page made by this connect (Notion's template copy, or built by the app) is named after this computer and today, so a second
+          // install connecting the same Notion doesn't leave two pages both called "Job Pilotto". Never blocks the connect.
+          const fresh = !!(result.built?.length || templateRoot);
+          const page = fresh ? await notion.nameWorkspace(token, result.ids, notion.workspaceTitle(computerName()))
+            .catch(error => { log(`Notion page not renamed: ${error.message}`); return null; }) : null;
+          appLog('notion', 'connected', {from: notionFrom, fresh, page: page?.id?.slice(-8) || '', renamed: !!page?.renamed, moved, kept: !!kept, hadLocal});
           syncCv();
           // What was scored before Notion reaches Job Matches, with no AI spend; with Always on GitHub's next run does it.
           if (hadLocal || moved.length) { if (!cloud()) pipeline.syncMatches(storage, log).catch(error => log(`Job Matches not synced: ${error.message}`)); }

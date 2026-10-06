@@ -110,3 +110,18 @@ test('a fresh-start reset remembers the archived page for the message after the 
   reset.request(dir, {backup: false, archived: {title: 'Job Pilotto (archived 28 Sep 2026)', url: 'u'}});
   assert.deepEqual(reset.applyPending(dir), {deleted: true, archived: {title: 'Job Pilotto (archived 28 Sep 2026)', url: 'u'}});
 });
+
+// Two installs that each connected the same Notion left two pages both called "Job Pilotto" (6 Oct 2026): a page made by a connect is
+// named after the computer and the day; a page the user named is never renamed.
+test('a new workspace page is named after this computer and today; a page with its own name is kept', async () => {
+  assert.equal(notion.workspaceTitle("Igor's MacBook Pro", new Date(2026, 9, 7)), "Job Pilotto · Igor's MacBook Pro · 7 Oct 2026");
+  assert.equal(notion.workspaceTitle('', new Date(2026, 9, 7)), 'Job Pilotto · 7 Oct 2026');
+  const w = workspace();
+  const ids = (await notion.discover('t', w.fetcher)).ids;
+  const named = await notion.nameWorkspace('t', ids, "Job Pilotto · Igor's MacBook Pro · 7 Oct 2026", w.fetcher);
+  assert.deepEqual([named.renamed, w.patched], [true, ['pages/old']]);
+  assert.ok((await notion.discover('t', w.fetcher)).ids.NOTION_PROFILE_PAGE_ID, 'still found after the rename');
+  const mine = workspace({oldTitle: 'My jobs'});
+  const again = await notion.nameWorkspace('t', (await notion.discover('t', mine.fetcher)).ids, 'Job Pilotto · X · 7 Oct 2026', mine.fetcher);
+  assert.deepEqual([again.renamed, again.title, mine.patched], [false, 'My jobs', []]);
+});
