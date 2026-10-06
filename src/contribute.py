@@ -170,15 +170,18 @@ def regions_of(places):
 def fine_tags(search=None):
     """{'countries', 'metros', 'families'} of this user's own search settings, as fixed-list ids (src/pool_tags.py). No free text ever."""
     from . import pool_tags
-    search = search or load_search_config()
-    where = [_plain(p) for group in ('top_tier', 'country_wide', 'abroad') for p in search.get('locations', {}).get(group, [])]
-    countries, metros = pool_tags.places(where)
+    # The user's own words, not the place words the crawl adds for matching (7 Oct 2026, the pool e2e: "Suisse" became all ten Swiss metros).
+    search = search or load_search_config(matching=False)
+    places = search.get('locations', {})
+    own = lambda groups: [_plain(p) for group in groups for p in places.get(group, [])]  # noqa: E731
+    countries, _ = pool_tags.places(own(('top_tier', 'country_wide', 'abroad')))
+    _, metros = pool_tags.places(own(('top_tier',)))   # metro areas: only the places named first, not a whole country
     return {'countries': countries, 'metros': metros, 'families': pool_tags.families([_plain(k) for k in search.get('role_keywords', [])])}
 
 
 def tags(search=None):
     """(roles, regions) of this user's own search settings, as fixed-list names. No free text ever."""
-    search = search or load_search_config()
+    search = search or load_search_config(matching=False)   # their own words, not the crawl's added place words
     roles = {name for name, rx in _ROLES.items() if any(rx.search(_plain(k)) for k in search.get('role_keywords', []))}
     # The other trades by the role kinds (src/role_kinds.py), so a shop or warehouse search is not just 'other' (6 Oct 2026). Fixed names.
     from .role_kinds import of_search

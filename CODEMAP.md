@@ -371,6 +371,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links
 - `tools/notion_schema.py` — The Job Pilotto Notion workspace as code: config/notion_schema.json.
 - `tools/notion_template.py` — Build the public Job Pilotto Notion template from the live workspace's schemas (no data).
+- `tools/pool_e2e.py` — The shared pool end to end, for the e2e suite `pool` (desktop/e2e/suites/pool.mjs): the real engine's sharing and ranking code against a
 - `tools/pre-push-check.sh` — Claude Code PreToolUse hook (.claude/settings.json): before any `git push` from this repo (or one of its
 - `tools/prepare-top.sh` — draft application kits for your N best-matching jobs that don't have one yet.
 - `tools/product_brain.py` — The product brain's plumbing (.github/workflows/product-brain.yml): Claude decides, this script reads and writes.

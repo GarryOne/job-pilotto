@@ -1,0 +1,217 @@
+"""The shared pool end to end, for the e2e suite `pool` (desktop/e2e/suites/pool.mjs): the real engine's sharing and ranking code against a
+local stand-in of the website (contribute, install token, index), for a fictional photographer in Geneva. No AI, no Notion, no real network.
+
+Prints one JSON line: {"checks": [{"name", "ok", "detail"}]}. Each check stands alone, so one failure never hides the others. Run it from the repo
+root with `python3 tools/pool_e2e.py`; it makes its own data and config folders and never touches the user's."""
+import json
+import os
+import shutil
+import sys
+import tempfile
+import threading
+from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+WORK = Path(tempfile.mkdtemp(prefix='jp-pool-e2e-'))
+GENERATED = '2026-10-07T04:50:00Z'
+PRIVATE = ('photographe', 'Genève', 'retoucheur', 'Vendeur photo', 'https://jobs.example/')   # the search's own words and a job: never sent
+
+# The website, as far as the pool goes: what was posted, and an index with one feed per case.
+POSTS, INDEX_ASKS = [], []
+INDEX = {'generated': GENERATED, 'feeds': [
+    {'company': 'Studio Lumière', 'ats': 'lever', 'slug': 'studio-lumiere', 'places': ['Geneva, Switzerland'], 'kinds': {'creative_media': 0.8},
+     'fits': {'roles': ['creative_media'], 'families': ['photography'], 'metros': ['ch-geneva']},
+     'pool': {'installs': 6, 'matched': 5, 'applied': 4, 'interview': 2}},
+    {'company': 'Quiet Gallery', 'ats': 'lever', 'slug': 'quiet-gallery', 'places': ['Geneva, Switzerland'], 'kinds': {'creative_media': 0.6},
+     'fits': {'quiet': {'families': ['photography']}}},
+    {'company': 'Netflix', 'ats': 'lever', 'slug': 'netflix', 'places': ['Geneva, Switzerland'], 'kinds': {'software': 0.95}},
+    {'company': 'Manor', 'ats': 'lever', 'slug': 'manor', 'places': ['Geneva, Switzerland'], 'kinds': {'sales_retail': 0.5, 'creative_media': 0.2},
+     'fits': {'countries': ['ch']}, 'pool': {'installs': 9, 'matched': 4, 'applied': 3, 'interview': 1}},
+], 'nofeed': [], 'boards': [{'board': 'jooble', 'installs': 12, 'matched': 6, 'by': {'families': {'photography': [5, 4]}, 'roles': {'creative_media': [10, 5]}}}]}
+
+
+class Site(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def _send(self, status, body=None):
+        self.send_response(status)
+        if body is not None:
+            data = json.dumps(body).encode()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        else:
+            self.end_headers()
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
+        if self.path.startswith('/api/install-token'):
+            return self._send(200, {'token': 'test-token'})
+        POSTS.append(body)
+        return self._send(200, {'ok': True})
+
+    def do_GET(self):
+        if self.path.startswith('/api/index'):
+            INDEX_ASKS.append(dict(self.headers))
+            if self.headers.get('X-Index-Generated') == GENERATED:
+                return self._send(304)
+            return self._send(200, INDEX)
+        return self._send(404, {'ok': False})
+
+
+def main():
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Site)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{server.server_port}'
+    (WORK / 'config').mkdir()
+    search = json.loads((REPO / 'config' / 'search.json').read_text())
+    search.update({'role_keywords': ['photographe', 'photographer', 'retoucheur'], 'title_exclude_keywords': [],
+                   'locations': {'top_tier': ['Genève', 'Lausanne'], 'country_wide': ['Suisse'], 'abroad': []}})
+    (WORK / 'config' / 'search.json').write_text(json.dumps(search))
+    for name in ('preferences.json', 'scout_seeds.json', 'sources.json'):
+        shutil.copy(REPO / 'config' / name, WORK / 'config' / name)
+    os.environ.update({'JOB_PILOTTO_DATA_DIR': str(WORK / 'data'), 'JOB_PILOTTO_CONFIG_DIR': str(WORK / 'config'), 'JOB_PILOTTO_FOLLOW_APP': '0',
+                       'JOB_PILOTTO_SHARE_EMPLOYERS': '1', 'JOB_PILOTTO_INSTALL_ID': 'e2e-pool-0001', 'JOB_PILOTTO_CONTRIBUTE_URL': f'{base}/api/contribute',
+                       'JOB_PILOTTO_INDEX_URL': f'{base}/api/index', 'JOB_PILOTTO_DISABLE': 'mail,notion,telegram,google_jobs'})
+    os.environ.pop('JOB_PILOTTO_LOCATIONS_FILE', None)
+    sys.path.insert(0, str(REPO))
+    from src import contribute, coverage, employer_index, role_kinds, scout, store
+    from src.sources import feeds
+
+    checks = []
+
+    def check(name, test):
+        try:
+            detail = test()
+            checks.append({'name': name, 'ok': True, 'detail': detail or ''})
+        except Exception as error:  # noqa: BLE001 — reported as this check's failure
+            checks.append({'name': name, 'ok': False, 'detail': f'{type(error).__name__}: {error}'})
+
+    def private_words(body):
+        text = json.dumps(body, ensure_ascii=False)
+        return [word for word in PRIVATE if word in text]
+
+    (WORK / 'data').mkdir()
+    db = store.connect(WORK / 'data' / 'jobs.sqlite')
+    seeds = {'excluded': [], 'tier1_known': [], 'tier1': [], 'manual_watch': [], 'regional': {}, 'tech_only': False}
+    names = [dict(name='Atelier Photo SA', origin='AI idea 2026-10-07', priority=92, ats='lever', slug='atelier-photo'),
+             dict(name='Nowhere Studio', origin='AI idea 2026-10-07', priority=91, website='https://nowhere-studio.example')]
+    jobs = [{'title': 'Photographe de studio', 'location': 'Genève', 'url': 'https://jobs.example/1', 'description': ''}] * 3
+
+    def scout_shares():
+        before = len(POSTS)
+        from unittest import mock
+        with mock.patch.object(scout.careers, 'discover', lambda url: None), \
+                mock.patch.object(scout, 'quality', lambda found: (80, {'preferred': 2, 'relevant': 3, 'jobs': len(found)})):
+            scout.run(db, 5, None, seeds, lambda system, slug: jobs if slug == 'atelier-photo' else None, harvest_sources=[lambda: names])
+        sent = POSTS[before:]
+        finds = [feed for body in sent for feed in body.get('feeds') or []]
+        dead = [item for body in sent for item in body.get('nofeed') or []]
+        if [f['slug'] for f in finds] != ['atelier-photo'] or [d['company'] for d in dead] != ['Nowhere Studio']:
+            raise AssertionError(f'sent finds {[f["slug"] for f in finds]} and dead ends {[d["company"] for d in dead]}, one of each expected')
+        body = sent[0]
+        wanted = {'countries': ['ch'], 'metros': ['ch-geneva', 'ch-lausanne'], 'families': ['photography']}
+        got = {key: body.get(key) for key in wanted}
+        if got != wanted or 'creative_media' not in body.get('roles', []):
+            raise AssertionError(f'labels {got}, roles {body.get("roles")}')
+        if private_words(sent):
+            raise AssertionError(f'the search\'s own words left the machine: {private_words(sent)}')
+        return f'{len(sent)} one-item shares, labels {got}'
+    check('Find new employers sends each verified employer and each dead end at once, with fixed labels only', scout_shares)
+
+    report = {'sources': [{'company': 'Atelier Photo SA', 'ok': True, 'total': 3, 'matches': 3}, {'company': 'Quiet Gallery', 'ok': True, 'total': 8, 'matches': 0},
+                          {'company': 'jobs.ch', 'ok': True, 'total': 120, 'matches': 4}, {'company': 'Google Jobs: photographe / Genève', 'ok': True, 'total': 10, 'matches': 1}],
+              'jobs': [{'source': 'jobs.ch', 'company': 'Atelier Photo SA', 'title': 'Vendeur photo'}]}
+    feed_list = [{'ats': 'lever', 'slug': 'atelier-photo', 'company': 'Atelier Photo SA'}, {'ats': 'lever', 'slug': 'quiet-gallery', 'company': 'Quiet Gallery'}]
+
+    def check_share():
+        before = len(POSTS)
+        if not contribute.maybe_send(feed_list, report, None, db=db):
+            raise AssertionError('the end-of-check share was not sent')
+        body = POSTS[before]
+        quiet = next((f for f in body['feeds'] if f['slug'] == 'quiet-gallery'), None)
+        if not quiet or quiet.get('hits') != 0 or quiet.get('jobs') != 8:
+            raise AssertionError(f'the feed read with no match: {quiet}')
+        boards = {b['board']: b for b in body.get('boards') or []}
+        if set(boards) != {'jobsch', 'google_jobs'} or boards['jobsch'].get('dup') != 1:
+            raise AssertionError(f'boards {boards}')
+        if private_words(body):
+            raise AssertionError(f'the search\'s own words left the machine: {private_words(body)}')
+        return f"{len(body['feeds'])} feeds, boards {sorted(boards)}, jobs.ch dup {boards['jobsch']['dup']}"
+    check('Search for jobs sends every feed it read (also with no match) and each board by fixed id, with counts only', check_share)
+
+    def only_changed():
+        before = len(POSTS)
+        sent = contribute.maybe_send(feed_list, report, None, db=db)
+        if sent or len(POSTS) != before:
+            raise AssertionError('an unchanged check was sent again')
+        changed = {**report, 'sources': [*report['sources'][:1], {'company': 'Quiet Gallery', 'ok': True, 'total': 8, 'matches': 2}, *report['sources'][2:]]}
+        if not contribute.maybe_send(feed_list, changed, None, db=db):
+            raise AssertionError('a changed feed was not sent')
+        slugs = [f['slug'] for f in POSTS[-1]['feeds']]
+        if slugs != ['quiet-gallery']:
+            raise AssertionError(f'sent {slugs}, only the changed feed expected')
+        return 'unchanged: nothing; one feed changed: only it'
+    check('A second check sends only what changed', only_changed)
+
+    def opt_out():
+        before = len(POSTS)
+        os.environ['JOB_PILOTTO_SHARE_EMPLOYERS'] = '0'
+        try:
+            contribute.share_now(feed={'ats': 'lever', 'slug': 'x', 'company': 'X'})
+            contribute.maybe_send(feed_list, {**report, 'sources': []}, None, db=db)
+        finally:
+            os.environ['JOB_PILOTTO_SHARE_EMPLOYERS'] = '1'
+        if len(POSTS) != before:
+            raise AssertionError(f'{len(POSTS) - before} shares sent with the switch off')
+    check('With "Help the pool grow" off, nothing is sent', opt_out)
+
+    me = employer_index.me_now()
+    index_now = datetime.now(timezone.utc)
+
+    def index_for_you():
+        index = employer_index.load(now=index_now)
+        if len(index) != 4:
+            raise AssertionError(f'{len(index)} feeds downloaded, 4 expected')
+        kept = employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(search), me=me)
+        names = sorted(f['company'] for f in kept)
+        if names != ['Manor', 'Studio Lumière']:
+            raise AssertionError(f'a photographer in Geneva crawls {names}: Netflix (software) and Quiet Gallery (no photographer ever found a job) must be left out')
+        ranked = [item['company'] for item in employer_index.for_you(index, me)]
+        if ranked[:1] != ['Studio Lumière']:
+            raise AssertionError(f'for you: {ranked}')
+        return f'crawled {names}; for you {ranked}'
+    check('The central list: a software company and a feed quiet for photographers are left out; employers for you ranked', index_for_you)
+
+    def board_rate():
+        text = coverage.people_like_you('aggregators', me)
+        if text != 'gave a match to 8 in 10 people like you':
+            raise AssertionError(f'said "{text}"')
+        return text
+    check('A job source suggestion says what it gave people like you (by the most specific label)', board_rate)
+
+    def hourly():
+        asked = len(INDEX_ASKS)
+        employer_index.load(now=index_now + timedelta(minutes=20))
+        if len(INDEX_ASKS) != asked:
+            raise AssertionError('asked again within the hour')
+        kept = employer_index.load(now=index_now + timedelta(minutes=70))
+        if len(INDEX_ASKS) != asked + 1 or INDEX_ASKS[-1].get('X-Index-Generated') != GENERATED:
+            raise AssertionError(f'the hourly check did not ask "still this publish?": {INDEX_ASKS[-1:]}')
+        if len(kept) != 4:
+            raise AssertionError('the 304 lost the cached list')
+        return '20 min: cache; 70 min: one 304'
+    check('The central list is checked about hourly, by its publish time, and kept on 304', hourly)
+
+    server.shutdown()
+    shutil.rmtree(WORK, ignore_errors=True)
+    print(json.dumps({'checks': checks}))
+    return 0 if all(c['ok'] for c in checks) else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

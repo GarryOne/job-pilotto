@@ -1504,6 +1504,7 @@ function handlers() {
   ipcMain.handle('licenseRemove', () => { const state = license.remove(); return {...state, text: licenseLib.text(state)}; });
   ipcMain.handle('telemetryRecord', (_, kind, fields) => {
     // A window error also goes to app.log (type and message; the stack stays in the report): it was invisible there.
+    if (kind === 'advice') appLog('advice', `${String(fields?.act || '?').slice(0, 10)} ${String(fields?.advice || '?').slice(0, 20)} on ${String(fields?.where || '?').slice(0, 20)}`, fields?.source ? {source: String(fields.source).slice(0, 30)} : {});   // what the app recommended, and what was taken
     if (kind === 'crash') appLog('window', `error on ${String(fields?.page || '?').slice(0, 30)}: ${String(fields?.type || 'Error').slice(0, 40)}: ${String(fields?.message || '').slice(0, 300)}`);
     telemetry?.record(String(kind), fields || {});
     return true;

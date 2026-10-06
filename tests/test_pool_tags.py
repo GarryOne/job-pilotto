@@ -21,3 +21,16 @@ class PoolTagsTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OwnWordsTest(unittest.TestCase):
+    def test_labels_come_from_the_users_own_words_and_metros_only_from_their_first_places(self):
+        """7 Oct 2026, found by the pool e2e: the crawl's expanded places turned "Suisse" into all ten Swiss metros."""
+        from unittest import mock
+        from src import contribute
+        asked = []
+        search = {'role_keywords': ['photographe'], 'locations': {'top_tier': ['Genève'], 'country_wide': ['Suisse'], 'abroad': ['Lyon']}}
+        with mock.patch.object(contribute, 'load_search_config', lambda matching=True: asked.append(matching) or search):
+            tags = contribute.fine_tags()
+        self.assertEqual(asked, [False])
+        self.assertEqual(tags, {'countries': ['ch', 'fr'], 'metros': ['ch-geneva'], 'families': ['photography']})
