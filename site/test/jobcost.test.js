@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {ingest, page, summarize, view} from '../src/jobcost.js';
+import {byKey, ingest, page, summarize, view} from '../src/jobcost.js';
 
 const now = new Date('2026-10-04T12:00:00Z');
 const rows = [
@@ -49,4 +49,17 @@ test('ingest needs the key and a valid shape, and a retried report replaces itse
   assert.equal(ok.status, 200);
   assert.match(stored[0].sql, /INSERT OR REPLACE INTO ai_cost_runs/);
   assert.equal(stored.length, 2);
+});
+
+test('per-key rows: stored by name, a real key is refused, and the card shows today, 7 and 30 days', async () => {
+  const stored = [];
+  const env = {AI_COST_PUBLISH_KEY: 'k', STATS: {prepare: sql => ({bind: (...args) => ({sql, args})}), batch: async list => { stored.push(...list); }}};
+  const put = body => ingest(new Request('https://x.dev/ai-cost/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify(body)}), env);
+  assert.equal((await put({keys: [{day: '2026-10-05', key: 'sk-ant-api03-secret', usd: 1}]})).status, 400);
+  assert.equal((await put({keys: [{day: '2026-10-05', key: 'job-pilotto-e2e-testing', usd: 2.5}]})).status, 200);
+  assert.match(stored[0].sql, /INSERT OR REPLACE INTO ai_cost_keys/);
+  const now = new Date('2026-10-07T12:00:00Z');
+  const keys = byKey([{day: '2026-10-07', key: 'e2e', usd: 1}, {day: '2026-10-02', key: 'e2e', usd: 2}, {day: '2026-09-20', key: 'e2e', usd: 4}, {day: '2026-08-01', key: 'e2e', usd: 100}], now);
+  assert.deepEqual(keys, [{key: 'e2e', today: 1, week: 3, month: 7, last: '2026-10-07'}]);
+  assert.match(page([], [], [{day: '2026-10-07', key: 'job-pilotto-e2e-testing', usd: 1}]), /By API key[\s\S]*job-pilotto-e2e-testing/);
 });

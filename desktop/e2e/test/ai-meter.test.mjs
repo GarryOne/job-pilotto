@@ -92,3 +92,17 @@ test('a judge call on the API engine is counted as the judges\' spend', async t 
   assert.equal(usage().judges.calls, 1);
   assert.equal(usage().app.calls, 0);
 });
+
+test('per-key cost: each key\'s tokens at the day\'s billed price per token; only tracked keys, by name', async () => {
+  const {keyDays} = await import('../ai-cost-report.mjs');
+  const usage = [
+    {day: '2026-10-05', api_key_id: 'a', model: 'claude-haiku-4-5-20251001', service_tier: 'standard', uncached_input_tokens: 1e6, output_tokens: 1e5},
+    {day: '2026-10-05', api_key_id: 'b', model: 'claude-haiku-4-5-20251001', service_tier: 'standard', uncached_input_tokens: 3e6, output_tokens: 3e5},
+    {day: '2026-10-05', api_key_id: 'c', model: 'claude-sonnet-5-5', service_tier: 'batch', cache_creation: {ephemeral_1h_input_tokens: 1e6}},
+  ];
+  // the bill: Haiku input $8 for 4M tokens ($2/M), output $2 for 0.4M; Sonnet batch has no 1 h line -> list price, 2 x $2/M
+  const lines = [{day: '2026-10-05', model: 'claude-haiku-4-5-20251001', service_tier: 'standard', token_type: 'uncached_input_tokens', amount: '800'},
+    {day: '2026-10-05', model: 'claude-haiku-4-5-20251001', service_tier: 'standard', token_type: 'output_tokens', amount: '200'}];
+  const rows = keyDays(usage, {a: 'job-pilotto-e2e-testing', b: 'sre-job-watch', c: 'job-pilotto-in-house-credit'}, lines, ['job-pilotto-e2e-testing', 'job-pilotto-in-house-credit']);
+  assert.deepEqual(rows.sort((x, y) => x.key.localeCompare(y.key)), [{day: '2026-10-05', key: 'job-pilotto-e2e-testing', usd: 2.5}, {day: '2026-10-05', key: 'job-pilotto-in-house-credit', usd: 4}]);
+});

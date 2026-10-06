@@ -28,4 +28,5 @@ jobs:
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
           ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
-        run: node desktop/e2e/ai-cost-report.mjs --billed --days 14
+          AI_COST_KEYS: job-pilotto-e2e-testing,job-pilotto-in-house-credit,job-pilotto-self-heal,job-pilotto-internal   # the product's own keys, shown per key on /ai-cost (names only; owner, 7 Oct 2026)
+        run: node desktop/e2e/ai-cost-report.mjs --billed --days 31

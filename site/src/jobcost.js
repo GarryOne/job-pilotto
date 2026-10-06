@@ -47,8 +47,20 @@ export function summarize(rows, billed = [], now = new Date()) {
   };
 }
 
-export function page(rows, billed = []) {
-  const s = summarize(rows, billed);
+// Pure: per tracked API key, its cost today, over 7 and over 30 days (rows: {day, key, usd}).
+export function byKey(rows, now = new Date()) {
+  const day = n => new Date(now.getTime() - n * 86400000).toISOString().slice(0, 10), today = day(0), week = day(6), month = day(29);
+  const keys = {};
+  for (const row of rows) {
+    if (row.day < month) continue;
+    const k = keys[row.key] ||= {key: row.key, today: 0, week: 0, month: 0, last: ''};
+    k.month += row.usd; if (row.day >= week) k.week += row.usd; if (row.day === today) k.today += row.usd; if (row.day > k.last) k.last = row.day;
+  }
+  return Object.values(keys).sort((a, b) => b.month - a.month);
+}
+
+export function page(rows, billed = [], keyRows = []) {
+  const s = summarize(rows, billed), keys = byKey(keyRows);
   const groups = {};
   for (const job of s.jobs) { const group = (JOBS[job.job] || [])[1] || 'Other'; groups[group] = (groups[group] || 0) + job.usd; }
   const tiles = [
@@ -79,6 +91,9 @@ ${Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([group, usd]) => `<tr>
 <section class="card"><h2>📅 By day</h2><small class="muted">Jobs = reported by the jobs · Billed = Anthropic's cost report</small><div class="wrap"><table><tr><th>Day</th><th>Jobs</th><th>Billed</th></tr>
 ${s.days.slice(0, 30).map(d => `<tr><td>${esc(d.day)}</td><td class="n">${money(d.tracked)}</td><td class="n">${d.billed === null ? '–' : money(d.billed)}</td></tr>`).join('')}
 </table></div></section></div>
+<section class="card"><h2>🔑 By API key</h2><small class="muted">Anthropic's usage per key, priced and scaled to the day's bill (lags a few hours)</small><div class="wrap"><table><tr><th>Key</th><th>Today</th><th>Last 7 days</th><th>Last 30 days</th><th>Last used</th></tr>
+${keys.map(k => `<tr><td>${esc(k.key)}</td><td class="n">${money(k.today)}</td><td class="n">${money(k.week)}</td><td class="n">${money(k.month)}</td><td class="muted">${esc(k.last)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No key figures yet: ai-cost-billed.yml sends them every 6 hours (ANTHROPIC_ADMIN_KEY).</td></tr>'}
+</table></div></section>
 <section class="card"><h2>⚙️ By job</h2><div class="wrap"><table><tr><th>Job</th><th>Group</th><th>Runs</th><th>Calls</th><th>Cost</th><th>Per run</th><th>Last run (UTC)</th></tr>
 ${s.jobs.map(job => `<tr><td>${esc((JOBS[job.job] || [job.job])[0])}</td><td class="muted">${esc((JOBS[job.job] || [])[1] || 'Other')}</td><td class="n">${job.runs}</td><td class="n">${job.calls}</td><td class="n">${money(job.usd)}</td><td class="n">$${(job.usd / job.runs).toFixed(3)}</td><td class="muted">${esc(job.last.slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
 <tr class="total"><td>Total</td><td></td><td class="n">${s.runs}</td><td class="n">${s.jobs.reduce((sum, job) => sum + job.calls, 0)}</td><td class="n">${money(s.total)}</td><td></td><td></td></tr>
@@ -87,7 +102,7 @@ ${s.jobs.map(job => `<tr><td>${esc((JOBS[job.job] || [job.job])[0])}</td><td cla
 </main></body></html>`;
 }
 
-// PUT /ai-cost/data (Bearer AI_COST_PUBLISH_KEY): {runs: [{job, run_id, at, usd, calls?, repo?}], billed: [{day, usd}]}. Checked: key, size, shape; ids are slugs.
+// PUT /ai-cost/data (Bearer AI_COST_PUBLISH_KEY): {runs: [{job, run_id, at, usd, calls?, repo?}], billed: [{day, usd}], keys: [{day, key, usd}]}. Checked: key, size, shape; ids are slugs.
 export async function ingest(request, env) {
   const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (!(env.AI_COST_PUBLISH_KEY && equal(given, env.AI_COST_PUBLISH_KEY))) return new Response('Not found', {status: 404});
@@ -95,19 +110,21 @@ export async function ingest(request, env) {
   if (body.length > 100000) return new Response('Too large', {status: 413});
   let data;
   try { data = JSON.parse(body); } catch { return new Response('Not JSON', {status: 400}); }
-  const runs = Array.isArray(data?.runs) ? data.runs : [], billed = Array.isArray(data?.billed) ? data.billed : [];
+  const runs = Array.isArray(data?.runs) ? data.runs : [], billed = Array.isArray(data?.billed) ? data.billed : [], keys = Array.isArray(data?.keys) ? data.keys : [];
   const slug = /^[a-z0-9][a-z0-9._-]{0,63}$/;
   const goodRun = run => slug.test(String(run?.job)) && /^[A-Za-z0-9._-]{1,64}$/.test(String(run?.run_id)) && /^\d{4}-\d{2}-\d{2}T/.test(String(run?.at)) && Number.isFinite(run?.usd) && run.usd >= 0 && run.usd < 1000;
   const goodDay = item => /^\d{4}-\d{2}-\d{2}$/.test(String(item?.day)) && Number.isFinite(item?.usd) && item.usd >= 0 && item.usd < 100000;
-  if (!runs.length && !billed.length) return new Response('Nothing to record', {status: 400});
-  if (!runs.every(goodRun) || !billed.every(goodDay) || runs.length > 200 || billed.length > 100) return new Response('Unexpected shape', {status: 400});
+  const goodKey = item => goodDay(item) && slug.test(String(item?.key).toLowerCase()) && String(item.key).length <= 64 && !/^sk-/i.test(String(item.key));   // a key's NAME, never the key itself
+  if (!runs.length && !billed.length && !keys.length) return new Response('Nothing to record', {status: 400});
+  if (!runs.every(goodRun) || !billed.every(goodDay) || !keys.every(goodKey) || runs.length > 200 || billed.length > 100 || keys.length > 400) return new Response('Unexpected shape', {status: 400});
   const statements = [
     ...runs.map(run => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_runs (job, run_id, day, at, usd, calls, repo) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(run.job, String(run.run_id), day(run.at), run.at, run.usd, Math.max(0, Math.round(Number(run.calls) || 0)), String(run.repo || '').slice(0, 80))),
     ...billed.map(item => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_billed (day, usd, at) VALUES (?, ?, ?)').bind(item.day, item.usd, new Date().toISOString())),
+    ...keys.map(item => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_keys (day, key, usd, at) VALUES (?, ?, ?, ?)').bind(item.day, String(item.key), item.usd, new Date().toISOString())),
   ];
   await env.STATS.batch(statements);
-  return new Response(JSON.stringify({ok: true, runs: runs.length, billed: billed.length}), {headers: {'Content-Type': 'application/json'}});
+  return new Response(JSON.stringify({ok: true, runs: runs.length, billed: billed.length, keys: keys.length}), {headers: {'Content-Type': 'application/json'}});
 }
 
 async function read(env) {
@@ -115,8 +132,9 @@ async function read(env) {
     const from = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);
     const runs = (await env.STATS.prepare('SELECT job, run_id, day, at, usd, calls FROM ai_cost_runs WHERE day >= ?').bind(from).all()).results || [];
     const billed = (await env.STATS.prepare('SELECT day, usd FROM ai_cost_billed WHERE day >= ?').bind(from).all()).results || [];
-    return {runs, billed};
-  } catch { return {runs: [], billed: []}; }
+    const keys = await env.STATS.prepare('SELECT day, key, usd FROM ai_cost_keys WHERE day >= ?').bind(from).all().then(r => r.results || []).catch(() => []);   // before migration 0036: none
+    return {runs, billed, keys};
+  } catch { return {runs: [], billed: [], keys: []}; }
 }
 
 // GET /ai-cost (?key=<STATS_KEY> once; the cookie after that)
@@ -124,6 +142,6 @@ export async function view(request, env) {
   if (!await viewer(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
-  const {runs, billed} = env.STATS ? await read(env) : {runs: [], billed: []};
-  return new Response(page(runs, billed), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const {runs, billed, keys} = env.STATS ? await read(env) : {runs: [], billed: [], keys: []};
+  return new Response(page(runs, billed, keys), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
