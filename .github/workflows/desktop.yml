@@ -47,7 +47,7 @@ concurrency:
 jobs:
   # Nightly runs only: did anything that goes into the app change since the newest release? (A manual run always builds.)
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       build: ${{ steps.diff.outputs.build }}
     steps:
@@ -260,7 +260,7 @@ jobs:
   mac-only:
     needs: [build, windows]
     if: always() && needs.build.result == 'success' && needs.build.outputs.released == 'true' && needs.windows.result != 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Publish without the Windows installer
         env:
@@ -282,7 +282,7 @@ jobs:
   prune:
     needs: [build, windows, mac-only]
     if: always() && needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write   # delete the older test builds, retitle releases
       issues: write     # the pinned Release channels issue

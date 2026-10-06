@@ -26,7 +26,7 @@ jobs:
   # Up to four fixes at once (4 Oct 2026: one fix per run left confirmed bugs waiting for days): the ready findings, at most one per kind, minus the fixes that
   # already wait for review, and none while the AI limit is reached (desktop/e2e/ai-budget.mjs).
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
       count: ${{ steps.list.outputs.count }}
@@ -51,7 +51,7 @@ jobs:
   fix:
     needs: plan
     if: needs.plan.outputs.count != '0' && needs.plan.outputs.count != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false

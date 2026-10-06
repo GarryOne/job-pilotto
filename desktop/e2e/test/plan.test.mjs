@@ -78,7 +78,7 @@ test('the noise breaker trips when most judged review issues since the new promp
 test('a suite runs on Linux unless it needs the Mac, and the Mac suites stay within the 5 macOS slots of the Free plan', async () => {
   const {runnerOf} = await import('../lib/plan.mjs');
   const fs = await import('node:fs');
-  assert.equal(runnerOf({}), 'ubuntu-latest');
+  assert.equal(runnerOf({}), 'ubuntu-24.04');
   assert.equal(runnerOf({macos: true}), 'macos-latest');
   const dir = new URL('../suites/', import.meta.url);
   const mac = fs.readdirSync(dir).filter(file => /^export const macos = true;/m.test(fs.readFileSync(new URL(file, dir), 'utf8')));

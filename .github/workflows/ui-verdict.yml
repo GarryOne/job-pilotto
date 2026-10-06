@@ -21,7 +21,7 @@ concurrency:
 jobs:
   pick:
     if: vars.JOB_PILOTTO_FIXER_VERDICTS == 'on'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
       count: ${{ steps.list.outputs.count }}
@@ -42,7 +42,7 @@ jobs:
   judge:
     needs: pick
     if: needs.pick.outputs.count != '0' && needs.pick.outputs.count != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false

@@ -57,7 +57,7 @@ permissions:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       issues: read
@@ -276,7 +276,7 @@ jobs:
     name: HTML report
     needs: [plan, suite]
     if: always() && needs.plan.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
@@ -312,7 +312,7 @@ jobs:
   promote:
     needs: [plan, suite]
     if: needs.plan.outputs.tag != '' && needs.suite.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write   # gh release edit (promote)
@@ -378,7 +378,7 @@ jobs:
     # Windows only for the release gate, the schedule and a gate by hand (6 Oct 2026): a push run's Windows jobs held runner slots (20 at once, shared) while
     # the next run's Mac + Linux suites waited. A Windows-only problem from a push is found at the next scheduled run or gate.
     if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == '' && inputs.mutant == '' && (github.event_name == 'workflow_run' || github.event_name == 'schedule' || inputs.gate_tag != '')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write
@@ -395,7 +395,7 @@ jobs:
   promote-dry-run:
     needs: plan
     if: github.event_name == 'workflow_dispatch' && inputs.promote_tag != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read

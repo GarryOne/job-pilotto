@@ -83,4 +83,4 @@ export const reviewNeeded = ({files, waiting, known}) => !known || waiting > 0 |
 
 // Where a suite runs in CI (6 Oct 2026, the 5-minute e2e): Linux by default (20 runner slots, about twice as fast as a Mac); macOS only for a suite that needs the Mac
 // itself (Keychain, `open` to Chrome and the extension, pixels and fonts), which exports `macos = true` with its reason. The Free plan runs at most 5 macOS jobs at once.
-export const runnerOf = module => (module.macos ? 'macos-latest' : 'ubuntu-latest');
+export const runnerOf = module => (module.macos ? 'macos-latest' : 'ubuntu-24.04');

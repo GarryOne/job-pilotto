@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read
@@ -202,7 +202,7 @@ jobs:
     name: Windows HTML report
     needs: [plan, suite]
     if: always() && needs.plan.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
@@ -239,7 +239,7 @@ jobs:
   approve-windows:
     needs: [plan, suite]
     if: success() && inputs.tag != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write   # gh release edit
       issues: write     # the release scripts file an issue when something blocks a release (tests/test_release_permissions.py)

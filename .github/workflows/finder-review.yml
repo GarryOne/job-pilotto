@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
@@ -103,7 +103,7 @@ jobs:
 
   # The verdict pass's measured accuracy: five random verdicts of the week in one issue to tick right or wrong; last week's audit is closed with its score. No AI.
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}

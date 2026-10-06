@@ -51,7 +51,7 @@ env:
 
 jobs:
   mail:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: job-pilotto-mail
       cancel-in-progress: false

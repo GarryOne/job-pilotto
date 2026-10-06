@@ -77,7 +77,7 @@ env:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Runs share one SQLite state file; never let two overlap. Apply, more, prepare, insight, weekly,
     # interview and add runs only read it, so they get their own group and a queued run can't displace them.
     concurrency:

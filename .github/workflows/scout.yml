@@ -52,7 +52,7 @@ env:
 
 jobs:
   scout:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Shares the SQLite state with the digest workflow, so the two never overlap.
     concurrency:
       group: job-pilotto-state
