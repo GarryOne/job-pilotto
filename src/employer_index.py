@@ -50,6 +50,16 @@ def _mint(base, install):
         return ''
 
 
+def fresh_of(fresh):
+    """A feed's freshness as the index carries it (src/scout.py health): fixed fields, or None."""
+    if not isinstance(fresh, dict) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(fresh.get('ok') or '')):
+        return None
+    number = lambda value: int(value) if isinstance(value, (int, float)) and 0 <= value < 10**6 else 0
+    return {'ok': fresh['ok'], 'fails': number(fresh.get('fails')), 'jobs': number(fresh.get('jobs')),
+            'trend': fresh.get('trend') if fresh.get('trend') in ('up', 'flat', 'down') else 'flat',
+            'new': fresh.get('new') if re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(fresh.get('new') or '')) else None}
+
+
 def clean(feeds):
     """Only well-formed entries for feeds we can crawl: unknown ATS names or missing slugs are dropped."""
     out = []
@@ -64,6 +74,7 @@ def clean(feeds):
                         'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None,
                         'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None,
                         **({'kinds': role_kinds.valid(item.get('kinds'))} if role_kinds.valid(item.get('kinds')) else {}),
+                        **({'fresh': fresh_of(item.get('fresh'))} if fresh_of(item.get('fresh')) else {}),
                         'regions': [r for r in item.get('regions') or [] if isinstance(r, str) and r in REGION_NAMES],
                         **({'recipe': item['recipe']} if system == 'careers' and page_recipes.valid(item.get('recipe')) else {})})
     return out

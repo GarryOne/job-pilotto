@@ -1,4 +1,5 @@
 """The central employer index: download at most daily, cache, merge with the starter list, never fail a run."""
+import sqlite3
 import json
 import sys
 import tempfile
@@ -325,3 +326,27 @@ class SliceTests(unittest.TestCase):
             with mock.patch.object(employer_index, 'my_regions', return_value=['north_america']):
                 employer_index.load(cache=cache, url='https://x.test/api/index', get=get, now=now, install_id='abcdefgh12')
             self.assertEqual(asked[-1], 'https://x.test/api/index?regions=north_america')
+
+
+class FreshnessTests(unittest.TestCase):
+    """6 Oct 2026: a feed stayed in the index only while it had a job in the central scout's IT scope, so shop or care employers would leave it."""
+    def test_any_open_job_keeps_a_feed_and_freshness_is_tracked(self):
+        db = sqlite3.connect(':memory:')
+        shop = {'ats': 'successfactors', 'slug': 'jobs.coop.ch', 'jobs': 3142, 'relevant': 0}
+        empty = {'ats': 'lever', 'slug': 'gone', 'jobs': 0, 'relevant': 0}
+        quiet, fresh = scout.health(db, [shop, empty], '2026-06-01')
+        self.assertEqual(fresh[('successfactors', 'jobs.coop.ch')]['jobs'], 3142)
+        quiet, fresh = scout.health(db, [{**shop, 'jobs': 3200}, empty], '2026-10-06', failed=[{'ats': 'lever', 'slug': 'dead'}])
+        self.assertNotIn(('successfactors', 'jobs.coop.ch'), quiet, 'open jobs of any kind keep it')
+        self.assertIn(('lever', 'gone'), quiet, 'no open job for 90 days: left out')
+        self.assertEqual({k: fresh[('successfactors', 'jobs.coop.ch')][k] for k in ('ok', 'fails', 'jobs', 'trend', 'new')},
+                         {'ok': '2026-10-06', 'fails': 0, 'jobs': 3200, 'trend': 'up', 'new': '2026-10-06'})
+        scout.health(db, [], '2026-10-07', failed=[{'ats': 'successfactors', 'slug': 'jobs.coop.ch'}])
+        self.assertEqual(db.execute("SELECT fails FROM feed_health WHERE slug = 'jobs.coop.ch'").fetchone()[0], 1)
+
+    def test_the_engine_keeps_only_a_valid_freshness(self):
+        out = employer_index.clean([{'company': 'Coop', 'ats': 'successfactors', 'slug': 'jobs.coop.ch',
+                                     'fresh': {'ok': '2026-10-06', 'fails': 2, 'jobs': 3200, 'trend': 'sideways', 'new': 'yesterday'}},
+                                    {'company': 'X', 'ats': 'lever', 'slug': 'x', 'fresh': {'ok': 'never'}}])
+        self.assertEqual(out[0]['fresh'], {'ok': '2026-10-06', 'fails': 2, 'jobs': 3200, 'trend': 'flat', 'new': None})
+        self.assertNotIn('fresh', out[1])

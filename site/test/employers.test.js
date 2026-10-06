@@ -221,3 +221,11 @@ test('a feed\'s mix of kinds is kept only in its fixed shape', () => {
   assert.equal('kinds' in odd, false);
   assert.equal('kinds' in none, false);
 });
+
+test('a feed\'s freshness is kept only in its fixed shape', () => {
+  const [kept, odd] = clean([
+    {company: 'Coop', ats: 'successfactors', slug: 'jobs.coop.ch', fresh: {ok: '2026-10-06', fails: 2, jobs: 3200, trend: 'up', new: '2026-10-06', extra: 'x'}},
+    {company: 'Odd', ats: 'lever', slug: 'odd', fresh: {ok: 'never'}}]);
+  assert.deepEqual(kept.fresh, {ok: '2026-10-06', fails: 2, jobs: 3200, trend: 'up', new: '2026-10-06'});
+  assert.equal('fresh' in odd, false);
+});

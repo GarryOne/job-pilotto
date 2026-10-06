@@ -604,30 +604,48 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(check, known.items()))
     answered = [r for r in results if 'error' not in r]
-    quiet = health(db, answered, today)
-    kept = sorted((r for r in answered if (r['ats'], r['slug']) not in quiet), key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
-    return kept, [r for r in results if 'error' in r]
+    failed = [r for r in results if 'error' in r]
+    quiet, fresh = health(db, answered, today, failed)
+    kept = sorted(({**r, 'fresh': fresh[(r['ats'], r['slug'])]} for r in answered if (r['ats'], r['slug']) not in quiet),
+                  key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
+    return kept, failed
 
 
-QUIET_DAYS = 90   # a feed with no role in our scope for this long leaves the published index (it stays known, and returns when it has roles)
+QUIET_DAYS = 90   # a feed with no open job of any kind for this long leaves the published index (it stays known, and returns when it lists jobs)
 
 
-def health(db, entries, today):
-    """Record when each feed last had a role in scope; returns {(ats, slug)} of the feeds quiet for QUIET_DAYS (left out of the index)."""
+def health(db, entries, today, failed=()):
+    """Each feed's freshness, kept from night to night: ({(ats, slug)} of feeds with no open job of any kind for QUIET_DAYS (left out of the
+    index), {(ats, slug): fresh}). fresh = {ok: last read that worked, fails: failed reads in a row, jobs: open jobs now, trend: up/flat/down
+    since the last read, new: last day it listed more jobs than before}.
+    6 Oct 2026: a feed counted as alive only while it had a job in the central scout's own IT scope, so every shop, warehouse or care
+    employer an install found would have left the list after 90 days. Now any open job keeps it, whatever the trade."""
     db.execute('CREATE TABLE IF NOT EXISTS feed_health (ats TEXT NOT NULL, slug TEXT NOT NULL, first_checked TEXT NOT NULL, '
                'last_relevant TEXT, PRIMARY KEY (ats, slug))')
+    have = {row[1] for row in db.execute('PRAGMA table_info(feed_health)')}
+    for column, kind in (('last_ok', 'TEXT'), ('fails', 'INTEGER DEFAULT 0'), ('jobs', 'INTEGER'), ('last_new', 'TEXT'), ('last_listed', 'TEXT')):
+        if column not in have:
+            db.execute(f'ALTER TABLE feed_health ADD COLUMN {column} {kind}')   # a table from before 6 Oct 2026
     cutoff = (datetime.fromisoformat(today) - timedelta(days=QUIET_DAYS)).date().isoformat()
-    quiet = set()
-    for entry in entries:
+    quiet, fresh = set(), {}
+    for entry in failed:
         key = (entry['ats'], entry['slug'])
         db.execute('INSERT OR IGNORE INTO feed_health (ats, slug, first_checked) VALUES (?, ?, ?)', (*key, today))
-        if entry.get('relevant'):
-            db.execute('UPDATE feed_health SET last_relevant = ? WHERE ats = ? AND slug = ?', (today, *key))
-        row = db.execute('SELECT first_checked, last_relevant FROM feed_health WHERE ats = ? AND slug = ?', key).fetchone()
+        db.execute('UPDATE feed_health SET fails = COALESCE(fails, 0) + 1 WHERE ats = ? AND slug = ?', key)
+    for entry in entries:
+        key, jobs = (entry['ats'], entry['slug']), int(entry.get('jobs') or 0)
+        db.execute('INSERT OR IGNORE INTO feed_health (ats, slug, first_checked) VALUES (?, ?, ?)', (*key, today))
+        before = db.execute('SELECT jobs FROM feed_health WHERE ats = ? AND slug = ?', key).fetchone()[0]
+        db.execute('UPDATE feed_health SET last_ok = ?, fails = 0, jobs = ?, last_new = CASE WHEN ? > COALESCE(jobs, 0) THEN ? ELSE last_new END, '
+                   'last_listed = CASE WHEN ? > 0 THEN ? ELSE last_listed END, last_relevant = CASE WHEN ? THEN ? ELSE last_relevant END '
+                   'WHERE ats = ? AND slug = ?', (today, jobs, jobs, today, jobs, today, bool(entry.get('relevant')), today, *key))
+        row = db.execute('SELECT first_checked, last_listed, last_ok, fails, last_new FROM feed_health WHERE ats = ? AND slug = ?', key).fetchone()
         if (row[1] or row[0]) < cutoff:
             quiet.add(key)
+        trend = 'flat' if before is None or before == jobs else 'up' if jobs > before else 'down'
+        fresh[key] = {'ok': row[2], 'fails': row[3] or 0, 'jobs': jobs, 'trend': trend, 'new': row[4]}
     db.commit()
-    return quiet
+    return quiet, fresh
 
 
 SWISS = re.compile(r'switzerland|schweiz|suisse|svizzera|z[uü]rich|gen[eè]v|genf|basel|\bbern\b|lausanne|\bzug\b|lugano|luzern|lucerne|winterthur|st\.? ?gallen', re.I)

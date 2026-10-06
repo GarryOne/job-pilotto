@@ -35,6 +35,14 @@ export const kindsOf = kinds => {
     .map(([kind, share]) => [kind, Math.round(share * 100) / 100]));
   return Object.keys(out).length ? out : null;
 };
+// How fresh a feed is (src/scout.py health): fixed fields only, dates and small numbers.
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+export const freshOf = fresh => {
+  if (!fresh || typeof fresh !== 'object') return null;
+  const out = {ok: DAY.test(fresh.ok || '') ? fresh.ok : null, fails: number(fresh.fails, 1000) ?? 0, jobs: number(fresh.jobs, 100000) ?? 0,
+    trend: ['up', 'flat', 'down'].includes(fresh.trend) ? fresh.trend : 'flat', new: DAY.test(fresh.new || '') ? fresh.new : null};
+  return out.ok ? out : null;
+};
 const fitsOf = fits => ({roles: (fits?.roles || []).filter(r => ROLES.includes(r)), regions: (fits?.regions || []).filter(r => REGIONS.includes(r))});
 
 // Only the fields clients read, and only feeds an app knows how to crawl.
@@ -52,6 +60,7 @@ export function clean(feeds) {
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       fits: fitsOf(item.fits),
       ...(kindsOf(item.kinds) ? {kinds: kindsOf(item.kinds)} : {}),
+      ...(freshOf(item.fresh) ? {fresh: freshOf(item.fresh)} : {}),
       regions: Array.isArray(item.regions) ? [...new Set(item.regions.filter(r => REGIONS.includes(r)))] : [],
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : [],
       ...(ats === 'careers' && recipeOf(item.recipe) ? {recipe: recipeOf(item.recipe)} : {})});

@@ -41,13 +41,14 @@ class StatsTests(unittest.TestCase):
 
 
 class HealthTests(unittest.TestCase):
-    def test_a_feed_quiet_for_90_days_leaves_the_index_and_returns_with_roles(self):
+    def test_a_feed_with_no_open_job_for_90_days_leaves_the_index_and_returns_with_jobs(self):
+        """Any open job keeps a feed, whatever the trade (6 Oct 2026: before, only jobs in the central scout's IT scope did)."""
         db = sqlite3.connect(':memory:')
-        busy, idle = {'ats': 'lever', 'slug': 'busy', 'relevant': 3}, {'ats': 'lever', 'slug': 'idle', 'relevant': 0}
-        self.assertEqual(scout.health(db, [busy, idle], '2026-06-01'), set())
-        self.assertEqual(scout.health(db, [busy, idle], '2026-08-01'), set())          # 61 days: still in
-        self.assertEqual(scout.health(db, [busy, idle], '2026-09-05'), {('lever', 'idle')})
-        self.assertEqual(scout.health(db, [busy, {**idle, 'relevant': 1}], '2026-09-06'), set())   # roles again: back in
+        busy, idle = {'ats': 'lever', 'slug': 'busy', 'jobs': 3, 'relevant': 0}, {'ats': 'lever', 'slug': 'idle', 'jobs': 0}
+        self.assertEqual(scout.health(db, [busy, idle], '2026-06-01')[0], set())
+        self.assertEqual(scout.health(db, [busy, idle], '2026-08-01')[0], set())          # 61 days: still in
+        self.assertEqual(scout.health(db, [busy, idle], '2026-09-05')[0], {('lever', 'idle')})
+        self.assertEqual(scout.health(db, [busy, {**idle, 'jobs': 1}], '2026-09-06')[0], set())   # jobs again: back in
 
     def test_a_recipe_that_reads_nothing_is_flagged_and_not_used_until_relearned(self):
         from src.sources import page_recipes
