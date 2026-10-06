@@ -42,6 +42,7 @@ HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90, 'watch': 7}   # watch: a careers page with no open jobs today, looked at again weekly
 # Tier 1 feeds are crawled with this many matching roles anywhere: their Zurich/London roles come and go.
 TIER1_MIN_RELEVANT = 3
+SMALL_GUESS = 5   # a guessed feed with fewer jobs is checked against the company's own careers page (find_feed)
 # Lists of software employers only: Hacker News "Who is hiring?", hiring-without-whiteboards, SwissDevJobs, and the seed lists unless the seed file
 # says "tech_only": false (absent means true: every app copied the shipped tech list at first run). A search outside IT neither harvests nor probes
 # them (6 Oct 2026: a photographer's runs checked Netflix, Stripe and Databricks while the AI's Geneva retail and watchmaking ideas waited in the
@@ -280,6 +281,18 @@ def belongs_to(candidate, slug, jobs, exact):
     return any(word in blob for word in words)
 
 
+JOB_SUBDOMAINS = ('jobs', 'careers', 'career', 'karriere')
+
+
+def job_hosts(website):
+    """The usual addresses of a company's job site (jobs.coop.ch, careers.manor.ch), from its website: tried when its home page links to no
+    job system (6 Oct 2026: coop.ch led nowhere, jobs.coop.ch is SuccessFactors with 3,142 jobs)."""
+    host = (urllib.parse.urlsplit(website if '//' in website else f'https://{website}').hostname or '').lower().removeprefix('www.')
+    if not host or host.split('.')[0] in JOB_SUBDOMAINS:
+        return []
+    return [f'https://{sub}.{host}' for sub in JOB_SUBDOMAINS]
+
+
 def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None):
     """(ats, slug, jobs) for the candidate's public feed, or None. In order: the address already known; slugs guessed from the name and
     from the website's domain on the common job systems; then the website itself (an embedded job system, or a careers page with job data)."""
@@ -293,18 +306,32 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None):
     if website:
         names = names[:2]   # the first word alone ("Data" for Data Purpose AG) is a guess; with an address to go by it is left out
     exact_slugs = {*ats.slug_guesses(candidate['name'])[:2], *ats.domain_guesses(website)}
+    guessed = None
     for slug in list(dict.fromkeys([*names, *ats.domain_guesses(website)]))[:6]:
         for system in ats.GUESSABLE:
             jobs = probe(system, slug)
             if jobs and belongs_to(candidate, slug, jobs, slug in exact_slugs):
-                return system, slug, jobs
+                guessed = (system, slug, jobs)
+                break
+        if guessed:
+            break
+    # A guess with a handful of jobs may be another company of that name (Coop Suisse Romande took JOIN's "coop", 1 job, while its own
+    # careers site runs SuccessFactors with 3,142: 6 Oct 2026). With the company's address known, its own careers page decides then.
+    if guessed and (not website or len(guessed[2]) >= SMALL_GUESS):
+        return guessed
     page = discover(website) if website else None
+    for host in [] if page or not website else job_hosts(website):   # the home page led nowhere: the usual job site of that domain
+        page = discover(host)
+        if page:
+            break
     if page:
         if page.get('empty'):
-            return page['ats'], page['slug'], []   # a careers page with no open jobs right now: watched, not dropped
+            return guessed or (page['ats'], page['slug'], [])   # a careers page with no open jobs right now: watched, not dropped
         jobs = page.get('jobs') or probe(page['ats'], page['slug'])
-        if jobs:
+        if jobs and (not guessed or len(jobs) > len(guessed[2])):
             return page['ats'], page['slug'], jobs
+        if guessed:
+            return guessed
         if note and page.get('ats') != 'careers':
             # A job system the page names that gave back nothing: no adapter, or one that does not fit this company's pages. Said out loud, because a
             # silent None looked like "this employer has no jobs" (Ringier on Umantis, 5 Oct 2026).

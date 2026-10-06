@@ -98,6 +98,22 @@ class ScoutTests(unittest.TestCase):
             card = scout.telegram_summary(summary, [])
             self.assertIn(f"{summary['checked']} new to the search", card)
 
+    def test_a_small_name_guess_loses_to_the_companys_own_job_site(self):
+        """6 Oct 2026: Coop Suisse Romande took JOIN's "coop" (1 job, another company); its own job site jobs.coop.ch runs SuccessFactors."""
+        own = [{'title': f'Vendeur {i}', 'location': 'Genève'} for i in range(40)]
+        probe = lambda system, slug: [{'title': 'Koch', 'location': 'Berlin'}] if (system, slug) == ('join', 'coop') else \
+            own if (system, slug) == ('successfactors', 'jobs.coop.ch') else None
+        tried = []
+        discover = lambda url: tried.append(url) or ({'ats': 'successfactors', 'slug': 'jobs.coop.ch'} if url == 'https://jobs.coop.ch' else None)
+        system, slug, jobs = scout.find_feed({'name': 'Coop Suisse Romande', 'website': 'https://www.coop.ch'}, probe, discover)
+        self.assertEqual((system, slug, len(jobs)), ('successfactors', 'jobs.coop.ch', 40))
+        self.assertEqual(tried[:2], ['https://www.coop.ch', 'https://jobs.coop.ch'], 'the home page first, then the usual job site')
+        big = lambda system, slug: own if (system, slug) == ('join', 'coop') else None
+        self.assertEqual(scout.find_feed({'name': 'Coop', 'website': 'https://www.coop.ch'}, big, lambda url: None)[:2], ('join', 'coop'),
+                         'a guess with many jobs is kept without asking the website')
+        self.assertEqual(scout.job_hosts('https://jobs.coop.ch'), [], 'already a job site')
+        self.assertEqual(scout.job_hosts('manor.ch')[1], 'https://careers.manor.ch')
+
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])
         with tempfile.TemporaryDirectory() as tmp, \

@@ -173,9 +173,10 @@ class FindFeedTests(unittest.TestCase):
 
         def probe(system, slug):
             tried.append((system, slug))
-            return self.JOBS if (system, slug) == ('lever', 'acme-tech') else None
+            return jobs if (system, slug) == ('lever', 'acme-tech') else None
+        jobs = self.JOBS * scout.SMALL_GUESS   # a feed of a real size: a handful is checked against the website (find_feed)
         found = scout.find_feed({'name': 'Totally Different AG', 'website': 'https://www.acme-tech.ch'}, probe, discover=lambda site: self.fail('not needed'))
-        self.assertEqual(found, ('lever', 'acme-tech', self.JOBS))
+        self.assertEqual(found, ('lever', 'acme-tech', jobs))
 
     def test_with_a_website_the_first_word_of_the_name_is_not_guessed(self):
         tried = []
