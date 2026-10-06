@@ -125,3 +125,21 @@ class FoundHereTests(unittest.TestCase):
                          set(re.findall(r"'(\w+)'", re.search(r'export const HOW = \[([^\]]+)\]',
                              (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()).group(1))),
                          'the words the app sends are the words the site keeps')
+
+
+class DeadEndTests(unittest.TestCase):
+    def test_no_readable_job_site_is_shared_and_then_skipped_by_other_installs(self):
+        """6 Oct 2026: every install probed the same employers with no readable job site."""
+        import sqlite3
+        from datetime import datetime, timezone
+        from src import employer_index, scout
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE scout_candidates (name TEXT, website TEXT, status TEXT, checked_at TEXT, checked_with TEXT)')
+        today = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        db.execute("INSERT INTO scout_candidates VALUES ('Fnac Suisse', 'https://www.fnac.ch/fr', 'none', ?, ?)", (today, scout.READERS))
+        db.execute("INSERT INTO scout_candidates VALUES ('Old Readers', 'https://old.ch', 'none', ?, 'aaaaaaaaaaaa')", (today,))
+        self.assertEqual(contribute.dead_ends(db), [{'company': 'Fnac Suisse', 'host': 'fnac.ch'}], 'only what the current readers found')
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / 'index.json'
+            cache.write_text(json.dumps({'feeds': [], 'nofeed': [{'key': 'fnacsuisse', 'last': today[:10]}, {'key': 'stale', 'last': '2020-01-01'}]}))
+            self.assertEqual(employer_index.central_nofeed(cache), {'fnacsuisse'}, 'older than 30 days: probed again')

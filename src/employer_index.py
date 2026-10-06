@@ -60,6 +60,23 @@ def fresh_of(fresh):
             'new': fresh.get('new') if re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(fresh.get('new') or '')) else None}
 
 
+def clean_nofeed(items):
+    """The central list of employers with no readable job site (published by the central scout): fixed fields, or dropped."""
+    out = []
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, dict) and re.fullmatch(r'[a-z0-9]{1,120}', str(item.get('key') or '')) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(item.get('last') or '')):
+            out.append({'key': item['key'], 'last': item['last']})
+    return out[:5000]
+
+
+def central_nofeed(cache=None, today=None, days=30):
+    """{key} of employers some install or the central scout found with no readable job site in the last `days` days (6 Oct 2026): this
+    install's scout skips them instead of probing the same dead end."""
+    cutoff = ((today or datetime.now(timezone.utc).date()) - timedelta(days=days)).isoformat()
+    stored = _read(cache or CACHE) or {}
+    return {item['key'] for item in stored.get('nofeed') or [] if item.get('last', '') >= cutoff}
+
+
 def clean(feeds):
     """Only well-formed entries for feeds we can crawl: unknown ATS names or missing slugs are dropped."""
     out = []
@@ -84,7 +101,7 @@ def _read(cache):
     try:
         data = json.loads(cache.read_text())
         return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds')),
-                'install': data.get('install'), 'regions': data.get('regions') or []}
+                'install': data.get('install'), 'regions': data.get('regions') or [], 'nofeed': clean_nofeed(data.get('nofeed'))}
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -142,15 +159,16 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
             try:
                 status, body, etag = get(url, headers)
                 if status == 304 and stored:
-                    feeds, etag = stored['feeds'], stored['etag']
+                    feeds, etag, dead = stored['feeds'], stored['etag'], stored.get('nofeed') or []
                 else:
-                    feeds = clean(json.loads(body).get('feeds'))
+                    parsed = json.loads(body)
+                    feeds, dead = clean(parsed.get('feeds')), clean_nofeed(parsed.get('nofeed'))
                 break
             except Exception:  # noqa: BLE001 — once more after a short wait, then the outer handler decides
                 if attempt == 2:
                     raise
                 time.sleep(retry_wait)
-        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds}
+        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds, 'nofeed': dead}
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
         return feeds

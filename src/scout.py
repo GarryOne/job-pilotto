@@ -541,18 +541,21 @@ MIN_INSTALLS = 1   # a contributed feed becomes a candidate when this many insta
 FIT_MIN_INSTALLS = 5   # a role / region tag is published for a feed only when this many different installs matched it
 
 
-def fetch_contributions(base_url, key, get=None):
-    """The opt-in aggregate from the website (`GET /api/contributions`, Bearer key); [] when unavailable: never fatal."""
+def fetch_contributions(base_url, key, get=None, with_nofeed=False):
+    """The opt-in aggregate from the website (`GET /api/contributions`, Bearer key); [] when unavailable: never fatal. With with_nofeed,
+    (feeds, nofeed): also the employers installs found with no readable job site."""
     def default_get(request):
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.load(response)
     request = urllib.request.Request(base_url.rsplit('/api/', 1)[0] + '/api/contributions',
                                      headers={'Authorization': f'Bearer {key}', 'User-Agent': ats.USER_AGENT})
     try:
-        return [f for f in (get or default_get)(request).get('feeds', []) if isinstance(f, dict)]
+        answer = (get or default_get)(request)
+        feeds = [f for f in answer.get('feeds', []) if isinstance(f, dict)]
+        return (feeds, [n for n in answer.get('nofeed', []) if isinstance(n, dict)]) if with_nofeed else feeds
     except Exception as error:  # noqa: BLE001
         print(f'Warning: pool contributions not read ({type(error).__name__}: {error})')
-        return []
+        return ([], []) if with_nofeed else []
 
 
 def fits(contribution):
@@ -718,11 +721,29 @@ def central_stats(db, feeds_out, market=()):
             'market': list(market)}
 
 
-def publish_index(feeds, url, key, send=None, stats=None):
+def dead_ends(db, shared=(), days=30):
+    """[{key, company, host, last}] to publish: employers installs (shared) or this central scout found with no readable job site in the
+    last `days` days. Installs skip them for 30 days (src/employer_index.central_nofeed)."""
+    since = (now() - timedelta(days=days)).date().isoformat()
+    out = {}
+    for item in shared:
+        key, last = str(item.get('key') or ''), str(item.get('last') or '')
+        if re.fullmatch(r'[a-z0-9]{1,120}', key) and last >= since:
+            out[key] = {'key': key, 'company': str(item.get('company') or '')[:120], 'host': item.get('host'), 'last': last[:10]}
+    for row in db.execute("SELECT name, website, checked_at FROM scout_candidates WHERE status = 'none' AND checked_at >= ?", (since,)):
+        key = key_for(row[0])
+        if key and key not in out:
+            host = re.sub(r'^https?://(www\.)?', '', row[1] or '').split('/')[0].lower() or None
+            out[key] = {'key': key, 'company': str(row[0])[:120], 'host': host, 'last': str(row[2])[:10]}
+    return list(out.values())[:5000]
+
+
+def publish_index(feeds, url, key, send=None, stats=None, nofeed=None):
     """Upload the index to the website worker (PUT, Bearer key), with the scout's own numbers. Raises when the service refuses it."""
     if not feeds:
         raise ValueError('nothing to publish: no feed answered')
-    body = json.dumps({'feeds': feeds, 'generated': now().isoformat(timespec='seconds'), **({'stats': stats} if stats else {})}).encode()
+    body = json.dumps({'feeds': feeds, 'generated': now().isoformat(timespec='seconds'), **({'stats': stats} if stats else {}),
+                       **({'nofeed': nofeed} if nofeed else {})}).encode()
 
     def put(request):
         with urllib.request.urlopen(request, timeout=60) as response:
@@ -838,6 +859,17 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     if ideas:
         added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
     candidates = next_batch(db, batch, skip)
+    if not CENTRAL:   # employers some install (or the central scout) found with no readable job site lately: not probed again here
+        dead = employer_index.central_nofeed()
+        skipped = [c for c in candidates if key_for(c['name']) in dead and c['status'] != 'manual']
+        if skipped:
+            later = (now() + timedelta(days=30)).isoformat(timespec='seconds')
+            for c in skipped:
+                db.execute("UPDATE scout_candidates SET status='none', checked_at=?, next_check=?, checked_with=? WHERE key=?",
+                           (now().isoformat(timespec='seconds'), later, READERS, c['key']))
+            db.commit()
+            print(f'Scout: {len(skipped)} employer(s) left for 30 days: other installs found no readable job site there lately.')
+            candidates = [c for c in candidates if c not in skipped]
     print(f'Scout: checking {len(candidates)} employer(s)…')
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
@@ -1017,12 +1049,12 @@ def main():
             if not key:
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
             index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
-            contributions = fetch_contributions(index_url, key)
+            contributions, shared_dead = fetch_contributions(index_url, key, with_nofeed=True)
             swiss_titles = []
             feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
                                             boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
             stats = central_stats(db, feeds_out, market_coverage(swiss_titles))
-            count = publish_index(feeds_out, index_url, key, stats=stats)
+            count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead))
             print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     from .ai import cost as ai_cost

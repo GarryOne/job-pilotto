@@ -5,7 +5,7 @@
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];   // src/contribute.py: IT families, then src/role_kinds.py's other trades
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
-const MAX_FEEDS = 500, KEEP_DAYS = 90, EVERY_MINUTES = 10;   // shared after every run (was once in 12 hours: owner, 6 Oct 2026)
+const MAX_FEEDS = 500, MAX_NOFEED = 300, KEEP_DAYS = 90, EVERY_MINUTES = 10;   // shared after every run (was once in 12 hours: owner, 6 Oct 2026)
 // How an install found a feed (src/contribute.py HOW): fixed words only.
 export const HOW = ['ai_idea', 'ai_list', 'jobs_ch', 'wikidata', 'seed', 'hn', 'whiteboards', 'swissdevjobs', 'index', 'own', 'other'];
 const siteOf = value => { try { const url = new URL(String(value || '')); return url.protocol === 'https:' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(url.hostname) ? url.href.slice(0, 200) : null; } catch { return null; } };
@@ -34,7 +34,16 @@ export async function contribute(request, env, now = new Date()) {
     feeds.push({ats: item.ats, slug: item.slug, company: item.company.trim().slice(0, 120), matched: item.matched ? 1 : 0, own: item.own ? 1 : 0,
       how: HOW.includes(item.how) ? item.how : null, jobs: count(item.jobs), hits: count(item.hits), site: siteOf(item.site), failed: item.failed ? 1 : 0});
   }
-  if (!feeds.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
+  // "No readable job site" (v2): a company name and its website host, both checked; the same key as the scout's (src/scout.py key_for).
+  const nofeed = [], keys = new Set();
+  for (const item of (Array.isArray(body.nofeed) ? body.nofeed : []).slice(0, MAX_NOFEED)) {
+    const company = typeof item?.company === 'string' ? item.company.trim().slice(0, 120) : '';
+    const key = company.toLowerCase().replace(/\b(ag|sa|gmbh|ltd|inc|llc|plc)\b/g, '').replace(/[^a-z0-9]/g, '');
+    if (!key || keys.has(key)) continue;
+    keys.add(key);
+    nofeed.push({key, company, host: typeof item.host === 'string' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host) ? item.host.slice(0, 100) : null});
+  }
+  if (!feeds.length && !nofeed.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
   const install = await hashed(env, body.install);
   const kv = env.WAITLIST, limit = `pool:${install}`;
   if (kv && await kv.get(limit)) return Response.json({ok: false, error: `one contribution per ${EVERY_MINUTES} minutes`}, {status: 429});
@@ -49,7 +58,11 @@ export async function contribute(request, env, now = new Date()) {
       .bind(install, today, feed.ats, feed.slug, feed.company, feed.matched, feed.own, roles.join(','), regions.join(','), feed.how, feed.jobs, feed.hits,
         feed.site, feed.failed).run();
   }
-  return Response.json({ok: true, feeds: feeds.length});
+  for (const item of nofeed) {
+    await env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host) VALUES (?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host)')
+      .bind(install, today, item.key, item.company, item.host).run();
+  }
+  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length});
 }
 
 // Per feed: how many different installs sent it, how many found jobs there, and among those the roles / regions.
@@ -78,11 +91,14 @@ export async function aggregate(request, env) {
     }
     feeds.set(key, feed);
   }
-  return Response.json({ok: true, feeds: [...feeds.values()]}, {headers: {'Cache-Control': 'no-store'}});
+  const dead = (await env.STATS.prepare('SELECT key, company, host, COUNT(*) AS installs, MAX(day) AS last FROM nofeed GROUP BY key LIMIT 20000').all()).results || [];
+  return Response.json({ok: true, feeds: [...feeds.values()], nofeed: dead}, {headers: {'Cache-Control': 'no-store'}});
 }
 
 // Daily: rows older than KEEP_DAYS are dropped.
 export async function purge(env, now = new Date()) {
   if (!env.STATS) return;
-  await env.STATS.prepare('DELETE FROM contributions WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_DAYS * 86400000))).run();
+  const oldest = day(new Date(now.getTime() - KEEP_DAYS * 86400000));
+  await env.STATS.prepare('DELETE FROM contributions WHERE day < ?').bind(oldest).run();
+  await env.STATS.prepare('DELETE FROM nofeed WHERE day < ?').bind(oldest).run();
 }

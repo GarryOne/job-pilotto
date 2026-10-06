@@ -8,7 +8,7 @@ import {purge} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -84,4 +84,15 @@ test('share v2: how it was found, jobs listed, matches, its job site and a faile
   const coop = all.feeds.find(item => item.slug === 'jobs.coop.ch');
   assert.deepEqual({how: coop.how, jobs: coop.jobs, hits: coop.hits, failed: coop.failed_installs, site: coop.site, installs: coop.installs},
     {how: {ai_idea: 1}, jobs: 3200, hits: 9, failed: 1, site: 'https://jobs.coop.ch/viewalljobs/', installs: 2});
+});
+
+test('"no readable job site" results are kept per install, added up for the scout, and checked', async () => {
+  const env = setup();
+  const share = install => ({...body(install, []), v: 2, nofeed: [{company: 'Fnac Suisse SA', host: 'fnac.ch'}, {company: 'Bad', host: 'javascript:x'}, {company: ''}]});
+  assert.equal((await post(env, share('install-aaaa1111'))).status, 200);
+  assert.equal((await post(env, share('install-bbbb2222'))).status, 200);
+  const all = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const fnac = all.nofeed.find(item => item.key === 'fnacsuisse');
+  assert.deepEqual({company: fnac.company, host: fnac.host, installs: fnac.installs}, {company: 'Fnac Suisse SA', host: 'fnac.ch', installs: 2});
+  assert.equal(all.nofeed.find(item => item.key === 'bad').host, null, 'a host that is not one is dropped');
 });

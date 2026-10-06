@@ -6,6 +6,7 @@ import {REGIONS, ROLES} from './pool.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
 import {store as storeScouting} from './scouting.js';
 const KEY = 'index:employers';
+const NOFEED_KEY = 'index:nofeed';   // employers with no readable job site, published by the central scout: installs skip them 30 days
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 const MAX_BYTES = 1_000_000;          // the KV copy older app versions download (one KV value)
 const MAX_PUBLISH_BYTES = 20_000_000; // what the central scout may send: D1 holds far more feeds than one KV value
@@ -97,7 +98,8 @@ async function slice(env, regions) {
   const rows = (await env.STATS.prepare(`SELECT body, generated FROM index_feeds WHERE ${where} ORDER BY ats, slug`)
     .bind(...regions.map(r => `%,${r},%`)).all()).results || [];
   if (!rows.length) return null;
-  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body))});
+  const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]');
+  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed});
 }
 
 async function download(request, env, now = new Date()) {
@@ -146,6 +148,10 @@ async function publish(request, env) {
   if (previous >= 10 && feeds.length < previous / 2) return text(409, `Refused: ${feeds.length} feeds would replace ${previous}`);
   const generated = new Date().toISOString();
   if (env.STATS) await store(env.STATS, feeds, generated);
+  // "No readable job site", checked here like everything published: a key, a name, a host, a date.
+  const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
+    .slice(0, 5000).map(item => ({key: item.key, company: String(item.company || '').slice(0, 120), host: /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host || '') ? item.host : null, last: item.last}));
+  if (env.WAITLIST) await env.WAITLIST.put(NOFEED_KEY, JSON.stringify(nofeed));
   // The central scout's own numbers for /intel (src/scouting.js): never a reason to refuse the index.
   if (env.STATS && body.stats) await storeScouting(env.STATS, body.stats, generated.slice(0, 10)).catch(() => false);
   // Older app versions download the whole list from KV: kept while it fits in one value, else left as it was (they update soon).

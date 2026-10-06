@@ -99,6 +99,22 @@ def found_here(db):
     return {(row[0], row[1]): {'how': how_of(row[2]), 'site': site(row[3])} for row in rows}
 
 
+def dead_ends(db, days=30):
+    """[{company, host}] of employers this install's scout found with no readable job site, with the current readers, in the last `days`
+    days (6 Oct 2026): shared so other installs do not probe the same employer again for a while. Public names and website hosts only."""
+    if db is None:
+        return []
+    from . import scout
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec='seconds')
+    try:
+        rows = db.execute("SELECT name, website FROM scout_candidates WHERE status = 'none' AND checked_at >= ? AND checked_with = ? LIMIT 300",
+                          (since, scout.READERS)).fetchall()
+    except Exception:  # noqa: BLE001 — no scout tables yet
+        return []
+    host = lambda site: (re.sub(r'^https?://(www\.)?', '', site or '').split('/')[0].lower() or None) if site else None
+    return [{'company': str(row[0])[:120], 'host': host(row[1])} for row in rows]
+
+
 def payload(feed_list, report, tracker=None, install=None, search=None, db=None):
     """What would be sent (v2): every feed this install's scout verified, the feeds that gave this user a job (`matched`) and the ones they
     added themselves (`own`), each with how it was found, jobs listed, jobs that matched in their places, its job site and a failed read
@@ -126,8 +142,9 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None)
                           **({'jobs': int(seen.get('total') or 0), 'hits': int(seen.get('matches') or 0)} if seen.get('ok') else {}),
                           'failed': bool(seen) and not seen.get('ok')})
     roles, regions = tags(search)
+    nofeed = dead_ends(db)
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
-            'feeds': feeds[:MAX_FEEDS]}
+            'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {})}
 
 
 def enabled(env=None):
@@ -173,7 +190,7 @@ def maybe_send(feed_list, report, tracker=None, **kwargs):
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
     body = payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'))
-    if not body['feeds']:
+    if not body['feeds'] and not body.get('nofeed'):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
     if sent:
