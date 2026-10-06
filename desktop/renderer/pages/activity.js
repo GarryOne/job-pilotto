@@ -759,7 +759,7 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     why?.addEventListener('click', () => { openActivity(false); openView('strategy'); });
     more = el('div', 'run-card-foot');
     more.append(view, ...(why ? [why] : []));
-    if (few) more = withFewJobsHelp(more);
+    if (few) more = withFewJobsHelp(more, run?.id ?? card.items.map(item => item.url).join('|'));
   } else {
     // New to the search or checked again after its wait: a run never re-reads the same list (an older message has neither number).
     if (card.first == null) stats.append(stat(card.checked, 'employers checked'));
@@ -1635,11 +1635,21 @@ export async function init() {
 
 // A jobs check with few new jobs: why, and what would bring more, as buttons on the card itself (owner, 6 Oct 2026). The actions come from the
 // coverage answer (renderer/coverage-actions.js), least effort first; "Explain with AI" asks Claude only when clicked (src/ai/few_jobs.py).
-function withFewJobsHelp(foot) {
+// Asked once per run and kept: the panel redraws every second while open, and a box rebuilt empty then filled made the chips flash, with a
+// Python start each time (6 Oct 2026). A redraw paints from here at once; so does an "Explain with AI" answer already given.
+const fewJobsHelp = new Map();   // run id -> {actions: Promise<actions>, explained: {why, first_steps} | null}
+
+function withFewJobsHelp(foot, runId) {
+  if (!fewJobsHelp.has(runId)) {
+    fewJobsHelp.set(runId, {actions: window.pilot.searchCoverage().then(result => coverageActions(result?.coverage)).catch(() => []), explained: null, done: null});
+  }
+  const kept = fewJobsHelp.get(runId);
   const box = el('div', 'run-card-help');
   const heading = el('p', 'muted small', 'Few new jobs. What would bring more, easiest first:');
   const chips = el('div', 'coverage-chips');
   const answer = el('div', 'muted small');
+  const showAnswer = result => answer.replaceChildren(el('p', '', result.why), ...(result.first_steps || []).map((step, i) => el('p', '', `${i + 1}. ${step}`)));
+  if (kept.explained) showAnswer(kept.explained);
   const explain = el('button', 'secondary', 'Explain with AI');
   explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
   explain.addEventListener('click', async () => {
@@ -1648,23 +1658,27 @@ function withFewJobsHelp(foot) {
     const result = await window.pilot.explainCoverage().catch(error => ({ok: false, error: error.message}));
     explain.disabled = false;
     if (!result?.ok) { answer.textContent = result?.error || 'Claude could not answer now.'; return; }
-    answer.replaceChildren(el('p', '', result.why), ...(result.first_steps || []).map((step, i) => el('p', '', `${i + 1}. ${step}`)));
+    kept.explained = result;
+    showAnswer(result);
   });
   box.append(heading, chips, explain, answer);
-  window.pilot.searchCoverage().then(result => {
-    const actions = coverageActions(result?.coverage);
+  const paint = actions => {
     if (!actions.length) { heading.textContent = 'Few new jobs. Nothing obvious to change yet: Explain with AI looks at the numbers.'; return; }
     chips.replaceChildren(...actions.slice(0, 8).map(action => {
       const button = Object.assign(el('button', 'coverage-chip', action.label), {type: 'button', title: action.title});
+      if (kept.done?.[action.label]) { button.disabled = true; button.textContent = kept.done[action.label]; }
       button.addEventListener('click', async () => {
         button.disabled = true;
         const done = await runAction(action, {pilot: window.pilot, openSetting}).catch(error => ({ok: false, error: error.message}));
         if (done?.opened) { openActivity(false); button.disabled = false; return; }
         button.textContent = done?.ok ? `✓ ${action.label.replace(/^[+−] /, '')}` : `Not changed: ${done?.error || 'try again'}`;
+        if (done?.ok) kept.done = {...kept.done, [action.label]: button.textContent};   // a redraw keeps it done
+        else button.disabled = false;
       });
       return button;
     }));
-  }).catch(() => {});
+  };
+  if (kept.ready) paint(kept.ready); else kept.actions.then(actions => { kept.ready = actions; paint(actions); });
   const wrap = el('div', '');
   wrap.append(foot, box);
   return wrap;
