@@ -59,18 +59,20 @@ export function scenario(now = new Date()) {
 
 // Up next cards that each offer a way to finish them, one per way (5 Oct 2026: a dismissed card came back after a reload). Added to a running suite
 // after its own checks, so the six-card scenario above keeps its exact order and counts. `how` is what the person clicks.
-export function actionScenario(now = new Date()) {
+// tag: words added to every name of this scenario, unique to the run (6 Oct 2026: on a real Notion page a query still listed the previous run's archived rows for
+// minutes, so an earlier "Osprey Agency" card, never skipped in this run, looked like this run's card coming back). Each action's `who` is its full name.
+export function actionScenario(now = new Date(), tag = '') {
   const today = zurichDay(now), ago = days => shiftDay(today, -days), tomorrow = shiftDay(today, 1);
   const midday = days => `${ago(days)}T12:00:00Z`;
   const row = (key, fields) => ({key, fields});
   const event = (rowKey, kind, at, note = '', extra = {}) => ({rowKey, kind, at, note, source: 'Job Pilotto app', ...extra});
   const rows = [
-    row('osprey', {Job: 'Principal Platform Engineer', Via: 'Osprey Agency', Stage: 'Interviewing', 'Job URL': 'https://jobs.e2e.test/osprey/principal', Origin: 'Inbound'}),
-    row('plover', {Job: 'Staff SRE', Via: 'Plover Partners', Stage: 'Recruiter lead', Salary: 'CHF 150k', Location: 'Zurich', 'Reached via': 'Email', 'Job URL': 'https://jobs.e2e.test/plover/staff-sre', Origin: 'Inbound'}),
-    row('wren', {Job: 'Cloud Engineer', Company: 'Wren Labs', Stage: 'Rejected', 'Applied on': ago(14), 'Fit score': 66, 'Job URL': 'https://jobs.e2e.test/wren/cloud', Origin: 'Outbound'}),
-    row('heron', {Job: 'Data Platform Engineer', Company: 'Heron Data', Stage: 'Interview scheduled', 'Applied on': ago(8), 'Next interview': zurichAt(tomorrow, '10:00'), 'Fit score': 80,
+    row('osprey', {Job: 'Principal Platform Engineer', Via: `Osprey Agency${tag}`, Stage: 'Interviewing', 'Job URL': 'https://jobs.e2e.test/osprey/principal', Origin: 'Inbound'}),
+    row('plover', {Job: 'Staff SRE', Via: `Plover Partners${tag}`, Stage: 'Recruiter lead', Salary: 'CHF 150k', Location: 'Zurich', 'Reached via': 'Email', 'Job URL': 'https://jobs.e2e.test/plover/staff-sre', Origin: 'Inbound'}),
+    row('wren', {Job: 'Cloud Engineer', Company: `Wren Labs${tag}`, Stage: 'Rejected', 'Applied on': ago(14), 'Fit score': 66, 'Job URL': 'https://jobs.e2e.test/wren/cloud', Origin: 'Outbound'}),
+    row('heron', {Job: 'Data Platform Engineer', Company: `Heron Data${tag}`, Stage: 'Interview scheduled', 'Applied on': ago(8), 'Next interview': zurichAt(tomorrow, '10:00'), 'Fit score': 80,
       'Job URL': 'https://jobs.e2e.test/heron/data', Origin: 'Outbound'}),
-    row('lark', {Job: 'Platform Engineer', Company: 'Lark Systems', Stage: 'Screening', 'Applied on': ago(9), 'Fit score': 77, 'Job URL': 'https://jobs.e2e.test/lark/platform', Origin: 'Outbound'}),
+    row('lark', {Job: 'Platform Engineer', Company: `Lark Systems${tag}`, Stage: 'Screening', 'Applied on': ago(9), 'Fit score': 77, 'Job URL': 'https://jobs.e2e.test/lark/platform', Origin: 'Outbound'}),
   ];
   const events = [
     event('osprey', 'Interviewing', midday(2), 'An agency with a client under NDA. A first call took place.', {source: 'Gmail', sourceId: 'e2e-action-1'}),
@@ -80,11 +82,11 @@ export function actionScenario(now = new Date()) {
     event('lark', 'Applied', midday(9)), event('lark', 'Screening', midday(5)),
   ];
   const actions = [
-    {who: 'Osprey', kind: 'details', how: {button: 'Skip'}},
-    {who: 'Plover', kind: 'reply', how: {button: 'Done'}},
-    {who: 'Wren', kind: 'feedback', how: {menu: 'Skip this request'}},
-    {who: 'Heron', kind: 'prepare', card: 'Prepare.*Heron', how: {menu: 'Dismiss interview', confirm: true}},   // the job then shows a Move it forward card: another card, not this one coming back
-    {who: 'Lark', kind: 'nudge', how: {menu: "I'm out: withdraw"}},
+    {who: `Osprey Agency${tag}`, kind: 'details', how: {button: 'Skip'}},
+    {who: `Plover Partners${tag}`, kind: 'reply', how: {button: 'Done'}},
+    {who: `Wren Labs${tag}`, kind: 'feedback', how: {menu: 'Skip this request'}},
+    {who: `Heron Data${tag}`, kind: 'prepare', card: `Prepare.*Heron Data${tag}`, how: {menu: 'Dismiss interview', confirm: true}},   // the job then shows a Move it forward card: another card, not this one coming back
+    {who: `Lark Systems${tag}`, kind: 'nudge', how: {menu: "I'm out: withdraw"}},
   ];
   return {rows, events, actions};
 }

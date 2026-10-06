@@ -13,12 +13,18 @@ export const minutes = 15;
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords).
 export const stepNeeds = {'in-app hold': ['five more Up next', 'removes it for good'], 'removes it for good': ['five more Up next']};
 export const name = 'focus';
+// Two suites from this file (6 Oct 2026, under 5 minutes each): `focus` (lists, numbers, target, Done, Skip, hand edits, a fresh account) and `focusdismiss`
+// (suites/focusdismiss.mjs: the five ways to dismiss a card, the hold, Dismiss in process), each on its own real Notion page. `focus` moves to the in-memory Notion next.
+const DISMISS_STEPS = ['five more Up next cards', 'removes it for good', 'in-app hold', 'Dismiss on a job in process'];
+const SHARED_STEPS = ['a search with applications in every stage', 'Focus finishes loading', 'nothing was queued', 'render without layout problems'];
+export const partOf = name => (SHARED_STEPS.some(head => name.startsWith(head) || name.includes(head)) ? 'both' : DISMISS_STEPS.some(head => name.includes(head)) ? 'dismiss' : 'main');
+export const run = ctx => runFocus(ctx, ['main']);
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;
 
 const ERROR_WORDS = /\b(undefined|null|NaN|\[object|TypeError|Traceback|ENOENT|ECONN|could not load|stack)\b/i;
 
-export async function run(ctx) {
+export async function runFocus(ctx, parts) {
   const {page, app, token: NOTION} = ctx;
   ctx.findings = [];
   const now = new Date();
@@ -68,6 +74,8 @@ export async function run(ctx) {
   };
 
   await ensureSetUp(ctx);
+  const all = ctx.run;   // after setup: the wizard's own steps are never filtered
+  ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
   await app.evaluate(({shell}) => { globalThis.__opened = []; shell.openExternal = async url => { globalThis.__opened.push(String(url)); }; });
   const urlsOpened = () => app.evaluate(() => globalThis.__opened.slice());
 
@@ -206,7 +214,7 @@ export async function run(ctx) {
   // 5 Oct 2026 (owner): a card was dismissed from Up next, came back after a refresh, then left again. One card per way of finishing one (actionScenario):
   // each must leave at once, stay gone after a refresh, after a reload straight away (the saved Focus in lib/view-cache.js is painted first on every load)
   // and after a reload once Notion has had time. A MutationObserver from the first paint of every load records any moment the card is in the list.
-  const actions = actionScenario(now);
+  const actions = actionScenario(now, ` r${String(process.env.GITHUB_RUN_ID || Date.now().toString(36)).slice(-5)}`);   // names unique to this run
   await ctx.run('five more Up next cards, one for each way to finish one, are written to Notion', async () => {
     await addFocusData(NOTION, ids, actions);
     await page.addInitScript(() => {
@@ -264,7 +272,7 @@ export async function run(ctx) {
     if (back.length) {
       const recorded = await Promise.all(back.map(async item => { const action = actions.actions.find(one => new RegExp(one.card || one.who).test(item.headline));
         if (action?.kind !== 'details') return item.headline;   // only a Skip of "Add details" leaves an event this step can look up
-        return `${item.headline}: ${(await eventsOf('Details skipped', `${action.who} Agency`).catch(() => [])).length ? 'its dismissal IS in Notion (the read lags)' : 'no dismissal event found in Notion'}`; }));
+        return `${item.headline}: ${(await eventsOf('Details skipped', action.who).catch(() => [])).length ? 'its dismissal IS in Notion (the read lags)' : 'no dismissal event found in Notion'}`; }));
       throw new Error(`dismissed cards are still listed 90 s after the in-app hold ended: ${recorded.join(' | ')}`);
     }
   }, {needs: ctx.needs});

@@ -35,11 +35,11 @@ export function notionToken(suite) {
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
 // engine: a suite whose steps the AI proxy answers pins 'api' (a placeholder key on a Mac); otherwise a Mac uses Claude Code, CI the API key (lib/engine.mjs).
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
   // A suite on the in-memory Notion (`export const notionStandIn = true`): fresh and private for this run, no token, no shared page (lib/notion-fake.mjs).
   const standIn = notionStandIn && !light ? await startNotionFake() : null;
   if (standIn) useNotionAt(standIn.url);
-  const key = KEY(), token = light ? '' : standIn ? 'stand-in' : notionToken(suite);
+  const key = KEY(), token = light ? '' : standIn ? 'stand-in' : notionToken(notionTokenOf || suite);
   const engine = pickEngine({suiteEngine});
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
