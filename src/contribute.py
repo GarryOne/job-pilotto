@@ -303,17 +303,24 @@ def send(body, url=None, post=None, now=None, stamp=None):
 
     def default_post(request):
         with urllib.request.urlopen(request, timeout=20) as response:
-            return response.status
+            return response.status, response.read().decode('utf-8', 'replace')
     request = urllib.request.Request(url, data=json.dumps(body).encode(), method='POST',
                                      headers={'Content-Type': 'application/json', 'User-Agent': ats.USER_AGENT})
     try:
-        status = (post or default_post)(request)
+        answer = (post or default_post)(request)
     except Exception as error:  # noqa: BLE001
         print(f'Warning: pool contribution not sent ({type(error).__name__}: {error})')
         return False
+    status, text = answer if isinstance(answer, tuple) else (answer, '')
     if status != 200:
         print(f'Warning: pool contribution refused ({status})')
         return False
+    try:   # what the site did not keep (an unknown label, board or count): engine and site disagree on a name (7 Oct 2026)
+        dropped = (json.loads(text) if text else {}).get('dropped')
+    except ValueError:
+        dropped = None
+    if dropped:
+        print(f"Warning: the pool kept the share but dropped {', '.join(f'{n} {what}' for what, n in sorted(dropped.items()))}: engine and site lists differ")
     if stamp is not False:
         stamp.parent.mkdir(parents=True, exist_ok=True)
         stamp.write_text(json.dumps({'sent': (now or datetime.now(timezone.utc)).isoformat(timespec='seconds'), 'feeds': len(body['feeds'])}))

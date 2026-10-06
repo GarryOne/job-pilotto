@@ -22,6 +22,17 @@ function outOf(value) {
   }
   return Object.keys(out).length ? JSON.stringify(out) : null;
 }
+// How many outcome names or values in `out` are not kept (unknown names, not whole numbers).
+function outDrops(value) {
+  if (!value || typeof value !== 'object') return 1;
+  const kept = JSON.parse(outOf(value) || '{}');
+  let n = 0;
+  for (const [key, inner] of Object.entries(value)) {
+    if (['langs', 'senior'].includes(key) && inner && typeof inner === 'object') n += Object.keys(inner).filter(tag => !(kept[key] || {})[tag]).length;
+    else if (!(key in kept) && inner) n++;
+  }
+  return n;
+}
 // The fixed board ids src/contribute.py BOARDS sends: nothing else is stored.
 const BOARDS = ['jobsch', 'arbeitnow', 'himalayas', 'jobicy', 'adzuna', 'jooble', 'google_jobs', 'alerts_linkedin', 'alerts_jobsch', 'alerts_jobup', 'alerts_indeed', 'alerts_glassdoor'];
 // How an install found a feed (src/contribute.py HOW): fixed words only.
@@ -43,12 +54,19 @@ export async function contribute(request, env, now = new Date()) {
   if ((Number(request.headers.get('Content-Length')) || 0) > 600_000) return Response.json({ok: false, error: 'too large'}, {status: 413});
   const body = await request.json().catch(() => null);
   if (!body || ![1, 2].includes(body.v) || !/^[\w-]{8,64}$/.test(String(body.install || ''))) return Response.json({ok: false, error: 'invalid'}, {status: 400});
-  const roles = pick(body.roles, ROLES), regions = pick(body.regions, REGIONS);
-  const fine = [pick(body.countries, COUNTRIES), pick(body.metros, METROS), pick(body.families, FAMILIES)].map(list => list.join(','));   // finer labels (7 Oct 2026)
+  // What this endpoint drops is counted and said in the reply, so a naming drift between engine and site shows as a warning in the app's log
+  // instead of looking like "no data yet" (7 Oct 2026). Counts only.
+  const dropped = {};
+  const drop = (what, n = 1) => { if (n > 0) dropped[what] = (dropped[what] || 0) + n; };
+  const labels = (list, allowed, what) => { const kept = pick(list, allowed); drop(what, new Set(Array.isArray(list) ? list : []).size - kept.length); return kept; };
+  const roles = labels(body.roles, ROLES, 'roles'), regions = labels(body.regions, REGIONS, 'regions');
+  const fine = [labels(body.countries, COUNTRIES, 'countries'), labels(body.metros, METROS, 'metros'), labels(body.families, FAMILIES, 'families')].map(list => list.join(','));   // finer labels (7 Oct 2026)
   const seen = new Set(), feeds = [];
   for (const item of (Array.isArray(body.feeds) ? body.feeds : []).slice(0, MAX_FEEDS)) {
-    if (!item || !SYSTEMS.includes(item.ats) || typeof item.slug !== 'string' || !/^[\w.-]{1,120}$/.test(item.slug)) continue;
-    if (typeof item.company !== 'string' || !item.company.trim() || seen.has(`${item.ats}:${item.slug}`)) continue;
+    if (!item || !SYSTEMS.includes(item.ats) || typeof item.slug !== 'string' || !/^[\w.-]{1,120}$/.test(item.slug)) { drop('feeds'); continue; }
+    if (typeof item.company !== 'string' || !item.company.trim() || seen.has(`${item.ats}:${item.slug}`)) { drop('feeds'); continue; }
+    if (item.how && !HOW.includes(item.how)) drop('how');
+    if (item.out) drop('out', outDrops(item.out));
     seen.add(`${item.ats}:${item.slug}`);
     feeds.push({ats: item.ats, slug: item.slug, company: item.company.trim().slice(0, 120), matched: item.matched ? 1 : 0, own: item.own ? 1 : 0,
       how: HOW.includes(item.how) ? item.how : null, jobs: count(item.jobs), hits: count(item.hits), site: siteOf(item.site), failed: item.failed ? 1 : 0, out: outOf(item.out)});
@@ -58,13 +76,14 @@ export async function contribute(request, env, now = new Date()) {
   for (const item of (Array.isArray(body.nofeed) ? body.nofeed : []).slice(0, MAX_NOFEED)) {
     const company = typeof item?.company === 'string' ? item.company.trim().slice(0, 120) : '';
     const key = company.toLowerCase().replace(/\b(ag|sa|gmbh|ltd|inc|llc|plc)\b/g, '').replace(/[^a-z0-9]/g, '');
-    if (!key || keys.has(key)) continue;
+    if (!key || keys.has(key)) { if (!key) drop('nofeed'); continue; }
     keys.add(key);
     nofeed.push({key, company, host: typeof item.host === 'string' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host) ? item.host.slice(0, 100) : null});
   }
   const boards = [], named = new Set();
   for (const item of (Array.isArray(body.boards) ? body.boards : []).slice(0, MAX_BOARDS)) {
-    if (!BOARDS.includes(item?.board) || named.has(item.board)) continue;
+    if (!BOARDS.includes(item?.board) || named.has(item.board)) { drop('boards'); continue; }
+    if (item.out) drop('out', outDrops(item.out));
     named.add(item.board);
     boards.push({board: item.board, jobs: count(item.jobs), hits: count(item.hits), dup: count(item.dup), failed: item.failed ? 1 : 0, out: outOf(item.out)});
   }
@@ -102,7 +121,7 @@ export async function contribute(request, env, now = new Date()) {
     const chunk = statements.slice(i, i + 500);
     if (env.STATS.batch) await env.STATS.batch(chunk); else for (const statement of chunk) await statement.run();
   }
-  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length});
+  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length, ...(Object.keys(dropped).length ? {dropped} : {})});
 }
 
 // Per feed: how many different installs sent it, how many found jobs there, and among those the roles / regions. Added up in SQL and paged

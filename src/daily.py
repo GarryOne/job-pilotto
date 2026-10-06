@@ -281,14 +281,34 @@ def downloaded_index():
     if os.getenv('JOB_PILOTTO_INDEX_ALL'):
         return index
     kinds = role_kinds.of_search(load_search_config())
-    kept = employer_index.relevant(index, feeds.wanted_location, kinds, me=employer_index.me_now())
+    me = employer_index.me_now()
+    # The labels this install shares and is ranked by: fixed lists only (7 Oct 2026: a wrong label, like "Suisse" read as ten metros, shows here).
+    print('Pool labels: ' + '; '.join(f"{name} {','.join(me.get(name) or []) or '-'}" for name in ('roles', 'families', 'countries', 'metros')))
+    said = []
+    kept = employer_index.relevant(index, feeds.wanted_location, kinds, me=me, keep=scored_companies(), said=said)
+    for company, label, what in said[:30]:   # each decision, named: "why don't I see Manor's jobs?"
+        print(f"Employers: {company} {'left out' if what == 'out' else 'would be left out (shadow mode, still read)'}: "
+              f"people doing {label} read it and never found a job there")
+    if len(said) > 30:
+        print(f'Employers: {len(said) - 30} more like that')
     for_kind = employer_index.relevant(index, feeds.wanted_location, kinds)
     in_places = employer_index.relevant(index, feeds.wanted_location)
     if len(for_kind) < len(in_places):   # said once a run: which employers were left out, and why
         print(f'Employers: {len(for_kind)} of {len(in_places)} in your places hire for your kind of role; the others are left out.')
-    if len(kept) < len(for_kind):   # 7 Oct 2026: the pool's "read fine, never a job for people like you"
-        print(f'Employers: {len(for_kind) - len(kept)} more left out: people doing your kind of work never found a job there.')
     return kept
+
+
+def scored_companies():
+    """Companies where this user already has a scored job (it matched their search): never left out as quiet, whatever the pool says."""
+    try:
+        with store.connect(JOBS_DB) as db:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'scores'").fetchone():
+                return set()   # nothing scored yet: nothing to protect
+            return {row[0] for row in db.execute("""SELECT DISTINCT companies.name FROM jobs JOIN companies ON companies.id = jobs.company_id
+                JOIN scores ON scores.job_id = jobs.id""")}
+    except Exception as error:  # noqa: BLE001 — no cache or no scores yet: nothing to protect
+        print(f'Warning: scored employers not read ({type(error).__name__}): none protected from the quiet rule this run')
+        return set()
 
 
 def main():

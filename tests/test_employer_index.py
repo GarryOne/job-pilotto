@@ -359,10 +359,10 @@ class ForYouTests(unittest.TestCase):
     def test_a_feed_quiet_for_every_family_of_mine_is_left_out_others_stay(self):
         quiet = {'company': 'Netflix', 'ats': 'lever', 'slug': 'n', 'fits': {'quiet': {'families': ['photography']}}}
         mixed = {'company': 'Studio', 'ats': 'lever', 'slug': 's', 'fits': {'quiet': {'families': ['graphic_design']}}}
-        kept = employer_index.relevant([quiet, mixed], lambda job: True, me=self.ME)
+        kept = employer_index.relevant([quiet, mixed], lambda job: True, me=self.ME, today=employer_index.QUIET_FROM)
         self.assertEqual([f['company'] for f in kept], ['Studio'])
         both = {**self.ME, 'families': ['photography', 'video_film']}
-        self.assertEqual(len(employer_index.relevant([quiet], lambda job: True, me=both)), 1, 'kept while one of my families may still find jobs there')
+        self.assertEqual(len(employer_index.relevant([quiet], lambda job: True, me=both, today=employer_index.QUIET_FROM)), 1, 'kept while one of my families may still find jobs there')
 
     def test_employers_for_you_rank_by_interviews_and_the_most_specific_shared_label(self):
         index = [{'company': 'Manor', 'fits': {'countries': ['ch']}, 'pool': {'installs': 9, 'matched': 6, 'applied': 4, 'interview': 2}},
@@ -430,3 +430,37 @@ class OwnFloorTests(unittest.TestCase):
         fetch = lambda system, slug: seen.append(slug) or [{'title': 'x', 'location': 'Geneva', 'url': 'u'}]  # noqa: E731
         scout.build_index(db, [], fetch=fetch, contributions=contributions, workers=1)
         self.assertEqual(sorted(seen), ['found', 'shared'])
+
+
+class DebuggableTests(unittest.TestCase):
+    """7 Oct 2026, owner: every pool decision can be traced from the logs; the quiet rule runs in shadow mode first and never hides a user's own match."""
+    ME = {'roles': ['creative_media'], 'families': ['photography'], 'countries': ['ch'], 'metros': ['ch-geneva']}
+    QUIET = {'company': 'Quiet Gallery', 'fits': {'quiet': {'families': ['photography']}}}
+
+    def test_shadow_mode_keeps_the_feed_and_names_it_then_skips_it(self):
+        said = []
+        kept = employer_index.relevant([self.QUIET], lambda job: True, me=self.ME, today='2026-10-08', said=said)
+        self.assertEqual((len(kept), said), (1, [('Quiet Gallery', 'photography', 'shadow')]))
+        said = []
+        kept = employer_index.relevant([self.QUIET], lambda job: True, me=self.ME, today=employer_index.QUIET_FROM, said=said)
+        self.assertEqual((len(kept), said), (0, [('Quiet Gallery', 'photography', 'out')]))
+
+    def test_an_employer_where_the_user_has_a_scored_job_is_never_left_out(self):
+        said = []
+        kept = employer_index.relevant([self.QUIET], lambda job: True, me=self.ME, keep={'Quiet Gallery'}, today='2027-01-01', said=said)
+        self.assertEqual((len(kept), said), (1, []))
+
+    def test_the_central_publish_says_what_the_pool_added(self):
+        feeds = [{'company': 'A', 'fits': {'families': ['photography']}, 'pool': {'installs': 3}}, {'company': 'B', 'fits': {'quiet': {'families': ['photography']}}}]
+        line = scout.publish_summary(feeds, [{}, {}, {}], [{'board': 'jooble'}])
+        self.assertEqual(line, 'Pool in this publish: 3 shared feeds read, 1 feeds with labels, 1 quiet marks, 1 with outcome totals, 1 boards with stats | quiet for photography: B')
+
+    def test_a_share_the_site_trimmed_is_a_warning_in_the_log(self):
+        import io
+        from contextlib import redirect_stdout
+        from src import contribute
+        out = io.StringIO()
+        with redirect_stdout(out):
+            ok = contribute.send({'feeds': []}, url='https://x.test', post=lambda request: (200, '{"ok": true, "dropped": {"metros": 2}}'), stamp=False)
+        self.assertTrue(ok)
+        self.assertIn('dropped 2 metros', out.getvalue())

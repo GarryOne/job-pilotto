@@ -268,6 +268,8 @@ def close_dropped(db, read_names, grace_hours=12, now=None, most=0.5):
         return 0
     db.executemany("UPDATE jobs SET state='closed' WHERE id = ?", [(job_id,) for job_id in dropped])
     db.commit()
+    names = sorted({row[1] for row in rows if row[1] not in names})
+    print(f"Closed jobs of employers your search no longer reads: {', '.join(names[:15])}{f' and {len(names) - 15} more' if len(names) > 15 else ''}")
     return len(dropped)
 
 

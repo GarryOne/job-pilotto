@@ -16,6 +16,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 WORK = Path(tempfile.mkdtemp(prefix='jp-pool-e2e-'))
 GENERATED = '2026-10-07T04:50:00Z'
+STAGES = {'https://jobs.example/1': 'Interviewing'}   # the user's Applications stage of the one job the check found
 PRIVATE = ('photographe', 'Genève', 'retoucheur', 'Vendeur photo', 'https://jobs.example/')   # the search's own words and a job: never sent
 
 # The website, as far as the pool goes: what was posted, and an index with one feed per case.
@@ -129,8 +130,18 @@ def main():
     feed_list = [{'ats': 'lever', 'slug': 'atelier-photo', 'company': 'Atelier Photo SA'}, {'ats': 'lever', 'slug': 'quiet-gallery', 'company': 'Quiet Gallery'}]
 
     def check_share():
+        # What the jobs check led to (scored, then an interview), so the share carries outcomes and traits too.
+        now = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        db.execute('CREATE TABLE IF NOT EXISTS scores (job_id INTEGER PRIMARY KEY, scorer_version INTEGER, input_hash TEXT, model TEXT, created_at TEXT, data_json TEXT)')
+        db.execute('CREATE TABLE IF NOT EXISTS enrichments (job_id INTEGER PRIMARY KEY, extractor_version INTEGER, description_hash TEXT, model TEXT, created_at TEXT, data_json TEXT)')
+        db.execute("INSERT OR IGNORE INTO companies (id, name, updated_at) VALUES (900, 'Atelier Photo SA', ?)", (now,))
+        db.execute("INSERT OR IGNORE INTO sources (id, name, kind) VALUES (900, 'Atelier Photo SA', 'employer feed')")
+        db.execute("INSERT INTO jobs (id, canonical_key, source_id, company_id, title, url, first_seen_at, last_seen_at) VALUES (900, 'k900', 900, 900, 'Photographe', 'https://jobs.example/1', ?, ?)", (now, now))
+        db.execute('INSERT INTO scores (job_id, data_json) VALUES (900, ?)', (json.dumps({'score': 82}),))
+        db.execute('INSERT INTO enrichments (job_id, data_json) VALUES (900, ?)', (json.dumps({'languages': [{'language': 'French', 'level': 'required'}], 'seniority': {'value': 'mid'}, 'work_mode': {'value': 'onsite'}}),))
+        db.commit()
         before = len(POSTS)
-        if not contribute.maybe_send(feed_list, report, None, db=db):
+        if not contribute.maybe_send(feed_list, report, None, db=db, stages=STAGES):
             raise AssertionError('the end-of-check share was not sent')
         body = POSTS[before]
         quiet = next((f for f in body['feeds'] if f['slug'] == 'quiet-gallery'), None)
@@ -139,6 +150,9 @@ def main():
         boards = {b['board']: b for b in body.get('boards') or []}
         if set(boards) != {'jobsch', 'google_jobs'} or boards['jobsch'].get('dup') != 1:
             raise AssertionError(f'boards {boards}')
+        atelier = next((f for f in body['feeds'] if f['slug'] == 'atelier-photo'), {})
+        if (atelier.get('out') or {}).get('interview') != 1 or (atelier.get('out') or {}).get('langs') != {'French': 1}:
+            raise AssertionError(f"outcomes of the employer that led to an interview: {atelier.get('out')}")
         if private_words(body):
             raise AssertionError(f'the search\'s own words left the machine: {private_words(body)}')
         return f"{len(body['feeds'])} feeds, boards {sorted(boards)}, jobs.ch dup {boards['jobsch']['dup']}"
@@ -146,11 +160,11 @@ def main():
 
     def only_changed():
         before = len(POSTS)
-        sent = contribute.maybe_send(feed_list, report, None, db=db)
+        sent = contribute.maybe_send(feed_list, report, None, db=db, stages=STAGES)
         if sent or len(POSTS) != before:
             raise AssertionError('an unchanged check was sent again')
         changed = {**report, 'sources': [*report['sources'][:1], {'company': 'Quiet Gallery', 'ok': True, 'total': 8, 'matches': 2}, *report['sources'][2:]]}
-        if not contribute.maybe_send(feed_list, changed, None, db=db):
+        if not contribute.maybe_send(feed_list, changed, None, db=db, stages=STAGES):
             raise AssertionError('a changed feed was not sent')
         slugs = [f['slug'] for f in POSTS[-1]['feeds']]
         if slugs != ['quiet-gallery']:
@@ -177,15 +191,22 @@ def main():
         index = employer_index.load(now=index_now)
         if len(index) != 4:
             raise AssertionError(f'{len(index)} feeds downloaded, 4 expected')
-        kept = employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(search), me=me)
+        said = []
+        shadow = sorted(f['company'] for f in employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(search), me=me, today='2026-10-08', said=said))
+        if shadow != ['Manor', 'Quiet Gallery', 'Studio Lumière'] or said != [('Quiet Gallery', 'photography', 'shadow')]:
+            raise AssertionError(f'shadow mode: crawls {shadow}, said {said}: Netflix (software) out, Quiet Gallery still read but named')
+        kept = employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(search), me=me, today=employer_index.QUIET_FROM)
         names = sorted(f['company'] for f in kept)
         if names != ['Manor', 'Studio Lumière']:
-            raise AssertionError(f'a photographer in Geneva crawls {names}: Netflix (software) and Quiet Gallery (no photographer ever found a job) must be left out')
+            raise AssertionError(f'from {employer_index.QUIET_FROM} a photographer in Geneva crawls {names}: Quiet Gallery (no photographer ever found a job) must be left out')
+        protected = employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(search), me=me, today=employer_index.QUIET_FROM, keep={'Quiet Gallery'})
+        if 'Quiet Gallery' not in [f['company'] for f in protected]:
+            raise AssertionError('an employer where the user already has a scored job was left out')
         ranked = [item['company'] for item in employer_index.for_you(index, me)]
         if ranked[:1] != ['Studio Lumière']:
             raise AssertionError(f'for you: {ranked}')
-        return f'crawled {names}; for you {ranked}'
-    check('The central list: a software company and a feed quiet for photographers are left out; employers for you ranked', index_for_you)
+        return f'shadow: named {said[0][0]}; from {employer_index.QUIET_FROM}: crawled {names}; for you {ranked}'
+    check('The central list: software left out; a feed quiet for photographers named in shadow mode, left out after it, never when the user matched it; employers for you ranked', index_for_you)
 
     def board_rate():
         text = coverage.people_like_you('aggregators', me)
@@ -207,6 +228,8 @@ def main():
         return '20 min: cache; 70 min: one 304'
     check('The central list is checked about hourly, by its publish time, and kept on 304', hourly)
 
+    if os.getenv('POOL_PAYLOADS_OUT'):   # the bodies the engine really sent: the site's contract test posts exactly these (site/test/pool-contract.test.js)
+        Path(os.environ['POOL_PAYLOADS_OUT']).write_text(json.dumps(POSTS, indent=1, ensure_ascii=False, sort_keys=True) + '\n')
     server.shutdown()
     shutil.rmtree(WORK, ignore_errors=True)
     print(json.dumps({'checks': checks}))

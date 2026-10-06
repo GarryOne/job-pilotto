@@ -104,6 +104,17 @@ def me_now(search=None):
     return {'roles': roles, **contribute.fine_tags(search)}
 
 
+QUIET_FROM = '2026-10-21'   # shadow mode until then (owner, 7 Oct 2026): quiet feeds are named in the log but still crawled
+
+
+def quiet_label(feed, me):
+    """The label of this user's that makes the feed quiet for them ('photography'), or ''."""
+    if not quiet_for(feed, me):
+        return ''
+    quiet = (feed.get('fits') or {}).get('quiet') or {}
+    return ', '.join(tag for name in ('families', 'roles') for tag in me.get(name) or [] if tag in (quiet.get(name) or []))
+
+
 def quiet_for(feed, me):
     """True when installs of every family (or, without one, every role kind) of this user read the feed fine and none found a job there."""
     quiet = (feed.get('fits') or {}).get('quiet') or {}
@@ -118,7 +129,7 @@ def for_you(index, me, n=8):
     """The employers of the central list that worked best for people like this user: [{company, interview, applied, why}], best first.
     Only feeds with published outcome totals (3+ installs) and a label of this user's among their fits."""
     scored = []
-    for feed in index:
+    for feed in index:   # each pick is logged by the caller (coverage.employers_for_you) with its score and reason
         pool, fits = feed.get('pool') or {}, feed.get('fits') or {}
         if not pool or quiet_for(feed, me):
             continue
@@ -128,7 +139,8 @@ def for_you(index, me, n=8):
         score = 3 * pool.get('interview', 0) + pool.get('applied', 0) + 2 * pool.get('matched', 0) / max(1, pool.get('installs', 1))
         score *= {'families': 3, 'metros': 2.5, 'roles': 1.5, 'countries': 1}[shared[0]]
         why = {'families': 'your kind of work', 'metros': 'your area', 'roles': 'your kind of role', 'countries': 'your country'}[shared[0]]
-        scored.append((score, {'company': feed['company'], 'interview': pool.get('interview', 0), 'applied': pool.get('applied', 0), 'why': why}))
+        scored.append((score, {'company': feed['company'], 'interview': pool.get('interview', 0), 'applied': pool.get('applied', 0), 'why': why,
+                               'score': round(score, 1), 'label': shared[0]}))
     return [item for _, item in sorted(scored, key=lambda pair: -pair[0])[:n] if item['interview'] or item['applied']]
 
 
@@ -259,12 +271,24 @@ def merge(starter, index, skip=lambda company: False):
     return list(merged.values())
 
 
-def relevant(index, wanted_location, wanted_kinds=None, me=None):
+def relevant(index, wanted_location, wanted_kinds=None, me=None, keep=(), today=None, said=None):
     """Only feeds with roles in the user's own places (their search.json), so a worldwide index doesn't cost every
     crawl the time of feeds it would throw away. A feed with no place information (older index) is kept. With the kinds of role the user
     looks for (role_kinds.of_search), also only feeds that hire for one of them: a software company is skipped for a photographer
     (6 Oct 2026); a feed without a published mix is kept. With `me` (this user's labels), also not a feed that many installs of their family
-    read fine and never found a job at (quiet_for, 7 Oct 2026)."""
-    return [f for f in index
-            if (not f.get('places') or any(wanted_location({'location': place}) for place in f['places']))
-            and role_kinds.fits(f.get('kinds'), wanted_kinds) and not (me and quiet_for(f, me))]
+    read fine and never found a job at (quiet_for, 7 Oct 2026): before QUIET_FROM only named (shadow mode), and never a company in `keep`
+    (where this user already has a scored job). `said`, a list, gets one line per decision for the log: [(company, label, 'out'|'shadow')]."""
+    out = []
+    shadow = (today or datetime.now(timezone.utc).date().isoformat()) < QUIET_FROM
+    for f in index:
+        if f.get('places') and not any(wanted_location({'location': place}) for place in f['places']):
+            continue
+        if not role_kinds.fits(f.get('kinds'), wanted_kinds):
+            continue
+        label = quiet_label(f, me) if me and f['company'] not in keep else ''
+        if label and said is not None:
+            said.append((f['company'], label, 'shadow' if shadow else 'out'))
+        if label and not shadow:
+            continue
+        out.append(f)
+    return out

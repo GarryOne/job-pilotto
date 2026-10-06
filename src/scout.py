@@ -617,6 +617,20 @@ def board_stats(boards):
     return out
 
 
+def publish_summary(feeds, contributions, boards):
+    """One line on what the pool added to this publish (7 Oct 2026: the log said only "Published N feeds"): feeds with labels, quiet marks and
+    outcome totals, boards with stats, and the first quiet marks by label, so a wrong one can be traced."""
+    labelled = sum(1 for f in feeds if any((f.get('fits') or {}).get(name) for name in FIT_NAMES))
+    quiet = [(f['company'], tag) for f in feeds for tags in ((f.get('fits') or {}).get('quiet') or {}).values() for tag in tags]
+    pooled = sum(1 for f in feeds if f.get('pool'))
+    by_label = {}
+    for company, tag in quiet:
+        by_label.setdefault(tag, []).append(company)
+    first = '; '.join(f"{tag}: {', '.join(names[:5])}{' …' if len(names) > 5 else ''}" for tag, names in sorted(by_label.items())[:8])
+    return (f'Pool in this publish: {len(contributions)} shared feeds read, {labelled} feeds with labels, {len(quiet)} quiet marks, {pooled} with outcome totals, '
+            f"{len(boards)} boards with stats{f' | quiet for {first}' if first else ''}")
+
+
 def fetch_boards(base_url, key, get=None):
     """The pool's per-board totals (`GET /api/contributions?part=boards`); [] when unavailable."""
     def default_get(request):
@@ -1019,6 +1033,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     record_unread(db, unread)
 
     stamp = now()
+    shared = {'found': [], 'none': [], 'failed': 0}   # the instant shares of this run, said once at the end (7 Oct 2026)
     for candidate, outcome in zip(candidates, outcomes):
         status = 'found' if outcome['status'] == 'duplicate' else outcome['status']
         next_check = (stamp + timedelta(days=RECHECK_DAYS[status])).isoformat(timespec='seconds') \
@@ -1036,12 +1051,16 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         if not CENTRAL and outcome['status'] in ('found', 'none'):   # to the central list right away (opt-in): closing the app loses nothing
             from . import contribute
             if outcome['status'] == 'found':
-                contribute.share_now(feed={'ats': outcome['ats'], 'slug': outcome['slug'], 'company': candidate['name'][:120],
+                ok = contribute.share_now(feed={'ats': outcome['ats'], 'slug': outcome['slug'], 'company': candidate['name'][:120],
                                            'how': contribute.how_of(candidate.get('origin')), 'site': candidate.get('careers') if str(candidate.get('careers') or '').startswith('https://') else None,
                                            'jobs': int((outcome.get('stats') or {}).get('jobs') or 0)})
             else:
                 site = re.sub(r'^https?://(www\.)?', '', candidate.get('website') or '').split('/')[0].lower() or None
-                contribute.share_now(dead={'company': candidate['name'][:120], 'host': site})
+                ok = contribute.share_now(dead={'company': candidate['name'][:120], 'host': site})
+            if ok:
+                shared[outcome['status']].append(candidate['name'])
+            elif contribute.enabled():
+                shared['failed'] += 1
         if tracker and outcome['status'] != 'duplicate':
             try:
                 write_notion(tracker, candidate, outcome)
@@ -1049,6 +1068,10 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
             except Exception as error:
                 print(f"Warning: Notion not updated for {candidate['name']}: {type(error).__name__}: {error}")
 
+    if shared['found'] or shared['none'] or shared['failed']:
+        names = lambda items: ', '.join(items[:10]) + (f' and {len(items) - 10} more' if len(items) > 10 else '')  # noqa: E731
+        print(f"Pool: shared {len(shared['found'])} new employers ({names(shared['found']) or 'none'}) and {len(shared['none'])} dead ends "
+              f"({names(shared['none']) or 'none'}) as they were found" + (f"; {shared['failed']} not sent, the end-of-run share carries them" if shared['failed'] else ''))
     where, params = skipping(skip)
     queued = db.execute(f"SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending' {where}", params).fetchone()[0]
     total_feeds = db.execute('SELECT COUNT(*) FROM feed_sources WHERE active = 1').fetchone()[0]
@@ -1183,7 +1206,9 @@ def main():
             feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
                                             boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
             stats = central_stats(db, feeds_out, market_coverage(swiss_titles))
-            count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=board_stats(fetch_boards(index_url, key)))
+            boards = board_stats(fetch_boards(index_url, key))
+            count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=boards)
+            print(publish_summary(feeds_out, contributions, boards))
             print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     from .ai import cost as ai_cost

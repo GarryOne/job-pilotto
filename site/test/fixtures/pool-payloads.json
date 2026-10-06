@@ -1,0 +1,168 @@
+[
+ {
+  "countries": [
+   "ch"
+  ],
+  "families": [
+   "photography"
+  ],
+  "feeds": [
+   {
+    "ats": "lever",
+    "company": "Atelier Photo SA",
+    "failed": false,
+    "how": "ai_idea",
+    "jobs": 3,
+    "matched": false,
+    "own": false,
+    "site": null,
+    "slug": "atelier-photo"
+   }
+  ],
+  "install": "e2e-pool-0001",
+  "metros": [
+   "ch-geneva",
+   "ch-lausanne"
+  ],
+  "regions": [],
+  "roles": [
+   "creative_media"
+  ],
+  "v": 2
+ },
+ {
+  "countries": [
+   "ch"
+  ],
+  "families": [
+   "photography"
+  ],
+  "feeds": [],
+  "install": "e2e-pool-0001",
+  "metros": [
+   "ch-geneva",
+   "ch-lausanne"
+  ],
+  "nofeed": [
+   {
+    "company": "Nowhere Studio",
+    "host": "nowhere-studio.example"
+   }
+  ],
+  "regions": [],
+  "roles": [
+   "creative_media"
+  ],
+  "v": 2
+ },
+ {
+  "boards": [
+   {
+    "board": "jobsch",
+    "dup": 1,
+    "failed": false,
+    "hits": 4,
+    "jobs": 120
+   },
+   {
+    "board": "google_jobs",
+    "dup": 0,
+    "failed": false,
+    "hits": 1,
+    "jobs": 10
+   }
+  ],
+  "countries": [
+   "ch"
+  ],
+  "families": [
+   "photography"
+  ],
+  "feeds": [
+   {
+    "ats": "lever",
+    "company": "Atelier Photo SA",
+    "failed": false,
+    "hits": 3,
+    "how": "ai_idea",
+    "jobs": 3,
+    "matched": true,
+    "out": {
+     "applied": 1,
+     "interview": 1,
+     "langs": {
+      "French": 1
+     },
+     "saved": 1,
+     "senior": {
+      "mid": 1
+     },
+     "strong": 1
+    },
+    "own": false,
+    "site": null,
+    "slug": "atelier-photo"
+   },
+   {
+    "ats": "lever",
+    "company": "Quiet Gallery",
+    "failed": false,
+    "hits": 0,
+    "how": "index",
+    "jobs": 8,
+    "matched": false,
+    "own": false,
+    "site": null,
+    "slug": "quiet-gallery"
+   }
+  ],
+  "install": "e2e-pool-0001",
+  "metros": [
+   "ch-geneva",
+   "ch-lausanne"
+  ],
+  "nofeed": [
+   {
+    "company": "Nowhere Studio",
+    "host": "nowhere-studio.example"
+   }
+  ],
+  "regions": [],
+  "roles": [
+   "creative_media"
+  ],
+  "v": 2
+ },
+ {
+  "countries": [
+   "ch"
+  ],
+  "families": [
+   "photography"
+  ],
+  "feeds": [
+   {
+    "ats": "lever",
+    "company": "Quiet Gallery",
+    "failed": false,
+    "hits": 2,
+    "how": "index",
+    "jobs": 8,
+    "matched": true,
+    "own": false,
+    "site": null,
+    "slug": "quiet-gallery"
+   }
+  ],
+  "install": "e2e-pool-0001",
+  "metros": [
+   "ch-geneva",
+   "ch-lausanne"
+  ],
+  "regions": [],
+  "roles": [
+   "creative_media"
+  ],
+  "v": 2
+ }
+]

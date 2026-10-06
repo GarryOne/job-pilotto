@@ -9,6 +9,7 @@ No AI and no network: it only counts what the crawl already fetched.
 """
 import json
 import os
+import sys
 import re
 from datetime import datetime, timezone
 
@@ -217,7 +218,8 @@ def people_like_you(source_id, me=None, rate=None):
     try:
         me = me or employer_index.me_now()
         pairs = [pair for pair in (rate(board, me) for board in BOARDS_OF.get(source_id, ())) if pair and pair[0] >= PEOPLE_MIN]
-    except Exception:  # noqa: BLE001 — no shared numbers yet: nothing to say
+    except Exception as error:  # noqa: BLE001 — said, then nothing shown
+        print(f'Warning: what {source_id} gave people like you not read ({type(error).__name__}: {error})', file=sys.stderr)
         return ''
     if not pairs:
         return ''
@@ -237,9 +239,14 @@ def employers_for_you():
     from . import employer_index
     try:
         stored = employer_index._read(employer_index.CACHE) or {}
-        return employer_index.for_you(stored.get('feeds') or [], employer_index.me_now())
-    except Exception:  # noqa: BLE001
+        picks = employer_index.for_you(stored.get('feeds') or [], employer_index.me_now())
+    except Exception as error:  # noqa: BLE001 — said, then no card
+        print(f'Warning: employers for you not ranked ({type(error).__name__}: {error})', file=sys.stderr)
         return []
+    # "Why is X first?": each pick with its score and the label it shares with this user (engine log, stderr: stdout is the app's JSON).
+    for i, pick in enumerate(picks, 1):
+        print(f"For you #{i}: {pick['company']} score {pick['score']} (shared {pick['label']}; {pick['interview']} interviews, {pick['applied']} applied)", file=sys.stderr)
+    return picks
 
 
 def language_drops(db=None):

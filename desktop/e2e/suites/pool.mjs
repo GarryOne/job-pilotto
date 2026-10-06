@@ -19,7 +19,7 @@ export const STEPS = [
   'Search for jobs sends every feed it read (also with no match) and each board by fixed id, with counts only',
   'A second check sends only what changed',
   'With "Help the pool grow" off, nothing is sent',
-  'The central list: a software company and a feed quiet for photographers are left out; employers for you ranked',
+  'The central list: software left out; a feed quiet for photographers named in shadow mode, left out after it, never when the user matched it; employers for you ranked',
   'A job source suggestion says what it gave people like you (by the most specific label)',
   'The central list is checked about hourly, by its publish time, and kept on 304',
 ];
