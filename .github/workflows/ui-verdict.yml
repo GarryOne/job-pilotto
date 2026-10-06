@@ -95,6 +95,8 @@ jobs:
           node desktop/e2e/verdict-comment.mjs --file .heal/verdict.md --number "$NUMBER" --out .heal/comment.md
           # After the check: a `real` that cites code which does not exist has become `needs-human` in the file.
           verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
+          # The judge's level replaces the detector's (desktop/e2e/lib/severity.mjs): a real or parked finding keeps the level a person would meet.
+          case "$verdict" in real|needs-human) node desktop/e2e/severity.mjs --file .heal/verdict.md --number "$NUMBER" --repo "$REPO" >> "$GITHUB_STEP_SUMMARY" || true ;; esac
           case "$verdict" in
             real)
               gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'

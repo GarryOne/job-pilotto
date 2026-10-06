@@ -1,7 +1,7 @@
 // AI review of a page screenshot: finds what a person would call a bug or ugly (broken layout, clipped or overlapping text, an error shown to the
 // user, an empty screen where data should be, inconsistent spacing or tone). Pure functions here (build the request, validate the answer);
 // review-ui.mjs makes the call. The answer is checked against a fixed shape so a bad reply can never become a "finding".
-export const KINDS = ['layout', 'text', 'error-shown', 'empty-state', 'consistency', 'functionality'];
+export const KINDS = ['layout', 'text', 'error-shown', 'empty-state', 'consistency', 'functionality', 'wrong-result'];
 export const SEVERITIES = ['high', 'medium', 'low'];
 export const MODEL = process.env.E2E_REVIEW_MODEL || 'claude-sonnet-5-5';
 
@@ -39,7 +39,7 @@ each finding costs the owner real money to read, judge and fix. At most 3 findin
 You are also given FACTS the app holds about its own state (for example which AI engine the person chose and whether a key is saved). Check the page against them:
 report a place where what the page shows CONTRADICTS the facts, or would MISLEAD a person who knows those facts (a status like "Connected" or "Active" for something that is
 not in use in the chosen mode, a selected option whose own panel talks about another option, a count that does not match, a button that offers what the state makes impossible).
-Say which fact and which element disagree. These are the findings that matter most; a person cannot see them without knowing the state.
+Say which fact and which element disagree, as kind "wrong-result" (high: a person who believes it acts wrongly). These are the findings that matter most; a person cannot see them without knowing the state.
 The app runs here in a TEST profile with made-up demo data. Never report the demo data itself: invented names and companies (Fjord Networks, E2E Recruitee GmbH, Ada), lowercase hyphenated
 slugs used as titles (like "recruiter-call-failing"), round or implausible numbers, dates that are today's, an empty or "not connected" Notion, Gmail, Google or AI key, or a failing demo AI. A real
 person's data is not like that.
@@ -73,7 +73,7 @@ they MISLEAD (a wrong status, a number or claim that is false, a contradiction) 
 Every finding needs an "impact": one concrete sentence on what the person loses, gets wrong or has to do. If you cannot write it, the finding is not worth reporting: leave it out.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
-{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","workaround":"<only for high that is not a blocked task: what the person must do to get past it>","impact":"<one sentence: what the person loses, gets wrong or has to do because of this>","suggestion":"<the smallest fix, in plain words>"}]}`;
+{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality|wrong-result","title":"<8 words>","detail":"<what you see and where>","workaround":"<only for high that is not a blocked task: what the person must do to get past it>","impact":"<one sentence: what the person loses, gets wrong or has to do because of this>","suggestion":"<the smallest fix, in plain words>"}]}`;
 
 export const MAX_TOKENS = 3000;
 
@@ -105,7 +105,9 @@ export function usageCost(model, usage = {}, {batch = false} = {}) {
 
 // Only a finding about the app being WRONG can block a journey: a wrong status, a dead control, an error shown. How something looks or reads is medium at most, whatever the model
 // said (it rated a vague, duplicated warning "high" in #50 and a clipped brand name "high" in #55 and #56; none blocked anyone).
-export const HIGH_KINDS = ['functionality', 'error-shown'];
+// wrong-result (6 Oct 2026): the page contradicts itself or a stated fact, the same kind the layout check files high. #312 ("Gmail checks for replies" beside
+// "Gmail not connected") was a `text` finding, so it was capped to medium.
+export const HIGH_KINDS = ['functionality', 'error-shown', 'wrong-result'];
 // High stays high for a wrong app (functionality, a raw error) or when the finding says what the person must do to get past it (owner, 4 Oct 2026: very bad UX
 // that costs them time or makes them ignore things is high too). Anything else is medium, whatever the model said (#50, #55, #56).
 export const cappedSeverity = (severity, kind, workaround = '') => (severity === 'high' && !HIGH_KINDS.includes(kind) && String(workaround || '').trim().length < 20 ? 'medium' : severity);

@@ -44,6 +44,11 @@ HOW (you have about 15 turns; be quick):
 
 For a `false-positive` add one more line, `Cause: <one word>`, so the numbers can say why the finding was false: `detector` (the check read the screen wrong: hidden or covered content, a list read as a duplicate), `probe-race` (the interaction probe pressed or read while the app was re-rendering), `by-design` (it is how the app is meant to work), `stale` (the finding is already fixed on main, the tested build is older), or `duplicate` (the same cause as another issue; name it in Why). A `harness` verdict needs no Cause.
 
+For `real` and `needs-human` add one more line, `Severity: high|medium|low`: what the problem does to the PERSON, never what the detector said (a failed step and a console error have no
+severity of their own: rate what a person would meet in the app). `high` = it blocks a task, or shows a wrong result or a false status a person would act on (the screen contradicts itself or
+a fact: "Gmail checks for replies" while Gmail is not connected), a raw error, or data they could lose. `medium` = it confuses them, or costs a moment to get past. `low` = they would barely
+notice (a menu that stays open while the page scrolls, an error in the console with nothing wrong on screen); a low finding is not filed.
+
 A `real` verdict MUST cite a file:line you opened in this run; one that does not exist is turned into `needs-human` automatically.
 
 Never invent a problem: when the handler works and the finding is about timing or state, it is a false positive. Do not write any other file. No git commands, no network.

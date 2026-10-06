@@ -17,6 +17,7 @@ import {pathSummary, replayFromSeed} from './lib/replay.mjs';
 import {staleComment, staleSighting} from './lib/stale.mjs';
 import {holdFinding, holdReason} from './lib/freshness.mjs';
 import {breakerState, trippedSources} from './lib/breaker.mjs';
+import {judgedSeverity} from './lib/severity.mjs';
 import {learnSignatures, SIGNATURE_LABEL, signaturesBody, signaturesFromBody} from './lib/signatures.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
 import {publishFiles} from './lib/evidence.mjs';
@@ -255,6 +256,10 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
         continue;
       }
       const judged = verdictFor(finding), word = judged ? wordOf(judged) : '';
+      // The judge's level replaces the detector's (lib/severity.mjs); one it rates low is not filed, like every low finding (owner, 4 Oct 2026).
+      const rated = judged ? judgedSeverity(judged, finding) : '';
+      if (rated) finding.severity = rated;
+      if (rated === 'low') { dropped.push({view: finding.view, severity: 'low', title: finding.title, source: finding.source, why: 'judged low before filing (never filed)'}); continue; }
       // A detector whose last ten outcomes were poor files nothing that no one has judged: held for a later run's judgement (lib/breaker.mjs).
       if (tripped.has(finding.source) && !judged) {
         const row = breaker[finding.source];

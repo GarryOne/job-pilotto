@@ -21,11 +21,13 @@ export const refsIn = text => [...new Set([...String(text || '').matchAll(/((?:d
 // The model writes the verdict word, then a few lines; "Why:" and "Check:" are labels it is asked to use, anything else is the reason.
 export function parse(raw) {
   const lines = String(raw || '').split('\n'), word = (lines[0] || '').trim().toLowerCase().replace(/[^a-z-]/g, '');
-  const out = {word, why: '', check: '', cause: ''};
+  const out = {word, why: '', check: '', cause: '', severity: ''};
   let at = 'why';
   for (const line of lines.slice(1)) {
     const cause = line.match(/^\s*Cause\s*:\s*([a-z-]+)/i);   // a false positive's cause: detector, probe-race, by-design, stale, duplicate (lib/resolution.mjs)
     if (cause) { out.cause = cause[1].toLowerCase(); continue; }
+    const severity = line.match(/^\s*Severity\s*:\s*(high|medium|low)\b/i);   // the judge's rating by the owner's rubric (lib/severity.mjs)
+    if (severity) { out.severity = severity[1].toLowerCase(); continue; }
     const m = line.match(/^\s*(Why|Check|Reason)\s*:\s*(.*)$/i);
     if (m) { at = /^check/i.test(m[1]) ? 'check' : 'why'; out[at] = `${out[at]} ${m[2]}`.trim(); continue; }
     if (line.trim()) out[at] = `${out[at]} ${line.trim()}`.trim();
