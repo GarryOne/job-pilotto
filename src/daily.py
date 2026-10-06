@@ -36,6 +36,15 @@ def left_out(stats, what):
            'the Anthropic API spending limit was reached' if stats.get('limit') else 'the AI call failed')
     return [f'{left} job(s) not {what}: {why}']
 
+
+NO_PROFILE = 'scoring skipped: no Profile (connect Notion, or finish the setup)'
+
+
+def no_profile(score_max, tracker, profile):
+    """A warning when scoring is on but there is no Profile to score against (no Notion, no local profile.md): the run
+    said "Completed" while every new job stayed unscored (6 Oct 2026, after an import that brought no Profile)."""
+    return [NO_PROFILE] if score_max and not tracker and not profile else []
+
 def crawl_counts(report, statuses):
     """Feed and import numbers for the run report."""
     counted = Counter(statuses)
@@ -687,6 +696,9 @@ def main():
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'scoring skipped: {type(error).__name__}')
+        for warning in no_profile(args.score_max, tracker, local_profile()):
+            print(f'Warning: {warning}')
+            run['warnings'].append(warning)
         open_urls = None   # the crawl's open jobs, set by the Job Matches sync below; None checks every saved job
         if tracker and args.mode in ('scheduled', 'run', 'today'):
             # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
