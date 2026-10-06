@@ -259,7 +259,8 @@ def main():
     parser.add_argument("--data-dir", type=Path, default=DATA)
     parser.add_argument("--reports-dir", type=Path, default=REPORTS)
     args = parser.parse_args()
-    sources = json.loads((CONFIG / "sources.json").read_text())
+    from .. import scout
+    sources = scout.starter_list()
     with database(args.data_dir / "jobs.sqlite") as db:
         report = scan(sources, db)
     args.reports_dir.mkdir(parents=True, exist_ok=True)

@@ -155,7 +155,7 @@ def main():
     from .paths import CONFIG, JOBS_DB
     tracker = notion.Tracker.from_env()
     with store.connect(JOBS_DB) as db:
-        feed_list = scout.active_sources(db, tracker, json.loads((CONFIG / 'sources.json').read_text()))
+        feed_list = scout.active_sources(db, tracker, scout.starter_list())
     # Without a crawl in hand: every feed that is the user's own is shown; matched ones join after a crawl.
     body = payload(feed_list, {'sources': []}, tracker)
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'

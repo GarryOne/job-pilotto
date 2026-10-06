@@ -213,7 +213,8 @@ def check_last_crawl(tracker, now):
 
 
 def check_sources(tracker):
-    static = json.loads((CONFIG / 'sources.json').read_text())
+    from . import scout
+    static = scout.starter_list()
     active = tracker.query_database(EMPLOYERS_DB, {'property': 'Active', 'checkbox': {'equals': True}})
     count = len(static) + len(active)
     if not count:

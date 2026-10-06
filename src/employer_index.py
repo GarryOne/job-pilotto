@@ -3,7 +3,8 @@
 Nothing about the user goes up: a plain GET with a random install id and the token the website gives that id
 (the full list is not a public download; the website's own counters use a separate public summary). The result
 is cached on disk and fetched at most once a day; if the service is down the cache is used (however old), else nothing, and
-`merge` then falls back to the small starter list config/sources.json, so a run never fails because of this.
+`merge` then falls back to the user's own starter feeds (config/sources.json, empty unless they added some: every starting source is central
+since 6 Oct 2026), so a run never fails because of this.
 """
 from datetime import datetime, timedelta, timezone
 import json

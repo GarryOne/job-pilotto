@@ -131,13 +131,3 @@ class RestReadersTests(unittest.TestCase):
             old = feeds._search_digest({'role_keywords': ['x'], 'locations': {}})
         with mock.patch.object(feeds, 'READERS', 'bbbbbbbbbbbb'):
             self.assertNotEqual(feeds._search_digest({'role_keywords': ['x'], 'locations': {}}), old)
-
-
-class StarterListTests(unittest.TestCase):
-    def test_the_software_starter_list_is_left_out_of_a_non_it_search(self):
-        """6 Oct 2026: a photographer's checks crawled Stripe, Palantir… and warned when Palantir's feed failed."""
-        from src import daily
-        with mock.patch.object(daily, 'load_search_config', lambda: PHOTOGRAPHER), mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': ''}):
-            self.assertEqual(daily.starter_sources(), [])
-        with mock.patch.object(daily, 'load_search_config', lambda: {'role_keywords': [r'\bsre\b']}), mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': ''}):
-            self.assertTrue(daily.starter_sources())

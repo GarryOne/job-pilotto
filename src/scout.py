@@ -116,7 +116,28 @@ def _get_text(url):
 
 # ---------- candidate harvesting ----------
 
+# The central scout (python -m src scout --publish-index, job-pilotto-internal) keeps the full lists it publishes; an install ignores the copies
+# of the lists the app shipped before 6 Oct 2026 (src/legacy_lists.py): those sources reach it through the central index now.
+CENTRAL = False
+
+
+def starter_list():
+    """This install's own starter feeds (config/sources.json), without the ones the app used to ship (they come from the central index)."""
+    sources = json.loads((CONFIG / 'sources.json').read_text()) if (CONFIG / 'sources.json').exists() else []
+    if CENTRAL:
+        return sources
+    from .legacy_lists import SHIPPED_FEEDS
+    return [s for s in sources if (s.get('ats', 'greenhouse'), s.get('slug') or s.get('board')) not in SHIPPED_FEEDS]
+
+
 def seed_candidates(seeds):
+    from .legacy_lists import SHIPPED_SEED_NAMES
+    for c in _seed_candidates(seeds):
+        if CENTRAL or c['name'] not in SHIPPED_SEED_NAMES:   # an install's copy of the old shipped seeds: central now
+            yield c
+
+
+def _seed_candidates(seeds):
     for entry in seeds['tier1_known']:
         yield dict(name=entry['name'], origin='Tier 1 seed', priority=100, tier='Tier 1',
                    ats=entry['ats'], slug=entry['slug'])
@@ -784,8 +805,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the Active Employers & Sources rows."""
     seeds = seeds or json.loads(SEEDS.read_text())
     if static is None:
-        starter = CONFIG / 'sources.json'
-        static = json.loads(starter.read_text()) if starter.exists() else []
+        static = starter_list()
     # Each step says so as it starts: a run takes minutes, and the app's live log shows these lines ("Nothing to show yet" for four
     # minutes was the owner's find of 5 Oct 2026).
     from .ai import scout_ideas
@@ -944,6 +964,8 @@ def main():
                         help='write config/sources.json: the shared starter list of verified public feeds '
                              '(sources.json + Active Employers & Sources rows); needs NOTION_TOKEN')
     args = parser.parse_args()
+    global CENTRAL
+    CENTRAL = bool(args.publish_index)   # the central scout: its full lists, published to every install
     if args.export_sources:
         tracker = notion.Tracker.from_env()
         if not tracker:

@@ -267,14 +267,9 @@ def log_crawl(tracker, run):
 
 
 def starter_sources():
-    """The starter feeds (config/sources.json): 29 software companies (Stripe, Palantir…), so a search outside IT leaves them out like the
-    scout's tech seed lists (6 Oct 2026: a photographer's checks crawled them, and warned when Palantir's feed failed). The end-to-end
-    journey's fixture lists are kept: their personas include a nurse."""
-    sources = json.loads((CONFIG / 'sources.json').read_text())
-    if os.getenv('JOB_PILOTTO_FIXTURE_DIR') or coverage.technical_search(load_search_config()):
-        return sources
-    print(f'Employers: the {len(sources)} starter software companies are left out (your roles are outside IT).')
-    return []
+    """This install's own starter feeds (scout.starter_list): the ones the app used to ship come from the central index now, with their
+    places and role mix, so a search outside IT no longer crawls Stripe or Palantir (6 Oct 2026)."""
+    return scout.starter_list()
 
 
 def downloaded_index():

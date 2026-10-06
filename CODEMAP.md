@@ -295,6 +295,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
 - `src/import_url.py` — One job link, put through the same path as a job a search found.
+- `src/legacy_lists.py` — The starter feeds and seed names the app shipped before 6 Oct 2026, when every install copied them into its own config folder. They now
 - `src/levels.py` — The level a person is looking for ("junior", "mid", "senior", "lead") as title words to skip, before any AI is spent on a posting.
 - `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
 - `src/notion/cron_runs.py` — Notion "⏰ Cronjob Runs": one row per scheduled pipeline run, with its cost and a mini-report.
