@@ -92,6 +92,15 @@ export async function run(ctx) {
     const listed = await page.locator('#palette-list [role="option"]').allInnerTexts();
     const opens = listed.filter(text => /^Open /.test(text.trim())).length;
     if (opens < new Set(pages.map(([view]) => view)).size) throw new Error(`the palette lists ${opens} "Open …" commands for ${pages.length} pages: ${listed.slice(0, 12).join(' | ')}`);
+    // Settings, the whole class: every page, every section heading, and Export/Import data (6 Oct 2026: Export and Import were not in ⌘K).
+    const wanted = await page.evaluate(() => [
+      ...[...new Map([...document.querySelectorAll('[data-settings-go]')].reverse().map(go => [go.dataset.settingsGo, go.textContent.replace(/\s+/g, ' ').trim()])).values()].map(name => `Open Settings: ${name}`),   // one a page: its first button
+      ...[...document.querySelectorAll('[data-settings-page] .setting[id]')].filter(section => !section.closest('[hidden]:not(.view):not([data-settings-page])'))
+        .map(section => (section.querySelector('h3') || section.querySelector('h4, summary'))?.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean),
+      'Move your data: Export data', 'Move your data: Import data']);
+    const text = listed.map(item => item.replace(/\s+/g, ' '));
+    const absent = wanted.filter(label => !text.some(item => item.includes(label)));
+    if (absent.length) throw new Error(`not in ⌘K: ${absent.join(' | ')}`);
     await page.keyboard.press('Escape');
     await page.locator('#palette[open]').waitFor({state: 'detached', timeout: 5000}).catch(async () => {
       if (await page.locator('#palette[open]').count()) throw new Error('Esc did not close the palette');

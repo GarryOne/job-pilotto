@@ -80,6 +80,39 @@ function paletteCommands() {
   button('interviews', 'iv-add', 'upload audio video transcript file');
   button('interviews', 'iv-record', 'start call audio', 'Record a call (everyone agreed)');
   button('interviews', 'iv-recordings', 'files folder finder');
+  // Settings: every page, every section (by its heading) and every button in a section, read from the page itself so a new one is listed without being
+  // added here (6 Oct 2026: Export and Import data were not in ⌘K). A section opens its page and scrolls to it; a button does that and presses it,
+  // except in the danger zone, where it is only focused: the person presses it.
+  const pages = new Set();   // one entry a page: Overview's shortcuts ("Manage automation") lead to a page already listed
+  document.querySelectorAll('[data-settings-go]').forEach(go => {
+    if (pages.has(go.dataset.settingsGo)) return;
+    pages.add(go.dataset.settingsGo);
+    add('Settings', `Open Settings: ${labelOf(go)}`, '', 'settings preferences', () => { openView('settings'); go.click(); });
+  });
+  // Connections are drawn as service cards (settings.js renderConnections): each one's Manage or Connect.
+  document.querySelectorAll('#conn-on .service-card, #conn-off .service-card').forEach(card => {
+    const name = labelOf(card.querySelector('.service-text b')), node = card.querySelector('button');
+    if (name && node) add('Settings', `${name}: ${labelOf(node)}`, labelOf(card.querySelector('.service-text .muted')), 'settings connections connect', () => { openView('settings'); settingsPage('connections'); node.click(); });
+  });
+  const shown = node => !node.closest('[hidden]:not(.view):not([data-settings-page])');
+  const seen = new Set();
+  document.querySelectorAll('[data-settings-page] .setting[id]').forEach(section => {
+    const title = labelOf(section.querySelector('h3') || section.querySelector('h4, summary'));   // a summary's own heading, not its whole line
+    if (!shown(section) || !title || seen.has(title)) return;
+    seen.add(title);
+    const page = section.closest('[data-settings-page]').dataset.settingsPage;
+    const open = () => {
+      openView('settings'); settingsPage(page);
+      if (section.tagName === 'DETAILS') section.open = true;
+      section.scrollIntoView({block: 'start'});
+    };
+    add('Settings', title, '', `settings ${page}`, open);
+    section.querySelectorAll('button[id]').forEach(node => {
+      if (node.disabled || !shown(node)) return;
+      const danger = !!node.closest('.danger-zone') || /danger/.test(node.className);
+      add('Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, () => { open(); if (danger) node.focus(); else node.click(); });
+    });
+  });
   document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));
   return commands;
 }
