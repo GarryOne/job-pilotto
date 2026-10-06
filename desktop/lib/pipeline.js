@@ -464,6 +464,15 @@ export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged/.test(l
 // A line that says "still here" (the engine's wait for the run lock, or the app's own heartbeat): one in a row is kept, the newest, so a long
 // quiet stretch reads as one live line, not a wall of them (the window does the same, renderer/pages/jobs.js).
 export const STATUS_LINE = /^(?:⏳ Still running|Another Job Pilotto search is running)/;
+// The Log box's live step for a line of engine output: a "⏳ …" step as written, or the wait for the run lock as a plain sentence
+// ("Waiting for a discover run started 14:27 to finish · 2 min"); null for anything else. 6 Oct 2026: a log sat on "Starting… 76 s" behind a
+// background search, because that wait line is not a "⏳" step.
+export function leadStepOf(line) {
+  const step = /^⏳\s*(.+)/.exec(line);
+  if (step) return step[1];
+  const wait = /^Another Job Pilotto search is running .*?waiting for (.+?)(?: \(pid \d+\))?; waited (\d+) min/.exec(line);
+  return wait ? `Waiting for ${wait[1]} to finish${+wait[2] ? ` · ${wait[2]} min` : ''}` : null;
+}
 export const HEARTBEAT_MS = {every: 15 * 1000, quiet: 30 * 1000};
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in

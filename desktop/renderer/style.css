@@ -86,6 +86,11 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 .grid .full { grid-column: 1 / -1; }
 .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 24px 0; }
 .spinner { width: 18px; height: 18px; border: 2.5px solid var(--line); border-top-color: var(--signal); border-radius: 50%; animation: spin .8s linear infinite; }
+/* Log job activity: the steps the engine has done so far, under the current one (a ✓, the step, how long it took). */
+.lead-steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
+.lead-steps li { display: flex; gap: 8px; }
+.lead-steps li::before { content: "✓"; width: 14px; flex: none; text-align: center; color: var(--good); }
+.lead-steps time { margin-left: auto; white-space: nowrap; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 .chips-block { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }

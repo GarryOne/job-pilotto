@@ -26,6 +26,10 @@ def main():
     name = sys.argv.pop(1)
     sys.argv[0] = f'python -m src {name}'
     import importlib
+    if name == 'daily' and '--propose' in sys.argv:
+        # The app's Log box, step 1: Claude reads a message and says what it would log; nothing is written (Notion or the job cache), so it
+        # never waits for a search. 6 Oct 2026: it sat on "Starting… 200 s" behind a scheduled search holding the run lock.
+        return importlib.import_module(commands[name]).main() or 0
     if name in ('check', 'daily', 'scout', 'discover', 'feeds'):
         # One search at a time: the app and the terminal share the job cache (src/paths.py run_lock).
         from .paths import LockTimeout, run_lock
@@ -33,6 +37,8 @@ def main():
         try:
             with run_lock(label=f'{name} {mode}'.strip()):
                 # ⚙️ Search settings in Notion are the source of truth: refresh the cached config before it's imported.
+                if '--from-app' in sys.argv:   # the app's Log box lists the engine's steps live (desktop/lib/pipeline.js leadStepOf)
+                    print('⏳ Checking your search settings in Notion', file=sys.stderr, flush=True)
                 from .notion import search_settings
                 search_settings.sync_quietly()
                 from . import places

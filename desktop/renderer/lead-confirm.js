@@ -196,3 +196,20 @@ export function confirmed(proposal = {}, state) {
     firstContact: proposal.new ? state.first !== 'no' : null, ...(has('agree') ? {agreed: v.agree === 'yes'} : {}),
     ...(originShown(proposal, state) ? {origin: v.origin} : {})};
 }
+
+// The Log box's live steps (the engine's "⏳" lines, pipeline.js leadStepOf): the finished ones with how long each took, the current one last.
+// A "Waiting for …" line replaces the one before it (its minutes tick up), so a long wait stays one row.
+export const WAITING = /^Waiting for /;
+export function addStep(steps, text, at) {
+  const last = steps.at(-1);
+  if (last?.text === text) return steps;
+  if (last && WAITING.test(last.text) && WAITING.test(text)) return [...steps.slice(0, -1), {text, at: last.at}];  // one wait, timed from its start
+  return [...steps, {text, at}];
+}
+export function stepRows(steps, now, keep = 6) {
+  const from = Math.max(0, steps.length - keep);
+  return steps.slice(from).map((step, i) => {
+    const next = steps[from + i + 1];
+    return {text: step.text, now: !next, seconds: Math.round(((next ? next.at : now) - step.at) / 1000)};
+  });
+}

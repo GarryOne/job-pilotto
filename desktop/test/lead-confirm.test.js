@@ -266,3 +266,22 @@ test('the question says which two days it compares, in short form', () => {
     "Your conversation on LinkedIn (11 Sep) came before this job's first contact (26 Sep). If they wrote first, it counts as inbound.");
   assert.match(lead.originHint(zephyr.fields.origin, lead.set(state, 'origin', 'inbound')), /Counted as inbound\.$/);
 });
+
+test('the Log box lists the engine\'s steps with how long each took; a wait for another search stays one row', async () => {
+  const {leadStepOf} = await import('../lib/pipeline.js');
+  assert.equal(leadStepOf('⏳ Claude is reading the screenshot'), 'Claude is reading the screenshot');
+  assert.equal(leadStepOf('Another Job Pilotto search is running (app or terminal): waiting for a discover run started 14:27 (pid 72932); waited 0 min so far…'),
+    'Waiting for a discover run started 14:27 to finish');
+  assert.match(leadStepOf('Another Job Pilotto search is running (app or terminal): waiting for another run; waited 3 min so far…'), /another run to finish.* · 3 min$/);
+  assert.equal(leadStepOf('Checked: Zühlke Engineering AG'), null);
+  let steps = [{text: 'Starting the engine', at: 0}];
+  steps = lead.addStep(steps, 'Waiting for a discover run to finish · 1 min', 4000);
+  steps = lead.addStep(steps, 'Waiting for a discover run to finish · 2 min', 64000);  // replaces the last wait row
+  steps = lead.addStep(steps, 'Reading your jobs in Notion', 70000);
+  steps = lead.addStep(steps, 'Reading your jobs in Notion', 71000);  // the same step again: ignored
+  assert.deepEqual(lead.stepRows(steps, 75000), [
+    {text: 'Starting the engine', now: false, seconds: 4},
+    {text: 'Waiting for a discover run to finish · 2 min', now: false, seconds: 66},
+    {text: 'Reading your jobs in Notion', now: true, seconds: 5}]);
+  assert.equal(lead.stepRows(Array.from({length: 9}, (_, i) => ({text: `s${i}`, at: i * 1000})), 9000).length, 6);
+});

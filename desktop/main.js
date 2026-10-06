@@ -1000,8 +1000,8 @@ function handlers() {
       return await task(files.join(','));
     } catch (error) { return {ok: false, text: error.message}; } finally { files.forEach(file => { fs.rmSync(file, {force: true}); fs.rmSync(`${file}.small.jpg`, {force: true}); }); }
   };
-  // Each step the engine reports ("⏳ …") shows in the Log box while it works.
-  const leadLine = line => { log(line); if (/^⏳/.test(line)) toWindow('leadStep', line.replace(/^⏳\s*/, '')); };
+  // Each step the engine reports ("⏳ …"), and its wait for another search, show in the Log box while it works.
+  const leadLine = line => { log(line); const step = pipeline.leadStepOf(line); if (step) toWindow('leadStep', step); };
   // earlier: the proposal shown, when you pick another job in the confirmation step (proposed again, no second reading).
   ipcMain.handle('proposeLead', async (_, text, image = null, target = '', earlier = null) => {
     if (DEMO) return demo.leadProposal(target);

@@ -474,7 +474,7 @@ export function renderJobs() {
 // Pages Job Pilotto never reads (src/notion/ledger.py NO_FETCH): ask for the title, company and text instead.
 const NO_FETCH = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
-let leadStep = '';  // the Log box's current step, from the engine
+let leadSteps = [];  // the Log box's steps so far ({text, at}), from the engine (lead-confirm.js addStep)
 let leadRunning = false;  // a log is being read now (the dialog may have been closed and reopened)
 // Up to 5 screenshots per log (a long LinkedIn chat): read together, in this order, and kept on the job's page.
 const MAX_SHOTS = 5;
@@ -584,11 +584,21 @@ async function working(first, task) {
   leadRunning = true;
   $('lead-go').disabled = true;
   const started = Date.now();
-  leadStep = first;
-  const tick = () => message('lead-message', `${leadStep}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
+  leadSteps = [{text: first, at: started}];
+  const tick = () => {
+    const rows = confirmStep.stepRows(leadSteps, Date.now()), current = rows.at(-1);
+    message('lead-message', `${current.text}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
+    $('lead-steps').hidden = rows.length < 2;
+    $('lead-steps').replaceChildren(...rows.slice(0, -1).map(row => {  // the finished ones: the current step is the line above
+      const item = document.createElement('li');
+      item.append(Object.assign(document.createElement('span'), {textContent: row.text}),
+        Object.assign(document.createElement('time'), {textContent: `${row.seconds} s`}));
+      return item;
+    }));
+  };
   tick();
   const timer = setInterval(tick, 1000);
-  try { return await task(); } finally { clearInterval(timer); leadRunning = false; $('lead-go').disabled = false; message('lead-message', ''); }
+  try { return await task(); } finally { clearInterval(timer); leadRunning = false; $('lead-go').disabled = false; message('lead-message', ''); $('lead-steps').hidden = true; }
 }
 // The job you picked: the same reading proposed again for it (no second AI reading); what you confirmed is kept.
 async function pickJob(target) {
@@ -975,7 +985,7 @@ export async function init() {
     $('lead-dialog').showModal();
     $('lead-text').focus();
   });
-  window.pilot.onLeadStep(text => { leadStep = text; });
+  window.pilot.onLeadStep(text => { leadSteps = confirmStep.addStep(leadSteps, text, Date.now()); });
   $('lead-shot-add').addEventListener('click', () => $('lead-shot-file').click());
   $('lead-shot-file').addEventListener('change', () => { [...$('lead-shot-file').files].forEach(readShot); $('lead-shot-file').value = ''; });
   $('lead-shot-paste').addEventListener('click', async () => {
@@ -1044,7 +1054,7 @@ export async function init() {
     if (!leadProposal) {  // step 1: Claude reads it; nothing is written yet
       if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
       if (!$('lead-auto').checked && !leadTarget()) { leadResult('warn', 'Which job is it?', 'Choose the job, or tick "Find the job automatically".'); return; }
-      const proposal = await working(leadShots.length > 1 ? `Sending ${leadShots.length} screenshots` : 'Starting',
+      const proposal = await working(leadShots.length > 1 ? `Sending ${leadShots.length} screenshots` : 'Starting the engine',
         () => window.pilot.proposeLead(text, leadShots, leadTarget()));
       if (!proposal.ok) {
         const said = String(proposal.text || '').replace(/^\S+\s/, '');  // without the leading emoji
