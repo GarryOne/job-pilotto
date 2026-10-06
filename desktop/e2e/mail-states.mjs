@@ -46,7 +46,7 @@ if (process.env.MAIL_STATES_SHOTS) {
     await session.page.locator('#activity-panel').screenshot({path: path.join(process.env.MAIL_STATES_SHOTS, `${String(i + 1).padStart(2, '0')}.png`)});
   }
   // The open question's button opens the job picker in a popup (not Focus): click it and keep a picture of the dialog.
-  const asking = states.findIndex(state => state.name.startsWith('Which job? — before'));
+  const asking = states.findIndex(state => state.name.startsWith('7 emails'));
   await rows.nth(asking).click();
   await session.page.waitForTimeout(500);
   await session.page.click('.mail-question-go');

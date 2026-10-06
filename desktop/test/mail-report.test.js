@@ -254,13 +254,11 @@ test('the strip counts the rows the card shows: new emails, the relevant ones, a
 
 test('an email about the interview the band describes is covered: its row keeps the job and the stage move only', () => {
   const run = JSON.parse(fs.readFileSync(new URL('../e2e/fixtures/mail-states.json', import.meta.url), 'utf8')).states
-    .find(state => state.name.startsWith('New interview detected')).run;
+    .find(state => state.name.startsWith('7 emails')).run;
   const {results, updates} = mailResults(parseMailReport(run.message, run.result, run.report));
-  assert.equal(results.length, 1);
-  assert.equal(results[0].covered, true);
-  assert.equal(results[0].update.changes, 'Stage Screening → Interview scheduled');
-  assert.deepEqual(updates, []);
-  // another job's email is not covered by this interview's band
-  const other = mailResults(parseMailReport(run.message, run.result, [...run.report, 'Reminder: Role Discussion · Arjun Gillard · 01 Oct 13:47 — [already known] · Blinq — Senior DevOps Engineer']));
-  assert.deepEqual(other.results.map(r => !!r.covered), [true, false]);
+  assert.deepEqual(updates, []);                                   // every update is on its email's card
+  const covered = results.filter(r => r.covered).map(r => r.company);
+  assert.deepEqual(covered, ['Huxley']);                          // only the interview the panel describes
+  assert.equal(results.find(r => r.company === 'Huxley').update.changes, 'Stage Screening → Interview scheduled');
+  assert.equal(results.filter(r => r.update?.question).length, 3);  // the three which-job questions, on their emails
 });
