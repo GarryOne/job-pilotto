@@ -194,6 +194,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/practice-session.js` — Interviews → Insights → "Start practice session": rehearse the "Practice next" steps out loud, one at a time, with a
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
+- `desktop/renderer/question-words.js` — The words of a "Which job is this email about?" question, shared by the Gmail card (pages/activity.js) and its popup (pages/reassign.js).
 - `desktop/renderer/questions-view.js` — What the "Answer once" card says when its questions couldn't be read: nothing while Notion isn't connected, else one plain line.
 - `desktop/renderer/result-seen.js` — Which finished runs have had their result card shown on Actions (#280, 5 Oct 2026). A run's id is its start time, so a search started at 10:00 that ends at 10:30 has a
 - `desktop/renderer/review-again.js` — Interviews → a reviewed row's ⋯ "Review again": its menu entry (busy while it runs) and the message after it.

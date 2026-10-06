@@ -1701,9 +1701,13 @@
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
     <p id="reassign-context" class="dialog-lead"></p>
-    <label for="reassign-target">It's about</label>
-    <select id="reassign-target"></select>
-    <p id="reassign-help" class="muted small">The job you pick moves on with this email (stage, interview date); "Not in my list yet" tracks it from the email.</p>
+    <div class="choice-list" id="reassign-choices">
+      <label><input type="radio" name="reassign-choice" value="tracked"><span><b>A job I already track</b><span class="muted">Choose from your saved jobs.</span></span></label>
+      <label><input type="radio" name="reassign-choice" value="new"><span><b>A new job</b><span class="muted">Create a job from this email. Add missing details in Focus.</span></span></label>
+      <label><input type="radio" name="reassign-choice" value="none"><span><b>Not about a job</b><span class="muted">Keep this email out of your applications.</span></span></label>
+    </div>
+    <div class="reassign-pick" id="reassign-pick" hidden><select id="reassign-target" aria-label="The job it's about"></select></div>
+    <p class="reassign-note muted" id="reassign-note"><i data-icon="link"></i><span id="reassign-help"></span></p>
     <p id="reassign-message" class="message"></p>
     <div class="dialog-foot">
       <button class="ghost" value="cancel" formnovalidate>Cancel</button>

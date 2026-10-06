@@ -7,25 +7,38 @@ import {loadFocus, holdItem, releaseItem} from './focus.js';
 import {loadJobs} from './jobs.js';
 import {toastMessage} from './startup.js';
 import {searchSelect} from '../search-select.js';
+import {CHOICES, emailNoun, questionWhy} from '../question-words.js';
+import {el} from '../components.js';
 
 const option = (value, text) => Object.assign(document.createElement('option'), {value, textContent: text});
 const labelOf = job => `${job.company || job.via || '—'} · ${job.title}${job.stage ? ` (${job.stage})` : ''}`;
 
+// The job picker holds only the jobs you track; "a new job" and "not about a job" are their own choices.
 function targets(current = '', suggested = '') {
   const tracked = shared.allJobs.filter(job => job.stage && !['Dismissed', 'Closed'].includes(job.stage) && job.url !== current)
     .sort((a, b) => labelOf(a).localeCompare(labelOf(b)));
-  const group = Object.assign(document.createElement('optgroup'), {label: 'Your applications'});
-  tracked.forEach(job => group.append(option(job.url, labelOf(job))));
-  $('reassign-target').replaceChildren(option('new', 'Not in my list yet: a new job'), option('none', 'Not about a job'), ...(tracked.length ? [group] : []));
-  $('reassign-target').value = suggested && tracked.some(job => job.url === suggested) ? suggested : 'new';
+  $('reassign-target').replaceChildren(...tracked.map(job => option(job.url, labelOf(job))));
+  const known = suggested && tracked.some(job => job.url === suggested);
+  if (known) $('reassign-target').value = suggested;
+  $('reassign-choices').querySelector('[value=tracked]').disabled = !tracked.length;
+  choose(known ? 'tracked' : 'new');
 }
+const chosen = () => $('reassign-choices').querySelector('input:checked')?.value || 'new';
+// A choice: its radio, the picker only for a tracked job, the line under the list and the button say what Save does.
+function choose(value) {
+  $('reassign-choices').querySelector(`[value=${value}]`).checked = true;
+  $('reassign-pick').hidden = value !== 'tracked';
+  $('reassign-help').textContent = CHOICES[value].note;
+  $('reassign-save').textContent = CHOICES[value].save;
+}
+const target = () => (chosen() === 'tracked' ? $('reassign-target').value : chosen());
 
 let pending = null;  // () => Promise<boolean>: what Save does in the dialog now open
 
-function open({title, context, help}) {
+// The header: what the email is (sender · when), and, muted, why it is asked.
+function open({title, context, why = ''}) {
   $('reassign-title').textContent = title;
-  $('reassign-context').textContent = context || '';
-  $('reassign-help').textContent = help;
+  $('reassign-context').replaceChildren(context || '', ...(why ? [el('span', 'small muted', why)] : []));
   message('reassign-message', '');
   $('reassign-save').disabled = false;
   $('reassign-dialog').showModal();
@@ -41,20 +54,23 @@ export async function moveEmail(eventId, target, item = null) {
 
 // Focus → Other job…: the question's email, to the job you pick. `onSaved(job)` hears the job saved ("Company — Title", or ''
 // for "not about a job"): Recent activity's Gmail card turns that email to "Answered" at once.
-const jobOf = option => (option?.value === 'none' ? '' : (option?.textContent || '').replace(/\s*\([^)]*\)$/, '').replace(' · ', ' — '));
+const jobOf = choice => (choice === 'none' ? '' : choice === 'new' ? 'Not in my list yet: a new job'
+  : ($('reassign-target').selectedOptions[0]?.textContent || '').replace(/\s*\([^)]*\)$/, '').replace(' · ', ' — '));
 export function whichJob(item, onSaved = null) {
   targets('', item.suggested_url);
   pending = async () => {
-    const ok = await moveEmail(item.event_id, $('reassign-target').value, item);
-    if (ok && onSaved) onSaved(jobOf($('reassign-target').selectedOptions[0]));
+    const choice = chosen();
+    const ok = await moveEmail(item.event_id, target(), item);
+    if (ok && onSaved) onSaved(jobOf(choice));
     return ok;
   };
   open({title: 'Which job is this email about?', context: item.detail,
-    help: 'The job you pick moves on with this email (stage, interview date). "Not in my list yet" tracks it from the email; Focus then asks for its details.'});
+    why: questionWhy(emailNoun({subject: item.subject}), item.company)});
 }
 
 export async function init() {
   searchSelect($('reassign-target'));
+  $('reassign-choices').addEventListener('change', () => choose(chosen()));
   $('reassign-save').addEventListener('click', async event => {
     event.preventDefault();
     if (!pending) return;

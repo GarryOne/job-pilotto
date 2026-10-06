@@ -2193,3 +2193,9 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .app.rail .dev-tag { display: none; }
 
 button.is-busy { cursor: progress; opacity: .7; }
+
+/* Which job is this email about? (pages/reassign.js): the job picker under the choices, a link line saying what Save does */
+.reassign-pick { margin-top: var(--sp-3); }
+.reassign-note { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; font-size: var(--fs-md); }
+.reassign-note svg { width: 16px; height: 16px; flex: none; }
+.reassign-note + .message:empty { display: none; }

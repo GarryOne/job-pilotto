@@ -1,4 +1,5 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
+import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
@@ -1004,7 +1005,6 @@ function jobPrep(company, title) {
 // (reassign.js); answered: the job you picked, the original question folded under it.
 const subjectKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 100);
 const NEEDS_YOU = new Set(['needs you', 'asked']);
-const emailNoun = email => (/invit|calendar|meeting/i.test(`${email?.subject || ''} ${email?.sender || ''}`) ? 'invitation' : 'email');
 // Answers saved from this card, by subject: the card turns to "Answered" at once, before Focus is read again from Notion.
 const answeredHere = new Map();
 function questionState(email, pending, answered) {
@@ -1029,7 +1029,7 @@ function jobLink(job, tagName = 'p') {
   return link;
 }
 function questionPanel(state, key, subject = '', {noun = 'email', company = ''} = {}) {
-  const why = company ? `The ${noun} names ${company} but doesn't specify the role.` : "The check couldn't tell which job this is about, so it moved nothing.";
+  const why = questionWhy(noun, company);
   const panel = el('div', state.answered ? 'mail-ask is-answered' : 'mail-ask');
   const mark = el('span', 'mail-ask-icon');
   mark.append(icon(state.answered ? 'check-circle' : 'help'));

@@ -71,13 +71,14 @@ section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few 
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
     {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
 
-section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row; .segmented.is-fill', (() => {
+section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row; .choice-list; .segmented.is-fill', (() => {
   const box = el('div');
   box.innerHTML = `<div class="composer"><textarea rows="2" placeholder="Paste a message here…"></textarea>
     <div class="composer-tools"><button class="tool"><i data-icon="paperclip"></i>Add screenshot</button>
     <button class="tool"><i data-icon="image"></i>Paste image</button></div></div>
     <div class="attachment"><img src="logo.png" alt=""><span class="attachment-name">screenshot.png</span><button class="soft-button">Remove</button></div>
     <div class="select-search" style="margin-top: var(--sp-3)"><i data-icon="search"></i><select><option>Find the right job automatically</option></select></div>
+    <div class="choice-list"><label><input type="radio" name="g-choice" checked><span><b>A new job</b><span class="muted">Create a job from this email.</span></span></label><label><input type="radio" name="g-choice"><span><b>Not about a job</b><span class="muted">Keep this email out of your applications.</span></span></label></div>
     <label class="check-row" style="margin-top: var(--sp-3)"><input type="checkbox"><span><span>I agreed to speak with the recruiter</span>
     <span class="muted small">Move the job to Screening</span></span></label>
     <div class="segmented is-fill" style="margin-top: var(--sp-3)"><button class="is-active">LinkedIn</button><button>Email</button>

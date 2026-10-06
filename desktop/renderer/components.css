@@ -137,6 +137,17 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .check-row input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
 .check-row > span { display: flex; flex-direction: column; gap: 2px; }
 
+/* A choice of 2–4 answers as rows in one box: radio, bold title, a hint under it; the chosen row is tinted. */
+.choice-list { display: grid; margin-top: var(--sp-4); border: 1px solid var(--line-strong); border-radius: var(--r-md); overflow: hidden; }
+.choice-list > label { display: grid; grid-template-columns: 22px 1fr; gap: var(--sp-4); align-items: center; margin: 0;
+  padding: var(--sp-3) var(--sp-4); font-weight: 400; cursor: pointer; }
+.choice-list > label + label { border-top: 1px solid var(--line); }
+.choice-list > label:has(input:checked) { background: var(--signal-soft); }
+.choice-list > label:has(input:disabled) { cursor: default; opacity: .55; }
+.choice-list input { width: 20px; height: 20px; margin: 0; }
+.choice-list b { display: block; font-weight: 600; color: var(--ink); }
+.choice-list .muted { display: block; margin-top: 2px; font-size: var(--fs-md); }
+
 /* A result box: icon, bold title, text, optional action. Tones: tone-warn (default), tone-good, tone-bad, tone-info. */
 :where(.alert) { --tone: var(--warn); --tone-soft: var(--warn-soft); }  /* default tone; tone-… classes win */
 .alert { display: flex; gap: var(--sp-3); margin-top: var(--sp-4);
