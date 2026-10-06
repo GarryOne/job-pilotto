@@ -228,13 +228,13 @@ const seenResult = () => { try { return Number(localStorage.getItem(SEEN_KEY)) |
 const shownResults = () => { try { return JSON.parse(localStorage.getItem(SHOWN_KEY) || '[]').filter(Number.isFinite); } catch { return []; } };
 const markResultSeen = id => { try { if (!seenResult()) localStorage.setItem(SEEN_KEY, String(id)); localStorage.setItem(SHOWN_KEY, JSON.stringify(withShown(shownResults(), id))); } catch { /* private window: it shows again after a reload */ } };
 const waitingForResult = new Set();   // run ids whose Notion page is being read for the result
-function showAwaitedResult(runs) {
+function showAwaitedResult(runs, {opening = false} = {}) {
   const newest = runs.find(r => r.endedAt && !r.live && KIND[kindOf(r)]);
   if (!seenResult()) { markResultSeen(newest ? newest.id : 1); return; }   // first start: what is there already is not news (1: no run yet, every later one is)
   if (!newest) return;
   const run = unseenRun(runs, {base: seenResult(), shown: shownResults()}, r => KIND[kindOf(r)]);
   if (!run || waitingForResult.has(run.id)) return;
-  const onActions = !document.querySelector('.view[data-view="actions"]').hidden;
+  const onActions = opening || !document.querySelector('.view[data-view="actions"]').hidden;   // opening: drawn before the page is shown (prepareActions)
   if (!onActions && $('activity-panel').hidden) return;   // shown when the Actions page is opened
   const kind = KIND[kindOf(run)];
   const show = message => {
@@ -253,6 +253,9 @@ function showAwaitedResult(runs) {
   if (run.message || !run.pageId) { show(run.message); return; }
   // A run recorded on this Mac has no message when it was sent to Telegram: it is on its Notion page, written a moment after the run ends.
   waitingForResult.add(run.id);
+  // On Actions, the card takes its place at once, as skeleton bars, and fills in when the page is read: appearing seconds later at the top, it pushed the task grid
+  // down while a person was about to press a task (#286).
+  if ($('activity-panel').hidden) showActionsResult(run, kind, renderCardSkeleton);
   const read = (tries = 0) => window.pilot.runDetail(run.pageId).then(detail => detail?.message || tries >= 6 ? detail?.message : new Promise(resolve => setTimeout(resolve, 4000)).then(() => read(tries + 1)))
     .catch(() => null);
   read().then(message => { waitingForResult.delete(run.id); show(message || null); });
@@ -318,6 +321,13 @@ window.__activity = () => ({selected: shared.selectedRun, shownId: detailRunId, 
 const readingPages = new Set();  // run pages being read from Notion right now: their card shows as skeleton bars
 // An answer given on Focus (or the card itself) reaches the open check's card as soon as Focus is read again.
 window.addEventListener('focus-updated', () => { if (lastActivity) renderActivity(lastActivity); });
+// Actions drawn from what the window already knows BEFORE it is shown (#286): its run banner and the result card of a run not seen yet were drawn at the next
+// refresh, a moment after the page appeared, and pushed the task grid down under the person's pointer. openView calls this while the page is still hidden.
+export function prepareActions() {
+  if (!lastActivity) return;
+  renderActionsPage(lastActivity);
+  showAwaitedResult(lastActivity.runs, {opening: true});
+}
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -766,7 +776,7 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
 
 // A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane
 // keeps its size and nothing pops in when the data lands (renderer/pages/focus.js does the same for a first load).
-function renderCardSkeleton() {
+function renderCardSkeleton(target = $('activity-card')) {
   const bar = (className = '') => el('span', `skeleton ${className}`);
   const stats = el('div', 'run-card-stats');
   stats.append(bar('w-30'), bar('w-20'), bar('w-20'));
@@ -780,7 +790,7 @@ function renderCardSkeleton() {
   }
   const body = el('div', 'run-card-body');
   body.append(rows);
-  $('activity-card').replaceChildren(stats, body);
+  target.replaceChildren(stats, body);
 }
 
 // A Gmail check's own lines about the emails: the update it recorded — with what moved on the job — and every email
