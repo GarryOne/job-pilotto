@@ -369,12 +369,15 @@ export async function run(ctx) {
   const tailoredAt = url => path.join(ctx.profile, 'cv', 'tailored', `${codeOf(url)}.pdf`);
     await ctx.run('Tailor CVs for top matches: asked for 2, it tailors the two best open jobs without a CV, in fit order, and leaves the third alone', async () => {
     await removeJobsByUrl(NOTION, topUrls);   // rows an earlier failed run left behind
-    for (const [index, fit] of [99, 98, 97].entries()) await addKitJob(NOTION, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
-      kit: {answers: [], cover_letter: '', check_before_sending: []}, description: POSTING});
+    const added = [];
+    for (const [index, fit] of [99, 98, 97].entries()) added.push((await addKitJob(NOTION, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
+      kit: {answers: [], cover_letter: '', check_before_sending: []}, description: POSTING})).id.replace(/-/g, ''));
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await page.click('.nav[data-view="jobs"]');
-    await page.waitForFunction(wanted => wanted.every(url => (window.__jp.shared.allJobs || []).some(job => job.url === url)), topUrls, {timeout: 120000, polling: 2000});
+    // The NEW rows, by page id (6 Oct 2026: the saved list painted on reload still held the rows just archived, same URLs; Tailor then wrote to an archived page).
+    await page.waitForFunction(ids => ids.every(id => (window.__jp.shared.allJobs || []).some(job => String(job.notion_url || '').replace(/-/g, '').includes(id))), added, {timeout: 120000, polling: 2000})
+      .catch(() => { throw new Error('the Jobs list never showed the three new top-match rows (it may still hold the archived ones from an earlier run)'); });
     await page.click('.nav[data-view="actions"]');
     if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
     await page.fill('#tailor-top-n', '2');
