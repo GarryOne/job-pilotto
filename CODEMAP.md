@@ -367,6 +367,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/product_brain.py` — The product brain's plumbing (.github/workflows/product-brain.yml): Claude decides, this script reads and writes.
 - `tools/prune-releases.sh` — Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases).
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
+- `tools/release-checks.sh` — The release checks every platform's beta approval shares (e2e.yml promote for Mac/Linux, e2e-windows.yml approve-windows): the unit suites are green on the
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.
 - `tools/send-to-chatgpt.sh` — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
