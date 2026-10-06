@@ -82,7 +82,20 @@ export function markFallback(node, kind, text) {
   else delete node.dataset.fallback;
 }
 
-export const cardText = (run, kept) => (!run || run.live ? null : run.message || kept || null);
+// A weekly report or an insight that kept only its one-line summary (its message never reached the app): the head its
+// engine writes, then the whole summary, so the same card draws it instead of a cut line in the header (owner, 6 Oct 2026).
+const sentence = text => `${text.charAt(0).toUpperCase()}${text.slice(1)}${/[.!?]$/.test(text) ? '' : '.'}`;
+export function summaryMessage(run) {
+  const said = String(run?.summary || '').trim();
+  if (!said || !run.ok || run.message) return null;
+  if (run.kind === 'weekly') {
+    const [first, ...rest] = said.split(/;\s*/);
+    return ['📊 Search analysis', first, ...(rest.length ? [sentence(rest.join('; '))] : [])].join('\n');
+  }
+  const topic = run.kind === 'insight' && /^([^—]{2,40}?)\s+—\s+(.+)$/.exec(said);
+  return topic ? `💡 Insight · ${topic[1]}\n${topic[2]}` : null;
+}
+export const cardText = (run, kept) => (!run || run.live ? null : run.message || kept || summaryMessage(run) || null);
 
 // A run's message that is not a card is shown as text: written for Telegram, so its tags and the "Tap a job number…" hint
 // (nothing in this pane can be tapped) are dropped (UI loop #265).
