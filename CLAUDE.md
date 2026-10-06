@@ -49,6 +49,10 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
      Settings saving changed twice, Actions redesigned 3× on 28 Sep).
   4. "Done" = tests pass as CI runs them (`JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest
      discover -s tests`, desktop `npm ci` with dev deps); say what you verified and what you didn't.
+  5. **A feature or behaviour change updates the e2e step it breaks, in the same commit** (6 Oct 2026: about 25 commits in eight hours renamed a task, changed
+     digest headings and the job-board rule without touching their suites, and the manual `personas` suite sat red unnoticed). Before you push: `grep` the visible
+     words, selectors and commands you changed in `desktop/e2e/` (`suites/`, `lib/`) and the unit tests; fix what you find, or say in the commit body which step
+     is now stale and why. A new detector or plant needs its unit test page to carry what it checks (`test/recall.test.mjs`).
 - Big features (Always on, migrations, Apply with Claude): a short spec in `docs/superpowers/specs/` with a
   "Data ownership" section (Notion vs cache) before code; link it from the Notion Decision Log, don't copy it there.
 - Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and

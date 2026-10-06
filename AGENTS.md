@@ -138,6 +138,12 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
   A red main whose jobs were only cancelled or never started (busy runners) is infrastructure: the hook re-runs it and does not block.
 - The e2e suites run nightly and on demand, not per change; the Finder files what they find. Do not run one to "be sure" at Tier 0/1.
 
+### A feature commit updates its own e2e step (6 Oct 2026)
+**A feature or behaviour change updates the e2e step it breaks, in the same commit** (6 Oct 2026: about 25 commits in eight hours renamed a task, changed
+digest headings and the job-board rule without touching their suites, and the manual `personas` suite sat red unnoticed). Before you push: `grep` the visible
+words, selectors and commands you changed in `desktop/e2e/` (`suites/`, `lib/`) and the unit tests; fix what you find, or say in the commit body which step
+is now stale and why. A new detector or plant needs its unit test page to carry what it checks (`test/recall.test.mjs`).
+
 ### Re-checking a failing e2e step: the step, not the suite (6 Oct 2026)
 A full suite is 3-17 minutes; the step that failed is usually under one. Two sessions on 6 Oct 2026 re-ran whole suites to read a failure message that was already on disk.
 
