@@ -25,20 +25,26 @@ ATS = {'greenhouse.io':'Greenhouse','lever.co':'Lever','ashbyhq.com':'Ashby','sm
 CITIES = {'zurich':['zürich','zurich','zuerich'], 'geneva':['genève','geneva','genf'], 'lausanne':['lausanne'], 'basel':['basel','bâle'], 'bern':['bern','berne'], 'zug':['zug'], 'winterthur':['winterthur'], 'lucerne':['luzern','lucerne'], 'st. gallen':['st. gallen','st.gallen'], 'lugano':['lugano']}
 
 
-SWISS_PLACE = re.compile(r'switzerland|swiss|schweiz|suisse|svizzera|z[uü]e?rich|gen[eè]v|basel|b[aâ]le|bern|lausanne|\bzug\b|lugano|winterthur|luzern|lucerne|st\.? gallen', re.I)
+SWISS_PLACE = re.compile(r'switzerland|swiss|schweiz|suisse|svizzera|z[uü]e?rich|gen[eè]v|\bbasel|\bb[aâ]le\b|\bbern(?:e)?\b|lausanne|\bzug\b|lugano|winterthur|luzern|lucerne|st\.? gallen', re.I)
 
 
-def swiss_places(config):
-    """True when the places the user searches in (config/search.json locations) include Switzerland. A place is read as written and as plain words: the drafted
-    fragment \\bz[uü]rich\\b is the word Zürich (5 Oct 2026: tested as written it matched nothing, so a Zurich-only search was not seen as Swiss)."""
+def swiss_place_word(config):
+    """The place word that makes the places the user searches in (config/search.json locations) Swiss, or None. A place is read as written and as plain
+    words: the drafted fragment \\bz[uü]rich\\b is the word Zürich (5 Oct 2026: tested as written it matched nothing, so a Zurich-only search was not seen as Swiss)."""
     from .. import regions
     from ..notion.search_settings import terms
     places = config.get('locations') or {}
     for key in ('top_tier', 'country_wide', 'abroad'):
         fragments = places.get(key) or []
-        if any(SWISS_PLACE.search(str(word)) or regions.region_of(word) for word in [*fragments, *terms(fragments)]):
-            return True
-    return False
+        for word in [*fragments, *terms(fragments)]:
+            if SWISS_PLACE.search(str(word)) or regions.region_of(word):
+                return str(word)   # which word made the search Swiss: the job boards line says it
+    return None
+
+
+def swiss_places(config):
+    """True when the places the user searches in include Switzerland (swiss_place_word)."""
+    return swiss_place_word(config) is not None
 
 
 def text(s):
@@ -241,9 +247,9 @@ def main():
         print('job board discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
     if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # the end-to-end journey (desktop/e2e): only its fixture feeds, no live crawl
         print('job board discovery is off (fixture feeds only).');return 0
-    swiss=swiss_places(_SEARCH)   # jobs.ch and SwissDevJobs list Swiss employers only; TechTree lists Europe, so it runs for any place
+    swiss_word=swiss_place_word(_SEARCH);swiss=swiss_word is not None   # jobs.ch and SwissDevJobs list Swiss employers only; TechTree lists Europe, so it runs for any place
     client=Client(args.refresh);jobs=[];sources=[]
-    print('Job boards: '+', '.join((['jobs.ch','SwissDevJobs'] if swiss else [])+['TechTree']),flush=True)   # the app's activity list shows these names as they are
+    print('Job boards: '+', '.join((['jobs.ch','SwissDevJobs'] if swiss else [])+['TechTree'])+(f' (Swiss place word: {swiss_word})' if swiss else ''),flush=True)   # the app's activity list shows these names as they are
     for query in _SEARCH['jobs_board_search_queries'] if swiss else []:
         for page in range(1,args.pages+1):
             url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,'page':page})
