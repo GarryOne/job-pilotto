@@ -164,6 +164,12 @@ jobs:
           { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; echo
             echo "Built by GitHub Actions from ${GITHUB_SHA::7}. Check a download: \`gh attestation verify <file> -R ${GITHUB_REPOSITORY}\`"
           } > release-notes.md
+          # A draft under this tag is a build that never finished (cancelled, or refused after main moved): this newer build replaces it. A PUBLISHED one means two
+          # builds took the same version: stop, rather than attach files to another commit's release (6 Oct 2026: 0.5.11 was published from a cancelled build's draft).
+          if existing=$(gh release view "$tag" --json isDraft -q .isDraft 2>/dev/null); then
+            if [ "$existing" = true ]; then gh release delete "$tag" --yes; echo "::warning::Removed a draft $tag left by an unfinished earlier build."
+            else echo "::error::$tag is already published (another build took this version): not releasing over it."; exit 1; fi
+          fi
           if ! gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
             --title "$(scripts/release-title.sh "$version")" \
             --notes-file release-notes.md \
