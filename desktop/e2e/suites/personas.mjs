@@ -127,7 +127,10 @@ export async function run(ctx) {
       while (!listed && Date.now() - started < 240000) { listed = await findPage(NOTION, 'E2E Gamma').catch(() => null); if (!listed) await page.waitForTimeout(4000); }
       if (!listed) throw new Error('"E2E Gamma" was not listed in Notion (Employers & Sources) within 4 minutes');
       const output = engine(ctx, 'import subprocess, sys; print(subprocess.run([sys.executable, "-m", "src", "discover"], capture_output=True, text=True).stdout)');
-      if (!/discovery is skipped/i.test(output)) throw new Error(`jobs.ch/TechTree discovery ran for a user with no Swiss place: ${output.slice(0, 200)}`);
+      // TechTree lists all of Europe and is searched for any place; jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c).
+      const boards = (output.match(/^Job boards: (.*)$/m) || [])[1] || '';
+      if (/jobs\.ch|SwissDevJobs/i.test(boards)) throw new Error(`the Swiss job boards were searched for a user with no Swiss place: ${boards}`);
+      if (!/discovery is skipped/i.test(output) && !/TechTree/.test(boards)) throw new Error(`neither a skipped discovery nor the TechTree search: ${output.slice(0, 200)}`);
     }, {needs: ctx.needs});
     await ctx.run(`${label}: the digest follows their places, citizenship and the posting's currency`, async () => {
       const result = JSON.parse(engine(ctx, DIGEST_CODE).trim().split('\n').pop());
@@ -142,7 +145,7 @@ export async function run(ctx) {
       }
       const abroad = result.jobs.filter(job => !job.inPlaces && !/remote/i.test(job.location));
       if (abroad.length && !/Outside your preferred locations/.test(result.text)) problems.push('the digest does not say "Outside your preferred locations" above jobs elsewhere');
-      if (!/your places/i.test(result.text) && abroad.length) problems.push('the digest never says "your places"');
+      if (!/your preferred locations/i.test(result.text) && abroad.length) problems.push('the digest never says "your preferred locations"');
       if (!result.jobs.some(job => job.salary.includes(profile.expect.currency))) problems.push(`no posting's salary was read as "${profile.expect.currency}…" in its own currency: ${JSON.stringify(result.jobs.map(job => job.salary))}`);
       for (const job of result.jobs.filter(job => job.sponsorship)) if (!/visa sponsorship needed/.test(result.text.split(/\n\n(?=\d+\. )/).find(block => block.includes(job.title)) || '')) problems.push(`the digest shows no "visa sponsorship needed" for ${job.title}`);
       if (JSON.stringify(result.google.places) !== JSON.stringify(Object.fromEntries(profile.google.locations.map(place => [place.location, place.language])))) problems.push(`Google Jobs places are ${JSON.stringify(result.google.places)}, not theirs`);
