@@ -538,11 +538,14 @@ export async function archiveWorkspace(token, ids, when, fetcher) {
 // Everything in the workspace, as Notion's API returns it: the root page and every block under it, with
 // sub-pages' contents, each database's columns and rows, and each row's contents. For an export (Settings →
 // Your data); onProgress({pages, rows}) as it goes. Notion allows ~3 requests a second: waits when told to.
-export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {}, sleep = ms => new Promise(r => setTimeout(r, ms))} = {}) {
+// signal: an AbortSignal; once aborted, the next request throws {cancelled: true} (Settings → Cancel export), within one request's turn.
+export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {}, sleep = ms => new Promise(r => setTimeout(r, ms)), signal = null} = {}) {
   const count = {pages: 0, rows: 0};
   // Notion allows ~3 requests a second: requests start 1/3 s apart, and up to 3 rows are read at once.
   let next = 0;
+  const stopped = () => { if (signal?.aborted) throw Object.assign(new Error('Export cancelled'), {cancelled: true}); };
   const turn = async () => {
+    stopped();
     const now = Date.now(), start = Math.max(now, next);
     next = start + 340;
     if (start > now) await sleep(start - now);
@@ -598,6 +601,7 @@ export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {},
     });
     return found;
   };
+  stopped();
   const root = await workspaceRoot(token, ids, fetcher);
   const page = await api('GET', `pages/${root}`);
   return {app: 'Job Pilotto', format: 'Notion API 2022-06-28', exportedAt: new Date().toISOString(), ids, page,

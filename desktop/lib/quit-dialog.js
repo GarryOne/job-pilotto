@@ -55,11 +55,15 @@ export function sessionsOnly(sessions, label) {
 }
 
 // Searches, queued jobs and/or sessions: quit when they finish, quit now, or stay.
-export function working({busy = null, queue = [], sessions = [], taskName, label}) {
-  const lines = [];
+export function working({busy = null, queue = [], sessions = [], important = [], taskName, label}) {
+  const lines = important.map(what => `•  ${what}: quitting now can leave it half done`);
   if (busy) lines.push(`•  ${taskName(busy.kind)} is running`);
   if (queue.length) lines.push(`•  ${plural(queue.length, 'task', 'tasks')} waiting: ${queue.map(job => taskName(job.kind)).join(', ')}`);
   if (sessions.length) lines.push(`•  Claude is filling ${plural(sessions.length, 'application', 'applications')}: ${sessions.slice(0, SHOWN).map(label).join(', ')}${sessions.length > SHOWN ? '…' : ''}`);
+  if (important.length && !busy && !queue.length && !sessions.length) {   // only an export, a Notion setup…: no jobs to run again
+    return {message: 'Job Pilotto is still working', detail: `${lines.join('\n')}\n\nQuit when done: closes by itself once it finishes.\n` +
+      'Quit now: it stops where it is; start it again after.', buttons: ['Quit when done', 'Quit now', 'Cancel']};
+  }
   return {
     message: 'Job Pilotto is still working',
     detail: `${lines.join('\n')}\n\nQuit when done: closes by itself once these finish.\n` +

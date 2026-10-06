@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {claimInstance, startWhenReady, installQuitHandling} from '../lib/lifecycle.js';
 
-function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = [], platform = 'darwin', ask = false, demo = false, smoke = false} = {}) {
+function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = [], important = [], importantDone = Promise.resolve(), platform = 'darwin', ask = false, demo = false, smoke = false} = {}) {
   const calls = [], handlers = {};
   let drain, timeout;
   const idle = new Promise(resolve => { drain = resolve; });
@@ -14,6 +14,7 @@ function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = []
     pipeline: {running: () => busy, queued: () => queue, taskName: () => 'Search', freezeQueue: value => { assert.equal(value, storage); calls.push('freeze'); },
       stopRunning: () => calls.push('stop'), whenIdle: () => idle},
     terminals: {running: () => sessions, label: () => 'Company', shutdown: () => calls.push('shutdown')},
+    critical: {labels: () => important, whenDone: () => importantDone},
     shouldAskOnQuit: () => ask, askWhyLeaving: () => calls.push('ask'),
     showDialog: (_parent, options) => { calls.push(options.buttons); return choice; }, icon: () => ({}), getWindows: () => [window],
     toWindow: (...args) => calls.push(args), notify: (...args) => calls.push(args), later: (fn, ms) => { timeout = fn; assert.equal(ms, 300000); },
@@ -25,7 +26,7 @@ test('quit when done notifies, waits for idle, and allows the final quit without
   const f = fixture(); f.quit();
   assert.ok(f.calls.some(value => Array.isArray(value) && value[0] === 'Job Pilotto will quit when done'));
   assert.ok(!f.calls.includes('quit'));
-  f.drain(); await f.idle;
+  f.drain(); await f.idle; await new Promise(resolve => setImmediate(resolve));   // it also waits for important work (none here)
   assert.equal(f.calls.at(-1), 'quit');
   const count = f.calls.length; f.quit(); assert.equal(f.calls.length, count);
 });
@@ -71,4 +72,19 @@ test('moving the app does not install activation callbacks or start a second ins
   await startWhenReady({app, firstCopy: false, start: () => { starts++; }});
   await startWhenReady({app, firstCopy: true, start: () => { starts++; return false; }});
   assert.equal(starts, 1); assert.deepEqual(handlers, {});
+});
+
+test('an export alone still asks before quitting, and Quit when done waits for it (6 Oct 2026: the app closed mid-export)', async () => {
+  let finish;
+  const exporting = new Promise(resolve => { finish = resolve; });
+  const f = fixture({busy: null, important: ['Exporting your data'], importantDone: exporting});
+  f.drain(); f.quit();
+  assert.ok(f.calls.includes('prevent'));
+  assert.ok(f.calls.some(value => Array.isArray(value) && value[0] === 'Quit when done'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(!f.calls.includes('quit'), 'not before the export is done');
+  finish(); await exporting; await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.calls.at(-1), 'quit');
+  const cancel = fixture({busy: null, important: ['Exporting your data'], choice: 2}); cancel.quit();
+  assert.ok(!cancel.calls.includes('quit'));
 });

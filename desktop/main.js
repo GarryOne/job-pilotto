@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
+import * as critical from './lib/critical.js';
 import {registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
 import * as cvLook from './lib/cv-look.js';
@@ -522,13 +523,13 @@ function handlers() {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
   }
-  ipcMain.handle('notionConnect', async (_, pasted) => {
+  handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
     return connectNotion(token);
   });
   // "Connect with Notion": Notion's consent page in the browser, then the same connect as above.
-  ipcMain.handle('notionOAuth', async (_, options = {}) => {
+  handleImportant('notionOAuth', 'Connecting Notion', async (_, options = {}) => {
     notionFrom = typeof options?.from === 'string' ? options.from.slice(0, 40) : 'unknown';  // for the log: wizard, gate:<reason>, settings
     const signedIn = await notionOAuth.connect(url => shell.openExternal(url));
     if (!signedIn.ok) return signedIn;
@@ -606,7 +607,7 @@ function handlers() {
     try { return {ok: true, ...await cvChange.review(storage, storage.secret('ANTHROPIC_API_KEY'), {client: claudeCode.client(storage)})}; }
     catch (error) { return {ok: false, error: error.message}; }
   });
-  ipcMain.handle('cvApply', async (_, accepted) => {
+  handleImportant('cvApply', 'Saving your CV and strategy', async (_, accepted) => {
     const gate = needsNotion('profile');
     if (gate) return gate;
     try { return {ok: true, ...await cvChange.apply(storage, accepted)}; } catch (error) { return {ok: false, error: error.message}; }
@@ -779,7 +780,7 @@ function handlers() {
   });
   // Always on: sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
-  ipcMain.handle('cloudConnect', async (_, chosen = '') => {
+  handleImportant('cloudConnect', 'Setting up Always on', async (_, chosen = '') => {
     if (DEMO) return {ok: true, repo: storage.settings().cloud?.repo || 'alexmorgan/job-pilotto-private', existing: null,
       secrets: ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'], variables: []};  // never the real GitHub
     const gate = needsNotion('cloud');
@@ -808,10 +809,10 @@ function handlers() {
     appLog('dispatch', 'always on off: schedules paused', {repo, failed: failed.length, ...(failed.length ? {why: failed.join('; ').slice(0, 200)} : {})});
     storage.saveSettings({cloud: null}); restartTelegram();
   };
-  ipcMain.handle('cloudOff', async () => { await turnCloudOff(); return true; });
+  handleImportant('cloudOff', 'Turning off Always on', async () => { await turnCloudOff(); return true; });
   // Choosing "While app is open" in the run-mode control *is* turning Always on off, so say what changes first: the
   // schedule moves back to this Mac, and the GitHub repository stays where it is.
-  ipcMain.handle('cloudTurnOffConfirmed', async () => {
+  handleImportant('cloudTurnOffConfirmed', 'Turning off Always on', async () => {
     const repo = storage.settings().cloud?.repo;
     if (!repo) return {ok: true, already: true};
     const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
@@ -822,10 +823,10 @@ function handlers() {
     return {ok: true};
   });
   // Telegram buttons, always on: the user's own Cloudflare Worker (lib/telegram-cloud.js).
-  ipcMain.handle('telegramCloudOn', async (_, token) => { const gate = needsNotion('telegram'); if (gate) return gate; const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
-  ipcMain.handle('telegramCloudOff', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
+  handleImportant('telegramCloudOn', 'Setting up the Telegram buttons', async (_, token) => { const gate = needsNotion('telegram'); if (gate) return gate; const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
+  handleImportant('telegramCloudOff', 'Turning off the Telegram buttons', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
-  ipcMain.handle('telegramConnect', async (_, pasted) => {
+  handleImportant('telegramConnect', 'Connecting Telegram', async (_, pasted) => {
     const gate = needsNotion('telegram');
     if (gate) return gate;
     const {value: token, error} = cleanSecret(pasted);
@@ -1058,7 +1059,7 @@ function handlers() {
     if (cached) viewCache.remember(storage, 'interviews', cached);  // the next start shows this one
     return result;
   });
-  ipcMain.handle('ivAdd', async () => {
+  handleImportant('ivAdd', 'Saving an interview', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Choose an interview recording or transcript',
       filters: [{name: 'Recording or transcript', extensions: [...interviews.AUDIO, ...interviews.TEXT]}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
@@ -1090,7 +1091,7 @@ function handlers() {
     }
   });
   ipcMain.handle('ivPrefetch', () => (DEMO ? {ok: true} : interviews.prefetch(storage, step => toWindow('ivProgress', step))));
-  ipcMain.handle('ivTranscribe', async (_, id, options) => {
+  handleImportant('ivTranscribe', 'Transcribing an interview', async (_, id, options) => {
     const meta = await interviews.transcribe(storage, id, options, step => toWindow('ivProgress', step));
     if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`, {view: 'interviews'});
     return meta;
@@ -1138,7 +1139,7 @@ function handlers() {
   // Danger zone: a last native confirmation, then restart; the folder goes at the next start (lib/reset.js).
   // freshNotion: the Notion workspace is archived first (its page renamed, nothing deleted), so the setup
   // builds a new one; if Notion refuses, nothing is reset.
-  ipcMain.handle('resetProfile', async (_, {backup = true, freshNotion = false} = {}) => {
+  handleImportant('resetProfile', 'Resetting this computer', async (_, {backup = true, freshNotion = false} = {}) => {
     const answer = dialog.showMessageBoxSync(window, {type: 'warning', buttons: ['Cancel', 'Reset and restart'], defaultId: 0, cancelId: 0,
       message: freshNotion ? 'Reset Job Pilotto and start a fresh Notion workspace?' : 'Reset Job Pilotto on this computer?',
       detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
@@ -1164,19 +1165,29 @@ function handlers() {
     folder: backup.folder()}));
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
-  ipcMain.handle('exportProfile', async (_, {keys = false, notion: withNotion = false} = {}) => {
+  handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, notion: withNotion = false} = {}) => {
     const day = new Date().toISOString().slice(0, 10);
     const picked = await dialog.showSaveDialog(window, {title: 'Export your Job Pilotto data',
       defaultPath: path.join(app.getPath('documents'), `Job Pilotto export ${day}.tar.gz`), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
     if (picked.canceled || !picked.filePath) return {ok: false};
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
+    exportStop = new AbortController();
+    const {signal} = exportStop;
     try {
       const copy = withNotion ? await notion.dumpWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {},
-        {onProgress: count => toWindow('exportProgress', count)}) : null;
+        {onProgress: count => toWindow('exportProgress', count), signal}) : null;
+      if (signal.aborted) throw Object.assign(new Error('Export cancelled'), {cancelled: true});   // the file is written only after this
       reset.exportTo(storage.dir, picked.filePath, {keys: secrets, notion: copy, version: about.label});
+      appLog('data', 'exported', {keys: !!secrets, notion: !!copy});
       return {ok: true, file: picked.filePath, notion: copy && {pages: copy.pages, rows: copy.rows}};
-    } catch (error) { return {ok: false, error: error.message}; }
+    } catch (error) {
+      appLog('data', error.cancelled ? 'export cancelled' : `export failed: ${error.message}`);
+      return error.cancelled ? {ok: false, cancelled: true} : {ok: false, error: error.message};
+    } finally { exportStop = null; }
   });
+  // Settings → Cancel export: the Notion copy stops at its next request and no file is written.
+  let exportStop = null;
+  ipcMain.handle('exportCancel', () => { exportStop?.abort(); return !!exportStop; });
   // Import: the file replaces this computer's data (which is kept as a backup), at a restart.
   ipcMain.handle('importProfile', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Import Job Pilotto data', properties: ['openFile'],
@@ -1715,7 +1726,7 @@ function handlers() {
     } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('cvStatus', () => ({base: !!cvlib.baseCv(storage), custom: fs.existsSync(path.join(cvlib.dir(storage), 'style.css')) || cvlib.baseCv(storage)?.look === 'rich'}));
-  ipcMain.handle('importCv', async () => {
+  handleImportant('importCv', 'Saving your CV', async () => {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
@@ -1879,6 +1890,10 @@ function backupNow() {
 }
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); resetDone = {failed: error.message}; }
 
+// An IPC handler whose work quitting must not cut off half-way (lib/critical.js): the quit check names it and offers to wait.
+function handleImportant(channel, label, handler) {
+  ipcMain.handle(channel, (...args) => critical.during(label, () => handler(...args)));
+}
 // Every restart says why: app.exit skips 'will-quit', so without this line a restart looks like a silent exit (a Windows e2e relaunch, 6 Oct 2026).
 function restartApp(reason, options) {
   appLog('window', `restart: ${reason}`);
@@ -2149,7 +2164,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) {
     // User data left on this Mac -> Notion (source of truth), once. It runs while the window loads, so the
     // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
-    migrate.run(storage, log).then(moved => { if (moved.length) toWindow('moved', moved); });
+    critical.during('Moving your data to Notion', () => migrate.run(storage, log)).then(moved => { if (moved.length) toWindow('moved', moved); });
     syncCv();
     // Recent activity from Notion ⏱️ Search runs (every run's row, wherever it ran), every 15 s.
     let notionTimer;
@@ -2325,7 +2340,7 @@ function sessionNeedsYou(session) {
 // Quitting decisions read current services, so they remain testable without global mocks.
 installQuitHandling({app, platform: process.platform,
   state: () => ({storage, window, telemetry, demo: DEMO, smoke: !!process.env.JOB_PILOTTO_SMOKE}),
-  pipeline, terminals, shouldAskOnQuit: setupFunnel.shouldAskOnQuit,
+  pipeline, terminals, critical, shouldAskOnQuit: setupFunnel.shouldAskOnQuit,
   askWhyLeaving: () => toWindow('askWhyLeaving'),
   showDialog: (parent, options) => dialog.showMessageBoxSync(parent, options),
   icon: () => nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')),

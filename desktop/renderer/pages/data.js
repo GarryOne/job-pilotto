@@ -1,5 +1,5 @@
 // Your data: export, import, backup, reset.
-import {$, message} from './core.js';
+import {$, message, show} from './core.js';
 import {toastMessage} from './startup.js';
 
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
@@ -16,11 +16,15 @@ export async function init() {
   window.pilot.onExportProgress(({pages, rows}) => message('data-message', `Copying your Notion data… ${pages} pages, ${rows} rows so far`, 'waiting'));
   $('export-data').addEventListener('click', async () => {
     $('export-data').disabled = true;
+    show($('export-cancel'), true);
     const result = await window.pilot.exportProfile({keys: $('export-keys').checked, notion: $('export-notion').checked});
     $('export-data').disabled = false;
-    if (result.ok) message('data-message', `Exported ✓ ${result.file}${result.notion ? ` (with Notion: ${result.notion.pages} pages, ${result.notion.rows} rows)` : ''}`, 'ok');
+    show($('export-cancel'), false);
+    if (result.cancelled) message('data-message', 'Export cancelled. No file was saved.', 'waiting');
+    else if (result.ok) message('data-message', `Exported ✓ ${result.file}${result.notion ? ` (with Notion: ${result.notion.pages} pages, ${result.notion.rows} rows)` : ''}`, 'ok');
     else if (result.error) message('data-message', `Export failed: ${result.error}`, 'error');
   });
+  $('export-cancel').addEventListener('click', () => { message('data-message', 'Cancelling the export…', 'waiting'); window.pilot.exportCancel(); });
   // Settings → Your data, and the setup's Welcome (after a reset the app opens at the setup, where Settings is out of reach: 6 Oct 2026).
   document.querySelectorAll('[data-import]').forEach(button => button.addEventListener('click', async () => {
     const result = await window.pilot.importProfile();
