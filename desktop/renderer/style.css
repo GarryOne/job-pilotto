@@ -1533,9 +1533,9 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* Folded to its headline the card is one line tall: icon, words and chevron share its centre (with the icon pinned to
    the top of an unfolded card, which is where the headline is). */
 .activity-warnings.is-folded { align-items: center; }
-.ap-warn-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
-  background: var(--surface); border: 1px solid var(--warn-line); color: var(--warn); }
-.ap-warn-icon .icon { width: 19px; height: 19px; }
+.ap-warn-head { display: flex; align-items: center; gap: var(--sp-2); }   /* the icon sits in the title line: the text starts where a card's does */
+.ap-warn-icon { flex: none; display: inline-flex; color: var(--warn); }
+.ap-warn-icon .icon { width: 18px; height: 18px; }
 .ap-warn-words { flex: 1; min-width: 0; }
 .ap-warn-fold { flex: none; }
 .ap-warn-fold .icon { transition: transform .15s; }
@@ -1545,7 +1545,12 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-actions { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .activity-panel .ap-detail-actions .activity-notion { margin: 0; }
 .activity-panel .activity-warnings, .activity-panel .activity-job { margin: 0; }
-.activity-panel .activity-warnings p { margin: var(--sp-1) 0; }
+/* The same box as an email card (activity.js mailCardRow): its padding, corners and spacing, in every state. */
+.activity-panel .activity-warnings { padding: var(--sp-4); border-radius: var(--r-lg); }
+.activity-panel .ap-warn-words { display: grid; gap: var(--sp-2); }
+.activity-panel .ap-warn-words > * { margin: 0; }
+.activity-panel .ap-warn-head strong { font-size: var(--fs-lg); }
+.activity-panel .activity-warnings p { margin: 0; }
 .activity-panel .activity-warnings #activity-warnings-hint { margin-top: 0; color: var(--muted); }
 /* The details under the actions: quiet bullets, one line each, with room between them. */
 .activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); color: var(--ink-2); line-height: 1.5; }
