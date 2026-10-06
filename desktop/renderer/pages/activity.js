@@ -754,7 +754,7 @@ function fold(key, label, content, className = 'mail-fold') {
   return box;
 }
 
-function mailCardRow({company, role = '', lines = [], tag = null, summary = '', changes = '', panel = null, details = ''}) {
+function mailCardRow({company, role = '', lines = [], tag = null, summary = '', changes = '', panel = null, details = '', noDetails = ''}) {
   const card = el('li', 'mail-email');
   const head = el('div', 'mail-email-head');
   const words = el('div', 'mail-email-words');
@@ -767,7 +767,10 @@ function mailCardRow({company, role = '', lines = [], tag = null, summary = '', 
   if (summary) card.append(el('p', 'mail-email-summary', sentence(summary)));
   if (changes) card.append(mailDiff(changes));
   if (panel) card.append(panel);
-  if (details) card.append(fold(`details:${subjectKey(details)}`, 'Email details', el('p', 'mail-fold-text', `Subject: ${details}`), 'mail-fold mail-email-details'));
+  // "Email details" closes every card, the same everywhere; a card the run kept without its email (an update from this Mac's
+  // log, a calendar event, a reminder) says so instead of leaving the fold out.
+  card.append(fold(`details:${subjectKey(details || company)}:${subjectKey(role)}`, 'Email details',
+    el('p', 'mail-fold-text', details ? `Subject: ${details}` : noDetails || 'This run kept no email for it.'), 'mail-fold mail-email-details'));
   return card;
 }
 
@@ -791,7 +794,8 @@ function mailSections(box, report, pending = [], answered = null) {
     cards.push(made.card);
   }
   if (meeting && !meetingShown) {   // the day-before reminder: the interview was recorded by an earlier check
-    cards.push(mailCardRow({company: meeting.company, role: meeting.title, lines: ['Already on record'], tag: pill('Reminder', 'neutral'), panel: meetingPanel()}));
+    cards.push(mailCardRow({company: meeting.company, role: meeting.title, lines: ['Already on record'], tag: pill('Reminder', 'neutral'), panel: meetingPanel(),
+      noDetails: 'A reminder from your calendar: no new email. The interview was recorded by an earlier check.'}));
   }
   if (!cards.length && !(found > 0)) return 0;
   if (!cards.length) { box.append(el('p', 'muted mail-nochange', 'No application records changed.')); return 0; }
@@ -818,7 +822,7 @@ function emailCard(result, pending, answered, meetingPanel) {
     tag, summary: said, changes: update && !update.question ? update.changes : changeOf(email?.changes),
     panel: review ? assessmentPanel(review) : meetingPanel ? meetingPanel()
       : asked ? questionPanel(asked, subjectKey(email.subject), email.subject, {noun, company: result.company}) : null,
-    details: result.company ? email?.subject : ''});
+    details: email?.subject && result.company ? email.subject : '', noDetails: email?.subject ? 'The subject is the title above.' : ''});
   return {card, waiting: asked && !asked.answered ? 1 : 0};
 }
 // An update no email claims: its job, what it moved, or the which-job question it raised.
@@ -828,29 +832,40 @@ function updateCard(update, pending, answered, meetingPanel) {
     const open = pending.find(item => item.company && jobKey(update.job).includes(jobKey(item.company)));
     const state = open ? {open} : answered ? {answered: true, job: ''} : {};
     const card = mailCardRow({company, role: role.join(' — ') || 'Role unidentified', tag: state.answered ? pill('Answered', 'good') : pill('Needs your answer', 'warn'),
-      panel: questionPanel(state, subjectKey(update.job), open?.subject || '', {noun: 'email', company: ''})});
+      panel: questionPanel(state, subjectKey(update.job), open?.subject || '', {noun: 'email', company: ''}), details: open?.subject || ''});
     return {card, waiting: state.answered ? 0 : 1};
   }
   return {card: mailCardRow({company, role: role.join(' — '), lines: [update.source || ''], tag: outcomePill(update.summary),
-    summary: meetingPanel ? '' : update.when || '', changes: update.changes, panel: meetingPanel ? meetingPanel() : null}), waiting: 0};
+    summary: meetingPanel ? '' : update.when || '', changes: update.changes, panel: meetingPanel ? meetingPanel() : null,
+    noDetails: 'This run recorded the update without listing its email (a run on this Mac, or a calendar event).'}), waiting: 0};
 }
 
 // The AI's reading of a rejection: its verdict and one line on what the role wanted, marked as a guess; the role-vs-you
 // comparison folds open under "AI assessment".
 function assessmentPanel(review) {
   const panel = el('aside', 'mail-ai');
-  const label = el('div', 'mail-ai-label');
-  label.append(icon('sparkle'), el('b', '', 'AI assessment'));
   const words = el('div', 'mail-ai-words');
   const top = el('div', 'mail-ai-top');
-  top.append(el('b', '', VERDICT_TITLE[review.verdict] || review.verdict), pill(`${review.confidence.replace(/^./, c => c.toUpperCase())} confidence`, 'warn'));
+  // The AI's own rating of how sure it is that this is the reason (src/ai/rejection.py: "low" when the evidence is thin).
+  top.append(el('b', '', VERDICT_TITLE[review.verdict] || review.verdict), pill(`${review.confidence.replace(/^./, c => c.toUpperCase())} confidence`, 'warn',
+    {title: 'How sure the AI is that this is the reason, from what Job Pilotto kept: the posting, your profile and the emails. Low means little evidence.'}));
   words.append(top, el('p', '', review.focus || review.summary));
-  if (review.focus) {
-    const facts = el('dl', 'mail-assessment-facts');
-    facts.append(el('dt', '', 'Role focus'), el('dd', '', review.focus), el('dt', '', 'Your background'), el('dd', '', review.background));
-    words.append(fold(`ai:${jobKey(review.job)}`, 'Role vs your background', facts));
-  }
-  words.append(el('p', 'mail-ai-note', 'AI interpretation; the employer did not confirm this reason.'));
+  // "AI assessment ⌄" (the mockup's label) opens the comparison under the verdict: what the role wanted, what you bring.
+  const key = `ai:${jobKey(review.job)}`;
+  const label = el('button', 'mail-ai-label');
+  label.type = 'button';
+  const facts = el('dl', 'mail-assessment-facts');
+  facts.append(el('dt', '', 'Role focus'), el('dd', '', review.focus || review.summary), el('dt', '', 'Your background'), el('dd', '', review.background || '—'));
+  const show = () => {
+    const open = openFolds.has(key);
+    label.replaceChildren(icon('sparkle'), el('b', '', 'AI assessment'), icon('chevron', 'icon mail-ai-chevron'));
+    label.classList.toggle('is-open', open);
+    label.setAttribute('aria-expanded', String(open));
+    facts.hidden = !open;
+  };
+  label.addEventListener('click', () => { if (openFolds.has(key)) openFolds.delete(key); else openFolds.add(key); show(); });
+  show();
+  words.append(facts, el('p', 'mail-ai-note', 'AI interpretation; the employer did not confirm this reason.'));
   panel.append(label, words);
   return panel;
 }
@@ -964,7 +979,9 @@ export function renderMailCard(report, pending = [], answered = null, target = $
   const ICONS = [[/new email|reviewed/, 'mail', ''], [/relevant/, 'file', ''], [/update/, 'check-circle', 'is-good']];
   const stat = (value, label, glyph, tone = '') => {
     const cell = el('span', `mail-strip-stat ${tone}`.trim());
-    cell.append(icon(glyph), el('b', '', String(value)), ` ${label}`);
+    const words = el('span', '');
+    words.append(el('b', '', String(value)), ` ${label}`);
+    cell.append(icon(glyph), words);
     return cell;
   };
   const counts = mailCounts(report);

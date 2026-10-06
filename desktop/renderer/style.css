@@ -1601,17 +1601,19 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-row { flex-wrap: wrap; }
 /* A Gmail check's card (owner's mockup, 6 Oct 2026): the counts strip, then one card per email, all built from the same
    parts (activity.js mailCardRow): head (company, role, meta, one pill), sentence, stage chip, one panel, "Email details". */
-.mail-card { background: transparent; padding: 0; gap: var(--sp-3); }
+.run-card-body.mail-card { background: transparent; padding: 0; gap: var(--sp-3); }   /* beats .run-card-body's padding: aligned with the header and the log */
 /* No card in a card: holding the Gmail card, the run panel's box gives up its border and fill; the strip and the email cards
    sit straight on the panel's white (owner, 6 Oct 2026). */
 .activity-panel .ap-card:has(> .mail-card) { border: 0; background: transparent; }
-.mail-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); padding: var(--sp-3) var(--sp-4);
+.mail-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--muted); }
 .mail-strip-stat { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.mail-strip-stat + .mail-strip-stat { padding-left: var(--sp-5); border-left: 1px solid var(--line); }
+.mail-strip-stat + .mail-strip-stat { padding-left: var(--sp-4); border-left: 1px solid var(--line); }
 .mail-strip-stat .icon { width: 18px; height: 18px; color: var(--info); flex: none; }
 .mail-strip-stat.is-good .icon { color: var(--good); }
 .mail-strip-stat.is-warn .icon { color: var(--signal); }
+.mail-strip-stat.is-warn .icon circle { fill: var(--signal); }      /* the mockup's filled orange "!" */
+.mail-strip-stat.is-warn .icon path { stroke: var(--on-accent); }
 .mail-strip-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .mail-emails { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
 .mail-email { display: grid; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); }   /* each email: a quieter card on the white wrapper */
@@ -1625,7 +1627,10 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* The AI's reading of a rejection: label on the left, the verdict and one line on the right, a guess and said so. */
 .mail-ai { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4);
   background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--r-md); }
-.mail-ai-label { display: flex; align-items: center; gap: var(--sp-2); align-self: start; padding-right: var(--sp-4); border-right: 1px solid var(--warn-line); color: var(--ink); }
+.mail-ai-label { all: unset; cursor: pointer; display: flex; align-items: center; gap: var(--sp-2); align-self: start; padding-right: var(--sp-4); border-right: 1px solid var(--warn-line); color: var(--ink); }
+.mail-ai-label:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
+.mail-ai-label .mail-ai-chevron { width: 14px; height: 14px; color: var(--muted); transform: rotate(90deg); transition: transform .15s; }
+.mail-ai-label.is-open .mail-ai-chevron { transform: rotate(-90deg); }
 .mail-ai-label .icon { width: 18px; height: 18px; color: var(--signal); }
 .mail-ai-words { display: grid; gap: var(--sp-1); min-width: 0; }
 .mail-ai-words p { margin: 0; color: var(--ink-2); }
@@ -1656,14 +1661,24 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-ask-words { flex: 1; display: grid; gap: 2px; min-width: 0; }
 .mail-ask-words p { margin: 0; color: var(--ink-2); }
 .mail-ask-words .mail-ask-answer { font-weight: 600; color: var(--ink); }
-.mail-ask .mail-question-go { flex: none; }
+.mail-ask .mail-question-go { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); }
+.mail-ask .mail-question-go .icon { width: 16px; height: 16px; margin: 0; }   /* the arrow on the text's centre line */
 /* One fold everywhere ("Email details", "Original question", "Role vs your background"). */
 .mail-fold-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-sm); }
-.mail-fold-toggle .icon { width: 14px; height: 14px; transition: transform .15s; }
-.mail-fold-toggle.is-open .icon { transform: rotate(90deg); }
+.mail-fold-toggle .icon { width: 14px; height: 14px; transform: rotate(90deg); transition: transform .15s; }
+.mail-fold-toggle.is-open .icon { transform: rotate(-90deg); }
 .mail-fold-toggle:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
 .mail-fold-text { margin: var(--sp-1) 0 0; color: var(--ink-2); font-size: var(--fs-sm); }
 .mail-email-details { padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+/* One rhythm in every state: --sp-3 between a card's parts (its grid gap), --sp-2 inside a panel, no stray margins. */
+.mail-card .mail-email > *, .mail-card .mail-meeting > * { margin-top: 0; margin-bottom: 0; }
+.mail-card .mail-meeting-columns section { display: grid; gap: var(--sp-2); align-content: start; }
+.mail-card .mail-meeting-columns h4, .mail-card .mail-meeting-columns p, .mail-card .mail-meeting-columns .mail-topics { margin: 0; }
+.mail-card .mail-meeting-columns .mail-block-head { gap: var(--sp-2); }
+.mail-card .mail-topics { padding-left: var(--sp-4); display: grid; gap: var(--sp-1); }
+.mail-card > .mail-nochange { margin: 0; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); }
+.mail-card > .mail-notes { margin: 0; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); }
+.mail-card .mail-diff { margin: 0; }
 .mail-row-detail > :is(.mail-assessment, .mail-question) { padding-left: var(--sp-4); padding-right: var(--sp-4); }
 .mail-row-summary { margin: 0; color: var(--ink-2); }
 .run-card-words b.mail-row-subject-title { white-space: normal; }   /* a long invitation subject wraps, as before 5f4f740 */
