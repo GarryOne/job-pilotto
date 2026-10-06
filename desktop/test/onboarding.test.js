@@ -42,3 +42,16 @@ test('Hide keeps it hidden; a step done is remembered at once', () => {
   assert.deepEqual(onboarding({notionConnected: true}).remember, {notion: true});
   assert.equal(onboarding({funnel: applied(0)}).steps[4].done, false);
 });
+
+// A search's result suggests Find new employers when it can't have found much yet (owner, 6 Oct 2026), and stays quiet otherwise.
+test('a search suggests Find new employers when none ever ran or too few employer sites were read', async () => {
+  const {employersAdvice, ENOUGH_FEEDS} = await import('../renderer/onboarding.js');
+  const search = (extra = {}) => ({kind: 'search', id: 5, endedAt: 6, ok: true, ...extra});
+  assert.match(employersAdvice(search({feeds: 192})).text, /hasn’t run yet/);                                  // never: whatever the count
+  assert.match(employersAdvice(search({feeds: 1}), {runs: [run('scout', 1)]}).text, /^Only 1 employer site searched/);
+  assert.equal(employersAdvice(search({feeds: ENOUGH_FEEDS}), {settings: {lastScoutAt: '2026-10-06T20:00:00Z'}}), null);
+  assert.equal(employersAdvice(search(), {runs: [run('scout', 1)]}), null);                                        // count unknown: no claim
+  assert.equal(employersAdvice(search({live: true})), null);
+  assert.equal(employersAdvice(search({ok: false})), null);                                                         // a failed search says why it failed instead
+  assert.equal(employersAdvice({kind: 'mail', id: 1, ok: true}), null);
+});

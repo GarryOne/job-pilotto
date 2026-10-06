@@ -33,3 +33,16 @@ export function onboarding({runs = [], settings = {}, notionConnected = false, f
   return {steps, next, doneCount, allDone: !next, show: !!next && !saved.done && !saved.hidden,
     remember: !next && !saved.done ? {...remember, done: true} : remember};   // what to add to settings.onboarding now ({} = nothing)
 }
+
+// A search's result suggests Find new employers when it can't have found much yet: no employer search has ever finished, or the search read
+// fewer than ENOUGH_FEEDS employer sites (owner, 6 Oct 2026: "the call to action"). null = nothing to suggest.
+export const ENOUGH_FEEDS = 10;
+export function employersAdvice(run, {runs = [], settings = {}} = {}) {
+  if (!run || run.kind !== 'search' || run.live || run.ok === false) return null;
+  const scouted = !!settings.lastScoutAt || finished(runs, 'scout').length > 0;
+  if (!scouted) return {text: 'Find new employers hasn’t run yet. It adds employers’ own career sites, so your next search finds more jobs.'};
+  if (run.feeds != null && run.feeds < ENOUGH_FEEDS) {
+    return {text: `Only ${run.feeds} employer site${run.feeds === 1 ? '' : 's'} searched. Find new employers adds more, so your next search finds more jobs.`};
+  }
+  return null;
+}

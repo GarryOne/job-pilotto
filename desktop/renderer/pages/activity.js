@@ -8,6 +8,7 @@ import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {cardText, emptyResult, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
+import {employersAdvice} from '../onboarding.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
 import {comparisonTable, confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
@@ -584,6 +585,16 @@ export function renderActivity(fresh) {
   else if (reading) renderCardSkeleton();
   if (card || insight || weekly || mail || review || kits) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || reading);
+  // A search that can't have found much yet suggests Find new employers, whatever its result card shows (renderer/onboarding.js employersAdvice).
+  const advice = employersAdvice(run && {...run, kind: kindOf(run)}, {runs: lastActivity?.runs, settings: shared.state?.settings});
+  if (advice) {
+    const words = el('div', 'insight-next-words');
+    const go = el('button', 'secondary', 'Find new employers');   // the pane's one primary stays its own (View new jobs)
+    go.addEventListener('click', () => document.querySelector('.action[data-command="scout"]')?.click());
+    words.append(el('b', '', 'Recommended next step'), el('p', '', advice.text), go);
+    $('activity-next').replaceChildren(el('span', 'insight-next-icon', icon('building')), words);
+  }
+  show($('activity-next'), !!advice);
   const plain = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message;
   $('activity-message').textContent = plain ? plainMessage(plain) : '';
   show($('activity-message'), !!plain && !reading);

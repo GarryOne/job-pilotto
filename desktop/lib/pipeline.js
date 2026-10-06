@@ -365,7 +365,7 @@ export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
     let summary = {};
     try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
     const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
-    return {...(problem ? {problem} : {}), ...(fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
+    return {...(problem ? {problem} : {}), ...(fresh ? {found: summary.jobs ?? null, feeds: summary.feeds ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
       scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {})};
   });
 }

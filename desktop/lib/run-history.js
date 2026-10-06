@@ -45,7 +45,7 @@ export function fromRow(page, now = Date.now()) {
   if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
   const job = ok ? rowJob(p, mode, summary) : null;
-  return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
+  return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, feeds: p.Feeds?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
     billing: p['Billed to']?.select?.name || null,
     result: result(summary, status, p['New jobs']?.number, mode), ...(job ? {job} : {})};
 }
