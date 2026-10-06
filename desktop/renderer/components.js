@@ -99,7 +99,7 @@ export function openMenu(anchor, items) {
 }
 document.addEventListener('click', event => { if (!menu.hidden && !event.target.closest('.ui-menu, .ui-more')) closeMenu(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
-document.addEventListener('scroll', closeMenu, true);
+document.addEventListener('scroll', () => closeMenu(), true);   // not `closeMenu` itself: the Event would be taken as `within` and throw (#307)
 
 // The ⋯ button that opens a menu. items: an array, or a function returning one (built when opened).
 export function moreButton(items, title = 'More actions') {

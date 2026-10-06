@@ -20,3 +20,13 @@ test('a page redraw closes the ⋯ menu only when the menu belongs to that page'
       assert.notEqual(call, 'closeMenu()', `${file}: closeMenu() closes a menu open on any page; pass the page's element`);
   }
 });
+
+// 6 Oct 2026 (#307, #308): `addEventListener('scroll', closeMenu)` handed the Event to closeMenu as `within`; `within.contains` threw before the menu hid, so an
+// open ⋯ menu stayed on screen while the page scrolled away from its button. A listener calls closeMenu itself, never passes it.
+test('no event listener passes closeMenu itself (the Event would be read as `within`)', () => {
+  const files = [new URL('../renderer/components.js', import.meta.url)];
+  const dir = new URL('../renderer/pages/', import.meta.url);
+  for (const file of fs.readdirSync(dir).filter(name => name.endsWith('.js'))) files.push(new URL(file, dir));
+  for (const file of files)
+    assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /addEventListener\([^,]+,\s*closeMenu\b/, `${file.pathname}: wrap it, () => closeMenu()`);
+});
