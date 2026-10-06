@@ -205,8 +205,27 @@ export async function connect(storage, token, {fetcher, onStep = () => {}, repo:
   await setSecrets(api, repo, secrets);
   await setVariables(api, repo, variables);
   await removeVariables(api, repo, removed);
+  await setWorkflows(api, repo, true);  // turned off earlier: GitHub kept the files but stopped their schedules
   storage.saveSettings({cloud: {repo, login, since: storage.settings().cloud?.since || new Date().toISOString(), updatedAt: new Date().toISOString()}});
   return {repo, created, existing, secrets: Object.keys(secrets), variables: Object.keys(variables)};
+}
+
+// Always on is GitHub's schedule. Turning it off must stop the workflows there, or both the Mac and GitHub keep running the same
+// jobs (6 Oct 2026: a Gmail check still ran on GitHub with Always on off). The files stay; only the schedule is paused.
+// One failing workflow does not stop the others: the result lists what could not be switched.
+export async function setWorkflows(api, repo, enabled, templatesDir = path.join(REPO, 'templates', 'github-actions')) {
+  const failed = [];
+  for (const file of fs.readdirSync(templatesDir).filter(name => name.endsWith('.yml'))) {
+    try { await api('PUT', `/repos/${repo}/actions/workflows/${file}/${enabled ? 'enable' : 'disable'}`); }
+    catch (error) { failed.push(`${file}: ${error.message}`); }
+  }
+  return failed;
+}
+
+export function pauseWorkflows(storage, {fetcher} = {}) {
+  const {repo} = storage.settings().cloud || {};
+  const token = storage.secret('GITHUB_TOKEN');
+  return repo && token ? setWorkflows(client(token, fetcher), repo, false) : Promise.resolve([]);
 }
 
 // Who wants to know a run was just started there (the app shows "Starting on GitHub…" until its row appears).

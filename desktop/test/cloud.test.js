@@ -45,6 +45,7 @@ async function fakeGitHub({repoExists = true, variableExists = [], createdAt = n
     if (route.includes('/actions/secrets/')) return json(201, {});
     if (route.endsWith('/actions/variables') && method === 'POST') return variableExists.includes(data.name) ? json(409, {}) : json(201, {});
     if (route.includes('/actions/variables/')) return {ok: true, status: 204, json: async () => null};
+    if (/\/actions\/workflows\/[\w.-]+\/(enable|disable)$/.test(route)) return {ok: true, status: 204, json: async () => null};
     if (route.includes('/dispatches')) return {ok: true, status: 204, json: async () => null};
     throw new Error(`unexpected ${method} ${route}`);
   };
@@ -69,6 +70,24 @@ test('turning it on fills the repo the app was installed on: schedules, settings
   assert.ok(gh.calls.some(c => c.method === 'PATCH' && c.route.endsWith('/actions/variables/NOTION_MATCHES_DB')));  // existing: updated
   assert.ok(gh.calls.some(c => c.method === 'POST' && c.data?.name === 'JOB_PILOTTO_SCORE_MODEL'));
   assert.equal(storage.settings().cloud.repo, 'ada/job-pilotto-private');
+});
+
+test('Always on: turning it on enables every scheduled workflow, turning it off pauses every one (and one failure does not stop the rest)', async () => {
+  const storage = userStorage();
+  const gh = await fakeGitHub();
+  await github.connect(storage, 'gho_token', {fetcher: gh.fetcher});
+  const files = Object.keys(github.payload(storage).files).filter(f => f.startsWith('.github/workflows/')).map(f => path.basename(f));
+  const routes = action => gh.calls.filter(c => c.method === 'PUT' && c.route.endsWith(`/${action}`)).map(c => path.basename(path.dirname(c.route)));
+  assert.deepEqual(routes('enable').sort(), files.sort());
+
+  storage.setSecret('GITHUB_TOKEN', 'gho_token');
+  assert.deepEqual(await github.pauseWorkflows(storage, {fetcher: gh.fetcher}), []);
+  assert.deepEqual(routes('disable').sort(), files.sort());
+
+  const failing = async (url, init) => url.includes('/mail.yml/') ? {ok: false, status: 403, json: async () => ({message: 'no'})} : gh.fetcher(url, init);
+  const failed = await github.pauseWorkflows(storage, {fetcher: failing});
+  assert.equal(failed.length, 1);
+  assert.match(failed[0], /^mail\.yml/);
 });
 
 test('a repository from an earlier setup is reused, and the setup says so (only the first time)', async () => {

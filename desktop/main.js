@@ -793,6 +793,9 @@ function handlers() {
   });
   const turnCloudOff = async () => {
     if (storage.settings().telegramCloud) await telegramCloud.turnOff(storage);  // its buttons start runs there
+    const repo = storage.settings().cloud?.repo;
+    const failed = await github.pauseWorkflows(storage).catch(error => [error.message]);  // before the repo is forgotten
+    appLog('dispatch', 'always on off: schedules paused', {repo, failed: failed.length, ...(failed.length ? {why: failed.join('; ').slice(0, 200)} : {})});
     storage.saveSettings({cloud: null}); restartTelegram();
   };
   ipcMain.handle('cloudOff', async () => { await turnCloudOff(); return true; });
