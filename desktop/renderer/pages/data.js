@@ -21,10 +21,13 @@ export async function init() {
     if (result.ok) message('data-message', `Exported ✓ ${result.file}${result.notion ? ` (with Notion: ${result.notion.pages} pages, ${result.notion.rows} rows)` : ''}`, 'ok');
     else if (result.error) message('data-message', `Export failed: ${result.error}`, 'error');
   });
-  $('import-data').addEventListener('click', async () => {
+  // Settings → Your data, and the setup's Welcome (after a reset the app opens at the setup, where Settings is out of reach: 6 Oct 2026).
+  document.querySelectorAll('[data-import]').forEach(button => button.addEventListener('click', async () => {
     const result = await window.pilot.importProfile();
-    if (result?.error) message('data-message', `Import failed: ${result.error}`, 'error');
-  });
+    if (!result?.error) return;
+    if (button.id === 'import-data') message('data-message', `Import failed: ${result.error}`, 'error');
+    else toastMessage('Import failed', result.error);
+  }));
   showBackup();
   $('backup-now').addEventListener('click', async () => {
     $('backup-now').disabled = true;
@@ -45,7 +48,8 @@ export async function init() {
   });
   $('reset-notion-day').textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}).replace('Sept', 'Sep');
   window.pilot.lastReset().then(done => {
-    if (done?.imported) toastMessage('Data imported ✓', `Your previous data is in ${done.backup}.`);
+    if (done?.failed) toastMessage('Import or reset did not finish', `${done.failed}. Your data on this computer is as it was; try again.`);
+    else if (done?.imported) toastMessage('Data imported ✓', `Your previous data is in ${done.backup}.`);
     else if (done?.backup) toastMessage('Job Pilotto was reset', `Your previous data is in ${done.backup}.`);
     else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted.');
     if (done?.archived) toastMessage('Old Notion workspace archived', `"${done.archived.title}" is kept in Notion. The setup builds a new workspace: share a new, empty page with Job Pilotto.`);

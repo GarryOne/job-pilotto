@@ -5,6 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {FIXTURES} from '../lib/cvfixtures.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {step as wizardStep} from '../lib/app.mjs';
+import crypto from 'node:crypto';
+import os from 'node:os';
 
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords).
 export const stepNeeds = {'AI engine panel': ['every Settings section renders']};
@@ -100,4 +103,71 @@ export async function run(ctx) {
     if (await page.locator('#palette[open]').count()) throw new Error('the palette stayed open after running a command');
   }, {needs: ctx.needs});
   await ctx.run('Settings render without layout problems', async () => { finish(ctx); }, {needs: ctx.needs});
+  // Last: it restarts the app twice (the steps above hold the first window).
+  await ctx.run('Your data: export with keys, reset, then import from the setup brings this computer back as it was', () => roundTrip(ctx), {needs: ctx.needs});
+}
+
+// Export -> reset (kept as a backup) -> the app opens at the setup -> "Import an export…" on its Welcome -> restart: the user's files come back
+// byte for byte, the keys and the set-up state too (6 Oct 2026: the export left out profile.md and answers.md, and Import was only in Settings,
+// out of reach at the setup). Native dialogs are stood in for, and so is the app's own relaunch: the suite starts it again on the same folder.
+async function roundTrip(ctx) {
+  const file = path.join(os.tmpdir(), `jp-e2e-export-${process.pid}-${Date.now()}.tar.gz`);
+  const at = name => path.join(ctx.profile, name);
+  const digest = name => fs.existsSync(at(name)) ? crypto.createHash('sha256').update(fs.readFileSync(at(name))).digest('hex') : null;
+  // What a person who has not connected Notion yet keeps only here (the wizard's "Notion later"): written if this install has none.
+  for (const name of ['profile.md', 'answers.md']) if (!fs.existsSync(at(name))) fs.writeFileSync(at(name), `# e2e ${name}\nkept across an export\n`);
+  const FILES = ['profile.md', 'answers.md', 'cv.pdf'];
+  const before = {files: Object.fromEntries(FILES.map(name => [name, digest(name)])), ...await ctx.page.evaluate(async () => {
+    const state = await window.pilot.state();
+    return {secrets: state.secrets, notionIds: state.settings.notionIds || null, jobs: (await window.pilot.jobs())?.total ?? null};
+  })};
+  if (!Object.values(before.secrets).some(Boolean)) throw new Error('the set-up install has no key saved: nothing to prove about keys');
+  const standIn = () => ctx.app.evaluate(({app, dialog}, filePath) => {
+    dialog.showSaveDialog = async () => ({canceled: false, filePath});
+    dialog.showOpenDialog = async () => ({canceled: false, filePaths: [filePath]});
+    dialog.showMessageBoxSync = () => 1;   // "Reset and restart" / "Import and restart"
+    app.relaunch = () => {};               // the suite starts the app again itself, so it keeps hold of it
+  }, file);
+
+  await standIn();
+  const page = ctx.page;
+  await page.click('.nav[data-view="settings"]:not([data-settings="profile"])');
+  await page.click('[data-settings-go="data"]');
+  await page.click('#setting-data details.troubleshoot summary');   // "Export options", folded
+  await page.locator('#export-keys').check();
+  await page.click('#export-data');
+  await page.waitForFunction(() => /Exported ✓/.test(document.getElementById('data-message')?.textContent || ''), null, {timeout: 60000})
+    .catch(async () => { throw new Error(`the export did not finish: "${await page.locator('#data-message').textContent().catch(() => '')}"`); });
+  if (!fs.existsSync(file)) throw new Error('Export said done but wrote no file');
+
+  await page.click('[data-settings-go="advanced"]');   // the danger zone is on Advanced
+  await page.click('#reset-review');
+  if (!(await page.locator('#reset-backup').isChecked())) throw new Error('a reset does not keep a backup by default');
+  await page.fill('#reset-confirm', 'RESET');
+  await page.click('#reset-go').catch(() => {});   // the app exits under the click
+  await ctx.relaunch();
+  await ctx.page.waitForSelector('.step[data-step="welcome"]', {state: 'visible', timeout: 60000})
+    .catch(async () => { throw new Error(`after a reset the app should open at the setup, it shows "${await wizardStep(ctx.page)}"`); });
+  if (fs.existsSync(at('profile.md'))) throw new Error('the reset left profile.md in place: the round trip would prove nothing');
+
+  await standIn();
+  await ctx.page.click('#welcome-import').catch(() => {});   // the app exits under the click
+  await ctx.relaunch();
+  // page.evaluate, not waitForFunction: an async predicate returns a Promise, which counts as true at once.
+  let setUp = false;
+  for (let i = 0; i < 60 && !setUp; i++) setUp = await ctx.page.evaluate(async () => (await window.pilot.state()).settings.setupDone === true) || (await ctx.page.waitForTimeout(1000), false);
+  if (!setUp) throw new Error(`after the import the app is not set up again (${JSON.stringify(await ctx.page.evaluate(() => window.pilot.lastReset()))})`);
+  const after = {files: Object.fromEntries(FILES.map(name => [name, digest(name)])), ...await ctx.page.evaluate(async () => {
+    const state = await window.pilot.state();
+    return {secrets: state.secrets, notionIds: state.settings.notionIds || null, jobs: (await window.pilot.jobs())?.total ?? null};
+  })};
+  // Field by field, so a failure names what changed (a whole object is cut off in the report).
+  const differ = [];
+  // Keys: none lost. One the app makes at start when missing (the extension's token) may appear.
+  for (const name of Object.keys(before.secrets)) if (before.secrets[name] && !after.secrets?.[name]) differ.push(`key ${name} lost`);
+  for (const key of ['files', 'notionIds']) for (const name of new Set([...Object.keys(before[key] || {}), ...Object.keys(after[key] || {})]))
+    if (JSON.stringify(before[key]?.[name]) !== JSON.stringify(after[key]?.[name])) differ.push(`${key}.${name} ${JSON.stringify(before[key]?.[name])} -> ${JSON.stringify(after[key]?.[name])}`);
+  if (before.jobs !== after.jobs) differ.push(`jobs ${before.jobs} -> ${after.jobs}`);
+  if (differ.length) throw new Error(`not as before the export: ${differ.join('; ')}`);
+  fs.rmSync(file, {force: true});
 }

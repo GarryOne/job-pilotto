@@ -13,10 +13,22 @@ import {tar} from './tar.js';
 const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
 export const NOTION_FILE = 'notion.json';  // an export's copy of the Notion workspace (only when asked for)
-// What an export holds: the user's files and state, not Chromium's caches.
-export const ITEMS = ['settings.json', 'runs.json', 'cv.pdf', 'cv', 'cover-letter', 'interviews', 'recordings', 'config', 'data'];
+// What an export leaves out of the data folder; everything else goes in, so a file the app starts keeping is exported without anyone listing it
+// (6 Oct 2026: a fixed list missed profile.md and answers.md, a user's whole profile before Notion, plus the strategy draft, the "Answer once" list
+// and the Apply sessions). Left out: Chromium's own files (caches, cookies, its storage, its locks), logs, the keys sealed for this computer only
+// (secrets.json: an export carries keys as keys.json, when asked), what the app rebuilds at start (bin/), and the files of an export or reset in progress.
+export const LEFT_OUT = [/cache/i, /^(Dawn.*|Graphite.*|Shared Dictionary|SharedStorage.*|blob_storage|Local Storage|Session Storage|IndexedDB|WebStorage|Network|Network Persistent State|Crashpad|Preferences|Local State|Trust Tokens.*|Cookies.*|Dictionaries|Service Worker|VideoDecodeStats|shared_proto_db|databases|Partitions|DIPS.*|declarative_performance_observer\.db.*|DevToolsActivePort|Singleton.*|TransportSecurity|Origin Bound Certs|QuotaManager.*|Login Data.*|Web Data.*|Visited Links|Favicons.*|History.*|Top Sites.*|logs|bin|secrets\.json|manifest\.json|keys\.json|notion\.json|reset-pending\.json)$/];
+// Inside the folders that go in: a run's lock (data/run.lock) would make the first run after an import wait for a holder that is gone.
+const LEFT_OUT_INSIDE = ['*.lock'];
+export const exported = dir => fs.readdirSync(dir).filter(name => !LEFT_OUT.some(rule => rule.test(name)));
 const stamp = now => now.toISOString().slice(0, 16).replace('T', ' ').replace(':', '.');
-export const backupName = (dir, now = new Date()) => `${dir} (backup ${stamp(now)})`;
+// A name not taken yet: a reset and then an import in the same minute (the setup's "Import an export…") wanted the same folder, the rename
+// failed and the import was skipped without a word (6 Oct 2026).
+export function backupName(dir, now = new Date()) {
+  let name = `${dir} (backup ${stamp(now)})`;
+  for (let n = 2; fs.existsSync(name); n++) name = `${dir} (backup ${stamp(now)} ${n})`;
+  return name;
+}
 
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
 export function exportTo(dir, file, {keys = null, notion = null, version = ''} = {}, now = new Date()) {
@@ -27,8 +39,7 @@ export function exportTo(dir, file, {keys = null, notion = null, version = ''} =
   if (keys) { fs.writeFileSync(path.join(dir, KEYS_FILE), JSON.stringify(keys), {mode: 0o600}); extra.push(KEYS_FILE); }
   if (notion) { fs.writeFileSync(path.join(dir, NOTION_FILE), JSON.stringify(notion)); extra.push(NOTION_FILE); }
   try {
-    const items = [...ITEMS.filter(item => fs.existsSync(path.join(dir, item))), ...extra];
-    execFileSync(tar(), ['-czf', file, '-C', dir, ...items]);
+    execFileSync(tar(), ['-czf', file, ...LEFT_OUT_INSIDE.map(pattern => `--exclude=${pattern}`), '-C', dir, ...exported(dir), ...extra]);
   } finally {
     for (const name of extra) fs.rmSync(path.join(dir, name), {force: true});
   }

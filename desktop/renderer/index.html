@@ -56,6 +56,8 @@
           <li><span class="ui-tile tone-signal"><i data-icon="target"></i></span>Check the goals and strategy it proposes from your CV</li>
         </ul>
       </section>
+      <p class="muted small step-note"><i data-icon="upload"></i><span>Used Job Pilotto before, here or on another computer?
+        <button class="link" id="welcome-import" data-import>Import an export…</button> It brings back your data and restarts.</span></p>
       <p class="muted small step-note"><i data-icon="shield"></i><span>Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
         interviews) to improve it for everyone, asks our service for shared fixes to forms that trip it up (by the control's anonymous
         shape, never its text), and shares which employer career pages you use, with two labels (your kind of role and your region),
@@ -1156,11 +1158,11 @@
             <p class="muted panel-lead">Save a copy of your data or restore from an existing export. Your Notion workspace stays in Notion either way.</p>
             <div class="choice-grid">
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
-                <div><b>Export</b><p class="muted small">Save a copy of settings, CVs, recordings, job list and history.</p>
+                <div><b>Export</b><p class="muted small">Save a copy of everything Job Pilotto keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
                   <button class="secondary" id="export-data">Export data</button></div></div>
               <div class="choice-card"><span class="file-tile"><i data-icon="folder"></i></span>
                 <div><b>Import</b><p class="muted small">Restore from a Job Pilotto export. Current data is backed up first.</p>
-                  <button class="secondary" id="import-data">Import data</button></div></div>
+                  <button class="secondary" id="import-data" data-import>Import data</button></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
               <label class="check-row"><input type="checkbox" id="export-notion"><span><span>Include a copy of my Notion data</span>
