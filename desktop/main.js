@@ -1511,10 +1511,11 @@ function handlers() {
   // The switch shows the saved choice (on unless turned off), also in a build that doesn't send (the reporter is null there).
   ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || [], shared: sharedLog.list(storage), tester: testerOn(), testerLogs: testerLogsOn()}));
   ipcMain.handle('testerLogsSet', (_, on) => { storage.saveSettings({testerLogs: !!on}); appLog('telemetry', `tester run logs ${on ? 'on' : 'off'}`); return {on: !!on}; });
-  // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
+  // "Help the pool grow" (opt-out, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
   ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));
   ipcMain.handle('poolShareSet', async (_, value) => {
     const result = poolShare.set(storage, value);
+    appLog('pool', `Help the pool grow ${value ? 'on' : 'off'}`, {decidedBy: 'user switch'});
     if (cloud()) github.updateRepo(storage).catch(error => log(`GitHub repo not updated: ${error.message}`));
     return result;
   });

@@ -24,20 +24,22 @@ test('a new install shares by default; switched off, no variable reaches the run
   assert.equal(env.JOB_PILOTTO_INSTALL_ID, undefined);
 });
 
-test('an install set up before the option existed starts off; a new one stays on; the choice is never overwritten', async () => {
-  const {pinPoolShare} = await import('../lib/migrate.js');
-  const existing = fresh();
-  existing.saveSettings({setupDone: true});
-  assert.equal(pinPoolShare(existing), true);
-  assert.equal(poolShare.on(existing), false);
+test('opt-out for every install: an old install pinned off is turned on once; a choice made with the switch is kept', async () => {
+  const {openPoolShare} = await import('../lib/migrate.js');
+  const pinned = fresh();
+  pinned.saveSettings({setupDone: true, poolShareDefaultPinned: true, shareEmployers: false});   // the old pin, never a choice
+  assert.equal(openPoolShare(pinned), true);
+  assert.equal(poolShare.on(pinned), true);
+  poolShare.set(pinned, false);   // then the user turns it off: stays off
+  assert.equal(openPoolShare(pinned), false);
+  assert.equal(poolShare.on(pinned), false);
   const chose = fresh();
-  chose.saveSettings({setupDone: true, shareEmployers: true});
-  pinPoolShare(chose);
-  assert.equal(poolShare.on(chose), true);   // their own choice stays
+  chose.saveSettings({setupDone: true});
+  poolShare.set(chose, false);
+  openPoolShare(chose);
+  assert.equal(poolShare.on(chose), false, 'a switch choice is never overwritten');
   const brandNew = fresh();
-  assert.equal(pinPoolShare(brandNew), false);
-  brandNew.saveSettings({setupDone: true});   // finishes setup later: still on, the pin ran only once
-  pinPoolShare(brandNew);
+  assert.equal(openPoolShare(brandNew), false);
   assert.equal(poolShare.on(brandNew), true);
 });
 

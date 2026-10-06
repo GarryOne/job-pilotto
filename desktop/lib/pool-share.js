@@ -1,5 +1,5 @@
-// "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): on by default for new installs, off for
-// installs set up before it existed (migrate.pinPoolShare), and one switch in Settings for everyone. On, the runs (this Mac
+// "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): opt-out, on by default for every install
+// (migrate.openPoolShare, 7 Oct 2026), and one switch in Settings for everyone. On, the runs (this Mac
 // and the user's GitHub repo) tell the central pool which employer career pages they use, with coarse role / region tags
 // (src/contribute.py). The app keeps only this switch and the random install id.
 import crypto from 'node:crypto';
@@ -14,7 +14,7 @@ export function installId(storage) {
 }
 
 export function set(storage, value) {
-  storage.saveSettings({shareEmployers: !!value});
+  storage.saveSettings({shareEmployers: !!value, shareEmployersChosen: true});
   if (value) installId(storage);
   return {on: !!value};
 }

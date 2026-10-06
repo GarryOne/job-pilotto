@@ -157,19 +157,20 @@ export function pinScoutSchedule(storage) {
   return keep;
 }
 
-// Once: "Help the pool grow" is on by default for NEW installs; an install already set up before it existed never saw the
-// option and was told nothing goes up, so it starts off and stays the user's choice.
-export function pinPoolShare(storage) {
+// "Help the pool grow" is opt-out for everyone (owner, 7 Oct 2026). Installs set up before 7 Oct were once pinned off
+// (poolShareDefaultPinned) without choosing; once, they are turned on. A choice made with the switch (shareEmployersChosen,
+// recorded since 7 Oct) is never overwritten. An off set by hand before 7 Oct can't be told apart from the old pin.
+export function openPoolShare(storage) {
   const settings = storage.settings();
-  if (settings.poolShareDefaultPinned) return false;
-  const keepOff = !!settings.setupDone && settings.shareEmployers == null;
-  storage.saveSettings({poolShareDefaultPinned: true, ...(keepOff ? {shareEmployers: false} : {})});
-  return keepOff;
+  if (settings.poolShareOptOut) return false;
+  const reopen = settings.shareEmployers === false && !settings.shareEmployersChosen;
+  storage.saveSettings({poolShareOptOut: true, ...(reopen ? {shareEmployers: true} : {})});
+  return reopen;
 }
 
 export async function run(storage, onLine = () => {}, steps = STEPS, fetcher) {
   pinScoutSchedule(storage);
-  pinPoolShare(storage);
+  if (openPoolShare(storage)) log('pool', 'Help the pool grow turned on (opt-out since 7 Oct 2026)', {decidedBy: 'migrate.openPoolShare'});
   const settings = storage.settings();
   if (!settings.setupDone || !storage.secret('NOTION_TOKEN') || !settings.notionIds?.NOTION_PROFILE_PAGE_ID) return [];
   const moved = [];
