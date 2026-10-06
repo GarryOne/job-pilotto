@@ -39,6 +39,10 @@ def checked_db():
             VALUES (?, ?, 'AI idea 2026-10-06', 1, 'Standard', ?, ?, ?, ?, ?, '2026-10-06', '2026-10-06T20:15:26+00:00')""",
                    (key, name, system, slug, status, score, json.dumps(stats) if stats else None))
     db.execute("""INSERT INTO scout_candidates (key, name, origin, priority, added_at) VALUES ('lidl', 'Lidl Suisse', 'AI idea', 1, '2026-10-06')""")
+    db.execute("""INSERT INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES ('successfactors', 'careers.breitling.com', 'Breitling', 'Standard', 55, '2026-10-06')""")
+    # A duplicate: the same feed as one already read under another name, stored as 'found' so it is not checked again, never given a row.
+    db.execute("""INSERT INTO scout_candidates (key, name, origin, priority, tier, ats, slug, status, quality, added_at, checked_at)
+        VALUES ('breitlingwatches', 'Breitling Watches', 'AI idea', 1, 'Standard', 'successfactors', 'careers.breitling.com', 'found', 55, '2026-10-06', '2026-10-06T20:15:27+00:00')""")
     return db
 
 
@@ -48,7 +52,7 @@ class SyncNotion(unittest.TestCase):
         with mock.patch.object(scout, 'EMPLOYERS_DB', 'employers-1'):
             self.assertEqual(scout.sync_notion(db, None), (0, 0))                 # still trying the app: nothing to write to
             self.assertEqual(scout.sync_notion(db, tracker), (4, 0))
-            self.assertEqual(sorted(tracker.rows), ['Aldi Suisse', 'Breitling', 'Rolex'])   # Lidl was never checked; Fnac stays local
+            self.assertEqual(sorted(tracker.rows), ['Aldi Suisse', 'Breitling', 'Rolex'])   # Lidl was never checked; Fnac stays local; the duplicate never
             self.assertEqual(tracker.rows['Breitling']['Feed status'], {'select': {'name': 'Feed found'}})
             self.assertEqual(tracker.rows['Breitling']['ATS'], {'select': {'name': 'successfactors'}})
             self.assertEqual(scout.sync_notion(db, tracker), (0, 0))              # nothing twice

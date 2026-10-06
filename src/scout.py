@@ -909,8 +909,11 @@ def sync_notion(db, tracker, limit=200):
     write_notion matches rows by company name. Returns (written, failed)."""
     if not tracker or not EMPLOYERS_DB:
         return 0, 0
-    rows = db.execute(f"""SELECT key, name, origin, tier, ats, slug, careers, website, status, quality, stats_json FROM scout_candidates
+    # A duplicate (the same feed as one already read, under another name) is stored as 'found' so it is not checked again, but it never got a
+    # row of its own (run() skips it): a 'found' is written only when its feed is registered under its own name (7 Oct 2026, e2e employers).
+    rows = db.execute(f"""SELECT key, name, origin, tier, ats, slug, careers, website, status, quality, stats_json FROM scout_candidates c
         WHERE checked_at IS NOT NULL AND status IN ({','.join('?' * len(FEED_STATUS))})
+        AND (status != 'found' OR EXISTS (SELECT 1 FROM feed_sources f WHERE f.ats = c.ats AND f.slug = c.slug AND f.company = c.name))
         AND key NOT IN (SELECT key FROM notion_synced WHERE db_id = ?) ORDER BY checked_at LIMIT ?""",
                       (*FEED_STATUS, EMPLOYERS_DB, limit)).fetchall()
     written = failed = 0
