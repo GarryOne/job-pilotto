@@ -3,7 +3,7 @@ name: CI · End-to-end on Windows
 # The Mac is the product's main platform (e2e.yml); Windows users get the same app, and a Windows-only break (paths, quoting, the installer's
 # environment) was invisible there. One job per suite, like e2e.yml. By hand: the `suites` input (empty = all), `fixed: true` = the fixed path (E2E_SEED=0).
 # 4 Oct 2026, parity with the Mac: the Mac run (e2e.yml, job "Windows follows") starts this one when it tested something, with its commit, the same
-# suites and the same AI review (plan-windows.mjs). A commit Windows already tested is not run again. Never a release gate.
+# suites and the same AI review (plan-windows.mjs). A commit Windows already tested is not run again. On a release gate's build it is the Windows beta gate (approve-windows).
 run-name: ${{ inputs.sha && format('Windows {0}', inputs.sha) || 'CI · End-to-end on Windows' }}
 on:
   workflow_dispatch:
@@ -234,19 +234,42 @@ jobs:
         if: steps.merge.outputs.made == '1'
         run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
-  # Windows beta approval (owner, 6 Oct 2026): every Windows suite green on a release gate's build adds "Beta-approved (Windows):" to that release. A Windows
-  # app takes a beta only with it AND the Mac/Linux line (desktop/lib/updater.js approvedFor): one release, one version; Mac users never wait for Windows.
+  # Windows beta approval (owner, 6 Oct 2026): every Windows suite green on a release gate's build, no real high-severity finding and the shared release checks
+  # (tools/release-checks.sh) add "Beta-approved (Windows):" to that release. Each platform is approved on its own (desktop/lib/updater.js approvedFor): one
+  # release, one version; Windows never waits for the Mac/Linux suites, nor Mac for Windows.
   approve-windows:
     needs: [plan, suite]
     if: success() && inputs.tag != ''
     runs-on: ubuntu-24.04
     permissions:
       contents: write   # gh release edit
-      issues: write     # the release scripts file an issue when something blocks a release (tests/test_release_permissions.py)
+      actions: read     # this run's artifacts, build.yml's verdict on the commit
+      issues: write     # the release scripts file an issue when something blocks a release (tests/test_release_permissions.py); block-check.mjs reads the UI-loop issues
+    concurrency:
+      group: release-promote   # one writer of a release's notes at a time: the Mac/Linux promote edits the same body
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      REF: ${{ inputs.sha }}
     steps:
       - uses: actions/checkout@v5
-      - name: Approve the build for Windows beta testers
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: No real high-severity finding in this Windows run (the same rule as the Mac/Linux promote)
+        working-directory: desktop/e2e
+        run: |
+          npm ci || npm install
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'e2e-artifacts-windows-*' --dir ../../e2e-artifacts || echo "no artifacts to read"
+          mkdir -p ../../e2e-artifacts
+          status=0
+          node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
+          cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "$TAG is not offered on Windows: a real high-severity finding in its Windows run." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Approve the build for Windows beta testers
         run: tools/beta-approve.sh --windows "$TAG" | tee -a "$GITHUB_STEP_SUMMARY"

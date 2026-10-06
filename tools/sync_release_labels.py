@@ -6,7 +6,7 @@
 
 Titles get a prefix (GitHub has no way to pin a release; the only badge it gives is "Latest"):
     ✅ STABLE · …                  the Latest release: what every user gets
-    🧪 BETA (release candidate) · …  a pre-release the release gate approved (its notes carry the `Beta-approved:` line): offered to people who switched the beta on,
+    🧪 BETA (release candidate) · …  a pre-release a platform's release gate approved (`Beta-approved:` or `Beta-approved (Windows):`): offered to people who switched the beta on,
                                    and soaking towards stable
     🔨 Build · …                   any other pre-release (every push and nightly makes one): not offered to anyone
     📦 Previous stable · …         a release that was stable once and was replaced: where a manual rollback goes (tools/release-stable.sh <tag>)
@@ -77,7 +77,7 @@ def main(argv):
     for r in releases:
         if r.get('isPrerelease'):
             body = _gh('release', 'view', r['tagName'], '-R', REPO, '--json', 'body', '-q', '.body')
-            if re.search(r'^Beta-approved:', body, re.M):
+            if re.search(r'^Beta-approved(?: \(Windows\))?:', body, re.M):   # either platform's line: each is offered on its own
                 approved.add(r['tagName'])
     changed = 0
     for r in releases:

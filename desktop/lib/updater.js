@@ -28,11 +28,12 @@ export function newer(a, b) {
   return false;
 }
 
-// A pre-release is offered to beta testers only after tools/beta-approve.sh wrote this line in its notes: the unit suites and every end-to-end suite passed on it.
+// A pre-release is offered to beta testers only after tools/beta-approve.sh wrote its platform's line in the notes: the shared release checks
+// (tools/release-checks.sh: unit suites, schema) and that platform's own end-to-end suites passed on it. Mac (and Linux) read the first line,
+// Windows only its own (tools/beta-approve.sh --windows): one release, each platform offered it on its own (owner, 6 Oct 2026).
 export const BETA_MARK = /^Beta-approved:/m;
-// A Windows app also needs the Windows suites' own line (tools/beta-approve.sh --windows): one release for both, each platform offered it once its suites passed.
 export const BETA_MARK_WINDOWS = /^Beta-approved \(Windows\):/m;
-export const approvedFor = (body, platform = process.platform) => BETA_MARK.test(body || '') && (platform !== 'win32' || BETA_MARK_WINDOWS.test(body || ''));
+export const approvedFor = (body, platform = process.platform) => (platform === 'win32' ? BETA_MARK_WINDOWS : BETA_MARK).test(body || '');
 
 // The download for this computer in a release, or null. `own`: only this build's own installer (a beta or a rollback never takes the generic Windows
 // installer, which a failed Windows build leaves as the PREVIOUS release's: tools/release-stable.sh guards stable the same way).

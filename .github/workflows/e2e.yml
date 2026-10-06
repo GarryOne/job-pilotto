@@ -340,22 +340,10 @@ jobs:
           node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
           cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$status" != 0 ]; then echo "$TAG stays a pre-release: a real high-severity finding in its end-to-end run." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
-      - name: The Notion schema is additive over the current stable (so "Back to stable" cannot split anybody's data)
-        if: vars.JOB_PILOTTO_SOAK == 'on'
-        run: |
-          stable=$(gh release list -R "$GITHUB_REPOSITORY" -L 20 --json tagName,isPrerelease,isDraft -q '[.[] | select(.isDraft | not) | select(.isPrerelease | not)][0].tagName')
-          if [ -z "$stable" ] || [ "$stable" = "$TAG" ]; then echo "No older stable to compare with." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
-          gh api "repos/$GITHUB_REPOSITORY/contents/config/notion_schema.json?ref=$stable" -q .content | base64 -d > "$RUNNER_TEMP/stable-schema.json"
-          gh api "repos/$GITHUB_REPOSITORY/contents/config/notion_schema.json?ref=$TAG" -q .content | base64 -d > "$RUNNER_TEMP/candidate-schema.json"
-          status=0
-          python3 tools/check_schema_additive.py "$RUNNER_TEMP/stable-schema.json" "$RUNNER_TEMP/candidate-schema.json" > "$RUNNER_TEMP/schema.txt" || status=$?
-          echo "Schema $TAG vs stable $stable:" >> "$GITHUB_STEP_SUMMARY"; cat "$RUNNER_TEMP/schema.txt" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$status" != 0 ]; then echo "$TAG is not offered to beta testers: it changes the Notion schema in a way the older app cannot undo." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
-      - name: build.yml (the unit suites) is green on the commit
-        run: |
-          verdict=$(gh run list -R "$GITHUB_REPOSITORY" --workflow build.yml --commit "$REF" --status completed --json conclusion | python3 tools/e2e_gate.py ci)
-          echo "build.yml on ${REF:0:7}: $verdict"
-          if [ "$verdict" != green ]; then echo "$TAG stays a pre-release: build.yml is not green on its commit." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
+        env:
+          JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Approve the build for beta testers (soak on), or make it stable (soak off)
         env:
           E2E_ALREADY_GREEN: '1'   # every suite of this very run passed on this commit
@@ -372,7 +360,8 @@ jobs:
   # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.5.3 : what the promotion step would do for a release, changing nothing.
   windows:
     # The same suites on Windows (e2e-windows.yml), started here only when this run tested something, so Windows never runs empty; it skips a commit it
-    # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. Never a release gate.
+    # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. It is the Windows beta gate (approve-windows), started whatever
+    # this run's result: Windows never waits for the Mac/Linux suites.
     name: Windows follows
     needs: [plan, suite]
     # Windows only for the release gate, the schedule and a gate by hand (6 Oct 2026): a push run's Windows jobs held runner slots (20 at once, shared) while
