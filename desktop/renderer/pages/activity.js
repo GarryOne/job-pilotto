@@ -466,7 +466,8 @@ export function renderActivity(fresh) {
   // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
   const shownText = cardText(run, run ? runResults.get(run.id) : null);
   // Its card says it better than the raw text, whole: the header doesn't repeat it cut short (a digest, an insight, a weekly report).
-  const hasCard = !!(shownText && (parseRunMessage(shownText) || parseInsight(shownText) || parseWeekly(shownText)));
+  const hasCard = !!(shownText && (parseRunMessage(shownText) || parseInsight(shownText) || parseWeekly(shownText)
+    || (KITS_CARD.has(kindOf(run)) && parseKitsReady(shownText))));
   // A stopped run's box says why in full: the header doesn't repeat it.
   // A box that names what happened in full (stopped, couldn't start, stopped unexpectedly): the header doesn't repeat it.
   const boxSaysIt = run && (stoppedHead({...run, kind: kindOf(run)}) || waitedHead({...run, kind: kindOf(run)}) || failureHead({...run, kind: kindOf(run)})?.unexpected);
@@ -1233,24 +1234,29 @@ export function renderKitsCard(kits, target = $('activity-card')) {
   kicker.append(el('span', 'insight-category', cvs ? 'Tailored CVs' : 'Application kits'));
   head.append(kicker, el('h3', 'insight-title', `${plural(kits.jobs.length, cvs ? 'CV' : 'kit')} ready`));
   if (kits.subtitle) head.append(el('p', 'insight-subtitle', kits.subtitle));
-  const list = el('ul', 'insight-evidence kits-jobs');
+  // One row per job (the shared .item-rows): its title (the posting opens from it) and company, then the one action, aligned.
+  const list = el('ul', 'item-rows kits-jobs');
   for (const job of kits.jobs) {
     const row = el('li', '');
-    const link = el('a', 'link', job.title);
-    link.href = job.url; link.target = '_blank'; link.rel = 'noopener';
-    row.append(link);
-    if (job.company) row.append(el('span', 'muted', ` · ${job.company}`));
+    const words = el('div', 'item-words');
+    const title = el('a', 'link', job.title);
+    title.href = job.url; title.target = '_blank'; title.rel = 'noopener';
+    title.title = 'Open the job posting';
+    const name = el('b', '');
+    name.append(title);
+    words.append(name, ...(job.company ? [el('span', 'muted', job.company)] : []));
+    row.append(words);
     if (cvs) {   // the tailored CV itself, as the Jobs list's 📄 Tailored CV opens it
-      const view = el('button', 'link', 'View CV →');
+      const view = el('button', 'secondary item-action', 'View CV');
+      view.type = 'button';
       view.title = 'Your CV tailored to this job, with the changes highlighted';
+      view.append(icon('external'));
       view.addEventListener('click', () => window.pilot.openTailoredCv(job.url));
-      row.append(' · ', view);
+      row.append(view);
     }
     list.append(row);
   }
-  const section = el('section', 'insight-section');
-  section.append(list);
-  box.append(head, section);
+  box.append(head, list);
   target.replaceChildren(box);
 }
 

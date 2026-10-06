@@ -71,6 +71,12 @@ section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few 
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
     {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
 
+section('Item rows', '.item-rows: one item per row (bold title, muted line) with its one action on the right (.item-action), a line between', (() => {
+  const box = el('div');
+  box.innerHTML = `<ul class="item-rows"><li><div class="item-words"><b><a class="link" href="#">Site Reliability Engineer</a></b><span class="muted">DeepJudge AG</span></div><button class="secondary item-action">View CV</button></li>
+    <li><div class="item-words"><b><a class="link" href="#">Staff Platform Engineer</a></b><span class="muted">Nango</span></div><button class="secondary item-action">View CV</button></li></ul>`;
+  return box;
+})());
 section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row; .choice-list; .segmented.is-fill', (() => {
   const box = el('div');
   box.innerHTML = `<div class="composer"><textarea rows="2" placeholder="Paste a message here…"></textarea>
