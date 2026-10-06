@@ -3,10 +3,13 @@
 import http from 'node:http';
 
 // A release as GitHub lists it, with this platform's installers under the names lib/updater.js asset() looks for.
+// `approved` writes both gate lines: Windows apps also need BETA_MARK_WINDOWS (lib/updater.js).
 export function release(base, version, {prerelease = false, approved = false, body = ''} = {}) {
   const file = name => ({name, size: 4, browser_download_url: `${base}/download/${name}`});
+  const marks = [approved && `Beta-approved: desktop-v${version} (every suite passed on its commit)`,
+    approved && `Beta-approved (Windows): desktop-v${version} (every Windows suite passed on its commit)`].filter(Boolean);
   return {tag_name: `desktop-v${version}`, name: `Build · ${version}`, draft: false, prerelease, html_url: `${base}/release/${version}`,
-    body: `${body}${approved ? `\nBeta-approved: desktop-v${version} (every suite passed on its commit)` : ''}`,
+    body: `${body}${marks.map(line => `\n${line}`).join('')}`,
     assets: [file(`Job-Pilotto-${version}-arm64.zip`), file(`Job-Pilotto-${version}-x64.exe`)]};
 }
 
