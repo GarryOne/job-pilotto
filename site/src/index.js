@@ -7,6 +7,7 @@ import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
 import {guard} from './guard.js';
 import {view as intelligenceView} from './intelligence.js';
+import {view as scoutingView} from './scoutingadmin.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
 import {digestView, view as formLearningView} from './formlearning.js';
@@ -82,7 +83,7 @@ export default {
     if (pathname === '/install') return install(request, env, ctx, stats.record);
     if (pathname === '/api/hit') return stats.hit(request, env);
     // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
-    const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView,
+    const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
       '/admin/access': accessView, '/admin/e2e': e2eView}[pathname];   // access: the super admin's only (src/access.js)
     if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)

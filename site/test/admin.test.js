@@ -44,7 +44,9 @@ test('every admin page is the owner\'s only and carries the same menu, its own e
     const html = await response.text();
     assert.equal(response.status, 200, `${page.path}: ${html.slice(0, 200)}`);
     assert.equal(response.headers.get('X-Robots-Tag'), 'noindex');
-    for (const other of PAGES) assert.ok(html.includes(`href="${other.path}"`), `${page.path} links ${other.path}`);
+    // Grouped menu (6 Oct 2026): every group is one click away, and so is every page of this page's own group.
+    for (const other of PAGES.filter(item => item.group === page.group)) assert.ok(html.includes(`href="${other.path}"`), `${page.path} links ${other.path}`);
+    for (const group of new Set(PAGES.map(item => item.group))) assert.ok(PAGES.some(item => item.group === group && html.includes(`href="${item.path}"`)), `${page.path} reaches ${group}`);
     assert.match(html, new RegExp(`href="${page.path}" aria-current="page"`), page.path);
     assert.equal((html.match(/class="admin-nav"/g) || []).length, 1, page.path);
   }

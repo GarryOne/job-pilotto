@@ -5,16 +5,17 @@ import {esc} from './stats.js';
 import {viewer} from './auth.js';
 
 export const PAGES = [
-  {path: '/admin', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
-  {path: '/admin/website', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
-  {path: '/admin/app', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
-  {path: '/admin/insights', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
-  {path: '/admin/self-healing', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
-  {path: '/admin/ai-cost', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
-  {path: '/admin/form-filling', question: 'How well are application forms filled, and what still trips the filler?', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
-  {path: '/admin/feedback', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
-  {path: '/admin/e2e', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
-  {path: '/admin/access', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin', group: 'Overview', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
+  {path: '/admin/website', group: 'Growth', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
+  {path: '/admin/app', group: 'Growth', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
+  {path: '/admin/insights', group: 'Intelligence', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
+  {path: '/admin/self-healing', group: 'Operations', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
+  {path: '/admin/ai-cost', group: 'Operations', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
+  {path: '/admin/scouting', group: 'Intelligence', question: 'Is our central employer list growing, and where is it weak?', name: 'Scouting', icon: '🛰️'},
+  {path: '/admin/form-filling', group: 'Intelligence', question: 'How well are application forms filled, and what still trips the filler?', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
+  {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/e2e', group: 'Operations', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
+  {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.old, page.path]));
 
@@ -39,15 +40,25 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 .admin-nav .me{margin-left:auto;color:#8d949c;font-size:12px}.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
 .trend{float:right;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#8d949c;margin-left:12px}.trend svg{display:block}
 .trend .up{color:#3fb68b}.trend .down{color:#e5484d}
+.admin-nav .admin-sub{padding-top:0;font-size:13px}.admin-nav .admin-sub a[aria-current]{background:#1b2027;color:#f5b54a}
 .admin-question{max-width:1040px;margin:-6px auto 14px;padding:0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}
 .admin-question::before{content:'The question this page answers: ';color:#f5b54a}`;
 
-// The menu for this viewer: the Access page only for the super admin; who is signed in, on the right.
+// The menu for this viewer, in four groups (owner, 6 Oct 2026: one row of eleven pages had grown too long): the groups on the first row,
+// the pages of the open group on a second; the Access page only for the super admin; who is signed in, on the right.
+export const GROUPS = [['Overview', '🧭'], ['Growth', '📈'], ['Intelligence', '🧠'], ['Operations', '🛠️']];
 export function nav(active, who = {role: 'superadmin'}) {
   const shown = PAGES.filter(page => !page.superadmin || who.role === 'superadmin');
   const me = who.role === 'superadmin' ? 'super admin' : `${who.name} · admin`;
-  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${shown.map(page =>
-    `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}<span class="me">${esc(me)}</span></div></nav>`;
+  const open = shown.find(page => page.path === active)?.group;
+  const groups = GROUPS.map(([name, icon]) => {
+    const first = shown.find(page => page.group === name);
+    return first ? `<a href="${first.path}"${name === open ? ' aria-current="page"' : ''}>${icon} ${esc(name)}</a>` : '';
+  }).join('');
+  const pages = shown.filter(page => page.group === open);
+  const second = pages.length > 1 ? `<div class="admin-sub">${pages.map(page =>
+    `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}</div>` : '';
+  return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${groups}<span class="me">${esc(me)}</span></div>${second}</nav>`;
 }
 // The question a page answers, under the menu on every page (owner, 6 Oct 2026): what to read it for, in one line.
 export function question(active) {

@@ -5,6 +5,7 @@
 import {REGIONS, ROLES} from './pool.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
 import {store as storeScouting} from './scouting.js';
+import {snapshot, storeSnapshot} from './scoutingadmin.js';
 const KEY = 'index:employers';
 const NOFEED_KEY = 'index:nofeed';   // employers with no readable job site, published by the central scout: installs skip them 30 days
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
@@ -152,6 +153,11 @@ async function publish(request, env) {
   const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
     .slice(0, 5000).map(item => ({key: item.key, company: String(item.company || '').slice(0, 120), host: /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host || '') ? item.host : null, last: item.last}));
   if (env.WAITLIST) await env.WAITLIST.put(NOFEED_KEY, JSON.stringify(nofeed));
+  // The day's snapshot for /admin/scouting's growth: counts only; never a reason to refuse the index.
+  if (env.STATS) {
+    const pooled = new Set(((await env.STATS.prepare("SELECT DISTINCT ats || ':' || slug AS k FROM contributions WHERE how IS NOT NULL AND how NOT IN ('index', 'own')").all().catch(() => ({results: []}))).results || []).map(row => row.k));
+    await storeSnapshot(env.STATS, generated.slice(0, 10), snapshot(feeds, feeds.filter(feed => pooled.has(`${feed.ats}:${feed.slug}`)).length, nofeed.length)).catch(() => false);
+  }
   // The central scout's own numbers for /intel (src/scouting.js): never a reason to refuse the index.
   if (env.STATS && body.stats) await storeScouting(env.STATS, body.stats, generated.slice(0, 10)).catch(() => false);
   // Older app versions download the whole list from KV: kept while it fits in one value, else left as it was (they update soon).
