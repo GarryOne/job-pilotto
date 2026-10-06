@@ -1601,7 +1601,10 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-row { flex-wrap: wrap; }
 /* A Gmail check's card (owner's mockup, 6 Oct 2026): the counts strip, then one card per email, all built from the same
    parts (activity.js mailCardRow): head (company, role, meta, one pill), sentence, stage chip, one panel, "Email details". */
-.mail-card { background: var(--surface); padding: var(--sp-3); gap: var(--sp-3); }   /* the wrapper stays white */
+.mail-card { background: transparent; padding: 0; gap: var(--sp-3); }
+/* No card in a card: holding the Gmail card, the run panel's box gives up its border and fill; the strip and the email cards
+   sit straight on the panel's white (owner, 6 Oct 2026). */
+.activity-panel .ap-card:has(> .mail-card) { border: 0; background: transparent; }
 .mail-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--muted); }
 .mail-strip-stat { display: inline-flex; align-items: center; gap: var(--sp-2); }
