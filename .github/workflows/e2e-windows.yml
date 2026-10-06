@@ -133,7 +133,7 @@ jobs:
         run: pip install --quiet -r requirements.txt
       - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
-        timeout-minutes: 30
+        timeout-minutes: 12   # the suite stops itself at its 7-minute budget, and by force 3 min later (suite.mjs)
         run: |
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
           node suite.mjs ${{ matrix.suite }}

@@ -21,6 +21,16 @@ if (name === '--list') {
 }
 process.env.JOB_PILOTTO_E2E_SUITE = name;   // the app tags its Sentry reports with it (lib/sentry.js e2eTags)
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
+// A hard stop for the whole process (6 Oct 2026: a Windows jobs suite ran 14+ min after its last step failed: something outside the steps hung, closing the app
+// or a test server). The runner cuts steps at the 7-minute budget; nothing may outlive it by more than 3 minutes. unref: a suite that ends earlier exits as usual.
+{
+  const {SUITE_BUDGET_MS} = await import('./lib/runner.mjs');
+  const stopAt = SUITE_BUDGET_MS + 3 * 60000;
+  setTimeout(() => {
+    console.log(`✗ the ${name} suite was still running ${Math.round(stopAt / 60000)} min after it started: stopped by force (something outside the steps hung: closing the app, a test server, or writing artifacts)`);
+    process.exit(1);
+  }, stopAt).unref();
+}
 const {assertNothingQueued} = await import('./lib/app.mjs');
 const {SUITES, openContext} = await import('./lib/context.mjs');
 const {writeFindings, writeReplay, writeSuiteFailures} = await import('./lib/artifacts.mjs');
