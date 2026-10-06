@@ -481,14 +481,12 @@ function handlers() {
       telemetry.record('setup', setupFunnel.lookAround(String(from), storage.settings()));
       await Promise.race([telemetry.flush(), new Promise(resolve => setTimeout(resolve, 1500))]);  // else sent at the next start
     }
-    app.relaunch({args: demo.restartArgs(process.argv, folder)});
-    app.exit(0);
+    restartApp('look around (demo)', {args: demo.restartArgs(process.argv, folder)});
     return {ok: true};
   });
   ipcMain.handle('leaveDemo', () => {
     if (!LOOK_AROUND) return {ok: false};
-    app.relaunch({args: demo.restartArgs(process.argv)});
-    app.exit(0);
+    restartApp('leave the demo', {args: demo.restartArgs(process.argv)});
     return {ok: true};
   });
   // Connect to the user's Notion with a token (pasted, or from "Connect with Notion"): find the workspace, or
@@ -1136,7 +1134,7 @@ function handlers() {
     screen: mediaAccess('screen'), dev: !app.isPackaged}));
   ipcMain.handle('openPrivacy', (_, kind) => shell.openExternal(process.platform === 'win32' ? 'ms-settings:privacy-microphone'
     : `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
-  ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
+  ipcMain.handle('relaunch', () => restartApp('asked by the window (permission or update toast)'));
   // Danger zone: a last native confirmation, then restart; the folder goes at the next start (lib/reset.js).
   // freshNotion: the Notion workspace is archived first (its page renamed, nothing deleted), so the setup
   // builds a new one; if Notion refuses, nothing is reset.
@@ -1155,8 +1153,7 @@ function handlers() {
       catch (error) { return {ok: false, error: `Notion: ${error.message}. Nothing was reset.`}; }
     }
     reset.request(storage.dir, {backup, archived});
-    app.relaunch();
-    app.exit(0);
+    restartApp('reset');
     return {ok: true};
   });
   ipcMain.handle('lastReset', () => resetDone);
@@ -1190,8 +1187,7 @@ function handlers() {
       detail: 'Your current data here is moved to a backup folder first, then Job Pilotto restarts with the imported data. Your Notion workspace is not changed.'});
     if (answer !== 1) return {ok: false};
     try { reset.stageImport(storage.dir, picked.filePaths[0]); } catch (error) { return {ok: false, error: error.message}; }
-    app.relaunch();
-    app.exit(0);
+    restartApp('import');
     return {ok: true};
   });
   ipcMain.handle('ivRecordings', () => {
@@ -1883,6 +1879,12 @@ function backupNow() {
 }
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); }
 
+// Every restart says why: app.exit skips 'will-quit', so without this line a restart looks like a silent exit (a Windows e2e relaunch, 6 Oct 2026).
+function restartApp(reason, options) {
+  appLog('window', `restart: ${reason}`);
+  app.relaunch(options);
+  app.exit(0);
+}
 // How the app ended, in logs/app.log: a Windows e2e relaunch closed with no line at all (6 Oct 2026). No line after "start" now means the
 // process was killed from outside (nothing in the app can log that).
 app.on('will-quit', () => appLog('window', 'quitting'));

@@ -96,6 +96,7 @@ export const pickFile = (app, file) => app.evaluate(({dialog}, filePath) => {
 async function closeApp(app) {
   try {
     const child = app.process();
+    console.log(`  ${new Date().toISOString()} e2e: closing the app (pid ${child.pid})`);   // tells the harness's exit from the app's own in logs/app.log
     await Promise.race([app.evaluate(({app: electron}) => electron.exit(0)).catch(() => {}), new Promise(resolve => setTimeout(resolve, 5000))]);
     if (child.exitCode === null) child.kill('SIGKILL');
   } catch { /* the app is already gone */ }
