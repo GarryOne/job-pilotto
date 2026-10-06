@@ -103,3 +103,18 @@ test('a real ⋯ menu below the fold is opened by the probe, not filed as broken
     assert.ok(results.some(item => item.effects.includes('expanded toggled')), 'the menu opened');
   } finally { await browser.close(); server.close(); }
 });
+
+test('every control that restarts the app is never pressed by a probe', async () => {
+  // The class: each button whose handler ends in a restart (main.js restartApp: demo in and out, reset, import, the permission restart).
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../../renderer/index.html', import.meta.url), 'utf8');
+  const RESTARTS = ['data-look-around', 'id="demo-leave"', 'id="reset-go"', 'id="import-data"', 'id="welcome-import"', 'id="iv-permission-restart"'];
+  for (const marker of RESTARTS) {
+    const found = [...html.matchAll(new RegExp(`<button[^>]*${marker}[^>]*>([\\s\\S]*?)</button>`, 'g'))];
+    assert.ok(found.length, `${marker} is in index.html`);
+    for (const [tag, text] of found) {
+      const cls = (tag.match(/class="([^"]*)"/) || [])[1] || '';
+      assert.equal(isSafe({text: text.replace(/<[^>]+>/g, ' ').trim(), cls}), false, `a probe would press ${marker}: "${text.trim()}"`);
+    }
+  }
+});
