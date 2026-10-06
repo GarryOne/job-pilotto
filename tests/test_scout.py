@@ -89,6 +89,15 @@ class ScoutTests(unittest.TestCase):
             self.assertEqual([c['name'] for c in scout.next_batch(db, 10, skip)], ['Manor', 'Fnac'])
             self.assertEqual(scout.next_batch(db, 1)[0]['name'], 'Bigco', 'an IT search keeps its Tier 1 seeds first')
 
+    def test_the_summary_says_how_many_were_new_to_the_search(self):
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            summary, _ = self.run_scout(db, batch=10)
+            self.assertEqual(summary['first_time'], summary['checked'], 'a first run checks only names never checked')
+            again, _ = self.run_scout(db, batch=10)
+            self.assertEqual(again['first_time'], 0, 'nothing new left: whatever is checked is a re-check after its wait')
+            card = scout.telegram_summary(summary, [])
+            self.assertIn(f"{summary['checked']} new to the search", card)
+
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])
         with tempfile.TemporaryDirectory() as tmp, \

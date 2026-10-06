@@ -738,7 +738,10 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
       if (urls.length) showJobsIn(label, urls, 'activity');  // no links in the message: the whole list is all there is
     });
   } else {
-    stats.append(stat(card.checked, 'employers checked'), stat(card.fresh, 'new job feeds'));
+    // New to the search or checked again after its wait: a run never re-reads the same list (an older message has neither number).
+    if (card.first == null) stats.append(stat(card.checked, 'employers checked'));
+    else stats.append(stat(card.first, `new employer${card.first === 1 ? '' : 's'} checked`), ...(card.again ? [stat(card.again, 'checked again')] : []));
+    stats.append(stat(card.fresh, 'new job feeds'));
     heading = 'New employers';
     // Five at first; "+2 more" shows the rest here (Show less folds them), and the Employers database has them all.
     const all = card.items.length > 5 && expandedCard === card.items.map(item => item.company).join('|');

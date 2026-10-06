@@ -776,7 +776,10 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     where, params = skipping(skip)
     queued = db.execute(f"SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending' {where}", params).fetchone()[0]
     total_feeds = db.execute('SELECT COUNT(*) FROM feed_sources WHERE active = 1').fetchone()[0]
-    return {'checked': len(candidates), 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
+    # Each run checks names it never checked before (pending), and only re-checks one whose wait is over (RECHECK_DAYS): said in the card, so
+    # "15 checked" is never read as the same list again (6 Oct 2026).
+    first = sum(1 for c in candidates if not c.get('checked_at'))
+    return {'checked': len(candidates), 'first_time': first, 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
             'ideas': {k: ideas[k] for k in ('companies', 'directories', 'note')} if ideas else None}, \
         list(zip(candidates, outcomes))
 
@@ -796,7 +799,7 @@ def telegram_summary(summary, results):
             tgcard.fact('Platform', o['ats'].capitalize())))
     if not found:
         blocks.append('No new useful feeds in this batch.')
-    detail = [f"{counts['none']} without public feed", f"{counts['low']} low relevance"]
+    detail = [f"{counts['none']} without a job feed we can read (their own job site, or jobs.ch)", f"{counts['low']} low relevance"]
     if counts['watch']:
         detail.append(f"{counts['watch']} careers page{'s' if counts['watch'] != 1 else ''} with no open jobs today (watched weekly)")
     if counts['manual']:
@@ -809,7 +812,10 @@ def telegram_summary(summary, results):
                       f"{summary['harvested']} new candidates found" if summary['harvested'] else '')
     blocks.append(tgcard.block('Not added', escape(rest)))
     plural = 's' if len(found) != 1 else ''
-    return tgcard.card('New employer sources', tgcard.dot(f"{summary['checked']} checked", f"{len(found)} new source{plural}"), blocks,
+    first = summary.get('first_time')
+    again = summary['checked'] - first if first is not None else 0
+    return tgcard.card('New employer sources', tgcard.dot(f"{summary['checked']} checked", f"{first} new to the search" if first is not None else '',
+                                                         f"{again} checked again after their wait" if again else '', f"{len(found)} new source{plural}"), blocks,
                        emoji='🔎', footer='Source quality measures the source, not your job fit.')
 
 

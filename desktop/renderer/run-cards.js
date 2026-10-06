@@ -58,7 +58,8 @@ export function parseScout(text) {
   // The older message ended on a sentence; the plain one has a "Not added" block (what was left out, and why) before its footer.
   const notAdded = lines.findIndex(line => /^Not added$/.test(line.trim()));
   const note = notAdded >= 0 ? (lines[notAdded + 1] || '').trim() : /^\d+\./.test(last.trim()) || /^\s/.test(last) ? '' : last.trim();
-  return {kind: 'scout', checked: num(head, /checked (\d+)/) ?? num(head, /(\d+) checked/), fresh: num(head, /(\d+) new sources?/), items, note};
+  return {kind: 'scout', checked: num(head, /checked (\d+)/) ?? num(head, /(\d+) checked/), fresh: num(head, /(\d+) new sources?/),
+    first: num(head, /(\d+) new to the search/), again: num(head, /(\d+) checked again/), items, note};
 }
 
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);
