@@ -74,7 +74,7 @@ export function page(data) {
 .verdict{background:#1d1a12;border:1px solid #5a4620;border-radius:14px;padding:14px 16px;margin-bottom:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
 .kpi{background:#14181d;border:1px solid #262c33;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}.kpi b{font-size:22px}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start}
 </style></head><body><main>
 <header><div><h1>🛰️ Scouting</h1><small class="muted">The central employer list: counts, company names and job-site addresses only. <a href="/admin/insights">Insights →</a></small></div></header>
 <div class="verdict">${esc(verdict)}</div>

@@ -133,15 +133,15 @@ test('/telemetry/version: per exact version, installs, health days, run counts a
   assert.equal(bad.status, 400);
 });
 
-test('the private page lists feedback with its contact; without the key it is not found', async () => {
+test('the private page counts feedback and links to the Feedback page (no copy of the messages); without the key it is not found', async () => {
   const e = env();
   e.STATS.db.prepare('INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(new Date().toISOString(), new Date().toISOString().slice(0, 10), 'install-aaaa', '0.5.75', 'darwin', 'Setup took 20 <min>', 'ana@example.com');
   const open = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   const html = await open.text();
-  assert.match(html, /💬 Feedback, newest first/);
-  assert.match(html, /Setup took 20 &lt;min&gt;/);
-  assert.match(html, /ana@example\.com/);
+  assert.match(html, /1 message in the last 30 days · <a href="\/admin\/feedback">Open Feedback →<\/a>/);
+  assert.doesNotMatch(html, /Setup took 20/, 'the messages live on /admin/feedback only');
+  assert.doesNotMatch(html, /ana@example\.com/);
   const closed = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/admin/app'), e, {});
   assert.equal(closed.status, 404);
 });

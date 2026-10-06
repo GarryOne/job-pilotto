@@ -22,8 +22,10 @@ export async function report(db, now = new Date()) {
   const exposure = (await rows(db, 'SELECT day, n, required FROM form_exposure WHERE day >= ?', from)).map(row => ({day: row.day, base: row.required || row.n}));
   const jobCost = await rows(db, 'SELECT day, usd FROM ai_cost_runs WHERE day >= ?', from);
   const relay = (await rows(db, 'SELECT day, micro_usd FROM ai_calls WHERE day >= ?', from)).map(row => ({day: row.day, usd: row.micro_usd / 1e6}));
+  // Self-healing stores precision as a percent (38); pct() here takes a ratio (7 Oct 2026: Overview showed 3800%).
   const snaps = (await rows(db, 'SELECT day, body FROM selfheal_snapshots WHERE day >= ? ORDER BY day', from))
-    .map(row => { try { const body = JSON.parse(row.body); return {day: row.day, precision: body.totals?.precision ?? null, recall: body.recall || null}; } catch { return null; } }).filter(Boolean);
+    .map(row => { try { const body = JSON.parse(row.body); return {day: row.day, precision: body.totals?.precision == null ? null : body.totals.precision / 100, recall: body.recall || null}; } catch { return null; } }).filter(Boolean);
+  const index = await rows(db, 'SELECT day, feeds FROM index_daily WHERE day >= ? ORDER BY day', from);
   const brain = await rows(db, "SELECT substr(at, 1, 10) AS day, kind FROM brain_messages WHERE kind = 'recommendation' AND at >= ?", from);
   const weekly = list => list.map(row => ({...row}));
   const latest = (list, key) => (week => (week.length ? week.at(-1)[key] : null));
@@ -38,6 +40,7 @@ export async function report(db, now = new Date()) {
       {label: 'blind spots per 100', values: byWeek([...blind, ...exposure], now, list => { const base = sum('base')(list); return base ? (100 * sum('blind')(list)) / base : null; }),
         format: v => v.toFixed(1), higherIsBetter: false}],
     feedback: [app.feedback],
+    scouting: [{label: 'employers in the central list', values: byWeek(index, now, list => (list.length ? list.at(-1).feeds : null))}],
     brain: [{label: 'recommendations', values: byWeek(brain, now, list => list.length)}],
   };
   const recall = snaps.at(-1)?.recall || null;
@@ -68,8 +71,11 @@ export function page(data, who = {role: 'superadmin'}) {
   const attention = data.attention.filter(item => !item.superadmin || who.role === 'superadmin');
   const cards = PAGES.filter(item => item.path !== '/admin' && !item.superadmin).map(item => {   // Access is not a dashboard
     const key = item.path.slice('/admin/'.length), series = data.cards[key] || [];
-    return `<a class="card dash" href="${item.path}"><h2>${item.icon} ${esc(item.name)}</h2>${series.map(s =>
-      `<div class="metric"><small class="muted">${esc(s.label)}</small><div class="line">${spark(s.values, {...s, width: 140, height: 30})}</div></div>`).join('')}
+    return `<a class="card dash" href="${item.path}"><h2>${item.icon} ${esc(item.name)}</h2>${series.map(s => {
+      const known = s.values.filter(v => v != null), format = s.format || (v => String(Math.round(v)));
+      return `<div class="metric"><small class="muted">${esc(s.label)}</small><div class="line">${known.length >= 2 ? spark(s.values, {...s, width: 140, height: 30})
+        : `<span>${known.length ? esc(format(known.at(-1))) : '–'}</span>`}</div></div>`;
+    }).join('') || '<p class="muted">No weekly numbers here: open the page →</p>'}
 ${key === 'self-healing' && data.recall ? `<small class="muted">recall ${data.recall.caught}/${data.recall.planted} planted bugs</small>` : ''}</a>`;
   }).join('');
   const tone = {bad: '🔴', warn: '🟠', info: '🔵'};

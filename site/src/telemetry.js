@@ -2,6 +2,7 @@
 // stores them (D1 "telemetry", 90 days), /telemetry shows the problems users hit (same key as /stats), and a daily
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
+import {filterLinks} from './admin.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {trendChip} from './admin.js';
 import {appTrends} from './trends.js';
@@ -197,7 +198,7 @@ const OS_NAMES = {darwin: 'macOS', win32: 'Windows', linux: 'Linux'};
 function page(data) {
   const {rows, installs} = data;
   const count = kind => rows.filter(row => row.kind === kind).reduce((sum, row) => sum + row.n, 0);
-  const range = [1, 7, 30].map(n => n === data.days ? `<b>${n === 1 ? 'today' : `${n} days`}</b>` : `<a href="?days=${n}">${n === 1 ? 'today' : `${n} days`}</a>`).join(' · ');
+  const range = filterLinks([1, 7, 30].map(n => [n, n === 1 ? 'today' : `${n} days`, `?days=${n}`]), data.days);
   const tiles = [['🖥️ Machines reporting', data.unique, `${data.everSeen} ever seen` + (data.platforms.length ? ' · ' + data.platforms.map(p => `${p.n} ${esc(OS_NAMES[p.platform] || p.platform)}`).join(', ') : '')], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
   const table = rows.map(row => `<tr><td><span class="kind ${row.kind}">${esc(row.kind.replace('_', ' '))}</span></td>
     <td><details><summary>${esc(row.summary)}</summary><pre>${esc(JSON.stringify(JSON.parse(row.sample || '{}'), null, 1))}</pre></details></td>
@@ -220,6 +221,8 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 </style></head><body><main>
 <header><h1>🖥️ App</h1><span class="muted">${range}</span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${value}</b>${note ? `<small class="muted">${note}</small>` : ''}</div>`).join('')}</div>
+<section class="card" style="margin-bottom:12px"><h2>Problems, most users first${chip(data, 'problems')}</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
+${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 <section class="card" style="margin-bottom:12px"><h2>🖥️ Machines${chip(data, 'machines')}</h2><small class="muted">one row per install: the version it runs now, and every version it has run (id shown as a short prefix)</small>
 <div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Version</th><th>First seen</th><th>Last seen</th><th>Earlier versions</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td><span class="v now">${esc(m.current)}</span></td><td class="muted num">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted num">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.filter(v => v !== m.current).map(v => `<span class="v">${esc(v)}</span>`).join('') || '<span class="muted">–</span>'}</td></tr>`).join('')
   || '<tr><td colspan="6" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
@@ -250,8 +253,6 @@ ${data.gate?.installs ? `<p style="margin:8px 0"><b>${data.gate.installs}</b> as
 ${Object.keys(data.gate.whys).length ? `<p class="muted" style="margin-top:8px">Why not: ${Object.entries(data.gate.whys).sort((a, b) => b[1] - a[1]).map(([why, n]) => `${esc(GATE_WHY[why] || why)} <b>×${n}</b>`).join(' · ')}</p>` : ''}
 <small class="muted" style="display:block;margin-top:6px">Revisit local tracking without Notion when, over ${GATE_REVISIT_INSTALLS}+ installs asked, more than ${Math.round(GATE_REVISIT_RATE * 100)}% never connect and "I don't use Notion" is the top reason. ${data.gate.revisit ? '<b style="color:var(--red)">That is the case now.</b>' : 'Not yet.'}</small>`
   : '<p class="muted">Nobody has been asked yet.</p>'}</section>
-<section class="card"><h2>Problems, most users first${chip(data, 'problems')}</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
-${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 <section class="card" style="margin-top:12px"><h2>🧪 Form lab &amp; coverage${chip(data, 'lab')}</h2>
 <small class="muted">Share of all real exposure that falls on controls the lab passes at 95% or more: <b>${data.plan?.coverage == null ? '–' : Math.round(data.plan.coverage * 100) + '%'}</b>
  · target 90% · ${data.plan?.exposureTotal || 0} control meetings counted · boards by ${data.plan?.boards?.[0]?.source || 'prior'}</small>
@@ -277,12 +278,9 @@ ${Object.entries((data.knowledge?.flows || []).reduce((all, row) => { (all[row.b
 ${(data.guard?.seen || []).map(row => `<tr><td>${esc(row.kind)}</td><td><code>${esc(row.who)}</code></td><td>${row.n}</td></tr>`).join('')
   || '<tr><td colspan="3" class="muted">Nothing odd. 🎉</td></tr>'}</table>
 ${(data.guard?.revoked || []).length ? `<small class="muted">Revoked: ${(data.guard.revoked).map(row => `<code>${esc(row.who)}</code> (${esc(row.reason)})`).join(' · ')}</small>` : ''}</section>
-<section class="card" style="margin-top:12px"><h2>💬 Feedback, newest first${chip(data, 'feedback')}</h2><small class="muted">From Send feedback in the app (also sent to the Job Pilotto Brain bot). Last ${data.days < 30 ? 30 : data.days} days.</small>
-<table style="margin-top:8px"><tr><th>When</th><th>Feedback</th><th>Reply to</th><th>Version</th></tr>
-${(data.feedback || []).map(row => `<tr><td class="muted" style="white-space:nowrap">${esc(String(row.at).slice(0, 16).replace('T', ' '))}</td>
-  <td style="white-space:pre-wrap">${esc(row.text)}</td><td>${row.contact ? esc(row.contact) : '<span class="muted">–</span>'}</td>
-  <td class="muted">${esc(row.version)} · ${esc(row.platform)}<br>${esc(String(row.install).slice(0, 8))}</td></tr>`).join('')
-  || '<tr><td colspan="4" class="muted">No feedback yet.</td></tr>'}</table></section>
+<section class="card" style="margin-top:12px"><h2>💬 Feedback${chip(data, 'feedback')}</h2><p style="margin:6px 0 0">${(data.feedback || []).length
+  ? `${(data.feedback || []).length} message${(data.feedback || []).length === 1 ? '' : 's'} in the last ${data.days < 30 ? 30 : data.days} days · <a href="/admin/feedback">Open Feedback →</a>`
+  : '<span class="muted">No feedback yet.</span> <a href="/admin/feedback">Feedback →</a>'}</p></section>
 <p class="muted">Since ${esc(data.from)} (UTC). Scrubbed on each Mac before sending; no answers, CV, emails, names or keys. Kept ${KEEP_DAYS} days.</p>
 </main></body></html>`;
 }

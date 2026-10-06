@@ -140,3 +140,16 @@ test('report files: the signed address serves them without a cookie; a wrong tok
   assert.equal((await get(`/admin/e2e/report/77/${'x'.repeat(43)}/index.html`)).status, 404);
   assert.equal((await get(`/admin/e2e/report/78/${token}/index.html`)).status, 404, 'a token is for one artifact');
 });
+
+test('a run title with a full commit hash shows its 7-character short form', async () => {
+  const sha = '639068116d9b15630adce76be8f5f9b7606559ee';
+  const fetcher = async url => {
+    const path = new URL(url).pathname;
+    if (path.endsWith('/actions/workflows/e2e.yml/runs')) return Response.json({workflow_runs: []});
+    if (path.endsWith('/actions/workflows/e2e-windows.yml/runs')) return Response.json({workflow_runs: [{id: 9, display_title: `Windows ${sha} · Windows`, event: 'workflow_dispatch', head_sha: sha, created_at: '2026-10-06T10:00:00Z'}]});
+    if (/\/runs\/9\/(jobs|artifacts)$/.test(path)) return Response.json({jobs: [], artifacts: []});
+    return new Response('nope', {status: 404});
+  };
+  const runs = await (await ask('/admin/e2e?json=1', owner, fetcher)).json();
+  assert.equal(runs.runs[0].title, 'Windows 6390681 · Windows');
+});

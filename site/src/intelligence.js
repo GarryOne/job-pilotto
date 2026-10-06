@@ -6,6 +6,7 @@
 //   3 why a job was dismissed (a one-tap reason), by the job's fit-score band
 //   4 a daily snapshot of score band vs what became of the job (new, saved, applied, replied ...): does the score predict action?
 // store() takes the `intel` part of POST /api/controls; view() is the owner's /intel page (/intelligence is the public one).
+import {filterLinks} from './admin.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {trendChip} from './admin.js';
 import {insightTrends} from './trends.js';
@@ -198,7 +199,7 @@ const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;'
 export function page(data) {
   const dismissTotals = REASONS.map(reason => [reason, data.dismiss.filter(row => row.reason === reason).reduce((sum, row) => sum + row.n, 0)]).filter(([, n]) => n);
   const dismissAll = dismissTotals.reduce((sum, [, n]) => sum + n, 0);
-  const range = [7, 30, 90].map(n => (n === data.days ? `<b>${n} days</b>` : `<a href="?days=${n}">${n} days</a>`)).join(' · ');
+  const range = filterLinks([7, 30, 90].map(n => [n, `${n} days`, `?days=${n}`]), data.days);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Insights · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>

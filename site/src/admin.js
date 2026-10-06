@@ -34,7 +34,24 @@ export const BASE_STYLE = `body{margin:0;background:#0b0d10;color:#f4efe3;font:1
 main{max-width:1040px;margin:0 auto;padding:0 16px 48px}h1{margin:0;font-size:24px;line-height:1.2}h2{font-size:15px}
 header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 18px}
 a{color:#f5b54a}.muted{color:#8d949c}.card{background:#14181d;border:1px solid #262c33;border-radius:14px}
-table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:#8d949c;font-size:12px}td{border-top:1px solid #262c33}`;
+table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:#8d949c;font-size:12px}td{border-top:1px solid #262c33}
+.card{padding:16px}h2{font-size:15px}main>.card,main>section.card{margin-bottom:16px}
+th,td{padding:10px 8px;vertical-align:top}td.num,td.n,th.num,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}td.nowrap,.pill,.badge{white-space:nowrap}
+.filters{display:flex;gap:6px;flex-wrap:wrap}.filter{color:#8d949c;text-decoration:none;padding:5px 10px;border:1px solid #262c33;border-radius:999px;font-size:13px;background:transparent;font-weight:400}
+.filter:hover{color:#f4efe3}.filter.on{background:#f5b54a;color:#0b0d10;border-color:#f5b54a;font-weight:600}
+.seg button{border-radius:999px;border-color:#262c33;color:#8d949c}.seg button[aria-pressed=true]{background:#f5b54a;border-color:#f5b54a;color:#0b0d10;font-weight:600}
+@media (max-width:700px){main .card{overflow-x:auto}main table.wide{min-width:600px}.card{padding:14px}}`;
+
+// What CSS alone can't do, on every admin page: a number column's header aligned like its numbers, dates on one line, a table
+// with only its "nothing yet" row shown without its header, and wide tables (4+ columns) scrolling inside their card on a phone.
+export const TABLE_SCRIPT = `document.querySelectorAll('main table').forEach(t=>{const rows=[...t.rows],head=rows.find(r=>r.querySelector('th'));
+if(head&&head.cells.length>=4)t.classList.add('wide');const body=rows.filter(r=>r!==head&&r.querySelector('td'));
+if(head&&body.length===1&&body[0].cells.length===1&&body[0].cells[0].colSpan>1)head.hidden=true;
+if(head)[...head.cells].forEach((th,i)=>{const cells=body.map(r=>r.cells[i]).filter(Boolean);if(cells.length&&cells.every(c=>c.classList.contains('num')||c.classList.contains('n')||!c.textContent.trim()))th.classList.add('num')});
+body.forEach(r=>[...r.cells].forEach(c=>{if(/^\\d{4}-\\d\\d-\\d\\d( \\d\\d:\\d\\d)?( UTC)?$/.test(c.textContent.trim()))c.classList.add('nowrap')}))});`;
+// A row of filter links (a period, a status): the current one amber, as on every admin page.
+export const filterLinks = (options, current) => `<nav class="filters" aria-label="Filter">${options.map(([value, label, href]) =>
+  `<a class="filter${value === current ? ' on' : ''}" href="${esc(href)}"${value === current ? ' aria-current="true"' : ''}>${esc(label)}</a>`).join('')}</nav>`;
 export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:#0b0d10ee;backdrop-filter:blur(6px);border-bottom:1px solid #262c33;margin:0 0 18px}
 .admin-nav div{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;font:14px/1.3 system-ui,-apple-system,sans-serif}
 .admin-nav b{color:#f4efe3;margin-right:10px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 9px;border-radius:999px;white-space:nowrap}
@@ -42,8 +59,7 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 .trend{float:right;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#8d949c;margin-left:12px}.trend svg{display:block}
 .trend .up{color:#3fb68b}.trend .down{color:#e5484d}
 .admin-nav .admin-sub{padding-top:0;font-size:13px}.admin-nav .admin-sub a[aria-current]{background:#1b2027;color:#f5b54a}
-.admin-question{max-width:1040px;margin:-6px auto 14px;padding:0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}
-.admin-question::before{content:'The question this page answers: ';color:#f5b54a}`;
+.admin-question{margin:-10px 0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}`;
 
 // The menu for this viewer, in four groups (owner, 6 Oct 2026: one row of eleven pages had grown too long): the groups on the first row,
 // the pages of the open group on a second; the Access page only for the super admin; who is signed in, on the right.
@@ -68,7 +84,10 @@ export function question(active) {
 }
 // The menu and the shared styles, added to a page's HTML (its own design stays): after <body>, and before </head>.
 export function withNav(html, active, who) {
-  return String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}${question(active)}`);
+  // The question goes under the page's own title (owner, 7 Oct 2026: a muted line, no yellow label); a page without a header gets it under the menu.
+  let out = String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
+  out = out.includes('</header>') ? out.replace('</header>', `</header>${question(active)}`) : out.replace('</nav>', `</nav>${question(active)}`);
+  return out.replace('</body>', `<script>${TABLE_SCRIPT}</script></body>`);
 }
 // A page response with the menu added; anything that is not an HTML page (a 404, a redirect, JSON) passes untouched.
 export async function adminPage(response, active, who) {

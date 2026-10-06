@@ -109,6 +109,7 @@ export async function download(request, env, ctx, now = new Date()) {
 // ---- /stats ----
 
 // Who may open the owner's pages: src/auth.js (a session cookie, the scripts' key).
+import {filterLinks} from './admin.js';
 import {net} from './attribution.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {isOwner, remember} from './auth.js';
@@ -156,7 +157,7 @@ export function page(data, list) {
   const chart = data.perDay.map(day => `<div class="col" title="${day.day}: ${day.visitors} visitors, ${day.downloads} downloads">
     <i style="--h:${Math.round(day.visitors / max * 100)}%"></i><em style="--h:${Math.round(day.downloads / max * 100)}%"></em>
     <small>${day.day.slice(8)}</small></div>`).join('');
-  const range = [7, 30, 90].map(n => n === data.days ? `<b>${n} days</b>` : `<a href="?days=${n}">${n} days</a>`).join(' · ');
+  const range = filterLinks([7, 30, 90].map(n => [n, `${n} days`, `?days=${n}`]), data.days);
   const tiles = [
     ['👀 Visitors', visits.visitors || 0, `${visits.views || 0} page views`],
     ['⬇️ Downloaders', downloads.people || 0, `${downloads.clicks || 0} clicks`],

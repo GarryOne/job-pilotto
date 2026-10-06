@@ -35,7 +35,7 @@ export async function recentRuns(env, fetcher = fetch) {
   const runs = lists.flat().sort((a, b) => Date.parse(b.run.created_at) - Date.parse(a.run.created_at)).slice(0, RUNS);
   return Promise.all(runs.map(async ({run, os}) => {
     const [jobs, artifacts] = await Promise.all([json(env, `/actions/runs/${run.id}/jobs?per_page=100`, fetcher), json(env, `/actions/runs/${run.id}/artifacts?per_page=100`, fetcher)]);
-    return {id: run.id, title: run.display_title, os, event: run.event, sha: (run.head_sha || '').slice(0, 7), status: run.status, conclusion: run.conclusion,
+    return {id: run.id, title: String(run.display_title || '').replace(/\b([0-9a-f]{7})[0-9a-f]{33}\b/g, '$1'), os, event: run.event, sha: (run.head_sha || '').slice(0, 7), status: run.status, conclusion: run.conclusion,
       created: run.created_at, url: run.html_url, suites: suiteRows(jobs.jobs, artifacts.artifacts, os),
       report: (artifacts.artifacts || []).some(item => item.name === REPORT && !item.expired)};
   }));
@@ -205,6 +205,7 @@ const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
 .card{padding:14px 16px;margin-bottom:12px}.run-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.run-head b{flex:1;min-width:200px}
 .meta{font-size:12px;color:var(--muted)}details{border-top:1px solid var(--line);padding:6px 0}details:first-of-type{margin-top:10px}
 summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;list-style:none}summary::-webkit-details-marker{display:none}
+.repeat{border:0;padding:2px 0}.repeat summary{color:var(--muted);font-size:13px}.repeat summary::before,.passed>summary .name::after{content:' ▸';color:var(--amber)}.passed>summary .name{color:var(--muted)}.passed[open]>summary .name::after{content:' ▾'}.passed>details{padding-left:0}
 summary .name{flex:1}td,th{padding:5px 8px 5px 0;vertical-align:top;font-size:13px}td.what{overflow-wrap:anywhere}
 .steps{margin:8px 0 4px 22px}.button{display:inline-block;margin:6px 8px 0 0;padding:6px 12px;border-radius:999px;background:var(--amber);color:#0b0d10;font-weight:600;text-decoration:none;font-size:13px}
 .failed{color:var(--red)}
@@ -223,8 +224,20 @@ async function steps(id, box) {
   if (!loaded.has(id)) loaded.set(id, fetch('?steps=' + id).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status))));
   try {
     const data = await loaded.get(id);
-    const rows = (data.results || []).map(r => el('tr', {}, el('td', {textContent: {passed: '✅', failed: '❌', skipped: '⏭️'}[r.status] || ''}), el('td', {textContent: r.name}),
-      el('td', {textContent: r.seconds ? Math.round(r.seconds) + ' s' : ''}), el('td', {className: 'what' + (r.status === 'failed' ? ' failed' : ''), textContent: r.note || (r.retried ? 'passed after one retry' : '')})));
+    const row = r => el('tr', {}, el('td', {textContent: {passed: '✅', failed: '❌', skipped: '⏭️'}[r.status] || ''}), el('td', {textContent: r.name}),
+      el('td', {textContent: r.seconds ? Math.round(r.seconds) + ' s' : ''}), el('td', {className: 'what' + (r.status === 'failed' ? ' failed' : ''), textContent: r.note || (r.retried ? 'passed after one retry' : '')}));
+    // One error repeated by step after step (a closed window): the first one shows, the rest behind one line.
+    const cause = r => r.status === 'failed' ? String(r.note || '').replace(/^[\w.$]+: /, '') : null, results = data.results || [], rows = [];
+    for (let i = 0; i < results.length; i++) {
+      const same = [];
+      while (cause(results[i]) && i + same.length + 1 < results.length && cause(results[i + same.length + 1]) === cause(results[i])) same.push(results[i + same.length + 1]);
+      rows.push(row(results[i]));
+      if (same.length >= 2) {
+        rows.push(el('tr', {}, el('td', {}), el('td', {colSpan: 3}, el('details', {className: 'repeat'}, el('summary', {textContent: same.length + ' more steps failed the same way'}),
+          el('table', {}, ...same.map(row))))));
+        i += same.length;
+      }
+    }
     const traces = (data.traces || []).map(file => el('a', {className: 'button', target: '_blank', textContent: '▶ Open trace' + (data.traces.length > 1 ? ' (' + file + ')' : ''),
       href: '/trace-viewer/index.html?trace=' + encodeURIComponent(location.origin + '/admin/e2e/trace/' + id + '/' + file)}));
     box.replaceChildren(rows.length ? el('table', {}, el('tr', {}, el('th', {textContent: ''}), el('th', {textContent: 'Step'}), el('th', {textContent: 'Time'}), el('th', {textContent: 'What happened'})), ...rows)
@@ -246,7 +259,17 @@ function card(run) {
   return el('div', {className: 'card'}, el('div', {className: 'run-head'}, el('span', {textContent: icon(run)}), el('b', {textContent: run.title + (run.os ? ' · ' + run.os : '')}),
     el('span', {className: 'meta', textContent: run.suites.length + ' suites' + (failed ? ', ' + failed + ' failed' : '') + ' · ' + run.event + ' · ' + run.sha + ' · ' + ago(run.created)}),
     ...(run.report ? [el('a', {href: '/admin/e2e/run/' + run.id + '/report', target: '_blank', className: 'button', textContent: '📊 HTML report'})] : []),
-    el('a', {href: run.url, target: '_blank', className: 'meta', textContent: 'GitHub'})), ...run.suites.map(s => suite(run, s)));
+    el('a', {href: run.url, target: '_blank', className: 'meta', textContent: 'GitHub'})), ...suites(run));
+}
+// Suites that need a look (failed, running) one by one; the passed ones under one line, closed: "✅ 19 passed — show".
+function suites(run) {
+  const passed = run.suites.filter(s => s.conclusion === 'success'), rest = run.suites.filter(s => s.conclusion !== 'success');
+  if (passed.length < 2) return run.suites.map(s => suite(run, s));
+  const key = run.id + '/passed', group = el('details', {className: 'passed'}, el('summary', {}, el('span', {textContent: '✅'}),
+    el('span', {className: 'name', textContent: passed.length + ' passed — show'})), ...passed.map(s => suite(run, s)));
+  group.open = opened.get(key) ?? false;
+  group.addEventListener('toggle', () => opened.set(key, group.open));
+  return [...rest.map(s => suite(run, s)), group];
 }
 let timer;
 async function refresh() {

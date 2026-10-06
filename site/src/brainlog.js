@@ -100,8 +100,7 @@ ${steps ? `<ul class="steps">${steps}</ul>` : ''}</article>`;
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a}
 *{box-sizing:border-box}.card{padding:14px 16px;margin-bottom:10px;display:block}
-.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.filter{color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
-.filter:hover{color:var(--text)}.filter.on{background:var(--amber);color:var(--bg);border-color:var(--amber);font-weight:600}
+.filters{margin-bottom:14px}
 .meta{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}.meta .right{margin-left:auto;display:flex;gap:10px;align-items:center}
 .decision h3{margin:6px 0 4px;font-size:16px;line-height:1.35}
 .text,.step-text{margin:0;color:var(--muted);font-size:14px;overflow-wrap:anywhere}.step-text{display:block;margin:2px 0 0 0}

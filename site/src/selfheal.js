@@ -30,9 +30,9 @@ export const PRINCIPLES = [
   ['Learn from the owner\'s corrections', 'A reopened noise issue, a removed `confirmed` or a hand closure becomes a lesson for every judge; the weekly self-review proposes at most 3 rule changes as a PR that never merges itself.', 'in force', 'lib/reversals.mjs, finder-review.yml'],
 ];
 export function principlesSection() {
-  return `<section class="card"><h2>🧭 How the loop works and learns</h2><small class="muted">The rules it follows, what each one came from, and whether it is new</small><div class="wrap"><table><tr><th>Principle</th><th>In practice</th><th>Status</th><th>Where</th></tr>
+  return `<details class="card reference"><summary><h2>🧭 How the loop works and learns</h2><small class="muted">The rules it follows, what each one came from, and whether it is new</small></summary><div class="wrap"><table><tr><th>Principle</th><th>In practice</th><th>Status</th><th>Where</th></tr>
 ${PRINCIPLES.map(([rule, practice, status, where]) => `<tr><td><b>${esc(rule)}</b></td><td>${esc(practice)}</td><td>${status === 'new' ? '🆕 new' : status === 'in force' ? '✅ in force' : esc(status)}</td><td class="muted">${esc(where)}</td></tr>`).join('')}
-</table></div></section>`;
+</table></div></details>`;
 }
 
 // Why the loop's issues were closed (the `resolution:` labels, desktop/e2e/lib/resolution.mjs) and what each producer run dropped: the causes behind the false and stale numbers.
@@ -126,12 +126,12 @@ export function liveSection(live, history = [], now = new Date()) {
   const banner = age.level === 'fresh' ? '' : `<section class="card ${age.level}"><b>${age.level === 'stale' ? '⛔ These numbers are stale' : '⚠️ A publish is late'}</b> · last published ${esc(age.text)}; CI publishes every 3 hours (the Worker's cron, GitHub's schedule as backup).${age.level === 'stale' ? ' More than one run was missed: check the "CI · Self-heal stats" workflow.' : ''}</section>`;
   return `${banner}<section class="card"><h2>🩺 The loop, live</h2><small class="muted">Updated ${esc(String(live.at || '').slice(0, 16).replace('T', ' '))} UTC (${esc(age.text)}) · every issue the loop filed${since ? ` since ${esc(since)}` : ''}, by what found it and how it ended${since ? `. ${num(live.excluded)} earlier issues, filed under noisier rules, stay on GitHub and are not counted, so the figures cover only this window` : ''}</small></section>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
+${watchSection(live)}
 ${periodsSection(live)}
 ${trendSection(live)}
 ${changesSection(live)}
 ${quality.length ? `<section class="card"><h2>📏 How well it does</h2><div class="tiles">${quality.map(([label, value, better]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(pct(value.rate))}</b><small class="muted">${esc(value.rate === null ? `not measured yet: ${value.note}` : `${value.note} · ${better}`)}</small></div>`).join('')}</div></section>` : ''}
 ${causesSection(live)}
-${watchSection(live)}
 ${periods ? '' : `<section class="card"><h2>🔎 By detector</h2><div class="wrap"><table><tr><th>Detector</th>${heads.map(head => `<th>${head}</th>`).join('')}</tr>
 ${(live.byDetector || []).map(row => `<tr><td>${esc(row.detector)}</td>${cols.map(col => `<td class="n">${num(row[col])}</td>`).join('')}</tr>`).join('')}
 <tr class="total"><td>Total</td>${cols.map(col => `<td class="n">${num(t[col])}</td>`).join('')}</tr></table></div>
@@ -184,6 +184,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}tr.total td{font-weight:700}
 ul{margin:8px 0 0;padding-left:18px}li{margin-top:6px}
+.reference summary{cursor:pointer;list-style:none}.reference summary::-webkit-details-marker{display:none}.reference summary h2::after{content:' ▸ show';color:var(--amber);font-weight:400;font-size:13px}.reference[open] summary h2::after{content:' ▾'}
 ${TREND_STYLE}
 </style></head><body><main>
 <header><h1>🔁 Self-healing</h1><span class="muted">${esc(rangeText(live))}</span></header>

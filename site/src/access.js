@@ -30,7 +30,7 @@ export function page({list = [], logins = [], created = null, now = Date.now()})
 <meta name="robots" content="noindex"><title>Access · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 .card{padding:16px;margin-bottom:12px}h2{margin:0 0 4px}.good{color:#3fb68b}.bad{color:#e5484d}.warn{color:#f5b54a}
-th,td{padding:8px 6px;vertical-align:middle}.actions{display:flex;gap:6px;white-space:nowrap}form{display:inline-flex;gap:6px;margin:0}
+th,td{padding:8px 6px;vertical-align:middle}.actions{display:flex;gap:6px;white-space:nowrap}form{display:inline-flex;gap:6px;margin:0}@media (max-width:560px){form.invite{display:flex;flex-direction:column;align-items:stretch}form.invite>*{width:100%;box-sizing:border-box}}
 input[type=text],select{background:#0b0d10;color:#f4efe3;border:1px solid #262c33;border-radius:8px;padding:7px 9px;font:inherit}
 button{background:#1b2027;color:#f4efe3;border:1px solid #262c33;border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
 button.primary{background:#f5b54a;color:#0b0d10;border-color:#f5b54a;font-weight:600}button.danger{color:#e5484d}
@@ -40,7 +40,7 @@ button.primary{background:#f5b54a;color:#0b0d10;border-color:#f5b54a;font-weight
 ${created ? `<section class="card created"><h2>Invite for ${esc(created.name)}</h2><small class="muted">Send this link to them. It works once, for ${created.days} days, and is shown only now: it is not stored.</small>
 <div class="link"><input id="invite" type="text" readonly value="${esc(created.link)}" aria-label="Invite link"><button class="primary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite').value);this.textContent='Copied'">Copy</button></div></section>` : ''}
 <section class="card"><h2>Invite someone</h2><small class="muted">They get the admin role: every admin page, read only. You can change the expiry or remove them at any time.</small>
-<form method="post" style="margin-top:10px"><input type="hidden" name="action" value="invite"><input type="text" name="name" placeholder="Their name" required maxlength="60" aria-label="Name">
+<form method="post" class="invite" style="margin-top:10px"><input type="hidden" name="action" value="invite"><input type="text" name="name" placeholder="Their name" required maxlength="60" aria-label="Name">
 <select name="days" aria-label="Access for">${days}</select><button class="primary">Create invite link</button></form></section>
 <section class="card"><h2>People</h2><div class="wrap"><table><tr><th>Name</th><th>Status</th><th>Access until</th><th>Last seen (UTC)</th><th>Invited</th><th>New expiry, from today</th></tr>
 ${rows || '<tr><td colspan="6" class="muted">Nobody invited yet.</td></tr>'}</table></div></section>
