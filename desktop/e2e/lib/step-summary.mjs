@@ -7,11 +7,13 @@ const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` :
 const ICON = {passed: '✅', failed: '❌', skipped: '⏭️'};
 
 // results: the runner's [{name, status, seconds, note, retried, budget}]; traces: the trace files kept; artifact: the uploaded artifact's name; runUrl: the run page.
-export function stepSummary(suite, results = [], {traces = [], artifact = '', runUrl = '', rerun = false, os = ''} = {}) {
+// reportUrl: the run's Playwright HTML report for this suite (site/src/e2e.js /admin/e2e/run/<run>/report?suite=): steps with screenshots, the failure, the trace.
+export function stepSummary(suite, results = [], {traces = [], artifact = '', runUrl = '', rerun = false, os = '', reportUrl = ''} = {}) {
   const count = status => results.filter(result => result.status === status).length;
   const total = results.reduce((sum, result) => sum + (Number(result.seconds) || 0), 0);
   const verdict = count('failed') ? '❌' : '✅';
-  const lines = [`### ${verdict} ${suite}${os ? ` (${os})` : ''}${rerun ? ', second try' : ''}: ${count('passed')} passed, ${count('failed')} failed, ${count('skipped')} skipped, ${Math.round(total)} s`, ''];
+  const lines = [`### ${verdict} ${suite}${os ? ` (${os})` : ''}${rerun ? ', second try' : ''}: ${count('passed')} passed, ${count('failed')} failed, ${count('skipped')} skipped, ${Math.round(total)} s`, '',
+    ...(reportUrl && !rerun ? [`📊 [Open the HTML report](${reportUrl}): each step with its screenshot, the failure and its trace`, ''] : [])];
   if (!results.length) return [...lines, 'No step ran (the suite stopped before its first step: see the log).', ''].join('\n');
   lines.push('| | Step | Time | What happened |', '|---|---|---:|---|');
   for (const result of results) {

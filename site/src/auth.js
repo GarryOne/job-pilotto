@@ -14,7 +14,7 @@ import {device} from './stats.js';
 export const SESSION_COOKIE = 'jp_admin', LEGACY_COOKIE = 'jp_stats', SESSION_DAYS = 30;
 const encoder = new TextEncoder();
 const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-async function sign(secret, text) {
+export async function sign(secret, text) {
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
   return base64url(await crypto.subtle.sign('HMAC', key, encoder.encode(text)));
 }

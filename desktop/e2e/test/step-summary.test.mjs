@@ -27,6 +27,12 @@ test('every step is a row with its status, time and what happened', () => {
   assert.match(text, /`trace-jobs\.zip`.*trace\.playwright\.dev/);
 });
 
+test('the suite links to the run\'s HTML report, except on the second try', () => {
+  const url = 'https://www.jobpilotto.workers.dev/admin/e2e/run/9/report?suite=jobs';
+  assert.match(stepSummary('jobs', results, {reportUrl: url}), /📊 \[Open the HTML report\]\(https:\/\/www\.jobpilotto\.workers\.dev\/admin\/e2e\/run\/9\/report\?suite=jobs\)/);
+  assert.doesNotMatch(stepSummary('jobs', results, {reportUrl: url, rerun: true}), /HTML report/);
+});
+
 test('a passing suite says so in one line and points at no trace', () => {
   const text = stepSummary('wizard', [results[0]], {os: 'Windows'});
   assert.match(text, /^### ✅ wizard \(Windows\): 1 passed, 0 failed, 0 skipped, 12 s/);
