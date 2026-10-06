@@ -41,7 +41,7 @@ FEATURES = (
     Feature('insights', 'Daily insight + weekly report', (AI, 'JOB_PILOTTO_INSIGHT_MODEL', 'NOTION_TOKEN'),
             'paid', 'JOB_PILOTTO_INSIGHT_MODEL=claude-sonnet-5-5 (plus the AI key and Notion)'),
     Feature('web_search', "Web search for an employer's own job site (Brave Search, else SerpApi's Google)", (('BRAVE_SEARCH_API_KEY', 'SERPAPI_API_KEY'),), 'free tier',
-            'BRAVE_SEARCH_API_KEY from brave.com/search/api (free plan: 2,000 searches/month); without it, SERPAPI_API_KEY is used'),
+            'Claude Code\'s own web search first when it is the AI engine; then BRAVE_SEARCH_API_KEY (brave.com/search/api, free 2,000/month), then SERPAPI_API_KEY'),
     Feature('google_jobs', 'Google Jobs via SerpApi', ('SERPAPI_API_KEY',), 'free tier',
             'SERPAPI_API_KEY from serpapi.com (free plan: 250 searches/month)'),
     Feature('transcribe', 'Interview recordings -> transcript with speakers (on this machine)', (), 'free',

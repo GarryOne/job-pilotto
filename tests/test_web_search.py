@@ -14,6 +14,11 @@ BRAVE = {'web': {'results': [{'url': 'https://www.linkedin.com/company/coop/jobs
 
 
 class WebSearchTests(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(web_search, '_claude_code', lambda: False)   # these tests are about the keyed searches
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_brave_first_then_serpapi_and_nothing_without_a_key(self):
         asked = []
         get = lambda url, headers=None: asked.append((url, headers)) or BRAVE
@@ -47,6 +52,25 @@ class WebSearchTests(unittest.TestCase):
                                 lambda url: {'ats': 'careers', 'slug': 'coop', 'jobs': jobs} if url == 'https://www.coop.ch' else None, search=search)
         self.assertEqual(known[1], 'coop')
         self.assertEqual(searched, [], 'no search when the website already led to jobs')
+
+
+class ClaudeCodeSearchTests(unittest.TestCase):
+    def test_claude_code_comes_first_and_only_its_answers_own_sites_are_kept(self):
+        with mock.patch.object(web_search, '_claude_code', lambda: True), mock.patch.dict(os.environ, {'BRAVE_SEARCH_API_KEY': 'b', 'JOB_PILOTTO_DISABLE': ''}), \
+                mock.patch.object(web_search, '_claude_search', lambda company, language: ['https://jobs.coop.ch/viewalljobs/', 'https://www.linkedin.com/jobs/coop',
+                                                                                          'https://www.coopjobs.ch/fr.html']):
+            self.assertEqual(web_search.provider(), 'claude')
+            self.assertEqual(web_search.job_sites('Coop', 'fr'), ['https://jobs.coop.ch/viewalljobs/', 'https://www.coopjobs.ch/fr.html'])
+
+    def test_claude_code_is_allowed_web_search_and_nothing_else(self):
+        from src.ai import engine
+        cli = engine.CliClient(binary='claude', run=lambda *a, **k: None)
+        with mock.patch.object(engine, 'flags', lambda binary, run: {'--tools', '--permission-mode', '--max-turns', '--allowedTools'}):
+            args = cli.command('claude-haiku-4-5', 'system', web_search=True)
+            plain = cli.command('claude-haiku-4-5', 'system')
+        self.assertEqual(args[args.index('--tools') + 1], 'WebSearch')
+        self.assertEqual(args[args.index('--allowedTools') + 1], 'WebSearch')
+        self.assertEqual(plain[plain.index('--tools') + 1], '', 'other calls still have no tools at all')
 
 
 if __name__ == '__main__':

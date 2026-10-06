@@ -1126,8 +1126,8 @@
       <div class="setting conn-panel" id="setting-brave" hidden>
         <div><h3>🔎 Web search (Brave)</h3><p class="muted status-line" data-secret="BRAVE_SEARCH_API_KEY"></p>
           <p class="muted small">Finds an employer's own job site with a web search ("Coop jobs"), as you would, when its name and website lead
-            nowhere. Free plan at <a href="#" data-link="https://brave.com/search/api/">brave.com/search/api</a>: 2,000 searches a month. Without it,
-            your SerpApi key is used (one Google Jobs search each).</p></div>
+            nowhere. Free plan at <a href="#" data-link="https://brave.com/search/api/">brave.com/search/api</a>: 2,000 searches a month. When your AI runs
+            on Claude Code, its own web search is used first (on your Claude plan); this key, then your SerpApi key, come after.</p></div>
         <div class="inline"><input type="password" id="set-brave" placeholder="Brave Search key"><button class="secondary" id="set-brave-save">Save</button></div>
       </div>
       <div class="setting conn-panel" id="setting-aggregators" hidden>

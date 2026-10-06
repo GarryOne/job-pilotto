@@ -340,7 +340,7 @@ class CliClient:
             self._api = self.fallback()
             return self._api.messages.create(**params)
 
-    def command(self, model, system, schema=None, effort=None, with_files=False):
+    def command(self, model, system, schema=None, effort=None, with_files=False, web_search=False):
         offered = flags(self.binary, self.run)
         args = [self.binary, '-p', '--output-format', 'json', '--model', alias(model)]
         if system:
@@ -348,6 +348,9 @@ class CliClient:
         if with_files:  # Read only, and only this call's own folder (the working directory); nothing asks
             args += ['--tools', 'Read'] if '--tools' in offered else ['--disallowedTools', ','.join(d for d in DENY if d != 'Read')]
             args += ['--allowedTools', 'Read(./**)']
+        elif web_search:  # web search only (src/sources/web_search.py): no files, no shell, no page fetches; nothing asks
+            args += ['--tools', 'WebSearch'] if '--tools' in offered else ['--disallowedTools', ','.join(d for d in DENY if d != 'WebSearch')]
+            args += ['--allowedTools', 'WebSearch']
         else:
             args += ['--tools', ''] if '--tools' in offered else ['--disallowedTools', ','.join(DENY)]
         if '--permission-mode' in offered:
@@ -358,7 +361,7 @@ class CliClient:
             args += ['--effort', effort]
         if '--max-turns' in offered:
             # One turn for a plain answer; reading files or a structured answer takes Claude Code a few steps.
-            args += ['--max-turns', '1' if not with_files and schema is None else str(3 + 2 * with_files)]
+            args += ['--max-turns', '8' if web_search else '1' if not with_files and schema is None else str(3 + 2 * with_files)]
         for flag in ('--no-session-persistence', '--strict-mcp-config', '--safe-mode'):
             if flag in offered:
                 args.append(flag)
@@ -394,13 +397,14 @@ class CliClient:
             raise classify(f"{data.get('result') or ''}\n{out.stderr or ''}\n{data.get('subtype') or ''}")
         return data, 'end_turn'
 
-    def _create(self, model, messages, system=None, output_config=None, max_tokens=None, **_):
+    def _create(self, model, messages, system=None, output_config=None, max_tokens=None, tools=None, **_):
         config = output_config or {}
         schema = (config.get('format') or {}).get('schema') if (config.get('format') or {}).get('type') == 'json_schema' else None
         with tempfile.TemporaryDirectory(prefix='job-pilotto-claude-') as folder:
             prompt, files = prompt_and_files(messages, folder)
             system_text = _system_text(system)
-            args = self.command(model, system_text, schema, config.get('effort'), with_files=bool(files))
+            web = any(str((tool or {}).get('type', '')).startswith('web_search') for tool in tools or [])   # the API's web search tool: Claude Code's own
+            args = self.command(model, system_text, schema, config.get('effort'), with_files=bool(files), web_search=web)
             native = schema is not None and '--json-schema' in args
             if schema is not None and not native:
                 prompt += ('\n\nAnswer with only one JSON object (no prose, no code fence) that matches this JSON '
