@@ -1100,6 +1100,12 @@ export function renderKitsCard(kits, target = $('activity-card')) {
     link.href = job.url; link.target = '_blank'; link.rel = 'noopener';
     row.append(link);
     if (job.company) row.append(el('span', 'muted', ` · ${job.company}`));
+    if (cvs) {   // the tailored CV itself, as the Jobs list's 📄 Tailored CV opens it
+      const view = el('button', 'link', 'View CV →');
+      view.title = 'Your CV tailored to this job, with the changes highlighted';
+      view.addEventListener('click', () => window.pilot.openTailoredCv(job.url));
+      row.append(' · ', view);
+    }
     list.append(row);
   }
   const section = el('section', 'insight-section');

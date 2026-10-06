@@ -1660,7 +1660,8 @@ function handlers() {
     tailoring.add(key);
     try { await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false}); } finally { tailoring.delete(key); }
   });
-  ipcMain.handle('openTailoredCv', (_, code) => openTailoredCv(code));
+  // A job's code (the Jobs list) or its posting address (a Tailor CVs card knows only the link).
+  ipcMain.handle('openTailoredCv', (_, which) => openTailoredCv(/^https?:/.test(String(which)) ? cvlib.forUrl(storage, String(which))?.job?.code : which));
   // The base CV the tailoring starts from: import it from the CV PDF (again), see it, or edit its files.
   // CV check (Profile → CV): how a parser reads the uploaded PDF (free), then one AI review of what it says (a few cents). A cache of the PDF: cv/check.json.
   ipcMain.handle('cvCheckStatus', () => (DEMO ? demo.cvCheck : cvCheck.saved(storage)));
