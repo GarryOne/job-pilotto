@@ -18,17 +18,30 @@ export const PROBLEM_FIXES = [[/Google sign-in/i, 'Reconnect Google', 'settings'
 // mockup, 6 Oct 2026): a variant of the failure box beside the others, not a replacement.
 const AI_STOPPED_WHAT = {mail: 'Email processing', search: 'Scoring', insight: 'The insight', weekly: 'The report', kit: 'The application kit',
   interview: 'The interview review', review: 'The review'};
+// Which limit, from the error itself and who is billed (owner, 6 Oct 2026: credits, a spend limit, a plan's limit and a rate limit all read
+// "Increase your limit"): its words and the page that fixes it. A cause not recognised keeps the neutral words.
+const LIMIT_KINDS = [
+  {test: (line) => /credit balance/i.test(line), why: 'API credits are exhausted.', hint: 'Add credits, then run it again.',
+    fix: {label: 'Manage API billing', url: 'https://console.anthropic.com/settings/billing'}},
+  {test: (line, run) => run.billing === 'Claude subscription' || /Claude Code|usage window|your plan|resets? at/i.test(line), why: 'Your plan’s usage limit was reached.',
+    hint: line => { const at = /resets? (?:at|in) ([^.;)]+)/i.exec(line); return at ? `It resets at ${at[1].trim()}; run it again then.` : 'Run it again once your plan’s usage resets.'; },
+    fix: {label: 'View plan usage', url: 'https://claude.ai/settings/usage'}},
+  {test: (line) => /specified API usage limits?|spending limit|spend limit/i.test(line), why: 'Your API spend limit was reached.', hint: 'Raise the limit, then run it again.',
+    fix: {label: 'Manage API limits', url: 'https://console.anthropic.com/settings/limits'}},
+];
 export function aiLimitHead(run, name = 'The run') {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
   const lines = [run.problem, run.result, ...(run.log || []), ...(run.report || [])].filter(Boolean).map(String);
   const hit = lines.find(line => isSpendingLimit(line)) || lines.find(line => AI_BUSY.test(line));
   if (!hit) return null;
-  const spend = isSpendingLimit(hit);
   const what = AI_STOPPED_WHAT[run.kind] || 'The run';
-  return {problem: hit, title: `${name} couldn’t finish`,
-    summary: `The AI provider’s ${spend ? 'usage limit was reached' : 'rate limit was hit'}. ${what} could not complete.`,
-    hint: spend ? `Increase your limit, then run the ${name === 'Gmail check' || name === 'Jobs check' ? 'check' : 'task'} again.` : 'Wait a few minutes, then run it again.',
-    fix: spend ? {label: 'Manage AI limit', url: run.billing === 'Claude subscription' ? 'https://claude.ai/settings/usage' : 'https://console.anthropic.com/settings/limits'} : null};
+  const title = `${name} couldn’t finish`;
+  if (!isSpendingLimit(hit)) return {problem: hit, title, summary: `Too many requests to the AI provider. ${what} could not complete.`, hint: 'Try again shortly: wait a few minutes, then run it again.', fix: null};
+  const kind = LIMIT_KINDS.find(one => one.test(hit, run));
+  if (kind) return {problem: hit, title, summary: `${kind.why} ${what} could not complete.`, hint: typeof kind.hint === 'function' ? kind.hint(hit) : kind.hint, fix: kind.fix};
+  return {problem: hit, title, summary: `The AI provider’s usage limit was reached. ${what} could not complete.`,
+    hint: `Increase your limit, then run the ${name === 'Gmail check' || name === 'Jobs check' ? 'check' : 'task'} again.`,
+    fix: {label: 'Manage AI limit', url: run.billing === 'Claude subscription' ? 'https://claude.ai/settings/usage' : 'https://console.anthropic.com/settings/limits'}};
 }
 // A run the app's watchdog stopped (lib/pipeline.js stoppedReason): what happened, the step it was on in plain words, and the way
 // out, with the log folded since the box says it (the owner's targeted fix #4, 6 Oct 2026: 110 log lines hid the reason).
