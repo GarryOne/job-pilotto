@@ -38,6 +38,18 @@ class FeedbackTests(unittest.TestCase):
         item = focus.build([app], events, target=0, now=NOW)['items'][0]
         self.assertEqual(item['kind'], 'feedback_review')
 
+    def test_waiting_for_feedback_says_connect_gmail_when_it_is_not_connected(self):
+        # #312: the row said "Gmail checks for replies" while the app's bottom bar said "Gmail not connected".
+        app = row('a', 'Acme', 'SRE', stage='Rejected')
+        events = [event('a', 'Screening', '2026-09-25'), event('a', 'Rejected', '2026-09-26'), event('a', feedback.REQUESTED, '2026-09-27')]
+        on = focus.build([app], events, target=0, now=NOW)['items'][0]
+        off = focus.build([app], events, target=0, now=NOW, gmail=False)['items'][0]
+        self.assertIn('Gmail checks for replies · or add feedback here', on['meta'])
+        self.assertIn('Gmail checks will collect', on['detail'])
+        self.assertIn('Connect Gmail to collect replies · or add feedback here', off['meta'])
+        for item in (off,):
+            self.assertNotIn('Gmail checks', ' '.join([item['detail'], *item['meta']]))
+
     def test_feedback_can_be_collected_during_screening_without_changing_stage(self):
         app = row('a', 'Acme', 'SRE', stage='Screening')
         tracker = FakeTracker([app])

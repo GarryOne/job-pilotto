@@ -134,7 +134,7 @@ def _short(text, limit=28):
     return text if len(text) <= limit else text[:limit - 1].rstrip(' ,·(') + '…'
 
 
-def present(item):
+def present(item, gmail=True):
     """The card's words (the app's Up next list): an icon, a badge, a short headline and a meta line."""
     kind, who = item['kind'], item['company'] or item['via'] or 'the recruiter'
     meta = []
@@ -171,7 +171,8 @@ def present(item):
         headline = {'feedback': f'Ask {who} for feedback', 'feedback_wait': f'Waiting for {who} feedback',
                     'feedback_review': f'Learn from {who} feedback'}[kind]
         meta = [_short(item['job'], 40), {'feedback': 'One specific point can improve your next interview',
-                'feedback_wait': 'Gmail checks for replies · or add feedback here',
+                # Only a connected Gmail is checked: without it the row would promise replies nobody collects (#312).
+                'feedback_wait': 'Gmail checks for replies · or add feedback here' if gmail else 'Connect Gmail to collect replies · or add feedback here',
                 'feedback_review': 'Employer feedback, separate from AI guesses'}[kind]]
     elif kind == 'which_job':
         icon, badge, tone = 'mail', 'Which job?', 'warn'
@@ -366,7 +367,7 @@ def questions(rows, events):
     return asked
 
 
-def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insights=()):
+def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insights=(), gmail=True):
     """{'items': [...], 'today': {...}}: the focus list, most important first. Pure: no I/O."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(TZ).date()
@@ -386,7 +387,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             if received or feedback.SKIPPED in kinds or status == 'Skipped':
                 continue
             if feedback.REQUESTED in kinds or status == 'Asked for feedback':
-                kind, detail = 'feedback_wait', 'Your request is sent. Gmail checks will collect their reply; you can also paste feedback here.'
+                kind, detail = 'feedback_wait', ('Your request is sent. Gmail checks will collect their reply; you can also paste feedback here.' if gmail else
+                                                 'Your request is sent. Connect Gmail to collect their reply, or paste feedback here.')
             elif feedback.eligible(row, history):
                 kind, detail = 'feedback', 'You reached Screening or later. Ask for one or two concrete points: real feedback helps improve your next interview.'
             else:
@@ -552,7 +554,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
              'follow_up': 4.5, 'feedback_review': 5,
              'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
-    items = [present(item) for item in items]
+    items = [present(item, gmail) for item in items]
     return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits),
                                       'history': _applied_by_day(rows, by_app, today)},
             'insight': insight, 'summary': summary(items), 'funnel': funnel(rows, events),
@@ -672,7 +674,16 @@ def settings_target():
         return DEFAULT_TARGET
 
 
-def load(tracker, *, target=None, now=None):
+def gmail_connected():
+    """Whether a Gmail check can run here (a Google sign-in saved, mail not switched off). A revoked sign-in still counts: the Gmail check says that one itself."""
+    from .sources.google import Google
+    try:
+        return Google.from_env() is not None
+    except Exception:  # noqa: BLE001 - the wording only; Focus never fails on it
+        return True
+
+
+def load(tracker, *, target=None, now=None, gmail=None):
     """Applications, events, interviews and (without a target given) the Search settings target, read at once."""
     rows, events, interviews, target, insights = notion.together(
         lambda: tracker.query_database(tracker.database_id),
@@ -680,7 +691,7 @@ def load(tracker, *, target=None, now=None):
         lambda: tracker.query_database(INTERVIEWS_DATABASE_ID) if INTERVIEWS_DATABASE_ID else [],
         lambda: target or settings_target(),
         lambda: tracker.query_database(INSIGHTS_DATABASE_ID) if INSIGHTS_DATABASE_ID else [])
-    return build(rows, events, interviews, target=target, now=now, insights=insights)
+    return build(rows, events, interviews, target=target, now=now, insights=insights, gmail=gmail_connected() if gmail is None else gmail)
 
 
 def reminder(focus, now=None):
