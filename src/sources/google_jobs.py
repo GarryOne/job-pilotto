@@ -40,8 +40,33 @@ def places(config):
             ('en' if isinstance(loc, str) else loc.get('language', 'en')) for loc in config['locations']}
 
 
+# SerpApi's canonical names for the countries src/sources/aggregators.py can tell from the user's places.
+COUNTRY_NAMES = {'ch': 'Switzerland', 'de': 'Germany', 'gb': 'United Kingdom', 'nl': 'Netherlands', 'fr': 'France', 'at': 'Austria',
+                 'es': 'Spain', 'it': 'Italy', 'pl': 'Poland', 'be': 'Belgium'}
+
+
 def settings(search_config):
-    return {**DEFAULTS, **search_config.get('google_jobs', {})}
+    return within_places({**DEFAULTS, **search_config.get('google_jobs', {})}, search_config)
+
+
+def within_places(config, search_config):
+    """The Google Jobs block kept inside the user's own places (search.json `locations`). The setup AI drafts it separately and can miss:
+    a French CV with no address got "France" and gl=fr for a search in Geneva (6 Oct 2026). Places in no country the user chose are
+    dropped; with none left, each of the user's countries is searched in the drafted language. Places we can't place leave it as drafted."""
+    from .aggregators import ADZUNA_COUNTRIES, _countries
+    countries = _countries(search_config)
+    if not countries:
+        return config
+    name = lambda loc: loc if isinstance(loc, str) else str(loc.get('location', ''))
+    locations = [loc for loc in config['locations'] if any(re.search(ADZUNA_COUNTRIES[c], name(loc).lower()) for c in countries)]
+    if not locations and config['locations']:
+        language = next((loc.get('language') for loc in config['locations'] if isinstance(loc, dict) and loc.get('language')), 'en')
+        locations = [{'location': COUNTRY_NAMES[c], 'language': language} for c in countries]
+    country = config['country'] if not config['country'] or config['country'] in countries else (countries[0] if len(countries) == 1 else '')
+    if locations != config['locations'] or country != config['country']:
+        print(f"Google Jobs: places outside your search left out ({', '.join(map(name, config['locations']))} -> "
+              f"{', '.join(map(name, locations)) or 'none'}; country {config['country'] or '-'} -> {country or '-'})")
+    return {**config, 'locations': locations, 'country': country}
 
 
 def _get(url, params, opener=urllib.request.urlopen):

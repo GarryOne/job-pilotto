@@ -1,3 +1,4 @@
+import contextlib
 import io
 import json
 import sys
@@ -86,6 +87,22 @@ class GoogleJobsTests(unittest.TestCase):
         empty = FakeSerpApi(error="Google hasn't returned any results for this query.")
         with tempfile.TemporaryDirectory() as tmp, database(Path(tmp) / 'db') as db:
             self.assertTrue(google_jobs.scan(db, 'key', CONFIG, opener=empty)['sources'][0]['ok'])
+
+    def test_places_outside_the_users_search_are_left_out(self):
+        """6 Oct 2026: a French CV with no address was drafted "France" / gl=fr for a search in Geneva."""
+        geneva = {'locations': {'top_tier': ['geneva', 'switzerland'], 'country_wide': [], 'abroad': []}}
+        drafted = {'queries': ['photographe'], 'country': 'fr', 'locations': [{'location': 'France', 'language': 'fr'}]}
+        with contextlib.redirect_stdout(io.StringIO()):
+            got = google_jobs.settings({**geneva, 'google_jobs': drafted})
+        self.assertEqual((got['country'], got['locations']), ('ch', [{'location': 'Switzerland', 'language': 'fr'}]))
+        right = {'queries': ['x'], 'country': 'ch', 'locations': [{'location': 'Geneva,Geneva,Switzerland', 'language': 'fr'},
+                                                                  {'location': 'Paris,Paris,France', 'language': 'fr'}]}
+        with contextlib.redirect_stdout(io.StringIO()):
+            kept = google_jobs.settings({**geneva, 'google_jobs': right})
+        self.assertEqual(kept['locations'], right['locations'][:1], 'a place in a chosen country stays, the other goes')
+        unknown = {'locations': {'top_tier': ['atlantis'], 'country_wide': [], 'abroad': []}, 'google_jobs': drafted}
+        self.assertEqual(google_jobs.settings(unknown)['locations'], drafted['locations'], 'places we cannot place: as drafted')
+        self.assertEqual(google_jobs.settings(geneva)['locations'], [], 'no Google Jobs places, still none')
 
     def test_imported_under_the_google_jobs_source(self):
         api = FakeSerpApi(results=[result()])

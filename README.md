@@ -68,7 +68,7 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | `score` | AI fit score against your Profile | + `JOB_PILOTTO_SCORE_MODEL`, Notion | ~$0.01/job | 2 min |
 | `auto_kits` | cover letter + form answers for top matches | + `JOB_PILOTTO_AUTO_KIT_MAX`, Notion | ~$0.04/kit | 2 min |
 | `insights` | daily insight + Monday weekly report | + `JOB_PILOTTO_INSIGHT_MODEL`, Notion | ~$0.03/day | 2 min |
-| `scout_ai` | Claude proposes new employers and company lists to look at, and learns from what the probes found | the AI key | ~$0.05 every third day | on with the AI key |
+| `scout_ai` | Claude proposes new employers and company lists to look at, and learns from what the probes found | the AI key | ~$0.05–0.15 per Find new employers run | on with the AI key |
 | `page_reader` | Claude reads careers pages that list jobs as plain text (cached until the page changes) | the AI key | a fraction of a cent per changed page | on with the AI key |
 | `render` | headless browser for careers pages built in the browser (public pages only; honours robots.txt, stops at any refusal) | `pip install -r requirements-render.txt` + `playwright install chromium` | free | 5 min |
 | `aggregators` | Arbeitnow, Himalayas and Jobicy: free public job APIs, each source named on its jobs, each read at most every 6 hours | nothing | free | on by default |
