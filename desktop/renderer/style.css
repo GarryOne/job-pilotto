@@ -1599,7 +1599,22 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
 /* One email in the run card's list (.run-card-row, as Find employers): what it recorded and the AI's reading under it. */
 .mail-row { flex-wrap: wrap; }
-.mail-meeting { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }   /* the interview, in its row */
+/* Each email edge to edge of the card, divided by a firmer line; its interview panel spans the full width too, no
+   rounded box inside the row (owner, 6 Oct 2026). The row's own padding keeps its words where the title is. */
+.mail-card .run-card-rows > .mail-row { margin: 0 calc(-1 * var(--sp-4)); padding-left: var(--sp-4); padding-right: var(--sp-4); }
+/* Between two emails: a band of the page's own colour with a firm line on each side, so each email reads as its own block. */
+.mail-card .run-card-rows > .mail-row:not(:last-child) { border-bottom: 1px solid var(--line-strong); }
+.mail-card .run-card-rows > .mail-row + .mail-row { border-top: 10px solid var(--bg); box-shadow: inset 0 1px 0 var(--line-strong); padding-top: var(--sp-4); }
+.mail-card .run-card-rows > .mail-row { padding-bottom: var(--sp-3); }
+/* A row's panel (the interview, the AI's reading of a rejection, the question or your answer) spans the card, square. */
+.mail-row-detail > :is(.mail-meeting, .mail-assessment, .mail-question) {
+  margin-left: calc(-1 * var(--sp-4)); margin-right: calc(-1 * var(--sp-4)); border-radius: 0; border-left: 0; border-right: 0; }
+.mail-meeting { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+/* A panel that ends its email meets the band below it: no white strip between them. */
+.mail-card .run-card-rows > .mail-row:has(> .mail-row-detail > :is(.mail-meeting, .mail-assessment, .mail-question):last-child) { padding-bottom: 0; }
+.mail-row-detail:has(> :is(.mail-meeting, .mail-assessment, .mail-question):last-child) { padding-bottom: 0; }
+.mail-row-detail > :is(.mail-meeting, .mail-assessment, .mail-question):last-child { border-bottom: 0; }
+.mail-row-detail > :is(.mail-assessment, .mail-question) { padding-left: var(--sp-4); padding-right: var(--sp-4); }
 .mail-row-summary { margin: 0; color: var(--ink-2); }
 .run-card-words b.mail-row-subject-title { white-space: normal; }   /* a long invitation subject wraps, as before 5f4f740 */
 .run-card-stats.mail-stats { align-items: center; }
