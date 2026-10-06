@@ -17,6 +17,25 @@ export function codeFrom(file, exitCode) {
   return exitCode || 1;
 }
 
+// The runner's exit code, or null when it was stopped: once the suite decided its code (the spec wrote codeFile), the runner gets `graceMs` to finish its
+// report and close. Longer means something in Playwright's runner or worker hung after the suite (6 Oct 2026: wander passed 8/8 twice, then hung until the
+// 10-min hard stop and the job was cancelled): stop it and keep the suite's own verdict, as suite.mjs's process.exit did before the report.
+export function closeOrStop(child, codeFile, {graceMs = 90_000, pollMs = 1000, log = console.log} = {}) {
+  return new Promise(done => {
+    let decidedAt = 0;
+    const poll = setInterval(() => {
+      if (!decidedAt && fs.existsSync(codeFile)) decidedAt = Date.now();
+      if (decidedAt && Date.now() - decidedAt > graceMs) {
+        clearInterval(poll);
+        log(`  (report) the Playwright runner was still open ${Math.round(graceMs / 1000)} s after the suite decided its code: stopped (its report blob may be missing)`);
+        child.kill('SIGKILL');
+        done(null);
+      }
+    }, pollMs);
+    child.on('close', code => { clearInterval(poll); done(code); });
+  });
+}
+
 export async function runInReport(name, env = process.env) {
   const {SUITES} = await import('./context.mjs');
   if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); return 2; }
@@ -27,7 +46,7 @@ export async function runInReport(name, env = process.env) {
   const blobTmp = path.join(path.dirname(codeFile), 'blob');
   const child = spawn(process.execPath, [cli, 'test', '--config', CONFIG], {cwd: E2E, stdio: 'inherit', env: {...env, E2E_SUITE: name, E2E_IN_REPORT: '1', E2E_CODE_FILE: codeFile, E2E_BLOB_TMP: blobTmp}});
   process.on('exit', () => { if (child.exitCode === null) child.kill('SIGKILL'); });   // suite.mjs's hard stop must not leave the runner behind
-  const exitCode = await new Promise(done => child.on('close', code => done(code)));
+  const exitCode = await closeOrStop(child, codeFile);
   try {
     const into = env.E2E_BLOB_DIR || path.join(E2E, 'blob-report');
     for (const file of fs.existsSync(blobTmp) ? fs.readdirSync(blobTmp).filter(item => item.endsWith('.zip')) : []) { fs.mkdirSync(into, {recursive: true}); fs.copyFileSync(path.join(blobTmp, file), path.join(into, file)); }

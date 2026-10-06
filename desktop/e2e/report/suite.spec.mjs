@@ -12,8 +12,10 @@ test(name, {tag: [`@${platform}`, ...(process.env.E2E_BROWSER ? [`@${process.env
     step: (title, body) => test.step(title, body),
     skipStep: title => test.step.skip(title, async () => {}),
     attach: (title, options) => testInfo.attach(title, options),
+    decided: code => { if (process.env.E2E_CODE_FILE) fs.writeFileSync(process.env.E2E_CODE_FILE, String(code)); },
   });
   if (process.env.E2E_CODE_FILE) fs.writeFileSync(process.env.E2E_CODE_FILE, String(result.code));
+  console.log(`  (report) the ${name} test body returned, code ${result.code}`);   // with lib/report.mjs's stop line: which side hung
   test.skip(!!result.skipped, result.skipped);
   // The report's error box: each failed step and why, in words (the steps below show where, with the screenshot and the trace).
   if (result.code) {
