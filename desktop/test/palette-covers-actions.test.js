@@ -14,3 +14,10 @@ test('every Run button on an Actions card is in the command palette', () => {
   const missing = cards.filter(card => /class="[^"]*\baction\b/.test(card) && !/data-command="\w+"|data-palette="\w+"/.test(card)).map(card => card.match(/<b>([^<]+)<\/b>/)?.[1]);
   assert.deepEqual(missing, []);
 });
+
+// ⌘K right after Esc opens the palette again: the shortcut asks whether a palette is OPEN, not whether one is still in the page (6 Oct 2026: a closed one
+// is removed a moment later, by its close event, and a ⌘K in between closed the closed one instead of opening it).
+test('the ⌘K shortcut toggles on an open palette, not on a palette element', () => {
+  const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
+  assert.match(nav, /if \(\$\('palette'\)\?\.open\) \$\('palette'\)\.close\(\); else openPalette/);
+});

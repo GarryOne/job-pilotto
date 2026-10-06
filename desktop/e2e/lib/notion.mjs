@@ -356,6 +356,17 @@ export async function restoreSections(token, id, start) {
   return restored;
 }
 
+// Part of a suite's start state (6 Oct 2026): no run left "Running". A run killed mid-way (a cancelled CI job, a stopped local run) cannot close its own row, and every
+// later app on that page showed it as running for up to 3 h (lib/run-history.js STALE_MS): the strategy suite then waited for a quiet app that never came.
+export async function closeRunningRows(token) {
+  const found = await call(token, 'POST', 'search', {query: 'Cronjob Runs', filter: {property: 'object', value: 'database'}});
+  const db = found.results.find(item => !item.archived && Object.values(item.properties || {}).some(column => column.type === 'select' && (column.select?.options || []).some(option => option.name === 'Running')));
+  if (!db) return 0;   // no run was ever "Running" here
+  const rows = await call(token, 'POST', `databases/${db.id}/query`, {filter: {property: 'Status', select: {equals: 'Running'}}});
+  for (const row of rows.results) await call(token, 'PATCH', `pages/${row.id}`, {properties: {Status: {select: {name: 'Failed'}}}});
+  return rows.results.length;
+}
+
 // setSection, for a heading the page may not have yet (a page written before the setting existed): it is added at the end with its entries.
 export async function ensureSection(token, id, heading, entries) {
   const blocks = await children(token, id);

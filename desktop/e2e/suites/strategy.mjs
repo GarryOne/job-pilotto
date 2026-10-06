@@ -7,7 +7,7 @@ import path from 'node:path';
 import {launch} from '../lib/app.mjs';
 import {digestTitles} from '../lib/digest.mjs';
 import {watch} from '../lib/activity.mjs';
-import {emptyDatabase, ensureSection, findPagesBeside, pageSections, restoreSections, setSection, trashPage} from '../lib/notion.mjs';
+import {closeRunningRows, emptyDatabase, ensureSection, findPagesBeside, pageSections, restoreSections, setSection, trashPage} from '../lib/notion.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
@@ -83,6 +83,8 @@ export async function run(ctx) {
 
   await ctx.run('this suite starts with no jobs, two small boards and no strategy change', async () => {
     await emptyDatabase(NOTION, 'Job Matches — AI Scored');
+    const closed = await closeRunningRows(NOTION);   // start state: no run left "Running" by a killed earlier run
+    if (closed) console.log(`  closed ${closed} run row(s) an earlier, killed run had left "Running"`);
     fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources-strategy.json'), path.join(ctx.profile, 'config', 'sources.json'));
     await reconnect(page);

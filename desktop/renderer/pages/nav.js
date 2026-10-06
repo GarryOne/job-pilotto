@@ -121,6 +121,7 @@ export async function init() {
     if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
     if ($('app').hidden) return;  // the setup wizard has nothing to run yet
     event.preventDefault();
-    if ($('palette')) $('palette').close(); else openPalette(paletteCommands());
+    // Open or closed, not present or absent: a closed palette is removed a moment later (its close event), and ⌘K pressed in between did nothing (Linux/Windows CI, 6 Oct 2026).
+    if ($('palette')?.open) $('palette').close(); else openPalette(paletteCommands());
   });
 }
