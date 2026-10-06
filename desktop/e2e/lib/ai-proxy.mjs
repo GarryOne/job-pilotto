@@ -3,7 +3,7 @@
 // It can also fail on purpose (setMode): the API answering 429 / 500 / 401, an empty credit balance, or never answering, so the failure states of a run are tested
 // without a real outage and without spending anything.
 import http from 'node:http';
-import {count, countReplay, keep, recall, requestKey, usageOf} from './ai-meter.mjs';
+import {count, countError, countReplay, keep, recall, requestKey, usageOf} from './ai-meter.mjs';
 
 // What the Anthropic API sends for each failure the app must survive (bodies copied from the real API's error shape).
 export const FAILURES = {
@@ -52,6 +52,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
       const headers = Object.fromEntries(Object.entries(req.headers).filter(([name]) => !['host', 'connection', 'content-length', 'accept-encoding'].includes(name)));
       const answer = await fetch(`${target}${req.url}`, {method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body});
       const answered = Buffer.from(await answer.arrayBuffer()), contentType = answer.headers.get('content-type') || 'application/json';
+      if (!answer.ok) countError(answer.status, answered.toString('utf8'));   // Anthropic's own answer: which limit, which error (lib/ai-meter.mjs)
       if (answer.ok && /\/messages(\?|$)/.test(req.url)) { count('app', usageOf(answered.toString('utf8'), contentType)); keep(key, {status: answer.status, contentType, body: answered}); }
       res.writeHead(answer.status, {'content-type': contentType, 'content-length': answered.length});
       res.end(answered);

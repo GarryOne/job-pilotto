@@ -106,3 +106,18 @@ test('per-key cost: each key\'s tokens at the day\'s billed price per token; onl
   const rows = keyDays(usage, {a: 'job-pilotto-e2e-testing', b: 'sre-job-watch', c: 'job-pilotto-in-house-credit'}, lines, ['job-pilotto-e2e-testing', 'job-pilotto-in-house-credit']);
   assert.deepEqual(rows.sort((x, y) => x.key.localeCompare(y.key)), [{day: '2026-10-05', key: 'job-pilotto-e2e-testing', usd: 2.5}, {day: '2026-10-05', key: 'job-pilotto-in-house-credit', usd: 4}]);
 });
+
+test('a refused call is recorded with the API\'s status, type and message', async t => {
+  const {apiErrors, resetUsage: reset, writeUsage: write} = await import('../lib/ai-meter.mjs');
+  const server = http.createServer((req, res) => { req.resume(); req.on('end', () => { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits.'}})); }); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  reset();
+  const proxy = await startAiProxy({target: `http://127.0.0.1:${server.address().port}`});
+  assert.equal((await fetch(`${proxy.url}/v1/messages`, {method: 'POST', body: '{}'})).status, 400);
+  await proxy.close();
+  assert.deepEqual(apiErrors(), {'400 invalid_request_error: You have reached your specified API usage limits.': 1});
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-err-'));
+  write(out);
+  assert.ok(fs.existsSync(path.join(out, 'ai-errors.json')));
+});

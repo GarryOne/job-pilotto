@@ -10,9 +10,19 @@ import path from 'node:path';
 import {usageCost} from './vision.mjs';
 
 const blank = () => ({calls: 0, usd: 0, unpriced: 0, replayed: 0, saved: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0});
-let tally = {app: blank(), judges: blank()};
+let tally = {app: blank(), judges: blank()}, errors = {};
 export const usage = () => tally;
-export const resetUsage = () => { tally = {app: blank(), judges: blank()}; };
+export const resetUsage = () => { tally = {app: blank(), judges: blank()}; errors = {}; };
+
+// A call Anthropic refused: its status and the API's own error type and message (never the request), counted per distinct answer. 7 Oct 2026: the app
+// said only "AI limit reached" for both a spend limit and an empty credit balance, and nothing showed which one the e2e key had hit.
+export function countError(status, text) {
+  let type = '', message = '';
+  try { const data = JSON.parse(text); type = data?.error?.type || ''; message = data?.error?.message || ''; } catch { message = String(text || '').slice(0, 200); }
+  const key = `${status} ${type}: ${message}`.slice(0, 300);
+  errors[key] = (errors[key] || 0) + 1;
+}
+export const apiErrors = () => errors;
 
 // "claude-haiku-4-5-20251001" -> "claude-haiku-4-5": the API answers with the dated id, the price list has the alias.
 export const priceName = model => String(model || '').replace(/-\d{8}$/, '');
@@ -81,6 +91,11 @@ export function writeUsage(dir) {
     if (!row.calls && !row.replayed) continue;
     fs.writeFileSync(path.join(dir, `ai-usage-${kind}.json`), JSON.stringify({...row, usd: Math.round(row.usd * 1e6) / 1e6, saved: Math.round(row.saved * 1e6) / 1e6}, null, 1));
     lines.push(`AI ${kind}: ${row.calls} paid call(s) $${row.usd.toFixed(4)}${row.unpriced ? ` (+${row.unpriced} unpriced)` : ''}, ${row.replayed} replayed (saved $${row.saved.toFixed(4)})`);
+  }
+  const refused = Object.entries(errors);
+  if (refused.length) {
+    fs.writeFileSync(path.join(dir, 'ai-errors.json'), JSON.stringify(errors, null, 1));
+    lines.push(...refused.map(([what, n]) => `AI refused ${n}x: ${what}`));
   }
   if (lines.length) console.log(`  ${lines.join('\n  ')}`);
 }
