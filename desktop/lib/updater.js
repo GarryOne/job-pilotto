@@ -30,6 +30,9 @@ export function newer(a, b) {
 
 // A pre-release is offered to beta testers only after tools/beta-approve.sh wrote this line in its notes: the unit suites and every end-to-end suite passed on it.
 export const BETA_MARK = /^Beta-approved:/m;
+// A Windows app also needs the Windows suites' own line (tools/beta-approve.sh --windows): one release for both, each platform offered it once its suites passed.
+export const BETA_MARK_WINDOWS = /^Beta-approved \(Windows\):/m;
+export const approvedFor = (body, platform = process.platform) => BETA_MARK.test(body || '') && (platform !== 'win32' || BETA_MARK_WINDOWS.test(body || ''));
 
 // The download for this computer in a release, or null. `own`: only this build's own installer (a beta or a rollback never takes the generic Windows
 // installer, which a failed Windows build leaves as the PREVIOUS release's: tools/release-stable.sh guards stable the same way).
@@ -64,7 +67,7 @@ const getJson = async (fetcher, url) => {
 export async function check(current, {channel = 'stable', fetcher = globalThis.fetch, platform = process.platform} = {}) {
   if (channel === 'beta') {
     const list = await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases?per_page=30`);
-    const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || BETA_MARK.test(release.body || '')))
+    const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || approvedFor(release.body, platform)))
       .map(release => offerOf(release, platform, {beta: !!release.prerelease})).filter(Boolean);
     const best = open.reduce((top, offer) => (!top || newer(offer.version, top.version) ? offer : top), null);
     return best && newer(best.version, current) ? best : null;

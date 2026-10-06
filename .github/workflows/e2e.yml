@@ -327,7 +327,7 @@ jobs:
           FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.scheduled)) && '1' || '' }}
         run: |
           gh workflow run e2e-windows.yml --repo "${{ github.repository }}" --ref main \
-            -f mac_run=${{ github.run_id }} -f sha=${{ needs.plan.outputs.ref }} -f review=${{ needs.plan.outputs.review }} -f full="$FULL"
+            -f mac_run=${{ github.run_id }} -f sha=${{ needs.plan.outputs.ref }} -f review=${{ needs.plan.outputs.review }} -f full="$FULL" -f tag="${{ needs.plan.outputs.tag }}"
           echo "Windows run started for commit ${{ needs.plan.outputs.ref }} (it skips a commit Windows already tested)." >> "$GITHUB_STEP_SUMMARY"
 
   promote-dry-run:

@@ -27,6 +27,9 @@ on:
       full:
         description: 'Set by e2e.yml: 1 = the paid AI judge steps, as on the Mac run'
         required: false
+      tag:
+        description: 'Set by e2e.yml on a release gate: the build to approve for Windows beta testers when every Windows suite passes'
+        required: false
 
 permissions:
   contents: read
@@ -172,3 +175,20 @@ jobs:
           name: e2e-artifacts-windows-${{ matrix.suite }}
           path: e2e-artifacts-windows/${{ matrix.suite }}
           if-no-files-found: ignore
+
+  # Windows beta approval (owner, 6 Oct 2026): every Windows suite green on a release gate's build adds "Beta-approved (Windows):" to that release. A Windows
+  # app takes a beta only with it AND the Mac/Linux line (desktop/lib/updater.js approvedFor): one release, one version; Mac users never wait for Windows.
+  approve-windows:
+    needs: [plan, suite]
+    if: success() && inputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # gh release edit
+      issues: write     # the release scripts file an issue when something blocks a release (tests/test_release_permissions.py)
+    steps:
+      - uses: actions/checkout@v5
+      - name: Approve the build for Windows beta testers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: tools/beta-approve.sh --windows "$TAG" | tee -a "$GITHUB_STEP_SUMMARY"

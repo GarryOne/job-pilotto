@@ -19,6 +19,10 @@
 4. **A red suite, a red `build.yml`, a failed Windows job, or no build:** nothing is promoted; stable stays; the next night's build carries the fixes.
 There is **no waiting period** and no telemetry check: the end-to-end journey is the gate. Dry run of step 3 for a release: `gh workflow run e2e.yml -f promote_tag=<tag>`.
 
+**Beta approval is per platform (owner, 6 Oct 2026):** one release and one version for both. Mac/Linux suites green → `Beta-approved:` (Macs get it); every Windows suite green too →
+`Beta-approved (Windows):` (`tools/beta-approve.sh --windows`, from `e2e-windows.yml`). A Windows app needs both lines, so a Windows-only failure keeps Windows
+beta users on their last tested build while Macs move on.
+
 Version numbers: plain `X.Y.Z` since 0.5 (no alpha/beta suffix: the channel says how proven a build is). `desktop/package.json`
 holds the start (e.g. `0.5.0`); each build counts the patch up (`0.5.1`, tag `desktop-v0.5.1`). To start a new version, change it there.
 Older builds are `0.4.0-alpha.N`; the updater and the release tools still order them correctly.

@@ -110,3 +110,15 @@ test('"Back to stable" offers the latest stable release even though it is older,
   assert.deepEqual([back.version, back.rollback, back.ahead], ['0.4.0-alpha.52', true, true]);
   assert.equal((await stableRelease('0.4.0-alpha.52', {fetcher, platform: 'darwin'})).ahead, false, 'already on stable');
 });
+
+// One release for both platforms, approved per platform (owner, 6 Oct 2026): a Windows app takes a beta only when its own suites passed too.
+test('a beta approved for Mac only is offered on a Mac, not on Windows; with both lines, on both', async () => {
+  const {approvedFor} = await import('../lib/updater.js');
+  const mac = 'notes\n\nBeta-approved: unit suites and every end-to-end suite passed on commit abc1234 (2026-10-06)';
+  const both = `${mac}\nBeta-approved (Windows): every Windows end-to-end suite passed on commit abc1234 (2026-10-06)`;
+  assert.equal(approvedFor(mac, 'darwin'), true);
+  assert.equal(approvedFor(mac, 'win32'), false);
+  assert.equal(approvedFor(both, 'win32'), true);
+  assert.equal(approvedFor('Beta-approved (Windows): only Windows passed', 'win32'), false, 'the Windows line alone is not enough: the unit suites and the Mac gate decide too');
+  assert.equal(approvedFor('', 'darwin'), false);
+});
