@@ -98,6 +98,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}   # an employer's job site by web search (src/sources/web_search.py)
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
           BATCH: ${{ inputs.batch || '40' }}
           JOB_PILOTTO_RUN_ID: ${{ github.run_id }}
         run: |

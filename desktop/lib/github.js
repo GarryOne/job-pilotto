@@ -26,7 +26,7 @@ export const INSTALL_URL = `https://github.com/apps/${APP_SLUG}/installations/ne
 const API = 'https://api.github.com';
 
 // Keys the cloud runs need (secrets), and what the app's own runs set (variables): same values as pipelineEnv.
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY'];
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY'];
 // Secrets kept outside the app's own store, e.g. the Google sign-in (the Python side keeps it in the Keychain):
 // main.js sets the reader; they go to the repo with the rest, so a Gmail check on GitHub can sign in.
 let extraSecrets = () => ({});

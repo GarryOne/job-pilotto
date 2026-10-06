@@ -293,7 +293,7 @@ def job_hosts(website):
     return [f'https://{sub}.{host}' for sub in JOB_SUBDOMAINS]
 
 
-def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None):
+def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, search=None):
     """(ats, slug, jobs) for the candidate's public feed, or None. In order: the address already known; slugs guessed from the name and
     from the website's domain on the common job systems; then the website itself (an embedded job system, or a careers page with job data)."""
     if candidate.get('ats') and candidate.get('slug'):
@@ -332,6 +332,13 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None):
         page = discover(host)
         if page:
             break
+    # Nothing by name, website or the usual job hosts: a web search for "<company> jobs", as a person would (web_search.py), its results
+    # read like any careers page. Once per employer per recheck period: a "none" is not looked at again for RECHECK_DAYS['none'].
+    for url in [] if page or guessed or not search else search(candidate['name']):
+        page = discover(url)
+        if page and (page.get('jobs') or page.get('ats') != 'careers'):
+            break
+        page = None
     if page:
         if page.get('empty'):
             return guessed or (page['ats'], page['slug'], [])   # a careers page with no open jobs right now: watched, not dropped
@@ -757,6 +764,13 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
 
+    # A web search for an employer's own job site, when a key allows it (web_search.py); never for the end-to-end journey's fixtures.
+    from .sources import web_search
+    language = next((loc.get('language') for loc in (load_search_config().get('google_jobs') or {}).get('locations') or [] if isinstance(loc, dict)), '')
+    search = None if harvest_sources is not None or os.getenv('JOB_PILOTTO_FIXTURE_DIR') or not web_search.provider() else \
+        (lambda name: web_search.job_sites(name, language))
+    if search:
+        print(f'Scout: employers with no job site found are looked up with a web search ({web_search.provider()}).')
     unread = []   # job systems a careers page named that could not be read: (system, why, company)
 
     done = []
@@ -772,7 +786,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     def check_one(candidate):
         if candidate['status'] == 'manual':
             return {'status': 'manual'}
-        found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])))
+        found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])), search=search)
         if not found:
             return {'status': 'none'}
         system, slug, jobs = found
