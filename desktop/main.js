@@ -1933,6 +1933,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   logTo(path.join(app.getPath('userData'), 'logs'));
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   engineLog.setFile(path.join(app.getPath('userData'), 'logs', 'engine.log'));  // everything a run printed, in full
+  // E2E on a Linux CI runner only (no keyring there): Electron's safeStorage refuses the basic store unless told to. A user's app never takes this path.
+  if (process.platform === 'linux' && process.env.JOB_PILOTTO_E2E && process.env.CI) safeStorage.setUsePlainTextEncryption?.(true);
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   const firstStart = DEMO ? null : versionLine(storage, app.getVersion(), buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : '');
   if (firstStart) appLog('update', firstStart);
