@@ -727,14 +727,15 @@ function handlers() {
   // The page the person opened (a name from a fixed list, nothing else): where people go, in order.
   ipcMain.handle('pageView', (_, name) => { if (analyticsLib.PAGES.includes(String(name))) track('page_view', {page: String(name)}); return true; });
   ipcMain.handle('runs', () => activity());
+  // Pages are logged by their LAST 8 characters: the first 8 are the workspace's, the same on every page (6 Oct 2026: a log of reads could not tell them apart).
   ipcMain.handle('runDetail', async (_, pageId) => {
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'run-pages.json'), 'utf8'))[pageId] || {message: null, log: []};
     try {
       const started = Date.now(), read = await runHistory.detail(storage, pageId);
-      appLog('run', 'page read', {page: String(pageId).slice(0, 8), message: !!read.message, lines: read.log.length, ms: Date.now() - started});
+      appLog('run', 'page read', {page: String(pageId).replace(/-/g, '').slice(-8), message: !!read.message, lines: read.log.length, ms: Date.now() - started});
       return read;
     } catch (error) {
-      appLog('run', 'page not read', {page: String(pageId).slice(0, 8), error: error.message, status: error.status || 0});
+      appLog('run', 'page not read', {page: String(pageId).replace(/-/g, '').slice(-8), error: error.message, status: error.status || 0});
       return {message: null, log: [`Not read from Notion: ${error.message}`]};
     }
   });

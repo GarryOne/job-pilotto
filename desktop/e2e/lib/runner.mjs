@@ -14,9 +14,11 @@ export async function hangReport(session) {
   const [window, main] = await Promise.all([answers(session.page?.evaluate(() => 1) ?? Promise.reject()), answers(session.app?.evaluate(() => 1) ?? Promise.reject())]);
   return `the window ${window ? 'answers' : 'does NOT answer'}, the main process ${main ? 'answers' : 'does NOT answer'}`;
 }
-export function withLimit(promise, ms, name, getSession = () => null) {
+export function withLimit(promise, ms, name, getSession = () => null, budget = 0) {   // budget: set when the suite's budget, not the step's own limit, is what cuts it
   let timer;
-  const limit = new Promise((_, fail) => { timer = setTimeout(async () => fail(new Error(`the step did not finish within ${Math.round(ms / 60000)} min (it hung): ${await hangReport(getSession())}`)), ms); });
+  const limit = new Promise((_, fail) => { timer = setTimeout(async () => fail(new Error(budget
+    ? `the suite's ${Math.round(budget / 60000)}-minute budget ran out during this step (the suite is too long: split it): ${await hangReport(getSession())}`
+    : `the step did not finish within ${Math.round(ms / 60000)} min (it hung): ${await hangReport(getSession())}`)), ms); });
   return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
 }
 
@@ -36,7 +38,7 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
       results.push({name, status: 'failed', note: `not run: the suite was over its ${Math.round(budgetMs / 60000)}-minute budget`, budget: true});
       return;
     }
-    const fn = () => withLimit(Promise.resolve().then(rawFn), Math.min(limitMs, left), name, getSession);   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
+    const fn = () => withLimit(Promise.resolve().then(rawFn), Math.min(limitMs, left), name, getSession, left < limitMs ? budgetMs : 0);   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
     // E2E_STEPS=tailor,seeded runs only the steps whose name contains one of these words (and the critical setup): a quick way to re-run one step of a long suite.
     const only = (process.env.E2E_STEPS || '').split(',').map(word => word.trim().toLowerCase()).filter(Boolean);
     if (only.length && !critical && !only.some(word => name.toLowerCase().includes(word))) return;

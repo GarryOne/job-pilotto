@@ -64,21 +64,8 @@ export async function run(ctx) {
       if (task.command === 'weekly' && !result.card) throw new Error(`the Actions page shows the finished Search analysis as text, not as its card: "${result.text || 'nothing at all'}"`);
     }, {needs: ctx.needs});
   }
-  // A task that works for a while must say what it is doing (5 Oct 2026: Find new employers showed "Nothing to show yet" for four minutes). The AI is made slow, so the
-  // silence is long enough to see on fixtures: every AI-using task must still show its first line within seconds, and keep showing lines as it goes.
-  for (const task of [{command: 'scout', kind: 'scout', what: 'Find new employers'}]) {
-    await ctx.run(`${task.what} with a slow AI still streams its live log while it works`, async () => {
-      ctx.proxy.setDelay(8000);
-      try {
-        const {samples, fresh} = await runTask(ctx, task.command, {maxMs: 420000, kind: task.kind});
-        const problems = liveLogProblems(samples, {label: task.what, firstWithin: 20000});
-        const lines = Math.max(0, ...samples.map(item => item.logShown));
-        console.log(`  ${task.command}: ${samples.length} samples while running, up to ${lines} log line(s) shown, ${fresh.length} row(s)`);
-        if (lines < 3) problems.push(`its live log never grew past ${lines} line(s) in a run of ${samples.length * 1.5} s: it does not say what it is doing between its first and last line`);
-        if (problems.length) throw new Error(problems.join('; '));
-      } finally { ctx.proxy.setDelay(0); }
-    }, {needs: ctx.needs});
-  }
+  // Removed 6 Oct 2026: "Find new employers with a slow AI still streams its live log". On the fixtures the scout asks the AI nothing (it reads the boards), so a slow AI
+  // never slowed it: the step passed or failed on step order alone. Find new employers' own task step above still checks its row, its end and its log.
   // ---------- (4) Recent activity itself ----------
   // Before the failure tests: the history keeps about the newest 25 runs, and after the tests below the first tasks have scrolled out of it.
   await ctx.run('"View all activity" opens the panel, and its filter keeps one kind of run at a time', async () => {
@@ -140,7 +127,8 @@ export async function run(ctx) {
       fs.writeFileSync(file, JSON.stringify(runs));
     });
     await appReady(ctx);
-    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
+    // untilResult: after a relaunch the page read waits behind the start-up reads (CI 6 Oct 2026: answered with the result, after the step had looked at 1.5 s).
+    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true, untilResult: true});
     const words = `${opened.message} ${opened.card} ${opened.result}`.trim();
     if (words.length < 20) throw new Error(`a local run without its message opens to no result ("${words}"): its Notion page is not read. State: ${JSON.stringify(opened.state)}; page errors: ${[...journey.pageErrors, ...journey.consoleErrors].slice(-3).join(' | ') || 'none'}`);
     if (!opened.log.trim()) throw new Error('reading the Notion page replaced the run\'s own log with nothing');

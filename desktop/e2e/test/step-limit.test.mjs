@@ -28,3 +28,9 @@ test('past the suite budget the steps left are recorded as not run, and a runnin
   assert.deepEqual(runner.results.map(result => [result.name, result.status]), [['slow', 'passed'], ['runs into the budget', 'failed'], ['left over', 'failed']]);
   assert.match(runner.results[2].note, /not run: the suite was over its/);
 });
+
+test('a step cut by the suite budget says so, not that it hung', async () => {
+  const runner = createRunner(() => session, {keepGoing: true, budgetMs: 80});
+  await runner.run('cut by the budget', never);
+  assert.match(runner.results[0].note, /budget ran out during this step/);
+});

@@ -34,7 +34,17 @@ export async function run(ctx) {
     await page.locator('#conn-on .service-card, #conn-off .service-card').filter({hasText: 'AI (Claude)'}).first().getByRole('button').click();
     await page.locator('#ai-engine-settings [data-choice="cli"]').waitFor({state: 'visible', timeout: 15000});
     // Choosing Claude Code asks first ("Use your own Claude Code CLI?"); the engine only switches on the confirm. Then back to the API key, which switches at once.
+    // A CI runner has no Claude Code (6 Oct 2026, the first real CI run of this suite): there the app must refuse the switch and say why; on a Mac with it, switch.
+    const installed = (await page.evaluate(() => window.pilot.claudeCodeStatus()))?.installed;
     await page.locator('#ai-engine-settings [data-choice="cli"]').click();
+    if (!installed) {
+      await page.getByRole('button', {name: 'Use Claude Code CLI'}).click().catch(() => {});   // the confirm may not be offered at all without it
+      await page.waitForFunction(() => /not installed/i.test(document.getElementById('ai-engine-settings')?.textContent || ''), null, {timeout: 15000})
+        .catch(() => { throw new Error('without Claude Code the panel does not say it is not installed'); });
+      if (await page.evaluate(() => document.querySelector('#ai-engine-settings [data-choice="cli"]')?.getAttribute('aria-checked')) === 'true') throw new Error('the app switched to Claude Code although it is not installed');
+      await snap(ctx, 'settings-engine-cli-missing', {view: 'settings', situation: 'Claude Code CLI chosen on a computer where it is not installed: the API key stays the engine'});
+      return;
+    }
     await page.getByRole('button', {name: 'Use Claude Code CLI'}).click();
     await page.waitForFunction(() => document.querySelector('#ai-engine-settings [data-choice="cli"]')?.getAttribute('aria-checked') === 'true', null, {timeout: 15000});
     await page.waitForTimeout(800);
