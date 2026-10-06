@@ -686,6 +686,10 @@ def main():
             from .ai import cost as ai_cost
             if ai_cost.SIDE:   # careers pages, link picks and alert emails read with AI during this crawl: part of the run's AI cost
                 run['sources'] = dict(ai_cost.SIDE)
+            for source in report.get('sources') or []:   # an employer's own site that refuses us: offered as a site only you can open
+                if not source.get('ok') and source.get('ats') == 'careers' and source.get('slug'):
+                    from .sources import careers as careers_pages, visits
+                    visits.refused(source['company'], careers_pages.decode(source['slug']), source.get('error') or '')
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run', 'today'):

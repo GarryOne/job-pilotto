@@ -11,6 +11,8 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+from datetime import datetime, timezone
+from pathlib import Path
 import sys
 
 from . import digest, levels, store
@@ -329,6 +331,17 @@ def calendar_jobs(tracker):
     return {'jobs': [{**{key: job.get(key) or '' for key in keep}, 'status': stage_status(job.get('stage'))} for job in found]}
 
 
+def _visits(search):
+    """Sites only you can open, for the Strategy card and the "Few new jobs" chips (src/sources/visits.py)."""
+    from . import role_kinds
+    from .sources import visits
+    try:
+        return visits.visit_list(search, role_kinds.of_search(search))
+    except Exception as error:  # noqa: BLE001 — said, then no chips
+        print(f'Warning: sites to visit not listed ({type(error).__name__}: {error})', file=sys.stderr)
+        return []
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -345,6 +358,8 @@ def main(argv=None):
     sub.add_parser('rescore-previous')
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
+    sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
+    sub.add_parser('visit-read').add_argument('file')   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
     sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
@@ -380,7 +395,26 @@ def main(argv=None):
                                     [fragment for group in places.values() for fragment in group], search.get('title_exclude_keywords') or [])
             if said is not None:
                 said['languages'] = coverage.language_drops()
+                said['visits'] = _visits(search)
             print(json.dumps(said, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-list':
+            from .paths import load_search_config
+            print(json.dumps({'ok': True, 'visits': _visits(load_search_config(matching=False))}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-read':
+            from . import store
+            from .paths import JOBS_DB
+            from .sources import visits
+            page = json.loads(Path(args.file).read_text())
+            result = visits.read(page['url'], page.get('html') or '', page.get('cards'), page.get('title') or '', session=page.get('session') or '')
+            with store.connect(JOBS_DB) as db:   # the page becomes one of this user's feeds: the next jobs check reads, filters and scores it
+                from . import scout
+                db.executescript(scout.TABLES)
+                db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES ('visit', ?, ?, 'Standard', NULL, ?)""",
+                           (result['feed'], result['name'], datetime.now(timezone.utc).isoformat(timespec='seconds')))
+                db.commit()
+            print(json.dumps({'ok': True, 'name': result['name'], 'jobs': len(result['jobs']), 'added': result['added'], 'kind': result['kind']}, ensure_ascii=False))
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()

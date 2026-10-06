@@ -109,6 +109,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
+- `desktop/lib/visits.js` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors and portals with no API (LinkedIn,
 - `desktop/lib/window-log.js` — What happened to the main window, in logs/app.log (area `window`): how long it took to load, a load that failed, the
 
 ## Desktop window: pages
@@ -245,12 +246,13 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
-- `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app. The panel and the fill start only on a tab the desktop
+- `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app
 - `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
+- `extension/visit.js` — "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
 - `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.
 
 ## Python pipeline
@@ -329,6 +331,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/job_alerts.py` — Jobs from the job-alert emails in the user's own Gmail: LinkedIn, jobs.ch, jobup.ch, Indeed and Glassdoor send the jobs that match the
 - `src/sources/page_recipes.py` — Recipes: how to read one careers page without AI, learned from the one time AI read it.
 - `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
+- `src/sources/visits.py` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
 - `src/sources/web_search.py` — A web search for a company's own job site ("<company> jobs"), as a person would do it, for employers the scout cannot reach by name or website
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""

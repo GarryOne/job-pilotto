@@ -18,12 +18,20 @@
   .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
   .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .status.on::before { background: var(--good); }
+  .visit { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .visit small { color: var(--muted); font-size: 11px; }
 </style>
 </head>
 <body>
 <header><img src="icons/icon-48.png" alt="" width="22" height="22"><b>Job Pilotto</b><a href="#" id="settings">Settings</a></header>
 <main>
-  <p>The panel appears only on a tab the Job Pilotto app opens: press <b>Apply</b> in the app. On any other page the extension does nothing.</p>
+  <p>The application panel appears only on a tab the Job Pilotto app opens: press <b>Apply</b> in the app.</p>
+  <section class="visit" id="visit" hidden>
+    <p id="visit-text">A job list the app cannot read by itself? Read it from here: this page and its next pages, then the app filters and scores the jobs.</p>
+    <button id="visit-read">Read the jobs on this page</button>
+    <small id="visit-note"></small>
+    <small id="visit-progress"></small>
+  </section>
   <div class="status" id="status">Checking the connection…</div>
 </main>
 <script type="module" src="popup.js"></script>

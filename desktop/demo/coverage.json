@@ -86,5 +86,31 @@
    "applied": 5,
    "why": "your area"
   }
+ ],
+ "visits": [
+  {
+   "name": "Coop",
+   "url": "https://jobs.coop.ch",
+   "kind": "employer",
+   "why": "refuses automated visitors",
+   "last_read": null,
+   "note": ""
+  },
+  {
+   "name": "LinkedIn",
+   "url": "https://www.linkedin.com/jobs/search/?keywords=photographe&location=Gen%C3%A8ve",
+   "kind": "portal",
+   "why": "no way in but your own visit",
+   "last_read": null,
+   "note": "LinkedIn forbids reading its pages with an extension and may restrict accounts that do: one read per click keeps that small, not zero"
+  },
+  {
+   "name": "Indeed",
+   "url": "https://www.indeed.com/jobs?q=photographe&l=Gen%C3%A8ve",
+   "kind": "portal",
+   "why": "no way in but your own visit",
+   "last_read": null,
+   "note": ""
+  }
  ]
 }

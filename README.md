@@ -1132,7 +1132,7 @@ from it, as a competing product or service. Each version becomes Apache 2.0 two 
 "open source" in the OSI sense, so don't call it that.
 
 No warranty. It only reads public job-board and employer-feed APIs, with no scraping of sites whose terms forbid it
-(LinkedIn, Glassdoor, levels.fyi, Reddit are deliberately excluded). **Fewer, better applications:** it drafts only
+(LinkedIn, Glassdoor, Indeed and levels.fyi only through your own visit: the extension reads the list you opened). **Fewer, better applications:** it drafts only
 from your own profile, never invents facts, and every path that fills a form stops before Submit by design. That is
 meant to stay true for any copy too.
 

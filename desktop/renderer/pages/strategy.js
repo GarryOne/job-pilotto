@@ -9,7 +9,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {coverageCard, employersCard, filtersCard, placesCard, sourcesCard} from '../coverage-card.js';
+import {coverageCard, employersCard, filtersCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 
@@ -121,6 +121,7 @@ const DISMISSED = 'jp.coverage.dismissed';
 const SOURCES_DISMISSED = 'jp.sources.dismissed';
 const FILTERS_DISMISSED = 'jp.filters.dismissed';
 const FORYOU_DISMISSED = 'jp.foryou.dismissed';
+const VISITS_DISMISSED = 'jp.visits.dismissed';
 const remembered = (key = DISMISSED) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
 // The last verdict, kept so the cards are in place at the FIRST paint: the engine's answer takes seconds (a Python start), and a card that arrived after the page had stood still
 // pushed everything down while it was being read (5 Oct 2026). With nothing kept yet, a "Checking…" card holds the place; once a visit has found no card, nothing is held.
@@ -136,6 +137,24 @@ const paintCoverage = verdict => {
     chip => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
     chip => chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. The next searches show them (also in your Search settings in Notion).`
       : `Jobs that require ${chip.language} are no longer hidden. The next searches show them (also in your Search settings in Notion).`);
+  // Sites only you can open: a chip opens the page in the browser that has the extension, where "Read the jobs on this page" reads it.
+  const visitsCard = visitCard(verdict, remembered(VISITS_DISMISSED));
+  show($('strategy-visits'), !!visitsCard);
+  if (visitsCard) {
+    adviceEvent('shown', 'visit', 'strategy');
+    $('visits-title').textContent = visitsCard.title;
+    $('visits-text').textContent = visitsCard.text;
+    $('visits-chips').replaceChildren(...visitsCard.chips.map(chip => {
+      const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
+      button.addEventListener('click', async () => {
+        adviceEvent('taken', 'visit', 'strategy');
+        const opened = await window.pilot.openVisit(chip.url).catch(error => ({ok: false, error: error.message}));
+        toastMessage(opened.ok ? 'Opened in Chrome' : 'Not opened', opened.ok ? `Click the Job Pilotto icon there, then "Read the jobs on this page".${chip.note ? ` ${chip.note}.` : ''}` : opened.error);
+      });
+      return button;
+    }));
+    $('visits-dismiss').onclick = () => { adviceEvent('dismissed', 'visit', 'strategy'); try { localStorage.setItem(VISITS_DISMISSED, visitsCard.at); } catch {} show($('strategy-visits'), false); };
+  }
   // Employers where people like you got interviews (shared pool): a chip shows that employer's jobs in the Jobs list.
   const forYou = employersCard(verdict, remembered(FORYOU_DISMISSED));
   show($('strategy-foryou'), !!forYou);
@@ -206,6 +225,9 @@ function showCard(card, ids, add, done, kind = ids.box.replace(/^strategy-/, '')
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  // A page read through the extension (Sites only you can open): said wherever the window is, once per page.
+  window.pilot.onVisitRead?.(answer => toastMessage(`Read ${answer.jobs} jobs from ${answer.name}`,
+    `${answer.added} new on this visit. Your next jobs check filters and scores them like any other.`));
   $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
   $('strategy-rescore').addEventListener('click', async () => {

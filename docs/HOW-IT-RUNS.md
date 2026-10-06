@@ -6,7 +6,7 @@
 
 ## 🧭 Strategy
 Private: the owner's **📍 Product Compass** and **💰 IP & Monetization** in Notion (🧭 Strategy). Hard rules that shape
-the code: never auto-apply or press Submit; never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; ask before spending
+the code: never auto-apply or press Submit; LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit only through the user's own visit or a plain answer, never past a login or a check; ask before spending
 money on AI; every manual fix becomes an app step (CLAUDE.md → Working rules).
 
 ## 🔁 How the loops connect

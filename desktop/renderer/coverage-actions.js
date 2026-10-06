@@ -1,7 +1,7 @@
 // What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards
 // (renderer/coverage-card.js) as one list of actions, least effort first: a filter of yours to remove, a role word to add, a place to add (one
 // click each), then a job source to connect (a key). Pure: the same actions the Strategy cards offer, so both say and do the same.
-import {coverageCard, filtersCard, placesCard, sourcesCard} from './coverage-card.js';
+import {coverageCard, filtersCard, placesCard, sourcesCard, visitCard} from './coverage-card.js';
 
 export function coverageActions(verdict) {
   const out = [];
@@ -9,6 +9,7 @@ export function coverageActions(verdict) {
   for (const chip of coverageCard(verdict)?.chips || []) out.push({kind: 'role', label: chip.label, title: chip.title, value: chip.term});
   for (const chip of placesCard(verdict)?.chips || []) out.push({kind: 'place', label: chip.label, title: chip.title, value: chip.place});
   for (const chip of sourcesCard(verdict)?.chips || []) out.push({kind: 'source', label: chip.label, title: chip.title, value: chip.id});
+  for (const chip of visitCard(verdict)?.chips || []) out.push({kind: 'visit', label: chip.label, title: chip.title, value: chip.url});
   return out;
 }
 
@@ -16,7 +17,7 @@ export function coverageActions(verdict) {
 // where it was shown, and for a job source its fixed id. Never the role word, place or filter itself. Shown once per kind and place a session.
 const shownOnce = new Set();
 // One name per kind of advice, wherever it is shown: a Strategy card's box or an action's kind.
-const KIND = {coverage: 'role', role: 'role', places: 'place', place: 'place', filters: 'filter', exclude: 'filter', language: 'filter', sources: 'source', source: 'source', explain: 'explain', employer: 'employer'};
+const KIND = {coverage: 'role', role: 'role', places: 'place', place: 'place', filters: 'filter', exclude: 'filter', language: 'filter', sources: 'source', source: 'source', explain: 'explain', employer: 'employer', visit: 'visit'};
 export function adviceEvent(act, kind, where, {source = '', record = globalThis.window?.pilot?.telemetryRecord} = {}) {
   kind = KIND[kind];
   if (!record || !kind || !['shown', 'taken', 'dismissed'].includes(act)) return false;
@@ -31,6 +32,7 @@ export function adviceEvent(act, kind, where, {source = '', record = globalThis.
 // One action, done: the same calls the Strategy cards make (lib/strategy.js through main.js), or the source's panel in Settings.
 export function runAction(action, {pilot, openSetting}) {
   if (action.kind === 'source') { openSetting(action.value); return Promise.resolve({ok: true, opened: true}); }
+  if (action.kind === 'visit') return pilot.openVisit(action.value).then(result => ({...result, opened: !!result?.ok}));
   if (action.kind === 'role') return pilot.addRoles([action.value]);
   if (action.kind === 'place') return pilot.addPlaces([action.value]);
   return pilot.loosenSearch(action.kind === 'exclude' ? {excludes: [action.value]} : {languages: [action.value]});

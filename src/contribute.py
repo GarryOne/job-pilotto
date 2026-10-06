@@ -246,7 +246,7 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None,
     feeds = []
     for source in feed_list:
         system, slug = source.get('ats', 'greenhouse'), source.get('slug') or source.get('board')
-        if system not in ats.FETCHERS or not slug:
+        if system not in ats.FETCHERS or not slug or system in ats.LOCAL_ONLY:   # a page read through someone's own visit is theirs, not a feed
             continue
         is_own, is_matched, here = (system, slug) in own, source['company'] in matched, found.get((system, slug))
         seen = read.get(source['company']) or {}

@@ -51,6 +51,20 @@ export function sourcesCard(verdict, dismissedAt = '') {
   };
 }
 
+// Sites only you can open (src/sources/visits.py): employers whose site refuses automated visitors and portals with no API. A chip opens the
+// page in your Chrome; there the extension's "Read the jobs on this page" does the reading (owner, 7 Oct 2026). Pure like the others.
+export function visitCard(verdict, dismissedAt = '') {
+  const list = Array.isArray(verdict?.visits) ? verdict.visits : [];
+  if (!list.length || (dismissedAt && verdict.at && dismissedAt === verdict.at)) return null;
+  return {
+    title: 'Sites only you can open',
+    text: 'These refuse automated visitors or have no other way in. Open one in Chrome, then click the Job Pilotto icon and "Read the jobs on this page":',
+    chips: list.map(item => ({url: item.url, label: `Open ${item.name}`, note: item.note || '',
+      title: `${item.kind === 'portal' ? `${item.name}: ${item.why}` : `${item.name} ${item.why}`}${item.last_read ? `; last read ${item.last_read.slice(0, 10)}` : ''}${item.note ? `. ${item.note}` : ''}`})),
+    at: verdict.at || '',
+  };
+}
+
 // Employers where people doing the same kind of work got interviews (src/coverage.py employers_for_you, from the shared pool, 7 Oct 2026).
 // A chip shows that employer's jobs. Pure like the others.
 export function employersCard(verdict, dismissedAt = '') {

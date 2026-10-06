@@ -545,6 +545,16 @@ def _explore(start, home, fetch_page, show=None, links=None, limit=8):
     return None
 
 
+REFUSALS = {}   # host -> why, for this run: a site that answered 401/403/429 or a bot check (the scout offers it as a site only you can open)
+
+
+def note_refusal(url, error):
+    code = getattr(error, 'code', None)
+    why = f'HTTP {code}' if code in (401, 403, 429) else (str(error) if type(error).__name__ == 'Refused' else '')
+    if why:
+        REFUSALS[(urllib.parse.urlsplit(url if '//' in url else f'https://{url}').hostname or '').lower().removeprefix('www.')] = why
+
+
 def discover(website, fetch_page=get_text):
     """What a company website offers: {'ats', 'slug'} for an embedded job system, {'ats': 'careers', 'slug', 'jobs'} for a page with jobs,
     or None. Home page, the careers links on it, and one level deeper. A page that is only a shell (its jobs appear after scripts run) is
@@ -554,7 +564,8 @@ def discover(website, fetch_page=get_text):
     website = website if '//' in website else f'https://{website}'
     try:
         home = fetch_page(website)
-    except Exception:  # noqa: BLE001 — a site that is down or refuses is just "nothing found"
+    except Exception as error:  # noqa: BLE001 — a site that is down or refuses is just "nothing found"
+        note_refusal(website, error)
         return None
     # Only a link that looks like the careers link counts as the company's job system: a stray widget or partner link on the home page is not.
     show = renderer() if fetch_page is get_text else None
@@ -575,7 +586,8 @@ def discover(website, fetch_page=get_text):
         return found
     try:
         shown = show(website)
-    except Exception:  # noqa: BLE001 — refused, not allowed or no browser: nothing more to do
+    except Exception as error:  # noqa: BLE001 — refused, not allowed or no browser: nothing more to do
+        note_refusal(website, error)
         return None
     return _explore(website, shown, show)
 

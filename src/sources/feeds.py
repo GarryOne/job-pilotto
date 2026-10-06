@@ -194,7 +194,7 @@ def scan(sources, db, fetcher=fetch, details=None):
                     tally.add(job["title"], in_place, hit, excluded=excluded_title(job["title"]), location=job["location"], dropped_by=dropped_by(job["title"]))
                     if hit and in_place:
                         matched.append({
-                            "company": source["company"], "id": str(job["id"]),
+                            "company": job.get("employer") or source["company"], "id": str(job["id"]),   # a portal's jobs keep their own employer (visits.py)
                             "title": job["title"], "location": job["location"] or "Unspecified",
                             "url": job["url"], "date_posted": job.get("date_posted") or "",
                             "description": job.get("description") or "",
@@ -216,7 +216,7 @@ def scan(sources, db, fetcher=fetch, details=None):
             report["sources"].append({"company": source["company"], "ok": True,
                                       "total": len(jobs), "matches": len(matched)})
         except Exception as error:
-            report["sources"].append({"company": source["company"], "ok": False,
+            report["sources"].append({"company": source["company"], "ok": False, "ats": source.get("ats", "greenhouse"), "slug": source.get("slug") or source.get("board"),
                                       "error": f"{type(error).__name__}: {error}"})
     report["jobs"].sort(key=lambda j: ({"new": 0, "changed": 1, "seen": 2}[j["status"]], j["company"], j["title"]))
     report["funnel"] = tally.summary()

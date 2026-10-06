@@ -99,7 +99,7 @@ class IndexContract(unittest.TestCase):
         samples = {'greenhouse': 'acme', 'lever': 'acme', 'ashby': 'acme.ai', 'workable': 'acme', 'recruitee': 'acme', 'personio': 'acme',
                    'smartrecruiters': 'AcmeAG', 'teamtailor': 'acme', 'join': 'acme-ag', 'workday': 'zuehlke.wd3.Zuhlke-Careers', 'umantis': 'recruitingapp-2824', 'successfactors': 'careers.swissre.com',
                    'careers': careers.encode('https://www.acme.ch/de/ueber-uns/karriere/stellenangebote'), 'jobsch': '27602-manor-ag'}
-        self.assertEqual(set(samples), set(ats.FETCHERS) - {'amazon', 'netflix'}, 'a new feed type needs a sample here')
+        self.assertEqual(set(samples), set(ats.FETCHERS) - {'amazon', 'netflix'} - ats.LOCAL_ONLY, 'a new feed type needs a sample here')
         sent = [{'company': f'Co {system}', 'ats': system, 'slug': slug} for system, slug in samples.items()]
         self.assertEqual(self.site_clean(sent), [f'{system}:{slug}' for system, slug in samples.items()])
 
@@ -108,7 +108,7 @@ class IndexContract(unittest.TestCase):
         for name in ('employers.js', 'pool.js'):
             text = (ROOT / 'site' / 'src' / name).read_text()
             listed = set(re.findall(r"'([a-z]+)'", re.search(r'const SYSTEMS = \[(.*?)\]', text, re.S).group(1)))
-            self.assertEqual(listed, set(ats.FETCHERS), f'site/src/{name} SYSTEMS and src/sources/ats.py FETCHERS must be the same list')
+            self.assertEqual(listed, set(ats.FETCHERS) - ats.LOCAL_ONLY, f'site/src/{name} SYSTEMS and src/sources/ats.py FETCHERS must be the same list (local-only types excepted)')
 
     def test_the_engine_keeps_what_the_index_serves(self):
         served = [{'company': 'Acme AG', 'ats': 'careers', 'slug': 'www.acme.ch__jobs', 'places': ['Zürich']}]

@@ -438,7 +438,16 @@ DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
             'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'successfactors': successfactors, 'careers': careers,
-            'amazon': amazon, 'netflix': netflix, 'jobsch': jobsch}
+            'amazon': amazon, 'netflix': netflix, 'jobsch': jobsch, 'visit': lambda slug: _visit(slug)}
+
+
+LOCAL_ONLY = {'visit'}   # feed types that live on one install only: never published, shared or sent to the website
+
+
+def _visit(slug):
+    """The jobs read on a page a person opened and sent through the extension (src/sources/visits.py): nothing is fetched here."""
+    from . import visits
+    return visits.fetch(slug)
 # Standard systems a company slug can be guessed for; company sites are listed explicitly.
 GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters', 'teamtailor', 'join')
 

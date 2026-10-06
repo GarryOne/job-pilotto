@@ -78,7 +78,7 @@ async results cached empty, AI answers cut off by `max_tokens`, runs that don't 
 ## 5 · Rules never bent
 
 - 🚫 **Never auto-apply to a job:** Job Pilotto drafts and fills; the user submits.
-- 🚫 **Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit:** public APIs and job feeds only.
+- 🚫 **No automatic login, no getting past a block:** LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit (owner, 7 Oct 2026): read through the user's own visit (the extension's "Read the jobs on this page", started by their click, in their tab) or when a page answers plainly; never log in automatically, never get past a login wall or a bot check (401/403/429 or a check is a no).
 - 💸 **Ask before spending money on AI** (a new model, a large re-run); show the measured cost.
 - 🔐 **No secrets** in code, commits, docs or Notion.
 - 🧑‍💻 **Every setup step works for any user through the app:** nothing may depend on the owner's machine.

@@ -353,6 +353,10 @@ let reviewHandler = () => ({matched: null, watch: [], commands: []});
 export function setReviewHandler(fn) { reviewHandler = fn; }
 let learnedHandler = () => {};
 export function setLearnedHandler(fn) { learnedHandler = fn; }
+let visitHandler = async () => ({ok: false});   // a page the person opened and asked the extension to read (lib/visits.js)
+export function setVisitHandler(fn) { visitHandler = fn; }
+let visitHosts = () => [];   // the sites on the visit list, for the extension's toolbar icon
+export function setVisitHosts(fn) { visitHosts = fn; }
 let missesHandler = () => {};
 export function setMissesHandler(fn) { missesHandler = fn; }
 let controlsHandler = () => {};
@@ -534,6 +538,17 @@ export function start(storage, onError = () => {}) {
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify({ok}));
         if (ok) missesHandler(payload);
+        return;
+      }
+      if (req.url === '/extension/visit-read' || req.url === '/extension/visit-list') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        const answer = !ok ? {ok: false, error: 'Wrong token'} : req.url === '/extension/visit-list' ? {ok: true, hosts: visitHosts()} : await visitHandler(payload);
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(answer));
         return;
       }
       if (req.url === '/extension/review') {

@@ -41,6 +41,7 @@ import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import {watchOrphans} from './lib/orphans.js';
 import * as server from './lib/server.js';
+import * as visits from './lib/visits.js';
 import * as extensionInstall from './lib/extension-install.js';
 import * as terminals from './lib/terminals.js';
 import * as transcript from './lib/transcript.js';
@@ -1822,6 +1823,7 @@ function handlers() {
   ipcMain.handle('coverLetterOpen', () => (fs.existsSync(letters.pdfPath(storage)) ? shell.openPath(letters.pdfPath(storage)) : ''));
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
+  ipcMain.handle('openVisit', (_, url) => visits.open(url));   // a site only you can open, in the browser that has the extension
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
   // "Open filled form": the session's form tab through the extension (an empty label: bring it forward, no scroll).
   // `taken` says whether the page's panel answered — the one thing the window needs to know whether the "Reload the
@@ -2152,6 +2154,19 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints, {onSent: shared}));
   server.setAliasesHandler(() => aliasLibrary.lookup(storage, {onSent: shared}));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with
+  // Sites only you can open (lib/visits.js): the extension sends each page the person asked it to read; the hosts light its icon.
+  let visitHosts = ['linkedin.com', 'indeed.', 'glassdoor.', 'levels.fyi'];
+  const refreshVisitHosts = () => pipeline.run(storage, ['src.desktop', 'visit-list']).then(({stdout}) => {
+    const listed = JSON.parse(String(stdout).trim().split('\n').pop() || '{}').visits || [];
+    visitHosts = [...new Set([...visitHosts, ...listed.map(item => { try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return ''; } }).filter(Boolean)])];
+  }).catch(error => appLog('visit', 'visit list not read', {error: error.message}));
+  if (!DEMO) setTimeout(refreshVisitHosts, 20000);
+  server.setVisitHosts(() => visitHosts);
+  server.setVisitHandler(async page => {
+    const answer = await visits.read(storage, page);
+    if (answer.ok) toWindow('visit-read', answer);
+    return answer;
+  });
   server.setMissesHandler(payload => misses.record(storage, payload, Date.now(), prints => {
     for (const item of controlEvents.fromMisses(payload, prints, {owner: owner()})) telemetry?.record('control', item);
     recipeReporter.sample((payload.items || []).filter(item => prints.has(item.fingerprint)));   // the structure of a new kind of control, no text

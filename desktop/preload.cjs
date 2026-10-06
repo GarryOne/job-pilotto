@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('pilot', {
   dismissReason: call('dismissReason'), intelSnapshot: call('intelSnapshot'), benchmarkLines: call('benchmarkLines'),
   license: call('license'), licenseSet: call('licenseSet'), licenseRemove: call('licenseRemove'),
   onAllowance: callback => ipcRenderer.on('allowance', (_, state) => callback(state)),
+  onVisitRead: callback => ipcRenderer.on('visit-read', (_, answer) => callback(answer)),
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'), testerLogsSet: call('testerLogsSet'),
   poolShareGet: call('poolShareGet'), poolShareSet: call('poolShareSet'), poolShareShown: call('poolShareShown'),
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'), betaState: call('betaState'), betaSet: call('betaSet'), betaRollback: call('betaRollback'),
@@ -65,7 +66,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onInterviewProgress: callback => ipcRenderer.on('ivProgress', (_, step) => callback(step)),
   onCallLevel: callback => ipcRenderer.on('ivLevel', (_, level) => callback(level)),
   cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'), cloudTurnOffConfirmed: call('cloudTurnOffConfirmed'), telegramCloudOn: call('telegramCloudOn'), telegramCloudOff: call('telegramCloudOff'),
-  openExternal: call('openExternal'), showBrowser: call('showBrowser'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
+  openExternal: call('openExternal'), openVisit: call('openVisit'), showBrowser: call('showBrowser'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
   onMoved: callback => ipcRenderer.on('moved', (_, steps) => callback(steps)),
 });

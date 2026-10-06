@@ -451,7 +451,8 @@ def board_url(system, slug):
         'netflix': 'https://explore.jobs.netflix.net/careers', 'teamtailor': f'https://{slug}.teamtailor.com/jobs',
         'join': f'https://join.com/companies/{slug}', 'workday': workday_url(slug) if system == 'workday' else '', 'umantis': f'https://{slug}.umantis.com/Jobs/All',
         'successfactors': f'https://{slug}/search/',
-        'careers': careers.decode(slug) if system == 'careers' else '', 'jobsch': f'https://www.jobs.ch/en/companies/{slug}/'}[system]
+        'careers': careers.decode(slug) if system == 'careers' else '', 'jobsch': f'https://www.jobs.ch/en/companies/{slug}/',
+        'visit': slug}[system]   # a page read through the user's own visit: its address is the slug
 
 
 def workday_url(slug):
@@ -1022,6 +1023,11 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])), search=search,
                           jobsch_lookup=lookup)
         if not found:
+            site = candidate.get('careers') or candidate.get('website') or ''
+            why = careers.REFUSALS.get(re.sub(r'^https?://(www\.)?', '', site).split('/')[0].lower()) if site else None
+            if why:   # its site refuses automated visitors: a person can still open it (src/sources/visits.py)
+                from .sources import visits
+                visits.refused(candidate['name'], site if '//' in site else f'https://{site}', why)
             return {'status': 'none'}
         system, slug, jobs = found
         if not jobs:
