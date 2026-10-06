@@ -1648,6 +1648,10 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
 .mail-meeting-tile { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--r-sm); background: var(--info-soft); color: var(--info); }
 .mail-meeting-words { flex: 1; min-width: 0; }
+.mail-placed { display: grid; gap: var(--sp-3); }
+.mail-mapped { display: grid; gap: var(--sp-1); }
+.mail-mapped-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); margin: 0; color: var(--ink-2); }
+.mail-mapped-line .icon { width: 16px; height: 16px; color: var(--good); flex: none; }
 .mail-meeting-side { display: grid; gap: var(--sp-2); justify-items: end; flex: none; }   /* the prep-kit button, the Notion link */
 .mail-meeting-words b { font-size: var(--fs-lg); color: var(--ink); }
 .mail-meeting-words p { margin: 2px 0 0; color: var(--ink-2); }

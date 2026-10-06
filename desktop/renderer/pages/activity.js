@@ -820,6 +820,9 @@ function emailCard(result, pending, answered, meetingPanel) {
   const said = meetingPanel ? '' : outcome ? [outcome.summary, ...outcome.details.filter(line => !/^Source:/i.test(line))].filter(Boolean).join(' · ')
     : update?.when || '';
   const noun = emailNoun(email);
+  // An interview invitation you placed on a job is that job's interview now: the same card as any interview (the owner,
+  // 6 Oct 2026: the two showed so differently), with your answer one line under it.
+  if (asked?.answered && asked.job && noun === 'invitation') return {card: placedInvitationCard(result, asked), waiting: 0};
   const card = mailCardRow({
     company: result.company || email?.subject, role: asked && !asked.answered ? `${noun === 'invitation' ? 'Interview invitation' : 'Email'} · Role unidentified` : result.role,
     lines: [[email?.sender, email?.time].filter(Boolean).join(' · ')],
@@ -828,6 +831,23 @@ function emailCard(result, pending, answered, meetingPanel) {
       : asked ? questionPanel(asked, subjectKey(email.subject), email.subject, {noun, company: result.company}) : null,
     details: email?.subject && result.company ? email.subject : '', noDetails: email?.subject ? 'The subject is the title above.' : ''});
   return {card, waiting: asked && !asked.answered ? 1 : 0};
+}
+// "Invitation …: Igor Mardari and Blockdaemon DM @ Fri 2 Oct 2026 21:30–22:15 (CEST)" -> "Fri 2 Oct 2026 21:30".
+const whenOf = subject => { const m = /@\s*((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+\d{1,2}\s+\w+(?:\s+\d{4})?)\s+(\d{1,2}:\d{2})/.exec(subject || ''); return m ? `${m[1]} ${m[2]}` : ''; };
+function placedInvitationCard(result, asked) {
+  const {email} = result;
+  const [company, ...title] = asked.job.split(/\s+—\s+/);
+  const meeting = {when: whenOf(email.subject), company, title: title.join(' — '), summary: '', where: '', people: []};
+  const panel = el('div', 'mail-placed');
+  const note = el('div', 'mail-mapped');
+  const line = el('p', 'mail-mapped-line');
+  line.append(icon('check-circle'), 'Mapped by you to ', jobLink(asked.job, 'span'));
+  const why = `The invitation names ${result.company || 'the sender'} but doesn't specify the role.`;
+  note.append(line, fold(`asked:${subjectKey(email.subject)}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
+  // Its time comes from the invitation; what to prepare arrives with the engine's day-before reminder for this interview.
+  panel.append(interviewPanel({interview: meeting, topics: [], nextSteps: [], consent: '', url: ''}), note);
+  return mailCardRow({company, role: meeting.title, lines: [[email.sender, email.time].filter(Boolean).join(' · ')],
+    tag: outcomePill('Interview scheduled'), panel, details: email.subject});
 }
 // An update no email claims: its job, what it moved, or the which-job question it raised.
 function updateCard(update, pending, answered, meetingPanel) {
@@ -947,10 +967,10 @@ function questionState(email, pending, answered) {
 }
 const QUESTION = 'Which job is this email about?';
 // The job you chose, in full ("Alpenglow Logistics — Platform Engineer"), opening its Notion page, or its posting without one.
-function jobLink(job) {
+function jobLink(job, tagName = 'p') {
   const [company, ...title] = job.split(/\s+—\s+/);
   const found = (shared.allJobs || []).find(one => jobKey(one.company || one.via) === jobKey(company) && jobKey(one.title).startsWith(jobKey(title.join(' — ')).slice(0, 40)));
-  if (!found || (!found.notion_url && !found.url)) return el('p', 'mail-ask-answer', job);
+  if (!found || (!found.notion_url && !found.url)) return el(tagName, 'mail-ask-answer', job);
   const link = Object.assign(el('a', 'link mail-ask-answer', `${job} ↗`), {href: '#'});
   link.title = found.notion_url ? 'Open the job in Notion' : 'Open the posting';
   link.addEventListener('click', event => { event.preventDefault(); if (found.notion_url) window.pilot.openNotion(found.notion_url, event.metaKey); else window.pilot.openExternal(found.url); });
