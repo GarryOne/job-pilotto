@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import worker from '../src/index.js';
+import {clean} from '../src/employers.js';
 
 const store = new Map();
 const env = () => ({INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')},
@@ -208,4 +209,15 @@ test('the central scout sends its own numbers with the index; they are checked t
   assert.match(html, /Market coverage/);
   assert.match(html, /<b>20%<\/b>/);                 // 61 of 305
   assert.doesNotMatch(html, /<b>now<\/b>/, 'text from the scout is escaped');
+});
+
+// What a feed hires for (src/role_kinds.py): only known kinds and shares 0–1 reach the apps; anything else is dropped, never passed on.
+test('a feed\'s mix of kinds is kept only in its fixed shape', () => {
+  const [kept, odd, none] = clean([
+    {company: 'Datadog', ats: 'greenhouse', slug: 'datadog', kinds: {software: 0.951, hacking: 1, other: 3, logistics: '0.2'}},
+    {company: 'Odd', ats: 'greenhouse', slug: 'odd', kinds: ['software']},
+    {company: 'None', ats: 'greenhouse', slug: 'none'}]);
+  assert.deepEqual(kept.kinds, {software: 0.95});
+  assert.equal('kinds' in odd, false);
+  assert.equal('kinds' in none, false);
 });

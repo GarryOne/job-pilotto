@@ -306,6 +306,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/paths.py` — Repository paths shared by every module."""
 - `src/places.py` — Place words that stand for many places, worked out by AI instead of a list. "Germany" must find a job posted as "Leipzig", "Asia" one in "Singapore": a posting's
 - `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
+- `src/role_kinds.py` — Kinds of role (software, retail, logistics, …): what an employer or a job board mostly hires for, and what a search looks for.
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the

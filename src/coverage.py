@@ -145,8 +145,9 @@ def looks_technical(keywords):
 def technical_search(search):
     """True when a search's roles are IT or engineering work (or not known yet): the developer-only sources (SwissDevJobs, TechTree, the
     tech seed lists) are for it. One definition for the scout and the job boards (6 Oct 2026: a photographer's checks crawled both boards)."""
-    from .notion.search_settings import terms
-    return looks_technical(terms((search or {}).get('role_keywords'))[:20])
+    from .role_kinds import of_search   # the kinds of role a search looks for: one classifier for scout, boards and employers
+    kinds = of_search(search)
+    return kinds is None or 'software' in kinds
 
 
 def verdict(summary, keywords=(), locations=()):

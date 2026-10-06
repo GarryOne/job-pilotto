@@ -13,6 +13,7 @@ import re
 import secrets
 import urllib.request
 
+from . import role_kinds
 from .paths import DATA
 from .sources import ats, page_recipes
 
@@ -61,6 +62,7 @@ def clean(feeds):
                         'checked': item.get('checked'),
                         'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None,
                         'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None,
+                        **({'kinds': role_kinds.valid(item.get('kinds'))} if role_kinds.valid(item.get('kinds')) else {}),
                         'regions': [r for r in item.get('regions') or [] if isinstance(r, str) and r in REGION_NAMES],
                         **({'recipe': item['recipe']} if system == 'careers' and page_recipes.valid(item.get('recipe')) else {})})
     return out
@@ -157,8 +159,11 @@ def merge(starter, index, skip=lambda company: False):
     return list(merged.values())
 
 
-def relevant(index, wanted_location):
+def relevant(index, wanted_location, wanted_kinds=None):
     """Only feeds with roles in the user's own places (their search.json), so a worldwide index doesn't cost every
-    crawl the time of feeds it would throw away. A feed with no place information (older index) is kept."""
+    crawl the time of feeds it would throw away. A feed with no place information (older index) is kept. With the kinds of role the user
+    looks for (role_kinds.of_search), also only feeds that hire for one of them: a software company is skipped for a photographer
+    (6 Oct 2026); a feed without a published mix is kept."""
     return [f for f in index
-            if not f.get('places') or any(wanted_location({'location': place}) for place in f['places'])]
+            if (not f.get('places') or any(wanted_location({'location': place}) for place in f['places']))
+            and role_kinds.fits(f.get('kinds'), wanted_kinds)]

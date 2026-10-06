@@ -27,6 +27,14 @@ export function recipeOf(recipe) {
   if (recipe.kind === 'tag' && keys === 'class,kind,tag' && TAGS.includes(recipe.tag) && typeof recipe.class === 'string' && /^[\w -]{1,60}$/.test(recipe.class)) return {kind: 'tag', tag: recipe.tag, class: recipe.class};
   return null;
 }
+// What a feed hires for: {kind: share}, fixed kinds only (src/role_kinds.py KINDS, checked equal by tests/test_role_kinds.py), shares 0–1.
+export const KINDS = ['software', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];
+export const kindsOf = kinds => {
+  if (!kinds || typeof kinds !== 'object' || Array.isArray(kinds)) return null;
+  const out = Object.fromEntries(Object.entries(kinds).filter(([kind, share]) => KINDS.includes(kind) && typeof share === 'number' && share >= 0 && share <= 1)
+    .map(([kind, share]) => [kind, Math.round(share * 100) / 100]));
+  return Object.keys(out).length ? out : null;
+};
 const fitsOf = fits => ({roles: (fits?.roles || []).filter(r => ROLES.includes(r)), regions: (fits?.regions || []).filter(r => REGIONS.includes(r))});
 
 // Only the fields clients read, and only feeds an app knows how to crawl.
@@ -43,6 +51,7 @@ export function clean(feeds) {
       quality: number(item.quality, 100), jobs: number(item.jobs, 100000), relevant: number(item.relevant, 100000),
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       fits: fitsOf(item.fits),
+      ...(kindsOf(item.kinds) ? {kinds: kindsOf(item.kinds)} : {}),
       regions: Array.isArray(item.regions) ? [...new Set(item.regions.filter(r => REGIONS.includes(r)))] : [],
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : [],
       ...(ats === 'careers' && recipeOf(item.recipe) ? {recipe: recipeOf(item.recipe)} : {})});

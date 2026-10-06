@@ -10,7 +10,7 @@ import random
 import re
 import sys
 
-from . import contribute, digest, employer_index, features, import_url, scout, store, telegram, tgcard
+from . import contribute, digest, employer_index, features, import_url, role_kinds, scout, store, telegram, tgcard
 from . import doctor
 from . import coverage
 from .ai import added, budget, cost, enrich, inbox, insights, interview_insights, interviews, kit, provenance, score
@@ -263,7 +263,13 @@ def downloaded_index():
         return []
     index = employer_index.load()
     # Default: only feeds with roles in your places. JOB_PILOTTO_INDEX_ALL=1 crawls the whole worldwide index.
-    return index if os.getenv('JOB_PILOTTO_INDEX_ALL') else employer_index.relevant(index, feeds.wanted_location)
+    if os.getenv('JOB_PILOTTO_INDEX_ALL'):
+        return index
+    kept = employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(load_search_config()))
+    in_places = employer_index.relevant(index, feeds.wanted_location)
+    if len(kept) < len(in_places):   # said once a run: which employers were left out, and why
+        print(f'Employers: {len(kept)} of {len(in_places)} in your places hire for your kind of role; the others are left out.')
+    return kept
 
 
 def main():

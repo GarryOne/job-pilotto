@@ -2,10 +2,11 @@
 """Small, dependency-free job watcher. Python 3.10+."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import html
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -109,13 +110,51 @@ def _fetched(fetcher, source):
         return None, error
 
 
+# An employer that gave this search nothing (no title match in its places) REST_AFTER checks in a row is skipped for REST_DAYS, then checked
+# again (6 Oct 2026: a photographer's checks read 190 software employers every 4 hours for 0 matches). Per install, learned from its own crawl;
+# a change of roles or places starts over, since what fits then is different.
+REST_AFTER, REST_DAYS = 5, 7
+REST_TABLE = 'CREATE TABLE IF NOT EXISTS feed_rest (board TEXT PRIMARY KEY, misses INTEGER NOT NULL, rest_until TEXT, search TEXT NOT NULL)'
+
+
+def _search_digest(search=None):
+    search = search or _SEARCH
+    return hashlib.sha256(json.dumps([search.get('role_keywords'), search.get('locations')], sort_keys=True, default=str).encode()).hexdigest()[:12]
+
+
+def resting(db, now, search=None):
+    """The boards resting now ({board: until}); rows of an earlier search are dropped first."""
+    db.execute(REST_TABLE)
+    db.execute('DELETE FROM feed_rest WHERE search != ?', (_search_digest(search),))
+    return {row[0]: row[1] for row in db.execute('SELECT board, rest_until FROM feed_rest WHERE rest_until > ?', (now,))}
+
+
+def _after_check(db, board, matched, now, search=None):
+    if matched:
+        db.execute('DELETE FROM feed_rest WHERE board = ?', (board,))
+        return
+    row = db.execute('SELECT misses FROM feed_rest WHERE board = ?', (board,)).fetchone()
+    misses = (row[0] if row else 0) + 1
+    until = (datetime.fromisoformat(now) + timedelta(days=REST_DAYS)).isoformat(timespec='seconds') if misses >= REST_AFTER else None
+    db.execute('INSERT OR REPLACE INTO feed_rest (board, misses, rest_until, search) VALUES (?, ?, ?, ?)', (board, misses, until, _search_digest(search)))
+
+
 def scan(sources, db, fetcher=fetch, details=None):
     """Fetch every source, keep SRE-type titles in preferred locations, record seen history. report['funnel'] counts what the
     crawl saw and what the role keywords caught (src/coverage.py), so a search that is too narrow can be said out loud."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    key = lambda source: f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
+    with db:   # the end-to-end journey's fixture feeds answer the same every run: nothing rests there
+        db.execute(REST_TABLE)
+        rest = {} if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else resting(db, now)
+    rested = [source for source in sources if key(source) in rest]
+    sources = [source for source in sources if key(source) not in rest]
+    if rested:   # said every run, so a short list is never a mystery
+        print(f'Employers resting: {len(rested)} gave no match for your roles in your places {REST_AFTER} checks in a row; checked again after '
+              f'{min(rest[key(source)] for source in rested)[:10]}.')
     with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
         downloads = list(pool.map(lambda source: _fetched(fetcher, source), sources))
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    report = {"generated_at": now, "sources": [], "jobs": []}
+    report = {"generated_at": now, "sources": [], "jobs": [], "rested": len(rested)}
     tally = coverage.Tally()
     for source, (jobs, failure) in zip(sources, downloads):
         board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
@@ -146,6 +185,8 @@ def scan(sources, db, fetcher=fetch, details=None):
                         item["description"] = detail(source.get("slug") or source["board"], item["id"]) or ""
                     except Exception as error:  # one posting failing must not drop the others
                         print(f'Warning: {source["company"]} {item["id"]}: description not fetched: {type(error).__name__}')
+            with db:
+                _after_check(db, board, bool(matched), now)
             report["jobs"].extend(matched)
             report["sources"].append({"company": source["company"], "ok": True,
                                       "total": len(jobs), "matches": len(matched)})

@@ -29,7 +29,7 @@ import threading
 import urllib.parse
 import urllib.request
 
-from . import contribute, employer_index, store, telegram, tgcard
+from . import contribute, employer_index, role_kinds, store, telegram, tgcard
 from .notion import client as notion, cron_runs
 from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, careers, feeds
@@ -485,6 +485,9 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
                      'jobs': len(jobs), 'relevant': relevant_roles(jobs), 'checked': today, 'places': job_places(jobs),
                      'regions': contribute.regions_of([j.get('location') or '' for j in jobs] + (['remote'] if any(j.get('remote') for j in jobs) else []))}
+            kinds = role_kinds.mix([j.get('title') for j in jobs])   # what it hires for: installs skip one with nothing of their kind
+            if kinds:
+                entry['kinds'] = kinds
             tags = fits(by_feed.get((system, slug), {}))
             if system == 'careers':   # how to read this page without AI, learned here: every install's crawl can use it
                 from .sources import page_recipes
@@ -708,7 +711,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     from .ai import scout_ideas
     skip = skipped_origins(seeds, scout_ideas.technical(load_search_config()))
     print('Scout: reading the employer lists…' if not skip else
-          'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are skipped)…')
+          'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are left out)…')
     added = harvest(db, seeds, harvest_sources, skip)
     print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
     ideas = ai_ideas(db, harvest_sources)
