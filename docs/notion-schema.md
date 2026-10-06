@@ -120,7 +120,7 @@ delete and let it repopulate.
 | Salary | Text | |
 | Recruiter | Checkbox | |
 | Technologies | Text | Key technologies from the posting (stage 1), semicolon-separated |
-| Role family | Select | `sre`, `platform`, `devops`, `cloud_infrastructure`, `software`, `data`, `security`, `support_it`, `other` |
+| Role family | Select | `sre`, `platform`, `devops`, `cloud_infrastructure`, `software`, `data`, `security`, `support_it`, `sales_retail`, `logistics`, `hospitality`, `healthcare`, `creative_media`, `finance_admin`, `education`, `trades`, `other` |
 | Last update | Last edited time |  |
 | First seen | Date |  |
 | Scoring method | Select | Options: `Current`, `Previous` |

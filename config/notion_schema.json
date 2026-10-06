@@ -597,6 +597,38 @@
               "color": "gray"
             },
             {
+              "name": "sales_retail",
+              "color": "orange"
+            },
+            {
+              "name": "logistics",
+              "color": "brown"
+            },
+            {
+              "name": "hospitality",
+              "color": "yellow"
+            },
+            {
+              "name": "healthcare",
+              "color": "red"
+            },
+            {
+              "name": "creative_media",
+              "color": "pink"
+            },
+            {
+              "name": "finance_admin",
+              "color": "gray"
+            },
+            {
+              "name": "education",
+              "color": "default"
+            },
+            {
+              "name": "trades",
+              "color": "green"
+            },
+            {
               "name": "other",
               "color": "default"
             }

@@ -115,3 +115,11 @@ class AggregatorKindTests(unittest.TestCase):
             reader = dict(aggregators.sources({'JOB_PILOTTO_DISABLE': ''}))['Jobicy']
             self.assertEqual(reader(PHOTOGRAPHER), [])
             self.assertEqual(reader({'role_keywords': [r'\bsre\b']}), ['a remote DevOps job'])
+
+
+class RoleFamilyTests(unittest.TestCase):
+    def test_enrichment_knows_every_kind_of_role(self):
+        """The AI's role family (src/ai/enrich.py) can name every non-IT kind (6 Oct 2026: a photographer's jobs could only be 'other')."""
+        from src.ai import enrich
+        families = set(enrich.SCHEMA['properties']['role_family']['enum'])
+        self.assertTrue(set(role_kinds.KINDS) - {'software', 'other'} <= families)
