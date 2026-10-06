@@ -239,6 +239,14 @@ def render(report):
     return '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Swiss software employers</title><style>body{font:16px system-ui;max-width:1000px;margin:32px auto;padding:0 20px;background:#f4f6fa;color:#182537}article{background:white;padding:20px;margin:16px 0;border:1px solid #dbe1e8;border-radius:12px}a{color:#165bba}li{margin:10px 0}input{font:inherit;padding:12px;width:90%}small{color:#576579}button{padding:8px;margin:8px 4px} [hidden]{display:none}</style><h1>Swiss software employers</h1>'''+f'<p>{len(cards)} companies · Checked {escape(report["checked_at"])}</p><p>Board-listed vacancies; official job availability is not independently confirmed. City refers to the job, not headquarters. Remote eligibility must be checked. Company size is retained when published; unknown sizes are included. No applicant-count or competition claims.</p><input id="q" aria-label="Filter companies" placeholder="City, company, remote, SRE…"><div>'+''.join(f'<button type="button" data-value="{v}">{v or "All"}</button>' for v in ['', 'Zurich','Geneva','Lausanne','Remote','Hybrid','SRE'])+'</div><p id="count"></p>'+''.join(cards)+'<h2>Discovery coverage</h2><ul>'+status+'</ul><script>const q=document.querySelector("#q");function filter(){let n=0;document.querySelectorAll("article").forEach(a=>{a.hidden=!a.dataset.search.includes(q.value.toLowerCase());if(!a.hidden)n++});document.querySelector("#count").textContent=n+" companies shown"}q.addEventListener("input",filter);document.querySelectorAll("button").forEach(b=>b.onclick=()=>{q.value=b.dataset.value;filter()});filter()</script></html>'
 
 
+def boards(search):
+    """The job boards a search reads, in order. jobs.ch lists every trade (Swiss places only); SwissDevJobs (Swiss) and TechTree (Europe)
+    list developer jobs only, so a search outside IT skips them."""
+    from ..coverage import technical_search
+    swiss, dev = swiss_place_word(search) is not None, technical_search(search)
+    return (['jobs.ch'] if swiss else []) + (['SwissDevJobs'] if swiss and dev else []) + (['TechTree'] if dev else [])
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--pages',type=int,default=1);p.add_argument('--max-companies',type=int,default=30);p.add_argument('--refresh',action='store_true');args=p.parse_args()
     if not 1<=args.pages<=10 or not 1<=args.max_companies<=200:p.error('pages: 1–10; max-companies: 1–200')
@@ -249,7 +257,10 @@ def main():
         print('job board discovery is off (fixture feeds only).');return 0
     swiss_word=swiss_place_word(_SEARCH);swiss=swiss_word is not None   # jobs.ch and SwissDevJobs list Swiss employers only; TechTree lists Europe, so it runs for any place
     client=Client(args.refresh);jobs=[];sources=[]
-    print('Job boards: '+', '.join((['jobs.ch','SwissDevJobs'] if swiss else [])+['TechTree'])+(f' (Swiss place word: {swiss_word})' if swiss else ''),flush=True)   # the app's activity list shows these names as they are
+    used=boards(_SEARCH)
+    if not used:
+        print('Job boards: none (for these roles and places: SwissDevJobs and TechTree list developer jobs, jobs.ch Swiss ones)',flush=True);return 0
+    print('Job boards: '+', '.join(used)+(f' (Swiss place word: {swiss_word})' if swiss else '')+('' if 'TechTree' in used else '; developer boards skipped: your roles are outside IT'),flush=True)   # the app's activity list shows these names as they are
     for query in _SEARCH['jobs_board_search_queries'] if swiss else []:
         for page in range(1,args.pages+1):
             url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,'page':page})
@@ -258,7 +269,7 @@ def main():
                 sources.append({'source':url,'status':f'{len(found)} Swiss software matches' if found else 'No parsed Swiss software matches; page may be empty or format changed'})
             except Exception as e:sources.append({'source':url,'status':str(e)})
     for label,url in [('SwissDevJobs','https://swissdevjobs.ch/api/jobsLight'),('TechTree','https://jobs.techtree.dev/')]:
-        if label=='SwissDevJobs' and not swiss:continue
+        if label not in used:continue
         try:
             page=client.get(url)['html']
             found=parse_tree(page) if label=='TechTree' else parse_swissdevjobs(json.loads(page),wanted_title);jobs.extend(found)

@@ -142,6 +142,13 @@ def looks_technical(keywords):
     return not words or any(_TECH_WORDS.search(word) or any(stem in word.lower() for stem in _TECH_STEMS) for word in words)
 
 
+def technical_search(search):
+    """True when a search's roles are IT or engineering work (or not known yet): the developer-only sources (SwissDevJobs, TechTree, the
+    tech seed lists) are for it. One definition for the scout and the job boards (6 Oct 2026: a photographer's checks crawled both boards)."""
+    from .notion.search_settings import terms
+    return looks_technical(terms((search or {}).get('role_keywords'))[:20])
+
+
 def verdict(summary, keywords=(), locations=()):
     """What to tell the user: {'narrow': bool, 'share': matched / in_places, 'suggestions': those not already keywords}.
     Narrow = the keywords catch under NARROW_BELOW of the in-place postings AND some listed term would add at least 5 more.

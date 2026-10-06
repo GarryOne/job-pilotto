@@ -94,7 +94,7 @@ READ_SYSTEM_GENERAL = READ_SYSTEM.replace(
 
 def technical(search):
     """True when the user's roles are IT or engineering work (or not known yet): they keep the IT-aware prompts."""
-    return coverage.looks_technical(strategy_terms(search)['roles'])
+    return coverage.technical_search(search)
 
 
 def ideas_system(search):
