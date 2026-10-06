@@ -545,6 +545,7 @@ def job_places(jobs, limit=40):
 MIN_INSTALLS = 1   # a contributed feed becomes a candidate when this many installs sent it; the scout verifies it either way. 1 since 6 Oct 2026
 #                   (owner: grow the central employer list as much as possible): a job site's address is public company data, and one install's
 #                   find (Coop, Migros, Manor on a photographer's Mac) now reaches every install the next night instead of waiting for a second.
+OWN_MIN_INSTALLS = 3   # a feed only users added by hand (never found by a scout) becomes a candidate past this many installs: one person's own list stays theirs
 FIT_MIN_INSTALLS = 5   # a role / region tag is published for a feed only when this many different installs matched it
 
 
@@ -642,7 +643,9 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
     board_keys = {(b['ats'], str(b['slug']).lower()) for b in boards}
     by_feed = {(c.get('ats'), c.get('slug')): c for c in contributions}
     for key, c in by_feed.items():   # what apps contributed: verified below like everything else
-        if key not in known and key[0] in ats.FETCHERS and (c.get('installs') or 0) >= MIN_INSTALLS and c.get('company'):
+        installs = c.get('installs') or 0
+        own_only = installs and (c.get('own_installs') or 0) >= installs
+        if key not in known and key[0] in ats.FETCHERS and installs >= (OWN_MIN_INSTALLS if own_only else MIN_INSTALLS) and c.get('company'):
             known[key] = {'company': str(c['company'])[:120], 'tier': 'Standard'}
 
     def check(item):

@@ -415,3 +415,18 @@ class HourlyCheckTests(unittest.TestCase):
                 kept = employer_index.load(cache, url='https://x.test/api/index', get=again, now=now + timedelta(minutes=61), install_id='abcdefgh12')
         self.assertEqual(asked[0]['X-Index-Generated'], '2026-10-07T04:50:00Z')
         self.assertEqual([f['company'] for f in kept], ['Migros'])
+
+
+class OwnFloorTests(unittest.TestCase):
+    """7 Oct 2026 (privacy): a feed only users added themselves needs 3 installs before the central scout takes it up; a scout find needs 1."""
+    def test_one_users_own_employer_stays_theirs_until_three_installs_share_it(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        contributions = [{'ats': 'lever', 'slug': 'mine', 'company': 'My Cousin GmbH', 'installs': 2, 'own_installs': 2},
+                         {'ats': 'lever', 'slug': 'shared', 'company': 'Shared AG', 'installs': 3, 'own_installs': 3},
+                         {'ats': 'lever', 'slug': 'found', 'company': 'Found SA', 'installs': 1, 'own_installs': 0}]
+        seen = []
+        fetch = lambda system, slug: seen.append(slug) or [{'title': 'x', 'location': 'Geneva', 'url': 'u'}]  # noqa: E731
+        scout.build_index(db, [], fetch=fetch, contributions=contributions, workers=1)
+        self.assertEqual(sorted(seen), ['found', 'shared'])
