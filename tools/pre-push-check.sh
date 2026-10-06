@@ -111,6 +111,12 @@ case "$command" in *STALE_EXPECT_OK=1*) ;; *)
   fi ;;
 esac
 
+# A new e2e step must have been seen passing (6 Oct 2026: one that never had failed the 0.5.8 beta gate on its own premise): a local run of it, or an
+# "E2E-passed: <run url>" / "E2E-unverified: <why>" line in a commit message (tools/new-e2e-steps.mjs). No node, or no origin/main: skipped.
+if command -v node >/dev/null && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  unseen="$(cd "$repo" && node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
+fi
+
 # Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path
 # this list does not know runs everything. The engine (src/, tests/) also runs desktop: its callers. A clean pip install only when dependencies changed.
 changed="$(git -C "$repo" diff --name-only origin/main..HEAD 2>/dev/null)"

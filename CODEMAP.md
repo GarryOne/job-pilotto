@@ -354,6 +354,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/fixture-from-fills.py` — Real forms for the apply suite, from the extension's fill log: the forms it failed on for a real person, rebuilt as fixtures.
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
+- `tools/new-e2e-steps.mjs` — Pre-push check (tools/pre-push-check.sh): every e2e step this push adds was seen passing, or the commit says why not (desktop/e2e/lib/new-steps.mjs).
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links
 - `tools/notion_schema.py` — The Job Pilotto Notion workspace as code: config/notion_schema.json.

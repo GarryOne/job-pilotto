@@ -53,6 +53,10 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
      digest headings and the job-board rule without touching their suites, and the manual `personas` suite sat red unnoticed). Before you push: `grep` the visible
      words, selectors and commands you changed in `desktop/e2e/` (`suites/`, `lib/`) and the unit tests; fix what you find, or say in the commit body which step
      is now stale and why. A new detector or plant needs its unit test page to carry what it checks (`test/recall.test.mjs`).
+  6. **A new e2e step is seen passing before it lands, and proves its own setup** (6 Oct 2026: an Apply step that had never passed failed the beta gate on its
+     premise: a missing board was meant to make the kit fail, but kits draft from the posting). The push hook (`tools/new-e2e-steps.mjs`) wants a local run that
+     passed it, or `E2E-passed: <run url>` (CI-only suites: `gh workflow run e2e.yml --ref <branch> -f suite=<suite>`), or `E2E-unverified: <why>` in the
+     message. In the step, assert the setup took effect: the proxy/stub was called, the seed is in the state, the failure really happened.
 - Big features (Always on, migrations, Apply with Claude): a short spec in `docs/superpowers/specs/` with a
   "Data ownership" section (Notion vs cache) before code; link it from the Notion Decision Log, don't copy it there.
 - Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and
