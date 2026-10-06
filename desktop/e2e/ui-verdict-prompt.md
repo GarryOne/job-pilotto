@@ -13,8 +13,13 @@ If it was found by the AI CODE REVIEW (it read the changes, it ran nothing), ope
 
 If it was found by the LAYOUT CHECK, read what the text in the element IS: an overflow of technical text means the real bug is the text (say so: `real`).
 
-If it was found by a FAILED SUITE STEP that only ran out of time (a timeout waiting for a view, a selector or the app to go quiet), read the error and the logs in the finding. It is `harness` when the product
-showed nothing wrong (a slow runner, a fixture or profile difference, a wait that was too short); `real` only when the logs show the app itself failing; `needs-human` when you cannot tell.
+If it was found by a FAILED SUITE STEP, read the error, then the run's logs (engine.log: what the engine did; app.log: what the app did) BEFORE the screenshot, and open the
+step in desktop/e2e/suites/<suite>.mjs. A failed step is the test's own judgement, and in the past most were the test's mistake (6 Oct 2026: 14 of 25), so first ask whether the test proved its premise:
+- its setup did not take effect: the message says "[harness check: the fault this step set up never fired]", or the logs show the opposite of what the step arranged (#306: a step that made the kit draft fail, while engine.log says "Application kits ready");
+- it read Notion right after a write and expected the new page at once (#315: the save said `ok: true`; a new page can take minutes to be listed, and the app holds it for a person);
+- it looked while the app was still loading (#310: the state shows a read in flight, `reading: [...]`), or a wait was too short on a slow runner;
+- it expects words or a control the product changed on purpose since (git log on the page's file).
+It is `harness` in those cases (say which, and what would fix the step); `real` only when the logs show the product doing the wrong thing; `needs-human` when you cannot tell.
 
 If it was found by the INTERACTION PROBE (it pressed a control and recorded what happened), it is often wrong in these ways:
 - the control toggles a state (aria-pressed, a filter) or only moves the focus to a field, so "the page did not change" is not a bug;

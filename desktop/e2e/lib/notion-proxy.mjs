@@ -24,7 +24,7 @@ export function decide(plan, method, url) {
 }
 
 export async function startNotionProxy({target = 'https://api.notion.com'} = {}) {
-  const stats = {calls: 0, failed: 0, writes: 0};
+  const stats = {calls: 0, failed: 0, writes: 0, armed: 0};
   let plan = {mode: 'pass'};
   const server = http.createServer(async (req, res) => {
     const chunks = [];
@@ -55,7 +55,7 @@ export async function startNotionProxy({target = 'https://api.notion.com'} = {})
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return {url: `http://127.0.0.1:${server.address().port}`, stats,
-    fail: (mode, {times = null, writes = false, every = 0} = {}) => { if (!MODES.includes(mode)) throw new Error(`unknown Notion proxy mode: ${mode}`); plan = {mode, times, writes, every}; },
+    fail: (mode, {times = null, writes = false, every = 0} = {}) => { if (!MODES.includes(mode)) throw new Error(`unknown Notion proxy mode: ${mode}`); stats.armed++; plan = {mode, times, writes, every}; },
     pass: () => { plan = {mode: 'pass'}; },
     close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }

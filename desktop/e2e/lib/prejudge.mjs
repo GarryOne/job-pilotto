@@ -3,7 +3,7 @@
 // `harness` are never filed (listed in the run's summary and remembered in the pinned noise register, so the same noise is not judged again), `real` is filed
 // already `confirmed`, `needs-human` is filed parked. A finding over the cap, or a run without AI, is filed as before and judged later (ui-verdict.yml). Pure.
 import {checkEvidence, parse, verdictComment} from './verdict-comment.mjs';
-import {FALSE_POSITIVE, labelFor, TIMEOUT_FAILURE} from './triage.mjs';
+import {FALSE_POSITIVE, labelFor} from './triage.mjs';
 import {matchLearned} from './signatures.mjs';
 
 export const PREJUDGE_MAX = 3;   // per run; four runs a day = at most 12 judgements a day
@@ -11,8 +11,9 @@ export const NOISE_WORDS = ['false-positive', 'harness'];
 export const REGISTER_LABEL = 'noise-register';
 export const REGISTER_KEEP = 300;
 
-// Which new findings are worth a judgement: a detector's one-off reading (the AI review, the layout and truth checks, the probe), and a failed step that only ran out of
-// time. A plain failed step is the suite's own judgement, so it is filed as it is.
+// Which new findings are worth a judgement: every one, a failed step too. Until 6 Oct 2026 a plain failed step was "the suite's own judgement" and filed as it was; 14 of the
+// 25 filed were the test's mistake (a fault that never fired, a read before Notion listed a new page, a look while the page was still loading), each read and closed by hand,
+// and the detector breaker could not trip on them (too few judged outcomes). Now the judge reads the step's logs first (ui-verdict-prompt.md).
 // A finding that is the harness's own mistake by its signature, never a product bug (5 Oct 2026: 11 of the first 47 findings were such noise, filed, read and closed by hand): the test
 // or the probe lost its page, or the recall benchmark's planted broken image leaked into the record. Judged `harness` without a model: no issue, a line in the register.
 export const HARNESS_SIGNATURES = [
@@ -26,24 +27,25 @@ export const signatureVerdict = (finding, learned = []) => {
   const taught = matchLearned(finding, learned);   // a mistake the loop learned from three closures (lib/signatures.mjs)
   return taught ? `harness\nWhy: ${taught.why}.` : '';
 };
-// A failed step that may be the test's mistake or the product's: it pressed a control that was disabled, hidden or covered. Judged (with the screenshot) rather than filed raw: a button that is
-// wrongly disabled is a real bug, one that is disabled by design on this page is not (#92, #95).
-export const STEP_NEEDS_LOOK = /element is not enabled|element is not visible|intercepts pointer events|detached from the DOM/i;
-// `tripped`: the detectors whose recent record is poor (lib/breaker.mjs): all their findings are judged before filing, whatever they are. `learned`: the signatures the loop taught itself.
-export const judgeable = (finding, {tripped = new Set(), learned = []} = {}) => !signatureVerdict(finding, learned)
-  && (finding.source !== 'suite-failure' || TIMEOUT_FAILURE.test(finding.detail || '') || STEP_NEEDS_LOOK.test(finding.detail || '') || tripped.has(finding.source));
+// `learned`: the signatures the loop taught itself (a known test mistake needs no model). A tripped detector (lib/breaker.mjs) still matters in triage.mjs: what it finds is held unjudged.
+export const judgeable = (finding, {learned = []} = {}) => !signatureVerdict(finding, learned);
 // The most severe first, so the cap never leaves a high finding unjudged for a medium one.
 export function pendingOf(findings, max = PREJUDGE_MAX, options = {}) {
   const rank = {high: 0, medium: 1, low: 2};
   return findings.filter(finding => judgeable(finding, options)).sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3)).slice(0, max)
     .map(item => ({id: item.id, view: item.view, kind: item.kind, severity: item.severity, source: item.source, title: item.title, detail: item.detail,
-      impact: item.impact || '', workaround: item.workaround || '', screenshot: item.screenshot || ''}));
+      impact: item.impact || '', workaround: item.workaround || '', screenshot: item.screenshot || '', logs: item.source === 'suite-failure' ? logFiles(item) : [], also: item.also || []}));
 }
+
+// A failed step's own logs, as files the judge reads (the run's artifacts keep them next to its screenshot): the engine's and the app's.
+export const logFiles = finding => finding.dir ? ['engine.log', 'app.log'].map(name => `${finding.dir}/logs/${name}`) : [];
 
 // The one prompt for the session: the verdict pass's own rules, then every finding with the picture to open, and the answer's shape.
 export function prejudgePrompt(pending, base) {
   const blocks = pending.map(item => [`## ${item.id}`, `Detector: ${item.source} · kind: ${item.kind} · severity: ${item.severity} · page: ${item.view}`, `Title: ${item.title}`, `What was found: ${item.detail}`,
-    ...(item.impact ? [`Why it matters (the detector's words): ${item.impact}`] : []), ...(item.screenshot ? [`Screenshot: ${item.screenshot} (open it with Read)`] : ['Screenshot: none'])].join('\n'));
+    ...(item.impact ? [`Why it matters (the detector's words): ${item.impact}`] : []), ...(item.screenshot ? [`Screenshot: ${item.screenshot} (open it with Read)`] : ['Screenshot: none']),
+    ...(item.logs?.length ? [`Logs: ${item.logs.join(', ')} (Read them before the screenshot: did the step's own setup take effect?)`] : []),
+    ...(item.also?.length ? [`Failed after it (probably consequences): ${item.also.slice(0, 5).join('; ')}`] : [])].join('\n'));
   return `${base}\n\n---\nTHIS RUN: you judge ${pending.length} NEW finding(s) BEFORE any issue is opened, in one go (about 8 turns each). Each is a section below; its screenshot is a file to Read.\n` +
     'Write ONE file, .heal/verdicts.md: for every finding a section `## <its id>` (exactly the id below), then the verdict word on its own line, then `Why:` and, for needs-human, `Check:`, as described above.\n\n' + blocks.join('\n\n');
 }

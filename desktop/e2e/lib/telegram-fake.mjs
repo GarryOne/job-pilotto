@@ -17,6 +17,7 @@ export function fields(contentType, raw) {
 
 export async function startTelegramFake() {
   const sent = [];
+  const stats = {armed: 0, failed: 0};   // the runner's check that a step's fault fired (lib/faults.mjs)
   let mode = 'pass';
   const server = http.createServer(async (req, res) => {
     const chunks = [];
@@ -25,7 +26,7 @@ export async function startTelegramFake() {
     const body = fields(req.headers['content-type'], Buffer.concat(chunks).toString('utf8'));
     const answer = (status, data) => { const text = JSON.stringify(data); res.writeHead(status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(text)}); res.end(text); };
     const failure = TELEGRAM_FAILURES[mode];
-    if (failure && /^(sendMessage|sendDocument|sendPhoto|editMessageText)$/.test(method)) return answer(failure.status, {ok: false, error_code: failure.status, description: failure.description, ...(failure.retry ? {parameters: {retry_after: failure.retry}} : {})});
+    if (failure && /^(sendMessage|sendDocument|sendPhoto|editMessageText)$/.test(method)) return stats.failed++, answer(failure.status, {ok: false, error_code: failure.status, description: failure.description, ...(failure.retry ? {parameters: {retry_after: failure.retry}} : {})});
     if (method === 'getMe') return answer(200, {ok: true, result: {id: 1, is_bot: true, first_name: 'E2E bot', username: 'e2e_test_bot'}});
     if (method === 'getUpdates') return answer(200, {ok: true, result: []});
     if (method === 'sendMessage') {
@@ -35,8 +36,8 @@ export async function startTelegramFake() {
     return answer(200, {ok: true, result: true});   // answerCallbackQuery, editMessage…, setMyCommands, deleteWebhook
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  return {url: `http://127.0.0.1:${server.address().port}`, sent,
-    fail: name => { if (!TELEGRAM_FAILURES[name]) throw new Error(`unknown Telegram failure: ${name}`); mode = name; }, pass: () => { mode = 'pass'; },
+  return {url: `http://127.0.0.1:${server.address().port}`, sent, stats,
+    fail: name => { if (!TELEGRAM_FAILURES[name]) throw new Error(`unknown Telegram failure: ${name}`); stats.armed++; mode = name; }, pass: () => { mode = 'pass'; },
     close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }
 

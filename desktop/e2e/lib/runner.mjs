@@ -1,6 +1,7 @@
 // Runs a suite's steps: names, timings, a screenshot on the first failure, a summary, an exit code. Steps that need a secret that is not there are skipped, loudly.
 import {ARTIFACTS} from './app.mjs';
 import {isEnvironment, RETRY_WAIT_MS} from './environment.mjs';
+import {faultCheck, NEVER_FIRED, neverFiredNote} from './faults.mjs';
 
 // keepGoing (a suite's `export const keepGoing = true`): a failed step is recorded and the next one runs, so one failure never hides the rest of the suite
 // (5 Oct 2026: one outdated step hid fifteen, twice). A step marked `critical` (the setup the others need) still stops the suite.
@@ -41,7 +42,8 @@ export function wantedWords(words, stepNeeds = {}) {
 export const SUITE_BUDGET_MS = Number(process.env.E2E_SUITE_BUDGET_MS) || 7 * 60000;
 export const slowest = (results, count = 5) => results.filter(result => result.seconds).sort((a, b) => b.seconds - a.seconds).slice(0, count).map(result => `${result.name.slice(0, 70)} (${Math.round(result.seconds)} s)`);
 
-export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS, stepNeeds = {}} = {}) {
+// faultTally: () => the fakes' {armed, failed} counters (lib/faults.mjs), to check that a step's fault fired.
+export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS, stepNeeds = {}, faultTally = null} = {}) {
   const results = [], suiteStarted = Date.now();
   let overBudget = false;
   async function run(name, rawFn, {needs = [], faults = false, critical = false, limitMs = STEP_LIMIT_MS} = {}) {
@@ -58,7 +60,8 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
     if (only.length && !critical && !only.some(word => name.toLowerCase().includes(word))) return;
     const missing = needs.filter(item => !item.value);
     if (missing.length) { results.push({name, status: 'skipped'}); console.log(`- ${name}: skipped (needs ${missing.map(item => item.name).join(', ')})`); return; }
-    const started = Date.now();
+    const started = Date.now(), before = faultTally?.();
+    const unfired = () => faultCheck(before, faultTally?.(), {faults});
     let retried = '';
     try {
       try { await fn(); } catch (error) {
@@ -70,13 +73,15 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
         await fn();
       }
       const seconds = ((Date.now() - started) / 1000).toFixed(1);
-      results.push({name, status: 'passed', seconds, ...(retried ? {retried} : {})});
-      console.log(`✓ ${name} (${seconds}s)${retried ? ' after one retry' : ''}`);
+      const vacuous = unfired();
+      results.push({name, status: 'passed', seconds, ...(retried ? {retried} : {}), ...(vacuous ? {faultNeverFired: true} : {})});
+      console.log(`✓ ${name} (${seconds}s)${retried ? ' after one retry' : ''}${vacuous ? ` ⚠ passed, but ${NEVER_FIRED}: it may test nothing` : ''}`);
     } catch (error) {
       await getSession()?.shot(`failed-${name.replace(/\W+/g, '-').slice(0, 60)}`);
       await getSession()?.keepLogs();   // the app's and the engine's own logs: a screenshot says "nothing new", the log says why
-      results.push({name, status: 'failed', note: error.message, ...(!faults && isEnvironment(error.message) ? {environment: true} : {})});
-      console.log(`✗ ${name}: ${error.message}`);
+      const note = unfired() ? `${error.message} ${neverFiredNote}` : error.message;
+      results.push({name, status: 'failed', note, ...(!faults && isEnvironment(error.message) ? {environment: true} : {}), ...(note !== error.message ? {faultNeverFired: true} : {})});
+      console.log(`✗ ${name}: ${note}`);
       if (keepGoing && !critical) return;   // recorded: the suite still fails at the end, and the next step runs
       throw error;
     }

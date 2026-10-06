@@ -419,8 +419,8 @@ export function chooseVerdictCandidates({gh = realGh, now = Date.now(), max = 5}
     if (!labels.some(name => name.startsWith('fp:')) || [NEEDS_HUMAN, FALSE_POSITIVE, CONFIRMED].some(name => labels.includes(name))) return false;
     if (/\*\*LOW\*\*/.test(issue.body || '')) return false;   // no AI credit on polish: low findings are listed, not judged or fixed
     const kind = /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
-    // Every one-off finding the loop made by judging (the probe, the layout check, the AI screenshot review), and a failed step that only ran out of time (the suites judge the other failed steps themselves).
-    return !!kind && (kind !== 'test-failure' || TIMEOUT_FAILURE.test(issue.body || '')) && recentSightings(issue, now) < SIGHTINGS_NEEDED;
+    // Every one-off finding, a failed step too (6 Oct 2026: until then only one that ran out of time was judged, and 14 of 25 filed failed steps were the test's mistake).
+    return !!kind && recentSightings(issue, now) < SIGHTINGS_NEEDED;
   });
   ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
   return ready.slice(0, max).map(issue => ({...issue, mode: 'verdict'}));

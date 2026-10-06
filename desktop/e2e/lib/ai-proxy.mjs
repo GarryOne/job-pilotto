@@ -18,13 +18,14 @@ export function failureFor(mode) {
 }
 
 export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic.com'} = {}) {
-  const stats = {calls: 0, delayMs, mode: 'pass', canned: 0};
+  const stats = {calls: 0, delayMs, mode: 'pass', canned: 0, armed: 0, failed: 0};   // armed / failed: the runner's check that a step's fault fired (lib/faults.mjs)
   let canned = null;   // (request body as an object) -> the text a model would answer, or null to pass the call through to Anthropic
   const server = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     stats.calls++;
     await new Promise(resolve => setTimeout(resolve, stats.delayMs));
+    if (stats.mode !== 'pass') stats.failed++;
     if (stats.mode === 'hang') return;   // never answers; the connection closes with the proxy
     const failure = failureFor(stats.mode);
     if (failure) { res.writeHead(failure.status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(failure.body), 'retry-after-ms': '10'}); res.end(failure.body); return; }   // retry-after-ms: the SDK retries a 429 / 500 after what the answer says, not after seconds of backoff
@@ -52,7 +53,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return {url: `http://127.0.0.1:${server.address().port}`, stats, setDelay: ms => { stats.delayMs = ms; },
     // 'pass' (default), 'hang', or a key of FAILURES. Every call after this one is answered that way.
-    setMode: mode => { if (mode !== 'pass' && mode !== 'hang' && !FAILURES[mode]) throw new Error(`unknown proxy mode: ${mode}`); stats.mode = mode; },
+    setMode: mode => { if (mode !== 'pass' && mode !== 'hang' && !FAILURES[mode]) throw new Error(`unknown proxy mode: ${mode}`); if (mode !== 'pass') stats.armed++; stats.mode = mode; },
     // From now on, calls `answer` returns a text for are answered with it (no model, no cost); the rest go through.
     setCanned: answer => { canned = answer; }, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }

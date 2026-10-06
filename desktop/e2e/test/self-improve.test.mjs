@@ -24,14 +24,13 @@ test('a detector is under watch when it was wrong in 4 of its last 10 judged out
   assert.deepEqual(breakerState([issue(1, 'ai-review', 'fp:detector', '2026-09-30T10:00:00Z')]), {}, 'before the cutoff: not counted');
 });
 
-test('a tripped detector\'s plain failed steps are judged before filing; a learned mistake needs no judgement at all', () => {
+test('a plain failed step is judged before filing; a learned mistake needs no judgement at all', () => {
   const step = detail => ({id: 'a', view: 'calendar', source: 'suite-failure', kind: 'test-failure', severity: 'medium', title: 'step failed', detail});
-  assert.equal(judgeable(step('expected 3, saw 2')), false, 'an assertion of a trusted suite is filed as it is');
-  assert.equal(judgeable(step('expected 3, saw 2'), {tripped: new Set(['suite-failure'])}), true, 'under watch: judged first');
+  assert.equal(judgeable(step('expected 3, saw 2')), true, 'judged first, the suite trusted or not (6 Oct 2026)');
   const learned = [{id: 'x1', re: patternOf('expected # saw #'), flags: 'i', why: 'learned: 3 issues'}];
   assert.match(signatureVerdict(step('expected 3, saw 2'), learned), /^harness\nWhy: learned: 3 issues/);
-  assert.equal(judgeable(step('expected 3, saw 2'), {tripped: new Set(['suite-failure']), learned}), false);
-  assert.deepEqual(pendingOf([step('expected 3, saw 2')], 3, {tripped: new Set(['suite-failure'])}).map(item => item.id), ['a']);
+  assert.equal(judgeable(step('expected 3, saw 2'), {learned}), false);
+  assert.deepEqual(pendingOf([step('expected 3, saw 2')]).map(item => item.id), ['a']);
 });
 
 const harnessIssue = (number, detail, resolution = 'fp:harness') => issue(number, 'suite-failure', resolution, '2026-10-05T10:00:00Z', {body: `**MEDIUM** · test-failure\n\n### What was found\n${detail}\n\n### Evidence\nx\n<!-- fingerprint: x -->`});

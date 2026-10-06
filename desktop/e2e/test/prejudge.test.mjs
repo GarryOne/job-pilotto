@@ -6,10 +6,10 @@ import {suppressedBy} from '../lib/triage.mjs';
 
 const finding = (id, severity, extra = {}) => ({id, view: 'app-chrome', kind: 'layout', severity, source: 'ai-review', title: `Sidebar clipped ${id}`, detail: 'the last icon is cut at 640 px', ...extra});
 
-test('the most severe judgeable findings, at most the cap; a plain failed step is left to its suite', () => {
+test('the most severe judgeable findings, at most the cap; a plain failed step is judged like any finding', () => {
   const list = pendingOf([finding('a', 'medium'), finding('b', 'high'), {...finding('c', 'medium'), source: 'suite-failure', kind: 'test-failure', detail: 'expected 3, saw 2'},
     {...finding('d', 'medium'), source: 'suite-failure', kind: 'test-failure', detail: 'Timeout 30000ms exceeded'}, finding('e', 'medium')], 3);
-  assert.deepEqual(list.map(item => item.id), ['b', 'a', 'd']);
+  assert.deepEqual(list.map(item => item.id), ['b', 'a', 'c']);
 });
 
 test('one prompt names every finding by id and its picture', () => {
@@ -104,6 +104,17 @@ test('a known harness signature is judged harness without a model, and a step on
   assert.equal(signatureVerdict(step('expected 3, saw 2')), '', 'an ordinary failed step is not a signature');
   assert.equal(judgeable(step('Target page, context or browser has been closed')), false, 'no model is needed for it');
   assert.equal(judgeable(step('page.click: waiting for element to be visible, enabled and stable - element is not enabled')), true, 'a disabled control may be a real bug: it is judged with the picture');
-  assert.equal(judgeable(step('expected 3, saw 2')), false, 'the suite\'s own assertion is still filed as it is');
+  assert.equal(judgeable(step('expected 3, saw 2')), true, 'every failed step is judged before filing (6 Oct 2026: 14 of 25 were the test\'s mistake)');
   assert.deepEqual(pendingOf([step('Target page, context or browser has been closed'), step('element is not enabled')].map((item, i) => ({...item, id: `x${i}`}))).map(item => item.id), ['x1']);
+});
+
+// 6 Oct 2026 (#306, #310, #315): the judge of a failed step reads its logs first; a screenshot alone could not show that the kit WAS drafted.
+test('a failed step goes to the judge with its logs and the steps that failed after it', () => {
+  const step = {id: 'f', view: 'apply', source: 'suite-failure', kind: 'test-failure', severity: 'medium', title: 'step failed: Apply on a saved job without a kit', detail: 'a form was opened', dir: '/art/apply', also: ['nothing was queued']};
+  const [pending] = pendingOf([step]);
+  assert.deepEqual(pending.logs, ['/art/apply/logs/engine.log', '/art/apply/logs/app.log']);
+  const prompt = prejudgePrompt([pending], 'BASE');
+  assert.match(prompt, /Logs: \/art\/apply\/logs\/engine\.log, \/art\/apply\/logs\/app\.log \(Read them before the screenshot/);
+  assert.match(prompt, /Failed after it \(probably consequences\): nothing was queued/);
+  assert.deepEqual(pendingOf([{...step, source: 'ai-review'}])[0].logs, [], 'a screenshot finding has no step logs');
 });

@@ -15,6 +15,7 @@ import {createVariation, placeOf} from './variation.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
+import {tally} from './faults.mjs';
 
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
 import {readdirSync} from 'node:fs';
@@ -34,8 +35,8 @@ export function notionToken(suite) {
 export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}} = {}) {
   const key = KEY(), token = light ? '' : notionToken(suite);
   const engine = pickEngine({suiteEngine});
-  let session = null;
-  const runner = createRunner(() => session, {keepGoing, stepNeeds, ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
+  let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
+  const runner = createRunner(() => session, {keepGoing, stepNeeds, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
   if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
   const ctx = {suite, key, token, runner, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
@@ -59,6 +60,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     const cases = JSON.parse(fs.readFileSync(path.join(E2E, '..', '..', 'tests', 'fixtures', 'mail_eval.json'), 'utf8')).cases;
     ctx.google = await startGoogleFake({emails: ['ats_thanks', 'interview_invite', 'security_code'].map(id => cases.find(item => item.id === id)?.email).filter(Boolean)});
   }
+  fakes = [ctx.proxy, ctx.notion, ctx.telegram, ctx.google];
   ctx.vary = createVariation();   // no E2E_SEED = the fixed path (the release gate); a seed = this run's varied data and timing (every suite: lib/feeds.mjs, lib/forms.mjs)
   const browserEnv = {};
   if (browser) {

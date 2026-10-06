@@ -301,7 +301,7 @@ test('severity follows what the person feels: a probe finding is medium, a missi
   assert.deepEqual(out, [], 'a low finding (a quick call with no spinner) is not filed');
 });
 
-test('the verdict pass takes a one-off probe finding, never a judged, parked, confirmed or clean one, and never a kind it cannot judge', async () => {
+test('the verdict pass takes a one-off finding (a failed step too), never a judged, parked, confirmed or clean one', async () => {
   const {chooseVerdictCandidate} = await import('../triage.mjs');
   const make = (number, kind, labels = [], comments = []) => ({number, state: 'OPEN', title: `[auto-ui] jobs: ${kind} on jobs: "X"`, body: `**MEDIUM** · ${kind} · found by the interaction probe`, labels: [{name: 'auto-ui'}, {name: `fp:f${number}`}, ...labels.map(name => ({name}))], comments, createdAt: new Date().toISOString()});
   const issues = [make(1, 'dead-control', ['confirmed']), make(2, 'dead-control', ['wontfix-auto']), make(3, 'dead-control', ['needs-human']), make(4, 'dead-control', ['not-seen-latest']),
@@ -311,7 +311,7 @@ test('the verdict pass takes a one-off probe finding, never a judged, parked, co
   assert.equal(picked.mode, 'verdict');
   assert.ok([4, 5, 7, 8].includes(picked.number), `got #${picked.number}`);   // 4 is not seen in the latest run: judged too since 4 Oct 2026   // 6 was seen on two builds: the normal fixer takes it; 1-4 are judged, parked or clean
   assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify(issues.slice(0, 3)) : '[]')}), null);
-  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify([make(9, 'test-failure')]) : '[]')}), null, 'a failed test step is judged by its suite, not by a verdict');
+  assert.equal(chooseVerdictCandidate({gh: args => (args[0] === 'issue' ? JSON.stringify([make(9, 'test-failure')]) : '[]')})?.number, 9, 'a failed test step is judged too (6 Oct 2026: 14 of 25 were the test\'s mistake)');
 });
 
 // "We're still missing the version in the gh issue labels" (#92, #93, 3 Oct 2026): the version was text in the body, and only when a release tag sat on exactly the tested commit.

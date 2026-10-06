@@ -11,7 +11,7 @@ export function gmailMessage(id, email, date = new Date()) {
 }
 
 export async function startGoogleFake({emails = []} = {}) {
-  const stats = {token: 0, list: 0, read: 0, calendar: 0};
+  const stats = {token: 0, list: 0, read: 0, calendar: 0, armed: 0, failed: 0};   // armed / failed: the runner's check that a step's fault fired (lib/faults.mjs)
   let mode = 'pass';
   const now = Date.now();
   const messages = emails.map((email, i) => gmailMessage(`e2e${i + 1}`, email, new Date(now - (i + 1) * 3600000)));
@@ -21,6 +21,7 @@ export async function startGoogleFake({emails = []} = {}) {
     const send = (status, data) => { const text = JSON.stringify(data); res.writeHead(status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(text)}); res.end(text); };
     if (url.pathname.startsWith('/oauth2.googleapis.com/token')) {
       stats.token++;
+      if (mode === 'revoked') stats.failed++;
       return mode === 'revoked' ? send(400, {error: 'invalid_grant', error_description: 'Token has been expired or revoked.'}) : send(200, {access_token: 'e2e-access', expires_in: 3600, token_type: 'Bearer'});
     }
     const read = /^\/gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\/([^/]+)$/.exec(url.pathname);
@@ -32,6 +33,6 @@ export async function startGoogleFake({emails = []} = {}) {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return {url: `http://127.0.0.1:${server.address().port}`, stats, count: messages.length,
-    revoke: () => { mode = 'revoked'; }, pass: () => { mode = 'pass'; },
+    revoke: () => { stats.armed++; mode = 'revoked'; }, pass: () => { mode = 'pass'; },
     close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }
