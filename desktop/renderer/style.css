@@ -1789,6 +1789,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .activity-log summary::-webkit-details-marker { display: none; }
 .activity-panel .activity-log summary::after { content: '⌄'; margin-left: auto; color: var(--muted); }
 .activity-panel .activity-log[open] summary::after { content: '⌃'; }
+.activity-panel .activity-log .log-copy { margin-left: auto; }   /* Copy sits on the right, before the arrow */
+.activity-panel .activity-log summary:has(.log-copy:not([hidden]))::after { margin-left: 0; }
 .activity-panel .activity-log .log { margin: 0 var(--sp-3) var(--sp-3); max-height: 260px; }
 .activity-panel .activity-log.is-empty summary { cursor: default; color: var(--muted); }
 .activity-panel .activity-log.is-empty summary::after { content: none; }

@@ -666,6 +666,7 @@ export function renderActivity(fresh) {
   $('log-title').textContent = noLog ? 'No log available' : 'Technical log';
   $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
   show($('log-live'), !!run?.live);
+  show($('log-copy'), !noLog);   // nothing to copy on "No log available"
   const log = $('log');
   const text = lines.join('\n') || (githubLive
     ? (run.url ? 'This run is on GitHub. Its log is copied here when it finishes.' : 'Starting on GitHub…')

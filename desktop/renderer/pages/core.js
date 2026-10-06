@@ -48,7 +48,17 @@ export async function init() {
   document.addEventListener('click', event => {
     const link = event.target.closest('[data-link]');
     if (link) { event.preventDefault(); window.pilot.openExternal(link.dataset.link); }
+    // Every Copy button (data-copy="<id of what it copies>"): says "Copied ✓" for a moment, then is itself again (icon included). Inside a
+    // card's header (the Technical log's summary) the click copies only, it doesn't also open or close the card.
     const copy = event.target.closest('[data-copy]');
-    if (copy) navigator.clipboard.writeText($(copy.dataset.copy).textContent).then(() => { copy.textContent = 'Copied ✓'; });
+    if (copy) {
+      if (copy.closest('summary')) event.preventDefault();
+      navigator.clipboard.writeText($(copy.dataset.copy).textContent).then(() => {
+        copy.dataset.label ??= copy.innerHTML;
+        copy.textContent = 'Copied ✓';
+        clearTimeout(copy.copiedTimer);
+        copy.copiedTimer = setTimeout(() => { copy.innerHTML = copy.dataset.label; }, 1500);
+      }).catch(error => console.error('copy failed', error));
+    }
   });
 }
