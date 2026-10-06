@@ -165,8 +165,14 @@ export async function run(ctx) {
     await page.waitForFunction(() => /is now linked to that job/.test(document.getElementById('iv-message').textContent), null, {timeout: 120000});
     let linked = (await notionRows()).find(item => item.id === seed.ivNegative.page).properties.Application.relation.map(item => item.id);
     if (JSON.stringify(linked) !== JSON.stringify([seed.beta.id])) throw new Error(`Notion links the interview to ${JSON.stringify(linked)}, expected the Beta job ${seed.beta.id}`);
-    await page.waitForFunction(id => /Beta/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] td:nth-child(2)`)?.innerText || ''), seed.ivNegative.page, {timeout: 60000});
-    await row(seed.ivNegative.page).locator('.iv-picker select').selectOption('');
+    // The re-drawn row shows the job as its link (the cell's innerText also holds the old picker's options, so it said "Beta" before the re-draw),
+    // and its picker is hidden again: unlink as a person does, ⋯ → Change job…, again if a later re-draw hides it (Windows, 6 Oct 2026).
+    await page.waitForFunction(id => /Beta/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] .iv-who button.link`)?.textContent || ''), seed.ivNegative.page, {timeout: 60000});
+    for (let attempt = 0; ; attempt++) {
+      await chooseFromMenu(seed.ivNegative.page, 'Change job');
+      if (await row(seed.ivNegative.page).locator('.iv-picker select').selectOption('', {timeout: 5000}).then(() => true, () => false)) break;
+      if (attempt === 4) throw new Error('the job picker never stayed open long enough to unlink');
+    }
     await page.waitForFunction(() => /not linked to a job/.test(document.getElementById('iv-message').textContent), null, {timeout: 120000});
     linked = (await notionRows()).find(item => item.id === seed.ivNegative.page).properties.Application.relation;
     if (linked.length) throw new Error('Notion still links the interview to a job after it was unlinked');
