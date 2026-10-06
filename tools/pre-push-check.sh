@@ -117,6 +117,14 @@ if command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -
   unseen="$(cd "$repo" && node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
 fi
 
+# A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,
+# and were diagnosed again from scratch): "Fixes #N", "Refs #N" or "E2E-issue: none <why>" (tools/e2e-issue-links.mjs). `E2E_ISSUE_OK=1` on the push skips it.
+case "$command" in *E2E_ISSUE_OK=1*) ;; *)
+  if command -v node >/dev/null && [ -f "$repo/tools/e2e-issue-links.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+    links="$(cd "$repo" && node tools/e2e-issue-links.mjs --base origin/main 2>&1)" || { echo "Push blocked: $links" >&2; exit 2; }
+  fi ;;
+esac
+
 # Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path
 # this list does not know runs everything. The engine (src/, tests/) also runs desktop: its callers. A clean pip install only when dependencies changed.
 changed="$(git -C "$repo" diff --name-only origin/main..HEAD 2>/dev/null)"
