@@ -245,8 +245,14 @@ export async function run(ctx) {
       }
     }, {needs: ctx.needs});
   }
-  await ctx.run('after the 60-second hold ends, none of the dismissed Up next cards comes back from Notion', async () => {
-    await page.waitForTimeout(65000);
+  // The in-app hold (pages/focus.js HOLD_MS, ten minutes since 5 Oct 2026; dropped earlier once a read no longer has the row) hides a dismissed card until
+  // Notion has it. Waiting 65 s for it to end checked nothing once the hold grew past that: the step ends any hold itself (localStorage) and reads Notion again.
+  await ctx.run('once the in-app hold is over, none of the dismissed Up next cards comes back from Notion', async () => {
+    console.log(`  ${await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('focusHolds') || '{}')).length)} card(s) still held in the app; ending the hold`);
+    await page.evaluate(() => localStorage.removeItem('focusHolds'));
+    await page.reload();
+    if (await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('focusHolds') || '{}')).length)) throw new Error('a hold survived: this step would not see what Notion lists');
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await goFocus();
     await refresh();
     const back = (await upNext()).filter(item => actions.actions.some(action => new RegExp(action.card || action.who).test(item.headline)));
