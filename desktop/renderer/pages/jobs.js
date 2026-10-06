@@ -1086,7 +1086,9 @@ export async function init() {
   window.pilot.onMoved(steps => { if (steps.includes('open questions')) loadQuestions({force: true}); });
 
   window.pilot.onLog(line => {
-    if (shared.idleSeen || /^Searching job boards/.test(line)) { shared.logLines = []; shared.idleSeen = false; shared.selectedRun = null; }
+    // A new run's first line starts a fresh live log. It does NOT clear the run you are looking at in Recent activity (6 Oct 2026: the Gmail check the app
+    // starts by itself after launch switched the panel away from the run being read). Starting a run yourself clears it (Refresh, Check Gmail, View activity).
+    if (shared.idleSeen || /^Searching job boards/.test(line)) { shared.logLines = []; shared.idleSeen = false; }
     // "Still running · no new output for 1 min" and the wait for another run: only the newest of a row stays (lib/pipeline.js STATUS_LINE).
     const status = /^(?:⏳ Still running|Another Job Pilotto search is running)/;
     if (status.test(line) && status.test(shared.logLines.at(-1) || '')) shared.logLines.pop();
