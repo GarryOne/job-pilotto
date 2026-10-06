@@ -112,7 +112,7 @@ test('the landing page reads the pool size from the public summary of this route
   assert.match(page, /switch that off in Settings/);   // the sharing note lives in the FAQ and privacy page, not the small card
   const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
   assert.match(privacy, /on by default/);
-  assert.match(privacy, /Installs set up before this existed start with it off/);
+  assert.match(privacy, /Every install also helps it grow, <b>on by default<\/b> \(you can turn it off\)/);   // opt-out for everyone (7 Oct 2026)
   assert.doesNotMatch(page, /maintained (employer )?index/i);
 });
 
