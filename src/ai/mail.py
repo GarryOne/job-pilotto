@@ -1120,6 +1120,31 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     return f'Mail: {count} new email(s) classified, {len(lines)} update(s), {len(notes)} reminder(s) (${usd:.3f})'
 
 
+# Why a check read nothing, in the app's words (desktop/lib/run-result.js MAIL_SKIPPED, held equal by desktop/test/engine-message-contract.test.js).
+NOT_CHECKED = {
+    'spend': 'not checked: the Anthropic API spend limit was reached',
+    'plan': 'not checked: your Claude usage window is exhausted; it runs again later',
+    'claude': 'not checked: Claude Code is not ready (Settings → AI)',
+    'google': 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)',
+}
+
+
+def failure_cause(error):
+    """'google', 'plan', 'claude', 'spend' or '' (an unknown failure)."""
+    if 'invalid_grant' in str(error):
+        return 'google'
+    if cost.cli_limit(error):
+        return 'plan' if 'usage window' in str(error) else 'claude'
+    return 'spend' if cost.limit_reached(error) else ''
+
+
+def failure_warning(error):
+    """The run row's warning for a check that failed: a known cause in the app's words; only an unknown one keeps its text, for whoever debugs it.
+    #314: a revoked sign-in wrote Google's answer ("invalid_grant … Token has been expired or revoked") into the user's Notion run row."""
+    cause = failure_cause(error)
+    return NOT_CHECKED[cause] if cause else f'check failed: {type(error).__name__}: {str(error)[:200]}'
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--days', type=int, default=2, help='how far back to search Gmail')
@@ -1170,14 +1195,10 @@ def main(argv=None):
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
         from .. import run_result
         # Noted before the run row is written, so the result file carries the code and not only the sentence.
-        if 'invalid_grant' in str(error):
-            run_result.note_mail('google')
-        elif cost.cli_limit(error):
-            run_result.note_mail('plan' if 'usage window' in str(error) else 'claude')
-        elif cost.limit_reached(error):
-            run_result.note_mail('spend')
+        if failure_cause(error):
+            run_result.note_mail(failure_cause(error))
         if logged:
-            log_check(f'check failed: {type(error).__name__}: {str(error)[:200]}')
+            log_check(failure_warning(error))
         if 'invalid_grant' in str(error):
             message = ('⚠️ The Google sign-in for Gmail and Calendar has expired (Google limits apps in testing mode '
                        'to 7 days). On the Mac, in the repo, run: python3 -m src.sources.google auth --github '

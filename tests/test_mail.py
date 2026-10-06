@@ -774,6 +774,14 @@ class GoogleApiTests(unittest.TestCase):
             client.profile()
         self.assertIn('invalid_grant', str(caught.exception))
 
+    def test_a_failed_check_names_a_known_cause_in_words(self):
+        # #314: the run row's warning carried Google's raw answer; the app lists it under "View details".
+        revoked = RuntimeError('Google token refresh failed: {"error": "invalid_grant", "error_description": "Token has been expired or revoked."}')
+        said = mail.failure_warning(revoked)
+        self.assertEqual(said, mail.NOT_CHECKED['google'])
+        self.assertNotRegex(said, r'invalid_grant|error_description|Token has been|[{}]')
+        self.assertEqual(mail.failure_warning(ValueError('odd')), 'check failed: ValueError: odd')
+
     def test_auth_without_a_client_uses_the_shared_published_app(self):
         shared = {'client_id': 'shared-id.apps.googleusercontent.com', 'client_secret': 'shared-secret'}
         with tempfile.TemporaryDirectory() as tmp:
