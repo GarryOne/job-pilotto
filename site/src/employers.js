@@ -3,11 +3,13 @@
 // PUT /api/index (Bearer INDEX_PUBLISH_KEY) is the private central scout (repo GarryOne/job-pilotto-internal) publishing it.
 // Product data only: feeds, quality, last verified. Nothing about any user. Stored as one KV value (binding WAITLIST).
 import {REGIONS, ROLES} from './pool.js';
+import {COUNTRIES, FAMILIES, METROS} from './pool-tags.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
 import {store as storeScouting} from './scouting.js';
 import {snapshot, storeSnapshot} from './scoutingadmin.js';
 const KEY = 'index:employers';
-const NOFEED_KEY = 'index:nofeed';   // employers with no readable job site, published by the central scout: installs skip them 30 days
+const NOFEED_KEY = 'index:nofeed';
+const BOARDS_KEY = 'index:boards';   // per job board, what it gives people by role, family and place (src/scout.py board_stats): installs order the boards they suggest   // employers with no readable job site, published by the central scout: installs skip them 30 days
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 const MAX_BYTES = 1_000_000;          // the KV copy older app versions download (one KV value)
 const MAX_PUBLISH_BYTES = 20_000_000; // what the central scout may send: D1 holds far more feeds than one KV value
@@ -45,7 +47,24 @@ export const freshOf = fresh => {
     trend: ['up', 'flat', 'down'].includes(fresh.trend) ? fresh.trend : 'flat', new: DAY.test(fresh.new || '') ? fresh.new : null};
   return out.ok ? out : null;
 };
-const fitsOf = fits => ({roles: (fits?.roles || []).filter(r => ROLES.includes(r)), regions: (fits?.regions || []).filter(r => REGIONS.includes(r))});
+const LISTS = {roles: ROLES, regions: REGIONS, countries: COUNTRIES, metros: METROS, families: FAMILIES};
+const tagsOf = (value, names) => Object.fromEntries(names.map(name => [name, (Array.isArray(value?.[name]) ? value[name] : []).filter(tag => LISTS[name].includes(tag))])
+  .filter(([name, tags]) => tags.length || ['roles', 'regions'].includes(name)));
+// Who a feed fits, and `quiet`: role kinds / families whose installs read it fine and never found a job there (src/scout.py fits).
+const fitsOf = fits => {
+  const quiet = tagsOf(fits?.quiet, ['roles', 'families']);
+  return {...tagsOf(fits, Object.keys(LISTS)), ...(Object.values(quiet).some(tags => tags.length) ? {quiet} : {})};
+};
+// What a feed led to across installs (published past 3 installs): small whole numbers only.
+const poolOf = pool => (pool && typeof pool === 'object' && number(pool.installs, 1e6) >= 3
+  ? {installs: number(pool.installs, 1e6), matched: number(pool.matched, 1e6) ?? 0, applied: number(pool.applied, 1e6) ?? 0, interview: number(pool.interview, 1e6) ?? 0} : null);
+const BOARD_IDS = ['jobsch', 'arbeitnow', 'himalayas', 'jobicy', 'adzuna', 'jooble', 'google_jobs', 'alerts_linkedin', 'alerts_jobsch', 'alerts_jobup', 'alerts_indeed', 'alerts_glassdoor'];
+export function boardsOf(boards) {
+  return (Array.isArray(boards) ? boards : []).filter(item => item && BOARD_IDS.includes(item.board)).slice(0, 30).map(item => ({
+    board: item.board, installs: number(item.installs, 1e6) ?? 0, matched: number(item.matched, 1e6) ?? 0,
+    by: Object.fromEntries(Object.keys(LISTS).map(name => [name, Object.fromEntries(Object.entries(item.by?.[name] || {})
+      .filter(([tag, pair]) => LISTS[name].includes(tag) && Array.isArray(pair) && number(pair[0], 1e6) >= 3).map(([tag, pair]) => [tag, [number(pair[0], 1e6), number(pair[1], 1e6) ?? 0]]))]))}));
+}
 
 // Only the fields clients read, and only feeds an app knows how to crawl.
 export function clean(feeds) {
@@ -63,6 +82,7 @@ export function clean(feeds) {
       fits: fitsOf(item.fits),
       ...(kindsOf(item.kinds) ? {kinds: kindsOf(item.kinds)} : {}),
       ...(freshOf(item.fresh) ? {fresh: freshOf(item.fresh)} : {}),
+      ...(poolOf(item.pool) ? {pool: poolOf(item.pool)} : {}),
       regions: Array.isArray(item.regions) ? [...new Set(item.regions.filter(r => REGIONS.includes(r)))] : [],
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : [],
       ...(ats === 'careers' && recipeOf(item.recipe) ? {recipe: recipeOf(item.recipe)} : {})});
@@ -100,7 +120,8 @@ async function slice(env, regions) {
     .bind(...regions.map(r => `%,${r},%`)).all()).results || [];
   if (!rows.length) return null;
   const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]');
-  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed});
+  const boards = JSON.parse((await env.WAITLIST?.get(BOARDS_KEY)) || '[]');
+  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards});
 }
 
 async function download(request, env, now = new Date()) {
@@ -153,6 +174,7 @@ async function publish(request, env) {
   const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
     .slice(0, 5000).map(item => ({key: item.key, company: String(item.company || '').slice(0, 120), host: /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host || '') ? item.host : null, last: item.last}));
   if (env.WAITLIST) await env.WAITLIST.put(NOFEED_KEY, JSON.stringify(nofeed));
+  if (env.WAITLIST && Array.isArray(body.boards)) await env.WAITLIST.put(BOARDS_KEY, JSON.stringify(boardsOf(body.boards)));
   // The day's snapshot for /admin/scouting's growth: counts only; never a reason to refuse the index.
   if (env.STATS) {
     const pooled = new Set(((await env.STATS.prepare("SELECT DISTINCT ats || ':' || slug AS k FROM contributions WHERE how IS NOT NULL AND how NOT IN ('index', 'own')").all().catch(() => ({results: []}))).results || []).map(row => row.k));

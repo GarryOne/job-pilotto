@@ -574,11 +574,60 @@ def fetch_contributions(base_url, key, get=None, with_nofeed=False):
         return ([], []) if with_nofeed else []
 
 
+FIT_NAMES = ('roles', 'regions', 'countries', 'metros', 'families')   # finer labels since 7 Oct 2026, same floor
+POOL_MIN_INSTALLS = 3   # outcome totals of a feed or board are published only past this many installs (k-anonymity)
+
+
 def fits(contribution):
-    """Role and region tags backed by enough different installs; nothing rarer is ever published."""
-    out = {name: sorted(tag for tag, n in (contribution.get(name) or {}).items() if n >= FIT_MIN_INSTALLS)
-           for name in ('roles', 'regions', 'countries', 'metros', 'families')}   # finer labels since 7 Oct 2026, same floor
-    return {name: tags for name, tags in out.items() if tags}
+    """Role and region tags backed by enough different installs; nothing rarer is ever published. `quiet`: tags whose installs read the feed
+    fine, FIT_MIN_INSTALLS of them or more, and none found a job there for that tag (7 Oct 2026): installs with that tag skip it."""
+    out = {name: sorted(tag for tag, n in (contribution.get(name) or {}).items() if n >= FIT_MIN_INSTALLS) for name in FIT_NAMES}
+    out = {name: tags for name, tags in out.items() if tags}
+    quiet = {name: sorted(tag for tag, n in (contribution.get(f'quiet_{name}') or {}).items()
+                          if n >= FIT_MIN_INSTALLS and not (contribution.get(name) or {}).get(tag)) for name in ('roles', 'families')}
+    quiet = {name: tags for name, tags in quiet.items() if tags}
+    return {**out, **({'quiet': quiet} if quiet else {})}
+
+
+def pool_of(contribution):
+    """What a feed led to across installs, published past POOL_MIN_INSTALLS: {installs, matched, applied, interview}, or None."""
+    installs = int(contribution.get('installs') or 0)
+    if installs < POOL_MIN_INSTALLS:
+        return None
+    out = contribution.get('out') or {}
+    return {'installs': installs, 'matched': int(contribution.get('matched_installs') or 0), 'applied': int(out.get('applied') or 0),
+            'interview': int(out.get('interview') or 0)}
+
+
+def board_stats(boards):
+    """Per job board, what it gives people by role kind, family, country and metro: [{board, installs, matched, by: {name: {tag: [installs,
+    matched]}}}], each tag past POOL_MIN_INSTALLS only. Installs read it to say "gives a match to 6 in 10 people like you"."""
+    out = []
+    for board in boards or []:
+        if not isinstance(board, dict) or int(board.get('installs') or 0) < POOL_MIN_INSTALLS:
+            continue
+        by = {}
+        for name in FIT_NAMES:
+            kept = {tag: [int(line.get('installs') or 0), int(line.get('matched') or 0)] for tag, line in (board.get(name) or {}).items()
+                    if isinstance(line, dict) and int(line.get('installs') or 0) >= POOL_MIN_INSTALLS}
+            if kept:
+                by[name] = kept
+        out.append({'board': board.get('board'), 'installs': int(board['installs']), 'matched': int(board.get('matched_installs') or 0), 'by': by})
+    return out
+
+
+def fetch_boards(base_url, key, get=None):
+    """The pool's per-board totals (`GET /api/contributions?part=boards`); [] when unavailable."""
+    def default_get(request):
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    request = urllib.request.Request(base_url.rsplit('/api/', 1)[0] + '/api/contributions?part=boards',
+                                     headers={'Authorization': f'Bearer {key}', 'User-Agent': ats.USER_AGENT})
+    try:
+        return [b for b in (get or default_get)(request).get('boards', []) if isinstance(b, dict)]
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: pool board totals not read ({type(error).__name__}: {error})')
+        return []
 
 
 def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None):
@@ -611,6 +660,9 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             if kinds:
                 entry['kinds'] = kinds
             tags = fits(by_feed.get((system, slug), {}))
+            pooled = pool_of(by_feed.get((system, slug), {}))
+            if pooled:
+                entry['pool'] = pooled
             if system == 'careers':   # how to read this page without AI, learned here: every install's crawl can use it
                 from .sources import page_recipes
                 recipe = page_recipes.load(careers.decode(slug), db)
@@ -754,12 +806,12 @@ def dead_ends(db, shared=(), days=30):
     return list(out.values())[:5000]
 
 
-def publish_index(feeds, url, key, send=None, stats=None, nofeed=None):
+def publish_index(feeds, url, key, send=None, stats=None, nofeed=None, boards=None):
     """Upload the index to the website worker (PUT, Bearer key), with the scout's own numbers. Raises when the service refuses it."""
     if not feeds:
         raise ValueError('nothing to publish: no feed answered')
     body = json.dumps({'feeds': feeds, 'generated': now().isoformat(timespec='seconds'), **({'stats': stats} if stats else {}),
-                       **({'nofeed': nofeed} if nofeed else {})}).encode()
+                       **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {})}).encode()
 
     def put(request):
         with urllib.request.urlopen(request, timeout=60) as response:
@@ -1128,7 +1180,7 @@ def main():
             feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
                                             boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
             stats = central_stats(db, feeds_out, market_coverage(swiss_titles))
-            count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead))
+            count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=board_stats(fetch_boards(index_url, key)))
             print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     from .ai import cost as ai_cost

@@ -280,10 +280,14 @@ def downloaded_index():
     # Default: only feeds with roles in your places. JOB_PILOTTO_INDEX_ALL=1 crawls the whole worldwide index.
     if os.getenv('JOB_PILOTTO_INDEX_ALL'):
         return index
-    kept = employer_index.relevant(index, feeds.wanted_location, role_kinds.of_search(load_search_config()))
+    kinds = role_kinds.of_search(load_search_config())
+    kept = employer_index.relevant(index, feeds.wanted_location, kinds, me=employer_index.me_now())
+    for_kind = employer_index.relevant(index, feeds.wanted_location, kinds)
     in_places = employer_index.relevant(index, feeds.wanted_location)
-    if len(kept) < len(in_places):   # said once a run: which employers were left out, and why
-        print(f'Employers: {len(kept)} of {len(in_places)} in your places hire for your kind of role; the others are left out.')
+    if len(for_kind) < len(in_places):   # said once a run: which employers were left out, and why
+        print(f'Employers: {len(for_kind)} of {len(in_places)} in your places hire for your kind of role; the others are left out.')
+    if len(kept) < len(for_kind):   # 7 Oct 2026: the pool's "read fine, never a job for people like you"
+        print(f'Employers: {len(for_kind) - len(kept)} more left out: people doing your kind of work never found a job there.')
     return kept
 
 

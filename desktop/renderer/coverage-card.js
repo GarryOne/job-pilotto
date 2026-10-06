@@ -45,7 +45,22 @@ export function sourcesCard(verdict, dismissedAt = '') {
   return {
     title: 'More places to find jobs',
     text: 'Job sources you do not use yet, easiest first. Each one adds jobs the others miss:',
-    chips: sources.map(source => ({id: source.id, label: `+ ${source.name} · ${source.effort}`, title: `${source.effort}: ${source.gain}`})),
+    chips: sources.map(source => ({id: source.id, label: `+ ${source.name} · ${source.people || source.effort}`,
+      title: `${source.effort}: ${source.gain}${source.people ? ` (${source.people})` : ''}`})),
+    at: verdict.at || '',
+  };
+}
+
+// Employers where people doing the same kind of work got interviews (src/coverage.py employers_for_you, from the shared pool, 7 Oct 2026).
+// A chip shows that employer's jobs. Pure like the others.
+export function employersCard(verdict, dismissedAt = '') {
+  const list = Array.isArray(verdict?.for_you) ? verdict.for_you : [];
+  if (!list.length || (dismissedAt && verdict.at && dismissedAt === verdict.at)) return null;
+  return {
+    title: 'Where people like you get interviews',
+    text: 'From the shared list: employers where people doing your kind of work applied and got interviews. See their jobs:',
+    chips: list.map(item => ({company: item.company, label: `${item.company} · ${item.interview ? `${item.interview} interview${item.interview === 1 ? '' : 's'}` : `${item.applied} applied`}`,
+      title: `People like you (same ${item.why}) applied ${item.applied} times and got ${item.interview} interview${item.interview === 1 ? '' : 's'} here`})),
     at: verdict.at || '',
   };
 }

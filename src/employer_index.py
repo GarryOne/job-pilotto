@@ -69,6 +69,69 @@ def clean_nofeed(items):
     return out[:5000]
 
 
+def clean_boards(items):
+    """Per job board, what it gives people by label (src/scout.py board_stats): fixed shape, or dropped."""
+    out = []
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, dict) and re.fullmatch(r'[a-z_]{2,30}', str(item.get('board') or '')) and isinstance(item.get('by'), dict):
+            by = {name: {tag: pair for tag, pair in (tags or {}).items() if isinstance(pair, list) and len(pair) == 2 and all(isinstance(n, int) for n in pair)}
+                  for name, tags in item['by'].items() if isinstance(tags, dict)}
+            out.append({'board': item['board'], 'installs': int(item.get('installs') or 0), 'matched': int(item.get('matched') or 0), 'by': by})
+    return out[:30]
+
+
+SPECIFIC = ('families', 'metros', 'roles', 'countries')   # the most telling label first: a photographer's family says more than "Europe"
+
+
+def board_rate(board, me, cache=None):
+    """(installs, matched) of people like this user on a job board, by their most specific label with data, or None."""
+    stored = _read(cache or CACHE) or {}
+    line = next((b for b in stored.get('boards') or [] if b['board'] == board), None)
+    if not line:
+        return None
+    for name in SPECIFIC:
+        pairs = [line['by'].get(name, {}).get(tag) for tag in me.get(name) or []]
+        pairs = [pair for pair in pairs if pair]
+        if pairs:
+            return sum(p[0] for p in pairs), sum(p[1] for p in pairs)
+    return None
+
+
+def me_now(search=None):
+    """This user's fixed-list labels (src/contribute.py): role kinds, families, countries, metros. Nothing leaves the Mac here."""
+    from . import contribute
+    roles, _ = contribute.tags(search)
+    return {'roles': roles, **contribute.fine_tags(search)}
+
+
+def quiet_for(feed, me):
+    """True when installs of every family (or, without one, every role kind) of this user read the feed fine and none found a job there."""
+    quiet = (feed.get('fits') or {}).get('quiet') or {}
+    for name in ('families', 'roles'):
+        mine = [tag for tag in me.get(name) or [] if tag != 'other']
+        if mine:
+            return all(tag in (quiet.get(name) or []) for tag in mine)
+    return False
+
+
+def for_you(index, me, n=8):
+    """The employers of the central list that worked best for people like this user: [{company, interview, applied, why}], best first.
+    Only feeds with published outcome totals (3+ installs) and a label of this user's among their fits."""
+    scored = []
+    for feed in index:
+        pool, fits = feed.get('pool') or {}, feed.get('fits') or {}
+        if not pool or quiet_for(feed, me):
+            continue
+        shared = [name for name in SPECIFIC if set(me.get(name) or []) & set(fits.get(name) or [])]
+        if not shared:
+            continue
+        score = 3 * pool.get('interview', 0) + pool.get('applied', 0) + 2 * pool.get('matched', 0) / max(1, pool.get('installs', 1))
+        score *= {'families': 3, 'metros': 2.5, 'roles': 1.5, 'countries': 1}[shared[0]]
+        why = {'families': 'your kind of work', 'metros': 'your area', 'roles': 'your kind of role', 'countries': 'your country'}[shared[0]]
+        scored.append((score, {'company': feed['company'], 'interview': pool.get('interview', 0), 'applied': pool.get('applied', 0), 'why': why}))
+    return [item for _, item in sorted(scored, key=lambda pair: -pair[0])[:n] if item['interview'] or item['applied']]
+
+
 def central_nofeed(cache=None, today=None, days=30):
     """{key} of employers some install or the central scout found with no readable job site in the last `days` days (6 Oct 2026): this
     install's scout skips them instead of probing the same dead end."""
@@ -92,6 +155,8 @@ def clean(feeds):
                         'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None,
                         **({'kinds': role_kinds.valid(item.get('kinds'))} if role_kinds.valid(item.get('kinds')) else {}),
                         **({'fresh': fresh_of(item.get('fresh'))} if fresh_of(item.get('fresh')) else {}),
+                        **({'pool': {k: int(item['pool'].get(k) or 0) for k in ('installs', 'matched', 'applied', 'interview')}}
+                           if isinstance(item.get('pool'), dict) else {}),
                         'regions': [r for r in item.get('regions') or [] if isinstance(r, str) and r in REGION_NAMES],
                         **({'recipe': item['recipe']} if system == 'careers' and page_recipes.valid(item.get('recipe')) else {})})
     return out
@@ -101,7 +166,7 @@ def _read(cache):
     try:
         data = json.loads(cache.read_text())
         return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds')),
-                'install': data.get('install'), 'regions': data.get('regions') or [], 'nofeed': clean_nofeed(data.get('nofeed'))}
+                'install': data.get('install'), 'regions': data.get('regions') or [], 'nofeed': clean_nofeed(data.get('nofeed')), 'boards': clean_boards(data.get('boards'))}
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -159,16 +224,16 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
             try:
                 status, body, etag = get(url, headers)
                 if status == 304 and stored:
-                    feeds, etag, dead = stored['feeds'], stored['etag'], stored.get('nofeed') or []
+                    feeds, etag, dead, boards = stored['feeds'], stored['etag'], stored.get('nofeed') or [], stored.get('boards') or []
                 else:
                     parsed = json.loads(body)
-                    feeds, dead = clean(parsed.get('feeds')), clean_nofeed(parsed.get('nofeed'))
+                    feeds, dead, boards = clean(parsed.get('feeds')), clean_nofeed(parsed.get('nofeed')), clean_boards(parsed.get('boards'))
                 break
             except Exception:  # noqa: BLE001 — once more after a short wait, then the outer handler decides
                 if attempt == 2:
                     raise
                 time.sleep(retry_wait)
-        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds, 'nofeed': dead}
+        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'regions': regions, 'feeds': feeds, 'nofeed': dead, 'boards': boards}
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
         return feeds
@@ -189,11 +254,12 @@ def merge(starter, index, skip=lambda company: False):
     return list(merged.values())
 
 
-def relevant(index, wanted_location, wanted_kinds=None):
+def relevant(index, wanted_location, wanted_kinds=None, me=None):
     """Only feeds with roles in the user's own places (their search.json), so a worldwide index doesn't cost every
     crawl the time of feeds it would throw away. A feed with no place information (older index) is kept. With the kinds of role the user
     looks for (role_kinds.of_search), also only feeds that hire for one of them: a software company is skipped for a photographer
-    (6 Oct 2026); a feed without a published mix is kept."""
+    (6 Oct 2026); a feed without a published mix is kept. With `me` (this user's labels), also not a feed that many installs of their family
+    read fine and never found a job at (quiet_for, 7 Oct 2026)."""
     return [f for f in index
             if (not f.get('places') or any(wanted_location({'location': place}) for place in f['places']))
-            and role_kinds.fits(f.get('kinds'), wanted_kinds)]
+            and role_kinds.fits(f.get('kinds'), wanted_kinds) and not (me and quiet_for(f, me))]

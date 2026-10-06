@@ -24,3 +24,12 @@ test('every recommending card records shown and taken (a new card without it fai
   assert.match(strategy, /sourcesCard\(verdict[\s\S]*?adviceEvent\('shown', 'source'/);
   assert.match(activity, /adviceEvent\('shown', action\.kind[\s\S]*?adviceEvent\('taken', action\.kind/);
 });
+
+test('the sources card says what a source gave people like you; the employers card lists where they got interviews', async () => {
+  const {employersCard, sourcesCard} = await import('../renderer/coverage-card.js');
+  const sources = sourcesCard({at: 'x', sources: [{id: 'aggregators', name: 'Adzuna and Jooble', effort: 'Two free keys', gain: 'all trades', people: 'gave a match to 8 in 10 people like you'}]});
+  assert.equal(sources.chips[0].label, '+ Adzuna and Jooble · gave a match to 8 in 10 people like you');
+  const card = employersCard({at: 'x', for_you: [{company: 'Studio Geneva', interview: 1, applied: 3, why: 'kind of work'}]});
+  assert.equal(card.chips[0].label, 'Studio Geneva · 1 interview');
+  assert.equal(employersCard({at: 'x', for_you: []}), null);
+});

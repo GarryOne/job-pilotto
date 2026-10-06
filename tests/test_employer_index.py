@@ -350,3 +350,49 @@ class FreshnessTests(unittest.TestCase):
                                     {'company': 'X', 'ats': 'lever', 'slug': 'x', 'fresh': {'ok': 'never'}}])
         self.assertEqual(out[0]['fresh'], {'ok': '2026-10-06', 'fails': 2, 'jobs': 3200, 'trend': 'flat', 'new': None})
         self.assertNotIn('fresh', out[1])
+
+
+class ForYouTests(unittest.TestCase):
+    """7 Oct 2026, owner: rank employers and boards per user from the pool (outcomes, metro, family)."""
+    ME = {'roles': ['creative_media'], 'families': ['photography'], 'countries': ['ch'], 'metros': ['ch-geneva']}
+
+    def test_a_feed_quiet_for_every_family_of_mine_is_left_out_others_stay(self):
+        quiet = {'company': 'Netflix', 'ats': 'lever', 'slug': 'n', 'fits': {'quiet': {'families': ['photography']}}}
+        mixed = {'company': 'Studio', 'ats': 'lever', 'slug': 's', 'fits': {'quiet': {'families': ['graphic_design']}}}
+        kept = employer_index.relevant([quiet, mixed], lambda job: True, me=self.ME)
+        self.assertEqual([f['company'] for f in kept], ['Studio'])
+        both = {**self.ME, 'families': ['photography', 'video_film']}
+        self.assertEqual(len(employer_index.relevant([quiet], lambda job: True, me=both)), 1, 'kept while one of my families may still find jobs there')
+
+    def test_employers_for_you_rank_by_interviews_and_the_most_specific_shared_label(self):
+        index = [{'company': 'Manor', 'fits': {'countries': ['ch']}, 'pool': {'installs': 9, 'matched': 6, 'applied': 4, 'interview': 2}},
+                 {'company': 'Studio Geneva', 'fits': {'families': ['photography']}, 'pool': {'installs': 4, 'matched': 3, 'applied': 3, 'interview': 1}},
+                 {'company': 'Bank', 'fits': {'families': ['accounting_finance']}, 'pool': {'installs': 20, 'matched': 20, 'applied': 9, 'interview': 5}},
+                 {'company': 'Unknown', 'fits': {'families': ['photography']}}]
+        ranked = employer_index.for_you(index, self.ME)
+        self.assertEqual([r['company'] for r in ranked], ['Studio Geneva', 'Manor'], 'family beats country; another family is not mine; no totals, no rank')
+        self.assertEqual(ranked[0]['why'], 'your kind of work')
+
+    def test_board_rate_reads_the_most_specific_label_with_numbers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / 'index.json'
+            cache.write_text(json.dumps({'feeds': [], 'boards': [{'board': 'jooble', 'installs': 40, 'matched': 10,
+                                                                  'by': {'roles': {'creative_media': [12, 3]}, 'families': {'photography': [5, 4]}}}]}))
+            self.assertEqual(employer_index.board_rate('jooble', self.ME, cache), (5, 4))
+            self.assertIsNone(employer_index.board_rate('adzuna', self.ME, cache))
+            from src import coverage
+            text = coverage.people_like_you('aggregators', self.ME, rate=lambda board, me: employer_index.board_rate(board, me, cache))
+            self.assertEqual(text, 'gave a match to 8 in 10 people like you')
+
+
+class CentralRankTests(unittest.TestCase):
+    def test_quiet_labels_totals_and_board_stats_respect_the_install_floors(self):
+        contribution = {'installs': 7, 'matched_installs': 2, 'roles': {'software': 5}, 'families': {}, 'quiet_families': {'photography': 6, 'video_film': 2},
+                        'quiet_roles': {'software': 9}, 'out': {'applied': 3, 'interview': 1}}
+        tags = scout.fits(contribution)
+        self.assertEqual(tags['quiet'], {'families': ['photography']}, 'software found jobs there: never quiet for it; video_film: too few installs')
+        self.assertEqual(scout.pool_of(contribution), {'installs': 7, 'matched': 2, 'applied': 3, 'interview': 1})
+        self.assertIsNone(scout.pool_of({'installs': 2}))
+        boards = scout.board_stats([{'board': 'jooble', 'installs': 10, 'matched_installs': 4, 'families': {'photography': {'installs': 5, 'matched': 4}, 'nursing_care': {'installs': 1, 'matched': 1}}},
+                                    {'board': 'jobicy', 'installs': 2}])
+        self.assertEqual(boards, [{'board': 'jooble', 'installs': 10, 'matched': 4, 'by': {'families': {'photography': [5, 4]}}}])

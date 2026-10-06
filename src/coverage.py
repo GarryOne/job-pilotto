@@ -186,7 +186,7 @@ def verdict(summary, keywords=(), locations=(), excludes=None):
     local = any(item['local'] and item['count'] >= LOCAL_MIN for item in suggestions)
     return {'narrow': (share < NARROW_BELOW and any(s['count'] >= 5 for s in suggestions)) or local, 'local': local, 'share': share, 'matched': summary['matched'],
             'in_places': summary['in_places'], 'fetched': summary['fetched'], 'feeds': summary['feeds'], 'at': summary.get('at'),
-            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources(),
+            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources(), 'for_you': employers_for_you(),
             'excluded': [item for item in summary.get('excluded') or [] if item['fragment'] in set(excludes or ()) and item['count'] >= 2]}
 
 
@@ -206,10 +206,40 @@ def _claude_code(env):
     return (env.get('JOB_PILOTTO_AI_ENGINE') or '').lower() == 'cli'
 
 
+BOARDS_OF = {'aggregators': ('adzuna', 'jooble'), 'serpapi': ('google_jobs',)}   # a source here -> its board ids in the shared pool
+PEOPLE_MIN = 3   # people like you behind a rate, at least
+
+
+def people_like_you(source_id, me=None, rate=None):
+    """'Gave a match to 6 in 10 people like you' for a source, from the shared pool's board totals (src/employer_index.board_rate), or ''."""
+    from . import employer_index
+    rate = rate or employer_index.board_rate
+    try:
+        me = me or employer_index.me_now()
+        pairs = [pair for pair in (rate(board, me) for board in BOARDS_OF.get(source_id, ())) if pair and pair[0] >= PEOPLE_MIN]
+    except Exception:  # noqa: BLE001 — no shared numbers yet: nothing to say
+        return ''
+    if not pairs:
+        return ''
+    installs, matched = max(pairs, key=lambda pair: pair[1] / pair[0])
+    return f'gave a match to {round(10 * matched / installs)} in 10 people like you'
+
+
 def unused_sources(env=None):
-    """[{id, name, effort, gain}] of SOURCES this install does not use, in order (least effort first)."""
+    """[{id, name, effort, gain, people}] of SOURCES this install does not use, in order (least effort first). `people`: what it gave
+    people like this user, from the shared pool (7 Oct 2026), or ''."""
     env = os.environ if env is None else env
-    return [{key: source[key] for key in ('id', 'name', 'effort', 'gain')} for source in SOURCES if source['unused'](env)]
+    return [{**{key: source[key] for key in ('id', 'name', 'effort', 'gain')}, 'people': people_like_you(source['id'])} for source in SOURCES if source['unused'](env)]
+
+
+def employers_for_you():
+    """Employers of the shared list where people like this user got interviews or applied (src/employer_index.for_you), or []."""
+    from . import employer_index
+    try:
+        stored = employer_index._read(employer_index.CACHE) or {}
+        return employer_index.for_you(stored.get('feeds') or [], employer_index.me_now())
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def language_drops(db=None):

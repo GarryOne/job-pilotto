@@ -229,3 +229,14 @@ test('a feed\'s freshness is kept only in its fixed shape', () => {
   assert.deepEqual(kept.fresh, {ok: '2026-10-06', fails: 2, jobs: 3200, trend: 'up', new: '2026-10-06'});
   assert.equal('fresh' in odd, false);
 });
+
+test('the index keeps who a feed fits (finer labels, quiet), its outcome totals past 3 installs, and per-board stats, in fixed shapes only', async () => {
+  const {clean, boardsOf} = await import('../src/employers.js');
+  const [feed] = clean([{company: 'Studio', ats: 'lever', slug: 'studio', fits: {roles: ['creative_media'], families: ['photography', 'spy'], metros: ['ch-geneva'],
+    quiet: {families: ['nursing_care'], roles: ['nope']}}, pool: {installs: 4, matched: 3, applied: 2, interview: 1, name: 'x'}}]);
+  assert.deepEqual(feed.fits, {roles: ['creative_media'], regions: [], metros: ['ch-geneva'], families: ['photography'], quiet: {roles: [], families: ['nursing_care']}});
+  assert.deepEqual(feed.pool, {installs: 4, matched: 3, applied: 2, interview: 1});
+  assert.equal(clean([{company: 'Tiny', ats: 'lever', slug: 'tiny', pool: {installs: 2, interview: 1}}])[0].pool, undefined, 'under 3 installs: never published');
+  assert.deepEqual(boardsOf([{board: 'jooble', installs: 10, matched: 4, by: {families: {photography: [5, 4], spy: [9, 9]}, metros: {'ch-geneva': [2, 1]}}}, {board: 'evil'}]),
+    [{board: 'jooble', installs: 10, matched: 4, by: {roles: {}, regions: {}, countries: {}, metros: {}, families: {photography: [5, 4]}}}]);
+});

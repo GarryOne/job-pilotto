@@ -9,7 +9,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {coverageCard, filtersCard, placesCard, sourcesCard} from '../coverage-card.js';
+import {coverageCard, employersCard, filtersCard, placesCard, sourcesCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 
@@ -120,6 +120,7 @@ function renderStrategy(data) {
 const DISMISSED = 'jp.coverage.dismissed';
 const SOURCES_DISMISSED = 'jp.sources.dismissed';
 const FILTERS_DISMISSED = 'jp.filters.dismissed';
+const FORYOU_DISMISSED = 'jp.foryou.dismissed';
 const remembered = (key = DISMISSED) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
 // The last verdict, kept so the cards are in place at the FIRST paint: the engine's answer takes seconds (a Python start), and a card that arrived after the page had stood still
 // pushed everything down while it was being read (5 Oct 2026). With nothing kept yet, a "Checking…" card holds the place; once a visit has found no card, nothing is held.
@@ -135,6 +136,25 @@ const paintCoverage = verdict => {
     chip => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
     chip => chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. The next searches show them (also in your Search settings in Notion).`
       : `Jobs that require ${chip.language} are no longer hidden. The next searches show them (also in your Search settings in Notion).`);
+  // Employers where people like you got interviews (shared pool): a chip shows that employer's jobs in the Jobs list.
+  const forYou = employersCard(verdict, remembered(FORYOU_DISMISSED));
+  show($('strategy-foryou'), !!forYou);
+  if (forYou) {
+    adviceEvent('shown', 'employer', 'strategy');
+    $('foryou-title').textContent = forYou.title;
+    $('foryou-text').textContent = forYou.text;
+    $('foryou-chips').replaceChildren(...forYou.chips.map(chip => {
+      const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
+      button.addEventListener('click', () => {
+        adviceEvent('taken', 'employer', 'strategy');
+        openView('jobs');
+        const box = $('filter-text');
+        if (box) { box.value = chip.company; box.dispatchEvent(new Event('input', {bubbles: true})); }
+      });
+      return button;
+    }));
+    $('foryou-dismiss').onclick = () => { adviceEvent('dismissed', 'employer', 'strategy'); try { localStorage.setItem(FORYOU_DISMISSED, forYou.at); } catch {} show($('strategy-foryou'), false); };
+  }
   // Unused job sources: a chip opens its panel in Settings → Connections (a key to add there), nothing is turned on from here.
   const sources = sourcesCard(verdict, remembered(SOURCES_DISMISSED));
   show($('strategy-sources'), !!sources);

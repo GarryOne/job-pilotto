@@ -51,7 +51,8 @@
    "id": "aggregators",
    "name": "Adzuna and Jooble",
    "effort": "Two free keys, about 3 minutes",
-   "gain": "job search engines across all trades and countries"
+   "gain": "job search engines across all trades and countries",
+   "people": "gave a match to 6 in 10 people like you"
   }
  ],
  "excluded": [
@@ -70,6 +71,20 @@
    "examples": [
     "Client Advisor"
    ]
+  }
+ ],
+ "for_you": [
+  {
+   "company": "Helvetia Studios",
+   "interview": 3,
+   "applied": 7,
+   "why": "your kind of work"
+  },
+  {
+   "company": "Manor",
+   "interview": 1,
+   "applied": 5,
+   "why": "your area"
   }
  ]
 }
