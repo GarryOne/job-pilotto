@@ -64,6 +64,17 @@ export const STEPS = [
     storage.saveSettings({reachedViaFilled: true});
     return true;
   }},
+  // Employers checked on this Mac before this Employers & Sources database had them (trying the app without Notion, a failed write,
+  // another workspace connected): written once per database (src/scout.py sync_notion), after 'workspace' creates it. 6 Oct 2026: three
+  // Find new employers runs made while trying never reached the user's Notion. A failed run is retried next start.
+  {name: 'employers from this Mac', run: async (storage, _fetcher, run = pipeline.run) => {
+    const db = storage.settings().notionIds?.NOTION_EMPLOYERS_DB;
+    if (!db || storage.settings().employersSyncedTo === db) return false;
+    const {code, stdout = ''} = await run(storage, ['src', 'scout', '--sync-notion']);
+    if (code !== 0) throw new Error('could not write the employers to Notion');
+    storage.saveSettings({employersSyncedTo: db});
+    return !/^Employers: 0 written/m.test(stdout);
+  }},
   // Origin (Inbound / Outbound) on rows tracked before the column existed, from the derived rule (src/notion/origin.py),
   // once. After 'workspace', which adds the column; rows that have an Origin are never touched.
   {name: 'origin', run: async (storage, _fetcher, run = pipeline.run) => {

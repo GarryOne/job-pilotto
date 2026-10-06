@@ -62,6 +62,23 @@ test('Origin is backfilled once, after the workspace step adds the column; a fai
   assert.equal(await step.run(storage, undefined, async () => { throw new Error('must not run again'); }), false);
 });
 
+test('employers checked on this Mac are written to each Employers database once, after the workspace step creates it', async () => {
+  const names = migrate.STEPS.map(s => s.name);
+  assert.ok(names.indexOf('workspace') < names.indexOf('employers from this Mac'));
+  const step = migrate.STEPS.find(s => s.name === 'employers from this Mac');
+  const storage = connected(), calls = [];
+  assert.equal(await step.run(storage, undefined, async () => { throw new Error('no database yet: must not run'); }), false);
+  storage.saveSettings({notionIds: {NOTION_EMPLOYERS_DB: 'emp-1'}});
+  await assert.rejects(step.run(storage, undefined, async () => ({code: 1})), /could not write the employers/);
+  assert.equal(storage.settings().employersSyncedTo, undefined);   // retried next start
+  assert.equal(await step.run(storage, undefined, async (_, args) => { calls.push(args); return {code: 0, stdout: 'Employers: 45 written to Notion\n'}; }), true);
+  assert.deepEqual(calls[0], ['src', 'scout', '--sync-notion']);
+  assert.equal(await step.run(storage, undefined, async () => { throw new Error('must not run again'); }), false);
+  storage.saveSettings({notionIds: {NOTION_EMPLOYERS_DB: 'emp-2'}});   // another workspace: its database gets them too
+  assert.equal(await step.run(storage, undefined, async () => ({code: 0, stdout: 'Employers: 0 written to Notion\n'})), false);
+  assert.equal(storage.settings().employersSyncedTo, 'emp-2');
+});
+
 // ---- Notion later: the strategy kept on this Mac while trying moves in at connect ----
 const withLocal = mode => {
   const storage = connected();

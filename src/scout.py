@@ -68,6 +68,13 @@ CREATE TABLE IF NOT EXISTS scout_candidates (
     checked_at TEXT,
     next_check TEXT
 );
+-- Which checked employers each Employers & Sources database already has a row for (sync_notion): a run without Notion, a failed
+-- write or a new workspace leaves some out, and they are written later instead of staying only on this computer (6 Oct 2026).
+CREATE TABLE IF NOT EXISTS notion_synced (
+    db_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    PRIMARY KEY (db_id, key)
+);
 CREATE TABLE IF NOT EXISTS feed_sources (
     ats TEXT NOT NULL,
     slug TEXT NOT NULL,
@@ -812,6 +819,37 @@ def write_notion(tracker, candidate, outcome):
         tracker.create_page(EMPLOYERS_DB, props)
 
 
+def mark_synced(db, key):
+    db.execute('INSERT OR IGNORE INTO notion_synced (db_id, key) VALUES (?, ?)', (EMPLOYERS_DB, key))
+    db.commit()
+
+
+def sync_notion(db, tracker, limit=200):
+    """Write every checked employer this Employers & Sources database has no row for yet: the ones checked while the app had no Notion
+    (trying it, before connecting), a write that failed, or a workspace connected later. Before 6 Oct 2026 they stayed only on this
+    computer: three Find new employers runs (45 employers, Breitling's feed among them) never reached the user's Notion. Safe to repeat:
+    write_notion matches rows by company name. Returns (written, failed)."""
+    if not tracker or not EMPLOYERS_DB:
+        return 0, 0
+    rows = db.execute(f"""SELECT key, name, origin, tier, ats, slug, careers, website, status, quality, stats_json FROM scout_candidates
+        WHERE checked_at IS NOT NULL AND status IN ({','.join('?' * len(FEED_STATUS))})
+        AND key NOT IN (SELECT key FROM notion_synced WHERE db_id = ?) ORDER BY checked_at LIMIT ?""",
+                      (*FEED_STATUS, EMPLOYERS_DB, limit)).fetchall()
+    written = failed = 0
+    for key, name, origin, tier, system, slug, careers, website, status, score, stats in rows:
+        candidate = {'key': key, 'name': name, 'origin': origin, 'tier': tier, 'careers': careers, 'website': website}
+        outcome = {'status': status, 'ats': system, 'slug': slug, 'quality': score, 'stats': json.loads(stats) if stats else None}
+        try:
+            write_notion(tracker, candidate, outcome)
+        except Exception as error:  # noqa: BLE001  one employer failing must not stop the others; tried again next time
+            failed += 1
+            print(f'Warning: Notion not updated for {name}: {type(error).__name__}: {error}')
+            continue
+        mark_synced(db, key)
+        written += 1
+    return written, failed
+
+
 # The employers are checked in parallel threads: print() writes the text and its newline separately, so two lines could join
 # ("…Hochschule BernScout: checked 6 of 15", 6 Oct 2026). One locked write per line, with its count.
 PROGRESS_LOCK = threading.Lock()
@@ -934,6 +972,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         if tracker and outcome['status'] != 'duplicate':
             try:
                 write_notion(tracker, candidate, outcome)
+                mark_synced(db, candidate['key'])
             except Exception as error:
                 print(f"Warning: Notion not updated for {candidate['name']}: {type(error).__name__}: {error}")
 
@@ -1012,10 +1051,23 @@ def main():
     parser.add_argument('--publish-index', action='store_true',
                         help='the central scout: after the run, verify every feed and upload the employer index '
                              '(needs INDEX_PUBLISH_KEY; URL: JOB_PILOTTO_INDEX_URL or the default)')
+    parser.add_argument('--sync-notion', action='store_true',
+                        help='write the employers already checked on this computer that Employers & Sources lacks (the app runs it when '
+                             'Notion is connected), then stop')
     parser.add_argument('--export-sources', action='store_true',
                         help='write config/sources.json: the shared starter list of verified public feeds '
                              '(sources.json + Active Employers & Sources rows); needs NOTION_TOKEN')
     args = parser.parse_args()
+    if args.sync_notion:
+        tracker = notion.Tracker.from_env()
+        if not tracker or not EMPLOYERS_DB:
+            print('Employers: Notion is not connected; nothing to write.')
+            return 0
+        with store.connect(args.db) as db:
+            db.executescript(TABLES)
+            written, failed = sync_notion(db, tracker)
+        print(f'Employers: {written} written to Notion')   # each one not written said so in its own Warning line
+        return 1 if failed and not written else 0
     global CENTRAL
     CENTRAL = bool(args.publish_index)   # the central scout: its full lists, published to every install
     if args.export_sources:
@@ -1038,6 +1090,10 @@ def main():
     log = cron_runs.new_run('scout')
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
+        if tracker:   # employers checked earlier without Notion, or whose write failed, catch up now
+            written, failed = sync_notion(db, tracker)
+            if written or failed:
+                print(f'Employers: {written} checked earlier written to Notion')
         if not CENTRAL:   # what this run found goes to the central list right away (opt-in; src/contribute.py), not with the next jobs check
             try:
                 from . import contribute
