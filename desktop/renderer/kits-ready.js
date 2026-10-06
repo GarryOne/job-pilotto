@@ -27,3 +27,13 @@ export function parseKitsReady(message) {
   }
   return jobs.length ? {what, subtitle, jobs} : null;
 }
+
+// How many were tried, from the subtitle ("3 of 5 tailored · 2 failed · …"), and the jobs that failed, from the run's own log lines
+// (main.js: "  ✗ <title> · <company>: <reason>"). Only what was recorded: without those lines the card names no failed job (6 Oct 2026).
+const TRIED = /^(\d+) of (\d+) (?:tailored|drafted)/;
+const FAILED_LINE = /^\s*✗\s+(.+?) · (.+?):\s*(.*)$/;
+export function kitsOutcome(kits, log = []) {
+  const tried = TRIED.exec(kits?.subtitle || '');
+  const failed = (log || []).map(line => FAILED_LINE.exec(String(line))).filter(Boolean).map(([, title, company, reason]) => ({title, company, reason}));
+  return {done: tried ? Number(tried[1]) : kits?.jobs?.length || 0, total: tried ? Number(tried[2]) : kits?.jobs?.length || 0, failed};
+}

@@ -12,7 +12,7 @@ import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} f
 import {comparisonTable, confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {parseInterviewReview} from '../interview-review.js';
-import {parseKitsReady} from '../kits-ready.js';
+import {kitsOutcome, parseKitsReady} from '../kits-ready.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
@@ -529,6 +529,7 @@ export function renderActivity(fresh) {
   const review = !run?.live && !card && !mail && !insight && !weekly && kindOf(run) === 'interview' && run?.message
     ? parseInterviewReview(run.message) : null;
   const kits = !run?.live && !card && !mail && !insight && !weekly && !review && KITS_CARD.has(kindOf(run)) && run?.message ? parseKitsReady(run.message) : null;
+  if (kits) kits.outcome = kitsOutcome(kits, run.log);
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) {
@@ -1247,8 +1248,12 @@ export function renderKitsCard(kits, target = $('activity-card')) {
   const kicker = el('div', 'insight-kicker');
   const cvs = kits.what === 'cv';
   kicker.append(el('span', 'insight-category', cvs ? 'Tailored CVs' : 'Application kits'));
-  head.append(kicker, el('h3', 'insight-title', `${plural(kits.jobs.length, cvs ? 'CV' : 'kit')} ready`));
-  if (kits.subtitle) head.append(el('p', 'insight-subtitle', kits.subtitle));
+  // Some failed: the heading says how many of how many; the jobs that failed get a row each, as their log lines name them.
+  const {done = kits.jobs.length, total = kits.jobs.length, failed = []} = kits.outcome || {};
+  const noun = cvs ? 'CV' : 'kit';
+  head.append(kicker, el('h3', 'insight-title', total > done ? `${done} of ${plural(total, noun)} ready` : `${plural(kits.jobs.length, noun)} ready`));
+  if (total > done) head.append(el('p', 'insight-subtitle', `${plural(total - done, noun)} could not be ${cvs ? 'tailored' : 'drafted'}${failed.length ? '.' : ': the run did not record which.'}`));
+  else if (kits.subtitle) head.append(el('p', 'insight-subtitle', kits.subtitle));   // partial: the line above says it, with the counts
   // One row per job (the shared .item-rows): its title (the posting opens from it) and company, then the one action, aligned.
   const list = el('ul', 'item-rows kits-jobs');
   for (const job of kits.jobs) {
@@ -1269,6 +1274,15 @@ export function renderKitsCard(kits, target = $('activity-card')) {
       view.addEventListener('click', () => window.pilot.openTailoredCv(job.url));
       row.append(view);
     }
+    list.append(row);
+  }
+  for (const job of failed) {   // a job that failed: no CV of this run to open, so no action; its reason on hover
+    const row = el('li', 'is-failed');
+    const words = el('div', 'item-words');
+    words.append(el('b', '', job.title), el('span', 'muted', job.company));
+    const tag = pill(cvs ? 'Not tailored' : 'Not drafted', 'warn');
+    if (job.reason) tag.title = job.reason;
+    row.append(words, tag);
     list.append(row);
   }
   box.append(head, list);
