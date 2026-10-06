@@ -182,6 +182,9 @@ const runButton = kind => {
   return command ? document.querySelector(`button.action[data-command="${command}"]`) : null;
 };
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
+// Buttons outside the Actions cards that start the same task (Jobs → Check for new jobs, Settings → Check Gmail now, Tailor's own card): turned off while
+// it runs (runs-page.js syncRunButtons) and left out of ⌘K when an Actions card already offers it (nav.js paletteCommands), so a task is listed once.
+export const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['tailor', '#tailor-top', '#tailor-top-n']];
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
 // The card a finished run's message makes, as a function that draws it into a card box, or null when the message has no card shape (then it is shown as text).
 // One place for both views: the Actions page and Recent activity must never show the same run as a card in one and as Telegram text in the other (5 Oct 2026:

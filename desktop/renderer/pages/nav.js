@@ -1,6 +1,6 @@
 // Navigation: pages, ⌘R memory, the ⌘K palette.
 import {openPalette} from '../palette.js';
-import {prepareActions} from './activity.js';
+import {COMMAND_KIND, TASK_BUTTONS, prepareActions} from './activity.js';
 import {$, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
@@ -48,7 +48,7 @@ export function openView(name, {fromHistory = false} = {}) {
 
 // ⌘K / Ctrl+K: the command palette. Its commands are the app's own buttons, read when it opens (so a disabled
 // button or a missing Notion link isn't offered); running one opens its page, then clicks it.
-const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search jobs find refresh',
+const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search check jobs find refresh scan crawl',
   tailor: 'tailor cv resume top matches',
   scout: 'employers companies discover', status: 'health check', weekly: 'report stats weekly insight review', insight: 'tip advice', kits: 'kits prepare applications cover letter', tune: 'strategy settings roles places tune',
   today: 'telegram list', applied: 'applications', saved: 'bookmarks starred'};
@@ -62,9 +62,13 @@ export const labelOf = node => {
 function paletteCommands() {
   const commands = [];
   const add = (group, label, hint, keywords, run) => { if (label) commands.push({group, label, hint, keywords, run}); };
+  // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Search for new jobs" and
+  // "Check for new jobs" were listed side by side and ran the same jobs check).
+  const carded = new Set([...document.querySelectorAll('.action[data-command]')].map(node => COMMAND_KIND[node.dataset.command]).filter(Boolean));
+  const twins = new Set(TASK_BUTTONS.filter(([kind]) => carded.has(kind)).flatMap(([, ...selectors]) => selectors.map(s => document.querySelector(s))).filter(Boolean));
   const button = (view, id, keywords, hint = '') => {
     const node = $(id);
-    if (node && !node.disabled && !node.closest('[hidden]:not(.view)')) add(view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => { openView(view); node.click(); });
+    if (node && !twins.has(node) && !node.disabled && !node.closest('[hidden]:not(.view)')) add(view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => { openView(view); node.click(); });
   };
   document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => nav.click()));
   document.querySelectorAll('.action[data-command]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
@@ -108,7 +112,7 @@ function paletteCommands() {
     };
     add('Settings', title, '', `settings ${page}`, open);
     section.querySelectorAll('button[id]').forEach(node => {
-      if (node.disabled || !shown(node)) return;
+      if (node.disabled || !shown(node) || twins.has(node)) return;
       const danger = !!node.closest('.danger-zone') || /danger/.test(node.className);
       add('Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, () => { open(); if (danger) node.focus(); else node.click(); });
     });

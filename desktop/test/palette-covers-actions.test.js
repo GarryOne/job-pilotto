@@ -21,3 +21,16 @@ test('the ⌘K shortcut toggles on an open palette, not on a palette element', (
   const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
   assert.match(nav, /if \(\$\('palette'\)\?\.open\) \$\('palette'\)\.close\(\); else openPalette/);
 });
+
+// One entry per task: a button elsewhere that starts what an Actions card starts (TASK_BUTTONS) is left out of ⌘K, in both the hand-listed buttons and the
+// Settings sweep (6 Oct 2026: "Search for new jobs" and "Check for new jobs" were listed side by side and ran the same jobs check).
+test('a button that starts a task an Actions card offers is not listed twice in ⌘K', async () => {
+  const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
+  const activity = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const buttons = JSON.parse(activity.match(/export const TASK_BUTTONS = (\[.*\]);/)[1].replace(/'/g, '"'));
+  const carded = new Set([...html.matchAll(/class="[^"]*\baction\b[^"]*" data-command="(\w+)"/g)].map(match => match[1]));
+  assert.ok(carded.has('run') && carded.has('mail'), 'the Actions cards were not found');
+  for (const [kind, ...selectors] of buttons) for (const selector of selectors) assert.ok(html.includes(`id="${selector.slice(1)}"`), `${kind}: ${selector} is not in the page`);
+  assert.match(nav, /if \(node && !twins\.has\(node\)/);                         // button(view, id, …)
+  assert.match(nav, /if \(node\.disabled \|\| !shown\(node\) \|\| twins\.has\(node\)\) return;/);   // the Settings sweep
+});
