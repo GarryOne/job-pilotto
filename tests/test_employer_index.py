@@ -242,15 +242,17 @@ class ContributionsTest(unittest.TestCase):
         return [{'id': '1', 'title': 'Site Reliability Engineer', 'location': 'Zurich, Switzerland', 'url': 'u',
                  'date_posted': '2099-01-01', 'description': 'd', 'remote': False, 'salary': ''}]
 
-    def test_contributed_feeds_are_candidates_only_when_several_installs_sent_them_and_are_verified(self):
+    def test_contributed_feeds_from_one_install_on_are_candidates_and_are_verified(self):
         contributions = [
             {'ats': 'lever', 'slug': 'popular', 'company': 'Popular', 'installs': 3, 'matched_installs': 3, 'roles': {'sre_devops': 5, 'data': 2}, 'regions': {'europe': 5}},
             {'ats': 'lever', 'slug': 'lonely', 'company': 'Lonely', 'installs': 1, 'matched_installs': 1, 'roles': {'sre_devops': 1}, 'regions': {}},
             {'ats': 'nonsense', 'slug': 'x', 'company': 'Bad', 'installs': 9, 'roles': {}, 'regions': {}}]
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'j.sqlite') as db:
             feeds, failed = scout.build_index(db, [], self.fetch, today='2026-09-30', contributions=contributions)
-        self.assertEqual([f['slug'] for f in feeds], ['popular'])          # one install is not enough; unknown systems never
-        self.assertEqual(feeds[0]['fits'], {'roles': ['sre_devops'], 'regions': ['europe']})   # 'data' has 2 installs (< 5)
+        # One install is enough since 6 Oct 2026 (owner: grow the central list); unknown job systems never; every one is verified (fetched).
+        self.assertEqual([f['slug'] for f in feeds], ['lonely', 'popular'])
+        popular = next(f for f in feeds if f['slug'] == 'popular')
+        self.assertEqual(popular['fits'], {'roles': ['sre_devops'], 'regions': ['europe']})   # 'data' has 2 installs (< 5)
 
     def test_a_tag_needs_five_installs(self):
         self.assertEqual(scout.fits({'roles': {'qa': 4, 'data': 5}, 'regions': {'europe': 4}}), {'roles': ['data']})

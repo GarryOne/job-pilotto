@@ -3,7 +3,7 @@
 // INDEX_PUBLISH_KEY, the central scout only) gives the aggregate. Nothing here can identify a person: the install id is
 // hashed, and a feed's tags are only ever published from many installs (the scout's threshold).
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
-export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'other'];
+export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];   // src/contribute.py: IT families, then src/role_kinds.py's other trades
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
 const MAX_FEEDS = 500, KEEP_DAYS = 90, EVERY_HOURS = 12;
 const day = date => date.toISOString().slice(0, 10);

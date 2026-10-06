@@ -87,3 +87,17 @@ class SendTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TradeTagsTests(unittest.TestCase):
+    def test_every_role_tag_the_app_sends_is_one_the_website_keeps(self):
+        """6 Oct 2026: a photographer's shares were all tagged 'other' (the tags knew only IT); the site drops a tag it does not list."""
+        import re
+        from src import contribute, role_kinds
+        site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool.js').read_text()
+        accepted = set(re.findall(r"'(\w+)'", re.search(r'export const ROLES = \[([^\]]+)\]', site).group(1)))
+        sendable = set(contribute.ROLES) | set(contribute.TRADE_ROLES) | {'other'}
+        self.assertEqual(sendable, accepted)
+        self.assertEqual(set(contribute.TRADE_ROLES), set(role_kinds.KINDS) - {'software', 'other'})
+        roles, _ = contribute.tags({'role_keywords': ['vendeu(r|se)', 'magasinier', 'photograph(e|er)?'], 'locations': {'top_tier': ['geneva']}})
+        self.assertEqual(roles, ['creative_media', 'logistics', 'sales_retail'])

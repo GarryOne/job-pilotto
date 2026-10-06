@@ -29,6 +29,8 @@ ROLES = {
     'qa': r'\bqa\b|quality assurance|test automation|\bsdet\b',
     'management': r'engineering manager|head of|\bcto\b|tech(nical)? lead|director',
 }
+# And the kinds of role of every other trade (src/role_kinds.py KINDS), sent by name: the site accepts this same list (site/src/pool.js ROLES).
+TRADE_ROLES = ['sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades']
 REGIONS = {
     'europe': r'europe|\beu\b|emea|switzerland|z[uü]rich|geneva|basel|germany|berlin|munich|hamburg|frankfurt|netherlands|amsterdam|'
               r'rotterdam|united kingdom|\buk\b|england|london|manchester|edinburgh|ireland|dublin|france|paris|lyon|spain|madrid|'
@@ -67,6 +69,9 @@ def tags(search=None):
     """(roles, regions) of this user's own search settings, as fixed-list names. No free text ever."""
     search = search or load_search_config()
     roles = {name for name, rx in _ROLES.items() if any(rx.search(_plain(k)) for k in search.get('role_keywords', []))}
+    # The other trades by the role kinds (src/role_kinds.py), so a shop or warehouse search is not just 'other' (6 Oct 2026). Fixed names.
+    from .role_kinds import of_search
+    roles |= (of_search(search) or set()) - {'software', 'other'}
     places = [_plain(p) for group in ('top_tier', 'country_wide', 'abroad') for p in search.get('locations', {}).get(group, [])]
     regions = {name for name, rx in _REGIONS.items() if any(rx.search(p) for p in places)}
     return sorted(roles) or ['other'], sorted(regions)

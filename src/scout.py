@@ -535,7 +535,9 @@ def job_places(jobs, limit=40):
     return [place for place, _ in counts.most_common(limit + 1) if place][:limit]
 
 
-MIN_INSTALLS = 2   # a contributed feed becomes a candidate when this many different installs sent it (the scout still verifies it)
+MIN_INSTALLS = 1   # a contributed feed becomes a candidate when this many installs sent it; the scout verifies it either way. 1 since 6 Oct 2026
+#                   (owner: grow the central employer list as much as possible): a job site's address is public company data, and one install's
+#                   find (Coop, Migros, Manor on a photographer's Mac) now reaches every install the next night instead of waiting for a second.
 FIT_MIN_INSTALLS = 5   # a role / region tag is published for a feed only when this many different installs matched it
 
 

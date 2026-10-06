@@ -56,7 +56,9 @@ def valid(kinds):
 def of_search(search):
     """The kinds a search looks for (from its role keywords), or None when it is not known yet (no keywords): then nothing is skipped."""
     # Regex fragments read as their words ("photograph(e|er)?" -> "photograph e er"), as coverage.looks_technical does: none is dropped.
-    words = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', str(word)) for word in (search or {}).get('role_keywords') or []][:30]
+    # "vendeu(r|se)" -> "vendeur": a group's first choice joined to the word; then the remaining regex marks as spaces.
+    first = lambda word: re.sub(r'\(([^()|]*)\|[^()]*\)\??', r'\1', str(word))
+    words = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', first(word)) for word in (search or {}).get('role_keywords') or []][:30]
     if not words:
         return None
     kinds = {kind_of(word) for word in words} - {'other'}
