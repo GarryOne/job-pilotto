@@ -354,8 +354,8 @@ export function renderActivity(fresh) {
       when.replaceChildren(link);
     }
     button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
-    button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
-    return button;
+    button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity);
+      $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true}); });   // the redraw dropped the focus: ↑/↓ keep working
   };
   $('activity-recent').replaceChildren(...groupRuns(recent).flatMap(group => [
     Object.assign(document.createElement('li'), {className: 'recent-group', textContent: group.label}),
@@ -1252,6 +1252,19 @@ export async function init() {
     if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
   });
   $('activity-filter').addEventListener('click', () => openMenu($('activity-filter'), filterMenu()));
+  // ↑/↓ walk Recent activity: the neighbouring run opens, as if clicked. The list is redrawn on every selection, so the
+  // new current row takes the focus back (waiting runs cannot be opened and are skipped).
+  $('activity-recent').addEventListener('keydown', event => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const rows = [...$('activity-recent').querySelectorAll('.recent-row:not([data-state="queued"])')];
+    const at = rows.indexOf(event.target.closest('.recent-row'));
+    const next = rows[at + (event.key === 'ArrowDown' ? 1 : -1)];
+    event.preventDefault();
+    if (at < 0 || !next) return;
+    next.click();
+    const current = $('activity-recent').querySelector('.recent-row.current');
+    current?.focus(); current?.scrollIntoView({block: 'nearest'});
+  });
   // The panel's top edge drags: taller upward (it sits on the bottom bar), kept for next time, re-clamped when the
   // window changes. Between PANEL_MIN and 90% of the window.
   try { const saved = Number(localStorage.getItem(PANEL_HEIGHT) || 0); if (saved) setPanelHeight(saved, false); } catch {}
