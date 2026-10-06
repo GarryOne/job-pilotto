@@ -172,12 +172,29 @@ jobs:
           MUTANT: ${{ inputs.mutant }}
         run: node desktop/e2e/mutate.mjs "$MUTANT"
       - name: Run the ${{ matrix.suite }} suite
+        id: suite_run
         working-directory: desktop/e2e
         timeout-minutes: 10   # the suite stops itself at its 7-minute budget (lib/runner.mjs) with its evidence; this catches only a suite that cannot
         run: |
           # A run on an older commit (target_ref: the stable canary, a release candidate) plans with main's suite list; a suite added since does not exist in that build.
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs ${{ matrix.suite }}; else node suite.mjs ${{ matrix.suite }}; fi
+      # Flaky or real? A red suite runs once more on the same commit (6 Oct 2026). The job stays red either way; a pass the second time writes flaky.json beside the
+      # first run's artifacts, and triage labels those failed steps `flaky` (the test, not the product). Its own artifacts stay out of the upload: nothing is filed twice.
+      - name: The ${{ matrix.suite }} suite once more, to tell flaky from real
+        if: failure() && steps.suite_run.outcome == 'failure' && !inputs.mutant
+        working-directory: desktop/e2e
+        timeout-minutes: 10
+        run: |
+          first="$E2E_ARTIFACTS"
+          export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}"
+          again() { if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs "$1"; else node suite.mjs "$1"; fi; }
+          if again ${{ matrix.suite }}; then
+            echo '{"rerun": "passed"}' > "$first/flaky.json"
+            echo "Passed on the second try: the failed steps are flaky (labelled by triage)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Failed again on the same commit: a real failure." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''
         uses: actions/cache/restore@v5

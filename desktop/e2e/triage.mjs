@@ -94,7 +94,9 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     if (items.some(item => NO_CREDIT.test(item.message || '')) || (!LIMIT_TESTED.includes(suite) && NO_CREDIT.test(logs))) { skipped.push({suite, why: 'the AI had no credit'}); continue; }
     // The first failed step decides: an environment failure (failed twice: the runner retried it) says nothing about the product. Listed in the summary, not filed.
     if (items[0].environment) { skipped.push({suite, why: `the test environment failed twice: ${String(items[0].message).slice(0, 100)}`}); continue; }
-    suiteFailures.push({...items[0], also: items.slice(1).map(item => item.step)});
+    // The CI job ran a red suite once more on the same commit (e2e.yml); passing then, its failed steps are flaky: the test, not the product (6 Oct 2026).
+    const flaky = read(path.join(dir, 'flaky.json'))?.rerun === 'passed';
+    suiteFailures.push({...items[0], also: items.slice(1).map(item => item.step), ...(flaky ? {flaky: true} : {})});
   }
   const dropped = [];   // what the filters cut this run, with why (shown in the run's summary)
   for (const file of found['ai-findings.json']) for (const item of (read(file) || {}).dropped || []) dropped.push({...item, source: 'ai-review', why: `AI answer: ${item.why}`});
@@ -278,6 +280,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       if (regressed && /\/issues\/\d+$/.test(url)) { out.regressions = [...(out.regressions || []), Number(url.split('/').pop())]; gh(['issue', 'comment', url.split('/').pop(), '--body', regressionComment(regressed, runUrl)]); }
       if (judged && /\/issues\/\d+$/.test(url)) gh(['issue', 'comment', url.split('/').pop(), '--body', verdictComment(judged, {number: Number(url.split('/').pop())})]);
       out.filed.push(finding.id);
+      if (finding.flaky && /\/issues\/\d+$/.test(url)) markFlaky(Number(url.split('/').pop()));
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {
       const comment = seenAgainComment(runUrl, picture, build);
       gh(['issue', 'comment', String(existing.number), '--body', comment]);
@@ -289,6 +292,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       if ((existing.labels || []).some(item => (item.name || item) === NOT_SEEN)) gh(['issue', 'edit', String(existing.number), '--remove-label', NOT_SEEN]);
       if (versionOfRun && !(existing.labels || []).some(item => (item.name || item) === versionOfRun)) addVersion(existing.number);   // seen on another version: that one is added too
       out.again.push(finding.id);
+      if (finding.flaky) markFlaky(existing.number);
     }
   }
   // A failed step and a screenshot or layout finding of the same suite in this run: probably one defect, linked and labelled, not merged.
@@ -312,6 +316,13 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       return commits.find(commit => namesIssue(commit.message, issue.number)) || null;
     } catch { return null; }
   };
+  // A step that failed and then passed when the job ran its suite again on the same commit (flaky.json): labelled flaky on the spot.
+  function markFlaky(number) {
+    gh(['label', 'create', FLAKY, '--force', '--color', 'FEF2C0', '--description', 'A test step that failed and passed on the same commit']);
+    gh(['issue', 'edit', String(number), '--add-label', FLAKY]);
+    gh(['issue', 'comment', String(number), '--body', flakyComment(testedSha(build), runUrl)]);
+    out.flaky = [...(out.flaky || []), number];
+  }
   for (const {issue, view} of gone) {
     // Failed on this very commit, and its suite passed now: flaky, whatever happens next (it still closes after two clean runs).
     if (suiteCleared(issue) && flakyOn(issue, testedSha(build)) && !(issue.labels || []).some(item => (item.name || item) === FLAKY)) {

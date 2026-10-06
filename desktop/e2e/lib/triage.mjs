@@ -83,7 +83,7 @@ export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
   const fromSuite = suite.filter(item => item && item.suite && item.step).map(item => {
     // A red test step says something is off, not that a journey is blocked: that is a judgement (a person's `confirmed`), and the release gate is red anyway while any suite fails.
     // Until 3 Oct 2026 every failed step was filed high: 18 of the 21 "high" issues were test steps, and none blocked anyone.
-    const finding = {view: item.suite, severity: 'medium', kind: 'test-failure', title: `step failed: ${item.step}`, detail: String(item.message || 'The step failed.'), suggestion: '', source: 'suite-failure', dir: item._dir, also: item.also || []};
+    const finding = {...(item.flaky ? {flaky: true} : {}), view: item.suite, severity: 'medium', kind: 'test-failure', title: `step failed: ${item.step}`, detail: String(item.message || 'The step failed.'), suggestion: '', source: 'suite-failure', dir: item._dir, also: item.also || []};
     return {...finding, id: fingerprint(finding)};
   });
   const seen = new Set();
