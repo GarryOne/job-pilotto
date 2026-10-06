@@ -10,12 +10,12 @@ test('Recent activity handles ArrowUp/ArrowDown, skips queued rows and keeps the
   assert.match(block, /ArrowDown/); assert.match(block, /ArrowUp/);
   assert.match(block, /:not\(\[data-state="queued"\]\)/);
   assert.match(block, /\.recent-row\.current/);
-  assert.match(block, /focus\(\)/);
+  assert.match(source, /keepFocus/);   // the redraw gives the focus back, whatever caused it
 });
 
 test('the Recent activity row builder returns its button (a missing return drew "undefined" rows, 6 Oct 2026)', () => {
   const start = source.indexOf('const recentRow = run =>');
-  const end = source.indexOf("$('activity-recent').replaceChildren", start);
+  const end = source.indexOf('// Every redraw', start);
   assert.ok(start > 0 && end > start);
   assert.match(source.slice(start, end).trimEnd(), /return button;\s*\};$/);
 });

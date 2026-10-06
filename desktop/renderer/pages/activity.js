@@ -355,12 +355,15 @@ export function renderActivity(fresh) {
     }
     button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity);
-      $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true}); });   // the redraw dropped the focus: ↑/↓ keep working
+      $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true}); });   // a click on a row (focused by the browser, then redrawn) keeps it too
     return button;
   };
+  // Every redraw (a click, a refresh, a run's detail arriving) would drop the keyboard focus: if it was on a row, the current row gets it back.
+  const keepFocus = $('activity-recent').contains(document.activeElement);
   $('activity-recent').replaceChildren(...groupRuns(recent).flatMap(group => [
     Object.assign(document.createElement('li'), {className: 'recent-group', textContent: group.label}),
     ...group.runs.map(run => { const item = document.createElement('li'); item.append(recentRow(run)); return item; })]));
+  if (keepFocus) $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true});
   if (!recent.length) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted',
     textContent: runs.length ? `No ${KIND[kindFilter]?.name || kindFilter} runs here.` : 'Nothing has run yet.'}));
   // "View more": the runs the filter keeps that the list hasn't shown yet (they scroll in below).
@@ -1282,8 +1285,7 @@ export async function init() {
     event.preventDefault();
     if (at < 0 || !next) return;
     next.click();
-    const current = $('activity-recent').querySelector('.recent-row.current');
-    current?.focus(); current?.scrollIntoView({block: 'nearest'});
+    $('activity-recent').querySelector('.recent-row.current')?.scrollIntoView({block: 'nearest'});
   });
   // The panel's top edge drags: taller upward (it sits on the bottom bar), kept for next time, re-clamped when the
   // window changes. Between PANEL_MIN and 90% of the window.
