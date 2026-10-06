@@ -192,6 +192,41 @@ async function boardTotals(rows) {
   return Object.values(boards);
 }
 
+// Daily, before the purge: the day's totals per source (all employer feeds, or each board) and segment (role kind × country), kept for good.
+// Rows are refreshed at least daily by every sharing install (src/contribute.py REFRESH), so "touched in the last day" is who was active.
+export async function rollup(env, now = new Date()) {
+  if (!env.STATS) return 0;
+  const since = day(new Date(now.getTime() - 86400000)), today = day(now);
+  const rows = async sql => (await env.STATS.prepare(sql).bind(since).all()).results || [];
+  const outcome = step => `SUM(COALESCE(json_extract(out_json, '$.${step}'), 0)) AS ${step}`;
+  const groups = [
+    ...(await rows(`SELECT 'feeds' AS source, roles, countries, COUNT(DISTINCT install) AS installs, COUNT(DISTINCT CASE WHEN matched = 1 THEN install END) AS matched,
+        SUM(COALESCE(hits, 0)) AS hits, 0 AS dup, ${['strong', 'applied', 'interview', 'offer'].map(outcome).join(', ')}
+      FROM contributions WHERE day >= ? GROUP BY roles, countries`)),
+    ...(await rows(`SELECT board AS source, roles, countries, COUNT(*) AS installs, SUM(CASE WHEN hits > 0 THEN 1 ELSE 0 END) AS matched,
+        SUM(COALESCE(hits, 0)) AS hits, SUM(COALESCE(dup, 0)) AS dup, ${['strong', 'applied', 'interview', 'offer'].map(outcome).join(', ')}
+      FROM board_reads WHERE day >= ? GROUP BY board, roles, countries`)),
+  ];
+  const totals = new Map();
+  for (const group of groups) {
+    for (const role of String(group.roles || 'other').split(',').filter(Boolean)) {
+      for (const country of String(group.countries || '').split(',')) {   // '' = no country named: still counted
+        const key = `${group.source}|${role}|${country}`;
+        const line = totals.get(key) || {source: group.source, role, country, installs: 0, matched: 0, hits: 0, dup: 0, strong: 0, applied: 0, interview: 0, offer: 0};
+        for (const field of ['installs', 'matched', 'hits', 'dup', 'strong', 'applied', 'interview', 'offer']) line[field] += group[field] || 0;
+        totals.set(key, line);
+      }
+    }
+  }
+  const statements = [...totals.values()].map(line => env.STATS.prepare(`INSERT OR REPLACE INTO pool_daily (day, source, role, country, installs, matched, hits, dup, strong, applied, interview, offer)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(today, line.source, line.role, line.country, line.installs, line.matched, line.hits, line.dup, line.strong, line.applied, line.interview, line.offer));
+  for (let i = 0; i < statements.length; i += 500) {
+    const chunk = statements.slice(i, i + 500);
+    if (env.STATS.batch) await env.STATS.batch(chunk); else for (const statement of chunk) await statement.run();
+  }
+  return statements.length;
+}
+
 // Daily: rows older than KEEP_DAYS are dropped.
 export async function purge(env, now = new Date()) {
   if (!env.STATS) return;

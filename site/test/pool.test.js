@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
-import {purge} from '../src/pool.js';
+import {purge, rollup} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -155,4 +155,21 @@ test('country, metro and role family are kept from the fixed lists only and coun
   const studio = all.feeds.find(f => f.slug === 'studio');
   assert.deepEqual([studio.countries, studio.metros, studio.families], [{ch: 1}, {'ch-geneva': 1}, {photography: 1}]);
   assert.deepEqual(all.boards[0].metros, {'ch-geneva': {installs: 1, matched: 1}});
+});
+
+test('the day\'s totals per source and segment are kept for good, after the raw rows are purged', async () => {
+  const env = setup();
+  for (const install of ['install-aaaa1111', 'install-bbbb2222']) {
+    await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute', {method: 'POST', body: JSON.stringify({v: 2, install, roles: ['creative_media'], regions: ['europe'],
+      countries: ['ch'], feeds: [feed('studio', {jobs: 5, hits: 1, out: {applied: 1, interview: install.includes('aaaa') ? 1 : 0}})], boards: [{board: 'jobsch', jobs: 50, hits: 2, dup: 1}]})}), env, {});
+  }
+  assert.ok(await rollup(env, new Date()) >= 2);
+  const lines = env.STATS.db.prepare("SELECT source, role, country, installs, matched, hits, dup, applied, interview FROM pool_daily ORDER BY source").all().map(row => ({...row}));
+  assert.deepEqual(lines, [
+    {source: 'feeds', role: 'creative_media', country: 'ch', installs: 2, matched: 2, hits: 2, dup: 0, applied: 2, interview: 1},
+    {source: 'jobsch', role: 'creative_media', country: 'ch', installs: 2, matched: 2, hits: 4, dup: 2, applied: 0, interview: 0},
+  ]);
+  await purge(env, new Date(Date.now() + 200 * 86400000));
+  assert.equal(env.STATS.db.prepare('SELECT COUNT(*) AS n FROM contributions').get().n, 0);
+  assert.equal(env.STATS.db.prepare('SELECT COUNT(*) AS n FROM pool_daily').get().n, 2, 'totals outlive the raw rows');
 });
