@@ -6,7 +6,7 @@ name: CI · AI code review
 # not per push (dozens a day). Read-only: it changes no file in the repo and pushes nothing; the verdict pass or a person confirms a finding before a fix.
 on:
   schedule:
-    - cron: '10 */4 * * *'   # every 4 hours, from where the last review ended (5 Oct 2026); was every 6 h over the last 7
+    - cron: '10 */8 * * *'   # every 8 hours (owner, 7 Oct 2026: cost; every product commit is still read, from where the last review ended); was every 4 h
   workflow_dispatch:
     inputs:
       range:
