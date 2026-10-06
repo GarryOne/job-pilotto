@@ -108,7 +108,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 
 **Find: Finds what is worth your time**
 
-- **Scout that keeps learning** *(new)*: Claude proposes employers and company lists to look at, then learns from what each probe found. The shared employer list grows with every install.
+- **Scout that keeps learning** *(new)*: Claude proposes employers, their own job sites and company lists to look at, then learns from what each probe found. The shared employer list grows with every install.
 - **Facts, quoted from the posting**: Languages, seniority, salary and visa read from each description by AI, with the words they came from.
 - **Fit score out of 100**: Role, place, pay, growth and risk scored against your Profile, with the reasons. Re-scored when your Profile changes.
 - **Hints from what people dismiss** *(new)*: Why jobs get turned down (seniority, place, tech) is counted across installs and nudges the score. Counts only, never a job or a name.

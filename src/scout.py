@@ -300,6 +300,14 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None):
         jobs = probe(candidate['ats'], candidate['slug'])
         if jobs:
             return candidate['ats'], candidate['slug'], jobs
+    jobs_site = candidate.get('careers') or ''
+    if jobs_site and careers.own_site(jobs_site) and candidate.get('status') != 'manual':   # its own job site, when known: read first
+        page = discover(jobs_site)
+        if page and (page.get('jobs') or page.get('empty')):
+            return page['ats'], page['slug'], page.get('jobs') or []
+        jobs = probe(page['ats'], page['slug']) if page else None
+        if jobs:
+            return page['ats'], page['slug'], jobs
     website = candidate.get('website') or ''
     website = website if careers.own_site(website) else ''   # a job board or network is not the employer's address
     names = ats.slug_guesses(candidate['name'])

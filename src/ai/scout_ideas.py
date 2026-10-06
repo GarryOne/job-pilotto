@@ -36,9 +36,10 @@ IDEAS_SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['companies', 'directories', 'note'],
     'properties': {
         'companies': {'type': 'array', 'maxItems': MAX_COMPANIES, 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['name', 'website', 'reason'],
+            'type': 'object', 'additionalProperties': False, 'required': ['name', 'website', 'jobs_site', 'reason'],
             'properties': {'name': {'type': 'string', 'description': 'The company as it calls itself'},
                            'website': {'type': 'string', 'description': 'Official website, https://domain, or "" when you are not sure of it'},
+                           'jobs_site': {'type': 'string', 'description': 'The address of its own list of open jobs (often another domain or a jobs. host), or "" when you are not sure of it'},
                            'reason': {'type': 'string', 'description': 'Under 80 characters: why it fits these roles and places'}}}},
         'directories': {'type': 'array', 'maxItems': MAX_DIRECTORIES, 'items': {
             'type': 'object', 'additionalProperties': False, 'required': ['label', 'url', 'why'],
@@ -56,6 +57,8 @@ tool probes every candidate you name, so a wrong guess costs a few requests, but
 
 Rules:
 - Name only companies you are confident exist, with the official website when you are sure of it, else "". Never invent a company or an address.
+- Also the address of each company's own list of open jobs when you are sure of it: it is often on another domain or host than the website \
+(carrieres-rolex.com for Rolex, jobs.migros.ch for Migros). Never a job board (LinkedIn, Indeed, jobs.ch); "" when unsure.
 - Prefer employers the sources so far would miss: scale-ups, subsidiaries, regional IT and engineering departments, banks and insurers' tech \
 arms, SaaS and infrastructure vendors, consultancies and cloud/DevOps service firms, research and public-sector IT, in the owner's places.
 - Learn from the numbers: more of what produced feeds, and a different angle where a kind of source found nothing. Do not repeat last \
@@ -181,6 +184,15 @@ def origin_of(address):
     return f'https://{host}' if parts.scheme in ('http', 'https', '') and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', host) else ''
 
 
+def jobs_site_of(address):
+    """A company's job site as given (https://host/path), or '' when it is not a public address of the employer's own (a job board, a network,
+    another scheme). The scout reads it before guessing (6 Oct 2026: Rolex's jobs are on carrieres-rolex.com, Coop's on jobs.coop.ch)."""
+    if not origin_of(address):
+        return ''
+    parts = urllib.parse.urlsplit(address if '//' in address else f'https://{address}')
+    return urllib.parse.urlunsplit(('https', parts.hostname.lower(), parts.path or '/', parts.query, ''))[:300]
+
+
 def clean_candidates(items, origin, priority, known, limit=MAX_COMPANIES):
     """Candidate dicts for the scout from the model's companies: a sane name, a public employer address or none, once each."""
     out = []
@@ -192,7 +204,8 @@ def clean_candidates(items, origin, priority, known, limit=MAX_COMPANIES):
         if not key or key in known:
             continue
         known.add(key)
-        out.append(dict(name=name, origin=origin, priority=priority, website=origin_of(str(item.get('website') or '')) or None))
+        out.append(dict(name=name, origin=origin, priority=priority, website=origin_of(str(item.get('website') or '')) or None,
+                        careers=jobs_site_of(str(item.get('jobs_site') or '')) or None))
         if len(out) >= limit:
             break
     return out

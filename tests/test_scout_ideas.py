@@ -97,6 +97,17 @@ NURSE = {'role_keywords': ['registered nurse', '\\bnurse\\b', 'ward sister'], 'l
 IT_WORDS = ('IT ', 'DevOps', 'engineer', 'software', 'SaaS', 'cloud', 'infrastructure')
 
 
+class JobsSiteTests(unittest.TestCase):
+    def test_a_companys_own_job_site_is_kept_and_a_job_board_is_not(self):
+        """6 Oct 2026: Rolex's jobs are on carrieres-rolex.com and Coop's on jobs.coop.ch, which no guess from the name reaches."""
+        got = scout_ideas.clean_candidates([
+            {'name': 'Rolex', 'website': 'https://www.rolex.com', 'jobs_site': 'https://www.carrieres-rolex.com/Rolex/go/Toutes-nos-offres-Rolex/2901501/'},
+            {'name': 'Manor', 'website': 'https://www.manor.ch', 'jobs_site': 'https://www.jobs.ch/en/companies/manor'},
+            {'name': 'Fnac', 'website': 'https://www.fnac.ch', 'jobs_site': 'javascript:alert(1)'}], 'AI idea', 92, set())
+        self.assertEqual([c['careers'] for c in got], ['https://www.carrieres-rolex.com/Rolex/go/Toutes-nos-offres-Rolex/2901501/', None, None])
+        self.assertIn('jobs_site', scout_ideas.IDEAS_SCHEMA['properties']['companies']['items']['required'])
+
+
 class RoleNeutralPromptsTests(unittest.TestCase):
     """A prompt that tells the model to prefer IT employers is a risk for every other profession (5 Oct 2026): the IT guidance stays for IT searches only."""
     def test_a_technical_search_keeps_the_it_prompts_word_for_word(self):

@@ -98,6 +98,15 @@ class ScoutTests(unittest.TestCase):
             card = scout.telegram_summary(summary, [])
             self.assertIn(f"{summary['checked']} new to the search", card)
 
+    def test_a_known_job_site_is_read_before_any_guess(self):
+        jobs = [{'title': f'Horloger {i}', 'location': 'Genève'} for i in range(9)]
+        guessed = []
+        found = scout.find_feed({'name': 'Rolex', 'website': 'https://www.rolex.com', 'careers': 'https://www.carrieres-rolex.com/'},
+                                lambda system, slug: guessed.append(slug) or (jobs if (system, slug) == ('successfactors', 'www.carrieres-rolex.com') else None),
+                                lambda url: {'ats': 'successfactors', 'slug': 'www.carrieres-rolex.com'} if 'carrieres-rolex' in url else None)
+        self.assertEqual(found[:2], ('successfactors', 'www.carrieres-rolex.com'))
+        self.assertEqual(guessed, ['www.carrieres-rolex.com'], 'no name guessed: the job site answered')
+
     def test_a_small_name_guess_loses_to_the_companys_own_job_site(self):
         """6 Oct 2026: Coop Suisse Romande took JOIN's "coop" (1 job, another company); its own job site jobs.coop.ch runs SuccessFactors."""
         own = [{'title': f'Vendeur {i}', 'location': 'Genève'} for i in range(40)]
