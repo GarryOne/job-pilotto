@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window */
 // Every Recent activity state in ONE demo window: each task's runs, one per state (fixtures/activity-states.json, fictional data only),
 // newest first, so you click through them like real runs. node e2e/activity-states.mjs · Ctrl+C closes it. The cardstates suite checks them.
 //   SHOTS=<folder>        save a picture of each state, its card scrolled to the end (-part2, -part3…), then the popup, the answers, Tune
@@ -100,6 +100,28 @@ async function main() {
         await page.screenshot({path: path.join(folder, `${num()}-${name}.png`)});
       }
       await page.evaluate(async () => { document.getElementById('tune-dialog').close(); (await import('./pages/activity.js')).openActivity(true); });
+      // A live run, mocked as the cardstates suite does (no engine): Queued behind a running search, its log streaming, scrolled up, finished.
+      const live = async step => page.evaluate(async step => {
+        const {shared} = await import('./pages/shared.js');
+        const activity = await import('./pages/activity.js');
+        const $ = id => document.getElementById(id);
+        window.__live ??= {base: activity.lastActivity, id: Date.now() + 5000, at: new Date().toISOString()};
+        const {base, id, at} = window.__live;
+        const lines = n => ['Searching job boards…', 'Job boards: jobs.ch, SwissDevJobs', 'Checking employer career pages, then reading and scoring new jobs…', ...Array.from({length: n}, (_, i) => `Scored ${i + 1} of 60 job(s)`)];
+        const running = {id, kind: 'search', trigger: 'you', where: 'mac', startedAt: at, step: 'Scored 40 of 60 job(s)'};
+        shared.selectedRun = null;
+        if (step === 'running') { shared.logLines = lines(40); activity.renderActivity({...base, running, queued: [{id: id + 1, kind: 'tailor', trigger: 'you', queuedAt: at}]}); $('log').scrollTop = $('log').scrollHeight; }
+        if (step === 'scrolled') { $('log').scrollTop = 0; $('log').dispatchEvent(new Event('scroll')); shared.logLines = lines(52); activity.renderActivity({...activity.lastActivity}); }
+        if (step === 'finished') {
+          $('log').scrollTop = $('log').scrollHeight;
+          activity.renderActivity({...base, running: null, queued: [], runs: [{...running, endedAt: new Date().toISOString(), ok: true, new: 2, found: 214, changed: 1, log: lines(60)}, ...base.runs]});
+        }
+      }, step);
+      for (const [step, name] of [['running', 'live--running-log-streaming-tailor-queued'], ['scrolled', 'live--running-scrolled-up-jump-to-latest'], ['finished', 'live--finished-while-watched-log-kept-open']]) {
+        await live(step);
+        await page.waitForTimeout(500);
+        await page.screenshot({path: path.join(folder, `${num()}-${name}.png`)});
+      }
     }
     console.log(`Saved pictures in ${folder}`);
   }
