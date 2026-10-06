@@ -98,7 +98,7 @@ class IndexContract(unittest.TestCase):
     def test_every_kind_of_slug_the_engine_produces_passes_the_websites_validator(self):
         samples = {'greenhouse': 'acme', 'lever': 'acme', 'ashby': 'acme.ai', 'workable': 'acme', 'recruitee': 'acme', 'personio': 'acme',
                    'smartrecruiters': 'AcmeAG', 'teamtailor': 'acme', 'join': 'acme-ag', 'workday': 'zuehlke.wd3.Zuhlke-Careers', 'umantis': 'recruitingapp-2824', 'successfactors': 'careers.swissre.com',
-                   'careers': careers.encode('https://www.acme.ch/de/ueber-uns/karriere/stellenangebote')}
+                   'careers': careers.encode('https://www.acme.ch/de/ueber-uns/karriere/stellenangebote'), 'jobsch': '27602-manor-ag'}
         self.assertEqual(set(samples), set(ats.FETCHERS) - {'amazon', 'netflix'}, 'a new feed type needs a sample here')
         sent = [{'company': f'Co {system}', 'ats': system, 'slug': slug} for system, slug in samples.items()]
         self.assertEqual(self.site_clean(sent), [f'{system}:{slug}' for system, slug in samples.items()])

@@ -293,7 +293,7 @@ def job_hosts(website):
     return [f'https://{sub}.{host}' for sub in JOB_SUBDOMAINS]
 
 
-def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, search=None):
+def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, search=None, jobsch_lookup=None):
     """(ats, slug, jobs) for the candidate's public feed, or None. In order: the address already known; slugs guessed from the name and
     from the website's domain on the common job systems; then the website itself (an embedded job system, or a careers page with job data)."""
     if candidate.get('ats') and candidate.get('slug'):
@@ -332,6 +332,21 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, 
         page = discover(host)
         if page:
             break
+    # Nothing by name, website or the usual job hosts: the employer's page on jobs.ch, where Swiss employers post (6 Oct 2026: Manor, 287 jobs,
+    # and its job site careers.manor.ch; coop.ch refuses automated visitors). Its own job site first, else its jobs.ch listings as its feed.
+    if not page and not guessed and jobsch_lookup:
+        try:
+            board = jobsch_lookup(candidate['name'])
+        except Exception:  # noqa: BLE001 — jobs.ch not answering leaves the other ways
+            board = None
+        if board:
+            own = discover(board['site']) if board.get('site') and careers.own_site(board['site']) else None
+            own_jobs = own and (own.get('jobs') or (own.get('ats') != 'careers' and probe(own['ats'], own['slug'])))
+            if own_jobs:
+                return own['ats'], own['slug'], own_jobs
+            listed = probe('jobsch', board['slug'])
+            if listed:
+                return 'jobsch', board['slug'], listed
     # Nothing by name, website or the usual job hosts: a web search for "<company> jobs", as a person would (web_search.py), its results
     # read like any careers page. Once per employer per recheck period: a "none" is not looked at again for RECHECK_DAYS['none'].
     for url in [] if page or guessed or not search else search(candidate['name']):
@@ -385,7 +400,7 @@ def board_url(system, slug):
         'netflix': 'https://explore.jobs.netflix.net/careers', 'teamtailor': f'https://{slug}.teamtailor.com/jobs',
         'join': f'https://join.com/companies/{slug}', 'workday': workday_url(slug) if system == 'workday' else '', 'umantis': f'https://{slug}.umantis.com/Jobs/All',
         'successfactors': f'https://{slug}/search/',
-        'careers': careers.decode(slug) if system == 'careers' else ''}[system]
+        'careers': careers.decode(slug) if system == 'careers' else '', 'jobsch': f'https://www.jobs.ch/en/companies/{slug}/'}[system]
 
 
 def workday_url(slug):
@@ -771,6 +786,10 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         (lambda name: web_search.job_sites(name, language))
     if search:
         print(f'Scout: employers with no job site found are looked up with a web search ({web_search.provider()}).')
+    # jobs.ch for an employer with no job site we can read: Swiss places only (it lists Swiss employers), never for the fixtures.
+    from .sources import boards as job_boards
+    lookup = None if harvest_sources is not None or os.getenv('JOB_PILOTTO_FIXTURE_DIR') or job_boards.swiss_place_word(load_search_config()) is None \
+        else (lambda name: ats.jobsch_find(name, key_for))
     unread = []   # job systems a careers page named that could not be read: (system, why, company)
 
     done = []
@@ -786,7 +805,8 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     def check_one(candidate):
         if candidate['status'] == 'manual':
             return {'status': 'manual'}
-        found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])), search=search)
+        found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])), search=search,
+                          jobsch_lookup=lookup)
         if not found:
             return {'status': 'none'}
         system, slug, jobs = found

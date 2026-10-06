@@ -6,7 +6,7 @@ import {REGIONS, ROLES} from './pool.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
 import {store as storeScouting} from './scouting.js';
 const KEY = 'index:employers';
-const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix'];
+const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 const MAX_BYTES = 1_000_000;          // the KV copy older app versions download (one KV value)
 const MAX_PUBLISH_BYTES = 20_000_000; // what the central scout may send: D1 holds far more feeds than one KV value
 const MAX_FEEDS = 60000;

@@ -351,11 +351,81 @@ def netflix(slug='netflix'):
 
 
 # Boards whose list has no description, and how to fetch one posting's (ats -> fn(slug, job_id) -> text).
+JOBSCH_PAGES = 15       # 20 postings a page on jobs.ch: up to 300 jobs of one employer
+JOBSCH_COMPANY = re.compile(r'/companies/(\d+)-(?:\1-)?([a-z0-9-]+)')
+
+
+def jobsch_company(link):
+    """'27602-manor-ag' from a jobs.ch company link (/en/companies/27602-27602-manor-ag/), or ''."""
+    match = JOBSCH_COMPANY.search(str(link or ''))
+    return f'{match.group(1)}-{match.group(2).strip("-")}' if match else ''
+
+
+def _postings(markup):
+    """The JobPosting entries of a page's structured data (schema.org), wherever they sit in it."""
+    def walk(value):
+        if isinstance(value, dict):
+            if value.get('@type') == 'JobPosting':
+                yield value
+            for inner in value.values():
+                yield from walk(inner)
+        elif isinstance(value, list):
+            for inner in value:
+                yield from walk(inner)
+    for block in re.findall(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', markup, re.S):
+        try:
+            yield from walk(json.loads(block))
+        except ValueError:
+            continue
+
+
+def jobsch_find(name, key, get=None):
+    """An employer on jobs.ch by name: {'slug', 'site'} (its company page id, and the job site that page links, or ''), or None. Only a
+    listing whose employer has the same name key (`key`, the scout's: "Manor" and "Manor AG" are one) counts, never a similar name."""
+    get = get or _get
+    text = lambda raw: raw.decode('utf-8', 'replace') if isinstance(raw, bytes) else raw
+    for job in _postings(text(get('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': name})))):
+        org = job.get('hiringOrganization') or {}
+        slug = jobsch_company(org.get('sameAs'))
+        if slug and key(str(org.get('name') or '')) == key(name):
+            page = text(get(f'https://www.jobs.ch/en/companies/{slug}/'))
+            links = [link for link in re.findall(r'href="(https?://[^"]+)"', page) if 'jobs.ch' not in link and 'jobcloud' not in link]
+            words = re.findall(r'[a-z0-9]{3,}', key(name))
+            site = next((link for link in links if any(word in link.lower() for word in words)), '')
+            return {'slug': slug, 'site': site}
+    return None
+
+
+def jobsch(slug):
+    """One employer's jobs on jobs.ch ('27602-manor-ag'), for an employer whose own job site we cannot read (6 Oct 2026: Manor's careers site
+    is a script app, coop.ch refuses automated visitors; both post every job on jobs.ch). The board's public search for its name, keeping
+    only the postings of its company page (the id), page by page until a short page. robots.txt allows these pages."""
+    company, _, words = slug.partition('-')
+    out, seen = [], set()
+    for page in range(1, JOBSCH_PAGES + 1):
+        markup = _get('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': words.replace('-', ' '), 'page': page}))
+        postings = list(_postings(markup.decode('utf-8', 'replace') if isinstance(markup, bytes) else markup))
+        for job in postings:
+            if jobsch_company((job.get('hiringOrganization') or {}).get('sameAs')).split('-')[0] != company or job.get('url') in seen:
+                continue
+            seen.add(job.get('url'))
+            places = job.get('jobLocation') or []
+            places = places if isinstance(places, list) else [places]
+            where = ', '.join(dict.fromkeys(str((p.get('address') or {}).get('addressLocality') or (p.get('address') or {}).get('addressRegion') or '')
+                                            for p in places if isinstance(p, dict)))
+            ident = re.search(r'detail/([0-9a-f-]{36})', str(job.get('url') or ''))
+            out.append(_job(ident.group(1) if ident else job.get('url'), job.get('title'), (where + ', Switzerland').strip(', '),
+                            job.get('url'), str(job.get('datePosted') or '')[:10]))
+        if len(postings) < 20:
+            break
+    return out
+
+
 DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
             'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'successfactors': successfactors, 'careers': careers,
-            'amazon': amazon, 'netflix': netflix}
+            'amazon': amazon, 'netflix': netflix, 'jobsch': jobsch}
 # Standard systems a company slug can be guessed for; company sites are listed explicitly.
 GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters', 'teamtailor', 'join')
 
