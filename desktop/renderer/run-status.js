@@ -65,14 +65,40 @@ export function deliveryHead(run) {
     summary: `The ${what} completed, but its Telegram message was not sent.`, hint: reason, fix: {label: 'Open Telegram settings', view: 'settings'}};
 }
 
-export function failureHead(run) {
+// A Gmail check with Gmail not connected: nothing was checked, the box says so and connects it (the owner's fix #6, 6 Oct 2026).
+export function notConnectedHead(run) {
+  if (!run?.off || run.live || run.waiting) return null;
+  return {problem: 'Gmail is not connected', title: 'Gmail is not connected', icon: 'mail', short: 'Gmail not connected',
+    summary: 'Connect your Google account before checking for emails and calendar updates.', fix: {label: 'Connect Gmail', view: 'settings'}};
+}
+// A run that ended while it waited for another Job Pilotto run (lib/pipeline.js run_lock): it never started its work (fix #10).
+const WAITED = /Another Job Pilotto (?:search|run) is running[^\n]*waiting for it/i;
+const DOING_NOUN = {tailor: 'tailoring', kits: 'preparing kits', search: 'the search', scout: 'finding employers', weekly: 'the analysis',
+  insight: 'the insight', mail: 'the Gmail check', review: 'the review', interview: 'the interview review'};
+export function waitedHead(run) {
+  if (!run || run.live || run.waiting || run.ok || run.problem) return null;
+  const line = (run.log || []).map(String).find(text => WAITED.test(text));
+  if (!line) return null;
+  const title = `Couldn’t start ${DOING_NOUN[run.kind] || 'the run'}`;
+  return {problem: line, title, short: title, icon: 'clock', quiet: true,
+    summary: 'The last recorded step was waiting for another Job Pilotto run. This attempt ended without a result.',
+    hint: 'Try again when the other run has finished.', fix: {label: 'Try again', rerun: true}};
+}
+
+export function failureHead(run, name = '') {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
   const problem = String(run.problem || '').trim();
+  // No reason recognised: say it stopped unexpectedly, offer to run it again and the log (the owner's fix #7, 6 Oct 2026: "Had problems" over a raw log).
+  if (!problem) {
+    return {problem: 'unexpected', unexpected: true, quiet: true, short: 'Unexpected error', viewLog: true,
+      title: `${run.kind === 'search' ? 'The job search' : name || 'The run'} stopped unexpectedly`,
+      summary: 'An unexpected error interrupted this run. No final result was recorded.', fix: {label: 'Run again', rerun: true}};
+  }
   const fix = PROBLEM_FIXES.find(([pattern]) => pattern.test(problem));
   const lead = /^not (checked|delivered):\s*/i.exec(problem)?.[1]?.toLowerCase();   // the title says it; the sentence under it is only the reason
   const reason = problem.replace(/^not (?:checked|delivered):\s*/i, '');
-  return {problem, title: !problem ? 'Had problems' : lead === 'delivered' ? 'Not delivered' : 'Not checked',
-    summary: problem ? `${reason.replace(/^./, c => c.toUpperCase())}.` : 'The run failed: its log shows where it stopped.', fix: fix ? {label: fix[1], view: fix[2]} : null};
+  return {problem, title: lead === 'delivered' ? 'Not delivered' : 'Not checked',
+    summary: `${reason.replace(/^./, c => c.toUpperCase())}.`, fix: fix ? {label: fix[1], view: fix[2]} : null};
 }
 
 // What a failed run says about itself when no reason was recognised (#301, 5 Oct 2026: a Jobs check that was Failed read "1 new job", like a success, because the result a Notion row
@@ -96,7 +122,8 @@ export function phaseStatus(run, i, at) {
 export function runStatus(run, warned) {
   if (run.live) return ['Running', 'info', {dot: true}];
   if (run.waiting) return ['Queued', 'neutral'];
-  if (!run.ok || run.off) return stoppedHead(run) ? ['Stopped', 'bad'] : ['Failed', 'bad'];
+  if (run.off) return ['Not checked', 'warn'];   // nothing was checked: not a failure, a connection to make
+  if (!run.ok) return stoppedHead(run) ? ['Stopped', 'bad'] : ['Failed', 'bad'];
   return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
 }
 

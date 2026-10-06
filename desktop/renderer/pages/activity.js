@@ -3,7 +3,7 @@ import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead} from '../run-status.js';
+import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -128,12 +128,15 @@ export function outcome(run) {
   return deliveryHead({...run, kind: kindOf(run)}) ? `${capital(said)} · Telegram not sent` : said;
 }
 function outcomeOf(run) {
+  const explained = notConnectedHead(run) || waitedHead({...run, kind: kindOf(run)});
+  if (explained) return explained.short;   // the box says the rest
   const stopped = stoppedHead({...run, kind: kindOf(run)});
   if (stopped) return `Stopped · ${stopped.stopped}`;   // the watchdog stopped it: the box says why and where
   if (run.problem && (kindOf(run) === 'mail' || !run.ok)) return run.problem;   // why it read nothing or did not arrive comes before the counts a Notion row says (#290, #298)
   if (aiLimitHead({...run, kind: kindOf(run)})) return 'results unavailable';   // the AI provider stopped it: the box says why
   const failed = failedOutcome(run);
   if (failed) return failed;   // a failed run says so before what its Notion row reports (#301)
+  if (!run.ok && !run.problem && !run.live && !run.waiting) return 'Unexpected error';   // no reason recognised: the box says what to do
   if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
   if (kindOf(run) === 'mail') {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
@@ -151,7 +154,11 @@ function outcomeOf(run) {
 }
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
 // A kind's Run button on the Actions page (its data-command), or nothing for a kind without one.
-const runButton = kind => { const command = Object.keys(COMMAND_KIND).find(key => COMMAND_KIND[key] === kind); return command ? document.querySelector(`button.action[data-command="${command}"]`) : null; };
+const runButton = kind => {
+  if (kind === 'tailor') return document.getElementById('tailor-top');   // no Telegram command: its own button
+  const command = Object.keys(COMMAND_KIND).find(key => COMMAND_KIND[key] === kind);
+  return command ? document.querySelector(`button.action[data-command="${command}"]`) : null;
+};
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
 // The card a finished run's message makes, as a function that draws it into a card box, or null when the message has no card shape (then it is shown as text).
@@ -451,7 +458,7 @@ export function renderActivity(fresh) {
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
   // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
   const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
-    : !run.ok || run.off ? [stoppedHead({...run, kind: kindOf(run)}) ? 'Stopped' : 'Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
+    : run.off ? ['Not checked', 'warn'] : !run.ok ? [stoppedHead({...run, kind: kindOf(run)}) ? 'Stopped' : 'Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
@@ -461,7 +468,9 @@ export function renderActivity(fresh) {
   // Its card says it better than the raw text, whole: the header doesn't repeat it cut short (a digest, an insight, a weekly report).
   const hasCard = !!(shownText && (parseRunMessage(shownText) || parseInsight(shownText) || parseWeekly(shownText)));
   // A stopped run's box says why in full: the header doesn't repeat it.
-  const said = run && !run.live && !hasCard && !stoppedHead({...run, kind: kindOf(run)}) ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
+  // A box that names what happened in full (stopped, couldn't start, stopped unexpectedly): the header doesn't repeat it.
+  const boxSaysIt = run && (stoppedHead({...run, kind: kindOf(run)}) || waitedHead({...run, kind: kindOf(run)}) || failureHead({...run, kind: kindOf(run)})?.unexpected);
+  const said = run && !run.live && !hasCard && !boxSaysIt ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
   const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
   // A run that used no AI shows no cost: "$0" on every row was noise.
   const cost = run && !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}`));
@@ -545,7 +554,8 @@ export function renderActivity(fresh) {
   // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
   const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)})
-    || deliveryHead({...run, kind: kindOf(run)}))) || failureHead(run);
+    || deliveryHead({...run, kind: kindOf(run)}) || notConnectedHead(run) || waitedHead({...run, kind: kindOf(run)})))
+    || failureHead(run && {...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name);
   // A message not delivered comes after the run's results; every other box comes first. Its icon says what it is about.
   if (head?.delivery) $('activity-phases').after($('activity-warnings')); else $('activity-phases').before($('activity-warnings'));
   $('activity-warnings').querySelector('.ap-warn-icon').replaceChildren(icon(head?.icon || 'alert'));
@@ -571,6 +581,7 @@ export function renderActivity(fresh) {
     const again = head?.fix?.rerun ? runButton(kindOf(run)) : null;
     $('activity-warnings-fix').dataset.rerun = again ? kindOf(run) : '';
     if (head?.fix?.rerun && !again) show($('activity-warnings-fix'), false);
+    show($('activity-warnings-log'), !!head?.viewLog);
     show($('activity-warnings-limit'), limited > 0);
     const grouped = newDetails(groupWarnings(head?.delivery ? warnings.filter(line => !head.lines.includes(line)) : warnings), head?.delivery ? head.hint : summary);
     // One line needs no toggle: it is shown. Two or more fold behind "View N details".
@@ -587,14 +598,19 @@ export function renderActivity(fresh) {
     $('activity-warnings-fold').setAttribute('aria-expanded', String(!folded));
     $('activity-warnings-fold').title = folded ? 'Show' : 'Hide';
   }
-  // The full log stays folded (the stages come first); open by itself only when the task went wrong.
-  const failed = run && !run.live && (!run.ok || run.off);
+  // The technical log, in the same place on every run (owner, 6 Oct 2026): open while a run streams here; folded for every finished
+  // run (its box or card says what happened, "View technical log" opens it); a run that finishes while you watch keeps what you chose.
   const streamLocal = !!run?.live && run?.where !== 'github';
+  const noLog = !!run && !run.live && !lines.length;
   if (run && $('activity-log').dataset.for !== String(run.id)) {
     $('activity-log').dataset.for = String(run.id);
-    $('activity-log').open = (!!failed && !head?.hint) || streamLocal;   // an explained stop keeps its log folded
+    $('activity-log').open = streamLocal;
   }
+  if (noLog) $('activity-log').open = false;
+  $('activity-log').classList.toggle('is-empty', noLog);   // the same row, "No log available", nothing to open
+  $('log-title').textContent = noLog ? 'No log available' : 'Technical log';
   $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
+  show($('log-live'), !!run?.live);
   const log = $('log');
   const text = lines.join('\n') || (githubLive
     ? (run.url ? 'This run is on GitHub. Its log is copied here when it finishes.' : 'Starting on GitHub…')
@@ -604,8 +620,14 @@ export function renderActivity(fresh) {
     log.replaceChildren(...linked(text));
     if (atBottom) log.scrollTop = log.scrollHeight;  // follow new lines unless the user scrolled up to read
   }
+  showJumpToLatest();
 }
 // A Logged activity run's job, created or updated: a green box linking to it (its Notion page, the Jobs list).
+// While a run streams and you scrolled up to read, "Jump to latest" brings the log back to its newest line (and following resumes).
+function showJumpToLatest() {
+  const log = $('log');
+  show($('log-latest'), !!log && $('activity-log').open && !!lastActivity?.running && log.scrollHeight - log.scrollTop - log.clientHeight >= 40);
+}
 function showRunJob(runJob) {
   const job = withListJob(runJob, shared.allJobs || []);
   show($('activity-job'), !!job);
@@ -1415,6 +1437,14 @@ export async function init() {
     event.preventDefault();
     const {view, rerun} = event.currentTarget.dataset;
     if (rerun) runButton(rerun)?.click(); else if (view) openView(view);
+  });
+  $('log').addEventListener('scroll', showJumpToLatest);
+  $('log-latest').addEventListener('click', () => { $('log').scrollTop = $('log').scrollHeight; showJumpToLatest(); });
+  $('activity-log').addEventListener('click', event => { if ($('activity-log').classList.contains('is-empty') && event.target.closest('summary')) event.preventDefault(); });
+  $('activity-warnings-log').addEventListener('click', event => {
+    event.preventDefault();
+    $('activity-log').open = true;
+    $('activity-log').scrollIntoView({block: 'nearest', behavior: 'smooth'});
   });
   $('activity-warnings-external').addEventListener('click', event => { const url = event.currentTarget.dataset.url; if (url) window.pilot.openExternal(url); });
   $('activity-warnings-limit').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal('https://console.anthropic.com/settings/limits'); });

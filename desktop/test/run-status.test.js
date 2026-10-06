@@ -8,7 +8,7 @@ test('a finished run is Completed, With warnings or Failed, a running one Runnin
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
   assert.deepEqual(runStatus({ok: true}, true).slice(0, 2), ['With warnings', 'warn']);
   assert.deepEqual(runStatus({ok: false}, false).slice(0, 2), ['Failed', 'bad']);
-  assert.deepEqual(runStatus({ok: true, off: true}, false).slice(0, 2), ['Failed', 'bad']);
+  assert.deepEqual(runStatus({ok: true, off: true}, false).slice(0, 2), ['Not checked', 'warn']);   // nothing checked: a connection to make (owner, 6 Oct 2026)
   assert.equal(runStatus({live: true}, false)[0], 'Running');
   assert.equal(runStatus({waiting: true}, false)[0], 'Queued');
 });
@@ -60,11 +60,11 @@ test('a failed run says so in its own box, with its reason and the fix the app c
   assert.deepEqual([google.title, google.summary, google.fix], ['Not checked', 'The Google sign-in expired (Settings → Gmail and Calendar).', {label: 'Connect Google again', view: 'settings'}]);
   assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)'}).fix.label, 'Open AI settings');
   assert.equal(failureHead({ok: false, problem: 'not checked: the Anthropic API spend limit was reached'}).fix, null, 'a limit has its own link on the page');
-  assert.deepEqual([failureHead({ok: false}).title, failureHead({ok: false}).fix], ['Had problems', null]);
+  assert.deepEqual([failureHead({ok: false, kind: 'search'}).title, failureHead({ok: false}).fix], ['The job search stopped unexpectedly', {label: 'Run again', rerun: true}]);
   assert.equal(failureHead({ok: true}), null, 'a run that worked has no failure head');
   assert.equal(failureHead({ok: true, warned: true}), null, 'nor one that only warned');
   assert.equal(failureHead({ok: false, live: true}), null, 'nor one still running');
-  assert.equal(failureHead({ok: true, off: true}).title, 'Had problems', 'a check that is switched off counts as not done');
+  assert.equal(failureHead({ok: true, off: true}).unexpected, true, 'a check that is switched off counts as not done (Recent activity shows notConnectedHead first)');
 });
 
 test('a digest Telegram refused is a failed run that says so, with the Telegram settings as the way out (#298); the title says it once, the sentence gives the reason', () => {

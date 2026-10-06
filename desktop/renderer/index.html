@@ -1331,7 +1331,8 @@
               <p class="muted" id="activity-warnings-hint" hidden></p>
               <div class="alert-actions">
                 <button type="button" class="primary with-icon" id="activity-warnings-external" hidden></button>
-                <a href="#" class="link" id="activity-warnings-fix" hidden></a>
+                <button type="button" class="primary" id="activity-warnings-fix" hidden></button>
+                <a href="#" class="link" id="activity-warnings-log" hidden>View technical log</a>
                 <a href="#" class="link" id="activity-warnings-limit" hidden>Increase limit ↗</a>
                 <button class="link" id="activity-warnings-more"></button>
               </div>
@@ -1342,7 +1343,7 @@
           <ol class="activity-phases ap-card" id="activity-phases"></ol>
           <pre class="activity-message" id="activity-message" hidden></pre>
           <div class="run-card ap-card" id="activity-card" hidden></div>
-          <details class="activity-log ap-card" id="activity-log"><summary><i data-icon="file"></i><b>Technical log</b><span class="muted" id="log-count"></span></summary><pre id="log" class="log"></pre></details>
+          <details class="activity-log ap-card" id="activity-log"><summary><i data-icon="file"></i><b id="log-title">Technical log</b><span class="muted" id="log-count"></span><span class="ui-pill tone-info dot" id="log-live" hidden>Live</span></summary><pre id="log" class="log"></pre><button type="button" class="link log-latest" id="log-latest" hidden>Jump to latest ↓</button></details>
           <!-- Upcoming checks: global (not about the run above); the soonest one is highlighted. -->
           <div class="ap-upcoming">
             <div class="ap-strip" id="ap-strip">
