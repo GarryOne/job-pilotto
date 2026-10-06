@@ -211,7 +211,8 @@ export async function runParts(ctx, parts) {
         const problems = [];
         if (/Completed$/.test(opened.status) && !opened.warnings && !opened.warningList) problems.push('the check says plain "Completed" though it could not read the mail');
         if (!/google|gmail|sign.?in|connect/i.test(words)) problems.push('nothing says the Google sign-in is the problem');
-        if (/invalid_grant|error_description|Token has been expired/.test(words)) problems.push('Google\'s raw answer is shown');
+        const raw = /.{0,80}(invalid_grant|error_description|Token has been expired).{0,80}/.exec(words);   // which words, quoted: the screen itself looked clean (6 Oct 2026)
+        if (raw) problems.push(`Google's raw answer is shown: "${raw[0].replace(/\s+/g, ' ')}" (warnings: ${opened.warnings ? 'yes' : 'no'}, list: ${opened.warningList ? 'yes' : 'no'}, message: ${/invalid_grant|error_description|Token has been/.test(opened.message || '') ? 'yes' : 'no'})`);
         if (problems.length) throw new Error(problems.join('; '));
         await noRowStaysRunning(ctx);
       } finally { ctx.google.pass(); }
