@@ -55,7 +55,8 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
      is now stale and why. A new detector or plant needs its unit test page to carry what it checks (`test/recall.test.mjs`).
   6. **A new e2e step is seen passing before it lands, and proves its own setup** (6 Oct 2026: an Apply step that had never passed failed the beta gate on its
      premise: a missing board was meant to make the kit fail, but kits draft from the posting). The push hook (`tools/new-e2e-steps.mjs`) wants a local run that
-     passed it, or `E2E-passed: <run url>` (CI-only suites: `gh workflow run e2e.yml --ref <branch> -f suite=<suite>`), or `E2E-unverified: <why>` in the
+     passed it, or `E2E-passed: <run url>` (CI-only suites: push a tag, never a branch (owner, 6 Oct 2026: a pushed branch puts GitHub's "Compare & pull request" banner on the repo):
+     `git tag e2e-try/<topic> && git push origin e2e-try/<topic>`, `gh workflow run e2e.yml --ref e2e-try/<topic> -f suite=<suite>`, then `git push origin :refs/tags/e2e-try/<topic>`), or `E2E-unverified: <why>` in the
      message. In the step, assert the setup took effect: the proxy/stub was called, the seed is in the state, the failure really happened.
 - Big features (Always on, migrations, Apply with Claude): a short spec in `docs/superpowers/specs/` with a
   "Data ownership" section (Notion vs cache) before code; link it from the Notion Decision Log, don't copy it there.
