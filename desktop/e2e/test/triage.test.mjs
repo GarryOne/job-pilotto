@@ -573,3 +573,17 @@ test('what the filters cut is listed with why: low severity, no stated impact, o
   assert.match(table, /\| ai-review \| actions \| medium \| Counts disagree \| matches an issue closed as a false positive \|/);
   assert.equal(droppedTable([]), '');
 });
+
+// #307 and #308: one "within.contains is not a function" from components.js, filed once per page.
+test('a console error is one finding whatever the page: copies fold in, and its id does not name a page', () => {
+  const error = view => ({view, kind: 'console-error', severity: 'warning', source: 'layout-check', detail: 'window threw TypeError: "TypeError: within.contains is not a function"'});
+  const out = normalize({ui: [error('apply-journey'), error('jobs-journey'), {...error('focus'), detail: 'window threw TypeError: "x is undefined"'}]});
+  assert.equal(out.length, 2);
+  const [merged, other] = out;
+  assert.equal(merged.id, normalize({ui: [error('settings')]})[0].id, 'the same error on another page, in a later run, is the same issue');
+  assert.doesNotMatch(merged.id, /journey/);
+  assert.match(merged.detail, /Also thrown on: jobs-journey \(one error of the window/);
+  assert.equal(merged.also, undefined, '`also` is the failed steps after a suite failure, not pages');
+  assert.notEqual(other.id, merged.id);
+  assert.equal(normalize({ui: [{...error('a'), detail: 'console Error: "line 12"'}]})[0].id, normalize({ui: [{...error('b'), detail: 'console Error: "line 40"'}]})[0].id, 'numbers folded');
+});

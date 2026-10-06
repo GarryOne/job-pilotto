@@ -64,6 +64,27 @@ export function mergeSameRun(findings) {
   return findings;
 }
 
+// A console error is the window's, not a page's: one error in shared code (components.js) is thrown on every page that uses it, and was filed once per page (#307 and #308,
+// the same "within.contains is not a function"). Its id is its words (numbers folded), whatever the page; copies on other pages in the same run become one line of its detail,
+// and a later run that sees it on any page matches the same issue.
+export const consoleKey = item => {
+  const words = String(item.detail || '').toLowerCase().replace(/\d+/g, '#').replace(/\s+/g, ' ').trim();
+  let hash = 5381;
+  for (const char of words) hash = ((hash << 5) + hash + char.charCodeAt(0)) >>> 0;
+  return `window-console-error-${hash.toString(36)}`;
+};
+export function mergeConsoleErrors(findings) {
+  const first = new Map();
+  for (const item of [...findings]) {
+    if (item.kind !== 'console-error') continue;
+    const keep = first.get(item.id);
+    if (!keep) { first.set(item.id, item); continue; }
+    if (keep.view !== item.view && !(keep.alsoOn || []).includes(item.view)) keep.alsoOn = [...(keep.alsoOn || []), item.view];
+    findings.splice(findings.indexOf(item), 1);
+  }
+  for (const item of first.values()) if (item.alsoOn?.length) item.detail = `${item.detail}\n\nAlso thrown on: ${item.alsoOn.join(', ')} (one error of the window, not of one page).`;
+  return findings;
+}
 export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
@@ -73,8 +94,9 @@ export function normalize({ui = [], ai = [], suite = [], dropped = []}) {
     // `shown` is only the issue's title: a layout finding says what is on the page ("spill on settings-narrow: p#cv-message.message: "400 {"type":"error"…""), not just a selector. The fingerprint
     // keeps using `title`, so issues filed before this still match.
     const quoted = !probed && /:\s*"([\s\S]{3,})$/.exec(String(item.detail || ''))?.[1]?.replace(/"$/, '');
-    return {...finding, ...(quoted ? {shown: `${finding.title}: "${quoted.replace(/\s+/g, ' ').slice(0, 40)}${quoted.length > 40 ? '…' : ''}"`} : {}), id: fingerprint(finding)};
+    return {...finding, ...(quoted ? {shown: `${finding.title}: "${quoted.replace(/\s+/g, ' ').slice(0, 40)}${quoted.length > 40 ? '…' : ''}"`} : {}), id: finding.kind === 'console-error' ? consoleKey(finding) : fingerprint(finding)};
   });
+  mergeConsoleErrors(fromUi);
   const fromAi = ai.filter(item => item && item.view && item.title && item.severity).map(item => {
     const chrome = chromeKey(item);
     return {...item, severity: cappedSeverity(item.severity, item.kind, item.workaround), dir: item._dir, source: 'ai-review', ...(chrome ? {view: 'app-chrome', id: `app-chrome-${item.kind}-${chrome}`} : {id: item.id || fingerprint(item)})};
