@@ -1421,10 +1421,10 @@
   <div class="dialog-head"><span class="dialog-icon"><i data-icon="sliders"></i></span>
     <div class="cv-head"><h2>Tune my strategy</h2><p class="dialog-lead" id="tune-basis">Reading your results…</p></div>
     <button class="ghost icon-btn" id="tune-close" aria-label="Close"><i data-icon="close"></i></button></div>
-  <ul class="cvc-checks" id="tune-list"></ul>
+  <ul class="tune-list" id="tune-list"></ul>
   <p class="message" id="tune-message"></p>
-  <div class="dialog-foot"><span class="muted small">No AI, no cost. Only what you tick changes.</span>
-    <span class="inline"><button class="primary" id="tune-apply" hidden>Apply selected</button></span></div>
+  <div class="dialog-foot"><span class="muted small">Only selected changes will be applied.</span>
+    <span class="inline"><button class="ghost" id="tune-cancel" type="button" hidden>Cancel</button><button class="primary" id="tune-apply" hidden>Apply changes</button></span></div>
 </dialog>
 <!-- CV match: this job's posting against the CV (lib/match-check.js) -->
 <dialog id="match-dialog" class="save-dialog panel-dialog cv-dialog">

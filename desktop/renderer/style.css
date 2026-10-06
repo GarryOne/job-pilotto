@@ -22,7 +22,7 @@ button.ghost { background: transparent; color: var(--muted); }
 button.link { background: none; border: 0; padding: 0; color: var(--signal); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
 label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; }
-input, select, textarea { width: 100%; font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
+input, select, textarea { width: 100%; accent-color: var(--signal); font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 8px 10px; }
 textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 /* Mono only where the content is code or a transcript. */
@@ -903,7 +903,15 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .cvc-score.low { border-color: var(--bad); color: var(--bad); }
 .cvc-checks { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
 .cvc-check { display: flex; gap: var(--sp-3); align-items: flex-start; }
-/* Tune my strategy: a ticked proposal, its counts under it */
+/* Tune my strategy: the proposals edge to edge, a line between them; each row is the shared .check-row */
+.tune-list { list-style: none; margin: var(--sp-5) calc(-1 * var(--sp-6)) 0; padding: 0; border-top: 1px solid var(--line); }
+.tune-list:empty { display: none; }
+.tune-list li { padding: var(--sp-4) var(--sp-6); }
+.tune-list li + li { border-top: 1px solid var(--line); }
+/* The box under the header's icon, the words under its title (.dialog-icon is 26px, then the head's gap) */
+.tune-list .check-row { display: grid !important; grid-template-columns: 26px 1fr; gap: var(--sp-3); margin: 0; align-items: center; }
+.tune-list .check-row input { width: 20px; height: 20px; margin: 0; }
+.tune-list ~ .dialog-foot { margin-top: var(--sp-3); }
 .cvc-check b, .cvc-comp b, .cvc-fixrow b { display: block; }
 .cvc-check .muted, .cvc-comp .muted, .cvc-fixrow .muted { display: block; }
 .cvc-mark { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; font-size: var(--fs-sm); font-weight: 800; background: var(--surface-2); }
