@@ -83,6 +83,9 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   }
   const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : ctx.standIn ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.standIn.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.releases ? {JOB_PILOTTO_E2E_UPDATES_URL: ctx.releases.url} : {}), ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
+  // The environment the app was started with: a second app a step opens (another time zone, a fresh install) starts from it, so it talks to the same Notion
+  // (real or the stand-in), AI proxy and fixtures (6 Oct 2026: calendar's second app had its own list and reached real Notion with the stand-in's token).
+  ctx.appEnv = env;
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
   // A seeded run of a suite that opts in lives somewhere else: another time zone (window and engine) and language (lib/variation.mjs placeOf).
   ctx.place = variesPlace ? placeOf() : null;
@@ -90,7 +93,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   adopt(await launch({env, lang: ctx.place?.locale || ''}));
   // The app's trace is kept when the suite failed so far: a failed step, or an error outside the steps (suite.mjs sets the exit code first).
   const failed = () => !!process.exitCode || runner.results.some(result => result.status === 'failed');
-  ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); await ctx.standIn?.close(); await ctx.forms?.close(); };
+  ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); if (ctx.standIn) { try { fs.writeFileSync(path.join(ARTIFACTS, 'notion-standin.json'), JSON.stringify(ctx.standIn.dump(), null, 1)); } catch {} await ctx.standIn.close(); } await ctx.forms?.close(); };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
   ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close({keepTrace: failed()}); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile, lang: ctx.place?.locale || ''})); };
   ctx.expectStep = async (name, timeout = 20000) => {

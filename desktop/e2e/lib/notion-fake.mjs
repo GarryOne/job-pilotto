@@ -6,6 +6,10 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 
 const uuid = () => crypto.randomUUID();
+// Notion answers every id with dashes, whatever the request sent (6 Oct 2026: the stand-in echoed a dashless parent as sent, and the app's discover(), which groups a
+// workspace's items by their parent id, split one workspace in two and never found the Profile page).
+const dashed = id => { const hex = String(id || '').replace(/-/g, ''); return /^[0-9a-f]{32}$/i.test(hex) ? `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` : id; };
+const parentOut = parent => (parent ? Object.fromEntries(Object.entries(parent).map(([k, v]) => [k, /_id$/.test(k) ? dashed(v) : v])) : parent);
 const now = () => new Date().toISOString();
 const plain = rich => (rich || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
 const richOut = rich => (rich || []).map(part => {
@@ -22,7 +26,7 @@ function valueOut(type, written) {
     case 'select': return written ? {name: written.name, color: 'default', id: written.id || written.name} : null;
     case 'multi_select': return (written || []).map(option => ({name: option.name, color: 'default', id: option.id || option.name}));
     case 'date': return written ? {start: written.start, end: written.end || null, time_zone: null} : null;
-    case 'relation': return (written || []).map(item => ({id: item.id}));
+    case 'relation': return (written || []).map(item => ({id: dashed(item.id)}));
     case 'files': return written || [];
     case 'people': return written || [];
     default: return written ?? null;   // url, number, checkbox, email, phone_number
@@ -58,7 +62,7 @@ export function createNotionFake() {
       const content = {...(block[type] || {})};
       if (content.rich_text) content.rich_text = richOut(content.rich_text);
       const inner = content.children; delete content.children;
-      const item = {object: 'block', id: uuid(), parent: {type: 'block_id', block_id: parentId}, type, [type]: content, has_children: false, archived: false, in_trash: false,
+      const item = {object: 'block', id: uuid(), parent: {type: 'block_id', block_id: dashed(parentId)}, type, [type]: content, has_children: false, archived: false, in_trash: false,
         created_time: now(), last_edited_time: now()};
       objects.set(item.id, item);
       if (inner?.length) { makeBlocks(item.id, inner); item.has_children = true; }
@@ -131,11 +135,11 @@ export function createNotionFake() {
     if (method === 'POST' && path === 'databases') {
       const id = uuid(), properties = {};
       for (const [name, column] of Object.entries(body.properties || {})) { const type = typeOfWritten(column); properties[name] = {id: name === 'title' ? 'title' : uuid().slice(0, 4), name, type, [type]: column[type] || {}}; }
-      const db = {object: 'database', id, title: richOut(body.title), description: [], properties, parent: body.parent, created_time: now(), last_edited_time: now(),
+      const db = {object: 'database', id, title: richOut(body.title), description: [], properties, parent: parentOut(body.parent), created_time: now(), last_edited_time: now(),
         archived: false, in_trash: false, is_inline: !!body.is_inline, url: `https://www.notion.so/${id.replace(/-/g, '')}`};
       objects.set(id, db);
       const parentId = body.parent?.page_id;
-      if (parentId) { const block = {object: 'block', id, parent: {type: 'page_id', page_id: parentId}, type: 'child_database', child_database: {title: plain(db.title)}, has_children: false, archived: false}; kids(parentId).push(id); objects.set(`${id}#block`, block); }
+      if (parentId) { const block = {object: 'block', id, parent: {type: 'page_id', page_id: dashed(parentId)}, type: 'child_database', child_database: {title: plain(db.title)}, has_children: false, archived: false}; kids(parentId).push(id); objects.set(`${id}#block`, block); }
       return {status: 200, body: db};
     }
     if ((m = /^databases\/([^/]+)\/query$/.exec(path)) && method === 'POST') {
@@ -165,7 +169,7 @@ export function createNotionFake() {
       const dbId = body.parent?.database_id, db = dbId ? objects.get(dbId) : null;
       if (dbId && !live(db)) return error(404, 'object_not_found', `Could not find database with ID: ${dbId}.`);
       const id = uuid(), item = {object: 'page', id, created_time: now(), last_edited_time: now(), archived: false, in_trash: false,
-        parent: dbId ? {type: 'database_id', database_id: dbId} : {type: 'page_id', page_id: body.parent?.page_id}, properties: {}, icon: body.icon || null, url: `https://www.notion.so/${id.replace(/-/g, '')}`};
+        parent: dbId ? {type: 'database_id', database_id: dashed(dbId)} : {type: 'page_id', page_id: dashed(body.parent?.page_id)}, properties: {}, icon: body.icon || null, url: `https://www.notion.so/${id.replace(/-/g, '')}`};
       setProperties(item, body.properties, db);
       objects.set(id, item);
       if (!dbId && body.parent?.page_id) { kids(body.parent.page_id).push(id); objects.set(`${id}#block`, {object: 'block', id, type: 'child_page', child_page: {title: plain(item.properties.title?.title)}, has_children: true, archived: false}); }
@@ -214,7 +218,11 @@ export function createNotionFake() {
     for (const spec of snapshot.pages || []) ids[spec.title] = handle('POST', 'pages', {parent: {page_id: root.id}, properties: {title: {title: [{text: {content: spec.title}}]}}, children: spec.children}, new URLSearchParams()).body.id;
     return ids;
   }
-  return {root, objects, stats, handle, seed};
+  // Evidence: what the stand-in held, written beside a suite's artifacts when it closes (a page or database missing or misnamed shows here at once).
+  const dump = () => [...store.values()].filter(item => item.object !== 'block' || item.type === 'child_page' || item.type === 'child_database').map(item => ({object: item.object, id: item.id,
+    parent: item.parent, archived: !!item.archived, title: item.object === 'database' ? plain(item.title) : plain(Object.values(item.properties || {}).find(p => p.type === 'title')?.title),
+    ...(item.object === 'database' ? {rows: [...store.values()].filter(row => row.object === 'page' && key(row.parent?.database_id || '') === key(item.id)).length} : {})})).filter(item => item.object !== 'page' || item.parent?.type !== 'database_id');
+  return {root, objects, stats, handle, seed, dump};
 }
 
 export async function startNotionFake() {

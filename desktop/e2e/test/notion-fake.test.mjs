@@ -56,3 +56,14 @@ test('a scenario is plain data, loaded in one call', () => {
   for (let cursor; ;) { const out = call(fake, 'POST', `databases/${ids['Job Tracker']}/query`, {start_cursor: cursor}).body; all.push(...out.results); if (!out.has_more) break; cursor = out.next_cursor; }
   assert.equal(all.length, 200);
 });
+
+test('every id comes back with dashes, as from Notion, whatever the request sent', () => {
+  const fake = createNotionFake();
+  const bare = fake.root.id.replace(/-/g, '');
+  const db = call(fake, 'POST', 'databases', {parent: {type: 'page_id', page_id: bare}, title: text('T'), properties: {Name: {title: {}}}}).body;
+  const page = call(fake, 'POST', 'pages', {parent: {page_id: bare}, properties: {title: {title: text('👤 Profile')}}}).body;
+  assert.equal(db.parent.page_id, fake.root.id);
+  assert.equal(page.parent.page_id, fake.root.id);
+  const row = call(fake, 'POST', 'pages', {parent: {database_id: db.id.replace(/-/g, '')}, properties: {Name: {title: text('a')}}}).body;
+  assert.equal(row.parent.database_id, db.id);
+});

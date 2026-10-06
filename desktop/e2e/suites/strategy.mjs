@@ -1,7 +1,6 @@
 /* global document, window */
 // Strategy propagation: a change to the roles, places or companies to skip reaches ⚙️ Search settings (Notion), config/search.json and the next Jobs check,
 // whichever side it was made on, and a reconnected app keeps the real settings instead of making new ones (2 Oct 2026: strategy changes never reached GitHub runs).
-import {appModelEnv} from '../lib/engine.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {launch} from '../lib/app.mjs';
@@ -197,7 +196,7 @@ export async function run(ctx) {
     const id = await settingsPage();
     const wanted = await sections();
     await ctx.session.close();
-    const again = await launch({env: {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url}});
+    const again = await launch({env: {...ctx.appEnv}});   // the same Notion, AI proxy and fixtures as the first app
     try {
       await fastSeed({...ctx, page: again.page, profile: again.profile});
       await reconnect(again.page);
