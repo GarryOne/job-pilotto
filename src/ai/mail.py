@@ -98,8 +98,10 @@ SCHEMA = {
 
 SYSTEM = """You sort the job-search emails (and calendar events) of the owner of Job Pilotto. For each item:
 - "Feedback received" = an employer's assessment following a rejection, or feedback during an ongoing process.
-  A rejection containing specific feedback stays "Rejected" with feedback filled. A refusal to provide feedback
-  after a rejection also counts as Feedback received: quote the refusal, so no further request is suggested.
+  A rejection containing specific feedback stays "Rejected" with feedback filled. The email that turns the
+  application down is always "Rejected", even when it adds that no individual feedback is given (feedback empty).
+  Only a later reply refusing feedback, on a job whose stage is already Rejected, counts as Feedback received:
+  quote the refusal, so no further request is suggested.
 - feedback: quote the employer's specific reasons or assessment verbatim, never infer them. Empty for generic
   "other candidates were a better fit" wording. Exclude candidate requests and old messages quoted below a reply.
 - relevant: true only when it is about one of the owner's own applications or hiring processes, or a recruiter or \

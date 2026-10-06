@@ -243,6 +243,23 @@
    }
   },
   {
+   "id": "reject_no_individual_feedback",
+   "strict": true,
+   "email": {
+    "from": "no-reply@us.greenhouse-mail.io",
+    "subject": "Acme Labs Follow-Up for Senior Site Reliability Engineer | Alex Doe",
+    "date": "2026-10-02T14:45:00+02:00",
+    "body": "Hi Alex, thank you for your interest in Acme Labs. After careful consideration, we have decided not to move forward with your application for Senior Site Reliability Engineer. Due to the volume of applications, and for consistency, we are unable to provide individualized feedback. We wish you the best in your search."
+   },
+   "expect": {
+    "relevant": true,
+    "kinds": [
+     "Rejected"
+    ],
+    "application": "Acme Labs"
+   }
+  },
+  {
    "id": "untracked_confirmation",
    "strict": false,
    "email": {

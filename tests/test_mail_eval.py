@@ -71,7 +71,7 @@ class FixtureTests(unittest.TestCase):
 
     def test_the_cases_that_must_never_fail_are_marked_strict(self):
         strict = {item['id'] for item in self.cases if item['strict']}
-        for needed in ('ats_update_reject', 'offer', 'interview_invite', 'security_code', 'card_receipt', 'vendor_usage_alert'):
+        for needed in ('ats_update_reject', 'reject_no_individual_feedback', 'offer', 'interview_invite', 'security_code', 'card_receipt', 'vendor_usage_alert'):
             self.assertIn(needed, strict)
 
     def test_the_tracked_applications_read_the_way_the_check_reads_them(self):
