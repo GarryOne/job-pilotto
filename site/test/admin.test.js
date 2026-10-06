@@ -91,3 +91,11 @@ test('an empty database: every page and the overview still render', async () => 
   const html = await (await get(e, '/admin', owner)).text();
   assert.match(html, /Nothing needs you this week/);
 });
+
+// Every admin page says, under the menu, the question it answers (owner, 6 Oct 2026): a new page without one fails here.
+test('every admin page has its question, shown under the menu', async () => {
+  const {PAGES, withNav} = await import('../src/admin.js');
+  for (const page of PAGES) assert.ok(page.question && page.question.endsWith('?'), `${page.path} has no question`);
+  const html = withNav('<html><head></head><body><main>x</main></body></html>', '/admin/insights');
+  assert.match(html, /class="admin-question">Does the app make good decisions for users\?</);
+});

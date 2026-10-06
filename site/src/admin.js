@@ -5,16 +5,16 @@ import {esc} from './stats.js';
 import {viewer} from './auth.js';
 
 export const PAGES = [
-  {path: '/admin', name: 'Overview', icon: '🧭'},
-  {path: '/admin/website', old: '/stats', name: 'Website', icon: '🌐'},
-  {path: '/admin/app', old: '/telemetry', name: 'App', icon: '🖥️'},
-  {path: '/admin/insights', old: '/intel', name: 'Insights', icon: '🧠'},
-  {path: '/admin/self-healing', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
-  {path: '/admin/ai-cost', old: '/ai-cost', name: 'AI cost', icon: '💸'},
-  {path: '/admin/form-filling', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
-  {path: '/admin/feedback', old: '/feedback', name: 'Feedback', icon: '💬'},
-  {path: '/admin/e2e', name: 'E2E runs', icon: '🧪'},
-  {path: '/admin/access', name: 'Access', icon: '🔐', superadmin: true},
+  {path: '/admin', question: 'Is Job Pilotto healthy today, at a glance?', name: 'Overview', icon: '🧭'},
+  {path: '/admin/website', question: 'Who visits the website, and do they sign up and download?', old: '/stats', name: 'Website', icon: '🌐'},
+  {path: '/admin/app', question: 'Do the installed apps run well, and where do they fail?', old: '/telemetry', name: 'App', icon: '🖥️'},
+  {path: '/admin/insights', question: 'Does the app make good decisions for users?', old: '/intel', name: 'Insights', icon: '🧠'},
+  {path: '/admin/self-healing', question: 'Do the automatic loops find and fix problems on their own?', old: '/self-heal', name: 'Self-healing', icon: '🔁'},
+  {path: '/admin/ai-cost', question: 'What does the AI cost us, and for which jobs?', old: '/ai-cost', name: 'AI cost', icon: '💸'},
+  {path: '/admin/form-filling', question: 'How well are application forms filled, and what still trips the filler?', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
+  {path: '/admin/feedback', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
+  {path: '/admin/e2e', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
+  {path: '/admin/access', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
 const OLD = Object.fromEntries(PAGES.filter(page => page.old).map(page => [page.old, page.path]));
 
@@ -38,7 +38,9 @@ export const NAV_STYLE = `.admin-nav{position:sticky;top:0;z-index:5;background:
 .admin-nav b{color:#f4efe3;margin-right:10px;white-space:nowrap}.admin-nav a{color:#8d949c;text-decoration:none;padding:5px 9px;border-radius:999px;white-space:nowrap}
 .admin-nav .me{margin-left:auto;color:#8d949c;font-size:12px}.admin-nav a:hover{color:#f4efe3;background:#1b2027}.admin-nav a[aria-current]{color:#0b0d10;background:#f5b54a;font-weight:600}
 .trend{float:right;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#8d949c;margin-left:12px}.trend svg{display:block}
-.trend .up{color:#3fb68b}.trend .down{color:#e5484d}`;
+.trend .up{color:#3fb68b}.trend .down{color:#e5484d}
+.admin-question{max-width:1040px;margin:-6px auto 14px;padding:0 16px;color:#8d949c;font:14px/1.4 system-ui,-apple-system,sans-serif}
+.admin-question::before{content:'The question this page answers: ';color:#f5b54a}`;
 
 // The menu for this viewer: the Access page only for the super admin; who is signed in, on the right.
 export function nav(active, who = {role: 'superadmin'}) {
@@ -47,9 +49,14 @@ export function nav(active, who = {role: 'superadmin'}) {
   return `<nav class="admin-nav" aria-label="Admin pages"><div><b>✈ Admin</b>${shown.map(page =>
     `<a href="${page.path}"${page.path === active ? ' aria-current="page"' : ''}>${page.icon} ${esc(page.name)}</a>`).join('')}<span class="me">${esc(me)}</span></div></nav>`;
 }
+// The question a page answers, under the menu on every page (owner, 6 Oct 2026): what to read it for, in one line.
+export function question(active) {
+  const page = PAGES.find(item => item.path === active);
+  return page?.question ? `<p class="admin-question">${esc(page.question)}</p>` : '';
+}
 // The menu and the shared styles, added to a page's HTML (its own design stays): after <body>, and before </head>.
 export function withNav(html, active, who) {
-  return String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}`);
+  return String(html).replace('</head>', `<style>${BASE_STYLE}\n${NAV_STYLE}</style></head>`).replace(/<body([^>]*)>/, `<body$1>${nav(active, who)}${question(active)}`);
 }
 // A page response with the menu added; anything that is not an HTML page (a 404, a redirect, JSON) passes untouched.
 export async function adminPage(response, active, who) {
