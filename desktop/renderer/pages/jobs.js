@@ -359,6 +359,9 @@ export function renderJobs() {
     }
     if (job.page_id) menu.push({icon: 'chat', label: 'Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
     if (job.employer_feedback && job.page_id) menu.push({icon: 'chat', label: 'Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
+    // The saved review is a tag on the row; the menu says it in words too, as the tag alone did not read as clickable.
+    if (job.rejection && job.notion_url) menu.push({icon: 'file', label: 'View rejection review',
+      title: job.rejection_lesson || 'Why it was rejected, on the job\'s Notion page', run: event => window.pilot.openNotion(job.notion_url, event?.metaKey)});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.

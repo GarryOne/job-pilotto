@@ -17,7 +17,7 @@ import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
-import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions} from './focus.js';
+import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions, prepAction} from './focus.js';
 import {openView} from './nav.js';
 import {whichJob} from './reassign.js';
 import {renderSessionPage} from './session-log.js';
@@ -883,11 +883,20 @@ function interviewPanel(report) {
   if (line) words.append(el('p', '', line));
   if (interview.people.length) words.append(el('p', '', `Participants: ${interview.people.join(' · ')}`));
   when.append(tile, words);
+  // The call to action: the interview's prep kit, built or opened from here as Focus does (focus.js prepAction).
+  const side = el('div', 'mail-meeting-side');
+  const prep = prepAction(interview.company);
+  const go = el('button', prep?.busy ? 'secondary' : 'primary', prep ? prep.label : 'Prep kit in Focus');
+  go.type = 'button';
+  if (prep?.title) go.title = prep.title;
+  go.addEventListener('click', event => (prep ? prep.run(event) : openView('focus')));
+  side.append(go);
   if (report.url) {
     const view = Object.assign(el('a', 'link', 'Application in Notion ↗'), {href: '#'});
     view.dataset.link = report.url;
-    when.append(view);
+    side.append(view);
   }
+  when.append(side);
   box.append(when);
   if (report.topics.length || report.nextSteps.length) {
     const columns = el('div', 'mail-meeting-columns');
@@ -934,6 +943,16 @@ function questionState(email, pending, answered) {
   return answered ? {answered: true, job: ''} : {};   // Focus read, no record of it: answered before the app kept the job
 }
 const QUESTION = 'Which job is this email about?';
+// The job you chose, in full ("Alpenglow Logistics — Platform Engineer"), opening its Notion page, or its posting without one.
+function jobLink(job) {
+  const [company, ...title] = job.split(/\s+—\s+/);
+  const found = (shared.allJobs || []).find(one => jobKey(one.company || one.via) === jobKey(company) && jobKey(one.title).startsWith(jobKey(title.join(' — ')).slice(0, 40)));
+  if (!found || (!found.notion_url && !found.url)) return el('p', 'mail-ask-answer', job);
+  const link = Object.assign(el('a', 'link mail-ask-answer', `${job} ↗`), {href: '#'});
+  link.title = found.notion_url ? 'Open the job in Notion' : 'Open the posting';
+  link.addEventListener('click', event => { event.preventDefault(); if (found.notion_url) window.pilot.openNotion(found.notion_url, event.metaKey); else window.pilot.openExternal(found.url); });
+  return link;
+}
 function questionPanel(state, key, subject = '', {noun = 'email', company = ''} = {}) {
   const why = company ? `The ${noun} names ${company} but doesn't specify the role.` : "The check couldn't tell which job this is about, so it moved nothing.";
   const panel = el('div', state.answered ? 'mail-ask is-answered' : 'mail-ask');
@@ -955,7 +974,7 @@ function questionPanel(state, key, subject = '', {noun = 'email', company = ''} 
     panel.append(mark, words, go);
     return panel;
   }
-  words.append(el('b', '', 'Answered by you'), el('p', 'mail-ask-answer', state.job ? state.role : 'Not about a job, or the job was not recorded'),
+  words.append(el('b', '', 'Answered by you'), state.job ? jobLink(state.job) : el('p', 'mail-ask-answer', 'Not about a job, or the job was not recorded'),
     fold(`asked:${key}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
   panel.append(mark, words);
   return panel;

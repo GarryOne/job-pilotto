@@ -168,6 +168,26 @@
     "page_id": "demo-q1",
     "notion_url": "",
     "meta": []
+   },
+   {
+    "priority": 3,
+    "kind": "prepare",
+    "icon": "mic",
+    "badge": "Interview tomorrow 08:30",
+    "tone": "warn",
+    "headline": "Prepare for Huxley",
+    "title": "Prepare for Huxley — Principal SRE",
+    "detail": "Tomorrow 08:30 · Microsoft Teams",
+    "company": "Huxley",
+    "job": "Principal SRE",
+    "meta": [
+     "Principal SRE",
+     "Tomorrow 08:30"
+    ],
+    "page_id": "demo-prep-huxley",
+    "notion_url": "https://app.notion.com/p/demo-prep-huxley",
+    "prep_at": "",
+    "prep_stale": false
    }
   ],
   "answered": [
