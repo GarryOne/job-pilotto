@@ -61,6 +61,21 @@ export function humanError(text, limit = false) {
 // Warnings as you read them: the same error on many jobs is one line ("Skipped 23 jobs (6, 7, 8, …): the Anthropic API
 // spending limit was reached"), the API's raw dumping is a sentence, and the three wordings of "jobs the limit left"
 // count once each and add up to one line — not six that say the same thing.
+// Known engine warnings as what they mean for you, the exact text staying in the technical log (owner, 6 Oct 2026: "candidate
+// source skipped: TimeoutError" and "KeyError: 'watch'" were the box's explanation).
+const PLAIN = [
+  [/^candidate source skipped: (?:[\w.]+\.)?\w*Timeout\w*\b/i, () => 'One source could not be checked because it timed out.'],
+  [/^candidate source skipped: /i, () => 'One source could not be checked.'],
+  [/^Notion not updated for (.+?): /i, m => `The Notion update for ${m[1]} failed.`],
+];
+// A line that still ends in a raw exception ("<what>: KeyError: 'watch'"): what failed, and where its details are.
+const RAW_EXCEPTION = /^(.{3,80}?):\s*(?:[\w.]+\.)?\w+(?:Error|Exception)\b.*$/;
+export function plainWarning(raw) {
+  for (const [pattern, words] of PLAIN) { const m = pattern.exec(raw); if (m) return words(m); }
+  return null;
+}
+// Only for a line nothing else reworded (an HTTP status or the AI provider's error have their own sentences).
+const rawException = raw => { const m = RAW_EXCEPTION.exec(raw); return m && !PROVIDER.test(raw) ? `${m[1].replace(/^./, c => c.toUpperCase())} (an internal error; details in the technical log).` : null; };
 export function groupWarnings(warnings) {
   const limit = warnings.some(text => LIMIT.test(String(text)));
   const groups = new Map(), order = [], counts = new Set();
@@ -71,9 +86,12 @@ export function groupWarnings(warnings) {
     if (unscored && (limit || LIMIT.test(raw))) { counts.add(Number(unscored[1])); continue; }
     const skipped = SKIPPED.exec(raw);
     if (skipped) { add(humanError(skipped[2], limit), skipped[1]); continue; }
+    const plain = plainWarning(raw);
+    if (plain) { add(plain, null); continue; }
     // "check failed: BadRequestError: …" keeps its own words in front of the sentence; a bare dump does not.
     const head = raw.split(/:\s*/)[0];
     const clean = humanError(raw, limit);
+    if (clean === raw.replace(/^\w*Error:\s*/, '') && rawException(raw)) { add(rawException(raw), null); continue; }
     add(head && head.length < 60 && !PROVIDER.test(head) && clean !== raw && !clean.startsWith(head) ? `${head}: ${clean}` : clean, null);
   }
   const total = [...counts].reduce((sum, count) => sum + count, 0);
@@ -88,7 +106,7 @@ export function groupWarnings(warnings) {
 
 // The grouped lines minus those that only say again what the banner's "AI service is busy" sentence says.
 // A line the summary above already says word for word is no detail either (#285: one warning was printed as the summary and again under "Hide details").
-export const newDetails = (grouped, summary = '') => grouped.filter(line => !/^(?!Skipped )(?:[^:]*: )?the AI service is rate-limited right now$/.test(line) && line.trim() !== String(summary).trim());
+export const newDetails = (grouped, summary = '') => grouped.filter(line => !/^(?!Skipped )(?:[^:]*: )?the AI service is rate-limited right now$/.test(line) && !String(summary).includes(line.trim()));
 
 // How many jobs the spend limit left unscored: the ones that failed on it, and those the run stopped before.
 export function limitedJobs(warnings) {

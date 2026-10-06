@@ -103,8 +103,14 @@ function warningSummary(warnings) {
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
     return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';
   }
+  // Otherwise the warnings in plain words (run-warnings.js groupWarnings): one or two said here, more under "View N details".
+  const plain = groupWarnings(warnings);
+  if (plain.length) return plain.length <= 2 ? plain.join(' ') : `${plain[0]} And ${plain.length - 1} more.`;
   return humanError(warnings[0]) || '';
 }
+// "<task> completed with warnings": which run it is, said in the box's title.
+const WARN_NOUN = {search: 'Job search', scout: 'Employer search', mail: 'Gmail check', tailor: 'Tailoring', kits: 'Kit drafting',
+  weekly: 'Search analysis', insight: 'The insight', today: 'Today’s list'};
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
@@ -584,7 +590,7 @@ export function renderActivity(fresh) {
   if (warnings.length || warnedOnly || head?.problem) {
     // The headline says what it means for you ("9 jobs still need scoring"), not which card this is.
     $('activity-warnings-title').textContent = limited ? `${plural(limited, 'job')} still ${limited === 1 ? 'needs' : 'need'} scoring`
-      : head ? head.title : run?.live ? 'Running with warnings' : 'Completed with warnings';
+      : head ? head.title : run?.live ? 'Running with warnings' : `${WARN_NOUN[kindOf(run)] || 'Run'} completed with warnings`;
     const summary = head?.problem ? head.summary : warnings.length ? warningSummary(warnings) : 'The run recorded warnings, with no line about them in its log or report.';
     $('activity-warnings-summary').textContent = summary;
     show($('activity-warnings-hint'), !!head?.hint);
@@ -600,7 +606,7 @@ export function renderActivity(fresh) {
     const again = head?.fix?.rerun ? runButton(kindOf(run)) : null;
     $('activity-warnings-fix').dataset.rerun = again ? kindOf(run) : '';
     if (head?.fix?.rerun && !again) show($('activity-warnings-fix'), false);
-    show($('activity-warnings-log'), !!head?.viewLog);
+    show($('activity-warnings-log'), !!head?.viewLog || (!head && warnings.length > 0));   // warnings: the exact lines are in the log
     show($('activity-warnings-limit'), limited > 0);
     const grouped = newDetails(groupWarnings(head?.delivery ? warnings.filter(line => !head.lines.includes(line)) : warnings), head?.delivery ? head.hint : summary);
     // One line needs no toggle: it is shown. Two or more fold behind "View N details".
