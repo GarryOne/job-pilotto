@@ -105,3 +105,13 @@ class NotWarningsTests(unittest.TestCase):
             for line in (ROOT / path).read_text().splitlines():
                 if 'print(' in line and any(prefix in line for prefix in prefixes):
                     self.assertIsNone(warning.search(line), f'{path}: {line.strip()[:120]}')
+
+
+class AggregatorKindTests(unittest.TestCase):
+    def test_jobicy_is_asked_only_for_an_it_search(self):
+        """Jobicy is read by IT tags (devops, sre, kubernetes): a photographer's check asked it for DevOps jobs (6 Oct 2026)."""
+        from src.sources import aggregators
+        with mock.patch.object(aggregators, 'jobicy', lambda: ['a remote DevOps job']):
+            reader = dict(aggregators.sources({'JOB_PILOTTO_DISABLE': ''}))['Jobicy']
+            self.assertEqual(reader(PHOTOGRAPHER), [])
+            self.assertEqual(reader({'role_keywords': [r'\bsre\b']}), ['a remote DevOps job'])

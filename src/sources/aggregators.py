@@ -143,12 +143,17 @@ def jobsch(search, get=None):
     return jobs
 
 
+def technical_search(search):
+    from ..coverage import technical_search as technical   # one definition of an IT search (role kinds)
+    return technical(search)
+
+
 def sources(env=None):
     """[(name, reader)] of the aggregators this install may use now (free ones always; keyed ones when their keys are set)."""
     env = os.environ if env is None else env
     from ..features import disabled
     found = [] if disabled('aggregators', env) else [('Arbeitnow', lambda search: arbeitnow()), ('Himalayas', lambda search: himalayas()),
-                                                      ('Jobicy', lambda search: jobicy())]
+                                                      ('Jobicy', lambda search: jobicy() if technical_search(search) else [])]   # its tags are IT ones
     if not disabled('aggregators', env) and not disabled('jobsch', env):
         found.append(('jobs.ch', jobsch))   # Swiss places only (it returns nothing otherwise)
     if env.get('ADZUNA_APP_ID') and env.get('ADZUNA_APP_KEY') and not disabled('adzuna', env):
