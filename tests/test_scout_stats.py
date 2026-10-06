@@ -2,7 +2,9 @@
 import json
 import sqlite3
 import sys
+import os
 import unittest
+from unittest import mock
 import unittest.mock
 from pathlib import Path
 
@@ -76,3 +78,21 @@ class AiCostReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AiCostLineTests(unittest.TestCase):
+    def test_dollars_only_for_api_calls(self):
+        """6 Oct 2026: "$0.000 in 21 call(s)" read as broken to a Claude Code user, whose calls are on their Claude plan."""
+        from src import scout
+        self.assertEqual(scout.ai_cost_line('scout run', 0.0, 0, 21, 21), 'AI of this scout run: 21 call(s) on your Claude plan (Claude Code: no cost per call)')
+        self.assertIn('$0.012 for 3 call(s) on your API key, plus 2 on your Claude plan', scout.ai_cost_line('scout run', 0.012, 3, 2, 5))
+        self.assertEqual(scout.ai_cost_line('scout run', 0.012, 3, 0, 3), 'AI cost of this scout run: $0.012 in 3 call(s)')
+
+
+class DoctorPlanTests(unittest.TestCase):
+    def test_no_budget_to_watch_on_claude_code(self):
+        from src import doctor
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_AI_ENGINE': 'cli'}):
+            check = doctor.check_budget(None)
+        self.assertEqual((check.state, check.name), ('ok', 'AI budget'))
+        self.assertIn('Claude plan', check.detail)

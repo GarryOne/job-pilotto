@@ -596,7 +596,9 @@ def main():
         # AI budget: at 90% of the month's limit the optional AI steps pause; alerts are sent at the end.
         try:
             spend = budget.status(tracker)
-            print(f'AI budget: {budget.describe(spend)}')
+            # The monthly budget is API spend: with Claude Code the AI runs on the user's Claude plan, so "$0.00 of $15" says nothing (6 Oct 2026).
+            from .ai import engine as ai_engine
+            print('AI: Claude Code, on your Claude plan (no API budget to watch)' if ai_engine.choice() == 'cli' else f'AI budget: {budget.describe(spend)}')
             budget.apply_caps(args, spend, run['warnings'])
         except Exception as error:
             print(f'Warning: budget check skipped: {type(error).__name__}: {error}')
