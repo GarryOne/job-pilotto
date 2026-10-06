@@ -201,3 +201,26 @@ class EveryReadTests(unittest.TestCase):
     def test_a_today_check_shares_too(self):
         source = Path(__file__).resolve().parents[1] / 'src' / 'daily.py'
         self.assertIn("args.mode in ('scheduled', 'run', 'today'):\n                try:  # opt-in", source.read_text())
+
+
+class OnlyChangedTests(unittest.TestCase):
+    """7 Oct 2026, scale: only what changed goes up, plus each item once a day; nothing is marked unless the site took it."""
+    def test_unchanged_items_wait_a_day_changed_ones_go_and_a_refusal_marks_nothing(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        body = {'v': 2, 'roles': ['creative_media'], 'regions': ['europe'], 'feeds': [{'ats': 'lever', 'slug': 'a', 'matched': True, 'own': False, 'failed': False, 'how': 'index', 'site': None, 'hits': 2, 'jobs': 100}],
+                'boards': [{'board': 'jobsch', 'jobs': 300, 'hits': 9, 'failed': False}], 'nofeed': [{'company': 'Fnac', 'host': 'fnac.ch'}]}
+        first, marks = contribute.only_changed(db, body, NOW)
+        self.assertEqual((len(first['feeds']), len(first['boards']), len(first['nofeed'])), (1, 1, 1))
+        again, _ = contribute.only_changed(db, body, NOW)
+        self.assertEqual(len(again['feeds']), 1, 'not marked yet (the send failed): sent again')
+        contribute.mark_sent(db, marks, NOW)
+        same, _ = contribute.only_changed(db, body, NOW + timedelta(hours=1))
+        self.assertEqual((same['feeds'], 'boards' in same, 'nofeed' in same), ([], False, False))
+        nudged = json.loads(json.dumps(body))
+        nudged['feeds'][0]['jobs'] = 105   # a few jobs more: not a change
+        nudged['boards'][0]['hits'] = 10   # one more match: a change
+        changed, _ = contribute.only_changed(db, nudged, NOW + timedelta(hours=1))
+        self.assertEqual((changed['feeds'], [b['board'] for b in changed['boards']]), ([], ['jobsch']))
+        later, _ = contribute.only_changed(db, body, NOW + timedelta(hours=21))
+        self.assertEqual(len(later['feeds']), 1, 'once a day anyway: the site keeps it as still read')

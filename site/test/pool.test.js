@@ -8,7 +8,7 @@ import {purge} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -16,7 +16,7 @@ function d1() {
 const kvStore = () => { const map = new Map(); return {map, get: async k => map.get(k) ?? null, put: async (k, v) => { map.set(k, v); }}; };
 const setup = () => ({STATS: d1(), WAITLIST: kvStore(), STATS_SALT: 'salt', INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')}});
 const post = (env, body) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute', {method: 'POST', body: JSON.stringify(body)}), env, {});
-const read = (env, headers = {}) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contributions', {headers}), env, {});
+const read = (env, headers = {}, query = '') => worker.fetch(new Request(`https://www.jobpilotto.workers.dev/api/contributions${query}`, {headers}), env, {});
 const feed = (slug, extra = {}) => ({ats: 'lever', slug, company: `Co ${slug}`, matched: true, own: false, ...extra});
 const body = (install, feeds, extra = {}) => ({v: 1, install, roles: ['sre_devops'], regions: ['europe'], feeds, ...extra});
 
@@ -91,7 +91,7 @@ test('"no readable job site" results are kept per install, added up for the scou
   const share = install => ({...body(install, []), v: 2, nofeed: [{company: 'Fnac Suisse SA', host: 'fnac.ch'}, {company: 'Bad', host: 'javascript:x'}, {company: ''}]});
   assert.equal((await post(env, share('install-aaaa1111'))).status, 200);
   assert.equal((await post(env, share('install-bbbb2222'))).status, 200);
-  const all = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const all = await (await read(env, {Authorization: 'Bearer k3y'}, '?part=nofeed')).json();
   const fnac = all.nofeed.find(item => item.key === 'fnacsuisse');
   assert.deepEqual({company: fnac.company, host: fnac.host, installs: fnac.installs}, {company: 'Fnac Suisse SA', host: 'fnac.ch', installs: 2});
   assert.equal(all.nofeed.find(item => item.key === 'bad').host, null, 'a host that is not one is dropped');
@@ -111,4 +111,21 @@ test('every feed read and every board go up; "read fine, nothing for this role" 
   const jobsch = all.boards.find(b => b.board === 'jobsch');
   assert.deepEqual([jobsch.matched_installs, jobsch.roles.creative_media], [1, {installs: 1, matched: 1}]);
   assert.equal(all.boards.find(b => b.board === 'google_jobs').matched_installs, 0);
+});
+
+test('the totals are added up in SQL and paged: every feed comes back once, whatever the page size', async () => {
+  const env = setup();
+  for (const install of ['install-aaaa1111', 'install-bbbb2222']) {
+    await post(env, body(install, ['a', 'b', 'c', 'd', 'e'].map(slug => feed(slug, {jobs: 10, hits: 1}))));
+  }
+  const seen = [];
+  let after = '', pages = 0;
+  do {
+    const page = await (await read(env, {Authorization: 'Bearer k3y'}, `?limit=2${after ? `&after=${encodeURIComponent(after)}` : ''}`)).json();
+    seen.push(...page.feeds.map(f => [f.slug, f.installs, f.matched_installs, f.roles.sre_devops]));
+    after = page.next;
+    pages++;
+  } while (after && pages < 10);
+  assert.deepEqual(seen, ['a', 'b', 'c', 'd', 'e'].map(slug => [slug, 2, 2, 2]));
+  assert.equal(pages, 3);
 });

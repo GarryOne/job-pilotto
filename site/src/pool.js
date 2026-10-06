@@ -86,53 +86,68 @@ export async function contribute(request, env, now = new Date()) {
   return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length});
 }
 
-// Per feed: how many different installs sent it, how many found jobs there, and among those the roles / regions.
+// Per feed: how many different installs sent it, how many found jobs there, and among those the roles / regions. Added up in SQL and paged
+// (`?part=feeds|nofeed|boards&after=<cursor>`, `next` until null), so the answer never truncates as installs grow (7 Oct 2026; it read 50,000 rows).
+const PAGE = 2000;
 export async function aggregate(request, env) {
   const given = (request.headers.get('Authorization') || '').replace(/^Bearer /, '');
   if (!env.INDEX_PUBLISH_KEY || given.length !== env.INDEX_PUBLISH_KEY.length || given !== env.INDEX_PUBLISH_KEY || !env.STATS) {
     return new Response('Not found', {status: 404});
   }
-  const rows = (await env.STATS.prepare('SELECT ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed FROM contributions LIMIT 50000').all()).results || [];
-  const feeds = new Map();
-  for (const row of rows) {
-    const key = `${row.ats}:${row.slug}`;
-    const feed = feeds.get(key) || {ats: row.ats, slug: row.slug, company: row.company, installs: 0, matched_installs: 0, own_installs: 0, roles: {}, regions: {},
-      how: {}, jobs: 0, hits: 0, failed_installs: 0, site: null, quiet_roles: {}, quiet_regions: {}};
-    feed.installs++;
-    if (row.how) feed.how[row.how] = (feed.how[row.how] || 0) + 1;   // which discovery routes find employers, across installs
-    feed.jobs = Math.max(feed.jobs, row.jobs || 0);
-    feed.hits += row.hits || 0;   // jobs that matched someone's search in their places: how useful this employer is
-    feed.failed_installs += row.failed || 0;
-    feed.site ||= row.site || null;
-    feed.own_installs += row.own;
-    if (row.matched) {
-      feed.matched_installs++;
-      for (const role of row.roles.split(',').filter(Boolean)) feed.roles[role] = (feed.roles[role] || 0) + 1;
-      for (const region of row.regions.split(',').filter(Boolean)) feed.regions[region] = (feed.regions[region] || 0) + 1;
-    } else if (!row.failed && row.jobs > 0 && row.hits === 0) {   // read fine, jobs listed, none for this role here (7 Oct 2026)
-      for (const role of row.roles.split(',').filter(Boolean)) feed.quiet_roles[role] = (feed.quiet_roles[role] || 0) + 1;
-      for (const region of row.regions.split(',').filter(Boolean)) feed.quiet_regions[region] = (feed.quiet_regions[region] || 0) + 1;
-    }
-    feeds.set(key, feed);
+  const url = new URL(request.url), part = url.searchParams.get('part') || 'feeds', after = url.searchParams.get('after') || '';
+  const limit = Math.min(PAGE, Math.max(1, Number(url.searchParams.get('limit')) || PAGE));
+  const db = env.STATS, rows = async (sql, ...args) => (await db.prepare(sql).bind(...args).all()).results || [];
+  const headers = {'Cache-Control': 'no-store'};
+  if (part === 'nofeed') {
+    const dead = await rows('SELECT key, MAX(company) AS company, MAX(host) AS host, COUNT(*) AS installs, MAX(day) AS last FROM nofeed WHERE key > ? GROUP BY key ORDER BY key LIMIT ?', after, limit);
+    return Response.json({ok: true, nofeed: dead, next: dead.length === limit ? dead.at(-1).key : null}, {headers});
   }
-  const dead = (await env.STATS.prepare('SELECT key, company, host, COUNT(*) AS installs, MAX(day) AS last FROM nofeed GROUP BY key LIMIT 20000').all()).results || [];
-  // Per board and role kind / region: installs that read it, installs it gave a match, jobs matched, failed reads.
+  if (part === 'boards') return Response.json({ok: true, boards: await boardTotals(rows), next: null}, {headers});
+  const [afterAts = '', afterSlug = ''] = after ? [after.slice(0, after.indexOf(':')), after.slice(after.indexOf(':') + 1)] : [];
+  const page = await rows(`SELECT ats, slug, MAX(company) AS company, COUNT(*) AS installs, SUM(matched) AS matched_installs, SUM(own) AS own_installs,
+      MAX(COALESCE(jobs, 0)) AS jobs, SUM(COALESCE(hits, 0)) AS hits, SUM(failed) AS failed_installs, MAX(site) AS site
+    FROM contributions WHERE (ats, slug) > (?, ?) GROUP BY ats, slug ORDER BY ats, slug LIMIT ?`, afterAts, afterSlug, limit);
+  if (!page.length) return Response.json({ok: true, feeds: [], next: null, ...(after ? {} : {boards: await boardTotals(rows)})}, {headers});
+  const first = page[0], last = page.at(-1), range = [first.ats, first.slug, last.ats, last.slug];
+  const feeds = new Map(page.map(row => [`${row.ats}:${row.slug}`, {...row, site: row.site || null, roles: {}, regions: {}, how: {}, quiet_roles: {}, quiet_regions: {}}]));
+  const inRange = 'WHERE (ats, slug) >= (?, ?) AND (ats, slug) <= (?, ?)';
+  for (const row of await rows(`SELECT ats, slug, how, COUNT(*) AS n FROM contributions ${inRange} AND how IS NOT NULL GROUP BY ats, slug, how`, ...range)) {
+    const feed = feeds.get(`${row.ats}:${row.slug}`);
+    if (feed) feed.how[row.how] = row.n;   // which discovery routes find employers, across installs
+  }
+  // Roles / regions among installs that found jobs there; "quiet": read fine, jobs listed, none for this role here.
+  for (const row of await rows(`SELECT ats, slug, roles, regions, SUM(matched) AS matched,
+      SUM(CASE WHEN matched = 0 AND failed = 0 AND jobs > 0 AND hits = 0 THEN 1 ELSE 0 END) AS quiet
+    FROM contributions ${inRange} GROUP BY ats, slug, roles, regions`, ...range)) {
+    const feed = feeds.get(`${row.ats}:${row.slug}`);
+    if (!feed) continue;
+    for (const [tags, into, n] of [[row.roles, feed.roles, row.matched], [row.regions, feed.regions, row.matched], [row.roles, feed.quiet_roles, row.quiet], [row.regions, feed.quiet_regions, row.quiet]]) {
+      if (n) for (const tag of String(tags || '').split(',').filter(Boolean)) into[tag] = (into[tag] || 0) + n;
+    }
+  }
+  return Response.json({ok: true, feeds: [...feeds.values()], next: page.length === limit ? `${last.ats}:${last.slug}` : null,
+    ...(after ? {} : {boards: await boardTotals(rows)})}, {headers});
+}
+
+// Per board and role kind / region: installs that read it, installs it gave a match, jobs matched, failed reads (few rows: a dozen boards).
+async function boardTotals(rows) {
   const boards = {};
-  for (const row of (await env.STATS.prepare('SELECT board, roles, regions, jobs, hits, failed FROM board_reads LIMIT 50000').all()).results || []) {
+  for (const row of await rows(`SELECT board, roles, regions, COUNT(*) AS installs, SUM(CASE WHEN hits > 0 THEN 1 ELSE 0 END) AS matched,
+      SUM(COALESCE(hits, 0)) AS hits, SUM(failed) AS failed FROM board_reads GROUP BY board, roles, regions`)) {
     const board = boards[row.board] ||= {board: row.board, installs: 0, matched_installs: 0, hits: 0, failed_installs: 0, roles: {}, regions: {}};
-    board.installs++;
+    board.installs += row.installs;
+    board.matched_installs += row.matched;
+    board.hits += row.hits;
     board.failed_installs += row.failed;
-    board.hits += row.hits || 0;
-    if (row.hits > 0) board.matched_installs++;
     for (const [tags, into] of [[row.roles, board.roles], [row.regions, board.regions]]) {
-      for (const tag of tags.split(',').filter(Boolean)) {
+      for (const tag of String(tags || '').split(',').filter(Boolean)) {
         const line = into[tag] ||= {installs: 0, matched: 0};
-        line.installs++;
-        if (row.hits > 0) line.matched++;
+        line.installs += row.installs;
+        line.matched += row.matched;
       }
     }
   }
-  return Response.json({ok: true, feeds: [...feeds.values()], nofeed: dead, boards: Object.values(boards)}, {headers: {'Cache-Control': 'no-store'}});
+  return Object.values(boards);
 }
 
 // Daily: rows older than KEEP_DAYS are dropped.

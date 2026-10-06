@@ -554,12 +554,21 @@ def fetch_contributions(base_url, key, get=None, with_nofeed=False):
     def default_get(request):
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.load(response)
-    request = urllib.request.Request(base_url.rsplit('/api/', 1)[0] + '/api/contributions',
-                                     headers={'Authorization': f'Bearer {key}', 'User-Agent': ats.USER_AGENT})
+    base = base_url.rsplit('/api/', 1)[0] + '/api/contributions'
+
+    def pages(part, field):   # the site adds up in SQL and pages (`next`), so nothing is cut off as installs grow (7 Oct 2026)
+        out, after = [], ''
+        for _ in range(1000):
+            query = urllib.parse.urlencode({'part': part, **({'after': after} if after else {})})
+            answer = (get or default_get)(urllib.request.Request(f'{base}?{query}', headers={'Authorization': f'Bearer {key}', 'User-Agent': ats.USER_AGENT}))
+            out += [item for item in answer.get(field, []) if isinstance(item, dict)]
+            after = answer.get('next')
+            if not after:
+                return out
+        return out
     try:
-        answer = (get or default_get)(request)
-        feeds = [f for f in answer.get('feeds', []) if isinstance(f, dict)]
-        return (feeds, [n for n in answer.get('nofeed', []) if isinstance(n, dict)]) if with_nofeed else feeds
+        feeds = pages('feeds', 'feeds')
+        return (feeds, pages('nofeed', 'nofeed')) if with_nofeed else feeds
     except Exception as error:  # noqa: BLE001
         print(f'Warning: pool contributions not read ({type(error).__name__}: {error})')
         return ([], []) if with_nofeed else []

@@ -7,6 +7,7 @@ applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1
 import argparse
 from datetime import datetime, timedelta, timezone
 import json
+import math
 import os
 import re
 import urllib.request
@@ -231,15 +232,68 @@ def share_now(feed=None, dead=None, post=None, url=None):
     return send(body, url=url, post=post, stamp=False)   # a one-item share does not mark the full share as done
 
 
+# Only what changed since the last share goes up, plus each item once a day so the site knows it is still read (scale, 7 Oct 2026:
+# 5k installs sending every feed on every check would be ~40M database writes a day). A job count counts as changed past ~25%.
+SENT_TABLE = 'CREATE TABLE IF NOT EXISTS pool_sent (key TEXT PRIMARY KEY, sig TEXT NOT NULL, sent_at TEXT NOT NULL)'
+REFRESH = timedelta(hours=20)
+
+
+def _bucket(n):
+    return round(math.log2(int(n) + 1) * 3) if n else 0
+
+
+def _signatures(body):
+    tags_sig = f"{','.join(body.get('roles') or [])}|{','.join(body.get('regions') or [])}"
+    for feed in body.get('feeds') or []:
+        yield ('feeds', feed, f"feed:{feed['ats']}:{feed['slug']}", json.dumps([tags_sig, feed.get('matched'), feed.get('own'), feed.get('failed'), feed.get('how'),
+                                                                           feed.get('site'), feed.get('hits'), _bucket(feed.get('jobs'))]))
+    for dead in body.get('nofeed') or []:
+        yield ('nofeed', dead, f"dead:{dead.get('company')}", json.dumps([tags_sig, dead.get('host')]))
+    for board in body.get('boards') or []:
+        yield ('boards', board, f"board:{board['board']}", json.dumps([tags_sig, board.get('failed'), board.get('hits'), _bucket(board.get('jobs'))]))
+
+
+def only_changed(db, body, now=None):
+    """(the body with only new or changed items, their [(key, sig)] to mark once the site took them). Without a database: everything."""
+    if db is None:
+        return body, []
+    db.execute(SENT_TABLE)
+    now = now or datetime.now(timezone.utc)
+    last = {row[0]: (row[1], row[2]) for row in db.execute('SELECT key, sig, sent_at FROM pool_sent')}
+    keep, marks = {'feeds': [], 'nofeed': [], 'boards': []}, []
+    for field, item, key, sig in _signatures(body):
+        before = last.get(key)
+        if before and before[0] == sig and now - datetime.fromisoformat(before[1]) < REFRESH:
+            continue
+        keep[field].append(item)
+        marks.append((key, sig))
+    out = {**body, 'feeds': keep['feeds']}
+    for field in ('nofeed', 'boards'):
+        out.pop(field, None)
+        if keep[field]:
+            out[field] = keep[field]
+    return out, marks
+
+
+def mark_sent(db, marks, now=None):
+    if db is None or not marks:
+        return
+    stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
+    db.execute(SENT_TABLE)
+    db.executemany('INSERT OR REPLACE INTO pool_sent (key, sig, sent_at) VALUES (?, ?, ?)', [(key, sig, stamp) for key, sig in marks])
+    db.commit()
+
+
 def maybe_send(feed_list, report, tracker=None, **kwargs):
     """Called after a full crawl and after a scout run: does nothing unless the user opted in, and at most every EVERY."""
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
-    body = payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'))
+    body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db')), kwargs.get('now'))
     if not body['feeds'] and not body.get('nofeed') and not body.get('boards'):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
     if sent:
+        mark_sent(kwargs.get('db'), marks, kwargs.get('now'))
         print(f"Shared {len(body['feeds'])} employer feeds and {len(body.get('boards') or [])} job boards with the pool (roles {body['roles']}, regions {body['regions']})")
     return sent
 
@@ -257,14 +311,17 @@ def main():
         feed_list = scout.active_sources(db, tracker, scout.starter_list())
         # Without a crawl in hand: the feeds the scout verified and the user's own are shown; matched ones and counts join after a crawl.
         body = payload(feed_list, {'sources': []}, tracker, db=db)
-    if args.send:   # the app's catch-up at start: whatever a failed or cut-short share left behind
-        sent = enabled() and (body['feeds'] or body.get('nofeed') or body.get('boards')) and send(body)
-        print(f"Pool catch-up: {'sent' if sent else 'nothing sent'} ({len(body['feeds'])} employers)")
-        return 0
+        if args.send:   # the app's catch-up at start: whatever a failed or cut-short share left behind (only what changed)
+            body, marks = only_changed(db, body)
+            sent = enabled() and (body['feeds'] or body.get('nofeed') or body.get('boards')) and send(body)
+            if sent:
+                mark_sent(db, marks)
+            print(f"Pool catch-up: {'sent' if sent else 'nothing sent'} ({len(body['feeds'])} employers)")
+            return 0
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'
     print(json.dumps(body, indent=1, ensure_ascii=False))
-    print('\nThis is a preview and nothing is sent by it. After each jobs check and each "Find new employers" (at most every 10 minutes, '
-          'and only when this is switched on) every feed your scout verified, the ones that gave you a job and the ones you added are sent, '
+    print('\nThis is a preview and nothing is sent by it. After each jobs check and each "Find new employers" (while this is switched on) '
+          'every feed and job board read, every employer your scout verified and the ones you added are sent when they changed (and once a day), '
           'with how each was found and how many jobs it listed and matched: public facts and counts, never your jobs, CV or search words.')
     return 0
 
