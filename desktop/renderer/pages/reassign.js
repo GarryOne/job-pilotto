@@ -54,14 +54,14 @@ export async function moveEmail(eventId, target, item = null) {
 
 // Focus → Other job…: the question's email, to the job you pick. `onSaved(job)` hears the job saved ("Company — Title", or ''
 // for "not about a job"): Recent activity's Gmail card turns that email to "Answered" at once.
-const jobOf = choice => (choice === 'none' ? '' : choice === 'new' ? 'Not in my list yet: a new job'
+const jobOf = (choice, item) => (choice === 'none' ? '' : choice === 'new' ? `${item.company || 'New job'} — new job`   // as the answered list records it
   : ($('reassign-target').selectedOptions[0]?.textContent || '').replace(/\s*\([^)]*\)$/, '').replace(' · ', ' — '));
 export function whichJob(item, onSaved = null) {
   targets('', item.suggested_url);
   pending = async () => {
     const choice = chosen();
     const ok = await moveEmail(item.event_id, target(), item);
-    if (ok && onSaved) onSaved(jobOf(choice));
+    if (ok && onSaved) onSaved(jobOf(choice, item));
     return ok;
   };
   open({title: 'Which job is this email about?', context: item.detail,

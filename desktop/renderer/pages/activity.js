@@ -906,10 +906,10 @@ const whenOf = subject => { const m = /@\s*((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s
 function placedCard(result, asked, kind) {
   const {email} = result;
   const [company, ...title] = asked.job.split(/\s+—\s+/);
+  const created = isNewJob(asked.job);
   const interview = /^Interview/.test(kind);
   const note = el('div', 'mail-mapped');
-  const line = el('p', 'mail-mapped-line');
-  line.append(icon('check-circle'), 'Mapped by you to ', jobLink(asked.job, 'span'));
+  const line = resolution(asked, result.company || company);
   const why = `The ${interview ? 'invitation' : 'email'} names ${result.company || 'the sender'} but doesn't specify the role.`;
   note.append(line, fold(`asked:${subjectKey(email.subject)}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
   let panel = note;
@@ -918,7 +918,7 @@ function placedCard(result, asked, kind) {
     const meeting = {when: whenOf(email.subject), company, title: title.join(' — '), summary: '', where: '', people: []};
     panel.append(interviewPanel({interview: meeting, topics: [], nextSteps: [], consent: '', url: ''}), note);
   }
-  return mailCardRow({company, role: title.join(' — '), lines: [[email.sender, email.time].filter(Boolean).join(' · ')],
+  return mailCardRow({company, role: created ? 'New job · role to add in Focus' : title.join(' — '), lines: [[email.sender, email.time].filter(Boolean).join(' · ')],
     tag: kind ? outcomePill(interview ? 'Interview scheduled' : kind) : pill('Answered', 'good'), panel, details: email.subject});
 }
 // An update no email claims: its job, what it moved, or the which-job question it raised.
@@ -927,7 +927,7 @@ function updateCard(update, pending, answered, meetingPanel) {
   if (update.question) {
     const open = pending.find(item => item.company && jobKey(update.job).includes(jobKey(item.company)));
     const here = open ? answeredHere.get(subjectKey(open.subject)) : undefined;
-    const state = here !== undefined ? {answered: true, job: here} : open ? {open} : answered ? {answered: true, job: ''} : {};
+    const state = here !== undefined ? {answered: true, job: here} : open ? {open} : answered ? {answered: true, job: '', unknown: true} : {};
     if (state.answered && state.job && open) {   // placed: the card of what it is, for that job, as for an email
       return {card: placedCard({email: {subject: open.subject, sender: '', time: ''}, company: open.company}, state, update.summary), waiting: 0};
     }
@@ -1062,7 +1062,7 @@ function questionState(email, pending, answered) {
   if (open) return {open};
   const done = key && (answered || []).find(item => subjectKey(item.subject) === key);
   if (done) return {answered: true, job: done.job, role: done.job.split(/\s+—\s+/).slice(1).join(' — ') || done.job};
-  return answered ? {answered: true, job: ''} : {};   // Focus read, no record of it: answered before the app kept the job
+  return answered ? {answered: true, job: '', unknown: true} : {};   // Focus read, no record of it: answered before the app kept the job
 }
 const QUESTION = 'Which job is this email about?';
 // The job you chose, in full ("Alpenglow Logistics — Platform Engineer"), opening its Notion page, or its posting without one.
@@ -1096,10 +1096,22 @@ function questionPanel(state, key, subject = '', {noun = 'email', company = ''} 
     panel.append(mark, words, go);
     return panel;
   }
-  words.append(el('b', '', 'Answered by you'), state.job ? jobLink(state.job) : el('p', 'mail-ask-answer', 'Not about a job, or the job was not recorded'),
-    fold(`asked:${key}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
-  panel.append(mark, words);
-  return panel;
+  // Answered: the same compact resolution row as an email placed on a job, and the question folded under it.
+  const note = el('div', 'mail-mapped');
+  note.append(resolution(state, company), fold(`asked:${key}`, 'Original question', el('p', 'mail-fold-text', `${QUESTION} ${why}`)));
+  return note;
+}
+// What your answer did, one line for every answer (owner, 6 Oct 2026): linked to a job, created one, not about a job, or an answer
+// given before the app kept which job it went to (said as such, not guessed).
+const isNewJob = job => /\s—\s*new job$/i.test(job || '');
+function resolution(state, company = '') {
+  const line = el('p', 'mail-mapped-line');
+  line.append(icon('check-circle'));
+  if (state.unknown) line.append('Answered earlier', el('span', 'muted', 'which job it went to was not recorded'));
+  else if (!state.job) line.append('Marked as not job-related');
+  else if (isNewJob(state.job)) line.append(`Created a job for ${company || state.job.split(/\s+—\s+/)[0]} and linked this email`, el('span', 'muted', 'Add its role in Focus'));
+  else line.append('Linked to ', jobLink(state.job, 'span'));
+  return line;
 }
 export function renderMailCard(report, pending = [], answered = null, target = $('activity-card')) {
   const box = el('div', 'run-card-body mail-card');
