@@ -1,7 +1,7 @@
-"""Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
+"""Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 
-Only public facts go up (ATS, board slug, company) plus role families and regions from fixed lists. Nothing about jobs,
-applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1 (the app sets it: on by default for new installs, off if the user switched it off);
+Only public facts go up (ATS, board slug, company, a fixed board id, job counts) plus role families and regions from fixed lists. Nothing about jobs,
+applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1 (the app sets it: on unless the user switched it off);
 `python -m src contribute --show` prints exactly what would be sent, on or off.
 """
 import argparse
@@ -17,7 +17,38 @@ from .sources import ats
 URL = 'https://www.jobpilotto.workers.dev/api/contribute'
 STAMP = DATA / 'contribution_sent.json'
 EVERY = timedelta(0)   # no wait: shared as it is produced (owner, 6 Oct 2026; was once a day, then 10 minutes); the site allows 30 a minute
-MAX_FEEDS = 500
+MAX_FEEDS = 2000   # every feed a check read (7 Oct 2026); the most useful first, so a cut drops the quietest
+
+# Job boards and other non-employer sources, by fixed id (a run's own names can carry a search or a place: never sent).
+BOARDS = {'jobs.ch': 'jobsch', 'Arbeitnow': 'arbeitnow', 'Himalayas': 'himalayas', 'Jobicy': 'jobicy', 'Adzuna': 'adzuna', 'Jooble': 'jooble',
+          'Google Jobs': 'google_jobs', 'LinkedIn alerts': 'alerts_linkedin', 'jobs.ch alerts': 'alerts_jobsch', 'jobup.ch alerts': 'alerts_jobup',
+          'Indeed alerts': 'alerts_indeed', 'Glassdoor alerts': 'alerts_glassdoor'}
+
+
+def board_id(name):
+    """The fixed id of a run source name ('Google Jobs: photographe / Genève' -> 'google_jobs', 'Adzuna CH' -> 'adzuna'), or None."""
+    base = str(name or '').split(':')[0].strip()
+    for known, ident in BOARDS.items():
+        if base == known or base.startswith(f'{known} ') and not base.endswith(' alerts'):
+            return ident
+    return None
+
+
+def boards_read(report, feed_names):
+    """One line per board this run read: jobs listed, jobs that matched, and whether every read of it failed. Counts only."""
+    out = {}
+    for source in report.get('sources', []):
+        if source.get('company') in feed_names:
+            continue
+        ident = board_id(source.get('company'))
+        if not ident:
+            continue
+        line = out.setdefault(ident, {'board': ident, 'jobs': 0, 'hits': 0, 'failed': True})
+        if source.get('ok'):
+            line['jobs'] += int(source.get('total') or 0)
+            line['hits'] += int(source.get('matches') or 0)
+            line['failed'] = False
+    return list(out.values())
 
 # Fixed lists: the only tags that ever leave the machine.
 ROLES = {
@@ -135,16 +166,18 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None)
         if system not in ats.FETCHERS or not slug:
             continue
         is_own, is_matched, here = (system, slug) in own, source['company'] in matched, found.get((system, slug))
-        if is_own or is_matched or here:
-            seen = read.get(source['company']) or {}
+        seen = read.get(source['company']) or {}
+        if is_own or is_matched or here or seen:   # every feed read, also with no match: "read fine, nothing for this role here" (7 Oct 2026)
             feeds.append({'ats': system, 'slug': slug, 'company': source['company'][:120], 'matched': is_matched, 'own': is_own,
                           'how': (here or {}).get('how') or ('own' if is_own else 'index'), 'site': (here or {}).get('site'),
                           **({'jobs': int(seen.get('total') or 0), 'hits': int(seen.get('matches') or 0)} if seen.get('ok') else {}),
                           'failed': bool(seen) and not seen.get('ok')})
+    feeds.sort(key=lambda f: (not (f['matched'] or f['own'] or f['how'] != 'index'), -(f.get('hits') or 0), -(f.get('jobs') or 0)))
     roles, regions = tags(search)
     nofeed = dead_ends(db)
+    boards = boards_read(report, {s['company'] for s in feed_list})
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
-            'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {})}
+            'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {})}
 
 
 def enabled(env=None):
@@ -203,11 +236,11 @@ def maybe_send(feed_list, report, tracker=None, **kwargs):
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
     body = payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'))
-    if not body['feeds'] and not body.get('nofeed'):
+    if not body['feeds'] and not body.get('nofeed') and not body.get('boards'):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
     if sent:
-        print(f"Shared {len(body['feeds'])} employer feeds with the pool (roles {body['roles']}, regions {body['regions']})")
+        print(f"Shared {len(body['feeds'])} employer feeds and {len(body.get('boards') or [])} job boards with the pool (roles {body['roles']}, regions {body['regions']})")
     return sent
 
 
@@ -225,7 +258,7 @@ def main():
         # Without a crawl in hand: the feeds the scout verified and the user's own are shown; matched ones and counts join after a crawl.
         body = payload(feed_list, {'sources': []}, tracker, db=db)
     if args.send:   # the app's catch-up at start: whatever a failed or cut-short share left behind
-        sent = enabled() and (body['feeds'] or body.get('nofeed')) and send(body)
+        sent = enabled() and (body['feeds'] or body.get('nofeed') or body.get('boards')) and send(body)
         print(f"Pool catch-up: {'sent' if sent else 'nothing sent'} ({len(body['feeds'])} employers)")
         return 0
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'

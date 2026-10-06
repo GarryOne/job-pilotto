@@ -38,10 +38,10 @@ class TagsTest(unittest.TestCase):
 
 
 class PayloadTest(unittest.TestCase):
-    def test_only_matched_or_own_feeds_and_only_public_facts(self):
+    def test_every_feed_read_or_own_and_only_public_facts(self):
         body = contribute.payload(FEEDS, REPORT, FakeTracker(), install='abc-12345678', search=SEARCH)
         self.assertEqual({(f['slug'], f['matched'], f['own']) for f in body['feeds']},
-                         {('matched', True, False), ('mine', False, True)})   # 'quiet' gave nothing; 'nonsense' is not a feed system
+                         {('matched', True, False), ('mine', False, True), ('quiet', False, False)})   # 'quiet' was read with no match: sent since 7 Oct 2026; 'nonsense' is not a feed system
         self.assertEqual(set(body), {'v', 'install', 'roles', 'regions', 'feeds'})
         self.assertEqual(body['v'], 2)
         self.assertEqual(set(body['feeds'][0]), {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed', 'jobs', 'hits'} & set(body['feeds'][0]) | {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed'})
@@ -173,3 +173,31 @@ class ShareNowTests(unittest.TestCase):
                     mock.patch.object(scout, 'quality', lambda jobs: (80, {'preferred': 2, 'relevant': 3, 'jobs': len(jobs)})):
                 scout.run(db, 5, None, seeds, probe, harvest_sources=[lambda: names])
         self.assertEqual(sorted(sent), ['dead', 'feed'])
+
+
+class EveryReadTests(unittest.TestCase):
+    """7 Oct 2026, owner: "let's fix these gaps": every feed read (also with 0 matches) and every job board, by fixed name."""
+    def test_a_feed_read_with_no_match_and_each_board_go_up_with_counts_only(self):
+        feed_list = [{'ats': 'lever', 'slug': 'matched', 'company': 'Matched'}, {'ats': 'greenhouse', 'slug': 'quiet', 'company': 'Quiet'},
+                     {'ats': 'greenhouse', 'slug': 'broken', 'company': 'Broken'}]
+        report = {'sources': [{'company': 'Matched', 'ok': True, 'total': 40, 'matches': 2}, {'company': 'Quiet', 'ok': True, 'total': 12, 'matches': 0},
+                              {'company': 'Broken', 'ok': False, 'error': 'HTTPError: 500'},
+                              {'company': 'jobs.ch', 'ok': True, 'total': 300, 'matches': 9},
+                              {'company': 'Google Jobs: photographe / Genève', 'ok': True, 'total': 10, 'matches': 1},
+                              {'company': 'Google Jobs: assistant photo / Lausanne', 'ok': True, 'total': 5, 'matches': 0},
+                              {'company': 'LinkedIn alerts', 'ok': True, 'total': 7, 'matches': 3},
+                              {'company': 'Some private thing', 'ok': True, 'total': 1, 'matches': 1}]}
+        with mock.patch.object(contribute, 'tags', lambda search=None: (['creative_media'], ['europe'])):
+            body = contribute.payload(feed_list, report, None, install='abc-12345678')
+        by = {f['slug']: f for f in body['feeds']}
+        self.assertEqual(set(by), {'matched', 'quiet', 'broken'})
+        self.assertEqual((by['quiet']['matched'], by['quiet']['jobs'], by['quiet']['hits'], by['quiet']['how']), (False, 12, 0, 'index'))
+        self.assertTrue(by['broken']['failed'])
+        boards = {b['board']: b for b in body['boards']}
+        self.assertEqual(set(boards), {'jobsch', 'google_jobs', 'alerts_linkedin'}, 'only fixed names; queries and places never leave')
+        self.assertEqual((boards['google_jobs']['jobs'], boards['google_jobs']['hits']), (15, 1), 'one line per board, summed')
+        self.assertNotIn('photographe', json.dumps(body))
+
+    def test_a_today_check_shares_too(self):
+        source = Path(__file__).resolve().parents[1] / 'src' / 'daily.py'
+        self.assertIn("args.mode in ('scheduled', 'run', 'today'):\n                try:  # opt-in", source.read_text())

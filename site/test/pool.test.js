@@ -8,7 +8,7 @@ import {purge} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -95,4 +95,20 @@ test('"no readable job site" results are kept per install, added up for the scou
   const fnac = all.nofeed.find(item => item.key === 'fnacsuisse');
   assert.deepEqual({company: fnac.company, host: fnac.host, installs: fnac.installs}, {company: 'Fnac Suisse SA', host: 'fnac.ch', installs: 2});
   assert.equal(all.nofeed.find(item => item.key === 'bad').host, null, 'a host that is not one is dropped');
+});
+
+test('every feed read and every board go up; "read fine, nothing for this role" is counted; a same-day instant share keeps the check\'s match', async () => {
+  const env = setup();
+  const v2 = (install, extra) => ({v: 2, install, roles: ['creative_media'], regions: ['europe'], feeds: [], ...extra});
+  await post(env, v2('install-aaaa1111', {feeds: [feed('quiet', {matched: false, jobs: 12, hits: 0, how: 'index'}), feed('hit', {jobs: 40, hits: 2})],
+    boards: [{board: 'jobsch', jobs: 300, hits: 9}, {board: 'google_jobs', jobs: 15, hits: 0}, {board: 'my private query', jobs: 1, hits: 1}]}));
+  await post(env, v2('install-aaaa1111', {feeds: [feed('hit', {matched: false, how: 'ai_idea'})]}));   // scout's one-item share, same day
+  assert.equal(env.STATS.db.prepare('SELECT matched FROM contributions WHERE slug = ?').get('hit').matched, 1);
+  assert.deepEqual(env.STATS.db.prepare('SELECT board FROM board_reads ORDER BY board').all().map(r => r.board), ['google_jobs', 'jobsch'], 'fixed ids only');
+  const all = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const quiet = all.feeds.find(f => f.slug === 'quiet');
+  assert.deepEqual(quiet.quiet_roles, {creative_media: 1});
+  const jobsch = all.boards.find(b => b.board === 'jobsch');
+  assert.deepEqual([jobsch.matched_installs, jobsch.roles.creative_media], [1, {installs: 1, matched: 1}]);
+  assert.equal(all.boards.find(b => b.board === 'google_jobs').matched_installs, 0);
 });

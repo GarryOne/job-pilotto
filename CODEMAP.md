@@ -283,7 +283,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
 - `src/ai/scout_ideas.py` — The scout's own ideas: Claude proposes employers and public company lists to look at, and learns from what the probes found.
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).
-- `src/contribute.py` — Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
+- `src/contribute.py` — Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributio
 - `src/coverage.py` — How much of the market does the search catch? The funnel of one crawl, and the near misses.
 - `src/crash_reporting.py` — Crash reports from the engine to Sentry, without Sentry's SDK (see desktop/lib/sentry.js for why): only the exception type, a scrubbed
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""

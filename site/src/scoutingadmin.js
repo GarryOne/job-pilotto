@@ -36,7 +36,10 @@ export async function gather(db, now = new Date()) {
   const useful = await all(db, 'SELECT company, ats, slug, SUM(COALESCE(hits, 0)) AS hits, COUNT(*) AS installs, MAX(jobs) AS jobs, MAX(site) AS site FROM contributions GROUP BY ats, slug ORDER BY hits DESC, installs DESC LIMIT 15');
   const dead = await all(db, 'SELECT company, host, COUNT(*) AS installs, MAX(day) AS last FROM nofeed GROUP BY key ORDER BY installs DESC, last DESC LIMIT 15');
   const deadTotal = (await all(db, 'SELECT COUNT(DISTINCT key) AS n FROM nofeed'))[0]?.n || 0;
-  return {feeds, daily, sharing7: await sharing(7), sharing30: await sharing(30), shared, routes, useful, dead, deadTotal, central: await loadScouting(db)};
+  // Which job boards give matches for which kind of role (src/contribute.py boards, 7 Oct 2026); a missing table (before 0031) reads as none.
+  const boards = await all(db, `SELECT board, roles, COUNT(*) AS installs, SUM(CASE WHEN hits > 0 THEN 1 ELSE 0 END) AS matched, SUM(COALESCE(hits, 0)) AS hits,
+    SUM(failed) AS failed FROM board_reads GROUP BY board, roles ORDER BY hits DESC LIMIT 30`).catch(() => []);
+  return {feeds, daily, boards, sharing7: await sharing(7), sharing30: await sharing(30), shared, routes, useful, dead, deadTotal, central: await loadScouting(db)};
 }
 
 export function page(data) {
@@ -77,7 +80,7 @@ ${kpi('failing reads', n(failing.length), '3+ failed in a row')}${kpi('dead ends
 <table><tr><th>Day</th><th>Employers</th><th>Outside IT</th><th>Failing</th><th>From installs</th><th>Dead ends</th></tr>
 ${rows(data.daily, row => [esc(row.day), n(row.feeds), n(row.non_it), n(row.failing), n(row.from_pool), n(row.dead_ends)], 'No snapshot yet: the first comes with the next publish.')}</table></section>
 <div class="grid2">
-<section class="card"><h2>🤝 The pool</h2><small class="muted">What installs share (opt-in): every employer their scout verified, after every run.</small>
+<section class="card"><h2>🤝 The pool</h2><small class="muted">What installs share (on unless switched off): every employer their scout verified and every feed and board their jobs check read, as it happens.</small>
 <table><tr><td>Installs sharing, last 7 days</td><td>${n(data.sharing7)}</td></tr><tr><td>Installs sharing, last 30 days</td><td>${n(data.sharing30)}</td></tr>
 <tr><td>Different employers shared (90 days)</td><td>${n(data.shared)}</td></tr></table></section>
 <section class="card"><h2>🧭 Discovery routes that work</h2><small class="muted">How installs found the employers they share, and the jobs those matched for someone.</small>
@@ -94,6 +97,8 @@ ${rows(Object.entries(kinds).sort((a, b) => b[1] - a[1]), ([kind, count]) => [es
 <section class="card"><h2>⭐ Most useful employers</h2><small class="muted">Most jobs matched across installs' searches.</small>
 <table><tr><th>Employer</th><th>Matched</th><th>Installs</th><th>Jobs</th></tr>${rows(data.useful, row => [esc(row.company), n(row.hits), n(row.installs), n(row.jobs)], 'Nothing shared yet.')}</table></section>
 </div>
+<section class="card"><h2>📋 Job boards by kind of role</h2><small class="muted">Each board installs' jobs checks read, by their kind of role: how many got a match there.</small>
+<table><tr><th>Board</th><th>Kind of role</th><th>Installs</th><th>Got a match</th><th>Jobs matched</th><th>Failed</th></tr>${rows(data.boards || [], row => [esc(row.board), esc(row.roles || '—'), n(row.installs), n(row.matched), n(row.hits), n(row.failed)], 'No board reads shared yet.')}</table></section>
 <section class="card"><h2>🕳️ Dead ends</h2><small class="muted">Employers installs found with no readable job site: skipped for 30 days by everyone.</small>
 <table><tr><th>Employer</th><th>Website</th><th>Installs</th><th>Last</th></tr>${rows(data.dead, row => [esc(row.company), esc(row.host || ''), n(row.installs), esc(row.last)], 'None reported yet.')}</table></section>
 ${nightly(data.central)}
