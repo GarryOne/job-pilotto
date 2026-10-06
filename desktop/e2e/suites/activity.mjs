@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {badSummary, leaks, liveLogProblems} from '../lib/activity.mjs';
 import {finish, snap} from '../lib/layout.mjs';
+import {journey} from '../lib/journey.mjs';
 import {LABEL, appReady, chooseMenu, noRowStaysRunning, openPanel, openRun, panelRows, prepare, problemsWith, runTask, runsData, sleep} from '../lib/activity-steps.mjs';
 
 export const minutes = 15;
@@ -104,7 +105,7 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
 
   await ctx.run('opening a finished run shows its result card and its Technical log', async () => {
-    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
+    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true, untilResult: true});
     const words = `${opened.message} ${opened.card} ${opened.result}`.trim();
     console.log(`  weekly: result "${words.slice(0, 100)}"; log ${opened.log.split('\n').filter(Boolean).length} line(s)`);
     if (words.length < 20) throw new Error(`the finished search analysis shows no result ("${words}")`);
@@ -141,7 +142,7 @@ export async function run(ctx) {
     await appReady(ctx);
     const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
     const words = `${opened.message} ${opened.card} ${opened.result}`.trim();
-    if (words.length < 20) throw new Error(`a local run without its message opens to no result ("${words}"): its Notion page is not read`);
+    if (words.length < 20) throw new Error(`a local run without its message opens to no result ("${words}"): its Notion page is not read. State: ${JSON.stringify(opened.state)}; page errors: ${[...journey.pageErrors, ...journey.consoleErrors].slice(-3).join(' | ') || 'none'}`);
     if (!opened.log.trim()) throw new Error('reading the Notion page replaced the run\'s own log with nothing');
   }, {needs: ctx.needs});
 

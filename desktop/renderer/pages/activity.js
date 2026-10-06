@@ -272,6 +272,10 @@ function setPanelHeight(height, keep = true) {
 let kindFilter = '';        // the header's filter: one kind of run at a time ('' = every kind)
 let foldedWarnings = '';    // the run whose warnings card is folded away, by id
 let detailRunId = '';       // the run the detail pane is showing (the fold button needs to know)
+// What the panel holds, for `npm run shot --eval` and a failing e2e step: which run is selected, which pages were read and what they gave.
+const readTrace = [];   // each run-page read: started, then what came back (or the error)
+window.__activity = () => ({selected: shared.selectedRun, shownId: detailRunId, reading: [...readingPages], trace: readTrace,
+  details: [...runDetails].map(([page, read]) => ({page, message: !!read.message, log: (read.log || []).length}))});
 const readingPages = new Set();  // run pages being read from Notion right now: their card shows as skeleton bars
 // An answer given on Focus (or the card itself) reaches the open check's card as soon as Focus is read again.
 window.addEventListener('focus-updated', () => { if (lastActivity) renderActivity(lastActivity); });
@@ -409,11 +413,12 @@ export function renderActivity(fresh) {
   detailRunId = run?.id ?? '';
   if (needsPage(picked) && !runDetails.has(picked.pageId)) {
     const pageId = picked.pageId, hasLog = !!picked.log;
-    if (!hasLog) readingPages.add(pageId);   // only a run with nothing yet shows skeleton bars; a local one keeps what it has
+    readingPages.add(pageId);   // the card's skeleton bars show while the page is read, also for a local run that has its own log: the read waits its turn behind the app's other Notion calls (25 s+ right after a start) and the pane was empty meanwhile
     runDetails.set(pageId, hasLog ? {} : {log: ['Reading from Notion…']});
     // A run that just finished may not have its log on its page yet (it's written a moment after the status):
     // an empty answer is read again a few times before it's kept.
-    const read = (tries = 0) => window.pilot.runDetail(pageId).then(detail => {
+    const read = (tries = 0) => (readTrace.push(`${pageId} read #${tries} asked`), window.pilot.runDetail(pageId)).then(detail => {
+      readTrace.push(`${pageId} read #${tries} gave message=${!!detail?.message} log=${(detail?.log || []).length}`);
       const empty = !detail?.message && !(detail?.log || []).length;
       if (empty && tries < 4 && !hasLog) {
         runDetails.set(pageId, {log: ['Waiting for the log from Notion…']});
@@ -423,7 +428,7 @@ export function renderActivity(fresh) {
         runDetails.set(pageId, empty ? (hasLog ? {} : {log: ['This run left no log on its Notion page.']}) : detail);
       }
       renderActivity(lastActivity);
-    }).catch(() => { readingPages.delete(pageId); renderActivity(lastActivity); });
+    }).catch(error => { readTrace.push(`${pageId} read failed: ${error?.message || error}`); console.error('activity: a run page was not shown', pageId, error); readingPages.delete(pageId); renderActivity(lastActivity); });
     read();
   }
   // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).

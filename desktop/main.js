@@ -727,7 +727,17 @@ function handlers() {
   // The page the person opened (a name from a fixed list, nothing else): where people go, in order.
   ipcMain.handle('pageView', (_, name) => { if (analyticsLib.PAGES.includes(String(name))) track('page_view', {page: String(name)}); return true; });
   ipcMain.handle('runs', () => activity());
-  ipcMain.handle('runDetail', (_, pageId) => runHistory.detail(storage, pageId).catch(error => ({message: null, log: [`Not read from Notion: ${error.message}`]})));
+  ipcMain.handle('runDetail', async (_, pageId) => {
+    if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'run-pages.json'), 'utf8'))[pageId] || {message: null, log: []};
+    try {
+      const started = Date.now(), read = await runHistory.detail(storage, pageId);
+      appLog('run', 'page read', {page: String(pageId).slice(0, 8), message: !!read.message, lines: read.log.length, ms: Date.now() - started});
+      return read;
+    } catch (error) {
+      appLog('run', 'page not read', {page: String(pageId).slice(0, 8), error: error.message, status: error.status || 0});
+      return {message: null, log: [`Not read from Notion: ${error.message}`]};
+    }
+  });
 
   ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
     ? dispatchCloud('Gmail check (Check now)', {}, 'mail.yml').then(result => (result.ok

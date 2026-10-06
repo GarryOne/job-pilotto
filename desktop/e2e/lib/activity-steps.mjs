@@ -68,7 +68,7 @@ export async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
 export const chooseMenu = (page, text) => page.locator('.ui-menu button', {hasText: text}).dispatchEvent('click');
 
 // Opens a run from the Actions page's Recent runs (the newest row of that kind) and reads what the panel shows a person; then closes it.
-export async function openRun(ctx, label, {inPanel = false, id, snapAs, situation} = {}) {
+export async function openRun(ctx, label, {inPanel = false, id, snapAs, situation, untilResult = false} = {}) {
   const {page} = ctx;
   await page.click('.nav[data-view="actions"]');
   if (inPanel) {   // an older run: the Actions page lists only the newest five, so find it through the panel's filter
@@ -82,10 +82,19 @@ export async function openRun(ctx, label, {inPanel = false, id, snapAs, situatio
   }
   await page.waitForFunction(() => !document.getElementById('activity-panel')?.hidden, null, {timeout: 10000});
   await sleep(page, 1500);   // a run read from Notion fetches its page for the log
+  // A page read is two Notion calls that wait their turn behind the app's start-up reads (25 s+ seen): wait for the result instead of a fixed look (6 Oct 2026: the step looked before the read ended).
+  if (untilResult) await page.waitForFunction(() => ['activity-card', 'activity-message', 'activity-result'].some(id => { const node = document.getElementById(id); return node && !node.hidden && node.textContent.trim(); }), null, {timeout: 90000}).catch(() => {});
   const seen = await page.evaluate(() => {
     const text = id => (document.getElementById(id)?.hidden ? '' : document.getElementById(id)?.textContent || '').replace(/\s+/g, ' ').trim();
     return {title: text('activity-selected'), status: text('activity-status'), warningsTitle: text('activity-warnings-title'), warnings: text('activity-warnings-summary'),
       warningList: text('activity-warnings-list'), result: text('activity-result'), message: text('activity-message'), card: text('activity-card'), log: document.getElementById('log')?.textContent || ''};
+  });
+  // The state behind an empty pane, read before the panel closes: a failing step prints it (the pane alone says nothing about which run, page or error).
+  seen.state = await page.evaluate(async () => {
+    const data = await window.pilot.runs();
+    return {runs: (data.runs || []).length, historyLoaded: !!data.historyLoaded, selectedRow: document.querySelector('#activity-recent .recent-row.current')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) || null,
+      weekly: (data.runs || []).filter(run => run.kind === 'weekly').slice(0, 2).map(run => ({id: run.id, pageId: run.pageId || null, where: run.where, message: !!run.message, log: (run.log || []).length})),
+      activity: window.__activity?.(), cardHidden: document.getElementById('activity-card')?.hidden, panelEmpty: document.getElementById('activity-panel')?.dataset.emptyResult || null};
   });
   // The nightly UI loop looks at these screenshots (layout checks and the AI review): the states where a UI goes wrong are the failure ones.
   if (snapAs) await snap(ctx, snapAs, {view: 'actions', situation});

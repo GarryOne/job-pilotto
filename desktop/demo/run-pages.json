@@ -1,0 +1,9 @@
+{
+  "demo-weekly-page": {
+    "message": "📊 Search analysis\nLast 7 days\nNot enough data yet: 0 open jobs, 0 applications in the statistics\nFinding: The statistics hold 0 open jobs and 0 applications, so no pattern can be assessed.\nChange next week\n• Fill the open fields in Profile\nFocus\nRun a job search in Strategy to load SRE and Platform Engineer jobs.",
+    "log": [
+      "Cronjob run logged: demo"
+    ],
+    "report": []
+  }
+}

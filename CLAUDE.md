@@ -177,6 +177,19 @@ input instead of running at once. A new long task that runs on this Mac is a tra
   `.env` NOTION_* IDs of another workspace (e.g. the test one) switch that off for the run, never mixed.
   `JOB_PILOTTO_FOLLOW_APP=0` turns it off. Searches from the app and the terminal take turns (`run_lock`).
 
+## Debugging a failing e2e step (6 Oct 2026: one step cost ~1 h and 10 full-suite runs of 2-4 min)
+- **Read before you re-run.** Open the failure's artifacts first (`suite-failures.json`, screenshot, `logs/app.log`). A failure that only says `""` or "not found" is
+  missing evidence: add the capture or log line that would have answered it (the app's state, ids, errors), don't guess with probes.
+- **Reproduce small, in seconds, then confirm once.** Seed the state: `npm run shot -- <page> --js "<click>" --eval "<state>"` on `desktop/demo/` fixtures (a Notion page
+  read in demo mode comes from `demo/run-pages.json`), or a unit test. Run the e2e step once at the end: `E2E_STEPS="<step>,<prerequisites>" node run-all.mjs --only <suite>`.
+  Never loop the full suite to see what a step sees.
+- **Prove the repro before you say "reproduced" or "never called".** Check its own setup took effect (the stub was called, the seed is in the state, the control you
+  clicked is visible). `window.pilot` is a read-only contextBridge: assigning to it silently does nothing, so a stub there tests nothing. And a step run on its own
+  (`E2E_STEPS`) lacks what the skipped steps built (one run hides the Recent activity filter): list what you removed before trusting a pass or a fail.
+- **Other sessions share the suite's Notion token.** Check `logs/notion-requests.log` for 429s and `runs` you did not start before blaming the app: the app's Notion calls queue (~340 ms apart, 25 s+ right after a start), so a read can be slow, not broken.
+- **Nothing is swallowed silently.** A `.catch(() => …)` in the app or a test helper logs what it caught (`appLog` area `run`, or a console error the step collects).
+- **A failing step saves the app's state before it closes anything** (selected run, ids, panel text, page errors), not a screenshot of the page after it closed.
+
 ## Tests
 `python3 -m unittest discover -s tests`, `cd worker && npm test` and `cd desktop && npm test`.
 A Claude Code hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches (`PUSH_FULL=1`: all; AGENTS.md "Change tiers"), plus the
