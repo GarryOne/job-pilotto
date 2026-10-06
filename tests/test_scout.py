@@ -123,6 +123,16 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(scout.job_hosts('https://jobs.coop.ch'), [], 'already a job site')
         self.assertEqual(scout.job_hosts('manor.ch')[1], 'https://careers.manor.ch')
 
+    def test_employers_judged_by_older_readers_are_checked_again(self):
+        """6 Oct 2026: employers probed while the readers were wrong stayed 'no feed' for 90 days; a reader change brings them back."""
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=92) for n in ('Old', 'Current', 'New')]])
+            later = '2099-01-01T00:00:00+00:00'
+            db.execute("UPDATE scout_candidates SET status='none', checked_at='2026-10-06', next_check=?, checked_with='0123456789ab' WHERE name='Old'", (later,))
+            db.execute("UPDATE scout_candidates SET status='none', checked_at='2026-10-06', next_check=?, checked_with=? WHERE name='Current'", (later, scout.READERS))
+            names = [c['name'] for c in scout.next_batch(db, 50) if c['name'] in ('Old', 'Current', 'New')]
+            self.assertEqual(names, ['New', 'Old'], 'never-checked names first, then the old judgement; the current one waits its 90 days')
+
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])
         with tempfile.TemporaryDirectory() as tmp, \

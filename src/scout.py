@@ -212,8 +212,11 @@ def skipped_origins(seeds, technical):
 def harvest(db, seeds, sources=None, skip=()):
     """Add unseen candidates; returns how many were new. Failing sources are skipped, and so are candidates whose origin is in `skip`."""
     db.executescript(TABLES)
-    if 'website' not in {row[1] for row in db.execute('PRAGMA table_info(scout_candidates)')}:
+    columns = {row[1] for row in db.execute('PRAGMA table_info(scout_candidates)')}
+    if 'website' not in columns:
         db.execute('ALTER TABLE scout_candidates ADD COLUMN website TEXT')   # a table made before 3 Oct 2026
+    if 'checked_with' not in columns:
+        db.execute('ALTER TABLE scout_candidates ADD COLUMN checked_with TEXT')   # the readers that judged it (READERS), since 6 Oct 2026
     extra = [name for name in os.getenv('JOB_PILOTTO_EXCLUDED_COMPANIES', '').split(',') if name.strip()]
     excluded = {key_for(name.strip()) for name in seeds.get('excluded', []) + extra}
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
@@ -247,14 +250,34 @@ def harvest(db, seeds, sources=None, skip=()):
     return added
 
 
+# The code that decides whether an employer has a readable job feed: when it changes (a release with better readers), the employers an older
+# version judged "no feed", "low" or "watch" are looked at again, a batch at a time, instead of waiting out their 21 or 90 days (owner, 6 Oct
+# 2026: the employers probed while the readers were wrong stayed skipped). A fingerprint of the files, so no version has to be bumped by hand.
+READER_FILES = ('sources/ats.py', 'sources/careers.py', 'sources/web_search.py', 'sources/render.py', 'scout.py')
+
+
+def readers_version():
+    import hashlib
+    digest = hashlib.sha256()
+    for name in READER_FILES:
+        try:
+            digest.update((Path(__file__).parent / name).read_bytes())
+        except OSError:
+            digest.update(name.encode())
+    return digest.hexdigest()[:12]
+
+
+READERS = readers_version()
+
+
 def next_batch(db, size, skip=()):
     """The next candidates to probe, best first; a search outside IT skips those a tech-only list queued earlier (or before its roles changed)."""
     stamp = now().isoformat(timespec='seconds')
     where, params = skipping(skip)
     return [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
         WHERE (status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
-           OR (status IN ('low', 'none', 'watch') AND next_check <= ?)) {where}
-        ORDER BY priority DESC, added_at ASC LIMIT ?""", (stamp, *params, size))]
+           OR (status IN ('low', 'none', 'watch') AND (next_check <= ? OR COALESCE(checked_with, '') != ?))) {where}
+        ORDER BY status IN ('low', 'none', 'watch') ASC, priority DESC, added_at ASC LIMIT ?   -- re-checks after names never checked""", (stamp, READERS, *params, size))]
 
 
 def skipping(skip):
@@ -827,10 +850,10 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         next_check = (stamp + timedelta(days=RECHECK_DAYS[status])).isoformat(timespec='seconds') \
             if status in RECHECK_DAYS else None
         db.execute("""UPDATE scout_candidates SET status=?, ats=COALESCE(?, ats), slug=COALESCE(?, slug), quality=?,
-            stats_json=?, checked_at=?, next_check=? WHERE key=?""",
+            stats_json=?, checked_at=?, next_check=?, checked_with=? WHERE key=?""",
                    (status, outcome.get('ats'), outcome.get('slug'), outcome.get('quality'),
                     json.dumps(outcome.get('stats')) if outcome.get('stats') else None,
-                    stamp.isoformat(timespec='seconds'), next_check, candidate['key']))
+                    stamp.isoformat(timespec='seconds'), next_check, READERS, candidate['key']))
         if outcome['status'] == 'found':
             db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at)
                 VALUES (?, ?, ?, ?, ?, ?)""", (outcome['ats'], outcome['slug'], candidate['name'], candidate['tier'],
