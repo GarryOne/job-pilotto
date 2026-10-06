@@ -184,6 +184,10 @@ export async function prepare(ctx) {
   await ctx.run('this suite starts with no run rows in its Notion page', async () => {
     console.log(`  cleared ${await emptyDatabase(ctx.token, RUNS_DB)} run row(s)`);
   }, {needs: ctx.needs, critical: true});
+  // Every run seeds postings with new ids (setFeed), so each leaves Job Matches rows behind: 491 piled up by 6 Oct 2026 and a run spent 5 minutes marking them Not seen.
+  await ctx.run('this suite starts with no job rows in its Notion Job Matches', async () => {
+    console.log(`  cleared ${await emptyDatabase(ctx.token, 'Job Matches — AI Scored')} job row(s)`);
+  }, {needs: ctx.needs});
   await ensureSetUp(ctx);
   fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
   fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources.json'), path.join(ctx.profile, 'config', 'sources.json'));

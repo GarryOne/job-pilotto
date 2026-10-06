@@ -219,6 +219,11 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dis
         marker = f'status:{status}'
         if row['data_hash'] == marker:
             continue
+        already = ((in_notion.get(url) or {}).get('Status') or {}).get('select') or {}
+        if not row['data_hash'] and already.get('name') == status:  # adopted, and Notion already says so: remember it, write nothing
+            db.execute('UPDATE notion_matches SET data_hash=? WHERE url=?', (marker, url))
+            db.commit()
+            continue
         tracker.upsert_match({'Status': {'select': {'name': status}}}, row['page_id'])
         db.execute('UPDATE notion_matches SET data_hash=? WHERE url=?', (marker, url))
         db.commit()
