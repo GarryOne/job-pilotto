@@ -219,8 +219,16 @@ export async function run(ctx) {
     await strip.waitFor({state: 'visible', timeout: 30000}).catch(async () => {
       throw new Error(`the session page shows no "Before you submit" strip (the form card says: "${await page.locator('#ss-form-card').innerText().catch(() => 'not shown')}")`);
     });
-    const knock = (await page.locator('#ss-before-knock').innerText()).replace(/\s+/g, ' ');
-    if (!/1 question can reject you automatically/i.test(knock) || !/sponsorship/i.test(knock)) throw new Error(`the knockout row does not count and name the sponsorship question: "${knock}"`);
+    // This session's strip, not the one shown before (6 Oct 2026: the row named the Greenhouse form's work-permit question, read the moment the strip appeared).
+    let knock = '';
+    for (const started = Date.now(); Date.now() - started < 15000; await page.waitForTimeout(500)) {
+      knock = (await page.locator('#ss-before-knock').innerText()).replace(/\s+/g, ' ');
+      if (/sponsorship/i.test(knock)) break;
+    }
+    if (!/1 question can reject you automatically/i.test(knock) || !/sponsorship/i.test(knock)) {
+      const shown = (await page.locator('.view[data-view="session"] h1, #ss-title, #ss-form-card').first().innerText().catch(() => '?')).replace(/\s+/g, ' ').slice(0, 120);
+      throw new Error(`the knockout row does not count and name the sponsorship question after 15 s: "${knock}" (the page shows: "${shown}", expected ${form.company})`);
+    }
     await page.locator('#ss-before-cv').waitFor({state: 'visible', timeout: 15000});
     const cvRow = (await page.locator('#ss-before-cv').innerText()).replace(/\s+/g, ' ');
     if (!/general CV|tailored/i.test(cvRow)) throw new Error(`the CV row says neither which CV goes in nor that one is tailored: "${cvRow}"`);
