@@ -25,14 +25,14 @@ test('the three-a-day e2e runs start the scheduled plan; an unknown cron starts 
   assert.deepEqual(CRONS, ['0 2,3 * * *', '47 9,13,17 * * *', '40 */3 * * *']);
 });
 
-test('a scheduled start calls the dispatcher; a failed one tells the owner and does not throw', async () => {
+test('a scheduled start calls the dispatcher; a failed one tells the owner, lets the others start, then fails the cron', async () => {
   const calls = [], told = [];
   const dispatch = async (env, inputs, workflow) => { calls.push([workflow, inputs]); };
   const started = await runScheduled({cron: '0 2 * * *', scheduledTime: Date.parse('2026-10-05T02:00:00Z')}, {}, {dispatch, notify: async text => told.push(text)});
   assert.deepEqual(started, ['desktop.yml']);
   assert.deepEqual(calls, [['desktop.yml', {nightly: 'true'}]]);
   const failing = async () => { throw new Error('GitHub dispatch failed: 403 Resource not accessible'); };
-  const none = await runScheduled({cron: '47 9,13,17 * * *', scheduledTime: Date.parse('2026-10-05T09:47:00Z')}, {}, {dispatch: failing, notify: async text => told.push(text)});
-  assert.deepEqual(none, []);
+  await assert.rejects(runScheduled({cron: '47 9,13,17 * * *', scheduledTime: Date.parse('2026-10-05T09:47:00Z')}, {}, {dispatch: failing, notify: async text => told.push(text)}),
+    /scheduled start failed: e2e\.yml: GitHub dispatch failed: 403/, 'a cron that started nothing must not report success (6 Oct 2026: a day of 401s, every cron "success")');
   assert.match(told[0], /e2e\.yml failed.*403/);
 });

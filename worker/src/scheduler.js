@@ -22,7 +22,7 @@ export function jobsFor(cron, now = new Date()) {
 
 // dispatch(env, inputs, workflow) starts a workflow on main (index.js); notify(text) tells the owner when it could not.
 export async function runScheduled(event, env, {dispatch, notify = async () => {}, now = new Date(event?.scheduledTime || Date.now())}) {
-  const started = [];
+  const started = [], failed = [];
   for (const job of jobsFor(event.cron, now)) {
     try {
       await dispatch(env, job.inputs, job.workflow);
@@ -31,7 +31,11 @@ export async function runScheduled(event, env, {dispatch, notify = async () => {
     } catch (error) {
       console.log(`scheduled start failed ${job.workflow} cron=${event.cron}: ${error.message}`);
       await notify(`⚠️ The scheduled start of ${job.workflow} failed (${event.cron}): ${error.message.slice(0, 200)}. GitHub's own schedule is the backup.`);
+      failed.push(`${job.workflow}: ${error.message.slice(0, 120)}`);
     }
   }
+  // Loud, after every job had its try: the cron then shows as failed in Cloudflare. 5-6 Oct 2026: the Worker had been created afresh without its secrets, every start
+  // was refused (401) for a day, and the warning above needs the Telegram token it also lacked, so each cron reported "success" while nothing started.
+  if (failed.length) throw new Error(`scheduled start failed: ${failed.join('; ')}`);
   return started;
 }

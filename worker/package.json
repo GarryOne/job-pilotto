@@ -5,7 +5,7 @@
   "scripts": {
     "pretest": "node scripts/stage-shared.mjs",
     "test": "node --test test/*.test.js",
-    "deploy": "npx wrangler@4 deploy"
+    "deploy": "npx wrangler@4 deploy && node scripts/check-secrets.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0"
