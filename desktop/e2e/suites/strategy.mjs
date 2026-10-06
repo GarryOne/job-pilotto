@@ -88,7 +88,9 @@ export async function run(ctx) {
     // Everything found is removed, said in the log, and the app reconnects once more so the cleaned page is what it works from.
     const cleaned = [];
     for (const [heading, word] of [['Roles to look for', ROLE], ['Roles to look for', GIRAFFE], ['Best places', PLACE], ['Companies to skip', SKIP],
-      ...EDITED.map(word => ['Companies to skip', word]), ...REGIONS.map(word => ['Remote jobs: regions to skip', word])]) {
+      ...EDITED.map(word => ['Companies to skip', word]), ...REGIONS.map(word => ['Remote jobs: regions to skip', word]),
+      // The level step's own words (6 Oct 2026: a run killed inside it left "junior" on the page, and every later check dropped Senior titles: the Zebra failure on all three platforms).
+      ['Your level', 'junior'], ['Best places', 'Ticino']]) {
       if (has(now[heading], word)) { cleaned.push(`${heading}: ${word}`); await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word))); }
     }
     // An empty "Roles to look for" means every role matches: the cleanup above can leave it empty when the page held only the words this suite adds (5 Oct 2026: the check then kept all three
