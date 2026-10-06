@@ -88,7 +88,7 @@ class PromoteGuardTests(unittest.TestCase):
     def test_a_green_end_to_end_run_lets_the_build_through(self):
         done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='green')
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertIn('End-to-end journey: green', done.stdout)
+        self.assertIn('End-to-end (Mac + Linux): green', done.stdout)
 
     def test_a_red_end_to_end_run_stops_the_promotion(self):
         done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='red')
@@ -110,7 +110,7 @@ class PromoteGuardTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn('--ref ' + TAG, self.calls)
         self.assertIn('watched 4242', self.calls)
-        self.assertIn('End-to-end journey: green', done.stdout)
+        self.assertIn('End-to-end (Mac + Linux): green', done.stdout)
 
     def test_the_run_it_started_decides_and_a_red_one_stops_the_promotion(self):
         done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='stale', after='red')
