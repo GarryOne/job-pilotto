@@ -310,6 +310,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
 - `src/places.py` — Place words that stand for many places, worked out by AI instead of a list. "Germany" must find a job posted as "Leipzig", "Asia" one in "Singapore": a posting's
+- `src/pool_tags.py` — Finer fixed-list labels the pool shares (7 Oct 2026): country, metro area and role family of a user's own search settings.
 - `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
 - `src/role_kinds.py` — Kinds of role (software, retail, logistics, …): what an employer or a job board mostly hires for, and what a search looks for.
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.

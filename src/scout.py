@@ -577,7 +577,7 @@ def fetch_contributions(base_url, key, get=None, with_nofeed=False):
 def fits(contribution):
     """Role and region tags backed by enough different installs; nothing rarer is ever published."""
     out = {name: sorted(tag for tag, n in (contribution.get(name) or {}).items() if n >= FIT_MIN_INSTALLS)
-           for name in ('roles', 'regions')}
+           for name in ('roles', 'regions', 'countries', 'metros', 'families')}   # finer labels since 7 Oct 2026, same floor
     return {name: tags for name, tags in out.items() if tags}
 
 

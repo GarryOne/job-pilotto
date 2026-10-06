@@ -167,6 +167,15 @@ def regions_of(places):
     return sorted(found)
 
 
+def fine_tags(search=None):
+    """{'countries', 'metros', 'families'} of this user's own search settings, as fixed-list ids (src/pool_tags.py). No free text ever."""
+    from . import pool_tags
+    search = search or load_search_config()
+    where = [_plain(p) for group in ('top_tier', 'country_wide', 'abroad') for p in search.get('locations', {}).get(group, [])]
+    countries, metros = pool_tags.places(where)
+    return {'countries': countries, 'metros': metros, 'families': pool_tags.families([_plain(k) for k in search.get('role_keywords', [])])}
+
+
 def tags(search=None):
     """(roles, regions) of this user's own search settings, as fixed-list names. No free text ever."""
     search = search or load_search_config()
@@ -265,7 +274,7 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None,
                 for tag, n in line[key].items():
                     merged[key][tag] = merged[key].get(tag, 0) + n
     boards = [_with_outcomes(board, by_board.get(board['board'])) for board in boards]
-    return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
+    return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions, **fine_tags(search),
             'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {})}
 
 
@@ -315,7 +324,7 @@ def share_now(feed=None, dead=None, post=None, url=None):
     if not enabled():
         return False
     roles, regions = tags()
-    body = {'v': 2, 'install': os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions,
+    body = {'v': 2, 'install': os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions, **fine_tags(),
             'feeds': [{'matched': False, 'own': False, 'failed': False, **feed}] if feed else [], **({'nofeed': [dead]} if dead else {})}
     return send(body, url=url, post=post, stamp=False)   # a one-item share does not mark the full share as done
 
@@ -331,7 +340,7 @@ def _bucket(n):
 
 
 def _signatures(body):
-    tags_sig = f"{','.join(body.get('roles') or [])}|{','.join(body.get('regions') or [])}"
+    tags_sig = '|'.join(','.join(body.get(name) or []) for name in ('roles', 'regions', 'countries', 'metros', 'families'))
     for feed in body.get('feeds') or []:
         yield ('feeds', feed, f"feed:{feed['ats']}:{feed['slug']}", json.dumps([tags_sig, feed.get('matched'), feed.get('own'), feed.get('failed'), feed.get('how'),
                                                                            feed.get('site'), feed.get('hits'), _bucket(feed.get('jobs')), feed.get('out')]))

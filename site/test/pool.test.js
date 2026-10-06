@@ -8,7 +8,7 @@ import {purge} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -143,4 +143,16 @@ test('outcomes and traits are kept in fixed names only and summed per feed and b
   assert.deepEqual([migros.out.interview, migros.out.applied, migros.out.langs, migros.out.senior], [2, 4, {French: 6}, {junior: 6}]);
   const google = all.boards.find(b => b.board === 'google_jobs');
   assert.deepEqual([google.dup, google.out.saved], [2, 2]);
+});
+
+test('country, metro and role family are kept from the fixed lists only and counted per feed and board', async () => {
+  const env = setup();
+  await post(env, {v: 2, install: 'install-aaaa1111', roles: ['creative_media'], regions: ['europe'], countries: ['ch', 'atlantis'], metros: ['ch-geneva', 'Geneva rue 3'],
+    families: ['photography', 'my secret'], feeds: [feed('studio', {jobs: 5, hits: 1})], boards: [{board: 'jobsch', jobs: 50, hits: 2}]});
+  const row = env.STATS.db.prepare('SELECT countries, metros, families FROM contributions').get();
+  assert.deepEqual({...row}, {countries: 'ch', metros: 'ch-geneva', families: 'photography'});
+  const all = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const studio = all.feeds.find(f => f.slug === 'studio');
+  assert.deepEqual([studio.countries, studio.metros, studio.families], [{ch: 1}, {'ch-geneva': 1}, {photography: 1}]);
+  assert.deepEqual(all.boards[0].metros, {'ch-geneva': {installs: 1, matched: 1}});
 });

@@ -42,7 +42,7 @@ class PayloadTest(unittest.TestCase):
         body = contribute.payload(FEEDS, REPORT, FakeTracker(), install='abc-12345678', search=SEARCH)
         self.assertEqual({(f['slug'], f['matched'], f['own']) for f in body['feeds']},
                          {('matched', True, False), ('mine', False, True), ('quiet', False, False)})   # 'quiet' was read with no match: sent since 7 Oct 2026; 'nonsense' is not a feed system
-        self.assertEqual(set(body), {'v', 'install', 'roles', 'regions', 'feeds'})
+        self.assertEqual(set(body), {'v', 'install', 'roles', 'regions', 'countries', 'metros', 'families', 'feeds'})
         self.assertEqual(body['v'], 2)
         self.assertEqual(set(body['feeds'][0]), {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed', 'jobs', 'hits'} & set(body['feeds'][0]) | {'ats', 'slug', 'company', 'matched', 'own', 'how', 'site', 'failed'})
         for feed in body['feeds']:
