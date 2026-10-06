@@ -25,7 +25,7 @@ export const sentryOnly = (env = process.env) => !!(env.JOB_PILOTTO_E2E && env.G
 export const ENDPOINT = 'https://www.jobpilotto.workers.dev/report/telemetry';
 const QUEUE = 'telemetry-queue.json';
 const MAX_QUEUE = 500, SHOWN = 20, BATCH = 50;
-export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control'];
+export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice'];   // advice: a recommendation shown / taken / dismissed (renderer/coverage-actions.js)
 
 // Personal or secret data out of any text: keys and tokens, emails, phone numbers, the user's home folder, link
 // queries and fragments, long digit runs (IDs, card-like numbers). Then cut to `max` characters.

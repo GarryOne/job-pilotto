@@ -10,6 +10,7 @@ import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
 import {coverageCard, filtersCard, placesCard, sourcesCard} from '../coverage-card.js';
+import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
@@ -138,14 +139,15 @@ const paintCoverage = verdict => {
   const sources = sourcesCard(verdict, remembered(SOURCES_DISMISSED));
   show($('strategy-sources'), !!sources);
   if (sources) {
+    adviceEvent('shown', 'source', 'strategy');
     $('sources-title').textContent = sources.title;
     $('sources-text').textContent = sources.text;
     $('sources-chips').replaceChildren(...sources.chips.map(chip => {
       const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
-      button.addEventListener('click', () => openSetting(chip.id));
+      button.addEventListener('click', () => { adviceEvent('taken', 'source', 'strategy', {source: chip.id}); openSetting(chip.id); });
       return button;
     }));
-    $('sources-dismiss').onclick = () => { try { localStorage.setItem(SOURCES_DISMISSED, sources.at); } catch {} show($('strategy-sources'), false); };
+    $('sources-dismiss').onclick = () => { adviceEvent('dismissed', 'source', 'strategy'); try { localStorage.setItem(SOURCES_DISMISSED, sources.at); } catch {} show($('strategy-sources'), false); };
   }
 };
 // first: called when the page starts to load, beside the strategy read (not after it).
@@ -162,9 +164,10 @@ export async function loadCoverage({first = false} = {}) {
 }
 const PLACES_DISMISSED = 'jp.places.dismissed';
 
-function showCard(card, ids, add, done) {
+function showCard(card, ids, add, done, kind = ids.box.replace(/^strategy-/, '')) {
   show($(ids.box), !!card);
   if (!card) return;
+  adviceEvent('shown', kind, 'strategy');
   $(ids.title).textContent = card.title;
   $(ids.text).textContent = card.text;
   $(ids.chips).replaceChildren(...card.chips.map(chip => {
@@ -172,12 +175,13 @@ function showCard(card, ids, add, done) {
     button.addEventListener('click', async () => {
       button.disabled = true;
       const result = await add(chip).catch(error => ({ok: false, error: error.message}));
+      if (result.ok) adviceEvent('taken', kind, 'strategy');
       toastMessage(result.ok ? 'Search widened' : 'Not added', result.ok ? done(chip) : result.error);
       if (result.ok) loadCoverage(); else button.disabled = false;
     });
     return button;
   }));
-  $(ids.dismiss).onclick = () => { try { localStorage.setItem(ids.key, card.at); } catch {} show($(ids.box), false); };
+  $(ids.dismiss).onclick = () => { adviceEvent('dismissed', kind, 'strategy'); try { localStorage.setItem(ids.key, card.at); } catch {} show($(ids.box), false); };
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).

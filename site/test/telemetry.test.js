@@ -269,3 +269,9 @@ test('the revisit trigger needs 30 installs, over 40% never connecting and "I do
   assert.equal(g.neverRate, 0.5);
   assert.equal(g.revisit, true);
 });
+
+test('advice events are accepted and grouped by kind, place and act (7 Oct 2026)', async () => {
+  const {describe} = await import('../src/telemetry.js');
+  assert.deepEqual(describe({kind: 'advice', advice: 'role', where: 'strategy', act: 'taken'}),
+    {key: 'advice|strategy|role|taken', summary: 'Advice role on strategy: taken'});
+});

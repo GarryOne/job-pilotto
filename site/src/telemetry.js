@@ -13,7 +13,7 @@ import {report as knowledgeReport} from './knowledge.js';
 import {labPlan, labReport} from './recipes.js';
 import {isOwner, esc, remember} from './stats.js';
 
-export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control'];
+export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice'];
 export const TRIAGE_MIN_USERS = 3, TRIAGE_MIN_TIMES = 20;
 // What becomes a GitHub issue: [installs, times] by kind (either is enough). Crashes, stuck runs and failed runs are rare and always
 // worth reading, from the first install; a run that ended with warnings (AI not answering, Notion refusing) must repeat (3 times) or come from 3 installs;
@@ -45,6 +45,7 @@ export function describe(item) {
     case 'form_issue': return {key: `form|${item.site}|${normal(item.label)}|${item.reason}`, summary: `${item.site}: ${text(item.label, 80)} (${item.reason || 'not filled'})`};
     case 'control': return {key: `control|${item.fp}|${item.outcome}|${normal(item.why)}`,
       summary: `Control ${text(item.control, 24)} ${text(item.fp, 16)}: ${item.outcome}${item.why ? ` (${text(item.why, 80)})` : ''}`};
+    case 'advice': return {key: `advice|${item.where}|${item.advice}|${item.act}`, summary: `Advice ${text(item.advice, 20)} on ${text(item.where, 20)}: ${text(item.act, 10)}${item.source ? ` (${text(item.source, 30)})` : ''}`};
     case 'stuck': return {key: `stuck|${item.action}|${item.page}`, summary: `Stuck: ${item.action} (${item.page || 'app'})`};
     default: return {key: 'health', summary: 'health'};
   }

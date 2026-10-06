@@ -16,7 +16,7 @@ import {parseInterviewReview} from '../interview-review.js';
 import {kitsOutcome, parseKitsReady} from '../kits-ready.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
-import {coverageActions, runAction} from '../coverage-actions.js';
+import {adviceEvent, coverageActions, runAction} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 import {showScheduleState} from './connections.js';
 import {$, aiReady, show} from './core.js';
@@ -1658,6 +1658,7 @@ function withFewJobsHelp(foot, runId) {
   const explain = el('button', 'secondary', 'Explain with AI');
   explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
   explain.addEventListener('click', async () => {
+    adviceEvent('taken', 'explain', 'few-jobs');
     explain.disabled = true;
     answer.textContent = 'Asking Claude…';
     const result = await window.pilot.explainCoverage().catch(error => ({ok: false, error: error.message}));
@@ -1670,11 +1671,13 @@ function withFewJobsHelp(foot, runId) {
   const paint = actions => {
     if (!actions.length) { heading.textContent = 'Few new jobs. Nothing obvious to change yet: Explain with AI looks at the numbers.'; return; }
     chips.replaceChildren(...actions.slice(0, 8).map(action => {
+      adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
       const button = Object.assign(el('button', 'coverage-chip', action.label), {type: 'button', title: action.title});
       if (kept.done?.[action.label]) { button.disabled = true; button.textContent = kept.done[action.label]; }
       button.addEventListener('click', async () => {
         button.disabled = true;
         const done = await runAction(action, {pilot: window.pilot, openSetting}).catch(error => ({ok: false, error: error.message}));
+        if (done?.ok) adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
         if (done?.opened) { openActivity(false); button.disabled = false; return; }
         button.textContent = done?.ok ? `✓ ${action.label.replace(/^[+−] /, '')}` : `Not changed: ${done?.error || 'try again'}`;
         if (done?.ok) kept.done = {...kept.done, [action.label]: button.textContent};   // a redraw keeps it done

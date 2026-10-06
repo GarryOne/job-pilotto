@@ -39,7 +39,12 @@ export async function gather(db, now = new Date()) {
   // Which job boards give matches for which kind of role (src/contribute.py boards, 7 Oct 2026); a missing table (before 0031) reads as none.
   const boards = await all(db, `SELECT board, roles, COUNT(*) AS installs, SUM(CASE WHEN hits > 0 THEN 1 ELSE 0 END) AS matched, SUM(COALESCE(hits, 0)) AS hits,
     SUM(COALESCE(dup, 0)) AS dup, SUM(COALESCE(json_extract(out_json, '$.interview'), 0)) AS interviews, SUM(failed) AS failed FROM board_reads GROUP BY board, roles ORDER BY hits DESC LIMIT 30`).catch(() => []);
-  return {feeds, daily, boards, sharing7: await sharing(7), sharing30: await sharing(30), shared, routes, useful, dead, deadTotal, central: await loadScouting(db)};
+  // Advice shown in the app and how often it was taken (desktop renderer/coverage-actions.js adviceEvent, technical reports).
+  const advice = await all(db, `SELECT json_extract(data, '$.advice') AS advice, json_extract(data, '$.where') AS place,
+      SUM(CASE WHEN json_extract(data, '$.act') = 'shown' THEN 1 ELSE 0 END) AS shown, SUM(CASE WHEN json_extract(data, '$.act') = 'taken' THEN 1 ELSE 0 END) AS taken,
+      SUM(CASE WHEN json_extract(data, '$.act') = 'dismissed' THEN 1 ELSE 0 END) AS dismissed, COUNT(DISTINCT install) AS installs
+    FROM telemetry WHERE kind = 'advice' AND day >= ? GROUP BY advice, place ORDER BY shown DESC`, day(now, 90));
+  return {feeds, daily, boards, advice, sharing7: await sharing(7), sharing30: await sharing(30), shared, routes, useful, dead, deadTotal, central: await loadScouting(db)};
 }
 
 export function page(data) {
@@ -99,6 +104,8 @@ ${rows(Object.entries(kinds).sort((a, b) => b[1] - a[1]), ([kind, count]) => [es
 </div>
 <section class="card"><h2>📋 Job boards by kind of role</h2><small class="muted">Each board installs' jobs checks read, by their kind of role: how many got a match there.</small>
 <table><tr><th>Board</th><th>Kind of role</th><th>Installs</th><th>Got a match</th><th>Jobs matched</th><th>Only on this board</th><th>Interviews</th><th>Failed</th></tr>${rows(data.boards || [], row => [esc(row.board), esc(row.roles || '—'), n(row.installs), n(row.matched), n(row.hits), n(Math.max(0, (row.hits || 0) - (row.dup || 0))), n(row.interviews), n(row.failed)], 'No board reads shared yet.')}</table></section>
+<section class="card"><h2>🧑‍🏫 Advice shown → taken</h2><small class="muted">What the app recommended (Strategy cards, "Few new jobs" chips) and how often people took it, last 90 days.</small>
+<table><tr><th>Advice</th><th>Where</th><th>Shown</th><th>Taken</th><th>Dismissed</th><th>Installs</th></tr>${rows(data.advice || [], row => [esc(row.advice), esc(row.place), n(row.shown), n(row.taken), n(row.dismissed), n(row.installs)], 'No advice reported yet.')}</table></section>
 <section class="card"><h2>🕳️ Dead ends</h2><small class="muted">Employers installs found with no readable job site: skipped for 30 days by everyone.</small>
 <table><tr><th>Employer</th><th>Website</th><th>Installs</th><th>Last</th></tr>${rows(data.dead, row => [esc(row.company), esc(row.host || ''), n(row.installs), esc(row.last)], 'None reported yet.')}</table></section>
 ${nightly(data.central)}

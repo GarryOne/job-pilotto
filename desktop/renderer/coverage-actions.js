@@ -12,6 +12,22 @@ export function coverageActions(verdict) {
   return out;
 }
 
+// Advice shown and taken (owner, 7 Oct 2026: "what we recommended and whether the user took it"), as a technical report: the kind of advice,
+// where it was shown, and for a job source its fixed id. Never the role word, place or filter itself. Shown once per kind and place a session.
+const shownOnce = new Set();
+// One name per kind of advice, wherever it is shown: a Strategy card's box or an action's kind.
+const KIND = {coverage: 'role', role: 'role', places: 'place', place: 'place', filters: 'filter', exclude: 'filter', language: 'filter', sources: 'source', source: 'source', explain: 'explain'};
+export function adviceEvent(act, kind, where, {source = '', record = globalThis.window?.pilot?.telemetryRecord} = {}) {
+  kind = KIND[kind];
+  if (!record || !kind || !['shown', 'taken', 'dismissed'].includes(act)) return false;
+  if (act === 'shown') {
+    if (shownOnce.has(`${where}:${kind}`)) return false;
+    shownOnce.add(`${where}:${kind}`);
+  }
+  try { record('advice', {act, advice: String(kind), where: String(where), ...(kind === 'source' && /^[a-z_]{2,30}$/.test(source) ? {source} : {})}); } catch { return false; }
+  return true;
+}
+
 // One action, done: the same calls the Strategy cards make (lib/strategy.js through main.js), or the source's panel in Settings.
 export function runAction(action, {pilot, openSetting}) {
   if (action.kind === 'source') { openSetting(action.value); return Promise.resolve({ok: true, opened: true}); }
