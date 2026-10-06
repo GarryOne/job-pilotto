@@ -40,7 +40,7 @@ export async function showSearchStatus() {
   const searching = running && (running.kind || 'search') === 'search';
   box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
   // Running: a link to its progress (the bottom bar's panel); done: what it found.
-  if (searching) { title.textContent = 'Checking for new jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
+  if (searching) { title.textContent = 'Searching for new jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
   if (!lastSearchAt) { title.textContent = 'No check yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
   const found = last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : '';
@@ -69,7 +69,7 @@ function searchPhase(step = '') {
   return step.length > 60 ? `${step.slice(0, 57)}…` : step;
 }
 // icon: emoji for text the owner reads (toasts, messages); line: the line icon for rows and headers (same as Actions → Recent runs).
-export const KIND = {search: {icon: '🔎', line: 'search', name: 'Jobs check'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
+export const KIND = {search: {icon: '🔎', line: 'search', name: 'Search for new jobs'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
   interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'}, tailor: {icon: '✂️', line: 'scissors', name: 'Tailor CVs'},
   weekly: {icon: '📊', line: 'file', name: 'Search analysis'}, kits: {icon: '📝', line: 'file-text', name: 'Prepare top matches'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
@@ -182,7 +182,7 @@ const runButton = kind => {
   return command ? document.querySelector(`button.action[data-command="${command}"]`) : null;
 };
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
-// Buttons outside the Actions cards that start the same task (Jobs → Check for new jobs, Settings → Check Gmail now, Tailor's own card): turned off while
+// Buttons outside the Actions cards that start the same task (Jobs → Search for new jobs, Settings → Check Gmail now, Tailor's own card): turned off while
 // it runs (runs-page.js syncRunButtons) and left out of ⌘K when an Actions card already offers it (nav.js paletteCommands), so a task is listed once.
 export const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['tailor', '#tailor-top', '#tailor-top-n']];
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
@@ -264,7 +264,7 @@ function showAwaitedResult(runs, {opening = false} = {}) {
   read().then(message => { waitingForResult.delete(run.id); show(message || null); });
 }
 // The status bar's last finished state, kept on this Mac: shown the moment the window opens, instead of
-// "No jobs check yet" until the run history has been read (from Notion). A running state is never kept.
+// "No search yet" until the run history has been read (from Notion). A running state is never kept.
 const STATUS_KEPT = 'statusBar';
 function keepStatusBar() {
   const kept = {state: $('activity').dataset.state, title: $('activity-title').textContent,
@@ -352,21 +352,21 @@ export function renderActivity(fresh) {
   if (running) {
     const kind = KIND[kindOf(running)];
     const next = (data.queued || []).length;
-    $('activity-title').textContent = kindOf(running) === 'search' ? `Checking for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
+    $('activity-title').textContent = kindOf(running) === 'search' ? `Searching for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
       : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
     $('activity-step').textContent = searchPhase(running.step) || running.step || 'Starting…';
     barLabel();
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
     barLabel();
-    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last jobs check' : 'Last jobs check had problems') : 'No jobs check yet';
+    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last search' : 'Last search had problems') : 'No jobs check yet';
     $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
       (lastSearch.ok ? '' : ' · click to see why') : '';
     // The next jobs check, unless the open panel's Upcoming checks already says it.
-    $('activity-meta').textContent = [mailNote, $('activity-panel').hidden && nextSearchAt && `Next jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
+    $('activity-meta').textContent = [mailNote, $('activity-panel').hidden && nextSearchAt && `Next search ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
-    $('activity-title').textContent = 'No jobs check yet';
-    $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';
+    $('activity-title').textContent = 'No search yet';
+    $('activity-step').textContent = 'Click "Search for new jobs" on Jobs to start one.';
     $('activity-meta').textContent = mailNote;
   }
   if (!running) keepStatusBar();
@@ -440,7 +440,7 @@ export function renderActivity(fresh) {
   // No time: "Off" only when Settings → Automation says so; else the app just doesn't know it yet (it was started
   // before an update: a restart fixes it), so it names where it runs.
   const unknown = cloud ? 'On GitHub' : 'On this Mac';
-  const items = [['Job search', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
+  const items = [['Search for new jobs', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
     ...(cloud ? [['Employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off']] : [])];
   const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
   const gmailOff = gmailConnected() === false;   // Gmail as it is now, not as the selected run found it

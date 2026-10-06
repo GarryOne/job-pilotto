@@ -163,7 +163,7 @@ def mail_lines(run):
 
 # One-off jobs (not crawls): their name when they finish without a result line of their own.
 ONE_OFF = {'add': 'Logged activity', 'insight': 'Insight', 'weekly': 'Search analysis', 'interview': 'Interview review',
-           'prepare': 'Application kit', 'kits': 'Prepare top matches', 'apply': 'Marked applied', 'scout': 'Find employers', 'prep': 'Interview prep kit'}
+           'prepare': 'Application kit', 'kits': 'Prepare top matches', 'apply': 'Marked applied', 'scout': 'Find new employers', 'prep': 'Interview prep kit'}
 # A job whose AI step has no queue needs a verb, not a column's label: the "Stages" line of a Gmail check.
 STEP_NAME = {'mail': 'Read job emails'}
 
@@ -212,7 +212,7 @@ def report_lines(run):
 # A jobs check crawls feeds; its counters (feeds, new, changed…) mean nothing on other runs, so those stay empty.
 CRAWL_MODES = {'scheduled', 'run', 'today'}
 # The row's kind, the second part of its title (its Mode column keeps the raw mode; nothing matches rows by title).
-KINDS = {'scheduled': 'Jobs check', 'run': 'Jobs check', 'today': 'Jobs check', 'mail': 'Gmail check', 'scout': 'Find employers',
+KINDS = {'scheduled': 'Search for new jobs', 'run': 'Search for new jobs', 'today': 'Search for new jobs', 'mail': 'Gmail check', 'scout': 'Find new employers',
          'add': 'Log activity', 'interview': 'Interview review', 'prepare': 'Application kit', 'prep': 'Interview prep',
          'rejection': 'Rejection review', 'insight': 'Insight', 'weekly': 'Search analysis', 'import': 'Add a job',
          'kits': 'Prepare top matches'}

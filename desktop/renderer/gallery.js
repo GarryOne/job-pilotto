@@ -43,7 +43,7 @@ const button = (label, className, extra = {}) => Object.assign(el('button', clas
 const withIcon = (glyph, label, className) => { const b = el('button', `${className} with-icon`); b.append(icon(glyph), el('span', '', label)); return b; };
 section('Buttons', 'button.primary / .secondary / .ghost / .link / .danger; .with-icon', row(
   button('Prepare', 'primary'), button('Save', 'secondary'), button('Close', 'ghost'), button('Open posting', 'link'),
-  button('Delete', 'ghost danger'), withIcon('refresh', 'Check for new jobs', 'secondary'), withIcon('mic', 'Record interview', 'primary'),
+  button('Delete', 'ghost danger'), withIcon('refresh', 'Search for new jobs', 'secondary'), withIcon('mic', 'Record interview', 'primary'),
   button('Disabled', 'primary', {disabled: true}), moreButton([{label: 'Open in Notion', run: () => {}}, '-', {label: 'Delete', danger: true, run: () => {}}]),
 ));
 

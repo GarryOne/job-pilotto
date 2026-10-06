@@ -276,10 +276,10 @@
         <div><h1>Job matches</h1><p class="muted subtitle" id="jobs-stats">Loading…</p></div>
         <div class="jobs-head-right">
         <div class="head-actions">
-          <button class="secondary with-icon" id="refresh" title="Crawls the job boards and employer career pages for jobs you haven't seen yet, then reads and scores the new ones with AI (a few cents each; up to 60 per search). Your current matches stay."><i data-icon="refresh"></i><span>Check for new jobs</span></button>
+          <button class="secondary with-icon" id="refresh" title="Crawls the job boards and employer career pages for jobs you haven't seen yet, then reads and scores the new ones with AI (a few cents each; up to 60 per search). Your current matches stay."><i data-icon="refresh"></i><span>Search for new jobs</span></button>
           <button class="primary with-icon" id="apply-open"><i data-icon="send"></i><span>Apply to jobs…</span></button>
         </div>
-        <button class="last-search" id="search-status" title="Open the progress and history of your jobs checks"><span class="dot"></span><b>No jobs check yet</b><small></small></button>
+        <button class="last-search" id="search-status" title="Open the progress and history of your searches for new jobs"><span class="dot"></span><b>No search yet</b><small></small></button>
         </div>
       </header>
       <div class="ss-tips" id="tips-jobs" aria-label="Tips"></div>
@@ -332,7 +332,7 @@
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span>Actions</span></div>
       <div class="job-list" id="jobs-body"></div>
       <div class="callout tone-warn" id="jobs-unscored" hidden><span id="jobs-unscored-text"></span> <button class="link" id="jobs-unscored-go" type="button">Check now</button></div>
-      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Check for new jobs</b>; the first search takes a few minutes.</p>
+      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Search for new jobs</b>; the first search takes a few minutes.</p>
     </div>
 
     <div class="view" data-view="focus" hidden>
@@ -795,7 +795,7 @@
             <article class="summary-card">
               <div class="summary-head"><i data-icon="clock"></i><h3>Automation</h3></div>
               <p class="muted">Your job search schedule and automation settings.</p>
-              <dl class="summary-rows"><dt>Job search</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
+              <dl class="summary-rows"><dt>Search for new jobs</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
                 <dt>Always on</dt><dd id="ov-cloud"></dd></dl>
               <button class="arrow-link" data-settings-go="automation">Manage automation</button>
             </article>
@@ -928,7 +928,7 @@
               <label class="check-row"><input type="checkbox" id="auto-search"><span><span>Search on the schedule while Job Pilotto is open</span></span></label>
               <label class="check-row"><input type="checkbox" id="open-login"><span><span>Open Job Pilotto when I log in to my Mac</span></span></label>
             </div>
-            <div class="run-mode-side"><span class="muted">Last jobs check</span><b id="last-search">No jobs check yet</b></div>
+            <div class="run-mode-side"><span class="muted">Last search</span><b id="last-search">No search yet</b></div>
           </div>
           <div class="setting panel" id="setting-schedule">
             <h3>Schedules</h3>
@@ -1140,7 +1140,7 @@
         <div><h3>🔎 Adzuna and Jooble</h3><p class="muted status-line" data-secret="ADZUNA_APP_KEY"></p>
           <p class="muted small">More jobs from two job search engines (Adzuna covers many countries). Free keys: register at
             <a href="#" data-link="https://developer.adzuna.com/signup">developer.adzuna.com</a> (an app id and a key) and request one at
-            <a href="#" data-link="https://jooble.org/api/about">jooble.org/api</a>. Either one is enough; the jobs check asks each at most every 6 hours.</p></div>
+            <a href="#" data-link="https://jooble.org/api/about">jooble.org/api</a>. Either one is enough; the search for new jobs asks each at most every 6 hours.</p></div>
         <div class="inline"><input type="password" id="set-adzuna-id" placeholder="Adzuna app id"><button class="secondary" id="set-adzuna-id-save">Save</button></div>
         <div class="inline"><input type="password" id="set-adzuna-key" placeholder="Adzuna app key"><button class="secondary" id="set-adzuna-key-save">Save</button></div>
         <div class="inline"><input type="password" id="set-jooble" placeholder="Jooble key"><button class="secondary" id="set-jooble-save">Save</button></div>
@@ -1373,7 +1373,7 @@
     </div>
     <button class="activity-bar" id="activity-toggle" aria-expanded="false" aria-controls="activity-panel">
       <span class="activity-dot" id="activity-dot"></span>
-      <b id="activity-title">No jobs check yet</b>
+      <b id="activity-title">No search yet</b>
       <span class="activity-step" id="activity-step"></span>
       <span class="activity-meta" id="activity-meta"></span>
       <span class="activity-open" id="activity-open">Details ▴</span>

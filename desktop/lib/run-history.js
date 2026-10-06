@@ -167,7 +167,7 @@ export function merge(notionRuns, localRuns, pending = []) {
 
 // A finished run as a macOS / Windows notification, wherever it ran; null when there's nothing to say
 // (a Gmail check that recorded nothing, a Telegram button's small action).
-const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Search analysis', kits: 'Prepare top matches', today: "Today's list",
+const NAMES = {search: 'Search for new jobs', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Search analysis', kits: 'Prepare top matches', today: "Today's list",
   scout: 'Find new employers', prepare: 'Application kit', interview: 'Interview review', add: 'Logged activity', rejection: 'Rejection review',
   prep: 'Interview prep kit', import: 'Add a job', tailor: 'Tailor CVs'};
 // A notification is the news of one run, so a click opens that run's result (Recent activity, the run selected); renderer/targets.js says how.
@@ -178,7 +178,7 @@ export function notice(run) {
 function noticeText(run) {
   if (!NAMES[run.kind] && run.kind) return null;
   const where = run.where === 'github' ? ' (on GitHub)' : '';
-  const name = NAMES[run.kind] || 'Jobs check';
+  const name = NAMES[run.kind] || 'Search for new jobs';
   if (run.ok === false || run.off) return {title: `${name} had problems${where}`, body: 'Open Job Pilotto and click the activity bar to see what happened.'};
   if (run.kind === 'mail') {
     const count = run.updates?.length ?? Number(/(\d+) update/.exec(run.result || run.summary || '')?.[1] || 0);
@@ -192,7 +192,7 @@ function noticeText(run) {
   const look = runWarned(run) ? ' Open Job Pilotto to see what it said.' : '';
   if (!run.kind || run.kind === 'search') {
     const fresh = run.new;
-    return {title: `${run.trigger === 'schedule' ? 'Scheduled jobs check' : 'Jobs check'} ${verdict}${where}`,
+    return {title: `${run.trigger === 'schedule' ? 'Scheduled search for new jobs' : 'Search for new jobs'} ${verdict}${where}`,
       body: (fresh ? `${fresh} new job${fresh === 1 ? '' : 's'} found.` : 'No new jobs this time.') + look};
   }
   return {title: `${name} ${verdict}${where}`, body: String(run.result || run.summary || run.message || 'Done.').split('\n')[0].slice(0, 180) + look};

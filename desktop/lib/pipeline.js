@@ -428,7 +428,7 @@ export const TASKS = {
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · \d+ new sources?/},   // the older wording, and the card's second line
 };
-export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Jobs check');
+export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Search for new jobs');
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
 export function scout(storage, onLine, trigger = 'you', batch = 15) {
   const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it

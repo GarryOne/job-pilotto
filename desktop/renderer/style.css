@@ -725,7 +725,7 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-close { width: 26px; height: 26px; }
 .activity-cols { margin-bottom: 8px; align-items: start; }
 .activity-recent { align-content: start; gap: 1px; }
-.recent-row { padding: 3px 8px; gap: 8px; grid-template-columns: 16px 150px minmax(0, 1fr) auto auto; }  /* fits "New jobs check", "Find employers" */
+.recent-row { padding: 3px 8px; gap: 8px; grid-template-columns: 16px 150px minmax(0, 1fr) auto auto; }  /* fits "Search for new jobs", "Find new employers" */
 .run-status { width: 15px; height: 15px; font-size: calc(var(--fs-xs) * .8); }
 .recent-row .ui-pill { padding: 0 7px; }
 .ap-schedule { gap: 6px; }

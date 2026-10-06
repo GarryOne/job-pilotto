@@ -2292,7 +2292,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
       mail: () => (notionGate.connected(storage) ? pipeline.checkMail(storage, log, 'schedule') : skipUntilNotion('mail')),
       scout: () => pipeline.scout(storage, log, 'schedule'),
-    }, powerMonitor, {soon: () => notify('Checking for new jobs in 1 minute', 'Your scheduled check for new jobs is about to run.', {activity: true})});
+    }, powerMonitor, {soon: () => notify('Searching for new jobs in 1 minute', 'Your scheduled search for new jobs is about to run.', {activity: true})});
     setInterval(announceRuns, 5000);
     scheduleResume(pipeline, storage, {cloud: !!storage.settings().cloud?.repo, begin: resumeQueue, delayMs: resumeDelay()});  // after the schedule's own catch-up check has queued what's due; the queue is read now, not then
   }

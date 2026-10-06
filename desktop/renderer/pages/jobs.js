@@ -466,7 +466,7 @@ export function renderJobs() {
   const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
     applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
     dismissed: 'No dismissed jobs.', inbound: 'Nothing found you yet. A recruiter\'s message you log (<b>+ Log job activity…</b>) shows here.'};
-  $('jobs-empty').innerHTML = !shared.allJobs.length ? 'No jobs here yet. Click <b>Check for new jobs</b>; the first search takes a few minutes.'
+  $('jobs-empty').innerHTML = !shared.allJobs.length ? 'No jobs here yet. Click <b>Search for new jobs</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
@@ -1110,7 +1110,7 @@ export async function init() {
   });
   $('search-status').addEventListener('click', () => openActivity(true));
   $('refresh').addEventListener('click', async () => {
-    $('refresh').disabled = true;  // the header status shows "Checking for new jobs →" meanwhile
+    $('refresh').disabled = true;  // the header status shows "Searching for new jobs →" meanwhile
     shared.selectedRun = null;
     setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
     try {
