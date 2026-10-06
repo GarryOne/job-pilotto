@@ -281,7 +281,7 @@ function createWindow() {
   window.loadFile(path.join(here, 'renderer', page));
   // Closed on the Mac, the app keeps running: forget the destroyed window so nothing calls into it.
   const opened = window;
-  opened.on('closed', () => { if (window === opened) window = null; });
+  opened.on('closed', () => { appLog('window', 'main: closed'); if (window === opened) window = null; });
   // Smoke test of the in-app terminal (JOB_PILOTTO_PTY_SMOKE=<file>): a real pseudo-terminal runs a shell command;
   // its output (or the error) goes to the file. The Windows build checks it in the installed app.
   if (process.env.JOB_PILOTTO_PTY_SMOKE) {
@@ -1883,9 +1883,13 @@ function backupNow() {
 }
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); }
 
+// How the app ended, in logs/app.log: a Windows e2e relaunch closed with no line at all (6 Oct 2026). No line after "start" now means the
+// process was killed from outside (nothing in the app can log that).
+app.on('will-quit', () => appLog('window', 'quitting'));
+process.on('exit', code => appLog('window', `process exit ${code}`));
 // One copy per data folder: lifecycle callbacks are tested without launching Electron.
 const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
-  showDuplicate: () => dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
+  showDuplicate: () => appLog('window', 'another copy holds this data folder: this one quits') || dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
     detail: `Quit the other copy first (${process.platform === 'darwin' ? '⌘Q' : 'close its window'}), then open this one again.`}),
 });
 
