@@ -96,6 +96,7 @@ jobs:
       E2E_NOTION_TOKEN_CALENDAR: ${{ secrets.E2E_NOTION_TOKEN_CALENDAR }}
       E2E_NOTION_TOKEN_FOCUS: ${{ secrets.E2E_NOTION_TOKEN_FOCUS }}
       E2E_NOTION_TOKEN_APPLY: ${{ secrets.E2E_NOTION_TOKEN_APPLY }}
+      E2E_NOTION_TOKEN_APPLYCV: ${{ secrets.E2E_NOTION_TOKEN_APPLYCV }}
       E2E_NOTION_TOKEN_ACTIVITY: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITY }}
       E2E_NOTION_TOKEN_ACTIVITYFAILURES: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITYFAILURES }}
       E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
@@ -126,7 +127,7 @@ jobs:
         working-directory: desktop/e2e
         run: npm ci || npm install
       - name: Chromium for the extension (the apply suite loads the real Chrome extension in it)
-        if: matrix.suite == 'apply'
+        if: matrix.suite == 'apply' || matrix.suite == 'applycv'
         working-directory: desktop/e2e
         run: npx playwright-core install chromium
       - name: Python packages the engine needs

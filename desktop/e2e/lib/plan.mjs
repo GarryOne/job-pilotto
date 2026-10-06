@@ -18,7 +18,7 @@ export function suitesFor(files, all, {watches = {}, cadence = {}} = {}) {
   for (const file of files.map(name => String(name).trim()).filter(Boolean)) {
     const suite = /^desktop\/e2e\/suites\/([^/]+)\.mjs$/.exec(file)?.[1];
     if (suite) { if (all.includes(suite)) chosen.add(suite); continue; }
-    if (/^extension\//.test(file)) { chosen.add('apply'); continue; }
+    if (/^extension\//.test(file)) { chosen.add('apply'); chosen.add('applycv'); continue; }
     if (/^desktop\/e2e\/test\//.test(file) || /\.md$/.test(file)) continue;   // unit tests run on their own; docs run nothing
     if (/^desktop\/e2e\//.test(file) || file === '.github/workflows/e2e.yml') chosen.add(SMOKE);
   }

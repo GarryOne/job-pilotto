@@ -40,13 +40,22 @@ const tailoredFrom = numbered => ({summary: 'Site Reliability Engineer who owns 
   changes: [{where: 'Summary', change: 'Leads with SLOs and incident reviews', why: 'The posting asks for both'}]});
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function run(ctx) {
+// Two suites from this file (6 Oct 2026, the 7-minute budget: apply took ~7.4 min on a Mac): `apply` fills the forms, `applycv` (suites/applycv.mjs) runs the
+// tailored-CV and kitless-Apply steps, each on its own Notion page. The setup step and the final "Submit was never clicked" check run in both.
+const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
+const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
+export const partOf = name => (SHARED_STEPS.some(head => name.startsWith(head)) ? 'both' : CV_STEPS.some(head => name.startsWith(head)) ? 'cv' : 'forms');
+
+export const run = ctx => runApply(ctx, ['forms']);
+export async function runApply(ctx, parts) {
   const {page, token: NOTION, proxy, forms} = ctx;
   ctx.findings = [];
   // A seeded run (E2E_SEED, lib/variation.mjs) fills forms with other data and other timing (lib/forms.mjs varyForms); the written seed replays it.
   fs.writeFileSync(path.join(ctx.ARTIFACTS, 'seed.json'), JSON.stringify({seed: ctx.vary.seed, fixed: ctx.vary.fixed, detail: forms.variation}));
   console.log(ctx.vary.fixed ? '  variation: fixed forms' : `  variation: seed ${ctx.vary.seed}; ${forms.variation}; replay with E2E_SEED=${ctx.vary.seed}`);
-  await ensureSetUp(ctx);
+  await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
+  const all = ctx.run;
+  ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
   const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 

@@ -363,7 +363,7 @@ export function priorityOf(issue, now = Date.now()) {
 // What breaks the product outranks what is only rough: a wrong result > a dead or broken control > a missing spinner; a crashed test step is the harness, not the product.
 // The score alone tied eleven of twelve rows on 3 Oct 2026 (a red status dot ranked like a missing spinner).
 const KIND_WEIGHT = {functionality: 3, 'error-shown': 3, 'console-error': 3, 'dead-control': 2, 'expand-broken': 2, 'page-overflow': 2, 'tall-row': 2, 'broken-image': 2, 'no-loading-state': 1, 'test-failure': 0.5};
-const CRITICAL_VIEWS = ['apply', 'strategy', 'activity', 'wizard'];   // the critical path: apply, strategy sync, run results, setup
+const CRITICAL_VIEWS = ['apply', 'applycv', 'strategy', 'activity', 'wizard'];   // the critical path: apply, strategy sync, run results, setup
 const kindOf = issue => /·\s*([a-z0-9-]+)\s*·/.exec(issue.body || '')?.[1] || '';
 const viewOf = issue => /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
 export const rankWeight = (issue, now = Date.now()) => score(issue, now) * (KIND_WEIGHT[kindOf(issue)] ?? 1) * (CRITICAL_VIEWS.includes(viewOf(issue)) ? 1.5 : 1);
