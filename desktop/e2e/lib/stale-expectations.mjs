@@ -29,6 +29,32 @@ export function staleExpectations({removed = [], present = '', suites = []}) {
   return found;
 }
 
-export const staleMessage = found => ['An end-to-end step still expects words the window no longer has (it would fail the next gate as a "bug"):',
+export const staleMessage = found => ['An end-to-end step still expects words or selectors the window no longer has (it would fail the next gate as a "bug"):',
   ...found.slice(0, 8).map(item => `  ${item.file}:${item.line}  "${item.word}"`),
   'Update the step to the new words in the same change (or say so with STALE_EXPECT_OK=1 git push ...).'].join('\n');
+
+// The same for selectors (6 Oct 2026, instead of rewriting every suite onto test ids): an id, class or data- attribute a push removes from the window that a
+// suite still selects on. Names a suite uses: `#id`, `.class` and `[data-x]` inside the strings it passes to the page.
+const SELECTOR_CALL = /(?:click|locator|waitForSelector|querySelector(?:All)?|getElementById|\$\$?|closest|matches|has)\(\s*(['"`])((?:(?!\1).)*)\1/g;
+export function selectorNames(text) {
+  const names = new Set();
+  for (const [, , css] of String(text).matchAll(SELECTOR_CALL)) {
+    for (const [, name] of css.matchAll(/(?:^|[\s>+~,(:])?[#.]([a-zA-Z][\w-]{2,})/g)) names.add(name);
+    for (const [, name] of css.matchAll(/\[(data-[\w-]+)/g)) names.add(name);
+  }
+  for (const [, id] of String(text).matchAll(/getElementById\(\s*['"`]([\w-]{3,})/g)) names.add(id);
+  return names;
+}
+// diff: the window's unified diff; present: the window's code now; suites: [{file, text}] -> [{word, file, line}] for a selector name the push removed and nothing has any more.
+export function staleSelectors({diff = '', present = '', suites = []}) {
+  const removedText = diff.split('\n').filter(line => line.startsWith('-') && !line.startsWith('---')).join('\n');
+  const has = (text, name) => new RegExp(`(^|[^\\w-])${name.replace(/[-]/g, '\\-')}([^\\w-]|$)`).test(text);
+  const found = [];
+  for (const {file, text} of suites) {
+    const lines = String(text).split('\n');
+    lines.forEach((line, index) => {
+      for (const name of selectorNames(line)) if (has(removedText, name) && !has(present, name)) found.push({word: name, file, line: index + 1});
+    });
+  }
+  return found;
+}
