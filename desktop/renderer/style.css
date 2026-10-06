@@ -1074,6 +1074,13 @@ main { min-width: 0; }
 .focus-item.tone-good { border-left-color: var(--good); }
 .focus-round { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); }
 .focus-round .icon { width: 18px; height: 18px; }
+/* Focus → Get started: a step done reads as done at a glance, like the session's needs (.ss-need.is-done): grey, a green tick, no description. */
+#focus-onboarding .onboarding-num { font-weight: 700; color: var(--ink-2); }
+#focus-onboarding .focus-item.tone-info .onboarding-num { background: var(--info-soft); color: var(--info); }
+#focus-onboarding .focus-item.is-done { background: var(--surface-2); padding-block: var(--sp-1); }
+#focus-onboarding .focus-item.is-done .focus-round { width: 28px; height: 28px; background: var(--good-soft); color: var(--good); }
+#focus-onboarding .focus-item.is-done .focus-headline { font-weight: 500; color: var(--muted); text-decoration: line-through; }
+#focus-onboarding .focus-item.is-done .focus-meta { display: none; }
 .focus-round.tone-warn { background: var(--warn-soft); color: var(--warn); }
 .focus-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .focus-top { display: flex; align-items: center; gap: var(--sp-2); max-width: 100%; min-width: 0; }

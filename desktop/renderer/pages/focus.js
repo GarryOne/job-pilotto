@@ -13,6 +13,9 @@ import {dismissInterview, openHappened} from './happened.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openPrep} from './prep.js';
 import {prepCard} from '../prep-card.js';
+import {onboarding} from '../onboarding.js';
+import {lastActivity} from './activity.js';
+import {notionConnected, openNotionConnect} from './notion-connect.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -340,7 +343,47 @@ function renderFocus(data) {
   $('focus-summary').textContent = summary || '';
   renderInsight(insight);
   renderFunnel(funnel);
+  renderOnboarding();
 }
+// Get started: the first steps after the setup (renderer/onboarding.js says which are done). Each button starts what the app's own button
+// starts (the Actions card, the Notion dialog, Tailor's card, Apply), so a running task keeps it off the same way. Gone for good once all are done.
+const ONBOARDING_GO = {
+  scout: () => document.querySelector('.action[data-command="scout"]')?.click(),
+  search: () => document.querySelector('.action[data-command="run"]')?.click(),
+  notion: () => openNotionConnect(),
+  tailor: () => { openView('actions'); const count = $('tailor-top-n'); count?.focus(); count?.select(); },
+  apply: () => { openView('jobs'); $('apply-open')?.click(); },
+};
+export function renderOnboarding() {
+  const settings = shared.state?.settings || {};
+  const state = onboarding({runs: lastActivity?.runs, settings, notionConnected: notionConnected(), funnel: lastFocus?.funnel});
+  if (Object.keys(state.remember).length) {   // a step done once stays done, even if its run later leaves the history
+    const next = {...(settings.onboarding || {}), ...state.remember};
+    if (shared.state?.settings) shared.state.settings.onboarding = next;
+    window.pilot.saveSettings({onboarding: next}).catch(error => console.error('onboarding not saved', error));
+  }
+  show($('focus-onboarding'), state.show);
+  if (!state.show) return;
+  $('onboarding-count').replaceChildren(pill(`${state.doneCount} of ${state.steps.length}`, 'neutral'));
+  const nextAt = state.steps.indexOf(state.next) + 1;
+  $('onboarding-list').replaceChildren(...state.steps.map((step, i) => {
+    const isNext = step === state.next;
+    const li = el('li', `focus-item tone-${step.done ? 'good' : isNext ? 'info' : 'neutral'}${step.done ? ' is-done' : ''}`);
+    const round = el('span', 'focus-round onboarding-num');   // the step's number: they're meant in this order (a search finds more after step 1)
+    round.append(step.done ? icon('tick') : String(i + 1));
+    const body = el('div', 'focus-body');
+    const top = el('div', 'focus-top');
+    top.append(el('span', 'focus-headline', step.label), pill(step.done ? 'Done' : isNext ? 'Next step' : 'To do', step.done ? 'good' : isNext ? 'info' : 'neutral', {dot: true}));
+    body.append(top, el('div', 'focus-meta muted small', step.hint));
+    const actions = el('div', 'focus-actions');
+    // Only the next step can be started: a later one waits for it ("After step 1"), so a search never runs before the employers are found.
+    if (isNext) actions.append(focusButton(step.button, 'primary', ONBOARDING_GO[step.key]));
+    else if (!step.done) actions.append(el('span', 'muted small', `After step ${nextAt}`));
+    li.append(round, body, actions);
+    return li;
+  }));
+}
+
 // The latest rejection lesson, as the page's one insight.
 function renderInsight(insight) {
   show($('focus-insight-card'), !!insight);
@@ -403,6 +446,13 @@ export async function saveDailyTarget(input) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   $('focus-history-toggle').addEventListener('click', () => showHistory(!historyShown));
+  window.addEventListener('activity-updated', () => renderOnboarding());
+  $('onboarding-hide').addEventListener('click', () => {
+    const next = {...(shared.state?.settings?.onboarding || {}), hidden: true};
+    if (shared.state?.settings) shared.state.settings.onboarding = next;
+    window.pilot.saveSettings({onboarding: next}).catch(error => console.error('onboarding not saved', error));
+    show($('focus-onboarding'), false);
+  });
   setInterval(() => {  // "Updated 3 min ago" stays true while the page is open
     if (focusUpdatedAt && !focusLoading) focusStatus(`Updated ${savedAgo(new Date(focusUpdatedAt).toISOString())}`);
   }, 60000);

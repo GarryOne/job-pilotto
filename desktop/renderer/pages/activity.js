@@ -339,6 +339,7 @@ export function renderActivity(fresh) {
   // Settings → Automation shows the same next times beside each schedule.
   shared.nextRuns = {search: data.nextSearchAt, mail: data.nextMailAt, scout: data.nextScoutAt};
   showScheduleState(shared.nextRuns);
+  window.dispatchEvent(new Event('activity-updated'));   // Focus → Get started ticks the steps a finished run completed
   showAwaitedResult(data.runs);
   const {running, runs, nextSearchAt, nextMailAt, nextScoutAt} = data;
   if (!running) shared.idleSeen = true;
