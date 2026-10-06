@@ -14,6 +14,8 @@ export const JOBS = {   // job id -> [label, group]; an unknown id still shows, 
   'code-review': ['Code review', 'Self-heal'],
   'finder-review': ['Finder self-review', 'Self-heal'],
   'e2e-screenshot-review': ['E2E screenshot review', 'Self-heal'],
+  'e2e-app': ['E2E: the app under test', 'E2E tests'],   // its AI calls in CI suites (desktop/e2e/lib/ai-meter.mjs)
+  'e2e-judges': ['E2E: test judges', 'E2E tests'],
   'sentry-fix': ['Sentry fixer', 'Self-heal'],
   'weekly-self-review': ['Weekly self-review', 'Self-heal'],
   'product-brain': ['Product brain', 'Product brain'],

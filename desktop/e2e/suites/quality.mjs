@@ -232,7 +232,7 @@ export async function run(ctx) {
       const TERMS = persona?.cvMatch?.terms ?? ['kubernetes', 'terraform', 'aws', 'datadog', 'opentelemetry', 'slos'];
       let expected = 0, got = 0, corrected = 0;
       for (const item of postings.filter(entry => entry.fit === 'high').slice(0, 3)) {
-        const result = await check({}, ctx.key, {job: item, cv, client: ctx.engine === 'cli' ? modelClient() : null});
+        const result = await check({}, ctx.key, {job: item, cv, client: modelClient({key: ctx.key})});   // through lib/model.mjs either way: Claude Code on a Mac, the API in CI (counted for /ai-cost)
         corrected += result.corrected;
         for (const term of TERMS.filter(candidateTerm => text.includes(candidateTerm) && item.description.toLowerCase().includes(candidateTerm))) {
           expected++;

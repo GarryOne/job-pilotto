@@ -1,3 +1,4 @@
 artifacts/
 node_modules/
 .review-cache/
+.ai-cache/

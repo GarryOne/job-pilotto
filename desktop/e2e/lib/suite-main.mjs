@@ -49,6 +49,7 @@ export async function runSuite(name, report = null) {
       await ctx.close();
       };
       await (report ? report.step('Close the app, save the artifacts', closeDown) : closeDown()).catch(error => console.log(`  (close-down: ${error.message})`));
+      try { (await import('./ai-meter.mjs')).writeUsage(ctx.ARTIFACTS); } catch (error) { console.log(`  (AI usage not written: ${error.message})`); }   // what this suite paid, for /ai-cost (e2e.yml reports it)
       if (ctx.runner.summary()) code = 1;
       report?.decided?.(code);   // the exit code is known: lib/report.mjs stops a Playwright runner that stays open long after this (6 Oct 2026: wander hung 10 min)
       // The steps and the kept traces as data, for the owner's /admin/e2e page (site/src/e2e.js reads it out of the e2e-view-<suite> artifact).

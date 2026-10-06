@@ -4,6 +4,7 @@
 import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import {startAiProxy} from '../lib/ai-proxy.mjs';
 
 export const name = 'mailreading';
 export const minutes = 5;
@@ -17,10 +18,14 @@ const python = () => process.env.E2E_PYTHON || (fs.existsSync(path.join(repo, '.
 export async function run(ctx) {
   let report = null;
   await ctx.run('the model reads the invented emails through the check\'s own prompt', async () => {
+    // On the API (CI) the eval's calls go through the AI proxy, so what it pays is counted for /ai-cost (lib/ai-meter.mjs).
+    const proxy = ctx.engine === 'api' ? await startAiProxy() : null;
+    try {
     report = await new Promise(resolve => execFile(python(), [path.join(repo, 'tools', 'mail_eval.py')], {
       cwd: repo, timeout: 4 * 60 * 1000, maxBuffer: 4 << 20,
-      env: {...process.env, ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: ctx.engine},
+      env: {...process.env, ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: ctx.engine, ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})},
     }, (error, stdout, stderr) => resolve({code: error ? (error.code ?? 1) : 0, out: String(stdout), err: String(stderr)})));
+    } finally { await proxy?.close(); }
     console.log(report.out.split('\n').filter(line => /^(ok|MISS)|right/.test(line)).map(line => `  ${line}`).join('\n'));
     if (!/\d+\/\d+ right/.test(report.out)) throw new Error(`the eval did not run: ${(report.err || report.out).trim().split('\n').slice(-3).join(' | ')}`);
   }, {needs: ctx.needs});

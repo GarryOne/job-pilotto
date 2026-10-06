@@ -110,6 +110,10 @@ jobs:
       E2E_FULL: ${{ inputs.full }}   # the paid AI judge steps, as on the Mac run it follows (a nightly gate or a run by hand)
       E2E_SEED: ${{ inputs.fixed && '0' || inputs.mac_run || github.run_id }}   # after a Mac run: the Mac's own seed, the same path on both   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
+      # AI cost: as e2e.yml. A Windows run follows a Mac run that already asked live, so it always replays what it has seen (its own cache: paths differ).
+      E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
+      E2E_AI_REPLAY: '1'
+      E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
     steps:
       - uses: actions/checkout@v5
@@ -137,6 +141,13 @@ jobs:
         run: npx playwright-core install chromium
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
+      - name: Earlier AI answers (replayed instead of paid again; lib/ai-meter.mjs)
+        if: env.E2E_ANTHROPIC_KEY != ''
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-answers-windows-${{ matrix.suite }}-
       - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
         timeout-minutes: 12   # the suite stops itself at its 7-minute budget, and by force 3 min later (suite.mjs)
@@ -151,6 +162,27 @@ jobs:
           E2E_BROWSER: msedge
           E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/apply-edge   # its own folder: the Chromium run's evidence stays
         run: node suite.mjs apply
+      - name: Report what the suite paid for AI to /ai-cost (the app under test and the judges)
+        if: always() && env.E2E_ANTHROPIC_KEY != ''
+        continue-on-error: true   # a report never decides a run
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          for kind in app judges; do
+            for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-artifacts-windows/apply-edge"; do
+              file="$dir/ai-usage-$kind.json"; [ -f "$file" ] || continue
+              tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
+              node desktop/e2e/ai-cost-report.mjs --job "e2e-$kind" --suffix "windows-${{ matrix.suite }}$tag" --file "$file"
+            done
+          done
+      - name: Keep the AI answers for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        run: find desktop/e2e/.ai-cache -name '*.json' -mtime +7 -delete   # an answer not replayed for a week is dropped (a replay touches it)
+      - if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
         uses: actions/cache/restore@v5

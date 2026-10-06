@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {pickEngine} from './engine.mjs';
+import {count, usageOf} from './ai-meter.mjs';
 
 // A bare `claude -p` loads the owner's MCP servers, skills and settings: 106k tokens for a one-word answer. These flags leave about 400.
 export const CLI_FLAGS = ['-p', '--output-format', 'json', '--tools', '', '--no-session-persistence', '--strict-mcp-config', '--disable-slash-commands', '--setting-sources', ''];
@@ -56,7 +57,11 @@ const reply = (status, data) => ({ok: status < 400, status, json: async () => da
 
 // fetch-shaped. `engine`/`exec` can be replaced by a test.
 export async function modelFetch(url, init, {engine = () => pickEngine(), exec = run, timeoutMs = 5 * 60 * 1000} = {}) {
-  if (engine() === 'api') return fetch(url, init);
+  if (engine() === 'api') {   // paid: counted for /ai-cost as the judges' spend (lib/ai-meter.mjs)
+    const response = await fetch(url, init);
+    try { if (response.ok) count('judges', usageOf(await response.clone().text(), response.headers.get('content-type') || '')); } catch { /* counting never breaks the call */ }
+    return response;
+  }
   const body = JSON.parse(init.body);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-model-'));   // no project, no CLAUDE.md, no hooks around the call
   try {

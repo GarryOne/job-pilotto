@@ -3,6 +3,7 @@
 // It can also fail on purpose (setMode): the API answering 429 / 500 / 401, an empty credit balance, or never answering, so the failure states of a run are tested
 // without a real outage and without spending anything.
 import http from 'node:http';
+import {count, countReplay, keep, recall, requestKey, usageOf} from './ai-meter.mjs';
 
 // What the Anthropic API sends for each failure the app must survive (bodies copied from the real API's error shape).
 export const FAILURES = {
@@ -39,12 +40,21 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
         return;
       }
     }
+    // Replay (CI, lib/ai-meter.mjs): the same request answered before is answered from the cache, free; anything new is paid, counted, and kept for next time.
+    const body = Buffer.concat(chunks), key = requestKey(req.url, body), kept = recall(key);
+    if (kept) {
+      countReplay('app', usageOf(kept.body.toString('utf8'), kept.contentType));
+      res.writeHead(kept.status, {'content-type': kept.contentType, 'content-length': kept.body.length});
+      res.end(kept.body);
+      return;
+    }
     try {
       const headers = Object.fromEntries(Object.entries(req.headers).filter(([name]) => !['host', 'connection', 'content-length', 'accept-encoding'].includes(name)));
-      const answer = await fetch(`${target}${req.url}`, {method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks)});
-      const body = Buffer.from(await answer.arrayBuffer());
-      res.writeHead(answer.status, {'content-type': answer.headers.get('content-type') || 'application/json', 'content-length': body.length});
-      res.end(body);
+      const answer = await fetch(`${target}${req.url}`, {method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body});
+      const answered = Buffer.from(await answer.arrayBuffer()), contentType = answer.headers.get('content-type') || 'application/json';
+      if (answer.ok && /\/messages(\?|$)/.test(req.url)) { count('app', usageOf(answered.toString('utf8'), contentType)); keep(key, {status: answer.status, contentType, body: answered}); }
+      res.writeHead(answer.status, {'content-type': contentType, 'content-length': answered.length});
+      res.end(answered);
     } catch (error) {
       res.writeHead(502, {'content-type': 'application/json'});
       res.end(JSON.stringify({type: 'error', error: {type: 'api_error', message: `proxy: ${error.message}`}}));

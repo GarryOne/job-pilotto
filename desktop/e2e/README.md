@@ -90,6 +90,9 @@ It costs about $0.3 a run, like the default (the SRE). It is how scoring is prov
 
 ## Secrets
 - `E2E_ANTHROPIC_KEY`: a dedicated Anthropic key with a small monthly spend limit. **CI only**: a Mac never uses it.
+  What it pays is counted per suite (`lib/ai-meter.mjs`: the app under test through the AI proxy, the judges through `lib/model.mjs`) and reported to /ai-cost as
+  `e2e-app` and `e2e-judges`. Only scheduled runs ask the model live; every other CI run replays an answer it has seen (`E2E_AI_REPLAY=1`, cache `.ai-cache/`,
+  kept between runs by actions/cache) and pays only for new requests. CI judges run on Haiku (`E2E_JUDGE_MODEL`), except in the quality suite.
 - `E2E_NOTION_TOKEN`: the test connection's token. Never use your own Notion.
 Both live in GitHub (Settings → Secrets → Actions) and, for local runs, in the macOS Keychain
 (`job-pilotto.e2e.anthropic_key`, `job-pilotto.e2e.notion_token`). Never in code.

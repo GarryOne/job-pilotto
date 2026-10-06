@@ -135,6 +135,12 @@ jobs:
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
+      # AI cost (7 Oct 2026: the e2e key billed ~$10 a day, mostly unseen). Only the scheduled runs ask the model live; every other run (gates, soaks, the canary, reruns,
+      # by hand) answers a request it has seen before from the replay cache, and pays only for new ones (lib/ai-meter.mjs). Judges on Haiku, except the quality suite,
+      # which measures Sonnet's scoring.
+      E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
+      E2E_AI_REPLAY: ${{ (github.event_name == 'schedule' || inputs.scheduled) && '0' || '1' }}
+      E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
       JOB_PILOTTO_E2E_EXPECTS_FAILURES: ${{ inputs.mutant && '1' || '' }}   # a mutant run breaks the app on purpose: its crash reports are tagged expected, so the Sentry loop ignores them
       E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
@@ -173,6 +179,13 @@ jobs:
         env:
           MUTANT: ${{ inputs.mutant }}
         run: node desktop/e2e/mutate.mjs "$MUTANT"
+      - name: Earlier AI answers (replayed instead of paid again; lib/ai-meter.mjs)
+        if: env.E2E_ANTHROPIC_KEY != ''
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-answers-${{ matrix.suite }}-
       - name: Run the ${{ matrix.suite }} suite
         id: suite_run
         # A red first run is not the verdict (owner, 6 Oct 2026): the step below runs the suite once more on the same commit and decides. Flaky (red, then green)
@@ -201,6 +214,27 @@ jobs:
             echo "Failed again on the same commit: a real failure." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1   # red twice: the job (and the gate) fail
           fi
+      - name: Report what the suite paid for AI to /ai-cost (the app under test and the judges)
+        if: always() && env.E2E_ANTHROPIC_KEY != ''
+        continue-on-error: true   # a report never decides a run
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          for kind in app judges; do
+            for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}"; do
+              file="$dir/ai-usage-$kind.json"; [ -f "$file" ] || continue
+              tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
+              node desktop/e2e/ai-cost-report.mjs --job "e2e-$kind" --suffix "${{ matrix.suite }}$tag" --file "$file"
+            done
+          done
+      - name: Keep the AI answers for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        run: find desktop/e2e/.ai-cache -name '*.json' -mtime +7 -delete   # an answer not replayed for a week is dropped (a replay touches it)
+      - if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''
         uses: actions/cache/restore@v5
