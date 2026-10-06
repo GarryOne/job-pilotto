@@ -159,6 +159,10 @@ function outcomeOf(run) {
   return run.new != null ? plural(run.new, 'new job') : 'done';
 }
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
+// A Google sign-in that failed during a run, with Gmail working now: the run stays as it was, without the obsolete button.
+const GOOGLE_SIGNIN = /Google sign-in/i;
+const signedInSince = head => (head && GOOGLE_SIGNIN.test(head.problem || '') && gmailConnected() === true
+  ? {...head, title: 'Google sign-in failed during this run', summary: 'Gmail is connected now. You can run another check.', hint: '', fix: null} : head);
 // Whether Gmail is connected now (true / false / null = not known yet): Settings keeps the last check (localStorage
 // 'serviceChecks'); it is read again from the app when Recent activity opens. A run's own state is history, not this.
 let gmailNow = null;
@@ -438,7 +442,7 @@ export function renderActivity(fresh) {
   // Check Gmail now: with a selected Gmail check, not in the schedule strip. While Gmail is not connected it connects it instead.
   const selected = shown || (running ? null : last);
   // A not-connected run's box already offers Connect Gmail: the header doesn't say it twice.
-  show($('check-mail'), !!selected && kindOf(selected) === 'mail' && !(gmailOff && selected.off));
+  show($('check-mail'), !!selected && kindOf(selected) === 'mail' && !(gmailOff && (selected.off || GOOGLE_SIGNIN.test(selected.problem || ''))));
   $('check-mail').textContent = gmailOff ? 'Connect Gmail' : 'Check Gmail now';
   $('check-mail').dataset.connect = gmailOff ? '1' : '';
 
@@ -580,7 +584,7 @@ export function renderActivity(fresh) {
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
   const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)})
     || deliveryHead({...run, kind: kindOf(run)}) || notConnectedHead(run, gmailConnected()) || waitedHead({...run, kind: kindOf(run)})))
-    || failureHead(run && {...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name);
+    || signedInSince(failureHead(run && {...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name));
   // A message not delivered comes after the run's results; every other box comes first. Its icon says what it is about.
   if (head?.delivery) $('activity-phases').after($('activity-warnings')); else $('activity-phases').before($('activity-warnings'));
   $('activity-warnings').querySelector('.ap-warn-icon').replaceChildren(icon(head?.icon || 'alert'));
