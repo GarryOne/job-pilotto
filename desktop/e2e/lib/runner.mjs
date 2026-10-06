@@ -4,9 +4,26 @@ import {isEnvironment, RETRY_WAIT_MS} from './environment.mjs';
 
 // keepGoing (a suite's `export const keepGoing = true`): a failed step is recorded and the next one runs, so one failure never hides the rest of the suite
 // (5 Oct 2026: one outdated step hid fifteen, twice). A step marked `critical` (the setup the others need) still stops the suite.
+// A step that never ends (6 Oct 2026: activityfailures sat 25 min after its first step, killed by the job's timeout with no screenshot and no app log: a call into the
+// app that never answered). Every step gets a limit (limitMs, default 8 min: twice the longest step of the 6 Oct gate, 226 s); past it the step fails like any other, saving the
+// screenshot and logs, with which side of the app still answers in the message.
+export const STEP_LIMIT_MS = Number(process.env.E2E_STEP_LIMIT_MS) || 8 * 60000;
+const answers = (promise, ms = 5000) => Promise.race([promise.then(() => true, () => false), new Promise(done => setTimeout(() => done(false), ms))]);
+export async function hangReport(session) {
+  if (!session) return 'no app session';
+  const [window, main] = await Promise.all([answers(session.page?.evaluate(() => 1) ?? Promise.reject()), answers(session.app?.evaluate(() => 1) ?? Promise.reject())]);
+  return `the window ${window ? 'answers' : 'does NOT answer'}, the main process ${main ? 'answers' : 'does NOT answer'}`;
+}
+export function withLimit(promise, ms, name, getSession = () => null) {
+  let timer;
+  const limit = new Promise((_, fail) => { timer = setTimeout(async () => fail(new Error(`the step did not finish within ${Math.round(ms / 60000)} min (it hung): ${await hangReport(getSession())}`)), ms); });
+  return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+}
+
 export function createRunner(getSession, {keepGoing = false} = {}) {
   const results = [];
-  async function run(name, fn, {needs = [], faults = false, critical = false} = {}) {   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
+  async function run(name, rawFn, {needs = [], faults = false, critical = false, limitMs = STEP_LIMIT_MS} = {}) {
+    const fn = () => withLimit(Promise.resolve().then(rawFn), limitMs, name, getSession);   // faults: the step breaks things on purpose, so a broken answer is the product's to handle: never retried, never "environment"
     // E2E_STEPS=tailor,seeded runs only the steps whose name contains one of these words (and the critical setup): a quick way to re-run one step of a long suite.
     const only = (process.env.E2E_STEPS || '').split(',').map(word => word.trim().toLowerCase()).filter(Boolean);
     if (only.length && !critical && !only.some(word => name.toLowerCase().includes(word))) return;
