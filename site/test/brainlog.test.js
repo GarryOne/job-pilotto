@@ -92,20 +92,34 @@ test('the list is newest first, each row with its decision\'s title, status now 
   assert.equal(rows[2].link, 'https://www.notion.so/one');
 });
 
-test('the page: status pills with counts, the filter, the full text escaped in a toggle, a Notion link; empty states', async () => {
+test('the page: one card per decision, status pills with counts, the filter, the text in a toggle, its steps, a Notion link', async () => {
   const rows = await messages((await seeded()).STATS);
   const html = page(rows);
   assert.match(html, /🧠 Product Brain/);
+  assert.equal((html.match(/<article class="card decision">/g) || []).length, 2, 'one card per decision, not per message');
   assert.match(html, /All · 2/);
   assert.match(html, /href="\/admin\/brain\?status=Approved">Approved · 1/);
   assert.match(html, /href="\/admin\/brain\?status=Not%20now">Not now · 1/);
-  assert.match(html, /<details><summary>Full text<\/summary><div class="body">Evidence: &lt;b&gt;12&lt;\/b&gt; taps lost/);
+  assert.match(html, /<h3>Ship the brain page<\/h3><p class="text">Evidence: &lt;b&gt;12&lt;\/b&gt; taps lost<\/p>/, 'escaped');
+  assert.match(html, /<details class="step-text"><summary>## Explored plan<\/summary><div class="full">## Explored plan\n1. Table\n2. Page/, 'the plan in a toggle');
+  const ship = html.slice(html.indexOf('Ship the brain page'));
+  assert.ok(ship.indexOf('Tapped') < ship.indexOf('🗺️ Plan') && ship.indexOf('🗺️ Plan') < ship.indexOf('🔄 Status'), 'steps oldest first');
+  assert.ok(html.indexOf('Post on Reddit') < html.indexOf('Ship the brain page'), 'latest activity first');
   assert.match(html, /href="https:\/\/www.notion.so\/one" target="_blank"/);
   const approved = page(rows, 'Approved');
   assert.doesNotMatch(approved, /Post on Reddit/);
-  assert.equal((approved.match(/class="msg"/g) || []).length, 4);
   assert.match(page(rows, 'Done'), /No decision has this status now/);
   assert.match(page([]), /No brain message logged yet/);
+  const bold = page([{decision: id, kind: 'plan', at: '2026-10-05T06:00:00Z', status: 'Plan ready', now: 'Plan ready', link: 'x', body: 'Options\n**A · Send all** <i>'}]);
+  assert.match(bold, /<b>A · Send all<\/b> &lt;i&gt;/, 'bold kept, HTML still escaped');
+});
+
+test('a Notion link on another Notion domain is kept; a decision with none links to its page by id', async () => {
+  const e = env(), other = 'ef56'.repeat(8);
+  await post(e, {messages: [{decision: id, kind: 'recommendation', title: 'A', notion_url: 'https://app.notion.com/p/abc', at: '2026-10-05T05:00:00Z'},
+    {decision: other, kind: 'recommendation', title: 'B', at: '2026-10-06T05:00:00Z'}]});
+  const rows = await messages(e.STATS);
+  assert.deepEqual(rows.map(r => r.link), [`https://www.notion.so/${other}`, 'https://app.notion.com/p/abc']);
 });
 
 test('/admin/brain is the owner\'s only: a stranger gets 404, the owner the page, filtered by ?status=', async () => {

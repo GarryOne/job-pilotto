@@ -25,7 +25,7 @@ export async function record(db, message, now = new Date()) {
   if (known) return true;
   await db.prepare(`INSERT OR IGNORE INTO brain_messages (decision, kind, title, body, status, notion_url, telegram_id, source, at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(decision, message.kind, cut(message.title, 300), cut(message.text, 20000), status,
-    /^https:\/\/(www\.)?notion\.so\//.test(message.notion_url || '') ? cut(message.notion_url, 300) : '', telegram, source, at).run();
+    /^https:\/\/([a-z0-9-]+\.)*notion\.(so|site|com)\//.test(message.notion_url || '') ? cut(message.notion_url, 300) : '', telegram, source, at).run();
   return true;
 }
 
@@ -51,48 +51,71 @@ export async function messages(db, limit = 500) {
     if (row.notion_url) d.notion_url = row.notion_url;
   }
   return rows.map(row => ({...row, decision_title: decisions[row.decision].title, now: decisions[row.decision].status,
-    link: row.notion_url || decisions[row.decision].notion_url}));
+    link: row.notion_url || decisions[row.decision].notion_url || `https://www.notion.so/${row.decision}`}));
 }
 
 const PILL = {Proposed: 'blue', Exploring: 'amber', 'Plan ready': 'violet', Approved: 'green', 'Not now': 'grey', Done: 'green'};
-const KIND = {recommendation: '🧭 Recommendation', plan: '🗺️ Plan', status: '🔄 Status', tap: '👆 Tap'};
+const STEP = {recommendation: '🧭 Recommended', plan: '🗺️ Plan', status: '🔄 Status', tap: '👆 Tapped'};
 const pill = status => status ? `<span class="pill ${PILL[status] || 'grey'}">${esc(status)}</span>` : '';
+const when = at => esc(String(at).slice(0, 16).replace('T', ' '));
+// A text in a toggle: its first non-empty line is the preview, the click opens the rest.
+function toggle(text, className = 'text') {
+  const lines = String(text || '').split('\n').filter(line => line.trim());
+  if (!lines.length) return '';
+  if (lines.length === 1 && lines[0].length <= 160) return `<p class="${className}">${esc(lines[0])}</p>`;
+  return `<details class="${className}"><summary>${esc(lines[0].slice(0, 160))}</summary><div class="full">${esc(text).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')}</div></details>`;
+}
+
+// One card per decision, the latest activity first: its recommendation (title, lens, the full text in a toggle) and every later
+// step (plan, tap, status change) as a line with its own text. Rows come newest first (messages()).
+export function decisions(rows) {
+  const byId = new Map();
+  for (const row of rows) {
+    const d = byId.get(row.decision) || {id: row.decision, title: row.decision_title || row.title, now: row.now, link: row.link, last: row.at, steps: []};
+    if (row.kind === 'recommendation') d.recommendation = row; else d.steps.unshift(row);   // steps oldest first
+    byId.set(row.decision, d);
+  }
+  return [...byId.values()];
+}
 
 export function page(rows, filter = '') {
-  const counts = {};
-  const seen = new Set();
-  for (const row of rows) if (!seen.has(row.decision)) { seen.add(row.decision); counts[row.now || 'Unknown'] = (counts[row.now || 'Unknown'] || 0) + 1; }
-  const shown = filter ? rows.filter(row => row.now === filter) : rows;
-  const filters = [['', `All · ${seen.size}`], ...STATUSES.filter(s => counts[s]).map(s => [s, `${s} · ${counts[s]}`])].map(([value, label]) =>
+  const all = decisions(rows), counts = {};
+  for (const d of all) counts[d.now || 'Unknown'] = (counts[d.now || 'Unknown'] || 0) + 1;
+  const shown = filter ? all.filter(d => d.now === filter) : all;
+  const filters = [['', `All · ${all.length}`], ...STATUSES.filter(s => counts[s]).map(s => [s, `${s} · ${counts[s]}`])].map(([value, label]) =>
     `<a class="filter${value === filter ? ' on' : ''}" href="/admin/brain${value ? `?status=${encodeURIComponent(value)}` : ''}">${esc(label)}</a>`).join('');
-  const items = shown.map(row => {
-    // The bold line is always the decision (its recommendation's title); a status change or a tap says its step beside the kind.
-    const title = row.decision_title || row.title || '(untitled decision)';
-    const step = row.kind === 'status' || row.kind === 'tap' ? ` → ${row.status ? pill(row.status) : '<span class="pill red">failed</span>'}` : '';
-    return `<li class="msg"><div class="msg-head"><span class="muted when">${esc(row.at.slice(0, 16).replace('T', ' '))}</span>
-<span class="kind">${KIND[row.kind] || esc(row.kind)}${step}</span><b class="title">${esc(title)}</b>
-<span class="right">${pill(row.now)}${row.link ? ` <a href="${esc(row.link)}" target="_blank" rel="noopener">Notion ↗</a>` : ''}</span></div>
-${row.body ? `<details><summary>Full text</summary><div class="body">${esc(row.body)}</div></details>` : ''}</li>`;
+  const cards = shown.map(d => {
+    const rec = d.recommendation, lens = /^Lens: (.+)$/m.exec(rec?.body || '')?.[1];
+    const body = (rec?.body || '').replace(/^Lens: .+\n?/m, '');
+    const steps = d.steps.map(step => `<li><span class="muted">${when(step.at)}</span> ${STEP[step.kind] || esc(step.kind)}${step.kind === 'plan' ? ''
+      : ` → ${step.status ? pill(step.status) : '<span class="pill red">failed</span>'}`}${toggle(step.kind === 'plan' ? step.body || step.title : step.body, 'step-text')}</li>`).join('');
+    return `<article class="card decision">
+<div class="meta"><span>${when(rec?.at || d.steps[0]?.at || d.last)}</span>${lens ? `<span>${esc(lens)}</span>` : ''}<span class="right">${pill(d.now)}
+<a href="${esc(d.link)}" target="_blank" rel="noopener">Notion ↗</a></span></div>
+<h3>${esc(d.title || '(untitled decision)')}</h3>${toggle(body)}
+${steps ? `<ul class="steps">${steps}</ul>` : ''}</article>`;
   }).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Product Brain · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a}
-*{box-sizing:border-box}h2{margin:0 0 8px}.card{padding:16px;margin-bottom:12px;display:block}
-.filters{display:flex;gap:6px;flex-wrap:wrap}.filter{color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
+*{box-sizing:border-box}.card{padding:14px 16px;margin-bottom:10px;display:block}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.filter{color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
 .filter:hover{color:var(--text)}.filter.on{background:var(--amber);color:var(--bg);border-color:var(--amber);font-weight:600}
-.msgs{list-style:none;margin:0;padding:0}.msg{padding:10px 0;border-top:1px solid var(--line)}.msg:first-child{border-top:0}
-.msg-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.when{font-size:12px;font-variant-numeric:tabular-nums}.kind{font-size:12px;color:var(--muted)}
-.title{font-weight:600}.right{margin-left:auto;display:flex;gap:8px;align-items:baseline;font-size:13px}
+.meta{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}.meta .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.decision h3{margin:6px 0 4px;font-size:16px;line-height:1.35}
+.text,.step-text{margin:0;color:var(--muted);font-size:14px;overflow-wrap:anywhere}.step-text{display:block;margin:2px 0 0 0}
+details summary{cursor:pointer;list-style:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}details summary::-webkit-details-marker{display:none}
+details summary::before{content:'▸ ';color:var(--amber)}details[open] summary{font-size:0}details[open] summary::before{content:'▾ Less';font-size:13px}
+.full{white-space:pre-wrap;color:var(--text);margin-top:6px;padding:10px 12px;background:var(--bg);border-radius:10px}
+.steps{list-style:none;margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--line);font-size:13px}.steps li{margin:4px 0}
 .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .pill.blue{background:#1d3a5c;color:#9cc7f5}.pill.amber{background:#4a3a14;color:#f5b54a}.pill.violet{background:#3a2a5c;color:#c5a8f5}
-.pill.green{background:#163f2e;color:#6fd3a4}.pill.red{background:#4a1d1f;color:#f08a8d}.pill.grey{background:#262c33;color:#8d949c}
-details{margin-top:6px}summary{cursor:pointer;color:var(--muted);font-size:13px}.body{white-space:pre-wrap;margin-top:6px;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:14px}
+.pill.green{background:#163f2e;color:#6fd3a4}.pill.grey{background:#262c33;color:#8d949c}.pill.red{background:#4a1d1f;color:#f08a8d}
 </style></head><body><main>
-<header><h1>🧠 Product Brain</h1><span class="muted">every message of the Brain bot and every tap · newest first · Notion keeps the decisions</span></header>
-<section class="card"><h2>Status now</h2><nav class="filters" aria-label="Filter by status">${filters}</nav></section>
-<section class="card"><h2>Messages${filter ? ` · decisions now ${esc(filter)}` : ''}</h2>${items
-  ? `<ul class="msgs">${items}</ul>` : `<p class="muted">${filter ? 'No decision has this status now.' : 'No brain message logged yet.'}</p>`}</section>
+<header><h1>🧠 Product Brain</h1><span class="muted">one card per decision · latest activity first · Notion keeps the decisions</span></header>
+<nav class="filters" aria-label="Filter by status">${filters}</nav>
+${cards || `<p class="muted">${filter ? 'No decision has this status now.' : 'No brain message logged yet.'}</p>`}
 </main></body></html>`;
 }
 
