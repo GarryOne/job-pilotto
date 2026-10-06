@@ -312,7 +312,9 @@ jobs:
     # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. Never a release gate.
     name: Windows follows
     needs: [plan, suite]
-    if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == '' && inputs.mutant == ''
+    # Windows only for the release gate, the schedule and a gate by hand (6 Oct 2026): a push run's Windows jobs held runner slots (20 at once, shared) while
+    # the next run's Mac + Linux suites waited. A Windows-only problem from a push is found at the next scheduled run or gate.
+    if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == '' && inputs.mutant == '' && (github.event_name == 'workflow_run' || github.event_name == 'schedule' || inputs.gate_tag != '')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
