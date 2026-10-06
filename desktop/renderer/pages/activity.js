@@ -356,6 +356,7 @@ export function renderActivity(fresh) {
     button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity);
       $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true}); });   // the redraw dropped the focus: ↑/↓ keep working
+    return button;
   };
   $('activity-recent').replaceChildren(...groupRuns(recent).flatMap(group => [
     Object.assign(document.createElement('li'), {className: 'recent-group', textContent: group.label}),

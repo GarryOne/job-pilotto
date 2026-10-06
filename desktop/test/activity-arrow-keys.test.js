@@ -12,3 +12,10 @@ test('Recent activity handles ArrowUp/ArrowDown, skips queued rows and keeps the
   assert.match(block, /\.recent-row\.current/);
   assert.match(block, /focus\(\)/);
 });
+
+test('the Recent activity row builder returns its button (a missing return drew "undefined" rows, 6 Oct 2026)', () => {
+  const start = source.indexOf('const recentRow = run =>');
+  const end = source.indexOf("$('activity-recent').replaceChildren", start);
+  assert.ok(start > 0 && end > start);
+  assert.match(source.slice(start, end).trimEnd(), /return button;\s*\};$/);
+});
