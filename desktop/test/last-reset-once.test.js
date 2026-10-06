@@ -1,0 +1,15 @@
+// "Data imported ✓" / "Job Pilotto was reset" is shown once per app start, not again on every window reload (6 Oct 2026).
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {test} from 'node:test';
+
+test('lastReset hands the import/reset result to the window once, then null', async () => {
+  const main = await readFile(new URL('../main.js', import.meta.url), 'utf8');
+  const line = main.split('\n').find(l => l.includes("ipcMain.handle('lastReset'"));
+  assert.ok(line, 'the lastReset handler exists');
+  const resetDone = {imported: true, backup: 'x'};
+  const body = line.trim().replace(/^ipcMain\.handle\('lastReset',\s*/, '').replace(/\);$/, '');
+  const handler = new Function('resetDone', `let resetTold = false; return ${body};`)(resetDone);
+  assert.deepEqual(handler(), resetDone);
+  assert.equal(handler(), null, 'a reload does not show it again');
+});

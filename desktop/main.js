@@ -1157,7 +1157,8 @@ function handlers() {
     restartApp('reset');
     return {ok: true};
   });
-  ipcMain.handle('lastReset', () => resetDone);
+  // Told once per app start: a window reload (⌘R) asks again, and must not re-show "Data imported ✓" for an import done long ago.
+  ipcMain.handle('lastReset', () => { const done = resetTold ? null : resetDone; resetTold = true; return done; });
   // What lives only on this Mac: the weekly automatic backup (lib/backup.js), or now.
   ipcMain.handle('backupNow', () => backupNow());
   ipcMain.handle('showBackups', () => { fs.mkdirSync(backup.folder(), {recursive: true}); return shell.openPath(backup.folder()); });
@@ -1875,6 +1876,7 @@ else if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.
 // A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
 // opens it; the app then starts like the first time (the setup wizard).
 let resetDone = null;
+let resetTold = false;
 // What the form's panel shows about a job's CV: tailored already, or being tailored now (jobs whose Tailor CV was asked from the panel).
 const tailoring = new Set();
 const cvOf = url => ({tailored: !!cvlib.forUrl(storage, url), working: tailoring.has(server.pageKey(url))});
