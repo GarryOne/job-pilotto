@@ -218,7 +218,7 @@ export async function runParts(ctx, parts) {
     }, {needs: ctx.needs, faults: true});
   }
   if (parts.includes('ai')) {
-    await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', api(async () => {
+    await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Stopped, in words, with nothing left Running', api(async () => {
       // The app stops a run that prints nothing for 15 minutes; this test shortens that to 10 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
       await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '10000'});
       await appReady(ctx);
@@ -227,7 +227,7 @@ export async function runParts(ctx, parts) {
       try {
         const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 180000, kind: 'search'});
         const mine = shown.find(row => row.id === String(fresh[0].id));
-        const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id, snapAs: 'activity-run-failed', situation: 'A Jobs check stopped by Job Pilotto after the AI went silent: Failed, with its reason, in the Recent activity panel'});
+        const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id, snapAs: 'activity-run-failed', situation: 'A Jobs check stopped by Job Pilotto after the AI went silent: Stopped, with its reason, the step it was on and Run again, in the Recent activity panel'});
         console.log(`  silence: ${seconds}s; ok=${fresh[0].ok}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warnings.slice(0, 160)}`);
         const problems = [];
         if (fresh.length !== 1) problems.push(`${fresh.length} rows for one click: ${fresh.map(run => `[${run.id} ${run.trigger} ${run.where} ok=${run.ok} start=${run.startedAt} notion=${run.notionUrl.slice(-6)} result="${run.result.slice(0, 50)}" log=${run.log.length}]`).join(' ')}`);

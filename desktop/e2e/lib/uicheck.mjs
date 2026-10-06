@@ -232,7 +232,7 @@ export function inspect({view, limits}) {
     const steps = [...phases.children].filter(item => visible(item) && !item.classList.contains('update'));
     const all = name => steps.length > 0 && steps.every(item => item.classList.contains(name));
     const any = name => steps.some(item => item.classList.contains(name));
-    const wrong = /fail/i.test(said) && all('done') ? `the run says "${said}" but every step is ticked done`
+    const wrong = /fail|stopp/i.test(said) && all('done') ? `the run says "${said}" but every step is ticked done`
       : /warning/i.test(said) && all('done') && !any('warn') ? `the run says "${said}" but every step is ticked done and none is marked`
       : /^completed$/i.test(said) && any('fail') ? `the run says "${said}" but a step is marked failed` : '';
     if (wrong) found.push({view, severity: 'warning', kind: 'wrong-result', detail: wrong});

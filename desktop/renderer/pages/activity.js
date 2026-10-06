@@ -3,7 +3,7 @@ import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned} from '../run-status.js';
+import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -54,7 +54,7 @@ export async function showSearchStatus() {
 // Plain-language phases of a search, recognised from its log lines.
 const PHASES = [
   {match: /^(Searching job boards|Job boards:)/, label: 'Job boards'},
-  {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
+  {match: /^Checking employer career pages/, label: 'Employer career pages & scoring'},
 ];
 // A search's current log line as a short phrase for the header and the bottom bar (the raw line is in the log).
 function searchPhase(step = '') {
@@ -111,7 +111,8 @@ const runDetails = new Map();  // a Notion run's result and log, read once (page
 // A phase's label, with the sources the engine said it used ("Job boards: jobs.ch, …") instead of a fixed list.
 function phaseLabel(phase, lines) {
   const named = phase.match.test('Job boards:') && lines.map(line => /^Job boards: (.+)/.exec(line)).filter(Boolean).pop();
-  return named ? `${phase.label} (${named[1]})` : phase.label;
+  // The boards by name, without the engine's own notes after them ("(Swiss place word: <a regex>)").
+  return named ? `${phase.label} (${named[1].replace(/\s*\([^()]*:.*$/, '').trim()})` : phase.label;
 }
 function phaseIndex(lines) {
   let index = -1;
@@ -123,6 +124,8 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 // One line on what a finished run did.
 export function outcome(run) {
+  const stopped = stoppedHead({...run, kind: kindOf(run)});
+  if (stopped) return `Stopped · ${stopped.stopped}`;   // the watchdog stopped it: the box says why and where
   if (run.problem && (kindOf(run) === 'mail' || !run.ok)) return run.problem;   // why it read nothing or did not arrive comes before the counts a Notion row says (#290, #298)
   if (aiLimitHead({...run, kind: kindOf(run)})) return 'results unavailable';   // the AI provider stopped it: the box says why
   const failed = failedOutcome(run);
@@ -143,6 +146,8 @@ export function outcome(run) {
   return run.new != null ? plural(run.new, 'new job') : 'done';
 }
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
+// A kind's Run button on the Actions page (its data-command), or nothing for a kind without one.
+const runButton = kind => { const command = Object.keys(COMMAND_KIND).find(key => COMMAND_KIND[key] === kind); return command ? document.querySelector(`button.action[data-command="${command}"]`) : null; };
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
 // The card a finished run's message makes, as a function that draws it into a card box, or null when the message has no card shape (then it is shown as text).
@@ -442,7 +447,7 @@ export function renderActivity(fresh) {
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
   // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
   const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
-    : !run.ok || run.off ? ['Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
+    : !run.ok || run.off ? [stoppedHead({...run, kind: kindOf(run)}) ? 'Stopped' : 'Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
@@ -451,7 +456,8 @@ export function renderActivity(fresh) {
   const shownText = cardText(run, run ? runResults.get(run.id) : null);
   // Its card says it better than the raw text, whole: the header doesn't repeat it cut short (a digest, an insight, a weekly report).
   const hasCard = !!(shownText && (parseRunMessage(shownText) || parseInsight(shownText) || parseWeekly(shownText)));
-  const said = run && !run.live && !hasCard ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
+  // A stopped run's box says why in full: the header doesn't repeat it.
+  const said = run && !run.live && !hasCard && !stoppedHead({...run, kind: kindOf(run)}) ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
   const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
   // A run that used no AI shows no cost: "$0" on every row was noise.
   const cost = run && !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}`));
@@ -483,10 +489,14 @@ export function renderActivity(fresh) {
   // A finished check's updates are the card's "What changed" (mailReportOf): listed here too they were a second box.
   const updates = !run?.live && kindOf(run) === 'mail' && !mailReportOf(run) ? (run.updates || []).map(text => settleQuestion(text, asked)) : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
+  const stopped = run && stoppedHead({...run, kind: kindOf(run)});
   $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
     : PHASES.map((phase, i) => {
       // The step a run that warned stopped at is not a clean tick: a refused AI call under "reading and scoring" must not look done (UI loop #51).
-      return Object.assign(document.createElement('li'), {className: phaseStatus(run, i, at), textContent: phaseLabel(phase, lines)});
+      const li = Object.assign(document.createElement('li'), {className: phaseStatus(run, i, at), textContent: phaseLabel(phase, lines)});
+      // The step a stopped run was on says what it was doing and the last thing it reported.
+      if (i === at && stopped) li.append(...[stopped.doing && `Stopped while ${stopped.doing}.`, stopped.last && `Last reported: ${stopped.last}`].filter(Boolean).map(text => el('span', 'phase-note', text)));
+      return li;
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
@@ -530,7 +540,7 @@ export function renderActivity(fresh) {
   const warnings = detailWarnings;
   // A failed run says so in its box, with its reason and the fix the app can open (#290); one the AI provider stopped
   // says that in plain words, with the way to raise the limit (the owner's mockup, 6 Oct 2026).
-  const head = (run && aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name)) || failureHead(run);
+  const head = (run && (aiLimitHead({...run, kind: kindOf(run)}, KIND[kindOf(run)]?.name) || stoppedHead({...run, kind: kindOf(run)}))) || failureHead(run);
   const warnedOnly = !warnings.length && !run?.live && !!run?.warned && !head;
   const limited = limitedJobs(warnings);
   show($('activity-warnings'), warnings.length > 0 || warnedOnly || !!head?.problem);
@@ -549,6 +559,10 @@ export function renderActivity(fresh) {
     show($('activity-warnings-fix'), !!head?.fix && !head.fix.url);
     $('activity-warnings-fix').textContent = head?.fix ? head.fix.label : '';
     $('activity-warnings-fix').dataset.view = head?.fix?.view || '';
+    // Run again: the task's own Run button on the Actions page, so it queues, joins and reports like any other run.
+    const again = head?.fix?.rerun ? runButton(kindOf(run)) : null;
+    $('activity-warnings-fix').dataset.rerun = again ? kindOf(run) : '';
+    if (head?.fix?.rerun && !again) show($('activity-warnings-fix'), false);
     show($('activity-warnings-limit'), limited > 0);
     const grouped = newDetails(groupWarnings(warnings), summary);
     // One line needs no toggle: it is shown. Two or more fold behind "View N details".
@@ -1389,7 +1403,11 @@ export async function init() {
   // The Anthropic console, where the spending limit lives: the warning card's one action.
   // Focus was read again (an answer saved in the popup, or a refresh): the question's state on the open card changes with it.
   document.addEventListener('focus-rendered', () => { if (lastActivity && !$('activity-panel').hidden) renderActivity(lastActivity); });
-  $('activity-warnings-fix').addEventListener('click', event => { event.preventDefault(); const view = event.currentTarget.dataset.view; if (view) openView(view); });
+  $('activity-warnings-fix').addEventListener('click', event => {
+    event.preventDefault();
+    const {view, rerun} = event.currentTarget.dataset;
+    if (rerun) runButton(rerun)?.click(); else if (view) openView(view);
+  });
   $('activity-warnings-external').addEventListener('click', event => { const url = event.currentTarget.dataset.url; if (url) window.pilot.openExternal(url); });
   $('activity-warnings-limit').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal('https://console.anthropic.com/settings/limits'); });
   $('activity-warnings-fold').addEventListener('click', () => {

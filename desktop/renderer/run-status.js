@@ -30,6 +30,25 @@ export function aiLimitHead(run, name = 'The run') {
     hint: spend ? `Increase your limit, then run the ${name === 'Gmail check' || name === 'Jobs check' ? 'check' : 'task'} again.` : 'Wait a few minutes, then run it again.',
     fix: spend ? {label: 'Manage AI limit', url: run.billing === 'Claude subscription' ? 'https://claude.ai/settings/usage' : 'https://console.anthropic.com/settings/limits'} : null};
 }
+// A run the app's watchdog stopped (lib/pipeline.js stoppedReason): what happened, the step it was on in plain words, and the way
+// out, with the log folded since the box says it (the owner's targeted fix #4, 6 Oct 2026: 110 log lines hid the reason).
+const STOPPED = /Stopped by Job Pilotto: (no output for (\d+) (min|s)|still running after (\d+) min)\b.*?(?:The last thing it did: (.+))?$/;
+const DOING = [[/^Descriptions:/, 'fetching job descriptions'], [/^Scor(?:ed|ing) /, 'scoring new jobs'], [/^Enriched /, 'reading new jobs'],
+  [/^(?:Checking employer career pages|Checked: )/, 'checking employer career pages'], [/^(?:Searching job boards|Job boards:)/, 'searching the job boards']];
+const unit = (n, word) => `${n} ${word}${n === '1' ? '' : 's'}`;
+export function stoppedHead(run) {
+  if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
+  const line = [run.problem, run.summary, run.result, ...[...(run.log || [])].reverse()].filter(Boolean).map(String).find(text => STOPPED.test(text));
+  if (!line) return null;
+  const [, stopped, quiet, scale, total, lastLine = ''] = STOPPED.exec(line);
+  const last = lastLine.trim() === 'nothing yet' ? '' : lastLine.trim();
+  const doing = DOING.find(([pattern]) => pattern.test(last))?.[1] || '';
+  const search = run.kind === 'search' || !run.kind;
+  return {problem: line, stopped, last, doing,
+    title: quiet ? `Stopped after ${unit(quiet, scale === 'min' ? 'minute' : 'second')} without output` : `Stopped after running ${unit(total, 'minute')}`,
+    summary: `The run stopped responding${doing ? ` while ${doing}` : ''}. ${search ? 'The search did not finish: final results are unavailable.' : 'It did not finish.'}`,
+    hint: 'Run it again; if it keeps stopping, check your AI key or plan in Settings.', fix: {label: 'Run again', rerun: true}};
+}
 export function failureHead(run) {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
   const problem = String(run.problem || '').trim();
@@ -61,7 +80,7 @@ export function phaseStatus(run, i, at) {
 export function runStatus(run, warned) {
   if (run.live) return ['Running', 'info', {dot: true}];
   if (run.waiting) return ['Queued', 'neutral'];
-  if (!run.ok || run.off) return ['Failed', 'bad'];
+  if (!run.ok || run.off) return stoppedHead(run) ? ['Stopped', 'bad'] : ['Failed', 'bad'];
   return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
 }
 

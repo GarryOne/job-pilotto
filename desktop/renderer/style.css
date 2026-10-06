@@ -1764,6 +1764,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .activity-panel .activity-phases.ap-card { padding: var(--sp-2) var(--sp-4); margin: 0; gap: 0; }
 .activity-panel .activity-phases li { padding: var(--sp-3) 0; font-weight: 600; }
+.activity-phases .phase-note { display: block; margin-left: 22px; font-size: var(--fs-md); font-weight: 400; color: var(--muted); }
+.activity-phases .phase-note + .phase-note { font-size: var(--fs-sm); }
 .activity-panel .activity-phases li + li { border-top: 1px solid var(--line); }
 .activity-panel .activity-phases li.done::before { content: '✓'; display: inline-grid; place-items: center; width: 22px; height: 22px;
   margin-right: var(--sp-3); border-radius: 50%; background: var(--good-bright); color: var(--on-accent); font-size: var(--fs-xs); }
