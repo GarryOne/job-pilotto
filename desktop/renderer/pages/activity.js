@@ -3,7 +3,7 @@ import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead} from '../run-status.js';
+import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, partialResult} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -481,7 +481,7 @@ export function renderActivity(fresh) {
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
   // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
   const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
-    : run.off ? ['Not checked', 'warn'] : !run.ok ? [stoppedHead({...run, kind: kindOf(run)}) ? 'Stopped' : 'Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
+    : run.off ? ['Not checked', 'warn'] : !run.ok ? [stoppedHead({...run, kind: kindOf(run)}) ? 'Stopped' : 'Failed', 'bad'] : (detailWarnings.length || run.warned || partialResult(run)) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
