@@ -114,7 +114,8 @@ export function stateLine(on, detail = '', checking = false, words = '') {
 // An extension that is installed but not talking to the app needs one press (its options page pairs itself on
 // opening), not the install steps: every button that would send the user to those steps connects instead.
 const connectsNow = (service, status) => service.id === 'extension' && !!status.extensionIdle;
-let connecting = false, autoTried = false, lastStatus = null;
+let connecting = false, autoAt = 0, autoCount = 0, lastStatus = null;
+const AUTO_WAIT_MS = 5 * 60 * 1000, AUTO_MAX = 3;  // a broken connection is retried every 5 min, three times, then left to the button
 export async function connectExtension({auto = false} = {}) {
   if (connecting) return;
   connecting = true;
@@ -126,13 +127,16 @@ export async function connectExtension({auto = false} = {}) {
     for (const wait of [3000, 8000]) setTimeout(() => import('./connections.js').then(page => page.showExtensionStatus()), wait);
   } finally { connecting = false; }
 }
-// Nobody has to press it: once per app session, while the Connections page is the one in front, the connection is made.
+// Nobody has to press it: while the Connections page is in front and the extension is installed but silent, the connection
+// is made again (not more often than every 5 min, three tries in a row), and the count starts over once it reports.
 function autoConnect(status) {
   lastStatus = status;
   const page = document.querySelector('[data-settings-page="connections"]');
   const here = page && !page.hidden && !document.querySelector('.view[data-view="settings"]')?.hidden;
-  if (autoTried || !here || !status.extensionIdle || status.checking?.extension) return;
-  autoTried = true;
+  if (status.on?.extension) autoCount = 0;
+  if (!here || !status.extensionIdle || status.checking?.extension || autoCount >= AUTO_MAX || Date.now() - autoAt < AUTO_WAIT_MS) return;
+  autoAt = Date.now();
+  autoCount++;
   connectExtension({auto: true});
 }
 function showAlert(prefix, missing, status) {
