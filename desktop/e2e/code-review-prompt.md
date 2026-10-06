@@ -1,7 +1,7 @@
 You review the latest changes to Job Pilotto (an Electron desktop app in desktop/, a Python engine in src/, a Chrome extension in extension/) for BUGS that would hurt a person using the product.
 You change nothing. You read, then write ONE file: .review/findings.json.
 
-The changes to review: the COMMITS listed at the end (product code only, largest first, at most 20). Go through EVERY one: `git show --stat <sha>`, then
+The changes to review: the COMMITS listed at the end (product code only, largest first, at most 30). Go through EVERY one: `git show --stat <sha>`, then
 `git show <sha> -- src desktop/lib desktop/main.js desktop/preload.cjs desktop/renderer extension` (tests and docs are out of scope). Open the surrounding code with Read
 and Grep when a change touches logic. Write .review/reviewed.txt with the shas you really read (one per line), then .review/findings.json.
 

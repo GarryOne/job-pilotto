@@ -45,7 +45,7 @@ jobs:
           node desktop/e2e/ai-budget.mjs --check
           if grep -q '^skip=true' "$GITHUB_OUTPUT"; then echo "range=" >> "$GITHUB_OUTPUT"; exit 0; fi
           # EVERY product commit is reviewed (5 Oct 2026): the range starts where the last review that really ran ended (the newest run with a `code-review` artifact),
-          # not at a fixed 7-hour window, and the commits that run's 20-commit cap left out (candidates it did not read) are carried into this one.
+          # not at a fixed 7-hour window, and the commits that run's 30-commit cap left out (candidates it did not read) are carried into this one.
           mkdir -p .review .previous
           : > .review/carried.txt
           if [ -n "$ASKED" ]; then range="$ASKED"; else
@@ -56,7 +56,7 @@ jobs:
             if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
               range="$base..HEAD"
               read_list=.previous/.review/reviewed.txt; [ -s "$read_list" ] || read_list=.previous/.review/commits.txt
-              if [ -f .previous/.review/candidates.txt ]; then grep -vxF -f "$read_list" .previous/.review/candidates.txt | head -40 > .review/carried.txt || true; fi
+              if [ -f .previous/.review/candidates.txt ]; then grep -vxF -f "$read_list" .previous/.review/candidates.txt | head -60 > .review/carried.txt || true; fi
             else
               oldest=$(git log --since='7 hours ago' --format=%H HEAD | tail -1)
               if [ -z "$oldest" ]; then echo "range=" >> "$GITHUB_OUTPUT"; echo "No commits in the last 7 hours." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
@@ -66,10 +66,10 @@ jobs:
           code=$(git diff --name-only "$range" | grep -vE '(\.md$|^docs/|^CODEMAP)' || true)
           if [ -z "$code" ] && [ ! -s .review/carried.txt ]; then echo "range=" >> "$GITHUB_OUTPUT"; echo "Only docs changed in $range: nothing to review." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           mkdir -p .review
-          # Only commits that touch product code (not tests, the e2e harness or docs), largest product change first, at most 20: what a person runs is where a bug hurts.
+          # Only commits that touch product code (not tests, the e2e harness or docs), largest product change first, at most 30 (every 8 h, ~85 product commits a day on 7 Oct 2026: 3 x 30 keeps up): what a person runs is where a bug hurts.
           PRODUCT=(src desktop/lib desktop/main.js desktop/preload.cjs desktop/renderer extension ':!**/test/**' ':!**/tests/**' ':!desktop/e2e/**')
           { git log --format=%H --no-merges "$range" -- "${PRODUCT[@]}"; cat .review/carried.txt; } | awk 'NF && !seen[$0]++' > .review/candidates.txt
-          while read -r sha; do echo "$(git show --numstat --format= "$sha" -- "${PRODUCT[@]}" | awk '{s+=$1+$2} END{print s+0}') $sha"; done < .review/candidates.txt | sort -rn | head -20 | awk '{print $2}' > .review/commits.txt
+          while read -r sha; do echo "$(git show --numstat --format= "$sha" -- "${PRODUCT[@]}" | awk '{s+=$1+$2} END{print s+0}') $sha"; done < .review/candidates.txt | sort -rn | head -30 | awk '{print $2}' > .review/commits.txt
           total=$(wc -l < .review/candidates.txt | tr -d ' '); picked=$(wc -l < .review/commits.txt | tr -d ' ')
           if [ "$picked" = 0 ]; then echo "range=" >> "$GITHUB_OUTPUT"; echo "No product-code commits in $range." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           echo "range=$range" >> "$GITHUB_OUTPUT"
@@ -83,7 +83,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
-            --model claude-sonnet-5-5 --max-turns 80
+            --model claude-sonnet-5-5 --max-turns 100
             --allowedTools "Read,Glob,Grep,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: Read .review/prompt.md and follow it exactly.
       - name: AI budget and cost of this run
