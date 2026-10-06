@@ -254,9 +254,17 @@ export async function run(ctx) {
     if (await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('focusHolds') || '{}')).length)) throw new Error('a hold survived: this step would not see what Notion lists');
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await goFocus();
-    await refresh();
-    const back = (await upNext()).filter(item => actions.actions.some(action => new RegExp(action.card || action.who).test(item.headline)));
-    if (back.length) throw new Error(`dismissed cards are listed again once the in-app hold is over: ${back.map(item => item.headline).join(' | ')} (Notion has not recorded the dismissal)`);
+    // Notion's query can list a just-written dismissal late (CI 6 Oct 2026: a "Details skipped" saved ok was still unlisted 2 min later; the app's 10-minute hold
+    // covers that for a person). Read again for up to 90 s; a card still back then is reported with whether its dismissal is in Notion at all.
+    const backNow = async () => (await upNext()).filter(item => actions.actions.some(action => new RegExp(action.card || action.who).test(item.headline)));
+    let back = [];
+    for (const started = Date.now(); Date.now() - started < 90000;) { await refresh(); back = await backNow(); if (!back.length) break; await page.waitForTimeout(10000); }
+    if (back.length) {
+      const recorded = await Promise.all(back.map(async item => { const action = actions.actions.find(one => new RegExp(one.card || one.who).test(item.headline));
+        if (action?.kind !== 'details') return item.headline;   // only a Skip of "Add details" leaves an event this step can look up
+        return `${item.headline}: ${(await eventsOf('Details skipped', `${action.who} Agency`).catch(() => [])).length ? 'its dismissal IS in Notion (the read lags)' : 'no dismissal event found in Notion'}`; }));
+      throw new Error(`dismissed cards are still listed 90 s after the in-app hold ended: ${recorded.join(' | ')}`);
+    }
   }, {needs: ctx.needs});
 
   await ctx.run('Dismiss on a job in process leaves the In process list at once, and is still gone after a reload (it was bouncing back to "Interview scheduled", 3 Oct 2026)', async () => {
