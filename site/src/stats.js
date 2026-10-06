@@ -83,8 +83,8 @@ export async function record(request, env, {platform, button, page = 'unknown', 
   if (!env.STATS) return;
   const row = await base(request, env, now);
   await env.STATS.prepare(
-    'INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(row.day, row.at, row.visitor, platform, button, page, source || 'direct', row.country, row.device).run();
+    'INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device, net) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(row.day, row.at, row.visitor, platform, button, page, source || 'direct', row.country, row.device, await net(request, env)).run();
 }
 
 export async function download(request, env, ctx, now = new Date()) {
@@ -93,12 +93,13 @@ export async function download(request, env, ctx, now = new Date()) {
   if (!FILES[platform]) return new Response('Not found', {status: 404});
   const target = await versioned(platform, env, env.fetcher || globalThis.fetch) || RELEASE + FILES[platform];  // env.fetcher: tests
   if (env.STATS && request.method === 'GET' && !isBot(request)) {
-    const save = base(request, env, now).then(row => env.STATS.prepare(
-      'INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    // net: the network's hash, so the app's first start can learn this click's channel (src/attribution.js)
+    const save = Promise.all([base(request, env, now), net(request, env)]).then(([row, network]) => env.STATS.prepare(
+      'INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device, net) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(row.day, row.at, row.visitor, platform, clip(url.searchParams.get('from'), 30) || 'unknown',
         clip(url.searchParams.get('page')) || 'unknown',
         clip(url.searchParams.get('src'), 60) || sourceOf(request.headers.get('Referer'), url.hostname),
-        row.country, row.device).run()).catch(error => console.log('download stat failed', error.message));
+        row.country, row.device, network).run()).catch(error => console.log('download stat failed', error.message));
     if (ctx?.waitUntil) ctx.waitUntil(save); else await save;
   }
   // Never kept by the browser: the next click asks again and gets the newest release.
@@ -108,6 +109,7 @@ export async function download(request, env, ctx, now = new Date()) {
 // ---- /stats ----
 
 // Who may open the owner's pages: src/auth.js (a session cookie, the scripts' key).
+import {net} from './attribution.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {isOwner, remember} from './auth.js';
 export {isOwner, remember};

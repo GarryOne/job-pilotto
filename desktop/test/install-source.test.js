@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {consume, FILE} from '../lib/install-source.js';
+import {attribute, consume, FILE} from '../lib/install-source.js';
 
 function setup(text, settings = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-source-'));
@@ -33,4 +33,27 @@ test('nothing left, or something that is not a channel label: nothing is stored'
     assert.equal(consume(dir, storage), null);
     assert.equal(saved.installSource, undefined);
   }
+});
+
+test('a downloaded app asks once which channel its download click came from, and keeps the label', async () => {
+  const {storage, saved} = setup(null), asked = [];
+  const fetcher = async url => { asked.push(url); return Response.json({source: 'LinkedIn.com'}); };
+  assert.equal(await attribute(storage, {platform: 'darwin', fetcher}), 'linkedin.com');
+  assert.equal(saved.installSource, 'linkedin.com');
+  assert.match(asked[0], /\/api\/attribution\?platform=mac$/);
+  assert.equal(await attribute(storage, {platform: 'darwin', fetcher}), null);
+  assert.equal(asked.length, 1, 'never asked again');
+});
+
+test('the installer\'s channel wins; no answer, a bad label or a failure leaves none and is not retried', async () => {
+  const fetcher = async () => { throw new Error('should not ask'); };
+  assert.equal(await attribute(setup(null, {installSource: 'reddit-devops'}).storage, {platform: 'darwin', fetcher}), null);
+  for (const answer of [async () => Response.json({source: null}), async () => Response.json({source: '<script>'}),
+    async () => new Response('', {status: 500}), async () => { throw new Error('offline'); }]) {
+    const {storage, saved} = setup(null);
+    assert.equal(await attribute(storage, {platform: 'win32', fetcher: answer}), null);
+    assert.equal(saved.installSource, undefined);
+    assert.equal(saved.installSourceAsked, true);
+  }
+  assert.equal(await attribute(setup(null).storage, {platform: 'linux', fetcher}), null);
 });

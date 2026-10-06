@@ -9,6 +9,7 @@ import {device, sourceOf, versioned} from '../src/stats.js';
 function d1() {
   const db = new DatabaseSync(':memory:');
   db.exec(readFileSync(new URL('../migrations/0001_stats.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0032_download_net.sql', import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({
     bind: (...values) => statement(sql, values),
     run: async () => db.prepare(sql).run(...args),

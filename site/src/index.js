@@ -27,6 +27,7 @@ import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {trial} from './trial.js';
 import {brain} from './brain.js';
+import {attribution, purge as purgeNets} from './attribution.js';
 import {log as brainLog, view as brainView} from './brainlog.js';
 import {index as employerIndex} from './employers.js';
 import * as pool from './pool.js';
@@ -119,6 +120,7 @@ export default {
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);
     if (pathname === '/api/feedback') return feedback(request, env);
+    if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
     if (pathname.startsWith('/api/ai/')) return trial(request, env);
     if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
     if (pathname === '/api/brain/log') return brainLog(request, env);   // tools/product_brain.py, the scripts' key
@@ -136,6 +138,7 @@ export default {
       .catch(error => console.error(`recipe canary: ${error.message}`)));
     ctx.waitUntil((env.STATS ? Promise.all([recipeLibrary.evaluateVerified(env.STATS), evaluateVerifiedAliases(env.STATS)]).then(done => done.flat()) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`rolled back: ${JSON.stringify(actions)}`); })
       .catch(error => console.error(`verified watch: ${error.message}`)));
+    ctx.waitUntil(purgeNets(env).catch(error => console.error(`download nets purge: ${error.message}`)));
     ctx.waitUntil(telemetry.daily(env, dispatch).catch(error => console.error(`telemetry triage: ${error.message}`)));
     ctx.waitUntil((env.STATS ? evaluateAliases(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`aliases: ${JSON.stringify(actions)}`); })
       .catch(error => console.error(`alias canary: ${error.message}`)));

@@ -2018,6 +2018,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   const quiet = DEMO ? 'demo mode' : telemetryLib.reportingOff(process.env, {packaged: app.isPackaged});
   const sentryOnly = telemetryLib.sentryOnly(process.env);   // the journey on CI: Sentry (environment e2e, id "e2e") yes; the store and PostHog never
   telemetry = quiet && !sentryOnly ? null : telemetryLib.create(storage, {version: app.getVersion(), silent: sentryOnly});
+  // No channel from the installer (a Download button): ask the website once which click from this network it was (lib/install-source.js).
+  if (!quiet) installSource.attribute(storage).then(channel => appLog('install', channel ? 'channel matched to a download click' : 'no channel for this install', {channel}))
+    .catch(error => appLog('install', 'channel lookup failed', {error: error.message}));
   appLog('telemetry', quiet ? `reporting is off: ${quiet}${sentryOnly ? ' (Sentry only, environment e2e)' : ''}` : 'reporting follows the Technical reports switch');   // the end-to-end harness reads this line
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
