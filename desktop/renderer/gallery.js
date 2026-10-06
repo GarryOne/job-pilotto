@@ -71,6 +71,12 @@ section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few 
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
     {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
 
+section('Data table', '.data-table: a few rows of figures to compare; .is-num right-aligns a number column', (() => {
+  const box = el('div');
+  box.innerHTML = `<table class="data-table"><tr><th>Family</th><th>Good-fit hits</th><th class="is-num">Rate</th></tr>
+    <tr><td>SRE</td><td>7 of 19</td><td class="is-num">37%</td></tr><tr><td>Platform</td><td>12 of 43</td><td class="is-num">28%</td></tr></table>`;
+  return box;
+})());
 section('Item rows', '.item-rows: one item per row (bold title, muted line) with its one action on the right (.item-action), a line between', (() => {
   const box = el('div');
   box.innerHTML = `<ul class="item-rows"><li><div class="item-words"><b><a class="link" href="#">Site Reliability Engineer</a></b><span class="muted">DeepJudge AG</span></div><button class="secondary item-action">View CV</button></li>

@@ -9,7 +9,7 @@ import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {cardText, emptyResult, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
-import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
+import {comparisonTable, confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {parseInterviewReview} from '../interview-review.js';
 import {parseKitsReady} from '../kits-ready.js';
@@ -1159,6 +1159,21 @@ export function renderInsightCard(insight, target = $('activity-card')) {
     }
     box.append(strip);
   }
+  // The figures the evidence breaks down the same way, as one comparison (the shared .data-table); those lines leave the evidence.
+  const table = comparisonTable(insight.evidence);
+  if (table) {
+    const grid = el('table', 'data-table');
+    const header = el('tr');
+    table.columns.forEach((name, i) => header.append(el('th', i === 2 ? 'is-num' : '', name)));
+    grid.append(header);
+    for (const row of table.rows) {
+      const line = el('tr');
+      line.append(el('td', '', row.key), el('td', '', row.of), el('td', 'is-num', row.rate));
+      grid.append(line);
+    }
+    box.append(grid);
+  }
+  const evidence = table ? insight.evidence.filter(line => !table.used.includes(line)) : insight.evidence;
   if (insight.action) {
     const words = el('div', 'insight-next-words');
     words.append(el('b', '', 'Recommended next step'), el('p', '', insight.action));
@@ -1166,7 +1181,7 @@ export function renderInsightCard(insight, target = $('activity-card')) {
     next.append(el('span', 'insight-next-icon', icon('target')), words);
     box.append(next);
   }
-  if (insight.evidence.length || insight.groups.length) {
+  if (evidence.length || insight.groups.length) {
     const why = el('section', 'insight-section');
     why.append(el('h4', '', 'Why this was flagged'));
     if (insight.groups.length) {
@@ -1182,7 +1197,7 @@ export function renderInsightCard(insight, target = $('activity-card')) {
       why.append(columns);
     } else {
       const list = el('ul', 'insight-evidence');
-      insight.evidence.forEach(line => list.append(el('li', '', line)));
+      evidence.forEach(line => list.append(el('li', '', line)));
       why.append(list);
     }
     box.append(why);

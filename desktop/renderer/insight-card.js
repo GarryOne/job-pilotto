@@ -87,3 +87,27 @@ export function sourceLine({basis = '', sample = 0, sampleUnit = 'applications'}
   if (sample) parts.push(sampleWords(sample, sampleUnit));
   return parts.length ? `Source: ${parts.join(' · ')}` : '';
 }
+
+// Two of the insight's evidence lines that break the same thing down the same way ("Eligible jobs by family: software 38, sre 19…" and
+// "Good-fit hits by family: software 1 (2.6%), sre 7 (37%)…", src/ai/insights.py) read as one comparison: per key, hits of the total and
+// the rate. Only when both lines are there with the same keys; otherwise null and the lines stay evidence (owner's fix #9, 6 Oct 2026).
+const BREAKDOWN = /^(.+?) by ([a-z][\w ]*):\s*(.+)$/i;
+const ITEM = /^([\w][\w ./+-]*?)\s+(\d+)(?:\s*\((\d+(?:\.\d+)?)%\))?$/;
+const keyWords = key => (/^[a-z]{2,3}$/.test(key) ? key.toUpperCase() : key.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()));
+function breakdown(line) {
+  const m = BREAKDOWN.exec(line);
+  if (!m) return null;
+  const items = m[3].split(/,\s*/).map(part => ITEM.exec(part.trim()));
+  if (!items.length || items.some(item => !item)) return null;
+  return {line, label: m[1].trim(), by: m[2].trim(), items: new Map(items.map(([, key, n, rate]) => [key, {n: Number(n), rate}]))};
+}
+export function comparisonTable(evidence = []) {
+  const found = evidence.map(breakdown).filter(Boolean);
+  const rated = found.find(b => [...b.items.values()].every(item => item.rate));
+  const totals = rated && found.find(b => b !== rated && b.by === rated.by && b.items.size === rated.items.size
+    && [...rated.items.keys()].every(key => b.items.has(key)) && [...b.items.values()].every(item => !item.rate));
+  if (!totals) return null;
+  const rows = [...rated.items].map(([key, {n, rate}]) => ({key: keyWords(key), of: `${n} of ${totals.items.get(key).n}`, rate: `${Math.round(Number(rate))}%`, sort: Number(rate)}))
+    .sort((a, b) => b.sort - a.sort);
+  return {columns: [keyWords(rated.by), rated.label, 'Rate'], rows, used: [rated.line, totals.line]};
+}
