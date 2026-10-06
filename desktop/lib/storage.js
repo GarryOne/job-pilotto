@@ -15,6 +15,12 @@ export function createStorage(dir, crypto) {
     try { return JSON.parse(fs.readFileSync(file(name), 'utf8')); } catch { return fallback; }
   };
   const writeJson = (name, value) => fs.writeFileSync(file(name), JSON.stringify(value, null, 2) + '\n', {mode: 0o600});
+  // A secret this computer can no longer decrypt (6 Oct 2026: on Windows the app was killed soon after saving a key, Chromium's key file was never written,
+  // and every start threw on decrypt: the window never appeared). It counts as missing, so the app opens and asks for it again; main.js logs which.
+  const unreadable = new Set();
+  const open = (name, sealed) => {
+    try { const value = crypto.decrypt(sealed); unreadable.delete(name); return value; } catch { unreadable.add(name); return ''; }
+  };
 
   return {
     dir,
@@ -30,13 +36,15 @@ export function createStorage(dir, crypto) {
       const all = readJson('secrets.json', {});
       if (value) all[name] = crypto.encrypt(value); else delete all[name];
       writeJson('secrets.json', all);
+      unreadable.delete(name);
     },
     secret(name) {
       const sealed = readJson('secrets.json', {})[name];
-      return sealed ? crypto.decrypt(sealed) : '';
+      return sealed ? open(name, sealed) : '';
     },
-    // Which secrets are set, for the UI; never the values.
-    secretsPresent: () => Object.fromEntries(SECRET_NAMES.map(name => [name, !!readJson('secrets.json', {})[name]])),
+    // Which secrets are set and usable, for the UI; never the values. One that cannot be decrypted shows as not set.
+    secretsPresent: () => { const all = readJson('secrets.json', {}); return Object.fromEntries(SECRET_NAMES.map(name => [name, !!all[name] && !!open(name, all[name])])); },
+    unreadableSecrets: () => [...unreadable],
     readText: name => { try { return fs.readFileSync(file(name), 'utf8'); } catch { return ''; } },
     writeText: (name, text) => {
       fs.mkdirSync(path.dirname(file(name)), {recursive: true});
