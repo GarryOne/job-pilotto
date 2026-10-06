@@ -285,3 +285,22 @@ test('the Log box lists the engine\'s steps with how long each took; a wait for 
     {text: 'Reading your jobs in Notion', now: true, seconds: 5}]);
   assert.equal(lead.stepRows(Array.from({length: 9}, (_, i) => ({text: `s${i}`, at: i * 1000})), 9000).length, 6);
 });
+
+test('no call time is asked, or sent, for a kind that has no call coming (a rejection read as "THURSDAY 8:34 AM")', async () => {
+  const {readFileSync} = await import('node:fs');
+  const proposal = {...chat, new: false, kind: 'Rejected', fields: {...chat.fields, company: undefined, agency: undefined,
+    interview: {value: '', state: 'ask', required: false, question: 'When is the call?', as_written: 'THURSDAY 8:34 AM'}}};
+  const kinds = ['Rejected', 'Applied', 'Confirmation received', 'Feedback received'];
+  for (const kind of kinds) {
+    const state = lead.set(lead.initial(proposal), 'kind', kind);
+    assert.equal(lead.interviewShown(proposal, state), false, kind);
+    assert.ok(!lead.pending(proposal, state).some(p => p.name === 'interview'), kind);
+    assert.equal(lead.confirmed(proposal, {...state, values: {...state.values, interview: '2026-10-08T08:34'}}).interview, '', kind);
+  }
+  // Another kind keeps it (a booked call, a reply that may fix a time), and so does switching to it afterwards.
+  assert.equal(lead.interviewShown(proposal, lead.set(lead.initial(proposal), 'kind', 'Interview scheduled')), true);
+  assert.equal(lead.interviewShown(proposal, lead.set(lead.initial(proposal), 'kind', 'Reply received')), true);
+  // The engine's list (src/ai/inbox.py NO_CALL) is the same one.
+  const engine = readFileSync(new URL('../../src/ai/inbox.py', import.meta.url), 'utf8').match(/^NO_CALL = \((.*)\)$/m)[1];
+  assert.deepEqual(engine.split(',').map(x => x.trim()).sort(), ['APPLIED', "'Confirmation received'", "'Rejected'", 'mail.employer_feedback.RECEIVED'].sort());
+});

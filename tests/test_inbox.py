@@ -123,6 +123,19 @@ class InboxTests(unittest.TestCase):
         tracker = Inbox(rows, jobs)
         self.assertIn('Tracked recruiter lead', run(tracker, reading('Recruiter outreach', 0), target='new'))
 
+    def test_a_time_read_in_a_message_with_no_call_coming_is_not_saved_as_one(self):
+        # "THURSDAY 8:34 AM" above a rejection is the message's own time (6 Oct 2026), like every kind in NO_CALL.
+        from unittest import mock
+        jobs = [job('https://x.test/1', 'SRE', 'Acme', 'Screening')]
+        rows = [row('p1', 'https://x.test/1', 'SRE', 'Acme', 'Screening')]
+        for kind in inbox.NO_CALL:
+            with self.subTest(kind=kind), mock.patch.object(inbox.mail, 'record', return_value=None) as record:
+                run(Inbox(rows, jobs), reading(kind, 0, interview_at='2026-10-08T08:34:00+02:00'))
+                if kind == 'Rejected':
+                    self.assertIsNotNone(record.call_args, 'the event is recorded')
+                for call in record.call_args_list:   # an application's own path records nothing here
+                    self.assertNotIn('2026-10-08T08:34:00+02:00', call.args, kind)
+
     def test_short_text_without_a_screenshot_is_refused(self):
         with self.assertRaisesRegex(ValueError, 'whole message or a screenshot'):
             inbox.log(Inbox(), text='ok', client=Client())

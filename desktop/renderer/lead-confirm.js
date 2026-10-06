@@ -35,6 +35,11 @@ export function set(state, name, value) {
     confirmed: state.confirmed.includes(name) ? state.confirmed : [...state.confirmed, name]};
 }
 
+// A call time is asked only for a kind that can have one: not for a rejection, an application, its confirmation or feedback
+// (src/ai/inbox.py NO_CALL). The time Claude read there is the message's own ("THURSDAY 8:34 AM"), so it is neither shown nor saved.
+const NO_CALL = ['Rejected', 'Applied', 'Confirmation received', 'Feedback received'];
+export const interviewShown = (proposal = {}, state = {}) => !!proposal.fields?.interview && !NO_CALL.includes(state.values?.kind);
+
 const required = (proposal, state, name) => {
   const field = proposal.fields?.[name];
   if (!field) return false;
@@ -53,7 +58,7 @@ export function pending(proposal = {}, state, today = '') {
   const out = [];
   for (const name of ORDER) {
     const field = proposal.fields?.[name];
-    if (!field || (name === 'origin' && !originShown(proposal, state))) continue;
+    if (!field || (name === 'origin' && !originShown(proposal, state)) || (name === 'interview' && !interviewShown(proposal, state))) continue;
     const value = state.values[name];
     if (required(proposal, state, name) && !value) out.push({name, why: 'empty'});
     else if (field.state === 'check' && !state.confirmed.includes(name)) out.push({name, why: 'check'});
@@ -191,7 +196,7 @@ export function found(proposal = {}) {
 export function confirmed(proposal = {}, state) {
   const v = state.values, has = name => !!proposal.fields?.[name];
   return {kind: v.kind, channel: v.channel, other: v.channel === 'Other' ? String(state.other || '').trim().slice(0, 40) : '',
-    started: v.started, interview: has('interview') ? v.interview || '' : '', ...(has('last') ? {lastAt: v.last || ''} : {}),
+    started: v.started, interview: interviewShown(proposal, state) ? v.interview || '' : '', ...(has('last') ? {lastAt: v.last || ''} : {}),
     ...(has('company') ? {company: String(v.company || '').trim()} : {}), ...(has('agency') ? {agency: String(v.agency || '').trim()} : {}),
     firstContact: proposal.new ? state.first !== 'no' : null, ...(has('agree') ? {agreed: v.agree === 'yes'} : {}),
     ...(originShown(proposal, state) ? {origin: v.origin} : {})};

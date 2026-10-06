@@ -632,7 +632,7 @@ function renderConfirm() {
     }
     if (choosing) { box.hidden = true; return; }
     if (name === 'first') { box.hidden = !leadProposal.new; return; }
-    box.hidden = !field || (name === 'origin' && !confirmStep.originShown(leadProposal, leadState));
+    box.hidden = !field || (name === 'origin' && !confirmStep.originShown(leadProposal, leadState)) || (name === 'interview' && !confirmStep.interviewShown(leadProposal, leadState));
     if (box.hidden) return;
     const waiting = left.find(item => item.name === name);
     box.classList.toggle('is-check', waiting?.why === 'check');

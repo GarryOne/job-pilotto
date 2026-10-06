@@ -574,6 +574,8 @@ def _resolve_dates(item, now):
     return item
 
 
+# Kinds that never announce a call still to come: a time read in them ("THURSDAY 8:34 AM" above a rejection) is the message's own, not a call's.
+NO_CALL = ('Rejected', APPLIED, 'Confirmation received', mail.employer_feedback.RECEIVED)
 UPDATE = 'Update on this job'  # the app's "What is it?" for a job already tracked that has nothing new of its own kind
 
 
@@ -832,6 +834,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     if proposal is None:
         proposal = propose(tracker, text=text, image=image, client=client, model=model, stats=stats, now=now, target=target)
     item, job, kind = dict(proposal['item']), proposal['job'], proposal['kind']
+    if kind in NO_CALL:
+        item['interview_at'] = ''
     check = [] if proposal.get('confirmed') else unchecked(item, kind)
     if not proposal.get('confirmed') and ((proposal.get('fields') or {}).get('job') or {}).get('state') == 'ask':
         check.append(f"which job it is ({len(proposal['fields']['job']['candidates'])} possible)")
