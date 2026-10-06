@@ -66,5 +66,26 @@ export async function run(ctx) {
       }
     } finally { if (original) fs.writeFileSync(target, original); }
   }, {needs: ctx.needs});
+  // ⌘K (6 Oct 2026: the palette had no end-to-end step). Every page is listed, Enter on a typed command opens it, Esc closes. Only "Open <page>" commands are
+  // run here: an Actions command starts its task at once (a paid run).
+  await ctx.run('⌘K opens the palette: every page is listed, a typed command opens its page, Esc closes it', async () => {
+    const pages = await page.evaluate(() => [...new Map([...document.querySelectorAll('.nav[data-view]')].map(nav => [nav.dataset.view, (nav.getAttribute('aria-label') || nav.title || nav.textContent).trim()])).entries()]);
+    if (pages.length < 5) throw new Error(`only ${pages.length} pages in the sidebar: this step would test little`);
+    await page.click('.nav[data-view="focus"]');
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.locator('#palette[open]').waitFor({timeout: 5000}).catch(() => { throw new Error('⌘K did not open the palette'); });
+    const listed = await page.locator('#palette-list [role="option"]').allInnerTexts();
+    const opens = listed.filter(text => /^Open /.test(text.trim())).length;
+    if (opens < new Set(pages.map(([view]) => view)).size) throw new Error(`the palette lists ${opens} "Open …" commands for ${pages.length} pages: ${listed.slice(0, 12).join(' | ')}`);
+    await page.keyboard.press('Escape');
+    await page.locator('#palette[open]').waitFor({state: 'detached', timeout: 5000}).catch(async () => {
+      if (await page.locator('#palette[open]').count()) throw new Error('Esc did not close the palette');
+    });
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.locator('#palette[open] input').fill('open interviews');
+    await page.keyboard.press('Enter');
+    await page.locator('.view[data-view="interviews"]:not([hidden])').waitFor({timeout: 5000}).catch(() => { throw new Error('Enter on "open interviews" did not open the Interviews page'); });
+    if (await page.locator('#palette[open]').count()) throw new Error('the palette stayed open after running a command');
+  }, {needs: ctx.needs});
   await ctx.run('Settings render without layout problems', async () => { finish(ctx); }, {needs: ctx.needs});
 }
