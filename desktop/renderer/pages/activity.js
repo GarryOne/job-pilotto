@@ -722,8 +722,11 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
   let heading, more = null;
   if (card.kind === 'digest') {
     stats.append(stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run'));
-    heading = 'Top matches';
-    rows.append(...card.items.slice(0, 3).map(item => {
+    // A run that found nothing new lists no jobs: the digest's "top matches" are the best open jobs from any run, and shown here they read as
+    // this run's finds (owner, 6 Oct 2026: two runs in a row "found" the same two jobs). Its open jobs stay one click away, in Jobs.
+    const nothingNew = card.fresh === 0;
+    heading = nothingNew ? 'No new jobs this run' : 'Top matches';
+    rows.append(...(nothingNew ? [] : card.items).slice(0, 3).map(item => {
       const row = el('li', 'run-card-row');
       // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
       // the row never shows a bare "–"; the posting opens from the arrow.
@@ -742,12 +745,13 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     // is what the list really holds: a "new since last run" posting that was never scored (an AI limit) has no row
     // there, and the button must not promise it (owner, 30 Sep: 9 on the card, 8 on the page).
     const label = `${heading}${run?.startedAt ? ` · ${hhmm(Date.parse(run.startedAt))}` : ''}`;
-    const urls = card.items.map(item => item.url).filter(Boolean);
+    const urls = nothingNew ? [] : card.items.map(item => item.url).filter(Boolean);   // nothing new: Jobs as it is, not a filter of older jobs
     const known = new Set((shared.allJobs || []).map(job => fullKey(job.url)));
     const here = urls.length && known.size ? urls.filter(url => known.has(fullKey(url))).length : urls.length;
     const total = card.items.length;
-    if (!total) rows.append(el('li', 'muted', 'This run found nothing new to show. Your saved jobs are in Jobs.'));
-    const words = !total ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
+    if (!total || nothingNew) rows.append(el('li', 'muted', nothingNew ? 'Nothing new since the last check. Jobs found before are in Jobs.'
+      : 'This run found nothing new to show. Your saved jobs are in Jobs.'));
+    const words = !total || nothingNew ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
     const view = el('button', 'link', words);
     view.addEventListener('click', () => {
       openActivity(false);
