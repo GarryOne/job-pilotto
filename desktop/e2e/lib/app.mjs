@@ -46,6 +46,7 @@ export async function launch({env = {}, executablePath, args, profile: again, la
   // Only the app's own files (the window's scripts, styles, images): an outside address failing is not the app's bug.
   page.on('requestfailed', request => { if (/^file:/.test(request.url()) && !/ERR_ABORTED/.test(request.failure()?.errorText || '')) journey.failedLoads.push(request.url().replace(/^.*\/desktop\//, 'desktop/')); });
   await confirmQuiet(profile);
+  const trace = await startTrace(app);
   const shot = name => page.screenshot({path: path.join(ARTIFACTS, `${name}.png`)}).catch(() => {});
   // Copy the app's own logs next to the screenshots (the test profile holds only fictional data, and the logs never contain keys), and print the engine's last lines.
   const keepLogs = async () => {
@@ -57,7 +58,29 @@ export async function launch({env = {}, executablePath, args, profile: again, la
       if (fs.existsSync(engine)) console.log(`  --- the engine's last lines ---\n${fs.readFileSync(engine, 'utf8').split('\n').slice(-40).join('\n')}`);
     } catch { /* logs are a help, never a reason to fail */ }
   };
-  return {app, page, profile, shot, keepLogs, close: async () => { await keepLogs().catch(() => {}); await closeApp(app); }};
+  // close({keepTrace}): the trace is written only when asked (a step failed); otherwise it is dropped unwritten.
+  return {app, page, profile, shot, keepLogs, traceGroup: trace.group, traceGroupEnd: trace.groupEnd,
+    close: async ({keepTrace = false} = {}) => { await keepLogs().catch(() => {}); await trace.stop(keepTrace); await closeApp(app); }};
+}
+
+// A Playwright trace of each app session (6 Oct 2026): every action with its screenshot strip, the page before and after (DOM snapshots), console and network, each step
+// a named group (lib/runner.mjs). Opened on https://trace.playwright.dev or with `npx playwright show-trace`. Recorded always, written only for a failed suite
+// (trace-<suite>.zip, trace-<suite>-2.zip after a relaunch); E2E_TRACE=0 turns it off. Never a reason to fail: a trace that cannot start or stop is only logged.
+let traces = 0;
+export const traceFiles = () => (fs.existsSync(ARTIFACTS) ? fs.readdirSync(ARTIFACTS).filter(name => /^trace-.*\.zip$/.test(name)).sort() : []);
+async function startTrace(app, env = process.env) {
+  const off = {group: async () => {}, groupEnd: async () => {}, stop: async () => {}};
+  if (env.E2E_TRACE === '0') return off;
+  const tracing = app.context().tracing;
+  try { await tracing.start({screenshots: true, snapshots: true, sources: true}); } catch (error) { console.log(`  (no trace: ${error.message})`); return off; }
+  const number = ++traces, quiet = promise => promise.catch(() => {});
+  const file = path.join(ARTIFACTS, `trace-${env.E2E_SUITE || 'default'}${number > 1 ? `-${number}` : ''}.zip`);
+  return {
+    group: name => quiet(tracing.group(name)), groupEnd: () => quiet(tracing.groupEnd()),
+    // A hung app must not hang the close: 60 s at most (a long suite's trace takes a few seconds to write).
+    stop: keep => Promise.race([tracing.stop(keep ? {path: file} : {}).then(() => { if (keep) console.log(`  trace: ${path.basename(file)} (${Math.round(fs.statSync(file).size / 1024)} KB)`); }),
+      new Promise((_, fail) => setTimeout(() => fail(new Error('took over 60 s')), 60000).unref())]).catch(error => console.log(`  (trace not written: ${error.message})`)),
+  };
 }
 
 // Which wizard step is showing.

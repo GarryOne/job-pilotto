@@ -67,6 +67,16 @@ try {
   if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { try { await writeReplay(ctx, name); } catch (error) { console.log(`  (replay.json not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }
+  // The steps as a table on the run's Summary page (lib/step-summary.mjs), after the close so the kept trace is named.
+  if (ctx && !ctx.skipAll && process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      const {stepSummary} = await import('./lib/step-summary.mjs');
+      const {traceFiles} = await import('./lib/app.mjs');
+      const windows = process.platform === 'win32', env = process.env;
+      (await import('node:fs')).appendFileSync(env.GITHUB_STEP_SUMMARY, `${stepSummary(name, ctx.runner.results, {traces: traceFiles(), os: windows ? 'Windows' : '', rerun: env.E2E_RERUN === '1',
+        artifact: `e2e-artifacts-${windows ? 'windows-' : ''}${name}`, runUrl: env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : ''})}\n`);
+    } catch (error) { console.log(`  (step summary not written: ${error.message})`); }
+  }
   // The app and Playwright can leave handles open: exit explicitly, never hang a CI job.
   process.exit(process.exitCode || 0);
 }

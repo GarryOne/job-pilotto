@@ -188,7 +188,7 @@ jobs:
         timeout-minutes: 10
         run: |
           first="$E2E_ARTIFACTS"
-          export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}"
+          export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}" E2E_RERUN=1   # its step table says "second try" (lib/step-summary.mjs)
           again() { if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs "$1"; else node suite.mjs "$1"; fi; }
           if again ${{ matrix.suite }}; then
             echo '{"rerun": "passed"}' > "$first/flaky.json"

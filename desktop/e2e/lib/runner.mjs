@@ -42,6 +42,9 @@ export function wantedWords(words, stepNeeds = {}) {
 export const SUITE_BUDGET_MS = Number(process.env.E2E_SUITE_BUDGET_MS) || 7 * 60000;
 export const slowest = (results, count = 5) => results.filter(result => result.seconds).sort((a, b) => b.seconds - a.seconds).slice(0, count).map(result => `${result.name.slice(0, 70)} (${Math.round(result.seconds)} s)`);
 
+// The screenshot a failed step leaves (without .png); the step summary names it (lib/step-summary.mjs).
+export const shotName = name => `failed-${name.replace(/\W+/g, '-').slice(0, 60)}`;
+
 // faultTally: () => the fakes' {armed, failed} counters (lib/faults.mjs), to check that a step's fault fired.
 export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BUDGET_MS, stepNeeds = {}, faultTally = null} = {}) {
   const results = [], suiteStarted = Date.now();
@@ -63,6 +66,7 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
     const started = Date.now(), before = faultTally?.();
     const unfired = () => faultCheck(before, faultTally?.(), {faults});
     let retried = '';
+    await getSession()?.traceGroup?.(name);   // the step's actions sit under its name in the trace (lib/app.mjs)
     try {
       try { await fn(); } catch (error) {
         // The environment answered badly (an HTML error page, a dropped connection): one more try before it counts (#266).
@@ -77,14 +81,14 @@ export function createRunner(getSession, {keepGoing = false, budgetMs = SUITE_BU
       results.push({name, status: 'passed', seconds, ...(retried ? {retried} : {}), ...(vacuous ? {faultNeverFired: true} : {})});
       console.log(`✓ ${name} (${seconds}s)${retried ? ' after one retry' : ''}${vacuous ? ` ⚠ passed, but ${NEVER_FIRED}: it may test nothing` : ''}`);
     } catch (error) {
-      await getSession()?.shot(`failed-${name.replace(/\W+/g, '-').slice(0, 60)}`);
+      await getSession()?.shot(shotName(name));
       await getSession()?.keepLogs();   // the app's and the engine's own logs: a screenshot says "nothing new", the log says why
       const note = unfired() ? `${error.message} ${neverFiredNote}` : error.message;
       results.push({name, status: 'failed', note, ...(!faults && isEnvironment(error.message) ? {environment: true} : {}), ...(note !== error.message ? {faultNeverFired: true} : {})});
       console.log(`✗ ${name}: ${note}`);
       if (keepGoing && !critical) return;   // recorded: the suite still fails at the end, and the next step runs
       throw error;
-    }
+    } finally { await getSession()?.traceGroupEnd?.(); }
   }
   const summary = () => {
     const count = status => results.filter(result => result.status === status).length;

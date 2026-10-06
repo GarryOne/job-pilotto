@@ -97,6 +97,13 @@ Both live in GitHub (Settings → Secrets → Actions) and, for local runs, in t
 ## Files
 `lib/app.mjs` launch, close, file picker · `fixtures/cv.pdf` a fictional CV (`make-cv.py` rewrites it)
 
+## Seeing what a run did (6 Oct 2026)
+- **The run's Summary page** has one table per suite (`lib/step-summary.mjs`): every step ✅/❌/⏭️, its time, the failure in plain words and the screenshot it left.
+- **A failed suite keeps a Playwright trace**, `trace-<suite>.zip` in its `e2e-artifacts-<suite>` artifact (`-2` after a relaunch): every action with a screenshot strip,
+  the page before and after (inspect it like DevTools), console and network, grouped by step. Unzip the artifact, drag the trace onto https://trace.playwright.dev (runs in
+  your browser, uploads nothing) or `npx playwright show-trace trace-<suite>.zip`. Recorded always, written only on failure; `E2E_TRACE=0` turns it off. The extension's
+  Chrome (the apply suite) is not traced, only the app.
+
 ## What the test app reports (the rule: it never alters live data)
 | Channel | In the journey |
 |---|---|
