@@ -133,6 +133,9 @@ def _waiting_line(info, since):
     return f'Another Job Pilotto search is running (app or terminal): waiting for {what}{began}{pid}; waited {mins} min so far…'
 
 
+WIN_LOCK_BYTE = 1 << 20   # the byte a Windows run lock holds (run_lock): far past the holder's note
+
+
 class LockTimeout(RuntimeError):
     """The run lock stayed taken for the whole wait: its holder is probably stuck (said so, with its pid, in the message)."""
 
@@ -150,8 +153,14 @@ def run_lock(folder=None, on_wait=None, poll=5, name='run', label='', wait_max=2
     try:
         if sys.platform == 'win32':
             import msvcrt
-            lock = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-            unlock = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            # msvcrt locks the byte at the file's current position, which the holder's note and a waiter's _holder() read move: so
+            # always the same byte, past any note (readable while locked). 6 Oct 2026: unlocking where the note ended raised
+            # PermissionError at the end of every Windows run, and a waiter that had read the note locked another byte.
+            def at_lock_byte():
+                handle.flush()
+                os.lseek(handle.fileno(), WIN_LOCK_BYTE, os.SEEK_SET)
+            lock = lambda: (at_lock_byte(), msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1))
+            unlock = lambda: (at_lock_byte(), msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1))
         else:
             import fcntl
             lock = lambda: fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
