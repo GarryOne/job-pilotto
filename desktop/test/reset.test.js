@@ -131,3 +131,12 @@ test('Windows runs its own tar by full path, never a Git for Windows GNU tar fro
   assert.equal(tar('win32', {SystemRoot: 'C:\\Windows'}), 'C:\\Windows\\System32\\tar.exe');
   assert.equal(tar('darwin'), 'tar');
 });
+
+// An export says whose it is and when, to the minute (owner, 6 Oct 2026): two exports of one day, or two people's, are told apart in Finder.
+test('the export file is named after its person, their role and the time', async () => {
+  const {exportName} = await import('../lib/reset.js');
+  const at = new Date(2026, 9, 6, 22, 41);
+  assert.equal(exportName({name: 'Igor Mardari', role: 'photographe', at}), 'Job Pilotto export · Igor Mardari · photographe · 2026-10-06 22.41.tar.gz');
+  assert.equal(exportName({at}), 'Job Pilotto export · 2026-10-06 22.41.tar.gz');                    // nothing known yet: still a valid name
+  assert.equal(exportName({name: 'A/B: "C"', role: 'x'.repeat(60), at}), `Job Pilotto export · A B C · ${'x'.repeat(40)} · 2026-10-06 22.41.tar.gz`);  // no characters a file name refuses, no endless role
+});

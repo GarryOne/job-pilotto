@@ -30,6 +30,16 @@ export function backupName(dir, now = new Date()) {
   return name;
 }
 
+// The export's file name: whose it is and when, so two exports (or two people's) are told apart at a glance in Finder:
+// "Job Pilotto export · Igor Mardari · Photographe · 2026-10-06 22.41.tar.gz". The name and role are left out when unknown; the time uses
+// a dot (":" is not allowed in a macOS or Windows file name), local time like the backup folders.
+export function exportName({name = '', role = '', at = new Date()} = {}) {
+  const clean = text => String(text || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40).trim();
+  const pad = n => String(n).padStart(2, '0');
+  const when = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}.${pad(at.getMinutes())}`;
+  return ['Job Pilotto export', clean(name), clean(role), when].filter(Boolean).join(' · ') + '.tar.gz';
+}
+
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
 export function exportTo(dir, file, {keys = null, notion = null, version = ''} = {}, now = new Date()) {
   const extra = [];

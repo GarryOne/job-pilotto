@@ -1182,9 +1182,12 @@ function handlers() {
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
   handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, notion: withNotion = false} = {}) => {
-    const day = new Date().toISOString().slice(0, 10);
+    // Whose data and when: the name from the Profile's contact details (3 s at most: never hold the dialog on Notion), the first role searched for.
+    const contact = await Promise.race([contactDetails.read(storage).catch(() => ({})), new Promise(done => setTimeout(() => done({}), 3000))]);
+    const role = (() => { try { return JSON.parse(storage.readText('config/search.json') || '{}').jobs_board_search_queries?.[0] || ''; } catch { return ''; } })();
+    const name = contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ');
     const picked = await dialog.showSaveDialog(window, {title: 'Export your Job Pilotto data',
-      defaultPath: path.join(app.getPath('documents'), `Job Pilotto export ${day}.tar.gz`), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
+      defaultPath: path.join(app.getPath('documents'), reset.exportName({name, role})), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
     if (picked.canceled || !picked.filePath) return {ok: false};
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
     exportStop = new AbortController();
