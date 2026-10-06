@@ -135,3 +135,26 @@ class StorageTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TradeSuggestionsTests(unittest.TestCase):
+    """6 Oct 2026: a photographer's search caught 0 of 6,449 postings in Geneva and the card, knowing only IT words, said nothing."""
+    def tally(self):
+        t = coverage.Tally()
+        for title in ['Client Advisor - Boutique Geneva'] * 6 + ['Sales Associate 80%'] * 4 + ['Senior Backend Engineer'] * 9:
+            t.add(title, True, False)
+        return t.summary()
+
+    def test_a_shop_search_is_offered_shop_words_and_an_it_search_it_words(self):
+        shop = coverage.verdict(self.tally(), ['vendeu(r|se)', 'responsable de magasin'])
+        self.assertEqual([s['term'] for s in shop['suggestions']][:2], ['client advisor', 'sales associate'])
+        self.assertTrue(shop['narrow'])
+        it = coverage.verdict(self.tally(), [r'\bsre\b'])
+        self.assertIn('backend', [s['term'] for s in it['suggestions']])
+        self.assertNotIn('client advisor', [s['term'] for s in it['suggestions']])
+
+    def test_unused_sources_least_effort_first(self):
+        names = [s['id'] for s in coverage.unused_sources({})]
+        self.assertEqual(names, ['brave', 'aggregators', 'serpapi'])
+        self.assertEqual([s['id'] for s in coverage.unused_sources({'JOOBLE_API_KEY': 'k', 'JOB_PILOTTO_AI_ENGINE': 'cli'})], ['serpapi'],
+                         'Claude Code\'s own web search stands in for the Brave key')

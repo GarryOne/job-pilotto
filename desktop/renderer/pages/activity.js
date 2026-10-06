@@ -731,12 +731,18 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     const total = card.items.length;
     if (!total) rows.append(el('li', 'muted', 'This run found nothing new to show. Your saved jobs are in Jobs.'));
     const words = !total ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
-    more = el('button', 'link', words);
-    more.addEventListener('click', () => {
+    const view = el('button', 'link', words);
+    view.addEventListener('click', () => {
       openActivity(false);
       openView('jobs');
       if (urls.length) showJobsIn(label, urls, 'activity');  // no links in the message: the whole list is all there is
     });
+    // Few new jobs: why, and what would bring more (the Strategy page's cards: role words, places, unused job sources; owner, 6 Oct 2026).
+    const few = (card.fresh ?? 0) < 3;
+    const why = few ? el('button', 'link', 'Why so few new jobs? →') : null;
+    why?.addEventListener('click', () => { openActivity(false); openView('strategy'); });
+    more = el('div', 'run-card-foot');
+    more.append(view, ...(why ? [why] : []));
   } else {
     // New to the search or checked again after its wait: a run never re-reads the same list (an older message has neither number).
     if (card.first == null) stats.append(stat(card.checked, 'employers checked'));

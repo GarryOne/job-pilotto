@@ -20,6 +20,19 @@ export function coverageCard(verdict, dismissedAt = '') {
   };
 }
 
+// "More places to find jobs" (src/coverage.py unused_sources): the job sources this install does not use, least effort first, each with what it
+// takes (a free key, a paid plan). Shown whatever the coverage: more sources mean more jobs. A chip opens its panel in Settings → Connections.
+export function sourcesCard(verdict, dismissedAt = '') {
+  const sources = Array.isArray(verdict?.sources) ? verdict.sources : [];
+  if (!sources.length || (dismissedAt && verdict.at && dismissedAt === verdict.at)) return null;
+  return {
+    title: 'More places to find jobs',
+    text: 'Job sources you do not use yet, easiest first. Each one adds jobs the others miss:',
+    chips: sources.map(source => ({id: source.id, label: `+ ${source.name} · ${source.effort}`, title: `${source.effort}: ${source.gain}`})),
+    at: verdict.at || '',
+  };
+}
+
 // The same card for places (src/coverage.py): roles the keywords already catch, but in places you did not list. Pure like the one above.
 export function placesCard(verdict, dismissedAt = '') {
   const places = verdict?.places;

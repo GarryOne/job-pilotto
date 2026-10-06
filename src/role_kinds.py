@@ -11,7 +11,7 @@ from .coverage import _TECH_STEMS, _TECH_WORDS
 # Order matters: the first kind whose words a title has is its kind ("Retail data analyst" is software, "Store manager" retail).
 KINDS = ('software', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other')
 _WORDS = {
-    'sales_retail': r'sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|magasin(?!ier)|filiale|cashier|caissi|kassier|merchandis|account (manager|executive)|commercial|conseill[eè]re? de vente|customer (service|success)|service client',
+    'sales_retail': r'sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|client advis|sales advis|magasin(?!ier)|filial|g[eé]rante?|detailhandel|cashier|caissi|kassier|merchandis|account (manager|executive)|commercial|conseill[eè]re? de vente|customer (service|success)|service client',
     'logistics': r'logisti|warehouse|entrep[oô]t|lager|magasinier|picker|pr[eé]parateur|driver|chauffeur|fahrer|courier|livreu|supply chain|shipping|forklift|cariste|dispatch|stock',
     'hospitality': r'chef|cook|cuisin|koch|waiter|serveu|kellner|barista|bartender|hotel|h[oô]tel|reception|housekeep|restaurant|kitchen|catering|gastro',
     'healthcare': r'nurse|infirmi|pflege|doctor|m[eé]decin|arzt|pharmac|therap|care assistant|aide.soignant|medical|m[eé]dical|clinic|dental|midwife|hebamme|caregiver',

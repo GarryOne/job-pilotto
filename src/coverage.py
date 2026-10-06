@@ -8,6 +8,7 @@ engineering role terms, with examples, so the app can say "your keywords catch 5
 No AI and no network: it only counts what the crawl already fetched.
 """
 import json
+import os
 import re
 from datetime import datetime, timezone
 
@@ -26,7 +27,18 @@ LOCAL_VOCAB = ('systemtechniker', 'systemingenieur', 'systemadministrator', 'inf
                'administrateur système', 'administrateur systèmes', 'développeur', 'ingénieur réseau', 'sistemista', 'sviluppatore',
                'ingegnere cloud', 'ingegnere devops', 'amministratore di sistema', 'ingeniero devops', 'ingeniero cloud', 'desarrollador',
                'ontwikkelaar', 'systeembeheerder', 'programista', 'administrator systemów')
-VOCAB = VOCAB + LOCAL_VOCAB
+# Role words of other trades, in the languages of the places users search (6 Oct 2026: a photographer's search caught 0 of 6,449 postings
+# in Geneva and the card, knowing only IT words, said nothing). Offered only to a search of that kind (role_kinds), fixed like the above.
+TRADE_VOCAB = ('sales associate', 'sales advisor', 'client advisor', 'client adviser', 'store manager', 'shop manager', 'retail', 'cashier',
+               'conseiller de vente', 'conseillère de vente', 'vendeur', 'vendeuse', 'gestionnaire de vente', 'employé de magasin', 'caissier',
+               'caissière', 'gérant', 'gérante', 'responsable de magasin', 'verkäufer', 'verkäuferin', 'filialleiter', 'detailhandel',
+               'warehouse', 'logistics', 'magasinier', 'logisticien', 'préparateur', 'cariste', 'chauffeur', 'livreur', 'lagerist', 'logistiker',
+               'photographer', 'photographe', 'fotograf', 'videographer', 'vidéaste', 'retoucheur', 'graphic designer', 'graphiste',
+               'content creator', 'social media', 'waiter', 'serveur', 'serveuse', 'barista', 'cuisinier', 'koch', 'réceptionniste',
+               'nurse', 'infirmier', 'infirmière', 'pflegefachfrau', 'pflegefachmann', 'assistant en soins', 'accountant', 'comptable',
+               'buchhalter', 'office assistant', 'assistant administratif', 'sachbearbeiter', 'teacher', 'enseignant', 'lehrer',
+               'technician', 'technicien', 'électricien', 'mécanicien', 'elektriker', 'polymechaniker')
+VOCAB = VOCAB + LOCAL_VOCAB + TRADE_VOCAB
 LOCAL_MIN = 3   # a local-language word with at least this many missed postings is worth saying, however broad the search already is
 EXAMPLES = 3
 # Places a user with EU work rights could add, as a fixed list (label shown, regex fragment written into the search settings' "abroad"
@@ -157,14 +169,40 @@ def verdict(summary, keywords=(), locations=()):
     if not summary or not (summary.get('in_places') or summary.get('places')):
         return None
     have = {str(word).lower() for word in keywords}
-    suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have] if looks_technical(keywords) else []
+    from .role_kinds import kind_of, of_search
+    wanted = of_search({'role_keywords': list(keywords)})
+    # The words of the search's own kinds of role only: an IT search gets IT words, a shop search shop words (6 Oct 2026: nothing for others).
+    suggestions = [s for s in summary.get('suggestions', []) if s['term'].lower() not in have
+                   and (s['term'] not in TRADE_VOCAB if not wanted or 'software' in wanted else kind_of(s['term']) in wanted)]
     share = summary['matched'] / summary['in_places'] if summary.get('in_places') else 1
     for item in suggestions:
         item['local'] = item['term'] in LOCAL_VOCAB
     local = any(item['local'] and item['count'] >= LOCAL_MIN for item in suggestions)
     return {'narrow': (share < NARROW_BELOW and any(s['count'] >= 5 for s in suggestions)) or local, 'local': local, 'share': share, 'matched': summary['matched'],
             'in_places': summary['in_places'], 'fetched': summary['fetched'], 'feeds': summary['feeds'], 'at': summary.get('at'),
-            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations)}
+            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources()}
+
+
+# Ways to get more jobs this install does not use yet, least effort first. Fixed list: what each costs is said, nothing is turned on here
+# (owner, 6 Oct 2026: "recommend all the unused options, ordered by the lowest effort; keys, costs or the user's browser as an option").
+SOURCES = (
+    {'id': 'brave', 'name': 'Web search (Brave)', 'effort': 'A free key, about 2 minutes', 'gain': "finds employers' own job sites when their name leads nowhere",
+     'unused': lambda env: not env.get('BRAVE_SEARCH_API_KEY') and not _claude_code(env)},
+    {'id': 'aggregators', 'name': 'Adzuna and Jooble', 'effort': 'Two free keys, about 3 minutes', 'gain': 'job search engines across all trades and countries',
+     'unused': lambda env: not ((env.get('ADZUNA_APP_ID') and env.get('ADZUNA_APP_KEY')) or env.get('JOOBLE_API_KEY'))},
+    {'id': 'serpapi', 'name': 'Google Jobs (SerpApi)', 'effort': 'A free key (250 searches a month); paid plans beyond', 'gain': 'jobs Google has collected from every site, LinkedIn included',
+     'unused': lambda env: not env.get('SERPAPI_API_KEY')},
+)
+
+
+def _claude_code(env):
+    return (env.get('JOB_PILOTTO_AI_ENGINE') or '').lower() == 'cli'
+
+
+def unused_sources(env=None):
+    """[{id, name, effort, gain}] of SOURCES this install does not use, in order (least effort first)."""
+    env = os.environ if env is None else env
+    return [{key: source[key] for key in ('id', 'name', 'effort', 'gain')} for source in SOURCES if source['unused'](env)]
 
 
 def places_verdict(summary, locations=()):

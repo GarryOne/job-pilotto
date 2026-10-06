@@ -9,7 +9,8 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {coverageCard, placesCard} from '../coverage-card.js';
+import {coverageCard, placesCard, sourcesCard} from '../coverage-card.js';
+import {openSetting} from './settings.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
 function chips(items, tone = '') {
@@ -116,6 +117,7 @@ function renderStrategy(data) {
 // "Your search may be too narrow": read after the strategy is drawn (a quick local file), shown only when the role keywords catch little
 // of the market and some role word would add real numbers. Adding a term rewrites the search settings, in the app and in Notion.
 const DISMISSED = 'jp.coverage.dismissed';
+const SOURCES_DISMISSED = 'jp.sources.dismissed';
 const remembered = (key = DISMISSED) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
 // The last verdict, kept so the cards are in place at the FIRST paint: the engine's answer takes seconds (a Python start), and a card that arrived after the page had stood still
 // pushed everything down while it was being read (5 Oct 2026). With nothing kept yet, a "Checking…" card holds the place; once a visit has found no card, nothing is held.
@@ -126,6 +128,19 @@ const paintCoverage = verdict => {
     chip => window.pilot.addRoles([chip.term]), chip => `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`);
   showCard(placesCard(verdict, remembered(PLACES_DISMISSED)), {box: 'strategy-places', title: 'places-title', text: 'places-text', chips: 'places-chips', dismiss: 'places-dismiss', key: PLACES_DISMISSED},
     chip => window.pilot.addPlaces([chip.place]), chip => `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`);
+  // Unused job sources: a chip opens its panel in Settings → Connections (a key to add there), nothing is turned on from here.
+  const sources = sourcesCard(verdict, remembered(SOURCES_DISMISSED));
+  show($('strategy-sources'), !!sources);
+  if (sources) {
+    $('sources-title').textContent = sources.title;
+    $('sources-text').textContent = sources.text;
+    $('sources-chips').replaceChildren(...sources.chips.map(chip => {
+      const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
+      button.addEventListener('click', () => openSetting(chip.id));
+      return button;
+    }));
+    $('sources-dismiss').onclick = () => { try { localStorage.setItem(SOURCES_DISMISSED, sources.at); } catch {} show($('strategy-sources'), false); };
+  }
 };
 // first: called when the page starts to load, beside the strategy read (not after it).
 export async function loadCoverage({first = false} = {}) {
