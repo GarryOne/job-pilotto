@@ -4,7 +4,7 @@ name: CI · End-to-end on Windows
 # environment) was invisible there. One job per suite, like e2e.yml. By hand: the `suites` input (empty = all), `fixed: true` = the fixed path (E2E_SEED=0).
 # 4 Oct 2026, parity with the Mac: the Mac run (e2e.yml, job "Windows follows") starts this one when it tested something, with its commit, the same
 # suites and the same AI review (plan-windows.mjs). A commit Windows already tested is not run again. On a release gate's build it is the Windows beta gate (approve-windows).
-run-name: ${{ inputs.sha && format('Windows {0}', inputs.sha) || 'CI · End-to-end on Windows' }}
+run-name: ${{ format('E2E Windows · {0} · {1}', inputs.suites || inputs.mac_run && 'the Mac run''s suites' || 'all suites', inputs.sha || github.ref_name) }}   # which suites, at a glance (owner, 7 Oct 2026)
 on:
   workflow_dispatch:
     inputs:
