@@ -54,6 +54,10 @@ export async function init() {
   window.pilot.lastReset().then(done => {
     if (done?.failed) toastMessage('Import or reset did not finish', `${done.failed}. Your data on this computer is as it was; try again.`);
     else if (done?.imported) toastMessage('Data imported ✓', `Your previous data is in ${done.backup}.`);
+    // The backup's Profile and tracking are in its Notion workspace (lib/reset.js notionLeftBehind): say which one to connect, before a new one is made.
+    if (done?.imported && done.notionElsewhere) toastMessage({title: 'Connect the same Notion workspace',
+      body: 'Your Profile and job tracking are in the Notion workspace this backup used. Connect that workspace and pick your existing Job Pilotto page: '
+        + 'a new workspace starts with an empty Profile.', hint: 'Click to open Connections', target: {view: 'settings', section: 'connections'}});
     else if (done?.backup) toastMessage('Job Pilotto was reset', `Your previous data is in ${done.backup}.`);
     else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted.');
     if (done?.archived) toastMessage('Old Notion workspace archived', `"${done.archived.title}" is kept in Notion. The setup builds a new workspace: share a new, empty page with Job Pilotto.`);

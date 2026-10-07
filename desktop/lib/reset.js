@@ -98,8 +98,20 @@ export function applyPending(dir, now = new Date()) {
     fs.rmSync(path.join(dir, 'manifest.json'), {force: true});
     fs.rmSync(path.join(dir, NOTION_FILE), {force: true});  // a copy for the user to keep; Notion stays the truth
     done.imported = true;
+    if (notionLeftBehind(dir)) done.notionElsewhere = true;
   }
   return done;
+}
+
+// An import whose Profile and tracking live in a Notion workspace it brings no key for: only connecting that same workspace gets them back; a new one
+// starts with the blank template (7 Oct 2026: an import, then a new workspace, left the Profile empty and every job scored 2-5). True when the
+// imported settings name a Profile page and neither a Notion key (keys.json, asked for at export) nor a Profile kept on this Mac came with it.
+export function notionLeftBehind(dir) {
+  const read = name => { try { return fs.readFileSync(path.join(dir, name), 'utf8'); } catch { return ''; } };
+  let settings = {}, keys = {};
+  try { settings = JSON.parse(read('settings.json') || '{}'); } catch {}
+  try { keys = JSON.parse(read(KEYS_FILE) || '{}'); } catch {}
+  return !!settings.notionIds?.NOTION_PROFILE_PAGE_ID && !keys.NOTION_TOKEN && !read('profile.md').trim();
 }
 
 // After an import: keys that came in plain text are stored encrypted, and the plain file is deleted.
