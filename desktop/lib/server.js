@@ -271,7 +271,7 @@ let appliedHook = () => {};   // the app counts an application the extension saw
 export function setAppliedHook(fn) { appliedHook = fn; }
 let renderer = null;
 export function setRenderer(fn) { renderer = fn; }   // (url) -> {status, html} | {error}: lib/page-render.js, bound in main.js
-export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot}): which Chrome tabs exist (lib/review.js binds sessions to them)
+export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot, reading}) -> read tabs to hand back: which Chrome tabs exist (lib/review.js binds sessions to them)
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;
 export const extensionSeen = () => seen;
@@ -452,6 +452,7 @@ export function start(storage, onError = () => {}) {
           'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        let reread = [];   // read tabs to hand back to an extension that restarted mid-read (lib/visits.js noteTabs)
         if (ok) {
           try {
             const report = JSON.parse(body?.toString() || '{}');
@@ -463,12 +464,12 @@ export function start(storage, onError = () => {}) {
               : at - seen.at > 90 * 1000 ? `after ${Math.round((at - seen.at) / 1000)} s of silence` : '';
             if (why) appLog('extension', `checked in: ${why}`, {version, tabs: (report.urls || []).length});
             seen = {at, version};
-            tabsHandler({ids: report.ids, boot: report.boot, reading: report.reading});   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
+            reread = tabsHandler({ids: report.ids, boot: report.boot, worker: report.worker, reading: report.reading}) || [];   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
             void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? {ok, latest: latestExtension()} : {ok}));
+        res.end(JSON.stringify(ok ? {ok, latest: latestExtension(), ...(reread.length ? {reread} : {})} : {ok}));
         return;
       }
       if (req.url === '/extension/open') {

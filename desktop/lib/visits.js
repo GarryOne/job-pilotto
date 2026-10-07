@@ -189,10 +189,30 @@ export const siteLine = (state, name, words) => `  ▸ ${state} · ${plain(name)
 // Which Chrome tab reads which site: the extension's tab report (on every open, change and close, and every 30 s), bound the way Applying binds
 // a form to its tab (review.js noteTabs). A site whose tab is gone from a report was closed by you: said at once, and the next site opens.
 const tabOf = new Map();   // ticket -> tab id
+const marks = new Map();   // ticket -> the mark its tab was opened with (jp-read or jp-read-filter), to hand it back after a restart
 let bootId = '';
-export function noteTabs({ids, boot, reading} = {}) {
-  if (boot && boot !== bootId) { bootId = String(boot); tabOf.clear(); }   // Chrome restarted: its tabs were numbered again
-  if (!Array.isArray(ids) || !reading || typeof reading !== 'object') return;   // an older extension: its report has no read tabs
+// Returns the tabs to hand back to the extension: [{tab, ticket, mark}] (server.js answers them as `reread`, extension/background.js reads them again).
+let workerId = '';
+export function noteTabs({ids, boot, worker, reading} = {}) {
+  const resume = [];
+  const renumbered = boot && boot !== bootId, restarted = renumbered || (worker && worker !== workerId);
+  if (restarted) {
+    // The extension started again (reloaded, updated, or its worker stopped by Chrome) while sites were read: each reading lived in its memory
+    // and died with it, and the app then waited 30 s per site for nothing (owner's run, 7 Oct 2026 23:47: a reload 7 s in, 3 of 5 sites
+    // "stopped answering"). A tab still open is handed back, to be read again from where it is. After a Chrome restart the tabs were numbered
+    // again, so a tab id is trusted only when it is still open.
+    const open = new Set((Array.isArray(ids) ? ids : []).map(Number));
+    if (bootId || workerId) for (const [ticket, tab] of tabOf) if (watchers.has(ticket) && marks.has(ticket) && open.has(tab)) resume.push({tab, ticket, mark: marks.get(ticket)});
+    if (boot) bootId = String(boot);
+    if (worker) workerId = String(worker);
+    if (renumbered) tabOf.clear();
+    for (const {tab, ticket} of resume) {
+      tabOf.set(ticket, tab);
+      log('visit', 'read handed back after the extension restarted', {ticket, tab, site: siteNames.get(ticket) || '', why: renumbered ? 'extension reloaded' : 'extension worker restarted'});
+      stepOf({ticket, words: 'the extension restarted in Chrome: reading this tab again'});
+    }
+  }
+  if (!Array.isArray(ids) || !reading || typeof reading !== 'object') return resume;   // an older extension: its report has no read tabs
   const open = new Set(ids.map(Number).filter(Number.isInteger));
   for (const [ticket, tab] of Object.entries(reading)) {
     if (!watchers.has(ticket) || !Number.isInteger(Number(tab))) continue;
@@ -203,6 +223,7 @@ export function noteTabs({ids, boot, reading} = {}) {
     if (!watchers.has(ticket)) tabOf.delete(ticket);
     else if (!open.has(tab)) { tabOf.delete(ticket); watchers.get(ticket)({closed: true}); }
   }
+  return resume;
 }
 // The run going on now (one at a time: pipeline.work joins a second click): its queue, so "Open again" puts a closed site back in it, and where each
 // site's tab is (the last page it read), for "Show tab".
@@ -335,6 +356,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
       if (event.page) { active?.lastPage.set(key(chosen.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
+    marks.set(ticket, filter ? 'jp-read-filter' : 'jp-read');
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
     if (!opened.ok) {
       waiting.delete(ticket); watchers.delete(ticket);
@@ -350,6 +372,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     blocked.delete(ticket);
     lastNews.delete(ticket);
     lastStep.delete(ticket); thoughtMs.delete(ticket);
+    marks.delete(ticket);
     const fits = fitsBy.get(ticket) || 0;
     fitsBy.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);

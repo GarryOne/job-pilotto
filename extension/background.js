@@ -777,6 +777,9 @@ async function settleOpenTabs() {
 chrome.runtime.onInstalled.addListener(settleOpenTabs);
 chrome.runtime.onStartup.addListener(settleOpenTabs);
 
+// This worker's own id: Chrome may stop the worker and start a new one, and every reading in progress dies with the old one; the app hands
+// those tabs back when the id changes.
+const WORKER = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
 async function reportTabs() {
   const config = await settings();
@@ -797,8 +800,16 @@ async function reportTabs() {
   if (!boot) { boot = String(Date.now()); await chrome.storage.session.set({boot}); }
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
-    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, reading, version: chrome.runtime.getManifest().version})});
+    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, worker: WORKER, reading, version: chrome.runtime.getManifest().version})});
     connected(true);
+    // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
+    // tab is, under the mark it was opened with (desktop/lib/visits.js noteTabs; 7 Oct 2026: a reload left 3 of 5 sites "stopped answering").
+    for (const {tab, ticket, mark} of Array.isArray(answer?.reread) ? answer.reread : []) {
+      const open = await chrome.tabs.get(Number(tab)).catch(() => null);
+      if (open?.url && /^https?:/.test(open.url) && /^jp-read(-filter)?$/.test(String(mark)) && /^[a-z0-9]{4,16}$/.test(String(ticket))) {
+        autoRead(open.id, `${open.url.split('#')[0]}#${mark}-${ticket}`);
+      }
+    }
     // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
     // that can't update (a store install) doesn't reload over and over.
     if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version)) {

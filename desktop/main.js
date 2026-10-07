@@ -2474,7 +2474,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     }
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
-  server.setTabsHandler(report => { review.noteTabs(report); visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
+  server.setTabsHandler(report => { review.noteTabs(report); return visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {

@@ -113,6 +113,34 @@ test('a read tab you close ends that site at once, said in its row, and the next
   noteTabs({ids: [1], boot: 'b1'});
 });
 
+test('an extension that restarts mid-read gets its tabs handed back to read again, not skipped as silent 30 s later (owner\'s run, 7 Oct 2026 23:47)', async () => {
+  const {noteTabs, siteLine} = await import('../lib/visits.js');
+  const lines = [], handed = [];
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (url.includes('reloaded')) {
+      setTimeout(() => noteTabs({ids: [51], boot: 'r1', worker: 'w1', reading: {[ticket]: 51}}), 5);
+      setTimeout(() => handed.push(noteTabs({ids: [51], boot: 'r2', worker: 'w2', reading: {}})), 15);   // reloaded: a new boot and worker
+      setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 4, added: 4, pages: 1}), 40);          // ... and it read the tab again
+    } else if (url.includes('woken')) {
+      setTimeout(() => noteTabs({ids: [52], boot: 'r2', worker: 'w2', reading: {[ticket]: 52}}), 5);
+      setTimeout(() => handed.push(noteTabs({ids: [52], boot: 'r2', worker: 'w3', reading: {}})), 15);   // Chrome stopped the worker only
+      setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 2, added: 2, pages: 1}), 40);
+    } else {
+      setTimeout(() => noteTabs({ids: [53], boot: 'r2', worker: 'w3', reading: {[ticket]: 53}}), 5);
+      setTimeout(() => handed.push(noteTabs({ids: [1], boot: 'r3', worker: 'w4', reading: {}})), 15);    // Chrome restarted: tabs renumbered
+      setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 1, added: 1, pages: 1}), 40);
+    }
+    return {ok: true};
+  };
+  const results = await runAll([{name: 'Reloaded', url: 'https://reloaded.example'}, {name: 'Woken', url: 'https://woken.example'}, {name: 'Renumbered', url: 'https://renumbered.example'}],
+    {atOnce: 1, openTab, tee: line => lines.push(line), waitMs: 5000, quietMs: 5000, siteMs: 5000});
+  assert.deepEqual(results.map(result => result.ok), [true, true, true]);
+  assert.deepEqual(handed.map(list => list.map(item => [item.tab, item.mark])), [[[51, 'jp-read-filter']], [[52, 'jp-read-filter']], []],
+    'a reload and a stopped worker hand the tab back with its mark; after a Chrome restart no id is trusted');
+  assert.ok(lines.includes(siteLine('reading', 'Reloaded', 'the extension restarted in Chrome: reading this tab again')));
+});
+
 test('"Open again" puts a site whose tab you closed back in the run; after the run it says to start again', async () => {
   const {again, noteTabs, siteLine} = await import('../lib/visits.js');
   const lines = [];
