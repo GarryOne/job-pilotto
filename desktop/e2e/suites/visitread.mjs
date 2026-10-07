@@ -165,6 +165,19 @@ with mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'v.js
       if (!done[0]?.ok || after.cards.length !== 3) throw new Error(`step ${JSON.stringify(done)}, then ${after.cards.length} jobs`);
     });
 
+    await ctx.run('a second round of ways on never gives one id to two elements: the step Claude names is the one clicked (Fust, 7 Oct 2026)', async () => {
+      await page.goto(`${base}/unstick.html`);
+      await call(page, 'collectControls');
+      await call(page, 'collectWays');
+      await page.evaluate("document.querySelector('nav').insertAdjacentHTML('afterbegin', '<a href=\\'/occasionen\\'>Occasionen</a>')");   // the page changed between rounds
+      const second = await call(page, 'collectWays');
+      const ids = await page.evaluate("[...document.querySelectorAll('[data-jp-control]')].map(node => node.dataset.jpControl)");
+      if (new Set(ids).size !== ids.length) throw new Error(`ids given twice: ${JSON.stringify(ids)}`);
+      const see = second.ways.find(way => way.label === 'See all jobs');
+      const clicked = await page.evaluate(`document.querySelector('[data-jp-control="${see.id}"]').innerText`);
+      if (clicked !== 'See all jobs') throw new Error(`id ${see.id} names "${clicked}"`);
+    });
+
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {
       await page.goto(`${base}/check.html`);
       const seen = await call(page, 'extractPage');

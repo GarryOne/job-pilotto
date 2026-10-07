@@ -165,6 +165,12 @@ def listed(url):
     return host in (data.get('sites') or {}) or any(portal['host'] in host for portal in PORTALS.values())
 
 
+def _title_place(title):
+    """The place named in a job title ("Conseiller de vente - Genève (F/H)" -> "Genève"), or ''."""
+    found = careers._places().search(title or '')
+    return found.group(0)[:60] if found else ''
+
+
 def _place(lines):
     pattern = careers._places()
     for line in lines:
@@ -183,7 +189,9 @@ def _from_cards(cards, url):
             continue
         lines = [re.sub(r'\s+', ' ', str(line)).strip()[:160] for line in card.get('lines') or [] if str(line).strip()]
         rest = [line for line in lines if line != title]
-        job = ats._job(hashlib.sha1(link.encode()).hexdigest()[:16], title, _place(rest), link)
+        # The place from the card's lines, else from its title (7 Oct 2026: Dior's "Conseiller de vente - Genève (F/H)" had no place line
+        # and was left out of the search as placeless).
+        job = ats._job(hashlib.sha1(link.encode()).hexdigest()[:16], title, _place(rest) or _title_place(title), link)
         company = next((line for line in rest if line != job['location'] and not re.search(r'\d+\s*(day|hour|week|month|jour|tag|stunde)|ago|il y a|vor\s', line, re.I)), '')
         if company:
             job['employer'] = company[:120]

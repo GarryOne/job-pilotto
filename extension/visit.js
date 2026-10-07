@@ -191,7 +191,10 @@ export function collectControls() {
     if (!visible(node) || node.disabled) continue;
     const label = labelOf(node);
     if (!label || NEVER.test(label) || node.closest('form[action*="login"], form[action*="apply"]')) continue;
-    const id = node.dataset.jpControl || `c${out.length + 1}`;
+    // A page-wide number: a second round (or the way-finder after it) never gives one id to two elements (7 Oct 2026: on Fust "w5" named
+    // two links, and "Occasionen" was clicked for "Zu den offenen Stellen").
+    const root = document.documentElement;
+    const id = node.dataset.jpControl || `c${root.dataset.jpNext = Number(root.dataset.jpNext || 0) + 1}`;
     node.dataset.jpControl = id;
     const kind = node.tagName === 'SELECT' ? 'select' : node.tagName === 'INPUT' ? (['checkbox', 'radio'].includes(node.type) ? node.type : 'text') : (node.getAttribute('role') || 'button');
     out.push({id, kind, label, options: node.tagName === 'SELECT' ? [...node.options].map(option => option.text.trim()).slice(0, 12) : [],
@@ -215,7 +218,8 @@ export function collectWays() {
     const href = node.tagName === 'A' ? node.href.split('#')[0] : '';
     if ((!label && !href) || NEVER.test(label) || /^(mailto|tel|javascript):/i.test(node.getAttribute('href') || '') || node.closest('form[action*="login"], form[action*="apply"]')) continue;
     if (href && ways.some(way => way.href === href)) continue;
-    const id = node.dataset.jpControl || `w${ways.length + 1}`;
+    const root = document.documentElement;   // a page-wide number, as in collectControls: ids stay unique across rounds
+    const id = node.dataset.jpControl || `w${root.dataset.jpNext = Number(root.dataset.jpNext || 0) + 1}`;
     node.dataset.jpControl = id;
     const kind = node.tagName === 'A' ? 'link' : node.tagName === 'SELECT' ? 'select' : node.tagName === 'INPUT' ? 'search box' : 'button';
     ways.push({id, kind, label, href, options: node.tagName === 'SELECT' ? [...node.options].map(option => option.text.trim()).slice(0, 15) : []});

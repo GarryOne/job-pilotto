@@ -153,6 +153,13 @@ class VisitsTest(unittest.TestCase):
         visits.read('https://www.fm.example/careers', '<html></html>', [], title='Error 404', now=NOW)
         self.assertNotIn('fm.example', visits._load().get('jobpages') or {})
 
+    def test_a_card_whose_place_is_only_in_its_title_keeps_it(self):
+        # 7 Oct 2026: Dior's "Conseiller de vente - Genève (F/H)" had no place line and was dropped from the search as placeless.
+        with mock.patch.object(visits.careers, '_places', lambda: __import__('re').compile(r'gen[eè]v[ea]?|zurich', __import__('re').I)):
+            result = visits.read('https://www.dior.com/carrieres/list.html', '<html></html>',
+                                 [{'title': 'Conseiller de vente - Genève (F/H)', 'url': '/carrieres/offre/1234567', 'lines': ['Conseiller de vente - Genève (F/H)']}], now=NOW)
+        self.assertEqual(result['jobs'][0]['location'], 'Genève')
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'
