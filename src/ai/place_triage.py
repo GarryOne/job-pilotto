@@ -153,3 +153,156 @@ def decide(locations, search, client=None):
     asked = [loc for loc in ask if loc in decided]
     print(f'Places: Claude placed {len(asked)} location(s); {sum(1 for loc in asked if decided[loc] != "out")} are in your places', flush=True)
     return decided
+
+
+# A location that names no town of its own ("Switzerland", "Romandie", "Several locations", nothing) is "vague": the posting's own words say
+# where the job is (owner, 7 Oct 2026: "universal, on any employer, feed, website or portal"; Manor's Geneva jobs said "Switzerland" in their
+# address field and "Geneva | Part-time 45%" in their text). Asked as its own question, about the locations already answered "out", so the
+# place question above stays as it is (a third answer in it made Haiku misfile Swiss towns, 7 Oct 2026). Stored on the location's answer:
+# 'out:vague' (its postings are read) or 'out:clear' (a real place outside); plain 'out' = not asked yet.
+VAGUE_BATCH = 60
+VAGUE_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['vague'], 'properties': {'vague': {
+    'type': 'array', 'items': {'type': 'integer'}, 'description': 'Numbers of the locations that name no town or city of their own'}}}
+VAGUE_SYSTEM = """You get a numbered list of job locations as postings write them. Answer the numbers of the ones that name no town or city \
+of their own: only a country ("Switzerland", "CH"), a large region or area ("Romandie", "Canton of Vaud", "Europe"), several places at once \
+without one town ("Several locations"), or nothing usable. A location naming a town, a city district or an address is not one of them, \
+even with its country ("Zug, Switzerland"); neither is a plain "Remote"."""
+
+
+def vague(locations, search, client=None):
+    """Of these locations answered "out", ask which name no town of their own (a batch this refresh can finish); returns all known."""
+    from . import cost, engine
+    from .. import time_budget as budget
+    key, decided = _key(search), dict(known(search))
+    ask = list(dict.fromkeys(n for n in (norm(loc) for loc in locations) if decided.get(n) == 'out'))
+    ask = ask[:budget.in_calls('place_vague', len(ask), VAGUE_BATCH, engine.PARALLEL)]
+    if not ask:
+        return decided
+    client = client or engine.client(action='place_vague')
+    batches = [ask[start:start + VAGUE_BATCH] for start in range(0, len(ask), VAGUE_BATCH)]
+    lock, done = threading.Lock(), [0]
+
+    def one(batch):
+        if budget.over('place_vague'):
+            return
+        listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
+        response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': VAGUE_SYSTEM}],
+                                          messages=[{'role': 'user', 'content': f'The job locations:\n{listed}'}],
+                                          output_config=engine.structured(VAGUE_SCHEMA, MODEL, 'low'))
+        cost.side(MODEL, response.usage)
+        numbers = {int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('vague') or [] if str(n).isdigit()}
+        with lock:
+            for n, location in enumerate(batch, 1):
+                decided[location] = 'out:vague' if n in numbers else 'out:clear'
+            done[0] += len(batch)
+    began = time.monotonic()
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
+        list(pool.map(one, batches))
+    budget.record('place_vague', time.monotonic() - began, -(-done[0] // (VAGUE_BATCH * max(1, engine.PARALLEL))))
+    _save(key, decided)
+    found = [loc for loc in ask if decided.get(loc) == 'out:vague']
+    if found:
+        print(f'Places: {len(found)} location(s) name no town of their own (e.g. {found[0]}); their postings say where the job is', flush=True)
+    return decided
+
+
+def _save(key, decided):
+    with LOCK:
+        data = _load()
+        data[key] = {**(data.get(key) or {}), **decided}
+        for old in list(data)[:-3]:   # the last few versions of the places only
+            data.pop(old)
+        STORE.parent.mkdir(parents=True, exist_ok=True)
+        STORE.write_text(json.dumps(data, ensure_ascii=False))
+
+
+READ_BATCH = 10   # postings: title, location and their first words
+READ_STORE = DATA / 'place_reading.json'
+READ_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['jobs'], 'properties': {'jobs': {'type': 'array', 'items': {
+    'type': 'object', 'additionalProperties': False, 'required': ['n', 'where', 'nearest', 'km', 'answer'],
+    'properties': {'n': {'type': 'integer'},
+                   'where': {'type': 'string', 'description': 'Where the job is, from the posting, in English ("" when it does not say)'},
+                   'nearest': {'type': 'string', 'description': 'Which of their places it is nearest to, as they wrote it, or "none"'},
+                   'km': {'type': 'integer', 'description': 'Road distance to that place in km, -1 when unknown'},
+                   'answer': {'type': 'string', 'enum': ['best', 'inside', 'out', 'unclear']}}}}}}
+READ_SYSTEM = """You decide where jobs are, for one job seeker, from the postings themselves: their location field named no town, only a \
+country or a wide area. You get the places they accept, in their own words, and numbered postings (title, location field, the start of the \
+text). Find where the job is from the text: a store or site named, "at the Geneva site", an address, "Geneva | Part-time". A company's \
+headquarters is not where the job is. For each posting say where it is, which of their places it is nearest to and how far by road in km; \
+then answer "best" (in one of their best places, or a suburb really part of that city's area: it touches the city; a separate town 15 km or \
+more away is not), "inside" (inside a place where anywhere is fine for them, or one of their cities abroad; when they listed none, nothing \
+is "inside"), "out" (elsewhere), or "unclear" (the text does not say where). Being in the same country does not make a job "inside"."""
+
+
+def _text_hash(job):
+    return hashlib.sha1(f"{job.get('title') or ''}\n{job.get('location') or ''}\n{job.get('description') or ''}".encode()).hexdigest()[:12]
+
+
+def _load_read():
+    try:
+        return json.loads(READ_STORE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def read_known(search):
+    """{job url: {'hash', 'place', 'where'}} read for these places so far; place is 'best', 'in', 'out' or 'unclear'."""
+    return _load_read().get(_key(search)) or {}
+
+
+def read_verdict(job, known):
+    """The answer for this job from its own words, or None when it has not been read (or its text changed since)."""
+    entry = known.get(job.get('url') or '')
+    return entry['place'] if entry and entry.get('hash') == _text_hash(job) else None
+
+
+def read(jobs, search, client=None):
+    """Read the postings whose location names no town (a batch this refresh can finish) and keep where each is; returns all known."""
+    from . import cost, engine
+    from .. import time_budget as budget
+    key, found = _key(search), dict(read_known(search))
+    todo = [job for job in jobs if job.get('url') and job.get('description') and read_verdict(job, found) is None]
+    todo = list({job['url']: job for job in todo}.values())
+    todo = todo[:budget.in_calls('place_reading', len(todo), READ_BATCH, engine.PARALLEL, noun='job(s) to read for their place')]
+    if not todo:
+        return found
+    client = client or engine.client(action='place_reading')
+    places = {k: v for k, v in places_words(search, _preferences()).items() if k != 'work_rights'}
+    batches = [todo[start:start + READ_BATCH] for start in range(0, len(todo), READ_BATCH)]
+    print(f'Places: reading {len(todo)} posting(s) whose location names no town, to find where each job is', flush=True)
+    lock, done = threading.Lock(), [0]
+
+    def one(batch):
+        if budget.over('place_reading'):
+            return
+        listed = '\n\n'.join(f"{n}. Title: {job['title']}\nLocation field: {job.get('location') or '(none)'}\nText: {' '.join(job['description'].split())[:1200]}"
+                              for n, job in enumerate(batch, 1))
+        response = client.messages.create(model=MODEL, max_tokens=3000, system=[{'type': 'text', 'text': READ_SYSTEM}],
+                                          messages=[{'role': 'user', 'content': f'Their places (JSON): {json.dumps(places, ensure_ascii=False)}\nThe postings:\n{listed}'}],
+                                          output_config=engine.structured(READ_SCHEMA, MODEL, 'low'))
+        cost.side(MODEL, response.usage)
+        answer = json.loads(next(b.text for b in response.content if b.type == 'text'))
+        with lock:
+            for item in answer.get('jobs') or []:
+                n = item.get('n')
+                if not isinstance(n, int) or not 1 <= n <= len(batch):
+                    continue
+                place = {'best': 'best', 'inside': 'in', 'out': 'out'}.get(item.get('answer'), 'unclear')
+                found[batch[n - 1]['url']] = {'hash': _text_hash(batch[n - 1]), 'place': place, 'where': str(item.get('where') or '')[:80]}
+            done[0] += len(batch)
+    began = time.monotonic()
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
+        list(pool.map(one, batches))
+    budget.record('place_reading', time.monotonic() - began, -(-done[0] // (READ_BATCH * max(1, engine.PARALLEL))))
+    with LOCK:
+        data = _load_read()
+        data[key] = {**(data.get(key) or {}), **found}
+        for old in list(data)[:-3]:
+            data.pop(old)
+        READ_STORE.parent.mkdir(parents=True, exist_ok=True)
+        READ_STORE.write_text(json.dumps(data, ensure_ascii=False))
+    now = [job for job in todo if read_verdict(job, found) is not None]
+    print(f'Places: read {len(now)} posting(s); {sum(1 for job in now if read_verdict(job, found) in ("best", "in"))} are in your places', flush=True)
+    return found

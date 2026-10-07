@@ -202,9 +202,6 @@ def enrich(pair,client):
             description=text(posting.get('description',''))
             job['work_mode']=mode(job['title']+' '+str(posting.get('jobLocationType',''))+' '+description)
             job['description']=description[:12000]
-            place=[p for p in posting_places(posting) if p!='Switzerland']
-            if place and job['location'] in ('','Switzerland'):   # the search page named only the country; the posting names its place
-                job['location']=', '.join(place);job['city']=city(job['location'])
         except Exception as e:
             c['notes'].append(f'Job detail unavailable; remote conditions unverified: {type(e).__name__}')
     try:
