@@ -338,7 +338,7 @@ async function waitForPage(tabId) {
 // has allowed the extension on the sites the app opens (Chrome's own prompt, once, from the popup). Each reports to the app and closes, so the
 // app can open the next. Only marked tabs: any other page still needs the person's click.
 export const MARKS = {'#jp-read': false, '#jp-read-filter': true};
-export const ALL_SITES = {origins: ['https://*/*', 'http://*/*']};
+export const ALL_SITES = {origins: ['https://*/*']};   // as declared in manifest.json; asking or checking more is always refused
 const started = new Set();
 export async function autoRead(tabId, url) {
   const mark = Object.keys(MARKS).find(key => String(url).endsWith(key));
