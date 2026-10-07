@@ -3,6 +3,7 @@ import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {loadJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
+import {PANEL_KEY, openActivity} from './activity.js';
 import {settingsPage} from './settings.js';
 import {toDraft} from './strategy-review.js';
 import {openTarget} from './open-target.js';
@@ -49,6 +50,9 @@ export async function init() {
         if (view === 'settings' && section && document.querySelector(`[data-settings-page="${section}"]`)) settingsPage(section);
       }, 0);
     } else openView(shared.state.notion ? 'focus' : 'jobs');
+    // The Recent activity panel open over it, on the same run (pages/activity.js PANEL_KEY); its content paints when the runs arrive.
+    const panel = remembered(PANEL_KEY);
+    if (panel) setTimeout(() => { shared.selectedRun = panel === 'live' ? null : Number(panel); openActivity(true); }, 0);
   } else {
     show($('wizard'));
     const saved = shared.state.settings.wizardStep === 'goals' ? 'cv' : shared.state.settings.wizardStep;  // the old goals step: now part of the CV step

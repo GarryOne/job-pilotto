@@ -24,7 +24,7 @@ import {showScheduleState} from './connections.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions, prepAction} from './focus.js';
-import {openView, panelClosed, panelOpened} from './nav.js';
+import {openView, panelClosed, panelOpened, remembered} from './nav.js';
 import {whichJob} from './reassign.js';
 import {openPrep, prepRunning} from './prep.js';
 import {readableLog} from '../human-log.js';
@@ -551,6 +551,7 @@ function removeLink(run) {
 }
 
 export function renderActivity(fresh) {
+  if (!$('activity-panel').hidden) remembered(PANEL_KEY, panelMemory(true, shared.selectedRun));   // another run picked in the open panel
   const data = withKept(fresh);
   renderActionsPage(data);
   lastActivity = data;
@@ -1673,9 +1674,14 @@ function barLabel() {
   $('activity-open').textContent = !$('activity-panel').hidden ? 'Hide activity ⌄' : lastActivity?.running ? 'View progress ↑' : 'Details ▴';
 }
 // fromHistory: ⌘← / ⌘→ opened or closed it (pages/nav.js); anything else is a step of its own there.
+// The panel, and the run it shows, kept for a reload (⌘R) beside the page (pages/nav.js remembered; owner, 8 Oct 2026: "preserve the Recent
+// activity modal being open after Cmd+R"). '' = closed, 'live' = the running task, else the run's id. Restored by pages/startup.js.
+export const PANEL_KEY = 'activityPanel';
+export const panelMemory = (open, run) => (open ? (run == null ? 'live' : String(run)) : '');
 export function openActivity(open, {fromHistory = false} = {}) {
   if (!fromHistory && open === $('activity-panel').hidden) (open ? panelOpened : panelClosed)(shared.selectedRun);
   show($('activity-panel'), open);
+  remembered(PANEL_KEY, panelMemory(open, shared.selectedRun));
   if (open) refreshGmailConnection();   // Gmail's connection as it is now, for the header button and the schedule
   // No dimming: the panel is part of the bottom bar; a press anywhere else on the page closes it (below).
   $('activity').classList.toggle('open', open);
