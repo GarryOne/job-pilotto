@@ -1793,6 +1793,12 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-phases li.site-row .site-words { flex: 1; min-width: 0; }
 .activity-panel .activity-phases li.site-row .phase-note { margin-left: 0; }
 .activity-panel .activity-phases li + li { border-top: 1px solid var(--line); }
+/* Read sites' result card: each site's ✓ / ✕ on the left of its row, the same marks as the live rows above (activity.js renderVisitsCard) */
+.item-rows .site-mark { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; font-weight: 700; }
+.item-rows .site-mark.done { border-radius: 50%; background: var(--good-bright); color: var(--on-accent); font-size: var(--fs-xs); }
+.item-rows .site-mark.done::before { content: '✓'; }
+.item-rows .site-mark.fail { color: var(--bad-bright); }
+.item-rows .site-mark.fail::before { content: '✕'; }
 .activity-panel .activity-phases li.done::before { content: '✓'; display: inline-grid; place-items: center; width: 22px; height: 22px;
   margin-right: var(--sp-3); border-radius: 50%; background: var(--good-bright); color: var(--on-accent); font-size: var(--fs-xs); }
 .activity-panel .activity-phases li.todo { font-weight: 400; }
