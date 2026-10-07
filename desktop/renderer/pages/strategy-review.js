@@ -1,6 +1,6 @@
 // Setup step 5: review the drafted strategy.
 import {el, pill} from '../components.js';
-import {icon} from '../icons.js';
+import {goalTiles} from '../goal-tiles.js';
 import {applyGoal, replaceCell, replaceLine, withLine} from '../markdown-edit.js';
 import {shared} from './shared.js';
 import {buildDraft, currentAnswers, showSearchStatus} from './activity.js';
@@ -205,59 +205,17 @@ function renderQuestions() {
 
 // The goals the AI proposed from the CV, as tiles; a click edits one (Enter or click away saves, Esc cancels). The
 // correction goes into the drafted Profile (markdown-edit.js applyGoal), which is what's saved to Notion.
-// A draft from before goals were proposed (a whole questionnaire then) shows the questionnaire's answers, read-only.
-// Label/value rows as on the Strategy page (What you're targeting): a long value (a salary in three currencies, many
-// languages) is clamped to two lines, with the whole text on hover and while editing.
-const GOAL_TILES = [['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'chart', 'Minimum salary'],
-  ['languages', 'globe', 'Languages you work in']];
+// A draft from before goals were proposed (a whole questionnaire then) shows the questionnaire's answers, read-only. The rows are
+// goal-tiles.js, shared with the Strategy page.
 function renderGoals() {
   const goals = shared.draft.goals, old = shared.state.settings.questionnaire || {};
-  $('draft-tiles').replaceChildren(...GOAL_TILES.flatMap(([key, glyph, label]) => {
-    const term = el('dt', '', icon(glyph));
-    term.append(label);
-    const box = el('dd', 'goal');
-    box.dataset.goal = key;
-    const text = (goals ? goals[key] : old[key]) || '—';
-    const value = el('span', 'goal-value', text);
-    value.title = text;
-    box.append(value);
-    if (!goals) return [term, box];
-    value.classList.add('editable');
-    value.title = `${text}\n(click to correct)`;
-    // A visible edit button, so it's clear the value can be corrected (clicking the value works too).
-    const edit = el('button', 'icon-button goal-edit', icon('edit'));
-    edit.type = 'button';
-    edit.title = `Correct ${label.toLowerCase()}`;
-    edit.setAttribute('aria-label', edit.title);
-    edit.addEventListener('click', () => value.click());
-    box.append(edit);
-    value.addEventListener('click', () => {
-      if (value.isContentEditable) return;
-      value.contentEditable = 'plaintext-only';
-      value.focus();
-      getSelection().selectAllChildren(value);
-      let done = false;
-      const finish = keep => {
-        if (done) return;
-        done = true;
-        value.contentEditable = 'false';
-        const text = value.textContent.trim();
-        if (keep && text && text !== goals[key]) {
-          goals[key] = text;
-          shared.draft.profile_markdown = applyGoal(shared.draft.profile_markdown, key, text);
-          draftChanged(['goals', 'profile_markdown']);
-          renderDocs();
-        }
-        renderGoals();
-      };
-      value.addEventListener('keydown', event => {
-        if (event.key === 'Enter') { event.preventDefault(); finish(true); }
-        if (event.key === 'Escape') { event.preventDefault(); finish(false); }
-      });
-      value.addEventListener('blur', () => finish(true), {once: true});
-    });
-    return [term, box];
-  }));
+  $('draft-tiles').replaceChildren(...goalTiles(goals || old, goals ? (key, text) => {
+    goals[key] = text;
+    shared.draft.profile_markdown = applyGoal(shared.draft.profile_markdown, key, text);
+    draftChanged(['goals', 'profile_markdown']);
+    renderDocs();
+    renderGoals();
+  } : null));
 }
 
 // The note to the AI is one field (#q-more, what currentAnswers reads): a card on its own before building, folded
@@ -400,7 +358,7 @@ async function finishSetup() {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   // ✎ on a card: a small input to add an entry (Enter adds, Esc closes).
-  document.querySelectorAll('.review [data-edit]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('#draft-view [data-edit]').forEach(button => button.addEventListener('click', () => {
     const card = button.closest('[data-list]');
     let input = card.querySelector('input.add');
     if (input) { input.remove(); return; }

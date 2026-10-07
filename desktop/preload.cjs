@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onLeadStep: callback => ipcRenderer.on('leadStep', (_, step) => callback(step)),
   onPrepStep: callback => ipcRenderer.on('prepStep', (_, step) => callback(step)),
   markOutcome: call('markOutcome'),
-  searchCoverage: call('searchCoverage'), roleIdeas: call('roleIdeas'), addRoles: call('addRoles'), editTargets: call('editTargets'), loosenSearch: call('loosenSearch'), explainCoverage: call('explainCoverage'), addPlaces: call('addPlaces'),
+  searchCoverage: call('searchCoverage'), roleIdeas: call('roleIdeas'), addRoles: call('addRoles'), editTargets: call('editTargets'), editGoal: call('editGoal'), loosenSearch: call('loosenSearch'), explainCoverage: call('explainCoverage'), addPlaces: call('addPlaces'),
   dismissReason: call('dismissReason'), intelSnapshot: call('intelSnapshot'), benchmarkLines: call('benchmarkLines'),
   license: call('license'), licenseSet: call('licenseSet'), licenseRemove: call('licenseRemove'),
   onAllowance: callback => ipcRenderer.on('allowance', (_, state) => callback(state)),

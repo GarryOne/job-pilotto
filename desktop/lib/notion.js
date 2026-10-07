@@ -514,6 +514,12 @@ export async function setBlockText(token, block, text, fetcher) {
   await call(token, 'PATCH', `blocks/${block.id}`, {[block.type]: {rich_text: [{type: 'text', text: {content: text.slice(0, 1900)}}]}}, fetcher);
 }
 export const deleteBlock = (token, id, fetcher) => call(token, 'DELETE', `blocks/${id}`, null, fetcher);
+// One cell of a table row, the other cells kept as they are (their links and bold included): a Profile goal row (lib/goals.js).
+export async function setRowCell(token, row, index, text, fetcher) {
+  const cells = row.table_row.cells.map((cell, i) => (i === index ? [{type: 'text', text: {content: text.slice(0, 1900)}}]
+    : cell.map(item => ({type: 'text', text: {content: item.plain_text || '', ...(item.href ? {link: {url: item.href}} : {})}, annotations: item.annotations}))));
+  await call(token, 'PATCH', `blocks/${row.id}`, {table_row: {cells}}, fetcher);
+}
 // Bullets inserted right after one block (e.g. under a section heading).
 export async function insertBulletsAfter(token, pageId, afterId, lines, fetcher) {
   const children = lines.map(line => ({object: 'block', type: 'bulleted_list_item',

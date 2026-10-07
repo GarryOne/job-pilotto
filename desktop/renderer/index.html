@@ -754,14 +754,19 @@
       <div class="alert tone-info settings-alert" id="strategy-foryou" hidden><i data-icon="building"></i>
         <div><strong id="foryou-title"></strong><p id="foryou-text"></p><div class="coverage-chips" id="foryou-chips"></div></div>
         <button class="secondary" id="foryou-dismiss">Not now</button></div>
+      <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
+      <div class="review strategy-live" id="strategy-live">
+        <section class="card overview">
+          <div class="card-head"><div><h2>Your goals</h2><p class="muted" id="goals-note">What every job is scored against. Click a value or its pencil to correct it.</p></div>
+            <button class="link with-icon" id="open-profile" title="Edit your roles, places, searches and filters"><i data-icon="edit"></i><span>Edit lists</span></button></div>
+          <dl class="target-rows goal-rows" id="strategy-goals"></dl>
+        </section>
+        <div class="review-grid" id="strategy-targets"></div>
+        <div class="actions" id="targets-actions" hidden><p class="muted small" id="targets-note">Saved to ⚙️ Search settings in Notion. The next search uses it.</p>
+          <span class="message" id="targets-message"></span><button class="secondary" id="targets-cancel">Cancel</button><button class="primary" id="targets-save">Save</button></div>
+      </div>
       <div class="strategy-grid">
         <div class="strategy-main">
-          <article class="summary-card">
-            <div class="panel-top"><h3>What you're targeting</h3><button class="arrow-link" id="open-profile" title="Edit your roles, places and skills">Edit</button></div>
-            <dl class="target-rows" id="strategy-targets"></dl>
-            <div class="actions" id="targets-actions" hidden><p class="muted small" id="targets-note">Saved to ⚙️ Search settings in Notion. The next search uses it.</p>
-              <span class="message" id="targets-message"></span><button class="secondary" id="targets-cancel">Cancel</button><button class="primary" id="targets-save">Save</button></div>
-          </article>
           <article class="summary-card">
             <h3>How matches are scored</h3>
             <p class="muted" id="strategy-score-note">Average of each part of the fit score across your matches.</p>

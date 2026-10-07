@@ -454,51 +454,65 @@ export async function retune(storage, chosen, {run, ensurePage, writePage, wait 
 // The Strategy page's "What you're targeting", edited in the app (owner, 7 Oct 2026: "Edit preferences" opened the Profile page, where
 // the places shown on the card are not, and he wants to edit here, not in Notion). A fixed set of lists; the window sends, per list,
 // the stored fragments to remove and the words to add. Same loop as retune(): sync the page, change the cache, publish, check it stayed.
-export const EDITABLE_LISTS = {roles: ['role_keywords'], places: ['locations', 'top_tier'], country: ['locations', 'country_wide'],
-  abroad: ['locations', 'abroad'], stack: ['quality_stack_keywords']};
-const listAt = (search, path) => (path.length === 1 ? search[path[0]] : search[path[0]]?.[path[1]]) || [];
+// Each list: [settings file, path in it, stored as written (plain) or as a match fragment]. The search phrases and the languages that hide a
+// job are plain text; the rest are match fragments (owner, 7 Oct 2026: the Strategy page shows and edits everything the setup review has).
+export const EDITABLE_LISTS = {roles: ['search', ['role_keywords']], places: ['search', ['locations', 'top_tier']], country: ['search', ['locations', 'country_wide']],
+  abroad: ['search', ['locations', 'abroad']], stack: ['search', ['quality_stack_keywords']], queries: ['search', ['jobs_board_search_queries'], true],
+  languages: ['preferences', ['disqualifying_languages'], true], rights: ['preferences', ['work_rights']]};
+const FILES = {search: 'config/search.json', preferences: 'config/preferences.json'};
+const listAt = (data, path) => (path.length === 1 ? data[path[0]] : data[path[0]]?.[path[1]]) || [];
 const lowerSet = list => new Set(list.map(item => String(item).toLowerCase()));
+// edits: {list: {add, remove}}, and remote: {set: 'Yes' | 'No'} (the search settings' "Remote jobs").
 export function cleanEdits(edits) {
   const out = {};
   for (const [name, edit] of Object.entries(edits && typeof edits === 'object' ? edits : {})) {
+    if (name === 'remote') { if (['Yes', 'No'].includes(edit?.set)) out.remote = {set: edit.set}; continue; }
     if (!EDITABLE_LISTS[name] || !edit || typeof edit !== 'object') continue;
-    const add = [...new Set((Array.isArray(edit.add) ? edit.add : []).map(word => String(word).trim().toLowerCase())
-      .filter(word => word.length >= 2 && word.length <= 60 && !/[\n\r]/.test(word)).map(escapeRegex))].slice(0, 20);
+    const plain = EDITABLE_LISTS[name][2];
+    const add = [...new Set((Array.isArray(edit.add) ? edit.add : []).map(word => String(word).trim()).map(word => (plain ? word : word.toLowerCase()))
+      .filter(word => word.length >= 2 && word.length <= 60 && !/[\n\r]/.test(word)).map(word => (plain ? word : escapeRegex(word))))].slice(0, 20);
     const remove = (Array.isArray(edit.remove) ? edit.remove : []).map(String).filter(Boolean).slice(0, 100);
     if (add.length || remove.length) out[name] = {add, remove};
   }
   return out;
 }
-export function applyEdits(search, edits) {
-  const next = {...search, locations: {...search.locations}};
-  for (const [name, {add, remove}] of Object.entries(edits)) {
-    const path = EDITABLE_LISTS[name], gone = lowerSet(remove);
-    const kept = listAt(next, path).filter(item => !gone.has(String(item).toLowerCase()));
+// files: {search, preferences} as parsed; returns the same shape with the edits applied (the inputs are not changed).
+export function applyEdits(files, edits) {
+  const next = {search: {...files.search, locations: {...files.search?.locations}}, preferences: {...files.preferences}};
+  for (const [name, edit] of Object.entries(edits)) {
+    if (name === 'remote') { next.search.remote_jobs = [edit.set]; continue; }
+    const [file, path] = EDITABLE_LISTS[name], gone = lowerSet(edit.remove), data = next[file];
+    const kept = listAt(data, path).filter(item => !gone.has(String(item).toLowerCase()));
     const have = lowerSet(kept);
-    const list = [...kept, ...add.filter(item => !have.has(item.toLowerCase()))];
-    if (path.length === 1) next[path[0]] = list; else next[path[0]][path[1]] = list;
+    const list = [...kept, ...edit.add.filter(item => !have.has(item.toLowerCase()))];
+    if (path.length === 1) data[path[0]] = list; else data[path[0]][path[1]] = list;
   }
   return next;
 }
-export const edited = (search, edits) => Object.entries(edits).every(([name, {add, remove}]) => {
-  const have = lowerSet(listAt(search, EDITABLE_LISTS[name]));
-  return add.every(item => have.has(item.toLowerCase())) && remove.every(item => !have.has(item.toLowerCase()));
+export const edited = (files, edits) => Object.entries(edits).every(([name, edit]) => {
+  if (name === 'remote') return (files.search?.remote_jobs || [])[0] === edit.set;
+  const [file, path] = EDITABLE_LISTS[name], have = lowerSet(listAt(files[file] || {}, path));
+  return edit.add.every(item => have.has(item.toLowerCase())) && edit.remove.every(item => !have.has(item.toLowerCase()));
 });
+const readFiles = storage => Object.fromEntries(Object.entries(FILES).map(([name, file]) => [name, JSON.parse(storage.readText(file) || '{}')]));
 export async function editLists(storage, asked, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
   const edits = cleanEdits(asked);
   if (!Object.keys(edits).length) return {changed: []};
   for (let attempt = 0; attempt < ADD_ROLES_ATTEMPTS; attempt++) {
     if (attempt) await wait(2000 * attempt);
     await run(storage, ['src.notion.search_settings', 'sync']);
-    const before = storage.readText('config/search.json') || '{}';
-    const search = JSON.parse(before);
-    if (edited(search, edits)) return {changed: Object.keys(edits)};
-    storage.writeText('config/search.json', JSON.stringify(applyEdits(search, edits), null, 2) + '\n');
+    const before = Object.fromEntries(Object.values(FILES).map(file => [file, storage.readText(file)]));
+    const files = readFiles(storage);
+    if (edited(files, edits)) return {changed: Object.keys(edits)};
+    const next = applyEdits(files, edits);
+    for (const [name, file] of Object.entries(FILES)) {
+      if (JSON.stringify(next[name]) !== JSON.stringify(files[name])) storage.writeText(file, JSON.stringify(next[name], null, 2) + '\n');
+    }
     try {
       await publishSearchSettings(storage, {run, ensurePage, writePage});
-      if (edited(JSON.parse(storage.readText('config/search.json') || '{}'), edits)) return {changed: Object.keys(edits)};
+      if (edited(readFiles(storage), edits)) return {changed: Object.keys(edits)};
     } catch (error) {
-      storage.writeText('config/search.json', before);
+      for (const [file, text] of Object.entries(before)) if (text != null && storage.readText(file) !== text) storage.writeText(file, text);
       throw error;
     }
   }

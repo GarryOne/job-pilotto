@@ -31,6 +31,7 @@ import * as notifyWatch from './lib/notify-watch.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as targets from './renderer/targets.js';
+import * as goals from './lib/goals.js';
 import {clearlyTechnical} from './renderer/audience.js';   // pure (no DOM), the same rule as src/coverage.py   // pure (no DOM), shared with the window
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
@@ -1064,10 +1065,19 @@ function handlers() {
     try {
       const result = await strategy.editLists(storage, edits, settingsDeps());
       const asked = strategy.cleanEdits(edits);
-      appLog('strategy', 'targets edited', {lists: result.changed.join(','), added: Object.values(asked).reduce((n, e) => n + e.add.length, 0),
-        removed: Object.values(asked).reduce((n, e) => n + e.remove.length, 0), notion: !!storage.secret('NOTION_TOKEN')});
+      appLog('strategy', 'targets edited', {lists: result.changed.join(','), added: Object.values(asked).reduce((n, e) => n + (e.add?.length || 0), 0),
+        removed: Object.values(asked).reduce((n, e) => n + (e.remove?.length || 0), 0), remote: asked.remote?.set || '', notion: !!storage.secret('NOTION_TOKEN')});
       return {ok: true, ...result};
     } catch (error) { appLog('strategy', 'targets not saved', {error: error.message}); return {ok: false, error: error.message}; }
+  });
+  // Strategy → Your goals: one goal corrected in the Profile (lib/goals.js). The fit scores follow it over the next searches.
+  ipcMain.handle('editGoal', async (_, key, value) => {
+    if (DEMO) return {ok: true, where: 'demo'};
+    try {
+      const result = await goals.setGoal(storage, key, value);
+      appLog('strategy', 'goal corrected', {goal: key, where: result.where, length: String(value || '').trim().length});
+      return result;
+    } catch (error) { appLog('strategy', 'goal not saved', {goal: key, error: error.message}); return {ok: false, error: error.message}; }
   });
   ipcMain.handle('tuneApply', async (_, ids) => {
     if (DEMO) return {ok: true, changed: []};

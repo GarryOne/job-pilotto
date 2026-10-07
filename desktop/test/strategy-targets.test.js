@@ -36,10 +36,25 @@ test('Notion refusing leaves the cached settings as they were', async () => {
 });
 
 test('only the fixed lists, sane words, escaped as text', () => {
-  assert.deepEqual(Object.keys(EDITABLE_LISTS).sort(), ['abroad', 'country', 'places', 'roles', 'stack']);
+  assert.deepEqual(Object.keys(EDITABLE_LISTS).sort(), ['abroad', 'country', 'languages', 'places', 'queries', 'rights', 'roles', 'stack']);
   assert.deepEqual(cleanEdits({title_exclude_keywords: {add: ['x y']}, roles: {add: ['a', 'c++ dev', 'x'.repeat(61), 'two\nlines']}}),
     {roles: {add: ['c\\+\\+ dev'], remove: []}});
   assert.deepEqual(cleanEdits({roles: {add: [], remove: []}}), {});
+});
+
+test('search phrases and hidden languages are kept as written, in their own files; remote is a Yes/No', async () => {
+  const t = setup();
+  t.files['config/preferences.json'] = JSON.stringify({disqualifying_languages: ['english', 'german'], work_rights: [], digest_min_score: 50});
+  const result = await editLists(t.storage, {queries: {add: ['Vendeur Magasin']}, languages: {remove: ['english']}, rights: {add: ['EU']},
+    remote: {set: 'No'}}, t.deps);
+  assert.deepEqual(result.changed.sort(), ['languages', 'queries', 'remote', 'rights']);
+  const prefs = JSON.parse(t.files['config/preferences.json']);
+  assert.deepEqual(prefs.disqualifying_languages, ['german']);
+  assert.deepEqual(prefs.work_rights, ['eu']);
+  assert.equal(prefs.digest_min_score, 50, 'the rest of the preferences untouched');
+  assert.deepEqual(search(t.files).jobs_board_search_queries, ['Vendeur Magasin']);
+  assert.deepEqual(search(t.files).remote_jobs, ['No']);
+  assert.deepEqual(cleanEdits({remote: {set: 'maybe'}}), {});
 });
 
 test('nothing asked, nothing read or written', async () => {

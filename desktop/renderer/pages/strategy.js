@@ -1,6 +1,5 @@
 // Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there.
 import {withSaveProgress} from '../save-progress.js';
-import {compensationText} from '../compensation.js';
 import {openInNotion} from './notion-connect.js';
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -10,17 +9,13 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
+import {goalTiles} from '../goal-tiles.js';
 import {coverageCard, employersCard, filtersCard, ideasCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 import {startSearch} from './jobs.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
-function chips(items, tone = '') {
-  const box = el('div', 'chip-list');
-  box.append(...items.map(item => el('span', `chip-tag${tone ? ` tone-${tone}` : ''}`, item)));
-  return box;
-}
 export async function loadStrategy() {
   shared.state = await window.pilot.state();
   message('strategy-message', '');
@@ -66,58 +61,133 @@ function strategySkeleton() {
   pill.id = 'strategy-view-loading';
   $('strategy-synced').replaceChildren(pill);
 }
-// ---------- What you're targeting → Edit: the lists, edited here (lib/strategy.js editLists), not in Notion ----------
-// [list, icon, label, what the add field asks]: the places in their three lists, so it is clear which one "Switzerland" sits in.
-export const TARGET_LISTS = [['roles', 'briefcase', 'Roles', 'Add a job title'], ['places', 'pin', 'Best places', 'Add a city or region'],
-  ['country', 'pin', 'Anywhere in', 'Add a country or region'], ['abroad', 'pin', 'Places abroad', 'Add a city abroad'],
-  ['stack', 'layers', 'Key skills and tools', 'Add a skill or tool']];
-let lastStrategy = null, targetEdits = null;   // targetEdits: {list: {add: [words], remove: [stored fragments]}} while editing
-const pendingCount = () => Object.values(targetEdits || {}).reduce((n, edit) => n + edit.add.length + edit.remove.length, 0);
+// ---------- Your goals and the setup review's cards, with your live settings (owner, 7 Oct 2026: the page lacked work mode, salary,
+// languages, search terms, excluded languages and work rights, which the setup review shows). Lists: Edit → Save (lib/strategy.js editLists,
+// to ⚙️ Search settings); goals: corrected one at a time in the Profile (lib/goals.js), like the review.
+// [card, icon, title, its lists: [list, label or note, what the add field asks]]
+export const TARGET_CARDS = [
+  ['roles', 'briefcase', 'Target roles', [['roles', '', 'Add a job title']]],
+  ['places', 'pin', 'Target locations', [['places', 'Priority', 'Add a city or region'], ['country', 'Anywhere in', 'Add a country or region'],
+    ['abroad', 'Relocation (open to)', 'Add a city abroad']]],
+  ['queries', 'search', 'Search terms', [['queries', '', 'Add a job board search']]],
+  ['stack', 'layers', 'Key skills and tools', [['stack', '', 'Add a skill or tool']]],
+  ['languages', 'alert', 'Excluded requirements', [['languages', 'Hide jobs that require these languages.', 'Add a language']]],
+  ['rights', 'shield', 'Citizenship / work rights', [['rights', 'Where you can work without a visa. Jobs elsewhere in your places abroad are flagged "visa sponsorship needed".',
+    'Add a country or EU']]],
+];
+export const TARGET_LISTS = TARGET_CARDS.flatMap(([, , , lists]) => lists.map(([name]) => name));
+let lastStrategy = null, targetEdits = null;   // targetEdits: {list: {add: [words], remove: [stored entries]}, remote: {set}} while editing
+const pendingCount = () => Object.entries(targetEdits || {}).reduce((n, [name, edit]) => n + (name === 'remote' ? 1 : edit.add.length + edit.remove.length), 0);
+// A list's entries as stored ({fragment, label}): the match lists come as both, the plain ones (search phrases, languages) as written.
+const entriesOf = (data, name) => data?.lists?.[name] || (data?.texts?.[name] || []).map(text => ({fragment: text, label: text}));
 // One list as it will be after Save: the stored entries not removed, then the words added.
 export function editedList(entries, edit = {add: [], remove: []}) {
   const gone = new Set(edit.remove);
   return [...entries.filter(entry => !gone.has(entry.fragment)).map(entry => ({...entry, added: false})),
     ...edit.add.map(word => ({fragment: '', label: word, added: true}))];
 }
-function editableRow(name, glyph, label, placeholder) {
-  const edit = targetEdits[name] ||= {add: [], remove: []};
-  const dt = el('dt'); dt.append(icon(glyph), label);
-  const dd = el('dd');
-  const box = el('div', 'chips');
-  box.append(...editedList(lastStrategy.lists?.[name] || [], edit).map(entry => {
-    const pill = el('span', `chip removable${entry.added ? ' is-added' : ''}`);
-    const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${entry.label}`});
-    remove.setAttribute('aria-label', `Remove ${entry.label}`);
-    remove.addEventListener('click', () => {
-      if (entry.added) edit.add = edit.add.filter(word => word !== entry.label); else edit.remove.push(entry.fragment);
-      renderTargets();
-    });
-    pill.append(el('span', '', titleCase(entry.label)), remove);
+const PLAIN = new Set(['queries', 'languages']);   // stored as typed, not lower-cased
+function listChips(name, placeholder) {
+  const editing = !!targetEdits, edit = editing ? (targetEdits[name] ||= {add: [], remove: []}) : null;
+  const stored = entriesOf(lastStrategy, name);
+  const box = el('div', `chips${name === 'languages' ? ' bad' : ''}`);
+  const entries = editing ? editedList(stored, edit) : stored;
+  box.append(...entries.map(entry => {
+    const pill = el('span', `chip${editing ? ' removable' : ''}${entry.added ? ' is-added' : ''}`);
+    pill.append(el('span', '', titleCase(entry.label)));
+    if (editing) {
+      const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${entry.label}`});
+      remove.setAttribute('aria-label', `Remove ${entry.label}`);
+      remove.addEventListener('click', () => {
+        if (entry.added) edit.add = edit.add.filter(word => word !== entry.label); else edit.remove.push(entry.fragment);
+        renderTargets();
+      });
+      pill.append(remove);
+    }
     return pill;
   }));
-  const input = Object.assign(document.createElement('input'), {className: 'add', placeholder: `${placeholder}, then Enter`});
-  input.dataset.list = name;
-  input.addEventListener('keydown', event => {
-    const word = input.value.trim().toLowerCase();
-    if (event.key !== 'Enter' || !word) return;
-    const back = (lastStrategy.lists?.[name] || []).find(entry => edit.remove.includes(entry.fragment) && entry.label.toLowerCase() === word);
-    if (back) edit.remove = edit.remove.filter(fragment => fragment !== back.fragment);   // removed, then typed again: kept
-    else if (!edit.add.includes(word) && !(lastStrategy.lists?.[name] || []).some(entry => entry.label.toLowerCase() === word)) edit.add.push(word);
-    renderTargets();
-    document.querySelector(`#strategy-targets input.add[data-list="${name}"]`)?.focus();
-  });
-  box.append(input);
-  dd.append(box);
-  return [dt, dd];
+  if (!entries.length && !editing) box.append(el('span', 'muted small', 'None'));
+  if (editing) {
+    const input = Object.assign(document.createElement('input'), {className: 'add', placeholder: `${placeholder}, then Enter`});
+    input.dataset.list = name;
+    input.addEventListener('keydown', event => {
+      const typed = input.value.trim(), word = PLAIN.has(name) ? typed : typed.toLowerCase();
+      if (event.key !== 'Enter' || !word) return;
+      const same = entry => entry.label.toLowerCase() === word.toLowerCase();
+      const back = stored.find(entry => edit.remove.includes(entry.fragment) && same(entry));
+      if (back) edit.remove = edit.remove.filter(fragment => fragment !== back.fragment);   // removed, then typed again: kept
+      else if (!edit.add.some(added => added.toLowerCase() === word.toLowerCase()) && !stored.some(same)) edit.add.push(word);
+      renderTargets();
+      document.querySelector(`#strategy-targets input.add[data-list="${name}"]`)?.focus();
+    });
+    box.append(input);
+  }
+  return box;
+}
+// Remote jobs (Search settings "Remote jobs"): a place of its own, or only jobs in your places.
+function remoteChoice() {
+  const now = lastStrategy?.remote_jobs !== false, chosen = targetEdits?.remote ? targetEdits.remote.set === 'Yes' : now;
+  if (!targetEdits) return el('p', 'small', now ? 'Yes: remote jobs count as one of your places' : 'No: only jobs in your places');
+  const group = el('div', 'segmented');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Remote jobs');
+  for (const [label, yes] of [['Yes', true], ['No', false]]) {
+    const button = el('button', yes === chosen ? 'is-active' : '', label);
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(yes === chosen));
+    button.addEventListener('click', () => {
+      if (yes === now) delete targetEdits.remote; else targetEdits.remote = {set: label};
+      renderTargets();
+    });
+    group.append(button);
+  }
+  return group;
+}
+function targetCard([key, glyph, title, lists]) {
+  const card = el('section', 'card');
+  card.dataset.list = key;
+  const head = el('div', 'card-head'), heading = el('h3');
+  heading.append(icon(glyph), title);
+  head.append(heading);
+  if (!targetEdits) {
+    const pencil = el('button', 'icon-button', icon('edit'));
+    Object.assign(pencil, {type: 'button', title: `Edit ${title.toLowerCase()}`});
+    pencil.setAttribute('aria-label', pencil.title);
+    pencil.addEventListener('click', startTargetsEdit);
+    head.append(pencil);
+  }
+  card.append(head);
+  for (const [name, label, placeholder] of lists) {
+    const box = listChips(name, placeholder);
+    if (name === 'places') { const priority = el('div', 'priority'); priority.append(el('b', '', label), box); card.append(priority); continue; }
+    if (label) card.append(el('p', 'sub', label));
+    card.append(box);
+  }
+  if (key === 'places') card.append(el('p', 'sub', 'Remote jobs'), remoteChoice());
+  return card;
+}
+// Your goals: a correction goes straight into the Profile; the fit scores follow it over the next searches.
+async function saveGoal(key, text, value) {
+  value.textContent = 'Saving…';
+  const result = await window.pilot.editGoal(key, text).catch(error => ({ok: false, error: error.message}));
+  if (!result.ok) { toastMessage('Goal not saved', result.error || 'Try again.'); value.textContent = lastStrategy?.goals?.[key] || '—'; return; }
+  toastMessage('Goal saved ✓', 'It is in your Profile now. Your jobs are re-scored with it over the next searches.');
+  lastStrategy = {...lastStrategy, goals: {...lastStrategy.goals, [key]: text}};
+  renderGoals();
+}
+function renderGoals() {
+  // A Profile written before the goals rows: its Compensation line and the search's level stand in until a goal is corrected.
+  const goals = lastStrategy?.goals && {...lastStrategy.goals, minimum_salary: lastStrategy.goals.minimum_salary || lastStrategy.compensation || '',
+    seniority: lastStrategy.goals.seniority || (lastStrategy.level ? titleCase(lastStrategy.level) : '')};
+  $('strategy-goals').replaceChildren(...goalTiles(goals || {}, goals ? saveGoal : null));
 }
 function renderTargets() {
   const editing = !!targetEdits;
-  $('strategy-targets').classList.toggle('is-editing', editing);
+  $('strategy-live').classList.toggle('is-editing', editing);
   show($('targets-actions'), editing);
   $('open-profile').hidden = editing;
-  if (!editing) { renderStrategy(lastStrategy); return; }
-  $('strategy-targets').replaceChildren(...TARGET_LISTS.flatMap(([name, glyph, label, placeholder]) => editableRow(name, glyph, label, placeholder)));
-  $('targets-save').disabled = !pendingCount();
+  $('strategy-targets').replaceChildren(...TARGET_CARDS.map(targetCard));
+  if (editing) $('targets-save').disabled = !pendingCount();
 }
 function startTargetsEdit() {
   if (!lastStrategy?.lists) return;
@@ -130,7 +200,7 @@ async function saveTargets() {
   button.disabled = true; button.textContent = 'Saving…';
   // A word typed but not yet added with Enter still counts: people press Save straight after typing.
   document.querySelectorAll('#strategy-targets input.add').forEach(input => {
-    const word = input.value.trim().toLowerCase(), edit = targetEdits[input.dataset.list];
+    const typed = input.value.trim(), word = PLAIN.has(input.dataset.list) ? typed : typed.toLowerCase(), edit = targetEdits[input.dataset.list];
     if (word && !edit.add.includes(word)) edit.add.push(word);
   });
   const result = await withSaveProgress(words => { button.textContent = words; }, () => window.pilot.editTargets(targetEdits)).catch(error => ({ok: false, error: error.message}));
@@ -148,23 +218,8 @@ function renderStrategy(data) {
   show($('strategy-profile-empty'), !!data.profile_empty);   // scores are paused until it is filled (src/ai/score.py unfilled)
   if (targetEdits) { renderTargets(); return; }   // a fresh read while editing keeps the edits on screen
   $('strategy-insight').classList.remove('is-loading');
-  const row = (glyph, label, value) => {
-    const dt = el('dt');
-    dt.append(icon(glyph), label);
-    const dd = el('dd');
-    dd.append(value);
-    return [dt, dd];
-  };
-  // The card shows exactly the lists Edit changes (data.lists, the editor's own), all of them (owner, 7 Oct 2026: after a save the card still
-  // showed the jobs.ch phrases as Roles, 2 of 4 places and 8 of 12 skills, so a saved change looked lost). An older cached answer has no lists.
-  const labels = (...names) => (data.lists ? names.flatMap(name => (data.lists[name] || []).map(entry => entry.label)) : null);
-  const roles = labels('roles') || data.roles, places = labels('places', 'country', 'abroad') || data.locations, skills = labels('stack') || data.stack;
-  $('strategy-targets').replaceChildren(
-    ...row('briefcase', 'Roles', chips(roles.map(titleCase))),
-    ...row('pin', 'Locations', chips(places.map(titleCase))),
-    ...(data.level ? row('target', 'Level', chips([titleCase(data.level)])) : []),
-    ...row('chart', 'Compensation', compensationText(data.compensation)),
-    ...(skills.length ? row('layers', 'Key skills and tools', chips(skills.map(titleCase))) : []));
+  renderGoals();
+  renderTargets();
   const level = value => (value >= 70 ? ['High', 'good'] : value >= 50 ? ['Medium', 'warn'] : ['Low', 'bad']);
   $('strategy-score-note').textContent = !data.scored ? 'No scored matches yet: run a search with your AI key.'
     : `Average of each part of the fit score across your ${data.scored} scored matches.` +

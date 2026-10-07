@@ -2246,5 +2246,6 @@ button.is-busy { cursor: progress; opacity: .7; }
 .reassign-note { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; font-size: var(--fs-md); }
 .reassign-note svg { width: 16px; height: 16px; flex: none; }
 .reassign-note + .message:empty { display: none; }
-/* Strategy → What you're targeting → Edit: the add field sits after the chips at one width (the shared input.add stretches otherwise). */
-#strategy-targets.is-editing input.add { flex: 0 1 240px; min-width: 0; }
+/* Strategy → the setup review's cards with live settings: the Remote jobs switch keeps its own width (a .review card's grid stretches it). */
+.strategy-live .segmented { justify-self: start; }
+.strategy-live > .actions { display: flex; align-items: center; gap: var(--sp-3); justify-content: flex-end; }

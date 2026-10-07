@@ -11,6 +11,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -292,11 +293,35 @@ def _section(profile, word):
     return ''
 
 
+# The setup goals as the Profile states them (desktop/renderer/markdown-edit.js GOAL_ROWS writes them): a table row "Work mode | …" or a
+# line "Minimum acceptable: …". The Strategy page shows and corrects them as the setup review does (owner, 7 Oct 2026).
+GOAL_ROWS = (('seniority', r'minimum seniority|seniority'), ('work_mode', r'^work mode$'), ('languages', r'languages i can work in'),
+             ('minimum_salary', r'minimum acceptable|minimum salary'))
+
+
+def _goals(profile):
+    found = {}
+    for line in (profile or '').splitlines():
+        text = line.strip().strip('|').strip()
+        cells = [cell.strip().strip('*').strip() for cell in text.split(' | ')] if ' | ' in text else None
+        label, value = (cells[0], cells[1]) if cells and len(cells) > 1 else (text.lstrip('-* ').partition(':')[0], text.partition(':')[2])
+        label = label.replace('**', '').strip()
+        for key, pattern in GOAL_ROWS:
+            if key not in found and value.strip() and re.search(pattern, label, re.I):
+                found[key] = value.replace('**', '').strip()
+    return found
+
+
 def _quietly(call):
     try:
         return call()
     except Exception:  # noqa: BLE001
         return None
+
+
+def feeds_remote_wanted(search):
+    from .sources.feeds import remote_wanted
+    return remote_wanted(search)
 
 
 def strategy(db, tracker=None):
@@ -322,7 +347,7 @@ def strategy(db, tracker=None):
             average = round(sum(values) / len(values))
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
     stages = {}
-    insight, compensation = None, ''
+    insight, compensation, goals = None, '', {}
     if tracker:
         from .ai.insights import INSIGHTS_DATABASE_ID
         from .notion.client import together
@@ -340,12 +365,17 @@ def strategy(db, tracker=None):
         url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
         for stage in (url_stages or {}).values():
             stages[stage] = stages.get(stage, 0) + 1
-        compensation = _section(profile or '', 'compensation') or _section(profile or '', 'salary')
+        goals = _goals(profile)
+        compensation = goals.get('minimum_salary') or _section(profile or '', 'compensation') or _section(profile or '', 'salary')
         if rows:
             from .notion.ledger import plain
             props = rows[0]['properties']
             insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
                        'url': rows[0].get('url', '')}
+    if not tracker:   # Trying (no Notion): the Profile is on this Mac
+        from .paths import local_profile
+        goals = _goals(local_profile() or '')
+        compensation = goals.get('minimum_salary') or _section(local_profile() or '', 'compensation')
     stale = 0
     if tracker:  # jobs whose fit score waits for the new Profile ("Scores updating"), re-scored over the next searches
         try:
@@ -367,7 +397,12 @@ def strategy(db, tracker=None):
         'lists': {name: [{'fragment': str(item), 'label': _readable(item)} for item in items or [] if _readable(item)]
                   for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
                                       ('country', places.get('country_wide')), ('abroad', places.get('abroad')),
-                                      ('stack', search.get('quality_stack_keywords')))},
+                                      ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')))},
+        # Plain lists, shown as written: board search phrases and the languages that hide a job.
+        'texts': {'queries': [str(q) for q in search.get('jobs_board_search_queries') or []],
+                  'languages': [str(q) for q in prefs.get('disqualifying_languages') or []]},
+        'remote_jobs': feeds_remote_wanted(search),
+        'goals': goals,
         'level': levels.level_of(search.get('level')),
         'compensation': compensation,
         'avoid': [f'Requires {language}' for language in prefs.get('disqualifying_languages') or []]

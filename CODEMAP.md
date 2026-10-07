@@ -49,6 +49,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
+- `desktop/lib/goals.js` — The setup goals (level, work mode, minimum salary, languages), corrected on the Strategy page as the setup review does (owner, 7 Oct 2026:
 - `desktop/lib/google-keys.js` — The Google sign-in (Gmail and Calendar, read-only) as the Python side saved it (src/sources/google.py KEYCHAIN),
 - `desktop/lib/install-source.js` — Where an install came from: the website's install command carries the channel (curl …/install?src=reddit-devops), and
 - `desktop/lib/interview-reminders.js` — Interview reminders and job matching (pure; the timer and notifications are in main.js). The jobs come from Notion
@@ -177,6 +178,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
+- `desktop/renderer/goal-tiles.js` — The setup goals as label/value rows (Target level, Work mode, Minimum salary, Languages you work in): the setup review and the Strategy page
 - `desktop/renderer/icons.js` — Line icons (paths from Lucide, ISC licence), drawn in the current text colour.
 - `desktop/renderer/insight-card.js` — A daily insight's message as its card reads it, kept free of the DOM, like run-cards.js and mail-report.js, so the
 - `desktop/renderer/intel.js` — What a job's fit score and what became of it look like to the product, as counts (src/intelligence.js on the site): the score bands, the states,
