@@ -434,7 +434,10 @@ export function renderJobs() {
         if (!confirm(`Delete "${job.title}" at ${job.company}?\n\nIts Notion pages go to Notion's trash (restorable there for 30 days), and searches will not show it again.`)) return;
         const result = await window.pilot.deleteJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result?.ok) { toastMessage('Not deleted', result?.error || 'Something went wrong.'); return; }
-        shared.allJobs = shared.allJobs.filter(other => other !== job);
+        const left = shared.allJobs.filter(other => other !== job);
+        shared.allJobs = left;
+        // The header and counters are counted from loaded data (showJobsData): counted again now, one job fewer.
+        if (lastJobsData) showJobsData({...lastJobsData, jobs: left, total: lastJobsData.total == null ? lastJobsData.total : lastJobsData.total - 1});
         toastMessage('Deleted', result.trashed ? 'Its Notion pages are in the trash.' : 'It will not come back.');
         renderJobs();
       }});
@@ -848,7 +851,9 @@ async function askAboutLeftOpen() {
   if (answer?.kept) toastMessage(`${answer.kept} application${answer.kept === 1 ? '' : 's'} restored`,
     `${answer.kept === 1 ? 'Its form is' : 'Their forms are'} still open in Chrome: review and submit, or press Resume Claude on the session.`);
 }
+let lastJobsData = null;   // the list as last loaded: a deleted job is recounted from it at once (owner, 7 Oct 2026: the totals settled 3 refreshes later)
 function showJobsData(data) {
+  lastJobsData = data;
   {
     for (const job of takenDown(shared.allJobs, data.jobs)) {
       toastMessage('Posting taken down', `${job.company ? `${job.company} · ` : ''}${job.title || job.url}: its job board no longer lists it, so it moved to Closed. Your kit is kept.`);

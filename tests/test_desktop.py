@@ -264,3 +264,10 @@ class DeleteTests(unittest.TestCase):
         tracker.trash_page = lambda page: (_ for _ in ()).throw(RuntimeError('503'))
         self.assertFalse(desktop.delete_job(self.db, 'https://x.test/a', tracker)['ok'])
         self.assertEqual(len(desktop.jobs(self.db)['jobs']), 1)
+
+    def test_a_deleted_job_stays_out_while_notion_still_lists_its_trashed_page(self):
+        desktop.set_status(self.db, 'https://x.test/a', 'dismissed')
+        desktop.delete_job(self.db, 'https://x.test/a', self.Tracker('Dismissed'))
+        lagging = [{'url': 'https://x.test/a', 'stage': 'Dismissed', 'title': 'Staff Software Engineer', 'company': 'Anthropic', 'location': 'Remote'},
+                   {'url': 'https://x.test/b', 'stage': 'Saved', 'title': 'Photographer', 'company': 'Studio', 'location': 'Geneva'}]
+        self.assertEqual([job['url'] for job in desktop.jobs(self.db, notion_jobs=lagging)['jobs']], ['https://x.test/b'])

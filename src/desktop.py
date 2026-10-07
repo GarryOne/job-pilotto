@@ -11,6 +11,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -57,6 +58,8 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     # A link you added stays in the list even when a crawl would have filtered that company or that wording out.
     asked = {(job.get('url') or '').strip() for job in candidates + blocked if (job.get('notes') or '') == 'imported'}
     hidden = {(job.get('url') or '').strip() for job in blocked} - asked
+    # Deleted here (delete_job): left out even while Notion's query still returns its trashed page (it lags; the totals settled 3 refreshes later).
+    hidden |= _deleted_urls(db)
     rows = []
 
     def row(job, fit, reason, status, stage, step, page, **extra):
@@ -204,6 +207,14 @@ def set_status(db, url, status, tracker=None):
     store.set_application_status(db, row['id'], 'dismissed' if stage == 'Closed' else status)
     db.commit()
     return {'ok': True, 'notion': outcome, 'stage': stage} if outcome else {'ok': True}
+
+
+def _deleted_urls(db):
+    """Jobs deleted on this Mac (delete_job); none in a store without its tables yet."""
+    try:
+        return {row[0] for row in db.execute("SELECT url FROM jobs WHERE state='deleted'")}
+    except sqlite3.OperationalError:
+        return set()
 
 
 def _matches_rows(db, url):
