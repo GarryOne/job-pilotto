@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {chromeCommand, extensionBrowser, launchBrowser} from './apply.js';
-import {focusTabAt} from './form-tab.js';
+import {focusTabAt, focusTabById} from './form-tab.js';
 import * as pipeline from './pipeline.js';
 import {log} from './log.js';
 
@@ -184,7 +184,11 @@ export function noteTabs({ids, boot, reading} = {}) {
   if (boot && boot !== bootId) { bootId = String(boot); tabOf.clear(); }   // Chrome restarted: its tabs were numbered again
   if (!Array.isArray(ids) || !reading || typeof reading !== 'object') return;   // an older extension: its report has no read tabs
   const open = new Set(ids.map(Number).filter(Number.isInteger));
-  for (const [ticket, tab] of Object.entries(reading)) if (watchers.has(ticket) && Number.isInteger(Number(tab))) tabOf.set(ticket, Number(tab));
+  for (const [ticket, tab] of Object.entries(reading)) {
+    if (!watchers.has(ticket) || !Number.isInteger(Number(tab))) continue;
+    if (tabOf.get(ticket) !== Number(tab)) log('visit', 'read tab reported', {ticket, tab: Number(tab)});   // its id: which tab Open in Chrome shows
+    tabOf.set(ticket, Number(tab));
+  }
   for (const [ticket, tab] of [...tabOf]) {
     if (!watchers.has(ticket)) tabOf.delete(ticket);
     else if (!open.has(tab)) { tabOf.delete(ticket); watchers.get(ticket)({closed: true}); }
@@ -200,12 +204,13 @@ export function again(url) {
   log('visit', 'site opened again', {host: new URL(site.url).hostname, decidedBy: 'user click'});
   return {ok: true};
 }
-export async function showTab(url, focusAt = focusTabAt) {
+export async function showTab(url, {focusById = focusTabById, focusAt = focusTabAt, bringForward = focusBrowser} = {}) {
+  const tab = tabOf.get(active?.tickets.get(key(url)));   // the id the extension reported for this site's tab (lib/form-tab.js focusTabById)
   const page = active?.lastPage.get(key(url)) || key(url);
-  const found = await focusAt(page);
-  if (!found) focusBrowser();
-  log('visit', 'showed a reading tab', {host: new URL(page).hostname, found, decidedBy: 'user click'});
-  return {ok: true, found};
+  const how = (tab != null && await focusById(tab)) ? 'tab id' : (await focusAt(page)) ? 'address' : 'browser only';
+  if (how === 'browser only') bringForward();
+  log('visit', 'showed a reading tab', {host: new URL(page).hostname, how, tab: tab ?? null, decidedBy: 'user click'});
+  return {ok: true, found: how !== 'browser only'};
 }
 export const percent = (done, total) => (total ? Math.round(done / total * 100) : 0);
 const blocked = new Set();
@@ -271,6 +276,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       site = {...chosen, ...(await prepare(chosen).catch(() => chosen))};
     }
     const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
+    active?.tickets.set(key(site.url), ticket);
     lastNews.set(ticket, Date.now());
     const openedAt = Date.now();
     const finished = new Promise(resolve => {
@@ -335,7 +341,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, fits, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, start: chosen.url, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
   };
-  active = {queue, sites, lastPage: new Map(), back: site => {   // "Open again": the site is next once more, and no longer counted as finished
+  active = {queue, sites, lastPage: new Map(), tickets: new Map(), back: site => {   // "Open again": the site is next once more, and no longer counted as finished
     if (queue.includes(site)) return;
     queue.push(site);
     doneCount = Math.max(0, doneCount - 1);

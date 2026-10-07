@@ -217,3 +217,22 @@ test('a scout\'s plain-http address is opened as https, not refused as "no addre
   assert.notEqual(opened.error, 'This site has no address to open.');
   assert.equal(open('ftp://x.example').error, 'This site has no address to open.');
 });
+
+test('Open in Chrome finds a site\'s tab by the id the extension reported, wherever the tab moved', async () => {
+  const {noteTabs, showTab} = await import('../lib/visits.js');
+  const asked = [];
+  let shown;
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    setTimeout(() => noteTabs({ids: [1044091821], boot: 'b9', reading: {[ticket]: 1044091821}}), 5);   // the tab, now on careers.richemont.com
+    setTimeout(async () => {
+      shown = await showTab('https://www.rogerdubuis.com', {focusById: async id => { asked.push(['id', id]); return true; },
+        focusAt: async page => { asked.push(['address', page]); return false; }, bringForward: () => asked.push(['browser'])});
+      done({url: url.split('#')[0], ticket, jobs: 1, added: 1, pages: 1});
+    }, 20);
+    return {ok: true};
+  };
+  await runAll([{name: 'Roger Dubuis', url: 'https://www.rogerdubuis.com'}], {openTab, waitMs: 2000, quietMs: 2000, siteMs: 2000});
+  assert.deepEqual(asked, [['id', 1044091821]], 'by its id, not by the address it started at');
+  assert.equal(shown.found, true);
+});

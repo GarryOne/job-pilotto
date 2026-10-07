@@ -146,6 +146,7 @@ function siteAction(site) {
   if (site.state === 'reading' || site.state === 'opening') return ['Open in Chrome', () => window.pilot.visitShowTab(site.url)];
   if (site.state === 'closed') return ['Open again', () => window.pilot.visitAgain(site.url)];
   if (site.state === 'stopped' && /no answer from the extension|did not answer/.test(site.words)) return ['Check the extension', () => openSetting('extension')];
+  if (site.state === 'next') return null;   // not opened yet: no tab to show
   return ['Open in Chrome', () => window.pilot.openVisit(site.url)];   // done or stopped: the site itself
 }
 // live: the run is going. A finished run keeps its rows and marks (owner, 7 Oct 2026: "keep the ticks and crosses after the task completes"),

@@ -83,7 +83,7 @@ const jxa = script => new Promise((resolve, reject) =>
   execFile('osascript', ['-l', 'JavaScript', '-e', script], {timeout: 8000}, (error, stdout) => (error ? reject(error) : resolve(stdout.trim()))));
 
 const LIST = `const chrome = Application('Google Chrome');
-JSON.stringify(chrome.running() ? chrome.windows().flatMap(w => w.tabs().map((t, i) => ({win: w.id(), index: i + 1, url: t.url(), title: t.title()}))) : null)`;
+JSON.stringify(chrome.running() ? chrome.windows().flatMap(w => w.tabs().map((t, i) => ({win: w.id(), index: i + 1, id: String(t.id()), url: t.url(), title: t.title()}))) : null)`;
 const focus = ({win, index}) => `const chrome = Application('Google Chrome');
 const w = chrome.windows.byId(${Number(win)}); w.activeTabIndex = ${Number(index)}; w.index = 1; chrome.activate();`;
 
@@ -176,6 +176,17 @@ export async function focusTabAt(url, platform = process.platform) {
   try {
     const want = bare(url);
     const tab = (JSON.parse(await jxa(LIST)) || []).find(item => bare(item.url) === want || bare(item.url).startsWith(want));
+    if (!tab) return false;
+    await jxa(focus(tab));
+    return true;
+  } catch { return false; }
+}
+// Read sites' "Open in Chrome": the tab with this id. Chrome numbers a tab the same for its scripting and for extensions (its session id), so the
+// id the extension reported for a site's tab finds it whatever address it moved to (owner, 7 Oct 2026: by address it found the wrong tab).
+export async function focusTabById(id, platform = process.platform) {
+  if (platform !== 'darwin' || id == null) return false;
+  try {
+    const tab = (JSON.parse(await jxa(LIST)) || []).find(item => item.id === String(id));
     if (!tab) return false;
     await jxa(focus(tab));
     return true;
