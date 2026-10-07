@@ -40,6 +40,11 @@ def left_out(stats, what):
 NO_PROFILE = 'scoring skipped: no Profile (connect Notion, or finish the setup)'
 
 
+def time_budget_on():
+    from . import time_budget
+    return time_budget.DEADLINE is not None
+
+
 def no_profile(score_max, tracker, profile):
     """A warning when scoring is on but there is no Profile to score against (no Notion, no local profile.md): the run
     said "Completed" while every new job stayed unscored (6 Oct 2026, after an import that brought no Profile)."""
@@ -736,11 +741,23 @@ def main():
                 print(note)
         except Exception as error:
             print(f'Warning: description backfill skipped: {type(error).__name__}: {error}')
+        # A refresh with a time budget takes one batch end to end (owner, 7 Oct 2026: "a batch should handle it from start to finish"): the new
+        # jobs it can read and score in its time, best places first; the rest waits for the next refresh and is not listed until scored.
+        batch, batch_started = None, None
+        if time_budget_on() and args.score_max and (tracker or local_profile()):
+            try:
+                from . import time_budget
+                waiting = score.pending_jobs(db, digest.eligible_jobs(db, hidden)[0], local_profile() or tracker.page_text(), 10_000)
+                taken = time_budget.batch('job', len(waiting))
+                batch, batch_started = {job['id'] for job in waiting[:taken]}, __import__('time').monotonic()
+                run['waiting'] = len(waiting) - taken
+            except Exception as error:  # noqa: BLE001 — each step then takes its own batch
+                print(f'Warning: no batch for this refresh ({type(error).__name__}): each AI step takes its own')
         if args.enrich_max:
             # Runs after import so fresh descriptions are included. AI trouble never blocks the digest.
             try:
                 run['enrich'] = {}
-                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, stats=run['enrich']))
+                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, stats=run['enrich'], only_ids=batch))
                 run['warnings'] += left_out(run['enrich'], 'read by AI')
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
@@ -762,7 +779,28 @@ def main():
                         print(matches.sync(db, tracker, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True) + ' (so far)', flush=True)
                     except Exception as error:  # noqa: BLE001 — the end of the search writes them
                         print(f'Job Matches: not updated yet ({type(error).__name__}); the end of the search writes them', flush=True)
-                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score'], on_scored=to_notion))
+                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score'], on_scored=to_notion, only_ids=batch))
+                if batch is not None:
+                    from . import time_budget
+                    now = __import__('time').monotonic
+                    time_budget.record('job', now() - batch_started, run['score'].get('done') or 0)
+                    # Done with time left: the next batch, sized from the pace just measured, read and scored the same way (the first is a guess).
+                    while run.get('waiting') and not time_budget.over('score'):
+                        queue = score.pending_jobs(db, digest.eligible_jobs(db, hidden)[0], profile, 10_000)
+                        taken = time_budget.batch('job', len(queue), say=False)
+                        if not taken:
+                            break
+                        batch, batch_started, run['waiting'] = {job['id'] for job in queue[:taken]}, now(), len(queue) - taken
+                        if args.enrich_max:
+                            print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, only_ids=batch))
+                        more = {}
+                        print(score.run(db, digest.eligible_jobs(db, hidden)[0], profile, score.DEFAULT_MODEL, args.score_max, stats=more,
+                                        on_scored=to_notion, only_ids=batch))
+                        time_budget.record('job', now() - batch_started, more.get('done') or 0)
+                        if not more.get('done'):
+                            break
+                    if run.get('waiting'):
+                        print(f'⏱ {run["waiting"]} found job(s) wait for the next refresh, to be read and scored (best places first)', flush=True)
                 run['warnings'] += left_out(run['score'], 'scored')
                 if run['score'].get('paused'):   # said on the run's card, not only in its log
                     run['warnings'].append(score.PAUSED)

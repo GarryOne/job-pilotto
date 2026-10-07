@@ -27,10 +27,11 @@ def over(step='score', now=None):
 # Each step's share of the time left when it starts: title sorting least (a backlog that shrinks to a few dozen titles a day), scoring all
 # that remains (it puts jobs in your list with a fit). Default paces (seconds of wall time per item, Claude Code taking 2 calls at a time):
 # measured on the owner's Mac, 7 Oct 2026; replaced by this computer's own after one refresh.
-SHARE = {'titles': 0.2, 'enrich': 0.45, 'score': 1.0}
-PACE = {'titles': 1.8, 'enrich': 12.0, 'score': 3.0}
-NOUN = {'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score'}
-WORDS = {'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs'}
+SHARE = {'titles': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
+PACE = {'titles': 1.8, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end
+NOUN = {'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
+WORDS = {'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
+         'job': 'reads and scores {n} of {total} new jobs'}
 
 
 def _paces():

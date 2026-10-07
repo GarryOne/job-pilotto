@@ -281,7 +281,7 @@ def stale_count(db, candidates, profile):
     return len(pending_jobs(db, candidates, scoring_profile(profile), 10**9, full_profile=profile))
 
 
-def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None, first_pass=None, escalate_min=None, on_scored=None, every=10):
+def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None, first_pass=None, escalate_min=None, on_scored=None, every=10, only_ids=None):
     """Score up to max_jobs pending candidates; returns a one-line summary. profile: the whole Profile text (the
     scoring part is taken here). With a first_pass model (default: JOB_PILOTTO_SCORE_FIRST_PASS_MODEL) every job gets the
     cheap model first and only those scoring at least escalate_min are scored again by `model`; the rest keep the quick score."""
@@ -293,9 +293,12 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
             stats['paused'] = 'profile'
         return PAUSED
     full, profile = profile, scoring_profile(profile)
-    jobs = pending_jobs(db, candidates, profile, max_jobs, full_profile=full)
     from .. import time_budget as planner
-    jobs = jobs[:planner.batch('score', len(jobs))]   # a batch this refresh can finish (src/time_budget.py), best places first
+    if only_ids is not None:   # the refresh's batch: the jobs it found and read, scored end to end (src/daily.py)
+        jobs = [job for job in pending_jobs(db, candidates, profile, 10_000, full_profile=full) if job['id'] in only_ids]
+    else:
+        jobs = pending_jobs(db, candidates, profile, max_jobs, full_profile=full)
+        jobs = jobs[:planner.batch('score', len(jobs))]   # a batch this refresh can finish (src/time_budget.py), best places first
     if not jobs:
         return f'0 job(s) to score with {model}'
     began = time.monotonic()

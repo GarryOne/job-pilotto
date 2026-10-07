@@ -178,17 +178,21 @@ def load(db):
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM enrichments')}
 
 
-def run(db, model, max_jobs, client=None, workers=5, stats=None):
+def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
     """Enrich up to max_jobs pending jobs; returns a one-line summary.
 
     API calls run in parallel threads; results are saved from this thread only,
     because the SQLite connection must not be shared across threads.
     """
     from .. import time_budget as budget
-    queue = pending_jobs(db, max_jobs)
-    # A batch this refresh can finish (src/time_budget.py), best places first; when it is done with time left, the next batch, sized from the pace just
-    # measured (7 Oct 2026: a first refresh guessed 12 s a job, read 6 of 10 in 15 s of its 3 min, and left 4 for "the next refresh").
-    jobs = queue[:budget.batch('enrich', len(queue), say=False)]
+    if only_ids is not None:   # the refresh's batch, read and then scored end to end (src/daily.py)
+        queue = [job for job in pending_jobs(db, 10_000) if job['id'] in only_ids]
+        jobs = list(queue)
+    else:
+        queue = pending_jobs(db, max_jobs)
+        # A batch this refresh can finish (src/time_budget.py), best places first; when it is done with time left, the next batch, sized from the pace just
+        # measured (7 Oct 2026: a first refresh guessed 12 s a job, read 6 of 10 in 15 s of its 3 min, and left 4 for "the next refresh").
+        jobs = queue[:budget.batch('enrich', len(queue), say=False)]
     if not queue:
         return f'0 job(s) to enrich with {model}'
     try:

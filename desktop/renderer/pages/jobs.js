@@ -899,6 +899,8 @@ function showJobsData(data) {
     count.week += data.week_beyond || 0;   // new jobs among the rows not loaded (a cut list)
     $('jobs-stats').textContent = `${count.total} matches` +
       (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
+      // Found but not read and scored yet: the next refreshes take them, a batch at a time, best places first (src/daily.py).
+      (data.waiting ? ` · ${data.waiting} found, waiting for a score` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     $('stat-total').textContent = count.total;

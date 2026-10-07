@@ -48,7 +48,7 @@ def _kit(stage, step):
     return stage == 'Kit ready' or step.startswith(('📝 Kit ready', NOT_ELIGIBLE))
 
 
-def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None):
+def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None, hide_unscored=False):
     """The Jobs list, best fit first (unscored after scored, then the rule-based rank).
 
     notion_jobs (Tracker.notion_jobs): the list itself, from Notion (the source of truth), with Notion's fields only;
@@ -56,6 +56,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     unsynced). Without it (Notion unreachable, or not connected) the list comes from the cache, marked stale.
     stages: job URL -> (Stage, Next step, page URL), for the cache-only list."""
     stages = stages or {}
+    waiting = 0
     candidates, blocked = digest.eligible_jobs(db)
     fits = score.load(db)
     local = {(job.get('url') or '').strip(): job for job in candidates}
@@ -106,6 +107,11 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:
                 fit = fits.get(job['id'])
+                # Found, not read and scored yet: a refresh takes them a batch at a time (src/daily.py), so they wait, counted, not listed as
+                # matches (owner, 7 Oct 2026: half the list showed "–"). Without an AI nothing would ever score them: then they are listed.
+                if hide_unscored and not fit and (job.get('application_status') or 'unreviewed') == 'unreviewed' and (job.get('notes') or '') != 'imported':
+                    waiting += 1
+                    continue
                 rows.append(row(job, fit.get('score') if fit else None, (fit.get('summary') or fit.get('reason')) if fit else '',
                                 job.get('application_status') or 'unreviewed', None, '', '', unsynced=True, fit_detail=_fit_detail(fit)))
     else:
@@ -128,7 +134,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     # New this week among the rows not sent: the app adds them to its own count, so a cut list's counts stay whole (7 Oct 2026: "200 new
     # this week" of 1,335). Rows past `limit` are unscored or low-fit job matches, never applications.
     week = (datetime.now(timezone.utc) - timedelta(days=7)).date().isoformat()
-    return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked),
+    return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked), 'waiting': waiting,
             'review_beyond': sum(1 for r in rows[limit:] if r['status'] == 'unreviewed'),   # the Jobs badge counts them too
             'week_beyond': sum(1 for r in rows[limit:] if r['status'] != 'applied' and (r.get('first_seen_at') or '')[:10] >= week)}
 
@@ -693,7 +699,8 @@ def main(argv=None):
                     current = provenance.kit_inputs(tracker.page_text(), kit.standard_answers(tracker))
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
                     pass
-            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current)
+            from .ai import engine as ai_engine
+            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready())
             fresh = found is not None
             if tracker and not fresh:
                 result['stale'] = True

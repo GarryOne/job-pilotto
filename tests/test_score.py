@@ -323,3 +323,13 @@ class SoFarTests(unittest.TestCase):
             calls = []
             score.run(db, candidates, 'Profile', 'm', 10, client=ModelClient({'m': lambda title: 70}), on_scored=lambda: calls.append(1), every=2)
             self.assertEqual(len(calls), 2, '5 scores: after the 2nd and the 4th')
+
+
+class BatchOnlyTests(unittest.TestCase):
+    def test_only_the_refreshs_batch_is_scored(self):
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            seed_jobs(db, 4)
+            candidates, _ = digest.eligible_jobs(db)
+            client = ModelClient({'m': lambda title: 70})
+            score.run(db, candidates, 'Profile', 'm', 10, client=client, only_ids={candidates[0]['id']})
+            self.assertEqual(len(client.requests), 1)
