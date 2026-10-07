@@ -201,6 +201,29 @@ export function collectControls() {
   return out;
 }
 
+// Runs inside the page: its ways on when it shows no job list (buttons, links, search boxes, choices), for Claude to pick a way to the jobs
+// (src/ai/visit_unblock.py), with the title and first lines of text. Nothing that applies, signs in, saves or pays is ever listed.
+export function collectWays() {
+  const NEVER = /apply|postuler|bewerb|candidat|submit|envoyer|sign ?in|sign ?up|log ?in|connexion|anmeld|register|message|connect|follow|save|enregistr|speicher|alert|premium|upgrade|buy|subscribe|abonn|share|partager|report|delete|easy apply|candidature simplifi|password|checkout|cart|panier|warenkorb/i;
+  const visible = node => (node.offsetParent !== null || node.getClientRects().length > 0) && getComputedStyle(node).visibility !== 'hidden';
+  const labelOf = node => (node.getAttribute('aria-label') || node.innerText || node.value || node.getAttribute('placeholder') || node.getAttribute('title') || node.name || '')
+    .replace(/\s+/g, ' ').trim().slice(0, 120);
+  const ways = [];
+  for (const node of document.querySelectorAll('a[href], button, [role=button], input[type=search], input[type=text], input:not([type]), select')) {
+    if (!visible(node) || node.disabled) continue;
+    const label = labelOf(node);
+    const href = node.tagName === 'A' ? node.href.split('#')[0] : '';
+    if ((!label && !href) || NEVER.test(label) || /^(mailto|tel|javascript):/i.test(node.getAttribute('href') || '') || node.closest('form[action*="login"], form[action*="apply"]')) continue;
+    if (href && ways.some(way => way.href === href)) continue;
+    const id = node.dataset.jpControl || `w${ways.length + 1}`;
+    node.dataset.jpControl = id;
+    const kind = node.tagName === 'A' ? 'link' : node.tagName === 'SELECT' ? 'select' : node.tagName === 'INPUT' ? 'search box' : 'button';
+    ways.push({id, kind, label, href, options: node.tagName === 'SELECT' ? [...node.options].map(option => option.text.trim()).slice(0, 15) : []});
+    if (ways.length >= 120) break;
+  }
+  return {url: location.href, title: document.title.slice(0, 200), text: (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 800), ways};
+}
+
 // Runs inside the page: the steps Claude chose, on the controls listed above only, refusing again anything that applies, signs in or leaves.
 export function applyFilters(steps) {
   const NEVER = /apply|postuler|bewerb|candidat|submit|envoyer|sign ?in|sign ?up|log ?in|connexion|anmeld|register|message|connect|follow|save|enregistr|speicher|alert|premium|upgrade|buy|subscribe|abonn|share|partager|report|delete|easy apply|candidature simplifi/i;
@@ -272,7 +295,8 @@ const run = async (tabId, func, args = []) => (await chrome.scripting.executeScr
 // The cookie closer in every frame of the tab: a consent message drawn in an iframe is out of the page's own reach. The first label pressed.
 const closeConsentEverywhere = async tabId => ((await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: closeConsent}).catch(() => []))
   .map(frame => frame?.result).find(Boolean) || '');
-export const FILTER_ROUNDS = 3;   // filter panels open more filters: look again, at most this often
+export const FILTER_ROUNDS = 3;
+export const UNBLOCK_TRIES = 2;   // a page with no job list: at most this many times Claude picks a way on, then the site says why it stopped   // filter panels open more filters: look again, at most this often
 
 // Claude chooses the page's filters for this person's search (through the app), the steps are applied with a pause between rounds.
 async function setFilters(tabId, config, state) {
@@ -357,7 +381,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     // How to read this site: its saved recipe (no AI), else the quick guess, else Claude from the page's outline (once per visit).
     const start = (await chrome.tabs.get(tabId)).url;
     let recipe = (await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: start})}).catch(() => null))?.recipe || null;
-    let asked = false;
+    let asked = false, unstuck = 0;
     const learn = async () => {
       asked = true;
       await tellStep(tabId, config, ticket, 'Claude is learning how to read this site (once)…');
@@ -379,6 +403,26 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         cards = seen.cards;
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
+      if (!cards?.length && page === 0 && unstuck < UNBLOCK_TRIES) {   // no jobs here yet: Claude picks a way to them (owner: "ask Claude how to get unblocked")
+        unstuck += 1;
+        await tellStep(tabId, config, ticket, 'no jobs on this page yet: Claude is looking for the way to them…');
+        const page0 = await run(tabId, collectWays).catch(() => null);
+        const way = page0 && await thinking(() => api(config, '/extension/visit-unblock', {method: 'POST', body: JSON.stringify({...page0, ticket})}).catch(() => null));
+        if (way?.needs_person) { state.stopped = `the site needs you: ${way.needs_person}`; break; }
+        if (way?.steps?.length) {
+          for (const step of way.steps) {
+            if (step.action === 'open') { if (/^https:\/\//.test(step.href || '')) await chrome.tabs.update(tabId, {url: step.href}); }
+            else await run(tabId, applyFilters, [[step]]).catch(() => null);
+          }
+          await tellStep(tabId, config, ticket, `Claude: ${String(way.why || 'trying a way to the jobs').slice(0, 120)}`);
+          await pause();
+          await waitForPage(tabId).catch(() => {});
+          await consent();
+          recipe = null; asked = false;
+          page -= 1;   // the same page number again, on what the steps showed
+          continue;
+        }
+      }
       if (!cards?.length) {   // why nothing was read, said in the site's row: what the page showed, so "0 jobs" is never a mystery
         const banner = await closeConsentEverywhere(tabId);
         if (banner) state.consent = banner;

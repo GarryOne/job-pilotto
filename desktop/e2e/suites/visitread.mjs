@@ -151,6 +151,20 @@ with mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'v.js
       if ((await call(page, 'extractPage')).blank) throw new Error('a list page was taken for blank');
     });
 
+    await ctx.run('a page with no job list yet lists its ways on for Claude (never Sign in); the step Claude picks shows the jobs', async () => {
+      await page.goto(`${base}/unstick.html`);
+      const before = await call(page, 'extractPage');
+      if (before.cards.length) throw new Error(`the fixture already shows ${before.cards.length} jobs: the step would prove nothing`);
+      const found = await call(page, 'collectWays');
+      const labels = found.ways.map(way => way.label);
+      if (!labels.includes('See all jobs') || labels.includes('Sign in')) throw new Error(`ways ${JSON.stringify(labels)}`);
+      if (!found.text.includes('Discover our open positions')) throw new Error('the page\'s first lines are missing');
+      const see = found.ways.find(way => way.label === 'See all jobs');
+      const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([{control: see.id, action: 'click', value: ''}])})`);
+      const after = await call(page, 'extractPage');
+      if (!done[0]?.ok || after.cards.length !== 3) throw new Error(`step ${JSON.stringify(done)}, then ${after.cards.length} jobs`);
+    });
+
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {
       await page.goto(`${base}/check.html`);
       const seen = await call(page, 'extractPage');

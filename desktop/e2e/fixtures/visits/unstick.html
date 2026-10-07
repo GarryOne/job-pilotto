@@ -1,0 +1,6 @@
+<!doctype html><html><head><title>Careers | Maison</title></head><body>
+<!-- A careers page whose jobs show only after "See all jobs" (7 Oct 2026: "ask Claude how to get unblocked"). -->
+<h1>Join the Maison</h1><p>Discover our open positions.</p>
+<nav><button id="signin">Sign in</button> <a href="/watches">Watches</a></nav>
+<button id="all" onclick="document.querySelector('.jobs').innerHTML = ['4001 Client Advisor|Genève', '4002 Boutique Manager|Lausanne', '4003 Sales Associate|Genève'].map(job => { const [head, place] = job.split('|'); const [id, ...title] = head.split(' '); return `<li class=job-card><a href=/jobs/view/${id}>${title.join(' ')}</a><div>${place}</div></li>`; }).join('')">See all jobs</button>
+<ul class="jobs"></ul></body></html>

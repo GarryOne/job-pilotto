@@ -86,6 +86,18 @@ export async function recipe(storage, page, runEngine) {
   return (await engineJson(storage, 'visit-recipe', {url: String(page.url), forget: !!page.forget}, runEngine)) || {ok: false};
 }
 
+// A page with no job list even after Claude's reading: at most two steps toward it, or "needs you" (src/ai/visit_unblock.py). Claude's time is
+// not silence. Each decision is logged with what it rested on (labels and counts, never the page's text).
+export async function unblock(storage, page, runEngine) {
+  if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
+  const ways = Array.isArray(page.ways) ? page.ways.slice(0, 120) : [];
+  const answer = await whileThinking(String(page.ticket || ''), engineJson(storage, 'visit-unblock', {url: String(page.url), title: String(page.title || '').slice(0, 200),
+    text: String(page.text || '').slice(0, 800), ways}, runEngine));
+  log('visit', 'Claude asked for a way to the jobs', {host: new URL(page.url).hostname, ways: ways.length, decidedBy: 'Claude', steps: (answer?.steps || []).map(step => `${step.action} ${step.label}`).join(' | ').slice(0, 200), needsYou: answer?.needs_person || ''});
+  onLine(`  Claude's way to the jobs on ${new URL(page.url).hostname}: ${answer?.needs_person ? `it needs you (${answer.needs_person})` : answer?.steps?.length ? answer.steps.map(step => `${step.action} "${step.label.slice(0, 40)}"`).join(', ') : 'none found'}`);
+  return answer || {ok: false, error: 'Claude could not find a way to the jobs.'};
+}
+
 // The page's filter controls: which to set for this person's search (src/ai/visit_filters.py, through the engine's AI). Labels in the log.
 export async function filters(storage, page, runEngine = pipeline.run) {
   heardFrom(page?.ticket);

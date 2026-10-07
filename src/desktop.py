@@ -368,6 +368,7 @@ def main(argv=None):
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
+    sub.add_parser('visit-unblock').add_argument('file')   # a page with no job list (JSON: url, title, text, ways): at most 2 steps toward it, or "needs you"
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
     sub.add_parser('visit-context').add_argument('file')   # for a "Read with Claude" session: the search's own role words and places (plain words)
     sub.add_parser('visit-session').add_argument('session')   # what a Read with Claude session saved (its session name): jobs, matching
@@ -426,6 +427,21 @@ def main(argv=None):
             print(json.dumps({'role_words': terms(search.get('role_keywords'))[:10], 'places_first': terms(places.get('top_tier'))[:6],
                               'places_also': terms((places.get('country_wide') or []) + (places.get('abroad') or []))[:6],
                               'title_words_ruled_out': terms(search.get('title_exclude_keywords'))[:12]}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-unblock':
+            from .ai import visit_unblock
+            from .paths import load_search_config
+            from .digest import PREFERENCES
+            page = json.loads(Path(args.file).read_text())
+            try:
+                planned = visit_unblock.plan(page, load_search_config(matching=False), PREFERENCES)
+            except Exception as error:  # noqa: BLE001 — said to the extension, which stops the site with this reason
+                print(json.dumps({'ok': False, 'error': f'Claude could not find a way to the jobs ({type(error).__name__})'}))
+                return 0
+            print(f"Visit unblock: {len(planned['steps'])} steps for {str(page.get('url') or '')[:80]}: "
+                  + '; '.join(f"{s['action']} {s['label'][:40]}{' = ' + s['value'] if s['value'] else ''}" for s in planned['steps'])
+                  + (f" (needs you: {planned['needs_person']})" if planned['needs_person'] else ''), file=sys.stderr)
+            print(json.dumps({'ok': True, **planned}, ensure_ascii=False))
             return 0
         if args.command == 'visit-filters':
             from .ai import visit_filters
