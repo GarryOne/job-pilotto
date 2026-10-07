@@ -1437,6 +1437,10 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .task-words .muted { font-size: var(--fs-sm); }
 .task-card input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
 .task-card input.task-count::-webkit-inner-spin-button, .task-card input.task-count::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* Read sites only you can open (Actions): its list of sites scrolls past about four rows instead of growing the card. */
+#visits-sites { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
+#visits-sites::-webkit-scrollbar { width: 8px; }   /* shown, not the overlay one that hides until you scroll: there is more below */
+#visits-sites::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
 .task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }

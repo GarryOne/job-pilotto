@@ -1781,8 +1781,20 @@ function withFewJobsHelp(foot, runId) {
         act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title)))));
     }
     if (groups?.visits?.length) {
-      parts.push(section('Sites only you can open', rows(groups.visits.map(site => row(site.name, site.sub,
-        act({kind: 'visit', label: `Open ${site.name}`, value: site.url}, Object.assign(el('button', 'secondary', 'Open'), {type: 'button'})), site.title)))));
+      // One row, handed to Read sites (owner, 7 Oct 2026: "pass them to Read sites"): the extension reads them all in Chrome, a few at a time.
+      const names = groups.visits.map(site => site.name);
+      const shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
+      adviceEvent('shown', 'visit', 'few-jobs');
+      const read = Object.assign(el('button', 'secondary', 'Read them in Chrome'), {type: 'button', title: 'Opens them in your Chrome, two at a time; the Job Pilotto extension filters and reads each, then your next check scores the jobs'});
+      read.addEventListener('click', async () => {
+        read.disabled = true;
+        const result = await window.pilot.visitsRun({urls: groups.visits.map(site => site.url), atOnce: 2, filter: true}).catch(error => ({text: error.message}));
+        if (result?.started) { adviceEvent('taken', 'visit', 'few-jobs'); read.textContent = '✓ Reading in Chrome'; return; }
+        read.disabled = false;
+        read.textContent = 'Read them in Chrome';
+        read.title = result?.text || read.title;
+      });
+      parts.push(section('Sites only you can open', rows([row(`${names.length} site${names.length === 1 ? '' : 's'} we cannot read by ourselves`, shown, read)])));
     }
     if (!parts.length) parts.push(el('p', 'muted small', 'Nothing obvious to change yet.'));
     box.replaceChildren(...parts, why, answer);

@@ -77,6 +77,9 @@ export async function init() {
       return row;
     }));
     $('visits-run').disabled = !sites.length;
+    const count = $('visits-count');
+    count.textContent = sites.length > 4 ? `${sites.length} sites · scroll to see all` : '';
+    show(count, sites.length > 4);
   };
   paintVisits();
   document.querySelector('.nav[data-view=actions]')?.addEventListener('click', paintVisits);

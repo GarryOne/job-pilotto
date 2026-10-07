@@ -77,6 +77,8 @@ export function renderActionsPage(data) {
     // Waiting on the person (Read sites: the one-time Allow in Chrome): the one action, as a primary button, not text only (owner, 7 Oct 2026).
     const waitsOnYou = /^⏳ Waiting for you in Chrome/.test(String(running.step ?? ''));
     $('run-banner-act').hidden = !waitsOnYou;
+    const spinner = document.querySelector('#run-banner .spinner');
+    if (spinner) spinner.hidden = waitsOnYou;   // blocked on the person: no "working" spinner, the button says what to do
     const log = $('run-banner-log');
     log.hidden = !running.rowUrl;
     log.dataset.url = running.rowUrl || '';
