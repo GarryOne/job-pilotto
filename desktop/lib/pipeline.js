@@ -504,8 +504,9 @@ export function taskSummary(kind, log) {
 }
 
 // A line of the engine's output that says what it is doing now (the banner's and the activity's step): not an indented line, a warning, a long line, or the traceback
-// and exception line of a crash (its row is still being closed while those print, and the run shows as running until then).
-export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged/.test(line) && line.length < 120 && !CRASH_LINE.test(line);
+// and exception line of a crash (its row is still being closed while those print, and the run shows as running until then), or a Claude Code timing line
+// (7 Oct 2026: "Claude Code haiku: answered in 146 s…" stood as the search's step for 10 min while it sorted job titles).
+export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged|^Claude Code \S+: answered in /.test(line) && line.length < 120 && !CRASH_LINE.test(line);
 
 // A line that says "still here" (the engine's wait for the run lock, or the app's own heartbeat): one in a row is kept, the newest, so a long
 // quiet stretch reads as one live line, not a wall of them (the window does the same, renderer/pages/jobs.js).

@@ -10,7 +10,8 @@ test('an engine progress line is a step', () => {
 });
 test('a traceback line, an exception line, an indented line or a warning is not', () => {
   for (const line of ['Traceback (most recent call last):', "ModuleNotFoundError: No module named 'anthropic'", 'anthropic.AuthenticationError: Error code: 401',
-    'KeyError: 3', 'SystemExit: 1', '  File "x.py", line 3, in <module>', 'Warning: Notion was busy', 'Cronjob run logged: https://app.notion.com/p/abc', 'x'.repeat(130)])
+    'KeyError: 3', 'SystemExit: 1', '  File "x.py", line 3, in <module>', 'Warning: Notion was busy', 'Cronjob run logged: https://app.notion.com/p/abc', 'x'.repeat(130),
+    'Claude Code haiku: answered in 146 s (model 145 s, Claude Code itself 1 s; turns 2; reported 145 s)'])
     assert.equal(isProgressStep(line), false, line);
 });
 

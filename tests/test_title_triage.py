@@ -49,6 +49,15 @@ class TriageTest(unittest.TestCase):
             self.assertEqual([feeds.wanted_title(t) for t in ('Client Advisor', 'Head of Growth', 'Marketing Intern', 'Vendeur 80%', 'Unknown title')],
                              [True, False, False, True, False])
 
+    def test_says_how_many_batches_and_each_one_done(self):
+        client = Client(['advisor'])
+        with mock.patch.object(title_triage, 'BATCH', 2), mock.patch('builtins.print') as said:
+            title_triage.decide([f'Advisor {n}' for n in range(5)], SEARCH, client)
+        lines = [call.args[0] for call in said.call_args_list]
+        self.assertIn('in 3 batch(es) of up to 2', lines[0])
+        self.assertEqual([line.split(':')[1].split('·')[0].strip() for line in lines if line.startswith('⏳')], ['0 of 5', '2 of 5', '4 of 5', '5 of 5'])
+        self.assertEqual(len(client.calls), 3)
+
 
 if __name__ == '__main__':
     unittest.main()

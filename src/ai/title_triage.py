@@ -58,16 +58,28 @@ def decide(titles, search, client=None):
     from ..notion.search_settings import terms
     words = {'role_words': terms(search.get('role_keywords'))[:20], 'words_ruled_out': terms(search.get('title_exclude_keywords'))[:20]}
     from . import cost
-    for start in range(0, len(ask), BATCH):
-        batch = ask[start:start + BATCH]
+    from ..progress import Ticker
+    from concurrent.futures import ThreadPoolExecutor
+    batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
+    # Said before the first answer, then after each batch with the time left (owner, 7 Oct 2026: 6 batches ran ~2 min each with only
+    # "Still running · no new output" on screen). Batches run side by side; Claude Code still takes engine.PARALLEL at a time.
+    print(f'Titles: asking Claude about {len(ask)} job title(s) your role words miss, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
+    ticker, lock, sorted_ = Ticker('Sorting job titles with AI', len(ask), every=0), threading.Lock(), [0]
+
+    def one(batch):
         listed = '\n'.join(f'{n}. {title}' for n, title in enumerate(batch, 1))
         response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': SYSTEM}],
                                           messages=[{'role': 'user', 'content': f'The search (JSON): {json.dumps(words, ensure_ascii=False)}\nThe titles:\n{listed}'}],
                                           output_config=engine.structured(SCHEMA, MODEL, 'low'))
         cost.side(MODEL, response.usage)
         fit = {int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('fit') or [] if str(n).isdigit()}
-        for n, title in enumerate(batch, 1):
-            decided[title] = n in fit
+        with lock:
+            for n, title in enumerate(batch, 1):
+                decided[title] = n in fit
+            sorted_[0] += len(batch)
+            ticker.tick(sorted_[0])
+    with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
+        list(pool.map(one, batches))
     with LOCK:
         data = _load()
         data[key] = {**(data.get(key) or {}), **decided}
