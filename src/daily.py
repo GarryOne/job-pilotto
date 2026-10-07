@@ -106,13 +106,6 @@ def tracked_job(code, tracker):
             'description': live.get('description', ''), 'work_mode': '', 'city': ''}
 
 
-def to_score(db, hidden):
-    """The jobs scoring may take: eligible ones, but not a job whose location names no place of its own until its posting has been read for
-    where it is (src/ai/place_triage.py read): a fit for a job that may be outside your places is a Sonnet call spent for nothing."""
-    from .sources import feeds
-    return [job for job in digest.eligible_jobs(db, hidden)[0] if feeds.place_of(job) != 'vague']
-
-
 def for_job_matches(db, hidden):
     """The scored open jobs mirrored into Notion Job Matches: what the search found. Jobs you added yourself
     (src/ai/added.py) are left out: they live on Applications only, with their fit columns there."""
@@ -761,7 +754,7 @@ def main():
         if time_budget_on() and args.score_max and (tracker or local_profile()):
             try:
                 from . import time_budget
-                waiting = score.queue(db, to_score(db, hidden), local_profile() or tracker.page_text())
+                waiting = score.queue(db, digest.eligible_jobs(db, hidden)[0], local_profile() or tracker.page_text())
                 taken = time_budget.batch('score', len(waiting))
                 batch, batch_started = {job['id'] for job in waiting[:taken]}, __import__('time').monotonic()
                 run['waiting'] = len(waiting) - taken
@@ -785,7 +778,7 @@ def main():
             # (the desktop app's local Profile file when set, else the Notion page).
             try:
                 profile = local_profile() or tracker.page_text()
-                candidates = to_score(db, hidden)
+                candidates, _ = digest.eligible_jobs(db, hidden)
                 run['score'] = {}
 
                 def to_notion():
@@ -804,13 +797,13 @@ def main():
                     time_budget.record('job', now() - batch_started, run['score'].get('done') or 0)
                     # Done with time left: the next batch, sized from the pace just measured, read and scored the same way (the first is a guess).
                     while run.get('waiting') and not time_budget.over('score'):
-                        queue = score.queue(db, to_score(db, hidden), profile)
+                        queue = score.queue(db, digest.eligible_jobs(db, hidden)[0], profile)
                         taken = time_budget.batch('score', len(queue), say=False)
                         if not taken:
                             break
                         batch, batch_started, run['waiting'] = {job['id'] for job in queue[:taken]}, now(), len(queue) - taken
                         more = {}
-                        print(score.run(db, to_score(db, hidden), profile, score.DEFAULT_MODEL, args.score_max, stats=more,
+                        print(score.run(db, digest.eligible_jobs(db, hidden)[0], profile, score.DEFAULT_MODEL, args.score_max, stats=more,
                                         on_scored=to_notion, only_ids=batch))
                         time_budget.record('job', now() - batch_started, more.get('done') or 0)
                         if not more.get('done'):

@@ -57,7 +57,7 @@ def in_places(job):
     preferred locations" for a search that says "geneva"), else your place words (config/search.json)."""
     verdict = _placed(job)
     if verdict is not None:
-        return verdict in ('best', 'in')   # 'vague': not said to be in your places until its posting is read
+        return verdict != 'out'
     return bool(job.get('city')) or _mentions(HOME, job.get('location') or '')
 
 

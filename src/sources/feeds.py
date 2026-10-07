@@ -141,42 +141,18 @@ def placed():
     return PLACED
 
 
-READ = None   # {job url: answer} from the postings' own words, for vague locations (src/ai/place_triage.py read), read once a run
-
-
-def read_places():
-    global READ
-    if READ is None:
-        try:
-            from ..ai import place_triage
-            READ = dict(place_triage.read_known(_SEARCH))
-        except Exception:  # noqa: BLE001
-            READ = {}
-    return READ
-
-
-def _verdict(job):
-    """Claude's full answer for this job: its location's, or for a vague location (only a country, no place) the posting's own words';
-    'vague' while those are not read yet; None when it has not placed the location."""
-    from ..ai.place_triage import norm, read_verdict
-    verdict = placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
-    if verdict == 'vague':
-        read = read_verdict(job, read_places())
-        return 'vague' if read is None else 'out' if read == 'unclear' else read
-    return verdict
-
-
 def place_of(job):
-    """Claude's answer for this job ('best', 'in', 'out'; 'vague' while its posting is not read yet), or None when it has not placed the
-    location (the place words decide then)."""
-    verdict = _verdict(job)
+    """Claude's answer for this job's location ('best', 'in', 'out'), or None when it has not placed it (the place words decide then)."""
+    from ..ai.place_triage import norm
+    verdict = placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
     return verdict.split(':')[0] if verdict else None
 
 
 def needs_visa(job):
     """Claude's answer: True when your work rights do not cover this job's place, False when they do, None when it has not placed it."""
-    verdict = _verdict(job)
-    return None if verdict in (None, 'vague') else verdict.endswith(':visa')
+    from ..ai.place_triage import norm
+    verdict = placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
+    return None if verdict is None else verdict.endswith(':visa')
 
 
 def triage_places(jobs):
@@ -198,29 +174,12 @@ def triage_places(jobs):
         print(f'Warning: job locations not placed by Claude ({type(error).__name__}): your place words decide this run')
 
 
-def placing():
-    """True when Claude places the job locations this run (AI ready, place_triage not turned off)."""
-    from .. import features
-    from ..ai import engine
-    return not features.disabled('place_triage') and engine.ready()
-
-
 def place_open_jobs(db):
     """Before the cleanup of jobs outside your places: Claude places the locations of the open jobs too (7 Oct 2026: the job boards' jobs,
     imported straight into the list, never reached it; the place words closed Carouge and Meyrin jobs at every refresh, and the digest
     called "Genève" outside your places)."""
-    rows = db.execute("SELECT location, title, url, description FROM jobs WHERE state = 'open' AND COALESCE(location, '') != ''").fetchall()
-    triage_places([{'location': location, 'title': title} for location, title, _, _ in rows])
-    # A location that names no place of its own: the posting's words tell where the job is (any site, no per-site field)
-    vague = [{'location': location, 'title': title, 'url': url, 'description': description or ''} for location, title, url, description in rows]
-    vague = [job for job in vague if place_of(job) == 'vague' and job['description']]
-    if not vague or not placing():
-        return
-    try:
-        from ..ai import place_triage
-        read_places().update(place_triage.read(vague, _SEARCH))
-    except Exception as error:  # noqa: BLE001 — read next refresh; until then these jobs stay open
-        print(f'Warning: postings not read for their place ({type(error).__name__}); they stay open until the next refresh')
+    triage_places([{'location': location, 'title': title} for location, title in
+                   db.execute("SELECT location, title FROM jobs WHERE state = 'open' AND COALESCE(location, '') != ''")])
 
 
 def wanted_location(job):
@@ -228,7 +187,7 @@ def wanted_location(job):
     (config/search.json), or remote that isn't limited elsewhere (unless you want no remote jobs)."""
     verdict = place_of(job)
     if verdict is not None:
-        return verdict != 'out'   # 'vague': kept until its posting is read
+        return verdict != 'out'
     where = job.get("location") or ""
     if mentions(PLACE, where):
         return True

@@ -31,6 +31,16 @@ class PostingRegionTests(unittest.TestCase):
         }
         self.assertEqual({name: 'Geneve' in place for name, place in places.items()}, {name: True for name in places}, places)
 
+    def test_the_posting_page_names_the_place_the_search_page_left_out(self):
+        job = {'source': 'jobs.ch', 'url': POSTING['url'], 'title': 'Site Reliability Engineer', 'location': 'Switzerland', 'profile': ''}
+        client = mock.Mock(get=lambda url: {'url': url, 'html': PAGE})
+        with mock.patch.object(boards, 'career_links', return_value=[], create=True):
+            try:
+                boards.enrich(('Manor AG', [job]), client)
+            except Exception:  # noqa: BLE001 — the company part may need the network; the job is filled first
+                pass
+        self.assertEqual(job['location'], 'Geneve')
+
 
 if __name__ == '__main__':
     unittest.main()
