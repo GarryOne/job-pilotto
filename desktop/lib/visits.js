@@ -338,9 +338,9 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     fitsBy.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);
     const ok = (state.jobs || 0) > 0;
-    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'}`);
+    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'}`);
     doneCount += 1;
-    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} jobs read (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'));
+    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} read (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'));
     tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, fits, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, start: chosen.url, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
@@ -360,13 +360,14 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
   return last;
 }
 // The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
-export function resultMessage(results) {
+// `added`: jobs the run's scoring wrote to the Jobs list (null when it did not score), said on the head line.
+export function resultMessage(results, {added: listed = null} = {}) {
   const read = results.filter(result => result.ok);
   const jobs = read.reduce((sum, result) => sum + result.jobs, 0), added = read.reduce((sum, result) => sum + result.added, 0);
   const fits = read.reduce((sum, result) => sum + (result.fits || 0), 0);
   const fit = n => `${n} matching your search`;
   const clean = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').slice(0, 120);
-  return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new) · ${fit(fits)}`,
-    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} jobs (${result.added} new), ${fit(result.fits || 0)} · ${key(result.url)}`
+  return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new) · ${fit(fits)}${listed === null ? '' : ` · ${listed} added to your Jobs`}`,
+    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} job${result.jobs === 1 ? '' : 's'} (${result.added} new), ${fit(result.fits || 0)} · ${key(result.url)}`
       : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`)].join('\n');
 }

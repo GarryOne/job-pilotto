@@ -1935,11 +1935,21 @@ function handlers() {
     pipeline.work(storage, 'visits', log, async tee => {
       tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
       const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0]});
-      const text = visits.resultMessage(results);
+      // The matching jobs are scored and written to Jobs before this run ends, in its own turn (owner, 7 Oct 2026: "can't we score them right
+      // away?"; a search queued after it waited behind Find new employers): the light run that reads only the pages read in Chrome.
+      const fits = visits.lastFits();
+      let scored = null;
+      if (fits && !allowanceBlock()) {
+        tee(`Scoring the ${fits} matching job${fits === 1 ? '' : 's'} for your Jobs list…`);
+        appLog('visit', 'scoring the jobs read in Chrome inside the read sites run', {fits});
+        const {stdout = ''} = await pipeline.run(storage, pipeline.visitsArgs(storage), tee).catch(error => ({stdout: '', error}));
+        scored = /Job Matches: (\d+) created/.exec(String(stdout))?.[1] ?? null;
+      }
+      const text = visits.resultMessage(results, {added: scored === null ? null : Number(scored)});
       tee(text.split('\n')[1]);
       tee('<<<message'); text.split('\n').forEach(line => tee(line)); tee('message>>>');
       return results.some(result => result.ok);
-    }).then(() => scoreVisitJobs(visits.lastFits(), 'read sites task')).catch(error => appLog('visit', 'search after read sites not started', {error: error.message}));
+    }).catch(error => appLog('visit', 'read sites run failed', {error: error.message}));
     return {started: true};
   });   // a site only you can open, in the browser that has the extension
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
