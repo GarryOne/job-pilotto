@@ -378,6 +378,19 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
   // Two or more stopped sites: one Claude session reads them all, in turn (owner, 7 Oct 2026: "a 'Read the failed sites with Claude' button").
   const stopped = card.sites.filter(site => !site.ok).slice(0, 10);   // one session reads at most 10 (main.js visitsWithClaude)
   const allStopped = card.sites.filter(site => !site.ok).length;
+  const ways = el('div', 'visits-claude-all inline');
+  // Run again, the stopped sites ticked (owner, 8 Oct 2026: a run that read 2 of 4 had no Run again): the dialog opens with them, as the failure
+  // box's Run again does for a failed run (shared.visitsPreselect, pages/actions.js).
+  if (allStopped && card.sites.some(site => site.ok)) {
+    const again = el('button', 'secondary', `Run again on the ${allStopped === 1 ? 'stopped site' : `${allStopped} stopped sites`}`);
+    again.type = 'button';
+    again.title = 'Opens Find jobs using your browser with these sites ticked';
+    again.addEventListener('click', () => {
+      shared.visitsPreselect = card.sites.filter(site => !site.ok).map(site => ({name: site.name, url: site.url}));
+      runButton('visits')?.click();
+    });
+    ways.append(again);
+  }
   if (stopped.length > 1) {
     const idle = allStopped > stopped.length ? `Read the first ${stopped.length} of ${allStopped} stopped sites with Claude` : `Read the ${stopped.length} stopped sites with Claude`;
     const all = el('button', 'secondary', idle);
@@ -393,8 +406,9 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
       claudeGroups.set(stopped[0].url, stopped.map(site => site.url));
       for (const site of stopped) setPress(`claude:${site.url}`, {done: true, text: 'Claude is reading in Chrome'});
     });
-    head.append(el('div', 'visits-claude-all', all));
+    ways.append(all);
   }
+  if (ways.children.length) head.append(ways);
   const list = el('ul', 'item-rows');
   for (const site of card.sites) {
     const row = el('li', site.ok ? '' : 'is-failed');
