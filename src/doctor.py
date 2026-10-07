@@ -102,9 +102,10 @@ def check_notion(tracker):
 
 
 def check_profile(tracker):
+    from .ai import score
     text = tracker.page_text()
-    if len(text) < 300:
-        return Check('Setup', 'Profile', FAIL, 'Profile page is empty or very short',
+    if score.unfilled(text):   # length alone passed the blank template (about 2,000 characters of ❓ fields)
+        return Check('Setup', 'Profile', FAIL, 'Profile page is empty or still the template',
                      'Fill "Profile — CV and Preferences" in Notion (template: docs/notion-profile-template.md)')
     return Check('Setup', 'Profile', OK, f'{len(text):,} characters')
 

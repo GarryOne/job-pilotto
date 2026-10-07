@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
+from pathlib import Path
 import os
 import threading
 
@@ -136,6 +137,40 @@ def scoring_profile(profile):
     return '\n'.join(kept).strip()
 
 
+# The Profile template's own words (docs/notion-profile-template.md): a page made of only these and ❓ fields says nothing about the person.
+TEMPLATE = Path(__file__).resolve().parents[2] / 'docs' / 'notion-profile-template.md'
+MIN_OWN_CHARS = 60   # less than about a line of the person's own words: no basis for a fit score
+
+
+def _plain(line):
+    return re.sub(r'[\s|#*_`>-]+', ' ', line).strip().lower()
+
+
+def own_words(profile):
+    """The Profile's lines that are the person's own: not a ❓ field, a heading, a table header or the template's wording."""
+    try:
+        template = {_plain(line) for line in TEMPLATE.read_text().splitlines()}
+    except OSError:
+        template = set()
+    kept = []
+    for line in scoring_profile(profile).splitlines():
+        plain = _plain(line)
+        if not plain or '❓' in line or re.match(r'\s*#', line) or re.fullmatch(r'[\s|:-]*', line) or plain in template:
+            continue
+        kept.append(line.strip())
+    return kept
+
+
+def unfilled(profile):
+    """True when the Profile is empty or still the template (7 Oct 2026: a Notion workspace connected after an import got the blank
+    template; 31 jobs were then scored 2-5 against ❓ fields, and those low scores are not redone when the Profile is filled later)."""
+    own = sum(len(line) for line in own_words(profile))
+    return own == 0 or ('❓' in (profile or '') and own < MIN_OWN_CHARS)   # a short Profile of one's own is still scored
+
+
+PAUSED = 'Fit scores paused: your Profile is still empty (the Notion template). Fill it in, or Strategy → Rebuild from CV'
+
+
 def pending_jobs(db, candidates, profile, limit, full_profile=None):
     """Candidates whose score is missing or out of date (job, facts or the scoring part of the profile changed), most worth scoring first:
     new jobs, then changed jobs, then jobs whose only reason is a Profile edit, best previous score first. A job whose previous score is
@@ -249,6 +284,10 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     first_pass = FIRST_PASS_MODEL if first_pass is None else first_pass
     escalate_min = ESCALATE_MIN if escalate_min is None else escalate_min
     cascade = bool(first_pass) and first_pass != model
+    if unfilled(profile):   # scores against an empty Profile are noise, and they stick: none are made
+        if stats is not None:
+            stats['paused'] = 'profile'
+        return PAUSED
     full, profile = profile, scoring_profile(profile)
     jobs = pending_jobs(db, candidates, profile, max_jobs, full_profile=full)
     if not jobs:

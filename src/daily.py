@@ -734,6 +734,8 @@ def main():
                 run['score'] = {}
                 print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score']))
                 run['warnings'] += left_out(run['score'], 'scored')
+                if run['score'].get('paused'):   # said on the run's card, not only in its log
+                    run['warnings'].append(score.PAUSED)
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'scoring skipped: {type(error).__name__}')
