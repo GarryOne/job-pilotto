@@ -12,6 +12,7 @@ export const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 export const DESKTOP = path.resolve(E2E, '..');
 // Windows has no .bin/electron executable (it is a .cmd that Playwright cannot start): the package itself says where electron.exe is. Elsewhere: unchanged.
 import {createRequire} from 'node:module';
+import {appLogText} from './app-log.mjs';
 const electronPath = () => {
   if (process.platform !== 'win32') return path.join(DESKTOP, 'node_modules', '.bin', 'electron');
   return createRequire(path.join(DESKTOP, 'package.json'))('electron');
@@ -131,9 +132,8 @@ export async function settle(page, seconds = 20) {
 
 // The journey must never alter the live telemetry (the owner's rule, 2 Oct 2026). The app says in its own log why it is not reporting; no such line, no run.
 async function confirmQuiet(profile) {
-  const log = path.join(profile, 'logs', 'app.log');
   for (let waited = 0; waited < 20000; waited += 500) {
-    const text = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+    const text = appLogText(profile);
     if (/\[telemetry\] reporting is off: (?:the end-to-end journey|demo mode)/.test(text)) return;   // demo mode never reports either
     if (/\[telemetry\] reporting follows/.test(text)) throw new Error('the app would report to the live product: refusing to run the journey');
     await new Promise(resolve => setTimeout(resolve, 500));

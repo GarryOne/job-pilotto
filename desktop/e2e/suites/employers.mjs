@@ -12,6 +12,7 @@ import {judge, problems as judgeProblems} from '../lib/judge.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {emptyDatabase, readRows} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {appLogLines} from '../lib/app-log.mjs';
 
 export const minutes = 15;
 export const name = 'employers';
@@ -56,7 +57,7 @@ print(json.dumps({'candidates': rows('select name, status, ats, slug, quality fr
   return JSON.parse(out.toString());
 }
 
-const scoutStarts = ctx => fs.readFileSync(path.join(ctx.profile, 'logs', 'app.log'), 'utf8').split('\n').filter(line => /\[run\] start: python -m src scout /.test(line)).length;
+const scoutStarts = ctx => appLogLines(ctx.profile).filter(line => /\[run\] start: python -m src scout /.test(line)).length;
 
 // Click "Find new employers" on the Actions page and wait until the app shows no task running. -> the scout runs the app lists for it (newest first).
 async function findEmployers(ctx) {

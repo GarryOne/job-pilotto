@@ -10,6 +10,7 @@ import {CHAIN, FORMS, HOSTS, REAL_FORMS, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {appLogLines, appLogText} from '../lib/app-log.mjs';
 
 // Walks other data and timing on each seeded run (lib/forms.mjs varyForms): an exploring run on an unchanged commit includes it.
 export const varies = true;
@@ -261,7 +262,7 @@ export async function runApply(ctx, parts) {
       await pause(1000);
     }
     if (!kept.some(entry => entry.kind === 'slider')) throw new Error('the app was never told about the slider (no "slider" entry in misses.json)');
-    const log = fs.readFileSync(path.join(ctx.profile, 'logs', 'app.log'), 'utf8');
+    const log = appLogText(ctx.profile);
     if (!/\[misses\] \d+ new control/.test(log)) throw new Error('the app kept the miss but did not log it');
     unknownTab = tab;
   }, {needs: ctx.needs});
@@ -304,7 +305,7 @@ export async function runApply(ctx, parts) {
   }, {needs: ctx.needs});
 
   const sessionsOf = url => page.evaluate(target => window.pilot.sessions().then(list => list.filter(item => String(item.url || '').replace(/\/$/, '') === target.replace(/\/$/, '')).map(item => `${item.kind}:${item.id}`)), url);
-  const logTail = () => { try { return fs.readFileSync(path.join(ctx.profile, 'logs', 'app.log'), 'utf8').split('\n').filter(line => /\[extension\]|\[applied\]/.test(line)).slice(-6).map(line => line.slice(0, 220)).join('\n    '); } catch { return '(no log)'; } };
+  const logTail = () => { try { return appLogLines(ctx.profile).filter(line => /\[extension\]|\[applied\]/.test(line)).slice(-6).map(line => line.slice(0, 220)).join('\n    '); } catch { return '(no log)'; } };
   async function until(what, check, ms = 60000) {
     for (let waited = 0; waited < ms; waited += 1000) { if (await check()) return; await pause(1000); }
     throw new Error(`${what}. The app's last extension lines:\n    ${logTail()}`);

@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {DESKTOP, launch} from '../lib/app.mjs';
+import {appLogLines} from '../lib/app-log.mjs';
 
 export const name = 'foryou';
 export const minutes = 3;
@@ -13,7 +14,7 @@ export const light = true;
 export const keepGoing = true;
 
 const text = (page, selector) => page.locator(selector).first().innerText().catch(() => '');
-const advice = profile => { try { return fs.readFileSync(path.join(profile, 'logs', 'app.log'), 'utf8').split('\n').filter(line => /\badvice\b/.test(line)); } catch { return []; } };
+const advice = profile => { try { return appLogLines(profile).filter(line => /\badvice\b/.test(line)); } catch { return []; } };
 const waitFor = async (check, ms = 5000) => { for (let waited = 0; waited < ms; waited += 200) { if (await check()) return true; await new Promise(done => setTimeout(done, 200)); } return false; };
 
 export async function run(ctx) {
