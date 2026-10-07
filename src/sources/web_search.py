@@ -55,7 +55,7 @@ def _claude_code():
         return False
 
 
-def _claude_search(company, language):
+def _claude_search(company, language, site=''):
     from ..ai import cost, engine
     client = engine.client(action='scout')
     if getattr(client, '_api', None) is not None:   # Claude Code hit its plan limit and the API took over: its web search is billed, so not used
@@ -63,7 +63,7 @@ def _claude_search(company, language):
     model = 'claude-haiku-4-5'
     words = JOB_WORDS.get(language, '')
     response = client.messages.create(model=model, max_tokens=1000, system=[{'type': 'text', 'text': CLAUDE_SYSTEM}],
-                                      messages=[{'role': 'user', 'content': f'Company: {company}. Search: "{company} jobs {words}".'}],
+                                      messages=[{'role': 'user', 'content': f'Company: {company}' + (f' (its website: {site})' if site else '') + f'. Search: "{company} jobs {words}".'}],
                                       tools=[{'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': 2}],
                                       output_config=engine.structured(SITES_SCHEMA, model, 'low'))
     cost.side(model, response.usage)
@@ -72,19 +72,22 @@ def _claude_search(company, language):
     return (_json.loads(text) or {}).get('urls') or []
 
 
-def job_sites(company, language='', get=_get):
-    """Up to RESULTS addresses that may be the company's own job site, best first; [] when off or the search fails."""
+def job_sites(company, language='', get=_get, site='', client=None):
+    """Up to RESULTS addresses that are the company's own list of open jobs, best first; [] when off or the search fails. `site`: the company's
+    website, said in the search and to the check, so another company with the same name is not taken (7 Oct 2026: Omega's watches -> omega365.com,
+    a Norwegian software firm; Fust -> its "application process" page)."""
     which = provider()
     if not which:
         return []
     if which == 'claude':
         try:
-            urls = _claude_search(company, language)
+            urls = _claude_search(company, language, site)
         except Exception as error:  # noqa: BLE001 — Claude Code not answering leaves the employer as it was
             print(f'Warning: web search for {company} through Claude Code did not answer: {type(error).__name__}')
             return []
-        return [url for url in dict.fromkeys(u for u in urls if isinstance(u, str) and u.startswith('https://') and careers.own_site(u))][:RESULTS]
-    query = f'{company} jobs {JOB_WORDS.get(language, "")}'.strip()
+        return only_job_lists(company, site, [url for url in dict.fromkeys(u for u in urls if isinstance(u, str) and u.startswith('https://') and careers.own_site(u))][:RESULTS], client)
+    domain = urllib.parse.urlsplit(site).hostname.removeprefix('www.') if site and '//' in site else ''
+    query = f'{company} {domain} jobs {JOB_WORDS.get(language, "")}'.replace('  ', ' ').strip()
     try:
         if which == 'brave':
             data = get(f'{BRAVE_URL}?' + urllib.parse.urlencode({'q': query, 'count': RESULTS}),
@@ -96,4 +99,39 @@ def job_sites(company, language='', get=_get):
     except Exception as error:  # noqa: BLE001 — a search that fails leaves the employer as it was
         print(f'Warning: web search for {company} did not answer: {type(error).__name__}')
         return []
-    return [url for url in dict.fromkeys(u for u in urls if isinstance(u, str) and u.startswith('https://') and careers.own_site(u))][:RESULTS]
+    return only_job_lists(company, site, [url for url in dict.fromkeys(u for u in urls if isinstance(u, str) and u.startswith('https://') and careers.own_site(u))][:RESULTS], client)
+
+
+PICK_MODEL = 'claude-haiku-4-5'
+PICK_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['keep'], 'properties': {'keep': {
+    'type': 'array', 'items': {'type': 'integer'}, 'description': "Numbers of the addresses that are this company's list of open jobs, best first"}}}
+PICK_SYSTEM = """You get a company (its name and website) and numbered web addresses a search returned. Answer the numbers of the addresses that \
+are THIS company's page listing its open jobs (its careers site, or the job portal it runs, often on another domain), best first. Leave out: \
+another company with a similar name, a page about the application process, benefits or culture, a single job, a sign-in or job-alert page, \
+news or an article, and job boards. When none is, answer an empty list."""
+
+
+def only_job_lists(company, site, urls, client=None):
+    """Of a search's addresses, the ones Claude takes for this company's list of open jobs (by name and website), best first; the addresses as they
+    were without AI or when Claude cannot be asked. Claude sees the company, its website and the addresses only."""
+    if not urls:
+        return urls
+    try:
+        from ..ai import cost, engine
+        if client is None and not engine.ready():
+            return urls
+        client = client or engine.client(action='job_page_pick')
+        listed = '\n'.join(f'{n}. {url}' for n, url in enumerate(urls, 1))
+        response = client.messages.create(model=PICK_MODEL, max_tokens=200, system=[{'type': 'text', 'text': PICK_SYSTEM}],
+                                          messages=[{'role': 'user', 'content': f'Company: {company}\nWebsite: {site or "(not known)"}\nAddresses:\n{listed}'}],
+                                          output_config=engine.structured(PICK_SCHEMA, PICK_MODEL, 'low'))
+        cost.side(PICK_MODEL, response.usage)
+        keep = [int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('keep') or [] if str(n).isdigit()]
+    except Exception as error:  # noqa: BLE001 — the addresses as found
+        print(f'Warning: job page not checked by AI for {company} ({type(error).__name__})')
+        return urls
+    picked = [urls[n - 1] for n in dict.fromkeys(keep) if 1 <= n <= len(urls)]
+    left = [url for url in urls if url not in picked]
+    if left:
+        print(f"Job page of {company}: left out as not its job list: {', '.join(left)[:300]}")
+    return picked

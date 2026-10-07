@@ -485,7 +485,11 @@ def find_job_pages(sites, countries=(), search=None, now=None):
                 found[site['url']] = known[host]
             continue
         bad = _bad_pages(data, now)
-        urls = [url for url in search(site['name']) if url.split('#')[0].rstrip('/') not in {site['url'].rstrip('/'), *bad}]
+        try:   # its website said too: another company with the same name is not taken (src/sources/web_search.py)
+            results = search(site['name'], site=site['url'])
+        except TypeError:   # a search that takes the name only
+            results = search(site['name'])
+        urls = [url for url in results if url.split('#')[0].rstrip('/') not in {site['url'].rstrip('/'), *bad}]
         page = (_best(urls, countries) or [None])[0]
         print(f"Visit: job page of {site['name']}: {page or 'not found'}")
         with LOCK:
@@ -517,7 +521,7 @@ def job_page(url, markup):
             name = re.sub(r'<[^>]+>', '', (re.search(r'<title[^>]*>(.*?)</title>', markup or '', re.S | re.I) or [None, ''])[1]).split('|')[0].split(' - ')[0].strip()
             name = name if 2 <= len(name) <= 60 else host_of(url).split('.')[0]
             try:
-                found = web_search.job_sites(name)
+                found = web_search.job_sites(name, site=url.split('#')[0])
             except Exception as error:  # noqa: BLE001
                 print(f'Warning: web search for {name} jobs failed ({type(error).__name__})')
                 found = []

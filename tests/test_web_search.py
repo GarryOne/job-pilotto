@@ -58,7 +58,8 @@ class WebSearchTests(unittest.TestCase):
 class ClaudeCodeSearchTests(unittest.TestCase):
     def test_claude_code_comes_first_and_only_its_answers_own_sites_are_kept(self):
         with mock.patch.object(web_search, '_claude_code', lambda: True), mock.patch.dict(os.environ, {'BRAVE_SEARCH_API_KEY': 'b', 'JOB_PILOTTO_DISABLE': ''}), \
-                mock.patch.object(web_search, '_claude_search', lambda company, language: ['https://jobs.coop.ch/viewalljobs/', 'https://www.linkedin.com/jobs/coop',
+                mock.patch.object(web_search, 'only_job_lists', lambda company, site, urls, client=None: urls), \
+                mock.patch.object(web_search, '_claude_search', lambda company, language, site='': ['https://jobs.coop.ch/viewalljobs/', 'https://www.linkedin.com/jobs/coop',
                                                                                           'https://www.coopjobs.ch/fr.html']):
             self.assertEqual(web_search.provider(), 'claude')
             self.assertEqual(web_search.job_sites('Coop', 'fr'), ['https://jobs.coop.ch/viewalljobs/', 'https://www.coopjobs.ch/fr.html'])
@@ -96,3 +97,32 @@ class AppRenderTests(unittest.TestCase):
                 render.render('https://www.coop.ch/')
         self.assertEqual(sent[0][1], 'k')
         self.assertTrue(sent[0][2].startswith('JobPilotto/') and sent[0][2].endswith(' browser'))
+
+
+class JobPagePickTests(unittest.TestCase):
+    """The company's website goes into the search, and Claude keeps only this company's list of open jobs (7 Oct 2026: Omega's watches
+    -> omega365.com, a Norwegian software firm; Fust -> its "application process" page)."""
+    def test_the_website_is_searched_and_only_its_job_list_is_kept(self):
+        import json
+        from types import SimpleNamespace
+        from unittest import mock
+        asked, told = [], []
+
+        def get(url, headers=None):
+            asked.append(url)
+            return {'web': {'results': [{'url': 'https://global.omega365.com/inside-omega/stavanger-jobs'}, {'url': 'https://www.omegawatches.com/careers/list'},
+                                        {'url': 'https://www.omegawatches.com/careers/application-process'}]}}
+
+        class Client:
+            messages = SimpleNamespace(create=lambda **kw: told.append(kw) or SimpleNamespace(
+                content=[SimpleNamespace(type='text', text=json.dumps({'keep': [2]}))], usage=SimpleNamespace(input_tokens=1, output_tokens=1)))
+        with mock.patch.dict('os.environ', {'BRAVE_SEARCH_API_KEY': 'k'}), mock.patch.object(web_search, 'provider', lambda: 'brave'):
+            got = web_search.job_sites('Omega', '', get, site='https://www.omegawatches.com', client=Client())
+        self.assertEqual(got, ['https://www.omegawatches.com/careers/list'])
+        self.assertIn('omegawatches.com', asked[0], 'the website is in the search')
+        self.assertIn('Website: https://www.omegawatches.com', told[0]['messages'][0]['content'])
+
+    def test_without_ai_the_addresses_stay_as_found(self):
+        from unittest import mock
+        with mock.patch('src.ai.engine.ready', lambda *a: False):
+            self.assertEqual(web_search.only_job_lists('Omega', '', ['https://a.test/jobs']), ['https://a.test/jobs'])
