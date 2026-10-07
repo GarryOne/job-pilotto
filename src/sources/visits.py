@@ -163,7 +163,10 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
         host = host_of(jobpages.get(host_of(item['url']), item['url']))   # tiffany.com and tiffanycareers.com: one job list, read once
         if host in hidden or host_of(item['url']) in hidden or name in seen or host in seen:
             continue
-        system = ats.detect(jobpages.get(host_of(item['url']), item['url']))
+        page = jobpages.get(host_of(item['url']), item['url'])
+        if page.split('#')[0].split('?')[0].rstrip('/') in {str(u).rstrip('/') for u in (pool_facts().get('dead') or {}).values()}:
+            continue   # other installs found this job page gone
+        system = ats.detect(page)
         if system and system[0] in ats.FETCHERS and system[0] not in ('careers', 'visit'):   # the engine reads it itself at every refresh
             continue   # 7 Oct 2026: Chanel's Workday, 220 jobs read in the browser for nothing
         seen.update({name, host})
@@ -439,6 +442,21 @@ def _bad_pages(data, now):
     return {page.rstrip('/') for page, at in (data.get('jobpage_bad') or {}).items() if at > since}
 
 
+def pool_facts():
+    """{kind: {host: url}} the central pool serves about sites (src/contribute.py site_facts; at least 3 installs agree): a company's job page,
+    a site only a browser reads, a dead page. Read from the employer index this install downloads (src/employer_index.py)."""
+    from ..employer_index import CACHE
+    try:
+        served = json.loads(CACHE.read_text()).get('sites') or []
+    except (OSError, ValueError, AttributeError):
+        return {}
+    out = {}
+    for fact in served if isinstance(served, list) else []:
+        if isinstance(fact, dict) and fact.get('kind') in ('jobpage', 'browser', 'dead') and isinstance(fact.get('host'), str):
+            out.setdefault(fact['kind'], {})[fact['host']] = fact.get('url')
+    return out
+
+
 def find_job_pages(sites, countries=(), search=None, now=None):
     """Each employer's job list before its tab opens (owner, 7 Oct 2026: "rebuild the URLs to go to the jobs page, not the home page"): one
     "<company> jobs" web search per site with no known job page, preferring an address for your country (/ch-en, ?country=ch). Kept per site,
@@ -450,10 +468,18 @@ def find_job_pages(sites, countries=(), search=None, now=None):
     known, missed = data.get('jobpages') or {}, data.get('jobpage_misses') or {}
     recent = (now - timedelta(days=MISS_DAYS)).isoformat(timespec='seconds')
     found = {}
+    pooled = (pool_facts().get('jobpage') or {})
     for site in sites:
         host = host_of(site['url'])
         if site['url'] in known.values():   # already its job page (visit_list swaps it in)
             continue
+        if host not in known and str(pooled.get(host) or '').startswith('https://'):   # other installs found it: no web search, no AI
+            with LOCK:
+                fresh = _load()
+                fresh.setdefault('jobpages', {})[host] = pooled[host]
+                _save(fresh)
+            known = {**known, host: pooled[host]}
+            print(f"Visit: job page of {site['name']}: {pooled[host]} (from the pool)")
         if host in known or site.get('kind') == 'portal' or missed.get(host, '') > recent or not web_search.provider():
             if host in known:
                 found[site['url']] = known[host]

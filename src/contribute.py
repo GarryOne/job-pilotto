@@ -1,6 +1,7 @@
 """Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 
-Only public facts go up (ATS, board slug, company, a fixed board id, job counts) plus role families and regions from fixed lists. Nothing about jobs,
+Only public facts go up (ATS, board slug, company, a fixed board id, job counts; facts about sites: a company's job page without its query,
+a site only a browser reads, a dead page) plus role families and regions from fixed lists. Nothing about jobs,
 applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1 (the app sets it: on unless the user switched it off);
 `python -m src contribute --show` prints exactly what would be sent, on or off.
 """
@@ -229,6 +230,30 @@ def dead_ends(db, days=30):
     return [{'company': str(row[0])[:120], 'host': host(row[1])} for row in rows]
 
 
+def site_facts(limit=300):
+    """[{host, kind, url?}] facts about employer sites this install learned while reading them (7 Oct 2026): where a company's job list is
+    (jobpage), that a site refuses automated visitors so only a browser reads it (browser), a job page that is gone (dead). Public facts
+    about sites, never which ones this person opened or what they found there; the central pool serves a fact once 3 installs agree."""
+    from .sources import visits
+    data = visits._load()
+    out, seen = [], set()
+    def add(host, kind, url=None):
+        host = (host or '').lower().removeprefix('www.')
+        if not re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', host) or (host, kind) in seen:
+            return
+        if url is not None and not (isinstance(url, str) and url.startswith('https://') and len(url) <= 200 and '#' not in url):
+            return
+        seen.add((host, kind))
+        out.append({'host': host, 'kind': kind, **({'url': url} if url else {})})
+    for host, url in (data.get('jobpages') or {}).items():   # the address without its query: that is where someone's own filters sit (?location=Geneva)
+        add(host, 'jobpage', str(url).split('#')[0].split('?')[0])
+    for site in (data.get('sites') or {}).values():
+        add(visits.host_of(site.get('url') or ''), 'browser')
+    for url in (data.get('jobpage_bad') or {}):
+        add(visits.host_of(url), 'dead', str(url).split('#')[0].split('?')[0])
+    return out[:limit]
+
+
 def payload(feed_list, report, tracker=None, install=None, search=None, db=None, stages=None):
     """What would be sent (v2): every feed this install's scout verified, the feeds that gave this user a job (`matched`) and the ones they
     added themselves (`own`), each with how it was found, jobs listed, jobs that matched in their places, its job site and a failed read
@@ -278,7 +303,8 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None,
                     merged[key][tag] = merged[key].get(tag, 0) + n
     boards = [_with_outcomes(board, by_board.get(board['board'])) for board in boards]
     return {'v': 2, 'install': install or os.getenv('JOB_PILOTTO_INSTALL_ID', ''), 'roles': roles, 'regions': regions, **fine_tags(search),
-            'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {})}
+            'feeds': feeds[:MAX_FEEDS], **({'nofeed': nofeed} if nofeed else {}), **({'boards': boards} if boards else {}),
+            **({'sites': sites} if (sites := site_facts()) else {})}
 
 
 def enabled(env=None):
@@ -358,6 +384,8 @@ def _signatures(body):
                                                                            feed.get('site'), feed.get('hits'), _bucket(feed.get('jobs')), feed.get('out')]))
     for dead in body.get('nofeed') or []:
         yield ('nofeed', dead, f"dead:{dead.get('company')}", json.dumps([tags_sig, dead.get('host')]))
+    for fact in body.get('sites') or []:
+        yield ('sites', fact, f"site:{fact['host']}:{fact['kind']}", json.dumps([fact.get('url')]))
     for board in body.get('boards') or []:
         yield ('boards', board, f"board:{board['board']}", json.dumps([tags_sig, board.get('failed'), board.get('hits'), board.get('dup'), _bucket(board.get('jobs')), board.get('out')]))
 
@@ -369,7 +397,7 @@ def only_changed(db, body, now=None):
     db.execute(SENT_TABLE)
     now = now or datetime.now(timezone.utc)
     last = {row[0]: (row[1], row[2]) for row in db.execute('SELECT key, sig, sent_at FROM pool_sent')}
-    keep, marks = {'feeds': [], 'nofeed': [], 'boards': []}, []
+    keep, marks = {'feeds': [], 'nofeed': [], 'boards': [], 'sites': []}, []
     for field, item, key, sig in _signatures(body):
         before = last.get(key)
         if before and before[0] == sig and now - datetime.fromisoformat(before[1]) < REFRESH:
@@ -377,7 +405,7 @@ def only_changed(db, body, now=None):
         keep[field].append(item)
         marks.append((key, sig))
     out = {**body, 'feeds': keep['feeds']}
-    for field in ('nofeed', 'boards'):
+    for field in ('nofeed', 'boards', 'sites'):
         out.pop(field, None)
         if keep[field]:
             out[field] = keep[field]
@@ -398,7 +426,7 @@ def maybe_send(feed_list, report, tracker=None, **kwargs):
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
     body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'), stages=kwargs.get('stages')), kwargs.get('now'))
-    if not body['feeds'] and not body.get('nofeed') and not body.get('boards'):
+    if not body['feeds'] and not body.get('nofeed') and not body.get('boards') and not body.get('sites'):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
     if sent:

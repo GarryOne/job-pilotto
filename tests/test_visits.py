@@ -258,3 +258,37 @@ class VisitListCareTests(unittest.TestCase):
         self.assertIn('photographe', asked[0]['messages'][0]['content'])
         with mock.patch('src.ai.engine.ready', lambda *a: False):
             self.assertEqual(len(visits.relevant(items + [{'name': 'X', 'url': 'https://x.test', 'kind': 'employer'}], self.search)), 4, 'no AI: every site')
+
+
+class PoolFactsTests(unittest.TestCase):
+    """Facts other installs agreed on (the central pool, k >= 3): a known job page needs no web search or AI, a dead page is not offered."""
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.patches = [mock.patch.object(visits, 'STORE', Path(self.tmp.name) / 'visits.json')]
+        for patch in self.patches:
+            patch.start()
+        self.index = Path(self.tmp.name) / 'employer_index.json'
+        self.index.write_text(json.dumps({'sites': [
+            {'host': 'vancleefarpels.com', 'kind': 'jobpage', 'url': 'https://careers.richemont.com/en/jobs/van-cleef-arpels/', 'installs': 3},
+            {'host': 'franckmuller.com', 'kind': 'dead', 'url': 'https://www.franckmuller.com/careers', 'installs': 4}]}))
+        self.patches.append(mock.patch('src.employer_index.CACHE', self.index))
+        self.patches[-1].start()
+
+    def tearDown(self):
+        for patch in reversed(self.patches):
+            patch.stop()
+        self.tmp.cleanup()
+
+    def test_a_pooled_job_page_is_used_and_a_dead_one_is_not_offered(self):
+        from src.sources import web_search
+        asked = []
+        with mock.patch.object(web_search, 'provider', lambda: True):
+            found = visits.find_job_pages([{'name': 'Van Cleef & Arpels', 'url': 'https://www.vancleefarpels.com'}], search=lambda name: asked.append(name) or [])
+        self.assertEqual(found, {'https://www.vancleefarpels.com': 'https://careers.richemont.com/en/jobs/van-cleef-arpels/'})
+        self.assertEqual(asked, [], 'no web search: the pool knew it')
+        visits._save({'jobpages': {'franckmuller.com': 'https://www.franckmuller.com/careers'}})
+        with mock.patch.object(visits, 'relevant', lambda items, search: items):
+            listed = visits.visit_list({'role_keywords': ['vendeur'], 'locations': {'top_tier': ['geneva']}}, set(), now=NOW,
+                                       picks=[{'name': 'Franck Muller', 'url': 'https://www.franckmuller.com'}, {'name': 'Manor', 'url': 'https://www.manor.ch'}])
+        self.assertEqual([i['name'] for i in listed if i['kind'] == 'employer'], ['Manor'], 'its job page is dead for 4 installs')

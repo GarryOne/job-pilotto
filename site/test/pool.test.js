@@ -8,7 +8,7 @@ import {purge, rollup} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -172,4 +172,24 @@ test('the day\'s totals per source and segment are kept for good, after the raw 
   await purge(env, new Date(Date.now() + 200 * 86400000));
   assert.equal(env.STATS.db.prepare('SELECT COUNT(*) AS n FROM contributions').get().n, 0);
   assert.equal(env.STATS.db.prepare('SELECT COUNT(*) AS n FROM pool_daily').get().n, 2, 'totals outlive the raw rows');
+});
+
+
+test('facts about sites: checked on the way in, served once 3 installs agree (k >= 3), never who', async () => {
+  const {agreedSites} = await import('../src/employers.js');
+  const env = setup();
+  const vcaPage = 'https://careers.richemont.com/en/jobs/van-cleef-arpels/';
+  for (const install of ['install-a', 'install-b', 'install-c']) {
+    const sites = [{host: 'vancleefarpels.com', kind: 'jobpage', url: vcaPage}, {host: 'franckmuller.com', kind: 'dead', url: 'https://www.franckmuller.com/careers'},
+      ...(install !== 'install-c' ? [{host: 'bulgari.recruitmentplatform.com', kind: 'browser'}] : []),
+      {host: 'evil.test', kind: 'jobpage', url: 'javascript:alert(1)'}, {host: 'x.test', kind: 'secret'}, {host: 'not a host', kind: 'browser'}];
+    const answer = await (await post(env, {...body(install, []), v: 2, sites})).json();
+    assert.equal(answer.ok, true);
+    assert.equal(answer.sites, install !== 'install-c' ? 3 : 2, 'a bad address, an unknown kind and a non-host are dropped');
+  }
+  const served = await agreedSites(env);
+  assert.deepEqual(served.map(fact => [fact.host, fact.kind, fact.url, fact.installs]).sort(),
+    [['franckmuller.com', 'dead', 'https://www.franckmuller.com/careers', 3], ['vancleefarpels.com', 'jobpage', vcaPage, 3]],
+    'Bulgari has 2 installs only: not served yet');
+  assert.ok(!JSON.stringify(served).includes('"install'+'":'), 'never which install');
 });

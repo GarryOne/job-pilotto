@@ -260,3 +260,21 @@ class OutcomeTests(unittest.TestCase):
         self.assertEqual(boards['alerts_linkedin']['out']['offer'], 1, '"LinkedIn alert" in the job store is the LinkedIn alerts board')
         self.assertNotIn('Vendeur', json.dumps(body))
         self.assertNotIn('https://m/1', json.dumps(body))
+
+
+class SiteFactsTests(unittest.TestCase):
+    """Facts about sites go to the pool (7 Oct 2026): job pages, browser-only sites, dead pages; never a query (someone's own filters)."""
+    def test_site_facts_are_public_and_carry_no_filters(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        from src import contribute
+        from src.sources import visits
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(visits, 'STORE', Path(tmp) / 'visits.json'):
+            visits._save({'jobpages': {'www.iwc.com': 'https://careers.richemont.com/en/jobs/iwc?location=Geneva#jp-read-x', 'bad': 'javascript:x'},
+                          'sites': {'h': {'company': 'Bulgari', 'url': 'https://bulgari.recruitmentplatform.com/FO/x'}},
+                          'jobpage_bad': {'https://www.franckmuller.com/careers?lang=fr': '2026-10-07'}})
+            facts = contribute.site_facts()
+        self.assertEqual(facts, [{'host': 'iwc.com', 'kind': 'jobpage', 'url': 'https://careers.richemont.com/en/jobs/iwc'},
+                                 {'host': 'bulgari.recruitmentplatform.com', 'kind': 'browser'},
+                                 {'host': 'franckmuller.com', 'kind': 'dead', 'url': 'https://www.franckmuller.com/careers'}])

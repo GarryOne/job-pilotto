@@ -7,7 +7,8 @@ import {COUNTRIES, METROS, FAMILIES} from './pool-tags.js';
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];   // src/contribute.py: IT families, then src/role_kinds.py's other trades
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
-const MAX_FEEDS = 2000, MAX_NOFEED = 300, MAX_BOARDS = 30, KEEP_DAYS = 90, PER_MINUTE = 30;   // installs share each find as it is made (owner, 6 Oct 2026): many small shares; every feed a check read (7 Oct 2026)
+export const SITE_KINDS = ['jobpage', 'browser', 'dead'];   // facts installs share about sites (migrations/0037_pool_sitefacts.sql)
+const MAX_FEEDS = 2000, MAX_NOFEED = 300, MAX_SITES = 300, MAX_BOARDS = 30, KEEP_DAYS = 90, PER_MINUTE = 30;   // installs share each find as it is made (owner, 6 Oct 2026): many small shares; every feed a check read (7 Oct 2026)
 // Outcome counts (src/contribute.py outcomes): only these names, only whole numbers; anything else is dropped.
 const STEPS = ['strong', 'saved', 'applied', 'interview', 'offer', 'remote'];
 const LANGS = ['English', 'German', 'French', 'Italian', 'Spanish', 'Portuguese', 'Dutch', 'Other'];
@@ -80,6 +81,16 @@ export async function contribute(request, env, now = new Date()) {
     keys.add(key);
     nofeed.push({key, company, host: typeof item.host === 'string' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host) ? item.host.slice(0, 100) : null});
   }
+  // Facts about sites learned while reading them (src/contribute.py sites): a host, a kind from a fixed list and, for a job page, its address.
+  const sites = [], facts = new Set();
+  for (const item of (Array.isArray(body.sites) ? body.sites : []).slice(0, MAX_SITES)) {
+    const host = typeof item?.host === 'string' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host) && item.host.length <= 100 ? item.host : null;
+    const kind = SITE_KINDS.includes(item?.kind) ? item.kind : null;
+    const url = typeof item?.url === 'string' && /^https:\/\/[^\s#]{4,200}$/.test(item.url) ? item.url : null;
+    if (!host || !kind || (kind === 'jobpage' && !url) || facts.has(`${host}|${kind}`) || /^e2e/.test(host)) { drop('sites'); continue; }
+    facts.add(`${host}|${kind}`);
+    sites.push({host, kind, url: kind === 'browser' ? null : url});
+  }
   const boards = [], named = new Set();
   for (const item of (Array.isArray(body.boards) ? body.boards : []).slice(0, MAX_BOARDS)) {
     if (!BOARDS.includes(item?.board) || named.has(item.board)) { drop('boards'); continue; }
@@ -87,7 +98,7 @@ export async function contribute(request, env, now = new Date()) {
     named.add(item.board);
     boards.push({board: item.board, jobs: count(item.jobs), hits: count(item.hits), dup: count(item.dup), failed: item.failed ? 1 : 0, out: outOf(item.out)});
   }
-  if (!feeds.length && !nofeed.length && !boards.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
+  if (!feeds.length && !nofeed.length && !boards.length && !sites.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
   const install = await hashed(env, body.install);
   const kv = env.WAITLIST, limit = `pool:${install}`;
   const minute = `${limit}:${Math.floor(now.getTime() / 60000)}`;
@@ -109,6 +120,10 @@ export async function contribute(request, env, now = new Date()) {
     statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host) VALUES (?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host)')
       .bind(install, today, item.key, item.company, item.host));
   }
+  for (const item of sites) {
+    statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url) VALUES (?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url')
+      .bind(install, today, item.host, item.kind, item.url));
+  }
   for (const item of boards) {
     statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json, countries, metros, families) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, board) DO UPDATE SET day = excluded.day, roles = excluded.roles, regions = excluded.regions, countries = excluded.countries,
@@ -121,7 +136,7 @@ export async function contribute(request, env, now = new Date()) {
     const chunk = statements.slice(i, i + 500);
     if (env.STATS.batch) await env.STATS.batch(chunk); else for (const statement of chunk) await statement.run();
   }
-  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length, ...(Object.keys(dropped).length ? {dropped} : {})});
+  return Response.json({ok: true, feeds: feeds.length, nofeed: nofeed.length, boards: boards.length, sites: sites.length, ...(Object.keys(dropped).length ? {dropped} : {})});
 }
 
 // Per feed: how many different installs sent it, how many found jobs there, and among those the roles / regions. Added up in SQL and paged
@@ -252,5 +267,6 @@ export async function purge(env, now = new Date()) {
   const oldest = day(new Date(now.getTime() - KEEP_DAYS * 86400000));
   await env.STATS.prepare('DELETE FROM contributions WHERE day < ?').bind(oldest).run();
   await env.STATS.prepare('DELETE FROM nofeed WHERE day < ?').bind(oldest).run();
+  await env.STATS.prepare('DELETE FROM sitefacts WHERE day < ?').bind(oldest).run();
   await env.STATS.prepare('DELETE FROM board_reads WHERE day < ?').bind(oldest).run();
 }

@@ -122,7 +122,20 @@ async function slice(env, regions) {
   if (!rows.length) return null;
   const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]').filter(item => !/^e2e/.test(item?.key || ''));   // stored before the filter
   const boards = JSON.parse((await env.WAITLIST?.get(BOARDS_KEY)) || '[]');
-  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards});
+  const sites = await agreedSites(env);
+  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards, ...(sites.length ? {sites} : {})});
+}
+
+// Facts about sites that at least SITES_K installs shared in the last 90 days (src/pool.js sitefacts): a company's job page, a site only a
+// browser reads, a dead page. Counted, never who: only facts several installs agree on go out (the learned layer's k >= 3 rule).
+export const SITES_K = 3;
+export async function agreedSites(env, k = SITES_K) {
+  if (!env.STATS) return [];
+  try {
+    const rows = (await env.STATS.prepare(`SELECT host, kind, url, COUNT(DISTINCT install) AS installs FROM sitefacts GROUP BY host, kind, url
+      HAVING installs >= ? ORDER BY installs DESC LIMIT 3000`).bind(k).all()).results || [];
+    return rows.map(row => ({host: row.host, kind: row.kind, ...(row.url ? {url: row.url} : {}), installs: row.installs}));
+  } catch { return []; }   // the table before its migration: nothing to serve yet
 }
 
 async function download(request, env, now = new Date()) {
