@@ -114,6 +114,14 @@ export async function run(ctx) {
       if (!await waitFor(() => page.locator('#strategy-savebar:visible').count().then(n => n === 0), 8000)) throw new Error(`still unsaved: ${await text(page, '#strategy-savebar')}`);
     });
 
+    await ctx.run('adding a suggested role says the next step: the pop-up offers Refresh jobs', async () => {
+      await page.click('[data-tab=strategy-suggestions]');
+      if (await page.locator('#strategy-ideas [data-review]').getAttribute('aria-expanded') !== 'true') await page.click('#strategy-ideas [data-review]');
+      await page.locator('#ideas-chips .option-row button').first().click();
+      const next = page.locator('#toasts .toast .toast-action', {hasText: 'Refresh jobs'});
+      if (!await waitFor(() => next.count().then(n => n > 0), 8000)) throw new Error(`no Refresh jobs in the pop-up: ${await text(page, '#toasts')}`);
+    });
+
     await ctx.run('what is recorded holds fixed words only: never a role word, a place or an employer\'s name', async () => {
       const lines = advice(profile);
       if (!lines.length) throw new Error('nothing recorded');

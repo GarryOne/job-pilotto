@@ -55,6 +55,13 @@ def ideas(profile, search, titles, set_aside=(), client=None, today=None):
     key, data = _key(search), _load()
     aside = {str(w).lower() for w in set_aside}
     kept = data.get(key) or {}
+    roles = sorted({str(w).lower() for w in search.get('role_keywords') or []})
+    # Roles only added since today's answer (one of these ideas taken, or typed on Strategy): today's ideas still hold, minus the added ones.
+    # 7 Oct 2026: every "Add role" changed the key and asked Claude again, 10 paid calls in an afternoon and a new list each time.
+    earlier = next((entry for entry in data.values() if entry.get('day') == today and entry.get('roles') is not None
+                    and set(entry['roles']) <= set(roles)), None)
+    if kept.get('day') != today and earlier:
+        kept = earlier
     if kept.get('day') != today:
         if not (profile or '').strip():
             return []
@@ -70,7 +77,7 @@ def ideas(profile, search, titles, set_aside=(), client=None, today=None):
                                           output_config=engine.structured(SCHEMA, MODEL, 'low'))
         cost.side(MODEL, response.usage)
         answer = json.loads(next(b.text for b in response.content if b.type == 'text'))
-        kept = {'day': today, 'ideas': [{k: str(i.get(k) or '')[:120] for k in ('role', 'word', 'why')} for i in answer.get('ideas') or []][:MAX_IDEAS]}
+        kept = {'day': today, 'roles': roles, 'ideas': [{k: str(i.get(k) or '')[:120] for k in ('role', 'word', 'why')} for i in answer.get('ideas') or []][:MAX_IDEAS]}
         STORE.parent.mkdir(parents=True, exist_ok=True)
         STORE.write_text(json.dumps({key: kept}, ensure_ascii=False))   # this search's ideas only
         print(f"Roles: Claude suggested {len(kept['ideas'])} role(s) for this search")

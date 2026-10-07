@@ -80,7 +80,7 @@ function strategySkeleton() {
 // [card, icon, title, its lists: [list, label or note, what the add field asks]]
 // Owner mockup, 7 Oct 2026: four cards (roles with their search terms, places with eligibility, skills, exclusions); every list still edits here.
 export const TARGET_CARDS = [
-  ['roles', 'briefcase', 'Roles & search terms', [['roles', '', 'Add a job title'], ['queries', 'Search terms', 'Add a job board search']]],
+  ['roles', 'briefcase', 'Roles & job board searches', [['roles', '', 'Add a job title'], ['queries', 'Job board searches: what we type into job boards such as jobs.ch', 'Add a job board search']]],
   ['places', 'pin', 'Locations & eligibility', [['places', 'Priority locations', 'Add a city or region'], ['country', 'Additional regions', 'Add a country or region'],
     ['abroad', 'Relocation (open to)', 'Add a city abroad'], ['rights', 'Work rights: where you can work without a visa', 'Add a country or EU']]],
   ['stack', 'layers', 'Skills & experience', [['stack', 'Key skills and tools you want in jobs.', 'Add a skill or tool']]],
@@ -219,6 +219,15 @@ function settingRow(glyph, label, value) {
   return row;
 }
 const labelsOf = name => entriesOf(lastStrategy, name).map(entry => entry.label);
+// What is typed into the job boards, apart from the roles that decide a match (owner, 7 Oct 2026: a magnifier row read as a search box, with no
+// word of what it is for). A labelled row like the families, and one line on what it does.
+function boardSearches(queries) {
+  const row = el('div', 'family-row'), body = el('div', 'setting-body');
+  body.append(queries.length ? folded(queries, 6, 'Show all') : el('span', 'muted', 'None: your roles are searched as they are'),
+    el('span', 'muted small', 'What we type into job boards such as jobs.ch. Your roles above decide which job titles count as a match.'));
+  row.append(el('b', '', 'Job board searches'), body);
+  return row;
+}
 const VIEWS = {
   roles() {
     // Families from the engine (src/role_kinds.py): Retail, Logistics…; spellings and translations fold under "View title variants".
@@ -230,7 +239,7 @@ const VIEWS = {
     const queries = labelsOf('queries');
     return [el('p', 'sub', 'Roles you search for, grouped by family.'),
       ...(families.length ? families : [el('span', 'muted small', 'No roles yet: Edit to add one.')]),
-      settingRow('search', 'Search terms', queries.length ? folded(queries, 6, 'Show all') : 'None: your role words are searched as they are')];
+      boardSearches(queries)];
   },
   places() {
     const priority = el('div', 'priority');
@@ -346,7 +355,7 @@ async function saveTargets() {
   targetEdits = null;
   typed = {};
   // Saved to Search settings; when Notion is connected, editLists has published it there before answering ok (lib/strategy.js).
-  toastMessage('Strategy saved ✓', `${shared.state?.notionConnected ? 'Synced to Notion. ' : ''}Refresh your jobs to apply it.`);
+  toastMessage({title: 'Strategy saved ✓', body: `${shared.state?.notionConnected ? 'Synced to Notion. ' : ''}Refresh your jobs to search with it.`, action: refreshAction});
   await loadStrategy();
   renderTargets();
   return true;
@@ -567,10 +576,13 @@ const widen = (kind, act, done, list = '') => async button => {
   const result = await withSaveProgress(words => { button.textContent = words; }, act).catch(error => ({ok: false, error: error.message}));
   button.textContent = label;
   if (result.ok) adviceEvent('taken', kind, 'strategy');
-  toastMessage(result.ok ? 'Search widened' : 'Not added', result.ok ? done : result.error);
-  if (result.ok) loadCoverage(); else button.disabled = false;
+  if (!result.ok) { toastMessage('Not added', result.error); button.disabled = false; return; }
+  // The next step with it: a refresh searches with the change (7 Oct 2026: the pop-up said only "Search widened").
+  toastMessage({title: 'Search widened', body: `${done} Refresh your jobs to search with it.`, action: refreshAction});
+  loadStrategy();   // the cards show it at once, not after the next visit (it re-reads the suggestions too)
 };
 
+const refreshAction = {label: 'Refresh jobs', run: () => startSearch()};
 const LIST_WORDS = {roles: 'roles', places: 'places', languages: 'excluded languages'};
 const paintCoverage = verdict => {
   shownVerdict = verdict;
@@ -578,7 +590,7 @@ const paintCoverage = verdict => {
   rows.coverage = coverage && suggestionRow({kind: 'coverage', id: 'coverage', glyph: 'search', title: verdict.local ? 'Catch titles in other languages' : 'Add role words',
     summary: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, text: coverage.text,
     options: coverage.chips.map(chip => ({label: plain(chip.label), button: 'Add role word', preview: `Adds "${chip.term}" to your role words. ${chip.title}`,
-      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`, 'roles')})),
+      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. (also in your Search settings in Notion).`, 'roles')})),
     brief: {title: verdict.local ? 'Catch titles in other languages' : 'Add role words', text: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, cta: 'Review role words'},
     menu: [hideItem('coverage', 'coverage', DISMISSED, coverage.at)]});
   const places = placesCard(verdict, remembered(PLACES_DISMISSED));
@@ -587,7 +599,7 @@ const paintCoverage = verdict => {
     summary: `${topPlace.place} · ${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} outside your places${places.chips.length > 1 ? `, and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`,
     text: places.text,
     options: places.chips.map(chip => ({label: plain(chip.label), button: 'Add place', preview: `Adds ${chip.place} to your places; jobs you already have stay. ${chip.title}`,
-      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`, 'places')})),
+      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places. (also in your Search settings in Notion). Jobs you already have stay.`, 'places')})),
     brief: {title: 'Expand your locations', text: `${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} in ${topPlace.place}${places.chips.length > 1 ? ` and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`, cta: 'Review location'},
     menu: [hideItem('places', 'places', PLACES_DISMISSED, places.at)]});
   // Filters of the user's own that hide matching jobs: an option removes that filter.
@@ -597,8 +609,8 @@ const paintCoverage = verdict => {
     summary: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, text: filters.text,
     options: filters.chips.map(chip => ({label: plain(chip.label), button: 'Remove filter', preview: chip.title,
       run: widen('filters', () => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
-        chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. The next searches show them (also in your Search settings in Notion).`
-          : `Jobs that require ${chip.language} are no longer hidden. The next searches show them (also in your Search settings in Notion).`, chip.language ? 'languages' : '')})),
+        chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. (also in your Search settings in Notion).`
+          : `Jobs that require ${chip.language} are no longer hidden. (also in your Search settings in Notion).`, chip.language ? 'languages' : '')})),
     brief: {title: 'Loosen your filters', text: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, cta: 'Review filters'},
     menu: [hideItem('filters', 'filters', FILTERS_DISMISSED, filters.at)]});
   // Unused job sources: an option opens its panel in Settings → Connections (a key to add there); nothing is turned on from here.
@@ -673,7 +685,7 @@ async function loadIdeas() {
   if (!card) { rows.ideas = null; drawSuggestions(); return; }
   const option = chip => ({label: plain(chip.label).replace(/ · \d+$/, ''), button: 'Add role',
     preview: `Adds "${chip.term}" to your role words: ${chip.title}`,
-    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`, 'roles')});
+    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. (also in your Search settings in Notion).`, 'roles')});
   const {open, empty} = byOpenings(card.chips);
   const top = open[0];
   rows.ideas = suggestionRow({kind: 'ideas', id: 'ideas', glyph: 'user', title: 'Explore related roles',

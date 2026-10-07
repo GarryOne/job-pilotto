@@ -43,6 +43,18 @@ class RoleIdeasTest(unittest.TestCase):
         self.assertEqual(client.calls[1]['set_aside'], ['retouche'], 'the set-aside roles are told to Claude the next day')
         self.assertNotIn('cv', ' '.join(client.calls[0]).lower().replace('profile', ''), 'only the named fields are sent')
 
+    def test_adding_a_suggested_role_keeps_todays_ideas_without_asking_again(self):
+        client = Client()
+        titles = ['caissier 50%', 'retouche photo']
+        role_ideas.ideas('Photographer and shop seller', SEARCH, titles, client=client, today='2026-10-07')
+        grown = {**SEARCH, 'role_keywords': SEARCH['role_keywords'] + ['caissier']}
+        got = role_ideas.ideas('Photographer and shop seller', grown, titles, client=client, today='2026-10-07')
+        self.assertEqual([i['word'] for i in got], ['retouche'], 'the added role leaves the list; the others stay')
+        self.assertEqual(len(client.calls), 1, 'no second call for a role added from the list')
+        other = {**SEARCH, 'role_keywords': ['comptable']}
+        role_ideas.ideas('Accountant', other, titles, client=client, today='2026-10-07')
+        self.assertEqual(len(client.calls), 2, 'a different search (roles removed or replaced) is asked anew')
+
     def test_no_profile_no_call(self):
         self.assertEqual(role_ideas.ideas('', SEARCH, [], client=Client(), today='2026-10-09'), [])
 

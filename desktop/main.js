@@ -1032,6 +1032,12 @@ function handlers() {
     ensurePage: notion.ensurePage,
     writePage: (token, page, markdown) => notion.writePage(token, page, markdown, undefined, (done, total) => settingsProgress('write', {done, total})),
   });
+  // Every change to the search (Strategy edits and suggestions, Tune) says "Your search changed · Refresh jobs" until a refresh applies it
+  // (renderer/search-changed.js). 7 Oct 2026: only Edit did, so a role added from a suggestion left no next step.
+  const markSearchChanged = result => {
+    if ([result?.added, result?.removed, result?.changed].some(list => list?.length)) storage.saveSettings({searchChangedAt: new Date().toISOString()});
+    return result;
+  };
   ipcMain.handle('loosenSearch', async (_, asked = {}) => {
     if (DEMO) return {ok: true, removed: []};
     try {
@@ -1039,8 +1045,8 @@ function handlers() {
       if (code !== 0) throw new Error('Could not read the coverage (see the activity log)');
       const said = JSON.parse(stdout.trim().split('\n').pop()) || {};
       const listedWords = new Set((said.excluded || []).map(item => item.fragment)), listedLanguages = new Set((said.languages || []).map(item => item.language));
-      const result = await strategy.loosen(storage, {excludes: (asked.excludes || []).filter(word => listedWords.has(word)),
-        languages: (asked.languages || []).filter(language => listedLanguages.has(language))}, settingsDeps());
+      const result = markSearchChanged(await strategy.loosen(storage, {excludes: (asked.excludes || []).filter(word => listedWords.has(word)),
+        languages: (asked.languages || []).filter(language => listedLanguages.has(language))}, settingsDeps()));
       appLog('search', `filters loosened: ${result.removed.join(', ') || 'none'}`);
       return {ok: true, ...result};
     } catch (error) { return {ok: false, error: error.message}; }
@@ -1048,7 +1054,7 @@ function handlers() {
   ipcMain.handle('addRoles', async (_, terms) => {
     if (DEMO) return {ok: true, added: []};
     try {
-      const result = await strategy.addRoles(storage, terms, settingsDeps());
+      const result = markSearchChanged(await strategy.addRoles(storage, terms, settingsDeps()));
       appLog('search', `role terms added: ${result.added.join(', ') || 'none'}`);
       // Counted for the starter keyword pack: only words the card itself offered (a fixed vocabulary), with the search's coarse role and region.
       try {
@@ -1067,7 +1073,7 @@ function handlers() {
       const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
       if (code !== 0) throw new Error('Could not read the coverage (see the activity log)');
       const offered = (JSON.parse(stdout.trim().split('\n').pop())?.places?.options || []).filter(option => (Array.isArray(names) ? names : []).includes(option.place));
-      const result = await strategy.addPlaces(storage, offered, settingsDeps());
+      const result = markSearchChanged(await strategy.addPlaces(storage, offered, settingsDeps()));
       appLog('search', `places added: ${result.added.join(', ') || 'none'}`, {offered: offered.length});
       return {ok: true, ...result};
     } catch (error) { return {ok: false, error: error.message}; }
@@ -1091,9 +1097,8 @@ function handlers() {
   ipcMain.handle('editTargets', async (_, edits) => {
     if (DEMO) return {ok: true, changed: Object.keys(edits || {})};
     try {
-      const result = await strategy.editLists(storage, edits, settingsDeps());
+      const result = markSearchChanged(await strategy.editLists(storage, edits, settingsDeps()));
       const asked = strategy.cleanEdits(edits);
-      if (result.changed.length) storage.saveSettings({searchChangedAt: new Date().toISOString()});   // Jobs and Strategy: "Refresh your jobs to apply it"
       appLog('strategy', 'targets edited', {lists: result.changed.join(','), added: Object.values(asked).reduce((n, e) => n + (e.add?.length || 0), 0),
         removed: Object.values(asked).reduce((n, e) => n + (e.remove?.length || 0), 0), remote: asked.remote?.set || '', notion: !!storage.secret('NOTION_TOKEN')});
       return {ok: true, ...result};
@@ -1140,7 +1145,7 @@ function handlers() {
       const fresh = await tuneProposals();
       if (!fresh.ok) return fresh;
       const {chosen, asked} = strategy.chooseOffered(fresh.proposals, ids);
-      const result = await strategy.retune(storage, chosen, settingsDeps());
+      const result = markSearchChanged(await strategy.retune(storage, chosen, settingsDeps()));
       appLog('strategy', 'tune applied', {asked, applied: chosen.length, kinds: chosen.map(item => item.kind).join(',')});
       return {ok: true, ...result, missing: asked - chosen.length};
     } catch (error) { return {ok: false, error: error.message}; }

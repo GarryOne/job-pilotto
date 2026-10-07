@@ -9,8 +9,9 @@ import {openTarget} from './open-target.js';
 import {goStep} from './wizard.js';
 
 export function toastMessage(title, body, hint) {
-  let target = null;
-  if (typeof title === 'object') ({title, body, hint, target = null} = title);
+  let target = null, action = null;
+  // action: {label, run}, the next step as a button in the pop-up (owner, 7 Oct 2026: "Role added" said nothing about what to do next).
+  if (typeof title === 'object') ({title, body, hint, target = null, action = null} = title);
   // The same message twice (a double click, two checks finding the same thing) replaces the first instead of stacking.
   for (const old of $('toasts').children) if (old.dataset.key === `${title}\n${body}`) old.remove();
   const toast = Object.assign(document.createElement('div'), {className: 'toast'});
@@ -21,9 +22,14 @@ export function toastMessage(title, body, hint) {
       : 'macOS notifications are off for this app: System Settings → Notifications → Electron (or Job Pilotto) → Allow notifications.'}));
   // A pop-up that is news about something opens it on a click (renderer/targets.js); the others just close.
   if (target) { toast.classList.add('toast-link'); toast.title = 'Click to open'; }
+  if (action) {
+    const next = Object.assign(document.createElement('button'), {type: 'button', className: 'secondary toast-action', textContent: action.label});
+    next.addEventListener('click', event => { event.stopPropagation(); toast.remove(); action.run(); });
+    toast.append(next);
+  }
   toast.addEventListener('click', () => { toast.remove(); if (target) openTarget(target); });
   $('toasts').append(toast);
-  setTimeout(() => toast.remove(), hint ? 20000 : 8000);
+  setTimeout(() => toast.remove(), hint || action ? 20000 : 8000);   // a step to take stays long enough to take it
   return toast;
 }
 
