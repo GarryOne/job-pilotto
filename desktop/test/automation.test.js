@@ -77,7 +77,7 @@ test('Telegram actions run the same pipeline command as the GitHub workflow', ()
   storage.setSecret('TELEGRAM_BOT_TOKEN', '1:abc');
   storage.saveSettings({telegramChatId: '42'});
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'scheduled'}),
-    ['src', 'daily', '--mode', 'scheduled', '--send', '--log-run', '--enrich-max', '100', '--score-max', '60', '--insight']);
+    ['src', 'daily', '--mode', 'scheduled', '--send', '--log-run', '--enrich-max', '100', '--score-max', '60', '--budget', '180', '--insight']);
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'apply', job: 'ab12cd34', action: 'saved'}),
     ['src', 'daily', '--mode', 'apply', '--send', '--log-run', '--job', 'ab12cd34', '--action', 'saved']);
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'more', seed: 7, page: 2}),

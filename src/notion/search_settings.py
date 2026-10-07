@@ -247,8 +247,29 @@ def sync(tracker=None, page_id=PAGE_ID):
         return False
     values = parse(text)
     if values:
+        before = load_cached()
         apply(values)
+        for line in changed_lines(before, load_cached()):
+            print(line, flush=True)
     return bool(values)
+
+
+WATCHED = (('places', 'search', ('locations', 'top_tier')), ('places anywhere in', 'search', ('locations', 'country_wide')),
+           ('places abroad', 'search', ('locations', 'abroad')), ('remote jobs', 'search', ('remote_jobs',)),
+           ('roles', 'search', ('role_keywords',)), ('hidden languages', 'preferences', ('disqualifying_languages',)))
+
+
+def changed_lines(before, after):
+    """What the Notion page changed in the copy a search uses, said in the run's log (7 Oct 2026: places removed on this Mac came back from
+    the page and 1,650 jobs from all over Switzerland were read; nothing said so). Entries are the user's own words, not their data."""
+    out = []
+    for label, name, path in WATCHED:
+        old = [readable(v) for v in (_get(before.get(name) or {}, path) or [])]
+        new = [readable(v) for v in (_get(after.get(name) or {}, path) or [])]
+        added, gone = [v for v in new if v not in old], [v for v in old if v not in new]
+        if added or gone:
+            out.append(f'Search settings from Notion changed your {label}: ' + ', '.join([*(f'+{v}' for v in added), *(f'−{v}' for v in gone)]))
+    return out
 
 
 def upgrade(tracker=None, page_id=PAGE_ID):

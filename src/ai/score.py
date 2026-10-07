@@ -210,9 +210,12 @@ def pending_jobs(db, candidates, profile, limit, full_profile=None):
             continue
         pending.append(((2, -previous) if profile_only else (1, 0), job))
     db.commit()
-    ordered = sorted(pending, key=lambda item: item[1].get('first_seen_at') or '', reverse=True)   # newest first within a group
-    ordered.sort(key=lambda item: item[0])                                                         # then by group (stable)
-    return [job for _, job in ordered][:limit]
+    from ..budget import best_first
+    ordered = [job for _, job in sorted(pending, key=lambda item: item[1].get('first_seen_at') or '', reverse=True)]
+    ordered = best_first(ordered)                                                                   # your best places first
+    group = {id(job): key for key, job in pending}
+    ordered.sort(key=lambda job: group[id(job)])                                                    # then by group (stable)
+    return ordered[:limit]
 
 
 def score_one(client, model, job, profile, effort=None):
@@ -305,6 +308,8 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     scored = failures = 0
     usage_totals = {'input': 0, 'output': 0, 'cache_read': 0}
     stop = threading.Event()  # the spend limit was hit: jobs still queued don't call the API
+    from .. import budget
+    late = [0]   # not started: the search's time was up (src/budget.py); the next search scores them
 
     def batch(todo, used_model, keep=None):
         """Score `todo` with `used_model`; a result is saved unless keep(data) says it needs the main model. -> (escalate, halted)."""
@@ -313,6 +318,9 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
 
         def one(job):
             if stop.is_set():
+                return None
+            if budget.over('score'):
+                late[0] += 1
                 return None
             try:
                 return score_one(client, used_model, job, profile)
@@ -375,8 +383,10 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
             stats['cascade'] = {'first_pass': len(jobs), 'escalated': len(escalate)}
     else:
         batch(jobs, model)
+    if late[0]:
+        print(budget.left_line('score', late[0]), flush=True)
     if stats is not None:
-        stats.update(pending=len(jobs), done=scored, failed=failures)
+        stats.update(pending=len(jobs), done=scored, failed=failures, late=late[0])
     return (f'Scored {scored} of {len(jobs)} job(s) with {model}{f" (first pass {first_pass})" if cascade else ""}; {failures} failed; tokens in '
             f"{usage_totals['input']} (+{usage_totals['cache_read']} cached), out {usage_totals['output']}")
 

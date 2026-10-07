@@ -13,7 +13,7 @@ import threading
 from ..paths import DATA
 
 MODEL = 'claude-haiku-4-5'
-BATCH = 100
+BATCH = 30   # ~30 s a batch through Claude Code (100 took ~2 min): a 3-minute search can stop between them
 MAX_NEW = 600       # titles asked about in one run at most (a first run on a big list is spread over the next ones)
 STORE = DATA / 'title_triage.json'
 LOCK = threading.Lock()
@@ -60,13 +60,20 @@ def decide(titles, search, client=None):
     from . import cost
     from ..progress import Ticker
     from concurrent.futures import ThreadPoolExecutor
+    from .. import budget
     batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
     # Said before the first answer, then after each batch with the time left (owner, 7 Oct 2026: 6 batches ran ~2 min each with only
     # "Still running · no new output" on screen). Batches run side by side; Claude Code still takes engine.PARALLEL at a time.
     print(f'Titles: asking Claude about {len(ask)} job title(s) your role words miss, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
     ticker, lock, sorted_ = Ticker('Sorting job titles with AI', len(ask), every=0), threading.Lock(), [0]
 
+    late = [0]   # titles of batches not started: the search's time was up (src/budget.py); the next search asks about them
+
     def one(batch):
+        if budget.over('titles'):
+            with lock:
+                late[0] += len(batch)
+            return
         listed = '\n'.join(f'{n}. {title}' for n, title in enumerate(batch, 1))
         response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': SYSTEM}],
                                           messages=[{'role': 'user', 'content': f'The search (JSON): {json.dumps(words, ensure_ascii=False)}\nThe titles:\n{listed}'}],
@@ -87,5 +94,8 @@ def decide(titles, search, client=None):
             data.pop(old)
         STORE.parent.mkdir(parents=True, exist_ok=True)
         STORE.write_text(json.dumps(data, ensure_ascii=False))
-    print(f'Titles: Claude sorted {len(ask)} new title(s) in your places; {sum(1 for t in ask if decided[t])} could fit your search')
+    asked = [t for t in ask if t in decided]
+    if late[0]:
+        print(budget.left_line('titles', late[0], 'title(s)'), flush=True)
+    print(f'Titles: Claude sorted {len(asked)} new title(s) in your places; {sum(1 for t in asked if decided[t])} could fit your search')
     return decided

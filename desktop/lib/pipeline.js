@@ -317,6 +317,8 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.origin) args.push('--origin', String(inputs.origin));
   if (inputs.interview) args.push('--interview', String(inputs.interview));
   if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
+  // A search's AI steps stop at 3 minutes (owner, 7 Oct 2026: "never more than 2-3 minutes"); what is left waits for the next search (src/budget.py).
+  if (ai && ['scheduled', 'run'].includes(mode)) args.push('--budget', String(SEARCH_BUDGET_S));
   const {insights, kits} = cadence(storage.settings());
   if (ai && mode === 'scheduled' && insights !== 'off') args.push('--insight');
   if (ai && kits > 0 && ['scheduled', 'run', 'today'].includes(mode)) args.push('--auto-kit-max', String(kits));
@@ -415,6 +417,7 @@ export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
 // Notion just connected after a time of trying: one run that spends no AI (every cap at 0), so the Job Matches sync
 // (src/notion/matches.py, hash-keyed over every scored job in the cache) puts what was scored before Notion there.
 // `--mode today` is the no-AI path that reaches that sync; it also reads the feeds, which is free.
+export const SEARCH_BUDGET_S = 180;
 export const syncMatchesArgs = () => ['src', 'daily', '--mode', 'today', '--log-run', '--enrich-max', '0', '--score-max', '0', '--auto-kit-max', '0'];
 export function syncMatches(storage, onLine, trigger = 'you') {
   return tracked(storage, 'search', trigger, onLine, tee => run(storage, syncMatchesArgs(), tee, triggerEnv(trigger))

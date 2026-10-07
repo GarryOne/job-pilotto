@@ -135,8 +135,9 @@ def pending_jobs(db, limit):
         if row and row['extractor_version'] == EXTRACTOR_VERSION and row['description_hash'] == description_hash(job):
             continue
         pending.append(job)
-    # Newest first, so a capped run spends its budget on what the next digest will show.
-    return sorted(pending, key=lambda j: j['first_seen_at'], reverse=True)[:limit]
+    # Newest first, so a capped run spends its budget on what the next digest will show; your best places before the rest (src/budget.py).
+    from ..budget import best_first
+    return best_first(sorted(pending, key=lambda j: j['first_seen_at'], reverse=True))[:limit]
 
 
 def extract(client, model, job):
@@ -182,6 +183,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     API calls run in parallel threads; results are saved from this thread only,
     because the SQLite connection must not be shared across threads.
     """
+    from .. import budget
     jobs = pending_jobs(db, max_jobs)
     if not jobs:
         return f'0 job(s) to enrich with {model}'
@@ -198,14 +200,22 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     tokens_in = tokens_out = failures = enriched = 0
     from ..progress import Ticker
     ticker, done = Ticker('Reading new jobs with AI', len(jobs)), 0
+    late = 0   # not started: the search's time was up (src/budget.py); the next search reads them
+
+    def one(job):
+        return None if budget.over('enrich') else extract(client, model, job)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(extract, client, model, job): job for job in jobs}
+        futures = {pool.submit(one, job): job for job in jobs}
         for future in as_completed(futures):
             job = futures[future]
             done += 1
             ticker.tick(done)
             try:
-                data, usage = future.result()
+                result = future.result()
+                if result is None:
+                    late += 1
+                    continue
+                data, usage = result
             except transient as error:
                 # Transient after the SDK's own retries: stop and let the next run continue.
                 # A line starting "Warning:": it is how the app and the run row know the run did not fully work (a plain line left it "Completed").
@@ -230,8 +240,10 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
             tokens_in += usage.input_tokens
             tokens_out += usage.output_tokens
             cost.add(stats, model, usage)
+    if late:
+        print(budget.left_line('enrich', late), flush=True)
     if stats is not None:
-        stats.update(pending=len(jobs), done=enriched, failed=failures)
+        stats.update(pending=len(jobs), done=enriched, failed=failures, late=late)
     return (f'Enriched {enriched} of {len(jobs)} job(s) with {model}; {failures} failed; '
             f'tokens in {tokens_in}, out {tokens_out}')
 
