@@ -278,3 +278,19 @@ class SiteFactsTests(unittest.TestCase):
         self.assertEqual(facts, [{'host': 'iwc.com', 'kind': 'jobpage', 'url': 'https://careers.richemont.com/en/jobs/iwc'},
                                  {'host': 'bulgari.recruitmentplatform.com', 'kind': 'browser'},
                                  {'host': 'franckmuller.com', 'kind': 'dead', 'url': 'https://www.franckmuller.com/careers'}])
+
+
+class LayoutShareTests(unittest.TestCase):
+    def test_only_proven_layouts_learned_here_are_shared(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        from src import contribute
+        from src.sources import visits
+        good = {'selector': 'main > div.card', 'title': 0, 'company': -1, 'place': 2, 'link': 0, 'next': 'none', 'why': 'x'}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(visits, 'STORE', Path(tmp) / 'visits.json'):
+            visits._save({'recipes': {'a.test': {'recipe': good}, 'b.test': {'recipe': good, 'missed': 1}, 'c.test': {'recipe': good, 'pooled': True},
+                                      'd.test': {'recipe': good}}, 'reads': {'a.test': {'jobs': 12}, 'b.test': {'jobs': 3}, 'c.test': {'jobs': 4}, 'd.test': {'jobs': 0}}})
+            layouts = [f for f in contribute.site_facts() if f['kind'] == 'layout']
+        self.assertEqual(layouts, [{'host': 'a.test', 'kind': 'layout', 'recipe': {k: v for k, v in good.items() if k != 'why'}}],
+                         'a.test only: b missed once, c came from the pool, d read no jobs; never Claude\'s words')

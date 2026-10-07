@@ -249,6 +249,13 @@ def site_facts(limit=300):
         add(host, 'jobpage', str(url).split('#')[0].split('?')[0])
     for site in (data.get('sites') or {}).values():
         add(visits.host_of(site.get('url') or ''), 'browser')
+    reads = data.get('reads') or {}
+    for host, kept in (data.get('recipes') or {}).items():   # a layout that read jobs here and never missed; never one the pool gave us
+        layout = visits.layout_ok((kept or {}).get('recipe'))
+        if layout and not kept.get('missed') and not kept.get('pooled') and (reads.get(host) or {}).get('jobs'):
+            if (host.lower().removeprefix('www.'), 'layout') not in seen and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', host.lower().removeprefix('www.')):
+                seen.add((host.lower().removeprefix('www.'), 'layout'))
+                out.append({'host': host.lower().removeprefix('www.'), 'kind': 'layout', 'recipe': layout})
     for url in (data.get('jobpage_bad') or {}):
         add(visits.host_of(url), 'dead', str(url).split('#')[0].split('?')[0])
     return out[:limit]
@@ -385,7 +392,7 @@ def _signatures(body):
     for dead in body.get('nofeed') or []:
         yield ('nofeed', dead, f"dead:{dead.get('company')}", json.dumps([tags_sig, dead.get('host')]))
     for fact in body.get('sites') or []:
-        yield ('sites', fact, f"site:{fact['host']}:{fact['kind']}", json.dumps([fact.get('url')]))
+        yield ('sites', fact, f"site:{fact['host']}:{fact['kind']}", json.dumps([fact.get('url'), fact.get('recipe')], sort_keys=True))
     for board in body.get('boards') or []:
         yield ('boards', board, f"board:{board['board']}", json.dumps([tags_sig, board.get('failed'), board.get('hits'), board.get('dup'), _bucket(board.get('jobs')), board.get('out')]))
 

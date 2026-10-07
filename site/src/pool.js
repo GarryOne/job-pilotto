@@ -7,7 +7,19 @@ import {COUNTRIES, METROS, FAMILIES} from './pool-tags.js';
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
 export const ROLES = ['software', 'sre_devops', 'data', 'security', 'mobile', 'qa', 'management', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];   // src/contribute.py: IT families, then src/role_kinds.py's other trades
 export const REGIONS = ['europe', 'north_america', 'latin_america', 'asia_pacific', 'middle_east_africa', 'remote'];
-export const SITE_KINDS = ['jobpage', 'browser', 'dead'];   // facts installs share about sites (migrations/0037_pool_sitefacts.sql)
+// A learned page layout, checked and in one canonical form (identical layouts from several installs are counted together): a CSS selector of
+// plain selector characters, small line numbers, and how to reach the next page. Anything else, or any other field, is dropped. The same
+// check runs in the engine before a served layout is used (src/sources/visits.py layout_ok).
+export function layoutOf(recipe) {
+  if (!recipe || typeof recipe !== 'object') return null;
+  const {selector, title, company, place, link, next} = recipe;
+  const line = value => Number.isInteger(value) && value >= -1 && value <= 30;
+  if (typeof selector !== 'string' || !selector.trim() || selector.length > 400 || /[<{}`\\]|javascript:|url\(/i.test(selector)) return null;
+  if (![title, company, place, link].every(line) || title < 0) return null;
+  if (typeof next !== 'string' || next.length > 200 || /[<>{}`]|javascript:/i.test(next)) return null;
+  return JSON.stringify({selector: selector.trim(), title, company, place, link, next});
+}
+export const SITE_KINDS = ['jobpage', 'browser', 'dead', 'layout'];   // facts installs share about sites (migrations/0037_pool_sitefacts.sql)
 const MAX_FEEDS = 2000, MAX_NOFEED = 300, MAX_SITES = 300, MAX_BOARDS = 30, KEEP_DAYS = 90, PER_MINUTE = 30;   // installs share each find as it is made (owner, 6 Oct 2026): many small shares; every feed a check read (7 Oct 2026)
 // Outcome counts (src/contribute.py outcomes): only these names, only whole numbers; anything else is dropped.
 const STEPS = ['strong', 'saved', 'applied', 'interview', 'offer', 'remote'];
@@ -87,9 +99,10 @@ export async function contribute(request, env, now = new Date()) {
     const host = typeof item?.host === 'string' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host) && item.host.length <= 100 ? item.host : null;
     const kind = SITE_KINDS.includes(item?.kind) ? item.kind : null;
     const url = typeof item?.url === 'string' && /^https:\/\/[^\s#]{4,200}$/.test(item.url) ? item.url : null;
-    if (!host || !kind || (kind === 'jobpage' && !url) || facts.has(`${host}|${kind}`) || /^e2e/.test(host)) { drop('sites'); continue; }
+    const body = kind === 'layout' ? layoutOf(item.recipe) : null;
+    if (!host || !kind || (kind === 'jobpage' && !url) || (kind === 'layout' && !body) || facts.has(`${host}|${kind}`) || /^e2e/.test(host)) { drop('sites'); continue; }
     facts.add(`${host}|${kind}`);
-    sites.push({host, kind, url: kind === 'browser' ? null : url});
+    sites.push({host, kind, url: ['browser', 'layout'].includes(kind) ? null : url, body});
   }
   const boards = [], named = new Set();
   for (const item of (Array.isArray(body.boards) ? body.boards : []).slice(0, MAX_BOARDS)) {
@@ -121,8 +134,8 @@ export async function contribute(request, env, now = new Date()) {
       .bind(install, today, item.key, item.company, item.host));
   }
   for (const item of sites) {
-    statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url) VALUES (?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url')
-      .bind(install, today, item.host, item.kind, item.url));
+    statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url, body) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body')
+      .bind(install, today, item.host, item.kind, item.url, item.body));
   }
   for (const item of boards) {
     statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json, countries, metros, families) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

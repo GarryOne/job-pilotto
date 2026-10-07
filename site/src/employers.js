@@ -129,12 +129,14 @@ async function slice(env, regions) {
 // Facts about sites that at least SITES_K installs shared in the last 90 days (src/pool.js sitefacts): a company's job page, a site only a
 // browser reads, a dead page. Counted, never who: only facts several installs agree on go out (the learned layer's k >= 3 rule).
 export const SITES_K = 3;
+const fact = row => ({host: row.host, kind: row.kind, ...(row.url ? {url: row.url} : {}), ...(row.body ? {recipe: JSON.parse(row.body)} : {}), installs: row.installs});
 export async function agreedSites(env, k = SITES_K) {
   if (!env.STATS) return [];
   try {
-    const rows = (await env.STATS.prepare(`SELECT host, kind, url, COUNT(DISTINCT install) AS installs FROM sitefacts GROUP BY host, kind, url
+    const rows = (await env.STATS.prepare(`SELECT host, kind, url, body, COUNT(DISTINCT install) AS installs FROM sitefacts GROUP BY host, kind, url, body
       HAVING installs >= ? ORDER BY installs DESC LIMIT 3000`).bind(k).all()).results || [];
-    return rows.map(row => ({host: row.host, kind: row.kind, ...(row.url ? {url: row.url} : {}), installs: row.installs}));
+    if (env.POOL_LAYOUTS === 'off') return rows.filter(row => row.kind !== 'layout').map(fact);   // the kill switch for shared layouts
+    return rows.map(fact);
   } catch { return []; }   // the table before its migration: nothing to serve yet
 }
 

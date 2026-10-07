@@ -457,6 +457,8 @@ def pool_facts():
     for fact in served if isinstance(served, list) else []:
         if isinstance(fact, dict) and fact.get('kind') in ('jobpage', 'browser', 'dead') and isinstance(fact.get('host'), str):
             out.setdefault(fact['kind'], {})[fact['host']] = fact.get('url')
+        elif isinstance(fact, dict) and fact.get('kind') == 'layout' and isinstance(fact.get('host'), str):
+            out.setdefault('layout', {})[fact['host']] = fact.get('recipe')
     return out
 
 
@@ -539,9 +541,44 @@ def job_page(url, markup):
     return page
 
 
-def recipe_for(url):
-    """The reading recipe learned for this site (src/ai/visit_reader.py), or None."""
-    return ((_load().get('recipes') or {}).get(host_of(url)) or {}).get('recipe')
+LAYOUT_LINE = range(-1, 31)
+
+
+def layout_ok(recipe):
+    """A layout in its checked, canonical form, or None: a CSS selector of plain selector characters, small line numbers, how to reach the next
+    page; nothing else. The pool's check is the same (site/src/pool.js layoutOf): a served layout passes it again here before it is used."""
+    if not isinstance(recipe, dict):
+        return None
+    selector, nxt = recipe.get('selector'), recipe.get('next')
+    lines = [recipe.get(key) for key in ('title', 'company', 'place', 'link')]
+    if not isinstance(selector, str) or not selector.strip() or len(selector) > 400 or re.search(r'[<{}`\\]|javascript:|url\(', selector, re.I):
+        return None
+    if not all(isinstance(n, int) and not isinstance(n, bool) and n in LAYOUT_LINE for n in lines) or lines[0] < 0:
+        return None
+    if not isinstance(nxt, str) or len(nxt) > 200 or re.search(r'[<>{}`]|javascript:', nxt, re.I):
+        return None
+    return {'selector': selector.strip(), 'title': lines[0], 'company': lines[1], 'place': lines[2], 'link': lines[3], 'next': nxt}
+
+
+def recipe_for(url, now=None):
+    """The reading recipe learned for this site (src/ai/visit_reader.py), or None. With none learned here, a layout at least 3 installs share for
+    this host (the central pool, 8 Oct 2026: no Claude call to learn a site others already read), checked again and kept like a learned one,
+    so it is forgotten after RECIPE_MISSES misses like any other. JOB_PILOTTO_DISABLE=pool_layouts turns that off."""
+    kept = ((_load().get('recipes') or {}).get(host_of(url)) or {}).get('recipe')
+    if kept:
+        return kept
+    from .. import features
+    if features.disabled('pool_layouts'):
+        return None
+    served = layout_ok((pool_facts().get('layout') or {}).get(host_of(url)))
+    if not served:
+        return None
+    with LOCK:
+        data = _load()
+        data.setdefault('recipes', {})[host_of(url)] = {'recipe': served, 'learned_at': (now or _now()).isoformat(timespec='seconds'), 'pooled': True}
+        _save(data)
+    print(f"Visit: how to read {host_of(url)} came from the pool (no Claude call)")
+    return served
 
 
 def save_recipe(url, recipe, now=None):

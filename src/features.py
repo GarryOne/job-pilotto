@@ -31,6 +31,8 @@ FEATURES = (
             'create a Notion integration and the pages in docs/notion-schema.md'),
     Feature('scout', 'Source scout (finds new employer feeds)', (), 'free', 'on by default'),
     Feature('index', 'Central employer index (downloaded feeds from the shared scout)', (), 'free', 'on by default'),
+    Feature('pool_layouts', 'Page layouts other installs learned (at least 3 agree), used before asking Claude to learn a site', (), 'free',
+            'on by default; JOB_PILOTTO_DISABLE=pool_layouts learns every site here'),
     Feature('enrich', 'AI stage 1: facts from each posting', (AI, 'JOB_PILOTTO_ENRICH_MODEL'),
             'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_ENRICH_MODEL=claude-haiku-4-5'),
     Feature('score', 'AI stage 2: fit score against your Profile',

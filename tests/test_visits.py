@@ -317,3 +317,36 @@ class PoolFactsTests(unittest.TestCase):
             listed = visits.visit_list({'role_keywords': ['vendeur'], 'locations': {'top_tier': ['geneva']}}, set(), now=NOW,
                                        picks=[{'name': 'Franck Muller', 'url': 'https://www.franckmuller.com'}, {'name': 'Manor', 'url': 'https://www.manor.ch'}])
         self.assertEqual([i['name'] for i in listed if i['kind'] == 'employer'], ['Manor'], 'its job page is dead for 4 installs')
+
+
+class PoolLayoutTests(unittest.TestCase):
+    """Page layouts other installs learned (k >= 3): checked again here, used for a host with none, kept like a learned one (8 Oct 2026)."""
+    RECIPE = {'selector': 'main > div.jobs > div.card', 'title': 0, 'company': -1, 'place': 4, 'link': 0, 'next': 'Next page'}
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.index = Path(self.tmp.name) / 'employer_index.json'
+        self.patches = [mock.patch.object(visits, 'STORE', Path(self.tmp.name) / 'visits.json'), mock.patch('src.employer_index.CACHE', self.index)]
+        for patch in self.patches:
+            patch.start()
+
+    def tearDown(self):
+        for patch in reversed(self.patches):
+            patch.stop()
+        self.tmp.cleanup()
+
+    def test_the_check_keeps_a_layout_and_refuses_anything_else(self):
+        self.assertEqual(visits.layout_ok({**self.RECIPE, 'why': 'Claude said so'}), self.RECIPE, 'only the layout fields')
+        for bad in ({**self.RECIPE, 'selector': 'div<script>'}, {**self.RECIPE, 'selector': 'a[href^="javascript:x"]'}, {**self.RECIPE, 'title': -1},
+                    {**self.RECIPE, 'place': 99}, {**self.RECIPE, 'next': '{{x}}'}, {**self.RECIPE, 'title': True}, 'div'):
+            self.assertIsNone(visits.layout_ok(bad), bad)
+
+    def test_a_served_layout_is_used_once_then_kept_and_can_be_turned_off(self):
+        self.index.write_text(json.dumps({'sites': [{'host': 'careers.richemont.com', 'kind': 'layout', 'recipe': self.RECIPE, 'installs': 3},
+                                                    {'host': 'evil.test', 'kind': 'layout', 'recipe': {**self.RECIPE, 'selector': 'x<y'}, 'installs': 5}]}))
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_DISABLE': 'pool_layouts'}):
+            self.assertIsNone(visits.recipe_for('https://careers.richemont.com/en/jobs/iwc'), 'switched off')
+        self.assertEqual(visits.recipe_for('https://careers.richemont.com/en/jobs/iwc'), self.RECIPE)
+        self.assertTrue(visits._load()['recipes']['careers.richemont.com']['pooled'], 'kept like a learned one, marked as from the pool')
+        self.assertIsNone(visits.recipe_for('https://evil.test/jobs'), 'a served layout that fails the check is not used')

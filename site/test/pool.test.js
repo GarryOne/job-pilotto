@@ -8,7 +8,7 @@ import {purge, rollup} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql', '0038_sitefacts_layout.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -192,4 +192,20 @@ test('facts about sites: checked on the way in, served once 3 installs agree (k 
     [['franckmuller.com', 'dead', 'https://www.franckmuller.com/careers', 3], ['vancleefarpels.com', 'jobpage', vcaPage, 3]],
     'Bulgari has 2 installs only: not served yet');
   assert.ok(!JSON.stringify(served).includes('"install'+'":'), 'never which install');
+});
+
+
+test('a learned page layout: checked, counted when identical, served at 3 installs, never with the switch off (8 Oct 2026)', async () => {
+  const {agreedSites} = await import('../src/employers.js');
+  const env = setup();
+  const layout = {selector: 'main > div.jobs > div.card', title: 0, company: -1, place: 4, link: 0, next: 'Next page'};
+  for (const install of ['install-a', 'install-b', 'install-c']) {
+    const sites = [{host: 'careers.richemont.com', kind: 'layout', recipe: {...layout, why: "Claude's words never go"}},
+      {host: 'evil.test', kind: 'layout', recipe: {...layout, selector: 'div<script>'}}, {host: 'odd.test', kind: 'layout', recipe: {...layout, title: 'x'}}];
+    const answer = await (await post(env, {...body(install, []), v: 2, sites})).json();
+    assert.equal(answer.sites, 1, 'a script in a selector and a line that is no number are dropped');
+  }
+  const served = (await agreedSites(env)).filter(fact => fact.kind === 'layout');
+  assert.deepEqual(served.map(fact => [fact.host, fact.recipe, fact.installs]), [['careers.richemont.com', layout, 3]]);
+  assert.deepEqual((await agreedSites({...env, POOL_LAYOUTS: 'off'})).filter(fact => fact.kind === 'layout'), [], 'the kill switch');
 });
