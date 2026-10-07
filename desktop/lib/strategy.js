@@ -95,7 +95,7 @@ First decide their goals from the CV (the note wins where it says something):
 - Places: where they live now (from the CV), then the rest of that country, then remote in their region; abroad only if the CV shows moves or the note asks.
 - Work mode: "On-site, hybrid or remote" unless the CV or note says otherwise.
 - Minimum salary: a realistic floor for that level and market, in the local currency, a year, ending with "(estimate)". Never present it as their own figure.
-- Languages they can work in, with level, from the CV. Jobs requiring any other language well are disqualifying.
+- Languages they can work in, with level, from the CV. A language the CV and note don't mention is unknown, not one they can't work in: ask it (❓), never rule jobs out for it.
 - Companies to skip: their current employer.
 
 Write:
@@ -103,8 +103,9 @@ Write:
 1. profile_markdown: the user's Profile, following the "Profile — CV and Preferences" template's headings. Facts only from the CV and the note, plus the goals above (keep the template's row names "Work mode", "Languages I can work in", "Minimum seniority" and the Compensation line "Minimum acceptable:", so the user's corrections land in the right place). Mark anything else unknown (work permit, notice period…) with ❓ (the app treats ❓ as "ask the user", never as a fact).
 2. answers_markdown: their standard application answers, following the "Application Answers" template, same rule for ❓. Include a short "Cover letter style" section inferred from how the CV is written.
 3. search: what the job crawler looks for. Values in role_keywords, title_exclude_keywords, board_discovery_keywords, quality_stack_keywords, locations and remote_excluded_regions are case-insensitive regex fragments in the style of the example (e.g. "z[uü]rich", "\\\\bsre\\\\b", "platform engineer", "registered nurse", "\\\\bhr\\\\b"). level is one word for the seniority they are looking for, "junior", "mid", "senior" or "lead" (from the Level goal above), or an empty list when the CV does not make it clear: it skips postings whose title plainly names another level, so leave it empty rather than guess. locations.top_tier and country_wide may use a region word instead of a list of towns when it fits ("Switzerland", "Romandie", "Deutschschweiz", "Ticino", "Greater Zurich", "Basel region", "Lake Geneva", "Central Switzerland", "Eastern Switzerland", "Mittelland"). Whatever their profession, take the role titles and the skills, tools, systems and certifications from their own CV, not from IT: quality_stack_keywords are the ones that make a job a better match for them ("sql" for an analyst, "bls" for a nurse, "datev" for an accountant). jobs_board_search_queries and google_jobs.queries are plain search phrases (3 to 6). locations.top_tier holds the cities they want most, country_wide the rest of that country, abroad other cities they'd move to. remote_excluded_regions lists regions whose "remote" jobs exclude them. google_jobs.locations uses SerpApi canonical names ("Zurich,Zurich,Switzerland") with the place's own language code ("de" for Zurich, "fr" for Geneva, "en" for London).
-4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies to skip (their current employer, and any the note names). work_rights: where they can work without a visa, from their citizenship or permits in the CV or note: their own country (a country name, lower case), and \"eu\" when they are an EU citizen; [] when the CV does not say. Never assume it from where they live now.
+4. preferences.disqualifying_languages: only languages the CV or note says they can't work in; [] when neither says (a language missing from the CV is not one of them). excluded_companies: companies to skip (their current employer, and any the note names). work_rights: where they can work without a visa, from their citizenship or permits in the CV or note: their own country (a country name, lower case), and \"eu\" when they are an EU citizen; [] when the CV does not say. Never assume it from where they live now.
 5. summary: at most 2 short sentences to the user, addressing them as "you" (never by name, never "I've set up"), saying what you'll search for and what they should check. open_questions: what they should still answer, short.
+Leave out template rows and links that don't fit their kind of work instead of marking them ❓ (e.g. GitHub, On-call and "IC only, or tech lead" for someone outside software); ask with ❓ only what changes which jobs fit them or what a form needs from them.
 6. contact: the user's contact details exactly as written in the CV (city for location; full URLs for LinkedIn, GitHub and website). Empty string for anything the CV doesn't show; never guess.`;
 
 // The draft streams in, in schema order; progress is how much of it has arrived and which part is being
@@ -178,8 +179,40 @@ export function notes(text) {
 }
 
 // answers: {anything_else} from the wizard's strategy step (optional; older drafts had a whole questionnaire).
+// A rebuild (setup done before): what the user already chose or confirmed, from the search settings' cache. 7 Oct 2026: a rebuild from a
+// CV that names no permit proposed to delete the user's Swiss B permit and EU citizenship, and asked "❓ country" with Geneva in the search.
+export function knownFacts(storage) {
+  if (!storage.settings().setupDone) return null;
+  const read = name => { try { return JSON.parse(storage.readText(name) || '{}'); } catch { return {}; } };
+  const search = read('config/search.json'), prefs = read('config/preferences.json');
+  const places = search.locations || {};
+  return {places: [...(places.top_tier || []), ...(places.country_wide || []), ...(places.abroad || [])].map(wordsOf).filter(Boolean),
+    work_rights: prefs.work_rights || [], disqualifying_languages: prefs.disqualifying_languages || []};
+}
+function knownText(known) {
+  if (!known) return '';
+  return `<current_settings>\nThe user chose or confirmed these before: use them in the Profile (Countries, Home base, Work permit / visa, Languages) instead of ❓, `
+    + 'and keep them in search and preferences unless the CV or note says otherwise.\n'
+    + `Places: ${known.places.join(', ') || 'none'}\nWork rights (no visa needed): ${known.work_rights.map(wordsOf).join(', ') || 'none'}\n`
+    + `Languages that rule a job out: ${known.disqualifying_languages.join(', ') || 'none'}\n</current_settings>\n\n`;
+}
+// What a rebuild may change in the filters by itself: never drop a work right and never add a language that rules jobs out (both would
+// hide jobs on a guess). The user still removes or adds either in the review's lists.
+export function keepKnown(preferences = {}, known = null) {
+  if (!known) return preferences;
+  const lower = list => new Set((list || []).map(item => String(item).toLowerCase()));
+  const had = lower(known.disqualifying_languages), rights = lower(preferences.work_rights);
+  return {...preferences,
+    work_rights: [...(preferences.work_rights || []), ...known.work_rights.filter(right => !rights.has(String(right).toLowerCase()))],
+    disqualifying_languages: (preferences.disqualifying_languages || []).filter(language => had.has(String(language).toLowerCase()))};
+}
+// A "GitHub: ❓" line (Profile bullet or answers row) when the CV shows no GitHub: a question that doesn't apply to most trades.
+export const withoutUnknownGithub = (markdown, contact = {}) => (contact?.github || typeof markdown !== 'string' ? markdown
+  : markdown.split('\n').filter(line => !/^\s*(?:[-*]\s*)?\|?\s*GitHub\s*(?::|\|)\s*❓\s*\|?\s*$/i.test(line)).join('\n'));
+
 export async function draft(storage, answers, apiKey, client = null, onProgress = null) {
   const cv = fs.readFileSync(storage.path('cv.pdf'));
+  const known = knownFacts(storage);
   const example = fs.readFileSync(path.join(REPO, 'config', 'search.json'), 'utf8');
   const anthropic = client || new Anthropic({apiKey});
   const request = {
@@ -188,7 +221,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
     system: INSTRUCTIONS,
     messages: [{role: 'user', content: [
       {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: cv.toString('base64')}},
-      {type: 'text', text: `${userNote(answers)}<templates>\n${template()}\n</templates>\n\n<example_search_settings>\n${example}\n</example_search_settings>`},
+      {type: 'text', text: `${userNote(answers)}${knownText(known)}<templates>\n${template()}\n</templates>\n\n<example_search_settings>\n${example}\n</example_search_settings>`},
     ]}],
     output_config: {format: {type: 'json_schema', schema: DRAFT_SCHEMA}},
   };
@@ -205,7 +238,9 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
   const text = response.content.find(block => block.type === 'text').text;
   const result = JSON.parse(text);
-  if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(result.profile_markdown, answers);
+  if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(withoutUnknownGithub(result.profile_markdown, result.contact), answers);
+  result.answers_markdown = withoutUnknownGithub(result.answers_markdown, result.contact);
+  if (result.preferences) result.preferences = keepKnown(result.preferences, known);
   if (result.search) result.search = withRemoteDefaults(result.search);
   storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
@@ -494,7 +529,7 @@ export function save(storage, accepted) {
 export const SCORE_USD = 0.015;       // one Sonnet 5 fit score, measured on the owner's runs (about 1.2 to 1.8 cents)
 export const SCORES_PER_SEARCH = 60;  // the app's --score-max
 const FORM_ONLY = /contact|\blinks?\b|application form answers|📎/i;
-export const wordsOf = fragment => String(fragment).replace(/\\b/g, '').replace(/\[[^\]]*?([^\]])\]/g, '$1').replace(/[.?*+()^$|\\]/g, '').trim();
+export const wordsOf = fragment => String(fragment).replace(/\\b/g, '').replace(/\([^()]*\)\?/g, '').replace(/\(([^()|]*)\|[^()]*\)/g, '$1').replace(/\[[^\]]*?([^\]])\]/g, '$1').replace(/[.?*+()^$|\\]/g, '').trim();
 function sections(markdown, skipFormOnly = false) {
   const found = new Map();
   let name = '', skipping = false;
