@@ -623,11 +623,12 @@ export const triggerEnv = trigger => ({JOB_PILOTTO_TRIGGER: trigger === 'schedul
 function searchOnce(storage, onLine, mode, trigger = 'you') {
   return (async () => {
     const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
+    const startedAt = new Date().toISOString();   // "Your search changed" compares with when a refresh began, not ended (renderer/search-changed.js)
     onLine('Searching job boards…');
     await run(storage, ['src', 'discover', '--pages', '5', '--max-companies', '40'], onLine);
     onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
     const {code, result} = await run(storage, dailyArgs(storage, {mode}), onLine, triggerEnv(trigger));
-    storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchOk: code === 0});
+    storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchStartedAt: startedAt, lastSearchOk: code === 0});
     return {ok: code === 0, result};
   })();
 }

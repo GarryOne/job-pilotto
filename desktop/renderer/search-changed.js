@@ -2,7 +2,10 @@
 // Strategy say a refresh applies it, until one has finished (owner, 7 Oct 2026: after editing the places nothing said the list was stale).
 import {startSearch} from './pages/jobs.js';
 
-export const searchChanged = settings => !!settings?.searchChangedAt && Date.parse(settings.searchChangedAt) > Date.parse(settings.lastSearchAt || 0);
+// Applied only by a refresh that began after the change (7 Oct 2026: a change saved while a refresh ran was taken as applied when that refresh
+// ended half a second later, with the old places).
+export const searchChanged = settings => !!settings?.searchChangedAt
+  && Date.parse(settings.searchChangedAt) > Date.parse(settings.lastSearchStartedAt || settings.lastSearchAt || 0);
 
 let lastSettings = null, refreshing = false;
 export function showSearchChanged(settings = lastSettings) {
