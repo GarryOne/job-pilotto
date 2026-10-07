@@ -397,6 +397,7 @@ export async function autoRead(tabId, url) {
   const state = await readSite(tabId, {filter, ticket}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
   await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
   started.delete(tabId);
+  await chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {});
   await chrome.tabs.remove(tabId).catch(() => {});   // done: the app opens the next site in its place
 }
 // Allowed from the popup: the tabs that were waiting start now.

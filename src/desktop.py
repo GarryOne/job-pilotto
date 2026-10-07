@@ -370,6 +370,7 @@ def main(argv=None):
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
     sub.add_parser('visit-context').add_argument('file')   # for a "Read with Claude" session: the search's own role words and places (plain words)
+    sub.add_parser('visit-jobpages').add_argument('file')   # sites about to be read (JSON [{name, url, kind}]): their job pages, a web search each when unknown
     sub.add_parser('visit-jobpage').add_argument('file')   # a page that is not a job list (JSON: url, html): the job list's address, kept per site
     sub.add_parser('visit-read').add_argument('file')
     sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
@@ -457,6 +458,12 @@ def main(argv=None):
                 visits.save_recipe(page['url'], recipe)
             print(json.dumps({'ok': True, 'recipe': recipe}, ensure_ascii=False))
             return 0
+        if args.command == 'visit-jobpages':
+            from .sources import visits
+            from . import employer_index
+            sites = json.loads(Path(args.file).read_text())
+            print(json.dumps({'ok': True, 'pages': visits.find_job_pages(sites, employer_index.me_now().get('countries') or [])}))
+            return 0
         if args.command == 'visit-jobpage':
             from .sources import visits
             page = json.loads(Path(args.file).read_text())
@@ -465,7 +472,8 @@ def main(argv=None):
         if args.command == 'visit-read':
             from .sources import visits
             page = json.loads(Path(args.file).read_text())
-            result = visits.read(page['url'], page.get('html') or '', page.get('cards'), page.get('title') or '', session=page.get('session') or '')
+            result = visits.read(page['url'], page.get('html') or '', page.get('cards'), page.get('title') or '', session=page.get('session') or '',
+                                 start=page.get('start') or '')
             with store.connect(JOBS_DB) as db:   # the page becomes one of this user's feeds: the next jobs check reads, filters and scores it
                 from . import scout
                 db.executescript(scout.TABLES)

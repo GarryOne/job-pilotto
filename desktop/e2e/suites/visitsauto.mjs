@@ -121,6 +121,18 @@ export async function run(ctx) {
       const gone = await Promise.race([closed.then(() => true), wait(10000).then(() => false)]);
       if (!gone) throw new Error('the tab stayed open: the app could not open the next site in its place');
     });
+
+    await ctx.run('a marked tab whose site redirects by script and drops the mark is still read by itself', async () => {
+      app.calls.length = 0;
+      const tab = await context.newPage();
+      await tab.goto(`https://${ALLOWED}/redirect.html#jp-read-c0ffee12`);
+      const reported = await until(() => app.calls.some(call => call.path === '/extension/visit-done'), 60000);
+      if (!reported) throw new Error(`no done report after the redirect; the tab is at ${tab.isClosed() ? '(closed)' : tab.url()}; calls: ${app.calls.map(call => call.path).join(', ')}`);
+      const report = app.calls.find(call => call.path === '/extension/visit-done').payload;
+      console.log(`    done: ${JSON.stringify({url: report.url, ticket: report.ticket, pages: report.pages, jobs: report.jobs})}`);
+      if (report.ticket !== 'c0ffee12') throw new Error(`reported with ticket ${report.ticket}: the app could not match it to the run`);
+      if (report.jobs !== 3) throw new Error(`read ${report.jobs} jobs, expected 3`);
+    });
   } finally {
     await context.close().catch(() => {});
     app.server.close();

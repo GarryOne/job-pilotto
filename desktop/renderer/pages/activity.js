@@ -288,11 +288,16 @@ export function renderVisitsCard(card, target = $('activity-card')) {
       const claude = el('button', 'secondary item-action', 'Read with Claude');
       claude.type = 'button';
       claude.title = 'A Claude in Chrome session opens this site, sets the filters for your search and reads its jobs (needs Claude Code)';
+      // Starting a Claude session takes ~10 s (owner, 7 Oct 2026: "I press, nothing happens"): said on the button, the way Re-score does it,
+      // then it stays off while that session reads; a refusal is said in the row.
       claude.addEventListener('click', async () => {
-        claude.disabled = true;
+        claude.disabled = true; claude.setAttribute('aria-busy', 'true'); claude.textContent = 'Starting Claude…';
         const started = await window.pilot.visitWithClaude?.(site.url, site.name).catch(error => ({ok: false, error: error.message}));
-        claude.disabled = false;
-        if (started && !started.ok) claude.title = started.error || claude.title;
+        claude.removeAttribute('aria-busy');
+        if (started?.ok) { claude.textContent = 'Claude is reading in Chrome'; return; }
+        claude.disabled = false; claude.textContent = 'Read with Claude';
+        words.querySelector('.visit-claude-error')?.remove();
+        words.append(el('span', 'muted visit-claude-error', started?.error || 'Claude could not start.'));
       });
       const myself = el('button', 'link item-action', 'Open it myself');
       myself.type = 'button';

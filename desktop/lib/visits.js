@@ -59,6 +59,18 @@ export async function jobPage(storage, page, runEngine) {
   return answer || {ok: false};
 }
 
+// Before the tabs open: each employer's job page, by a "<company> jobs" web search when not known yet (owner, 7 Oct 2026: "go correctly to
+// the jobs page, not the home page"). The sites come back with their job page as address; one with none keeps its own.
+export async function withJobPages(storage, sites, tee = () => {}, runEngine) {
+  const employers = sites.filter(site => site.kind !== 'portal');
+  if (!employers.length) return sites;
+  tee(`Finding the job page of ${employers.length} employer${employers.length === 1 ? '' : 's'}…`);
+  const answer = await engineJson(storage, 'visit-jobpages', employers.map(site => ({name: site.name, url: site.url, kind: site.kind})), runEngine).catch(() => null);
+  const pages = answer?.pages || {};
+  log('visit', 'job pages looked up before reading', {sites: employers.length, found: Object.keys(pages).length});
+  return sites.map(site => (pages[site.url] ? {...site, url: pages[site.url]} : site));
+}
+
 // The recipe kept for a site (or forget it: it found nothing).
 export async function recipe(storage, page, runEngine) {
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false};

@@ -283,8 +283,19 @@ if (chrome.webNavigation) {
   chrome.webNavigation.onCompleted.addListener(details => {
     if (details.frameId !== 0 || !/^https?:/.test(details.url)) return;
     if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
-    markListed(details.tabId, details.url);
+    // A site that redirected and dropped the mark (iwc.com to iwc.com/ch-en, 7 Oct 2026: the tab sat there unread): the mark it was opened with.
+    const key = `readmark:${details.tabId}`;
+    chrome.storage.session.get(key).then(kept => {
+      if (kept[key]) autoRead(details.tabId, `${details.url.split('#')[0]}${kept[key]}`);
+      else markListed(details.tabId, details.url);
+    }).catch(() => markListed(details.tabId, details.url));
   });
+  // The mark of a tab the app opened to read, kept for the tab: its next pages may have lost it (a redirect).
+  chrome.webNavigation.onBeforeNavigate.addListener(details => {
+    const found = details.frameId === 0 && /#jp-read(?:-filter)?(?:-[a-z0-9]{4,16})?$/.exec(details.url);
+    if (found) chrome.storage.session.set({[`readmark:${details.tabId}`]: found[0]}).catch(() => {});
+  });
+  chrome.tabs.onRemoved.addListener(tabId => { chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {}); });
   chrome.permissions.onAdded.addListener(() => startWaiting());
   chrome.webNavigation.onCommitted.addListener(async details => {
     if (details.frameId !== 0) return;

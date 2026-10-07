@@ -19,7 +19,7 @@ STORE = DATA / 'visits.json'
 STALE_DAYS = 7          # a page read longer ago is offered for a visit again (its jobs come and go)
 KEEP_DAYS = 21          # a visit's jobs are served for this long; then the feed is empty until the next visit
 MAX_JOBS = 500
-MAX_LIST = 15
+MAX_LIST = 40   # the Actions list scrolls (7 Oct 2026: H&M, Manor and Rolex were left out at 15)
 LOCK = threading.Lock()
 # Portals with no API for this: a visit is the way in. The search page is built from the user's own first role word and place.
 PORTALS = {
@@ -113,7 +113,7 @@ def portals(search=None, kinds=None):
     return out
 
 
-def unread_picks(db_path=None, limit=8):
+def unread_picks(db_path=None, limit=30):
     """Employers the scout picked for THIS search (its AI ideas and the user's own lists, never the old tech seed lists) that ended with no
     readable job site, with an address to open: [{name, url}], best first. Owner, 7 Oct 2026: "for a photographer or store manager, start with
     H&M, Manor… the sites we cannot read ourselves that are relevant for such a candidate", not only LinkedIn and Glassdoor."""
@@ -134,7 +134,8 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
     group least recently read first: [{name, url, kind: 'employer'|'portal', why, last_read, note}]."""
     now = now or _now()
     data = _load()
-    read = data.get('reads') or {}
+    # A read that found no jobs is not a read: the site comes back at once (7 Oct 2026: home pages read as 0 jobs hid Hublot, IWC… for a week).
+    read = {host: entry for host, entry in (data.get('reads') or {}).items() if entry.get('jobs')}
     stale = (now - timedelta(days=STALE_DAYS)).isoformat(timespec='seconds')
     out = []
     for site in (data.get('sites') or {}).values():
@@ -208,7 +209,7 @@ def fitting(jobs):
     return [job for job in jobs if feeds.wanted_title(job.get('title') or '') and feeds.wanted_location(job)]
 
 
-def read(url, markup, cards=None, title='', now=None, session=''):
+def read(url, markup, cards=None, title='', now=None, session='', start=''):
     """Read the jobs on a page a person opened and sent: the page's own job data, else the cards the extension saw, else the careers reader
     (its links, a recipe learned earlier, AI as the last resort). Nothing is fetched: a site that refused us would refuse that too.
     Pages of one paging session (the extension going through a list) add up under the session's first page. Returns {name, jobs, kind,
@@ -242,11 +243,51 @@ def read(url, markup, cards=None, title='', now=None, session=''):
         merged = list({job['url']: job for job in [*before, *jobs]}.values())[:MAX_JOBS]
         added = len(merged) - len(before)
         pages[feed] = {'name': name, 'portal': bool(portal), 'at': now.isoformat(timespec='seconds'), 'jobs': merged}
+        if start and merged and not portal and feed.rstrip('/') != start.split('#')[0].rstrip('/'):   # the job list found elsewhere (iwc.com's on careers.richemont.com,
+            data.setdefault('jobpages', {})[host_of(start)] = feed   # by a Read with Claude session, 7 Oct 2026): Open goes straight there next time
         data['reads'][host]['jobs'] = len(merged)
         _save(data)
     fits = len(fitting(merged))
     print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all, {fits} matching your search")
     return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added, 'fits': fits}
+
+
+MISS_DAYS = 7   # a site whose job page a search could not find is not searched again for a week
+
+
+def find_job_pages(sites, countries=(), search=None, now=None):
+    """Each employer's job list before its tab opens (owner, 7 Oct 2026: "rebuild the URLs to go to the jobs page, not the home page"): one
+    "<company> jobs" web search per site with no known job page, preferring an address for your country (/ch-en, ?country=ch). Kept per site,
+    a miss too (for MISS_DAYS). Returns {start url: job page url} for the sites that have one."""
+    from . import web_search
+    now = now or _now()
+    search = search or web_search.job_sites
+    data = _load()
+    known, missed = data.get('jobpages') or {}, data.get('jobpage_misses') or {}
+    recent = (now - timedelta(days=MISS_DAYS)).isoformat(timespec='seconds')
+    local = [re.compile(rf'(?<![a-z]){re.escape(code.lower())}(?![a-z])') for code in countries or () if len(code) == 2]
+    found = {}
+    for site in sites:
+        host = host_of(site['url'])
+        if site['url'] in known.values():   # already its job page (visit_list swaps it in)
+            continue
+        if host in known or site.get('kind') == 'portal' or missed.get(host, '') > recent or not web_search.provider():
+            if host in known:
+                found[site['url']] = known[host]
+            continue
+        urls = [url for url in search(site['name']) if url.split('#')[0].rstrip('/') != site['url'].rstrip('/')]
+        ours = [url for url in urls if any(code.search(urllib.parse.urlsplit(url.lower()).path + '?' + urllib.parse.urlsplit(url.lower()).query) for code in local)]
+        page = (ours or urls or [None])[0]
+        print(f"Visit: job page of {site['name']}: {page or 'not found'}")
+        with LOCK:
+            fresh = _load()
+            if page:
+                fresh.setdefault('jobpages', {})[host] = page
+                found[site['url']] = page
+            else:
+                fresh.setdefault('jobpage_misses', {})[host] = now.isoformat(timespec='seconds')
+            _save(fresh)
+    return found
 
 
 def job_page(url, markup):

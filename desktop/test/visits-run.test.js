@@ -156,3 +156,18 @@ test('each step a read tab takes shows live in its row, in the words of the page
   await tellStep(5, {}, '', 'a tab the person opened', runIn, send);
   assert.equal(sent.length, 2, 'a tab the app did not open tells only its banner');
 });
+
+test('employers open on their job page found before the tabs open; portals and unknown sites keep their address', async () => {
+  const {withJobPages} = await import('../lib/visits.js');
+  let asked = null;
+  const runEngine = async (_, args) => {
+    asked = JSON.parse((await import('node:fs')).readFileSync(args[2], 'utf8'));
+    return {code: 0, stdout: JSON.stringify({ok: true, pages: {'https://www.hublot.com': 'https://www.hublot.com/en-ch/job-offers'}})};
+  };
+  const lines = [];
+  const sites = await withJobPages(null, [{name: 'Hublot', url: 'https://www.hublot.com', kind: 'employer'}, {name: 'Nobody', url: 'https://nobody.example', kind: 'employer'},
+    {name: 'Indeed', url: 'https://ch.indeed.com/jobs', kind: 'portal'}], line => lines.push(line), runEngine);
+  assert.deepEqual(asked.map(site => site.name), ['Hublot', 'Nobody'], 'portals are not looked up');
+  assert.deepEqual(sites.map(site => site.url), ['https://www.hublot.com/en-ch/job-offers', 'https://nobody.example', 'https://ch.indeed.com/jobs']);
+  assert.match(lines[0], /Finding the job page of 2 employers/);
+});

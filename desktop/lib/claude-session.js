@@ -197,7 +197,7 @@ export function readPrompt(url, name, contextFile) {
     + `1. My search: run \`python3 -m src.desktop visit-context ${contextFile}\` once (my role words and places). Set the site's own filters to match it: `
     + 'place, kind of role, posted recently. Leave uncertain filters alone.\n'
     + '2. On each page of results, collect every job: its title, employer, place, and the address of the job (absolute). Write them as JSON '
-    + `{"url": <this page's address>, "title": <page title>, "session": "${contextFile.split('/').pop()}", "cards": [{"title", "url", "lines": [title, employer, place]}]} `
+    + `{"url": <this page's address>, "title": <page title>, "session": "${contextFile.split('/').pop()}", "start": "${url}", "cards": [{"title", "url", "lines": [title, employer, place]}]} `
     + 'to a file and run `python3 -m src.desktop visit-read <that file>`. Then go to the next page of results, at most 20 pages, and stop when there is none.\n'
     + '3. Never click Apply, Easy Apply, Submit, Save, Follow, Message or Connect; never sign in, never answer a CAPTCHA or "are you human" check. '
     + `If one appears, run tools/notify.sh ${url} "Needs you in Chrome" and tell me in one line, wait for my reply, then carry on.\n`

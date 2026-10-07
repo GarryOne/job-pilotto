@@ -83,6 +83,33 @@ class VisitsTest(unittest.TestCase):
         self.assertEqual([job['title'] for job in result['jobs']], ['Photographer', 'Solutions Engineer', 'Photo assistant'])
         self.assertEqual(result['fits'], 1, 'a photo job in Geneva: the one a jobs check keeps')
 
+    def test_a_read_with_no_jobs_does_not_hide_the_site(self):
+        # 7 Oct 2026: home pages read as 0 jobs hid Hublot and IWC from the list for a week.
+        visits.read('https://www.hublot.com/en-ch', '<html></html>', [], now=NOW)
+        listed = visits.visit_list(SEARCH, {'sales_retail'}, now=NOW + timedelta(hours=1), picks=[{'name': 'Hublot', 'url': 'https://www.hublot.com'}])
+        self.assertEqual(listed[0]['name'], 'Hublot')
+
+    def test_job_pages_are_found_before_the_tabs_open_for_your_country_and_kept(self):
+        asked = []
+        def search(name):
+            asked.append(name)
+            return {'Hublot': ['https://www.hublot.com/en-cy/job-offers', 'https://www.hublot.com/en-ch/job-offers'], 'Nobody': []}[name]
+        sites = [{'name': 'Hublot', 'url': 'https://www.hublot.com', 'kind': 'employer'}, {'name': 'Nobody', 'url': 'https://nobody.example', 'kind': 'employer'},
+                 {'name': 'Indeed', 'url': 'https://ch.indeed.com/jobs?q=x', 'kind': 'portal'}]
+        with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
+            found = visits.find_job_pages(sites, ['ch'], search=search, now=NOW)
+            self.assertEqual(found, {'https://www.hublot.com': 'https://www.hublot.com/en-ch/job-offers'}, 'the Swiss page, not the Cyprus one')
+            visits.find_job_pages(sites, ['ch'], search=search, now=NOW + timedelta(days=1))
+        self.assertEqual(asked, ['Hublot', 'Nobody'], 'a portal is never searched; a find and a miss are kept')
+        listed = visits.visit_list(SEARCH, {'sales_retail'}, now=NOW, picks=[{'name': 'Hublot', 'url': 'https://www.hublot.com'}])
+        self.assertEqual(listed[0]['url'], 'https://www.hublot.com/en-ch/job-offers')
+
+    def test_a_job_list_read_by_a_claude_session_becomes_the_sites_job_page(self):
+        cards = [{'title': f'Client Advisor {n}', 'url': f'/en/jobs/iwc/{n}23456', 'lines': ['IWC', 'Genève']} for n in range(3)]
+        visits.read('https://careers.richemont.com/en/jobs/iwc?country=Switzerland', '<html></html>', cards, now=NOW, start='https://www.iwc.com')
+        listed = visits.visit_list(SEARCH, {'sales_retail'}, now=NOW + timedelta(days=8), picks=[{'name': 'IWC', 'url': 'https://www.iwc.com'}])
+        self.assertEqual(listed[0]['url'], 'https://careers.richemont.com/en/jobs/iwc?country=Switzerland')
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'
