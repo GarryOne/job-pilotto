@@ -104,18 +104,26 @@ class Client:
         path.write_text(json.dumps(data));return data
 
 
+def swiss_places(posting):
+    """The Swiss places of a JobPosting: each address's town, else its region (canton), as the posting writes them; [] when none is Swiss.
+    7 Oct 2026: jobs.ch gave Manor's Geneva jobs only "addressRegion": "Geneve" (no town), and 4 in 10 search results only the country;
+    saved as "Switzerland", they were closed as outside a Geneva search."""
+    places=posting.get('jobLocation',[]);places=places if isinstance(places,list) else [places]
+    swiss=[]
+    for place in places:
+        address=(place or {}).get('address',{}) if isinstance(place,dict) else {}
+        country=address.get('addressCountry','')
+        if isinstance(country,dict): country=country.get('name','')
+        if str(country).lower() in ('ch','switzerland','schweiz','suisse'):
+            swiss.append(str(address.get('addressLocality') or address.get('addressRegion') or 'Switzerland').strip())
+    return swiss
+
+
 def parse_jobs(source, source_url, label):
     result=[]
     for j in walk(Page(source).schemas,'JobPosting'):
         if not ROLE.search(j.get('title','')): continue
-        places=j.get('jobLocation',[]);places=places if isinstance(places,list) else [places]
-        swiss=[]
-        for place in places:
-            address=place.get('address',{})
-            country=address.get('addressCountry','')
-            if isinstance(country,dict): country=country.get('name','')
-            if str(country).lower() in ('ch','switzerland','schweiz','suisse'):
-                swiss.append(address.get('addressLocality','Switzerland'))
+        swiss=swiss_places(j)
         if not swiss: continue
         expiry=j.get('validThrough')
         if expiry and str(expiry)[:10] < datetime.now(timezone.utc).date().isoformat(): continue
@@ -194,6 +202,9 @@ def enrich(pair,client):
             description=text(posting.get('description',''))
             job['work_mode']=mode(job['title']+' '+str(posting.get('jobLocationType',''))+' '+description)
             job['description']=description[:12000]
+            place=[p for p in swiss_places(posting) if p!='Switzerland']
+            if place and job['location'] in ('','Switzerland'):   # the search page named only the country; the posting names its place
+                job['location']=', '.join(place);job['city']=city(job['location'])
         except Exception as e:
             c['notes'].append(f'Job detail unavailable; remote conditions unverified: {type(e).__name__}')
     try:

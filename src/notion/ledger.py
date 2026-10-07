@@ -754,7 +754,7 @@ def page_meta(url, opener=urllib.request.urlopen):
                 place = place[0] if isinstance(place, list) and place else place
                 address = place.get('address') if isinstance(place, dict) else None
                 if isinstance(address, dict):
-                    address = ', '.join(v for v in (address.get('addressLocality'), address.get('addressCountry'))
+                    address = ', '.join(v for v in (address.get('addressLocality') or address.get('addressRegion'), address.get('addressCountry'))
                                         if isinstance(v, str) and v)
                 meta.setdefault('title', item.get('title'))
                 meta.setdefault('company', (item.get('hiringOrganization') or {}).get('name'))

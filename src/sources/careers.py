@@ -206,7 +206,7 @@ def jsonld_jobs(markup, url):
                 if not isinstance(address, dict):
                     continue
                 country = _words(address.get('addressCountry'))
-                where.append(', '.join(part for part in (_words(address.get('addressLocality')), COUNTRIES.get(country.upper(), country)) if part))
+                where.append(', '.join(part for part in (_words(address.get('addressLocality')) or _words(address.get('addressRegion')), COUNTRIES.get(country.upper(), country)) if part))
             remote = 'telecommute' in str(posting.get('jobLocationType') or '').lower()
             salary = posting.get('baseSalary') or {}
             value = salary.get('value') if isinstance(salary, dict) else None

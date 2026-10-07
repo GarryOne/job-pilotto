@@ -145,7 +145,7 @@ def jobsch(search, get=None):
                 where = []
                 for place in places:
                     address = (place or {}).get('address') or {}
-                    town = re.sub(r'^[A-Z]{2} ', '', str(address.get('addressLocality') or '').strip())   # "ZH Herrliberg" -> "Herrliberg"
+                    town = re.sub(r'^[A-Z]{2} ', '', str(address.get('addressLocality') or address.get('addressRegion') or '').strip())   # "ZH Herrliberg" -> "Herrliberg"
                     if town and town not in where:
                         where.append(town)
                 url = j.get('url') or ''
