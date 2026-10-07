@@ -610,7 +610,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                 lines.append(tgcard.block('Which job is this for?', f"{_label(row)}: the interview was detected, but the role could not be identified.",
                                           tgcard.fact('Next step', 'In Job Pilotto: Focus → Add details. Paste the job link or LinkedIn conversation.')))
         if not row and named:
-            # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.
+            # The email names a role: the job it is on (tracked, or on your list and applied to without marking it). None found: asked below.
             row = _from_email(tracker, apps, result, email, stats, lines, on_new)
         if not row:
             # Not sure which job (or whether it's one you track): never guess, ask. Focus shows "Is this about …?"
@@ -805,29 +805,10 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
         if stats is not None:
             stats.setdefault('updates', []).append(f"➕ Marked applied · {company} — {role[:70]}")
         return row
-    url = f'https://mail.google.com/mail/u/0/#all/{email["id"]}'
-    props = {'Job': {'title': [{'text': {'content': role[:200]}}]}, 'Company': {'rich_text': [{'text': {'content': company[:200]}}]},
-             'Job URL': {'url': url}, 'Stage': {'select': {'name': 'Applied'}}, 'Source': {'select': {'name': 'Gmail'}},
-             'Date approximate': {'checkbox': True},
-             'Notes': {'rich_text': [{'text': {'content': f'Tracked from an email: "{email["subject"][:150]}"'}}]}}
-    if applied:
-        props['Applied on'] = {'date': {'start': applied}}
-    # An application you made elsewhere, found by its email: Outbound (src/notion/origin.py).
-    row = tracker.create_page(tracker.database_id, origin_rule.stamp(props, origin_rule.OUTBOUND))
-    known = row.setdefault('properties', {})  # Notion returns the new row's properties; test fakes may not
-    for name, value in (('Company', {'rich_text': [{'plain_text': company}]}), ('Job', {'title': [{'plain_text': role}]}),
-                        ('Stage', {'select': {'name': 'Applied'}}), ('Applied on', {'date': {'start': applied}})):
-        known.setdefault(name, value)
-    row.setdefault('url', '')
-    add_event(tracker, row, 'Applied', 'Gmail', at=applied or None,
-              note=f'Applied outside Job Pilotto; found in the email "{email["subject"][:120]}" (date is an upper bound)')
-    apps.append(row)
-    if on_new:  # facts and fit score from the email, like a found job (src/ai/added.py)
-        on_new(url, {'title': role, 'company': company, 'description': f"{email['subject']}\n\n{email['body']}"[:8000]}, row)
-    lines.append(tgcard.block(_head(row, 'Applied'), 'Tracked from this email (applied elsewhere).'))
-    if stats is not None:
-        stats.setdefault('updates', []).append(f"➕ Tracked · {company} — {role[:70]}")
-    return row
+    # No job found for it: asked, never created (owner, 7 Oct 2026: a photographer's Gmail check created two Anthropic SRE applications from the
+    # inbox's own past, each a row with a Gmail link for its posting, no description, and fit 5). The caller asks "Which job?" in Focus; the
+    # answer can be a job, a new job (src/ai/reassign.py, made then, with your OK) or none.
+    return None
 
 
 def _sender_org(sender):

@@ -104,11 +104,12 @@ class CreatedTests(unittest.TestCase):
                             Contact=text('Jayantie Nejati · j.nejati@huxley.test'))]
         self.assertIsNotNone(opportunity.same_pitch(tracker, lead))
 
-    def test_an_email_about_an_application_keeps_the_bare_role(self):
+    def test_an_email_about_an_untracked_role_creates_no_job(self):
+        # Asked in Focus instead (src/ai/mail.py run): a job made from an email alone had a Gmail link for its posting and nothing else.
         tracker = LeadTracker()
         email = {'id': 'e1', 'date': '2026-09-20T10:00:00+00:00', 'subject': 'Thanks for applying', 'body': ''}
-        mail._from_email(tracker, [], {'company': 'Acme', 'role': 'Principal SRE'}, email, None, [])
-        self.assertEqual(titles.text_value(tracker.created[0]['Job']), 'Principal SRE')
+        self.assertIsNone(mail._from_email(tracker, [], {'company': 'Acme', 'role': 'Principal SRE'}, email, None, []))
+        self.assertEqual(tracker.created, [])
 
 
 class LeadTracker:

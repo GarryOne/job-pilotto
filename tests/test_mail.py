@@ -317,7 +317,9 @@ class MailTests(unittest.TestCase):
         self.assertIn('Rejected · Grafana Labs', stats['updates'][0])
         self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])  # no job moved on a guess
 
-    def test_a_role_named_in_email_but_not_tracked_becomes_an_application(self):
+    def test_a_role_named_in_email_but_not_tracked_is_asked_about_not_created(self):
+        # 7 Oct 2026: a photographer's Gmail check created two Anthropic SRE applications from the inbox's past (a Gmail link as the posting,
+        # fit 5). No job found for an email: Focus asks "Which job?" (a job, a new job or none); nothing is created by itself.
         apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote')]
         google = FakeGoogle([email('c1', 'Thank you for applying to Grafana Labs', '2026-09-25T09:00:00+02:00'),
                              email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
@@ -327,14 +329,12 @@ class MailTests(unittest.TestCase):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Confirmation received'), **spain},
                                                           {**result(1, -1, 'Rejected'), **spain}]]),
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats=stats)
-        rows = [p for p in tracker.created if 'Stage' in p]
-        self.assertEqual(len(rows), 1)  # the rejection found the row the confirmation made
-        self.assertEqual(rows[0]['Job']['title'][0]['text']['content'], 'Staff SRE | Spain | Remote')
-        self.assertEqual(rows[0]['Applied on']['date']['start'], '2026-09-25')
-        kinds = [p['Kind']['select']['name'] for p in tracker.created if 'Kind' in p]
-        self.assertEqual(kinds, ['Applied', 'Confirmation received', 'Rejected'])
-        self.assertIn({'Stage': {'select': {'name': 'Rejected'}}}, [u for _, u in tracker.updates])
-        self.assertIn('➕ Tracked · Grafana Labs — Staff SRE | Spain | Remote', stats['updates'])
+        self.assertEqual([p for p in tracker.created if 'Stage' in p], [], 'no application created by itself')
+        asked = [p for p in tracker.created if 'Needs you' in p]
+        self.assertEqual(len(asked), 2)
+        self.assertTrue(all(p['Event']['title'][0]['text']['content'].startswith('❓ Which job?') for p in asked))
+        self.assertNotIn({'Stage': {'select': {'name': 'Rejected'}}}, [u for _, u in tracker.updates], 'the tracked Sweden role is not touched')
+        self.assertTrue(any(line.startswith('❓') for line in stats['updates']))
 
     def test_a_role_on_the_list_but_never_marked_applied_becomes_the_application(self):
         kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Kit ready', applied='')

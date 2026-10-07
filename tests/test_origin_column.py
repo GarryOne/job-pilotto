@@ -134,12 +134,12 @@ class WriterTests(unittest.TestCase):
             inbox._new_row(tracker, item, 'https://x/pasted', 'LinkedIn', 'App', '2026-09-20', 'logged')
         self.assertEqual(origin_of(tracker.app_props()[0]), 'Outbound')
 
-    def test_an_application_found_by_its_email_is_outbound(self):
-        tracker = Fake()
+    def test_an_email_about_an_untracked_role_writes_no_application(self):
+        tracker = Fake()   # asked in Focus instead (src/ai/mail.py run); a new job chosen there is made by src/ai/reassign.py
         email = {'date': '2026-09-20T10:00:00Z', 'id': 'm1', 'subject': 'Thanks for applying', 'body': ''}
         with mock.patch.object(mail, 'add_event'):
-            mail._from_email(tracker, [], {'company': 'Acme', 'role': 'SRE'}, email, None, [])
-        self.assertEqual(origin_of(tracker.app_props()[0]), 'Outbound')
+            self.assertIsNone(mail._from_email(tracker, [], {'company': 'Acme', 'role': 'SRE'}, email, None, []))
+        self.assertEqual(tracker.app_props(), [])
 
 
 class ReaderTests(unittest.TestCase):
