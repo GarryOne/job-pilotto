@@ -2005,7 +2005,7 @@ function handlers() {
   ipcMain.handle('coverLetterOpen', () => (fs.existsSync(letters.pdfPath(storage)) ? shell.openPath(letters.pdfPath(storage)) : ''));
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
-  ipcMain.handle('openVisit', (_, url) => visits.open(url));
+  ipcMain.handle('openVisit', (_, url) => visits.openYourself(url));   // the tab you already have for the site, else a new one
   ipcMain.handle('focusBrowser', () => visits.focusBrowser());
   ipcMain.handle('visitShowTab', (_, url) => visits.showTab(url));   // Find jobs using your browser' rows (Recent activity): the tab reading this site
   ipcMain.handle('visitAgain', (_, url) => visits.again(url));        // ... and a site whose tab you closed, back in the run

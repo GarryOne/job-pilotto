@@ -238,6 +238,19 @@ export function again(url) {
   log('visit', 'site opened again', {host: new URL(site.url).hostname, decidedBy: 'user click'});
   return {ok: true};
 }
+// "Open it myself" / "Open in Chrome" and every other button that opens a site for you (main.js openVisit): the tab you already have for it,
+// brought forward, else a new one (owner, 8 Oct 2026: it opened another tab rather than the open one). Its reading tab by id while a run
+// reads it, else a tab at the last page read there or at its address.
+const seenPages = new Map();   // start address -> the last page read there; kept after the run, for this
+export async function openYourself(url, {focusById = focusTabById, focusAt = focusTabAt, opener = open} = {}) {
+  const tab = tabOf.get(active?.tickets.get(key(url)));
+  const pages = [...new Set([active?.lastPage.get(key(url)), seenPages.get(key(url)), key(url)].filter(Boolean))];
+  let how = tab != null && await focusById(tab) ? 'tab id' : '';
+  for (const page of pages) if (!how && await focusAt(page)) how = 'address';
+  if (!how) return opener(url);
+  log('visit', 'brought forward the tab you have for a site', {host: new URL(key(url)).hostname, how, decidedBy: 'user click'});
+  return {ok: true, focused: true};
+}
 export async function showTab(url, {focusById = focusTabById, focusAt = focusTabAt, bringForward = focusBrowser} = {}) {
   const tab = tabOf.get(active?.tickets.get(key(url)));   // the id the extension reported for this site's tab (lib/form-tab.js focusTabById)
   const page = active?.lastPage.get(key(url)) || key(url);
@@ -357,7 +370,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       }
       if (event.step) tee(siteLine('reading', site.name, `${event.step}${jobs ? ` · ${jobs} jobs so far` : ''}`));
       if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
-      if (event.page) { active?.lastPage.set(key(chosen.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
+      if (event.page) { active?.lastPage.set(key(chosen.url), event.url); seenPages.set(key(chosen.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
     marks.set(ticket, filter ? 'jp-read-filter' : 'jp-read');
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);

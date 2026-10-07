@@ -326,3 +326,13 @@ test("Jobs we couldn't read: each posting opens with its ticket, its text is sav
   const card = parseVisits(resultMessage([], {added: 1, postings: {asked: 3, read: saved}}));
   assert.deepEqual(card.postings, {asked: 3, read: 1}, 'the result card reads what the run wrote');
 });
+
+test('opening a site you have open brings its tab forward, by the page last read there; else it opens a new tab (owner, 8 Oct 2026)', async () => {
+  const {openYourself} = await import('../lib/visits.js');
+  const asked = [], opened = [];
+  const opener = url => { opened.push(url); return {ok: true}; };
+  const found = await openYourself('https://www.hublot.com', {focusById: async () => false, focusAt: async page => { asked.push(page); return page === 'https://www.hublot.com'; }, opener});
+  assert.deepEqual([found.focused, opened], [true, []], 'its tab, not a new one');
+  const none = await openYourself('https://www.omega.example', {focusById: async () => false, focusAt: async () => false, opener});
+  assert.deepEqual([none.ok, opened], [true, ['https://www.omega.example']], 'no tab: a new one');
+});
