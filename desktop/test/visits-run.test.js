@@ -31,3 +31,16 @@ test('the result message is what the card reads, with each stopped site and its 
   assert.deepEqual(card.sites.map(site => [site.name, site.ok, site.url]), [['LinkedIn', true, 'https://www.linkedin.com/jobs/search/?keywords=photographe'], ['Rolex', false, 'https://www.rolex.com']]);
   assert.match(card.sites[1].detail, /sign in/);
 });
+
+test('a site that goes silent is skipped after the quiet time, in plain words, and the next one runs', async () => {
+  const lines = [];
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (url.includes('live')) setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 5, added: 5, pages: 1, stopped: 'no next page'}), 20);
+    return {ok: true};   // 'mute' never reports: the extension's worker died
+  };
+  const results = await runAll([{name: 'Mute', url: 'https://mute.example'}, {name: 'Live', url: 'https://live.example'}], {atOnce: 1, openTab, quietMs: 60, waitMs: 5000, tee: line => lines.push(line)});
+  assert.deepEqual(results.map(result => [result.name, result.ok]), [['Mute', false], ['Live', true]]);
+  assert.match(results[0].why, /stopped answering/);
+  assert.ok(lines.some(line => /Mute is not responding: skipped, the next site opens/.test(line)));
+});

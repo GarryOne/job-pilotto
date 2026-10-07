@@ -24,7 +24,8 @@ export function open(url, run = spawn) {
 // The Read sites task's own log (owner's Technical log): while it runs, what the engine says for each page goes there too (another session's
 // report, 7 Oct 2026: its log showed 4 lines and "no new output for 5 min" while visit-filters ran 130 s, printing only to app.log).
 let taskTee = null;
-const onLine = line => { if (taskTee && String(line).trim()) taskTee(String(line)); };
+// Indented: kept in the log as detail, never the task's running step (pipeline isProgressStep skips indented lines); the step is runAll's own.
+const onLine = line => { if (taskTee && String(line).trim()) taskTee(`  ${String(line).trim()}`); };
 export const FILTER_WAIT_MS = 45000;   // Claude's filter choice: past this, the page is read as it is (it once took 130 s on LinkedIn)
 
 // Any engine command that takes one JSON file (a page outline, a site's recipe): its last stdout line as JSON, or null.
@@ -57,6 +58,7 @@ export async function recipe(storage, page, runEngine) {
 
 // The page's filter controls: which to set for this person's search (src/ai/visit_filters.py, through the engine's AI). Labels in the log.
 export async function filters(storage, page, runEngine = pipeline.run) {
+  heardFrom(page?.ticket);
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
   const file = path.join(os.tmpdir(), `jp-visit-filters-${process.pid}-${Date.now()}.json`);
   fs.writeFileSync(file, JSON.stringify({url: String(page.url), title: String(page.title || '').slice(0, 300), controls: Array.isArray(page.controls) ? page.controls.slice(0, 200) : []}));
@@ -89,6 +91,7 @@ export function focusBrowser(run = spawn, platform = process.platform) {
 // One page the extension sent: through a file (a page can be megabytes), read by the engine. Counts in the log, never the page.
 const MAX_HTML = 3_000_000;
 export async function read(storage, page, runEngine = pipeline.run) {
+  heardFrom(page?.ticket);
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
   const file = path.join(os.tmpdir(), `jp-visit-${process.pid}-${Date.now()}.json`);
   const body = {url: String(page.url), title: String(page.title || '').slice(0, 300), session: String(page.session || '').slice(0, 64),
@@ -112,6 +115,9 @@ export async function read(storage, page, runEngine = pipeline.run) {
 // each marked so the extension filters (if asked) and reads it by itself (extension/visit.js autoRead); each reports back (done) and closes,
 // then the next opens. A site that does not report within WAIT_MS counts as stopped.
 export const WAIT_MS = 8 * 60 * 1000;
+export const QUIET_MS = 90 * 1000;   // a site that sends no news (no page read, no wait) for this long is skipped, said in plain words
+const lastNews = new Map();   // ticket -> time of the extension's last report for that tab
+export function heardFrom(ticket) { if (ticket && lastNews.has(ticket)) lastNews.set(ticket, Date.now()); }
 const waiting = new Map();   // start address -> resolve
 const blocked = new Set();
 let waitingNotice = null;   // main.js: a notification whose click brings Chrome forward
@@ -134,14 +140,23 @@ export function done(payload) {
   if (resolve) { waiting.delete(which(payload)); resolve(payload); }
   return {ok: true};
 }
-export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS} = {}) {
+export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS} = {}) {
   const queue = [...sites], results = [];
   taskTee = tee;
   let doneCount = 0;
   const one = async site => {
     const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
+    lastNews.set(ticket, Date.now());
     const finished = new Promise(resolve => {
       waiting.set(ticket, resolve);
+      const watch = setInterval(() => {   // silent too long and not waiting on the person: skipped, with words that say so
+        if (!waiting.has(ticket)) { clearInterval(watch); return; }
+        if (!blocked.has(ticket) && Date.now() - (lastNews.get(ticket) || 0) > quietMs) {
+          clearInterval(watch);
+          waiting.delete(ticket);
+          resolve({stopped: `it stopped answering (nothing for ${Math.round(quietMs / 1000)} s): skipped, you can close its tab`, jobs: 0, added: 0, quiet: true});
+        }
+      }, Math.min(5000, quietMs));
       setTimeout(() => {
         if (!waiting.delete(ticket)) return;
         resolve({stopped: blocked.has(ticket) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Job Pilotto page)'
@@ -150,9 +165,11 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     });
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
     if (!opened.ok) { waiting.delete(ticket); return {...site, ok: false, why: opened.error, jobs: 0, added: 0}; }
-    tee(`Reading ${site.name} in your browser…`);
+    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} done · now ${site.name}`);   // the banner's step while it reads
     const state = await finished;
     blocked.delete(ticket);
+    lastNews.delete(ticket);
+    if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);
     const ok = (state.jobs || 0) > 0;
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
     doneCount += 1;

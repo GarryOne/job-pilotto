@@ -254,7 +254,7 @@ async function setFilters(tabId, config, state) {
     const controls = await run(tabId, collectControls);
     if (!controls?.length) break;
     const tab = await chrome.tabs.get(tabId);
-    const plan = await api(config, '/extension/visit-filters', {method: 'POST', body: JSON.stringify({url: tab.url, title: tab.title, controls})}).catch(error => ({ok: false, error: error.message}));
+    const plan = await api(config, '/extension/visit-filters', {method: 'POST', body: JSON.stringify({url: tab.url, title: tab.title, controls, ticket: state.ticket})}).catch(error => ({ok: false, error: error.message}));
     if (!plan?.ok) { state.note = plan?.error || 'filters not set'; break; }   // said in the popup; the page is read as it is
     if (!plan.steps?.length) break;
     const done = await run(tabId, applyFilters, [plan.steps]);
@@ -268,10 +268,17 @@ async function setFilters(tabId, config, state) {
 
 // The whole visit, from the person's click: pages read, jobs the app kept, and why it stopped. Progress on the toolbar icon and in session
 // storage (the popup shows it while open).
-export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) {
+export async function readSite(tabId, {pages = MAX_PAGES, filter = false, ticket = ''} = {}) {
+  // Chrome stops an extension's worker that looks idle (7 Oct 2026: two reads died right after Claude's filter answer, the app waited on
+  // nothing): a light call every 20 s while reading keeps it awake, and each page tells the app it is still alive.
+  const awake = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => {}), 20000);
+  try { return await readSiteAwake(tabId, {pages, filter, ticket}); } finally { clearInterval(awake); }
+}
+
+async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
   const session = `${tabId}-${Date.now()}`;
   const config = await settings();
-  const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: [], learned: false};
+  const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: [], learned: false, ticket};
   const say = () => chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
   try {
     if (filter) {
@@ -301,7 +308,7 @@ export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) 
         cards = seen.cards;
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
-      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, url: seen.url, title: seen.title, html: seen.html, cards})});
+      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, ticket: state.ticket, url: seen.url, title: seen.title, html: seen.html, cards})});
       if (!answer?.ok) { state.stopped = answer?.error || 'the app did not take the page'; break; }
       Object.assign(state, {pages: page + 1, jobs: answer.jobs, added: state.added + (answer.added || 0), name: answer.name});
       badge(tabId, String(state.pages), `Job Pilotto: reading ${answer.name}, page ${state.pages}: ${answer.jobs} jobs so far`);
@@ -362,7 +369,7 @@ export async function autoRead(tabId, url) {
   }
   started.add(tabId);
   const start = url.slice(0, -mark.length);
-  const state = await readSite(tabId, {filter}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
+  const state = await readSite(tabId, {filter, ticket}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
   await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
   started.delete(tabId);
   await chrome.tabs.remove(tabId).catch(() => {});   // done: the app opens the next site in its place

@@ -42,6 +42,11 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
       ? `${state.filters?.length ? `Filters: ${state.filters.join(', ')}. ` : ''}${state.note ? `${state.note}. ` : ''}${state.jobs} jobs read from ${state.name || host} on ${state.pages} page${state.pages === 1 ? '' : 's'}: stopped, ${state.stopped}.`
       : `Reading ${state.name || host}: page ${state.pages}, ${state.jobs} jobs so far…`;
   };
+  // A tab the app opened to read (Read sites): it reads by itself, so no buttons (pressing one would start a second reading); only what it does.
+  if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$/.test(tab.url)) {
+    $('visit-filter').hidden = $('visit-read').hidden = true;
+    $('visit-text').textContent = 'The Job Pilotto app opened this page and the extension is reading it by itself: nothing to press here.';
+  }
   show((await chrome.storage.session.get(`visit:${tab.id}`))[`visit:${tab.id}`]);
   chrome.storage.onChanged.addListener((changes, area) => { if (area === 'session' && changes[`visit:${tab.id}`]) show(changes[`visit:${tab.id}`].newValue); });
   const start = filter => async () => {
