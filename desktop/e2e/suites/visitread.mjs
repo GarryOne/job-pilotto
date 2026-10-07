@@ -97,6 +97,27 @@ print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls
       if (done[0]?.picked !== 'Geneva' || searched !== 'Geneva') throw new Error(`picked ${JSON.stringify(done)}, the form sent ${searched}: typed text alone filters nothing`);
     });
 
+    await ctx.run('filters: a plain box with its own suggestion list gets its place picked too, never a link already on the page (7 Oct 2026)', async () => {
+      await page.goto(`${base}/plainsuggest.html`);
+      const controls = await call(page, 'collectControls');
+      const box = controls.find(control => control.label === 'City');
+      if (!box) throw new Error(`the box was not listed: ${JSON.stringify(controls)}`);
+      const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([{control: box.id, action: 'type', value: 'Geneva'}])})`);
+      const state = await page.evaluate(() => ({searched: document.body.dataset.searched, office: document.body.dataset.office || ''}));
+      if (done[0]?.picked !== 'Geneva' || state.searched !== 'Geneva' || state.office) throw new Error(`picked ${JSON.stringify(done)}, page ${JSON.stringify(state)}`);
+    });
+
+    await ctx.run('a link whose address is template code (DHL, 7 Oct 2026) is never offered to Claude nor followed as the next page', async () => {
+      await page.goto(`${base}/unstick.html`);
+      await page.evaluate("document.querySelector('nav').insertAdjacentHTML('afterbegin', '<a href=\\'/global/${getUrl(linkEle,\\' onclick=\\'document.body.dataset.broken = 1; return false\\'>Next</a>')");
+      const href = await page.evaluate("document.querySelector('nav a').getAttribute('href')");
+      if (!href.includes('${getUrl')) throw new Error(`the planted link is ${href}`);
+      const ways = await call(page, 'collectWays');
+      if (ways.ways.some(way => way.href.includes('getUrl') || way.href.includes('%7BgetUrl'))) throw new Error(`offered: ${JSON.stringify(ways.ways.map(way => way.href))}`);
+      await call(page, 'goNext');
+      if (await page.evaluate('document.body.dataset.broken')) throw new Error('the template link was clicked as the next page');
+    });
+
     await ctx.run('any site: where the quick guess reads nothing, Claude\'s recipe from the page outline reads the jobs and finds the next page', async () => {
       await page.goto(`${base}/odd.html`);
       const guess = await call(page, 'extractPage');

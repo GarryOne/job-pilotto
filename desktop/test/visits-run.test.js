@@ -161,6 +161,14 @@ test('"Open again" puts a site whose tab you closed back in the run; after the r
   assert.equal(again('https://flaky.example').ok, false);
 });
 
+test('a site read in part says why it stopped; a list read to its end says nothing more (Chanel, Van Cleef: 220 jobs at the minute, 7 Oct 2026)', () => {
+  const text = resultMessage([{name: 'Van Cleef', url: 'https://careers.richemont.com/en/jobs/van-cleef-arpels', ok: true, jobs: 220, added: 220, fits: 0,
+    why: '60 s are up after 11 pages: the rest of the list was not read'}, {name: 'Bulgari', url: 'https://bulgari.example', ok: true, jobs: 47, added: 47, fits: 1, why: 'no next page'}]);
+  const card = parseVisits(text);
+  assert.equal(card.sites[0].detail, '220 jobs (220 new), 0 matching your search; 60 s are up after 11 pages: the rest of the list was not read');
+  assert.equal(card.sites[1].detail, '47 jobs (47 new), 1 matching your search');
+});
+
 test('the result says how many jobs fit the search, and the card reads it (owner: "Read 5 jobs, but my Jobs count never grows")', () => {
   const text = resultMessage([{name: 'Indeed', url: 'https://ch.indeed.com/jobs?q=photographe', ok: true, jobs: 5, added: 5, fits: 1},
     {name: 'Glassdoor', url: 'https://www.glassdoor.ch', ok: true, jobs: 3, added: 3, fits: 0}]);

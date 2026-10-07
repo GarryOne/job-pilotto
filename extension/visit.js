@@ -216,7 +216,8 @@ export function collectWays() {
     if (!visible(node) || node.disabled) continue;
     const label = labelOf(node);
     const href = node.tagName === 'A' ? node.href.split('#')[0] : '';
-    if ((!label && !href) || NEVER.test(label) || /^(mailto|tel|javascript):/i.test(node.getAttribute('href') || '') || node.closest('form[action*="login"], form[action*="apply"]')) continue;
+    // An address that is a page's template code, not a link (7 Oct 2026: DHL's "${getUrl(linkEle,"), is never offered.
+    if ((!label && !href) || NEVER.test(label) || /^(mailto|tel|javascript):|\$\{|\{\{|%7B/i.test(node.getAttribute('href') || '') || node.closest('form[action*="login"], form[action*="apply"]')) continue;
     if (href && ways.some(way => way.href === href)) continue;
     const root = document.documentElement;   // a page-wide number, as in collectControls: ids stay unique across rounds
     const id = node.dataset.jpControl || `w${root.dataset.jpNext = Number(root.dataset.jpNext || 0) + 1}`;
@@ -235,18 +236,23 @@ export async function applyFilters(steps) {
   // just its search (7 Oct 2026: Van Cleef's "Location = Geneva" was typed three times and 220 jobs worldwide were read; picked, 6).
   const plain = text => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   const suggests = node => node.getAttribute('role') === 'combobox' || node.hasAttribute('aria-autocomplete') || node.hasAttribute('aria-controls');
-  const pickSuggestion = async (node, value) => {
+  // A plain box may draw its own suggestions too (a home-made list under it): any box a place is typed into is watched for them, but only for
+  // suggestions that appeared after the typing, so a link already on the page that names the place is never clicked.
+  const OPTIONS = '[role=option], [role=listbox] li, .ts-dropdown .option, .select2-results__option, .ui-menu-item, .autocomplete-suggestion, '
+    + '[class*=suggest] li, [class*=suggest] a, [class*=autocomplete] li, [class*=autocomplete] a';
+  const shown = root => [...root.querySelectorAll(OPTIONS)]
+    .filter(option => (option.offsetParent !== null || option.getClientRects().length > 0) && option.getAttribute('aria-disabled') !== 'true');
+  const pickSuggestion = async (node, value, before, waitMs) => {
     const want = plain(value);
-    for (let tries = 0; tries < 15; tries++) {   // up to 3 s: suggestions often come after a pause or from the server
+    for (let waited = 0; waited < waitMs; waited += 200) {   // suggestions often come after a pause or from the server
       await new Promise(done => setTimeout(done, 200));
       const list = document.getElementById(node.getAttribute('aria-controls') || node.getAttribute('aria-owns') || '');
-      const options = [...(list || document).querySelectorAll('[role=option], .ts-dropdown .option, .select2-results__option, .ui-menu-item, .autocomplete-suggestion')]
-        .filter(option => (option.offsetParent !== null || option.getClientRects().length > 0) && option.getAttribute('aria-disabled') !== 'true');
-      const option = options.find(item => plain(item.innerText) === want) || options.find(item => plain(item.innerText).startsWith(want))
-        || options.find(item => plain(item.innerText).includes(want));
+      const options = shown(list || document).filter(option => !before.has(option) && plain(option.innerText || option.textContent));
+      const text = item => plain(item.innerText || item.textContent);
+      const option = options.find(item => text(item) === want) || options.find(item => text(item).startsWith(want)) || options.find(item => text(item).includes(want));
       if (option) {
         for (const type of ['mousedown', 'mouseup', 'click']) option.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true}));
-        return option.innerText.replace(/\s+/g, ' ').trim().slice(0, 80);
+        return (option.innerText || option.textContent).replace(/\s+/g, ' ').trim().slice(0, 80);
       }
     }
     return '';
@@ -262,11 +268,14 @@ export async function applyFilters(steps) {
       node.value = option.value;
       node.dispatchEvent(new Event('change', {bubbles: true}));
     } else if (step.action === 'type' && node.tagName === 'INPUT') {
+      const declared = suggests(node), before = new Set(shown(document));
       node.focus();
       node.value = step.value;
       node.dispatchEvent(new Event('input', {bubbles: true}));
-      if (suggests(node)) {   // the suggestion first, then the search: an Enter or submit before it sends the form without the place
-        const picked = await pickSuggestion(node, step.value);
+      // The suggestion first, then the search: an Enter or submit before it sends the form without the place. A declared suggest box waits
+      // up to 3 s; a plain one 1.6 s, and with no suggestion it is searched as typed (Enter), as before.
+      const picked = await pickSuggestion(node, step.value, before, declared ? 3000 : 1600);
+      if (declared || picked) {
         done.push({control: step.control, ok: true, picked, suggests: true});
         node.form?.requestSubmit?.();
         continue;
@@ -285,7 +294,8 @@ export async function applyFilters(steps) {
 // Runs inside the page: the next page of the same list. A "next" link or button, else the next page number, else a "more jobs" button,
 // else scroll to the end (lists that load as you scroll). Returns how it went on, or 'none'.
 export function goNext() {
-  const visible = node => node && node.offsetParent !== null && !node.disabled && node.getAttribute('aria-disabled') !== 'true';
+  const visible = node => node && node.offsetParent !== null && !node.disabled && node.getAttribute('aria-disabled') !== 'true'
+    && !/\$\{|\{\{|%7B/i.test(node.getAttribute('href') || '');   // a link to template code (DHL's "${getUrl(") goes nowhere
   const labels = node => [node.innerText, node.getAttribute('aria-label'), node.getAttribute('title')].map(text => (text || '').trim()).filter(Boolean);
   const rel = document.querySelector('a[rel="next"], link[rel="next"]');
   if (rel?.href && rel.tagName === 'A' && visible(rel)) { rel.click(); return 'next link'; }
@@ -325,6 +335,8 @@ const run = async (tabId, func, args = []) => (await chrome.scripting.executeScr
 // The cookie closer in every frame of the tab: a consent message drawn in an iframe is out of the page's own reach. The first label pressed.
 const closeConsentEverywhere = async tabId => ((await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: closeConsent}).catch(() => []))
   .map(frame => frame?.result).find(Boolean) || '');
+// Template code where an address should be (DHL, 7 Oct 2026: careers.dhl.com/global/${getUrl(linkEle,): never a place to go.
+const TEMPLATE = /\$\{|\{\{|%7B/i;
 export const FILTER_ROUNDS = 3;
 export const UNBLOCK_TRIES = 2;   // a page with no job list: at most this many times Claude picks a way on, then the site says why it stopped   // filter panels open more filters: look again, at most this often
 
@@ -424,7 +436,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     };
     let away = 0;   // pages in a row with no job in your places
     for (let page = 0; page < pages; page++) {
-      if (Date.now() - thought > deadline) { state.stopped = `${SITE_MS / 1000} s are up: the jobs read so far are kept`; break; }
+      if (Date.now() - thought > deadline) { state.stopped = `${SITE_MS / 1000} s are up after ${state.pages} page${state.pages === 1 ? '' : 's'}: the rest of the list was not read`; break; }
       await tellStep(tabId, config, ticket, `reading page ${page + 1}…`);
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }
@@ -444,7 +456,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         if (way?.needs_person) { state.stopped = `the site needs you: ${way.needs_person}`; break; }
         if (way?.steps?.length) {
           for (const step of way.steps) {
-            if (step.action === 'open') { if (/^https:\/\//.test(step.href || '')) await chrome.tabs.update(tabId, {url: step.href}); }
+            if (step.action === 'open') { if (/^https:\/\//.test(step.href || '') && !TEMPLATE.test(step.href)) await chrome.tabs.update(tabId, {url: step.href}); }
             else await run(tabId, applyFilters, [[step]]).catch(() => null);
           }
           await tellStep(tabId, config, ticket, `Claude: ${String(way.why || 'trying a way to the jobs').slice(0, 120)}`);

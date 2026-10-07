@@ -1,0 +1,18 @@
+<!doctype html><html><head><title>Jobs | Portal with a home-made suggestion list</title></head><body>
+<!-- A plain text box (no combobox role) whose own list appears 400 ms after typing and filters only when a suggestion is clicked; Enter alone
+     sends no place. A "Geneva" link already on the page must never be clicked for it. -->
+<nav><a href="#office" id="office" onclick="document.body.dataset.office = '1'">Geneva</a></nav>
+<form id="filters" onsubmit="event.preventDefault(); document.body.dataset.searched = document.getElementById('place').value || 'none'">
+  <input type="hidden" id="place" name="place">
+  <input type="text" id="where" placeholder="City">
+  <ul class="suggest-list"></ul>
+</form>
+<script>
+const box = document.getElementById('where'), list = document.querySelector('.suggest-list');
+box.addEventListener('input', () => setTimeout(() => {
+  list.innerHTML = ['Geneva', 'Geneva Airport', 'Genoa'].filter(place => place.toLowerCase().startsWith(box.value.toLowerCase().slice(0, 3))).map(place => `<li>${place}</li>`).join('');
+}, 400));
+list.addEventListener('click', event => { const item = event.target.closest('li'); if (item) document.getElementById('place').value = item.textContent; });
+</script>
+<ul><li class="job-card"><a href="/jobs/view/4001">Store Manager</a><div>Maison</div><div>Geneva</div></li></ul>
+</body></html>

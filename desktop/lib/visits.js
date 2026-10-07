@@ -377,9 +377,11 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     fitsBy.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);
     const ok = (state.jobs || 0) > 0;
-    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'}`);
+    // A site read in part says why it stopped (7 Oct 2026: Chanel and Van Cleef read 220 jobs each and stopped at the minute, which no line said).
+    const cut = ok && cutShort(state.stopped) ? `; ${state.stopped}` : '';
+    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} (${state.added || 0} new), ${fits} matching your search${cut}` : state.stopped || 'nothing read'}`);
     doneCount += 1;
-    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} read (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'));
+    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} read (${state.added || 0} new), ${fits} matching your search${cut}` : state.stopped || 'nothing read'));
     tee(`⏳ Finding jobs in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, fits, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, start: chosen.url, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
@@ -399,6 +401,8 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
   fitsLast = last.reduce((sum, result) => sum + (result?.ok ? result.fits || 0 : 0), 0);
   return last;
 }
+// Why a site read in part stopped, worth saying beside its jobs; a list read to its end is not (extension/visit.js readSite's own words).
+const cutShort = why => !!why && !/end of the list|^no next page$/.test(String(why));
 // The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
 // `added`: jobs the run's scoring wrote to the Jobs list (null when it did not score), said on the head line.
 export function resultMessage(results, {added: listed = null} = {}) {
@@ -408,6 +412,6 @@ export function resultMessage(results, {added: listed = null} = {}) {
   const fit = n => `${n} matching your search`;
   const clean = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').slice(0, 120);
   return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new) · ${fit(fits)}${listed === null ? '' : ` · ${listed} added to your Jobs`}`,
-    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} job${result.jobs === 1 ? '' : 's'} (${result.added} new), ${fit(result.fits || 0)} · ${key(result.url)}`
+    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} job${result.jobs === 1 ? '' : 's'} (${result.added} new), ${fit(result.fits || 0)}${cutShort(result.why) ? `; ${clean(result.why)}` : ''} · ${key(result.url)}`
       : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`)].join('\n');
 }
