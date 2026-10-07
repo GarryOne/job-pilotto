@@ -244,6 +244,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Chrome extension
 
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
+- `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
 - `extension/fill-card.js` — One anonymous record per fill (a "fill card"), for learning how well the form filling does and why: counts and fixed words only,
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.

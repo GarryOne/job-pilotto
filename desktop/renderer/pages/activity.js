@@ -18,7 +18,7 @@ import {kitsOutcome, parseKitsReady} from '../kits-ready.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {seeded} from '../live-log.js';
-import {adviceEvent, coverageActions, runAction} from '../coverage-actions.js';
+import {adviceEvent, fewJobsGroups, runAction} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 import {showScheduleState} from './connections.js';
 import {$, aiReady, show} from './core.js';
@@ -1701,17 +1701,41 @@ export async function init() {
 const fewJobsHelp = new Map();   // run id -> {actions: Promise<actions>, explained: {why, first_steps} | null}
 
 function withFewJobsHelp(foot, runId) {
+  // The owner's approved layout (7 Oct 2026): groups, not one row of chips. Your employers (a meter and the one recommended action), words
+  // to add (chips), job sources to connect and sites only you can open (rows with their own button), then Explain with AI, quietly.
   if (!fewJobsHelp.has(runId)) {
-    fewJobsHelp.set(runId, {actions: window.pilot.searchCoverage().then(result => coverageActions(result?.coverage)).catch(() => []), explained: null, done: null});
+    fewJobsHelp.set(runId, {groups: window.pilot.searchCoverage().then(result => fewJobsGroups(result?.coverage)).catch(() => null), explained: null, done: null});
   }
   const kept = fewJobsHelp.get(runId);
   const box = el('div', 'run-card-help');
-  const heading = el('p', 'muted small', 'Few new jobs. What would bring more, easiest first:');
-  const chips = el('div', 'coverage-chips');
+  const section = (title, ...children) => { const part = el('div', 'run-card-body'); part.append(el('h4', 'run-card-title', title), ...children); return part; };
+  const row = (name, sub, button, title = '') => {
+    const line = el('div', 'run-card-row');
+    const words = el('span', 'run-card-words');
+    words.append(el('b', '', name), el('span', 'muted', sub));
+    if (title) line.title = title;
+    line.append(words, button);
+    return line;
+  };
+  const doneText = label => kept.done?.[label];
+  const act = (action, button) => {
+    adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
+    if (doneText(action.label)) { button.disabled = true; button.textContent = doneText(action.label); }
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const done = await runAction(action, {pilot: window.pilot, openSetting}).catch(error => ({ok: false, error: error.message}));
+      if (done?.ok) adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
+      if (done?.opened) { if (action.kind === 'source') openActivity(false); button.disabled = false; return; }
+      button.textContent = done?.ok ? `✓ ${action.label.replace(/^[+−] /, '')}` : `Not changed: ${done?.error || 'try again'}`;
+      if (done?.ok) kept.done = {...kept.done, [action.label]: button.textContent};   // a redraw keeps it done
+      else button.disabled = false;
+    });
+    return button;
+  };
   const answer = el('div', 'muted small');
   const showAnswer = result => answer.replaceChildren(el('p', '', result.why), ...(result.first_steps || []).map((step, i) => el('p', '', `${i + 1}. ${step}`)));
   if (kept.explained) showAnswer(kept.explained);
-  const explain = el('button', 'secondary', 'Explain with AI');
+  const explain = el('button', 'link', 'Explain with AI');
   explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
   explain.addEventListener('click', async () => {
     adviceEvent('taken', 'explain', 'few-jobs');
@@ -1723,26 +1747,48 @@ function withFewJobsHelp(foot, runId) {
     kept.explained = result;
     showAnswer(result);
   });
-  box.append(heading, chips, explain, answer);
-  const paint = actions => {
-    if (!actions.length) { heading.textContent = 'Few new jobs. Nothing obvious to change yet: Explain with AI looks at the numbers.'; return; }
-    chips.replaceChildren(...actions.slice(0, 8).map(action => {
-      adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
-      const button = Object.assign(el('button', 'coverage-chip', action.label), {type: 'button', title: action.title});
-      if (kept.done?.[action.label]) { button.disabled = true; button.textContent = kept.done[action.label]; }
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        const done = await runAction(action, {pilot: window.pilot, openSetting}).catch(error => ({ok: false, error: error.message}));
-        if (done?.ok) adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
-        if (done?.opened) { openActivity(false); button.disabled = false; return; }
-        button.textContent = done?.ok ? `✓ ${action.label.replace(/^[+−] /, '')}` : `Not changed: ${done?.error || 'try again'}`;
-        if (done?.ok) kept.done = {...kept.done, [action.label]: button.textContent};   // a redraw keeps it done
-        else button.disabled = false;
-      });
-      return button;
-    }));
+  const why = el('p', 'muted small');
+  why.append('Why so few? ', explain);
+  const paint = groups => {
+    const parts = [];
+    if (groups?.employers) {
+      const e = groups.employers;
+      const track = el('span', 'score-track');
+      const fill = el('span', 'score-fill');
+      fill.style.width = `${e.fill}%`;
+      track.append(fill);
+      const scout = el('button', e.dry ? 'primary' : 'secondary', 'Find new employers');
+      scout.type = 'button';
+      scout.addEventListener('click', () => { adviceEvent('taken', 'employer', 'few-jobs'); document.querySelector('.action[data-command="scout"]')?.click(); });
+      adviceEvent('shown', 'employer', 'few-jobs');
+      const line = el('div', 'run-card-row');
+      const words = el('span', 'run-card-words');
+      words.append(el('b', '', `${e.read} employers read · ${e.matched} had a job for you`), el('span', 'muted', `${e.advice} · ${e.next}`));
+      line.append(words, scout);
+      parts.push(section('Your employers', track, line));
+    }
+    if (groups?.words?.length) {
+      const chips = el('div', 'coverage-chips');
+      chips.append(...groups.words.slice(0, 8).map(action => act(action, Object.assign(el('button', 'coverage-chip', action.label), {type: 'button', title: action.title}))));
+      parts.push(section('Change your search', chips));
+    }
+    if (groups?.sources?.length) {
+      parts.push(section('Connect a job source', ...groups.sources.map(source => row(source.name, source.sub,
+        act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title))));
+    }
+    if (groups?.visits?.length) {
+      parts.push(section('Sites only you can open', ...groups.visits.map(site => row(site.name, site.sub,
+        act({kind: 'visit', label: `Open ${site.name}`, value: site.url}, Object.assign(el('button', 'secondary', 'Open'), {type: 'button'})), site.title))));
+    }
+    if (!parts.length) parts.push(el('p', 'muted small', 'Nothing obvious to change yet.'));
+    const tail = el('div', 'run-card-body');
+    tail.append(why, answer);
+    box.replaceChildren(...parts, tail);
   };
-  if (kept.ready) paint(kept.ready); else kept.actions.then(actions => { kept.ready = actions; paint(actions); });
+  const footer = el('div', 'run-card-body');
+  footer.append(why, answer);
+  box.append(footer);
+  if (kept.ready !== undefined) paint(kept.ready); else kept.groups.then(groups => { kept.ready = groups; paint(groups); });
   const wrap = el('div', '');
   wrap.append(foot, box);
   return wrap;

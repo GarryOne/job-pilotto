@@ -29,6 +29,27 @@ export function adviceEvent(act, kind, where, {source = '', record = globalThis.
   return true;
 }
 
+// The "Few new jobs" box in groups (owner's approved layout, 7 Oct 2026): the employers meter with the one recommended action, words to add
+// as chips, job sources and sites as rows with their own button. Pure: the box draws exactly this.
+export const QUIET_SHARE = 0.3;   // under this share of employers with a match, the employer list is running dry: Find new employers
+export function fewJobsGroups(verdict) {
+  const actions = coverageActions(verdict);
+  const e = verdict?.employers || {};
+  let employers = null;
+  if (Number.isFinite(e.read) && e.read > 0) {
+    const matched = Number(e.matched) || 0, pending = Number(e.pending) || 0;
+    const share = matched / e.read;
+    const dry = share < QUIET_SHARE;
+    employers = {read: e.read, matched, pending, fill: Math.max(2, Math.round(share * 100)), dry,
+      advice: dry ? 'Most have nothing new for you' : 'They still bring jobs',
+      next: pending > 0 ? `${pending} more waiting to be checked` : 'every candidate checked: it looks for new names'};
+  }
+  const sources = (Array.isArray(verdict?.sources) ? verdict.sources : []).map(source => ({id: source.id, name: source.name, sub: source.people || source.effort, title: `${source.effort}: ${source.gain}`}));
+  const visits = (Array.isArray(verdict?.visits) ? verdict.visits : []).map(site => ({url: site.url, name: site.name,
+    sub: site.kind === 'portal' ? 'your search' : `${site.why}${site.last_read ? ` · read ${site.last_read.slice(0, 10)}` : ''}`, title: site.note || ''}));
+  return {employers, words: actions.filter(action => !['source', 'visit'].includes(action.kind)), sources, visits};
+}
+
 // One action, done: the same calls the Strategy cards make (lib/strategy.js through main.js), or the source's panel in Settings.
 export function runAction(action, {pilot, openSetting}) {
   if (action.kind === 'source') { openSetting(action.value); return Promise.resolve({ok: true, opened: true}); }

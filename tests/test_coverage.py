@@ -180,3 +180,18 @@ class ExplainFactsTests(unittest.TestCase):
                                {'role_keywords': ['photograph(e|er)?'], 'locations': {'top_tier': ['geneva']}, 'cv_text': 'secret'})
         self.assertEqual(facts['missing_role_words'], [{'term': 'retail', 'count': 6}], 'counts only: no job titles or examples')
         self.assertNotIn('secret', json.dumps(facts))
+
+
+class EmployersStateTests(unittest.TestCase):
+    """7 Oct 2026, owner: "how close am I to exhaust my current employers?": the check's feeds read and with a match, the scout's queue."""
+    def test_the_meter_reads_the_last_check_and_the_scouts_queue(self):
+        import sqlite3
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'jobs.sqlite'
+            with sqlite3.connect(path) as db:
+                db.execute('CREATE TABLE scout_candidates (key TEXT, status TEXT, checked_at TEXT)')
+                db.executemany('INSERT INTO scout_candidates VALUES (?, ?, ?)', [('a', 'pending', None), ('b', 'pending', None), ('c', 'found', '2026-10-06T20:00:00')])
+            state = coverage.employers_state({'employers': {'read': 21, 'matched': 3}}, path)
+        self.assertEqual(state, {'read': 21, 'matched': 3, 'pending': 2, 'last_scout': '2026-10-06T20:00:00'})

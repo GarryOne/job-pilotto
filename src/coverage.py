@@ -187,7 +187,7 @@ def verdict(summary, keywords=(), locations=(), excludes=None):
     local = any(item['local'] and item['count'] >= LOCAL_MIN for item in suggestions)
     return {'narrow': (share < NARROW_BELOW and any(s['count'] >= 5 for s in suggestions)) or local, 'local': local, 'share': share, 'matched': summary['matched'],
             'in_places': summary['in_places'], 'fetched': summary['fetched'], 'feeds': summary['feeds'], 'at': summary.get('at'),
-            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources(), 'for_you': employers_for_you(),
+            'suggestions': suggestions[:8], 'places': places_verdict(summary, locations), 'sources': unused_sources(), 'for_you': employers_for_you(), 'employers': employers_state(summary),
             'excluded': [item for item in summary.get('excluded') or [] if item['fragment'] in set(excludes or ()) and item['count'] >= 2]}
 
 
@@ -232,6 +232,22 @@ def unused_sources(env=None):
     people like this user, from the shared pool (7 Oct 2026), or ''."""
     env = os.environ if env is None else env
     return [{**{key: source[key] for key in ('id', 'name', 'effort', 'gain')}, 'people': people_like_you(source['id'])} for source in SOURCES if source['unused'](env)]
+
+
+def employers_state(summary, db_path=None):
+    """{'read', 'matched', 'pending', 'last_scout'} for the "Your employers" meter: the last check's employer feeds read and with a match
+    (src/sources/feeds.py), and the scout's candidates not checked yet with its last check. Missing parts are None."""
+    import sqlite3
+    from .paths import JOBS_DB
+    state = dict((summary or {}).get('employers') or {})
+    try:
+        with sqlite3.connect(db_path or JOBS_DB) as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'scout_candidates'").fetchone():
+                state['pending'] = db.execute("SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending'").fetchone()[0]
+                state['last_scout'] = db.execute('SELECT MAX(checked_at) FROM scout_candidates').fetchone()[0]
+    except sqlite3.Error as error:
+        print(f'Warning: employer counts not read ({error})', file=sys.stderr)
+    return {key: state.get(key) for key in ('read', 'matched', 'pending', 'last_scout')}
 
 
 def employers_for_you():

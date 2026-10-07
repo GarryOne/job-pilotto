@@ -1,10 +1,10 @@
 // "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
-// after TWO finished jobs checks in a row with fewer than FEW new jobs (one quiet day is normal), once per such streak: a notification and
+// after a finished jobs check with fewer than FEW new jobs (STREAK checks in a row), once per such check: a notification and
 // an in-app prompt that open that run's "Few new jobs" box, a dot on Strategy, and one Telegram line at most once a week.
 import {parseDigest} from '../renderer/run-cards.js';
 
 export const FEW = 3;
-export const STREAK = 2;
+export const STREAK = 1;   // the last check (owner: "if the last Search for new jobs found 0 new or close to"); was 2 until 7 Oct 2026
 export const TELEGRAM_EVERY_MS = 7 * 86400000;
 const CHECKS = new Set(['search', 'today']);
 
@@ -33,7 +33,7 @@ export function due(found, settings = {}, now = Date.now()) {
 
 export const words = found => ({
   title: 'Few new jobs: ways to find more',
-  body: `The last two checks found ${found.counts.join(' and ')} new jobs. See what would bring more, easiest first.`,
-  telegram: `🔎 Your last two job checks found ${found.counts.join(' and ')} new jobs. Open Job Pilotto → Strategy: a filter to loosen, words or places to add, `
+  body: `The last check found ${found.counts[0]} new job${found.counts[0] === 1 ? '' : 's'}. See what would bring more, easiest first.`,
+  telegram: `🔎 Your last job check found ${found.counts[0]} new job${found.counts[0] === 1 ? '' : 's'}. Open Job Pilotto → Strategy: a filter to loosen, words or places to add, `
     + 'job sources to connect, and sites only you can open.',
 });

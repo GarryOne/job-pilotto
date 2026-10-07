@@ -39,7 +39,7 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
   const show = state => {
     if (!state) return;
     $('visit-progress').textContent = state.stopped
-      ? `${state.filters?.length ? `Filters: ${state.filters.join(', ')}. ` : ''}${state.jobs} jobs read from ${state.name || host} on ${state.pages} page${state.pages === 1 ? '' : 's'}: stopped, ${state.stopped}.`
+      ? `${state.filters?.length ? `Filters: ${state.filters.join(', ')}. ` : ''}${state.note ? `${state.note}. ` : ''}${state.jobs} jobs read from ${state.name || host} on ${state.pages} page${state.pages === 1 ? '' : 's'}: stopped, ${state.stopped}.`
       : `Reading ${state.name || host}: page ${state.pages}, ${state.jobs} jobs so far…`;
   };
   show((await chrome.storage.session.get(`visit:${tab.id}`))[`visit:${tab.id}`]);

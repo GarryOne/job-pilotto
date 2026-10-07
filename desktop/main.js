@@ -2230,7 +2230,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setVisitFilters(page => visits.filters(storage, page));
   server.setVisitRoute('/extension/visit-understand', outline => visits.understand(storage, outline));
   server.setVisitRoute('/extension/visit-recipe', page => visits.recipe(storage, page));
-  server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));   // a tab the Actions task opened has been read
+  server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));
+  server.setVisitRoute('/extension/visit-waiting', payload => visits.waitingFor(payload));   // the extension waits on the person: said, not "reading"   // a tab the Actions task opened has been read
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
     if (answer.ok) toWindow('visit-read', answer);

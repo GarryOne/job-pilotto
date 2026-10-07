@@ -138,6 +138,21 @@ export function nextByRecipe(recipe) {
   return 'none';
 }
 
+// Runs inside the page: a small banner while the extension reads it (owner: "otherwise a loading spinner/banner"), or none (text '').
+export function pageBanner(text) {
+  let node = document.getElementById('jobpilotto-reading');
+  if (!text) { node?.remove(); return; }
+  if (!node) {
+    node = document.createElement('div');
+    node.id = 'jobpilotto-reading';
+    node.setAttribute('role', 'status');
+    node.style.cssText = 'position:fixed;z-index:2147483647;right:16px;bottom:16px;padding:10px 14px;border-radius:10px;background:#132439;color:#fff;'
+      + 'font:600 13px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:none';
+    document.documentElement.append(node);
+  }
+  node.textContent = text;
+}
+
 // Runs inside the page: its filter controls, for Claude to choose from (the app's src/ai/visit_filters.py). Labels and options only, never the
 // page's other text. Each gets a data-jp-control id so the chosen steps find it again. Anything that applies, signs in, messages, saves,
 // follows, pays or leaves the site is never listed (and applyFilters refuses it again).
@@ -156,9 +171,9 @@ export function collectControls() {
     const id = node.dataset.jpControl || `c${out.length + 1}`;
     node.dataset.jpControl = id;
     const kind = node.tagName === 'SELECT' ? 'select' : node.tagName === 'INPUT' ? (['checkbox', 'radio'].includes(node.type) ? node.type : 'text') : (node.getAttribute('role') || 'button');
-    out.push({id, kind, label, options: node.tagName === 'SELECT' ? [...node.options].map(option => option.text.trim()).slice(0, 25) : [],
+    out.push({id, kind, label, options: node.tagName === 'SELECT' ? [...node.options].map(option => option.text.trim()).slice(0, 12) : [],
       on: !!(node.checked || node.getAttribute('aria-checked') === 'true' || node.getAttribute('aria-pressed') === 'true' || node.getAttribute('aria-selected') === 'true')});
-    if (out.length >= 150) break;
+    if (out.length >= 60) break;   // a short list: Claude answers in seconds (LinkedIn's 150 took 130 s, 7 Oct 2026)
   }
   return out;
 }
@@ -239,8 +254,9 @@ async function setFilters(tabId, config, state) {
     const controls = await run(tabId, collectControls);
     if (!controls?.length) break;
     const tab = await chrome.tabs.get(tabId);
-    const plan = await api(config, '/extension/visit-filters', {method: 'POST', body: JSON.stringify({url: tab.url, title: tab.title, controls})});
-    if (!plan?.ok || !plan.steps?.length) break;
+    const plan = await api(config, '/extension/visit-filters', {method: 'POST', body: JSON.stringify({url: tab.url, title: tab.title, controls})}).catch(error => ({ok: false, error: error.message}));
+    if (!plan?.ok) { state.note = plan?.error || 'filters not set'; break; }   // said in the popup; the page is read as it is
+    if (!plan.steps?.length) break;
     const done = await run(tabId, applyFilters, [plan.steps]);
     state.filters.push(...plan.steps.filter((step, i) => done?.[i]?.ok).map(step => `${step.label}${step.value ? `: ${step.value}` : ''}`));
     badge(tabId, 'F', `Job Pilotto: filters for your search: ${state.filters.join(', ')}`);
@@ -258,7 +274,10 @@ export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) 
   const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: [], learned: false};
   const say = () => chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
   try {
-    if (filter) await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
+    if (filter) {
+      await run(tabId, pageBanner, ['Job Pilotto: Claude is choosing the filters for your search…']).catch(() => {});
+      await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
+    }
     // How to read this site: its saved recipe (no AI), else the quick guess, else Claude from the page's outline (once per visit).
     const start = (await chrome.tabs.get(tabId)).url;
     let recipe = (await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: start})}).catch(() => null))?.recipe || null;
@@ -271,6 +290,7 @@ export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) 
       return !!answer?.recipe;
     };
     for (let page = 0; page < pages; page++) {
+      await run(tabId, pageBanner, [`Job Pilotto is reading this page${page ? ` · page ${page + 1}` : ''}…`]).catch(() => {});
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }
       if (seen.login || seen.challenge) { state.stopped = seen.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again'; break; }
@@ -297,6 +317,7 @@ export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) 
   } catch (error) {
     state.stopped = /Cannot access|permission/i.test(error.message) ? 'the next page is on another site, or access was not given' : (error.message || 'stopped');
   }
+  await run(tabId, pageBanner, ['']).catch(() => {});
   badge(tabId, state.jobs ? '✓' : '!', `Job Pilotto: ${state.jobs} jobs read from ${state.name || 'this site'} (${state.stopped})`);
   await say();
   return state;
@@ -323,8 +344,16 @@ export async function autoRead(tabId, url) {
   const mark = Object.keys(MARKS).find(key => String(url).endsWith(key));
   if (!mark || started.has(tabId)) return;
   if (!(await chrome.permissions.contains(ALL_SITES))) {
+    // Waiting on the person (owner, 7 Oct 2026: "if there is an action from my side and it's blocking, show it"): the extension's own
+    // page with the Allow button opens beside the site (once), and the app is told, so its banner says "waiting for you", not "reading".
     await chrome.storage.session.set({[`waiting:${tabId}`]: url});
-    badge(tabId, '!', 'Job Pilotto: click here once to let it read the sites the app opens');
+    badge(tabId, '!', 'Job Pilotto: waiting for you: press Allow on the page it opened');
+    const asked = (await chrome.storage.session.get('allowTab')).allowTab;
+    if (!asked || !(await chrome.tabs.get(asked).catch(() => null))) {
+      const tab = await chrome.tabs.create({url: chrome.runtime.getURL('allow.html'), active: true}).catch(() => null);
+      if (tab) await chrome.storage.session.set({allowTab: tab.id});
+    }
+    await api(await settings(), '/extension/visit-waiting', {method: 'POST', body: JSON.stringify({url: url.slice(0, -mark.length), why: 'allow'})}).catch(() => {});
     return;
   }
   started.add(tabId);
@@ -337,6 +366,7 @@ export async function autoRead(tabId, url) {
 // Allowed from the popup: the tabs that were waiting start now.
 export async function startWaiting() {
   const all = await chrome.storage.session.get(null);
+  if (all.allowTab) { chrome.tabs.remove(all.allowTab).catch(() => {}); await chrome.storage.session.remove('allowTab'); }
   for (const [key, url] of Object.entries(all)) {
     if (!key.startsWith('waiting:')) continue;
     await chrome.storage.session.remove(key);

@@ -231,6 +231,9 @@ def scan(sources, db, fetcher=fetch, details=None):
                                       "error": f"{type(error).__name__}: {error}"})
     report["jobs"].sort(key=lambda j: ({"new": 0, "changed": 1, "seen": 2}[j["status"]], j["company"], j["title"]))
     report["funnel"] = tally.summary()
+    # How much of the employer list still brings jobs (the "Your employers" meter, owner 7 Oct 2026): feeds read, and those with a match this run.
+    read = [s for s in report["sources"] if s.get("ok")]
+    report["funnel"]["employers"] = {"read": len(read), "matched": sum(1 for s in read if s.get("matches"))}
     return report
 
 

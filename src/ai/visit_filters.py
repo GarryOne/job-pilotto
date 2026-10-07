@@ -12,7 +12,7 @@ from . import engine
 
 MODEL = 'claude-haiku-4-5'
 MAX_STEPS = 8
-MAX_CONTROLS = 120
+MAX_CONTROLS = 60   # a short list answers in seconds (150 LinkedIn controls took 130 s, 7 Oct 2026)
 ACTIONS = ('click', 'select', 'type')
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['steps', 'why'],
           'properties': {'why': {'type': 'string', 'description': 'One plain sentence: which filters were chosen and why'},

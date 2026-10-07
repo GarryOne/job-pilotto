@@ -5,18 +5,17 @@ import {due, freshOf, streak} from '../lib/few-jobs.js';
 
 const run = (id, fresh, at, extra = {}) => ({id, kind: 'search', ok: true, endedAt: new Date(at).toISOString(), new: fresh, ...extra});
 
-test('two checks in a row under 3 new jobs make a streak; one quiet check, a good one, or a failed one does not', () => {
-  assert.deepEqual(streak([run(2, 1, 2000), run(1, 0, 1000)]), {runId: 2, counts: [1, 0]});
-  assert.equal(streak([run(1, 0, 1000)]), null, 'one quiet day is normal');
-  assert.equal(streak([run(2, 9, 2000), run(1, 0, 1000)]), null);
-  assert.deepEqual(streak([run(3, 0, 3000, {ok: false}), run(2, 2, 2000), run(1, 1, 1000)]), {runId: 2, counts: [2, 1]}, 'a failed check is not counted');
-  assert.equal(streak([run(2, 1, 2000, {kind: 'scout'}), run(1, 0, 1000)]), null, 'only jobs checks count');
+test('the last check under 3 new jobs is a nudge (owner: "if the last Search found 0 new or close to"); a good one or a failed one is not', () => {
+  assert.deepEqual(streak([run(2, 1, 2000), run(1, 9, 1000)]), {runId: 2, counts: [1]});
+  assert.equal(streak([run(2, 9, 2000), run(1, 0, 1000)]), null, 'the last one counts');
+  assert.deepEqual(streak([run(3, 0, 3000, {ok: false}), run(2, 2, 2000)]), {runId: 2, counts: [2]}, 'a failed check is not counted');
+  assert.deepEqual(streak([run(2, 1, 2000, {kind: 'scout'}), run(1, 0, 1000)]), {runId: 1, counts: [0]}, 'only jobs checks count');
 });
 
 test('the count comes from the run, else from its digest; unknown is never "few"', () => {
   assert.equal(freshOf({message: '✈️ Job Pilotto · 🆕 0 new · top 10 of 24'}), 0);
   assert.equal(freshOf({message: 'no digest here'}), null);
-  assert.equal(streak([{id: 2, kind: 'search', ok: true, endedAt: '2026-10-07T10:00:00Z', message: '?'}, run(1, 0, 1000)]), null);
+  assert.equal(streak([{id: 2, kind: 'search', ok: true, endedAt: '2026-10-07T10:00:00Z', message: '?'}]), null);
 });
 
 test('said once per streak; Telegram at most once a week', () => {

@@ -20,12 +20,18 @@ export function open(url, run = spawn) {
   return {ok: true};
 }
 
+// The Read sites task's own log (owner's Technical log): while it runs, what the engine says for each page goes there too (another session's
+// report, 7 Oct 2026: its log showed 4 lines and "no new output for 5 min" while visit-filters ran 130 s, printing only to app.log).
+let taskTee = null;
+const onLine = line => { if (taskTee && String(line).trim()) taskTee(String(line)); };
+export const FILTER_WAIT_MS = 45000;   // Claude's filter choice: past this, the page is read as it is (it once took 130 s on LinkedIn)
+
 // Any engine command that takes one JSON file (a page outline, a site's recipe): its last stdout line as JSON, or null.
 async function engineJson(storage, command, body, runEngine = pipeline.run) {
   const file = path.join(os.tmpdir(), `jp-${command}-${process.pid}-${Date.now()}.json`);
   fs.writeFileSync(file, JSON.stringify(body));
   try {
-    const {stdout} = await runEngine(storage, ['src.desktop', command, file]);
+    const {stdout} = await runEngine(storage, ['src.desktop', command, file], onLine);
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return null; }
   } finally {
     fs.rmSync(file, {force: true});
@@ -54,8 +60,14 @@ export async function filters(storage, page, runEngine = pipeline.run) {
   const file = path.join(os.tmpdir(), `jp-visit-filters-${process.pid}-${Date.now()}.json`);
   fs.writeFileSync(file, JSON.stringify({url: String(page.url), title: String(page.title || '').slice(0, 300), controls: Array.isArray(page.controls) ? page.controls.slice(0, 200) : []}));
   try {
-    const {stdout} = await runEngine(storage, ['src.desktop', 'visit-filters', file]);
-    const answer = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return null; } })();
+    const late = new Promise(resolve => setTimeout(() => resolve({late: true}), FILTER_WAIT_MS));
+    const ran = await Promise.race([runEngine(storage, ['src.desktop', 'visit-filters', file], onLine), late]);
+    if (ran.late) {
+      log('visit', 'filters: Claude took too long, the page is read as it is', {host: new URL(page.url).hostname, waitedMs: FILTER_WAIT_MS});
+      onLine(`Filters for ${new URL(page.url).hostname}: Claude took over ${FILTER_WAIT_MS / 1000} s, so the page is read as it is`);
+      return {ok: false, error: `Claude took over ${FILTER_WAIT_MS / 1000} s to choose the filters: reading the page as it is`};
+    }
+    const answer = (() => { try { return JSON.parse(String(ran.stdout).trim().split('\n').pop()); } catch { return null; } })();
     log('visit', 'filters chosen', {host: new URL(page.url).hostname, steps: answer?.steps?.length ?? null, labels: (answer?.steps || []).map(step => step.label).join(' | ').slice(0, 300)});
     return answer || {ok: false, error: 'The app could not choose the filters.'};
   } finally {
@@ -72,7 +84,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
     html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : []};
   fs.writeFileSync(file, JSON.stringify(body));
   try {
-    const {code, stdout} = await runEngine(storage, ['src.desktop', 'visit-read', file]);
+    const {code, stdout} = await runEngine(storage, ['src.desktop', 'visit-read', file], onLine);
     const answer = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return null; } })();
     if (code !== 0 || !answer?.ok) {
       log('visit', 'page not read', {host: new URL(body.url).hostname, code});
@@ -90,6 +102,16 @@ export async function read(storage, page, runEngine = pipeline.run) {
 // then the next opens. A site that does not report within WAIT_MS counts as stopped.
 export const WAIT_MS = 8 * 60 * 1000;
 const waiting = new Map();   // start address -> resolve
+const blocked = new Set();   // start addresses waiting on the person (the one-time Allow in Chrome)
+// The extension waits on the person for a site: said in the task's log and as its running step (the banner), not "Reading …".
+export function waitingFor(payload) {
+  const url = key(payload?.url);
+  if (!waiting.has(url) || blocked.has(url)) return {ok: true};
+  blocked.add(url);
+  onLine('⏳ Waiting for you in Chrome: press "Allow on the sites the app opens" on the Job Pilotto page it opened (once)');
+  log('visit', 'waiting for the person in Chrome', {host: new URL(url).hostname, why: String(payload?.why || '').slice(0, 20)});
+  return {ok: true};
+}
 const key = url => String(url || '').split('#')[0].replace(/\/$/, '');
 export function done(payload) {
   const resolve = waiting.get(key(payload?.url));
@@ -98,24 +120,33 @@ export function done(payload) {
 }
 export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS} = {}) {
   const queue = [...sites], results = [];
+  taskTee = tee;
+  let doneCount = 0;
   const one = async site => {
     const finished = new Promise(resolve => {
       waiting.set(key(site.url), resolve);
-      setTimeout(() => { if (waiting.delete(key(site.url))) resolve({stopped: 'no answer from the extension in time (is it installed and allowed?)', jobs: 0, added: 0}); }, waitMs);
+      setTimeout(() => {
+        if (!waiting.delete(key(site.url))) return;
+        resolve({stopped: blocked.has(key(site.url)) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Job Pilotto page)'
+          : 'no answer from the extension in time: is it installed and enabled in Chrome?', jobs: 0, added: 0});
+      }, waitMs);
     });
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}`);
     if (!opened.ok) { waiting.delete(key(site.url)); return {...site, ok: false, why: opened.error, jobs: 0, added: 0}; }
     tee(`Reading ${site.name} in your browser…`);
     const state = await finished;
+    blocked.delete(key(site.url));
     const ok = (state.jobs || 0) > 0;
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
+    doneCount += 1;
+    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0};
   };
   const lanes = Array.from({length: Math.max(1, Math.min(5, atOnce))}, async () => {
     while (queue.length) results.push(await one(queue.shift()));
   });
-  await Promise.all(lanes);
+  await Promise.all(lanes).finally(() => { taskTee = null; });
   return sites.map(site => results.find(result => result.url === site.url));
 }
 // The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).

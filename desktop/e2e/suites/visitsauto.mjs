@@ -92,12 +92,17 @@ export async function run(ctx) {
       await tab.close();
     });
 
-    await ctx.run('a marked tab on a site the extension may not read yet waits for the one-time permission, and reads nothing', async () => {
+    await ctx.run('a marked tab waiting on the person says so: the Allow page opens beside it and the app is told it waits (owner\'s rule), nothing is read', async () => {
       const tab = await context.newPage();
       await tab.goto(`https://${OTHER}/list-1.html#jp-read`);
       const waiting = await until(async () => Object.keys(await worker.evaluate(() => chrome.storage.session.get(null))).some(key => key.startsWith('waiting:')), 10000);
       if (!waiting) throw new Error('the tab is not waiting for the permission');
+      const allowPage = await until(() => context.pages().some(page => /\/allow\.html$/.test(page.url())), 10000);
+      if (!allowPage) throw new Error('no Allow page opened: the person would not know they must act');
+      const told = await until(() => app.calls.some(call => call.path === '/extension/visit-waiting' && call.payload.url === `https://${OTHER}/list-1.html`), 10000);
+      if (!told) throw new Error('the app was not told the site waits on the person');
       if (reads().length) throw new Error('a page was read before the person allowed it');
+      for (const page of context.pages().filter(page => /\/allow\.html$/.test(page.url()))) await page.close();
       await tab.close();
       await worker.evaluate(async () => { const all = await chrome.storage.session.get(null); await chrome.storage.session.remove(Object.keys(all).filter(key => key.startsWith('waiting:'))); });
     });
