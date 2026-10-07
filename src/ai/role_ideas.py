@@ -40,6 +40,39 @@ def _load():
         return {}
 
 
+COUNT_MODEL = 'claude-haiku-4-5'
+COUNT_TITLES = 600
+COUNT_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['roles'], 'properties': {'roles': {'type': 'array', 'items': {
+    'type': 'object', 'additionalProperties': False, 'required': ['n', 'titles'],
+    'properties': {'n': {'type': 'integer'}, 'titles': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Numbers of the job titles that are this kind of job'}}}}}}
+COUNT_SYSTEM = """You get numbered roles and numbered job titles, in any language. For each role, answer the numbers of the titles that are \
+that kind of job (a "cashier" role: "Vendeuse Caisses", "Caissière 50%"; not a store manager). A title can fit several roles. Leave out \
+titles that only share a word."""
+
+
+def ai_counts(ideas, titles, client=None):
+    """{word: how many of these titles are that role's kind of job}, by Claude (7 Oct 2026: counting the exact word showed 0 for every
+    suggestion: "caissier" is not in "Vendeuse Caisses"). One Haiku call; Claude sees the roles and job titles only."""
+    from . import cost, engine
+    titles = sorted(set(titles))[:COUNT_TITLES]
+    if not ideas or not titles:
+        return {}
+    client = client or engine.client(action='role_counts')
+    roles = '\n'.join(f"{n}. {idea['role']} (title word: {idea['word']})" for n, idea in enumerate(ideas, 1))
+    listed = '\n'.join(f'{n}. {title}' for n, title in enumerate(titles, 1))
+    response = client.messages.create(model=COUNT_MODEL, max_tokens=4000, system=[{'type': 'text', 'text': COUNT_SYSTEM}],
+                                      messages=[{'role': 'user', 'content': f'Roles:\n{roles}\n\nJob titles:\n{listed}'}],
+                                      output_config=engine.structured(COUNT_SCHEMA, COUNT_MODEL, 'low'))
+    cost.side(COUNT_MODEL, response.usage)
+    answer = json.loads(next(b.text for b in response.content if b.type == 'text'))
+    counts = {}
+    for item in answer.get('roles') or []:
+        n = item.get('n')
+        if isinstance(n, int) and 1 <= n <= len(ideas):
+            counts[ideas[n - 1]['word']] = len({t for t in item.get('titles') or [] if isinstance(t, int) and 1 <= t <= len(titles)})
+    return counts
+
+
 def count(word, titles):
     """Titles (of the places, missed by the role words) that contain this word."""
     try:
@@ -82,6 +115,20 @@ def ideas(profile, search, titles, set_aside=(), client=None, today=None):
         STORE.write_text(json.dumps({key: kept}, ensure_ascii=False))   # this search's ideas only
         print(f"Roles: Claude suggested {len(kept['ideas'])} role(s) for this search")
     have = {str(w).lower() for w in search.get('role_keywords') or []}
-    out = [{**i, 'count': count(i['word'], titles)} for i in kept.get('ideas') or []
-           if i.get('word') and i['word'].lower() not in have and i['word'].lower() not in aside]
+    shown = [i for i in kept.get('ideas') or [] if i.get('word') and i['word'].lower() not in have and i['word'].lower() not in aside]
+    # Counted by Claude once for these titles (kept with the day's ideas); the exact word when Claude cannot be asked
+    titles_hash = hashlib.sha1(json.dumps(sorted(set(titles)), ensure_ascii=False).encode()).hexdigest()[:12]
+    counted = kept.get('counted') or {}
+    if counted.get('titles') != titles_hash and shown and titles:
+        try:
+            counted = {'titles': titles_hash, 'counts': ai_counts(shown, titles, client)}
+            data = _load()
+            data[key] = {**kept, 'counted': counted}
+            STORE.parent.mkdir(parents=True, exist_ok=True)
+            STORE.write_text(json.dumps({key: data[key]}, ensure_ascii=False))
+        except Exception as error:  # noqa: BLE001 — counted by their word this time
+            print(f'Roles: not counted by Claude ({type(error).__name__}); counting the title word', flush=True)
+            counted = {}
+    counts = counted.get('counts') or {}
+    out = [{**i, 'count': counts[i['word']] if i['word'] in counts else count(i['word'], titles)} for i in shown]
     return sorted(out, key=lambda i: -i['count'])
