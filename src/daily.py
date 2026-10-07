@@ -749,7 +749,17 @@ def main():
                 profile = local_profile() or tracker.page_text()
                 candidates, _ = digest.eligible_jobs(db, hidden)
                 run['score'] = {}
-                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score']))
+
+                def to_notion():
+                    # Owner, 7 Oct 2026: Job Matches was written only after the whole search, so a stopped one left nothing there. The scores
+                    # so far are written now and then; the end of the search still writes the rest and marks what is gone or applied.
+                    if not tracker or args.mode not in ('scheduled', 'run', 'today'):
+                        return
+                    try:
+                        print(matches.sync(db, tracker, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True) + ' (so far)', flush=True)
+                    except Exception as error:  # noqa: BLE001 — the end of the search writes them
+                        print(f'Job Matches: not updated yet ({type(error).__name__}); the end of the search writes them', flush=True)
+                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score'], on_scored=to_notion))
                 run['warnings'] += left_out(run['score'], 'scored')
                 if run['score'].get('paused'):   # said on the run's card, not only in its log
                     run['warnings'].append(score.PAUSED)

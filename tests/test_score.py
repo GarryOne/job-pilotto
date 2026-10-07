@@ -312,3 +312,14 @@ class ScoringPromptGroundingTests(unittest.TestCase):
         for rule in ('do not compute percentages', 'commute times or distances', 'minimum and the target are different figures',
                      'in the target range', 'in another city', 'credit the candidate only with', 'level the profile does not state'):
             self.assertIn(rule, text)
+
+
+class SoFarTests(unittest.TestCase):
+    def test_every_few_scores_the_run_hands_them_on(self):
+        # 7 Oct 2026: Job Matches waited for the whole search; now the search writes the scores so far every 10 (here every 2).
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            seed_jobs(db, 5)
+            candidates, _ = digest.eligible_jobs(db)
+            calls = []
+            score.run(db, candidates, 'Profile', 'm', 10, client=ModelClient({'m': lambda title: 70}), on_scored=lambda: calls.append(1), every=2)
+            self.assertEqual(len(calls), 2, '5 scores: after the 2nd and the 4th')

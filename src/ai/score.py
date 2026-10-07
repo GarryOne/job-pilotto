@@ -280,7 +280,7 @@ def stale_count(db, candidates, profile):
     return len(pending_jobs(db, candidates, scoring_profile(profile), 10**9, full_profile=profile))
 
 
-def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None, first_pass=None, escalate_min=None):
+def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None, first_pass=None, escalate_min=None, on_scored=None, every=10):
     """Score up to max_jobs pending candidates; returns a one-line summary. profile: the whole Profile text (the
     scoring part is taken here). With a first_pass model (default: JOB_PILOTTO_SCORE_FIRST_PASS_MODEL) every job gets the
     cheap model first and only those scoring at least escalate_min are scored again by `model`; the rest keep the quick score."""
@@ -373,6 +373,8 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                 save(db, job, used_model, data, profile)
                 scored += 1
                 print(f'Scored {scored} of {len(jobs)} job(s)')   # a heartbeat for the live log: one Claude Code call takes tens of seconds
+                if on_scored and scored % every == 0:
+                    on_scored()   # every `every` scores: the jobs so far go to Notion (a stopped search leaves them there)
         return escalate, halted
 
     if cascade:

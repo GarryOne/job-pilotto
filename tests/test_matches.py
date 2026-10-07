@@ -84,6 +84,15 @@ class MatchesSyncTests(unittest.TestCase):
                 self.assertIn('0 created, 0 updated', matches.sync(db, tracker, [tracked, clean], open_urls={clean['url'], tracked['url']}))
                 self.assertEqual(len(tracker.calls), 1)
 
+    def test_a_write_during_scoring_adds_the_new_rows_and_marks_nothing_else(self):
+        # 7 Oct 2026: Job Matches is written every 10 scores; only the end of the search knows every open job, so only it marks Not seen.
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                tracker = NotionTracker({'https://x.test/1': 'old-1', 'https://x.test/9': 'old-9'})
+                summary = matches.sync(db, tracker, [job(1), job(2)], partial=True)
+                self.assertIn('1 created', summary)
+                self.assertNotIn(('old-9', {'Status': {'select': {'name': 'Not seen'}}}), tracker.calls)
+
     def test_reset_cache_adopts_existing_rows_instead_of_duplicating(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

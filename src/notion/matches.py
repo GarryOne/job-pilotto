@@ -162,8 +162,9 @@ def write_one(db, tracker, job):
     return page_id, row is None
 
 
-def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset()):
-    """Write changed rows; returns a one-line summary. Stops quietly on the first API error."""
+def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
+    """Write changed rows; returns a one-line summary. Stops quietly on the first API error. partial: during scoring, the jobs scored so
+    far only; the other rows' Applied / Not seen statuses wait for the search's own pass at the end (it alone knows every open job)."""
     db.executescript(SYNC_TABLE)
     # Copies of one job (the same URL up to tracking parameters, a slash or the host's case) are one row: the best scored copy is written. Without this both
     # copies are new in the same run and each gets a row, because the loop below only sees rows that existed when it started.
@@ -207,6 +208,8 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dis
                    (url, page_id, digest))
         db.commit()
         created, updated = (created + 1, updated) if not row else (created, updated + 1)
+    if partial:
+        return f'Job Matches: {created} created, {updated} updated'
     # Rows whose job is now applied or no longer listed keep their data but change status.
     current = {job['url'].strip() for job in scored_jobs}
     for url, row in known.items():
