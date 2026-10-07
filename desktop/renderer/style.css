@@ -2199,11 +2199,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 
 /* "Your search may be too narrow": the role words that appear in titles the keywords miss, one click to add each. */
 /* The "Few new jobs" box under a run card (pages/activity.js withFewJobsHelp): its groups in the card's own column, the shared parts inside. */
-.run-card-help { display: grid; gap: var(--sp-4); margin-top: var(--sp-3); }
-.run-card-help-group { display: grid; gap: var(--sp-2); }
+.run-card-help { display: grid; gap: var(--sp-3); }
 .run-card-asking { display: flex; align-items: center; gap: var(--sp-2); margin: 0; }   /* "Explain with AI" waiting: the shared small spinner + one line */
-.run-card-help-group .item-rows { margin-top: 0; border-top: 0; }   /* the group title already heads the list */
-.run-card-help .score-track { background: var(--line); }   /* visible on the card's white */
 .coverage-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
 .coverage-chip { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: var(--r-pill); padding: 4px 10px;
   font-size: var(--fs-sm); cursor: pointer; }
@@ -2326,3 +2323,23 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .score-foot .icon { width: 15px; height: 15px; flex: none; }
 .strategy-page .next-step { margin-top: var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
 .strategy-page .next-step h4 { margin: 0; font-size: var(--fs-base); }
+
+/* Recent activity, a search with few new jobs (owner mockup, 7 Oct 2026): Employer coverage and Other ways to broaden your search, two cards beside
+   the run card. Built on .ap-card, .insight-numbers, .item-rows and details.plain; only the head and the row icons are new. */
+.few-help { display: grid; }
+.activity-panel .few-card { display: grid; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); }
+.few-head { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: start; }
+.few-head > .icon { width: 22px; height: 22px; color: var(--ink-2); margin-top: 2px; }
+.few-head h3 { margin: 0; font-size: var(--fs-lg); }
+.few-head p { margin: 2px 0 0; font-size: var(--fs-md); }
+.few-head .link { white-space: nowrap; padding: 0; }
+.few-card .insight-numbers { padding: var(--sp-3) var(--sp-4); }
+.few-card .item-rows { margin: 0; border-top: 0; }
+.few-card .item-rows li > .icon { width: 20px; height: 20px; color: var(--ink-2); flex: none; align-self: flex-start; margin-top: 2px; }
+.few-card .item-rows li > .item-action { margin-left: auto; }
+.few-schedule { border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.few-schedule summary { cursor: pointer; font-size: var(--fs-md); color: var(--ink-2); }
+.few-schedule p { margin: var(--sp-2) 0 0; font-size: var(--fs-md); }
+.few-explain { border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.few-explain .link { padding: 0; }
+.few-answer:empty { display: none; }

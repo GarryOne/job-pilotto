@@ -374,6 +374,22 @@ const ORDER = ['places', 'ideas', 'coverage', 'filters', 'sources', 'visits', 'f
 const plain = label => label.replace(/^[+−] /, '');
 const number = value => Number(value || 0).toLocaleString('en-US');
 
+// Review from elsewhere (Recent activity's "Review location"): Strategy opens with that row's options showing. Kept until the row is drawn.
+let pendingReview = '';
+const openRows = new Set();   // rows whose options are showing: the rows are drawn again when the fresh verdict lands, and stay open
+export function reviewSuggestion(id) {
+  pendingReview = id;
+  openView('strategy');
+  openPending();
+}
+function openPending() {
+  const row = pendingReview && rows[pendingReview];
+  if (!row?.isConnected) return;
+  const toggle = row.querySelector('[data-review]');
+  if (toggle?.getAttribute('aria-expanded') === 'false') toggle.click();
+  row.scrollIntoView({block: 'center'});
+  pendingReview = '';
+}
 function drawSuggestions() {
   const list = ORDER.map(kind => rows[kind]).filter(Boolean);
   const box = $('suggestion-rows');
@@ -386,6 +402,7 @@ function drawSuggestions() {
   }
   box.replaceChildren(...(list.length ? list : [el('p', 'muted empty-row', 'No suggestions right now: your search already catches what the last check saw.')]));
   show($('suggestions-dot'), ORDER.some(kind => rows[kind]));
+  openPending();
 }
 // One row: icon, title, a line on what it is, Review (opens the options) and ⋯ (hide). options: [{label, preview, button, run(button)}].
 // Ids kept from the banners (#strategy-foryou, #foryou-chips…): the e2e suites and the late-shift watch find them by these.
@@ -403,11 +420,13 @@ function suggestionRow({kind, id, glyph, title, summary, text, options, hidden =
   toggle.dataset.review = kind;
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-controls', detail.id);
-  toggle.addEventListener('click', () => {
-    detail.hidden = !detail.hidden;
-    toggle.setAttribute('aria-expanded', String(!detail.hidden));
-    toggle.textContent = detail.hidden ? review : 'Close';
-  });
+  const setOpen = open => {
+    detail.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? 'Close' : review;
+    if (open) openRows.add(id); else openRows.delete(id);
+  };
+  toggle.addEventListener('click', () => setOpen(detail.hidden));
   const optionRow = option => {
     const line = el('div', 'option-row'), words = el('div');
     words.append(el('b', '', option.label), el('span', 'muted small', option.preview));
@@ -430,6 +449,7 @@ function suggestionRow({kind, id, glyph, title, summary, text, options, hidden =
   const words = el('div', 'suggestion-words');
   words.append(el('b', '', title), typeof summary === 'string' ? el('span', 'muted', summary) : summary);
   row.append(el('span', 'suggestion-icon', icon(glyph)), words, toggle, moreButton(menu, `More about ${title.toLowerCase()}`), detail);
+  if (openRows.has(id)) setOpen(true);
   adviceEvent('shown', kind, 'strategy');
   return row;
 }
@@ -530,7 +550,8 @@ export async function loadCoverage({first = false} = {}) {
   const verdict = answer?.ok ? answer.coverage : null;
   if (answer?.ok) { try { localStorage.setItem(LAST, JSON.stringify({verdict})); } catch { /* the rows still show */ } }
   paintCoverage(verdict);
-  loadIdeas();
+  await loadIdeas();
+  pendingReview = '';   // the row it asked for is not there any more (hidden, or the search changed): nothing opens later by surprise
 }
 // "Explore related roles" (src/ai/role_ideas.py, owner 7 Oct 2026: "suggest potential roles"): roles from the Profile with how many open jobs in
 // your places each would add; those with openings first, the empty ones behind "Show more". ⋯ sets them aside: the engine never proposes them again.

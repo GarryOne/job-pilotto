@@ -68,7 +68,7 @@ export async function run(ctx) {
       if (await page.locator('#strategy-foryou:visible').count()) throw new Error('back after leaving and coming back');
     });
 
-    await ctx.run('a jobs check with few new jobs offers the same advice as chips, recorded as shown', async () => {
+    await ctx.run('a jobs check with few new jobs offers the same advice as rows with a Review button, recorded as shown', async () => {
       await page.evaluate(async () => { (await import('./pages/activity.js')).openActivity(true); });
       for (let i = 0; i < 10 && await page.locator('#activity-all:visible').count(); i++) await page.click('#activity-all');
       const rows = page.locator('#activity-recent li:not(.recent-group) button');
@@ -78,8 +78,17 @@ export async function run(ctx) {
         found = await waitFor(() => page.locator('.run-card-help:visible').count().then(n => n > 0), 1500);
       }
       if (!found) throw new Error('no run shows the "Few new jobs" box (the demo has a check with 0 new jobs)');
-      if (!await waitFor(() => page.locator('.run-card-help .coverage-chip').count().then(n => n > 0), 8000)) throw new Error(`no chips: "${(await text(page, '.run-card-help')).slice(0, 200)}"`);
+      const review = page.locator('.run-card-help .item-action', {hasText: /^Review /});
+      if (!await waitFor(() => review.count().then(n => n > 0), 8000)) throw new Error(`no Review rows: "${(await text(page, '.run-card-help')).slice(0, 200)}"`);
       if (!await waitFor(async () => advice(profile).some(line => /shown \w+ on few-jobs/.test(line)))) throw new Error('no "shown … on few-jobs" in app.log');
+    });
+
+    await ctx.run('Review opens Strategy with that suggestion\'s options showing', async () => {
+      await page.locator('.run-card-help .item-action', {hasText: /^Review /}).first().click();
+      if (!await waitFor(() => page.locator('.suggestion-detail:visible .option-row').count().then(n => n > 0), 10000)) {
+        const state = await page.locator('.suggestion-row').evaluateAll(list => list.map(row => `${row.id}:${row.querySelector('[data-review]')?.getAttribute('aria-expanded')}`));
+        throw new Error(`no suggestion opened on Strategy; rows: ${state.join(', ') || 'none'}`);
+      }
     });
 
     await ctx.run('what is recorded holds fixed words only: never a role word, a place or an employer\'s name', async () => {

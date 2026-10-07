@@ -1,5 +1,4 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
-import {withSaveProgress} from '../save-progress.js';
 import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
@@ -33,6 +32,7 @@ import {renderSessionPage} from './session-log.js';
 import {renderActionsPage} from './runs-page.js';
 import {toastMessage} from './startup.js';
 import {renderDraft, showDraftIntro} from './strategy-review.js';
+import {reviewSuggestion} from './strategy.js';
 import {goStep} from './wizard.js';
 import {showStop, stopRunning} from '../stop-task.js';
 
@@ -746,7 +746,9 @@ export function renderActivity(fresh) {
     run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : '',
   ].filter(Boolean).join(' · ');
   // A search that found new jobs: straight to them (newest first).
-  const found = !run?.live && kindOf(run) === 'search' ? run?.new || 0 : 0;
+  // The card's own "N new this run" when it has one, so the button and the card never disagree (owner, 7 Oct 2026: "View new job" over "2 new").
+  const digest = shownText ? parseRunMessage(shownText) : null;
+  const found = !run?.live && kindOf(run) === 'search' ? (digest?.kind === 'digest' && digest.fresh != null ? digest.fresh : run?.new || 0) : 0;
   show($('activity-go'), found > 0);
   $('activity-go').textContent = `View new job${found === 1 ? '' : 's'} →`;
   // The header's one visible link, then the rest under ⋯: a Notion page is the run's record, its GitHub run the build
@@ -807,6 +809,7 @@ export function renderActivity(fresh) {
   if (kits) kits.outcome = kitsOutcome(kits, run.log);
   const sites = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message ? parseVisits(run.message) : null;   // Find jobs using your browser
   const reading = !!run?.pageId && readingPages.has(run.pageId);
+  show($('activity-help'), false);   // only a search card with few new jobs fills it
   if (card) renderRunCard(card, run);
   else if (mail) {
     renderMailCard(mail, pendingMailQuestions(), lastAnswered());
@@ -955,14 +958,16 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
   const stat = (value, label) => { if (value == null) return ''; const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
   const stats = el('div', 'run-card-stats');
   const rows = el('ol', 'run-card-rows');
-  let heading, more = null;
+  let heading, more = null, help = null;
   if (card.kind === 'digest') {
     stats.append(stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run'));
     // A run that found nothing new lists no jobs: the digest's "top matches" are the best open jobs from any run, and shown here they read as
     // this run's finds (owner, 6 Oct 2026: two runs in a row "found" the same two jobs). Its open jobs stay one click away, in Jobs.
     const nothingNew = card.fresh === 0;
     heading = nothingNew ? 'No new jobs this run' : 'Top matches';
-    rows.append(...(nothingNew ? [] : card.items).slice(0, 3).map(item => {
+    // Highest fit first, the jobs with no score yet after them (owner, 7 Oct 2026: "52, Not scored, 64" read as unordered).
+    const byFit = [...card.items].sort((a, b) => (b.fit != null) - (a.fit != null) || (b.fit ?? 0) - (a.fit ?? 0));
+    rows.append(...(nothingNew ? [] : byFit).slice(0, 3).map(item => {
       const row = el('li', 'run-card-row');
       // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
       // the row never shows a bare "–"; the posting opens from the arrow.
@@ -994,13 +999,12 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
       openView('jobs');
       if (urls.length) showJobsIn(label, urls, 'activity');  // no links in the message: the whole list is all there is
     });
-    // Few new jobs: why, and what would bring more (the Strategy page's cards: role words, places, unused job sources; owner, 6 Oct 2026).
+    // Few new jobs: why, and what would bring more (the Strategy page's suggestions; owner, 6 Oct 2026), as cards under this one: in the
+    // run pane its own place (#activity-help), elsewhere after the card.
     const few = (card.fresh ?? 0) < 3;
-    const why = few ? el('button', 'link', 'All of it on Strategy →') : null;
-    why?.addEventListener('click', () => { openActivity(false); openView('strategy'); });
     more = el('div', 'run-card-foot');
-    more.append(view, ...(why ? [why] : []));
-    if (few) more = withFewJobsHelp(more, run?.id ?? card.items.map(item => item.url).join('|'));
+    more.append(view);
+    if (few) help = withFewJobsHelp(run?.id ?? card.items.map(item => item.url).join('|'));
   } else {
     // New to the search or checked again after its wait: a run never re-reads the same list (an older message has neither number).
     // Every count says its word for 1 and for many (7 Oct 2026: "1 new job feeds"); the bottom line says why some were set aside.
@@ -1041,7 +1045,10 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
   // box inside a box (the owner, 30 Sep: "a table in table").
   const body = el('div', 'run-card-body');
   body.append(el('h4', 'run-card-title', heading), rows, ...(more && more.childNodes.length ? [more] : []));
-  target.replaceChildren(...(stats.childElementCount ? [stats] : []), body);
+  // The few-jobs cards are siblings of this card, never inside it (a card in a card): the pane's own slot, else after the card.
+  const slot = target.id === 'activity-card' ? $('activity-help') : null;
+  if (slot) { slot.replaceChildren(...(help ? [help] : [])); show(slot, !!help); }
+  target.replaceChildren(...(stats.childElementCount ? [stats] : []), body, ...(help && !slot ? [help] : []));
 }
 
 // A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane
@@ -1887,25 +1894,30 @@ export async function init() {
 // Python start each time (6 Oct 2026). A redraw paints from here at once; so does an "Explain with AI" answer already given.
 const fewJobsHelp = new Map();   // run id -> {actions: Promise<actions>, explained: {why, first_steps} | null}
 
-function withFewJobsHelp(foot, runId) {
-  // The owner's approved layout (7 Oct 2026): groups, not one row of chips. Your employers (a meter and the one recommended action), words
-  // to add (chips), job sources to connect and sites only you can open (rows with their own button), then Explain with AI, quietly.
+function withFewJobsHelp(runId) {
+  // Owner mockup, 7 Oct 2026 (replacing the groups of the same day): two cards beside the run card. Employer coverage (numbers, the one
+  // recommended action, the schedule folded), then other ways to broaden the search (a row each: what it is, its action), Explain with AI last.
   if (!fewJobsHelp.has(runId)) {
     fewJobsHelp.set(runId, {groups: window.pilot.searchCoverage().then(result => fewJobsGroups(result?.coverage)).catch(() => null), explained: null, asking: null, done: null});
   }
   const kept = fewJobsHelp.get(runId);
   const box = el('div', 'run-card-help');
-  // Each group sits in the run card's own column (no padded wrapper of its own: it lines up with "No new jobs this run"); rows are the shared
-  // item-rows list with its compact item-action buttons (as the kits card).
-  const section = (title, ...children) => { const part = el('div', 'run-card-help-group'); part.append(el('h4', 'run-card-title', title), ...children); return part; };
+  // A card's head: its icon, title and line, and an optional link on the right.
+  const card = (glyph, title, sub, link = null) => {
+    const part = el('section', 'ap-card few-card'), head = el('div', 'few-head'), words = el('div', '');
+    words.append(el('h3', '', title), el('p', 'muted', sub));
+    head.append(icon(glyph), words, ...(link ? [link] : []));
+    part.append(head);
+    return part;
+  };
   const rows = items => { const list = el('ul', 'item-rows'); list.append(...items); return list; };
-  const row = (name, sub, button, title = '') => {
+  const row = (glyph, name, sub, button, title = '') => {
     const line = el('li', '');
     const words = el('div', 'item-words');
-    words.append(el('b', '', name), el('span', 'muted', sub));
+    words.append(el('b', '', name), ...(Array.isArray(sub) ? sub : [sub]).map(text => el('span', 'muted', text)));
     if (title) line.title = title;
     button.classList.add('item-action');
-    line.append(words, button);
+    line.append(...(glyph ? [icon(glyph)] : []), words, button);
     return line;
   };
   // Its buttons go through the page's one mechanism (keepPress), keyed by this run: a redraw keeps them busy or done.
@@ -1913,23 +1925,20 @@ function withFewJobsHelp(foot, runId) {
   const busyWhile = (key, work) => pressWhile(`few:${runId}:${key}`, '', work);
   const markDone = (key, text) => setPress(`few:${runId}:${key}`, {done: true, text});
   const onScreen = key => pressedButton(`few:${runId}:${key}`);
+  // A job source opens its panel in Settings; a word (role, place, filter) opens its suggestion on Strategy, where the change is previewed
+  // before it is made (taken here = followed there).
   const act = (action, button) => {
     adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
     keepButton(action.label, button);
     button.addEventListener('click', async () => {
-      const opens = action.kind === 'source' || action.kind === 'visit';   // opens a panel or a page: nothing saved, nothing to wait on
-      const run = () => runAction(action, {pilot: window.pilot, openSetting});
-      const done = await busyWhile(action.label, () => (opens ? run() : withSaveProgress(words => setPress(`few:${runId}:${action.label}`, {text: `${action.label} · ${words}`}), run)))
-        .catch(error => ({ok: false, error: error.message}));
-      if (!done?.ok) setPress(`few:${runId}:${action.label}`, {text: action.label});
-      if (done?.ok) adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
-      if (done?.opened) { if (action.kind === 'source') openActivity(false); return; }
-      if (done?.ok) markDone(action.label, `✓ ${action.label.replace(/^[+−] /, '')}`);
-      else onScreen(action.label).textContent = `Not changed: ${done?.error || 'try again'}`;
+      adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
+      openActivity(false);
+      if (action.row?.review) { reviewSuggestion(action.row.review); return; }
+      await busyWhile(action.label, () => runAction(action, {pilot: window.pilot, openSetting})).catch(error => ({ok: false, error: error.message}));
     });
     return button;
   };
-  const answer = el('div', 'muted small');
+  const answer = el('div', 'muted small few-answer');
   const showAnswer = result => answer.replaceChildren(el('p', '', result.why), ...(result.first_steps || []).map((step, i) => el('p', '', `${i + 1}. ${step}`)));
   // The card redraws while a run is going: the pending question lives in `kept`, so a redraw keeps the spinner and the answer lands in the
   // card that is on screen, not in one already replaced.
@@ -1938,7 +1947,8 @@ function withFewJobsHelp(foot, runId) {
     line.append(el('span', 'spinner small'), 'Claude is reading this search\'s counts…');
     answer.replaceChildren(line);
   };
-  const explain = el('button', 'link', 'Explain with AI');
+  const explain = el('button', 'link with-icon', icon('sparkle'));
+  explain.append('Understand these results with AI →');
   explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
   keepButton('explain', explain);
   const settle = result => {
@@ -1957,40 +1967,51 @@ function withFewJobsHelp(foot, runId) {
     });
     kept.asking.then(settle);
   });
-  const why = el('p', 'muted small');
-  why.append('Why so few? ', explain);
+  const why = el('div', 'few-explain');
+  why.append(explain);
+  const strategy = el('button', 'link', 'Review strategy ↗');
+  strategy.type = 'button';
+  strategy.addEventListener('click', () => { openActivity(false); openView('strategy'); });
   const paint = groups => {
     const parts = [];
     if (groups?.employers) {
       const e = groups.employers;
-      const track = el('span', 'score-track');
-      const fill = el('span', 'score-fill');
-      fill.style.width = `${e.fill}%`;
-      track.append(fill);
-      const scout = el('button', `${e.dry ? 'primary' : 'secondary'} item-action`, 'Find new employers');
+      const coverage = card('file', 'Employer coverage', 'What your employer sources are finding');
+      // Numbers, not a bar: the bar read as loading progress (owner, 7 Oct 2026). The shared .insight-numbers cells.
+      const numbers = el('div', 'insight-numbers');
+      for (const [value, label] of [[e.matched, `employer${e.matched === 1 ? '' : 's'} had a job for you`], [e.read, `employer${e.read === 1 ? '' : 's'} checked`],
+        [e.pending, `employer idea${e.pending === 1 ? '' : 's'} not tried yet`]]) {
+        const cell = el('div', 'insight-number');
+        cell.append(el('span', 'insight-number-value', value.toLocaleString('en-US')), el('span', 'insight-number-label', label));
+        numbers.append(cell);
+      }
+      const scout = el('button', `${e.dry ? 'primary' : 'secondary'} item-action`, 'Find new employers →');
       scout.type = 'button';
       scout.addEventListener('click', () => { adviceEvent('taken', 'employer', 'few-jobs'); document.querySelector('.action[data-command="scout"]')?.click(); });
       adviceEvent('shown', 'employer', 'few-jobs');
-      const line = el('li', '');
-      const words = el('div', 'item-words');
-      // The counter first (how many searches your employers have left), then what Find new employers has waiting.
-      words.append(el('b', '', `${e.matched} of ${e.read} employers had a job for you`), el('span', 'muted', e.runway || e.advice), el('div', 'muted', e.next));
-      line.append(words, scout);
-      parts.push(section('Your employers', track, rows([line])));
+      coverage.append(numbers, rows([row('', 'Explore more employers', e.explore, scout)]));
+      if (e.runway) {
+        // The schedule as a condition, folded: it explains, it is not an alarm.
+        const schedule = el('details', 'plain few-schedule'), summary = el('summary', '', 'How employer checks are scheduled');
+        schedule.append(summary, el('p', 'muted', `${e.runway}${e.runway.endsWith('.') || e.runway.includes(':') ? '' : '.'} ${e.advice}.`));
+        coverage.append(schedule);
+      }
+      parts.push(coverage);
     }
-    if (groups?.words?.length) {
-      const chips = el('div', 'coverage-chips');
-      chips.append(...groups.words.slice(0, 8).map(action => act(action, Object.assign(el('button', 'coverage-chip', action.label), {type: 'button', title: action.title}))));
-      parts.push(section('Change your search', chips));
+    const broaden = card('bulb', 'Other ways to broaden your search', 'Optional changes to your search and sources', strategy);
+    const items = [];
+    for (const action of groups?.words || []) {
+      const button = Object.assign(el('button', 'secondary', action.row.button), {type: 'button', title: action.title});
+      items.push(row(action.row.glyph, action.row.title, action.row.sub, act(action, button), action.title));
     }
-    if (groups?.sources?.length) {
-      parts.push(section('Connect a job source', rows(groups.sources.map(source => row(source.name, source.sub,
-        act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title)))));
+    for (const source of groups?.sources || []) {
+      items.push(row(source.id === 'serpapi' ? 'search' : 'link', source.name, source.sub,
+        act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title));
     }
     if (groups?.visits?.length) {
       // One row, handed to Find jobs using your browser (owner, 7 Oct 2026: "pass them to Find jobs using your browser"): the extension reads them all in Chrome, a few at a time.
-      const names = groups.visits.map(site => site.name);
-      const shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
+      const names = groups.siteNames;
+      const shown = names.slice(0, 2).join(' · ') + (names.length > 2 ? ` and ${names.length - 2} more` : '');
       adviceEvent('shown', 'visit', 'few-jobs');
       const read = Object.assign(el('button', 'secondary', 'Read them in Chrome'), {type: 'button', title: 'Opens them in your Chrome, two at a time; the Job Pilotto extension filters and reads each, then your next check scores the jobs'});
       keepButton('read-sites', read);
@@ -1999,14 +2020,15 @@ function withFewJobsHelp(foot, runId) {
         if (result?.started) { adviceEvent('taken', 'visit', 'few-jobs'); markDone('read-sites', '✓ Reading in Chrome'); return; }
         onScreen('read-sites').title = result?.text || read.title;
       });
-      parts.push(section('Sites only you can open', rows([row(`${names.length} site${names.length === 1 ? '' : 's'} we cannot read by ourselves`, shown, read)])));
+      items.push(row('external', 'Browse sites manually', [`${names.length} site${names.length === 1 ? '' : 's'} need${names.length === 1 ? 's' : ''} to be opened in Chrome`, shown], read));
     }
-    if (!parts.length) parts.push(el('p', 'muted small', 'Nothing obvious to change yet.'));
-    box.replaceChildren(...parts, why, answer);
+    broaden.append(items.length ? rows(items) : el('p', 'muted small', 'Nothing obvious to change yet.'), why, answer);
+    parts.push(broaden);
+    box.replaceChildren(...parts);
   };
-  box.append(why, answer);
+  const waiting = card('bulb', 'Other ways to broaden your search', 'Optional changes to your search and sources', strategy);
+  waiting.append(why, answer);
+  box.append(waiting);
   if (kept.ready !== undefined) paint(kept.ready); else kept.groups.then(groups => { kept.ready = groups; paint(groups); });
-  const wrap = el('div', '');
-  wrap.append(foot, box);
-  return wrap;
+  return box;
 }

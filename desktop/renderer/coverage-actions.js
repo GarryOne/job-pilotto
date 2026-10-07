@@ -5,9 +5,9 @@ import {coverageCard, filtersCard, placesCard, sourcesCard, visitCard} from './c
 
 export function coverageActions(verdict) {
   const out = [];
-  for (const chip of filtersCard(verdict)?.chips || []) out.push({kind: chip.exclude ? 'exclude' : 'language', label: chip.label, title: chip.title, value: chip.exclude || chip.language});
-  for (const chip of coverageCard(verdict)?.chips || []) out.push({kind: 'role', label: chip.label, title: chip.title, value: chip.term});
-  for (const chip of placesCard(verdict)?.chips || []) out.push({kind: 'place', label: chip.label, title: chip.title, value: chip.place});
+  for (const chip of filtersCard(verdict)?.chips || []) out.push({kind: chip.exclude ? 'exclude' : 'language', label: chip.label, count: chip.count || 0, title: chip.title, value: chip.exclude || chip.language});
+  for (const chip of coverageCard(verdict)?.chips || []) out.push({kind: 'role', label: chip.label, count: chip.count || 0, title: chip.title, value: chip.term});
+  for (const chip of placesCard(verdict)?.chips || []) out.push({kind: 'place', label: chip.label, count: chip.count || 0, title: chip.title, value: chip.place});
   for (const chip of sourcesCard(verdict)?.chips || []) out.push({kind: 'source', label: chip.label, title: chip.title, value: chip.id});
   for (const chip of visitCard(verdict)?.chips || []) out.push({kind: 'visit', label: chip.label, title: chip.title, value: chip.url});
   return out;
@@ -41,8 +41,9 @@ export function runwayWords(runway, read) {
   if (resting && resting * 2 >= total) return `${resting} of ${total} employers resting until ${day(runway.until)}: Find new employers to keep searching`;
   const soon = runway.soon;
   if (!soon?.count) return resting ? `${resting} of ${total} employers resting until ${day(runway.until)}` : '';
-  return `${soon.runs} more search${soon.runs === 1 ? '' : 'es'} with nothing new, then ${soon.count} of ${total} employers rest for ${runway.rest_days} days`
-    + ` (nothing for you ${runway.rest_after} times in a row)`;
+  // Said as a condition: nobody rests yet (owner, 7 Oct 2026: "don't imply those employers are already paused").
+  return `If the next ${soon.runs === 1 ? 'search finds' : `${soon.runs} searches find`} nothing new for them, ${soon.count} of ${total} employers rest for ${runway.rest_days} days.`
+    + ` An employer rests after ${runway.rest_after} searches in a row with nothing for you.`;
 }
 export function fewJobsGroups(verdict) {
   const actions = coverageActions(verdict);
@@ -56,13 +57,24 @@ export function fewJobsGroups(verdict) {
       advice: dry ? 'Most have nothing new for you' : 'They still bring jobs',
       runway: runwayWords(e.runway, e.read),
       // Ideas the Find new employers task has not tried yet: a job search never touches them (owner, 7 Oct 2026: "why didn't 410 go down?").
-      next: pending > 0 ? `${pending} employer idea${pending === 1 ? '' : 's'} not tried yet · Find new employers tries up to ${Number(e.batch) || 40} a run (3 minutes)`
-        : 'every idea tried: Find new employers looks for new names'};
+      explore: pending > 0 ? `Checks up to ${Number(e.batch) || 40} employer ideas per run · About 3 min` : 'Every idea tried: Find new employers looks for new names'};
   }
   const sources = (Array.isArray(verdict?.sources) ? verdict.sources : []).map(source => ({id: source.id, name: source.name, sub: source.people || source.effort, title: `${source.effort}: ${source.gain}`}));
   const visits = (Array.isArray(verdict?.visits) ? verdict.visits : []).map(site => ({url: site.url, name: site.name,
     sub: site.kind === 'portal' ? 'your search' : `${site.why}${site.last_read ? ` · read ${site.last_read.slice(0, 10)}` : ''}`, title: site.note || ''}));
-  return {employers, words: actions.filter(action => !['source', 'visit'].includes(action.kind)), sources, visits};
+  // A company with two pages (Tiffany & Co. on tiffany.com and tiffanycareers.com) is one site to the reader; both pages are still read.
+  const siteNames = [...new Set(visits.map(site => site.name))];
+  return {employers, words: actions.filter(action => !['source', 'visit'].includes(action.kind)).map(action => ({...action, row: wordRow(action)})), sources, visits, siteNames};
+}
+// A word action as a row (owner mockup, 7 Oct 2026: "Germany — 30 matching roles" and Review location, not a "+ Germany · 30" chip). Review opens
+// that suggestion on Strategy (its row id there), where the change is previewed before it is made.
+const n = value => Number(value || 0).toLocaleString('en-US');
+export function wordRow(action) {
+  const jobs = (count, what) => `${n(count)} ${what}${count === 1 ? '' : 's'}`;
+  if (action.kind === 'place') return {glyph: 'pin', title: `Include ${action.value}`, sub: `${jobs(action.count, 'matching role')} outside your selected locations`, button: 'Review location', review: 'places'};
+  if (action.kind === 'role') return {glyph: 'search', title: `Add "${action.value}" to your role words`, sub: `${jobs(action.count, 'posting')} in your places your role words miss`, button: 'Review role word', review: 'coverage'};
+  const what = action.kind === 'exclude' ? `Stop leaving out titles with "${String(action.value).replace(/\\b/g, '')}"` : `Stop hiding jobs that require ${String(action.value).replace(/^./, letter => letter.toUpperCase())}`;
+  return {glyph: 'sliders', title: what, sub: `${jobs(action.count, 'matching job')} hidden by this filter`, button: 'Review filter', review: 'filters'};
 }
 
 // One action, done: the same calls the Strategy cards make (lib/strategy.js through main.js), or the source's panel in Settings.

@@ -41,20 +41,26 @@ test('the sources card says what a source gave people like you; the employers ca
   assert.equal(employersCard({at: 'x', for_you: []}), null);
 });
 
-test('the Few new jobs box: an employers meter with one recommendation, words as chips, sources and sites as rows', async () => {
+test('the Few new jobs box: employer numbers with one recommendation, words as rows, sources and sites as rows', async () => {
   const {fewJobsGroups} = await import('../renderer/coverage-actions.js');
   const verdict = {at: 'x', employers: {read: 21, matched: 3, pending: 14}, suggestions: [{term: 'social media', count: 31}], narrow: true,
     sources: [{id: 'aggregators', name: 'Adzuna and Jooble', effort: 'Two free keys, about 3 minutes', gain: 'all trades', people: ''}],
     visits: [{name: 'LinkedIn', url: 'https://www.linkedin.com/jobs/search/?keywords=x', kind: 'portal', why: 'no way in but your own visit', last_read: null}]};
   const groups = fewJobsGroups(verdict);
   assert.equal(groups.employers.dry, true, '3 of 21 with a match: running dry');
-  assert.equal(groups.employers.next, '14 employer ideas not tried yet · Find new employers tries up to 40 a run (3 minutes)');
+  assert.equal(groups.employers.explore, 'Checks up to 40 employer ideas per run · About 3 min');
+  assert.deepEqual(groups.words.map(action => [action.row.title, action.row.sub, action.row.button, action.row.review]),
+    [['Add "social media" to your role words', '31 postings in your places your role words miss', 'Review role word', 'coverage']]);
   assert.equal(groups.employers.fill, 14);
   assert.deepEqual(groups.sources.map(row => [row.name, row.sub]), [['Adzuna and Jooble', 'Two free keys, about 3 minutes']]);
   assert.deepEqual(groups.visits.map(row => [row.name, row.sub]), [['LinkedIn', 'your search']]);
   assert.ok(groups.words.every(action => !['source', 'visit'].includes(action.kind)), 'sources and sites are rows, not chips');
   assert.equal(fewJobsGroups({at: 'x'}).employers, null, 'no counts yet: no meter');
-  assert.match(fewJobsGroups({employers: {read: 10, matched: 6, pending: 0}}).employers.next, /every idea tried/);
+  assert.match(fewJobsGroups({employers: {read: 10, matched: 6, pending: 0}}).employers.explore, /Every idea tried/);
+  // One company on two pages is one site in the count; both pages are read.
+  const twice = fewJobsGroups({visits: [{name: 'Tiffany & Co.', url: 'https://www.tiffany.com', kind: 'employer', why: 'x'},
+    {name: 'Tiffany & Co.', url: 'https://www.tiffanycareers.com', kind: 'employer', why: 'x'}, {name: 'Rolex', url: 'https://www.rolex.com', kind: 'employer', why: 'x'}]});
+  assert.deepEqual([twice.siteNames, twice.visits.length], [['Tiffany & Co.', 'Rolex'], 3]);
 });
 
 test('every button Recent activity redraws that waits on something keeps its busy and done state (one mechanism; a new one without it fails here)', () => {
@@ -73,8 +79,8 @@ test('Your employers says how many searches are left before they rest, and what 
   const {fewJobsGroups, runwayWords} = await import('../renderer/coverage-actions.js');
   const soon = {resting: 0, until: null, soon: {runs: 2, count: 242}, rest_after: 5, rest_days: 7};
   const groups = fewJobsGroups({employers: {read: 252, matched: 3, pending: 609, batch: 100, runway: soon}});
-  assert.equal(groups.employers.runway, '2 more searches with nothing new, then 242 of 252 employers rest for 7 days (nothing for you 5 times in a row)');
-  assert.equal(groups.employers.next, '609 employer ideas not tried yet · Find new employers tries up to 100 a run (3 minutes)');
+  assert.equal(groups.employers.runway, 'If the next 2 searches find nothing new for them, 242 of 252 employers rest for 7 days. An employer rests after 5 searches in a row with nothing for you.');
+  assert.equal(groups.employers.explore, 'Checks up to 100 employer ideas per run · About 3 min');
   assert.match(runwayWords({resting: 242, until: '2026-10-14T03:00:00+00:00', soon: null, rest_after: 5, rest_days: 7}, 252),
     /^242 of 252 employers resting until 14 Oct: Find new employers to keep searching$/);
   assert.equal(runwayWords(null, 252), '');
