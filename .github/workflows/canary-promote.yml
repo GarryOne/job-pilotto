@@ -1,4 +1,6 @@
-name: Release · Soak and promote
+name: Release · Promote to stable
+# Each run says what it did (owner, 7 Oct 2026: "I don't see stable in this name"): a hot path names the tag it made stable.
+run-name: ${{ inputs.force_tag && format('Hot path · {0} to stable', inputs.force_tag) || github.event_name == 'schedule' && 'Soak check · beta to stable' || 'Promote to stable (dry run)' }}
 
 # The last stretch before stable (2 Oct 2026 pipeline, soak added 4 Oct). With the repository variable JOB_PILOTTO_SOAK = on, e2e.yml no longer promotes a build the moment
 # it passes: it APPROVES it for beta testers (tools/beta-approve.sh), and this workflow decides when it becomes stable, every 8 hours:
@@ -93,7 +95,7 @@ jobs:
           status=0
           out=$(python3 tools/canary_promote.py "${args[@]}" 2>&1) || status=$?
           echo "$out"
-          { echo "### Soak and promote"; echo; echo "$note"; echo; echo '```'; echo "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "### Promote to stable"; echo; echo "$note"; echo; echo '```'; echo "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           echo "$out" > decision.txt
           exit "$status"
       - name: A canary that stays unproven for 5 days needs a person
@@ -107,7 +109,7 @@ jobs:
             existing=$(gh issue list -R "$REPO" --label release-decision --state open --search "$tag in:title" --json number -q '.[0].number // empty')
             if [ -z "$existing" ]; then
               gh issue create -R "$REPO" --label release-decision --title "Release candidate $tag is still unproven after $age_days days" \
-                --body $'It will be dropped at 7 days. Why it waits is in the latest run of the "Release · Soak and promote" workflow.\n\nOptions: wait; promote it by hand with force_tag and force_reason (hot path); or drop it.'
+                --body $'It will be dropped at 7 days. Why it waits is in the latest run of the "Release · Promote to stable" workflow.\n\nOptions: wait; promote it by hand with force_tag and force_reason (hot path); or drop it.'
             fi
           fi
       - name: Label the releases (STABLE / BETA / Build / Previous stable) and update the pinned "Release channels" issue
