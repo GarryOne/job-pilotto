@@ -111,6 +111,76 @@ export async function closeLost(storage, startedAt, reason, {fetcher, size = 25,
   return closed;
 }
 
+// ---- Runs made on this Mac that never got a row (before Notion was connected, or a row write that failed) -> ⏱️ Search runs ----
+// 7 Oct 2026: runs made while trying the app stayed only in runs.json (listed by merge(), never in Notion or Telegram /status). Each
+// finished local run with no row is written as the engine would have (src/notion/cron_runs.py run_page + extra_blocks); a row of the
+// same kind that started within 3 minutes is taken as its own instead (its "Cronjob run logged" line was lost). A GitHub run writes its own.
+const MODE = {...Object.fromEntries(Object.entries(KIND).filter(([mode]) => !['scheduled', 'first'].includes(mode)).map(([mode, kind]) => [kind, mode])), interviewInsight: 'insight'};
+const LOG_LINES = 80;
+const rich = value => ({rich_text: value ? [{text: {content: String(value).slice(0, 1900)}}] : []});
+const block = (type, content) => ({object: 'block', type, [type]: rich(content)});
+
+// -> {properties, children} of the row for one local run (record as pipeline.js tracked() keeps it).
+export function localRow(run, name = kind => kind) {
+  const search = run.kind === 'search';
+  const fresh = search && run.new != null ? (run.new ? `${run.new} new job${run.new === 1 ? '' : 's'}` : 'nothing new') : null;
+  const why = [...(run.log || [])].reverse().find(line => /\bfailed:\s*\S/i.test(line));   // tracked() logs "<task> failed: <error>"
+  const summary = run.ok ? (run.summary || run.problem || fresh || 'Done') : (run.problem || run.summary || why || `${name(run.kind)} failed`);
+  const warned = run.ok && (run.problem || run.warnings?.length);
+  const properties = {
+    Run: {title: [{text: {content: `${name(run.kind)} · on this Mac`}}]},
+    Started: {date: {start: run.startedAt}},
+    'Duration (s)': {number: Math.max(0, Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000))},
+    Mode: {select: {name: MODE[run.kind]}},
+    Trigger: {select: {name: run.trigger === 'schedule' ? 'Mac schedule' : 'Mac (you)'}},
+    Status: {select: {name: !run.ok ? 'Failed' : warned ? 'Warnings' : 'OK'}},
+    'AI cost (USD)': {number: Math.round((run.usd || 0) * 10000) / 10000},
+    Summary: rich(fresh && run.ok && !run.summary ? `${fresh}.` : summary),
+    ...(search && run.new != null ? {'New jobs': {number: run.new}} : {}),
+    ...(search && run.feeds != null ? {Feeds: {number: run.feeds}} : {}),
+    ...(run.runId ? {'Run id': rich(run.runId)} : {}),
+  };
+  const lines = (run.log || []).slice(-LOG_LINES);
+  const message = String(run.message || '').split('\n').filter(line => line.trim()).slice(0, 40);
+  const children = [block('heading_3', 'Report'), block('bulleted_list_item', summary),
+    block('paragraph', 'Run on this Mac before this database had it (Notion not yet connected, or its row could not be written); copied from the app.'),
+    ...(message.length ? [block('heading_3', 'Result'), ...message.map(line => block('paragraph', line))] : []),
+    ...(lines.length ? [{object: 'block', type: 'toggle', toggle: {...rich(`Technical log (last ${lines.length} lines)`),
+      children: Array.from({length: Math.ceil(lines.length / 25)}, (_, i) => ({object: 'block', type: 'code',
+        code: {language: 'plain text', ...rich(lines.slice(i * 25, i * 25 + 25).join('\n'))}}))}}] : [])];
+  return {properties, children: children.slice(0, 95)};
+}
+
+// Writes the rows; `runs`/`save` read and write runs.json (pipeline.runs / saveRuns), `name` a task's name. Each run written (or matched)
+// gets its row's notionUrl at once, so merge() shows it once and a retry never writes it twice. -> {written, linked, failed, skipped}
+export async function copyLocal(storage, {fetcher, runs, save, name, windowMs = 3 * 60 * 1000} = {}) {
+  const token = storage.secret('NOTION_TOKEN'), db = ids(storage).NOTION_CRON_RUNS_DB;
+  const out = {written: 0, linked: 0, failed: 0, skipped: 0};
+  if (!token || !db) return out;
+  const wanted = runs().filter(run => !run.notionUrl && !run.url && run.endedAt && run.startedAt);
+  for (const run of wanted) {
+    if (!MODE[run.kind]) { out.skipped++; continue; }   // a kind with no Mode in Notion: stays listed from runs.json
+    try {
+      const at = Date.parse(run.startedAt);
+      const {results = []} = await call(token, 'POST', `databases/${db}/query`, {page_size: 5, filter: {and: [
+        {property: 'Mode', select: {equals: MODE[run.kind]}},
+        {property: 'Started', date: {on_or_after: new Date(at - windowMs).toISOString()}},
+        {property: 'Started', date: {on_or_before: new Date(at + windowMs).toISOString()}}]}}, fetcher);
+      let url = results[0]?.url;
+      if (url) out.linked++;
+      else {
+        const {properties, children} = localRow(run, name);
+        url = (await call(token, 'POST', 'pages', {parent: {database_id: db}, properties, children}, fetcher)).url;
+        out.written++;
+      }
+      save(runs().map(other => other.id === run.id ? {...other, notionUrl: url} : other));   // read again: a run may have ended meanwhile
+    } catch {
+      out.failed++;   // retried next start (migrate.js); the count goes to the log
+    }
+  }
+  return out;
+}
+
 // A run's page: what it produced (under "Result") and its technical log (the toggle's code blocks).
 export async function detail(storage, pageId, {fetcher} = {}) {
   const token = storage.secret('NOTION_TOKEN');

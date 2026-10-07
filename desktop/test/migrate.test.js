@@ -139,3 +139,88 @@ test('strategy from this Mac runs after the workspace step and before the steps 
   assert.ok(at < names.indexOf('profile copies'));
   assert.ok(at < names.indexOf('search settings'));
 });
+
+// ---- Runs made on this Mac before Notion was connected reach ⏱️ Search runs (7 Oct 2026) ----
+test('runs from this Mac: each finished local run with no Notion row gets one, once per database; Recent activity then shows it once', async () => {
+  const names = migrate.STEPS.map(s => s.name);
+  assert.ok(names.indexOf('workspace') < names.indexOf('runs from this Mac'));
+  const stepRuns = migrate.STEPS.find(s => s.name === 'runs from this Mac');
+  const storage = connected();
+  const at = Date.parse('2026-10-05T09:00:00Z');
+  const local = [
+    {id: at, kind: 'search', trigger: 'you', startedAt: '2026-10-05T09:00:00.000Z', endedAt: '2026-10-05T09:04:10.000Z', ok: true, notionUrl: null,
+      runId: 'r-1', new: 3, usd: 0.12, log: ['Crawling…', 'Done: 3 new'], message: '3 new jobs'},
+    {id: at + 3600e3, kind: 'mail', trigger: 'schedule', startedAt: '2026-10-05T10:00:00.000Z', endedAt: '2026-10-05T10:00:30.000Z', ok: false, notionUrl: null,
+      log: ['Gmail check failed: token expired'], summary: null},
+    {id: at + 7200e3, kind: 'scout', trigger: 'you', startedAt: '2026-10-05T11:00:00.000Z', endedAt: '2026-10-05T11:02:00.000Z', ok: true, notionUrl: null,
+      summary: 'checked 12 · 🆕 2 new sources', log: []},   // a row already exists for it (written, but the link line was lost): linked, not copied
+    {id: at + 9000e3, kind: 'kits', trigger: 'you', startedAt: '2026-10-05T11:30:00.000Z', endedAt: '2026-10-05T11:31:00.000Z', ok: true,
+      notionUrl: 'https://www.notion.so/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', summary: 'Drafted 2 kits', log: []},   // already in Notion
+    {id: at + 9500e3, kind: 'search', trigger: 'you', startedAt: '2026-10-05T11:40:00.000Z', ok: true, notionUrl: null, url: 'https://github.com/u/r/actions/runs/1', log: []},   // a GitHub run writes its own
+    {id: at + 9900e3, kind: 'search', trigger: 'you', startedAt: '2026-10-05T11:50:00.000Z', notionUrl: null, log: []},   // never ended
+  ];
+  storage.writeText('runs.json', JSON.stringify(local));
+  const created = [], queries = [];
+  const fetcher = async (url, init) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (url.endsWith('/query')) {
+      queries.push(body);
+      const scout = body.filter.and.some(f => f.select?.equals === 'scout');
+      return Response.json({results: scout ? [{id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', url: 'https://www.notion.so/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        properties: {Started: {date: {start: '2026-10-05T11:01:00.000Z'}}}}] : []});
+    }
+    const n = created.push(body);
+    return Response.json({id: `c${n}`, url: `https://www.notion.so/${String(n).padStart(32, 'c')}`, ...body});
+  };
+  assert.equal(await stepRuns.run(storage, fetcher), false);   // no Search runs database yet: nothing to do
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'p', NOTION_CRON_RUNS_DB: 'runs-1'}});
+  assert.equal(await stepRuns.run(storage, fetcher), true);
+  assert.equal(created.length, 2);
+  const [search, mail] = created.map(body => body.properties);
+  assert.equal(created[0].parent.database_id, 'runs-1');
+  assert.equal(search.Mode.select.name, 'run');
+  assert.equal(search.Trigger.select.name, 'Mac (you)');
+  assert.equal(search.Status.select.name, 'OK');
+  assert.equal(search.Started.date.start, '2026-10-05T09:00:00.000Z');
+  assert.equal(search['Duration (s)'].number, 250);
+  assert.equal(search['New jobs'].number, 3);
+  assert.equal(search['AI cost (USD)'].number, 0.12);
+  assert.equal(search['Run id'].rich_text[0].text.content, 'r-1');
+  assert.equal(mail.Mode.select.name, 'mail');
+  assert.equal(mail.Trigger.select.name, 'Mac schedule');
+  assert.equal(mail.Status.select.name, 'Failed');
+  assert.equal(mail.Summary.rich_text[0].text.content, 'Gmail check failed: token expired');   // why, from its log
+  const toggle = created[0].children.find(block => block.type === 'toggle');
+  assert.match(toggle.toggle.rich_text[0].text.content, /^Technical log/);
+  assert.match(toggle.toggle.children[0].code.rich_text[0].text.content, /Done: 3 new/);
+  // Each local run now points at its row: the activity list shows one entry per run, from Notion, with the run's own result.
+  const after = JSON.parse(storage.readText('runs.json'));
+  assert.equal(after[0].notionUrl, 'https://www.notion.so/' + '1'.padStart(32, 'c'));
+  assert.equal(after[2].notionUrl, 'https://www.notion.so/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+  assert.equal(after[4].notionUrl, null);
+  assert.equal(after[5].notionUrl, null);
+  const {fromRow, merge} = await import('../lib/run-history.js');
+  const rows = created.map((body, i) => fromRow({id: `c${i + 1}`, url: after[i].notionUrl, created_time: body.properties.Started.date.start, properties: body.properties}));
+  const shown = merge(rows, after.slice(0, 2)).runs;
+  assert.equal(shown.length, 2);
+  assert.equal(shown.find(r => r.kind === 'search').result, '3 new jobs');
+  // Once per database: a second start writes nothing; another workspace's database gets what never reached one.
+  assert.equal(await stepRuns.run(storage, async () => { throw new Error('must not run again'); }), false);
+  assert.equal(storage.settings().runsSyncedTo, 'runs-1');
+});
+
+test('runs from this Mac: a row Notion refuses is retried next start, and the ones written are not written twice', async () => {
+  const stepRuns = migrate.STEPS.find(s => s.name === 'runs from this Mac');
+  const storage = connected();
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'p', NOTION_CRON_RUNS_DB: 'runs-1'}});
+  const run = (id, kind) => ({id, kind, trigger: 'you', startedAt: new Date(id).toISOString(), endedAt: new Date(id + 1000).toISOString(), ok: true, notionUrl: null, summary: 'x', log: []});
+  storage.writeText('runs.json', JSON.stringify([run(2e12, 'insight'), run(2e12 + 600e3, 'weekly')]));
+  let made = 0;
+  const flaky = refuse => async (url, init) => url.endsWith('/query') ? Response.json({results: []})
+    : JSON.parse(init.body).properties.Mode.select.name === refuse ? new Response('{"message":"bad"}', {status: 400}) : Response.json({id: `c${++made}`, url: `https://www.notion.so/${String(made).padStart(32, 'c')}`});
+  await assert.rejects(stepRuns.run(storage, flaky('weekly')), /1 of 2 runs could not be written/);
+  assert.equal(storage.settings().runsSyncedTo, undefined);
+  assert.equal(await stepRuns.run(storage, flaky('none')), true);
+  assert.equal(made, 2);   // the insight once, the weekly report on the retry
+  assert.equal(storage.settings().runsSyncedTo, 'runs-1');
+});

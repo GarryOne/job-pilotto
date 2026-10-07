@@ -8,6 +8,7 @@ import * as knowledge from './knowledge.js';
 import {log} from './log.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
+import * as runHistory from './run-history.js';
 import * as schema from './schema.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
@@ -74,6 +75,18 @@ export const STEPS = [
     if (code !== 0) throw new Error('could not write the employers to Notion');
     storage.saveSettings({employersSyncedTo: db});
     return !/^Employers: 0 written/m.test(stdout);
+  }},
+  // Runs made on this Mac with no ⏱️ Search runs row (trying the app before Notion, a row write that failed): written once per database
+  // (run-history.js copyLocal), after 'workspace' creates it. 7 Oct 2026: they were listed in Recent activity (f9a5a38) but never reached Notion.
+  {name: 'runs from this Mac', run: async (storage, fetcher, deps = {}) => {
+    const db = storage.settings().notionIds?.NOTION_CRON_RUNS_DB;
+    if (!db || storage.settings().runsSyncedTo === db) return false;
+    const runs = deps.runs || (() => pipeline.runs(storage)), save = deps.save || (list => pipeline.saveRuns(storage, list));
+    const done = await runHistory.copyLocal(storage, {fetcher, runs, save, name: pipeline.taskName});
+    log('migrate', 'runs from this Mac copied to Search runs', {...done, decidedBy: 'migrate.runs from this Mac'});
+    if (done.failed) throw new Error(`${done.failed} of ${done.failed + done.written + done.linked} runs could not be written`);
+    storage.saveSettings({runsSyncedTo: db});
+    return done.written + done.linked > 0;
   }},
   // Origin (Inbound / Outbound) on rows tracked before the column existed, from the derived rule (src/notion/origin.py),
   // once. After 'workspace', which adds the column; rows that have an Origin are never touched.
