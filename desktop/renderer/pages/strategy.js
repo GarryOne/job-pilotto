@@ -389,11 +389,14 @@ function drawSuggestions() {
 }
 // One row: icon, title, a line on what it is, Review (opens the options) and ⋯ (hide). options: [{label, preview, button, run(button)}].
 // Ids kept from the banners (#strategy-foryou, #foryou-chips…): the e2e suites and the late-shift watch find them by these.
+// Each row's id and its options' list, written out: the e2e suites (foryou) and the push check look for these words.
+const ROW_IDS = {coverage: ['strategy-coverage', 'coverage-chips'], places: ['strategy-places', 'places-chips'], filters: ['strategy-filters', 'filters-chips'],
+  sources: ['strategy-sources', 'sources-chips'], visits: ['strategy-visits', 'visits-chips'], foryou: ['strategy-foryou', 'foryou-chips'], ideas: ['strategy-ideas', 'ideas-chips']};
 function suggestionRow({kind, id, glyph, title, summary, text, options, hidden = [], hiddenLabel = '', review = 'Review', menu}) {
   const row = el('div', 'suggestion-row');
-  row.id = `strategy-${id}`;
+  row.id = ROW_IDS[id][0];
   const detail = el('div', 'suggestion-detail');
-  detail.id = `${id}-detail`;
+  detail.id = `${ROW_IDS[id][0]}-detail`;
   detail.hidden = true;
   const toggle = el('button', 'secondary', review);
   toggle.type = 'button';
@@ -415,7 +418,7 @@ function suggestionRow({kind, id, glyph, title, summary, text, options, hidden =
     return line;
   };
   const chips = el('div', 'option-list');
-  chips.id = `${id}-chips`;
+  chips.id = ROW_IDS[id][1];
   chips.append(...options.map(optionRow));
   detail.append(el('p', 'muted small', text), chips);
   if (hidden.length) {
