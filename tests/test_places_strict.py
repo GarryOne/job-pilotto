@@ -32,6 +32,21 @@ class PlacesTests(unittest.TestCase):
             self.assertTrue(feeds.wanted_location({'location': 'Lausanne', 'remote': True}))
 
 
+    def test_no_remote_jobs_when_the_settings_say_no(self):
+        self.assertFalse(feeds.remote_wanted({'remote_jobs': ['No']}))
+        self.assertTrue(feeds.remote_wanted({'remote_jobs': ['Yes']}))
+        self.assertTrue(feeds.remote_wanted({}), 'a page without the heading keeps remote jobs')
+        with mock.patch.object(feeds, 'PLACE', ROMANDIE), mock.patch.object(feeds, 'REMOTE_WANTED', False):
+            for where in ('Remote', 'Remote, Europe', 'Anywhere'):
+                self.assertFalse(feeds.wanted_location({'location': where, 'remote': True}), where)
+            self.assertTrue(feeds.wanted_location({'location': 'Lausanne (hybrid, remote 2 days)', 'remote': True}), 'in your places')
+
+    def test_the_settings_page_reads_remote_jobs(self):
+        from src.notion import search_settings
+        values = search_settings.parse('Format 2\n## Remote jobs\n- No\n')
+        self.assertEqual(values[('search', ('remote_jobs',))], ['No'])
+
+
 class ClosedOutsideTests(unittest.TestCase):
     def test_jobs_outside_the_places_close_and_the_ones_you_touched_stay(self):
         with tempfile.TemporaryDirectory() as tmp, store.connect(Path(tmp) / 'jobs.sqlite') as db:
@@ -83,6 +98,7 @@ class CutListTests(unittest.TestCase):
             result = desktop.jobs(sqlite3.connect(':memory:'), limit=4, notion_jobs=rows)
         self.assertEqual((len(result['jobs']), result['total']), (4, 10))
         self.assertEqual(result['week_beyond'], 3, 'rows 5, 7 and 9 are new and not sent')
+        self.assertEqual(result['review_beyond'], 6, 'the Jobs badge counts the 6 unsent jobs to review')
 
 
 if __name__ == '__main__':

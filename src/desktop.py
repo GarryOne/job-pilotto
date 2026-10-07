@@ -125,6 +125,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     # this week" of 1,335). Rows past `limit` are unscored or low-fit job matches, never applications.
     week = (datetime.now(timezone.utc) - timedelta(days=7)).date().isoformat()
     return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked),
+            'review_beyond': sum(1 for r in rows[limit:] if r['status'] == 'unreviewed'),   # the Jobs badge counts them too
             'week_beyond': sum(1 for r in rows[limit:] if r['status'] != 'applied' and (r.get('first_seen_at') or '')[:10] >= week)}
 
 

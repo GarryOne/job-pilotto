@@ -893,7 +893,7 @@ function showJobsData(data) {
     $('stat-inbound').textContent = inboundCount(shared.allJobs);
     // The menu item counts the list as it opens ("New matches"), the number the list bar shows too. "New this week" is
     // a delta, not how many jobs there are: it goes in the tooltip and the line above the cards instead of the badge.
-    const toReviewCount = toReview(shared.allJobs);
+    const toReviewCount = toReview(shared.allJobs) + (data.review_beyond || 0);   // with the rows not loaded (a cut list)
     Object.assign($('nav-jobs-badge'), {hidden: !toReviewCount, textContent: toReviewCount,
       title: `${toReviewCount} job${toReviewCount === 1 ? '' : 's'} to review · ${count.week} new this week`});
     $('stat-companies').textContent = count.companies;

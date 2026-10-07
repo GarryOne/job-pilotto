@@ -110,11 +110,22 @@ def plain(text):
     return "".join(c for c in unicodedata.normalize("NFKD", text or "") if not unicodedata.combining(c))
 
 
+def remote_wanted(search=None):
+    """False when the settings' "Remote jobs" says no (7 Oct 2026: a photographer and shop seller wants jobs in Geneva and Lausanne only)."""
+    said = [str(v).strip().lower() for v in ((search or _SEARCH).get('remote_jobs') or [])]
+    return not any(v in ('no', 'non', 'nein', 'none', 'never', 'off', 'false') for v in said)
+
+
+REMOTE_WANTED = remote_wanted()
+
+
 def wanted_location(job):
-    """One of your preferred places (config/search.json), or remote that isn't limited elsewhere."""
+    """One of your preferred places (config/search.json), or remote that isn't limited elsewhere (unless you want no remote jobs)."""
     where = job.get("location") or ""
     if PLACE.search(where) or PLACE.search(plain(where)):
         return True
+    if not REMOTE_WANTED:
+        return False
     said = re.search(_REMOTE_SYNONYMS, where, re.I)
     # A posting whose place is only a city elsewhere is based there, even when its feed flags it remote (7 Oct 2026: "London" and "Singapore"
     # account executive jobs reached a Geneva search). One that says remote in its place ("Remote, Germany") is judged by the regions you skip.
