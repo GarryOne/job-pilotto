@@ -21,3 +21,11 @@ test('the warnings box is not opened for it (the card explains), the header says
   assert.match(js, /const warnedOnly = !warnings\.length && !run\?\.live && !!run\?\.warned && !head;/);
   assert.match(js, /run\.warned \|\| partialResult\(run\)\) \? \['Completed with warnings', 'warn'\]/);
 });
+
+test('a browser run that read some of its sites is "With warnings", not "Completed"; all read, or none, is not partial (owner, 8 Oct 2026)', () => {
+  const run = message => ({ok: true, kind: 'visits', message});
+  assert.ok(partialResult(run('🌐 Sites read\nRead 2 of 4 sites · 8 jobs (8 new) · 0 matching your search')));
+  assert.deepEqual(runStatus(run('🌐 Sites read\nRead 2 of 4 sites · 8 jobs (8 new)'), runWarned(run('🌐 Sites read\nRead 2 of 4 sites · 8 jobs (8 new)'))), ['With warnings', 'warn']);
+  assert.ok(!partialResult(run('🌐 Sites read\nRead 4 of 4 sites · 30 jobs (2 new)')));
+  assert.ok(!partialResult(run('🌐 Sites read\nRead 1 of 1 site · 3 jobs (3 new)')));
+});

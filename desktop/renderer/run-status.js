@@ -3,7 +3,9 @@ import {AI_BUSY, isSpendingLimit, runWarningLines} from './run-warnings.js';
 
 // A finished run that worked but said something (its row's Status, or a warning line in its log or report).
 // A run that made only part of what it set out to (Tailor CVs: "3 of 5 tailored · 2 failed"): its card says which; its pill says With warnings.
-export const partialResult = run => { const m = /(\d+) of (\d+) (?:tailored|drafted)/.exec(String(run?.message || '')); return !!m && Number(m[1]) < Number(m[2]); };
+// A run that did part of its work: "3 of 5 tailored", "drafted", and a browser run's "Read 2 of 4 sites" (owner, 8 Oct 2026: it read "Completed"
+// with two sites failed). Amber "With warnings", not green.
+export const partialResult = run => { const m = /(\d+) of (\d+) (?:tailored|drafted|sites?\b)/.exec(String(run?.message || '')); return !!m && Number(m[1]) < Number(m[2]); };
 export const runWarned = run => !!run && !run.live && !run.waiting && !!run.ok && !run.off && (!!run.warned || runWarningLines(run).length > 0 || !!deliveryHead(run) || partialResult(run));
 
 // The title of the toast when a run ends: a run that worked but warned is not "done" with a green check, the detail pane says "Completed with warnings" (#276).

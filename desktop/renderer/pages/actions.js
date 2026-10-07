@@ -2,6 +2,7 @@
 import {shared} from './shared.js';
 import {COMMAND_KIND, openActivity, refreshActivity} from './activity.js';
 import {$, message, show} from './core.js';
+import {el} from '../components.js';
 import {openCvChange, showCvChanged} from './cv-change.js';
 import {openView} from './nav.js';
 import {showStatusCard} from './runs-page.js';
@@ -102,8 +103,14 @@ export async function init() {
   };
   const paintVisits = async () => {
     visitsLoading = true;
-    $('visits-lead').textContent = 'Reading your sites… (Claude checks which suit your roles, a few seconds)';
+    $('visits-lead').textContent = 'The sites to read in your browser';
     for (const id of ['visits-start', 'visits-all', 'visits-none']) $(id).disabled = true;
+    // While the list loads (Claude picks the sites that suit your roles, ~5 s): the Jobs list's loading look in the empty list, not a blank
+    // dialog (owner, 8 Oct 2026). The list it replaces is not kept: it may be another run's.
+    const loading = el('li', 'list-loading');
+    loading.append(el('span', 'spinner'), el('div', '', 'Finding your sites…'), el('div', 'muted small', 'Claude checks which suit your roles, a few seconds'));
+    $('visits-sites').replaceChildren(loading);
+    for (const id of ['visits-unread-h', 'visits-unread']) $(id).hidden = true;
     const [answer, stuck] = await Promise.all([window.pilot.visitsList().catch(() => null), window.pilot.visitsStuck().catch(() => null)]);
     visitsLoading = false;
     // Run again on a run: its sites, not this week's default (pages/activity.js, renderer/visits-card.js rerunSites)
