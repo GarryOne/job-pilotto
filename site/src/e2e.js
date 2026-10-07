@@ -7,7 +7,7 @@ import {remember} from './stats.js';
 
 // desktop.yml is the release run (7 Oct 2026): it calls both e2e workflows as its gates, so one run holds a Mac + Linux gate and a Windows gate (releaseGates below).
 const WORKFLOWS = [{file: 'e2e.yml', os: ''}, {file: 'e2e-windows.yml', os: 'Windows'}, {file: 'desktop.yml', release: true}];
-const GATES = [{prefix: 'Test · Mac + Linux / ', os: ''}, {prefix: 'Test · Windows / ', os: 'Windows'}];
+const GATES = [{prefix: 'E2E · Mac + Linux / ', os: ''}, {prefix: 'E2E · Windows / ', os: 'Windows'}];
 const NOT_SUITES = new Set(['plan', 'promote', 'promote-dry-run', 'Windows follows', 'approve-windows', 'HTML report', 'Windows HTML report']);
 const RUNS = 10;
 const REPORT = 'e2e-report';   // the run's merged Playwright HTML report (the workflows' report job)
@@ -31,7 +31,7 @@ export function suiteRows(jobs = [], artifacts = [], os = '') {
   }).sort((a, b) => (b.conclusion === 'failure') - (a.conclusion === 'failure') || a.name.localeCompare(b.name));   // failed first
 }
 
-// A release run's jobs -> its gates, each as the e2e runs list draws a run: the called workflow's jobs, named "Test · Windows / <job>", with the prefix taken off.
+// A release run's jobs -> its gates, each as the e2e runs list draws a run: the called workflow's jobs, named "E2E · Windows / <job>", with the prefix taken off.
 // A gate that never started (a build only, a night with nothing new) is left out. The gate's verdict is its own jobs', not the release run's (a red Windows gate is not a red Mac one).
 export function releaseGates(jobs = []) {
   return GATES.map(({prefix, os}) => {

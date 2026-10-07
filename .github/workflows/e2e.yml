@@ -1,7 +1,7 @@
 name: CI · End-to-end on Mac + Linux
 
 # The real Job Pilotto app, driven by Playwright on a macOS runner, one suite per Notion test page (desktop/e2e/README.md). It does two jobs, on two clocks:
-#  1. RELEASE GATE. The release run (desktop.yml, "Release · Build, test, beta") calls this workflow as its "Test · Mac + Linux" job right after the build (7 Oct 2026: one run
+#  1. RELEASE GATE. The release run (desktop.yml, "Release · Build, test, beta") calls this workflow as its "E2E · Mac + Linux" job right after the build (7 Oct 2026: one run
 #     per release, build -> test -> approve, instead of three runs chained by triggers). It runs EVERY gate suite on the build's commit -> when all pass (and build.yml is green
 #     on the commit) the `promote` job approves the build for Mac beta testers (JOB_PILOTTO_SOAK = on; canary-promote.yml then soaks it and promotes) or makes it stable (soak off).
 #     The release run then calls e2e-windows.yml with the same suites: the Windows approval. Red: nothing is approved on that platform.
@@ -12,7 +12,7 @@ name: CI · End-to-end on Mac + Linux
 #     The AI review of screenshots (the costly part) runs when the UI or its tests changed, a finding waits, or the run is exploring. A push to main runs NO e2e (decided: e2e never runs on commit); by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
-run-name: ${{ inputs.scheduled && 'Scheduled e2e · on time (Worker cron)' || inputs.mutant && format('Mutant {0}', inputs.mutant) || inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Beta E2E tests {0}', inputs.gate_tag) || format('E2E Mac + Linux · {0} · {1}', inputs.suite || 'all suites', github.ref_name) }}   # a run by hand says which suites (owner, 7 Oct 2026). Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' for gate 4. Called by the release run (desktop.yml), this run-name is not used: the jobs show as "Test · Mac + Linux / <job>"
+run-name: ${{ inputs.scheduled && 'Scheduled e2e · on time (Worker cron)' || inputs.mutant && format('Mutant {0}', inputs.mutant) || inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Beta E2E tests {0}', inputs.gate_tag) || format('E2E Mac + Linux · {0} · {1}', inputs.suite || 'all suites', github.ref_name) }}   # a run by hand says which suites (owner, 7 Oct 2026). Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' for gate 4. Called by the release run (desktop.yml), this run-name is not used: the jobs show as "E2E · Mac + Linux / <job>"
 
 on:
   workflow_dispatch:
@@ -50,7 +50,7 @@ on:
         required: false
   schedule:
     - cron: '47 9,13,17 * * *'   # 11:47, 15:47, 19:47 in Zurich in summer (the UI loop's producer, ui-findings.yml, follows each run)
-  # The release run (desktop.yml) calls this as its "Test · Mac + Linux" job, right after it built the release (7 Oct 2026). GitHub names the jobs "Test · Mac + Linux / <job>"
+  # The release run (desktop.yml) calls this as its "E2E · Mac + Linux" job, right after it built the release (7 Oct 2026). GitHub names the jobs "E2E · Mac + Linux / <job>"
   # and uses the CALLER's event (schedule, workflow_dispatch): the gate is told by gate_tag, never by the event.
   workflow_call:
     inputs:
@@ -361,60 +361,26 @@ jobs:
         if: steps.merge.outputs.made == '1'
         run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
-  # The release gate (the release run's "Test · Mac + Linux", or a gate by hand): every suite passed on the build's commit, and so did build.yml.
+  # The release step of a gate by hand (gh workflow run e2e.yml -f gate_tag=<tag>): beta-approve.yml, the same job the release run (desktop.yml) shows as its own
+  # "Release · Mac beta" step after "E2E · Mac + Linux" (release_run: not here, so it is not done twice).
   promote:
     needs: [plan, suite]
-    if: needs.plan.outputs.tag != '' && needs.suite.result == 'success'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    if: needs.plan.outputs.tag != '' && needs.suite.result == 'success' && !inputs.release_run
     permissions:
-      contents: write   # gh release edit (promote)
+      contents: write
       actions: read
-      issues: write     # block-check.mjs reads the UI-loop issues; tools/sync_release_labels.py rewrites the pinned Release channels issue (read-only failed it, 3 Oct 2026)
-    concurrency:
-      group: release-promote
-      cancel-in-progress: false
-    env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.plan.outputs.tag }}
-      REF: ${{ needs.plan.outputs.ref }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - name: No real high-severity finding in this run (layout check, or an AI finding already seen twice / confirmed)
-        working-directory: desktop/e2e
-        run: |
-          npm ci || npm install
-          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'e2e-artifacts-*' --dir ../../e2e-artifacts || echo "no artifacts to read"
-          mkdir -p ../../e2e-artifacts
-          status=0
-          node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
-          cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$status" != 0 ]; then echo "$TAG stays a pre-release: a real high-severity finding in its end-to-end run." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
-      - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
-        env:
-          JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
-        run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Approve the build for beta testers (soak on), or make it stable (soak off)
-        env:
-          E2E_ALREADY_GREEN: '1'   # every suite of this very run passed on this commit
-          SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
-        run: |
-          if [ "$SOAK" = on ]; then
-            tools/beta-approve.sh "$TAG"
-            echo "Beta-approved: $TAG (unit suites and every end-to-end suite passed on its commit). It becomes stable through canary-promote.yml: more end-to-end runs, no blocking finding, then healthy beta use." >> "$GITHUB_STEP_SUMMARY"
-          else
-            tools/release-stable.sh "$TAG"
-            echo "Stable: $TAG (every suite passed on its commit)" >> "$GITHUB_STEP_SUMMARY"
-          fi
+      issues: write
+    uses: ./.github/workflows/beta-approve.yml
+    with:
+      platform: mac
+      tag: ${{ needs.plan.outputs.tag }}
+      sha: ${{ needs.plan.outputs.ref }}
 
   # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.5.3 : what the promotion step would do for a release, changing nothing.
   windows:
     # The same suites on Windows (e2e-windows.yml), started here only when this run tested something, so Windows never runs empty; it skips a commit it
     # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. After a gate by hand it is the Windows beta gate (approve-windows), started
-    # whatever this run's result. In the release run (release_run) the Windows gate is the release run's own "Test · Windows" job: nothing to start here.
+    # whatever this run's result. In the release run (release_run) the Windows gate is the release run's own "E2E · Windows" job: nothing to start here.
     name: Windows follows
     needs: [plan, suite]
     # Windows only for the release gate, the schedule and a gate by hand (6 Oct 2026): a push run's Windows jobs held runner slots (20 at once, shared) while

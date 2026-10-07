@@ -1,4 +1,4 @@
-// What the Windows e2e (e2e-windows.yml) runs. In the release run (desktop.yml, "Test · Windows", GATE_TAG) the gate's own plan: plan-run.mjs planRun, exactly as the Mac + Linux
+// What the Windows e2e (e2e-windows.yml) runs. In the release run (desktop.yml, "E2E · Windows", GATE_TAG) the gate's own plan: plan-run.mjs planRun, exactly as the Mac + Linux
 // gate plans it (its suites, its AI review), so the Windows lane never waits for the Mac lane (7 Oct 2026).
 // After a scheduled Mac run (e2e.yml, job "Windows follows"), when it tested something: the same suites
 // on the same commit, with the AI screenshot review where the Mac run had it, so Windows has the Mac's coverage (4 Oct 2026: it ran 7 of 13

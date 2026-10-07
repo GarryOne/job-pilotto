@@ -1,9 +1,9 @@
 name: Release · Build, test, beta
 # ONE RUN PER RELEASE, ONE LANE PER PLATFORM (owner, 7 Oct 2026: three runs chained by triggers were hard to follow; then "2 parallel pipelines"):
-#   Anything new? -+- Build · Mac     -> Test · Mac + Linux (e2e.yml)    -+- Clean up old builds
-#                  +- Build · Windows -> Test · Windows (e2e-windows.yml) -+
-# Each lane builds, publishes its files to the one release, tests, and approves it for that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):",
-# desktop/lib/updater.js): a lane never waits for the other. The same suite on both platforms takes turns (it owns one Notion test page: concurrency group e2e-<suite>).
+#   Anything new? -+- Build · Mac     -> E2E · Mac + Linux (e2e.yml)    -> Release · Mac beta     (beta-approve.yml) -+- Clean up old builds
+#                  +- Build · Windows -> E2E · Windows (e2e-windows.yml) -> Release · Windows beta (beta-approve.yml) -+
+# Three distinct steps per lane (owner, 7 Oct 2026): Build publishes the files to the one pre-release (offered to nobody), E2E runs the gate suites on it, Release
+# offers it to that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):", desktop/lib/updater.js). A lane never waits for the other. The same suite on both platforms takes turns (it owns one Notion test page: concurrency group e2e-<suite>).
 # The run is red when a lane is red; that platform's testers are then not offered it.
 # Names: the Worker's cron (worker/src/scheduler.js) and GitHub's schedule start the "Nightly beta"; tools/beta-release.sh (-f beta=true) a "Beta by hand"; a plain
 # gh workflow run desktop.yml is a "Build only": built and published as a pre-release for trying, never tested here, offered to nobody.
@@ -290,7 +290,7 @@ jobs:
           gh release edit "desktop-v${VERSION}" --draft=false --prerelease
 
   # Build · Windows failed: the release carries the last working Windows installer, so the Windows download link of a release that becomes stable keeps working until a
-  # Windows build passes again. It is never approved for Windows (Test · Windows needs this run's own Windows build).
+  # Windows build passes again. It is never approved for Windows (E2E · Windows needs this run's own Windows build).
   mac-only:
     name: Windows fallback (last installer)
     needs: [changes, build, windows]
@@ -314,13 +314,13 @@ jobs:
 
   # TEST: each lane's release gate, as soon as its own build is done (7 Oct 2026). A nightly or a beta by hand only: a build by hand is for trying.
   test-mac:
-    name: Test · Mac + Linux
+    name: E2E · Mac + Linux
     needs: [changes, build]
     if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
     permissions:            # what e2e.yml's jobs ask for: a called workflow gets at most its caller job's permissions
-      contents: write       # promote: the "Beta-approved:" line
+      contents: write       # promote (skipped here: Release · Mac beta) asks for it, and a called workflow gets at most its caller job's permissions
       actions: write        # plan reads runs; "Windows follows" (skipped here) starts runs
-      issues: write         # block-check reads the UI-loop issues; the release scripts file one when something blocks
+      issues: write         # plan reads the UI-loop issues; promote (skipped here) asks for it
     uses: ./.github/workflows/e2e.yml
     with:
       gate_tag: desktop-v${{ needs.changes.outputs.version }}
@@ -329,24 +329,53 @@ jobs:
   # The Windows lane's gate: the gate suites, planned by itself (plan-windows.mjs, the same plan as the Mac + Linux gate), on the fixed path. Only after this run's own
   # Windows build: a release that carries an older .exe is never approved for Windows.
   test-windows:
-    name: Test · Windows
+    name: E2E · Windows
     needs: [changes, windows]
     if: needs.windows.result == 'success' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
     permissions:
-      contents: write       # approve-windows: the "Beta-approved (Windows):" line
-      actions: read         # plan, approve-windows: this run's artifacts and jobs
-      issues: write         # as test-mac
+      contents: write       # approve-windows (skipped here: Release · Windows beta) asks for it
+      actions: read         # plan reads runs
+      issues: write         # plan reads the UI-loop issues; approve-windows (skipped here) asks for it
     uses: ./.github/workflows/e2e-windows.yml
     with:
       sha: ${{ github.sha }}
       tag: desktop-v${{ needs.changes.outputs.version }}
     secrets: inherit
 
+  # RELEASE: the lane's E2E passed -> its beta testers are offered the build (beta-approve.yml: no real high-severity finding, unit suites green, then the notes' line).
+  release-mac:
+    name: Release · Mac beta
+    needs: [changes, test-mac]
+    if: needs.test-mac.result == 'success'
+    permissions:
+      contents: write
+      actions: read
+      issues: write
+    uses: ./.github/workflows/beta-approve.yml
+    with:
+      platform: mac
+      tag: desktop-v${{ needs.changes.outputs.version }}
+      sha: ${{ github.sha }}
+
+  release-windows:
+    name: Release · Windows beta
+    needs: [changes, test-windows]
+    if: needs.test-windows.result == 'success'
+    permissions:
+      contents: write
+      actions: read
+      issues: write
+    uses: ./.github/workflows/beta-approve.yml
+    with:
+      platform: windows
+      tag: desktop-v${{ needs.changes.outputs.version }}
+      sha: ${{ github.sha }}
+
   # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh) and each platform's newest beta. After both lanes, so
   # tonight's approvals are already written when it decides what to keep.
   prune:
     name: Clean up old builds
-    needs: [changes, build, windows, mac-only, test-mac, test-windows]
+    needs: [changes, build, windows, mac-only, test-mac, test-windows, release-mac, release-windows]
     if: always() && needs.changes.outputs.released == 'true'
     runs-on: ubuntu-24.04
     permissions:

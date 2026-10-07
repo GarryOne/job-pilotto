@@ -262,17 +262,18 @@ def runs_for(workflow_runs, sha, tag):
             and (r.get('head_sha') == sha or r.get('display_title') in (f'RC soak {tag}', f'Gate {sha}', f'Gate {tag}', f'Beta E2E tests {sha}', f'Beta E2E tests {tag}'))]
 
 
-MAC_GATE = 'Test · Mac + Linux / '   # the release run's Mac + Linux gate: desktop.yml calls e2e.yml as this job (7 Oct 2026)
+MAC_GATE = 'E2E · Mac + Linux / '   # the release run's Mac + Linux gate: desktop.yml calls e2e.yml as this job (7 Oct 2026)
 
 
 def release_gate_run(run, jobs):
     """A release run (desktop.yml) as one end-to-end run of gate 4: its Mac + Linux gate's verdict, not the whole run's (a red Windows gate or a failed Windows build is
     not a red Mac end-to-end run; Windows never decides stable). `jobs`: the run's jobs. None when the gate did not run (a build only, a night with nothing new)."""
     gate = [j for j in jobs if str(j.get('name', '')).startswith(MAC_GATE)]
+    suites = [j for j in gate if j['name'][len(MAC_GATE):] not in ('plan', 'HTML report', 'promote', 'promote-dry-run', 'Windows follows')]
     if any(j.get('conclusion') in ('failure', 'timed_out') for j in gate):
         conclusion = 'failure'
-    elif any(j.get('name') == MAC_GATE + 'promote' and j.get('conclusion') == 'success' for j in gate):
-        conclusion = 'success'
+    elif suites and all(j.get('conclusion') in ('success', 'skipped') for j in suites) and any(j.get('conclusion') == 'success' for j in suites):
+        conclusion = 'success'   # every suite passed (the release step, "Release · Mac beta", is its own job since 7 Oct 2026)
     else:
         return None
     return {'conclusion': conclusion, 'createdAt': run['created_at']}
@@ -379,7 +380,7 @@ class GitHub:
         sha = self.sha(tag)
         data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/e2e.yml/runs?status=completed&per_page=100'))
         runs = runs_for(data.get('workflow_runs', []), sha, tag)
-        # The gate itself runs inside the release run since 7 Oct 2026 (desktop.yml "Test · Mac + Linux"): the runs that built this very commit.
+        # The gate itself runs inside the release run since 7 Oct 2026 (desktop.yml "E2E · Mac + Linux"): the runs that built this very commit.
         built = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/desktop.yml/runs?status=completed&head_sha={sha}&per_page=20'))
         for run in built.get('workflow_runs', []):
             jobs = json.loads(self._gh('api', f'repos/{self.repo}/actions/runs/{run["id"]}/jobs?per_page=100')).get('jobs', [])

@@ -1,0 +1,79 @@
+name: CI · Release to beta
+
+# THE RELEASE STEP of a lane (7 Oct 2026, owner: "Build -> E2E test -> Release" must be distinct in the pipeline). The release run (desktop.yml) calls it as
+# "Release · Mac beta" / "Release · Windows beta" once that lane's E2E job passed; a gate by hand (e2e.yml -f gate_tag, e2e-windows.yml -f tag) calls it as its last job.
+# One platform per call: no real high-severity finding in that platform's suites, the shared release checks (unit suites green on the commit; soak on, the Notion
+# schema additive over stable), then the platform's line in the release notes ("Beta-approved:" / "Beta-approved (Windows):", desktop/lib/updater.js).
+# Mac with the soak off makes the build stable instead (tools/release-stable.sh).
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: 'mac (the Mac + Linux suites) or windows'
+        type: string
+        required: true
+      tag:
+        description: 'The release to approve, desktop-v<version>'
+        type: string
+        required: true
+      sha:
+        description: 'The commit it was built from'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  approve:
+    name: ${{ inputs.platform == 'windows' && 'Approve for Windows beta testers' || 'Approve for Mac beta testers' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write   # gh release edit (the approval line; release-stable.sh when the soak is off)
+      actions: read     # this run's artifacts, build.yml's verdict on the commit
+      issues: write     # block-check.mjs reads the UI-loop issues; tools/sync_release_labels.py rewrites the pinned Release channels issue (read-only failed it, 3 Oct 2026)
+    concurrency:
+      group: release-promote   # one writer of a release's notes at a time: both platforms edit the same body
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      REF: ${{ inputs.sha }}
+      PLATFORM: ${{ inputs.platform }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: No real high-severity finding in this platform's suites (layout check, or an AI finding already seen twice / confirmed)
+        working-directory: desktop/e2e
+        run: |
+          npm ci || npm install
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'e2e-artifacts-*' --dir ../../e2e-artifacts || echo "no artifacts to read"
+          mkdir -p ../../e2e-artifacts
+          # The release run holds both platforms' suites (both lanes at once): only this platform's decide its approval.
+          if [ "$PLATFORM" = windows ]; then find ../../e2e-artifacts -mindepth 1 -maxdepth 1 -name 'e2e-artifacts-*' ! -name 'e2e-artifacts-windows-*' -exec rm -rf {} +
+          else find ../../e2e-artifacts -mindepth 1 -maxdepth 1 -name 'e2e-artifacts-windows-*' -exec rm -rf {} +; fi
+          status=0
+          node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
+          cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "$TAG is not offered on $PLATFORM: a real high-severity finding in its end-to-end suites." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
+        env:
+          JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Release it to this platform's beta testers (Mac with the soak off, stable)
+        env:
+          E2E_ALREADY_GREEN: '1'   # every suite of this platform passed on this commit, in this run
+          SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: |
+          if [ "$PLATFORM" = windows ]; then
+            tools/beta-approve.sh --windows "$TAG" | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ "$SOAK" = on ]; then
+            tools/beta-approve.sh "$TAG"
+            echo "Beta-approved: $TAG (unit suites and every end-to-end suite passed on its commit). It becomes stable through canary-promote.yml: more end-to-end runs, no blocking finding, then healthy beta use." >> "$GITHUB_STEP_SUMMARY"
+          else
+            tools/release-stable.sh "$TAG"
+            echo "Stable: $TAG (every suite passed on its commit)" >> "$GITHUB_STEP_SUMMARY"
+          fi

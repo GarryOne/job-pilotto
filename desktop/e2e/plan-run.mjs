@@ -1,7 +1,7 @@
 // What a run of .github/workflows/e2e.yml does, decided in one place and printed as step outputs (matrix, count, ref, tag, review):
 //   node plan-run.mjs >> "$GITHUB_OUTPUT"      (env: EVENT, REPO, SHA, BEFORE, ONLY, PROMOTE_TAG, GATE_TAG, TARGET_REF; needs `gh` and GH_TOKEN)
 // schedule: every suite, unless nothing changed since the last run and no finding waits. push: the suites whose files changed. manual: the ones named.
-// GATE_TAG (the release run's "Test · Mac + Linux", desktop.yml, or a gate by hand): every gate suite, on the release's own commit, and `tag` = the release to approve when
+// GATE_TAG (the release run's "E2E · Mac + Linux", desktop.yml, or a gate by hand): every gate suite, on the release's own commit, and `tag` = the release to approve when
 // all of them pass. Whatever the event: a gate called from a scheduled release run arrives as `schedule` (7 Oct 2026: one run per release, no workflow_run any more).
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';

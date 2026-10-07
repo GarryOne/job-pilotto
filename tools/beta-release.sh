@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A beta by hand, in one shot: one release run (desktop.yml -f beta=true, named "Beta by hand"), the same as the nightly, two lanes at once:
-#   Mac:     Build · Mac -> Test · Mac + Linux (every gate suite; unit suites green, no high-severity finding, additive Notion schema -> "Beta-approved:")
-#   Windows: Build · Windows -> Test · Windows (the same suites -> "Beta-approved (Windows):")
+#   Mac:     Build · Mac -> E2E · Mac + Linux (every gate suite) -> Release · Mac beta (no high-severity finding, unit suites green, additive Notion schema -> "Beta-approved:")
+#   Windows: Build · Windows -> E2E · Windows (the same suites) -> Release · Windows beta ("Beta-approved (Windows):")
 #   then Clean up old builds
 # Each platform is approved on its own. A red gate leaves that platform's testers on their current beta. Never call tools/beta-approve.sh by hand: it skips the gate.
 #   tools/beta-release.sh [--no-watch]

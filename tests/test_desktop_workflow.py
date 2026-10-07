@@ -76,7 +76,18 @@ class DesktopWorkflowTest(unittest.TestCase):
         for name in ('build', 'windows'):
             self.assertIn('gh release edit "desktop-v${VERSION}" --draft=false --prerelease', WORKFLOW.split(f'  {name}:\n')[1].split('\n  # ')[0])
         # the clean-up runs after both lanes, so it keeps tonight's beta
-        self.assertIn('needs: [changes, build, windows, mac-only, test-mac, test-windows]', WORKFLOW)
+        self.assertIn('needs: [changes, build, windows, mac-only, test-mac, test-windows, release-mac, release-windows]', WORKFLOW)
+        # Build -> E2E test -> Release, three distinct steps per lane (owner, 7 Oct 2026): the release step is its own job after its lane's E2E
+        for platform, gate in (('mac', 'test-mac'), ('windows', 'test-windows')):
+            release = job(f'release-{platform}')
+            self.assertIn(f'needs: [changes, {gate}]', release)
+            self.assertIn(f"if: needs.{gate}.result == 'success'", release)
+            self.assertIn('uses: ./.github/workflows/beta-approve.yml', release)
+            self.assertIn(f'platform: {platform}', release)
+        # ...and the E2E workflows do not approve a second time inside the release run
+        self.assertIn('!inputs.release_run', e2e.split('  promote:')[1].split('\n\n')[0])
+        windows_e2e = (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/e2e-windows.yml').read_text()
+        self.assertIn('!inputs.release_run', windows_e2e.split('  approve-windows:')[1])
         # the release run never starts a second Windows run through e2e.yml's "Windows follows"
         self.assertIn('!inputs.release_run', e2e)
 
