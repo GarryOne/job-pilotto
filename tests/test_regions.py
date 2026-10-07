@@ -15,7 +15,7 @@ class SwitzerlandTests(unittest.TestCase):
     def test_towns_that_sit_inside_other_words_do_not_let_a_foreign_job_in(self):
         pattern = self.pattern()
         for place in ('Bielefeld, Germany', 'Baden-Württemberg, Germany', 'Baden-Baden', 'Freiburg im Breisgau', 'Freiburg i. Br., Germany', 'Carbonia, Italy',
-                      'Custer, SD', 'Canyon Lake, TX', 'Thunder Bay', 'Mission Viejo', 'Stansted, UK', 'Berlin, Germany', 'Fusion Hub'):
+                      'Custer, SD', 'Canyon Lake, TX', 'Thunder Bay', 'Mission Viejo', 'Stansted, UK', 'Berlin, Germany', 'Fusion Hub', 'Klagenfurt, AT, 9020'):
             self.assertIsNone(pattern.search(place), place)
 
     def test_the_swiss_towns_are_still_found(self):
