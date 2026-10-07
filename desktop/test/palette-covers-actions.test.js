@@ -23,7 +23,7 @@ test('the ⌘K shortcut toggles on an open palette, not on a palette element', (
 });
 
 // One entry per task: a button elsewhere that starts what an Actions card starts (TASK_BUTTONS) is left out of ⌘K, in both the hand-listed buttons and the
-// Settings sweep (6 Oct 2026: "Search for new jobs" and "Check for new jobs" were listed side by side and ran the same jobs check).
+// Settings sweep (6 Oct 2026: "Refresh jobs" and "Check for new jobs" were listed side by side and ran the same jobs check).
 test('a button that starts a task an Actions card offers is not listed twice in ⌘K', async () => {
   const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
   const activity = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');

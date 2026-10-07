@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from src import budget
+from src import time_budget as budget
 from src.ai import title_triage
 from tests.test_title_triage import SEARCH, Client
 
@@ -56,3 +56,15 @@ class TitlesStopTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NoShadowTests(unittest.TestCase):
+    def test_the_search_still_sees_the_ai_spending_budget(self):
+        # 7 Oct 2026: a local "from . import budget" (this module, then named budget.py) hid src.ai.budget in daily.main, and every search
+        # logged "budget check skipped": the monthly AI spend was not checked. Nothing in daily.py may bind the name again.
+        import ast
+        import pathlib
+        tree = ast.parse(pathlib.Path('src/daily.py').read_text())
+        local = [node.lineno for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef) for node in ast.walk(fn)
+                 if isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name) == 'budget' for alias in node.names)]
+        self.assertEqual(local, [])

@@ -62,7 +62,7 @@ export const labelOf = node => {
 function paletteCommands() {
   const commands = [];
   const add = (group, label, hint, keywords, run) => { if (label) commands.push({group, label, hint, keywords, run}); };
-  // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Search for new jobs" and
+  // A button that starts a task an Actions card already offers is that card's twin: one entry per task (6 Oct 2026: "Refresh jobs" and
   // "Check for new jobs" were listed side by side and ran the same jobs check).
   const carded = new Set([...document.querySelectorAll('.action[data-command]')].map(node => COMMAND_KIND[node.dataset.command]).filter(Boolean));
   const twins = new Set(TASK_BUTTONS.filter(([kind]) => carded.has(kind)).flatMap(([, ...selectors]) => selectors.map(s => document.querySelector(s))).filter(Boolean));

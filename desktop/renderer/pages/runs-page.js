@@ -16,8 +16,8 @@ export async function showStatusCard() {
   const when = at => (at <= Date.now() ? 'due now' : `${new Date(at).toLocaleDateString([], {weekday: 'short'})} ${hhmm(at)}`);
   const rows = [
     running && ['▶️', 'Running now', `${KIND[kindOf(running)].icon} ${KIND[kindOf(running)].name} · ${stepWords(running.step) || 'starting'}`],
-    ['🔎', 'Last search', lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${capital(outcome(lastSearch))}` : 'none yet'],
-    ['⏭', 'Next search', nextSearchAt ? when(nextSearchAt) : 'only when you ask'],
+    ['🔎', 'Last refresh', lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${capital(outcome(lastSearch))}` : 'none yet'],
+    ['⏭', 'Next refresh', nextSearchAt ? when(nextSearchAt) : 'only when you ask'],
     ['📧', 'Last Gmail check', lastMail ? `${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${capital(outcome(lastMail))}` : 'none yet'],
     ['⏭', 'Next Gmail check', nextMailAt ? when(nextMailAt) : 'off'],
   ].filter(Boolean);
@@ -37,10 +37,10 @@ export async function showStatusCard() {
 
 // Actions page: the live banner (what runs now), Recent runs, and Telegram's state. Fed by the activity data.
 const TASK_ICON = {search: 'search', mail: 'mail', insight: 'chart', weekly: 'file', today: 'send', scout: 'building', kits: 'file-text', tailor: 'scissors'};
-const TASK_TITLE = {search: 'Search for new jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Analyze my job search', kits: 'Prepare top matches', tailor: 'Tailor CVs for top matches',
+const TASK_TITLE = {search: 'Refresh jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Analyze my job search', kits: 'Prepare top matches', tailor: 'Tailor CVs for top matches',
   today: "Today's matches", scout: 'Find new employers'};
 // Every button that starts a task is off while that task runs or waits (a second press would only join it), and back when it ends: the Actions cards, Tailor CVs, and the same
-// task's other buttons (Jobs → Search for new jobs, Settings → Check Gmail now). `busy` is the kinds running or queued now. Only a button this turned off is turned on again.
+// task's other buttons (Jobs → Refresh jobs, Settings → Check Gmail now). `busy` is the kinds running or queued now. Only a button this turned off is turned on again.
 export function syncRunButtons(busy) {
   const set = (node, kind) => {
     if (!node) return;

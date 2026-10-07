@@ -52,15 +52,18 @@ class ClosedOutsideTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, store.connect(Path(tmp) / 'jobs.sqlite') as db:
             ids = {}
             for name, where, notes in [('vevey', 'Vevey', ''), ('gallen', 'St. Gallen, CH', ''), ('applied', 'Zürich', ''),
-                                       ('mine', 'Basel', 'imported'), ('blank', '', '')]:
+                                       ('mine', 'Basel', 'imported'), ('blank', '', ''), ('saved', 'Bern', ''), ('talking', 'Luzern', '')]:
                 ids[name], _ = store.upsert_job(db, {'title': 'Vendeur', 'company': 'Coop', 'url': f'https://x.ch/{name}', 'location': where,
                                                     'notes': notes or None}, 'Coop')
             store.set_application_status(db, ids['applied'], 'applied')
+            store.set_application_status(db, ids['saved'], 'saved')   # saved or a kit prepared: not applied yet, so it goes
+            store.set_application_status(db, ids['talking'], 'interview')
             db.commit()
             with mock.patch.object(feeds, 'PLACE', ROMANDIE):
-                self.assertEqual(store.close_elsewhere(db, feeds.wanted_location), 1)
+                self.assertEqual(store.close_elsewhere(db, feeds.wanted_location), 2)
             states = {name: db.execute('SELECT state FROM jobs WHERE id = ?', (job_id,)).fetchone()[0] for name, job_id in ids.items()}
-            self.assertEqual(states, {'vevey': 'open', 'gallen': 'closed', 'applied': 'open', 'mine': 'open', 'blank': 'open'})
+            self.assertEqual(states, {'vevey': 'open', 'gallen': 'closed', 'applied': 'open', 'mine': 'open', 'blank': 'open',
+                                      'saved': 'closed', 'talking': 'open'})
 
 
 def jobsch_page(job_id, town):
@@ -87,6 +90,16 @@ class JobsChTownTests(unittest.TestCase):
                   'board_discovery_keywords': ['vendeur'], 'role_keywords': ['vendeur']}
         jobs = aggregators.jobsch(search, get=lambda url: jobsch_page(self.ID, 'Vevey'))
         self.assertEqual({j['location'] for j in jobs}, {'Vevey, Switzerland'})
+
+
+class GoneFromTheListTests(unittest.TestCase):
+    def test_a_gone_posting_leaves_the_list_unless_you_applied(self):
+        rows = [{'url': f'https://x/{stage or "none"}', 'title': 'Vendeur', 'company': 'Coop', 'location': 'Bern', 'work_mode': '', 'fit': 60,
+                 'reason': '', 'match_status': 'Not seen', 'first_seen': '2026-10-01', **({'stage': stage, 'notion_url': 'n'} if stage else {})}
+                for stage in ('', 'Saved', 'Kit ready', 'Applied', 'Interviewing')]
+        with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=([], [])), mock.patch.object(desktop.score, 'load', return_value={}):
+            listed = {row['url'] for row in desktop.jobs(sqlite3.connect(':memory:'), notion_jobs=rows)['jobs']}
+        self.assertEqual(listed, {'https://x/Applied', 'https://x/Interviewing'})
 
 
 class CutListTests(unittest.TestCase):

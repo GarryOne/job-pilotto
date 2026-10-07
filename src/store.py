@@ -255,9 +255,11 @@ def close_stale(db, days=7, now=None):
 def close_elsewhere(db, wanted):
     """Close open jobs whose place is no longer one of yours (wanted: feeds.wanted_location), after the places changed (7 Oct 2026: a search
     narrowed from all of Switzerland to Romandie kept 1,300 St. Gallen and Zürich jobs as matches). A job you acted on (any status but
-    unreviewed), one you added yourself, or one without a place is kept. A job seen again in your places is reopened by upsert_job."""
+    a job you added yourself, or one without a place is kept. A job seen again in your places is reopened by upsert_job.
+    Owner, 7 Oct 2026: jobs at most saved or with a prepared kit go too; ones you applied to, interview for, or got an answer from stay."""
     rows = db.execute("""SELECT jobs.id, jobs.location, jobs.work_mode FROM jobs LEFT JOIN applications ON applications.job_id = jobs.id
-        WHERE jobs.state = 'open' AND COALESCE(applications.status, 'unreviewed') = 'unreviewed' AND COALESCE(jobs.notes, '') != 'imported'
+        WHERE jobs.state = 'open' AND COALESCE(applications.status, 'unreviewed') IN ('unreviewed', 'saved', 'dismissed')
+        AND COALESCE(jobs.notes, '') != 'imported'
         AND COALESCE(jobs.location, '') != ''""").fetchall()
     gone = [row[0] for row in rows
             if not wanted({'location': row[1], 'remote': 'remote' in (row[2] or '').lower()})]

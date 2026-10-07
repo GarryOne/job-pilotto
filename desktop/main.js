@@ -1080,6 +1080,7 @@ function handlers() {
     try {
       const result = await strategy.editLists(storage, edits, settingsDeps());
       const asked = strategy.cleanEdits(edits);
+      if (result.changed.length) storage.saveSettings({searchChangedAt: new Date().toISOString()});   // Jobs and Strategy: "Refresh your jobs to apply it"
       appLog('strategy', 'targets edited', {lists: result.changed.join(','), added: Object.values(asked).reduce((n, e) => n + (e.add?.length || 0), 0),
         removed: Object.values(asked).reduce((n, e) => n + (e.remove?.length || 0), 0), remote: asked.remote?.set || '', notion: !!storage.secret('NOTION_TOKEN')});
       return {ok: true, ...result};

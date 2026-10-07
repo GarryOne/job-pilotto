@@ -210,7 +210,7 @@ def pending_jobs(db, candidates, profile, limit, full_profile=None):
             continue
         pending.append(((2, -previous) if profile_only else (1, 0), job))
     db.commit()
-    from ..budget import best_first
+    from ..time_budget import best_first
     ordered = [job for _, job in sorted(pending, key=lambda item: item[1].get('first_seen_at') or '', reverse=True)]
     ordered = best_first(ordered)                                                                   # your best places first
     group = {id(job): key for key, job in pending}
@@ -308,8 +308,8 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     scored = failures = 0
     usage_totals = {'input': 0, 'output': 0, 'cache_read': 0}
     stop = threading.Event()  # the spend limit was hit: jobs still queued don't call the API
-    from .. import budget
-    late = [0]   # not started: the search's time was up (src/budget.py); the next search scores them
+    from .. import time_budget as budget
+    late = [0]   # not started: the search's time was up (src/time_budget.py); the next search scores them
 
     def batch(todo, used_model, keep=None):
         """Score `todo` with `used_model`; a result is saved unless keep(data) says it needs the main model. -> (escalate, halted)."""

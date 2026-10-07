@@ -3,7 +3,7 @@
 
 export const STEPS = [
   {key: 'scout', label: 'Find new employers', hint: 'Adds employers’ career sites to search · a few minutes', button: 'Run'},
-  {key: 'search', label: 'Search for new jobs', hint: 'Searches every job site, then AI scores the new jobs', button: 'Run'},
+  {key: 'search', label: 'Refresh jobs', hint: 'Reads every job site: adds new jobs, removes gone ones, AI scores the new', button: 'Run'},
   {key: 'notion', label: 'Connect Notion', hint: 'Where your applications are tracked', button: 'Connect'},
   {key: 'tailor', label: 'Tailor CVs for top matches', hint: 'A CV rewritten for each of your best matches', button: 'Open'},
   {key: 'apply', label: 'Apply to your first job', hint: 'The extension fills the form; you press Submit', button: 'Apply'},

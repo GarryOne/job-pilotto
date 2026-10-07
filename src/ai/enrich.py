@@ -135,8 +135,8 @@ def pending_jobs(db, limit):
         if row and row['extractor_version'] == EXTRACTOR_VERSION and row['description_hash'] == description_hash(job):
             continue
         pending.append(job)
-    # Newest first, so a capped run spends its budget on what the next digest will show; your best places before the rest (src/budget.py).
-    from ..budget import best_first
+    # Newest first, so a capped run spends its budget on what the next digest will show; your best places before the rest (src/time_budget.py).
+    from ..time_budget import best_first
     return best_first(sorted(pending, key=lambda j: j['first_seen_at'], reverse=True))[:limit]
 
 
@@ -183,7 +183,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     API calls run in parallel threads; results are saved from this thread only,
     because the SQLite connection must not be shared across threads.
     """
-    from .. import budget
+    from .. import time_budget as budget
     jobs = pending_jobs(db, max_jobs)
     if not jobs:
         return f'0 job(s) to enrich with {model}'
@@ -200,7 +200,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     tokens_in = tokens_out = failures = enriched = 0
     from ..progress import Ticker
     ticker, done = Ticker('Reading new jobs with AI', len(jobs)), 0
-    late = 0   # not started: the search's time was up (src/budget.py); the next search reads them
+    late = 0   # not started: the search's time was up (src/time_budget.py); the next search reads them
 
     def one(job):
         return None if budget.over('enrich') else extract(client, model, job)

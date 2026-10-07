@@ -22,7 +22,7 @@ export const runsData = page => page.evaluate(async () => {
 export const shownRows = page => page.evaluate(() => [...document.querySelectorAll('#runs-table .runs-row')].map(row => ({id: row.dataset.runId || '', kind: row.querySelector('b')?.textContent || '',
   pill: row.querySelector('.ui-pill, .pill')?.textContent?.trim() || '', result: row.querySelector('.runs-result')?.textContent?.trim() || ''})));
 // How the Recent runs list names each kind of task.
-export const LABEL = {search: 'Search for new jobs', mail: 'Gmail check', weekly: 'Search analysis', scout: 'Find new employers'};
+export const LABEL = {search: 'Refresh jobs', mail: 'Gmail check', weekly: 'Search analysis', scout: 'Find new employers'};
 // The Recent runs list once it shows this run (the page redraws on the app's next poll, a moment after the run ended).
 export async function shownWith(page, id, maxMs = 25000) {
   const started = Date.now();

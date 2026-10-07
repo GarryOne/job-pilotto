@@ -496,7 +496,7 @@ export const TASKS = {
   // The older wording, and the card's second line: "7 checked · 7 new to the search · 2 new sources" (counts between the two may come and go; 3c45aa3 added one).
   scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · (?:.* · )?\d+ new sources?\b/},
 };
-export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Search for new jobs');
+export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Refresh jobs');
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
 export function scout(storage, onLine, trigger = 'you', batch = null) {   // null: the engine's own size for the queue (src/scout.py batch_for)
   const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it

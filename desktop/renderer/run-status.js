@@ -42,7 +42,7 @@ export function aiLimitHead(run, name = 'The run') {
   const kind = LIMIT_KINDS.find(one => one.test(hit, run));
   if (kind) return {problem: hit, title, summary: `${kind.why} ${what} could not complete.`, hint: typeof kind.hint === 'function' ? kind.hint(hit) : kind.hint, fix: kind.fix};
   return {problem: hit, title, summary: `The AI provider’s usage limit was reached. ${what} could not complete.`,
-    hint: `Increase your limit, then run the ${name === 'Gmail check' ? 'check' : name === 'Search for new jobs' ? 'search' : 'task'} again.`,
+    hint: `Increase your limit, then run the ${name === 'Gmail check' ? 'check' : name === 'Refresh jobs' ? 'refresh' : 'task'} again.`,
     fix: {label: 'Manage AI limit', url: run.billing === 'Claude subscription' ? 'https://claude.ai/settings/usage' : 'https://console.anthropic.com/settings/limits'}};
 }
 // A run the app's watchdog stopped (lib/pipeline.js stoppedReason): what happened, the step it was on in plain words, and the way

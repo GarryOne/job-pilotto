@@ -212,7 +212,7 @@ def report_lines(run):
 # A jobs check crawls feeds; its counters (feeds, new, changed…) mean nothing on other runs, so those stay empty.
 CRAWL_MODES = {'scheduled', 'run', 'today'}
 # The row's kind, the second part of its title (its Mode column keeps the raw mode; nothing matches rows by title).
-KINDS = {'scheduled': 'Search for new jobs', 'run': 'Search for new jobs', 'today': 'Search for new jobs', 'mail': 'Gmail check', 'scout': 'Find new employers',
+KINDS = {'scheduled': 'Refresh jobs', 'run': 'Refresh jobs', 'today': 'Refresh jobs', 'mail': 'Gmail check', 'scout': 'Find new employers',
          'add': 'Log activity', 'interview': 'Interview review', 'prepare': 'Application kit', 'prep': 'Interview prep',
          'rejection': 'Rejection review', 'insight': 'Insight', 'weekly': 'Search analysis', 'import': 'Add a job',
          'kits': 'Prepare top matches'}

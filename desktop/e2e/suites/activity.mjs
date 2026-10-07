@@ -11,7 +11,7 @@ import {LABEL, appReady, chooseMenu, noRowStaysRunning, openPanel, openRun, pane
 
 export const minutes = 15;
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): the relaunch steps read a weekly run, and the filter shows only with two runs.
-export const stepNeeds = {'without its message': ['Analyze my job search', 'Search for new jobs'], 'read only from Notion': ['Analyze my job search', 'Search for new jobs']};
+export const stepNeeds = {'without its message': ['Analyze my job search', 'Refresh jobs'], 'read only from Notion': ['Analyze my job search', 'Refresh jobs']};
 export const name = 'activity';
 // One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup steps marked `critical` stop the suite.
 export const keepGoing = true;
@@ -33,7 +33,7 @@ export async function run(ctx) {
   const page = await prepare(ctx);
   // ---------- (1) every task card ----------
   const TASKS = [
-    {command: 'run', kind: 'search', what: 'Search for new jobs (an empty feed: nothing new)', maxMs: 240000},
+    {command: 'run', kind: 'search', what: 'Refresh jobs (an empty feed: nothing new)', maxMs: 240000},
     {command: 'scout', kind: 'scout', what: 'Find new employers', maxMs: 240000},
     {command: 'mail', kind: 'mail', what: 'Check Gmail & Calendar with no Google connection', maxMs: 120000},
     {command: 'weekly', kind: 'weekly', what: 'Analyze my job search', maxMs: 240000},

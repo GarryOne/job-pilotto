@@ -214,6 +214,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/run-status.js` — How a run ended, in one word and a tone: the Actions page and Recent activity both use this, so they cannot disagree.
 - `desktop/renderer/run-warnings.js` — Lines of a run's log that are warnings (Notion busy, a step skipped or failed…), each once. A count of zero is not
 - `desktop/renderer/save-progress.js` — Saves that rewrite ⚙️ Search settings in Notion (main.js settingsDeps) take tens of seconds: the page is read, then rewritten a block at a time,
+- `desktop/renderer/search-changed.js` — "Your search changed": after places, roles, remote or languages are saved on Strategy (main.js editTargets keeps searchChangedAt), Jobs and
 - `desktop/renderer/search-select.js` — A searchable "select": the native <select> stays the source of truth (its options, value and change event, so the code that fills and
 - `desktop/renderer/service-status.js` — The Chrome extension's state, decided once here so the card, its pill and the "finish connecting" alert can never
 - `desktop/renderer/session-message.js` — Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only

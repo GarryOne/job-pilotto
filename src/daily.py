@@ -329,7 +329,7 @@ def main():
                                       'interview mode: the job URL the interview belongs to')
     parser.add_argument('--action', choices=sorted(ACTIONS) + ['talking'], default='applied',
                         help='for --mode apply: applied, saved or dismissed; for a recruiter lead (--mode add, no --job): talking')
-    parser.add_argument('--budget', type=int, default=0, help='seconds: AI steps start no new call after this (src/budget.py); 0 = none')
+    parser.add_argument('--budget', type=int, default=0, help='seconds: AI steps start no new call after this (src/time_budget.py); 0 = none')
     parser.add_argument('--score-max', type=int, default=0,
                         help='AI stage 2: score up to N eligible jobs against the Notion Profile (0 = off)')
     parser.add_argument('--enrich-max', type=int, default=0,
@@ -374,8 +374,8 @@ def main():
                         help="scheduled mode: send the day's insight if it's due (insight mode always sends one)")
     args = parser.parse_args()
     if args.budget:   # the app's searches stop their AI steps at this many seconds; what is left waits for the next search
-        from . import budget
-        budget.start(args.budget)
+        from . import time_budget
+        time_budget.start(args.budget)
         print(f'Time budget: this search stops its AI steps at {args.budget // 60} min {args.budget % 60:02d} s; what is left waits for the next one', flush=True)
     if args.only_visits and args.mode != 'today':   # a full search's closers would close every job it did not read
         parser.error('--only-visits needs --mode today')

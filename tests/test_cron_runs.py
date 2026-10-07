@@ -61,7 +61,7 @@ class ReportTest(unittest.TestCase):
 
     def test_page_properties(self):
         props, children = cron_runs.run_page(sample_run())
-        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-26 10:00 · Search for new jobs · 3 new jobs')  # local time, as Started shows it
+        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-26 10:00 · Refresh jobs · 3 new jobs')  # local time, as Started shows it
         self.assertEqual(props['Status']['select']['name'], 'Warnings')  # one feed failed
         self.assertEqual(props['AI cost (USD)']['number'], 0.034)
         self.assertNotIn('Cost kits (USD)', props)  # retired: each step's cost is on the page
@@ -199,9 +199,9 @@ class RunTitleTest(unittest.TestCase):
 
     def test_each_kind_names_what_it_was_about(self):
         cases = [
-            (('scheduled',), {'new': 12, 'feeds': 40}, 'Search for new jobs · 12 new jobs'),
-            (('run',), {'new': 1}, 'Search for new jobs · 1 new job'),
-            (('today',), {'new': 0}, 'Search for new jobs · nothing new'),
+            (('scheduled',), {'new': 12, 'feeds': 40}, 'Refresh jobs · 12 new jobs'),
+            (('run',), {'new': 1}, 'Refresh jobs · 1 new job'),
+            (('today',), {'new': 0}, 'Refresh jobs · nothing new'),
             (('mail',), {'mail': {'done': 5}, 'updates': ['a']}, 'Gmail check · 1 update'),
             (('mail',), {'mail': {'done': 5}, 'updates': ['a', 'b', 'c']}, 'Gmail check · 3 updates'),
             (('mail',), {'mail': {'done': 5}, 'updates': []}, 'Gmail check · 5 emails checked'),

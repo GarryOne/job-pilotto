@@ -6,6 +6,7 @@ import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
 import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statClick, statPressed, stats, statusPill, tags, takenDown, toReview, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
+import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
 import {$, message, osPick, savedAgo, show} from './core.js';
@@ -484,7 +485,7 @@ export function renderJobs() {
   const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
     applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
     dismissed: 'No dismissed jobs.', inbound: 'Nothing found you yet. A recruiter\'s message you log (<b>+ Log job activity…</b>) shows here.'};
-  $('jobs-empty').innerHTML = !shared.allJobs.length ? 'No jobs here yet. Click <b>Search for new jobs</b>; the first search takes a few minutes.'
+  $('jobs-empty').innerHTML = !shared.allJobs.length ? 'No jobs here yet. Click <b>Refresh jobs</b>; the first refresh takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
@@ -874,6 +875,9 @@ async function showMore() {
 let lastJobsData = null;   // the list as last loaded: a deleted job is recounted from it at once (owner, 7 Oct 2026: the totals settled 3 refreshes later)
 function showJobsData(data) {
   lastJobsData = data;
+  // "Your search changed" until a refresh has finished: the settings as they are now (a refresh that just ended set lastSearchAt).
+  wireSearchChanged();
+  window.pilot.state().then(state => { shared.state = state; showSearchChanged(state.settings); }).catch(() => {});
   {
     for (const job of takenDown(shared.allJobs, data.jobs)) {
       toastMessage('Posting taken down', `${job.company ? `${job.company} · ` : ''}${job.title || job.url}: its job board no longer lists it, so it moved to Closed. Your kit is kept.`);
@@ -928,7 +932,7 @@ export function showJobsIn(label, urls, from = '') {
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
-// Search for new jobs, from any button that starts one (Refresh, "score the unscored", Strategy's Re-score them now): the header status
+// Refresh jobs, from any button that starts one (Refresh, "score the unscored", Strategy's Re-score them now): the header status
 // shows "Searching for new jobs →", the run joins Recent activity, the list reloads after. Resolves when the search ends.
 export async function startSearch() {
   $('refresh').disabled = true;

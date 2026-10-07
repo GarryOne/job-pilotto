@@ -10,6 +10,7 @@ import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
 import {goalTiles} from '../goal-tiles.js';
+import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {coverageCard, employersCard, filtersCard, ideasCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
@@ -207,7 +208,7 @@ async function saveTargets() {
   button.textContent = 'Save';
   if (!result.ok) { message('targets-message', result.error || 'Not saved.', 'error'); button.disabled = false; return; }
   targetEdits = null;
-  toastMessage('Strategy saved ✓', 'The next search uses it.');
+  toastMessage('Strategy saved ✓', 'Refresh your jobs to apply it.');
   await loadStrategy();
   renderTargets();
 }
@@ -215,7 +216,9 @@ async function saveTargets() {
 function renderStrategy(data) {
   strategyShown = true;
   lastStrategy = data;
-  show($('strategy-profile-empty'), !!data.profile_empty);   // scores are paused until it is filled (src/ai/score.py unfilled)
+  show($('strategy-profile-empty'), !!data.profile_empty);
+  wireSearchChanged();
+  showSearchChanged(shared.state?.settings);   // scores are paused until it is filled (src/ai/score.py unfilled)
   if (targetEdits) { renderTargets(); return; }   // a fresh read while editing keeps the edits on screen
   $('strategy-insight').classList.remove('is-loading');
   renderGoals();

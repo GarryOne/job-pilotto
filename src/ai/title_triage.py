@@ -60,14 +60,14 @@ def decide(titles, search, client=None):
     from . import cost
     from ..progress import Ticker
     from concurrent.futures import ThreadPoolExecutor
-    from .. import budget
+    from .. import time_budget as budget
     batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
     # Said before the first answer, then after each batch with the time left (owner, 7 Oct 2026: 6 batches ran ~2 min each with only
     # "Still running · no new output" on screen). Batches run side by side; Claude Code still takes engine.PARALLEL at a time.
     print(f'Titles: asking Claude about {len(ask)} job title(s) your role words miss, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
     ticker, lock, sorted_ = Ticker('Sorting job titles with AI', len(ask), every=0), threading.Lock(), [0]
 
-    late = [0]   # titles of batches not started: the search's time was up (src/budget.py); the next search asks about them
+    late = [0]   # titles of batches not started: the search's time was up (src/time_budget.py); the next search asks about them
 
     def one(batch):
         if budget.over('titles'):

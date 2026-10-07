@@ -39,6 +39,9 @@ def stage_status(stage):
 
 NOT_ELIGIBLE = '⛔ Not eligible: '
 GONE = ('Not seen', 'Closed')  # Job Matches statuses of postings no longer listed
+# Applications stages that don't keep a gone posting in the list: not applied yet (owner, 7 Oct 2026: a refresh removes jobs that are at most
+# saved or have a prepared kit; applied, interviewing and the rest stay).
+NOT_YET = ('', 'Saved', 'Kit ready')
 
 
 def _kit(stage, step):
@@ -80,7 +83,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
         for item in notion_jobs:
             url, stage = item['url'], item.get('stage')
             seen.add(url)
-            if url in hidden or (digest.company_excluded(item) and url not in asked) or (item.get('match_status') in GONE and not stage):
+            if url in hidden or (digest.company_excluded(item) and url not in asked) or (item.get('match_status') in GONE and (stage or '') in NOT_YET):
                 continue
             status = stage_status(stage) if stage else {'Applied': 'applied', 'Dismissed': 'dismissed'}.get(item.get('match_status'), 'unreviewed')
             cached = local.get(url)
