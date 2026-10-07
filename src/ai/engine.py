@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 ENGINES = ('api', 'cli')
@@ -193,6 +194,17 @@ def classify(text):
 
 
 # ---------- the response, shaped like the SDK's ----------
+
+def timing_line(args, data, queued_s, ran_s):
+    """Where a Claude Code answer's time went (7 Oct 2026: Haiku took 40-128 s to choose a page's filters, and nothing said whether the model or
+    Claude Code was slow): the model's own time (its API calls), the rest (Claude Code starting, its turns, a rate limit's wait), and the wait for a
+    free slot in this process. Counts only, never the prompt or the answer."""
+    model = args[args.index('--model') + 1] if '--model' in args else '?'
+    api_s = (data.get('duration_api_ms') or 0) / 1000
+    total_s = (data.get('duration_ms') or ran_s * 1000) / 1000
+    return (f'Claude Code {model}: answered in {ran_s:.0f} s (model {api_s:.0f} s, Claude Code itself {max(0, ran_s - api_s):.0f} s'
+            f'{f", waited {queued_s:.0f} s for a free slot" if queued_s >= 1 else ""}; turns {data.get("num_turns", "?")}; reported {total_s:.0f} s)')
+
 
 @dataclass
 class TextBlock:
@@ -373,7 +385,9 @@ class CliClient:
         if self._timeouts >= TIMEOUTS_BEFORE_STOP:  # it already failed to answer: nothing waits again in this run
             raise CliLimitError(NOT_ANSWERING_TEXT.format(seconds=self.timeout))
         wait = max(self.timeout, FILES_TIMEOUT_S) if '--allowedTools' in args and not os.getenv('JOB_PILOTTO_CLI_TIMEOUT') else self.timeout
+        asked = time.monotonic()
         with _slots:
+            began = time.monotonic()
             try:
                 out = self.run(args, input=prompt, capture_output=True, text=True, timeout=wait, cwd=folder,
                                env=cli_env())
@@ -391,6 +405,7 @@ class CliClient:
                 data = next(item for item in reversed(data) if item.get('type') == 'result')
         except (ValueError, StopIteration, AttributeError):
             raise classify(f'{out.stdout}\n{out.stderr}'.strip() or f'exit code {out.returncode}') from None
+        self.log(timing_line(args, data, began - asked, time.monotonic() - began))
         if data.get('is_error') or out.returncode != 0 or str(data.get('subtype', 'success')).startswith('error'):
             if data.get('subtype') == 'error_max_turns':
                 return data, 'max_turns'

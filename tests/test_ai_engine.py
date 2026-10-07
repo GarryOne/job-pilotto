@@ -365,3 +365,12 @@ class StructuredSchemaTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TimingLine(unittest.TestCase):
+    def test_says_where_the_time_went_without_the_prompt(self):
+        from src.ai.engine import timing_line
+        line = timing_line(['claude', '-p', '--model', 'haiku'], {'duration_ms': 48000, 'duration_api_ms': 6000, 'num_turns': 2, 'result': 'secret answer'}, 3.2, 48.4)
+        self.assertEqual(line, 'Claude Code haiku: answered in 48 s (model 6 s, Claude Code itself 42 s, waited 3 s for a free slot; turns 2; reported 48 s)')
+        self.assertNotIn('secret', line)
+        self.assertNotIn('free slot', timing_line(['claude'], {}, 0.2, 5))
