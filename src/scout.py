@@ -432,6 +432,7 @@ def find_feed(candidate, probe=ats.probe, discover=careers.discover, note=None, 
     # Nothing by name, website or the usual job hosts: a web search for "<company> jobs", as a person would (web_search.py), its results
     # read like any careers page. Once per employer per recheck period: a "none" is not looked at again for RECHECK_DAYS['none'].
     for url in [] if page or guessed or not search else search(candidate['name']):
+        candidate.setdefault('found_site', url)   # the search's own find is kept even when it cannot be read (Hublot answers 403): opened by the person
         page = discover(url)
         if page and (page.get('jobs') or page.get('ats') != 'careers'):
             break
@@ -1048,13 +1049,16 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
                 done.append(candidate['name'])
                 progress_line(f"Scout: checked {len(done)} of {len(candidates)}: {candidate['name']}")
 
+    note_site = []   # (candidate key, job site a web search found but nobody could read): saved as its careers address
     def check_one(candidate):
         if candidate['status'] == 'manual':
             return {'status': 'manual'}
         found = find_feed(candidate, probe, note=lambda system, slug, why: unread.append((system, why, candidate['name'])), search=search,
                           jobsch_lookup=lookup)
         if not found:
-            site = candidate.get('careers') or candidate.get('website') or ''
+            site = candidate.get('found_site') or candidate.get('careers') or candidate.get('website') or ''
+            if candidate.get('found_site'):   # where a person would land from "<company> jobs": the address to open, for everyone after
+                note_site.append((candidate['key'], candidate['found_site']))
             why = careers.REFUSALS.get(re.sub(r'^https?://(www\.)?', '', site).split('/')[0].lower()) if site else None
             if why:   # its site refuses automated visitors: a person can still open it (src/sources/visits.py)
                 from .sources import visits
@@ -1070,6 +1074,8 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         outcomes = list(pool.map(check, candidates))
+    for key, url in note_site:
+        db.execute("UPDATE scout_candidates SET careers = ? WHERE key = ? AND COALESCE(careers, '') = ''", (url, key))
     record_unread(db, unread)
 
     stamp = now()

@@ -110,6 +110,20 @@ print(json.dumps(visit_reader.understand(outline, SimpleNamespace(messages=Simpl
       if (second.length !== 3) throw new Error(`${second.length} cards on page 2 by the same recipe`);
     });
 
+    await ctx.run('a home page is not a job list: the quick guess says so, and the engine finds the job list from its own links', async () => {
+      await page.goto(`${base}/home.html`);
+      const seen = await call(page, 'extractPage');
+      const plain = fn('plausible').replace('export function plausible', 'function plausible');
+      if (await page.evaluate(`(${plain.replace('function plausible', 'function')})(${JSON.stringify(seen.cards)})`)) throw new Error(`the home page looked like a job list: ${JSON.stringify(seen.cards)}`);
+      const script = `import json, sys, tempfile, pathlib
+from unittest import mock
+from src.sources import visits
+with mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'v.json'):
+    print(json.dumps(visits.job_page(sys.argv[1], sys.argv[2])))`;
+      const found = JSON.parse(execFileSync(python(), ['-c', script, seen.url.replace('127.0.0.1', 'maison-rive.example'), seen.html], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}}).trim().split('\n').pop());
+      if (!/\/joboffers\/en$/.test(found || '')) throw new Error(`found ${found}, the Careers link expected`);
+    });
+
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {
       await page.goto(`${base}/check.html`);
       const seen = await call(page, 'extractPage');

@@ -275,12 +275,27 @@ export async function readSite(tabId, {pages = MAX_PAGES, filter = false, ticket
   try { return await readSiteAwake(tabId, {pages, filter, ticket}); } finally { clearInterval(awake); }
 }
 
+// A site the app opened gets one minute of reading (owner, 7 Oct 2026: "a timeout of 30-60 s per website"); the jobs read by then are kept.
+export const SITE_MS = 60 * 1000;
 async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
+  const deadline = ticket ? Date.now() + SITE_MS : Infinity;
   const session = `${tabId}-${Date.now()}`;
   const config = await settings();
   const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: [], learned: false, ticket};
   const say = () => chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
   try {
+    // Not a job list (a home page, an "about" page): go to the site's job list first, as a person would, then filter and read there.
+    const first = await run(tabId, extractPage).catch(() => null);
+    if (first && !first.login && !first.challenge && !plausible(first.cards)) {
+      await run(tabId, pageBanner, ['Job Pilotto: looking for this site\'s job list…']).catch(() => {});
+      const found = await api(config, '/extension/visit-jobpage', {method: 'POST', body: JSON.stringify({url: first.url, html: first.html, ticket})}).catch(() => null);
+      if (found?.url && found.url.split('#')[0] !== first.url.split('#')[0]) {
+        state.jobpage = found.url;
+        await chrome.tabs.update(tabId, {url: found.url});
+        await pause();
+        await waitForPage(tabId).catch(() => {});
+      }
+    }
     if (filter) {
       await run(tabId, pageBanner, ['Job Pilotto: Claude is choosing the filters for your search…']).catch(() => {});
       await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
@@ -297,6 +312,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       return !!answer?.recipe;
     };
     for (let page = 0; page < pages; page++) {
+      if (Date.now() > deadline) { state.stopped = `${SITE_MS / 1000} s are up: the jobs read so far are kept`; break; }
       await run(tabId, pageBanner, [`Job Pilotto is reading this page${page ? ` · page ${page + 1}` : ''}…`]).catch(() => {});
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }

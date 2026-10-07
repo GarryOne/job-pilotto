@@ -142,7 +142,9 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
         if not last or last < stale:
             out.append({'name': site['company'], 'url': site['url'], 'kind': 'employer', 'why': 'refuses automated visitors', 'last_read': last, 'note': ''})
     have = {host_of(item['url']) for item in out}
+    jobpages = data.get('jobpages') or {}
     for pick in (unread_picks() if picks is None else picks):
+        pick = {**pick, 'url': jobpages.get(host_of(pick['url']), pick['url'])}   # its job list once found, not its home page
         last = (read.get(host_of(pick['url'])) or {}).get('at')
         if host_of(pick['url']) not in have and (not last or last < stale):
             have.add(host_of(pick['url']))
@@ -226,6 +228,38 @@ def read(url, markup, cards=None, title='', now=None, session=''):
         _save(data)
     print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all")
     return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added}
+
+
+def job_page(url, markup):
+    """The job list's address from a page that is not one (a home page: hublot.com/en-ch, whose jobs are at /joboffers/en): the page's own
+    careers link (careers.careers_links, no AI), else the scout's AI link chooser. Kept per site, so the next Open goes straight there.
+    Owner, 7 Oct 2026: "on this homepage there are no jobs; this should be the right page"."""
+    found = careers.careers_links(markup or '', url)
+    if not found:
+        choose = careers.chooser()
+        try:
+            found = choose(url, markup or '') if choose else []
+        except Exception as error:  # noqa: BLE001 — no answer: the page is read as it is
+            print(f'Warning: job list link not chosen for {host_of(url)} ({type(error).__name__})')
+            found = []
+    if not found:   # no careers link and no AI pick: "<company> jobs", as a person would (owner, 7 Oct 2026: the most reliable)
+        from . import web_search
+        if web_search.provider():
+            name = re.sub(r'<[^>]+>', '', (re.search(r'<title[^>]*>(.*?)</title>', markup or '', re.S | re.I) or [None, ''])[1]).split('|')[0].split(' - ')[0].strip()
+            name = name if 2 <= len(name) <= 60 else host_of(url).split('.')[0]
+            try:
+                found = web_search.job_sites(name)
+            except Exception as error:  # noqa: BLE001
+                print(f'Warning: web search for {name} jobs failed ({type(error).__name__})')
+                found = []
+    page = next((link for link in found if link.split('#')[0] != url.split('#')[0]), None)
+    if page:
+        with LOCK:
+            data = _load()
+            data.setdefault('jobpages', {})[host_of(url)] = page
+            _save(data)
+        print(f'Visit: the job list of {host_of(url)} is {page}')
+    return page
 
 
 def recipe_for(url):

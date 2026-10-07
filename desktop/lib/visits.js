@@ -26,7 +26,7 @@ export function open(url, run = spawn) {
 let taskTee = null;
 // Indented: kept in the log as detail, never the task's running step (pipeline isProgressStep skips indented lines); the step is runAll's own.
 const onLine = line => { if (taskTee && String(line).trim()) taskTee(`  ${String(line).trim()}`); };
-export const FILTER_WAIT_MS = 45000;   // Claude's filter choice: past this, the page is read as it is (it once took 130 s on LinkedIn)
+export const FILTER_WAIT_MS = 20000;   // Claude's filter choice: past this, the page is read as it is (it once took 130 s on LinkedIn; a site has 60 s in all)
 
 // Any engine command that takes one JSON file (a page outline, a site's recipe): its last stdout line as JSON, or null.
 async function engineJson(storage, command, body, runEngine = pipeline.run) {
@@ -47,6 +47,15 @@ export async function understand(storage, outline, runEngine) {
     groups: Array.isArray(outline.groups) ? outline.groups.slice(0, 12) : [], pager: Array.isArray(outline.pager) ? outline.pager.slice(0, 25) : []}, runEngine);
   log('visit', 'recipe asked of Claude', {host: new URL(outline.url).hostname, groups: outline.groups?.length || 0, found: !!answer?.recipe, next: answer?.recipe?.next});
   return answer || {ok: false, error: 'The app could not read this page.'};
+}
+
+// A page that is not a job list (a home page): the job list's address, from its own links or the AI link chooser; kept per site.
+export async function jobPage(storage, page, runEngine) {
+  heardFrom(page?.ticket);
+  if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false};
+  const answer = await engineJson(storage, 'visit-jobpage', {url: String(page.url), html: String(page.html || '').slice(0, MAX_HTML)}, runEngine);
+  log('visit', 'job list looked for on a page that is not one', {host: new URL(page.url).hostname, found: !!answer?.url});
+  return answer || {ok: false};
 }
 
 // The recipe kept for a site (or forget it: it found nothing).
@@ -115,7 +124,10 @@ export async function read(storage, page, runEngine = pipeline.run) {
 // each marked so the extension filters (if asked) and reads it by itself (extension/visit.js autoRead); each reports back (done) and closes,
 // then the next opens. A site that does not report within WAIT_MS counts as stopped.
 export const WAIT_MS = 8 * 60 * 1000;
-export const QUIET_MS = 90 * 1000;   // a site that sends no news (no page read, no wait) for this long is skipped, said in plain words
+export const QUIET_MS = 30 * 1000;   // a site that sends no news (no page read, no wait) for this long is skipped, said in plain words
+// One minute per site (owner, 7 Oct 2026): the extension stops its own read then (extension/visit.js SITE_MS); this is the app's cap
+// for an extension that hangs, a little later so its own stop arrives first. Waiting on the person (the one-time Allow) is not counted.
+export const SITE_MS = 75 * 1000;
 const lastNews = new Map();   // ticket -> time of the extension's last report for that tab
 export function heardFrom(ticket) { if (ticket && lastNews.has(ticket)) lastNews.set(ticket, Date.now()); }
 const waiting = new Map();   // start address -> resolve
@@ -140,23 +152,30 @@ export function done(payload) {
   if (resolve) { waiting.delete(which(payload)); resolve(payload); }
   return {ok: true};
 }
-export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS} = {}) {
+export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS} = {}) {
   const queue = [...sites], results = [];
   taskTee = tee;
   let doneCount = 0;
   const one = async site => {
     const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
     lastNews.set(ticket, Date.now());
+    const openedAt = Date.now();
     const finished = new Promise(resolve => {
       waiting.set(ticket, resolve);
       const watch = setInterval(() => {   // silent too long and not waiting on the person: skipped, with words that say so
         if (!waiting.has(ticket)) { clearInterval(watch); return; }
+        if (!blocked.has(ticket) && Date.now() - openedAt > siteMs) {
+          clearInterval(watch);
+          waiting.delete(ticket);
+          resolve({stopped: `${Math.round(siteMs / 1000)} s are up: skipped, the jobs read so far are kept`, jobs: 0, added: 0, quiet: true});
+          return;
+        }
         if (!blocked.has(ticket) && Date.now() - (lastNews.get(ticket) || 0) > quietMs) {
           clearInterval(watch);
           waiting.delete(ticket);
           resolve({stopped: `it stopped answering (nothing for ${Math.round(quietMs / 1000)} s): skipped, you can close its tab`, jobs: 0, added: 0, quiet: true});
         }
-      }, Math.min(5000, quietMs));
+      }, Math.min(5000, quietMs, siteMs));
       setTimeout(() => {
         if (!waiting.delete(ticket)) return;
         resolve({stopped: blocked.has(ticket) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Job Pilotto page)'

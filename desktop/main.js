@@ -2241,6 +2241,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setVisitFilters(page => visits.filters(storage, page));
   server.setVisitRoute('/extension/visit-understand', outline => visits.understand(storage, outline));
   server.setVisitRoute('/extension/visit-recipe', page => visits.recipe(storage, page));
+  server.setVisitRoute('/extension/visit-jobpage', page => visits.jobPage(storage, page));   // a home page: where its job list is
   server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));
   server.setVisitRoute('/extension/visit-waiting', payload => visits.waitingFor(payload));
   let waitingSaid = 0;

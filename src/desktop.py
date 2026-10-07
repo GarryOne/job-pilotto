@@ -370,6 +370,7 @@ def main(argv=None):
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
     sub.add_parser('visit-context').add_argument('file')   # for a "Read with Claude" session: the search's own role words and places (plain words)
+    sub.add_parser('visit-jobpage').add_argument('file')   # a page that is not a job list (JSON: url, html): the job list's address, kept per site
     sub.add_parser('visit-read').add_argument('file')
     sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
     sub.add_parser('visit-recipe').add_argument('file')   # the recipe kept for a site (JSON: url, forget), or null   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
@@ -455,6 +456,11 @@ def main(argv=None):
             if recipe:
                 visits.save_recipe(page['url'], recipe)
             print(json.dumps({'ok': True, 'recipe': recipe}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-jobpage':
+            from .sources import visits
+            page = json.loads(Path(args.file).read_text())
+            print(json.dumps({'ok': True, 'url': visits.job_page(page['url'], page.get('html') or '')}))
             return 0
         if args.command == 'visit-read':
             from .sources import visits

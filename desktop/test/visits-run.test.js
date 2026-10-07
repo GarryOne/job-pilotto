@@ -2,7 +2,7 @@
 // message the app writes is exactly what its card reads.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {done, resultMessage, runAll} from '../lib/visits.js';
+import {done, heardFrom, resultMessage, runAll} from '../lib/visits.js';
 import {parseVisits} from '../renderer/visits-card.js';
 
 test('sites open a few at a time, each closes on its report, a silent one stops in time', async () => {
@@ -43,4 +43,16 @@ test('a site that goes silent is skipped after the quiet time, in plain words, a
   assert.deepEqual(results.map(result => [result.name, result.ok]), [['Mute', false], ['Live', true]]);
   assert.match(results[0].why, /stopped answering/);
   assert.ok(lines.some(line => /Mute is not responding: skipped, the next site opens/.test(line)));
+});
+
+test('a site that keeps talking but never finishes is stopped at its time budget (owner: 30-60 s a site), and the next one runs', async () => {
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (url.includes('slow')) { const talk = setInterval(() => heardFrom(ticket), 10); setTimeout(() => clearInterval(talk), 400); }
+    else setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 3, added: 3, pages: 1, stopped: 'no next page'}), 20);
+    return {ok: true};
+  };
+  const results = await runAll([{name: 'Slow', url: 'https://slow.example'}, {name: 'Quick', url: 'https://quick.example'}], {atOnce: 1, openTab, quietMs: 1000, siteMs: 80, waitMs: 5000});
+  assert.deepEqual(results.map(result => [result.name, result.ok]), [['Slow', false], ['Quick', true]]);
+  assert.match(results[0].why, /s are up: skipped, the jobs read so far are kept/);
 });

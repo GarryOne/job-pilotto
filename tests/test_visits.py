@@ -63,6 +63,12 @@ class VisitsTest(unittest.TestCase):
         names = [item['name'] for item in visits.visit_list(SEARCH, {'sales_retail'}, now=NOW, picks=picks)]
         self.assertEqual(names[:3], ['H&M Switzerland', 'Manor', 'LinkedIn'])
 
+    def test_a_home_page_leads_to_its_job_list_and_the_list_then_opens_there(self):
+        home = '<nav><a href="/watches">Watches</a> <a href="/joboffers/en">Careers</a></nav><h1>Time</h1>'
+        self.assertEqual(visits.job_page('https://www.hublot.com/en-ch', home), 'https://www.hublot.com/joboffers/en')
+        listed = visits.visit_list(SEARCH, {'sales_retail'}, now=NOW, picks=[{'name': 'Hublot', 'url': 'https://www.hublot.com'}])
+        self.assertEqual(listed[0]['url'], 'https://www.hublot.com/joboffers/en', 'Open goes to the job list once found')
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'
@@ -74,3 +80,14 @@ class VisitsTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FoundSiteTest(unittest.TestCase):
+    """7 Oct 2026: the web search found Hublot's job page, which refuses the scout (403): the address is kept for the person to open."""
+    def test_the_searchs_find_is_kept_when_it_cannot_be_read(self):
+        from src import scout
+        candidate = {'name': 'Hublot', 'website': 'https://www.hublot.com', 'status': 'pending'}
+        found = scout.find_feed(candidate, probe=lambda system, slug: None, discover=lambda url: None,
+                                search=lambda name: ['https://www.hublot.com/en-ch/job-offers'], jobsch_lookup=lambda name: None)
+        self.assertIsNone(found)
+        self.assertEqual(candidate['found_site'], 'https://www.hublot.com/en-ch/job-offers')
