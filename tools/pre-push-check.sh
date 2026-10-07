@@ -111,6 +111,20 @@ case "$command" in *STALE_EXPECT_OK=1*) ;; *)
   fi ;;
 esac
 
+# The place sorter, checked with real AI answers when its code changes (7 Oct 2026: two of the day's place bugs were the real model's answers, which
+# unit tests fake): tools/places_check.py, ~5 Haiku calls. `PLACES_CHECK_OK=1 git push ...` skips it (say why in the commit). No AI here: skipped, said.
+case "$command" in *PLACES_CHECK_OK=1*) ;; *)
+  if git -C "$repo" rev-parse --verify -q origin/main >/dev/null && git -C "$repo" diff --name-only origin/main...HEAD | grep -qE '^src/(ai/place_triage|sources/feeds)\.py$'; then
+    if command -v claude >/dev/null || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+      engine="$([ -n "${ANTHROPIC_API_KEY:-}" ] && echo api || echo cli)"
+      checked="$(cd "$repo" && JOB_PILOTTO_FOLLOW_APP=0 JOB_PILOTTO_AI_ENGINE="$engine" python3 tools/places_check.py 2>&1)" \
+        || { echo "Push blocked: the place sorter answered wrongly with real AI calls, or could not ask (tools/places_check.py):" >&2; echo "$checked" | grep -v '^⏳' | tail -25 >&2; exit 2; }
+    else
+      echo "Note: the place code changed but no AI is available here (no claude, no ANTHROPIC_API_KEY): tools/places_check.py skipped" >&2
+    fi
+  fi ;;
+esac
+
 # A new e2e step must have been seen passing (6 Oct 2026: one that never had failed the 0.5.8 beta gate on its own premise): a local run of it, or an
 # "E2E-passed: <run url>" / "E2E-unverified: <why>" line in a commit message (tools/new-e2e-steps.mjs). No node, or no origin/main: skipped.
 if command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
