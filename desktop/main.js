@@ -548,6 +548,7 @@ function handlers() {
           const fresh = !!(result.built?.length || templateRoot);
           const page = fresh ? await notion.nameWorkspace(token, result.ids, notion.workspaceTitle(computerName()))
             .catch(error => { log(`Notion page not renamed: ${error.message}`); return null; }) : null;
+          if (storage.settings().importedNotion) storage.saveSettings({importedNotion: null});   // the import's warning has done its job
           appLog('notion', 'connected', {from: notionFrom, fresh, page: page?.id?.slice(-8) || '', renamed: !!page?.renamed, moved, kept: !!kept, hadLocal});
           syncCv();
           // What was scored before Notion reaches Job Matches, with no AI spend; with Always on GitHub's next run does it.
@@ -2075,6 +2076,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // E2E on a Linux CI runner only (no keyring there): Electron's safeStorage refuses the basic store unless told to. A user's app never takes this path.
   if (process.platform === 'linux' && process.env.JOB_PILOTTO_E2E && process.env.CI) safeStorage.setUsePlainTextEncryption?.(true);
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  // An import whose Profile is in a Notion workspace it brought no key for (lib/reset.js notionLeftBehind): the Notion dialog says to pick that one, until connected.
+  if (resetDone?.notionElsewhere) storage.saveSettings({importedNotion: {page: storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID || '', at: new Date().toISOString()}});
   { const lost = (storage.secretsPresent(), storage.unreadableSecrets()); if (lost.length) appLog('secrets', 'unreadable on this computer: asked again', {names: lost}); }
   const firstStart = DEMO ? null : versionLine(storage, app.getVersion(), buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : '');
   if (firstStart) appLog('update', firstStart);

@@ -43,6 +43,7 @@ export function openNotionConnect({reason = 'none', where = 'dialog', from = 'di
   $('notion-connect-go').disabled = false;
   message('notion-connect-message', '');
   show($('notion-connect-token'), false);
+  show($('notion-connect-import'), !!shared.state?.settings?.importedNotion);   // after an import (main.js importedNotion): the moment a new workspace would be made
   if (!dialog.open) dialog.showModal();
 }
 

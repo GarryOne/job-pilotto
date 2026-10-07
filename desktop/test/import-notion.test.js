@@ -26,3 +26,13 @@ test('the restart says it with a click to Connections', () => {
   const data = fs.readFileSync(new URL('../renderer/pages/data.js', import.meta.url), 'utf8');
   assert.match(data, /done\.notionElsewhere\) toastMessage\(\{title: 'Connect the same Notion workspace'[\s\S]+?target: \{view: 'settings', section: 'connections'\}/);
 });
+
+test('the Notion dialog warns while the import note is there, and connecting clears it', () => {
+  const dialog = fs.readFileSync(new URL('../renderer/pages/notion-connect.js', import.meta.url), 'utf8');
+  assert.match(dialog, /show\(\$\('notion-connect-import'\), !!shared\.state\?\.settings\?\.importedNotion\)/);
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<div class="alert tone-warn" id="notion-connect-import" hidden>[\s\S]+?Pick the workspace your backup used/);
+  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  assert.match(main, /if \(resetDone\?\.notionElsewhere\) storage\.saveSettings\(\{importedNotion:/);
+  assert.match(main, /if \(storage\.settings\(\)\.importedNotion\) storage\.saveSettings\(\{importedNotion: null\}\);/);
+});
