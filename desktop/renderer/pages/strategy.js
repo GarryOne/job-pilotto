@@ -155,12 +155,16 @@ function renderStrategy(data) {
     dd.append(value);
     return [dt, dd];
   };
+  // The card shows exactly the lists Edit changes (data.lists, the editor's own), all of them (owner, 7 Oct 2026: after a save the card still
+  // showed the jobs.ch phrases as Roles, 2 of 4 places and 8 of 12 skills, so a saved change looked lost). An older cached answer has no lists.
+  const labels = (...names) => (data.lists ? names.flatMap(name => (data.lists[name] || []).map(entry => entry.label)) : null);
+  const roles = labels('roles') || data.roles, places = labels('places', 'country', 'abroad') || data.locations, skills = labels('stack') || data.stack;
   $('strategy-targets').replaceChildren(
-    ...row('briefcase', 'Roles', chips(data.roles.slice(0, 6).map(titleCase))),
-    ...row('pin', 'Locations', chips(data.locations.slice(0, 8).map(titleCase))),
+    ...row('briefcase', 'Roles', chips(roles.map(titleCase))),
+    ...row('pin', 'Locations', chips(places.map(titleCase))),
     ...(data.level ? row('target', 'Level', chips([titleCase(data.level)])) : []),
     ...row('chart', 'Compensation', compensationText(data.compensation)),
-    ...(data.stack.length ? row('layers', 'Key skills and tools', chips(data.stack.map(titleCase))) : []));
+    ...(skills.length ? row('layers', 'Key skills and tools', chips(skills.map(titleCase))) : []));
   const level = value => (value >= 70 ? ['High', 'good'] : value >= 50 ? ['Medium', 'warn'] : ['Low', 'bad']);
   $('strategy-score-note').textContent = !data.scored ? 'No scored matches yet: run a search with your AI key.'
     : `Average of each part of the fit score across your ${data.scored} scored matches.` +
