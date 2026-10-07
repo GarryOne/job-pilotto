@@ -321,10 +321,14 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                     stop.set()
                 raise
 
+        from ..progress import Ticker
+        ticker, done = Ticker('Scoring jobs against your Profile', len(todo)), 0
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(one, job): job for job in todo}
             for future in as_completed(futures):
                 job = futures[future]
+                done += 1
+                ticker.tick(done)
                 try:
                     result = future.result()
                     if result is None:  # skipped: the spend limit was reached

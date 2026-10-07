@@ -58,8 +58,12 @@ const PHASES = [
   {match: /^(Searching job boards|Job boards:)/, label: 'Job boards'},
   {match: /^Checking employer career pages/, label: 'Employer career pages & scoring'},
 ];
+// A "⏳ <step>: N of M …" counter line as its words, or '' (the app's own "⏳ Still running" heartbeat is not a counter).
+export const liveCount = (line = '') => (/^⏳\s*(?!Still running)(.+: \d[\d,]* of \d[\d,]*.*)$/.exec(line) || [])[1] || '';
 // A search's current log line as a short phrase for the header and the bottom bar (the raw line is in the log).
-function searchPhase(step = '') {
+export function searchPhase(step = '') {
+  const live = liveCount(step);   // the engine's own counter (src/progress.py): "Reading employer job sites: 120 of 202 · 3,412 jobs listed"
+  if (live) return live;
   const phase = PHASES.find(item => item.match.test(step));
   if (phase) return phase.label;
   let m;
@@ -552,6 +556,9 @@ export function renderActivity(fresh) {
       // The step a run that warned stopped at is not a clean tick: a refused AI call under "reading and scoring" must not look done (UI loop #51).
       const li = Object.assign(document.createElement('li'), {className: phaseStatus(run, i, at), textContent: phaseLabel(phase, lines)});
       // The step a stopped run was on says what it was doing and the last thing it reported.
+      // The running step's live counter, outside the log (owner, 7 Oct 2026: "live updates on the job counter itself").
+      const counter = run?.live && i === at ? lines.map(liveCount).filter(Boolean).pop() : '';
+      if (counter) li.append(el('span', 'phase-note', counter));
       if (i === at && stopped) li.append(...[stopped.doing && `Stopped while ${stopped.doing}.`, stopped.last && `Last reported: ${stopped.last}`].filter(Boolean).map(text => el('span', 'phase-note', text)));
       return li;
     })));

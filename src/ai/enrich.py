@@ -196,10 +196,14 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     from . import engine
     client = client or engine.client(action='enrich')
     tokens_in = tokens_out = failures = enriched = 0
+    from ..progress import Ticker
+    ticker, done = Ticker('Reading new jobs with AI', len(jobs)), 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(extract, client, model, job): job for job in jobs}
         for future in as_completed(futures):
             job = futures[future]
+            done += 1
+            ticker.tick(done)
             try:
                 data, usage = future.result()
             except transient as error:

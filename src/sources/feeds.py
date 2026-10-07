@@ -177,8 +177,19 @@ def scan(sources, db, fetcher=fetch, details=None):
     if rested:   # said every run, so a short list is never a mystery
         print(f'Employers resting: {len(rested)} gave no match for your roles in your places {REST_AFTER} checks in a row; checked again after '
               f'{min(rest[key(source)] for source in rested)[:10]}.')
+    from ..progress import Ticker
+    import threading
+    ticker, lock, read = Ticker('Reading employer job sites', len(sources)), threading.Lock(), [0, 0]   # [sites read, jobs listed]
+
+    def fetch(source):
+        got = _fetched(fetcher, source)
+        with lock:
+            read[0] += 1
+            read[1] += len(got[0] or [])
+            ticker.tick(read[0], f' · {read[1]:,} jobs listed')
+        return got
     with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
-        downloads = list(pool.map(lambda source: _fetched(fetcher, source), sources))
+        downloads = list(pool.map(fetch, sources))
     report = {"generated_at": now, "sources": [], "jobs": [], "rested": len(rested)}
     tally = coverage.Tally()
     for source, (jobs, failure) in zip(sources, downloads):

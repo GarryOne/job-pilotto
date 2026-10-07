@@ -278,6 +278,16 @@ def jobsch_terms(search):
     return out[:MAX_TERMS]
 
 
+
+def _board_label(url):
+    """'jobs.ch · vendeur magasin · genève · page 2' for a board search URL; the URL itself when it isn't one."""
+    import urllib.parse
+    parts = urllib.parse.urlsplit(url)
+    query = dict(urllib.parse.parse_qsl(parts.query))
+    words = [query.get('term', ''), query.get('location', ''), f"page {query['page']}" if query.get('page', '1') != '1' else '']
+    host = (parts.hostname or '').removeprefix('www.')
+    return ' · '.join([host] + [w for w in words if w]) if query.get('term') else url
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--pages',type=int,default=1);p.add_argument('--max-companies',type=int,default=30);p.add_argument('--refresh',action='store_true');args=p.parse_args()
     if not 1<=args.pages<=10 or not 1<=args.max_companies<=200:p.error('pages: 1–10; max-companies: 1–200')
@@ -327,6 +337,9 @@ def main():
     with (out/'companies.csv').open('w',newline='') as f:
         w=csv.writer(f);w.writerow(['company','size','cities','work_modes','website','career_pages','platforms','evidence_urls','notes'])
         for c in report['companies']:w.writerow([c['company'],c['size'],'; '.join(sorted({j['city'] for j in c['jobs']})),'; '.join(sorted({j['work_mode'] for j in c['jobs']})),c['website'],'; '.join(c['career_pages']),'; '.join(sorted({a['platform'] for a in c['platforms']})),'; '.join(j['url'] for j in c['jobs']),'; '.join(c['notes'])])
-    print(json.dumps({'discovered':len(groups),'enriched':len(report['companies']),'career_pages_found':sum(bool(c['career_pages']) for c in report['companies']),'report':str(out/'companies.html'),'sources':sources},indent=2))
+    # Readable lines, not a JSON dump: the app shows this output live (owner, 7 Oct 2026: "remove that json, it's not readable").
+    for item in sources:
+        print(f"Job board: {_board_label(item['source'])} · {item['status']}")
+    print(f"From the job boards: {len(groups)} employer(s), {sum(bool(c['career_pages']) for c in report['companies'])} with a careers page")
 
 if __name__=='__main__':main()

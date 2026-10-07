@@ -2,7 +2,7 @@
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
-import {COMMAND_KIND, KIND, TASK_BUTTONS, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity} from './activity.js';
+import {COMMAND_KIND, KIND, TASK_BUTTONS, capital, clockTime, hhmm, kindOf, lastActivity, liveCount, openActivity, outcome, renderActivity} from './activity.js';
 import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
 import {runStatus, runWarned} from '../run-status.js';
@@ -71,7 +71,7 @@ export function renderActionsPage(data) {
   if (running) {
     const kind = kindOf(running);
     $('run-banner-title').textContent = `${TASK_TITLE[kind] || KIND[kind]?.name || 'A task'} is running`;
-    $('run-banner-step').textContent = `Started ${new Date(running.startedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · ${running.step || 'starting'}`;
+    $('run-banner-step').textContent = `Started ${new Date(running.startedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · ${liveCount(running.step) || running.step || 'starting'}`;
     const log = $('run-banner-log');
     log.hidden = !running.rowUrl;
     log.dataset.url = running.rowUrl || '';
