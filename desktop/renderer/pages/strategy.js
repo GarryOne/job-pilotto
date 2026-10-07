@@ -46,7 +46,7 @@ function strategySkeleton() {
   $('strategy-targets').replaceChildren(...inColumns(TARGET_CARDS.map(([key, glyph, title, lists]) => {
     const card = el('section', 'card is-loading'), head = el('div', 'card-head'), heading = el('h3');
     card.dataset.list = key;
-    heading.append(icon(glyph), title);
+    heading.append(tile(glyph, CARD_TONE[key] || 'neutral'), title);
     head.append(heading);
     card.append(head);
     for (const [name, label] of lists) {
@@ -79,6 +79,7 @@ function strategySkeleton() {
 // to ⚙️ Search settings); goals: corrected one at a time in the Profile (lib/goals.js), like the review.
 // [card, icon, title, its lists: [list, label or note, what the add field asks]]
 // Owner mockup, 7 Oct 2026: four cards (roles with their search terms, places with eligibility, skills, exclusions); every list still edits here.
+const CARD_TONE = {roles: 'violet', places: 'teal', stack: 'info', languages: 'warn'};   // the same colours as the suggestions of each kind
 export const TARGET_CARDS = [
   ['roles', 'briefcase', 'Roles & job board searches', [['roles', '', 'Add a job title'], ['queries', 'Job board searches: what we type into job boards such as jobs.ch', 'Add a job board search']]],
   ['places', 'pin', 'Locations & eligibility', [['places', 'Priority locations', 'Add a city or region'], ['country', 'Additional regions', 'Add a country or region'],
@@ -169,7 +170,7 @@ function targetCard([key, glyph, title, lists]) {
   const card = el('section', 'card');
   card.dataset.list = key;
   const head = el('div', 'card-head'), heading = el('h3');
-  heading.append(icon(glyph), title);
+  heading.append(tile(glyph, CARD_TONE[key] || 'neutral'), title);
   const badge = pill('Edited', 'warn');
   badge.classList.add('edited-badge');
   badge.hidden = !lists.some(([name]) => dirty().has(name)) && !(key === 'places' && dirty().has('remote'));
@@ -389,15 +390,15 @@ function renderStrategy(data) {
     line.append(el('span', 'score-name', part.label), track, el('span', `score-level tone-${level(part.value)}`, `${part.value} / 100`));
     return line;
   }));
-  const glance = (glyph, count, text, go) => {
+  const glance = (glyph, count, text, go, tone = 'neutral') => {
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'glance-row'});
-    button.append(tile(glyph, 'neutral'), el('b', '', String(count)), el('span', 'muted', text), el('span', 'glance-arrow', '›'));
+    button.append(tile(glyph, tone), el('b', '', String(count)), el('span', 'muted', text), el('span', 'glance-arrow', '›'));
     button.addEventListener('click', go);
     return button;
   };
   const jobsBy = kind => () => { openView('jobs'); if (kind) document.querySelector(`[data-stat="${kind}"]`)?.click(); };
-  $('strategy-glance').replaceChildren(glance('file', data.counts.matches, 'scored matches', jobsBy('total')),
-    glance('layers', data.counts.kits, 'application kits ready', jobsBy('')), glance('send', data.counts.sent, 'applications sent', jobsBy('applied')));
+  $('strategy-glance').replaceChildren(glance('file', data.counts.matches, 'scored matches', jobsBy('total'), 'info'),
+    glance('layers', data.counts.kits, 'application kits ready', jobsBy(''), 'violet'), glance('send', data.counts.sent, 'applications sent', jobsBy('applied'), 'signal'));
   show($('strategy-insight'), !!data.insight);
   if (data.insight) {
     $('strategy-insight-text').textContent = data.insight.action || data.insight.headline;
@@ -446,13 +447,15 @@ function drawSuggestions() {
   const list = ORDER.map(kind => rows[kind]).filter(Boolean);
   const box = $('suggestion-rows');
   if (checking) {
-    const row = el('div', 'suggestion-row is-loading');
+    const row = el('section', 'suggestion-card is-loading'), head = el('div', 'suggestion-head'), words = el('div', 'suggestion-words');
     row.id = 'strategy-coverage-checking';
     row.setAttribute('aria-busy', 'true');
-    row.append(icon('target'), el('b', '', 'Checking whether your search is too narrow…'), el('span', 'muted small', 'Reading the postings your searches saw.'));
+    words.append(el('h3', '', 'Checking whether your search is too narrow…'), el('span', 'muted', 'Reading the postings your searches saw.'));
+    head.append(tile('target', 'neutral'), words);
+    row.append(head);
     list.push(row);
   }
-  box.replaceChildren(...(list.length ? list : [el('p', 'muted empty-row', 'No suggestions right now: your search already catches what the last check saw.')]));
+  box.replaceChildren(...(list.length ? list : [el('p', 'card muted empty-row', 'No suggestions right now: your search already catches what the last check saw.')]));
   const count = ORDER.filter(kind => rows[kind]).length;
   $('suggestions-count').textContent = String(count);
   show($('suggestions-count'), count > 0);
@@ -473,8 +476,8 @@ function drawImprove() {
     go.disabled = rescoring;
     if (rescoring) go.title = 'Running in Refresh jobs: follow it in Recent activity';
     go.addEventListener('click', () => confirmRescore(previous, cost));
-    items.push(improveRow('refresh', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
-      'Scored before your last Profile change, all under 50 · Updating is optional', go));
+    items.push(improveRow('refresh', 'info', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
+      'Below 50 before your Profile changed · Updating is optional', go));
   }
   for (const id of ORDER) {
     const brief = rows[id] && briefs[id];
@@ -482,15 +485,14 @@ function drawImprove() {
     const go = el('button', 'secondary item-action', brief.cta);
     go.type = 'button';
     go.addEventListener('click', () => reviewSuggestion(id));
-    items.push(improveRow(brief.glyph, brief.title, brief.text, go));
+    items.push(improveRow(brief.glyph, TONE[id] || 'neutral', brief.title, brief.text, go));
   }
   $('improve-rows').replaceChildren(...items);
   show($('strategy-improve'), items.length > 0);
 }
-function improveRow(glyph, title, text, button) {
-  const line = el('li', ''), words = el('div', 'item-words');
-  words.append(el('b', '', title), el('span', 'muted', text));
-  line.append(icon(glyph), words, button);
+function improveRow(glyph, tone, title, text, button) {
+  const line = el('li', '');
+  line.append(tile(glyph, tone), el('b', 'improve-name', title), emphasize(text), button);
   return line;
 }
 // Re-score: its cost said and confirmed first; then the kept scores are queued and a search starts at once (60 per search), shown like any
@@ -525,47 +527,67 @@ function confirmRescore(count, cost) {
 // Each row's id and its options' list, written out: the e2e suites (foryou) and the push check look for these words.
 const ROW_IDS = {coverage: ['strategy-coverage', 'coverage-chips'], places: ['strategy-places', 'places-chips'], filters: ['strategy-filters', 'filters-chips'],
   sources: ['strategy-sources', 'sources-chips'], visits: ['strategy-visits', 'visits-chips'], foryou: ['strategy-foryou', 'foryou-chips'], ideas: ['strategy-ideas', 'ideas-chips']};
-function suggestionRow({kind, id, glyph, title, summary, text, options, hidden = [], hiddenLabel = '', review = 'Review', menu, brief}) {
+// Each kind's colour (owner, 7 Oct 2026: "bring this page to life"): blue for sources, teal for locations, violet for roles, amber for manual
+// browsing; orange stays the action colour. Used by its tile here and in Improve your search.
+const TONE = {places: 'teal', ideas: 'violet', coverage: 'violet', filters: 'neutral', sources: 'info', visits: 'warn', foryou: 'good'};
+// Numbers carry the meaning ("30 matching roles", "8 suggestions"): bold, the words around them muted.
+function emphasize(text) {
+  const box = el('span', 'muted');
+  for (const [i, part] of String(text).split(/(\d[\d,.']*)/).entries()) box.append(i % 2 ? el('b', 'figure', part) : part);
+  return box;
+}
+// One card per kind: tile, bold title (and how many options), a line with its numbers, its action; Review opens the options under a tinted head.
+// option: {label, why, meta?, tech?, button, accent?, run(button)}; body: drawn instead of the option cards (the sites, by company).
+function suggestionRow({kind, id, glyph, title, summary, text, options = [], hidden = [], hiddenLabel = '', review = 'Review', menu, brief, note = '', body = null, count = null}) {
   briefs[id] = {glyph, ...brief};
-  const row = el('div', 'suggestion-row');
+  const tone = TONE[id] || 'neutral';
+  const row = el('section', `suggestion-card tone-${tone}`);
   row.id = ROW_IDS[id][0];
   const detail = el('div', 'suggestion-detail');
   detail.id = `${ROW_IDS[id][0]}-detail`;
   detail.hidden = true;
-  const toggle = el('button', 'secondary', review);
+  const closedLabel = brief?.cta || review;
+  const toggle = el('button', 'secondary', closedLabel);
   toggle.type = 'button';
   toggle.dataset.review = kind;
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-controls', detail.id);
   const setOpen = open => {
     detail.hidden = !open;
+    row.classList.toggle('is-open', open);
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.textContent = open ? 'Close' : review;
+    toggle.textContent = open ? 'Collapse' : closedLabel;
     if (open) openRows.add(id); else openRows.delete(id);
   };
   toggle.addEventListener('click', () => setOpen(detail.hidden));
-  const optionRow = option => {
-    const line = el('div', 'option-row'), words = el('div');
-    words.append(el('b', '', option.label), el('span', 'muted small', option.preview));
-    const button = el('button', 'secondary', option.button);
-    Object.assign(button, {type: 'button', title: option.preview});
+  const optionCard = option => {
+    const card = el('div', 'option-row option-card'), words = el('div', 'option-words');
+    words.append(el('b', '', option.label), el('span', 'muted', option.why || option.preview || ''));
+    if (option.meta) { const meta = el('span', 'option-meta', icon('info')); meta.append(option.meta); words.append(meta); }
+    if (option.tech) { const more = el('details', 'plain option-tech'); more.append(el('summary', '', 'Search details'), el('span', 'muted small', option.tech)); words.append(more); }
+    const button = el('button', `secondary${option.accent ? ' is-signal' : ''}`, option.button);
+    Object.assign(button, {type: 'button', title: option.preview || option.why || ''});
     button.addEventListener('click', () => option.run(button));
-    line.append(words, button);
-    return line;
+    card.append(words, button);
+    return card;
   };
-  const chips = el('div', 'option-list');
+  const chips = el('div', body ? 'site-list' : 'option-grid');
   chips.id = ROW_IDS[id][1];
-  chips.append(...options.map(optionRow));
-  detail.append(el('p', 'muted small', text), chips);
+  if (body) chips.append(...body); else chips.append(...options.map(optionCard));
+  if (note) { const strip = el('p', 'suggestion-note', icon('info')); strip.append(note); detail.append(strip); }
+  if (text) detail.append(el('p', 'muted small suggestion-text', text));
+  detail.append(chips);
   if (hidden.length) {
     const more = el('button', 'link', `${hiddenLabel} (${hidden.length})`);
     more.type = 'button';
-    more.addEventListener('click', () => { chips.append(...hidden.map(optionRow)); more.remove(); });
+    more.addEventListener('click', () => { chips.append(...hidden.map(optionCard)); more.remove(); });
     detail.append(more);
   }
-  const words = el('div', 'suggestion-words');
-  words.append(el('b', '', title), typeof summary === 'string' ? el('span', 'muted', summary) : summary);
-  row.append(el('span', 'suggestion-icon', icon(glyph)), words, toggle, moreButton(menu, `More about ${title.toLowerCase()}`), detail);
+  const head = el('div', 'suggestion-head'), words = el('div', 'suggestion-words'), name = el('div', 'suggestion-title');
+  name.append(el('h3', '', title), ...(count ? [pill(String(count), tone)] : []));
+  words.append(name, typeof summary === 'string' ? emphasize(summary) : summary);
+  head.append(tile(glyph, tone), words, toggle, moreButton(menu, `More about ${title.toLowerCase()}`));
+  row.append(head, detail);
   if (openRows.has(id)) setOpen(true);
   adviceEvent('shown', kind, 'strategy');
   return row;
@@ -606,7 +628,7 @@ const paintCoverage = verdict => {
     menu: [hideItem('coverage', 'coverage', DISMISSED, coverage.at)]});
   const places = placesCard(verdict, remembered(PLACES_DISMISSED));
   const topPlace = places?.chips[0];
-  rows.places = places && suggestionRow({kind: 'places', id: 'places', glyph: 'globe', title: 'Broaden locations',
+  rows.places = places && suggestionRow({kind: 'places', id: 'places', glyph: 'pin', title: 'Broaden locations',
     summary: `${topPlace.place} · ${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} outside your places${places.chips.length > 1 ? `, and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`,
     text: places.text,
     options: places.chips.map(chip => ({label: plain(chip.label), button: 'Add place', preview: `Adds ${chip.place} to your places; jobs you already have stay. ${chip.title}`,
@@ -641,20 +663,36 @@ const paintCoverage = verdict => {
       const opened = await window.pilot.openVisit(chip.url).catch(error => ({ok: false, error: error.message}));
       toastMessage(opened.ok ? 'Opened in Chrome' : 'Not opened', opened.ok ? `Click the Job Pilotto icon there, then "Read the jobs on this page".${chip.note ? ` ${chip.note}.` : ''}` : opened.error);
     };
-    const inline = el('span', 'suggestion-chips');
-    inline.append(el('span', 'muted', 'Open in Chrome, then read the jobs with the Job Pilotto extension.'), ...sites.slice(0, 3).map(site => {
-      const chip = el('button', 'coverage-chip with-icon', site.name);
-      chip.type = 'button';
-      chip.append(icon('external'));
-      chip.title = site.pages[0].title;
-      chip.addEventListener('click', openPage(site.pages[0]));
-      return chip;
-    }));
-    rows.visits = suggestionRow({kind: 'visit', id: 'visits', glyph: 'external', title: 'Browse sites manually', review: `View all ${sites.length} sites`,
-      summary: inline, text: visits.text,
-      options: sites.flatMap(site => site.pages.map(page => ({label: site.pages.length > 1 ? `${site.name} · ${hostOf(page.url)}` : site.name,
-        button: 'Open', preview: page.title, run: openPage(page)}))),
-      brief: {title: `${sites.length} site${sites.length === 1 ? ' needs' : 's need'} manual browsing`, text: 'Open with the Chrome extension', cta: 'View sites'},
+    // By company (owner mockup, 7 Oct 2026): a letter tile, the name, how many pages, each page's own link (its real address), Open for the first.
+    const TINTS = ['info', 'teal', 'violet', 'good'];
+    const company = (site, i) => {
+      const line = el('div', 'site-row'), words = el('div', 'site-words'), name = el('div', 'site-name'), links = el('div', 'site-links');
+      name.append(el('b', '', site.name), ...(site.pages.length > 1 ? [pill(`${site.pages.length} destinations`)] : []));
+      links.append(...site.pages.map(page => {
+        const link = el('button', 'link', hostOf(page.url) || page.url);
+        Object.assign(link, {type: 'button', title: page.title});
+        link.addEventListener('click', openPage(page));
+        return link;
+      }));
+      words.append(name, links);
+      const open = el('button', 'secondary with-icon', 'Open');
+      Object.assign(open, {type: 'button', title: site.pages[0].title});
+      open.append(icon('external'));
+      open.addEventListener('click', openPage(site.pages[0]));
+      line.append(el('span', `ui-tile tone-${TINTS[i % TINTS.length]} site-avatar`, site.name.trim()[0]?.toUpperCase() || '?'), words, open);
+      return line;
+    };
+    const SHOWN = 5;
+    const list = sites.slice(0, SHOWN).map(company);
+    if (sites.length > SHOWN) {
+      const all = el('button', 'link site-all', `View all ${sites.length} sites →`);
+      all.type = 'button';
+      all.addEventListener('click', () => { all.replaceWith(...sites.slice(SHOWN).map((site, i) => company(site, i + SHOWN))); });
+      list.push(all);
+    }
+    rows.visits = suggestionRow({kind: 'visit', id: 'visits', glyph: 'external', title: 'Browse sites manually', count: sites.length,
+      summary: 'Open a site in Chrome, then use Job Pilotto → Read the jobs on this page.', text: '', body: list,
+      brief: {title: `${sites.length} site${sites.length === 1 ? ' needs' : 's need'} manual browsing`, text: 'Use the Chrome extension', cta: 'View sites'},
       menu: [hideItem('visit', 'visits', VISITS_DISMISSED, visits.at)]});
   } else rows.visits = null;
   // Employers where people like you got interviews (shared pool): an option shows that employer's jobs in the Jobs list.
@@ -694,15 +732,18 @@ async function loadIdeas() {
   const answer = await window.pilot.roleIdeas?.(aside()).catch(() => null);
   const card = ideasCard(answer?.ideas, aside());
   if (!card) { rows.ideas = null; drawSuggestions(); return; }
-  const option = chip => ({label: plain(chip.label).replace(/ · \d+$/, ''), button: 'Add role',
+  // A card each: the role, why it fits, its openings; the word it is searched by under "Search details" (owner mockup, 7 Oct 2026).
+  const option = chip => ({label: chip.role || plain(chip.label).replace(/ · \d+$/, ''), why: String(chip.why || '').replace(/\.+$/, '.'), button: '+ Add role', accent: true,
+    meta: `${chip.count} opening${chip.count === 1 ? '' : 's'} now in your places`, tech: `Searched as "${chip.term}" in job titles. Adding it makes the next searches look for it.`,
     preview: `Adds "${chip.term}" to your role words: ${chip.title}`,
     run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. (also in your Search settings in Notion).`, 'roles')});
   const {open, empty} = byOpenings(card.chips);
   const top = open[0];
-  rows.ideas = suggestionRow({kind: 'ideas', id: 'ideas', glyph: 'user', title: 'Explore related roles',
+  rows.ideas = suggestionRow({kind: 'ideas', id: 'ideas', glyph: 'briefcase', title: 'Explore related roles', count: card.chips.length,
+    note: open.length ? '' : 'No current openings found in your selected locations.',
     summary: top ? `${plain(top.label).replace(/ · \d+$/, '')} · ${top.count} open role${top.count === 1 ? '' : 's'}${open.length > 1 ? `, and ${open.length - 1} more` : ''}`
       : `${empty.length} role${empty.length === 1 ? '' : 's'} from your Profile, none with openings in your places now`,
-    text: card.text, options: (open.length ? open : empty).map(option), hidden: open.length ? empty.map(option) : [],
+    text: 'Based on your Profile. A role you add is included in your future searches.', options: (open.length ? open : empty).map(option), hidden: open.length ? empty.map(option) : [],
     hiddenLabel: 'Show roles with no current openings',
     brief: {title: 'Explore related roles', text: `${card.chips.length} suggestion${card.chips.length === 1 ? '' : 's'}${open.length ? `, ${open.length} with openings in your places` : ', no current openings in your places'}`, cta: 'Review roles'},
     menu: [{label: 'Don’t suggest these roles again', icon: 'close', title: 'Sets these roles aside for good; new ones can still be suggested.', run: () => {

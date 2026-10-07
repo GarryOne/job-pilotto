@@ -13,7 +13,7 @@ export const el = (tag, className, content) => {
 };
 
 // Pill: a short status. Tones: neutral, info, good, warn, bad, signal, teal. dot: a coloured dot before it.
-export const TONES = ['neutral', 'info', 'good', 'warn', 'bad', 'signal', 'teal'];
+export const TONES = ['neutral', 'info', 'good', 'warn', 'bad', 'signal', 'teal', 'violet'];
 export function pill(text, tone = 'neutral', {dot = false, title = ''} = {}) {
   const node = el('span', `ui-pill tone-${tone}${dot ? ' dot' : ''}`, text);
   if (title) node.title = title;

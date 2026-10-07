@@ -103,6 +103,6 @@ export function ideasCard(ideas, setAside = []) {
   const shown = (ideas || []).filter(idea => idea?.word && !hidden.has(idea.word.toLowerCase())).slice(0, 8);
   if (!shown.length) return null;
   return {title: 'Roles that fit you', text: 'From your Profile: roles you could do but do not search for yet, with the open jobs each would add in your places. Adding one makes the next searches look for it:',
-    chips: shown.map(idea => ({term: idea.word, count: idea.count || 0, label: `+ ${idea.role} · ${idea.count || 0}`, title: `${idea.why}. Searched as "${idea.word}"; ${idea.count || 0} open job${idea.count === 1 ? '' : 's'} in your places now.`})),
+    chips: shown.map(idea => ({term: idea.word, count: idea.count || 0, role: idea.role, why: idea.why, label: `+ ${idea.role} · ${idea.count || 0}`, title: `${idea.why}. Searched as "${idea.word}"; ${idea.count || 0} open job${idea.count === 1 ? '' : 's'} in your places now.`})),
     at: shown.map(idea => idea.word).join('|')};
 }

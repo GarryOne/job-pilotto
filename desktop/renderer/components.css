@@ -20,6 +20,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
   width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center; flex: none;
   background: var(--tone-soft); color: var(--tone); }
 .ui-tile .icon { width: 18px; height: 18px; }
+.ui-tile.tone-neutral { --tone: var(--ink-2); --tone-soft: var(--surface-2); }   /* without it a neutral tile took the signal colour */
 .ui-tile.tone-info { border-radius: 50%; }
 
 /* ⋯ button and its menu */
@@ -43,6 +44,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .tone-bad { --tone: var(--bad); --tone-soft: var(--bad-soft); }
 .tone-signal { --tone: var(--signal-ink); --tone-soft: var(--signal-soft); }
 .tone-teal { --tone: var(--teal); --tone-soft: var(--teal-soft); }
+.tone-violet { --tone: var(--violet); --tone-soft: var(--violet-soft); }   /* role suggestions (Strategy) */
 
 @media (prefers-reduced-motion: reduce) { .ui-tag.is-busy { animation: none; } }
 

@@ -741,7 +741,7 @@
         <button type="button" role="tab" aria-selected="false" aria-controls="strategy-suggestions" data-tab="strategy-suggestions">Suggestions<span class="ui-pill tone-warn tab-count" id="suggestions-count" hidden></span></button>
         <button type="button" role="tab" aria-selected="false" aria-controls="strategy-scoring" data-tab="strategy-scoring">Scoring &amp; results</button></div>
       <section class="strategy-section" id="strategy-yours" role="tabpanel">
-        <p class="muted section-sub">Changes apply to future searches. Existing scores may need updating.</p>
+        <div class="tab-head"><h2>Your strategy</h2><p class="muted">Changes apply to future searches. Existing scores may need updating.</p></div>
         <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
         <div class="review strategy-live" id="strategy-live">
           <section class="card overview goals-card">
@@ -752,12 +752,12 @@
         </div>
       </section>
       <section class="strategy-section" id="strategy-suggestions" role="tabpanel" hidden>
-        <p class="muted section-sub">Optional changes to widen your search. Nothing changes until you add it.</p>
+        <div class="tab-head"><h2>Suggestions for your search</h2><p class="muted">Review each opportunity before it changes your strategy. Nothing changes until you add it.</p></div>
         <!-- One row per kind (pages/strategy.js ROW_IDS): Review opens what would change, ⋯ hides it. -->
-        <div class="card suggestion-list" id="suggestion-rows"></div>
+        <div class="suggestion-list" id="suggestion-rows"></div>
       </section>
       <section class="strategy-section" id="strategy-scoring" role="tabpanel" hidden>
-        <p class="muted section-sub">How your matches score, and what to do next.</p>
+        <div class="tab-head"><h2>Scoring &amp; results</h2><p class="muted">How your matches score, and what to do next.</p></div>
         <div class="strategy-grid">
           <article class="summary-card">
             <h3>Average match scores</h3>
