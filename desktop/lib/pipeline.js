@@ -18,6 +18,7 @@ import * as engineLog from './engine-log.js';
 import {log as appLog} from './log.js';
 import {ROOT} from './root.js';
 import {CRASH_LINE} from './crash-line.js';
+import {awakeNow} from './awake.js';
 
 export const REPO = ROOT;
 const OVERRIDE = process.env.JOB_PILOTTO_MODEL_OVERRIDE;   // set only by the end-to-end journey (desktop/e2e): every step on one cheap model
@@ -195,10 +196,11 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       child.kill('SIGTERM');
     }, stopAfterMs) : null;
     child.on('exit', () => clearTimeout(stopper));
-    let stdout = '', buffer = '', lastOutputAt = Date.now(), timedOut = '', killTimer = null, rowUrl = '';
+    let stdout = '', buffer = '', lastOutputAt = awakeNow(), timedOut = '', killTimer = null, rowUrl = '';
+    const startedAwake = awakeNow();   // the watchdog's clock leaves out the time the computer slept (lib/awake.js)
     const watch = (args[0] === 'src' || LIMITS.watchAll) ? setInterval(() => {
       if (timedOut) return;
-      const quiet = Date.now() - lastOutputAt, total = Date.now() - started;
+      const quiet = awakeNow() - lastOutputAt, total = awakeNow() - startedAwake;
       timedOut = quiet > LIMITS.idleMs ? `no output for ${quietText(quiet)}` : total > LIMITS.totalMs ? `still running after ${Math.round(total / 60000)} min` : '';
       if (!timedOut) return;
       appLog('run', `watchdog: python -m ${args.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
@@ -212,8 +214,8 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       buffer = parts.pop();
       parts.filter(Boolean).forEach(raw => { engineLog.line(raw); onLine(readable(raw)); rowUrl = /^Cronjob run logged: (\S+)/.exec(raw)?.[1] || rowUrl; });
     };
-    child.stdout.on('data', data => { lastOutputAt = Date.now(); stdout += data; lines(String(data)); });
-    child.stderr.on('data', data => { lastOutputAt = Date.now(); lines(String(data)); });
+    child.stdout.on('data', data => { lastOutputAt = awakeNow(); stdout += data; lines(String(data)); });
+    child.stderr.on('data', data => { lastOutputAt = awakeNow(); lines(String(data)); });
     child.on('error', reject);
     child.on('close', async exitCode => {
       clearInterval(watch);
@@ -583,12 +585,12 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
     ticket.children = new Set();
     saveQueue(storage);
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
-    let lastAt = Date.now();
+    let lastAt = awakeNow();
     const tee = line => {
       if (isDataLine(line)) return;
       if (STATUS_LINE.test(line) && STATUS_LINE.test(log.at(-1) || '')) log.pop();
       log.push(line);
-      if (!line.startsWith('⏳ Still running')) lastAt = Date.now();
+      if (!line.startsWith('⏳ Still running')) lastAt = awakeNow();
       current = {...current, log: log.slice(-300)};   // the window can be reloaded (⌘R) without losing what the run said so far
       const rowUrl = /^Cronjob run logged: (\S+)/.exec(line)?.[1];
       if (rowUrl) current = {...current, rowUrl};   // the banner's "View log" link; the line itself is not a step
@@ -607,7 +609,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
     let ok = false, result = null;
     // A task can go quiet for minutes (an AI call, a wait for another run): say it is still alive, with how long it has been quiet (tasks 'tracked' here are all of them).
     const beat = setInterval(() => {
-      const quiet = Date.now() - lastAt;
+      const quiet = awakeNow() - lastAt;
       if (quiet >= HEARTBEAT_MS.quiet) tee(`⏳ Still running · no new output for ${quietText(quiet)}`);
     }, HEARTBEAT_MS.every);
     try {

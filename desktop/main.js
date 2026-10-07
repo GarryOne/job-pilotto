@@ -65,6 +65,7 @@ import * as backgroundChrome from './lib/background-chrome.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import {log as appLog, logFile, logTo} from './lib/log.js';
+import {watchSleep} from './lib/awake.js';
 import {versionLine, watchWindow} from './lib/window-log.js';
 import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
@@ -2564,6 +2565,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     if (!DEMO && storage.settings().setupDone && poolShare.on(storage)) setTimeout(() => pipeline.run(storage, ['src.contribute', '--send'])
       .then(({code}) => appLog('pool', 'catch-up share at start', {code}), error => appLog('pool', 'catch-up share failed', {error: error.message})), 60000);
     restartTelegram();
+    watchSleep(powerMonitor, appLog);   // the run watchdogs leave out the time this Mac sleeps (lib/awake.js)
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts; every finished run: announceRuns (every 5 s).
     startSchedule(storage, {

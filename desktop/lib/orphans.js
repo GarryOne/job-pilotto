@@ -4,6 +4,7 @@
 // past the whole-run limit) is stopped; SIGTERM first, so the engine can close its own Notion row. Mac and Linux only (Windows ends the
 // whole process tree with the app). A terminal run has a shell for a parent, never process 1, so it is never touched.
 import {execFile} from 'node:child_process';
+import {awakeNow, sleptMs} from './awake.js';
 
 export const ORPHAN = {quietMs: 10 * 60 * 1000, totalMs: 45 * 60 * 1000, killAfterMs: 8000};
 const ENGINE = /\s-m\s+src\s+(?:daily|check|scout|discover|feeds)\b/;
@@ -30,15 +31,16 @@ export function orphans(psOutput) {
 
 // One sweep. `seen` (pid -> {cpu, since}) is kept between sweeps: since = when its CPU time last moved.
 // Returns the runs to stop, each with why.
-export function stale(runs, seen, now = Date.now(), limits = ORPHAN) {
+export function stale(runs, seen, now = awakeNow(), limits = ORPHAN, slept = sleptMs()) {
   const alive = new Set(runs.map(run => run.pid));
   for (const pid of seen.keys()) if (!alive.has(pid)) seen.delete(pid);
   const stop = [];
   for (const run of runs) {
     const before = seen.get(run.pid);
-    if (!before || run.cpu > before.cpu) seen.set(run.pid, {cpu: run.cpu, since: now});
+    if (!before || run.cpu > before.cpu) seen.set(run.pid, {cpu: run.cpu, since: now, slept: before?.slept ?? slept});
     const quiet = now - seen.get(run.pid).since;
-    if (run.elapsed * 1000 > limits.totalMs) stop.push({...run, why: `running ${Math.round(run.elapsed / 60)} min`});
+    // ps counts the time the computer slept; take off what it slept since this run was first seen (lib/awake.js)
+    if (run.elapsed * 1000 - (slept - seen.get(run.pid).slept) > limits.totalMs) stop.push({...run, why: `running ${Math.round(run.elapsed / 60)} min`});
     else if (quiet >= limits.quietMs) stop.push({...run, why: `no CPU use for ${Math.round(quiet / 60000)} min`});
   }
   return stop;
@@ -53,7 +55,7 @@ export function watchOrphans(log, {every = 2 * 60 * 1000, limits = ORPHAN, list 
   if (platform === 'win32') return () => {};
   const seen = new Map();
   const sweep = async () => {
-    for (const run of stale(orphans(await list()), seen, Date.now(), limits)) {
+    for (const run of stale(orphans(await list()), seen, awakeNow(), limits)) {
       log('run', 'stopping an engine run the app lost track of', {pid: run.pid, running_min: Math.round(run.elapsed / 60), why: run.why, decidedBy: 'orphan watchdog'});
       try { kill(run.pid, 'SIGTERM'); } catch { continue; }
       setTimeout(() => {
