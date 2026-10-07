@@ -172,7 +172,9 @@ class CliLimitError(CliError):
 LIMIT = re.compile(r'usage limit|hit your (?:usage )?limit|limit reached|limit will reset|rate.?limit|out of (?:extra )?usage'
                    r'|too many requests|\b429\b', re.I)
 SIGNED_OUT = re.compile(r'not logged in|please run /login|run /login|invalid api key|authentication_error|oauth token'
-                        r'|not authenticated|login required|/login', re.I)
+                        r'|not authenticated|login required|/login'
+                        # 7 Oct 2026: "Failed to authenticate: OAuth session expired and could not be refreshed": a search then failed 40 calls in a row
+                        r'|failed to authenticate|session expired|could not be refreshed', re.I)
 LIMIT_TEXT = ('Claude Code: your Claude usage window is exhausted (the plan\'s usage limit), so this AI step is paused; '
               'try again later, when the limit resets.')
 SIGNED_OUT_TEXT = ('Claude Code is not signed in on this computer: open Terminal, run `claude` '

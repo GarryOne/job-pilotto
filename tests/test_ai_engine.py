@@ -374,3 +374,12 @@ class TimingLine(unittest.TestCase):
         self.assertEqual(line, 'Claude Code haiku: answered in 48 s (model 6 s, Claude Code itself 42 s, waited 3 s for a free slot; turns 2; reported 48 s)')
         self.assertNotIn('secret', line)
         self.assertNotIn('free slot', timing_line(['claude'], {}, 0.2, 5))
+
+
+class SignedOutTests(unittest.TestCase):
+    def test_an_expired_sign_in_stops_the_run_with_how_to_sign_in(self):
+        # 7 Oct 2026: a search failed 40 calls in a row on this message, each a "Skipped job", instead of stopping and saying to sign in.
+        error = engine.classify('Failed to authenticate: OAuth session expired and could not be refreshed')
+        self.assertIsInstance(error, engine.CliLimitError)
+        self.assertIn('not signed in', str(error))
+        self.assertNotIsInstance(engine.classify('Some other failure'), engine.CliLimitError)
