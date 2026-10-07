@@ -270,10 +270,70 @@ const isAlive = async (token, id, fetcher) => {
 };
 const DELETE_PASSES = 4;
 export const rewriteTuning = {waitMs: 1500};   // between delete passes (a test sets 0)
+// What a block says, to tell an unchanged block from a changed one: its type and its text with bold and code. A block that can't be compared that
+// way (a table, one with children, one the listing gave no content for) never matches, so it is always replaced.
+const COMPARABLE = ['paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item'];
+export function blockSignature(block) {
+  const body = block?.[block?.type];
+  if (!COMPARABLE.includes(block?.type) || block.has_children || !Array.isArray(body?.rich_text)) return null;
+  return JSON.stringify([block.type, body.rich_text.map(part => [part.text?.content ?? part.plain_text ?? '', !!part.annotations?.bold, !!part.annotations?.code])]);
+}
+// Only what changed (owner, 7 Oct 2026: one place removed from ⚙️ Search settings took 71 s, its 107 blocks deleted and written again one by
+// one): the blocks the page and the new content share, in order (their longest common run), stay; the others are deleted, and each run of new
+// blocks goes in after the kept (or just inserted) block before it. null when a new block would come before every kept one (Notion inserts only
+// after a block): the page is rewritten whole.
+export function patchPlan(old, blocks) {
+  const was = old.map(blockSignature), now = blocks.map(blockSignature);
+  const same = (i, j) => was[i] !== null && was[i] === now[j];
+  const lcs = Array.from({length: was.length + 1}, () => new Array(now.length + 1).fill(0));
+  for (let i = was.length - 1; i >= 0; i--) for (let j = now.length - 1; j >= 0; j--) lcs[i][j] = same(i, j) ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const remove = [], inserts = [];
+  let i = 0, j = 0, after = null, run = null;
+  while (i < was.length || j < now.length) {
+    if (i < was.length && j < now.length && same(i, j)) { after = old[i].id; run = null; i++; j++; }
+    else if (j < now.length && (i >= was.length || lcs[i][j + 1] >= lcs[i + 1][j])) {
+      if (!after) return null;
+      if (!run) inserts.push(run = {after, blocks: []});
+      run.blocks.push(blocks[j]); j++;
+    } else { remove.push(old[i].id); i++; }
+  }
+  return {remove, inserts};
+}
+async function patchPage(token, pageId, blocks, old, fetcher, onProgress) {
+  const plan = patchPlan(old, blocks);
+  if (!plan) return false;
+  const total = plan.remove.length + plan.inserts.reduce((sum, run) => sum + Math.ceil(run.blocks.length / 100), 0);
+  let done = 0;
+  for (const id of plan.remove) {
+    try { await call(token, 'DELETE', `blocks/${id}`, null, fetcher); }
+    catch (error) { if (!(error.status === 404 || /archived/i.test(error.message))) throw error; }
+    onProgress(++done, total);
+  }
+  for (const run of plan.inserts) {
+    let after = run.after;
+    for (let k = 0; k < run.blocks.length; k += 100) {
+      const reply = await call(token, 'PATCH', `blocks/${pageId}/children`, {children: run.blocks.slice(k, k + 100), after}, fetcher);
+      after = reply?.results?.at(-1)?.id || after;
+      onProgress(++done, total);
+    }
+  }
+  // Trusted only when the page now reads exactly as the new content (Notion's list can lag, a delete can not stick): else the whole rewrite.
+  const now = (await listBlocks(token, pageId, fetcher)).map(blockSignature);
+  return now.length === blocks.length && now.every((signature, k) => signature !== null && signature === blockSignature(blocks[k]));
+}
 async function writePageNow(token, pageId, markdown, fetcher, onProgress = () => {}) {
   const blocks = markdownBlocks(markdown);
+  const before = await listBlocks(token, pageId, fetcher);
+  {
+    const started = Date.now();
+    if (await patchPage(token, pageId, blocks, before, fetcher, onProgress)) {
+      log('notion', 'page patched', {page: String(pageId).slice(0, 8), blocks: blocks.length, changed: (plan => plan ? plan.remove.length + plan.inserts.reduce((sum, run) => sum + run.blocks.length, 0) : null)(patchPlan(before, blocks)), ms: Date.now() - started});
+      return blocks.length;
+    }
+    if (patchPlan(before, blocks)) log('notion', 'page patch did not read back as written: rewritten whole', {page: String(pageId).slice(0, 8)});
+  }
   const batches = Math.ceil(blocks.length / 100);
-  let old = await listBlocks(token, pageId, fetcher);
+  let old = patchPlan(before, blocks) ? await listBlocks(token, pageId, fetcher) : before;   // a patch tried and failed changed the page: read it again
   const total = old.length + batches;
   let done = 0;
   for (let pass = 1; old.length; pass++) {

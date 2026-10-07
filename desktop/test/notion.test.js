@@ -236,3 +236,63 @@ test('a rewrite that was given a stale block list removes the old blocks afterwa
   await notion.writePage('t', 'page', '# Daily applications target\n- 3', fetcher);
   assert.deepEqual(content, ['new0', 'new1'], 'only the new blocks are left');
 });
+
+// 7 Oct 2026: one place removed from ⚙️ Search settings took 71 s, all 107 blocks deleted and written again one by one.
+function fakePage(texts) {
+  let next = 0;
+  const block = text => ({id: `k${next++}`, type: 'bulleted_list_item', bulleted_list_item: {rich_text: [{type: 'text', text: {content: text}, plain_text: text, annotations: {bold: false, code: false}}]}});
+  let page = texts.map(block);
+  const calls = [];
+  const fetcher = async (url, {method, body}) => {
+    const route = url.split('/v1/')[1];
+    calls.push(`${method} ${route.split('?')[0]}`);
+    const reply = body => ({ok: true, status: 200, json: async () => body});
+    if (method === 'GET') return reply({results: page, has_more: false});
+    if (method === 'DELETE') { page = page.filter(item => !route.endsWith(item.id)); return reply({}); }
+    const {children, after} = JSON.parse(body);
+    const made = children.map(child => ({...child, id: `k${next++}`}));
+    const at = after ? page.findIndex(item => item.id === after) + 1 : page.length;
+    page.splice(at, 0, ...made);
+    return reply({results: made});
+  };
+  return {calls, fetcher, texts: () => page.map(item => item.bulleted_list_item.rich_text[0].text.content)};
+}
+
+test('a page rewrite changes only the blocks that changed, and reads back as written', async () => {
+  const notion = await import('../lib/notion.js');
+  const lines = Array.from({length: 100}, (_, i) => `setting ${i}`);
+  const page = fakePage(lines);
+  const progress = [];
+  await notion.writePage('ntn_x', 'page', lines.filter(line => line !== 'setting 50').map(line => `- ${line}`).join('\n'), page.fetcher, (done, total) => progress.push(`${done}/${total}`));
+  assert.deepEqual(page.calls, ['GET blocks/page/children', 'DELETE blocks/k50', 'GET blocks/page/children'], 'one delete, not 100 deletes and a rewrite');
+  assert.deepEqual(page.texts(), lines.filter(line => line !== 'setting 50'));
+  assert.deepEqual(progress, ['1/1']);
+
+  const added = fakePage(['a', 'b', 'c']);
+  await notion.writePage('ntn_x', 'page', '- a\n- b2\n- b3\n- c', added.fetcher);
+  assert.deepEqual(added.texts(), ['a', 'b2', 'b3', 'c']);
+  assert.deepEqual(added.calls.filter(call => !call.startsWith('GET')), ['DELETE blocks/k1', 'PATCH blocks/page/children']);
+});
+
+test('a patch that does not read back as written falls back to the whole rewrite', async () => {
+  const notion = await import('../lib/notion.js');
+  notion.rewriteTuning.waitMs = 0;
+  const page = fakePage(['a', 'b', 'c']);
+  let lag = true;
+  const fetcher = async (url, init) => {
+    if (init.method === 'DELETE' && lag) { lag = false; return {ok: true, status: 200, json: async () => ({})}; }   // the delete did not stick
+    return page.fetcher(url, init);
+  };
+  await notion.writePage('ntn_x', 'page', '- a\n- c', fetcher);
+  assert.deepEqual(page.texts(), ['a', 'c']);
+});
+
+test('two edits far apart touch only those blocks, each new one after its neighbour', async () => {
+  const notion = await import('../lib/notion.js');
+  const lines = Array.from({length: 60}, (_, i) => `setting ${i}`);
+  const page = fakePage(lines);
+  const want = lines.map(line => (line === 'setting 5' ? 'setting 5 changed' : line)).filter(line => line !== 'setting 55').concat('setting 60');
+  await notion.writePage('ntn_x', 'page', want.map(line => `- ${line}`).join('\n'), page.fetcher);
+  assert.deepEqual(page.texts(), want);
+  assert.deepEqual(page.calls.filter(call => !call.startsWith('GET')), ['DELETE blocks/k5', 'DELETE blocks/k55', 'PATCH blocks/page/children', 'PATCH blocks/page/children']);
+});
