@@ -115,7 +115,12 @@ def plain(text):
 def mentions(pattern, text):
     """The place words find the text as written or without its accents (7 Oct 2026: "geneva|geneve" missed "Genève, Switzerland", and the
     digest called it outside your places). Every place-word fallback goes through this."""
-    return bool(text) and bool(pattern.search(text) or pattern.search(plain(text)))
+    return mention_of(pattern, text) is not None
+
+
+def mention_of(pattern, text):
+    """The place words' match in the text, as written or without its accents; None when they do not name it."""
+    return (pattern.search(text) or pattern.search(plain(text))) if text else None
 
 
 def remote_wanted(search=None):

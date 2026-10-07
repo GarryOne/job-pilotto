@@ -52,13 +52,22 @@ def _mentions(pattern, text):
     return feeds.mentions(pattern, text)
 
 
-def in_places(job):
-    """True when the job is in one of your places: Claude's answer when it placed the location (7 Oct 2026: "Genève" was "outside your
-    preferred locations" for a search that says "geneva"), else your place words (config/search.json)."""
+def place_rank(job):
+    """Where this job is for you, one answer for every path (digest labels and rank, insights; feeds.place_of underneath): 'best', 'in', or
+    None (outside). Claude's answer when it placed the location; else your place words, whole words only (7 Oct 2026: each path had its own
+    fallback, and they disagreed)."""
     verdict = _placed(job)
     if verdict is not None:
-        return verdict in ('best', 'in')   # 'vague': not said to be in your places until its posting is read
-    return bool(job.get('city')) or _mentions(HOME, job.get('location') or '')
+        return verdict if verdict in ('best', 'in') else None   # 'vague': not said to be in your places until its posting is read
+    where = f"{job.get('location') or ''} {job.get('city') or ''}"
+    if _mentions(BEST_PLACES, where):
+        return 'best'
+    return 'in' if bool(job.get('city')) or _mentions(HOME, job.get('location') or '') else None
+
+
+def in_places(job):
+    """True when the job is in one of your places (place_rank)."""
+    return place_rank(job) is not None
 
 
 BEST_PLACES = place_regex(_SEARCH['locations']['top_tier'])
@@ -104,10 +113,10 @@ def location_points(job):
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
     remote = ((job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote'
               or (job.get('work_mode') or '').startswith('Remote'))
-    verdict = _placed(job)
-    if verdict == 'best' or (verdict is None and _mentions(BEST_PLACES, where)):
+    rank = place_rank(job)
+    if rank == 'best':
         return 5
-    if in_places(job):
+    if rank == 'in':
         return 4
     if _mentions(PREFERRED_ABROAD, where) or remote:
         return 3

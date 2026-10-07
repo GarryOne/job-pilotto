@@ -123,11 +123,13 @@ def in_profile(tech, profile_text):
 
 def region(job):
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
-    if digest.BEST_PLACES.search(where):
+    rank = digest.place_rank(job)   # the same answer as the digest's (Claude's when it placed the location)
+    if rank == 'best':
         return 'Best places'
-    if digest.in_places(job):
+    if rank == 'in':
         return 'Your country'
-    match = digest.PREFERRED_ABROAD.search(where)
+    from ..sources import feeds
+    match = feeds.mention_of(digest.PREFERRED_ABROAD, where)
     if match:
         return match.group(0).title()
     if (job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote':
