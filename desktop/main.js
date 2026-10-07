@@ -1366,7 +1366,7 @@ function handlers() {
     folder: backup.folder()}));
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
-  handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false, notion: withNotion = false} = {}) => {
+  handleImportant('exportProfile', 'Exporting your data', async (_, {keys = false} = {}) => {
     // Whose data and when: the name from the Profile's contact details (3 s at most: never hold the dialog on Notion), the first role searched for.
     const contact = await Promise.race([contactDetails.read(storage).catch(() => ({})), new Promise(done => setTimeout(() => done({}), 3000))]);
     const role = (() => { try { return JSON.parse(storage.readText('config/search.json') || '{}').jobs_board_search_queries?.[0] || ''; } catch { return ''; } })();
@@ -1375,23 +1375,16 @@ function handlers() {
       defaultPath: path.join(app.getPath('documents'), reset.exportName({name, role})), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
     if (picked.canceled || !picked.filePath) return {ok: false};
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
-    exportStop = new AbortController();
-    const {signal} = exportStop;
+    // This Mac's data only: Notion data stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026).
     try {
-      const copy = withNotion ? await notion.dumpWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {},
-        {onProgress: count => toWindow('exportProgress', count), signal}) : null;
-      if (signal.aborted) throw Object.assign(new Error('Export cancelled'), {cancelled: true});   // the file is written only after this
-      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, notion: copy, version: about.label});
-      appLog('data', 'exported', {keys: !!secrets, notion: !!copy});
-      return {ok: true, file: picked.filePath, notion: copy && {pages: copy.pages, rows: copy.rows}};
+      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, version: about.label});
+      appLog('data', 'exported', {keys: !!secrets});
+      return {ok: true, file: picked.filePath};
     } catch (error) {
-      appLog('data', error.cancelled ? 'export cancelled' : `export failed: ${error.message}`);
-      return error.cancelled ? {ok: false, cancelled: true} : {ok: false, error: error.message};
-    } finally { exportStop = null; }
+      appLog('data', `export failed: ${error.message}`);
+      return {ok: false, error: error.message};
+    }
   });
-  // Settings → Cancel export: the Notion copy stops at its next request and no file is written.
-  let exportStop = null;
-  ipcMain.handle('exportCancel', () => { exportStop?.abort(); return !!exportStop; });
   // Import: the file replaces this computer's data (which is kept as a backup), at a restart.
   ipcMain.handle('importProfile', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Import Job Pilotto data', properties: ['openFile'],

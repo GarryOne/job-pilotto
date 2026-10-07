@@ -1195,19 +1195,16 @@
           </div>
           <div class="setting panel" id="setting-data">
             <div class="summary-head"><i data-icon="refresh"></i><h3>Move your data</h3></div>
-            <p class="muted panel-lead">Save a copy of your data or restore from an existing export. Your Notion workspace stays in Notion either way.</p>
+            <p class="muted panel-lead">Save a copy of what Job Pilotto keeps on this computer, or restore one. Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</p>
             <div class="choice-grid">
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
                 <div><b>Export</b><p class="muted small">Save a copy of everything Job Pilotto keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
-                  <button class="secondary" id="export-data">Export data</button>
-                  <button class="link" id="export-cancel" hidden>Cancel export</button></div></div>
+                  <button class="secondary" id="export-data">Export data</button></div></div>
               <div class="choice-card"><span class="file-tile"><i data-icon="folder"></i></span>
                 <div><b>Import</b><p class="muted small">Restore from a Job Pilotto export. Current data is backed up first.</p>
                   <button class="secondary" id="import-data" data-import>Import data</button></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
-              <label class="check-row"><input type="checkbox" id="export-notion"><span><span>Include a copy of my Notion data</span>
-                <span class="muted small">Every page, database and row, as JSON: to keep, or to move to another Notion account. Takes a few minutes for a big workspace.</span></span></label>
               <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, Notion, Telegram, GitHub)</span>
                 <span class="muted small">They're then in the file in plain text: keep it private.</span></span></label>
             </details>

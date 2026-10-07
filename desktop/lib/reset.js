@@ -12,7 +12,7 @@ import {tar} from './tar.js';
 
 const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
-export const NOTION_FILE = 'notion.json';  // an export's copy of the Notion workspace (only when asked for)
+export const NOTION_FILE = 'notion.json';  // a Notion copy older exports could carry (no longer made, 8 Oct 2026): dropped at import
 // What an export leaves out of the data folder; everything else goes in, so a file the app starts keeping is exported without anyone listing it
 // (6 Oct 2026: a fixed list missed profile.md and answers.md, a user's whole profile before Notion, plus the strategy draft, the "Answer once" list
 // and the Apply sessions). Left out: Chromium's own files (caches, cookies, its storage, its locks), logs, the keys sealed for this computer only
@@ -41,13 +41,12 @@ export function exportName({name = '', role = '', at = new Date()} = {}) {
 }
 
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
-export function exportTo(dir, file, {keys = null, notion = null, version = ''} = {}, now = new Date()) {
+export function exportTo(dir, file, {keys = null, version = ''} = {}, now = new Date()) {
   const extra = [];
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({app: 'Job Pilotto', version, exportedAt: now.toISOString(),
-    keys: !!keys, notion: !!notion}, null, 1));
+    keys: !!keys}, null, 1));
   extra.push('manifest.json');
   if (keys) { fs.writeFileSync(path.join(dir, KEYS_FILE), JSON.stringify(keys), {mode: 0o600}); extra.push(KEYS_FILE); }
-  if (notion) { fs.writeFileSync(path.join(dir, NOTION_FILE), JSON.stringify(notion)); extra.push(NOTION_FILE); }
   try {
     execFileSync(tar(), ['-czf', file, ...LEFT_OUT_INSIDE.map(pattern => `--exclude=${pattern}`), '-C', dir, ...exported(dir), ...extra]);
   } finally {

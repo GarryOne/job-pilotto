@@ -47,13 +47,3 @@ test('every handler that archives, copies or moves data, or sets up a service, i
   assert.deepEqual(bare, []);
   assert.ok(blocks.some(block => /^\s*handleImportant\('exportProfile'/.test(block)));
 });
-
-test('a cancelled Notion copy stops at its next request and says so', async () => {
-  const {dumpWorkspace} = await import('../lib/notion.js');
-  const stop = new AbortController();
-  stop.abort();   // Cancel pressed: the next request refuses, so nothing more is read
-  let calls = 0;
-  const fetcher = async () => { calls++; return {ok: true, status: 200, json: async () => ({results: [], has_more: false})}; };
-  await assert.rejects(dumpWorkspace('t', {NOTION_PROFILE_PAGE_ID: 'p'}, {fetcher, signal: stop.signal, sleep: async () => {}}), error => error.cancelled === true);
-  assert.equal(calls, 0);
-});

@@ -1,5 +1,5 @@
 // Your data: export, import, backup, reset.
-import {$, message, show} from './core.js';
+import {$, message} from './core.js';
 import {toastMessage} from './startup.js';
 
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
@@ -13,18 +13,14 @@ async function showBackup() {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   // ---------- your data: export / import ----------
-  window.pilot.onExportProgress(({pages, rows}) => message('data-message', `Copying your Notion data… ${pages} pages, ${rows} rows so far`, 'waiting'));
   $('export-data').addEventListener('click', async () => {
     $('export-data').disabled = true;
-    show($('export-cancel'), true);
-    const result = await window.pilot.exportProfile({keys: $('export-keys').checked, notion: $('export-notion').checked});
+    // Notion data is not exported: it stays in Notion, with Notion's own history, Duplicate, Export and Move (owner, 8 Oct 2026)
+    const result = await window.pilot.exportProfile({keys: $('export-keys').checked});
     $('export-data').disabled = false;
-    show($('export-cancel'), false);
-    if (result.cancelled) message('data-message', 'Export cancelled. No file was saved.', 'waiting');
-    else if (result.ok) message('data-message', `Exported ✓ ${result.file}${result.notion ? ` (with Notion: ${result.notion.pages} pages, ${result.notion.rows} rows)` : ''}`, 'ok');
+    if (result.ok) message('data-message', `Exported ✓ ${result.file}`, 'ok');
     else if (result.error) message('data-message', `Export failed: ${result.error}`, 'error');
   });
-  $('export-cancel').addEventListener('click', () => { message('data-message', 'Cancelling the export…', 'waiting'); window.pilot.exportCancel(); });
   // Settings → Your data, and the setup's Welcome (after a reset the app opens at the setup, where Settings is out of reach: 6 Oct 2026).
   document.querySelectorAll('[data-import]').forEach(button => button.addEventListener('click', async () => {
     const result = await window.pilot.importProfile();

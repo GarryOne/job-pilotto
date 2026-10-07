@@ -72,34 +72,16 @@ test('archiving twice keeps one "(archived …)" suffix; renaming it back brings
   assert.equal((await notion.archiveWorkspace('t', ids, '28 Sep 2026', w.fetcher)).title, 'My jobs (archived 28 Sep 2026)');
 });
 
-test('the Notion copy holds sub-pages, databases with rows and their contents, and waits when rate limited', async () => {
-  const w = workspace({rows: 3});
-  const ids = (await notion.discover('t', w.fetcher)).ids;
-  const seen = [], waits = [];
-  const copy = await notion.dumpWorkspace('t', ids, {fetcher: w.fetcher, onProgress: count => seen.push(count), sleep: async ms => waits.push(ms)});
-  assert.ok(waits.includes(1000));  // the 429 was retried after a second
-  assert.equal(copy.rows, 3);
-  assert.equal(copy.pages, 1);
-  const [db, sub, parked] = copy.blocks;
-  assert.equal(parked.skipped, 'archived');  // an archived page isn't copied
-  assert.equal(parked.children, undefined);
-  assert.equal(db.database.id, 'dbx');
-  assert.equal(db.rows[2].blocks[0].id, 'note');
-  assert.equal(sub.children[0].id, 'p1');
-  assert.deepEqual(seen.at(-1), {pages: 1, rows: 3});
-});
-
-test('an export can carry notion.json; importing it keeps the Mac free of a second copy', () => {
+test('an export carries no Notion copy; an older one that does imports without keeping it (owner, 8 Oct 2026)', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-'));
   const dir = path.join(base, 'Job Pilotto');
   createStorage(dir, {encrypt: v => v, decrypt: v => v}).saveSettings({setupDone: true});
   const file = path.join(base, 'export.tar.gz');
-  reset.exportTo(dir, file, {notion: {app: 'Job Pilotto', rows: 1}});
-  assert.ok(!fs.existsSync(path.join(dir, reset.NOTION_FILE)));
+  reset.exportTo(dir, file);
   reset.stageImport(dir, file);
-  assert.ok(fs.existsSync(path.join(`${dir} (import)`, reset.NOTION_FILE)));  // it's in the file
-  const done = reset.applyPending(dir);
-  assert.equal(done.imported, true);
+  assert.ok(!fs.existsSync(path.join(`${dir} (import)`, reset.NOTION_FILE)), 'no Notion copy in a new export');
+  fs.writeFileSync(path.join(`${dir} (import)`, reset.NOTION_FILE), '{}');   // as an older export carried it
+  assert.equal(reset.applyPending(dir).imported, true);
   assert.ok(!fs.existsSync(path.join(dir, reset.NOTION_FILE)));
 });
 
