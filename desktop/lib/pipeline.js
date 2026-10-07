@@ -583,6 +583,19 @@ function searchOnce(storage, onLine, mode, trigger = 'you') {
   })();
 }
 
+// Always on: the searches run on GitHub, but pages read in Chrome stay on this Mac (7 Oct 2026: they were never scored). A run here that reads
+// only those pages (src/daily.py --only-visits, mode today: it closes nothing, no Telegram digest), scores what matches and writes it to Notion.
+export function visitsArgs(storage) {
+  return [...dailyArgs(storage, {mode: 'today'}).filter(arg => arg !== '--send'), '--only-visits'];
+}
+export function scoreVisits(storage, onLine, trigger = 'you') {
+  return tracked(storage, 'today', trigger, onLine, async tee => {
+    tee('Scoring the jobs read in Chrome, on this Mac…');
+    const {code, result} = await run(storage, visitsArgs(storage), tee, triggerEnv(trigger));
+    return {ok: code === 0, result};
+  }, null, () => ({}));
+}
+
 // Why a rejected application was turned down (src/ai/rejection.py, Claude Sonnet 5): verdict + lesson on its
 // Applications row and page. The last output line is the one-line summary.
 export async function reviewRejection(storage, url, onLine = () => {}) {

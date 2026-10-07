@@ -317,6 +317,9 @@ def main():
     parser.add_argument('--company-report', type=Path, default=REPORTS / 'companies.json')
     parser.add_argument('--limit', type=int, default=50, help='jobs in the ranked list, paged 10 at a time')
     parser.add_argument('--page', type=int, default=1)
+    # Always on runs the searches on GitHub, but pages read in Chrome stay on this Mac (7 Oct 2026: they were never scored): a run on the Mac
+    # that reads only those pages, scores what matches and writes it to Notion; it closes nothing (it saw only a few feeds).
+    parser.add_argument('--only-visits', action='store_true', help='read only the pages read in Chrome (visit feeds); use with --mode today')
     parser.add_argument('--seed', type=int, help='ranking seed from a ➕ Next button, so pages continue')
     parser.add_argument('--send', action='store_true', help='send to Telegram; otherwise print preview only')
     parser.add_argument('--mode', choices=MODES, default='scheduled',
@@ -369,6 +372,8 @@ def main():
     parser.add_argument('--insight', action='store_true',
                         help="scheduled mode: send the day's insight if it's due (insight mode always sends one)")
     args = parser.parse_args()
+    if args.only_visits and args.mode != 'today':   # a full search's closers would close every job it did not read
+        parser.error('--only-visits needs --mode today')
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
     apply_switches(args)
@@ -652,7 +657,10 @@ def main():
             # The feed watcher and canonical store intentionally have different schemas.
             # Keep the source-specific history separate, then import the report.
             # sources.json plus every active feed the scout found (local table + Notion Source Registry).
-            feed_list = scout.active_sources(db, tracker, sources, downloaded_index())
+            feed_list = scout.active_sources(db, tracker, sources, [] if args.only_visits else downloaded_index())
+            if args.only_visits:
+                feed_list = [source for source in feed_list if source.get('ats') == 'visit']
+                print(f'Reading only the {len(feed_list)} page(s) read in Chrome on this Mac')
             if employer_index.problem:  # said on the run, not only in its log: the check then crawled a small list
                 run['warnings'].append(f'Employer index not downloaded ({employer_index.problem}): this check crawled {len(feed_list)} feeds, not the full list')
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:

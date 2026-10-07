@@ -155,3 +155,14 @@ class FoundSiteTest(unittest.TestCase):
                                 search=lambda name: ['https://www.hublot.com/en-ch/job-offers'], jobsch_lookup=lambda name: None)
         self.assertIsNone(found)
         self.assertEqual(candidate['found_site'], 'https://www.hublot.com/en-ch/job-offers')
+
+
+class OnlyVisitsTest(unittest.TestCase):
+    """Always on (7 Oct 2026): a run on the Mac reads only the pages read in Chrome; a full search with it would close every job it did not read."""
+    def test_only_visits_is_refused_outside_mode_today(self):
+        import subprocess
+        import sys
+        done = subprocess.run([sys.executable, '-m', 'src', 'daily', '--mode', 'run', '--only-visits'], capture_output=True, text=True,
+                              env={**__import__('os').environ, 'JOB_PILOTTO_FOLLOW_APP': '0', 'JOB_PILOTTO_DISABLE': 'mail,notion,telegram,google_jobs'})
+        self.assertEqual(done.returncode, 2)
+        self.assertIn('--only-visits needs --mode today', done.stderr)

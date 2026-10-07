@@ -121,10 +121,11 @@ function allowanceBlock() {
 // Jobs read in Chrome that match the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count
 // never grows": they waited for the next scheduled check). Pages read in Chrome stay on this Mac, so with Always on they wait for a local search.
 function scoreVisitJobs(fits, by) {
-  if (!fits) return;
-  const cloud = !!storage.settings().cloud?.repo;
-  appLog('visit', cloud ? 'fitting jobs left for a search on this Mac (Always on)' : 'search started to score the jobs read in Chrome', {fits, by});
-  if (!cloud && !allowanceBlock()) pipeline.refresh(storage, log, 'run', 'you');
+  if (!fits || allowanceBlock()) return;
+  const cloud = !!storage.settings().cloud?.repo;   // Always on: the search runs on GitHub, which never sees pages read in Chrome
+  appLog('visit', cloud ? 'scoring the jobs read in Chrome on this Mac (Always on)' : 'search started to score the jobs read in Chrome', {fits, by});
+  if (cloud) pipeline.scoreVisits(storage, log);
+  else pipeline.refresh(storage, log, 'run', 'you');
 }
 // Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
 function healthOnce() {

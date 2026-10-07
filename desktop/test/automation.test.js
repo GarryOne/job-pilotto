@@ -243,3 +243,14 @@ test('Find new employers: the result line is the card\'s second line, as well as
   assert.equal(pipeline.taskSummary('scout', ['🔎 Source scout · checked 7 · 🆕 2 new sources']), 'checked 7 · 🆕 2 new sources');
   assert.equal(pipeline.taskSummary('scout', ['nothing relevant']), null);
 });
+
+test('Always on: jobs read in Chrome are scored by a run on this Mac that reads only them, sends no digest and closes nothing (mode today)', () => {
+  const storage = tempStorage();
+  storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
+  storage.setSecret('TELEGRAM_BOT_TOKEN', '1:abc');
+  storage.saveSettings({telegramChatId: '42'});
+  const args = pipeline.visitsArgs(storage);
+  assert.deepEqual(args.slice(0, 4), ['src', 'daily', '--mode', 'today']);
+  assert.ok(args.includes('--only-visits') && args.includes('--score-max'), args.join(' '));
+  assert.ok(!args.includes('--send'), 'no Telegram digest for a few pages read in Chrome');
+});
