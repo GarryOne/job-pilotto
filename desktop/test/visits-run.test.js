@@ -79,3 +79,24 @@ test('runAll writes each site\'s states, in order, for those rows', async () => 
   assert.deepEqual(lines.filter(line => line.includes('▸')), [siteLine('next', 'A', 'https://a.example'), siteLine('opening', 'A', 'Opening in Chrome…'), siteLine('done', 'A', '4 jobs (1 new)')]);
   assert.ok(lines.some(line => /^⏳ .*1 of 1 · 100%/.test(line)), 'the banner\'s step says the percent');
 });
+
+test('a read tab you close ends that site at once, said in its row, and the next site opens', async () => {
+  const {noteTabs, siteLine} = await import('../lib/visits.js');
+  const lines = [];
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (url.includes('closeme')) {
+      setTimeout(() => noteTabs({ids: [1, 41], boot: 'b1', reading: {[ticket]: 41}}), 10);   // Chrome reports the tab
+      setTimeout(() => noteTabs({ids: [1], boot: 'b1', reading: {}}), 30);                   // ... then the person closes it
+    } else setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 2, added: 2, pages: 1}), 10);
+    return {ok: true};
+  };
+  const started = Date.now();
+  const results = await runAll([{name: 'Closeme', url: 'https://closeme.example'}, {name: 'Next', url: 'https://next.example'}],
+    {atOnce: 1, openTab, tee: line => lines.push(line), waitMs: 5000, quietMs: 5000, siteMs: 5000});
+  assert.ok(Date.now() - started < 1000, 'no timeout waited');
+  assert.deepEqual(results.map(result => [result.name, result.ok, result.why]), [['Closeme', false, 'You closed the tab'], ['Next', true, '']]);
+  assert.ok(lines.includes(siteLine('closed', 'Closeme', 'You closed the tab')));
+  noteTabs({ids: [], boot: 'b1', reading: {}});   // an older extension's report (no reading) changes nothing either way
+  noteTabs({ids: [1], boot: 'b1'});
+});

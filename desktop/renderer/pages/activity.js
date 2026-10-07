@@ -128,7 +128,7 @@ const runResults = new Map();  // run id -> the message a finished task produced
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
 // Read sites' step card (renderer/visits-card.js parseSiteRows): the meter (the few-jobs box's score-track) and one row per site.
-const SITE_MARK = {next: 'todo', opening: 'now', waiting: 'warn', reading: 'now', done: 'done', stopped: 'fail'};
+const SITE_MARK = {next: 'todo', opening: 'now', waiting: 'warn', reading: 'now', done: 'done', stopped: 'fail', closed: 'fail'};
 function siteProgress({done, total, percent}) {
   const li = el('li', 'site-progress');
   const track = el('span', 'score-track'), fill = el('span', 'score-fill');

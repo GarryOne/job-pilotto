@@ -135,9 +135,23 @@ const waiting = new Map();   // start address -> resolve
 const watchers = new Map();   // ticket -> the running site's listener: a page read, a wait on the person
 // One site's state as one plain line of the task's log (indented: never the banner's step). The run's step card draws a row per site from these
 // lines, live and afterwards (renderer/visit-rows.js parseSiteRows): `  ▸ <state> · <site> · <words>`.
-export const SITE_STATES = ['next', 'opening', 'waiting', 'reading', 'done', 'stopped'];
+export const SITE_STATES = ['next', 'opening', 'waiting', 'reading', 'done', 'stopped', 'closed'];
 const plain = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').trim();
 export const siteLine = (state, name, words) => `  ▸ ${state} · ${plain(name)} · ${plain(words)}`;
+// Which Chrome tab reads which site: the extension's tab report (on every open, change and close, and every 30 s), bound the way Applying binds
+// a form to its tab (review.js noteTabs). A site whose tab is gone from a report was closed by you: said at once, and the next site opens.
+const tabOf = new Map();   // ticket -> tab id
+let bootId = '';
+export function noteTabs({ids, boot, reading} = {}) {
+  if (boot && boot !== bootId) { bootId = String(boot); tabOf.clear(); }   // Chrome restarted: its tabs were numbered again
+  if (!Array.isArray(ids) || !reading || typeof reading !== 'object') return;   // an older extension: its report has no read tabs
+  const open = new Set(ids.map(Number).filter(Number.isInteger));
+  for (const [ticket, tab] of Object.entries(reading)) if (watchers.has(ticket) && Number.isInteger(Number(tab))) tabOf.set(ticket, Number(tab));
+  for (const [ticket, tab] of [...tabOf]) {
+    if (!watchers.has(ticket)) tabOf.delete(ticket);
+    else if (!open.has(tab)) { tabOf.delete(ticket); watchers.get(ticket)({closed: true}); }
+  }
+}
 export const percent = (done, total) => (total ? Math.round(done / total * 100) : 0);
 const blocked = new Set();
 let waitingNotice = null;   // main.js: a notification whose click brings Chrome forward
@@ -194,6 +208,12 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     });
     let pages = 0, jobs = 0;
     watchers.set(ticket, event => {
+      if (event.closed) {
+        const resolve = waiting.get(ticket);
+        waiting.delete(ticket);
+        log('visit', 'read tab closed by the person', {host: new URL(site.url).hostname, pages});
+        resolve?.({stopped: 'You closed the tab', closed: true, jobs: 0, added: 0});
+      }
       if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
       if (event.page) { blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
@@ -214,7 +234,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     const ok = (state.jobs || 0) > 0;
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
     doneCount += 1;
-    tee(siteLine(ok ? 'done' : 'stopped', site.name, ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'));
+    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'));
     tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0};

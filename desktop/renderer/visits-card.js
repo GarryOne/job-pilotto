@@ -14,11 +14,11 @@ export function parseVisits(text) {
 }
 // A Read sites run's tabs, from its log (lib/visits.js siteLine: `  ▸ <state> · <site> · <words>`): one row per site in the order they were
 // listed, each at its latest state, and how far the run is (sites finished of all, as a percent). Pure; null when the log has none.
-const FINISHED = new Set(['done', 'stopped']);
+const FINISHED = new Set(['done', 'stopped', 'closed']);
 export function parseSiteRows(lines) {
   const rows = new Map();
   for (const line of lines || []) {
-    const found = /^\s+▸ (next|opening|waiting|reading|done|stopped) · (.+?) · (.*)$/.exec(String(line));
+    const found = /^\s+▸ (next|opening|waiting|reading|done|stopped|closed) · (.+?) · (.*)$/.exec(String(line));
     if (!found) continue;
     const [, state, name, words] = found;
     const row = rows.get(name) || {name, url: ''};

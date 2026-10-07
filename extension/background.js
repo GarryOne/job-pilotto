@@ -5,7 +5,7 @@ import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from
 import {ensureAlarm} from './report-alarm.js';
 import {autoRead, markListed, readSite, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
-import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
+import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -765,14 +765,19 @@ async function reportTabs() {
   const urls = open.map(tab => tab.url);
   const stored = await chrome.storage.session.get(null).catch(() => ({}));
   const armedIds = Object.keys(stored).filter(key => key.startsWith('armed:') && stored[key]).map(key => Number(key.slice(6))).filter(Number.isInteger);
-  const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds, existingIds: (await chrome.tabs.query({})).map(tab => tab.id)});
+  const every = await chrome.tabs.query({});
+  // Read sites: the tabs reading a site, by ticket, so the app sees each one open and notices one you closed (as for a form tab).
+  const kept = Object.fromEntries(Object.keys(stored).filter(key => key.startsWith('read:')).map(key => [Number(key.slice(5)), stored[key]]));
+  const {reading, mark} = readTabs(every, kept);
+  if (Object.keys(mark).length) await chrome.storage.session.set(Object.fromEntries(Object.entries(mark).map(([id, ticket]) => [`read:${id}`, ticket]))).catch(() => {});
+  const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds: [...armedIds, ...Object.values(reading)], existingIds: every.map(tab => tab.id)});
   for (const id of armedIds) reportCorrections(config, id);
   // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
   let {boot} = await chrome.storage.session.get('boot');
   if (!boot) { boot = String(Date.now()); await chrome.storage.session.set({boot}); }
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
-    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, version: chrome.runtime.getManifest().version})});
+    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, reading, version: chrome.runtime.getManifest().version})});
     connected(true);
     // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
     // that can't update (a store install) doesn't reload over and over.
@@ -797,7 +802,7 @@ function connected(ok, why = '') {
 // ever carried over to whatever opens next (tab-pages.js).
 chrome.tabs.onRemoved.addListener(async tabId => {
   reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
-  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
+  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
   for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
   // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
   // matched it and the new tab was treated as already filled.

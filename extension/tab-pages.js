@@ -199,3 +199,19 @@ export const sharedFixNote = ({count, kinds}) => (count
 // (the result of a form's own Submit, a reload)? Only a different page starts a job: keeping the job across a reload is what lets the
 // confirmation after Submit be marked (3 Oct 2026: a job lost on the result page was never marked Applied).
 export const startsOwnJob = (prior, url) => !prior || pageKey(prior) !== pageKey(url);
+
+// Read sites (the app's Actions task): which open tab reads which site, by the ticket in the mark the app opened it with
+// (#jp-read-<ticket> or #jp-read-filter-<ticket>). A tab keeps its ticket after a redirect drops the mark (`kept`: tab id -> ticket from
+// chrome.storage.session read:<id>). Returns {reading: {ticket: tab id}, mark: {tab id: ticket}} (mark: ones to keep), open tabs only.
+export const READ_MARK = /#jp-read(?:-filter)?-([a-z0-9]{4,16})$/;
+export function readTabs(tabs = [], kept = {}) {
+  const reading = {}, mark = {};
+  for (const tab of tabs) {
+    const fromUrl = READ_MARK.exec(String(tab.url || ''))?.[1];
+    const ticket = fromUrl || kept[tab.id];
+    if (!ticket) continue;
+    reading[ticket] = tab.id;
+    if (fromUrl && kept[tab.id] !== fromUrl) mark[tab.id] = fromUrl;
+  }
+  return {reading, mark};
+}
