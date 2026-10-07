@@ -33,6 +33,13 @@ export function recall(storage, name) {
 // A job's status was just written to Notion (Save, Dismiss, Applied): the saved Jobs list says so too, and the saved
 // Focus (built from the old stages) is dropped. Without this a reload or restart painted the list from before the
 // change, a dismissed interview back as "Interview scheduled" until the fresh read landed (focus e2e, 3 Oct 2026).
+// A job deleted: out of the cached list, so the next start does not paint it back (main.js deleteJob).
+export function jobDeleted(storage, url) {
+  const saved = recall(storage, 'jobs');
+  if (!saved?.result?.jobs) return;
+  saved.result.jobs = saved.result.jobs.filter(item => item.url !== url);
+  storage.writeText(file('jobs'), JSON.stringify({at: saved.at, workspace: workspace(storage), result: saved.result}));
+}
 export function statusChanged(storage, url, status, stage) {
   const saved = recall(storage, 'jobs');
   if (saved?.result?.jobs) {

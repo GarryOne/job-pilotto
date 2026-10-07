@@ -217,3 +217,50 @@ class StrategyInsightTests(unittest.TestCase):
             db.close()
         self.assertTrue(all('filter' not in (b or {}) for b in bodies))
         self.assertEqual(data['insight']['headline'], 'daily')
+
+
+class DeleteTests(unittest.TestCase):
+    """A dismissed job deleted (7 Oct 2026: two Anthropic rows a Gmail check had made): Notion pages to the trash, a local marker, never back."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = store.connect(Path(self.tmp.name) / 'jobs.sqlite')
+        self.job = {'title': 'Staff Software Engineer', 'company': 'Anthropic', 'url': 'https://x.test/a', 'location': 'Remote'}
+        store.upsert_job(self.db, self.job, 'Anthropic', source_kind='employer feed')
+        self.db.commit()
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    class Tracker:
+        def __init__(self, stage):
+            self.stage, self.trashed = stage, []
+
+        def find(self, url):
+            return {'id': 'app-1', 'properties': {'Stage': {'select': {'name': self.stage}}}} if self.stage else None
+
+        def trash_page(self, page_id):
+            self.trashed.append(page_id)
+
+    def test_only_a_dismissed_job_can_be_deleted(self):
+        result = desktop.delete_job(self.db, 'https://x.test/a')
+        self.assertFalse(result['ok'])
+        self.assertIn('Dismiss it first', result['error'])
+        self.assertFalse(desktop.delete_job(self.db, 'https://x.test/a', self.Tracker('Applied'))['ok'])
+
+    def test_a_dismissed_job_goes_to_the_trash_and_no_search_brings_it_back(self):
+        desktop.set_status(self.db, 'https://x.test/a', 'dismissed')
+        tracker = self.Tracker('Dismissed')
+        self.assertEqual(desktop.delete_job(self.db, 'https://x.test/a', tracker), {'ok': True, 'trashed': 1})
+        self.assertEqual(tracker.trashed, ['app-1'])
+        self.assertEqual(desktop.jobs(self.db)['jobs'], [])
+        store.upsert_job(self.db, self.job, 'Anthropic', source_kind='employer feed')   # the next search sees the posting again
+        self.db.commit()
+        self.assertEqual(desktop.jobs(self.db)['jobs'], [], 'still deleted')
+
+    def test_notion_refusing_changes_nothing(self):
+        desktop.set_status(self.db, 'https://x.test/a', 'dismissed')
+        tracker = self.Tracker('Dismissed')
+        tracker.trash_page = lambda page: (_ for _ in ()).throw(RuntimeError('503'))
+        self.assertFalse(desktop.delete_job(self.db, 'https://x.test/a', tracker)['ok'])
+        self.assertEqual(len(desktop.jobs(self.db)['jobs']), 1)

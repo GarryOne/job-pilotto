@@ -677,6 +677,11 @@ export async function markOutcome(storage, url, stage) {
   const last = stdout.trim().split('\n').filter(Boolean).pop() || '';
   return code === 0 ? {ok: true, stage} : {ok: false, error: last || 'Notion did not take it'};
 }
+// A dismissed job deleted (src/desktop.py delete_job): its Notion pages to the trash, the local copy a marker.
+export async function deleteJob(storage, url) {
+  const {stdout} = await run(storage, ['src.desktop', 'delete', url]);
+  try { return JSON.parse(stdout.trim().split('\n').pop() || '{}'); } catch { return {ok: false, error: 'The app could not read the answer.'}; }
+}
 export async function setStatus(storage, url, status) {
   const {stdout} = await run(storage, ['src.desktop', 'status', url, status]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{}');

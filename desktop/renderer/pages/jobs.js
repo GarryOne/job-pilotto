@@ -428,6 +428,16 @@ export function renderJobs() {
         renderJobs();
       }});
     if (job.status !== 'dismissed') menu.push({icon: 'close', label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
+    // A dismissed job can go for good (owner, 7 Oct 2026): its Notion pages to the trash (30 days there), and no search brings it back.
+    else menu.push({icon: 'trash', label: 'Delete', danger: true, title: 'Remove this job: its Notion pages go to the trash, and searches will not show it again',
+      run: async () => {
+        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\nIts Notion pages go to Notion's trash (restorable there for 30 days), and searches will not show it again.`)) return;
+        const result = await window.pilot.deleteJob(job.url).catch(error => ({ok: false, error: error.message}));
+        if (!result?.ok) { toastMessage('Not deleted', result?.error || 'Something went wrong.'); return; }
+        shared.allJobs = shared.allJobs.filter(other => other !== job);
+        toastMessage('Deleted', result.trashed ? 'Its Notion pages are in the trash.' : 'It will not come back.');
+        renderJobs();
+      }});
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);

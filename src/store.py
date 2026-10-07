@@ -178,7 +178,8 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
         return duplicate['id'], 'seen'
     if existing:
         db.execute("""UPDATE jobs SET source_id=?, company_id=?, title=?, url=?, location=?, city=?,
-            work_mode=?, last_seen_at=?, classification=?, confidence=?, salary_json=?, notes=?, state='open' WHERE id=?""",
+            work_mode=?, last_seen_at=?, classification=?, confidence=?, salary_json=?, notes=?,
+            state=CASE WHEN state='deleted' THEN 'deleted' ELSE 'open' END WHERE id=?""",
                    (*fields[:7], fields[8], fields[9], fields[10], fields[11], fields[12], existing['id']))
         job_id = existing['id']; status = 'seen'
     else:
@@ -281,6 +282,12 @@ def digest_jobs(db, limit=10, only_new=False):
         query += " AND jobs.first_seen_at=jobs.last_seen_at"
     query += " ORDER BY jobs.last_seen_at DESC LIMIT ?"
     return [dict(row) for row in db.execute(query, (limit,)).fetchall()]
+
+
+def delete_job(db, job_id):
+    """A job you deleted (after dismissing it): kept as a marker, never shown or synced again, and a search that sees the same posting
+    again does not bring it back (upsert keeps 'deleted')."""
+    db.execute("UPDATE jobs SET state='deleted' WHERE id=?", (job_id,))
 
 
 def set_application_status(db, job_id, status, notes=None):

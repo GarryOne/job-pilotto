@@ -1310,6 +1310,14 @@ function handlers() {
   // Every Applied decision lands in the log, whoever made it: the two buttons here, the extension's own report
   // (server.js), and a mistaken one's undo (notSubmitted below). "Who decided this, and why?" is answerable from
   // logs/app.log alone (1 Oct 2026).
+  ipcMain.handle('deleteJob', async (_, url) => {
+    if (DEMO) return {ok: true, trashed: 0};
+    const result = await pipeline.deleteJob(storage, String(url)).catch(error => ({ok: false, error: error.message}));
+    let host = ''; try { host = new URL(String(url)).hostname; } catch { /* not an address */ }
+    appLog('jobs', result?.ok ? 'deleted a dismissed job' : 'job not deleted', {host, trashed: result?.trashed ?? 0, by: 'you', error: result?.ok ? undefined : result?.error});
+    if (result?.ok) viewCache.jobDeleted(storage, String(url));
+    return result;
+  });
   ipcMain.handle('setStatus', async (_, url, status) => {
     const reason = notionGate.statusReason(status);
     const gate = reason && needsNotion(reason);
