@@ -216,3 +216,10 @@ test('a tab reading one job posting is reported by its ticket too, so closing it
   const {reading} = readTabs([{id: 5, url: 'https://www.linkedin.com/jobs/view/4012345678/#jp-posting-a1b2c3d4'}, {id: 6, url: 'https://x.example/#jp-postingx-a1b2c3d4'}]);
   assert.deepEqual(reading, {a1b2c3d4: 5});
 });
+
+test('a site the app opened that cannot be reached is said at once in plain words; an aborted load (a redirect) is not an error', async () => {
+  const {unreachableWhy} = await import('../../extension/visit.js');
+  assert.equal(unreachableWhy('net::ERR_NAME_NOT_RESOLVED'), 'no such address');   // www.geneva-freeport.ch, 7 Oct 2026
+  assert.equal(unreachableWhy('net::ERR_CONNECTION_TIMED_OUT'), 'it did not answer');
+  assert.equal(unreachableWhy('net::ERR_ABORTED'), '');
+});

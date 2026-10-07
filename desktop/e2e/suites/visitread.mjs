@@ -129,6 +129,17 @@ print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls
       if (login.blocked !== 'login' || login.text) throw new Error(`sign-in page ${JSON.stringify(login)}`);
     });
 
+    await ctx.run('a job list drawn in a frame by another site is found (not the cookie or video frame), and resetting the filters is never a way on (7 Oct 2026)', async () => {
+      await page.route('https://**/*', route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>framed</body></html>'}));
+      await page.goto(`${base}/framed.html`);
+      const frame = await call(page, 'jobFrame');
+      await page.unroute('https://**/*');
+      if (frame !== 'https://jobs.solique.example/maison/de/') throw new Error(`frame ${frame}`);
+      const ways = await call(page, 'collectWays');
+      const labels = ways.ways.map(way => way.label);
+      if (labels.some(label => /zurücksetzen/.test(label)) || !labels.includes('Weitere Stellen')) throw new Error(`ways ${JSON.stringify(labels)}`);
+    });
+
     await ctx.run('any site: where the quick guess reads nothing, Claude\'s recipe from the page outline reads the jobs and finds the next page', async () => {
       await page.goto(`${base}/odd.html`);
       const guess = await call(page, 'extractPage');

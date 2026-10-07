@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {autoRead, markListed, readSite, readingNow, startWaiting} from './visit.js';
+import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
 import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
@@ -295,6 +295,13 @@ if (chrome.webNavigation) {
   };
   chrome.webNavigation.onDOMContentLoaded.addListener(readWhenLoaded);
   chrome.webNavigation.onCompleted.addListener(details => readWhenLoaded({...details, complete: true}));
+  // A site the app opened that cannot be reached: the app hears it at once (visit.js siteUnreachable), with the mark kept if it redirected first.
+  chrome.webNavigation.onErrorOccurred.addListener(details => {
+    if (details.frameId !== 0) return;
+    if (/#jp-read(-filter)?-[a-z0-9]{4,16}$/.test(details.url)) { siteUnreachable(details.tabId, details.url, details.error); return; }
+    const key = `readmark:${details.tabId}`;
+    chrome.storage.session.get(key).then(kept => { if (kept[key]) siteUnreachable(details.tabId, `${details.url.split('#')[0]}${kept[key]}`, details.error); }).catch(() => {});
+  });
   // The mark of a tab the app opened to read, kept for the tab: its next pages may have lost it (a redirect).
   chrome.webNavigation.onBeforeNavigate.addListener(details => {
     const found = details.frameId === 0 && /#jp-(?:read(?:-filter)?|posting)(?:-([a-z0-9]{4,16}))?$/.exec(details.url);

@@ -204,9 +204,23 @@ export function collectControls() {
   return out;
 }
 
+// Runs inside the page: the address of a job list drawn inside it by another site (an iframe: 7 Oct 2026, Manor's careers page shows
+// live.solique.ch/manor/de/ and nothing else), when the page has no list of its own. The biggest visible frame from another host that is not a
+// cookie banner, a map or a video; '' when none.
+export function jobFrame() {
+  const NOT = /consent|cookie|usercentrics|didomi|onetrust|cmp\.|privacy|google\.com\/maps|maps\.|youtube|vimeo|recaptcha|hcaptcha|doubleclick|facebook|twitter|linkedin\.com\/embed/i;
+  const frames = [...document.querySelectorAll('iframe[src]')].map(frame => ({frame, box: frame.getBoundingClientRect()}))
+    .filter(({frame, box}) => /^https:\/\//.test(frame.src) && new URL(frame.src).host !== location.host && !NOT.test(frame.src) && box.width >= 300 && box.height >= 200)
+    .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height);
+  return frames[0]?.frame.src || '';
+}
+
 // Runs inside the page: its ways on when it shows no job list (buttons, links, search boxes, choices), for Claude to pick a way to the jobs
 // (src/ai/visit_unblock.py), with the title and first lines of text. Nothing that applies, signs in, saves or pays is ever listed.
 export function collectWays() {
+  // Never a way to undo the place filter (7 Oct 2026: on Fust's list filtered to Geneva, Claude's way on was "Alles zurücksetzen"): an empty
+  // filtered list is the answer, not a dead end.
+  const RESET = /reset|zurücksetzen|r[ée]initialiser|clear (all|filters?)|alle löschen|effacer (tout|les filtres)|azzera/i;
   const NEVER = /apply|postuler|bewerb|candidat|submit|envoyer|sign ?in|sign ?up|log ?in|connexion|anmeld|register|message|connect|follow|save|enregistr|speicher|alert|premium|upgrade|buy|subscribe|abonn|share|partager|report|delete|easy apply|candidature simplifi|password|checkout|cart|panier|warenkorb/i;
   const visible = node => (node.offsetParent !== null || node.getClientRects().length > 0) && getComputedStyle(node).visibility !== 'hidden';
   const labelOf = node => (node.getAttribute('aria-label') || node.innerText || node.value || node.getAttribute('placeholder') || node.getAttribute('title') || node.name || '')
@@ -217,7 +231,7 @@ export function collectWays() {
     const label = labelOf(node);
     const href = node.tagName === 'A' ? node.href.split('#')[0] : '';
     // An address that is a page's template code, not a link (7 Oct 2026: DHL's "${getUrl(linkEle,"), is never offered.
-    if ((!label && !href) || NEVER.test(label) || /^(mailto|tel|javascript):|\$\{|\{\{|%7B/i.test(node.getAttribute('href') || '') || node.closest('form[action*="login"], form[action*="apply"]')) continue;
+    if ((!label && !href) || NEVER.test(label) || RESET.test(label) || /^(mailto|tel|javascript):|\$\{|\{\{|%7B/i.test(node.getAttribute('href') || '') || node.closest('form[action*="login"], form[action*="apply"]')) continue;
     if (href && ways.some(way => way.href === href)) continue;
     const root = document.documentElement;   // a page-wide number, as in collectControls: ids stay unique across rounds
     const id = node.dataset.jpControl || `w${root.dataset.jpNext = Number(root.dataset.jpNext || 0) + 1}`;
@@ -429,6 +443,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     // This site's own job list, by its learned layout, showing no jobs (a list filtered to your places that has none): no way on to look for,
     // and not a wrong job page (7 Oct 2026: Claude looked for "a way to the jobs" on an empty brand page, one AI call each).
     let knownList = false;
+    let framed = false;   // a job list inside a frame was looked for (once a visit)
     const learn = async () => {
       asked = true;
       await tellStep(tabId, config, ticket, 'Claude is learning how to read this site (once)…');
@@ -457,6 +472,20 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         }
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
+      if (!cards?.length && page === 0 && !framed) {   // the list drawn by another site inside this page (Manor's by live.solique.ch): opened itself
+        framed = true;
+        const frame = await run(tabId, jobFrame).catch(() => '');
+        if (frame) {
+          await tellStep(tabId, config, ticket, `its job list is in a frame from ${new URL(frame).host}: opening it`);
+          await chrome.tabs.update(tabId, {url: frame});
+          await pause();
+          await waitForPage(tabId).catch(() => {});
+          await consent();
+          recipe = null; asked = false;
+          page -= 1;
+          continue;
+        }
+      }
       if (!cards?.length && page === 0 && unstuck < UNBLOCK_TRIES && !knownList) {   // no jobs here yet: Claude picks a way to them (owner: "ask Claude how to get unblocked")
         unstuck += 1;
         await tellStep(tabId, config, ticket, 'no jobs on this page yet: Claude is looking for the way to them…');
@@ -503,6 +532,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     if (!state.stopped) state.stopped = `${pages} pages read: the most at once`;
     // Nothing read at all: not "the end of the list" (there was none), said as what it is (owner's run, 7 Oct 2026).
     if (!state.jobs && /end of the list|no next page/.test(state.stopped)) state.stopped = knownList ? 'its job list has no jobs here today (filtered to your places)'
+      : state.filters.some(filter => !/not filtered/.test(filter)) ? `no jobs on this list with your place filter (${state.filters.join(', ').slice(0, 80)})`
       : 'no job list found on this page: try Read with Claude, or Open it myself';
   } catch (error) {
     state.stopped = /Cannot access|permission/i.test(error.message) ? 'the next page is on another site, or access was not given' : (error.message || 'stopped');
@@ -592,6 +622,26 @@ export async function autoRead(tabId, url) {
   started.delete(tabId);
   await chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {});
   await chrome.tabs.remove(tabId).catch(() => {});   // done: the app opens the next site in its place
+}
+// A tab the app opened to read whose site could not be reached at all (no such address, no answer, a bad certificate): said at once, not
+// after 30 s of silence (7 Oct 2026: www.geneva-freeport.ch does not exist, and the run waited for a page that never loaded).
+const UNREACHABLE = {NAME_NOT_RESOLVED: 'no such address', NAME_RESOLUTION_FAILED: 'no such address', CONNECTION_REFUSED: 'it refused the connection',
+  CONNECTION_TIMED_OUT: 'it did not answer', TIMED_OUT: 'it did not answer', ADDRESS_UNREACHABLE: 'it did not answer', CONNECTION_RESET: 'it dropped the connection',
+  SSL_PROTOCOL_ERROR: 'its secure connection failed', CERT_COMMON_NAME_INVALID: 'its security certificate is not valid', CERT_DATE_INVALID: 'its security certificate is not valid',
+  CERT_AUTHORITY_INVALID: 'its security certificate is not valid'};
+export function unreachableWhy(error) {
+  const code = String(error || '').replace(/^net::ERR_/, '');
+  return UNREACHABLE[code] || '';
+}
+export async function siteUnreachable(tabId, url, error) {
+  const found = MARK.exec(String(url));
+  const why = unreachableWhy(error);
+  if (!found || !why || started.has(tabId)) return;   // a reading in progress says it itself; an aborted load (a redirect) is not an error
+  const ticket = found[3] || '';
+  await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: url.slice(0, -found[0].length), ticket, jobs: 0, pages: 0,
+    stopped: `the site could not be reached: ${why} (${String(error).replace(/^net::/, '')})`})}).catch(() => {});
+  await chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {});
+  await chrome.tabs.remove(tabId).catch(() => {});
 }
 // Allowed from the popup: the tabs that were waiting start now.
 export async function startWaiting() {
