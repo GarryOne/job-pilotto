@@ -13,7 +13,7 @@ import json
 import re
 import urllib.error
 import urllib.request
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from . import ats, boards
 
@@ -219,6 +219,16 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
 BROWSER_AFTER = timedelta(hours=6)   # a job whose text this Mac could not read for this long (a page drawn by scripts) is a browser job too
 
 
+def same_posting(a, b):
+    """True when two addresses are one posting: the same host and path, and one's query only adds parameters to the other's (8 Oct 2026:
+    Bulgari's details.html?jobId=1091811 and ...?jobId=1091811&jobTitle=CLIENT%20ADVISOR were listed twice). No parameter is named: any site."""
+    one, two = urlsplit(a or ''), urlsplit(b or '')
+    if (one.hostname or '').lower() != (two.hostname or '').lower() or one.path.rstrip('/') != two.path.rstrip('/'):
+        return False
+    first, second = set(parse_qsl(one.query, keep_blank_values=True)), set(parse_qsl(two.query, keep_blank_values=True))
+    return first <= second or second <= first
+
+
 def stuck(db, days=14, limit=60, now=None):
     """[{url, title, company, location}] open jobs in your places whose posting text only a browser can read: a sign-in site, a site that refused
     us, or a page tried for BROWSER_AFTER with no text (drawn by scripts). Without the text they are never scored, so never listed; the
@@ -237,7 +247,7 @@ def stuck(db, days=14, limit=60, now=None):
         if not url or url in gone or not (walled(url) or host in refused or seen <= tried):
             continue
         job = {'url': url, 'title': title or '', 'company': company or '', 'location': location or ''}
-        if feeds.wanted_location(job):
+        if feeds.wanted_location(job) and not any(same_posting(url, kept['url']) for kept in out):   # one row per posting
             out.append(job)
     return out[:limit]
 
@@ -247,6 +257,11 @@ def save_text(db, url, text):
     text = ' '.join(str(text or '').split())[:12000]
     if len(text) < 200:   # a login page, an error page or an empty one: not a posting
         return False
-    changed = db.execute("UPDATE jobs SET description=? WHERE url=? AND state='open' AND coalesce(description, '') = ''", (text, url)).rowcount
+    # The same posting under another address (same_posting) gets the text too, or it comes back as a job we couldn't read.
+    host = (urlsplit(url or '').hostname or '').lower()
+    twins = [row[0] for row in db.execute("SELECT url FROM jobs WHERE state='open' AND coalesce(description, '') = '' AND url LIKE ?", (f'%{host}%',))
+             if same_posting(url, row[0])] if host else []
+    changed = sum(db.execute("UPDATE jobs SET description=? WHERE url=? AND state='open' AND coalesce(description, '') = ''", (text, one)).rowcount
+                  for one in dict.fromkeys([url, *twins]))
     db.commit()
     return changed > 0

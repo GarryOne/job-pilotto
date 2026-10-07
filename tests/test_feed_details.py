@@ -189,3 +189,26 @@ class BrowserJobsTests(unittest.TestCase):
         self.assertFalse(describe.save_text(db, 'https://ch.indeed.com/viewjob?jk=1', 'Sign in to continue'), 'too short: not a posting')
         self.assertTrue(describe.save_text(db, 'https://ch.indeed.com/viewjob?jk=1', 'You advise customers in our Geneva shop. ' * 10))
         self.assertTrue(db.execute("SELECT description FROM jobs WHERE id = 1").fetchone()[0].startswith('You advise'))
+
+    def test_one_posting_under_two_addresses_is_one_row_and_its_text_fills_both(self):
+        # 8 Oct 2026: Bulgari's ?jobId=1091811 and ?jobId=1091811&jobTitle=CLIENT%20ADVISOR were two rows of "Jobs we couldn't read".
+        from datetime import datetime, timedelta, timezone
+        from unittest import mock
+        from src.sources import describe, feeds, visits
+        self.assertTrue(describe.same_posting('https://x.test/details.html?jobId=1', 'https://x.test/details.html?jobId=1&jobTitle=A'))
+        self.assertFalse(describe.same_posting('https://x.test/details.html?jobId=1', 'https://x.test/details.html?jobId=2'), 'another posting')
+        self.assertFalse(describe.same_posting('https://x.test/a?jobId=1', 'https://y.test/a?jobId=1'), 'another site')
+        db = sqlite3.connect(':memory:')
+        db.execute("CREATE TABLE companies (id INTEGER PRIMARY KEY, name TEXT)")
+        db.execute("CREATE TABLE jobs (id INTEGER PRIMARY KEY, url TEXT, title TEXT, location TEXT, company_id INTEGER, state TEXT, description TEXT, first_seen_at TEXT)")
+        now = datetime(2026, 10, 8, 12, tzinfo=timezone.utc)
+        old = (now - timedelta(hours=8)).isoformat()
+        db.executemany('INSERT INTO jobs (url, title, location, company_id, state, description, first_seen_at) VALUES (?, ?, ?, NULL, ?, ?, ?)', [
+            ('https://x.test/details.html?jobId=1&jobTitle=CLIENT%20ADVISOR', 'CLIENT ADVISOR', 'Genève', 'open', '', old),
+            ('https://x.test/details.html?jobId=1', 'CLIENT ADVISOR', 'Genève', 'open', '', old),
+            ('https://x.test/details.html?jobId=2', 'Store Manager', 'Genève', 'open', '', old)])
+        with mock.patch.object(feeds, 'wanted_location', lambda job: True), mock.patch.object(describe, '_refused_hosts', lambda now: {}), \
+                mock.patch.object(visits, 'dismissed', lambda: set()):
+            self.assertEqual(len(describe.stuck(db, now=now)), 2, 'one row per posting')
+            self.assertTrue(describe.save_text(db, 'https://x.test/details.html?jobId=1', 'You advise clients in our Geneva boutique. ' * 10))
+            self.assertEqual([job['title'] for job in describe.stuck(db, now=now)], ['Store Manager'], 'both addresses of the posting got its text')
