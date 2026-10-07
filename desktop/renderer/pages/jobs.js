@@ -872,6 +872,15 @@ async function showMore() {
   button.disabled = false;
   renderJobs();
 }
+// A refresh's lines that change the list while it runs: jobs closed outside your search, scores written to Notion so far. The list is read again
+// then, without the loading state, so the counts move as it works (owner, 7 Oct 2026: "I want to see the 2971 decrease live").
+export const LIST_CHANGED = /^Closed [1-9]\d* job\(s\)|^Job Matches: \d+ created, \d+ updated \(so far\)/;
+let quietReload = null;
+function reloadQuietly() {
+  if (quietReload) return;
+  quietReload = window.pilot.jobs().then(fresh => { if (fresh?.jobs) { showJobsData(fresh); renderJobs(); } })
+    .catch(() => {}).finally(() => { quietReload = null; });
+}
 let lastJobsData = null;   // the list as last loaded: a deleted job is recounted from it at once (owner, 7 Oct 2026: the totals settled 3 refreshes later)
 function showJobsData(data) {
   lastJobsData = data;
@@ -1164,6 +1173,7 @@ export async function init() {
     if (status.test(line) && status.test(shared.logLines.at(-1) || '')) shared.logLines.pop();
     shared.logLines.push(line);
     refreshActivity();
+    if (LIST_CHANGED.test(line)) reloadQuietly();
   });
   $('search-status').addEventListener('click', () => openActivity(true));
   $('refresh').addEventListener('click', () => startSearch());
