@@ -159,8 +159,11 @@ function siteRow(site, live = true) {
   words.append(el('span', 'phase-note', capital(site.words)));
   li.append(words);
   // A finished run keeps only what still makes sense: the site itself, or the extension check (not a running tab's actions).
-  const action = site.url && siteAction(site);
-  if (action && (live || ['done', 'stopped'].includes(site.state))) {
+  // A finished run's stopped site: Read with Claude beside Open in Chrome (= Open it myself), as the result card's row had them.
+  const finishedMiss = !live && ['stopped', 'closed'].includes(site.state);
+  if (finishedMiss && site.url && !/no answer from the extension|did not answer/.test(site.words)) li.append(claudeReadButton(site, words));
+  const action = site.url && (finishedMiss && site.state === 'closed' ? ['Open in Chrome', () => window.pilot.openVisit(site.url)] : siteAction(site));
+  if (action && (live || ['done', 'stopped', 'closed'].includes(site.state))) {
     const key = `site:${site.url}:${action[0]}`;
     const button = keepPress(key, Object.assign(el('button', 'secondary item-action', action[0]), {type: 'button', title: site.url}));
     button.addEventListener('click', async () => {
@@ -308,7 +311,7 @@ function claudeSiteEnded(url, said) {
   const key = `claude:${url}`;
   if (!presses.get(key)?.done) return;
   setPress(key, {done: false, text: 'Read with Claude', error: said});
-  const shown = pressedButton(key)?.closest('li')?.querySelector('.item-words');
+  const shown = pressedButton(key)?.closest('li')?.querySelector('.item-words, .site-words');
   shown?.querySelector('.visit-claude-error')?.remove();
   shown?.append(el('span', 'muted visit-claude-error', said));
 }
@@ -321,9 +324,34 @@ window.pilot?.onSession?.((event, payload) => {   // a session that stopped with
   if (event === 'update' && payload?.kind === 'read' && ['ended', 'failed'].includes(payload.status)) claudeReadEnded(payload.url, `Claude's session ${payload.status === 'failed' ? 'stopped' : 'ended'} before it finished`);
 });
 
+// A stopped site's "Read with Claude", the same in the result card's list and in the run's site rows (siteRow): one key per site, so a
+// session started from either is followed in both. `words` gets the error line.
+const WORDS = '.item-words, .site-words';
+function claudeReadButton(site, words) {
+  const claude = el('button', 'secondary item-action', 'Read with Claude');
+  claude.type = 'button';
+  claude.title = 'A Claude in Chrome session opens this site, sets the filters for your search and reads its jobs (needs Claude Code)';
+  // Starting a Claude session takes ~10 s (owner, 7 Oct 2026: "I press, nothing happens"): said on the button, the way Re-score does it,
+  // then it stays off while that session reads; a refusal is said in the row.
+  const key = `claude:${site.url}`;
+  keepPress(key, claude);
+  if (pressError(key)) words.append(el('span', 'muted visit-claude-error', pressError(key)));
+  claude.addEventListener('click', async () => {
+    const started = await pressWhile(key, 'Starting Claude…', () => window.pilot.visitWithClaude(site.url, site.name)).catch(error => ({ok: false, error: error.message}));
+    if (started?.ok) { setPress(key, {done: true, text: 'Claude is reading in Chrome'}); return; }
+    setPress(key, {text: 'Read with Claude', error: started?.error || 'Claude could not start.'});
+    const shown = pressedButton(key)?.closest('li')?.querySelector(WORDS);
+    shown?.querySelector('.visit-claude-error')?.remove();
+    shown?.append(el('span', 'muted visit-claude-error', pressError(key)));
+  });
+  return claude;
+}
+
 // "Read sites only you can open" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
 // 7 Oct 2026): Read with Claude (a Claude in Chrome session, when the extension could not) and Open it myself.
-export function renderVisitsCard(card, target = $('activity-card')) {
+// list: false when the run's step card already lists the sites with their marks and buttons (Recent activity), so they are not shown twice
+// (owner, 7 Oct 2026); the Actions page has no step card and keeps the list.
+export function renderVisitsCard(card, target = $('activity-card'), {list: withList = true} = {}) {
   const box = el('div', 'insight-card');
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
@@ -361,22 +389,7 @@ export function renderVisitsCard(card, target = $('activity-card')) {
     words.append(el('b', '', site.name), el('span', 'muted', site.detail));
     row.append(words);
     if (!site.ok) {
-      const claude = el('button', 'secondary item-action', 'Read with Claude');
-      claude.type = 'button';
-      claude.title = 'A Claude in Chrome session opens this site, sets the filters for your search and reads its jobs (needs Claude Code)';
-      // Starting a Claude session takes ~10 s (owner, 7 Oct 2026: "I press, nothing happens"): said on the button, the way Re-score does it,
-      // then it stays off while that session reads; a refusal is said in the row.
-      const key = `claude:${site.url}`;
-      keepPress(key, claude);
-      if (pressError(key)) words.append(el('span', 'muted visit-claude-error', pressError(key)));
-      claude.addEventListener('click', async () => {
-        const started = await pressWhile(key, 'Starting Claude…', () => window.pilot.visitWithClaude(site.url, site.name)).catch(error => ({ok: false, error: error.message}));
-        if (started?.ok) { setPress(key, {done: true, text: 'Claude is reading in Chrome'}); return; }
-        setPress(key, {text: 'Read with Claude', error: started?.error || 'Claude could not start.'});
-        const shown = pressedButton(key)?.closest('li')?.querySelector('.item-words');
-        shown?.querySelector('.visit-claude-error')?.remove();
-        shown?.append(el('span', 'muted visit-claude-error', pressError(key)));
-      });
+      const claude = claudeReadButton(site, words);
       const myself = el('button', 'link item-action', 'Open it myself');
       myself.type = 'button';
       myself.addEventListener('click', () => window.pilot.openVisit(site.url));
@@ -384,7 +397,7 @@ export function renderVisitsCard(card, target = $('activity-card')) {
     }
     list.append(row);
   }
-  box.append(head, list);
+  box.append(...(withList ? [head, list] : [head]));
   target.replaceChildren(box);
 }
 function showActionsResult(run, kind, draw) {
@@ -764,7 +777,7 @@ export function renderActivity(fresh) {
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
   else if (kits) renderKitsCard(kits);
-  else if (sites) renderVisitsCard(sites);
+  else if (sites) renderVisitsCard(sites, undefined, {list: !tabs});   // the step card above has the sites (parseSiteRows)
   else if (reading) renderCardSkeleton();
   if (card || insight || weekly || mail || review || kits || sites) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || !!sites || reading);
