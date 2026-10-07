@@ -1436,16 +1436,18 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .task-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
-.task-card input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
+.task-card input.task-count, #visits-dialog input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
 /* A task's number box says what it counts, beside it (7 Oct 2026: "the 2 in the input field: what does it count?"): every .task-count has one. */
-.task-card .task-count-field { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); }
-.task-card .task-count-unit { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
-.task-card input.task-count::-webkit-inner-spin-button, .task-card input.task-count::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.task-card .task-count-field, #visits-dialog .task-count-field { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); }
+.task-card .task-count-unit, #visits-dialog .task-count-unit { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
+.task-card input.task-count::-webkit-inner-spin-button, .task-card input.task-count::-webkit-outer-spin-button, #visits-dialog input.task-count::-webkit-inner-spin-button, #visits-dialog input.task-count::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 /* Find jobs using your browser (Actions): its list of sites scrolls past about four rows instead of growing the card. */
 /* "Read the N stopped sites with Claude" under a Find jobs using your browser card's heading (renderer/pages/activity.js renderVisitsCard). */
 .insight-head .visits-claude-all { margin-top: var(--sp-3); }
-#visits-sites { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
+#visits-sites { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
 #visits-sites::-webkit-scrollbar { width: 8px; }   /* shown, not the overlay one that hides until you scroll: there is more below */
+#visits-dialog .visits-pick { margin: var(--sp-4) 0 var(--sp-2); }
+#visits-dialog .task-count-field { display: flex; margin: var(--sp-2) 0 var(--sp-4); }
 #visits-sites::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
 .task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }

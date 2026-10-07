@@ -552,11 +552,7 @@
             <span class="task-category">DISCOVERY</span>
             <div class="task-body"><span class="task-tile"><i data-icon="globe"></i></span>
               <div class="task-words"><b>Find jobs using your browser</b><span class="muted">Like Refresh jobs, for the sites and job portals that block it: read in your browser by the extension</span></div>
-              <label class="task-count-field"><input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once"><span class="task-count-unit">at a time</span></label>
               <button class="secondary action" id="visits-run" data-palette="visits"><b hidden>Find jobs using your browser</b>Run</button></div>
-            <ul class="item-rows" id="visits-sites" hidden></ul>
-            <p class="muted small" id="visits-count" hidden></p>
-            <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
           </div>
           <div class="task-card">
             <span class="task-category">COMMUNICATION</span>
@@ -1487,6 +1483,18 @@
   <p class="message" id="tune-message"></p>
   <div class="dialog-foot"><span class="muted small">Only selected changes will be applied.</span>
     <span class="inline"><button class="ghost" id="tune-cancel" type="button" hidden>Cancel</button><button class="primary" id="tune-apply" hidden>Apply changes</button></span></div>
+</dialog>
+<!-- Find jobs using your browser (owner, 7 Oct 2026): Run opens this; pick the sites, how many at a time, filter or not -->
+<dialog id="visits-dialog" class="save-dialog panel-dialog cv-dialog">
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="globe"></i></span>
+    <div class="cv-head"><h2>Find jobs using your browser</h2><p class="dialog-lead" id="visits-lead">Reading your sites…</p></div>
+    <button class="ghost icon-btn" id="visits-close" aria-label="Close"><i data-icon="close"></i></button></div>
+  <p class="inline small visits-pick"><button type="button" class="link" id="visits-all">Select all</button><span class="muted">·</span><button type="button" class="link" id="visits-none">Select none</button></p>
+  <ul class="item-rows" id="visits-sites"></ul>
+  <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
+  <label class="task-count-field"><input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once"><span class="task-count-unit">at a time</span></label>
+  <div class="dialog-foot"><span class="muted small">Each site opens in Chrome, where the extension reads it.</span>
+    <span class="inline"><button class="ghost" id="visits-cancel" type="button">Cancel</button><button class="primary" id="visits-start" type="button" disabled>Read sites</button></span></div>
 </dialog>
 <!-- CV match: this job's posting against the CV (lib/match-check.js) -->
 <dialog id="match-dialog" class="save-dialog panel-dialog cv-dialog">
