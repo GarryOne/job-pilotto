@@ -25,7 +25,7 @@ import {showScheduleState} from './connections.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions, prepAction} from './focus.js';
-import {openView} from './nav.js';
+import {openView, panelClosed, panelOpened} from './nav.js';
 import {whichJob} from './reassign.js';
 import {openPrep, prepRunning} from './prep.js';
 import {renderSessionPage} from './session-log.js';
@@ -1655,7 +1655,9 @@ function filterMenu() {
 function barLabel() {
   $('activity-open').textContent = !$('activity-panel').hidden ? 'Hide activity ⌄' : lastActivity?.running ? 'View progress ↑' : 'Details ▴';
 }
-export function openActivity(open) {
+// fromHistory: ⌘← / ⌘→ opened or closed it (pages/nav.js); anything else is a step of its own there.
+export function openActivity(open, {fromHistory = false} = {}) {
+  if (!fromHistory && open === $('activity-panel').hidden) (open ? panelOpened : panelClosed)(shared.selectedRun);
   show($('activity-panel'), open);
   if (open) refreshGmailConnection();   // Gmail's connection as it is now, for the header button and the schedule
   // No dimming: the panel is part of the bottom bar; a press anywhere else on the page closes it (below).
@@ -1843,6 +1845,7 @@ export async function init() {
   // that opens it (View activity, Run) still does: it closes first, then the click opens it again.
   document.addEventListener('pointerdown', event => {
     if ($('activity-panel').hidden || event.target.closest('#activity, .ui-menu, .toast, dialog')) return;
+    if (event.button === 3 || event.button === 4) return;   // the mouse's back/forward buttons: pages/nav.js steps through history
     openActivity(false);
   });
   // Close it with Escape, its ✕, or the bar ("Hide activity").

@@ -1,7 +1,8 @@
 // Navigation: pages, ⌘R memory, the ⌘K palette.
 import {openPalette} from '../palette.js';
-import {COMMAND_KIND, KIND, TASK_BUTTONS, kindOf, lastActivity, prepareActions, unqueue} from './activity.js';
+import {COMMAND_KIND, KIND, TASK_BUTTONS, kindOf, lastActivity, openActivity, prepareActions, unqueue} from './activity.js';
 import {$, show} from './core.js';
+import {shared} from './shared.js';
 import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
 import {loadCalendar} from './calendar.js';
@@ -21,8 +22,11 @@ export const remembered = (key, value) => {
   try { if (value === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, value); } catch {}
   return null;
 };
-// Back / forward (⌘← ⌘→, ⌘[ ⌘], the mouse's side buttons): every screen opened through here, in order.
+// Back / forward (⌘← ⌘→, ⌘[ ⌘], the mouse's side buttons): every screen opened through here, in order, and the
+// Recent activity panel opened over one (pages/activity.js tells us through panelOpened / panelClosed).
 let history = viewHistory.start(null);
+export const panelOpened = run => { history = viewHistory.openPanel(history, run); };
+export const panelClosed = run => { history = viewHistory.closePanel(history, run); };
 export function openView(name, {fromHistory = false} = {}) {
   if (!fromHistory) history = viewHistory.visit(history, name);
   remembered('view', name);
@@ -127,10 +131,14 @@ function paletteCommands() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 function go(way) {
+  if (!$('activity-panel').hidden) history = viewHistory.withRun(history, shared.selectedRun);   // forward to it again shows the same run
   const step = way === 'back' ? viewHistory.back(history) : viewHistory.forward(history);
   if (!step.name) return;
+  const [from, to] = [viewHistory.step(history.list[history.at]), viewHistory.step(step.name)];
   history = step.history;
-  openView(step.name, {fromHistory: true});
+  if (to.view !== from.view || !to.panel) openView(to.view, {fromHistory: true});   // the panel's own step: the screen under it is already there
+  if (to.panel) shared.selectedRun = to.run;
+  openActivity(to.panel, {fromHistory: true});
 }
 const editable = target => !!target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"], .xterm');
 
