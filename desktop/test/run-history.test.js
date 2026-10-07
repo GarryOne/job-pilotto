@@ -138,3 +138,14 @@ test('merge: a run is the same run when its Notion page was renamed (the title s
   assert.equal(runs.length, 1);
   assert.deepEqual(runs[0].log, ['x']);   // the local record is the one merged into the row
 });
+
+// 7 Oct 2026 (Windows wander suite): the app was killed mid-run, the engine died printing its traceback, and the row stayed "Running" with that line as its
+// Summary; Recent activity showed "Running now · Traceback (most recent call last):". A crash line is never the step, from any row (an older engine wrote it).
+test('a running row whose last line is a crash shows "Running", not the traceback', () => {
+  for (const summary of ['⏳ Traceback (most recent call last):', '⏳ KeyboardInterrupt', '⏳ BrokenPipeError: [Errno 32] Broken pipe']) {
+    const live = history.fromRow(row('r9', {started: '2026-09-28T12:08:00Z', mode: 'scout', status: 'Running', trigger: 'Mac (you)', summary}), NOW);
+    assert.deepEqual([live.live, live.step], [true, 'Running'], summary);
+  }
+  const fine = history.fromRow(row('r9', {started: '2026-09-28T12:08:00Z', mode: 'scout', status: 'Running', trigger: 'Mac (you)', summary: '⏳ Scout: checking 7 employer(s)…'}), NOW);
+  assert.equal(fine.step, 'Scout: checking 7 employer(s)…');
+});

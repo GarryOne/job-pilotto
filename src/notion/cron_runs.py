@@ -417,13 +417,16 @@ def attach(blocks):
 
 STEP_EVERY = 10  # seconds between progress updates of a running row
 _last_step = {'at': 0.0}
+# A crash's traceback and exception line are not a step (the app's own rule: desktop/lib/pipeline.js CRASH_LINE). 7 Oct 2026: the app was killed
+# mid-run on Windows, Python died printing its traceback, and the row stayed "Running" with "⏳ Traceback (most recent call last):" in Recent activity.
+CRASH_LINE = re.compile(r'^(?:Traceback \(most recent call last\)|(?:[\w.]+\.)?[A-Z]\w*(?:Error|Exception|Exit|Interrupt)\b)')
 
 
 def _progress(line):
     """A running job's latest output line as its row's Summary (⏳ …), at most every STEP_EVERY seconds, so a
     job running elsewhere (GitHub, a Telegram button) shows some progress in the app and in Notion."""
     import time
-    if not _open.get('run') or len(line) > 160 or line.startswith(('Warning', ' ', 'Cronjob run logged', JOB_LINE, '<<<', 'message>>>')):
+    if not _open.get('run') or len(line) > 160 or line.startswith(('Warning', ' ', 'Cronjob run logged', JOB_LINE, '<<<', 'message>>>')) or CRASH_LINE.match(line):
         return
     now = time.monotonic()
     if now - _last_step['at'] < STEP_EVERY:

@@ -17,6 +17,7 @@ import {cadence} from './cadence.js';
 import * as engineLog from './engine-log.js';
 import {log as appLog} from './log.js';
 import {ROOT} from './root.js';
+import {CRASH_LINE} from './crash-line.js';
 
 export const REPO = ROOT;
 const OVERRIDE = process.env.JOB_PILOTTO_MODEL_OVERRIDE;   // set only by the end-to-end journey (desktop/e2e): every step on one cheap model
@@ -493,7 +494,6 @@ export function taskSummary(kind, log) {
 
 // A line of the engine's output that says what it is doing now (the banner's and the activity's step): not an indented line, a warning, a long line, or the traceback
 // and exception line of a crash (its row is still being closed while those print, and the run shows as running until then).
-const CRASH_LINE = /^(?:Traceback \(most recent call last\)|(?:[\w.]+\.)?[A-Z]\w*(?:Error|Exception|Exit|Interrupt)\b)/;
 export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged/.test(line) && line.length < 120 && !CRASH_LINE.test(line);
 
 // A line that says "still here" (the engine's wait for the run lock, or the app's own heartbeat): one in a row is kept, the newest, so a long

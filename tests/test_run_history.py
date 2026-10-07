@@ -84,6 +84,19 @@ class RunHistoryTest(unittest.TestCase):
         self.assertEqual([b['properties']['Summary']['rich_text'][0]['text']['content'] for _, _, b in tracker.calls],
                          ['⏳ Scoring 12 new jobs'])
 
+    def test_a_crash_never_becomes_the_running_step(self):
+        # 7 Oct 2026 (Windows wander suite): the app was killed mid-run, Python died printing its traceback, and the row stayed
+        # "Running" with "⏳ Traceback (most recent call last):" as its step in Recent activity.
+        for line in ['Traceback (most recent call last):', 'KeyboardInterrupt', 'BrokenPipeError: [Errno 32] Broken pipe',
+                     'requests.exceptions.ConnectionError: x', 'SystemExit: 1']:
+            tracker = FakeTracker()
+            cron_runs._open.update(tracker=tracker, id='row-1', url='u', run={'mode': 'scout'})
+            cron_runs._last_step['at'] = 0.0
+            cron_runs._progress(line)
+            self.assertEqual(tracker.calls, [], line)
+        cron_runs._progress('Scout: checking 7 employer(s)…')   # an ordinary step still goes in
+        self.assertEqual(len(tracker.calls), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

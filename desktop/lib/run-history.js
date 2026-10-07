@@ -3,6 +3,7 @@
 // (report, result, technical log). So the app shows the same history as Notion and Telegram, and a job running
 // elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a row isn't there yet.
 import {call} from './notion.js';
+import {CRASH_LINE} from './crash-line.js';
 import {jobFrom} from './job-line.js';
 import {runWarned} from '../renderer/run-status.js';   // pure (no DOM): the Actions page and this pop-up must call a run "with warnings" by the same rule
 
@@ -42,7 +43,9 @@ export function fromRow(page, now = Date.now()) {
   const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind, mode,
     runId: text(p['Run id']) || null,
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
-  if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
+  // A crash line is not a step (7 Oct 2026: a run killed mid-way left "⏳ Traceback (most recent call last):" on its row, and Recent activity showed it).
+  const step = summary.replace(/^⏳\s*/, '');
+  if (running) return {...record, live: true, step: step && !CRASH_LINE.test(step) ? step : 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
   const job = ok ? rowJob(p, mode, summary) : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, feeds: p.Feeds?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
