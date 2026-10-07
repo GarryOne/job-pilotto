@@ -134,6 +134,23 @@ with mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'v.js
       if (await call(page, 'closeConsent')) throw new Error('a second call pressed something on a page with no banner left');
     });
 
+    await ctx.run('a consent message drawn in an iframe is closed from inside the frame, with the least consent', async () => {
+      await page.goto(`${base}/consent-frame.html`);
+      const frame = page.frames().find(each => each !== page.mainFrame());
+      if (!frame || !(await frame.isVisible('text=Reject all'))) throw new Error('the fixture\'s framed banner is not showing: the step would prove nothing');
+      if (await call(page, 'closeConsent')) throw new Error('the main page pressed something: the banner is in the frame');
+      const pressed = await frame.evaluate(`(${fn('closeConsent').replace('function closeConsent', 'function')})()`);
+      const choice = await page.evaluate('window.choice || null');
+      if (pressed !== 'Reject all' || choice !== 'reject') throw new Error(`pressed "${pressed}" in the frame, choice ${choice}`);
+    });
+
+    await ctx.run('a page that draws nothing is seen as blank (said and stopped, not skipped as silent); a list page is not', async () => {
+      await page.goto(`${base}/blank.html`);
+      if (!(await call(page, 'extractPage')).blank) throw new Error('the blank page was not seen as blank');
+      await page.goto(`${base}/list-1.html`);
+      if ((await call(page, 'extractPage')).blank) throw new Error('a list page was taken for blank');
+    });
+
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {
       await page.goto(`${base}/check.html`);
       const seen = await call(page, 'extractPage');

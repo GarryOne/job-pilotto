@@ -30,6 +30,7 @@ export function extractPage() {
     html: document.documentElement.outerHTML.slice(0, 3_000_000),
     challenge: CHALLENGE.test(text) && cards.length === 0,
     login: /\/(login|signin|sign-in|authwall|checkpoint|uas\/login)\b/i.test(location.pathname),
+    blank: (document.body?.innerText || '').trim().length < 40,   // nothing drawn yet (7 Oct 2026: LinkedIn stayed white)
   };
 }
 
@@ -146,7 +147,9 @@ export function closeConsent() {
   const visible = node => { const box = node.getBoundingClientRect(); const look = getComputedStyle(node); return box.width > 0 && box.height > 0 && look.visibility !== 'hidden' && look.display !== 'none'; };
   const words = node => (node.innerText || node.value || node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
   const ABOUT = /cookie|consent|gdpr|privacy|datenschutz|confidentialit|traceurs|tracking/i;
-  const boxes = [...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog, [id*=cookie i], [class*=cookie i], [id*=consent i], [class*=consent i], [id*=onetrust i], [id*=didomi i], [id*=cmp i], [class*=cmp i]')]
+  // Inside a frame that is itself the consent message (Sourcepoint, TrustArc draw theirs in an iframe), the whole frame is the box.
+  const framed = window !== window.top && ABOUT.test(document.body?.innerText || '') && !document.querySelector('input[type=password]') ? [document.body] : [];
+  const boxes = [...framed, ...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog, [id*=cookie i], [class*=cookie i], [id*=consent i], [class*=consent i], [id*=onetrust i], [id*=didomi i], [id*=cmp i], [class*=cmp i]')]
     .filter(node => visible(node) && ABOUT.test(node.innerText || '') && !node.querySelector('input[type=password]'));
   const least = /^(reject|decline|refuse|deny|necessary|essential|only necessary|use necessary|allow (technical|necessary|essential)|tout refuser|refuser|continuer sans accepter|nur (notwendige|erforderliche|technisch)|ablehnen|alle ablehnen|rifiuta|solo (necessari|tecnici))/i;
   const any = /^(accept|agree|allow all|got it|ok\b|okay|i understand|accepter|tout accepter|j'accepte|akzeptieren|alle akzeptieren|zustimmen|einverstanden|accetta|accetto)/i;
@@ -266,6 +269,9 @@ const badge = (tabId, text, title) => {
   if (title) chrome.action.setTitle({tabId, title}).catch(() => {});
 };
 const run = async (tabId, func, args = []) => (await chrome.scripting.executeScript({target: {tabId}, func, args}))[0]?.result;
+// The cookie closer in every frame of the tab: a consent message drawn in an iframe is out of the page's own reach. The first label pressed.
+const closeConsentEverywhere = async tabId => ((await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: closeConsent}).catch(() => []))
+  .map(frame => frame?.result).find(Boolean) || '');
 export const FILTER_ROUNDS = 3;   // filter panels open more filters: look again, at most this often
 
 // Claude chooses the page's filters for this person's search (through the app), the steps are applied with a pause between rounds.
@@ -307,7 +313,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
   let thought = 0;   // Claude's time (job list, filters, learning the page): not counted against the minute, as in the app
   const thinking = async work => { const began = Date.now(); try { return await work(); } finally { thought += Date.now() - began; } };
   const consent = async () => {   // a cookie banner in the way: closed, and said
-    const pressed = await run(tabId, closeConsent).catch(() => '');
+    const pressed = await closeConsentEverywhere(tabId);
     if (pressed) { state.consent = pressed; await tellStep(tabId, config, ticket, `closed the cookie banner ("${pressed.slice(0, 40)}")`); await wait(800); }
   };
   const session = `${tabId}-${Date.now()}`;
@@ -317,7 +323,20 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
   try {
     // Not a job list (a home page, an "about" page): go to the site's job list first, as a person would, then filter and read there.
     await consent();
-    const first = await run(tabId, extractPage).catch(() => null);
+    let first = await run(tabId, extractPage).catch(() => null);
+    if (first?.blank) {   // a page that draws nothing: a few seconds more, then loaded once again, then said and stopped (not skipped as silent)
+      await tellStep(tabId, config, ticket, 'the page is still blank: waiting a few seconds…');
+      await wait(5000);
+      first = await run(tabId, extractPage).catch(() => null);
+      if (first?.blank) {
+        await tellStep(tabId, config, ticket, 'still blank: loading it again…');
+        await chrome.tabs.reload(tabId);
+        await waitForPage(tabId).catch(() => {});
+        await wait(3000);
+        first = await run(tabId, extractPage).catch(() => null);
+      }
+      if (first?.blank) throw new Error('the page stayed blank, even loaded again: open it yourself once (it may want you to sign in), then Open again');
+    }
     if (first && !first.login && !first.challenge && !plausible(first.cards)) {
       await tellStep(tabId, config, ticket, 'looking for this site\'s job list…');
       const found = await thinking(() => api(config, '/extension/visit-jobpage', {method: 'POST', body: JSON.stringify({url: first.url, html: first.html, ticket})}).catch(() => null));
@@ -361,7 +380,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
       if (!cards?.length) {   // why nothing was read, said in the site's row: what the page showed, so "0 jobs" is never a mystery
-        const banner = await run(tabId, closeConsent).catch(() => '');
+        const banner = await closeConsentEverywhere(tabId);
         if (banner) state.consent = banner;
         await tellStep(tabId, config, ticket, `no job cards on this page (${seen.cards?.length || 0} repeated items seen${asked ? ', none of them jobs by Claude\'s reading' : ''}${banner ? `; a cookie banner was still open, closed with "${banner.slice(0, 30)}"` : ''})`);
       }
