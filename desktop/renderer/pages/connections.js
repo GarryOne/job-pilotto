@@ -267,7 +267,18 @@ export async function showGoogle() {
   $('google-status').textContent = google.connected ? `✓ Connected as ${google.email}` : google.error ? 'Sign-in expired: connect again' : 'Not connected';
   $('google-status').classList.toggle('on', !!google.connected);
   $('google-connect').textContent = google.connected ? 'Reconnect' : 'Connect Google';
+  // A way out, like Always on's and Telegram buttons' (owner, 7 Oct 2026: "there is no way for me to disconnect from Gmail").
+  $('google-more').hidden = !google.connected;
+  $('google-more').replaceChildren(...(google.connected ? [moreButton([{label: 'Disconnect Gmail', danger: true, run: disconnectGoogle}])] : []));
   noteCheck({google: {connected: !!google.connected, email: google.email || ''}});  // the cards above follow
+}
+async function disconnectGoogle() {
+  message('google-message', 'Disconnecting…', 'waiting');
+  const result = await window.pilot.googleDisconnect().catch(error => ({ok: false, error: error.message}));
+  message('google-message', result.ok
+    ? `Disconnected: Gmail and Calendar are no longer read${result.github === true ? ', here or by Always on' : ''}.${result.revoked ? '' : ' Google could not be reached: remove Job Pilotto under myaccount.google.com → Security → Third-party access.'}`
+    : result.error, result.ok ? 'ok' : 'error');
+  showGoogle();
 }
 function alertLine(name, text) { const line = document.querySelector(`[data-secret="${name}"]`); line.textContent = text; line.classList.remove('on'); line.classList.add('is-plain'); }
 

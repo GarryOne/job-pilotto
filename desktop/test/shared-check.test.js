@@ -21,3 +21,14 @@ test('the answer is reused for ttl, then checked again; a failed check is not ke
   await status();
   assert.equal(runs, 3);
 });
+
+// A sign-in or a sign-out changes the answer at once (Gmail disconnected, 7 Oct 2026): forget() drops the kept one.
+test('forget makes the next ask check again', async () => {
+  let runs = 0;
+  const status = sharedCheck(async () => ({connected: ++runs === 1}), 30000, () => 0);
+  assert.equal((await status()).connected, true);
+  assert.equal((await status()).connected, true);   // kept
+  status.forget();
+  assert.equal((await status()).connected, false);
+  assert.equal(runs, 2);
+});

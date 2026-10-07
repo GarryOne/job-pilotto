@@ -3,7 +3,7 @@
 // both "Not connected" and "Connected as …". A failed check is not kept, so the next ask tries again.
 export function sharedCheck(check, ttl = 30000, now = () => Date.now()) {
   let pending = null, value = null, at = 0;
-  return () => {
+  const ask = () => {
     if (value && now() - at < ttl) return Promise.resolve(value);
     if (!pending) {
       pending = Promise.resolve().then(check).then(result => {
@@ -13,4 +13,6 @@ export function sharedCheck(check, ttl = 30000, now = () => Date.now()) {
     }
     return pending;
   };
+  ask.forget = () => { value = null; at = 0; };   // the answer changed here (a sign-in or a sign-out): the next ask checks again
+  return ask;
 }

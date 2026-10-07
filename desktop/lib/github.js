@@ -136,6 +136,20 @@ export async function setSecrets(api, repo, secrets) {
   }
 }
 
+export async function removeSecrets(api, repo, names) {
+  for (const name of names) {
+    try { await api('DELETE', `/repos/${repo}/actions/secrets/${name}`); } catch (error) { if (error.status !== 404) throw error; }
+  }
+}
+
+// A sign-out on this Mac (Gmail disconnected) reaches the repo too, or Always on would go on reading the mail.
+export async function removeRepoSecrets(storage, names, {fetcher} = {}) {
+  const {repo} = storage.settings().cloud || {};
+  if (!repo || !storage.secret('GITHUB_TOKEN')) return false;
+  await removeSecrets(client(storage.secret('GITHUB_TOKEN'), fetcher), repo, names);
+  return true;
+}
+
 export async function removeVariables(api, repo, names) {
   for (const name of names) {
     try { await api('DELETE', `/repos/${repo}/actions/variables/${name}`); } catch (error) { if (error.status !== 404) throw error; }

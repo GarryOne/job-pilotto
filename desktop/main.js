@@ -28,7 +28,7 @@ import * as reminders from './lib/interview-reminders.js';
 import * as engineLog from './lib/engine-log.js';
 import * as requestLog from './lib/request-log.js';
 import * as notifyWatch from './lib/notify-watch.js';
-import {googleSecrets} from './lib/google-keys.js';
+import {GOOGLE_KEYCHAIN, googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as targets from './renderer/targets.js';
 import * as goals from './lib/goals.js';
@@ -1574,9 +1574,23 @@ function handlers() {
     if (gate) return gate;
     const lines = [];
     const {code} = await pipeline.run(storage, ['src.sources.google', 'auth'], line => lines.push(line));
+    googleStatus.forget();   // the next status asks again, so the new account shows at once
     // Always on: the new sign-in goes to the GitHub repo too, so the Gmail check there can use it.
     if (code === 0 && cloud()) github.updateRepo(storage).catch(error => log(`Google sign-in not sent to GitHub: ${error.message}`));
     return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
+  });
+  // Settings → Gmail and Calendar → ⋯ → Disconnect Gmail (owner, 7 Oct 2026): revoked at Google, forgotten in the Keychain and, with
+  // Always on, in the GitHub repo. Logged: what was asked and what each step did, never the token.
+  ipcMain.handle('googleDisconnect', async () => {
+    if (DEMO) return {ok: false, error: 'Demo mode: the sign-in is not changed.'};
+    const {code, stdout} = await pipeline.run(storage, ['src.sources.google', 'disconnect']);
+    let result = {};
+    try { result = JSON.parse(String(stdout).trim().split('\n').pop()); } catch {}
+    googleStatus.forget();
+    let inRepo = false;
+    if (code === 0 && cloud()) inRepo = await github.removeRepoSecrets(storage, Object.keys(GOOGLE_KEYCHAIN)).catch(error => { appLog('connections', 'Gmail secrets not removed from GitHub', {error: error.message}); return 'failed'; });
+    appLog('connections', 'Gmail disconnected', {from: 'settings', code, revoked: !!result.revoked, wasConnected: !!result.was_connected, github: inRepo});
+    return code === 0 && result.ok ? {ok: true, revoked: !!result.revoked, github: inRepo} : {ok: false, error: 'Gmail could not be disconnected: try again'};
   });
   ipcMain.handle('openTabs', () => server.openTabs());
   // Which sessions' forms are still open in Chrome, by the extension's own tab report. `known` is false while the

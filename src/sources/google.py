@@ -47,6 +47,7 @@ TOKEN_URL = 'https://oauth2.googleapis.com/token'
 SHARED_CLIENT = Path(__file__).resolve().parents[2] / 'config' / 'google_oauth_client.json'
 KEYCHAIN = {'GOOGLE_CLIENT_ID': 'job-pilotto.google.client-id', 'GOOGLE_CLIENT_SECRET': 'job-pilotto.google.client-secret',
             'GOOGLE_REFRESH_TOKEN': 'job-pilotto.google.refresh-token'}
+AUTH_AT = 'job-pilotto.google.auth-at'   # an app in Testing: when it signed in (Google's 7-day limit)
 
 
 def _keychain(service):
@@ -336,9 +337,9 @@ def store(client_id, client_secret, refresh_token, production, github):
         secret_store.put(service, values[name])
     signed_in = '' if production else datetime.now(timezone.utc).isoformat(timespec='seconds')
     if signed_in:
-        secret_store.put('job-pilotto.google.auth-at', signed_in)
+        secret_store.put(AUTH_AT, signed_in)
     else:
-        secret_store.delete('job-pilotto.google.auth-at')
+        secret_store.delete(AUTH_AT)
     print('Stored in this computer\'s secret store:', ', '.join(KEYCHAIN.values()))
     if github:
         for name, value in values.items():
@@ -348,6 +349,28 @@ def store(client_id, client_secret, refresh_token, production, github):
         else:
             subprocess.run(['gh', 'variable', 'delete', 'JOB_PILOTTO_GOOGLE_AUTH_AT'], capture_output=True)
         print('Set GitHub secrets:', ', '.join(values))
+
+
+REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
+
+
+def disconnect(opener=urllib.request.urlopen):
+    """Sign out of Gmail and Calendar (owner, 7 Oct 2026: "there is no way for me to disconnect from Gmail"): Google is asked to revoke
+    the sign-in (so it also leaves the Google account's "Third-party access"), then this computer's secret store forgets it. A revoke
+    that fails (offline, already revoked) still forgets it here. Returns {'ok', 'revoked'}; never prints the token."""
+    found = credentials()
+    revoked = False
+    if found:
+        try:
+            body = urllib.parse.urlencode({'token': found[2]}).encode()
+            with opener(urllib.request.Request(e2e_url(REVOKE_URL), data=body, method='POST',
+                                               headers={'Content-Type': 'application/x-www-form-urlencoded'}), timeout=20):
+                revoked = True
+        except Exception:  # noqa: BLE001 — forgotten here all the same; the Google account page can remove it by hand
+            revoked = False
+    for service in [*KEYCHAIN.values(), AUTH_AT]:
+        secret_store.delete(service)
+    return {'ok': True, 'revoked': revoked, 'was_connected': bool(found)}
 
 
 def report():
@@ -374,6 +397,7 @@ def main(argv=None):
     sub.add_parser('setup', help='guided: create your own Google app (project, APIs, consent screen, client) and sign in')
     sub.add_parser('check', help='show which account is connected and what it can see')
     sub.add_parser('status', help='one JSON line for the Mac app: connected, and which Gmail')
+    sub.add_parser('disconnect', help='revoke the sign-in at Google and forget it on this computer (one JSON line)')
     verify = sub.add_parser('verify', help="wait for a sign-up's confirmation email; print its code and confirm link")
     verify.add_argument('--from', dest='sender', default='', help="sender domain or address, e.g. the employer's careers host")
     verify.add_argument('--minutes', type=int, default=15, help='only emails from the last N minutes (default 15)')
@@ -385,6 +409,9 @@ def main(argv=None):
             print(json.dumps({'connected': True, 'email': google.profile()['emailAddress']} if google else {'connected': False}))
         except Exception as error:  # expired or revoked sign-in: the app offers Connect again
             print(json.dumps({'connected': False, 'error': str(error)[:200]}))
+        return 0
+    if args.command == 'disconnect':
+        print(json.dumps(disconnect()))
         return 0
     if args.command == 'verify':
         google = Google.from_env()
