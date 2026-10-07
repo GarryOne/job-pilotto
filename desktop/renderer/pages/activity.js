@@ -364,7 +364,8 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
   kicker.append(el('span', 'insight-category', 'Sites only you can open'));
-  head.append(kicker, el('h3', 'insight-title', card.fits === null ? `Read ${card.read} of ${plural(card.total, 'site')} · ${plural(card.jobs, 'job')} (${card.fresh} new)`
+  const onlyPostings = !card.total && card.postings;   // a run of "Jobs we couldn't read" only: no site was ticked
+  head.append(kicker, el('h3', 'insight-title', onlyPostings ? `Read ${card.postings.read} of ${plural(card.postings.asked, 'job')} we couldn't read` : card.fits === null ? `Read ${card.read} of ${plural(card.total, 'site')} · ${plural(card.jobs, 'job')} (${card.fresh} new)`
     : `Read ${plural(card.jobs, 'job')}, ${card.fits} matching your search`));   // the reading works, said first; how many reach Jobs beside it (owner)
   // How many reach Jobs, said plainly (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count never grows"): only those with your role words and places.
   head.append(el('p', 'insight-subtitle', card.fits === null ? 'Your next jobs check filters and scores them like any other.'
@@ -372,6 +373,8 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
       ? `Scored before this run ended: ${plural(card.listed, 'job')} added to your Jobs list${card.listed < card.fits ? ' (the others did not fit your profile, or were there already)' : ''}.`
       : card.fits ? (card.fits === 1 ? 'The matching one is being scored now (about a minute, first in line): if it fits your profile, it joins your Jobs list.' : 'The matching ones are being scored now (about a minute, first in line): those that fit your profile join your Jobs list.')
       : 'None has your role words and places, so your Jobs list stays the same.')));
+  // Postings only your browser could open (lib/visits.js readPostings): how many were read, said under the sites' line; scored with them above.
+  if (card.postings && !onlyPostings) head.append(el('p', 'insight-subtitle', `Jobs we couldn't read: ${card.postings.read} of ${card.postings.asked} read in your browser, scored with the rest.`));
   // Two or more stopped sites: one Claude session reads them all, in turn (owner, 7 Oct 2026: "a 'Read the failed sites with Claude' button").
   const stopped = card.sites.filter(site => !site.ok).slice(0, 10);   // one session reads at most 10 (main.js visitsWithClaude)
   const allStopped = card.sites.filter(site => !site.ok).length;

@@ -2038,16 +2038,27 @@ function handlers() {
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-hide', String(url)]).catch(() => ({stdout: ''}));
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false}; }
   });
+  // "Jobs we couldn't read" in the same dialog: open jobs in your places whose posting only your browser can read; Dismiss drops one.
+  const demoVisits = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'visits.json'), 'utf8'));   // demo mode: a few sites and unread jobs to look at
+  ipcMain.handle('visitsStuck', async () => ({ok: true, jobs: DEMO ? demoVisits().jobs : await visits.stuckJobs(storage)}));
+  ipcMain.handle('visitsDismiss', async (_, url) => {
+    if (!/^https?:\/\//.test(String(url || ''))) return {ok: false};
+    appLog('visit', 'unread job dismissed by you', {host: new URL(url).hostname});
+    const {stdout} = await pipeline.run(storage, ['src.desktop', 'stuck-dismiss', String(url)]).catch(() => ({stdout: ''}));
+    try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false}; }
+  });
   ipcMain.handle('visitsList', async () => {
+    if (DEMO) return {ok: true, visits: demoVisits().visits};
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false, visits: []}; }
   });
   // "Find jobs using your browser" (Actions): a tracked task like Tailor CVs, so the banner, Recent activity and the result card follow it.
-  ipcMain.handle('visitsRun', async (_, {urls = [], atOnce = 2, filter = true} = {}) => {
+  ipcMain.handle('visitsRun', async (_, {urls = [], postings = [], atOnce = 2, filter = true} = {}) => {
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
     const listed = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()).visits || []; } catch { return []; } })();
     const chosen = listed.filter(site => urls.includes(site.url));
-    if (!chosen.length) return {text: 'Tick at least one site to read.'};
+    const unread = postings.length ? (await visits.stuckJobs(storage)).filter(job => postings.includes(job.url)) : [];
+    if (!chosen.length && !unread.length) return {text: 'Tick at least one site or job to read.'};
     const n = Math.max(1, Math.min(5, Number(atOnce) || 2));
     // An older extension in Chrome cannot read the sites by itself (owner's run, 7 Oct 2026: it waited 8 min on 0.9.3): said now, not after.
     const seen = server.extensionSeen?.()?.version, latest = server.latestExtension();
@@ -2055,14 +2066,19 @@ function handlers() {
       appLog('visit', 'read sites refused: Chrome has an older extension', {seen, latest});
       return {text: `Chrome still has the Job Pilotto extension ${seen}; Find jobs using your browser needs ${latest}. In Chrome open chrome://extensions, press Reload on Job Pilotto, then Run again.`};
     }
-    appLog('visit', 'read sites task', {sites: chosen.length, atOnce: n, filter: !!filter, by: 'you'});
+    appLog('visit', 'read sites task', {sites: chosen.length, postings: unread.length, atOnce: n, filter: !!filter, by: 'you'});
     pipeline.work(storage, 'visits', log, async (tee, signal) => {
-      tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
-      const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0], signal});
-      if (!signal?.aborted) await visits.remember(storage, results);   // failures remembered: a site failing twice is offered unticked, with why
+      const results = [];
+      if (chosen.length) {
+        tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
+        results.push(...await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0], signal}));
+        if (!signal?.aborted) await visits.remember(storage, results);   // failures remembered: a site failing twice is offered unticked, with why
+      }
+      // Postings only a browser can read: their text is kept for the job, and the light run below scores them with the sites' matches.
+      const read = unread.length && !signal?.aborted ? await visits.readPostings(unread, {tee, signal}) : 0;
       // The matching jobs are scored and written to Jobs before this run ends, in its own turn (owner, 7 Oct 2026: "can't we score them right
       // away?"; a search queued after it waited behind Find new employers): the light run that reads only the pages read in Chrome.
-      const fits = visits.lastFits();
+      const fits = (chosen.length ? visits.lastFits() : 0) + read;
       let scored = null;
       if (fits && !allowanceBlock() && !signal?.aborted) {   // stopped: the pages read are kept; the next jobs check scores them
         tee(`Scoring the ${fits} matching job${fits === 1 ? '' : 's'} for your Jobs list…`);
@@ -2070,10 +2086,10 @@ function handlers() {
         const {stdout = ''} = await pipeline.run(storage, pipeline.visitsArgs(storage, fits), tee).catch(error => ({stdout: '', error}));
         scored = /Job Matches: (\d+) created/.exec(String(stdout))?.[1] ?? null;
       }
-      const text = visits.resultMessage(results, {added: scored === null ? null : Number(scored)});
+      const text = visits.resultMessage(results, {added: scored === null ? null : Number(scored), postings: unread.length ? {asked: unread.length, read} : null});
       tee(text.split('\n')[1]);
       tee('<<<message'); text.split('\n').forEach(line => tee(line)); tee('message>>>');
-      return results.some(result => result.ok);
+      return results.some(result => result.ok) || read > 0;
     }).catch(error => appLog('visit', 'read sites run failed', {error: error.message}));
     return {started: true};
   });   // a site only you can open, in the browser that has the extension
@@ -2424,6 +2440,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setVisitRoute('/extension/visit-recipe', page => visits.recipe(storage, page));
   server.setVisitRoute('/extension/visit-jobpage', page => visits.jobPage(storage, page));   // a home page: where its job list is
   server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));
+  server.setVisitRoute('/extension/posting', payload => visits.posting(storage, payload));   // a posting read in your browser ("Jobs we couldn't read")
   server.setVisitRoute('/extension/visit-waiting', payload => visits.waitingFor(payload));
   server.setVisitRoute('/extension/visit-state', payload => visits.stepOf(payload));   // what each read tab is doing, live in its row
   let waitingSaid = 0;

@@ -299,3 +299,30 @@ test('a page whose saving asks Claude (slower than the quiet time) does not get 
   const results = await runAll([{name: 'Hublot', url: 'https://www.hublot.example'}], {atOnce: 1, openTab, quietMs: 40, siteMs: 5000, waitMs: 5000});
   assert.deepEqual(results.map(result => [result.name, result.ok]), [['Hublot', true]]);
 });
+
+test("Jobs we couldn't read: each posting opens with its ticket, its text is saved for the job, a login wall and silence are said", async () => {
+  const {posting, readPostings} = await import('../lib/visits.js');
+  const saves = [];
+  const runEngine = async (_storage, args) => {   // the engine's set-description: the file it was given, answered as saved
+    const fs = await import('node:fs');
+    saves.push(JSON.parse(fs.readFileSync(args[2], 'utf8')));
+    return {stdout: JSON.stringify({ok: true, saved: true})};
+  };
+  const opened = [];
+  const openTab = url => {
+    opened.push(url);
+    const ticket = /#jp-posting-([a-z0-9]{8})$/.exec(url)[1], start = url.split('#')[0];
+    if (start.includes('indeed')) setTimeout(() => posting({}, {ticket, url: start, text: 'You advise our clients. '.repeat(20), blocked: ''}, runEngine), 10);
+    if (start.includes('linkedin')) setTimeout(() => posting({}, {ticket, url: start, text: 'Sign in', blocked: 'login'}, runEngine), 10);
+    return {ok: true};
+  };
+  const lines = [];
+  const jobs = [{url: 'https://ch.indeed.com/viewjob?jk=1', title: 'Vendeur'}, {url: 'https://www.linkedin.com/jobs/view/2', title: 'Sales'}, {url: 'https://quiet.example/job/3', title: 'Advisor'}];
+  const saved = await readPostings(jobs, {openTab, waitMs: 60, tee: line => lines.push(line)});
+  assert.equal(saved, 1);
+  assert.equal(opened.length, 3, 'one at a time, each opened');
+  assert.deepEqual(saves.map(save => save.url), ['https://ch.indeed.com/viewjob?jk=1'], 'only a posting with its text is saved; a login wall is not');
+  assert.ok(lines.some(line => /✗ Sales: needs you to sign in/.test(line)) && lines.some(line => /✗ Advisor: no answer from the extension/.test(line)));
+  const card = parseVisits(resultMessage([], {added: 1, postings: {asked: 3, read: saved}}));
+  assert.deepEqual(card.postings, {asked: 3, read: 1}, 'the result card reads what the run wrote');
+});

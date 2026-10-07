@@ -479,6 +479,9 @@ def main(argv=None):
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('visit-outcome').add_argument('file')   # a browser run's results (JSON [{url, ok, why}]): failures remembered (src/sources/visits.py)
     sub.add_parser('visit-hide').add_argument('url')   # you removed this site from the list: not offered again
+    sub.add_parser('stuck-jobs')   # open jobs in your places whose posting text only your browser can read (src/sources/describe.py stuck)
+    sub.add_parser('stuck-dismiss').add_argument('url')   # you dismissed this job in "Jobs we couldn't read": not offered again
+    sub.add_parser('set-description').add_argument('file')   # a posting's text read in your browser (JSON: url, text): kept for that job
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-unblock').add_argument('file')   # a page with no job list (JSON: url, title, text, ways): at most 2 steps toward it, or "needs you"
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
@@ -557,6 +560,20 @@ def main(argv=None):
             from .sources import visits
             visits.hide(args.url)
             print(json.dumps({'ok': True}))
+            return 0
+        if args.command == 'stuck-jobs':
+            from .sources import describe
+            print(json.dumps({'ok': True, 'jobs': describe.stuck(db)}, ensure_ascii=False))
+            return 0
+        if args.command == 'stuck-dismiss':
+            from .sources import visits
+            visits.dismiss(args.url)
+            print(json.dumps({'ok': True}))
+            return 0
+        if args.command == 'set-description':
+            from .sources import describe
+            data = json.loads(Path(args.file).read_text())
+            print(json.dumps({'ok': True, 'saved': describe.save_text(db, data.get('url') or '', data.get('text') or '')}))
             return 0
         if args.command == 'visit-list':
             from .paths import load_search_config

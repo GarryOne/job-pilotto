@@ -6,11 +6,14 @@ export function parseVisits(text) {
   const head = /^Read (\d+) of (\d+) sites? · (\d+) jobs? \((\d+) new\)(?: · (\d+) (?:fits? |matching )your search)?(?: · (\d+) added to your Jobs)?/.exec(lines[1] || '');
   if (!head) return null;
   const sites = [];
+  let postings = null;
   for (const line of lines.slice(2)) {
     const row = /^([✓✗]) (.+?) · (.+) · (https?:\/\/\S+)$/.exec(line);
     if (row) sites.push({ok: row[1] === '✓', name: row[2], detail: row[3], url: row[4]});
+    const unread = /^📄 Read (\d+) of (\d+) jobs? we couldn't read$/.exec(line);   // postings read in your browser (lib/visits.js readPostings)
+    if (unread) postings = {read: Number(unread[1]), asked: Number(unread[2])};
   }
-  return {kind: 'visits', read: Number(head[1]), total: Number(head[2]), jobs: Number(head[3]), fresh: Number(head[4]), fits: head[5] === undefined ? null : Number(head[5]), listed: head[6] === undefined ? null : Number(head[6]), sites};
+  return {kind: 'visits', read: Number(head[1]), total: Number(head[2]), jobs: Number(head[3]), fresh: Number(head[4]), fits: head[5] === undefined ? null : Number(head[5]), listed: head[6] === undefined ? null : Number(head[6]), sites, postings};
 }
 // A Find jobs using your browser run's tabs, from its log (lib/visits.js siteLine: `  ▸ <state> · <site> · <words>`): one row per site in the order they were
 // listed, each at its latest state, and how far the run is (sites finished of all, as a percent). Pure; null when the log has none.

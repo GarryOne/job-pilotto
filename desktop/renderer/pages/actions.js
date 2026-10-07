@@ -62,19 +62,49 @@ export async function init() {
     if (typeof saved.filter === 'boolean') $('visits-filter').checked = saved.filter;
   } catch {}
   const visitBoxes = () => [...document.querySelectorAll('#visits-sites input[type=checkbox]')];
+  const unreadBoxes = () => [...document.querySelectorAll('#visits-unread input[type=checkbox]')];
+  // One row of the dialog: a ticked box, its name and a muted line, and a link that drops it for good (Remove a site, Dismiss a job).
+  const visitRow = ({value, ticked, name, note, title, drop, dropTitle, onDrop}) => {
+    const row = document.createElement('li');
+    const label = document.createElement('label');
+    label.className = 'check-row';   // the shared checkbox row (components.css), inside the shared item-rows list
+    const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: ticked, value});
+    box.addEventListener('change', countVisits);
+    const words = document.createElement('span');
+    const bold = document.createElement('b');
+    bold.textContent = name;
+    const when = document.createElement('span');
+    when.className = 'muted';
+    when.textContent = note;
+    if (title) when.title = title;
+    words.append(bold, when);
+    label.append(box, words);
+    const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'link visits-remove', textContent: drop, title: dropTitle});
+    remove.addEventListener('click', async () => {
+      remove.disabled = true;
+      const done = await onDrop().catch(() => null);
+      if (done?.ok) { row.remove(); countVisits(); } else remove.disabled = false;
+    });
+    row.className = 'visits-row';
+    row.append(label, remove);
+    return row;
+  };
   let visitsLoading = false, visitsAgain = false;   // the list is on its way (the first of the day asks Claude which sites suit your roles: ~10 s)
   const countVisits = () => {
     if (visitsLoading) return;   // 7 Oct 2026: a click while loading said "No sites to read yet · Read 0 sites"
     const ticked = visitBoxes().filter(box => box.checked).length, all = visitBoxes().length;
+    const jobs = unreadBoxes().filter(box => box.checked).length, unread = unreadBoxes().length;
     $('visits-lead').textContent = all ? `${plural(all, 'site')} · ${ticked} selected (${visitsAgain ? 'the ones that did not finish last time' : 'the ones not read this week'})` : 'No sites to read yet.';
-    $('visits-start').textContent = `Read ${plural(ticked, 'site')}`;
-    $('visits-start').disabled = !ticked;
+    $('visits-unread-h').textContent = `Jobs we couldn't read (${unread})`;
+    for (const id of ['visits-unread-h', 'visits-unread']) $(id).hidden = !unread;
+    $('visits-start').textContent = jobs ? `Read ${ticked ? `${plural(ticked, 'site')}, ` : ''}${plural(jobs, 'job')}` : `Read ${plural(ticked, 'site')}`;
+    $('visits-start').disabled = !ticked && !jobs;
   };
   const paintVisits = async () => {
     visitsLoading = true;
     $('visits-lead').textContent = 'Reading your sites… (Claude checks which suit your roles, a few seconds)';
     for (const id of ['visits-start', 'visits-all', 'visits-none']) $(id).disabled = true;
-    const answer = await window.pilot.visitsList().catch(() => null);
+    const [answer, stuck] = await Promise.all([window.pilot.visitsList().catch(() => null), window.pilot.visitsStuck().catch(() => null)]);
     visitsLoading = false;
     // Run again on a run: its sites, not this week's default (pages/activity.js, renderer/visits-card.js rerunSites)
     const again = shared.visitsPreselect;
@@ -84,35 +114,16 @@ export async function init() {
     visitsAgain = !!wanted;
     for (const id of ['visits-all', 'visits-none']) $(id).disabled = false;
     const sites = answer?.visits || [];
-    $('visits-sites').replaceChildren(...sites.map(site => {
-      const row = document.createElement('li');
-      const label = document.createElement('label');
-      label.className = 'check-row';   // the shared checkbox row (components.css), inside the shared item-rows list
-      // Ticked: not read this week, and not failing twice in a row (that one says why, unticked)
-      const ticked = wanted ? wanted.names.has(site.name) || wanted.urls.has(plainUrl(site.url))
-        : !site.failing && (site.kind === 'portal' || !site.last_read);
-      const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: ticked, value: site.url});
-      box.addEventListener('change', countVisits);
-      const words = document.createElement('span');
-      const name = document.createElement('b');
-      name.textContent = site.kind === 'portal' ? `${site.name} · your search` : `${site.name} (${new URL(site.url).hostname.replace(/^www\./, '')})`;
-      const when = document.createElement('span');
-      when.className = 'muted';
-      when.textContent = site.last_read ? `read ${site.last_read.slice(0, 10)}` : 'never read';
-      if (site.note) when.title = site.note;
-      words.append(name, when);
-      label.append(box, words);
-      // Remove: a dead or unwanted site leaves the list for good (owner, 7 Oct 2026)
-      const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'link visits-remove', textContent: 'Remove', title: 'Not offered again'});
-      remove.addEventListener('click', async () => {
-        remove.disabled = true;
-        const done = await window.pilot.visitsHide(site.url).catch(() => null);
-        if (done?.ok) { row.remove(); countVisits(); } else remove.disabled = false;
-      });
-      row.className = 'visits-row';
-      row.append(label, remove);
-      return row;
-    }));
+    // Ticked: not read this week, and not failing twice in a row (that one says why, unticked). Remove: a dead or unwanted site leaves the list for good (owner, 7 Oct 2026).
+    $('visits-sites').replaceChildren(...sites.map(site => visitRow({value: site.url,
+      ticked: wanted ? wanted.names.has(site.name) || wanted.urls.has(plainUrl(site.url)) : !site.failing && (site.kind === 'portal' || !site.last_read),
+      name: site.kind === 'portal' ? `${site.name} · your search` : `${site.name} (${new URL(site.url).hostname.replace(/^www\./, '')})`,
+      note: site.last_read ? `read ${site.last_read.slice(0, 10)}` : 'never read', title: site.note,
+      drop: 'Remove', dropTitle: 'Not offered again', onDrop: () => window.pilot.visitsHide(site.url)})));
+    // Jobs in your places whose posting only your browser can open: ticked (not on Run again of a run, which is about its sites); Dismiss: not offered again.
+    $('visits-unread').replaceChildren(...(stuck?.jobs || []).map(job => visitRow({value: job.url, ticked: !wanted,
+      name: job.company ? `${job.title} · ${job.company}` : job.title, note: `${job.location ? `${job.location} · ` : ''}${new URL(job.url).hostname.replace(/^www\./, '')}`,
+      drop: 'Dismiss', dropTitle: 'Not offered again', onDrop: () => window.pilot.visitsDismiss(job.url)})));
     countVisits();
   };
   $('visits-run').addEventListener('click', () => {
@@ -120,17 +131,17 @@ export async function init() {
     paintVisits();
   });
   for (const id of ['visits-close', 'visits-cancel']) $(id).addEventListener('click', () => $('visits-dialog').close());
-  $('visits-all').addEventListener('click', () => { for (const box of visitBoxes()) box.checked = true; countVisits(); });
-  $('visits-none').addEventListener('click', () => { for (const box of visitBoxes()) box.checked = false; countVisits(); });
+  $('visits-all').addEventListener('click', () => { for (const box of [...visitBoxes(), ...unreadBoxes()]) box.checked = true; countVisits(); });
+  $('visits-none').addEventListener('click', () => { for (const box of [...visitBoxes(), ...unreadBoxes()]) box.checked = false; countVisits(); });
   $('visits-start').addEventListener('click', async () => {
-    const urls = visitBoxes().filter(box => box.checked).map(box => box.value);
+    const urls = visitBoxes().filter(box => box.checked).map(box => box.value), postings = unreadBoxes().filter(box => box.checked).map(box => box.value);
     const atOnce = Math.min(5, Math.max(1, Number($('visits-at-once').value) || 2)), filter = $('visits-filter').checked;
     try { localStorage.setItem(VISIT_PREFS, JSON.stringify({atOnce, filter})); } catch {}
     $('visits-dialog').close();
     const button = $('visits-run');
     show($('actions-result'), false);
     hold(button);
-    const result = await window.pilot.visitsRun({urls, atOnce, filter}).catch(error => ({text: `⚠️ ${error.message}`}));
+    const result = await window.pilot.visitsRun({urls, postings, atOnce, filter}).catch(error => ({text: `⚠️ ${error.message}`}));
     if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }
     release(button);
     answer(result?.text || result?.error || 'Done.');

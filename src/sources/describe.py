@@ -214,3 +214,39 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
             + (f', {sum(refused_at.values())} refused by {hosts(refused_at)}' if refused_at else '')
             + (f', {sum(walled_at.values())} on sign-in sites ({hosts(walled_at)})' if walled_at else '')
             + (' → readable in your browser (Actions, Find jobs using your browser)' if refused_at or walled_at or empty else ''))
+
+
+BROWSER_AFTER = timedelta(hours=6)   # a job whose text this Mac could not read for this long (a page drawn by scripts) is a browser job too
+
+
+def stuck(db, days=14, limit=60, now=None):
+    """[{url, title, company, location}] open jobs in your places whose posting text only a browser can read: a sign-in site, a site that refused
+    us, or a page tried for BROWSER_AFTER with no text (drawn by scripts). Without the text they are never scored, so never listed; the
+    extension reads them in your browser (Actions, Find jobs using your browser: "Jobs we couldn't read", 8 Oct 2026). Newest first."""
+    from . import feeds, visits
+    now = now or datetime.now(timezone.utc)
+    gone = visits.dismissed()
+    since, tried = (now - timedelta(days=days)).isoformat(timespec='seconds'), (now - BROWSER_AFTER).isoformat(timespec='seconds')
+    refused = _refused_hosts(now)
+    rows = db.execute("""SELECT jobs.url, jobs.title, jobs.location, companies.name, jobs.first_seen_at FROM jobs
+        LEFT JOIN companies ON companies.id = jobs.company_id WHERE jobs.state = 'open' AND coalesce(jobs.description, '') = ''
+        AND jobs.first_seen_at >= ? ORDER BY jobs.first_seen_at DESC""", (since,)).fetchall()
+    out = []
+    for url, title, location, company, seen in rows:
+        host = (urlsplit(url or '').hostname or '').lower()
+        if not url or url in gone or not (walled(url) or host in refused or seen <= tried):
+            continue
+        job = {'url': url, 'title': title or '', 'company': company or '', 'location': location or ''}
+        if feeds.wanted_location(job):
+            out.append(job)
+    return out[:limit]
+
+
+def save_text(db, url, text):
+    """A posting's text read in your browser: kept for the open job with this address that has none yet. True when one was filled."""
+    text = ' '.join(str(text or '').split())[:12000]
+    if len(text) < 200:   # a login page, an error page or an empty one: not a posting
+        return False
+    changed = db.execute("UPDATE jobs SET description=? WHERE url=? AND state='open' AND coalesce(description, '') = ''", (text, url)).rowcount
+    db.commit()
+    return changed > 0

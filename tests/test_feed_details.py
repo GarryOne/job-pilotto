@@ -159,3 +159,33 @@ class AnyPostingPageTest(unittest.TestCase):
                 describe.page_text(url, opener)
         self.assertFalse(describe.readable('https://www.glassdoor.ch/job/1'))
         self.assertTrue(describe.readable('https://bulgari.recruitmentplatform.com/job/1'))
+
+
+class BrowserJobsTests(unittest.TestCase):
+    """Jobs whose text only a browser can read (8 Oct 2026): listed for the extension, and its text saved for the job."""
+    def test_stuck_jobs_and_a_saved_text(self):
+        from datetime import datetime, timedelta, timezone
+        from unittest import mock
+        from src.sources import describe, feeds
+        db = sqlite3.connect(':memory:')
+        db.execute("CREATE TABLE companies (id INTEGER PRIMARY KEY, name TEXT)")
+        db.execute("CREATE TABLE jobs (id INTEGER PRIMARY KEY, url TEXT, title TEXT, location TEXT, company_id INTEGER, state TEXT, description TEXT, first_seen_at TEXT)")
+        now = datetime(2026, 10, 8, 12, tzinfo=timezone.utc)
+        old, fresh = (now - timedelta(hours=8)).isoformat(), (now - timedelta(hours=1)).isoformat()
+        db.executemany('INSERT INTO jobs (url, title, location, company_id, state, description, first_seen_at) VALUES (?, ?, ?, NULL, ?, ?, ?)', [
+            ('https://ch.indeed.com/viewjob?jk=1', 'Vendeur', 'Genève', 'open', '', fresh),        # a sign-in site: at once
+            ('https://bulgari.recruitmentplatform.com/job/2', 'Sales', 'Genève', 'open', '', old),  # tried for 8 h, no text
+            ('https://shop.test/job/3', 'Vendeur', 'Genève', 'open', '', fresh),                   # tried 1 h ago: the reader goes on
+            ('https://shop.test/job/4', 'Vendeur', 'Zürich', 'open', '', old),                     # outside your places
+            ('https://shop.test/job/5', 'Vendeur', 'Genève', 'open', 'text', old)])
+        from src.sources import visits
+        with mock.patch.object(feeds, 'wanted_location', lambda job: job['location'] == 'Genève'), mock.patch.object(describe, '_refused_hosts', lambda now: {}):
+            with mock.patch.object(visits, 'dismissed', lambda: set()):
+                urls = [job['url'] for job in describe.stuck(db, now=now)]
+            with mock.patch.object(visits, 'dismissed', lambda: {'https://ch.indeed.com/viewjob?jk=1'}):
+                kept = [job['url'] for job in describe.stuck(db, now=now)]
+        self.assertEqual(sorted(urls), ['https://bulgari.recruitmentplatform.com/job/2', 'https://ch.indeed.com/viewjob?jk=1'])
+        self.assertEqual(kept, ['https://bulgari.recruitmentplatform.com/job/2'], 'a job you dismissed is not offered again')
+        self.assertFalse(describe.save_text(db, 'https://ch.indeed.com/viewjob?jk=1', 'Sign in to continue'), 'too short: not a posting')
+        self.assertTrue(describe.save_text(db, 'https://ch.indeed.com/viewjob?jk=1', 'You advise customers in our Geneva shop. ' * 10))
+        self.assertTrue(db.execute("SELECT description FROM jobs WHERE id = 1").fetchone()[0].startswith('You advise'))

@@ -408,7 +408,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
 const cutShort = why => !!why && !/end of the list|^no next page$/.test(String(why));
 // The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
 // `added`: jobs the run's scoring wrote to the Jobs list (null when it did not score), said on the head line.
-export function resultMessage(results, {added: listed = null} = {}) {
+export function resultMessage(results, {added: listed = null, postings = null} = {}) {
   const read = results.filter(result => result.ok);
   const jobs = read.reduce((sum, result) => sum + result.jobs, 0), added = read.reduce((sum, result) => sum + result.added, 0);
   const fits = read.reduce((sum, result) => sum + (result.fits || 0), 0);
@@ -416,5 +416,51 @@ export function resultMessage(results, {added: listed = null} = {}) {
   const clean = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').slice(0, 120);
   return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new) · ${fit(fits)}${listed === null ? '' : ` · ${listed} added to your Jobs`}`,
     ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} job${result.jobs === 1 ? '' : 's'} (${result.added} new), ${fit(result.fits || 0)}${cutShort(result.why) ? `; ${clean(result.why)}` : ''} · ${key(result.url)}`
-      : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`)].join('\n');
+      : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`),
+    ...(postings ? [`📄 Read ${postings.read} of ${postings.asked} job${postings.asked === 1 ? '' : 's'} we couldn't read`] : [])].join('\n');
+}
+
+// "Jobs we couldn't read" (8 Oct 2026): open jobs in your places whose posting only a browser can read (a sign-in site, a site that refused this
+// Mac, a page drawn by scripts). The extension opens each posting (mark #jp-posting-<ticket>), reads its text and sends it to /extension/posting;
+// the engine keeps it for that job (src/sources/describe.py save_text), so the light run scores it. One at a time: each is one page.
+export const POSTING_MS = 45000;
+export async function stuckJobs(storage, runEngine = pipeline.run) {
+  const {stdout} = await runEngine(storage, ['src.desktop', 'stuck-jobs']).catch(() => ({stdout: ''}));
+  try { return JSON.parse(String(stdout).trim().split('\n').pop()).jobs || []; } catch { return []; }
+}
+// The extension's reading of one posting: {ticket, url, title, text, blocked: 'login'|'check'|''}. Answers {ok, saved}.
+export async function posting(storage, payload, runEngine = pipeline.run) {
+  const ticket = String(payload?.ticket || ''), resolve = waiting.get(ticket);
+  heardFrom(ticket);
+  const blockedBy = ['login', 'check'].includes(payload?.blocked) ? payload.blocked : '';
+  const text = String(payload?.text || '').slice(0, 20000);
+  const answer = blockedBy || text.trim().length < 200 ? {ok: true, saved: false}
+    : ((await engineJson(storage, 'set-description', {url: String(payload?.url || ''), text}, runEngine).catch(() => null)) || {ok: false, saved: false});
+  log('visit', 'posting read in your browser', {host: (() => { try { return new URL(String(payload?.url)).hostname; } catch { return ''; } })(), chars: text.length,
+    blocked: blockedBy, saved: !!answer.saved, waited: !!resolve});
+  if (resolve) { waiting.delete(ticket); resolve({saved: !!answer.saved, blocked: blockedBy}); }
+  return {ok: !!answer.ok, saved: !!answer.saved};
+}
+export async function readPostings(jobs, {tee = () => {}, openTab = open, waitMs = POSTING_MS, signal = null} = {}) {
+  let saved = 0;
+  for (const [at, job] of jobs.entries()) {
+    if (signal?.aborted) break;
+    const ticket = crypto.randomBytes(4).toString('hex');
+    lastNews.set(ticket, Date.now());
+    tee(`⏳ Reading the jobs we couldn't read: ${at} of ${jobs.length} · ${percent(at, jobs.length)}% · now ${job.title || key(job.url)}`);
+    const state = await new Promise(resolve => {
+      waiting.set(ticket, resolve);
+      const opened = openTab(`${key(job.url)}#jp-posting-${ticket}`);
+      if (!opened.ok) { waiting.delete(ticket); resolve({why: opened.error}); return; }
+      const stop = () => { if (waiting.delete(ticket)) resolve({why: 'Stopped by you'}); };
+      signal?.addEventListener('abort', stop, {once: true});
+      setTimeout(() => { if (waiting.delete(ticket)) resolve({why: `no answer from the extension in ${Math.round(waitMs / 1000)} s`}); }, waitMs);
+    });
+    lastNews.delete(ticket);
+    if (state.saved) saved += 1;
+    const why = state.saved ? 'read' : state.blocked === 'login' ? 'needs you to sign in' : state.blocked === 'check' ? 'a bot check: open it yourself' : state.why || 'no posting text on the page';
+    tee(`${state.saved ? '  ✓' : '  ✗'} ${job.title || 'Job'}${job.company ? ` at ${job.company}` : ''}: ${why}`);
+  }
+  log('visit', 'postings read in your browser', {jobs: jobs.length, saved, stopped: !!signal?.aborted});
+  return saved;
 }

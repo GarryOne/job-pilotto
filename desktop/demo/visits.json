@@ -1,0 +1,7 @@
+{"visits": [
+  {"name": "Chanel", "url": "https://careers.chanel.com/en/jobs", "kind": "employer", "last_read": ""},
+  {"name": "Van Cleef & Arpels", "url": "https://www.vancleefarpels.com/careers", "kind": "employer", "last_read": "2026-10-07T10:00:00"},
+  {"name": "jobup.ch", "url": "https://www.jobup.ch/en/jobs/?term=sales", "kind": "portal", "last_read": "2026-10-06T09:00:00"}],
+ "jobs": [
+  {"url": "https://ch.indeed.com/viewjob?jk=demo1", "title": "Conseiller de vente", "company": "Bucherer", "location": "Genève"},
+  {"url": "https://bulgari.recruitmentplatform.com/job/demo2", "title": "Client Advisor", "company": "Bulgari", "location": "Genève"}]}

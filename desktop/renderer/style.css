@@ -1448,14 +1448,14 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* Find jobs using your browser (Actions): its list of sites scrolls past about four rows instead of growing the card. */
 /* "Read the N stopped sites with Claude" under a Find jobs using your browser card's heading (renderer/pages/activity.js renderVisitsCard). */
 .insight-head .visits-claude-all { margin-top: var(--sp-3); }
-#visits-sites { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
-#visits-sites::-webkit-scrollbar { width: 8px; }   /* shown, not the overlay one that hides until you scroll: there is more below */
-#visits-sites .visits-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-#visits-sites .visits-row .check-row { flex: 1; min-width: 0; }
-#visits-sites .visits-remove { flex: none; }
+#visits-sites, #visits-unread { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
+#visits-sites::-webkit-scrollbar, #visits-unread::-webkit-scrollbar { width: 8px; }   /* shown, not the overlay one that hides until you scroll: there is more below */
+#visits-dialog .visits-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+#visits-dialog .visits-row .check-row { flex: 1; min-width: 0; }
+#visits-dialog .visits-remove { flex: none; }
 #visits-dialog .visits-pick { margin: var(--sp-4) 0 var(--sp-2); }
 #visits-dialog .task-count-field { display: flex; margin: var(--sp-2) 0 var(--sp-4); }
-#visits-sites::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
+#visits-sites::-webkit-scrollbar-thumb, #visits-unread::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
 .task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }

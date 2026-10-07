@@ -252,6 +252,19 @@ def hide(url, now=None):
         _save(data)
 
 
+def dismiss(url, now=None):
+    """You dismissed a job in "Jobs we couldn't read": its posting is not offered again (the job only, not its whole site)."""
+    with LOCK:
+        data = _load()
+        data.setdefault('dismissed', {})[url] = (now or _now()).isoformat(timespec='seconds')
+        _save(data)
+
+
+def dismissed():
+    """The job addresses you dismissed in "Jobs we couldn't read"."""
+    return set((_load().get('dismissed') or {}))
+
+
 def listed(url):
     """True when this page's site is on the visit list (the extension lights its icon there)."""
     host = host_of(url)
