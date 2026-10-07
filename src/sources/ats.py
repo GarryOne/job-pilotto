@@ -392,6 +392,14 @@ def _postings(markup):
             continue
 
 
+def _unescape(text):
+    """A string as read raw from a page's script data, its escapes decoded (8 Oct 2026: "Biel\\u002FSolothurn" was stored and shown as is)."""
+    try:
+        return json.loads(f'"{text}"')
+    except ValueError:
+        return text
+
+
 def jobsch_towns(markup):
     """A jobs.ch page's job id -> its town ("Vevey"), from the page's own app data: the schema.org listing names only the country for many
     postings (7 Oct 2026: Fnac's Vevey jobs were stored as "Switzerland", which a Romandie search can't place). Each posting's part of the
@@ -404,7 +412,7 @@ def jobsch_towns(markup):
         part = markup[at:starts[n + 1][0] if n + 1 < len(starts) else at + 4000]
         found = re.findall(r'"place":"([^"]+)"', part) or re.findall(r'"city":"([^"]+)"', part)
         if found and ident not in towns:
-            town = found[-1].strip()
+            town = _unescape(found[-1]).strip()
             towns[ident] = town.title() if town.isupper() else town
     return towns
 

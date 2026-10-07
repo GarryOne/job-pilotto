@@ -93,6 +93,11 @@ class JobsChTownTests(unittest.TestCase):
         self.assertEqual(ats.jobsch_towns(state), {'608e1edf-6066-4019-870e-509b373b9369': 'Saint Sulpice',
                                                    'f54105db-c638-4972-81a7-779e99399dd1': 'Lausanne'})
 
+    def test_an_escaped_place_is_decoded(self):
+        # 8 Oct 2026: the page's script data writes "/" as \u002F; "Biel\u002FSolothurn\u002FLangenthal" was stored and shown as is.
+        state = '{"id":"%s","place":"Biel\\u002FSolothurn\\u002FLangenthal"}' % self.ID
+        self.assertEqual(ats.jobsch_towns(state), {self.ID: 'Biel/Solothurn/Langenthal'})
+
     def test_the_board_search_keeps_the_town_too(self):
         search = {'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}, 'jobs_board_search_queries': ['vendeur'],
                   'board_discovery_keywords': ['vendeur'], 'role_keywords': ['vendeur']}

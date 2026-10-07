@@ -997,7 +997,8 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     if (!total || nothingNew) rows.append(el('li', 'muted', nothingNew ? 'Nothing new since the last check. Jobs found before are in Jobs.'
       : 'This run found nothing new to show. Your saved jobs are in Jobs.'));
     // Fewer in Jobs than listed: the button counts what it opens, and a line says where the rest are ("7 of 10" read as a mismatch, 7 Oct 2026).
-    if (here && here < total) rows.append(el('li', 'muted', `${total - here} more ${total - here === 1 ? 'is' : 'are'} not in Jobs yet: waiting for a score.`));
+    // "of these N", not "N more": some of them are the Not scored rows just above (8 Oct 2026: "4 more" under two of those four).
+    if (here && here < total) rows.append(el('li', 'muted', `${total - here} of these ${total} ${total - here === 1 ? 'is' : 'are'} not in Jobs yet: waiting for a score.`));
     const words = !total || nothingNew ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} in Jobs →`;
     const view = el('button', 'link', words);
     view.addEventListener('click', () => {

@@ -30,6 +30,10 @@ def left_out(stats, what):
     """A warning when an AI step left jobs out (each failed, or the run stopped at the Anthropic spending limit), so the
     run shows "Warnings" in ⏱️ Search runs and the app, not a green "Completed" (29 Sep 2026: 23 jobs unscored)."""
     left = (stats.get('pending') or 0) - (stats.get('done') or 0)
+    # Without a limit, only a failed call is a loss: a job the time budget left ("late") is said by its own ⏱ line and read by the
+    # next refresh (8 Oct 2026: "1 job(s) not read by AI: the AI call failed" when enrichment had only run out of time).
+    if not stats.get('limit') and 'failed' in stats:
+        left = min(left, stats.get('failed') or 0)
     if left <= 0:
         return []
     why = ('your Claude Code plan limit was reached (or it is signed out)' if stats.get('limit') == 'cli' else

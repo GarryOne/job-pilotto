@@ -293,6 +293,9 @@ class SpendLimitTests(unittest.TestCase):
                 self.assertTrue(stats['limit'])
                 self.assertEqual(daily.left_out(stats, 'scored'), ['8 job(s) not scored: the Anthropic API spending limit was reached'])
                 self.assertEqual(daily.left_out({'pending': 3, 'done': 3}, 'scored'), [])
+                # Time up is not a failure: no warning (8 Oct 2026); a real failure still is.
+                self.assertEqual(daily.left_out({'pending': 1, 'done': 0, 'failed': 0, 'late': 4}, 'read by AI'), [])
+                self.assertEqual(daily.left_out({'pending': 5, 'done': 2, 'failed': 1, 'late': 2}, 'scored'), ['1 job(s) not scored: the AI call failed'])
 
     def test_scoring_on_without_any_profile_is_a_warning_not_a_silent_skip(self):
         # 6 Oct 2026: an import brought no Profile and no Notion; 24 new jobs stayed unscored under a green "Completed".
