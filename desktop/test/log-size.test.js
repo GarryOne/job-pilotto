@@ -26,3 +26,21 @@ test('a line never passes LINE_MAX, whatever its fields', () => {
   assert.ok(format('run', 'many', many, at).length <= LINE_MAX + 40);
   assert.equal(format('run', 'plain', undefined, at), '2026-10-07T21:12:16.620Z [run] plain');
 });
+
+// electron-log's own file transport (its Node build: the same code as in the app) writes our lines as they are;
+// a day past DAY_MAX keeps its newest half.
+test('through electron-log: the lines unchanged, a full day cropped to its newest part', async () => {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const {default: electronLog} = await import('electron-log/node.js');
+  const {logTo, log, logFile} = await import('../lib/log.js');
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-log-'));
+  const logger = electronLog.create({logId: 'jp-test'});
+  logTo(folder, logger);
+  logger.transports.file.maxSize = 2000;   // a small cap so a few lines pass it
+  for (let i = 0; i < 300; i += 1) log('run', `line ${i}`, {n: i});
+  assert.deepEqual(fs.readdirSync(folder), ['app.log']);
+  const text = fs.readFileSync(logFile(), 'utf8');
+  assert.ok(text.length < 4000);
+  assert.match(text.trim().split('\n').pop(), /^\d{4}-\d\d-\d\dT[\d:.]+Z \[run\] line 299 \{"n":299\}$/);
+  logTo(folder);   // back to the plain writer for the other tests
+});

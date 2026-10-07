@@ -2401,3 +2401,9 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .improve-placeholder .skeleton.tile { width: 32px; height: 32px; border-radius: var(--r-md); }
 .strategy-page .improve-placeholder .skeleton.button.small { width: 110px; height: 30px; justify-self: end; }
 .strategy-page .improve-placeholder { min-height: 57px; }
+
+/* Settings → Logs: the only rules the shared parts (.tabs, .toolbar, .search-box, pre.log) don't cover: a taller box for reading. */
+.logs-page .log { max-height: 60vh; min-height: 240px; font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.logs-page .toolbar { margin: 0 0 var(--sp-2); }
+.logs-page .panel-top { margin-bottom: var(--sp-3); }
+.logs-page .panel-top .tabs { margin-bottom: 0; }

@@ -801,6 +801,7 @@
           <button data-settings-go="appearance"><i data-icon="sun"></i>Appearance</button>
           <button data-settings-go="license"><i data-icon="zap"></i>License</button>
           <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
+          <button data-settings-go="logs"><i data-icon="terminal"></i>Logs</button>
         </nav>
         <div class="settings-pages">
         <div class="settings-page" data-settings-page="overview">
@@ -1315,6 +1316,26 @@
           <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
         <p class="message" id="reset-message"></p>
             </div>
+          </div>
+        </div>
+        <div class="settings-page logs-page" data-settings-page="logs" hidden>
+          <div class="settings-page-head"><h2>Logs</h2><p class="muted">What the app did on this Mac, one file per day for 30 days. Nothing here is sent anywhere; copy a part to share it.</p></div>
+          <div class="setting panel" id="setting-logs">
+            <div class="panel-top">
+              <div class="tabs" role="tablist" aria-label="Log">
+                <button type="button" role="tab" class="is-active" aria-selected="true" data-log="app">App</button>
+                <button type="button" role="tab" aria-selected="false" data-log="engine">Engine runs</button>
+                <button type="button" role="tab" aria-selected="false" data-log="notion">Notion requests</button></div>
+              <div class="panel-actions"><button class="secondary with-icon" data-copy="logs-lines"><i data-icon="copy"></i>Copy</button><button class="arrow-link" id="logs-show">Show in Finder</button></div>
+            </div>
+            <div class="toolbar">
+              <label class="search-box"><i data-icon="search"></i><input id="logs-search" type="search" placeholder="Search this log" aria-label="Search this log"></label>
+              <select id="logs-day" aria-label="Day"></select>
+              <label class="check-row"><input type="checkbox" id="logs-live" checked><span>Live</span></label>
+            </div>
+            <p class="muted small" id="logs-stats"></p>
+            <button class="link" id="logs-more" hidden>Show 100 older lines</button>
+            <pre class="log" id="logs-lines" tabindex="0"></pre>
           </div>
         </div>
         </div>

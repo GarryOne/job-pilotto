@@ -44,7 +44,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/e2e-hidden.js` — E2E only (JOB_PILOTTO_E2E_HIDDEN=1, set by e2e/lib/app.mjs): the app runs with hidden windows and never takes focus, so a test run
 - `desktop/lib/e2e-ipc.js` — E2E only: wraps ipcMain.handle so every call the window makes to the app is logged (channel, start, duration, failed), newest MAX kept. The journey reads the log to tell a
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
-- `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log (5 MB, then .1). The app's own log says a run
+- `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log, one file per day (see below). The app's own log says a run
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
 - `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
@@ -61,7 +61,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 40 applications
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
-- `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
+- `desktop/lib/log-days.js` — The app's logs, one file per day for KEEP_DAYS days: today's is always <name>.log (app.log, engine.log), so every
+- `desktop/lib/log-view.js` — Settings → Logs: reads the app's log files for the window a page at a time, so a big log never reaches it whole:
+- `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log for today, app-YYYY-MM-DD.log for each of the last 30
 - `desktop/lib/match-check.js` — CV match: one CV against one job posting, the way a recruiter's search and a hiring system's match grade meet them.
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 - `desktop/lib/misses.js` — Controls the form reader could not read, kept on this Mac (extension/review.js -> /extension/misses): the first step of
@@ -137,6 +139,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
+- `desktop/renderer/pages/logs.js` — Settings → Logs: the app's logs on this Mac, for the user (and whoever helps them) to see what happened. One day at a
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
 - `desktop/renderer/pages/notion-connect.js` — Connecting Notion from anywhere in the window (Notion later: the app only tries until it is connected): the dialog with the

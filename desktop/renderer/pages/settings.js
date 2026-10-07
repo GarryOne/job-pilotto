@@ -1,4 +1,5 @@
 // Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
+import {openLogs} from './logs.js';
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {betaText, updateText} from '../update-text.js';
@@ -13,6 +14,7 @@ export function settingsPage(name) {
   remembered('settingsPage', name);
   if (name === 'connections' && lastStatus) setTimeout(() => autoConnect(lastStatus), 0);  // after the page is shown
   if (name === 'profile') openProfile();
+  if (name === 'logs') setTimeout(() => openLogs().catch(error => console.error('Settings · logs:', error)), 0);  // after the page is shown
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   // The menu: Profile is a Settings page of its own there.
   document.querySelectorAll('.nav[data-view="settings"]').forEach(nav => nav.classList.toggle('active', (nav.dataset.settings === 'profile') === (name === 'profile')));

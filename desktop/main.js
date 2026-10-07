@@ -66,6 +66,8 @@ import * as backgroundChrome from './lib/background-chrome.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import {log as appLog, logFile, logTo} from './lib/log.js';
+import electronLog from 'electron-log/main.js';
+import * as logView from './lib/log-view.js';
 import {watchSleep} from './lib/awake.js';
 import {versionLine, watchWindow} from './lib/window-log.js';
 import * as viewCache from './lib/view-cache.js';
@@ -808,6 +810,17 @@ function handlers() {
   // The list sends the best `jobsLimit` rows; "Show more" raises it for the rest of this launch, so a refresh after a search keeps them.
   // The window's own line for logs/app.log, area "ui": what a person saw that the app's side can't tell (7 Oct 2026: a counter that
   // flashed only sometimes). Short identity fields only (numbers, flags, names), never a job or anything the user wrote.
+  // Settings → Logs (lib/log-view.js): one day's page of lines or a capped search at a time, never a whole file.
+  const logsFolder = () => path.dirname(logFile() || path.join(app.getPath('userData'), 'logs', 'app.log'));
+  ipcMain.handle('logsDays', (_, name) => logView.days(logsFolder(), String(name)));
+  ipcMain.handle('logsTail', (_, name, options = {}) => logView.tail(logsFolder(), String(name),
+    {day: String(options?.day || 'today'), skip: Number(options?.skip) || 0}));
+  ipcMain.handle('logsSearch', (_, name, query, options = {}) => logView.search(logsFolder(), String(name), String(query || ''),
+    {day: String(options?.day || '')}));
+  ipcMain.handle('logsShow', (_, name, day) => {
+    const file = logView.files(logsFolder(), String(name), String(day || 'today'))[0];
+    if (file) shell.showItemInFolder(file); else shell.openPath(logsFolder());
+  });
   ipcMain.handle('uiLog', (_, message, fields = {}) => {
     const kept = Object.entries(fields && typeof fields === 'object' ? fields : {}).slice(0, 12)
       .map(([key, value]) => [String(key).slice(0, 40), typeof value === 'number' || typeof value === 'boolean' ? value : String(value).slice(0, 60)]);
@@ -2242,7 +2255,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge('DEV'); }  // from source: never mistaken for the installed app
-  logTo(path.join(app.getPath('userData'), 'logs'));
+  logTo(path.join(app.getPath('userData'), 'logs'), electronLog);
   if (resetDone?.notionElsewhere) appLog('data', 'import: Profile and tracking are in the backup\'s Notion workspace, no key came with it', {decidedBy: 'reset.notionLeftBehind'});
   if (resetDone) appLog('data', resetDone.failed ? `reset or import not applied: ${resetDone.failed}` : `applied at start: ${resetDone.imported ? 'import' : resetDone.deleted ? 'reset (deleted)' : 'reset'}`, {backup: resetDone.backup || '', waitedMs: resetDone.waited || 0});   // waitedMs: Windows still held the folder after the old app quit
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line

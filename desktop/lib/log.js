@@ -1,12 +1,30 @@
-// The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
+// The app's own log, for debugging: <data folder>/logs/app.log for today, app-YYYY-MM-DD.log for each of the last 30
+// days (lib/log-days.js), and the console. Written through electron-log's file transport (logTo(folder, logger));
+// without one (tests, scripts) straight to the file.
 // Never secrets and never your personal data: log field names, counts, sources and errors, not values.
 import fs from 'node:fs';
 import path from 'node:path';
+import {rollDay, capDay} from './log-days.js';
 
-let file = null;
-const LIMIT = 1_000_000;
-export function logTo(folder) {
+let file = null, write = null, logger = null;
+export const DAY_MAX = 5_000_000, TOTAL_MAX = 100_000_000;
+export function logTo(folder, electronLog = null) {
   try { fs.mkdirSync(folder, {recursive: true}); file = path.join(folder, 'app.log'); } catch { file = null; }
+  logger = file && electronLog ? electronLog : null;
+  write = logger ? throughLogger(logger, file) : null;
+}
+// electron-log writes the lines this module formats, as they are (one greppable format for every area); a day past
+// DAY_MAX keeps its newest half.
+function throughLogger(electronLog, target) {
+  for (const [name, transport] of Object.entries(electronLog.transports)) if (name !== 'file' && transport) transport.level = false;
+  Object.assign(electronLog.transports.file, {level: 'info', format: '{text}', maxSize: DAY_MAX, resolvePathFn: () => target,
+    archiveLogFn: old => old.crop(Math.floor(electronLog.transports.file.maxSize / 2))});
+  return line => electronLog.info(line);
+}
+// A new day: yesterday's lines move to app-<day>.log and electron-log starts today's file afresh.
+function newDay(now) {
+  if (!rollDay(file, {now, maxTotal: TOTAL_MAX})) return;
+  try { logger?.transports.file.getFile().reset(); } catch {}
 }
 export const logFile = () => file;
 // A field is evidence, not a dump: each string is cut to FIELD_MAX and the line to LINE_MAX. 7 Oct 2026: every job-list
@@ -24,6 +42,8 @@ export function log(area, message, data) {
   // The terminal (npm start) shows only what went wrong; everything is in logs/app.log. JOB_PILOTTO_VERBOSE=1: all of it.
   if (process.env.JOB_PILOTTO_VERBOSE || data?.error || /\b(fail|error|refused|429)\b/i.test(message)) console.log(line);
   if (!file) return;
-  try { if (fs.statSync(file).size > LIMIT) fs.renameSync(file, `${file}.1`); } catch {}
+  newDay(new Date());
+  if (write) { try { write(line); return; } catch {} }
+  capDay(file, DAY_MAX);
   try { fs.appendFileSync(file, `${line}\n`); } catch {}
 }
