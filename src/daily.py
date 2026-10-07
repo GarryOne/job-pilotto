@@ -748,20 +748,24 @@ def main():
             try:
                 from . import time_budget
                 waiting = score.pending_jobs(db, digest.eligible_jobs(db, hidden)[0], local_profile() or tracker.page_text(), 10_000)
-                taken = time_budget.batch('job', len(waiting))
+                taken = time_budget.batch('score', len(waiting))
                 batch, batch_started = {job['id'] for job in waiting[:taken]}, __import__('time').monotonic()
                 run['waiting'] = len(waiting) - taken
             except Exception as error:  # noqa: BLE001 — each step then takes its own batch
                 print(f'Warning: no batch for this refresh ({type(error).__name__}): each AI step takes its own')
-        if args.enrich_max:
+        def read_jobs(only_ids=None):
             # Runs after import so fresh descriptions are included. AI trouble never blocks the digest.
             try:
                 run['enrich'] = {}
-                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, stats=run['enrich'], only_ids=batch))
+                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, stats=run['enrich'], only_ids=only_ids))
                 run['warnings'] += left_out(run['enrich'], 'read by AI')
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'enrichment skipped: {type(error).__name__}')
+        # A refresh with a batch scores first, straight from each posting (owner, 7 Oct 2026: reading each job with AI took the whole 3 minutes,
+        # twice, and scored nothing); the AI reading (facts such as languages) gets the time left after. Without a batch: reading, then scoring.
+        if args.enrich_max and batch is None:
+            read_jobs()
         if args.score_max and (tracker or local_profile()):
             # Scores only jobs that survive the hard filters; the Profile is re-read every run
             # (the desktop app's local Profile file when set, else the Notion page).
@@ -787,12 +791,10 @@ def main():
                     # Done with time left: the next batch, sized from the pace just measured, read and scored the same way (the first is a guess).
                     while run.get('waiting') and not time_budget.over('score'):
                         queue = score.pending_jobs(db, digest.eligible_jobs(db, hidden)[0], profile, 10_000)
-                        taken = time_budget.batch('job', len(queue), say=False)
+                        taken = time_budget.batch('score', len(queue), say=False)
                         if not taken:
                             break
                         batch, batch_started, run['waiting'] = {job['id'] for job in queue[:taken]}, now(), len(queue) - taken
-                        if args.enrich_max:
-                            print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, only_ids=batch))
                         more = {}
                         print(score.run(db, digest.eligible_jobs(db, hidden)[0], profile, score.DEFAULT_MODEL, args.score_max, stats=more,
                                         on_scored=to_notion, only_ids=batch))
@@ -800,13 +802,15 @@ def main():
                         if not more.get('done'):
                             break
                     if run.get('waiting'):
-                        print(f'⏱ {run["waiting"]} found job(s) wait for the next refresh, to be read and scored (best places first)', flush=True)
+                        print(f'⏱ {run["waiting"]} found job(s) wait for the next refresh, to be scored (best places first)', flush=True)
                 run['warnings'] += left_out(run['score'], 'scored')
                 if run['score'].get('paused'):   # said on the run's card, not only in its log
                     run['warnings'].append(score.PAUSED)
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'scoring skipped: {type(error).__name__}')
+        if args.enrich_max and batch is not None:
+            read_jobs()   # with the time left: the budget sizes it, best places first
         for warning in no_profile(args.score_max, tracker, local_profile()):
             print(f'Warning: {warning}')
             run['warnings'].append(warning)

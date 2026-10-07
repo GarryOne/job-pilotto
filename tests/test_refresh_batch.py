@@ -31,18 +31,16 @@ class WaitingTests(unittest.TestCase):
 
 
 class BatchTests(unittest.TestCase):
-    def test_reading_and_scoring_take_only_the_batch(self):
+    def test_a_refresh_scores_its_batch_first_and_reads_with_the_time_left(self):
+        # 7 Oct 2026: reading each job with AI first took the whole 3 minutes, twice, and scored nothing.
         import inspect
-        from src.ai import enrich, score
-        self.assertIn('only_ids', inspect.signature(enrich.run).parameters)
+        from src.ai import score
         self.assertIn('only_ids', inspect.signature(score.run).parameters)
         source = open('src/daily.py').read()
-        import re
-        read = len(re.findall(r'enrich\.run\([^\n]*only_ids=batch', source))
-        scored = len(re.findall(r'score\.run\((?:[^()]|\([^()]*\))*only_ids=batch', source, re.S))
-        self.assertGreaterEqual(read, 2, 'the first batch and the top-ups')
-        self.assertEqual(read, scored, 'every batch read is then scored')
-
+        self.assertIn("if args.enrich_max and batch is None:", source, 'with a batch, no reading before scoring')
+        self.assertLess(source.index('on_scored=to_notion, only_ids=batch)'), source.index('if args.enrich_max and batch is not None:'),
+                        'reading comes after scoring')
+        self.assertIn("time_budget.batch('score', len(waiting))", source, 'the batch is sized at the scoring pace')
 
 if __name__ == '__main__':
     unittest.main()
