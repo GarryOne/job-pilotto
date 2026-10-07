@@ -331,6 +331,11 @@ export function saveRuns(storage, list) { storage.writeText('runs.json', JSON.st
 export function runs(storage) { try { return JSON.parse(storage.readText('runs.json')) || []; } catch { return []; } }
 let current = null;
 export const running = () => current;
+// Lines the app shows in the window while a tracked task runs but that don't come through the task's own output (a step it starts with its own
+// command, like Read sites' filter choice): kept in the task's log too, so the Technical log after a reopen or ⌘R is what was shown live
+// (7 Oct 2026: a reset brought back 4 lines of a log that had shown many more). main.js's log() calls it for every line it sends.
+let keepLine = null, teeing = false;
+export function keep(line) { if (keepLine && !teeing) keepLine(line); }
 // Tracked tasks waiting behind the running one (oldest first), so Recent activity lists them at once.
 let waiting = [], nextTicket = 0, runningTicket = null;
 export const queued = () => waiting.map(({id, kind, trigger, queuedAt}) => ({id, kind, trigger, queuedAt}));
@@ -507,7 +512,13 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
       if (rowUrl) current = {...current, rowUrl};   // the banner's "View log" link; the line itself is not a step
       if (line === '<<<message' || line === 'message>>>') inMessage = line === '<<<message';
       else if (!inMessage && !line.startsWith('⏳ Still running') && isProgressStep(line)) current = {...current, step: line};
-      onLine(line);
+      teeing = true;
+      try { onLine(line); } finally { teeing = false; }
+    };
+    keepLine = line => {
+      if (STATUS_LINE.test(line) && STATUS_LINE.test(log.at(-1) || '')) log.pop();
+      log.push(line);
+      current = {...current, log: log.slice(-300)};
     };
     let ok = false, result = null;
     // A task can go quiet for minutes (an AI call, a wait for another run): say it is still alive, with how long it has been quiet (tasks 'tracked' here are all of them).
@@ -528,6 +539,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
         log: log.slice(-400), ...summarize(record, log)});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
+      keepLine = null;
       runningTicket = null;
       saveQueue(storage);
     }
