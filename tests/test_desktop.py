@@ -178,6 +178,14 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual({c['key']: c['value'] for c in data['components']},
                          {'role_fit': 70, 'location': 50, 'compensation': 50, 'growth': 50, 'risk': 80})  # risk shown as "low risk"
         self.assertEqual(data['counts'], {'matches': 2, 'kits': 1, 'sent': 2})
+        self.assertFalse(data['profile_empty'])
+        tracker.page_text = lambda: '# Hard constraints\nConstraint | Value\nCountries | ❓ e.g. "Switzerland (anywhere)"\nHome base | ❓ your current city'
+        with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), mock.patch.object(desktop.score, 'load', lambda db: {}), \
+                mock.patch('src.paths.load_search_config', lambda matching=True: search), mock.patch('src.paths.local_profile', lambda: ''), \
+                tempfile.TemporaryDirectory() as tmp:
+            db = store.connect(Path(tmp) / 'j.sqlite')
+            self.assertTrue(desktop.strategy(db, tracker)['profile_empty'])   # the blank template: the Strategy page says scores are paused
+            db.close()
 
 
 class StrategyInsightTests(unittest.TestCase):

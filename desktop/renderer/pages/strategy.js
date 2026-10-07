@@ -141,6 +141,7 @@ async function saveTargets() {
 function renderStrategy(data) {
   strategyShown = true;
   lastStrategy = data;
+  show($('strategy-profile-empty'), !!data.profile_empty);   // scores are paused until it is filled (src/ai/score.py unfilled)
   if (targetEdits) { renderTargets(); return; }   // a fresh read while editing keeps the edits on screen
   $('strategy-insight').classList.remove('is-loading');
   const row = (glyph, label, value) => {
@@ -310,6 +311,7 @@ export async function init() {
   window.pilot.onVisitRead?.(answer => toastMessage(`Read ${answer.jobs} jobs from ${answer.name}`,
     `${answer.added} new on this visit. Your next jobs check filters and scores them like any other.`));
   $('open-profile').addEventListener('click', startTargetsEdit);
+  $('profile-empty-rebuild').addEventListener('click', () => $('strategy-redo').click());   // the same Rebuild from CV as the Profile page
   $('targets-cancel').addEventListener('click', () => { targetEdits = null; message('targets-message', ''); renderTargets(); });
   $('targets-save').addEventListener('click', saveTargets);
   $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion

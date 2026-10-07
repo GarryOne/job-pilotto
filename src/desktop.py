@@ -300,6 +300,10 @@ def strategy(db, tracker=None):
             stale = score.stale_count(db, candidates, local_profile() or tracker.page_text())
         except Exception:  # noqa: BLE001
             pass
+    # The Profile still the empty template (an import or a new workspace): fit scores are paused (score.unfilled); the page says so.
+    from .paths import local_profile
+    own = local_profile()
+    profile_empty = score.unfilled(own) if own else (score.unfilled(profile) if tracker and profile is not None else False)
     sent = sum(n for stage, n in stages.items() if stage not in ('Saved', 'Kit ready', 'Applying', 'Dismissed', 'Closed', 'Recruiter lead'))
     return {
         'roles': unique(search.get('jobs_board_search_queries') or search.get('role_keywords')),
@@ -317,7 +321,7 @@ def strategy(db, tracker=None):
                  + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]
                  + [f'Title: {word}' for word in unique(search.get('title_exclude_keywords'))[:6]]
                  + [f'Remote only from {region}' for region in unique(search.get('remote_excluded_regions'))[:3]],
-        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)),
+        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)), 'profile_empty': profile_empty,
         'counts': {'matches': len(scored), 'kits': stages.get('Kit ready', 0), 'sent': sent},
         'insight': insight,
     }
