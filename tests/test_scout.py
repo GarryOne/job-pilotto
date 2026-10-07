@@ -64,7 +64,7 @@ class ScoutTests(unittest.TestCase):
         wikidata = {'results': {'bindings': [{'label': {'value': 'Hotelco'}, 'site': {'value': 'https://hotel.test'}}]}}
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
             db.execute("INSERT INTO companies (name, careers_url, website, updated_at) VALUES ('Shopco', '', 'https://shop.test', '2026-10-06')")
-            general = list(scout.local_company_candidates(db)) + list(scout.wikidata_candidates(get=lambda url: wikidata))
+            general = list(scout.local_company_candidates(db)) + list(scout.wikidata_candidates(get=lambda url, **_: wikidata, cache=Path(tmp) / 'w.json'))
         for source, found in tech.items():
             self.assertTrue(found, source)
             self.assertTrue(all(c['origin'].startswith(skip) for c in found), source)

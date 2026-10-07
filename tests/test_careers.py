@@ -148,9 +148,32 @@ class CatalogTests(unittest.TestCase):
     def test_wikidata_companies_are_ranked_by_size(self):
         rows = {'results': {'bindings': [{'label': {'value': 'Big AG'}, 'site': {'value': 'https://big.ch'}, 'employees': {'value': '900.0'}},
                                          {'label': {'value': 'Mid AG'}, 'site': {'value': 'https://mid.ch'}, 'employees': {'value': '45'}}]}}
-        found = list(scout.wikidata_candidates(get=lambda url: rows))
+        with tempfile.TemporaryDirectory() as tmp:
+            found = list(scout.wikidata_candidates(get=lambda url, **_: rows, cache=Path(tmp) / 'w.json'))
         self.assertEqual([(c['name'], c['priority']) for c in found], [('Big AG', 60), ('Mid AG', 50)])
         self.assertIn('wd:Q39', scout.WIKIDATA_QUERY)
+
+    def test_wikidata_list_is_kept_a_week_and_reused_when_the_service_fails(self):
+        from datetime import datetime, timedelta, timezone
+        rows = {'results': {'bindings': [{'label': {'value': 'Big AG'}, 'site': {'value': 'https://big.ch'}}]}}
+        asked = []
+        def get(url, timeout=30):
+            asked.append(timeout)
+            return rows
+        def down(url, timeout=30):
+            raise TimeoutError('The read operation timed out')
+        start = datetime(2026, 10, 7, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / 'cache' / 'w.json'
+            self.assertEqual(len(scout.wikidata_rows(get, cache, clock=lambda: start)), 1)
+            self.assertGreaterEqual(asked[0], 90)                                    # the query takes ~65 s: 30 s failed every run
+            scout.wikidata_rows(get, cache, clock=lambda: start + timedelta(days=3))
+            self.assertEqual(len(asked), 1)                                          # within the week: no second query
+            later = lambda: start + timedelta(days=8)
+            self.assertEqual(scout.wikidata_rows(down, cache, clock=later), rows['results']['bindings'])   # stale, but better than none
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(TimeoutError):                                    # nothing kept yet: the source is skipped as before
+                scout.wikidata_rows(down, Path(tmp) / 'w.json', clock=lambda: start)
 
     def test_harvest_keeps_the_website_and_upgrades_an_older_table(self):
         db = sqlite3.connect(':memory:')

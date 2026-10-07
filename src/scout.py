@@ -109,9 +109,9 @@ def key_for(name):
     return re.sub(r'[^a-z0-9]', '', re.sub(r'\b(ag|sa|gmbh|ltd|inc|llc|plc)\b', '', name.lower()))
 
 
-def _get_json(url):
+def _get_json(url, timeout=30):
     request = urllib.request.Request(url, headers={'User-Agent': ats.USER_AGENT})
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.load(response)
 
 
@@ -220,11 +220,40 @@ WIKIDATA_QUERY = """SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {
   ?c rdfs:label ?label. FILTER(LANG(?label) = "en") } GROUP BY ?label ?site ORDER BY DESC(?employees) LIMIT 1500"""
 
 
-def wikidata_candidates(get=_get_json):
+WIKIDATA_TIMEOUT_S = 150         # the query takes about 65 s (7 Oct 2026); at the old 30 s it failed in every run
+WIKIDATA_MAX_AGE = timedelta(days=7)   # the list of Swiss companies barely changes in a week
+
+
+def wikidata_rows(get=_get_json, cache=None, clock=None):
+    """Wikidata's answer, kept on disk for a week (data/cache/wikidata-companies.json): one slow query a week instead of one a run,
+    and a failed or slow day reuses the last good list (said in the log) instead of leaving a search outside IT with no list at all."""
+    from .paths import DATA
+    cache = Path(cache) if cache else DATA / 'cache' / 'wikidata-companies.json'
+    current = (clock or now)()
+    try:
+        kept = json.loads(cache.read_text())
+        kept_at = datetime.fromisoformat(kept['at'])
+    except (OSError, ValueError, KeyError, TypeError):
+        kept, kept_at = None, None
+    if kept and current - kept_at < WIKIDATA_MAX_AGE:
+        return kept['rows']
+    url = 'https://query.wikidata.org/sparql?format=json&query=' + urllib.parse.quote(WIKIDATA_QUERY)
+    try:
+        rows = get(url, timeout=WIKIDATA_TIMEOUT_S)['results']['bindings']
+    except Exception as error:  # noqa: BLE001 — the copy from before, when there is one
+        if not kept:
+            raise
+        print(f'Warning: Wikidata not reached ({type(error).__name__}): using its list from {kept_at.date().isoformat()}')
+        return kept['rows']
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps({'at': current.isoformat(), 'rows': rows}, ensure_ascii=False))
+    return rows
+
+
+def wikidata_candidates(get=_get_json, cache=None, clock=None):
     """Swiss companies with a website and at least 30 employees, from Wikidata's open SPARQL service (bigger first). Any trade: the
     probe then keeps only those whose careers page lists jobs for your roles in your places."""
-    url = 'https://query.wikidata.org/sparql?format=json&query=' + urllib.parse.quote(WIKIDATA_QUERY)
-    for row in get(url)['results']['bindings']:
+    for row in wikidata_rows(get, cache, clock):
         name, site = row['label']['value'], row['site']['value']
         staff = int(float(row.get('employees', {}).get('value', 0) or 0))
         yield dict(name=name, origin='Wikidata: Swiss companies', priority=60 if staff >= 200 else 50, website=site)
