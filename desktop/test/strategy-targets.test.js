@@ -62,3 +62,15 @@ test('nothing asked, nothing read or written', async () => {
   assert.deepEqual(await editLists(t.storage, {}, t.deps), {changed: []});
   assert.deepEqual(t.calls, []);
 });
+
+test("a save drops the engine's copy of the settings page, so the next search reads the page itself", async () => {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-copy-'));
+  const copy = path.join(dir, 'data', 'cache', 'notion-pages', 'settings.json');
+  fs.mkdirSync(path.dirname(copy), {recursive: true});
+  fs.writeFileSync(copy, '{"edited": "2026-10-07T10:33:00.000Z", "text": "- suisse"}');
+  const t = setup();
+  t.storage.path = (...parts) => path.join(dir, ...parts);
+  await editLists(t.storage, {country: {add: ['Romandie']}}, t.deps);
+  assert.equal(fs.existsSync(copy), false);
+});

@@ -294,7 +294,15 @@ export async function publishSearchSettings(storage, {run, ensurePage, writePage
   const {code, stdout} = await run(storage, ['src.notion.search_settings', 'render']);
   if (code !== 0 || !stdout.trim()) throw new Error('Could not render the search settings');
   await writePage(token, page, stdout);
+  forgetPageCopy(storage, page);
   return page;
+}
+// The engine keeps a copy of each Notion page it read (src/notion/client.py _kept_page_text). Just written, that copy is old: dropped, so the next
+// search reads the page itself (7 Oct 2026: a copy from the minute of an earlier save brought "suisse" back on every search).
+export function forgetPageCopy(storage, page) {
+  for (const id of new Set([String(page), String(page).replace(/-/g, '')])) {
+    try { fs.rmSync(storage.path('data', 'cache', 'notion-pages', `${id}.json`), {force: true}); } catch {}
+  }
 }
 export const SEARCH_SETTINGS_TITLE = '⚙️ Search settings';
 

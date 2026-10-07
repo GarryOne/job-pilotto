@@ -367,7 +367,10 @@ class Tracker:
             kept = {}
         now = time.time()
         edited_at = datetime.fromisoformat(edited.replace('Z', '+00:00')).timestamp() if edited else now
-        if (kept.get('edited') == edited and now - edited_at > self.PAGE_SETTLE_S
+        # The copy counts only if it was read after the page settled: Notion rounds last_edited_time down to the minute, so a copy read
+        # within that minute can miss a later edit of the same minute (7 Oct 2026: two Strategy saves 50 s apart; every search after
+        # used the first one's copy and wrote "suisse" back over the places).
+        if (kept.get('edited') == edited and kept.get('read_at', 0) - edited_at > self.PAGE_SETTLE_S
                 and now - kept.get('read_at', 0) < self.PAGE_MAX_AGE_S):
             return kept.get('text', '')
         text = self._page_text(page_id)
