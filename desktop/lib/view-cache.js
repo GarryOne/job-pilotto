@@ -10,9 +10,11 @@ export const NAMES = ['jobs', 'focus', 'strategy', 'contact', 'knowledge', 'inte
 const file = name => `view-cache/${name}.json`;
 const workspace = storage => storage.settings().notionIds?.NOTION_APPLICATIONS_DB || '';
 
-// Keep a fresh result (not an error, not a list read from the cache because Notion was unreachable); returns it.
+// Keep a fresh result (not an error, not a list read from the cache because Notion was unreachable: stale === true); returns it.
+// Only `true`: Strategy's `stale` is a count (jobs waiting for a new score), and `!result.stale` refused every Strategy read with one,
+// so from 05:43 to 13:15 on 7 Oct 2026 each visit painted a morning copy ("Switzerland, Suisse", remote Yes) before the fresh read.
 export function remember(storage, name, result) {
-  if (NAMES.includes(name) && result && result.ok !== false && !result.error && !result.stale) {
+  if (NAMES.includes(name) && result && result.ok !== false && !result.error && result.stale !== true) {
     storage.writeText(file(name), JSON.stringify({at: new Date().toISOString(), workspace: workspace(storage), result}));
   }
   return result;

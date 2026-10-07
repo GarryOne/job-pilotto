@@ -71,3 +71,13 @@ test('a status write shows in the saved Jobs list and drops the saved Focus: a r
   viewCache.statusChanged(s, 'https://x/alder', 'saved');  // no Notion: the status alone
   assert.deepEqual(viewCache.recall(s, 'jobs').result.jobs[1], {url: 'https://x/alder', status: 'saved', stage: ''});
 });
+
+// 7 Oct 2026: Strategy's `stale` counts jobs waiting for a new score; a read with one was never kept, so every visit painted a copy
+// from the morning (old places, remote Yes) before the fresh read. Only `stale: true` (a list from the cache) is refused.
+test('a Strategy read with jobs waiting for a new score is kept', () => {
+  const s = storage();
+  viewCache.remember(s, 'strategy', {ok: true, lists: {country: [{fragment: 'Switzerland'}]}, remote_jobs: true, stale: 0});
+  viewCache.remember(s, 'strategy', {ok: true, lists: {country: [{fragment: 'Romandie'}]}, remote_jobs: false, stale: 2594});
+  const kept = viewCache.recall(s, 'strategy').result;
+  assert.deepEqual([kept.lists.country[0].fragment, kept.remote_jobs], ['Romandie', false]);
+});
