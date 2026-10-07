@@ -1150,7 +1150,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     # Each run checks names it never checked before (pending), and only re-checks one whose wait is over (RECHECK_DAYS): said in the card, so
     # "15 checked" is never read as the same list again (6 Oct 2026).
     first = sum(1 for c in candidates if not c.get('checked_at'))
-    return {'checked': len(candidates), 'first_time': first, 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
+    return {'checked': len(candidates), 'first_time': first, 'left': left, 'harvested': added, 'queued': queued, 'total_feeds': total_feeds,
             'ideas': {k: ideas[k] for k in ('companies', 'directories', 'note')} if ideas else None}, \
         list(zip(candidates, outcomes))
 
@@ -1171,6 +1171,9 @@ def telegram_summary(summary, results):
     if not found:
         blocks.append('No new useful feeds in this batch.')
     detail = [f"{counts['none']} without a job feed we can read (their own job site, or jobs.ch)", f"{counts['low']} low relevance"]
+    left = summary.get('left') or 0
+    if left:   # not checked here: other installs found no job site there lately (7 Oct 2026: 52 of 92 went unsaid)
+        detail.append(f"{left} set aside for 30 days (other installs found no job site we can read there)")
     if counts['watch']:
         detail.append(f"{counts['watch']} careers page{'s' if counts['watch'] != 1 else ''} with no open jobs today (watched weekly)")
     if counts['manual']:
@@ -1185,8 +1188,10 @@ def telegram_summary(summary, results):
     plural = 's' if len(found) != 1 else ''
     first = summary.get('first_time')
     again = summary['checked'] - first if first is not None else 0
+    # Checked again only once every new name was tried (next_batch): said, so it is not read as effort spent instead of new names (7 Oct 2026).
     return tgcard.card('New employer sources', tgcard.dot(f"{summary['checked']} checked", f"{first} new to the search" if first is not None else '',
-                                                         f"{again} checked again after their wait" if again else '', f"{len(found)} new source{plural}"), blocks,
+                                                         f"{again} checked again (no new names left)" if again else '',
+                                                         f"{left} set aside" if left else '', f"{len(found)} new source{plural}"), blocks,
                        emoji='🔎', footer='Source quality measures the source, not your job fit.')
 
 

@@ -66,7 +66,7 @@ test('interview review: round, job, summary, sections, next step, stage', () => 
 test('Find new employers: the counts and the source found', () => {
   const scout = parseRunMessage(said.scout);
   assert.ok(scout && scout.kind === 'scout', lookAt('scout'));
-  assert.deepEqual([scout.checked, scout.first, scout.again, scout.fresh, scout.items.map(item => item.company)], [15, 12, 3, 1, ['Acme']]);
+  assert.deepEqual([scout.checked, scout.first, scout.again, scout.againWhy, scout.left, scout.fresh, scout.items.map(item => item.company)], [15, 12, 3, 'no new names left', 52, 1, ['Acme']]);
 });
 
 test('job digest: the new count, the open count and the job listed', () => {

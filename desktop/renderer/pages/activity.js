@@ -976,9 +976,12 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     if (few) more = withFewJobsHelp(more, run?.id ?? card.items.map(item => item.url).join('|'));
   } else {
     // New to the search or checked again after its wait: a run never re-reads the same list (an older message has neither number).
-    if (card.first == null) stats.append(stat(card.checked, 'employers checked'));
-    else stats.append(stat(card.first, `new employer${card.first === 1 ? '' : 's'} checked`), ...(card.again ? [stat(card.again, 'checked again')] : []));
-    stats.append(stat(card.fresh, 'new job feeds'));
+    // Every count says its word for 1 and for many (7 Oct 2026: "1 new job feeds"); the bottom line says why some were set aside.
+    const s = n => (n === 1 ? '' : 's');
+    if (card.first == null) stats.append(stat(card.checked, `employer${s(card.checked)} checked`));
+    else stats.append(stat(card.first, `new employer${s(card.first)} checked`), ...(card.again ? [Object.assign(stat(card.again, 'checked again'), {title: card.againWhy ? `Checked again: ${card.againWhy}` : ''})] : []));
+    if (card.left) stats.append(stat(card.left, 'set aside'));
+    stats.append(stat(card.fresh, `new job feed${s(card.fresh)}`));
     heading = 'New employers';
     // Five at first; "+2 more" shows the rest here (Show less folds them), and the Employers database has them all.
     const all = card.items.length > 5 && expandedCard === card.items.map(item => item.company).join('|');

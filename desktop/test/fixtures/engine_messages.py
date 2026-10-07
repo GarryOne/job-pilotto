@@ -34,7 +34,7 @@ out['interview'] = plain(interviews.message({
     None, 'https://app.notion.com/p/y', 0.0, stage='Interview scheduled'))
 found = ({'name': 'Acme', 'tier': 'Tier 1'}, {'status': 'found', 'quality': 82, 'ats': 'greenhouse',
          'stats': {'relevant': 6, 'preferred': 2, 'places': ['Zurich', 'Remote']}})
-out['scout'] = plain(scout.telegram_summary({'checked': 15, 'first_time': 12, 'harvested': 0, 'queued': 4, 'total_feeds': 30, 'ideas': None},
+out['scout'] = plain(scout.telegram_summary({'checked': 15, 'first_time': 12, 'left': 52, 'harvested': 0, 'queued': 4, 'total_feeds': 30, 'ideas': None},
                                             [found, ({'name': 'B', 'tier': ''}, {'status': 'none', 'quality': 0, 'ats': '', 'stats': {}})]))
 
 # Windows will not delete a folder holding a database file that is still open: the connection is closed before the folder goes (WinError 32 broke the Windows build, 5 Oct 2026).

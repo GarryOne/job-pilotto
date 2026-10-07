@@ -59,7 +59,8 @@ export function parseScout(text) {
   const notAdded = lines.findIndex(line => /^Not added$/.test(line.trim()));
   const note = notAdded >= 0 ? (lines[notAdded + 1] || '').trim() : /^\d+\./.test(last.trim()) || /^\s/.test(last) ? '' : last.trim();
   return {kind: 'scout', checked: num(head, /checked (\d+)/) ?? num(head, /(\d+) checked/), fresh: num(head, /(\d+) new sources?/),
-    first: num(head, /(\d+) new to the search/), again: num(head, /(\d+) checked again/), items, note};
+    first: num(head, /(\d+) new to the search/), again: num(head, /(\d+) checked again/), left: num(head, /(\d+) set aside/),
+    againWhy: (/checked again \(([^)]+)\)/.exec(head) || [])[1] || '', items, note};
 }
 
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);
