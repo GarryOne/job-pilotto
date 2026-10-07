@@ -10,7 +10,7 @@ from unittest import mock
 
 from src import desktop, regions, store
 from src.paths import keyword_regex
-from src.sources import aggregators, ats, feeds
+from src.sources import boards, aggregators, ats, feeds
 
 ROMANDIE = keyword_regex(regions.expand(['geneva', 'lausanne', 'Romandie']))
 
@@ -97,6 +97,33 @@ class JobsChTownTests(unittest.TestCase):
         # 8 Oct 2026: the page's script data writes "/" as \u002F; "Biel\u002FSolothurn\u002FLangenthal" was stored and shown as is.
         state = '{"id":"%s","place":"Biel\\u002FSolothurn\\u002FLangenthal"}' % self.ID
         self.assertEqual(ats.jobsch_towns(state), {self.ID: 'Biel/Solothurn/Langenthal'})
+
+    def test_every_jobsch_reader_keeps_the_town(self):
+        # 8 Oct 2026: the refresh's employer discovery (boards.parse_jobs) saved Manor's Morges jobs as "Switzerland" while the other two readers
+        # had the town: held back from scoring as placeless, yet counted as new. One test over the three readers, so a fourth can't miss it.
+        page = jobsch_page(self.ID, 'Morges')
+        search = {'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}, 'jobs_board_search_queries': ['magasin'],
+                  'board_discovery_keywords': ['magasin'], 'role_keywords': ['magasin']}
+        url = 'https://www.jobs.ch/en/vacancies/?term=magasin&location=morges&page=1'
+        with mock.patch.object(ats, '_get', lambda url: page.encode()):
+            readers = {'ats.jobsch': [j['location'] for j in ats.jobsch('4259-fnac-suisse-sa')],
+                       'aggregators.jobsch': sorted({j['location'] for j in aggregators.jobsch(search, get=lambda url: page)}),
+                       'boards.parse_jobs': [j['location'] for j in boards.parse_jobs(page, url, 'jobs.ch', roles=False)]}
+        for reader, places in readers.items():
+            self.assertTrue(places and all(p.startswith('Morges') for p in places), f'{reader}: {places}')
+
+    def test_the_board_search_asks_every_page_in_the_same_town(self):
+        # The posting loop reused the name `place`: page 2 searched location=<a posting's address>, not the user's town.
+        asked = []
+        def get(url):
+            asked.append(url)
+            ids = [f'{n:08x}-0000-4000-8000-000000000000' for n in range(len(asked) * 20, len(asked) * 20 + 20)]
+            return ''.join(jobsch_page(i, 'Morges') for i in ids)
+        search = {'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}, 'jobs_board_search_queries': ['magasin'],
+                  'board_discovery_keywords': ['magasin'], 'role_keywords': ['magasin']}
+        aggregators.jobsch(search, get=get)
+        self.assertGreater(len(asked), 1)
+        self.assertTrue(all('location=geneva' in url for url in asked), asked)
 
     def test_the_board_search_keeps_the_town_too(self):
         search = {'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}, 'jobs_board_search_queries': ['vendeur'],

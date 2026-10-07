@@ -123,10 +123,16 @@ def parse_jobs(source, source_url, label, roles=True):
     """The page's JobPostings in Switzerland. roles=False: every title, for the AI title check to judge (jobs.ch, 7 Oct 2026: "4 of 20 listed
     fit your roles" was a word match that dropped 16 titles no AI ever saw)."""
     result=[]
+    # A jobs.ch posting whose address names only the country: its town from the page's own data, as the other two jobs.ch readers do
+    # (8 Oct 2026: Manor's Morges and Nyon jobs were saved as "Switzerland" here, held back from scoring, yet counted as new).
+    from .ats import jobsch_towns
+    towns=jobsch_towns(source) if 'jobs.ch' in source_url else {}
     for j in walk(Page(source).schemas,'JobPosting'):
         if roles and not ROLE.search(j.get('title','')): continue
         swiss=posting_places(j)
         if not swiss: continue
+        ident=re.search(r'/detail/([0-9a-f-]{36})',str(j.get('url') or ''))
+        if swiss==['Switzerland'] and ident and towns.get(ident.group(1)): swiss=[towns[ident.group(1)]]
         expiry=j.get('validThrough')
         if expiry and str(expiry)[:10] < datetime.now(timezone.utc).date().isoformat(): continue
         org=j.get('hiringOrganization',{})

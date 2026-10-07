@@ -143,8 +143,8 @@ def jobsch(search, get=None):
                 places = j.get('jobLocation') or []
                 places = places if isinstance(places, list) else [places]
                 where = []
-                for place in places:
-                    address = (place or {}).get('address') or {}
+                for spot in places:   # not `place`: that is the search's town, still used for the next page and the fallback below
+                    address = (spot or {}).get('address') or {}
                     town = re.sub(r'^[A-Z]{2} ', '', str(address.get('addressLocality') or address.get('addressRegion') or '').strip())   # "ZH Herrliberg" -> "Herrliberg"
                     if town and town not in where:
                         where.append(town)
