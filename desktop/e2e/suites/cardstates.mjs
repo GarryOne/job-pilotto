@@ -115,7 +115,9 @@ export async function run(ctx) {
         const $ = id => document.getElementById(id);
         const base = activity.lastActivity;
         const out = [];
-        const lines = n => Array.from({length: n}, (_, i) => `Scored ${i + 1} of 60 job(s)`);
+        // Distinct lines, one per thing that happened: the log shows them in plain words (renderer/human-log.js), where 55 "Scored N of 60" progress lines
+        // are ONE line, too short to scroll (7 Oct 2026: the step failed with "no Jump to latest" on Mac and Windows).
+        const lines = n => Array.from({length: n}, (_, i) => `Reading employer site ${i + 1}: example${i + 1}.com`);
         const id = Date.now() + 1000, startedAt = new Date().toISOString();
         shared.selectedRun = null;
         activity.renderActivity({...base, running: null, queued: [{id: id - 1, kind: 'search', trigger: 'you', queuedAt: startedAt}]});
