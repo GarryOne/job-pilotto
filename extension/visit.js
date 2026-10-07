@@ -533,6 +533,8 @@ export const MARKS = {'#jp-read': false, '#jp-read-filter': true};
 export const MARK = /#(jp-read(-filter)?)(?:-([a-z0-9]{4,16}))?$/;
 export const ALL_SITES = {origins: ['https://*/*']};   // as declared in manifest.json; asking or checking more is always refused
 const started = new Set();
+// Sites this worker is reading now: an update of the extension waits for them (a reload ends every reading; 7 Oct 2026: two runs lost their sites).
+export const readingNow = () => started.size;
 export async function autoRead(tabId, url) {
   const found = MARK.exec(String(url));
   if (!found || started.has(tabId)) return;

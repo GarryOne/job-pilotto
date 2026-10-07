@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {autoRead, markListed, readSite, startWaiting} from './visit.js';
+import {autoRead, markListed, readSite, readingNow, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
 import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
@@ -780,6 +780,18 @@ chrome.runtime.onStartup.addListener(settleOpenTabs);
 // This worker's own id: Chrome may stop the worker and start a new one, and every reading in progress dies with the old one; the app hands
 // those tabs back when the id changes.
 const WORKER = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+// This browser run's id (kept in session storage: a new one after a reload, an update or a Chrome restart), made once per worker: several
+// reports at a worker's start each made their own before (7 Oct 2026, 22:05:39: three ids in half a second, the app took each for a restart).
+let bootReady = null;
+const bootId = () => (bootReady ||= (async () => {
+  const {boot: kept} = await chrome.storage.session.get('boot').catch(() => ({}));
+  const boot = kept || String(Date.now());
+  if (!kept) await chrome.storage.session.set({boot}).catch(() => {});
+  // Why this worker started is otherwise unknowable from the app's log: a new browser run (reload, update, Chrome start) or the same one
+  // with its worker started again by Chrome (idle, or after a crash).
+  decide('worker', kept ? 'worker started again in the same browser run' : 'worker started in a new browser run (reload, update or Chrome start)', {worker: WORKER});
+  return boot;
+})());
 // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
 async function reportTabs() {
   const config = await settings();
@@ -796,8 +808,7 @@ async function reportTabs() {
   const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds: [...armedIds, ...Object.values(reading)], existingIds: every.map(tab => tab.id)});
   for (const id of armedIds) reportCorrections(config, id);
   // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
-  let {boot} = await chrome.storage.session.get('boot');
-  if (!boot) { boot = String(Date.now()); await chrome.storage.session.set({boot}); }
+  const boot = await bootId();
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
     const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, worker: WORKER, reading, version: chrome.runtime.getManifest().version})});
@@ -812,9 +823,15 @@ async function reportTabs() {
     }
     // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
     // that can't update (a store install) doesn't reload over and over.
-    if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version)) {
+    // Never while a site is being read: a reload ends every reading at once (7 Oct 2026: an update landed mid-run and a site died); the next
+    // report after the last one ends does it.
+    if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version) && !readingNow()) {
       const {reloadedFor} = await chrome.storage.local.get('reloadedFor');
-      if (reloadedFor !== answer.latest) { await chrome.storage.local.set({reloadedFor: answer.latest}); chrome.runtime.reload(); }
+      if (reloadedFor !== answer.latest) {
+        await chrome.storage.local.set({reloadedFor: answer.latest});
+        await decide('worker', `reloading for version ${answer.latest}`);
+        chrome.runtime.reload();
+      }
     }
   } catch (error) {
     connected(false, error.status ? NOT_CONNECTED : NO_APP);

@@ -204,6 +204,7 @@ export function noteTabs({ids, boot, worker, reading} = {}) {
     // "stopped answering"). A tab still open is handed back, to be read again from where it is. After a Chrome restart the tabs were numbered
     // again, so a tab id is trusted only when it is still open.
     const open = new Set((Array.isArray(ids) ? ids : []).map(Number));
+    if (bootId || workerId) log('visit', 'the extension started again', {why: renumbered ? 'new browser run' : 'new worker', readTabs: tabOf.size});
     if (bootId || workerId) for (const [ticket, tab] of tabOf) if (watchers.has(ticket) && marks.has(ticket) && open.has(tab)) resume.push({tab, ticket, mark: marks.get(ticket)});
     if (boot) bootId = String(boot);
     if (worker) workerId = String(worker);
