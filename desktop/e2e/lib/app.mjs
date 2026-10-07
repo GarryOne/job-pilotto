@@ -96,10 +96,26 @@ export const pickFile = (app, file) => app.evaluate(({dialog}, filePath) => {
 async function closeApp(app) {
   try {
     const child = app.process();
+    if (process.platform === 'win32') await keyWritten(app);
     console.log(`  ${new Date().toISOString()} e2e: closing the app (pid ${child.pid})`);   // tells the harness's exit from the app's own in logs/app.log
     await Promise.race([app.evaluate(({app: electron}) => electron.exit(0)).catch(() => {}), new Promise(resolve => setTimeout(resolve, 5000))]);
     if (child.exitCode === null) child.kill('SIGKILL');
   } catch { /* the app is already gone */ }
+}
+
+// Windows: the key that seals saved secrets (safeStorage, DPAPI) is kept in Chromium's "Local State", which a fresh profile writes on a timer (~10 s). The hard
+// exit above came 5.7 s after a first start, the next start had a new key, and the Notion token saved meanwhile could not be read (7 Oct 2026, jobs suite: "the app
+// did not link this workspace's Search settings page"; app.log "[secrets] unreadable on this computer"). The exit stays a crash for the app's own data; only
+// Chromium's key file is waited for. A crash that early is the app's to survive (lib/storage.js asks for the key again), not what any step checks.
+export async function keyWritten(app, {within = 15000, every = 250} = {}) {
+  const dir = await app.evaluate(({app: electron}) => electron.getPath('userData')).catch(() => '');
+  if (!dir) return false;   // the app is gone or not answering: the close goes on to exit or kill it
+  const file = path.join(dir, 'Local State');
+  for (const started = Date.now(); Date.now() - started < within; await new Promise(resolve => setTimeout(resolve, every))) {
+    try { if (fs.readFileSync(file, 'utf8').includes('"encrypted_key"')) return true; } catch { /* not written yet */ }
+  }
+  console.log(`  e2e: Chromium's key file (${file}) still lacks its key after ${within / 1000} s; closing anyway`);
+  return false;
 }
 
 // Wait until the visible page has stopped loading (no skeleton bars or spinners), up to `seconds`; returns whether it settled. A screenshot taken
