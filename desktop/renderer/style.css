@@ -1779,10 +1779,14 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .activity-phases li { padding: var(--sp-3) 0; font-weight: 600; }
 .activity-phases .phase-note { display: block; margin-left: 22px; font-size: var(--fs-md); font-weight: 400; color: var(--muted); }
 .activity-phases .phase-note + .phase-note { font-size: var(--fs-sm); }
+.activity-phases li.site-progress { display: grid; gap: 6px; font-weight: 600; margin-bottom: 4px; }   /* Read sites: "N of M sites · X%" over the shared meter */
+.activity-phases li.site-progress .score-track { background: var(--line); }
 .activity-panel .activity-phases li + li { border-top: 1px solid var(--line); }
 .activity-panel .activity-phases li.done::before { content: '✓'; display: inline-grid; place-items: center; width: 22px; height: 22px;
   margin-right: var(--sp-3); border-radius: 50%; background: var(--good-bright); color: var(--on-accent); font-size: var(--fs-xs); }
 .activity-panel .activity-phases li.todo { font-weight: 400; }
+.activity-panel .activity-phases li::before { margin-right: var(--sp-3); text-align: center; }   /* every mark in the box of the done tick: names line up */
+.activity-panel .activity-phases .phase-note { margin-left: calc(22px + var(--sp-3)); }
 .activity-panel .activity-log.ap-card { padding: 0; }
 .activity-panel .activity-log summary { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
   margin: 0; color: var(--ink); font-size: var(--fs-md); list-style: none; }

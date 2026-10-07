@@ -56,3 +56,26 @@ test('a site that keeps talking but never finishes is stopped at its time budget
   assert.deepEqual(results.map(result => [result.name, result.ok]), [['Slow', false], ['Quick', true]]);
   assert.match(results[0].why, /s are up: skipped, the jobs read so far are kept/);
 });
+
+test('a Read sites run draws a row per tab at its latest state, and how far it is', async () => {
+  const {siteLine} = await import('../lib/visits.js');
+  const {parseSiteRows} = await import('../renderer/visits-card.js');
+  const log = ['Reading 3 sites in your browser, 2 at a time', siteLine('next', 'Tag Heuer', 'https://www.tagheuer.com'), siteLine('next', 'Hublot · CH', 'https://www.hublot.com'),
+    siteLine('next', 'Glassdoor', 'https://de.glassdoor.ch'), siteLine('opening', 'Tag Heuer', 'Opening in Chrome…'), siteLine('reading', 'Tag Heuer', 'page 2 · 14 jobs'),
+    '⏳ Reading sites in your browser: 0 of 3 done · 0% · now Tag Heuer', siteLine('waiting', 'Hublot · CH', 'Waiting for you in Chrome'), siteLine('done', 'Tag Heuer', '14 jobs (8 new)'),
+    siteLine('stopped', 'Glassdoor', 'it stopped answering')];
+  const rows = parseSiteRows(log);
+  assert.deepEqual(rows.sites.map(site => [site.name, site.state]), [['Tag Heuer', 'done'], ['Hublot, CH', 'waiting'], ['Glassdoor', 'stopped']]);
+  assert.equal(rows.sites[0].url, 'https://www.tagheuer.com');
+  assert.deepEqual([rows.done, rows.total, rows.percent], [2, 3, 67]);
+  assert.equal(parseSiteRows(['no rows here']), null);
+});
+
+test('runAll writes each site\'s states, in order, for those rows', async () => {
+  const {siteLine} = await import('../lib/visits.js');
+  const lines = [];
+  const openTab = url => { const ticket = /-([a-z0-9]+)$/.exec(url)[1]; setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 4, added: 1, pages: 1}), 10); return {ok: true}; };
+  await runAll([{name: 'A', url: 'https://a.example'}], {openTab, tee: line => lines.push(line), waitMs: 500});
+  assert.deepEqual(lines.filter(line => line.includes('▸')), [siteLine('next', 'A', 'https://a.example'), siteLine('opening', 'A', 'Opening in Chrome…'), siteLine('done', 'A', '4 jobs (1 new)')]);
+  assert.ok(lines.some(line => /^⏳ .*1 of 1 · 100%/.test(line)), 'the banner\'s step says the percent');
+});

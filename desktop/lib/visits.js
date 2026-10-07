@@ -114,6 +114,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
       return {ok: false, error: 'The app could not read this page.'};
     }
     log('visit', 'read a page the user opened', {host: new URL(body.url).hostname, name: answer.name, jobs: answer.jobs, added: answer.added, cards: body.cards.length, session: body.session});
+    watchers.get(page?.ticket)?.({page: answer});
     return answer;
   } finally {
     fs.rmSync(file, {force: true});
@@ -131,6 +132,13 @@ export const SITE_MS = 75 * 1000;
 const lastNews = new Map();   // ticket -> time of the extension's last report for that tab
 export function heardFrom(ticket) { if (ticket && lastNews.has(ticket)) lastNews.set(ticket, Date.now()); }
 const waiting = new Map();   // start address -> resolve
+const watchers = new Map();   // ticket -> the running site's listener: a page read, a wait on the person
+// One site's state as one plain line of the task's log (indented: never the banner's step). The run's step card draws a row per site from these
+// lines, live and afterwards (renderer/visit-rows.js parseSiteRows): `  ▸ <state> · <site> · <words>`.
+export const SITE_STATES = ['next', 'opening', 'waiting', 'reading', 'done', 'stopped'];
+const plain = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').trim();
+export const siteLine = (state, name, words) => `  ▸ ${state} · ${plain(name)} · ${plain(words)}`;
+export const percent = (done, total) => (total ? Math.round(done / total * 100) : 0);
 const blocked = new Set();
 let waitingNotice = null;   // main.js: a notification whose click brings Chrome forward
 export function onWaiting(fn) { waitingNotice = fn; }   // start addresses waiting on the person (the one-time Allow in Chrome)
@@ -139,6 +147,7 @@ export function waitingFor(payload) {
   const url = which(payload);
   if (!waiting.has(url) || blocked.has(url)) return {ok: true};
   blocked.add(url);
+  watchers.get(url)?.({waiting: true});
   waitingNotice?.();
   onLine('⏳ Waiting for you in Chrome: press "Allow on the sites the app opens" on the Job Pilotto page it opened (once)');
   log('visit', 'waiting for the person in Chrome', {host: new URL(url).hostname, why: String(payload?.why || '').slice(0, 20)});
@@ -156,6 +165,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
   const queue = [...sites], results = [];
   taskTee = tee;
   let doneCount = 0;
+  for (const site of sites) tee(siteLine('next', site.name, key(site.url)));
   const one = async site => {
     const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
     lastNews.set(ticket, Date.now());
@@ -182,17 +192,30 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
           : 'no answer from the extension in time: is it installed and enabled in Chrome?', jobs: 0, added: 0});
       }, waitMs);
     });
+    let pages = 0, jobs = 0;
+    watchers.set(ticket, event => {
+      if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
+      if (event.page) { blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
+    });
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
-    if (!opened.ok) { waiting.delete(ticket); return {...site, ok: false, why: opened.error, jobs: 0, added: 0}; }
-    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} done · now ${site.name}`);   // the banner's step while it reads
+    if (!opened.ok) {
+      waiting.delete(ticket); watchers.delete(ticket);
+      doneCount += 1;
+      tee(siteLine('stopped', site.name, opened.error));
+      return {...site, ok: false, why: opened.error, jobs: 0, added: 0};
+    }
+    tee(siteLine('opening', site.name, 'Opening in Chrome…'));
+    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads
     const state = await finished;
+    watchers.delete(ticket);
     blocked.delete(ticket);
     lastNews.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);
     const ok = (state.jobs || 0) > 0;
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
     doneCount += 1;
-    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
+    tee(siteLine(ok ? 'done' : 'stopped', site.name, ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'));
+    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0};
   };

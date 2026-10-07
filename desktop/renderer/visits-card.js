@@ -12,3 +12,20 @@ export function parseVisits(text) {
   }
   return {kind: 'visits', read: Number(head[1]), total: Number(head[2]), jobs: Number(head[3]), fresh: Number(head[4]), sites};
 }
+// A Read sites run's tabs, from its log (lib/visits.js siteLine: `  ▸ <state> · <site> · <words>`): one row per site in the order they were
+// listed, each at its latest state, and how far the run is (sites finished of all, as a percent). Pure; null when the log has none.
+const FINISHED = new Set(['done', 'stopped']);
+export function parseSiteRows(lines) {
+  const rows = new Map();
+  for (const line of lines || []) {
+    const found = /^\s+▸ (next|opening|waiting|reading|done|stopped) · (.+?) · (.*)$/.exec(String(line));
+    if (!found) continue;
+    const [, state, name, words] = found;
+    const row = rows.get(name) || {name, url: ''};
+    if (state === 'next' && /^https?:\/\//.test(words)) row.url = words;
+    rows.set(name, {...row, state, words: state === 'next' ? 'Next' : words});
+  }
+  if (!rows.size) return null;
+  const sites = [...rows.values()], done = sites.filter(site => FINISHED.has(site.state)).length;
+  return {sites, done, total: sites.length, percent: Math.round(done / sites.length * 100)};
+}

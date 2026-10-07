@@ -8,7 +8,7 @@ import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {cardText, emptyResult, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
-import {parseVisits} from '../visits-card.js';
+import {parseSiteRows, parseVisits} from '../visits-card.js';
 import {employersAdvice} from '../onboarding.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
 import {comparisonTable, confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
@@ -127,6 +127,21 @@ const WARN_NOUN = {search: 'Job search', scout: 'Employer search', mail: 'Gmail 
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
+// Read sites' step card (renderer/visits-card.js parseSiteRows): the meter (the few-jobs box's score-track) and one row per site.
+const SITE_MARK = {next: 'todo', opening: 'now', waiting: 'warn', reading: 'now', done: 'done', stopped: 'fail'};
+function siteProgress({done, total, percent}) {
+  const li = el('li', 'site-progress');
+  const track = el('span', 'score-track'), fill = el('span', 'score-fill');
+  fill.style.width = `${percent}%`;
+  track.append(fill);
+  li.append(el('span', '', `${done} of ${total} sites · ${percent}%`), track);
+  return li;
+}
+function siteRow(site) {
+  const li = el('li', SITE_MARK[site.state] || 'todo', site.name);
+  li.append(el('span', 'phase-note', site.words));
+  return li;
+}
 // A phase's label, with the sources the engine said it used ("Job boards: jobs.ch, …") instead of a fixed list.
 function phaseLabel(phase, lines) {
   const named = phase.match.test('Job boards:') && lines.map(line => /^Job boards: (.+)/.exec(line)).filter(Boolean).pop();
@@ -609,7 +624,11 @@ export function renderActivity(fresh) {
       if (i === at && stopped) li.append(...[stopped.doing && `Stopped while ${stopped.doing}.`, stopped.last && `Last reported: ${stopped.last}`].filter(Boolean).map(text => el('span', 'phase-note', text)));
       return li;
     })));
-  show($('activity-phases'), updates.length > 0 || at >= 0);
+  // Read sites: a row per tab it opens in Chrome, each at its state, and how far the run is (owner, 7 Oct 2026: "right now it's a black box").
+  // The same step card and row marks as a search's steps; once it ends, its result card lists the sites.
+  const tabs = run?.live && kindOf(run) === 'visits' ? parseSiteRows(lines) : null;
+  if (tabs) $('activity-phases').replaceChildren(siteProgress(tabs), ...tabs.sites.map(siteRow));
+  show($('activity-phases'), updates.length > 0 || at >= 0 || !!tabs);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
   // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
   // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.
