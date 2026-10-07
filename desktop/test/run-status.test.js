@@ -61,6 +61,9 @@ test('a failed run says so in its own box, with its reason and the fix the app c
   assert.equal(failureHead({ok: false, problem: 'not checked: Claude Code is not ready (Settings → AI)'}).fix.label, 'Open AI settings');
   assert.equal(failureHead({ok: false, problem: 'not checked: the Anthropic API spend limit was reached'}).fix, null, 'a limit has its own link on the page');
   assert.deepEqual([failureHead({ok: false, kind: 'search'}).title, failureHead({ok: false}).fix], ['The job search stopped unexpectedly', {label: 'Run again', rerun: true}]);
+  const visits = failureHead({ok: false, kind: 'visits', problem: 'Geneva Freeport: it stopped answering (nothing for 30 s)'}, 'Find jobs using your browser');
+  assert.deepEqual([visits.title, visits.summary, visits.fix], ['Find jobs using your browser did not finish', 'Geneva Freeport: it stopped answering (nothing for 30 s).',
+    {label: 'Run again', rerun: true}], 'a task failed with its own reason: not a Gmail title, and it runs again (8 Oct 2026)');
   assert.equal(failureHead({ok: true}), null, 'a run that worked has no failure head');
   assert.equal(failureHead({ok: true, warned: true}), null, 'nor one that only warned');
   assert.equal(failureHead({ok: false, live: true}), null, 'nor one still running');

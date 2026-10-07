@@ -120,8 +120,11 @@ export function failureHead(run, name = '') {
   const fix = PROBLEM_FIXES.find(([pattern]) => pattern.test(problem));
   const lead = /^not (checked|delivered):\s*/i.exec(problem)?.[1]?.toLowerCase();   // the title says it; the sentence under it is only the reason
   const reason = problem.replace(/^not (?:checked|delivered):\s*/i, '');
-  return {problem, title: lead === 'delivered' ? 'Not delivered' : 'Not checked',
-    summary: `${reason.replace(/^./, c => c.toUpperCase())}.`, fix: fix ? {label: fix[1], view: fix[2]} : null};
+  // A task that failed with its own reason (its first "✗ <what>: <why>" line, lib/pipeline.js failedLine): it did not finish, and runs again
+  // (owner, 8 Oct 2026: a browser run read "Not checked", a Gmail title, with no Run again).
+  const rerun = !lead && !fix;
+  return {problem, title: lead === 'delivered' ? 'Not delivered' : lead ? 'Not checked' : `${name || 'The run'} did not finish`,
+    summary: `${reason.replace(/^./, c => c.toUpperCase()).replace(/\.$/, '')}.`, fix: fix ? {label: fix[1], view: fix[2]} : rerun ? {label: 'Run again', rerun: true} : null};
 }
 
 // What a failed run says about itself when no reason was recognised (#301, 5 Oct 2026: a Jobs check that was Failed read "1 new job", like a success, because the result a Notion row
