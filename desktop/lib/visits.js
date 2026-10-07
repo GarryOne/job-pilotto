@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {chromeCommand, extensionBrowser, launchBrowser} from './apply.js';
+import {focusTabAt} from './form-tab.js';
 import * as pipeline from './pipeline.js';
 import {log} from './log.js';
 
@@ -114,7 +115,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
       return {ok: false, error: 'The app could not read this page.'};
     }
     log('visit', 'read a page the user opened', {host: new URL(body.url).hostname, name: answer.name, jobs: answer.jobs, added: answer.added, cards: body.cards.length, session: body.session});
-    watchers.get(page?.ticket)?.({page: answer});
+    watchers.get(page?.ticket)?.({page: answer, url: body.url});
     return answer;
   } finally {
     fs.rmSync(file, {force: true});
@@ -151,6 +152,23 @@ export function noteTabs({ids, boot, reading} = {}) {
     if (!watchers.has(ticket)) tabOf.delete(ticket);
     else if (!open.has(tab)) { tabOf.delete(ticket); watchers.get(ticket)({closed: true}); }
   }
+}
+// The run going on now (one at a time: pipeline.work joins a second click): its queue, so "Open again" puts a closed site back in it, and where each
+// site's tab is (the last page it read), for "Show tab".
+let active = null;   // {queue, sites, lastPage: Map(start address -> page address), back(site)}
+export function again(url) {
+  const site = active?.sites.find(item => key(item.url) === key(url));
+  if (!site) return {ok: false, error: 'This run has ended: start Read sites again for it.'};
+  active.back(site);
+  log('visit', 'site opened again', {host: new URL(site.url).hostname, decidedBy: 'user click'});
+  return {ok: true};
+}
+export async function showTab(url, focusAt = focusTabAt) {
+  const page = active?.lastPage.get(key(url)) || key(url);
+  const found = await focusAt(page);
+  if (!found) focusBrowser();
+  log('visit', 'showed a reading tab', {host: new URL(page).hostname, found, decidedBy: 'user click'});
+  return {ok: true, found};
 }
 export const percent = (done, total) => (total ? Math.round(done / total * 100) : 0);
 const blocked = new Set();
@@ -215,7 +233,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
         resolve?.({stopped: 'You closed the tab', closed: true, jobs: 0, added: 0});
       }
       if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
-      if (event.page) { blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
+      if (event.page) { active?.lastPage.set(key(site.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
     if (!opened.ok) {
@@ -239,11 +257,17 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0};
   };
+  active = {queue, sites, lastPage: new Map(), back: site => {   // "Open again": the site is next once more, and no longer counted as finished
+    if (queue.includes(site)) return;
+    queue.push(site);
+    doneCount = Math.max(0, doneCount - 1);
+    tee(siteLine('next', site.name, key(site.url)));
+  }};
   const lanes = Array.from({length: Math.max(1, Math.min(5, atOnce))}, async () => {
     while (queue.length) results.push(await one(queue.shift()));
   });
-  await Promise.all(lanes).finally(() => { taskTee = null; });
-  return sites.map(site => results.find(result => result.url === site.url));
+  await Promise.all(lanes).finally(() => { taskTee = null; active = null; });
+  return sites.map(site => results.findLast(result => result.url === site.url));   // a site opened again: its last reading
 }
 // The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
 export function resultMessage(results) {

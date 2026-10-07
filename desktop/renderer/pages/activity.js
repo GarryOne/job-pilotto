@@ -137,9 +137,29 @@ function siteProgress({done, total, percent}) {
   li.append(el('span', '', `${done} of ${total} sites · ${percent}%`), track);
   return li;
 }
+// The one thing to do on a row, as a link after its words (as "Explain with AI"): a wait on you, a tab to look at, a tab you closed, a silent extension.
+function siteAction(site) {
+  if (site.state === 'waiting') return ['Go to Chrome and allow', () => window.pilot.focusBrowser()];
+  if (site.state === 'reading') return ['Show tab', () => window.pilot.visitShowTab(site.url)];
+  if (site.state === 'closed') return ['Open again', () => window.pilot.visitAgain(site.url)];
+  if (site.state === 'stopped' && /no answer from the extension|did not answer/.test(site.words)) return ['Check the extension', () => openSetting('extension')];
+  return null;
+}
 function siteRow(site) {
   const li = el('li', SITE_MARK[site.state] || 'todo', site.name);
-  li.append(el('span', 'phase-note', site.words));
+  const note = el('span', 'phase-note', site.words);
+  const action = site.url && siteAction(site);
+  if (action) {
+    const link = Object.assign(el('button', 'link', action[0]), {type: 'button'});
+    link.addEventListener('click', async () => {
+      link.disabled = true;
+      const done = await Promise.resolve(action[1]()).catch(error => ({ok: false, error: error.message}));
+      if (done?.ok === false) link.textContent = done.error || 'Could not do it now';
+      else link.disabled = false;
+    });
+    note.append(' ', link);
+  }
+  li.append(note);
   return li;
 }
 // A phase's label, with the sources the engine said it used ("Job boards: jobs.ch, …") instead of a fixed list.

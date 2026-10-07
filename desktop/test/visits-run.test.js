@@ -100,3 +100,23 @@ test('a read tab you close ends that site at once, said in its row, and the next
   noteTabs({ids: [], boot: 'b1', reading: {}});   // an older extension's report (no reading) changes nothing either way
   noteTabs({ids: [1], boot: 'b1'});
 });
+
+test('"Open again" puts a site whose tab you closed back in the run; after the run it says to start again', async () => {
+  const {again, noteTabs, siteLine} = await import('../lib/visits.js');
+  const lines = [];
+  let tries = 0;
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (url.includes('flaky') && tries++ === 0) {
+      setTimeout(() => noteTabs({ids: [7], boot: 'b2', reading: {[ticket]: 7}}), 5);
+      setTimeout(() => { noteTabs({ids: [], boot: 'b2', reading: {}}); again('https://flaky.example'); }, 15);   // closed, then Open again
+    } else setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 3, added: 1, pages: 1}), 30);
+    return {ok: true};
+  };
+  const results = await runAll([{name: 'Flaky', url: 'https://flaky.example'}, {name: 'Other', url: 'https://other.example'}],
+    {atOnce: 1, openTab, tee: line => lines.push(line), waitMs: 5000, quietMs: 5000, siteMs: 5000});
+  assert.deepEqual(results.map(result => [result.name, result.ok]), [['Flaky', true], ['Other', true]], 'the second reading is the one kept');
+  assert.equal(lines.filter(line => line === siteLine('next', 'Flaky', 'https://flaky.example')).length, 2, 'its row is Next again');
+  assert.ok(lines.some(line => /2 of 2 · 100%/.test(line)), 'the percent counts it once');
+  assert.equal(again('https://flaky.example').ok, false);
+});

@@ -169,3 +169,15 @@ export async function openFormTab({url, company}, openExternal, {confident = fal
     try { await jxa("Application('Google Chrome').activate()"); return 'chrome'; } catch { return 'chrome'; }
   }
 }
+// Read sites' "Show tab" (lib/visits.js showTab): Chrome switched to the tab showing this page (its address without the #mark), true when found.
+// The Mac's scripting, as Open filled form; false elsewhere or without the permission, and the caller brings Chrome forward instead.
+export async function focusTabAt(url, platform = process.platform) {
+  if (platform !== 'darwin' || !url) return false;
+  try {
+    const want = bare(url);
+    const tab = (JSON.parse(await jxa(LIST)) || []).find(item => bare(item.url) === want || bare(item.url).startsWith(want));
+    if (!tab) return false;
+    await jxa(focus(tab));
+    return true;
+  } catch { return false; }
+}

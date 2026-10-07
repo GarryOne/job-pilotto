@@ -1860,6 +1860,8 @@ function handlers() {
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   ipcMain.handle('openVisit', (_, url) => visits.open(url));
   ipcMain.handle('focusBrowser', () => visits.focusBrowser());
+  ipcMain.handle('visitShowTab', (_, url) => visits.showTab(url));   // Read sites' rows (Recent activity): the tab reading this site
+  ipcMain.handle('visitAgain', (_, url) => visits.again(url));        // ... and a site whose tab you closed, back in the run
   // Read with Claude: a Claude in Chrome session reads a site the extension could not (Apply with Claude's needs: Claude Code, its consent).
   ipcMain.handle('visitWithClaude', async (_, url, name) => {
     const ready = apply.claudeReady(storage);
