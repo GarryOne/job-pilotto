@@ -56,7 +56,7 @@ export function fewJobsGroups(verdict) {
       advice: dry ? 'Most have nothing new for you' : 'They still bring jobs',
       runway: runwayWords(e.runway, e.read),
       // Ideas the Find new employers task has not tried yet: a job search never touches them (owner, 7 Oct 2026: "why didn't 410 go down?").
-      next: pending > 0 ? `${pending} employer idea${pending === 1 ? '' : 's'} not tried yet · Find new employers tries ${Number(e.batch) || 40} a run`
+      next: pending > 0 ? `${pending} employer idea${pending === 1 ? '' : 's'} not tried yet · Find new employers tries up to ${Number(e.batch) || 40} a run (3 minutes)`
         : 'every idea tried: Find new employers looks for new names'};
   }
   const sources = (Array.isArray(verdict?.sources) ? verdict.sources : []).map(source => ({id: source.id, name: source.name, sub: source.people || source.effort, title: `${source.effort}: ${source.gain}`}));

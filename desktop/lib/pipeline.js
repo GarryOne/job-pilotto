@@ -452,6 +452,8 @@ export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
 // (src/notion/matches.py, hash-keyed over every scored job in the cache) puts what was scored before Notion there.
 // `--mode today` is the no-AI path that reaches that sync; it also reads the feeds, which is free.
 export const SEARCH_BUDGET_S = 180;
+// Find new employers starts no new check after 3 minutes (owner, 7 Oct 2026: "runs for too long"); each check is saved as it ends (src/scout.py).
+export const SCOUT_BUDGET_S = 180;
 export const syncMatchesArgs = () => ['src', 'daily', '--mode', 'today', '--log-run', '--enrich-max', '0', '--score-max', '0', '--auto-kit-max', '0'];
 export function syncMatches(storage, onLine, trigger = 'you') {
   return tracked(storage, 'search', trigger, onLine, tee => run(storage, syncMatchesArgs(), tee, triggerEnv(trigger))
@@ -514,7 +516,7 @@ export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail c
 export function scout(storage, onLine, trigger = 'you', batch = null) {   // null: the engine's own size for the queue (src/scout.py batch_for)
   const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
   storage.saveSettings({lastScoutAt: new Date().toISOString()});
-  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : [])], onLine, trigger);
+  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : []), '--budget', String(SCOUT_BUDGET_S)], onLine, trigger);
 }
 // A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
 export function work(storage, kind, onLine, doWork, trigger = 'you') {

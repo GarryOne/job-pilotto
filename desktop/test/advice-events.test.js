@@ -41,7 +41,7 @@ test('the Few new jobs box: an employers meter with one recommendation, words as
     visits: [{name: 'LinkedIn', url: 'https://www.linkedin.com/jobs/search/?keywords=x', kind: 'portal', why: 'no way in but your own visit', last_read: null}]};
   const groups = fewJobsGroups(verdict);
   assert.equal(groups.employers.dry, true, '3 of 21 with a match: running dry');
-  assert.equal(groups.employers.next, '14 employer ideas not tried yet · Find new employers tries 40 a run');
+  assert.equal(groups.employers.next, '14 employer ideas not tried yet · Find new employers tries up to 40 a run (3 minutes)');
   assert.equal(groups.employers.fill, 14);
   assert.deepEqual(groups.sources.map(row => [row.name, row.sub]), [['Adzuna and Jooble', 'Two free keys, about 3 minutes']]);
   assert.deepEqual(groups.visits.map(row => [row.name, row.sub]), [['LinkedIn', 'your search']]);
@@ -67,7 +67,7 @@ test('Your employers says how many searches are left before they rest, and what 
   const soon = {resting: 0, until: null, soon: {runs: 2, count: 242}, rest_after: 5, rest_days: 7};
   const groups = fewJobsGroups({employers: {read: 252, matched: 3, pending: 609, batch: 100, runway: soon}});
   assert.equal(groups.employers.runway, '2 more searches with nothing new, then 242 of 252 employers rest for 7 days (nothing for you 5 times in a row)');
-  assert.equal(groups.employers.next, '609 employer ideas not tried yet · Find new employers tries 100 a run');
+  assert.equal(groups.employers.next, '609 employer ideas not tried yet · Find new employers tries up to 100 a run (3 minutes)');
   assert.match(runwayWords({resting: 242, until: '2026-10-14T03:00:00+00:00', soon: null, rest_after: 5, rest_days: 7}, 252),
     /^242 of 252 employers resting until 14 Oct: Find new employers to keep searching$/);
   assert.equal(runwayWords(null, 252), '');

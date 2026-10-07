@@ -16,6 +16,7 @@ Progress lives in the table scout_candidates, so later runs continue where this
 one stopped. Nothing here applies to jobs; it only finds where jobs are posted.
 """
 import argparse
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -1008,7 +1009,7 @@ def ai_ideas(db, harvest_sources=None):
     return found
 
 
-def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None):
+def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None, budget=0):
     """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes).
     A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the Active Employers & Sources rows."""
     seeds = seeds or json.loads(SEEDS.read_text())
@@ -1138,16 +1139,34 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
 
     # Each employer is saved as soon as it is checked, here on this thread (the database is not shared across threads); a stop (SIGTERM)
     # leaves at once instead of waiting for the whole batch (src/notion/cron_runs.py _on_terminate).
+    # A time budget (the app: SCOUT_BUDGET_S): no new check starts after it, the ones running finish, the rest wait for the next run (owner,
+    # 7 Oct 2026: "runs for too long"; 91 checks at 20-45 s each took over half an hour). Each one is saved as it ends, so nothing is lost.
     outcomes = [None] * len(candidates)
+    deadline = time.monotonic() + budget if budget else None
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
-        futures = {pool.submit(check, candidate): i for i, candidate in enumerate(candidates)}
-        for future in as_completed(futures):
-            i = futures[future]
+        todo, futures = iter(enumerate(candidates)), {}
+        def more():
+            while len(futures) < workers and (deadline is None or time.monotonic() < deadline):
+                nxt = next(todo, None)
+                if nxt is None:
+                    return
+                futures[pool.submit(check, nxt[1])] = nxt[0]
+        more()
+        while futures:
+            future = next(as_completed(futures))
+            i = futures.pop(future)
             outcomes[i] = future.result()
             save(candidates[i], outcomes[i])
+            more()
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
+    if None in outcomes:
+        done_now = sum(1 for o in outcomes if o is not None)
+        span = f'{budget // 60} min' if budget >= 60 else f'{budget} s'
+        print(f'Scout: its {span} are up: {done_now} of {len(candidates)} checked (the ones under way finished); the other {len(candidates) - done_now} wait for the next run.')
+        kept = [(c, o) for c, o in zip(candidates, outcomes) if o is not None]
+        candidates, outcomes = [c for c, _ in kept], [o for _, o in kept]
     for key, url in note_site:
         db.execute("UPDATE scout_candidates SET careers = ? WHERE key = ? AND COALESCE(careers, '') = ''", (url, key))
     record_unread(db, unread)
@@ -1231,6 +1250,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=JOBS_DB)
     parser.add_argument('--batch', type=int, default=DEFAULT_BATCH, help='candidates probed per run')
+    parser.add_argument('--budget', type=int, default=0, help='seconds: no new check starts after this; the rest wait for the next run (0 = none)')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
     parser.add_argument('--log-run', action='store_true', help='log this run to Notion ⏱️ Search runs (the desktop app does)')
     parser.add_argument('--publish-index', action='store_true',
@@ -1274,7 +1294,7 @@ def main():
         cron_runs.auto_begin(tracker)  # the scout's ⏱️ Search runs row opens when it starts
     log = cron_runs.new_run('scout')
     with store.connect(args.db) as db:
-        summary, results = run(db, args.batch, tracker)
+        summary, results = run(db, args.batch, tracker, budget=args.budget)
         if tracker:   # employers checked earlier without Notion, or whose write failed, catch up now
             written, failed = sync_notion(db, tracker)
             if written or failed:
