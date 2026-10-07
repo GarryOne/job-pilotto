@@ -150,6 +150,16 @@ def cli_env(parent=None):
     return env
 
 
+def call_env(args, parent=None):
+    """cli_env for one call. Haiku answers without extended thinking, as through the API, where the engine never asks a Haiku call to think
+    (it has no effort setting). Claude Code turns thinking on by default: on 7 Oct 2026 sorting 100 job titles spent 8,656 of 9,110 output
+    tokens thinking and took 84 s; without it 8 s, with comparable answers (a later step scores each job)."""
+    env = cli_env(parent)
+    if '--model' in args and args[args.index('--model') + 1] == 'haiku':
+        env['MAX_THINKING_TOKENS'] = '0'
+    return env
+
+
 def alias(model):
     for prefix, name in ALIASES:
         if str(model).startswith(prefix):
@@ -203,9 +213,17 @@ def timing_line(args, data, queued_s, ran_s):
     free slot in this process. Counts only, never the prompt or the answer."""
     model = args[args.index('--model') + 1] if '--model' in args else '?'
     api_s = (data.get('duration_api_ms') or 0) / 1000
+    output = int((data.get('usage') or {}).get('output_tokens') or 0)
     total_s = (data.get('duration_ms') or ran_s * 1000) / 1000
     return (f'Claude Code {model}: answered in {ran_s:.0f} s (model {api_s:.0f} s, Claude Code itself {max(0, ran_s - api_s):.0f} s'
-            f'{f", waited {queued_s:.0f} s for a free slot" if queued_s >= 1 else ""}; turns {data.get("num_turns", "?")}; reported {total_s:.0f} s)')
+            f'{f", waited {queued_s:.0f} s for a free slot" if queued_s >= 1 else ""}; turns {data.get("num_turns", "?")}; reported {total_s:.0f} s'
+            f'{f"; thinking {thinking:,} of {output:,} output tokens" if (thinking := thinking_tokens(data)) else ""})')
+
+
+def thinking_tokens(data):
+    """Output tokens the model spent thinking (Claude Code's usage.output_tokens_details), so a slow answer says whether thinking took it."""
+    usage = data.get('usage') or {}
+    return int((usage.get('output_tokens_details') or {}).get('thinking_tokens') or 0)
 
 
 @dataclass
@@ -392,7 +410,7 @@ class CliClient:
             began = time.monotonic()
             try:
                 out = self.run(args, input=prompt, capture_output=True, text=True, timeout=wait, cwd=folder,
-                               env=cli_env())
+                               env=call_env(args))
             except subprocess.TimeoutExpired:
                 self._timeouts += 1
                 if self._timeouts >= TIMEOUTS_BEFORE_STOP:

@@ -375,6 +375,25 @@ class TimingLine(unittest.TestCase):
         self.assertNotIn('secret', line)
         self.assertNotIn('free slot', timing_line(['claude'], {}, 0.2, 5))
 
+    def test_says_how_much_of_the_answer_was_thinking(self):
+        from src.ai.engine import timing_line
+        data = {'duration_api_ms': 82000, 'num_turns': 2, 'usage': {'output_tokens': 9110, 'output_tokens_details': {'thinking_tokens': 8656}}}
+        self.assertTrue(timing_line(['claude', '--model', 'haiku'], data, 0, 84).endswith('; thinking 8,656 of 9,110 output tokens)'))
+
+
+class HaikuThinking(unittest.TestCase):
+    """7 Oct 2026: Claude Code thinks by default; Haiku through the API never does (no effort setting). Sorting 100 titles: 84 s -> 8 s."""
+    def test_haiku_runs_without_thinking_and_the_others_keep_theirs(self):
+        from src.ai.engine import CliClient, call_env
+        client = CliClient(binary='claude', run=lambda *a, **k: None)
+        import src.ai.engine as engine
+        with mock.patch.object(engine, 'flags', lambda *a: {'--tools', '--json-schema', '--effort', '--max-turns'}):
+            haiku = client.command('claude-haiku-4-5', 'system', {'type': 'object'})
+            sonnet = client.command('claude-sonnet-4-6', 'system', {'type': 'object'}, 'medium')
+        self.assertEqual(call_env(haiku, {'PATH': '/bin'})['MAX_THINKING_TOKENS'], '0')
+        self.assertNotIn('MAX_THINKING_TOKENS', call_env(sonnet, {'PATH': '/bin'}))
+        self.assertNotIn('ANTHROPIC_API_KEY', call_env(haiku, {'ANTHROPIC_API_KEY': 'k'}))   # still the user's sign-in, never the key
+
 
 class SignedOutTests(unittest.TestCase):
     def test_an_expired_sign_in_stops_the_run_with_how_to_sign_in(self):
