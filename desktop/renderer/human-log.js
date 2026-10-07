@@ -32,8 +32,9 @@ const RULES = [
   [/^Closed (\d+) job\(s\) not seen for (\d+) days/, m => `🗑️ Closed ${plural(m[1], 'job')} no longer listed for ${m[2]} days`],
   [/^Closed (\d+) job\(s\) outside your places: (.+)$/, m => `🗑️ Closed ${plural(m[1], 'job')} outside your places: ${m[2]}`],
   [/^Closed (\d+) job\(s\) from employers your search no longer reads/, m => `🗑️ Closed ${plural(m[1], 'job')} from employers you no longer search`],
+  [/^Descriptions: read (\d+) of (\d+) missing job texts(.*)$/, m => `📄 Read ${m[1]} of ${m[2]} missing job texts${m[3].replace(/\(tried again next time\)/, '(next refresh tries again)')}`],
   [/^Descriptions: (\d+) of (\d+) missing fetched, (\d+) can't be read from (.+)$/, m =>
-    `📄 Fetched ${m[1]} of ${m[2]} missing job texts; ${m[3]} sites don't let us read them (${m[4]})`],
+    `📄 Fetched ${m[1]} of ${m[2]} missing job texts; ${m[3]} sites don't let us read them (${m[4]})`],   // a run from before 7 Oct 2026
   [/^⏱ This refresh scores (\d+) of (\d+) jobs.*?; (\d+) wait/, m => `🎯 Scoring ${m[1]} of ${m[2]} jobs against your Profile (${m[3]} next time)`],
   [/^Scored (\d+) of (\d+) job\(s\)$/, m => ({key: 'scored', text: `🎯 Scored ${m[1]} of ${plural(m[2], 'job')}`})],
   [/^Scored (\d+) of (\d+) job\(s\) with [^;]+; (\d+) failed/, m => ({key: 'scored', text: `🎯 Scored ${m[1]} of ${plural(m[2], 'job')}` + (Number(m[3]) ? `, ${m[3]} failed` : '')})],

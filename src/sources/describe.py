@@ -6,9 +6,13 @@ again: it sat in the list with "–". Each run fetches the missing ones from the
 at a time (the importer keeps them: it only ever writes a real description over an empty one).
 """
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
+import json
 import re
+import urllib.error
+import urllib.request
 from urllib.parse import urlsplit
 
 from . import ats, boards
@@ -58,50 +62,155 @@ def techtree_text(html):
     return boards.text(' '.join(reader.parts))[:12000]
 
 
+# Any posting page (owner, 7 Oct 2026: "universal, on any employer, feed, website or portal"): only these three had a reader, and every other
+# site's postings were never even fetched ("can't be read" in the log was untrue for Bulgari, Fnac, H&M, Digitec, Workday). Now: Workday's
+# own JSON for a Workday posting; else the page's schema.org JobPosting (most career sites publish it); else the page's main text. A site
+# that refuses (401/403/429 or a "are you human" page) is respected: not asked again for a week, its jobs left for your browser (the
+# extension, Find jobs using your browser). Sign-in sites (LinkedIn, Glassdoor, Indeed…) are never fetched (owner's rule).
+WORKDAY = re.compile(r'^https://([^./]+)\.(wd\d+)\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([^/?#]+)/job/([^?#]+)')
+CHALLENGE = re.compile(r'captcha|are you (?:a )?human|verify (?:that )?you are (?:a )?human|cf-chl|access denied|just a moment\.\.\.', re.I)
+REFUSED_CODES = (401, 403, 429)
+REFUSED_DAYS = 7
+MIN_TEXT = 400   # shorter: a cookie notice, an error or a login page, not a posting
+
+
+class Refused(Exception):
+    """The site refused an automated visit: respected, never worked around."""
+
+
+def walled(url):
+    from ..notion.ledger import WALLED
+    host = (urlsplit(url or '').hostname or '').lower()
+    return any(wall in host for wall in WALLED)
+
+
 def readable(url):
-    """Whether fetch() knows how to read this posting's text."""
-    host = (urlsplit(url or '').hostname or '')
-    return bool(SMARTRECRUITERS.search(url or '')) or host.endswith('jobs.ch') or host.endswith('techtree.dev')
+    """Whether this posting's text may be fetched here: any web page but a sign-in site's."""
+    return str(url or '').startswith(('http://', 'https://')) and not walled(url)
+
+
+def _get(url, opener=None, accept='text/html'):
+    request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Job Pilotto; personal job search)', 'Accept': accept})
+    try:
+        with (opener or urllib.request.urlopen)(request, timeout=15) as response:
+            return response.read(3_000_000).decode('utf-8', errors='replace')
+    except urllib.error.HTTPError as error:
+        if error.code in REFUSED_CODES:
+            raise Refused(f'HTTP {error.code}') from error
+        raise
+
+
+def main_text(html):
+    """A page's own words: its <main> (or <article>, else <body>) without scripts, styles, menus, header and footer."""
+    html = re.sub(r'(?is)<(script|style|noscript|svg|nav|header|footer|form)\b.*?</\1>', ' ', html or '')
+    for tag in ('main', 'article', 'body'):
+        found = re.search(rf'(?is)<{tag}\b[^>]*>(.*)</{tag}>', html)
+        if found:
+            return boards.text(found.group(1))
+    return boards.text(html)
+
+
+def page_text(url, opener=None):
+    """The posting's text from any page; '' when none; Refused when the site refuses."""
+    workday = WORKDAY.match(url or '')
+    if workday:
+        tenant, wd, site, path = workday.groups()
+        data = json.loads(_get(f'https://{tenant}.{wd}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/job/{path}', opener, 'application/json'))
+        return boards.text((data.get('jobPostingInfo') or {}).get('jobDescription') or '')[:12000]
+    html = _get(url, opener)
+    posting = next(boards.walk(boards.Page(html).schemas, 'JobPosting'), {})
+    text = boards.text(posting.get('description', '') if isinstance(posting.get('description'), str) else '')
+    if len(text) >= 200:
+        return text[:12000]
+    words = main_text(html)
+    if CHALLENGE.search(words[:3000]) and len(words) < 3000:
+        raise Refused('a bot check')
+    return words[:12000] if len(words) >= MIN_TEXT else ''
 
 
 def fetch(url, client=None):
-    """The posting's text, from its own API or page; '' when this kind of posting can't be read."""
+    """The posting's text, from its own API or page; '' when the page has none; Refused when the site refuses an automated visit."""
     match = SMARTRECRUITERS.search(url or '')
     if match:
         return ats.smartrecruiters_detail(match.group(1), match.group(2))
-    if (urlsplit(url or '').hostname or '').endswith('jobs.ch'):
+    host = urlsplit(url or '').hostname or ''
+    if host.endswith('jobs.ch'):
         page = (client or boards.Client()).get(url)
         posting = next(boards.walk(boards.Page(page['html']).schemas, 'JobPosting'), {})
         return boards.text(posting.get('description', ''))[:12000]
-    if (urlsplit(url or '').hostname or '').endswith('techtree.dev'):   # 6 Oct 2026: every TechTree job stayed unscored, "–"
+    if host.endswith('techtree.dev'):   # 6 Oct 2026: every TechTree job stayed unscored, "–"
         return techtree_text((client or boards.Client()).get(url)['html'])
-    return ''
+    return page_text(url)
 
 
-def backfill(db, limit=20, days=14, fetcher=fetch):
-    """Fill in up to `limit` open jobs (seen in the last `days`) that have no description. Returns a log line."""
-    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec='seconds')
+def _refused_hosts(now):
+    from ..paths import DATA
+    try:
+        kept = json.loads((DATA / 'refused_hosts.json').read_text())
+    except (OSError, ValueError):
+        kept = {}
+    since = (now - timedelta(days=REFUSED_DAYS)).isoformat()
+    return {host: at for host, at in kept.items() if at >= since}
+
+
+def _keep_refused(hosts):
+    from ..paths import DATA
+    try:
+        DATA.mkdir(parents=True, exist_ok=True)
+        (DATA / 'refused_hosts.json').write_text(json.dumps(hosts))
+    except OSError:
+        pass
+
+
+def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
+    """Fill in up to `limit` open jobs (seen in the last `days`) that have no description, from any posting page (page_text), 4 at a time.
+    A site that refuses is not asked again for a week; it and sign-in sites are said as "readable in your browser". Returns a log line."""
+    now = now or datetime.now(timezone.utc)
+    since = (now - timedelta(days=days)).isoformat(timespec='seconds')
     rows = db.execute("SELECT id, url FROM jobs WHERE state='open' AND coalesce(description, '') = '' AND first_seen_at >= ? "
                       "ORDER BY first_seen_at DESC LIMIT ?", (since, limit)).fetchall()
-    filled = failed = gone = 0
-    unreadable = Counter()   # sites fetch() has no reader for: said in the log line, so "0 of 2 fetched" has a reason
+    if not rows:
+        return ''
+    refused_before = _refused_hosts(now) if fetcher is fetch else {}
+    host = lambda url: (urlsplit(url or '').hostname or '?').lower()
+    walled_at, refused_at, scripted_at, todo = Counter(), Counter(), Counter(), []
     for job_id, url in rows:
-        if fetcher is fetch and not readable(url):
-            unreadable[urlsplit(url or '').hostname or '?'] += 1
-            continue
+        if not readable(url):
+            walled_at[host(url)] += 1
+        elif host(url) in refused_before:
+            refused_at[host(url)] += 1
+        else:
+            todo.append((job_id, url))
+
+    def one(item):
         try:
-            text = fetcher(url)
-        except Exception as error:
-            if getattr(error, 'code', None) in (404, 410):  # the posting was taken down: the job is closed, not unscored
-                db.execute("UPDATE jobs SET state='closed' WHERE id=?", (job_id,))
-                gone += 1
-            else:  # one posting failing must not stop the others; it's tried again next run
-                failed += 1
-            continue
-        if text:
+            return item, fetcher(item[1]), None
+        except Exception as error:  # noqa: BLE001 — one posting failing never stops the others
+            return item, '', error
+    filled = failed = gone = empty = 0
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(one, todo))
+    for (job_id, url), text, error in results:
+        if isinstance(error, Refused):
+            refused_at[host(url)] += 1
+            refused_before[host(url)] = now.isoformat()
+        elif getattr(error, 'code', None) in (404, 410):   # the posting was taken down: the job is closed, not unscored
+            db.execute("UPDATE jobs SET state='closed' WHERE id=?", (job_id,))
+            gone += 1
+        elif error is not None:
+            failed += 1   # tried again next run
+        elif text:
             db.execute('UPDATE jobs SET description=? WHERE id=?', (text, job_id))
             filled += 1
+        else:
+            empty += 1
+            scripted_at[host(url)] += 1   # a page that draws its text with scripts: a browser shows it
     db.commit()
-    return (f'Descriptions: {filled} of {len(rows)} missing fetched' + (f', {gone} posting(s) taken down (closed)' if gone else '')
-            + (f', {failed} failed' if failed else '')
-            + (f", {sum(unreadable.values())} can't be read from " + ', '.join(sorted(unreadable)) if unreadable else '')) if rows else ''
+    if fetcher is fetch:
+        _keep_refused(refused_before)
+    hosts = lambda counts: ', '.join(sorted(counts))
+    return (f'Descriptions: read {filled} of {len(rows)} missing job texts' + (f', {gone} posting(s) taken down (closed)' if gone else '')
+            + (f', {empty} drawn only in a browser ({hosts(scripted_at)})' if empty else '') + (f', {failed} failed (tried again next time)' if failed else '')
+            + (f', {sum(refused_at.values())} refused by {hosts(refused_at)}' if refused_at else '')
+            + (f', {sum(walled_at.values())} on sign-in sites ({hosts(walled_at)})' if walled_at else '')
+            + (' → readable in your browser (Actions, Find jobs using your browser)' if refused_at or walled_at or empty else ''))

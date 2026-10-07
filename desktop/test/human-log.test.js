@@ -26,6 +26,7 @@ const REFRESH = [
   'Scored 29 of 29 job(s) with claude-sonnet-5-5; 0 failed; tokens in 58 (+86797 cached), out 10315',
   '<<<message', '✈️ Job digest', '1. A job', 'message>>>',
   'Digest ready: 10 jobs, 1 new. Telegram isn\'t connected, so nothing was sent.',
+  'Descriptions: read 8 of 12 missing job texts, 2 refused by career.hm.com, 2 on sign-in sites (ch.indeed.com) → readable in your browser (Actions, Find jobs using your browser)',
   'Something new the engine says',
 ];
 
@@ -42,6 +43,7 @@ test('a refresh reads as what happened', () => {
     '⏳ Waited 34 s for Claude: it answers two things at a time',
     '🐢 Claude was slow: 21 s for one answer',
     '📨 Digest ready: 10 jobs, 1 new',
+    '📄 Read 8 of 12 missing job texts, 2 refused by career.hm.com, 2 on sign-in sites (ch.indeed.com) → readable in your browser (Actions, Find jobs using your browser)',
     'Something new the engine says',
   ]);
 });

@@ -62,7 +62,7 @@ class DescriptionBackfillTest(unittest.TestCase):
                 raise answer
             return answer
 
-        self.assertEqual(describe.backfill(db, fetcher=fetcher), 'Descriptions: 1 of 3 missing fetched, 1 posting(s) taken down (closed), 1 failed')
+        self.assertEqual(describe.backfill(db, fetcher=fetcher), 'Descriptions: read 1 of 3 missing job texts, 1 posting(s) taken down (closed), 1 failed (tried again next time)')
         self.assertEqual(db.execute('SELECT state FROM jobs WHERE id=6').fetchone()[0], 'closed')
         self.assertEqual(db.execute('SELECT description FROM jobs WHERE id=1').fetchone()[0], 'Run Kubernetes.')
         self.assertEqual(describe.SMARTRECRUITERS.search('https://jobs.smartrecruiters.com/canva/6000000001379105').groups(),
@@ -86,17 +86,76 @@ class TechTreeDescriptionTest(unittest.TestCase):
                 return {'html': TechTreeDescriptionTest.PAGE}
         self.assertTrue(describe.fetch('https://jobs.techtree.dev/job/c5ee88e9', client=Pages()).startswith('About the company'))
 
-    def test_a_site_without_a_reader_is_named_in_the_run_log(self):
+    def test_any_site_is_read_and_a_refusal_or_sign_in_site_is_left_for_your_browser(self):
+        """7 Oct 2026: only three kinds of sites had a reader, so "can't be read" named sites that were never even asked."""
         from datetime import datetime, timezone
         from unittest import mock
+        import tempfile, pathlib
         from src.sources import describe
         db = sqlite3.connect(':memory:')
         db.execute("CREATE TABLE jobs (id INTEGER PRIMARY KEY, url TEXT, state TEXT, description TEXT, first_seen_at TEXT)")
-        now = datetime.now(timezone.utc).isoformat(timespec='seconds')
-        db.executemany('INSERT INTO jobs VALUES (?, ?, ?, ?, ?)', [(1, 'https://jobs.techtree.dev/job/1', 'open', '', now),
-                                                                   (2, 'https://careers.example.com/job/2', 'open', '', now)])
-        with mock.patch.object(describe.boards, 'Client') as client:
+        now = datetime.now(timezone.utc)
+        rows = [(1, 'https://jobs.techtree.dev/job/1'), (2, 'https://careers.example.com/job/2'), (3, 'https://ch.linkedin.com/jobs/view/3'),
+                (4, 'https://career.hm.com/job/4')]
+        db.executemany('INSERT INTO jobs VALUES (?, ?, ?, ?, ?)', [(i, url, 'open', '', now.isoformat(timespec='seconds')) for i, url in rows])
+
+        def page_text(url, opener=None):
+            if 'hm.com' in url:
+                raise describe.Refused('HTTP 403')
+            return 'A posting about selling watches in Geneva. ' * 20
+        with mock.patch.object(describe.boards, 'Client') as client, mock.patch.object(describe, 'page_text', page_text), \
+                mock.patch('src.paths.DATA', pathlib.Path(tempfile.mkdtemp())):
             client.return_value.get.return_value = {'html': self.PAGE}
-            line = describe.backfill(db)
-        self.assertEqual(line, "Descriptions: 1 of 2 missing fetched, 1 can't be read from careers.example.com")
-        self.assertTrue(db.execute('SELECT description FROM jobs WHERE id=1').fetchone()[0].startswith('About the company'))
+            line = describe.backfill(db, now=now)
+            self.assertEqual(line, 'Descriptions: read 2 of 4 missing job texts, 1 refused by career.hm.com, 1 on sign-in sites (ch.linkedin.com)'
+                                   ' → readable in your browser (Actions, Find jobs using your browser)')
+            db.execute("UPDATE jobs SET description='' WHERE id IN (1, 2)")
+            calls = []
+            with mock.patch.object(describe, 'page_text', lambda url, opener=None: calls.append(url) or 'x' * 500):
+                describe.backfill(db, now=now)
+            self.assertNotIn('https://career.hm.com/job/4', calls, 'a site that refused is not asked again for a week')
+            self.assertNotIn('https://ch.linkedin.com/jobs/view/3', calls, 'a sign-in site is never fetched')
+
+
+class AnyPostingPageTest(unittest.TestCase):
+    """The posting text from any page: Workday's JSON, a page's schema.org JobPosting, else its main text; a refusal is respected."""
+
+    class Opener:
+        def __init__(self, pages):
+            self.pages, self.asked = pages, []
+
+        def __call__(self, request, timeout=0):
+            import io, urllib.error
+            self.asked.append(request.full_url)
+            answer = self.pages[request.full_url]
+            if isinstance(answer, int):
+                raise urllib.error.HTTPError(request.full_url, answer, 'no', {}, None)
+            body = io.BytesIO(answer.encode())
+            body.__enter__, body.__exit__ = lambda: body, lambda *a: False
+            return body
+
+    def test_each_kind_of_page(self):
+        import json
+        from src.sources import describe
+        long = 'You advise customers in our Geneva boutique and keep the shelves tidy. ' * 10
+        workday = 'https://richemont.wd3.myworkdayjobs.com/en-US/Richemont/job/Geneva/Sales-Associate_R123'
+        pages = {'https://richemont.wd3.myworkdayjobs.com/wday/cxs/richemont/Richemont/job/Geneva/Sales-Associate_R123':
+                 json.dumps({'jobPostingInfo': {'jobDescription': f'<p>{long}</p>'}}),
+                 'https://shop.test/schema': '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Seller',
+                                                                                                  'description': f'<p>{long}</p>'}) + '</script>',
+                 'https://shop.test/plain': f'<html><header>Menu Jobs About</header><main><h1>Seller</h1><p>{long}</p></main><footer>© Shop</footer></html>',
+                 'https://shop.test/cookies': '<html><body><p>We use cookies.</p></body></html>',
+                 'https://shop.test/forbidden': 403,
+                 'https://shop.test/check': '<html><body><h1>Just a moment...</h1><p>Verify you are human</p></body></html>'}
+        opener = self.Opener(pages)
+        self.assertTrue(describe.page_text(workday, opener).startswith('You advise customers'), 'Workday: its own JSON')
+        self.assertTrue(describe.page_text('https://shop.test/schema', opener).startswith('You advise customers'), 'schema.org JobPosting')
+        plain = describe.page_text('https://shop.test/plain', opener)
+        self.assertTrue(plain.startswith('Seller You advise'), 'the main text')
+        self.assertNotIn('Menu Jobs About', plain)
+        self.assertEqual(describe.page_text('https://shop.test/cookies', opener), '', 'too short to be a posting')
+        for url in ('https://shop.test/forbidden', 'https://shop.test/check'):
+            with self.assertRaises(describe.Refused, msg=url):
+                describe.page_text(url, opener)
+        self.assertFalse(describe.readable('https://www.glassdoor.ch/job/1'))
+        self.assertTrue(describe.readable('https://bulgari.recruitmentplatform.com/job/1'))
