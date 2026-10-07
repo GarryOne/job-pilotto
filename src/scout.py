@@ -1071,6 +1071,10 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     def check(candidate):
         try:
             return check_one(candidate)
+        except Exception as error:  # noqa: BLE001  one employer's odd site must not end the run (7 Oct 2026: a TypeError at 90 of 91 lost them all)
+            print(f"Warning: {candidate['name']} could not be checked: {type(error).__name__}: {str(error)[:160]}; counted as no job site we can "
+                  'read, and checked again when the readers change')
+            return {'status': 'none'}
         finally:
             with PROGRESS_LOCK:
                 done.append(candidate['name'])

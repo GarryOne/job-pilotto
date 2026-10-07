@@ -57,6 +57,10 @@ class ReadingTests(unittest.TestCase):
             self.assertEqual(len(jobs), 1)
         job, = careers.jsonld_jobs(page({**POSTING, 'jobLocation': {'address': [addr]}}), 'https://acme.ch/')
         self.assertEqual(job['location'], 'Zürich, Switzerland')
+        # 7 Oct 2026: a site's addressLocality was a list, and the TypeError ended a whole Find new employers run at 90 of 91.
+        listed = {'@type': 'PostalAddress', 'addressLocality': ['Bern', 'Basel'], 'addressCountry': [{'name': 'CH'}]}
+        job, = careers.jsonld_jobs(page({**POSTING, 'jobLocation': {'address': listed}}), 'https://acme.ch/')
+        self.assertEqual(job['location'], 'Bern, Basel, Switzerland')
 
     def test_postings_inside_a_graph_and_bad_json_are_handled(self):
         markup = page({'@graph': [{'@type': 'WebSite'}, POSTING]}) + '<script type="application/ld+json">{broken</script>'

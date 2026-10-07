@@ -164,6 +164,18 @@ class ScoutTests(unittest.TestCase):
             untried = {r[0] for r in db.execute("SELECT name FROM scout_candidates WHERE status = 'pending' AND name LIKE 'Co%'")}
             self.assertEqual(len(untried), 10 - len(results), 'the rest wait for the next run')
 
+    def test_one_employer_that_fails_does_not_end_the_run(self):
+        """7 Oct 2026: a TypeError reading one site's job data ended the run at 90 of 91. Now that one counts as no readable job site."""
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout, 'CENTRAL', True):
+            scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=90 - i) for i, n in enumerate(['Good', 'Broken'])]])
+            def probe(system, slug):
+                if slug.startswith('broken'):
+                    raise TypeError('sequence item 0: expected str instance, list found')
+                return []
+            summary, results = scout.run(db, batch=2, harvest_sources=[], probe=probe, workers=1)
+            self.assertEqual(sorted((c['name'], o['status']) for c, o in results), [('Broken', 'none'), ('Good', 'none')])
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM scout_candidates WHERE checked_at IS NOT NULL").fetchone()[0], 2, 'both saved')
+
     def test_reader_fingerprint_ignores_wording(self):
         """A comment, docstring or printed line changed in the reader code must not send every judged employer back to the queue."""
         from src.sources import readers

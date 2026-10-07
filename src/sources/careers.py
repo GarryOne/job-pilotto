@@ -168,6 +168,16 @@ def _walk(value):
             yield from _walk(inner)
 
 
+def _words(value):
+    """A JSON-LD text field as text: sites give a string, a {"name": …}, or a list of either (7 Oct 2026: a list in addressLocality ended a
+    whole Find new employers run with a TypeError)."""
+    if isinstance(value, dict):
+        return _words(value.get('name'))
+    if isinstance(value, (list, tuple)):
+        return ', '.join(part for part in (_words(item) for item in value) if part)
+    return str(value).strip() if value not in (None, '') else ''
+
+
 def jsonld_jobs(markup, url):
     """The JobPosting entries a page publishes, in the common job shape (ats._job)."""
     jobs = []
@@ -195,9 +205,8 @@ def jsonld_jobs(markup, url):
                     continue
                 if not isinstance(address, dict):
                     continue
-                country = address.get('addressCountry') or ''
-                country = country.get('name', '') if isinstance(country, dict) else str(country)
-                where.append(', '.join(part for part in (address.get('addressLocality'), COUNTRIES.get(country.upper(), country)) if part))
+                country = _words(address.get('addressCountry'))
+                where.append(', '.join(part for part in (_words(address.get('addressLocality')), COUNTRIES.get(country.upper(), country)) if part))
             remote = 'telecommute' in str(posting.get('jobLocationType') or '').lower()
             salary = posting.get('baseSalary') or {}
             value = salary.get('value') if isinstance(salary, dict) else None
