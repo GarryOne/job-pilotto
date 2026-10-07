@@ -392,6 +392,12 @@ def _postings(markup):
             continue
 
 
+def jobsch_towns(markup):
+    """A jobs.ch page's job id -> its town ("Vevey"), from the page's own app data: the schema.org listing names only the country for many
+    postings (7 Oct 2026: Fnac's Vevey jobs were stored as "Switzerland", which a Romandie search can't place)."""
+    return {ident: town for ident, town in re.findall(r'"id":"([0-9a-f-]{36})"[^{}]*?"place":"([^"]+)"', markup or '')}
+
+
 def jobsch_find(name, key, get=None):
     """An employer on jobs.ch by name: {'slug', 'site'} (its company page id, and the job site that page links, or ''), or None. Only a
     listing whose employer has the same name key (`key`, the scout's: "Manor" and "Manor AG" are one) counts, never a similar name."""
@@ -417,7 +423,8 @@ def jobsch(slug):
     out, seen = [], set()
     for page in range(1, JOBSCH_PAGES + 1):
         markup = _get('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': words.replace('-', ' '), 'page': page}))
-        postings = list(_postings(markup.decode('utf-8', 'replace') if isinstance(markup, bytes) else markup))
+        markup = markup.decode('utf-8', 'replace') if isinstance(markup, bytes) else markup
+        postings, towns = list(_postings(markup)), jobsch_towns(markup)
         for job in postings:
             if jobsch_company((job.get('hiringOrganization') or {}).get('sameAs')).split('-')[0] != company or job.get('url') in seen:
                 continue
@@ -427,6 +434,7 @@ def jobsch(slug):
             where = ', '.join(dict.fromkeys(str((p.get('address') or {}).get('addressLocality') or (p.get('address') or {}).get('addressRegion') or '')
                                             for p in places if isinstance(p, dict)))
             ident = re.search(r'detail/([0-9a-f-]{36})', str(job.get('url') or ''))
+            where = where or (towns.get(ident.group(1), '') if ident else '')
             out.append(_job(ident.group(1) if ident else job.get('url'), job.get('title'), (where + ', Switzerland').strip(', '),
                             job.get('url'), str(job.get('datePosted') or '')[:10]))
         if len(postings) < 20:

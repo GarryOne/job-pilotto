@@ -252,6 +252,20 @@ def close_stale(db, days=7, now=None):
     return closed
 
 
+def close_elsewhere(db, wanted):
+    """Close open jobs whose place is no longer one of yours (wanted: feeds.wanted_location), after the places changed (7 Oct 2026: a search
+    narrowed from all of Switzerland to Romandie kept 1,300 St. Gallen and Zürich jobs as matches). A job you acted on (any status but
+    unreviewed), one you added yourself, or one without a place is kept. A job seen again in your places is reopened by upsert_job."""
+    rows = db.execute("""SELECT jobs.id, jobs.location, jobs.work_mode FROM jobs LEFT JOIN applications ON applications.job_id = jobs.id
+        WHERE jobs.state = 'open' AND COALESCE(applications.status, 'unreviewed') = 'unreviewed' AND COALESCE(jobs.notes, '') != 'imported'
+        AND COALESCE(jobs.location, '') != ''""").fetchall()
+    gone = [row[0] for row in rows
+            if not wanted({'location': row[1], 'remote': 'remote' in (row[2] or '').lower()})]
+    db.executemany("UPDATE jobs SET state='closed' WHERE id = ?", [(job_id,) for job_id in gone])
+    db.commit()
+    return len(gone)
+
+
 def close_dropped(db, read_names, grace_hours=12, now=None, most=0.5):
     """Close open jobs of employer feeds this check no longer reads at all (7 Oct 2026: a photographer's search still listed Netflix jobs from
     before the tech lists were left out, for STALE_DAYS). `read_names`: the companies of every feed this check meant to read, rested ones

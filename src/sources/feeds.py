@@ -89,8 +89,9 @@ def dropped_by(title):
 
 # Feed jobs outside these places (config/search.json's locations, plus generic remote synonyms)
 # are dropped before they reach the digest or the AI stages.
-_PLACES = [*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
-          *_SEARCH['locations']['abroad'], r'\bch\b', r'\buae\b', 'united arab emirates']
+# Only the user's places (7 Oct 2026: a hard-coded \bch\b and UAE, left from the first search, let every Swiss town in for a
+# Romandie search; a place word "Switzerland" adds \bch\b itself, src/regions.py).
+_PLACES = [*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'], *_SEARCH['locations']['abroad']]
 PLACE = keyword_regex(_PLACES)
 _REMOTE_SYNONYMS = r'remote|anywhere|worldwide|global|emea|europe'
 
@@ -114,8 +115,12 @@ def wanted_location(job):
     where = job.get("location") or ""
     if PLACE.search(where) or PLACE.search(plain(where)):
         return True
-    remote = job.get("remote") or re.search(_REMOTE_SYNONYMS, where, re.I)
-    return bool(remote) and not REMOTE_ELSEWHERE.search(where)
+    said = re.search(_REMOTE_SYNONYMS, where, re.I)
+    # A posting whose place is only a city elsewhere is based there, even when its feed flags it remote (7 Oct 2026: "London" and "Singapore"
+    # account executive jobs reached a Geneva search). One that says remote in its place ("Remote, Germany") is judged by the regions you skip.
+    if job.get("remote") and not said and where.strip():
+        return False
+    return bool(job.get("remote") or said) and not REMOTE_ELSEWHERE.search(where)
 
 
 def database(path):

@@ -230,6 +230,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const DEMO_FOLDER = demo.folderFrom(process.argv);
 const LOOK_AROUND = !!DEMO_FOLDER;
 const DEMO = !!process.env.JOB_PILOTTO_DEMO || LOOK_AROUND;
+const JOBS_PAGE = 200;   // the Jobs list's first page; each "Show more" adds 500
+let jobsLimit = JOBS_PAGE;
 const HIDDEN = hideWindows({app, BrowserWindow, shell});   // an e2e run: windows never show or take focus (lib/e2e-hidden.js)
 pipeline.setDemo(DEMO);  // Python: only the jobs that read the demo folder
 // Always on also gives the repo the Google sign-in (kept in the Keychain by the Python side, not the app's store).
@@ -795,7 +797,9 @@ function handlers() {
   ipcMain.handle('firstSearch', () => (storage.settings().lastSearchAt || pipeline.running() ? {ok: true, skipped: true}
     : cloud() ? dispatchCloud('First search (after setup)', {mode: 'run'}).then(r => ({ok: r.ok, cloud: true, error: r.error}))  // background jobs run in one place
       : pipeline.refresh(storage, log, 'run', 'first')));
-  ipcMain.handle('jobs', async () => {
+  // The list sends the best `jobsLimit` rows; "Show more" raises it for the rest of this launch, so a refresh after a search keeps them.
+  ipcMain.handle('jobs', async (_, options = {}) => {
+    if (options?.limit) jobsLimit = Math.max(JOBS_PAGE, Math.round(options.limit));
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
     // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
     const cloud = storage.settings().cloud;
@@ -803,7 +807,7 @@ function handlers() {
       storage.saveSettings({cloud: {...cloud, checkedAt: new Date().toISOString()}});
       await github.syncDatabase(storage).catch(error => log(`Cloud job list: ${error.message}`));
     }
-    const result = await pipeline.jobs(storage);
+    const result = await pipeline.jobs(storage, jobsLimit);
     for (const job of result.jobs || []) job.tailored = !!job.code && cvlib.exists(storage, job.code);
     // A session whose job is already Applied is over (the form was submitted): the extension's report can arrive
     // while the app is closing, so this cannot wait for the window to notice. Cheap and idempotent.

@@ -713,6 +713,10 @@ def main():
                     dropped = store.close_dropped(db, {source['company'] for source in feed_list})
                     if dropped:
                         print(f'Closed {dropped} job(s) from employers your search no longer reads')
+                from .sources import feeds as feed_places
+                elsewhere = store.close_elsewhere(db, feed_places.wanted_location)
+                if elsewhere:
+                    print(f'Closed {elsewhere} job(s) outside your places')
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += store.import_company_report(db, company_report)

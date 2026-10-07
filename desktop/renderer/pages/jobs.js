@@ -168,7 +168,7 @@ export function renderJobs() {
   $('jobs-unscored-text').textContent = `${unscored} jobs are not scored yet. The AI scores new jobs during each check; if this stays, open Recent activity to see why (Claude Code not answering, a usage limit), or Settings → Connections → AI.`;
   const body = $('jobs-body');
   body.replaceChildren();
-  for (const job of rows.slice(0, 300)) {
+  for (const job of rows) {
     const row = el('article', 'job-row');
     Object.assign(row.dataset, {code: job.code || '', url: job.url || ''});   // a notification's click scrolls to it (pages/open-target.js)
     // Fit: a ring filled to the score (the compact list adds "Strong match" under it). A row whose score has a
@@ -467,7 +467,12 @@ export function renderJobs() {
     stuck: 'Still marked Applying', high: 'High fit (70+)', companies: 'One per company'}[statFilter];
   renderStuck();
   const plural = count => `${count} job${count === 1 ? '' : 's'}`;
-  $('jobs-count').textContent = statLabel ? `${rows.length} of ${plural(shared.allJobs.length)}` : plural(rows.length);
+  // The engine sends the best rows only (src/desktop.py jobs): say how many are left out and offer them, never a silent cut (7 Oct 2026: 200 of 1,335).
+  const notLoaded = Math.max(0, (lastJobsData?.total ?? 0) - shared.allJobs.length);
+  $('jobs-count').textContent = (statLabel ? `${rows.length} of ${plural(shared.allJobs.length)}` : plural(rows.length)) +
+    (notLoaded ? ` · ${notLoaded} more with lower fit` : '');
+  show($('jobs-more'), notLoaded > 0);
+  $('jobs-more').textContent = `Show ${Math.min(notLoaded, MORE)} more`;
   show($('jobs-filter'), !!statLabel);
   $('jobs-filter-text').textContent = statLabel ? `Showing: ${statLabel}` : '';
   show($('jobs-filter-back'), statFilter?.from === 'focus');
@@ -851,6 +856,21 @@ async function askAboutLeftOpen() {
   if (answer?.kept) toastMessage(`${answer.kept} application${answer.kept === 1 ? '' : 's'} restored`,
     `${answer.kept === 1 ? 'Its form is' : 'Their forms are'} still open in Chrome: review and submit, or press Resume Claude on the session.`);
 }
+const MORE = 500;   // rows each "Show more" adds
+let jobsLimit = 200;
+async function showMore() {
+  const button = $('jobs-more');
+  button.disabled = true;
+  button.textContent = 'Loading…';
+  try {
+    jobsLimit = shared.allJobs.length + MORE;
+    showJobsData(await window.pilot.jobs({limit: jobsLimit}));
+  } catch (error) {
+    toastMessage('Could not load more jobs', error.message);
+  }
+  button.disabled = false;
+  renderJobs();
+}
 let lastJobsData = null;   // the list as last loaded: a deleted job is recounted from it at once (owner, 7 Oct 2026: the totals settled 3 refreshes later)
 function showJobsData(data) {
   lastJobsData = data;
@@ -863,6 +883,7 @@ function showJobsData(data) {
     // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
     const matched = matchesOnly(shared.allJobs);
     const count = stats(matched, data.total == null ? undefined : data.total - (shared.allJobs.length - matched.length));
+    count.week += data.week_beyond || 0;   // new jobs among the rows not loaded (a cut list)
     $('jobs-stats').textContent = `${count.total} matches` +
       (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
@@ -946,6 +967,7 @@ export async function init() {
     renderJobs();
   }));
   // Add a job: one link, then the find path (read, score, Job Matches). It shows under New matches.
+  $('jobs-more').addEventListener('click', showMore);
   $('import-open').addEventListener('click', () => {
     message('import-message', '');
     $('import-go').disabled = false;

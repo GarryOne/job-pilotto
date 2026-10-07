@@ -12,7 +12,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 import argparse
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 
@@ -121,7 +121,11 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
     # Every application stays in the list, however low its fit, so the app's application counters are complete.
     kept = rows[:limit] + [r for r in rows[limit:] if r['status'] == 'applied']
-    return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked)}
+    # New this week among the rows not sent: the app adds them to its own count, so a cut list's counts stay whole (7 Oct 2026: "200 new
+    # this week" of 1,335). Rows past `limit` are unscored or low-fit job matches, never applications.
+    week = (datetime.now(timezone.utc) - timedelta(days=7)).date().isoformat()
+    return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked),
+            'week_beyond': sum(1 for r in rows[limit:] if r['status'] != 'applied' and (r.get('first_seen_at') or '')[:10] >= week)}
 
 
 def posting(db, code):

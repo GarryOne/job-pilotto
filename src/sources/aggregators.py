@@ -137,6 +137,7 @@ def jobsch(search, get=None):
                     return jobs
                 raise
             listed = list(boards.walk(boards.Page(markup).schemas, 'JobPosting'))
+            towns = ats.jobsch_towns(markup if isinstance(markup, str) else markup.decode('utf-8', 'replace'))
             fresh = 0
             for j in listed:
                 places = j.get('jobLocation') or []
@@ -152,6 +153,8 @@ def jobsch(search, get=None):
                 if not (url and j.get('title') and key) or key.group(1) in seen:
                     continue
                 seen.add(key.group(1))
+                if not where and towns.get(key.group(1)):
+                    where.append(towns[key.group(1)])
                 fresh += 1
                 jobs.append(_job('jobsch', key.group(1), j['title'], (j.get('hiringOrganization') or {}).get('name'), ', '.join(f'{town}, Switzerland' for town in where) or 'Switzerland',
                                  url, str(j.get('datePosted') or '')[:10], j.get('description')))
