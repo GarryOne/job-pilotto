@@ -62,16 +62,21 @@ export async function init() {
     if (typeof saved.filter === 'boolean') $('visits-filter').checked = saved.filter;
   } catch {}
   const visitBoxes = () => [...document.querySelectorAll('#visits-sites input[type=checkbox]')];
+  let visitsLoading = false;   // the list is on its way (the first of the day asks Claude which sites suit your roles: ~10 s)
   const countVisits = () => {
+    if (visitsLoading) return;   // 7 Oct 2026: a click while loading said "No sites to read yet · Read 0 sites"
     const ticked = visitBoxes().filter(box => box.checked).length, all = visitBoxes().length;
     $('visits-lead').textContent = all ? `${plural(all, 'site')} · ${ticked} selected (the ones not read this week)` : 'No sites to read yet.';
     $('visits-start').textContent = `Read ${plural(ticked, 'site')}`;
     $('visits-start').disabled = !ticked;
   };
   const paintVisits = async () => {
-    $('visits-lead').textContent = 'Reading your sites…';
-    $('visits-start').disabled = true;
+    visitsLoading = true;
+    $('visits-lead').textContent = 'Reading your sites… (Claude checks which suit your roles, a few seconds)';
+    for (const id of ['visits-start', 'visits-all', 'visits-none']) $(id).disabled = true;
     const answer = await window.pilot.visitsList().catch(() => null);
+    visitsLoading = false;
+    for (const id of ['visits-all', 'visits-none']) $(id).disabled = false;
     const sites = answer?.visits || [];
     $('visits-sites').replaceChildren(...sites.map(site => {
       const row = document.createElement('li');

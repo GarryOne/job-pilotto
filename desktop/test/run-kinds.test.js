@@ -12,3 +12,11 @@ test('every task kind the app runs has a Notion mode', () => {
   const kinded = new Set(Object.values(RUN_KINDS));
   assert.deepEqual([...kinds].filter(kind => !kinded.has(kind)), []);
 });
+
+test('a failed app task says why: its first ✗ line', async () => {
+  const {failedLine} = await import('../lib/pipeline.js');
+  const log = ['Reading 1 site in your browser, 2 at a time', '  ▸ opening · Tiffany & Co. · Opening in Chrome…',
+    '  ✗ Tiffany & Co.: it stopped answering (nothing for 30 s) (it never started reading: is the extension on in Chrome?): skipped, you can close its tab'];
+  assert.equal(failedLine(log), 'Tiffany & Co.: it stopped answering (nothing for 30 s) (it never started reading: is the extension on in Chrome?)');
+  assert.equal(failedLine(['all fine']), undefined);
+});

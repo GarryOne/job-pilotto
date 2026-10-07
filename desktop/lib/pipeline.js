@@ -526,8 +526,14 @@ export function scout(storage, onLine, trigger = 'you', batch = null) {   // nul
 // A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
 // Stop (owner, 7 Oct 2026: "I miss a Stop button"): doWork gets an AbortSignal and ends at its next step; the engine commands it runs are ended as for any task.
 export function work(storage, kind, onLine, doWork, trigger = 'you') {
+  // A task that failed says why: its first "✗ <what>: <why>" line (7 Oct 2026: a browser run where Tiffany never started read "stopped
+  // unexpectedly · No final result was recorded", though its reason was right under it).
   return tracked(storage, kind, trigger, onLine, async (tee, signal) => ({ok: !!(await doWork(tee, signal))}), null,
-    (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
+    (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log), ...(record.ok ? {} : {problem: failedLine(log)})}));
+}
+export function failedLine(log) {
+  const line = (log || []).map(String).find(entry => /^\s*✗ \S/.test(entry));
+  return line ? line.replace(/^\s*✗\s*/, '').replace(/: skipped, you can close its tab$/, '').slice(0, 240) : undefined;
 }
 export function task(storage, kind, args, onLine, trigger = 'you', {note = ''} = {}) {
   return tracked(storage, kind, trigger, onLine, async tee => {
