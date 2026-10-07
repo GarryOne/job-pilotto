@@ -8,9 +8,9 @@ import {fileURLToPath} from 'node:url';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const css = fs.readFileSync(path.join(dir, '..', 'renderer', 'style.css'), 'utf8');
 
-for (const selector of ['.activity-notion', '.activity-panel .run-github']) {
+for (const selector of ['.activity-notion', '.activity-panel .run-github', '.activity-panel .run-link']) {
   test(`${selector} text uses --signal-ink`, () => {
-    const rule = css.split('\n').find(line => line.startsWith(`${selector} {`));
+    const rule = css.split('\n').find(line => /^[^{]+\{/.test(line) && line.split('{')[0].split(',').map(part => part.trim()).includes(selector));   // alone or in a shared list
     assert.ok(rule, `rule for ${selector}`);
     assert.match(rule, /[^-]color: var\(--signal-ink\)/);
   });

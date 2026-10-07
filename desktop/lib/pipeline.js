@@ -403,6 +403,16 @@ function saveQueue(storage) {
   storage.writeText(QUEUE_FILE, JSON.stringify(jobs));
 }
 export function freezeQueue(storage) { saveQueue(storage); frozen = true; }
+// Remove a task that waits its turn (Recent activity's queued row, ⌘K; owner, 7 Oct 2026: "can I unqueue a queued task?"). It never starts,
+// leaves queue.json, and whoever started it gets {ok: false, removed: true}. A running task is stopped with stopTask instead. -> {ok, kind}.
+export function unqueue(storage, id) {
+  const ticket = waiting.find(other => other.id === id);
+  if (!ticket) return {ok: false, error: 'It is no longer waiting: it has started or finished'};
+  ticket.removed = true;
+  waiting = waiting.filter(other => other !== ticket);
+  saveQueue(storage);
+  return {ok: true, kind: ticket.kind};
+}
 // The jobs saved when the app last quit (and forgets them: they're started again, or dropped).
 export function takeQueue(storage) {
   let jobs = [];
@@ -559,6 +569,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
   if (first) waiting.unshift(ticket); else waiting.push(ticket);
   saveQueue(storage);
   ticket.done = serial(async () => {
+    if (ticket.removed) return {ok: false, removed: true, run: null};   // taken out of the queue before its turn (unqueue)
     waiting = waiting.filter(other => other !== ticket);
     runningTicket = ticket;
     const log = [];

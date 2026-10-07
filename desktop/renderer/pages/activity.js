@@ -528,6 +528,22 @@ export function prepareActions() {
   renderActionsPage(lastActivity);
   showAwaitedResult(lastActivity.runs, {opening: true});
 }
+// "Remove" on a queued row (and its ⌘K twin, nav.js): the task never starts; Recent activity is drawn again either way.
+export async function unqueue(run) {
+  const result = await window.pilot.unqueueTask(run.id).catch(error => ({ok: false, error: error.message}));
+  if (!result.ok) toastMessage('Could not remove it', result.error || 'Try again.');
+  refreshActivity();
+}
+function removeLink(run) {
+  const link = el('span', 'run-link', 'Remove');
+  Object.assign(link, {title: `Take ${KIND[kindOf(run)].name} out of the queue: it will not start`, tabIndex: 0});
+  link.setAttribute('role', 'button');
+  const go = event => { event.preventDefault(); event.stopPropagation(); unqueue(run); };
+  link.addEventListener('click', go);
+  link.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') go(event); });
+  return link;
+}
+
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -609,6 +625,8 @@ export function renderActivity(fresh) {
       link.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); window.pilot.openExternal(run.url); });
       when.replaceChildren(link);
     }
+    // A queued task can be taken out of the queue before it starts (owner, 7 Oct 2026): the same inline link as "GitHub ↗", not a button in a button.
+    if (run.waiting && run.id) when.replaceChildren(removeLink(run));
     button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity);
       $('activity-recent').querySelector('.recent-row.current')?.focus({preventScroll: true}); });   // a click on a row (focused by the browser, then redrawn) keeps it too

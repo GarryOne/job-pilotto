@@ -1092,6 +1092,12 @@ function handlers() {
     appLog('run', result.ok ? 'stopped by you' : 'stop refused', {kind: result.kind || pipeline.running()?.kind || '', error: result.error || ''});
     return result;
   });
+  // Remove a queued task (Recent activity's queued row, ⌘K): it never starts.
+  ipcMain.handle('unqueueTask', (_, id) => {
+    const result = pipeline.unqueue(storage, String(id || ''));
+    appLog('run', result.ok ? 'removed from the queue by you' : 'unqueue refused', {kind: result.kind || '', id: String(id || ''), error: result.error || ''});
+    return result;
+  });
   // Strategy → Your goals: one goal corrected in the Profile (lib/goals.js). The fit scores follow it over the next searches.
   ipcMain.handle('editGoal', async (_, key, value) => {
     if (DEMO) return {ok: true, where: 'demo'};

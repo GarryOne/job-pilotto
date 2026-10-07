@@ -1527,8 +1527,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .run-words { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .activity-panel .run-kind { font-weight: 600; }
 .activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activity-panel .run-github { color: var(--signal-ink); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; }
-.activity-panel .run-github:hover { text-decoration: underline; }
+.activity-panel .run-github, .activity-panel .run-link { color: var(--signal-ink); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; }
+.activity-panel .run-github:hover, .activity-panel .run-link:hover { text-decoration: underline; }
 /* The time is its own column ("18:06"; "Tue 12:59" for anything before today), before the status pill. */
 .activity-panel .run-time { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .activity-panel .ap-all { align-self: center; margin-top: var(--sp-3); }

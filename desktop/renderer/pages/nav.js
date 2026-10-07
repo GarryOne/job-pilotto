@@ -1,6 +1,6 @@
 // Navigation: pages, ⌘R memory, the ⌘K palette.
 import {openPalette} from '../palette.js';
-import {COMMAND_KIND, TASK_BUTTONS, prepareActions} from './activity.js';
+import {COMMAND_KIND, KIND, TASK_BUTTONS, kindOf, lastActivity, prepareActions, unqueue} from './activity.js';
 import {$, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
@@ -76,6 +76,9 @@ function paletteCommands() {
   // An action card with its own handler (not a Telegram command): "Tailor CVs" costs minutes of AI, so the palette opens its card and focuses the count; Run stays a click.
   document.querySelectorAll('.action[data-palette]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
     labelOf(node.closest('.task-body')?.querySelector('.task-words .muted')), PALETTE_KEYWORDS[node.dataset.palette], () => { openView('actions'); if (node.dataset.palette !== 'tailor') { node.click(); return; } const count = $('tailor-top-n'); count.focus(); count.select(); }));
+  // A task waiting its turn can be taken out of the queue from here too (activity.js unqueue).
+  (lastActivity?.queued || []).forEach(run => add('Actions', `Remove ${KIND[kindOf(run)].name} from the queue`, 'It has not started: it will not run',
+    'unqueue cancel queued waiting remove', () => unqueue(run)));
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');
