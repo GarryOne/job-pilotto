@@ -41,6 +41,7 @@ import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import {watchOrphans} from './lib/orphans.js';
 import * as server from './lib/server.js';
+import * as fewJobs from './lib/few-jobs.js';
 import * as visits from './lib/visits.js';
 import * as extensionInstall from './lib/extension-install.js';
 import * as terminals from './lib/terminals.js';
@@ -449,6 +450,27 @@ function announceRuns() {
     if (run.kind === 'prepare' && run.where === 'mac') continue;  // prepareKit gives its own ("Press Apply…")
     const note = runHistory.notice(run);
     if (note) notify(note.title, note.body, note.target);   // a click opens that run's result
+  }
+  nudgeFewJobs(runs);
+}
+
+// Two jobs checks in a row with few new jobs (lib/few-jobs.js): once per streak, open that run's "Few new jobs" box; a dot on Strategy;
+// one Telegram line at most weekly (Always on users are rarely in the app).
+function nudgeFewJobs(runs) {
+  if (DEMO) return;   // demo runs are fictional, and a prompt would land in the middle of the demo window's tests
+  const found = fewJobs.streak(runs);
+  const what = fewJobs.due(found, storage.settings());
+  if (!what.notify) return;
+  storage.saveSettings({fewJobsNudgedFor: found.runId, ...(what.telegram ? {fewJobsTelegramAt: Date.now()} : {})});
+  const said = fewJobs.words(found);
+  appLog('advice', 'few new jobs nudge', {run: found.runId, counts: found.counts.join(','), telegram: what.telegram, decidedBy: 'two weak checks in a row'});
+  if (window?.isFocused()) toWindow('toast', {title: said.title, body: said.body, target: {run: found.runId}});
+  else notify(said.title, said.body, {run: found.runId});
+  toWindow('few-jobs', {runId: found.runId});
+  const token = storage.secret('TELEGRAM_BOT_TOKEN'), chat = storage.settings().telegramChatId;
+  if (what.telegram && token && chat && !DEMO) {
+    telegram.api(token, 'sendMessage', {chat_id: chat, text: said.telegram})
+      .catch(error => appLog('advice', 'few new jobs Telegram line not sent', {error: error.message}));
   }
 }
 

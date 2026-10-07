@@ -304,6 +304,9 @@ function showCard(card, ids, add, done, kind = ids.box.replace(/^strategy-/, '')
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   // A page read through the extension (Sites only you can open): said wherever the window is, once per page.
+  // Few new jobs twice in a row (lib/few-jobs.js): a dot on Strategy until it is opened.
+  window.pilot.onFewJobs?.(() => show($('strategy-dot'), true));
+  document.querySelector('.nav[data-view=strategy]')?.addEventListener('click', () => show($('strategy-dot'), false));
   window.pilot.onVisitRead?.(answer => toastMessage(`Read ${answer.jobs} jobs from ${answer.name}`,
     `${answer.added} new on this visit. Your next jobs check filters and scores them like any other.`));
   $('open-profile').addEventListener('click', startTargetsEdit);

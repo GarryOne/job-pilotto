@@ -44,6 +44,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log (5 MB, then .1). The app's own log says a run
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
+- `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
