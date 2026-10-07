@@ -6,6 +6,8 @@
 // Two different numbers: the percentage is not a fit score, and reading it as part of the title put "(Cloud + On-Prem,
 // Windows + Linux) - 100%" beside a "Not scored" pill.
 const DIGEST_ITEM = /^(\d+)\.\s+(?:⭐\s*)?(.+?)(?:\s+\((https?:\/\/[^)\s]+)\))?(?:\s+·\s+(?:🎯\s*(\d+)|(\d+)\/100))?\s*$/;   // the fit: "· 🎯 78" (older) or "· 78/100"
+// A section heading: "🆕 New since last run", "New since your last run · 2 jobs", "🎯 Best matches", "More to explore · 4 jobs" (src/digest.py SECTION_LABELS).
+const DIGEST_SECTION = /^(?:\S+\s+)?(New since (?:your )?last run|Best matches|More to explore)(?:\s+·\s+\d+ jobs?)?$/;
 const TITLE_PERCENT = /\s+-\s+(\d+)%\s*$/;
 const SCOUT_ITEM = /^(\d+)\.\s+(.+?)\s+·\s+(\w[\w ]*?)\s+·\s+quality\s+(\d+)(?:\s+·\s+⭐\s*(.+))?$/;
 // Since the plain layout: "1. Acme · Source quality 82 · Tier 1", then "6 matching roles · 2 in preferred locations", "Platform: Greenhouse".
@@ -16,8 +18,11 @@ export function parseDigest(text) {
   const lines = String(text || '').trim().split('\n');
   if (!/^✈️.*(🆕|jobs \d|Job digest)/.test(lines[0] || '')) return null;  // with or without the brand name; "Job Pilotto · Job digest" since the plain layout
   const items = [];
+  let section = '';   // the heading the jobs below it are listed under: 'new' (found by this run), 'best' or 'older' (found by an earlier one)
   lines.forEach((line, i) => {
     const m = line.match(DIGEST_ITEM);
+    const heading = !m && DIGEST_SECTION.exec(line.trim());
+    if (heading) section = /^New/.test(heading[1]) ? 'new' : /^Best/.test(heading[1]) ? 'best' : 'older';
     // A job is its numbered line and the company line under it: indented in the older layout, a plain line since the card layout (src/tgcard.py). Its
     // score is on the heading ("· 78/100", older) or a "Fit: 78/100 · why" line before the next job.
     if (m && (lines[i + 1] || '').trim() && !DIGEST_ITEM.test(lines[i + 1])) {
@@ -29,7 +34,7 @@ export function parseDigest(text) {
         if (found) { fit = Number(found[1]); break; }
       }
       items.push({title: (percent ? m[2].slice(0, percent.index) : m[2]).replace(/\s*\|.*$/, ''), url: m[3] || '',
-        fit, percent: percent ? Number(percent[1]) : null,
+        fit, percent: percent ? Number(percent[1]) : null, section,
         company: (lines[i + 1] || '').trim().split(' · ')[0]});
     }
   });
@@ -66,6 +71,13 @@ export function parseScout(text) {
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);
 // A digest's top matches: highest fit first, the jobs with no score yet after them (owner, 7 Oct 2026: "52, Not scored, 64" read as unordered).
 export const byFit = items => [...(items || [])].sort((a, b) => (b.fit != null) - (a.fit != null) || (b.fit ?? 0) - (a.fit ?? 0));
+// The jobs a digest card lists: the ones this run found, when the message says which they are. A digest's first page is ten jobs (src/digest.py
+// PAGE_SIZE): the new ones, then the best from earlier runs to fill it. Listed and counted together they read as this run's finds, and the page
+// size as a count of something (owner, 7 Oct 2026: "View 7 of 10 in Jobs" under "6 new this run"). A message with no section headings: all of it.
+export const runItems = card => {
+  const items = card?.items || [];
+  return items.some(item => item.section) ? items.filter(item => item.section === 'new') : items;
+};
 // How many new jobs a finished search's "View new job(s)" counts: its card's own "N new this run" when the message has one, so the button and the
 // card never disagree (owner, 7 Oct 2026: "View new job" over "2 new this run"); else the run's record.
 export const newJobsShown = (run, text) => {

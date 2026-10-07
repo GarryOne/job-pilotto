@@ -1,7 +1,7 @@
 // Recent activity: Today's list and Find new employers as small cards (renderer/run-cards.js).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {byFit, newJobsShown, parseRunMessage} from '../renderer/run-cards.js';
+import {byFit, newJobsShown, parseRunMessage, runItems} from '../renderer/run-cards.js';
 
 test("Today's list: counts and one line per match", () => {
   const card = parseRunMessage(`✈️ Job Pilotto · 🆕 0 new · top 10 of 37
@@ -116,4 +116,18 @@ test('"View new job(s)" counts what the card says, else the run\'s record', () =
   assert.equal(newJobsShown({new: 1}, digest), 2, 'the card says 2 new this run: the button says jobs, not job');
   assert.equal(newJobsShown({new: 3}, 'Search done.'), 3, 'no card: the run\'s own count');
   assert.equal(newJobsShown({}, null), 0);
+});
+
+// Owner, 7 Oct 2026: "View 7 of 10 in Jobs" under "6 new this run". The ten is the digest's page: the new jobs, then older ones to fill it.
+test('a digest card lists the jobs this run found, not the older ones that fill the page', () => {
+  const text = ['✈️ Job digest', '1 new · Top 3 of 50 ranked jobs', '📍 In your preferred locations', 'New since your last run · 1 job',
+    '1. Vendeur (https://example.test/1)', 'Migros · Genève', '📍 In your preferred locations', 'Best matches · 1 job',
+    '2. Conseiller (https://example.test/2)', 'Coop · Genève', '🌍 Outside your preferred locations', 'More to explore · 1 job',
+    '3. Caissier (https://example.test/3)', 'Manor · Gland', 'Your pipeline', '70 open · 66 in your places'].join('\n');
+  const card = parseRunMessage(text);
+  assert.deepEqual(card.items.map(item => item.section), ['new', 'best', 'older']);
+  assert.deepEqual(runItems(card).map(item => item.title), ['Vendeur']);
+  // an older message with no headings: every job it lists
+  assert.equal(runItems({items: [{title: 'a', section: ''}, {title: 'b', section: ''}]}).length, 2);
+  assert.deepEqual(runItems(parseRunMessage(text.replace('New since your last run · 1 job', 'Best matches · 1 job'))), []);
 });

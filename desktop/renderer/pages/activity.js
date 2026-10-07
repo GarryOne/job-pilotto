@@ -7,7 +7,7 @@ import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatu
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
-import {byFit, cardText, emptyResult, markFallback, newJobsShown, parseRunMessage, plainMessage} from '../run-cards.js';
+import {byFit, cardText, emptyResult, markFallback, newJobsShown, parseRunMessage, plainMessage, runItems} from '../run-cards.js';
 import {parseSiteRows, parseVisits} from '../visits-card.js';
 import {employersAdvice} from '../onboarding.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
@@ -966,8 +966,11 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     // A run that found nothing new lists no jobs: the digest's "top matches" are the best open jobs from any run, and shown here they read as
     // this run's finds (owner, 6 Oct 2026: two runs in a row "found" the same two jobs). Its open jobs stay one click away, in Jobs.
     const nothingNew = card.fresh === 0;
-    heading = nothingNew ? 'No new jobs this run' : 'Top matches';
-    rows.append(...(nothingNew ? [] : byFit(card.items)).slice(0, 3).map(item => {   // highest fit first, unscored last
+    // Only this run's finds: the older jobs that fill the digest's page are not this run's, and stay in Jobs (run-cards.js runItems).
+    const items = nothingNew ? [] : runItems(card);
+    const onlyNew = items.length < card.items.length || items.some(item => item.section === 'new');
+    heading = nothingNew ? 'No new jobs this run' : onlyNew ? 'Top new jobs' : 'Top matches';
+    rows.append(...byFit(items).slice(0, 3).map(item => {   // highest fit first, unscored last
       const row = el('li', 'run-card-row');
       // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
       // the row never shows a bare "–"; the posting opens from the arrow.
@@ -986,13 +989,15 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     // is what the list really holds: a "new since last run" posting that was never scored (an AI limit) has no row
     // there, and the button must not promise it (owner, 30 Sep: 9 on the card, 8 on the page).
     const label = `${heading}${run?.startedAt ? ` · ${hhmm(Date.parse(run.startedAt))}` : ''}`;
-    const urls = nothingNew ? [] : card.items.map(item => item.url).filter(Boolean);   // nothing new: Jobs as it is, not a filter of older jobs
+    const urls = items.map(item => item.url).filter(Boolean);   // nothing new: Jobs as it is, not a filter of older jobs
     const known = new Set((shared.allJobs || []).map(job => fullKey(job.url)));
     const here = urls.length && known.size ? urls.filter(url => known.has(fullKey(url))).length : urls.length;
-    const total = card.items.length;
+    const total = items.length;
     if (!total || nothingNew) rows.append(el('li', 'muted', nothingNew ? 'Nothing new since the last check. Jobs found before are in Jobs.'
       : 'This run found nothing new to show. Your saved jobs are in Jobs.'));
-    const words = !total || nothingNew ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
+    // Fewer in Jobs than listed: the button counts what it opens, and a line says where the rest are ("7 of 10" read as a mismatch, 7 Oct 2026).
+    if (here && here < total) rows.append(el('li', 'muted', `${total - here} more ${total - here === 1 ? 'is' : 'are'} not in Jobs yet: waiting for a score.`));
+    const words = !total || nothingNew ? 'Open Jobs →' : !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} in Jobs →`;
     const view = el('button', 'link', words);
     view.addEventListener('click', () => {
       openActivity(false);
