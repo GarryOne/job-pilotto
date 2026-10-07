@@ -374,7 +374,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
 
     if page == 1:
         places_total = sum(in_places(j) for j in everything)
-        stats = [f"{len(everything)} open", f"{places_total} pinned"]
+        stats = [f"{len(everything)} open", f"{places_total} in your places"]
         if hidden_urls:
             stats.append(f"{len(hidden_urls)} applied")
         pipeline = [' · '.join(stats)]
