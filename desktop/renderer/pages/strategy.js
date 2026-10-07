@@ -21,6 +21,7 @@ import {startSearch} from './jobs.js';
 export async function loadStrategy() {
   shared.state = await window.pilot.state();
   message('strategy-message', '');
+  pendingImprove.add('previous');   // the older scores come with the fresh read only (the saved copy leaves them out)
   loadCoverage({first: true});   // beside the strategy read, so the cards are there when the page first shows
   // The last good read at once (lib/view-cache.js), then the fresh one.
   const saved = await window.pilot.cached('strategy');
@@ -31,9 +32,10 @@ export async function loadStrategy() {
     $('strategy-synced').textContent = `Saved ${savedAgo(saved.at)} · updating…`;
   } else if (!strategyShown) strategySkeleton();
   const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
-  if (!data.ok) { $('strategy-view-loading')?.remove(); message('strategy-load', data.error, 'error'); return; }
+  if (!data.ok) { pendingImprove.delete('previous'); drawImprove(); $('strategy-view-loading')?.remove(); message('strategy-load', data.error, 'error'); return; }
   message('strategy-load', '');
   $('strategy-view-loading')?.remove();
+  pendingImprove.delete('previous');
   renderStrategy(data);
   $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
 }
@@ -465,9 +467,25 @@ function drawSuggestions() {
 // ---------- Improve your search: one compact row per kind, above the tabs (owner, 7 Oct 2026: the banners' actions were easy to miss in a tab) ----------
 // Neutral rows; the action opens that kind's detail in Suggestions (or the re-score's cost). briefs: what each row says, set as its row is built.
 const briefs = {};
+// Placeholders for the rows still on their way (owner, 7 Oct 2026: "these banners add up after 5-10 seconds"): the older scores come with the fresh
+// strategy read only, and the role ideas when nothing is kept yet. A placeholder stands only where that row was last time (or on a first visit),
+// so the panel keeps its height and a row that turns out empty does not flash in and out.
+const pendingImprove = new Set();
+const SEEN = 'jp.improve.seen';   // the rows the panel had last time it was complete
+const seenRows = () => { try { return JSON.parse(localStorage.getItem(SEEN) || 'null'); } catch { return null; } };
+const placeholderRow = () => {
+  const line = el('li', 'improve-placeholder');
+  line.setAttribute('aria-busy', 'true');
+  line.append(bone('tile'), bone('w-name tall'), bone('w-60'), bone('button small'));
+  return line;
+};
 function drawImprove() {
   const items = [];
+  const seen = seenRows();
+  let guesses = 3;   // a first visit with nothing kept: a few placeholders, not one per kind
+  const expected = id => (seen ? seen.includes(id) : id === 'previous' || id === 'ideas' || guesses-- > 0);
   const previous = lastStrategy?.previous || 0;
+  if (!previous && pendingImprove.has('previous') && expected('previous')) items.push(placeholderRow());
   if (previous) {
     const cost = `≈ $${(previous * 0.015).toFixed(2)}`;
     // Off from the click until its refresh has ended (owner, 7 Oct 2026: a second click looked like a second re-score).
@@ -481,6 +499,8 @@ function drawImprove() {
   }
   for (const id of ORDER) {
     const brief = rows[id] && briefs[id];
+    const waiting = id === 'ideas' ? pendingImprove.has('ideas') : checking;
+    if (!brief && waiting && expected(id)) { items.push(placeholderRow()); continue; }
     if (!brief) continue;
     const go = el('button', 'secondary item-action', brief.cta);
     go.type = 'button';
@@ -489,6 +509,10 @@ function drawImprove() {
   }
   $('improve-rows').replaceChildren(...items);
   show($('strategy-improve'), items.length > 0);
+  if (!pendingImprove.size && !checking) {
+    const drawn = [...(previous ? ['previous'] : []), ...ORDER.filter(id => rows[id] && briefs[id])];
+    try { localStorage.setItem(SEEN, JSON.stringify(drawn)); } catch { /* placeholders for every row next time */ }
+  }
 }
 function improveRow(glyph, tone, title, text, button) {
   const line = el('li', '');
@@ -623,7 +647,7 @@ const paintCoverage = verdict => {
   rows.coverage = coverage && suggestionRow({kind: 'coverage', id: 'coverage', glyph: 'search', title: verdict.local ? 'Catch titles in other languages' : 'Add role words',
     summary: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, text: coverage.text,
     options: coverage.chips.map(chip => ({label: plain(chip.label), button: 'Add role word', preview: `Adds "${chip.term}" to your role words. ${chip.title}`,
-      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. (also in your Search settings in Notion).`, 'roles')})),
+      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word (also in your Search settings in Notion).`, 'roles')})),
     brief: {title: verdict.local ? 'Catch titles in other languages' : 'Add role words', text: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, cta: 'Review role words'},
     menu: [hideItem('coverage', 'coverage', DISMISSED, coverage.at)]});
   const places = placesCard(verdict, remembered(PLACES_DISMISSED));
@@ -632,7 +656,7 @@ const paintCoverage = verdict => {
     summary: `${topPlace.place} · ${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} outside your places${places.chips.length > 1 ? `, and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`,
     text: places.text,
     options: places.chips.map(chip => ({label: plain(chip.label), button: 'Add place', preview: `Adds ${chip.place} to your places; jobs you already have stay. ${chip.title}`,
-      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places. (also in your Search settings in Notion). Jobs you already have stay.`, 'places')})),
+      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places (also in your Search settings in Notion). Jobs you already have stay.`, 'places')})),
     brief: {title: 'Expand your locations', text: `${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} in ${topPlace.place}${places.chips.length > 1 ? ` and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`, cta: 'Review location'},
     menu: [hideItem('places', 'places', PLACES_DISMISSED, places.at)]});
   // Filters of the user's own that hide matching jobs: an option removes that filter.
@@ -642,8 +666,8 @@ const paintCoverage = verdict => {
     summary: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, text: filters.text,
     options: filters.chips.map(chip => ({label: plain(chip.label), button: 'Remove filter', preview: chip.title,
       run: widen('filters', () => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
-        chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. (also in your Search settings in Notion).`
-          : `Jobs that require ${chip.language} are no longer hidden. (also in your Search settings in Notion).`, chip.language ? 'languages' : '')})),
+        chip.exclude ? `Titles with "${chip.exclude}" are no longer left out (also in your Search settings in Notion).`
+          : `Jobs that require ${chip.language} are no longer hidden (also in your Search settings in Notion).`, chip.language ? 'languages' : '')})),
     brief: {title: 'Loosen your filters', text: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, cta: 'Review filters'},
     menu: [hideItem('filters', 'filters', FILTERS_DISMISSED, filters.at)]});
   // Unused job sources: an option opens its panel in Settings → Connections (a key to add there); nothing is turned on from here.
@@ -728,15 +752,30 @@ export async function loadCoverage({first = false} = {}) {
 // your places each would add; those with openings first, the empty ones behind "Show more". ⋯ sets them aside: the engine never proposes them again.
 const IDEAS_ASIDE = 'jp.ideas.aside';
 const aside = () => { try { return JSON.parse(localStorage.getItem(IDEAS_ASIDE) || '[]'); } catch { return []; } };
+// The last answer, kept: the engine asks Claude at most once a day (src/ai/role_ideas.py), so the kept ideas are today's and the row shows at
+// the first paint (owner, 7 Oct 2026: the rows "add up after 5-10 seconds"). The fresh answer then replaces them quietly.
+const IDEAS_LAST = 'jp.ideas.last';
+const keptIdeas = () => { try { const kept = JSON.parse(localStorage.getItem(IDEAS_LAST) || 'null'); return Array.isArray(kept) ? kept : null; } catch { return null; } };
 async function loadIdeas() {
+  const kept = keptIdeas();
+  if (kept) paintIdeas(kept);
+  else { pendingImprove.add('ideas'); drawImprove(); }   // nothing kept yet: a placeholder holds its place while the engine answers
   const answer = await window.pilot.roleIdeas?.(aside()).catch(() => null);
-  const card = ideasCard(answer?.ideas, aside());
+  pendingImprove.delete('ideas');
+  const fresh = answer?.ok && Array.isArray(answer.ideas);
+  if (fresh) { try { localStorage.setItem(IDEAS_LAST, JSON.stringify(answer.ideas)); } catch { /* shown when it answers */ } }
+  paintIdeas(fresh ? answer.ideas : kept || []);   // the engine could not answer: the kept ideas stay
+}
+function paintIdeas(ideas) {
+  // A kept idea already added as a role is not offered again (the engine leaves it out of its next answer too).
+  const searched = new Set(entriesOf(lastStrategy, 'roles').map(entry => String(entry.fragment).toLowerCase()));
+  const card = ideasCard((ideas || []).filter(idea => !searched.has(String(idea.word).toLowerCase())), aside());
   if (!card) { rows.ideas = null; drawSuggestions(); return; }
   // A card each: the role, why it fits, its openings; the word it is searched by under "Search details" (owner mockup, 7 Oct 2026).
   const option = chip => ({label: chip.role || plain(chip.label).replace(/ · \d+$/, ''), why: String(chip.why || '').replace(/\.+$/, '.'), button: '+ Add role', accent: true,
     meta: `${chip.count} opening${chip.count === 1 ? '' : 's'} now in your places`, tech: `Searched as "${chip.term}" in job titles. Adding it makes the next searches look for it.`,
     preview: `Adds "${chip.term}" to your role words: ${chip.title}`,
-    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. (also in your Search settings in Notion).`, 'roles')});
+    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word (also in your Search settings in Notion).`, 'roles')});
   const {open, empty} = byOpenings(card.chips);
   const top = open[0];
   rows.ideas = suggestionRow({kind: 'ideas', id: 'ideas', glyph: 'briefcase', title: 'Explore related roles', count: card.chips.length,

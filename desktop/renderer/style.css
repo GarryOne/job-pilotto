@@ -2394,3 +2394,7 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .goal-strip dt:nth-of-type(2) { --tone: var(--teal); --tone-soft: var(--teal-soft); }
 .strategy-page .goal-strip dt:nth-of-type(3) { --tone: var(--good); --tone-soft: var(--good-soft); }
 .strategy-page .goal-strip dt:nth-of-type(4) { --tone: var(--info); --tone-soft: var(--info-soft); }
+/* Improve your search, a row still on its way: the row's own shape, greyed (pages/strategy.js placeholderRow). */
+.strategy-page .improve-placeholder .skeleton.tile { width: 32px; height: 32px; border-radius: var(--r-md); }
+.strategy-page .improve-placeholder .skeleton.button.small { width: 110px; height: 30px; justify-self: end; }
+.strategy-page .improve-placeholder { min-height: 57px; }
