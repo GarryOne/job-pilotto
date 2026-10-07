@@ -89,7 +89,7 @@ export async function run(ctx) {
     await ctx.run('Review opens Strategy with that suggestion\'s options showing', async () => {
       await page.locator('.run-card-help .item-action', {hasText: /^Review /}).first().click();
       if (!await waitFor(() => page.locator('.suggestion-detail:visible .option-row').count().then(n => n > 0), 10000)) {
-        const state = await page.locator('.suggestion-row').evaluateAll(list => list.map(row => `${row.id}:${row.querySelector('[data-review]')?.getAttribute('aria-expanded')}`));
+        const state = await page.locator('.suggestion-card').evaluateAll(list => list.map(row => `${row.id}:${row.querySelector('[data-review]')?.getAttribute('aria-expanded')}`));
         throw new Error(`no suggestion opened on Strategy; rows: ${state.join(', ') || 'none'}`);
       }
     });
