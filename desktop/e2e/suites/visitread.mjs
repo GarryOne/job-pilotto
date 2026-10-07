@@ -118,6 +118,17 @@ print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls
       if (await page.evaluate('document.body.dataset.broken')) throw new Error('the template link was clicked as the next page');
     });
 
+    await ctx.run('one posting: its main text is read for "Jobs we couldn\'t read", without the menu or footer; a sign-in page sends only why', async () => {
+      await page.goto(`${base}/posting.html`);
+      const read = await call(page, 'postingText');
+      if (read.blocked || !read.text.startsWith('Client Advisor') || !read.text.includes('Mandarin a plus') || /All jobs|Imprint/.test(read.text) || read.title !== 'Client Advisor - Geneva | Maison') {
+        throw new Error(`read ${JSON.stringify(read).slice(0, 400)}`);
+      }
+      await page.goto(`${base}/posting-login.html`);
+      const login = await call(page, 'postingText');
+      if (login.blocked !== 'login' || login.text) throw new Error(`sign-in page ${JSON.stringify(login)}`);
+    });
+
     await ctx.run('any site: where the quick guess reads nothing, Claude\'s recipe from the page outline reads the jobs and finds the next page', async () => {
       await page.goto(`${base}/odd.html`);
       const guess = await call(page, 'extractPage');

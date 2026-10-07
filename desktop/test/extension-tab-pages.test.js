@@ -210,3 +210,9 @@ test('Find jobs using your browser tabs are reported by ticket, from the mark or
   assert.deepEqual(reading, {'3b887be2': 4, c8fe5319: 7}, 'a closed tab (12) is not reported; a tab without a mark or a kept ticket is not one');
   assert.deepEqual(mark, {4: '3b887be2'}, 'a newly seen mark is kept for after the redirect');
 });
+
+test('a tab reading one job posting is reported by its ticket too, so closing it or a restart of the extension is noticed', async () => {
+  const {readTabs} = await import('../../extension/tab-pages.js');
+  const {reading} = readTabs([{id: 5, url: 'https://www.linkedin.com/jobs/view/4012345678/#jp-posting-a1b2c3d4'}, {id: 6, url: 'https://x.example/#jp-postingx-a1b2c3d4'}]);
+  assert.deepEqual(reading, {a1b2c3d4: 5});
+});

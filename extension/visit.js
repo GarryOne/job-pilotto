@@ -524,10 +524,37 @@ async function waitForPage(tabId) {
   await wait(900);
 }
 
+// Runs inside the page: a job posting's main text (the page's <main> or <article>, else its body), or why it cannot be read: a sign-in page
+// (a sign-in address, or a password box on a short page) or a bot check. Text only, never the page's markup.
+export function postingText() {
+  const CHALLENGE = /just a moment|attention required|verify you are human|captcha|are you a robot|unusual activity|security check/i;
+  const body = (document.body?.innerText || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const main = [...document.querySelectorAll('main, article, [role=main]')].map(node => node.innerText.trim()).sort((a, b) => b.length - a.length)[0] || '';
+  const text = (main.length >= 200 ? main : body).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 20000);
+  const login = /\/(login|signin|sign-in|authwall|checkpoint|uas\/login)\b/i.test(location.pathname) || (!!document.querySelector('input[type=password]') && body.length < 1500);
+  const check = !login && CHALLENGE.test(body.slice(0, 2000)) && body.length < 3000;
+  return {url: location.href.split('#')[0], title: document.title.slice(0, 300), text: login || check ? '' : text, blocked: login ? 'login' : check ? 'check' : ''};
+}
+async function readPosting(tabId, ticket) {
+  const config = await settings();
+  await tellStep(tabId, config, ticket, 'reading the posting…');
+  await waitForPage(tabId).catch(() => {});
+  await closeConsentEverywhere(tabId);
+  let page = await run(tabId, postingText);
+  if (page && !page.blocked && page.text.length < 200) { await wait(3000); page = await run(tabId, postingText) || page; }   // drawn late by its scripts
+  if (!page) throw new Error('the page could not be read');
+  const answer = await api(config, '/extension/posting', {method: 'POST', body: JSON.stringify({ticket, ...page})}).catch(() => null);
+  await tellStep(tabId, config, ticket, page.blocked ? `the posting is behind a ${page.blocked === 'login' ? 'sign-in' : 'check'}: open it yourself`
+    : answer?.saved ? 'the posting\'s text was saved' : 'too little text on this page to be a posting');
+}
+
 // Tabs the app opened for "Read sites only you can open" (Actions): marked #jp-read (or #jp-read-filter), read by themselves once the person
 // has allowed the extension on the sites the app opens (Chrome's own prompt, once, from the popup). Each reports to the app and closes, so the
 // app can open the next. Only marked tabs: any other page still needs the person's click.
 export const MARKS = {'#jp-read': false, '#jp-read-filter': true};
+// A tab the app opened to read one job posting (#jp-posting-<ticket>): a job whose text the engine could not fetch (a sign-in site, a site that
+// refuses it, a page drawn by scripts). Its main text is sent once; nothing is clicked, filled or followed.
+export const POSTING_MARK = /#jp-posting-([a-z0-9]{4,16})$/;
 // A mark may carry the app's id for the tab (#jp-read-filter-a1b2c3): reported back, so a site that redirects (www.glassdoor.com to
 // de.glassdoor.ch, 7 Oct 2026) is still matched to the run that opened it.
 export const MARK = /#(jp-read(-filter)?)(?:-([a-z0-9]{4,16}))?$/;
@@ -536,10 +563,11 @@ const started = new Set();
 // Sites this worker is reading now: an update of the extension waits for them (a reload ends every reading; 7 Oct 2026: two runs lost their sites).
 export const readingNow = () => started.size;
 export async function autoRead(tabId, url) {
-  const found = MARK.exec(String(url));
+  const posting = POSTING_MARK.exec(String(url));
+  const found = posting || MARK.exec(String(url));
   if (!found || started.has(tabId)) return;
   started.add(tabId);   // at once: the page-ready and page-complete events can both arrive while the next line waits
-  const mark = found[0], filter = !!found[2], ticket = found[3] || '';
+  const mark = found[0], filter = !posting && !!found[2], ticket = (posting ? found[1] : found[3]) || '';
   if (!(await chrome.permissions.contains(ALL_SITES))) {
     started.delete(tabId);   // waiting for Allow: the next load of this tab tries again
     // Waiting on the person (owner, 7 Oct 2026: "if there is an action from my side and it's blocking, show it"): the extension's own
@@ -555,8 +583,12 @@ export async function autoRead(tabId, url) {
     return;
   }
   const start = url.slice(0, -mark.length);
-  const state = await readSite(tabId, {filter, ticket}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
-  await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
+  if (posting) {   // one job posting whose text only a browser can read ("Jobs we couldn't read"): its text goes to the app, nothing else
+    await readPosting(tabId, ticket).catch(() => {});
+  } else {
+    const state = await readSite(tabId, {filter, ticket}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
+    await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
+  }
   started.delete(tabId);
   await chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {});
   await chrome.tabs.remove(tabId).catch(() => {});   // done: the app opens the next site in its place

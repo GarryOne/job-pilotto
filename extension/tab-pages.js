@@ -203,7 +203,7 @@ export const startsOwnJob = (prior, url) => !prior || pageKey(prior) !== pageKey
 // Read sites (the app's Actions task): which open tab reads which site, by the ticket in the mark the app opened it with
 // (#jp-read-<ticket> or #jp-read-filter-<ticket>). A tab keeps its ticket after a redirect drops the mark (`kept`: tab id -> ticket from
 // chrome.storage.session read:<id>). Returns {reading: {ticket: tab id}, mark: {tab id: ticket}} (mark: ones to keep), open tabs only.
-export const READ_MARK = /#jp-read(?:-filter)?-([a-z0-9]{4,16})$/;
+export const READ_MARK = /#jp-(?:read(?:-filter)?|posting)-([a-z0-9]{4,16})$/;   // a site read, or one job posting read (visit.js POSTING_MARK)
 export function readTabs(tabs = [], kept = {}) {
   const reading = {}, mark = {};
   for (const tab of tabs) {
