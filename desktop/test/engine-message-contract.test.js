@@ -111,3 +111,10 @@ test('Gmail check: a newly recorded interview is an update on its job, not the i
   assert.deepEqual(mail.outcomes.map(o => [o.company, o.role, o.kind]), [['Huxley', 'Principal SRE', 'Interview']], lookAt('mail_updates'));
   assert.deepEqual(mail.notes, [], lookAt('mail_updates'));
 });
+
+// 7 Oct 2026: "N new to the search" was added to the scout card's second line (3c45aa3) and the app's own summary pattern (lib/pipeline.js TASKS.scout)
+// stopped matching it: a run on this Mac had no result until its Notion row was read (the Windows employers suite read "" for the second run).
+test('scout: the app\'s run summary reads the line the engine writes', async () => {
+  const {taskSummary} = await import('../lib/pipeline.js');
+  assert.equal(taskSummary('scout', said.scout.split('\n')), said.scout.split('\n')[1], lookAt('scout'));
+});
