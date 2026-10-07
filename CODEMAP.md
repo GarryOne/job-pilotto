@@ -102,6 +102,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/setup-funnel.js` — Setup funnel: each install reports, once per step, the furthest setup step it reached (and when setup finished),
 - `desktop/lib/shared-check.js` — One check, shared: callers asking at the same time (or within `ttl` ms) get the same answer instead of each starting
 - `desktop/lib/shared-log.js` — What the app sent to the Job Pilotto service, kept on this Mac so "See what's sent" shows it: the last 20 requests, exactly as they left
+- `desktop/lib/shared-read.js` — A read asked again while the same read runs joins it instead of starting another Python run (7 Oct 2026: ~10 job-list
 - `desktop/lib/shots.js` — Small copies of pasted screenshots: what goes to Notion is a narrow JPEG, not the full-size file (Claude reads the original).
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers

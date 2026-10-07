@@ -55,6 +55,7 @@ import * as aiTrial from './lib/ai-trial.js';
 import * as claudeCode from './lib/claude-code.js';
 import * as setupFunnel from './lib/setup-funnel.js';
 import * as devMarker from './lib/dev-marker.js';
+import {sharedRead} from './lib/shared-read.js';
 import {sharedCheck} from './lib/shared-check.js';
 import * as pendingLicense from './lib/pending-license.js';
 import * as installSource from './lib/install-source.js';
@@ -812,7 +813,7 @@ function handlers() {
       .map(([key, value]) => [String(key).slice(0, 40), typeof value === 'number' || typeof value === 'boolean' ? value : String(value).slice(0, 60)]);
     appLog('ui', String(message).slice(0, 120), Object.fromEntries(kept));
   });
-  ipcMain.handle('jobs', async (_, options = {}) => {
+  ipcMain.handle('jobs', sharedRead('jobs', async (_, options = {}) => {
     if (options?.limit) jobsLimit = Math.max(JOBS_PAGE, Math.round(options.limit));
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
     // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
@@ -831,9 +832,9 @@ function handlers() {
       toWindow('session', 'update', {ended});
     }
     return viewCache.remember(storage, 'jobs', result);
-  });
-  ipcMain.handle('calendarJobs', async () => (DEMO ? {jobs: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8')).jobs}
-    : needsNotion('interviews') || viewCache.remember(storage, 'calendar', await pipeline.calendarJobs(storage))));
+  }, {keyOf: (_, options) => options?.limit || '', log: appLog}));
+  ipcMain.handle('calendarJobs', sharedRead('calendarJobs', async () => (DEMO ? {jobs: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8')).jobs}
+    : needsNotion('interviews') || viewCache.remember(storage, 'calendar', await pipeline.calendarJobs(storage))), {log: appLog}));
   // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).
   ipcMain.handle('cached', (_, name) => (DEMO ? null : viewCache.recall(storage, name)));
   // why: a fixed reason from the window ({reason: 'rescore', count}), said on the run's row; never free text.
@@ -1153,13 +1154,13 @@ function handlers() {
       return {ok: true, ...result, missing: asked - chosen.length};
     } catch (error) { return {ok: false, error: error.message}; }
   });
-  ipcMain.handle('strategyData', async () => {
+  ipcMain.handle('strategyData', sharedRead('strategyData', async () => {
     // Demo mode: JOB_PILOTTO_DEMO_STRATEGY_DELAY ms first, to see (and screenshot) the loading state.
     if (DEMO && process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY)));
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
     if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};
     return viewCache.remember(storage, 'strategy', {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())});
-  });
+  }, {log: appLog}));
   // Jobs → Log job activity → Paste image: the clipboard's image as PNG, or null.
   ipcMain.handle('clipboardImage', () => {
     const image = clipboard.readImage();
@@ -1230,10 +1231,10 @@ function handlers() {
   ipcMain.handle('ivRemindGet', () => ({on: reminders.on(storage)}));
   ipcMain.handle('ivRemindSet', (_, value) => { storage.saveSettings({interviewReminders: !!value}); return {on: !!value}; });
   ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
-  ipcMain.handle('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved, insight: demoInterviews().insight}
-    : needsNotion('interviews') || viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
-  ipcMain.handle('calendarRecordings', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved}
-    : needsNotion('interviews') || viewCache.remember(storage, 'calendarRecordings', await interviews.savedForCalendar(storage))));
+  ipcMain.handle('ivSaved', sharedRead('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved, insight: demoInterviews().insight}
+    : needsNotion('interviews') || viewCache.remember(storage, 'interviews', await interviews.saved(storage))), {log: appLog}));
+  ipcMain.handle('calendarRecordings', sharedRead('calendarRecordings', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved}
+    : needsNotion('interviews') || viewCache.remember(storage, 'calendarRecordings', await interviews.savedForCalendar(storage))), {log: appLog}));
   ipcMain.handle('ivInsightStep', async (_, text, done) => (DEMO ? {ok: true, done_steps: []}
     : needsNotion('interviews') || interviews.insightStep(storage, text, !!done)));
   ipcMain.handle('ivInsights', async () => {
@@ -1436,13 +1437,13 @@ function handlers() {
   // answered, a built prep kit is ready. Without it every re-read of the file undid it (owner, 6 Oct 2026).
   let demoFocus = null;
   const demoFocusData = () => demoFocus || (demoFocus = JSON.parse(fs.readFileSync(process.env.JOB_PILOTTO_DEMO_FOCUS || path.join(here, 'demo', 'focus.json'), 'utf8')));
-  ipcMain.handle('focus', async () => {
+  ipcMain.handle('focus', sharedRead('focus', async () => {
     const gate = needsNotion('focus');
     if (gate) return gate;
     if (!DEMO) return viewCache.remember(storage, 'focus', await pipeline.focus(storage));
     await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_FOCUS_DELAY) || 0));
     return {ok: true, focus: demoFocusData()};
-  });
+  }, {log: appLog}));
   // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
   ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
   // Is the candidate looking for IT work? The tips keep their IT examples for those who are (renderer/audience.js; with no roles known yet the general version is shown).
