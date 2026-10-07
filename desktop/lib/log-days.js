@@ -41,8 +41,10 @@ export function rollDay(file, {now = new Date(), keepDays = KEEP_DAYS, maxTotal 
 }
 export const forgetSeen = () => seen.clear();   // tests
 
-// Days older than keepDays go, then the oldest while all of them together pass maxTotal bytes.
+// Days older than keepDays go, then the oldest while all of them together pass maxTotal bytes. The size-rotated files
+// of before 7 Oct 2026 (app.log.1 … .3, engine.log.1) go too: nothing reads them any more.
 export function prune(file, {now = new Date(), keepDays = KEEP_DAYS, maxTotal = Infinity} = {}) {
+  for (const n of [1, 2, 3]) { try { fs.unlinkSync(`${file}.${n}`); } catch {} }
   const oldest = new Date(now); oldest.setDate(oldest.getDate() - keepDays);
   const cutoff = localDay(oldest);
   let total = 0;

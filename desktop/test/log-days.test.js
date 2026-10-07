@@ -29,7 +29,7 @@ test('a day file that already exists gets the lines appended, never overwritten'
   assert.equal(fs.readFileSync(path.join(dir, 'engine-2026-10-05.log'), 'utf8'), 'first\nsecond\n');
 });
 
-test('days older than 30 go, and the oldest while all pass the total cap; other files are left alone', () => {
+test('days older than 30 go, the oldest past the total cap, and the old .1 files; other logs are left alone', () => {
   const dir = folder(), file = path.join(dir, 'app.log');
   fs.writeFileSync(file, 'x'.repeat(10));
   for (const day of ['2026-09-06', '2026-09-08', '2026-10-01', '2026-10-06']) fs.writeFileSync(path.join(dir, `app-${day}.log`), 'x'.repeat(10));
@@ -39,7 +39,9 @@ test('days older than 30 go, and the oldest while all pass the total cap; other 
   assert.deepEqual(dayFiles(file).map(d => d.day), ['2026-10-06', '2026-10-01', '2026-09-08']);
   prune(file, {now: new Date(2026, 9, 7, 12), maxTotal: 25});
   assert.deepEqual(dayFiles(file).map(d => d.day), ['2026-10-06']);
-  assert.ok(fs.existsSync(path.join(dir, 'engine-2026-08-01.log')) && fs.existsSync(path.join(dir, 'app.log.1')));
+  assert.ok(fs.existsSync(path.join(dir, 'engine-2026-08-01.log')));
+  assert.equal(fs.existsSync(path.join(dir, 'app.log.1')), false);   // the old size-rotated format is gone
+  assert.ok(fs.existsSync(file));
 });
 
 test('a day past its cap keeps its newest part, from a line start', () => {
