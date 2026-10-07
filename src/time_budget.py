@@ -86,5 +86,5 @@ def best_first(jobs):
     from .sources import feeds
     def first(job):   # Claude's answer when it placed the location (src/ai/place_triage.py), else the best places' words
         verdict = feeds.place_of(job)
-        return 0 if (verdict == 'best' if verdict is not None else best.search(job.get('location') or '')) else 1
+        return 0 if (verdict == 'best' if verdict is not None else feeds.mentions(best, job.get('location') or '')) else 1
     return sorted(jobs, key=first)

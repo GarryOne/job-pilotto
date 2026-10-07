@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small, dependency-free job watcher. Python 3.10+."""
 import argparse
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -111,6 +112,12 @@ def plain(text):
     return "".join(c for c in unicodedata.normalize("NFKD", text or "") if not unicodedata.combining(c))
 
 
+def mentions(pattern, text):
+    """The place words find the text as written or without its accents (7 Oct 2026: "geneva|geneve" missed "Genève, Switzerland", and the
+    digest called it outside your places). Every place-word fallback goes through this."""
+    return bool(text) and bool(pattern.search(text) or pattern.search(plain(text)))
+
+
 def remote_wanted(search=None):
     """False when the settings' "Remote jobs" says no (7 Oct 2026: a photographer and shop seller wants jobs in Geneva and Lausanne only)."""
     said = [str(v).strip().lower() for v in ((search or _SEARCH).get('remote_jobs') or [])]
@@ -158,9 +165,21 @@ def triage_places(jobs):
         return
     try:
         from ..ai import place_triage
-        placed().update(place_triage.decide(locations, _SEARCH))
+        # A refresh places a batch: the ones your place words name first, then the ones most jobs share (7 Oct 2026: it asked in feed
+        # order, Warsaw and Dallas first, and "Genève, Switzerland" with 6 jobs waited behind 1,400 others)
+        count = Counter(place_triage.norm(location) for location in locations)
+        ordered = sorted(count, key=lambda location: (not mentions(PLACE, location), -count[location]))
+        placed().update(place_triage.decide(ordered, _SEARCH))
     except Exception as error:  # noqa: BLE001 — not placed this run: the place words decide, said
         print(f'Warning: job locations not placed by Claude ({type(error).__name__}): your place words decide this run')
+
+
+def place_open_jobs(db):
+    """Before the cleanup of jobs outside your places: Claude places the locations of the open jobs too (7 Oct 2026: the job boards' jobs,
+    imported straight into the list, never reached it; the place words closed Carouge and Meyrin jobs at every refresh, and the digest
+    called "Genève" outside your places)."""
+    triage_places([{'location': location, 'title': title} for location, title in
+                   db.execute("SELECT location, title FROM jobs WHERE state = 'open' AND COALESCE(location, '') != ''")])
 
 
 def wanted_location(job):
@@ -170,7 +189,7 @@ def wanted_location(job):
     if verdict is not None:
         return verdict != 'out'
     where = job.get("location") or ""
-    if PLACE.search(where) or PLACE.search(plain(where)):
+    if mentions(PLACE, where):
         return True
     if not REMOTE_WANTED:
         return False

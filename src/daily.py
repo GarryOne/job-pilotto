@@ -736,6 +736,7 @@ def main():
             # your places close; acted on, added by you, or with no place stay.
             from .sources import feeds as feed_places
             outside = Counter()
+            feed_places.place_open_jobs(db)
             elsewhere = store.close_elsewhere(db, feed_places.wanted_location, where=outside)
             if elsewhere:
                 print(f'Closed {elsewhere} job(s) outside your places: {store.grouped(outside)}')

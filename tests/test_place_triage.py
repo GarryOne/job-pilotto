@@ -79,3 +79,51 @@ class DigestPlacesTests(unittest.TestCase):
         from src import digest
         with mock.patch.object(feeds, 'PLACED', {}), mock.patch.dict(digest._SEARCH['locations'], {'abroad': []}):
             self.assertFalse(digest.needs_sponsorship({'location': 'Somewhere not placed yet'}))
+
+
+class PlaceFallbackTests(unittest.TestCase):
+    """Until Claude has placed a location, the place words decide: as written or without accents, and they never close a job Claude is about
+    to place (7 Oct 2026: "Genève" was "outside your places" and Carouge jobs closed for a Geneva search)."""
+    WORDS = ['geneva', 'geneve']
+
+    def setUp(self):
+        feeds.PLACED = {}
+
+    def tearDown(self):
+        feeds.PLACED = None
+
+    def test_every_place_word_fallback_finds_the_accented_name(self):
+        from src import digest, time_budget
+        from src.paths import keyword_regex
+        words = keyword_regex(self.WORDS)
+        job, elsewhere = {'location': 'Genève, Switzerland'}, {'location': 'Basel'}
+        with mock.patch.object(digest, 'HOME', words), mock.patch.object(digest, 'BEST_PLACES', words), mock.patch.object(feeds, 'PLACE', words), \
+                mock.patch('src.paths.load_search_config', return_value={'locations': {'top_tier': self.WORDS}}):
+            checks = {'feeds.wanted_location': feeds.wanted_location(job), 'digest.in_places': digest.in_places(job),
+                      'digest.location_points': digest.location_points(job) == 5,
+                      'time_budget.best_first': time_budget.best_first([elsewhere, job])[0] is job}
+        self.assertEqual([name for name, ok in checks.items() if not ok], [])
+
+    def test_the_open_jobs_are_placed_before_the_cleanup(self):
+        import sqlite3
+        from src import daily
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE jobs (location TEXT, title TEXT, state TEXT)')
+        db.executemany('INSERT INTO jobs VALUES (?, ?, ?)', [('Carouge', 'Vendeur', 'open'), ('Basel', 'Vendeur', 'closed'), ('', 'Vendeur', 'open')])
+        sent = []
+        with mock.patch.object(feeds, 'triage_places', sent.extend):
+            feeds.place_open_jobs(db)
+        self.assertEqual(sent, [{'location': 'Carouge', 'title': 'Vendeur'}], 'a job board job is placed like a feed job')
+        source = pathlib.Path(daily.__file__).read_text()
+        self.assertLess(source.index('feed_places.place_open_jobs(db)'), source.index('store.close_elsewhere('), 'placed, then cleaned up')
+
+    def test_a_refresh_asks_about_your_places_first_then_the_most_shared(self):
+        jobs = [{'location': where, 'title': 'Vendeur'} for where in
+                ['Warsaw', 'Dallas, TX', 'Carouge', 'Carouge', 'Genève, Switzerland', 'Meyrin', 'Carouge']]
+        asked = []
+        with mock.patch.object(feeds, 'PLACE', feeds.keyword_regex(self.WORDS)), mock.patch.object(feeds, 'wanted_title', lambda title: True), \
+                mock.patch('src.ai.engine.ready', return_value=True), \
+                mock.patch.object(place_triage, 'decide', lambda locations, search: asked.extend(locations) or {}):
+            feeds.triage_places(jobs)
+        self.assertEqual(asked[:2], ['genève, switzerland', 'carouge'])
+        self.assertEqual(set(asked[2:]), {'warsaw', 'dallas, tx', 'meyrin'})

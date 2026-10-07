@@ -47,13 +47,18 @@ def _placed(job):
     return feeds.place_of(job)
 
 
+def _mentions(pattern, text):
+    from .sources import feeds
+    return feeds.mentions(pattern, text)
+
+
 def in_places(job):
     """True when the job is in one of your places: Claude's answer when it placed the location (7 Oct 2026: "Genève" was "outside your
     preferred locations" for a search that says "geneva"), else your place words (config/search.json)."""
     verdict = _placed(job)
     if verdict is not None:
         return verdict != 'out'
-    return bool(job.get('city')) or bool(HOME.search(job.get('location') or ''))
+    return bool(job.get('city')) or _mentions(HOME, job.get('location') or '')
 
 
 BEST_PLACES = keyword_regex(_SEARCH['locations']['top_tier'])
@@ -88,10 +93,10 @@ def needs_sponsorship(job):
     if in_places(job):
         return False
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
-    if WORK_RIGHTS and WORK_RIGHTS.search(where):
+    if WORK_RIGHTS and _mentions(WORK_RIGHTS, where):
         return False
     # No places abroad: none needs a visa (7 Oct 2026: the empty pattern matched every place, and each Geneva job said "visa sponsorship needed").
-    return bool(_SEARCH['locations'].get('abroad')) and bool(PREFERRED_ABROAD.search(where))
+    return bool(_SEARCH['locations'].get('abroad')) and _mentions(PREFERRED_ABROAD, where)
 
 
 def location_points(job):
@@ -100,11 +105,11 @@ def location_points(job):
     remote = ((job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote'
               or (job.get('work_mode') or '').startswith('Remote'))
     verdict = _placed(job)
-    if verdict == 'best' or (verdict is None and BEST_PLACES.search(where)):
+    if verdict == 'best' or (verdict is None and _mentions(BEST_PLACES, where)):
         return 5
     if in_places(job):
         return 4
-    if PREFERRED_ABROAD.search(where) or remote:
+    if _mentions(PREFERRED_ABROAD, where) or remote:
         return 3
     return 0
 
