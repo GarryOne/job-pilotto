@@ -318,7 +318,7 @@ function claudeSiteEnded(url, said) {
 window.pilot?.onVisitClaudeDone?.(result => {
   claudeReadEnded(result.url, `Claude read ${result.jobs} job${result.jobs === 1 ? '' : 's'}${(result.urls || []).length > 1 ? ` from ${result.urls.length} sites` : ''}, ${result.fits} matching your search`);
   toastMessage(`Claude read ${result.jobs} jobs from ${result.name || 'the site'}, ${result.fits} matching your search`,
-    result.fits ? 'A search started to score the matching ones: those that fit your profile join your Jobs list.' : 'None has your role words and places, so your Jobs list stays the same.');
+    result.fits ? 'The matching ones are being scored now (about a minute): those that fit your profile join your Jobs list.' : 'None has your role words and places, so your Jobs list stays the same.');
 });
 window.pilot?.onSession?.((event, payload) => {   // a session that stopped without finishing (closed, failed)
   if (event === 'update' && payload?.kind === 'read' && ['ended', 'failed'].includes(payload.status)) claudeReadEnded(payload.url, `Claude's session ${payload.status === 'failed' ? 'stopped' : 'ended'} before it finished`);
@@ -360,7 +360,7 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
     : `Read ${plural(card.jobs, 'job')}, ${card.fits} matching your search`));   // the reading works, said first; how many reach Jobs beside it (owner)
   // How many reach Jobs, said plainly (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count never grows"): only those with your role words and places.
   head.append(el('p', 'insight-subtitle', card.fits === null ? 'Your next jobs check filters and scores them like any other.'
-    : `From ${card.read} of ${plural(card.total, 'site')}. ` + (card.fits ? (card.fits === 1 ? 'A search started to score the matching one: if it fits your profile, it joins your Jobs list.' : 'A search started to score the matching ones: those that fit your profile join your Jobs list.')
+    : `From ${card.read} of ${plural(card.total, 'site')}. ` + (card.fits ? (card.fits === 1 ? 'The matching one is being scored now (about a minute, first in line): if it fits your profile, it joins your Jobs list.' : 'The matching ones are being scored now (about a minute, first in line): those that fit your profile join your Jobs list.')
       : 'None has your role words and places, so your Jobs list stays the same.')));
   // Two or more stopped sites: one Claude session reads them all, in turn (owner, 7 Oct 2026: "a 'Read the failed sites with Claude' button").
   const stopped = card.sites.filter(site => !site.ok).slice(0, 10);   // one session reads at most 10 (main.js visitsWithClaude)

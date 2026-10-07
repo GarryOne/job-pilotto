@@ -322,12 +322,22 @@ export function dailyArgs(storage, inputs = {}) {
   return args;
 }
 
-// Crawls share one SQLite file: run them one at a time, like the workflow's concurrency group.
-let crawling = Promise.resolve();
-export function serial(task) {
-  const next = crawling.then(task, task);
-  crawling = next.catch(() => {});
-  return next;
+// Crawls share one SQLite file: run them one at a time, like the workflow's concurrency group. In order, except a task queued `first`
+// (7 Oct 2026: the light scoring run after Read sites waited behind a 15-minute Find new employers queued before it).
+const lane = [];
+let laneBusy = false;
+export function serial(task, {first = false} = {}) {
+  return new Promise((resolve, reject) => {
+    const job = {task, resolve, reject};
+    if (first) lane.unshift(job); else lane.push(job);
+    pumpLane();
+  });
+}
+function pumpLane() {
+  if (laneBusy || !lane.length) return;
+  laneBusy = true;
+  const job = lane.shift();
+  Promise.resolve().then(() => job.task()).then(job.resolve, job.reject).finally(() => { laneBusy = false; pumpLane(); });
 }
 
 // Find new jobs: job boards, then employer feeds + Google Jobs, AI facts and fit scores (with a key),
@@ -512,13 +522,13 @@ export const HEARTBEAT_MS = {every: 15 * 1000, quiet: 30 * 1000};
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
-function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
+function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false} = {}) {
   // The same task already waiting, or already running: a second click joins it instead of queueing it again (a second search seconds after the first, with nothing
   // new to find, was run in full; 2 Oct 2026). Another task still waits its turn.
   const twin = waiting.find(ticket => ticket.kind === kind) || (runningTicket?.kind === kind ? runningTicket : null);
   if (twin) return twin.done;
   const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString(), resume};
-  waiting.push(ticket);
+  if (first) waiting.unshift(ticket); else waiting.push(ticket);
   saveQueue(storage);
   ticket.done = serial(async () => {
     waiting = waiting.filter(other => other !== ticket);
@@ -591,7 +601,7 @@ function searchOnce(storage, onLine, mode, trigger = 'you') {
   })();
 }
 
-// Always on: the searches run on GitHub, but pages read in Chrome stay on this Mac (7 Oct 2026: they were never scored). A run here that reads
+// The jobs read in Chrome, scored at once after a read (Always on or not: those pages stay on this Mac). A run here that reads
 // only those pages (src/daily.py --only-visits, mode today: it closes nothing, no Telegram digest), scores what matches and writes it to Notion.
 export function visitsArgs(storage) {
   return [...dailyArgs(storage, {mode: 'today'}).filter(arg => arg !== '--send'), '--only-visits'];
@@ -601,7 +611,7 @@ export function scoreVisits(storage, onLine, trigger = 'you') {
     tee('Scoring the jobs read in Chrome, on this Mac…');
     const {code, result} = await run(storage, visitsArgs(storage), tee, triggerEnv(trigger));
     return {ok: code === 0, result};
-  }, null, () => ({}));
+  }, null, () => ({}), {first: true});
 }
 
 // Why a rejected application was turned down (src/ai/rejection.py, Claude Sonnet 5): verdict + lesson on its

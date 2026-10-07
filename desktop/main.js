@@ -123,10 +123,10 @@ function allowanceBlock() {
 const readSites = new Map();   // Read with Claude session id -> the addresses it reads
 function scoreVisitJobs(fits, by) {
   if (!fits || allowanceBlock()) return;
-  const cloud = !!storage.settings().cloud?.repo;   // Always on: the search runs on GitHub, which never sees pages read in Chrome
-  appLog('visit', cloud ? 'scoring the jobs read in Chrome on this Mac (Always on)' : 'search started to score the jobs read in Chrome', {fits, by});
-  if (cloud) pipeline.scoreVisits(storage, log);
-  else pipeline.refresh(storage, log, 'run', 'you');
+  // A light run that reads only the pages read in Chrome (src/daily.py --only-visits), first in the queue: about a minute, not a full search
+  // behind a long Find new employers (owner, 7 Oct 2026: "why is Find new employers needed?"). With Always on too: those pages stay on this Mac.
+  appLog('visit', 'scoring the jobs read in Chrome now, first in the queue', {fits, by});
+  pipeline.scoreVisits(storage, log);
 }
 // Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
 function healthOnce() {

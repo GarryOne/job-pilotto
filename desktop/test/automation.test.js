@@ -254,3 +254,15 @@ test('Always on: jobs read in Chrome are scored by a run on this Mac that reads 
   assert.ok(args.includes('--only-visits') && args.includes('--score-max'), args.join(' '));
   assert.ok(!args.includes('--send'), 'no Telegram digest for a few pages read in Chrome');
 });
+
+test('a task queued first runs before the ones already waiting, after the one running', async () => {
+  const order = [];
+  let release;
+  const running = pipeline.serial(() => new Promise(resolve => { order.push('running'); release = resolve; }));
+  const long = pipeline.serial(async () => { order.push('find employers'); });
+  const scoring = pipeline.serial(async () => { order.push('score Chrome jobs'); }, {first: true});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  release();
+  await Promise.all([running, long, scoring]);
+  assert.deepEqual(order, ['running', 'score Chrome jobs', 'find employers']);
+});
