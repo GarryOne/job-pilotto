@@ -77,11 +77,12 @@ class VisitsTest(unittest.TestCase):
                  {'title': 'Solutions Engineer', 'url': '/rc/clk?jk=5a1b2c3d4e5f', 'lines': ['LHH', 'Geneva, GE']},
                  {'title': 'Photo assistant', 'url': '/rc/clk?jk=6a1b2c3d4e5f', 'lines': ['Studio C', 'Zürich']}]
         from src.sources import feeds
-        with mock.patch.object(feeds, 'wanted_title', lambda title: 'photo' in title.lower()), \
+        with mock.patch.object(feeds, 'wanted_title', lambda title: 'photo' in title.lower()), mock.patch.object(feeds, 'triage_places', lambda jobs: None), \
                 mock.patch.object(feeds, 'wanted_location', lambda job: 'geneva' in (job.get('location') or '').lower()):
             result = visits.read('https://ch.indeed.com/jobs?q=photographe', '<html></html>', cards, now=NOW)
         self.assertEqual([job['title'] for job in result['jobs']], ['Photographer', 'Solutions Engineer', 'Photo assistant'])
         self.assertEqual(result['fits'], 1, 'a photo job in Geneva: the one a jobs check keeps')
+        self.assertEqual((result['in_places'], result['placed']), (2, 3), "this page: 2 of its 3 placed jobs in your places (the extension's early stop)")
 
     def test_a_read_with_no_jobs_does_not_hide_the_site(self):
         # 7 Oct 2026: home pages read as 0 jobs hid Hublot and IWC from the list for a week.

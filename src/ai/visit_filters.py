@@ -17,27 +17,25 @@ ACTIONS = ('click', 'select', 'type')
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['steps', 'why'],
           'properties': {'why': {'type': 'string', 'description': 'One plain sentence: which filters were chosen and why'},
                          'steps': {'type': 'array', 'maxItems': MAX_STEPS, 'items': {
-                             'type': 'object', 'additionalProperties': False, 'required': ['control', 'action', 'value'],
+                             'type': 'object', 'additionalProperties': False, 'required': ['control', 'action', 'value', 'for'],
                              'properties': {'control': {'type': 'string', 'description': 'The id of one listed control'},
+                                            'for': {'type': 'string', 'enum': ['place', 'other'], 'description': 'What this step narrows by'},
                                             'action': {'type': 'string', 'enum': list(ACTIONS)},
                                             'value': {'type': 'string', 'description': 'For select: one of its options; for type: the words; else ""'}}}}}}
-SYSTEM = """You set the filters of a job search page for one job seeker, from their search settings. You get the page's filter controls \
-(id, kind, label, options, whether it is already on) and the search. Choose only filters that narrow the list to jobs this person would \
-want: their places (or remote, if their places say so), their kind of role (a keyword box: their main role word), recent jobs (posted in \
-the past week or two weeks, or the past month when that is the shortest offered), and a level only when their words or exclusions make it \
-clear (they exclude "intern" or "junior": do not pick those levels). Leave anything uncertain alone: fewer filters beat a wrong one. Use \
-only listed ids. Never choose anything that applies to a job, signs in, saves, follows, messages, creates an alert or pays. When the page \
-already shows the right filters, answer with no steps."""
+SYSTEM = """You set the filters of a job search page for one job seeker: ONLY where the jobs are. You get the page's filter controls (id, \
+kind, label, options, whether it is already on) and their places. Choose the filters that narrow the list to their places: a location, city, \
+region or country control (pick their first place, or the region or country that holds their places when the control offers no town of \
+theirs; in a box where a place is typed, type one place, their first). Mark each step "for": "place". Never type into a keyword or search \
+box, never choose a department, function, category, level, contract or date: every job in their places is read and an AI judges which fit \
+them (7 Oct 2026: typing "photographer" into the search box showed 0 to 1 job per site). Use only listed ids. Never choose anything that \
+applies to a job, signs in, saves, follows, messages, creates an alert or pays. When no control is about the place, answer with no steps."""
 
 
 def facts(search, preferences=None):
-    """What Claude is told about the search: words and places the user wrote, nothing else about them."""
+    """What Claude is told: the places the user wrote, nothing else (no role words: they are never typed into a site, 7 Oct 2026)."""
     from ..notion.search_settings import terms
     places = search.get('locations') or {}
-    return {'role_words': terms(search.get('role_keywords'))[:10],
-            'places_first': terms(places.get('top_tier'))[:6], 'places_also': terms((places.get('country_wide') or []) + (places.get('abroad') or []))[:6],
-            'title_words_ruled_out': terms(search.get('title_exclude_keywords'))[:12],
-            'languages_ruled_out': list((preferences or {}).get('disqualifying_languages') or [])[:6]}
+    return {'places_first': terms(places.get('top_tier'))[:6], 'places_also': terms((places.get('country_wide') or []) + (places.get('abroad') or []))[:6]}
 
 
 def clean_controls(controls):
@@ -68,7 +66,7 @@ def plan(page, search, preferences=None, client=None):
     steps = []
     for step in answer.get('steps') or []:
         control = known.get(str(step.get('control')))
-        if not control or step.get('action') not in ACTIONS:
+        if not control or step.get('action') not in ACTIONS or step.get('for') != 'place':   # the place only, never a keyword or a department
             continue
         value = str(step.get('value') or '')[:80]
         if step['action'] == 'select' and control['options'] and value not in control['options']:

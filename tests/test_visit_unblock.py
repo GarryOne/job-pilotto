@@ -28,7 +28,7 @@ class UnblockTest(unittest.TestCase):
         self.assertEqual([(s['control'], s['action'], s['href']) for s in planned['steps']], [('w2', 'open', 'https://careers.maison.example/jobs')],
                          'an unknown id, a plain-http link and an option the select lacks are dropped')
         sent = json.loads(client.asked['messages'][0]['content'].split('\n', 1)[1])
-        self.assertEqual(sent['search']['role_words'], ['vendeur'])
+        self.assertNotIn('role_words', sent['search'], 'no role word to type: the place only (7 Oct 2026)')
         self.assertNotIn('cv', json.dumps(sent).lower(), 'never the CV')
 
     def test_a_page_that_needs_the_person_is_said(self):

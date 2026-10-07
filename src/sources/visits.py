@@ -271,8 +271,19 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
         data['reads'][host]['jobs'] = len(merged)
         _save(data)
     fits = len(fitting(merged))
-    print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all, {fits} matching your search")
-    return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added, 'fits': fits}
+    # This page's jobs in your places (Claude places them first): the extension stops a list after two pages with none, when their places
+    # say they are elsewhere (7 Oct 2026: Chanel's worldwide list, 9 pages, 180 jobs, 0 in Geneva). A card without a place counts as neither.
+    from . import feeds
+    placed = [job for job in jobs if (job.get('location') or '').strip()]
+    try:
+        feeds.triage_places(placed)
+    except Exception:  # noqa: BLE001 — the place words decide this page
+        pass
+    here = sum(1 for job in placed if feeds.wanted_location(job))
+    print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all, {fits} matching your search"
+          + (f"; {here} of {len(placed)} on this page in your places" if placed else ''))
+    return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added, 'fits': fits,
+            'in_places': here, 'placed': len(placed)}
 
 
 def session_result(session):

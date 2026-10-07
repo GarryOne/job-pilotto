@@ -21,16 +21,18 @@ class FakeClient:
 
 
 class PlanTest(unittest.TestCase):
-    def test_only_listed_controls_known_actions_and_offered_options_survive(self):
-        client = FakeClient({'why': 'Recent jobs in Geneva.', 'steps': [
-            {'control': 'c1', 'action': 'select', 'value': 'Past week'}, {'control': 'c3', 'action': 'type', 'value': 'Genève'},
-            {'control': 'c1', 'action': 'select', 'value': 'Past decade'}, {'control': 'apply-btn', 'action': 'click', 'value': ''},
-            {'control': 'c2', 'action': 'submit', 'value': ''}]})
+    def test_only_place_steps_on_listed_controls_survive(self):
+        """Only where the jobs are (owner, 7 Oct 2026: a typed role word showed 0-1 job a site; an AI judges the roles after reading)."""
+        client = FakeClient({'why': 'Jobs in Geneva.', 'steps': [
+            {'control': 'c1', 'action': 'select', 'value': 'Past week', 'for': 'other'}, {'control': 'c3', 'action': 'type', 'value': 'Genève', 'for': 'place'},
+            {'control': 'c3', 'action': 'type', 'value': 'photographe', 'for': 'other'}, {'control': 'apply-btn', 'action': 'click', 'value': '', 'for': 'place'},
+            {'control': 'c2', 'action': 'submit', 'value': '', 'for': 'place'}]})
         planned = visit_filters.plan({'url': 'https://www.linkedin.com/jobs/search/', 'title': 'Jobs', 'controls': CONTROLS}, SEARCH, client=client)
-        self.assertEqual([(s['control'], s['action'], s['value']) for s in planned['steps']], [('c1', 'select', 'Past week'), ('c3', 'type', 'Genève')])
+        self.assertEqual([(s['control'], s['action'], s['value']) for s in planned['steps']], [('c3', 'type', 'Genève')])
         sent = client.asked[0]['messages'][0]['content']
-        self.assertIn('photographe', sent)
-        self.assertNotIn('\\\\b', sent, 'the user\'s words, not regex')
+        self.assertNotIn('photographe', sent, 'role words are never sent: they are never typed into a site')
+        self.assertIn('Genève', sent)
+        self.assertNotIn('\\b', sent, 'the user\'s words, not regex')
 
     def test_no_controls_no_call(self):
         client = FakeClient({})

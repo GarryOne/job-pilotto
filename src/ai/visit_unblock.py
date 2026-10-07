@@ -30,7 +30,8 @@ address, title, first lines of text, and its ways on (id, kind, label, a link's 
 Choose at most two steps that lead to the list of jobs for this search, as a person would: close a box that covers the page (a newsletter, \
 a pop-up; choose the person's country or language when the site asks for one), press a button that shows the jobs ("See all jobs", \
 "Search", "View openings", "Show results"), open the link to the job list (careers, jobs, vacancies, offres, stellen, open positions), or \
-type the main role word or the place into the site's job search box and then press its search button. Prefer opening a job-list link over \
+type the place (never a role word: every job in their places is read, an AI judges which fit) into the site's job search box and then \
+press its search button. Prefer opening a job-list link over \
 anything else. Use only listed ids. Never sign in, sign up, apply, message, save, follow, subscribe, pay or answer a robot check: when \
 the page needs one of those to go on, answer no steps and say it in needs_person. When nothing listed leads to jobs, answer no steps."""
 

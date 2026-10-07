@@ -647,7 +647,8 @@ def main(argv=None):
                     if added:
                         print(f'Visit: {company} runs on {system[0]} ({system[1]}): read by every search from now on, no browser needed', file=sys.stderr)
                 db.commit()
-            print(json.dumps({'ok': True, 'name': result['name'], 'jobs': len(result['jobs']), 'added': result['added'], 'fits': result['fits'], 'kind': result['kind']}, ensure_ascii=False))
+            print(json.dumps({'ok': True, 'name': result['name'], 'jobs': len(result['jobs']), 'added': result['added'], 'fits': result['fits'], 'kind': result['kind'],
+                              'in_places': result.get('in_places', 0), 'placed': result.get('placed', 0)}, ensure_ascii=False))
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()

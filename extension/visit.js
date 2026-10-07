@@ -394,6 +394,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       if (answer?.recipe) { recipe = answer.recipe; state.learned = true; }
       return !!answer?.recipe;
     };
+    let away = 0;   // pages in a row with no job in your places
     for (let page = 0; page < pages; page++) {
       if (Date.now() - thought > deadline) { state.stopped = `${SITE_MS / 1000} s are up: the jobs read so far are kept`; break; }
       await tellStep(tabId, config, ticket, `reading page ${page + 1}…`);
@@ -438,6 +439,10 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       badge(tabId, String(state.pages), `Job Pilotto: reading ${answer.name}, page ${state.pages}: ${answer.jobs} jobs so far`);
       await say();
       if (page > 0 && !answer.added) { state.stopped = 'no new jobs on this page: the end of the list'; break; }
+      // Two pages in a row whose jobs are all elsewhere (their places say so): the rest of a worldwide list is elsewhere too (7 Oct 2026: Chanel,
+      // 9 pages and 180 jobs worldwide, 0 in Geneva). A page whose cards show no place never counts.
+      away = answer.placed > 0 && answer.in_places === 0 ? away + 1 : 0;
+      if (away >= 2) { state.stopped = 'two pages in a row with no job in your places: the rest of this list is elsewhere'; break; }
       let how = recipe ? await run(tabId, nextByRecipe, [recipe]) : await run(tabId, goNext);
       if (how === 'none' && !recipe && !asked && await learn() && recipe.next !== 'none') how = await run(tabId, nextByRecipe, [recipe]);
       if (how === 'none') { state.stopped = 'no next page'; break; }
