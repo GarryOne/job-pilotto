@@ -63,6 +63,8 @@ FEATURES = (
             'pip install -r requirements-render.txt && playwright install chromium; JOB_PILOTTO_RENDER=0 turns it off'),
     Feature('page_reader', 'Claude reads careers pages that list jobs as plain text (cached until the page changes)', (AI,), 'paid',
             'on with the AI key (Haiku, a fraction of a cent per changed page); JOB_PILOTTO_DISABLE=page_reader turns it off'),
+    Feature('title_triage', 'Claude sorts job titles in your places that your role words miss ("Client Advisor" for a shop seller), once per title', (AI,), 'paid',
+            'on with the AI key (Haiku, about one call per 100 new titles); JOB_PILOTTO_DISABLE=title_triage keeps the exact role words only'),
     Feature('aggregators', 'Job aggregators with free public APIs: Arbeitnow, Himalayas, Jobicy (source named on every job)', (), 'free',
             'on by default; JOB_PILOTTO_DISABLE=aggregators turns it off'),
     Feature('adzuna', 'Adzuna job search (16 countries incl. Switzerland)', ('ADZUNA_APP_ID', 'ADZUNA_APP_KEY'), 'free tier',

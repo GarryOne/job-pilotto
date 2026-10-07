@@ -289,6 +289,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
 - `src/ai/scout_ideas.py` — The scout's own ideas: Claude proposes employers and public company lists to look at, and learns from what the probes found.
+- `src/ai/title_triage.py` — Which job titles could fit this search (owner, 7 Oct 2026: "Only the location should be strict"): the title gate in front of the AI fit
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).
 - `src/ai/visit_filters.py` — 'Filter for my search, then read' (owner, 7 Oct 2026: "the extension should know how to apply the filters, for the user's strategy, using
 - `src/ai/visit_reader.py` — How to read a job list on any site, learned once (owner, 7 Oct 2026: "intelligent enough to adapt on any website, no hard-coded

@@ -34,9 +34,44 @@ TITLES = keyword_regex(_SEARCH['role_keywords'])
 EXCLUDED_TITLES = keyword_regex(_SEARCH.get('title_exclude_keywords') or [r'(?!x)x'])
 
 
+TRIAGED = None   # {title: could fit} decided by Claude for this search (src/ai/title_triage.py), read once a run
+
+
 def wanted_title(title):
-    """A role title we crawl for: matches role_keywords and none of title_exclude_keywords."""
-    return bool(TITLES.search(title or '') or TITLES.search(plain(title))) and not (EXCLUDED_TITLES.search(title or '') or EXCLUDED_TITLES.search(plain(title)))
+    """A title we score: none of title_exclude_keywords, and a role keyword or, when the words miss it, Claude's "could fit" for this search
+    (src/ai/title_triage.py; owner, 7 Oct 2026: "Only the location should be strict")."""
+    if EXCLUDED_TITLES.search(title or '') or EXCLUDED_TITLES.search(plain(title)):
+        return False
+    if TITLES.search(title or '') or TITLES.search(plain(title)):
+        return True
+    return bool(_triaged().get(' '.join(str(title or '').lower().split())[:160]))
+
+
+def _triaged():
+    global TRIAGED
+    if TRIAGED is None:
+        try:
+            from ..ai import title_triage
+            TRIAGED = dict(title_triage.known(_SEARCH))
+        except Exception:  # noqa: BLE001 — nothing decided yet: the exact words only
+            TRIAGED = {}
+    return TRIAGED
+
+
+def triage(jobs):
+    """Ask Claude about the titles of these jobs that are in the user's places and that the role words miss (once per title and search).
+    Off without AI or with JOB_PILOTTO_DISABLE=title_triage: the exact words only."""
+    from .. import features
+    from ..ai import engine
+    titles = [job.get('title') for job in jobs if job.get('title') and wanted_location(job) and not excluded_title(job['title'])
+              and not (TITLES.search(job['title']) or TITLES.search(plain(job['title'])))]
+    if not titles or features.disabled('title_triage') or not engine.ready():
+        return
+    try:
+        from ..ai import title_triage
+        _triaged().update(title_triage.decide(titles, _SEARCH))
+    except Exception as error:  # noqa: BLE001 — not sorted this run: the exact words only, said
+        print(f'Warning: job titles not sorted by Claude ({type(error).__name__}): only your role words match this run')
 
 
 def excluded_title(title):
@@ -209,6 +244,7 @@ def scan(sources, db, fetcher=fetch, details=None):
         downloads = list(pool.map(fetch, sources))
     report = {"generated_at": now, "sources": [], "jobs": [], "rested": len(rested)}
     tally = coverage.Tally()
+    triage([job for jobs, failure in downloads if not failure for job in jobs or []])   # titles the words miss: Claude sorts the new ones, once
     for source, (jobs, failure) in zip(sources, downloads):
         board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
         try:
