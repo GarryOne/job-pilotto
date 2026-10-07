@@ -325,7 +325,7 @@ def fitting(jobs):
     return [job for job in jobs if feeds.wanted_title(job.get('title') or '') and feeds.wanted_location(job)]
 
 
-def read(url, markup, cards=None, title='', now=None, session='', start='', known_list=False):
+def read(url, markup, cards=None, title='', now=None, session='', start='', known_list=False, place=''):
     """Read the jobs on a page a person opened and sent: the page's own job data, else the cards the extension saw, else the careers reader
     (its links, a recipe learned earlier, AI as the last resort). Nothing is fetched: a site that refused us would refuse that too.
     Pages of one paging session (the extension going through a list) add up under the session's first page. Returns {name, jobs, kind,
@@ -342,6 +342,12 @@ def read(url, markup, cards=None, title='', now=None, session='', start='', know
             raise ValueError('a visited page is read as it was sent: nothing is fetched')
         jobs = careers._asked(url, markup, jobs, nothing)
     jobs = list({job['url']: job for job in jobs}.values())[:MAX_JOBS]
+    # The page was filtered to your place (the extension's place step took): a job with no place on its card is in it (8 Oct 2026: Fust's list
+    # filtered to Genf, Manor's, Tiffany's cards had no place line, so none could ever match your places).
+    place = re.sub(r'\s+', ' ', str(place or '')).strip()[:80]
+    for job in jobs if place else []:
+        if not (job.get('location') or '').strip():
+            job['location'] = place
     with LOCK:
         data = _load()
         site = (data.get('sites') or {}).get(host)

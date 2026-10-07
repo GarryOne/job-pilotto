@@ -173,6 +173,16 @@ class VisitsTest(unittest.TestCase):
             visits.read('https://careers.maison.example/en/jobs/maison/', '<html></html>', [], now=NOW)
         self.assertNotIn('maison.example', visits._load().get('jobpages') or {}, 'an empty page with no known list still counts')
 
+    def test_jobs_with_no_place_on_a_list_filtered_to_your_place_are_in_that_place(self):
+        # 8 Oct 2026: Fust's list filtered to Genf had cards with no place line: none could ever match your places.
+        cards = [{'title': 'Verkäufer Elektronik', 'url': '/jobs/1234567', 'lines': ['Fust']}, {'title': 'Filialleiter', 'url': '/jobs/2234567', 'lines': ['Fust', 'Lausanne']}]
+        result = visits.read('https://jobs.coop.example/?theme=fust', '<html></html>', cards, now=NOW, place='Genf')
+        places = {job['title']: job['location'] for job in result['jobs']}
+        self.assertEqual(places['Verkäufer Elektronik'], 'Genf', 'no place of its own: the filtered place')
+        self.assertEqual(places['Filialleiter'], 'Lausanne', 'its own place stays')
+        unfiltered = visits.read('https://other.example/jobs', '<html></html>', [{'title': 'Verkäufer', 'url': '/jobs/3234567', 'lines': []}], now=NOW)
+        self.assertEqual(unfiltered['jobs'][0]['location'], '', 'not filtered: unknown stays unknown')
+
     def test_a_job_page_that_is_a_404_is_forgotten_at_once(self):
         with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
             visits.find_job_pages([{'name': 'FM', 'url': 'https://www.fm.example', 'kind': 'employer'}], [], search=lambda name: ['https://www.fm.example/careers'], now=NOW)

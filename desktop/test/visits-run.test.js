@@ -336,3 +336,12 @@ test('opening a site you have open brings its tab forward, by the page last read
   const none = await openYourself('https://www.omega.example', {focusById: async () => false, focusAt: async () => false, opener});
   assert.deepEqual([none.ok, opened], [true, ['https://www.omega.example']], 'no tab: a new one');
 });
+
+test('a site whose list has none in your places today counts as read, not failed (owner, 8 Oct 2026: Jaeger-LeCoultre was a red ✗)', async () => {
+  const openTab = url => { const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 0, added: 0, pages: 1, empty: true, stopped: 'its job list has no jobs here today (filtered to your places)'}), 5);
+    return {ok: true}; };
+  const [result] = await runAll([{name: 'Maison', url: 'https://careers.maison.example'}], {atOnce: 1, openTab, waitMs: 5000, quietMs: 5000, siteMs: 5000});
+  assert.equal(result.ok, true);
+  assert.match(resultMessage([result]), /^🌐 Sites read\nRead 1 of 1 site/);
+});

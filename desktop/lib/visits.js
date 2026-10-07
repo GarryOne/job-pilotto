@@ -147,7 +147,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
   const file = path.join(os.tmpdir(), `jp-visit-${process.pid}-${Date.now()}.json`);
   const body = {url: String(page.url), title: String(page.title || '').slice(0, 300), session: String(page.session || '').slice(0, 64), site: siteNames.get(String(page?.ticket || '')) || '',
-    html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : [], known_list: !!page.knownList};
+    html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : [], known_list: !!page.knownList, place: String(page.place || '').slice(0, 80)};
   fs.writeFileSync(file, JSON.stringify(body));
   try {
     // Saving a page can ask Claude too (a list whose links do not look like jobs: src/sources/careers.py _asked): that time is not silence
@@ -392,7 +392,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     const fits = fitsBy.get(ticket) || 0;
     fitsBy.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);
-    const ok = (state.jobs || 0) > 0;
+    const ok = (state.jobs || 0) > 0 || !!state.empty;   // a list with none in your places today was read, not failed (extension/visit.js)
     // A site read in part says why it stopped (7 Oct 2026: Chanel and Van Cleef read 220 jobs each and stopped at the minute, which no line said).
     const cut = ok && cutShort(state.stopped) ? `; ${state.stopped}` : '';
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} (${state.added || 0} new), ${fits} matching your search${cut}` : state.stopped || 'nothing read'}`);

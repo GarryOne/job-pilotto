@@ -380,6 +380,12 @@ async function setFilters(tabId, config, state) {
     for (const step of fresh) tried.add(`${step.label}|${step.value}`);
     plan.steps = fresh;
     const done = await run(tabId, applyFilters, [plan.steps]);
+    // The place the list is now filtered to (the engine keeps only place steps, src/ai/visit_filters.py): a picked suggestion, a chosen option,
+    // a clicked choice, a search typed and sent; never a suggest box's text that matched nothing. Jobs on its cards with no place of their own
+    // are in that place (src/sources/visits.py read).
+    for (const [step, result] of plan.steps.map((step, i) => [step, done?.[i]])) {
+      if (result?.ok && (!result.suggests || result.picked)) state.place = String(result.picked || step.value || step.label || '').slice(0, 80);
+    }
     // Said in the site's row (and so the run log): whether a suggest box's place was really picked, or only typed and so filtered nothing.
     state.filters.push(...plan.steps.map((step, i) => [step, done?.[i]]).filter(([, result]) => result?.ok).map(([step, result]) => `${step.label}${step.value ? `: ${step.value}` : ''}`
       + (result.suggests ? (result.picked ? ` (picked "${result.picked}")` : ' (typed, but no suggestion matched: not filtered)') : '')));
@@ -532,7 +538,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         await tellStep(tabId, config, ticket, knownList ? 'its job list shows no jobs here (filtered to your places, it may have none)'
           : `no job cards on this page (${seen.cards?.length || 0} repeated items seen${asked ? ', none of them jobs by Claude\'s reading' : ''}${banner ? `; a cookie banner was still open, closed with "${banner.slice(0, 30)}"` : ''})`);
       }
-      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, ticket: state.ticket, url: seen.url, title: seen.title, html: seen.html, cards, knownList})});
+      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, ticket: state.ticket, url: seen.url, title: seen.title, html: seen.html, cards, knownList, place: state.place || ''})});
       if (!answer?.ok) { state.stopped = answer?.error || 'the app did not take the page'; break; }
       Object.assign(state, {pages: page + 1, jobs: answer.jobs, added: state.added + (answer.added || 0), name: answer.name});
       badge(tabId, String(state.pages), `Job Pilotto: reading ${answer.name}, page ${state.pages}: ${answer.jobs} jobs so far`);
@@ -551,6 +557,8 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     }
     if (!state.stopped) state.stopped = `${pages} pages read: the most at once`;
     // Nothing read at all: not "the end of the list" (there was none), said as what it is (owner's run, 7 Oct 2026).
+    // A list that has none in your places today is read, not failed (owner, 8 Oct 2026: Jaeger-LeCoultre's Geneva list was a red ✗ with "Read with Claude").
+    if (!state.jobs && /end of the list|no next page/.test(state.stopped) && (knownList || state.place)) state.empty = true;
     if (!state.jobs && /end of the list|no next page/.test(state.stopped)) state.stopped = knownList ? 'its job list has no jobs here today (filtered to your places)'
       : state.filters.some(filter => !/not filtered/.test(filter)) ? `no jobs on this list with your place filter (${state.filters.join(', ').slice(0, 80)})`
       : 'no job list found on this page: try Read with Claude, or Open it myself';
