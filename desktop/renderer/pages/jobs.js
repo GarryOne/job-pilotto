@@ -958,13 +958,14 @@ export function showJobsIn(label, urls, from = '') {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 // Refresh jobs, from any button that starts one (Refresh, "score the unscored", Strategy's Re-score them now): the header status
 // shows "Refreshing jobs →", the run joins Recent activity, the list reloads after. Resolves when the search ends.
-export async function startSearch() {
+// why: what this refresh is for beyond finding jobs ({reason: 'rescore', count}), said on its row in Recent activity (main.js refresh).
+export async function startSearch(why = undefined) {
   refreshBusy(true);   // "Your search changed": this refresh applies it
   $('refresh').disabled = true;
   shared.selectedRun = null;
   setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
   try {
-    await window.pilot.refresh();
+    await window.pilot.refresh(why);
   } finally {
     $('refresh').disabled = false;
     loadJobs();

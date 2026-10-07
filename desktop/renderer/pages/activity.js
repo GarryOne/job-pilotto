@@ -616,9 +616,10 @@ export function renderActivity(fresh) {
 
     if (warned) button.dataset.state = 'warn';
     const words = el('span', 'run-words');
-    words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
-      ? `Waiting · starts after ${run.after}`
-      : [capital(outcome(run)), WHERE[run.where]].filter(Boolean).join(' · ')));
+    // A run's note says what it is for beyond its kind ("Re-scoring 75 older scores", lib/pipeline.js refresh), queued, running and done.
+    words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? [`Running now`, run.note, searchPhase(run.step) || 'starting'].filter(Boolean).join(' · ') : run.waiting
+      ? [run.note, `Waiting · starts after ${run.after}`].filter(Boolean).join(' · ')
+      : [run.note, capital(outcome(run)), WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
     // No cost and no live log here: the list is for finding a run and seeing its state; the log and the cost are in the detail pane.
     const when = el('span', 'run-time', run.live || run.waiting ? '' : runTime(run));
@@ -738,6 +739,7 @@ export function renderActivity(fresh) {
   // A run that used no AI shows no cost: "$0" on every row was noise.
   const cost = run && !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}`));
   $('activity-sub').textContent = !run ? '' : [
+    run.note,
     run.live ? (searchPhase(run.step) || 'starting') : said,
     checkedCount && `${checkedCount} companies checked`,
     !run.live && `Finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`,

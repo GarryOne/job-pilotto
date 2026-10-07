@@ -467,8 +467,11 @@ function drawImprove() {
   const previous = lastStrategy?.previous || 0;
   if (previous) {
     const cost = `≈ $${(previous * 0.015).toFixed(2)}`;
-    const go = el('button', 'secondary item-action', `Re-score · ${cost}`);
+    // Off from the click until its refresh has ended (owner, 7 Oct 2026: a second click looked like a second re-score).
+    const go = el('button', 'secondary item-action', rescoring ? 'Re-scoring…' : `Re-score · ${cost}`);
     go.type = 'button';
+    go.disabled = rescoring;
+    if (rescoring) go.title = 'Running in Refresh jobs: follow it in Recent activity';
     go.addEventListener('click', () => confirmRescore(previous, cost));
     items.push(improveRow('refresh', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
       'Scored before your last Profile change, all under 50 · Updating is optional', go));
@@ -492,6 +495,7 @@ function improveRow(glyph, title, text, button) {
 }
 // Re-score: its cost said and confirmed first; then the kept scores are queued and a search starts at once (60 per search), shown like any
 // search (header status, Recent activity, its result). 7 Oct 2026: it only queued them for later searches, so nothing seemed to happen.
+let rescoring = false;
 function confirmRescore(count, cost) {
   const dialog = $('rescore-dialog');
   $('rescore-title').textContent = `Re-score ${count} older score${count === 1 ? '' : 's'}?`;
@@ -500,12 +504,19 @@ function confirmRescore(count, cost) {
   $('rescore-go').textContent = `Re-score · ${cost}`;
   dialog.returnValue = '';
   dialog.onclose = async () => {
-    if (dialog.returnValue !== 'go') return;
-    const result = await window.pilot.rescorePrevious().catch(error => ({ok: false, error: error.message}));
-    if (!result.ok) { toastMessage('Not re-scored', result.error); return; }
-    toastMessage('Re-scoring now', `${result.queued} jobs get a new score in this search${result.queued > 60 ? ' (60 now, the rest in the next one)' : ''}. Follow it in Recent activity.`);
-    await startSearch();
-    loadStrategy();
+    if (dialog.returnValue !== 'go' || rescoring) return;
+    rescoring = true;
+    drawImprove();
+    try {
+      const result = await window.pilot.rescorePrevious().catch(error => ({ok: false, error: error.message}));
+      if (!result.ok) { toastMessage('Not re-scored', result.error); return; }
+      toastMessage({title: 'Re-scoring now', body: `${result.queued} jobs get a new score in a refresh${result.queued > 60 ? ' (60 now, the rest in the next one)' : ''}. ` +
+        'It shows in Recent activity as "Re-scoring".', target: null});
+      await startSearch({reason: 'rescore', count: result.queued});   // its row says "Re-scoring N older scores", queued or running
+    } finally {
+      rescoring = false;
+      loadStrategy();
+    }
   };
   dialog.showModal();
 }

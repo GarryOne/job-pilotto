@@ -391,7 +391,7 @@ let keepLine = null, teeing = false;
 export function keep(line) { if (keepLine && !teeing) keepLine(line); }
 // Tracked tasks waiting behind the running one (oldest first), so Recent activity lists them at once.
 let waiting = [], nextTicket = 0, runningTicket = null;
-export const queued = () => waiting.map(({id, kind, trigger, queuedAt}) => ({id, kind, trigger, queuedAt}));
+export const queued = () => waiting.map(({id, kind, trigger, queuedAt, note}) => ({id, kind, trigger, queuedAt, ...(note ? {note} : {})}));
 
 // The queue survives quitting the app: queue.json holds the running job and the waiting ones with how to start
 // each again (resume: a search's mode, a task's command). The app starts the ones you started again next time
@@ -441,7 +441,8 @@ export async function whenIdle(poll = 2000) {
   while (current || waiting.length) await new Promise(resolve => setTimeout(resolve, poll));
 }
 
-export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
+// note: what this search is for beyond a refresh ("Re-scoring 75 older scores"), shown on its row from queued to finished.
+export function refresh(storage, onLine, mode = 'run', trigger = 'you', {note = ''} = {}) {
   return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), {mode}, (record, log) => {
     const problem = deliveryProblem(log);   // the digest the bot could not deliver: said on the run, not only as "Failed"
     let summary = {};
@@ -449,7 +450,7 @@ export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
     const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
     return {...(problem ? {problem} : {}), ...(fresh ? {found: summary.jobs ?? null, feeds: summary.feeds ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
       scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {})};
-  });
+  }, {note});
 }
 
 // Notion just connected after a time of trying: one run that spends no AI (every cap at 0), so the Job Matches sync
@@ -528,11 +529,11 @@ export function work(storage, kind, onLine, doWork, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async (tee, signal) => ({ok: !!(await doWork(tee, signal))}), null,
     (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
 }
-export function task(storage, kind, args, onLine, trigger = 'you') {
+export function task(storage, kind, args, onLine, trigger = 'you', {note = ''} = {}) {
   return tracked(storage, kind, trigger, onLine, async tee => {
     const {code, result} = await run(storage, args, tee, triggerEnv(trigger));
     return {ok: code === 0, result};
-  }, {args}, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
+  }, {args}, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}), {note});
 }
 // Without Telegram the pipeline prints its message between <<<message / message>>> (src/telegram.py to_app);
 // the last one, as plain text (Telegram HTML removed), is what the app shows as the result.
@@ -569,12 +570,16 @@ export const HEARTBEAT_MS = {every: 15 * 1000, quiet: 30 * 1000};
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
-function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false} = {}) {
+function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false, note = ''} = {}) {
   // The same task already waiting, or already running: a second click joins it instead of queueing it again (a second search seconds after the first, with nothing
   // new to find, was run in full; 2 Oct 2026). Another task still waits its turn.
   const twin = waiting.find(ticket => ticket.kind === kind) || (runningTicket?.kind === kind ? runningTicket : null);
-  if (twin) return twin.done;
-  const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString(), resume};
+  if (twin) {
+    // Joined: the run already queued or going says what this click wanted too (7 Oct 2026: Re-score joined a running refresh and nothing showed it).
+    if (note && !twin.note) { twin.note = note; if (runningTicket === twin && current) current = {...current, note}; saveQueue(storage); }
+    return twin.done;
+  }
+  const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString(), resume, ...(note ? {note} : {})};
   if (first) waiting.unshift(ticket); else waiting.push(ticket);
   saveQueue(storage);
   ticket.done = serial(async () => {
@@ -582,7 +587,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
     waiting = waiting.filter(other => other !== ticket);
     runningTicket = ticket;
     const log = [];
-    const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
+    const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString(), ...(ticket.note ? {note: ticket.note} : {})};
     current = {...record, step: 'Starting', resume, stoppable: true};   // every task the Mac runs can be stopped (Actions banner, Recent activity)
     ticket.children = new Set();
     ticket.abort = new AbortController();
@@ -630,6 +635,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
         ok = false;
         Object.assign(record, {ok: false, stopped: 'you', summary: 'Stopped by you. What it saved is kept; the next run continues from there.'});
       }
+      if (ticket.note) record.note = ticket.note;   // a click that joined while it ran
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
       keepLine = null;
