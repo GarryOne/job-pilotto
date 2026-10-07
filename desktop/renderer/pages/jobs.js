@@ -6,7 +6,7 @@ import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
 import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statClick, statPressed, stats, statusPill, tags, takenDown, toReview, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
-import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
+import {refreshBusy, showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
 import {$, message, osPick, savedAgo, show} from './core.js';
@@ -942,8 +942,9 @@ export function showJobsIn(label, urls, from = '') {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 // Refresh jobs, from any button that starts one (Refresh, "score the unscored", Strategy's Re-score them now): the header status
-// shows "Searching for new jobs →", the run joins Recent activity, the list reloads after. Resolves when the search ends.
+// shows "Refreshing jobs →", the run joins Recent activity, the list reloads after. Resolves when the search ends.
 export async function startSearch() {
+  refreshBusy(true);   // "Your search changed": this refresh applies it
   $('refresh').disabled = true;
   shared.selectedRun = null;
   setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);

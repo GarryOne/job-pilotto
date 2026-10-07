@@ -7,6 +7,7 @@ import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
 import {runStatus, runWarned} from '../run-status.js';
 import {showStop, stopRunning} from '../stop-task.js';
+import {refreshBusy} from '../search-changed.js';
 
 // Status: what's running, the last and next search, the last and next Gmail check, as a small card.
 export async function showStatusCard() {
@@ -42,6 +43,7 @@ const TASK_TITLE = {search: 'Refresh jobs', mail: 'Gmail & Calendar check', insi
 // Every button that starts a task is off while that task runs or waits (a second press would only join it), and back when it ends: the Actions cards, Tailor CVs, and the same
 // task's other buttons (Jobs → Refresh jobs, Settings → Check Gmail now). `busy` is the kinds running or queued now. Only a button this turned off is turned on again.
 export function syncRunButtons(busy) {
+  refreshBusy(busy.includes('search'));   // "Your search changed" goes while a refresh applies it
   const set = (node, kind) => {
     if (!node) return;
     const now = busy.includes(kind);

@@ -4,8 +4,17 @@ import {startSearch} from './pages/jobs.js';
 
 export const searchChanged = settings => !!settings?.searchChangedAt && Date.parse(settings.searchChangedAt) > Date.parse(settings.lastSearchAt || 0);
 
-export function showSearchChanged(settings) {
-  for (const box of document.querySelectorAll('.search-changed')) box.hidden = !searchChanged(settings);
+let lastSettings = null, refreshing = false;
+export function showSearchChanged(settings = lastSettings) {
+  lastSettings = settings;
+  // A refresh running or queued is already applying it (owner, 7 Oct 2026: the banner stayed while the refresh it asked for ran).
+  for (const box of document.querySelectorAll('.search-changed')) box.hidden = refreshing || !searchChanged(settings);
+}
+// Called with the tasks running or queued (pages/runs-page.js syncRunButtons, the same signal that turns the Refresh buttons off).
+export function refreshBusy(busy) {
+  if (busy === refreshing) return;
+  refreshing = busy;
+  showSearchChanged();
 }
 
 let wired = false;

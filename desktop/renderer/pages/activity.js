@@ -46,7 +46,7 @@ export async function showSearchStatus() {
   const searching = running && (running.kind || 'search') === 'search';
   box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
   // Running: a link to its progress (the bottom bar's panel); done: what it found.
-  if (searching) { title.textContent = 'Searching for new jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
+  if (searching) { title.textContent = 'Refreshing jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
   if (!lastSearchAt) { title.textContent = 'No check yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
   const found = last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : '';
@@ -551,7 +551,7 @@ export function renderActivity(fresh) {
   if (running) {
     const kind = KIND[kindOf(running)];
     const next = (data.queued || []).length;
-    $('activity-title').textContent = kindOf(running) === 'search' ? `Searching for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
+    $('activity-title').textContent = kindOf(running) === 'search' ? `Refreshing jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
       : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
     $('activity-step').textContent = stepWords(running.step) || 'Starting…';
     barLabel();
