@@ -55,7 +55,11 @@ class TriageTest(unittest.TestCase):
             title_triage.decide([f'Advisor {n}' for n in range(5)], SEARCH, client)
         lines = [call.args[0] for call in said.call_args_list]
         self.assertIn('in 3 batch(es) of up to 2', lines[0])
-        self.assertEqual([line.split(':')[1].split('·')[0].strip() for line in lines if line.startswith('⏳')], ['0 of 5', '2 of 5', '4 of 5', '5 of 5'])
+        # Two batches run at once, so the last (smaller) one can finish first: 0, 2, 3 or 4, 5 of 5 (7 Oct 2026: this failed CI on a JS-only push)
+        done = [int(line.split(':')[1].split('·')[0].split(' of ')[0]) for line in lines if line.startswith('⏳')]
+        self.assertEqual((len(done), done[0], done[-1]), (4, 0, 5))
+        self.assertEqual(done, sorted(done))
+        self.assertIn(done[2], (3, 4))
         self.assertEqual(len(client.calls), 3)
 
 
