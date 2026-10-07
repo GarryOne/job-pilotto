@@ -127,6 +127,14 @@ jobs:
           npm version "$version" --no-git-tag-version --allow-same-version >/dev/null
           echo "Releasing $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Tag this build now (its workflows still match main's)
+        # GitHub refuses (HTTP 403) to let this run's token create a tag on a commit whose workflow files differ from main's. Tagged here, at the
+        # start, that can't happen: a push to main during the build no longer costs a rebuild (7 Oct 2026). A build that fails after this leaves
+        # its number unused; scripts/next-version.sh then takes the next one.
+        run: |
+          tag="desktop-v${{ steps.version.outputs.version }}"
+          if git push -q origin "$GITHUB_SHA:refs/tags/$tag"; then echo "Tagged $tag at ${GITHUB_SHA::7}"
+          else echo "::warning::Could not tag $tag at the start: the Release step tags it (and rebuilds main if workflows changed meanwhile)."; fi
       - name: Build
         working-directory: desktop
         env:
@@ -149,15 +157,17 @@ jobs:
         run: |
           # GitHub refuses (HTTP 403) to let this run's token tag a commit whose workflow files differ from main's.
           # When workflows changed on main during the build, a fresh build of main releases instead.
+          version=$(node -p "require('./package.json').version")
+          tag="desktop-v${version}"
+          # Tagged at the start (above): nothing to refuse. Only a build that could not tag then still needs main's workflows to match.
           git fetch -q origin main
-          if ! git diff --quiet "$GITHUB_SHA" origin/main -- .github/workflows; then
+          if [ "$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)" != "$GITHUB_SHA" ] && ! git diff --quiet "$GITHUB_SHA" origin/main -- .github/workflows; then
             echo "::warning::Workflows changed on main during this build: not released; a new build of main starts."
+            echo "### ⚠️ ${version} not released: workflows changed on main during the build; a new build of main started." >> "$GITHUB_STEP_SUMMARY"
             gh workflow run desktop.yml --ref main
             echo "released=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          version=$(node -p "require('./package.json').version")
-          tag="desktop-v${version}"
           # Stable names too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${version}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
           cp "dist/Job-Pilotto-${version}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip

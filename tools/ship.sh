@@ -42,6 +42,17 @@ rebase
 payload="$(jq -n --arg command "${flags}git push origin $branch:main" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
 bash "$here/tools/pre-push-check.sh" <<<"$payload" || exit $?
 
+# A push that changes workflow files while a desktop build runs would make GitHub refuse that build's release, if the build could not tag at its
+# start (desktop.yml "Tag this build now"): wait for the build, up to 20 minutes (SHIP_NO_WAIT=1 skips the wait). Other pushes never wait.
+if [ -z "${SHIP_NO_WAIT:-}" ] && ! git diff --quiet origin/main HEAD -- .github/workflows 2>/dev/null; then
+  for wait in $(seq 1 40); do
+    running="$(gh run list -R GarryOne/job-pilotto --workflow desktop.yml --status in_progress -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+    [ -z "$running" ] && break
+    [ "$wait" = 1 ] && echo "ship: this push changes workflow files and desktop build $running is running: waiting for it (at most 20 min)" >&2
+    sleep 30
+  done
+fi
+
 pushed=""
 for attempt in 1 2 3 4 5; do
   before="$(git rev-parse origin/main)"
