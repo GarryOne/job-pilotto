@@ -483,13 +483,14 @@ def main(argv=None):
             from .digest import PREFERENCES
             page = json.loads(Path(args.file).read_text())
             try:
-                planned = visit_unblock.plan(page, load_search_config(matching=False), PREFERENCES)
+                planned = visit_unblock.plan_twice(page, load_search_config(matching=False), PREFERENCES)
             except Exception as error:  # noqa: BLE001 — said to the extension, which stops the site with this reason
                 print(json.dumps({'ok': False, 'error': f'Claude could not find a way to the jobs ({type(error).__name__})'}))
                 return 0
             print(f"Visit unblock: {len(planned['steps'])} steps for {str(page.get('url') or '')[:80]}: "
                   + '; '.join(f"{s['action']} {s['label'][:40]}{' = ' + s['value'] if s['value'] else ''}" for s in planned['steps'])
-                  + (f" (needs you: {planned['needs_person']})" if planned['needs_person'] else ''), file=sys.stderr)
+                  + (f" (needs you: {planned['needs_person']})" if planned['needs_person'] else '')
+                  + (' (Sonnet, after Haiku found no way)' if planned.get('model') == visit_unblock.SECOND_MODEL else ''), file=sys.stderr)
             print(json.dumps({'ok': True, **planned}, ensure_ascii=False))
             return 0
         if args.command == 'visit-filters':
@@ -516,7 +517,11 @@ def main(argv=None):
                 return 0
             from .ai import visit_reader
             try:
-                recipe = visit_reader.understand(page)
+                recipe, model = visit_reader.understand_twice(page)
+                if model == visit_reader.SECOND_MODEL:   # said, so the log shows whether the second try pays off
+                    print(f"Visit: Haiku found no job list on {str(page.get('url') or '')[:80]}; Sonnet did", file=sys.stderr)
+                elif not recipe and page.get('groups'):
+                    print(f"Visit: no job list on {str(page.get('url') or '')[:80]}, by Haiku nor Sonnet", file=sys.stderr)
             except Exception as error:  # noqa: BLE001 — said; the extension reads what its quick guess found
                 print(json.dumps({'ok': False, 'error': f'Claude could not read this page ({type(error).__name__})'}))
                 return 0

@@ -42,3 +42,16 @@ class UnblockTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SecondTryTest(unittest.TestCase):
+    def test_sonnet_looks_for_a_way_once_only_when_haiku_found_none_and_the_page_needs_no_one(self):
+        nothing = Client({'why': '', 'needs_person': '', 'steps': []})
+        way = Client({'why': 'open the list', 'needs_person': '', 'steps': [{'control': 'w2', 'action': 'open', 'value': ''}]})
+        planned = visit_unblock.plan_twice({'url': 'https://maison.example', 'ways': WAYS}, {}, client=nothing, second_client=way)
+        self.assertEqual((planned['model'], planned['steps'][0]['control']), (visit_unblock.SECOND_MODEL, 'w2'))
+        self.assertEqual(way.asked['model'], visit_unblock.SECOND_MODEL)
+        wall = Client({'why': '', 'needs_person': 'sign in', 'steps': []})
+        untouched = Client({})
+        self.assertEqual(visit_unblock.plan_twice({'url': 'https://x.example', 'ways': WAYS}, {}, client=wall, second_client=untouched)['needs_person'], 'sign in')
+        self.assertIsNone(untouched.asked, 'a page that needs the person is not asked again')

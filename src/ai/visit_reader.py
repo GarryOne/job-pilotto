@@ -11,6 +11,8 @@ import json
 from . import engine
 
 MODEL = 'claude-haiku-4-5'
+# The second try when the first model finds nothing (owner, 7 Oct 2026: "Sonnet as a 2nd try"): one page, only on a failure, logged.
+SECOND_MODEL = 'claude-sonnet-5-5'
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['group', 'title', 'company', 'place', 'link', 'next', 'why'],
           'properties': {'group': {'type': 'string', 'description': 'The id of the group whose blocks are job postings, or "" if none is'},
                          'title': {'type': 'integer', 'description': "The index of the block's text line holding the job title; -1: the job link's own text"},
@@ -27,20 +29,20 @@ which of its links opens the job, and how to go to the next page of the list, us
 lists jobs, answer group "". Never invent a label or an index."""
 
 
-def understand(outline, client=None):
+def understand(outline, client=None, model=MODEL):
     """{selector, title, company, place, link, next, why} for this page, or None when no group holds jobs. Checked against the outline."""
     groups = {str(group.get('id')): group for group in (outline.get('groups') or [])[:12] if isinstance(group, dict)}
     if not groups:
         return None
-    client = client or engine.client(action='visit_reader')
+    client = client or engine.client(action='visit_reader' if model == MODEL else 'visit_reader_second')
     ask = {'address': str(outline.get('url') or '')[:300], 'title': str(outline.get('title') or '')[:200],
            'groups': [{'id': key, 'count': group.get('count'), 'samples': (group.get('samples') or [])[:3]} for key, group in groups.items()],
            'paging_controls': [str(item.get('label'))[:30] for item in (outline.get('pager') or [])[:25] if isinstance(item, dict)]}
-    response = client.messages.create(model=MODEL, max_tokens=600, system=[{'type': 'text', 'text': SYSTEM}],
+    response = client.messages.create(model=model, max_tokens=600, system=[{'type': 'text', 'text': SYSTEM}],
                                       messages=[{'role': 'user', 'content': 'The page outline (JSON):\n' + json.dumps(ask, ensure_ascii=False)[:30000]}],
-                                      output_config=engine.structured(SCHEMA, MODEL, 'low'))
+                                      output_config=engine.structured(SCHEMA, model, 'low'))
     from . import cost
-    cost.side(MODEL, response.usage)
+    cost.side(model, response.usage)
     answer = json.loads(next(block.text for block in response.content if block.type == 'text'))
     group = groups.get(str(answer.get('group') or ''))
     if not group:
@@ -53,3 +55,15 @@ def understand(outline, client=None):
         nxt = 'none'   # a label the page does not have: no paging rather than a wrong click
     return {'selector': str(group['selector'])[:300], 'title': index(answer.get('title')), 'company': index(answer.get('company')),
             'place': index(answer.get('place')), 'link': max(0, min(int(answer.get('link') or 0), 5)), 'next': nxt[:30], 'why': str(answer.get('why') or '')[:200]}
+
+
+def understand_twice(outline, client=None, second_client=None):
+    """understand() with the fast model, then once with SECOND_MODEL when it found no job list on a page that has groups to read. Returns
+    (recipe, which model found it or '')."""
+    recipe = understand(outline, client)
+    if recipe:
+        return recipe, MODEL
+    if not (outline.get('groups') or []):
+        return None, ''
+    recipe = understand(outline, second_client, model=SECOND_MODEL)
+    return recipe, (SECOND_MODEL if recipe else '')

@@ -38,3 +38,17 @@ class RecipeTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SecondTryTest(unittest.TestCase):
+    """Owner, 7 Oct 2026: "Sonnet as a 2nd try": only when the fast model finds nothing, on a page with something to read."""
+    def test_sonnet_reads_the_page_once_only_when_haiku_found_no_list(self):
+        none = {'group': 'g9', 'title': 0, 'company': -1, 'place': -1, 'link': 0, 'next': 'none', 'why': ''}
+        found = {'group': 'g1', 'title': 0, 'company': 1, 'place': 2, 'link': 0, 'next': 'none', 'why': 'tiles'}
+        asked = []
+        second = client(found)
+        second.messages.create = (lambda real: lambda **kwargs: (asked.append(kwargs['model']), real(**kwargs))[1])(second.messages.create)
+        recipe, model = visit_reader.understand_twice(OUTLINE, client(none), second)
+        self.assertEqual((recipe['selector'], model, asked), ('div.tiles > div.tile', visit_reader.SECOND_MODEL, [visit_reader.SECOND_MODEL]))
+        self.assertEqual(visit_reader.understand_twice(OUTLINE, client(found), None)[1], visit_reader.MODEL, 'Haiku found it: no second call')
+        self.assertEqual(visit_reader.understand_twice({**OUTLINE, 'groups': []}, None, None), (None, ''), 'nothing to read: no call at all')

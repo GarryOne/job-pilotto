@@ -13,6 +13,7 @@ from . import engine
 from .visit_filters import facts
 
 MODEL = 'claude-haiku-4-5'
+SECOND_MODEL = 'claude-sonnet-5-5'   # once, when the fast model finds no way and does not say the page needs the person
 MAX_STEPS = 2
 MAX_WAYS = 80
 ACTIONS = ('click', 'type', 'select', 'open')
@@ -45,19 +46,19 @@ def clean_ways(ways):
     return out[:MAX_WAYS]
 
 
-def plan(page, search, preferences=None, client=None):
+def plan(page, search, preferences=None, client=None, model=MODEL):
     """{steps: [{control, action, value, label, href}], why, needs_person}: only listed ways and known actions; no steps when nothing fits."""
     ways = clean_ways(page.get('ways'))
     if not ways:
         return {'steps': [], 'why': 'The page offers no way on.', 'needs_person': ''}
-    client = client or engine.client(action='visit_unblock')
+    client = client or engine.client(action='visit_unblock' if model == MODEL else 'visit_unblock_second')
     ask = {'address': str(page.get('url') or '')[:300], 'title': str(page.get('title') or '')[:200], 'text': str(page.get('text') or '')[:800],
            'ways': ways, 'search': facts(search, preferences)}
-    response = client.messages.create(model=MODEL, max_tokens=600, system=[{'type': 'text', 'text': SYSTEM}],
+    response = client.messages.create(model=model, max_tokens=600, system=[{'type': 'text', 'text': SYSTEM}],
                                       messages=[{'role': 'user', 'content': 'The page, its ways on and the search (JSON):\n' + json.dumps(ask, ensure_ascii=False)}],
-                                      output_config=engine.structured(SCHEMA, MODEL, 'low'))
+                                      output_config=engine.structured(SCHEMA, model, 'low'))
     from . import cost
-    cost.side(MODEL, response.usage)
+    cost.side(model, response.usage)
     answer = json.loads(next(block.text for block in response.content if block.type == 'text'))
     known = {way['id']: way for way in ways}
     steps = []
@@ -71,3 +72,14 @@ def plan(page, search, preferences=None, client=None):
             continue
         steps.append({'control': way['id'], 'action': action, 'value': value, 'label': way['label'], 'href': way['href'] if action == 'open' else ''})
     return {'steps': steps[:MAX_STEPS], 'why': str(answer.get('why') or '')[:300], 'needs_person': str(answer.get('needs_person') or '')[:120]}
+
+
+def plan_twice(page, search, preferences=None, client=None, second_client=None):
+    """plan() with the fast model, then once with SECOND_MODEL when it found no step and did not say the page needs the person."""
+    planned = plan(page, search, preferences, client)
+    planned['model'] = MODEL
+    if planned['steps'] or planned['needs_person'] or not clean_ways(page.get('ways')):
+        return planned
+    second = plan(page, search, preferences, second_client, model=SECOND_MODEL)
+    second['model'] = SECOND_MODEL
+    return second
