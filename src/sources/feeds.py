@@ -154,6 +154,23 @@ def resting(db, now, search=None):
     return {row[0]: row[1] for row in db.execute('SELECT board, rest_until FROM feed_rest WHERE rest_until > ?', (now,))}
 
 
+def runway(rows, now):
+    """How long your employers last (owner, 7 Oct 2026: "how many turns until I exhaust my employers"): rows are feed_rest's (misses, rest_until).
+    {'resting', 'until'}: resting now, and when the first of them wakes; {'runs', 'count'}: the next searches with nothing for you after which
+    `count` more rest (the biggest group, the sooner of a tie). An employer with a match starts again from 0, so this is the most it can be."""
+    resting = sorted(until for _, until in rows if until and until > now)
+    left = {}
+    for misses, until in rows:
+        if not (until and until > now) and misses:
+            runs = max(1, REST_AFTER - misses)
+            left[runs] = left.get(runs, 0) + 1
+    soon = None
+    if left:
+        runs = max(left, key=lambda k: (left[k], -k))
+        soon = {'runs': runs, 'count': sum(n for k, n in left.items() if k <= runs)}
+    return {'resting': len(resting), 'until': resting[0] if resting else None, 'soon': soon, 'rest_after': REST_AFTER, 'rest_days': REST_DAYS}
+
+
 def _after_check(db, board, matched, now, search=None):
     if matched:
         db.execute('DELETE FROM feed_rest WHERE board = ?', (board,))

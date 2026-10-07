@@ -52,7 +52,7 @@ export function localDispatch(storage, onLine = () => {}) {
     }
     // Searching and the one-off jobs are tracked, so the app's Recent activity shows them and their result.
     const failed = error => onLine(`Telegram action failed: ${error.message}`);
-    if (workflow === 'scout.yml') { pipeline.scout(storage, onLine, 'you', inputs.batch || 15).catch(failed); return; }
+    if (workflow === 'scout.yml') { pipeline.scout(storage, onLine, 'you', inputs.batch || null).catch(failed); return; }
     if (inputs.mode === 'run') { pipeline.refresh(storage, onLine, 'run', 'you').catch(failed); return; }
     if (pipeline.TASKS[inputs.mode]) { pipeline.task(storage, inputs.mode, pipeline.dailyArgs(storage, inputs), onLine).catch(failed); return; }
     const args = pipeline.dailyArgs(storage, inputs);

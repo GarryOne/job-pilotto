@@ -41,13 +41,13 @@ test('the Few new jobs box: an employers meter with one recommendation, words as
     visits: [{name: 'LinkedIn', url: 'https://www.linkedin.com/jobs/search/?keywords=x', kind: 'portal', why: 'no way in but your own visit', last_read: null}]};
   const groups = fewJobsGroups(verdict);
   assert.equal(groups.employers.dry, true, '3 of 21 with a match: running dry');
-  assert.equal(groups.employers.next, '14 more waiting to be checked');
+  assert.equal(groups.employers.next, '14 employer ideas not tried yet · Find new employers tries 40 a run');
   assert.equal(groups.employers.fill, 14);
   assert.deepEqual(groups.sources.map(row => [row.name, row.sub]), [['Adzuna and Jooble', 'Two free keys, about 3 minutes']]);
   assert.deepEqual(groups.visits.map(row => [row.name, row.sub]), [['LinkedIn', 'your search']]);
   assert.ok(groups.words.every(action => !['source', 'visit'].includes(action.kind)), 'sources and sites are rows, not chips');
   assert.equal(fewJobsGroups({at: 'x'}).employers, null, 'no counts yet: no meter');
-  assert.match(fewJobsGroups({employers: {read: 10, matched: 6, pending: 0}}).employers.next, /every candidate checked/);
+  assert.match(fewJobsGroups({employers: {read: 10, matched: 6, pending: 0}}).employers.next, /every idea tried/);
 });
 
 test('every button Recent activity redraws that waits on something keeps its busy and done state (one mechanism; a new one without it fails here)', () => {
@@ -60,4 +60,15 @@ test('every button Recent activity redraws that waits on something keeps its bus
   assert.ok(waiting.length >= 4, 'Read with Claude, the Read sites row links, the few-jobs chips and Set up, Read them in Chrome');
   const start = activity.indexOf('function withFewJobsHelp('), box = activity.slice(start, activity.indexOf('\n}\n', start));
   assert.doesNotMatch(box, /\.disabled = (true|false)/, 'no button in the few-jobs box is disabled by hand');
+});
+
+test('Your employers says how many searches are left before they rest, and what Find new employers has untried', async () => {
+  const {fewJobsGroups, runwayWords} = await import('../renderer/coverage-actions.js');
+  const soon = {resting: 0, until: null, soon: {runs: 2, count: 242}, rest_after: 5, rest_days: 7};
+  const groups = fewJobsGroups({employers: {read: 252, matched: 3, pending: 609, batch: 100, runway: soon}});
+  assert.equal(groups.employers.runway, '2 more searches with nothing new, then 242 of 252 employers rest for 7 days (nothing for you 5 times in a row)');
+  assert.equal(groups.employers.next, '609 employer ideas not tried yet · Find new employers tries 100 a run');
+  assert.match(runwayWords({resting: 242, until: '2026-10-14T03:00:00+00:00', soon: null, rest_after: 5, rest_days: 7}, 252),
+    /^242 of 252 employers resting until 14 Oct: Find new employers to keep searching$/);
+  assert.equal(runwayWords(null, 252), '');
 });

@@ -235,7 +235,7 @@ def unused_sources(env=None):
 
 
 def employers_state(summary, db_path=None):
-    """{'read', 'matched', 'pending', 'last_scout'} for the "Your employers" meter: the last check's employer feeds read and with a match
+    """{'read', 'matched', 'pending', 'last_scout', 'runway'} for the "Your employers" meter: the last check's employer feeds read and with a match
     (src/sources/feeds.py), and the scout's candidates not checked yet with its last check. Missing parts are None."""
     import sqlite3
     from .paths import JOBS_DB
@@ -245,9 +245,16 @@ def employers_state(summary, db_path=None):
             if db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'scout_candidates'").fetchone():
                 state['pending'] = db.execute("SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending'").fetchone()[0]
                 state['last_scout'] = db.execute('SELECT MAX(checked_at) FROM scout_candidates').fetchone()[0]
+                from .scout import batch_for
+                state['batch'] = batch_for(state['pending'])
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'feed_rest'").fetchone():
+                from datetime import datetime, timezone
+                from .sources.feeds import runway
+                state['runway'] = runway(db.execute('SELECT misses, rest_until FROM feed_rest').fetchall(),
+                                         datetime.now(timezone.utc).isoformat(timespec='seconds'))
     except sqlite3.Error as error:
         print(f'Warning: employer counts not read ({error})', file=sys.stderr)
-    return {key: state.get(key) for key in ('read', 'matched', 'pending', 'last_scout')}
+    return {key: state.get(key) for key in ('read', 'matched', 'pending', 'last_scout', 'runway', 'batch')}
 
 
 def employers_for_you():

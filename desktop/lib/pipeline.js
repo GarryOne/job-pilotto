@@ -454,10 +454,10 @@ export const TASKS = {
 };
 export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Search for new jobs');
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
-export function scout(storage, onLine, trigger = 'you', batch = 15) {
+export function scout(storage, onLine, trigger = 'you', batch = null) {   // null: the engine's own size for the queue (src/scout.py batch_for)
   const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
   storage.saveSettings({lastScoutAt: new Date().toISOString()});
-  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', '--batch', String(batch)], onLine, trigger);
+  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : [])], onLine, trigger);
 }
 // A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
 export function work(storage, kind, onLine, doWork, trigger = 'you') {

@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from html import escape, unescape
 import json
+import sqlite3
 import os
 from pathlib import Path
 import re
@@ -38,6 +39,21 @@ SEEDS = CONFIG / 'scout_seeds.json'
 # Notion "Employers & Sources": one row per employer or job board (formerly Source Registry + Company Research).
 EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', '')
 DEFAULT_BATCH = 40      # candidates probed per run (15 until 3 Oct 2026: the queue then held 400+ names and moved too slowly)
+# A long queue is worked through faster and not made longer (owner, 7 Oct 2026: 609 ideas waited, the app probed 15 a run while each run added ~200):
+# a run probes a sixth of the queue (40 to 100), and adds no new names while more than IDEAS_PAUSE wait.
+MAX_BATCH, IDEAS_PAUSE = 100, 100
+
+
+def batch_for(pending, asked=DEFAULT_BATCH):
+    """How many candidates a run probes, for this many waiting: at least what was asked, more for a long queue."""
+    return max(asked, min(MAX_BATCH, (pending or 0) // 6))
+
+
+def pending_count(db):
+    try:
+        return db.execute("SELECT COUNT(*) FROM scout_candidates WHERE status = 'pending'").fetchone()[0]
+    except sqlite3.OperationalError:   # before the first run made its table
+        return 0
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90, 'watch': 7}   # watch: a careers page with no open jobs today, looked at again weekly
 # Tier 1 feeds are crawled with this many matching roles anywhere: their Zurich/London roles come and go.
@@ -1005,11 +1021,17 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     skip = skipped_origins(seeds, scout_ideas.technical(load_search_config()))
     print('Scout: reading the employer lists…' if not skip else
           'Scout: reading the employer lists (your roles are outside IT, so the tech company lists are left out)…')
-    added = harvest(db, seeds, harvest_sources, skip)
-    print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
-    ideas = ai_ideas(db, harvest_sources)
-    if ideas:
-        added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
+    waiting = pending_count(db)
+    if waiting > IDEAS_PAUSE and harvest_sources is None:
+        added, ideas = 0, None
+        print(f'Scout: {waiting} candidates still untried, so no new names this run (more than {IDEAS_PAUSE} wait); checking them first…')
+    else:
+        added = harvest(db, seeds, harvest_sources, skip)
+        print(f'Scout: {added} new candidate(s) from the lists; asking the AI for ideas…')
+        ideas = ai_ideas(db, harvest_sources)
+        if ideas:
+            added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
+    batch = batch_for(pending_count(db), batch)
     candidates = next_batch(db, batch, skip)
     if not CENTRAL:   # employers some install (or the central scout) found with no readable job site lately: not probed again here
         dead = employer_index.central_nofeed()

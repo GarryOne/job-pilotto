@@ -278,3 +278,23 @@ class RunHeadlineTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class QueueTests(unittest.TestCase):
+    """7 Oct 2026: 609 ideas waited while the app probed 15 a run and each run added ~200."""
+    def test_a_long_queue_is_probed_faster(self):
+        from src.scout import batch_for
+        self.assertEqual(batch_for(0), 40)
+        self.assertEqual(batch_for(609), 100)
+        self.assertEqual(batch_for(300), 50)
+        self.assertEqual(batch_for(10, 15), 15)
+
+
+class RunwayTests(unittest.TestCase):
+    def test_how_many_searches_before_most_employers_rest(self):
+        from src.sources.feeds import runway
+        now = '2026-10-07T03:00:00+00:00'
+        rows = [(3, None)] * 242 + [(1, None)] * 7 + [(2, None)]
+        self.assertEqual(runway(rows, now)['soon'], {'runs': 2, 'count': 242})
+        resting = runway([(5, '2026-10-14T03:00:00+00:00')] * 3 + [(0, None)], now)
+        self.assertEqual((resting['resting'], resting['until'], resting['soon']), (3, '2026-10-14T03:00:00+00:00', None))

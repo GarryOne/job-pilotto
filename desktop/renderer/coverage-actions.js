@@ -32,6 +32,18 @@ export function adviceEvent(act, kind, where, {source = '', record = globalThis.
 // The "Few new jobs" box in groups (owner's approved layout, 7 Oct 2026): the employers meter with the one recommended action, words to add
 // as chips, job sources and sites as rows with their own button. Pure: the box draws exactly this.
 export const QUIET_SHARE = 0.3;   // under this share of employers with a match, the employer list is running dry: Find new employers
+// How long your employers last (src/sources/feeds.py runway): one with nothing for you REST_AFTER searches in a row rests REST_DAYS days.
+// Owner, 7 Oct 2026: "how many turns until I exhaust all my employers and am forced to run Find new employers".
+export function runwayWords(runway, read) {
+  if (!runway || !read) return '';
+  const total = Number(read) || 0, resting = Number(runway.resting) || 0;
+  const day = until => new Date(until).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'});
+  if (resting && resting * 2 >= total) return `${resting} of ${total} employers resting until ${day(runway.until)}: Find new employers to keep searching`;
+  const soon = runway.soon;
+  if (!soon?.count) return resting ? `${resting} of ${total} employers resting until ${day(runway.until)}` : '';
+  return `${soon.runs} more search${soon.runs === 1 ? '' : 'es'} with nothing new, then ${soon.count} of ${total} employers rest for ${runway.rest_days} days`
+    + ` (nothing for you ${runway.rest_after} times in a row)`;
+}
 export function fewJobsGroups(verdict) {
   const actions = coverageActions(verdict);
   const e = verdict?.employers || {};
@@ -42,7 +54,10 @@ export function fewJobsGroups(verdict) {
     const dry = share < QUIET_SHARE;
     employers = {read: e.read, matched, pending, fill: Math.max(2, Math.round(share * 100)), dry,
       advice: dry ? 'Most have nothing new for you' : 'They still bring jobs',
-      next: pending > 0 ? `${pending} more waiting to be checked` : 'every candidate checked: it looks for new names'};
+      runway: runwayWords(e.runway, e.read),
+      // Ideas the Find new employers task has not tried yet: a job search never touches them (owner, 7 Oct 2026: "why didn't 410 go down?").
+      next: pending > 0 ? `${pending} employer idea${pending === 1 ? '' : 's'} not tried yet · Find new employers tries ${Number(e.batch) || 40} a run`
+        : 'every idea tried: Find new employers looks for new names'};
   }
   const sources = (Array.isArray(verdict?.sources) ? verdict.sources : []).map(source => ({id: source.id, name: source.name, sub: source.people || source.effort, title: `${source.effort}: ${source.gain}`}));
   const visits = (Array.isArray(verdict?.visits) ? verdict.visits : []).map(site => ({url: site.url, name: site.name,

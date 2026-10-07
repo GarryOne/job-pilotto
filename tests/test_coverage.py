@@ -194,4 +194,4 @@ class EmployersStateTests(unittest.TestCase):
                 db.execute('CREATE TABLE scout_candidates (key TEXT, status TEXT, checked_at TEXT)')
                 db.executemany('INSERT INTO scout_candidates VALUES (?, ?, ?)', [('a', 'pending', None), ('b', 'pending', None), ('c', 'found', '2026-10-06T20:00:00')])
             state = coverage.employers_state({'employers': {'read': 21, 'matched': 3}}, path)
-        self.assertEqual(state, {'read': 21, 'matched': 3, 'pending': 2, 'last_scout': '2026-10-06T20:00:00'})
+        self.assertEqual(state, {'read': 21, 'matched': 3, 'pending': 2, 'last_scout': '2026-10-06T20:00:00', 'runway': None, 'batch': 40})

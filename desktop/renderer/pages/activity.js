@@ -1903,7 +1903,8 @@ function withFewJobsHelp(foot, runId) {
       adviceEvent('shown', 'employer', 'few-jobs');
       const line = el('li', '');
       const words = el('div', 'item-words');
-      words.append(el('b', '', `${e.matched} of ${e.read} employers had a job for you`), el('span', 'muted', `${e.advice} · ${e.next}`));
+      // The counter first (how many searches your employers have left), then what Find new employers has waiting.
+      words.append(el('b', '', `${e.matched} of ${e.read} employers had a job for you`), el('span', 'muted', e.runway || e.advice), el('div', 'muted', e.next));
       line.append(words, scout);
       parts.push(section('Your employers', track, rows([line])));
     }
