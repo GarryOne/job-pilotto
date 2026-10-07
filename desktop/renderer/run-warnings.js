@@ -11,10 +11,13 @@ export const runWarnings = lines => [...new Set(lines.filter(line => WARNING.tes
 // Everywhere a run's warnings are recorded: its log (a run on this Mac) and its page's report (lib/run-history.js
 // `report` — where a GitHub run's "Warning: …" lines are, its log being one line pointing at its page). Not its
 // `result`: that is the row's one-line summary, and a failed run's is just "failed".
+// A Read sites run says each stopped site in its own card row (renderer/visits-card.js): its progress lines (⏳ step, ✗/✓ site, ▸ row) are not
+// warnings again above it (7 Oct 2026: "IWC is not responding: skipped… And 3 more" repeated the rows).
+const SITE_ROW = /^\s*(?:⏳|✗|✓|▸)/;
 export const runWarningLines = run => runWarnings([
   ...(Array.isArray(run?.log) ? run.log : []),
   ...(Array.isArray(run?.report) ? run.report : []),
-]);
+].filter(line => run?.kind !== 'visits' || !SITE_ROW.test(String(line))));
 
 // The Anthropic account's spend limit, in any of its wordings (a line cut short still counts when another says it).
 const LIMIT = /usage limits?|credit balance|AI limit reached|spending limit/i;

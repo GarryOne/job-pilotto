@@ -1437,6 +1437,9 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
 .task-card input.task-count { flex: none; width: 56px; padding: 6px 4px; text-align: center; font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); appearance: textfield; -moz-appearance: textfield; }
+/* A task's number box says what it counts, beside it (7 Oct 2026: "the 2 in the input field: what does it count?"): every .task-count has one. */
+.task-card .task-count-field { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); }
+.task-card .task-count-unit { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
 .task-card input.task-count::-webkit-inner-spin-button, .task-card input.task-count::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 /* Read sites only you can open (Actions): its list of sites scrolls past about four rows instead of growing the card. */
 #visits-sites { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }

@@ -2276,7 +2276,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   });   // the extension waits on the person: said, not "reading"   // a tab the Actions task opened has been read
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
-    if (answer.ok) toWindow('visit-read', answer);
+    // A page you read by your own click is said at once; one read for a Read sites run (it has a ticket) is said by that run's card, which also
+    // starts the search (7 Oct 2026: a toast per page said "your next jobs check scores them" while the card said a search had started).
+    if (answer.ok && !page?.ticket) toWindow('visit-read', answer);
     return answer;
   });
   server.setMissesHandler(payload => misses.record(storage, payload, Date.now(), prints => {

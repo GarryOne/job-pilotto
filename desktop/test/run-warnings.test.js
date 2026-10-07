@@ -91,3 +91,11 @@ test('the JavaScript SDK error body is said in words, with the day the limit res
   const page = fs.readFileSync(new URL('../renderer/pages/profile.js', import.meta.url), 'utf8');
   assert.equal((page.match(/\$\('cv-message'\)\.textContent = [^;]*result\.error/g) || []).filter(line => !/cvError\(result\.error/.test(line)).length, 0, 'the CV message never shows result.error as it is');
 });
+
+test('a Read sites run\'s site rows are not repeated as warnings above its card; another task\'s skipped line still is', () => {
+  const log = ['Reading 2 sites in your browser, 2 at a time', '⏳ IWC Schaffhausen is not responding: skipped, the next site opens',
+    '  ✗ IWC Schaffhausen: it stopped answering (nothing for 30 s): skipped, you can close its tab',
+    '  ▸ stopped · IWC Schaffhausen · it stopped answering (nothing for 30 s): skipped, you can close its tab', 'Warning: Notion is busy (429)'];
+  assert.deepEqual(runWarningLines({kind: 'visits', log}), ['Notion is busy (429)']);
+  assert.equal(runWarningLines({kind: 'tailor', log}).length, 4);
+});
