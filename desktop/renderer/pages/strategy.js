@@ -12,6 +12,7 @@ import {titleCase} from './strategy-review.js';
 import {coverageCard, employersCard, filtersCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
+import {startSearch} from './jobs.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
 function chips(items, tone = '') {
@@ -26,7 +27,9 @@ export async function loadStrategy() {
   // The last good read at once (lib/view-cache.js), then the fresh one.
   const saved = await window.pilot.cached('strategy');
   if (saved?.result?.ok && !strategyShown) {
-    renderStrategy(saved.result);
+    // The saved copy draws the page at once, but not its alerts about what changes: "Your Profile is empty" and "N scores kept" came back
+    // for a few seconds after every refresh, from a copy older than the rebuild that cleared them (7 Oct 2026). The fresh read shows them.
+    renderStrategy({...saved.result, profile_empty: false, previous: 0});
     $('strategy-synced').textContent = `Saved ${savedAgo(saved.at)} · updating…`;
   } else if (!strategyShown) strategySkeleton();
   const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
@@ -316,11 +319,19 @@ export async function init() {
   $('targets-save').addEventListener('click', saveTargets);
   $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
+  // Re-score them now: the kept scores are queued, then a search starts at once and scores them (60 per search), shown like any search
+  // (header status, Recent activity, its result). 7 Oct 2026: it only queued them for later searches, so nothing seemed to happen.
   $('strategy-rescore').addEventListener('click', async () => {
-    $('strategy-rescore').disabled = true;
-    const result = await window.pilot.rescorePrevious();
-    $('strategy-rescore').disabled = false;
-    toastMessage(result.ok ? 'Queued for re-scoring' : 'Not queued', result.ok ? `${result.queued} jobs get a new score over the next searches (60 per search).` : result.error);
-    loadStrategy();
+    const button = $('strategy-rescore'), label = button.textContent;
+    button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Re-scoring…';
+    try {
+      const result = await window.pilot.rescorePrevious();
+      if (!result.ok) { toastMessage('Not re-scored', result.error); return; }
+      toastMessage('Re-scoring now', `${result.queued} jobs get a new score in this search${result.queued > 60 ? ' (60 now, the rest in the next one)' : ''}. Follow it in Recent activity.`);
+      await startSearch();
+    } finally {
+      button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = label;
+      loadStrategy();
+    }
   });
 }

@@ -8,5 +8,9 @@ test('the live log handler never clears the selected run; the buttons that start
   const onLog = jobs.slice(jobs.indexOf('window.pilot.onLog('), jobs.indexOf("$('search-status')"));
   assert.ok(onLog.length > 50, 'the onLog handler was found');
   assert.doesNotMatch(onLog, /selectedRun\s*=\s*null/, 'a background run must not move the panel away from the run being read');
-  assert.match(jobs.slice(jobs.indexOf("$('refresh').addEventListener")), /selectedRun = null/, 'Refresh still follows the run it starts');
+  const start = jobs.slice(jobs.indexOf('export async function startSearch('), jobs.indexOf('export async function startSearch(') + 400);
+  assert.match(start, /selectedRun = null/, 'a search started from a button follows the run it starts');
+  assert.match(jobs, /\$\('refresh'\)\.addEventListener\('click', \(\) => startSearch\(\)\)/, 'Refresh starts it through startSearch');
+  const strategy = fs.readFileSync(new URL('../renderer/pages/strategy.js', import.meta.url), 'utf8');
+  assert.match(strategy, /await startSearch\(\)/, 'Re-score them now starts the search the same way');
 });

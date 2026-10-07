@@ -892,6 +892,22 @@ export function showJobsIn(label, urls, from = '') {
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
+// Search for new jobs, from any button that starts one (Refresh, "score the unscored", Strategy's Re-score them now): the header status
+// shows "Searching for new jobs →", the run joins Recent activity, the list reloads after. Resolves when the search ends.
+export async function startSearch() {
+  $('refresh').disabled = true;
+  shared.selectedRun = null;
+  setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
+  try {
+    await window.pilot.refresh();
+  } finally {
+    $('refresh').disabled = false;
+    loadJobs();
+    refreshActivity();
+    showSearchStatus();
+  }
+}
+
 export async function init() {
   searchSelect($('lead-target'));
   try { $('jobs-talking').open = localStorage.getItem(TALKING_OPEN) !== '0'; } catch {}
@@ -1109,19 +1125,7 @@ export async function init() {
     refreshActivity();
   });
   $('search-status').addEventListener('click', () => openActivity(true));
-  $('refresh').addEventListener('click', async () => {
-    $('refresh').disabled = true;  // the header status shows "Searching for new jobs →" meanwhile
-    shared.selectedRun = null;
-    setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
-    try {
-      await window.pilot.refresh();
-    } finally {
-      $('refresh').disabled = false;
-      loadJobs();
-      refreshActivity();
-      showSearchStatus();
-    }
-  });
+  $('refresh').addEventListener('click', () => startSearch());
 
   $('jobs-unscored-go').addEventListener('click', () => $('refresh').click());
   $('apply-open').addEventListener('click', () => {
