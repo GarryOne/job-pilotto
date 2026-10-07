@@ -57,3 +57,19 @@ class ReleaseJobsMayWriteIssues(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EveryAiStepReportsItsCost(unittest.TestCase):
+    """7 Oct 2026: the Windows screenshot review (Sonnet, screenshots) never reported its cost, so /admin/ai-cost missed it. Every job that runs the review
+    reports it; a new job that runs the review without the report fails here."""
+    def test_every_job_running_the_screenshot_review_reports_its_cost(self):
+        checked = []
+        for path in sorted(WORKFLOWS.glob('*.yml')):
+            text = path.read_text()
+            if '\njobs:\n' not in text:
+                continue
+            for name, job in jobs(text):
+                if 'node review-ui.mjs' in job:
+                    checked.append(f'{path.name}:{name}')
+                    self.assertIn('--job e2e-screenshot-review', job, f'{path.name} job {name} runs the AI screenshot review but does not report its cost')
+        self.assertGreaterEqual(len(checked), 4, checked)   # e2e.yml, e2e-windows.yml and both lanes of desktop.yml

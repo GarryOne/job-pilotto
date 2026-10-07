@@ -233,6 +233,15 @@ jobs:
         working-directory: desktop/e2e
         timeout-minutes: 15   # the batch waits up to 6 min, then asks what is left directly
         run: node review-ui.mjs
+      # Its cost on /ai-cost, as the Mac lane reports it (7 Oct 2026: the Windows review, Sonnet with screenshots, was the one e2e AI cost never reported).
+      - name: Report the AI review's cost to /ai-cost
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('e2e-artifacts-windows/**/ai-review-usage.json') != ''
+        continue-on-error: true   # a report never decides a run
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          node -e 'const fs=require("fs"); const u=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); fs.writeFileSync(process.argv[2], JSON.stringify({job: "review", usd: Number(u.usd)||0, turns: Number(u.calls)||0, at: new Date().toISOString(), limit: false}))' "$E2E_ARTIFACTS/ai-review-usage.json" "$RUNNER_TEMP/ai-cost.json"
+          node desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "windows-${{ matrix.suite }}" --file "$RUNNER_TEMP/ai-cost.json"
       - name: Keep the AI reviews for the next run
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
         uses: actions/cache/save@v5
