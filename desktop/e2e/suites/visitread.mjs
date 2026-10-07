@@ -9,6 +9,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import {chromium} from 'playwright-core';
+import {python, pythonEnv} from '../lib/python.mjs';
 
 export const name = 'visitread';
 export const minutes = 2;
@@ -18,7 +19,6 @@ export const keepGoing = true;
 
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
 const fixtures = path.join(import.meta.dirname, '..', 'fixtures', 'visits');
-const python = () => process.env.E2E_PYTHON || (fs.existsSync(path.join(repo, '.venv', 'bin', 'python')) ? path.join(repo, '.venv', 'bin', 'python') : 'python3');
 // The two functions as the extension injects them: their own source, nothing re-written for the test.
 const source = fs.readFileSync(path.join(repo, 'extension', 'visit.js'), 'utf8');
 const fn = name => { const match = new RegExp(`export function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js`); return match[0].replace('export ', ''); };
@@ -76,7 +76,7 @@ answer = {'why': 'recent, Geneva', 'steps': [{'control': sys.argv[2], 'action': 
   {'control': 'easy', 'action': 'click', 'value': ''}]}
 client = SimpleNamespace(messages=SimpleNamespace(create=lambda **k: SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps(answer))], usage=SimpleNamespace(input_tokens=1, output_tokens=1))))
 print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls': controls}, {'role_keywords': ['photographe'], 'locations': {'top_tier': ['Genève']}}, client=client)))`;
-      const planned = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(controls), when.id, where.id], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}}).trim().split('\n').pop());
+      const planned = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(controls), when.id, where.id], {cwd: repo, encoding: 'utf8', env: pythonEnv({JOB_PILOTTO_FOLLOW_APP: '0'})}).trim().split('\n').pop());
       if (planned.steps.length !== 2) throw new Error(`the engine kept ${JSON.stringify(planned.steps)}: an unlisted control must be dropped`);
       await page.evaluate(() => { document.getElementById('easy').dataset.jpControl = 'sneaky'; });
       const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([...planned.steps, {control: 'sneaky', action: 'click', value: ''}])})`);
@@ -100,7 +100,7 @@ outline = json.loads(sys.argv[1])
 answer = {'group': sys.argv[2], 'title': -1, 'company': 1, 'place': 2, 'link': 0, 'next': '→ Suivante', 'why': 'tiles'}
 reply = SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps(answer))], usage=SimpleNamespace(input_tokens=1, output_tokens=1))
 print(json.dumps(visit_reader.understand(outline, SimpleNamespace(messages=SimpleNamespace(create=lambda **k: reply)))))`;
-      const recipe = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(outline), tiles.id], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}}).trim().split('\n').pop());
+      const recipe = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(outline), tiles.id], {cwd: repo, encoding: 'utf8', env: pythonEnv({JOB_PILOTTO_FOLLOW_APP: '0'})}).trim().split('\n').pop());
       const withRecipe = expr => page.evaluate(`(${fn(expr).replace(`function ${expr}`, 'function')})(${JSON.stringify(recipe)})`);
       const cards = await withRecipe('cardsByRecipe');
       if (cards.map(card => card.title).join('|') !== 'Vendeuse confirmée|Conseiller de vente horlogerie|Photographe produit e-shop' || cards[1].lines[1] !== 'Boutique Lac') throw new Error(`cards ${JSON.stringify(cards)}`);
@@ -120,7 +120,7 @@ from unittest import mock
 from src.sources import visits
 with mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'v.json'):
     print(json.dumps(visits.job_page(sys.argv[1], sys.argv[2])))`;
-      const found = JSON.parse(execFileSync(python(), ['-c', script, seen.url.replace('127.0.0.1', 'maison-rive.example'), seen.html], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}}).trim().split('\n').pop());
+      const found = JSON.parse(execFileSync(python(), ['-c', script, seen.url.replace('127.0.0.1', 'maison-rive.example'), seen.html], {cwd: repo, encoding: 'utf8', env: pythonEnv({JOB_PILOTTO_FOLLOW_APP: '0'})}).trim().split('\n').pop());
       if (!/\/joboffers\/en$/.test(found || '')) throw new Error(`found ${found}, the Careers link expected`);
     });
 
@@ -186,7 +186,7 @@ with mock.patch.object(visits, 'STORE', Path(store)), mock.patch.object(visits.c
     own = visits.read(employer['url'].replace('127.0.0.1', 'jobs.example'), employer['html'], employer['cards'], employer['title'])
 print(json.dumps({'added': [r['added'] for r in results], 'jobs': [[j['title'], j.get('employer'), j['location']] for j in jobs],
                   'own': [[j['title'], j['location']] for j in own['jobs']]}))`;
-      const out = execFileSync(python(), ['-c', script, JSON.stringify(sent), JSON.stringify(employer), store], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}});
+      const out = execFileSync(python(), ['-c', script, JSON.stringify(sent), JSON.stringify(employer), store], {cwd: repo, encoding: 'utf8', env: pythonEnv({JOB_PILOTTO_FOLLOW_APP: '0'})});
       const result = JSON.parse(out.trim().split('\n').pop());
       console.log(`    ${JSON.stringify(result)}`);
       if (JSON.stringify(result.added) !== '[2,1]') throw new Error(`new per page ${JSON.stringify(result.added)}, expected 2 then 1 (one card repeats)`);

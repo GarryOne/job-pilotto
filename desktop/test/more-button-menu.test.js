@@ -30,3 +30,19 @@ test('no event listener passes closeMenu itself (the Event would be read as `wit
   for (const file of files)
     assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /addEventListener\([^,]+,\s*closeMenu\b/, `${file.pathname}: wrap it, () => closeMenu()`);
 });
+
+// 7 Oct 2026 (Windows focusdismiss suite): scroll events arrive a frame late, so the scroll that brought a ⋯ button into view before the click shut the menu the
+// click had just opened. A scroll closes the menu only when it moved the button, or the button left the page (a redraw replaced it).
+test('a scroll closes the ⋯ menu only when its button moved or is gone', () => {
+  const source = fs.readFileSync(new URL('../renderer/components.js', import.meta.url), 'utf8');
+  const body = source.slice(source.indexOf('export function scrollCloses'), source.indexOf("document.addEventListener('scroll'"));
+  const scrollCloses = new Function(`${body.replace('export ', '')}; return scrollCloses;`)();
+  const button = (top, left = 900, isConnected = true) => ({isConnected, getBoundingClientRect: () => ({top, left})});
+  assert.equal(scrollCloses(button(300), {top: 300, left: 900}), false);   // a late event from a scroll before the click: the menu stays
+  assert.equal(scrollCloses(button(300.5), {top: 300, left: 900}), false); // sub-pixel
+  assert.equal(scrollCloses(button(240), {top: 300, left: 900}), true);    // the page really scrolled: the menu would float away from its button
+  assert.equal(scrollCloses(button(300, 900, false), {top: 300, left: 900}), true);   // a redraw replaced the button
+  assert.equal(scrollCloses(null, null), true);
+  assert.match(source, /addEventListener\('scroll', \(\) => \{ if \(!menu\.hidden && scrollCloses\(menuAnchor, menuAt\)\) closeMenu\(\); \}, true\)/);
+  assert.match(source, /menuAt = \{top: box\.top, left: box\.left\};/);
+});

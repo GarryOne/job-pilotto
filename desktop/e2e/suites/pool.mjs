@@ -4,8 +4,8 @@
 // feeds where no photographer found a job; employers and job sources ranked for people like them; the list checked hourly by its publish time.
 // No app window, no Notion, no AI: about ten seconds. Each check is its own step.
 import {execFile} from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
+import {python, pythonEnv} from '../lib/python.mjs';
 
 export const name = 'pool';
 export const minutes = 2;
@@ -13,7 +13,6 @@ export const light = true;
 export const keepGoing = true;
 
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
-const python = () => process.env.E2E_PYTHON || (fs.existsSync(path.join(repo, '.venv', 'bin', 'python')) ? path.join(repo, '.venv', 'bin', 'python') : 'python3');
 export const STEPS = [
   'Find new employers sends each verified employer and each dead end at once, with fixed labels only',
   'Search for jobs sends every feed it read (also with no match) and each board by fixed id, with counts only',
@@ -27,7 +26,7 @@ export const STEPS = [
 export async function run(ctx) {
   let checks = null;
   await ctx.run('the engine runs the pool against a stand-in website, and the stand-in saw it', async () => {
-    const report = await new Promise(resolve => execFile(python(), [path.join(repo, 'tools', 'pool_e2e.py')], {cwd: repo, timeout: 90 * 1000, maxBuffer: 4 << 20},
+    const report = await new Promise(resolve => execFile(python(), [path.join(repo, 'tools', 'pool_e2e.py')], {cwd: repo, timeout: 90 * 1000, maxBuffer: 4 << 20, env: pythonEnv()},
       (error, stdout, stderr) => resolve({out: String(stdout), err: String(stderr)})));
     const last = report.out.trim().split('\n').pop() || '';
     try { checks = JSON.parse(last).checks; } catch { throw new Error(`no result from tools/pool_e2e.py: ${(report.err || report.out).trim().split('\n').slice(-3).join(' | ')}`); }

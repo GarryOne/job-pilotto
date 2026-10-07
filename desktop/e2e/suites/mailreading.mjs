@@ -2,9 +2,9 @@
 // to the real model through the check's own prompt (tools/mail_eval.py); no Gmail, no Notion, no app, no browser. It costs real AI money, so it runs ONLY when the
 // reading changes (src/ai/mail.py, its cases, the script): never on a schedule, never in the nightly gate. A person can still start it by name.
 import {execFile} from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import {startAiProxy} from '../lib/ai-proxy.mjs';
+import {python, pythonEnv} from '../lib/python.mjs';
 
 export const name = 'mailreading';
 export const minutes = 5;
@@ -13,7 +13,6 @@ export const cadence = 'watched';
 export const watches = ['src/ai/mail.py', 'tools/mail_eval.py', 'tests/fixtures/mail_eval.json'];
 
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
-const python = () => process.env.E2E_PYTHON || (fs.existsSync(path.join(repo, '.venv', 'bin', 'python')) ? path.join(repo, '.venv', 'bin', 'python') : 'python3');
 
 export async function run(ctx) {
   let report = null;
@@ -23,7 +22,7 @@ export async function run(ctx) {
     try {
     report = await new Promise(resolve => execFile(python(), [path.join(repo, 'tools', 'mail_eval.py')], {
       cwd: repo, timeout: 4 * 60 * 1000, maxBuffer: 4 << 20,
-      env: {...process.env, ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: ctx.engine, ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})},
+      env: pythonEnv({ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: ctx.engine, ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})}),
     }, (error, stdout, stderr) => resolve({code: error ? (error.code ?? 1) : 0, out: String(stdout), err: String(stderr)})));
     } finally { await proxy?.close(); }
     console.log(report.out.split('\n').filter(line => /^(ok|MISS)|right/.test(line)).map(line => `  ${line}`).join('\n'));

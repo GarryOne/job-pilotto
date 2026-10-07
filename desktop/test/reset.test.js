@@ -140,3 +140,37 @@ test('the export file is named after its person, their role and the time', async
   assert.equal(exportName({at}), 'Job Pilotto export · 2026-10-06 22.41.tar.gz');                    // nothing known yet: still a valid name
   assert.equal(exportName({name: 'A/B: "C"', role: 'x'.repeat(60), at}), `Job Pilotto export · A B C · ${'x'.repeat(40)} · 2026-10-06 22.41.tar.gz`);  // no characters a file name refuses, no endless role
 });
+
+// 7 Oct 2026, Windows: the relaunch after an import moved the data folder half a second after the old app quit, while Windows still held it (EPERM), and the
+// import was skipped. A locked folder is waited for; the import then happens.
+test('import at start waits while Windows still holds the data folder, then applies it', () => {
+  const a = profile();
+  const file = path.join(a.base, 'export.tar.gz');
+  reset.exportTo(a.dir, file);
+  const b = profile();
+  reset.stageImport(b.dir, file);
+  const rename = fs.renameSync;
+  let refused = 0;
+  fs.renameSync = (from, to) => {
+    if (from === b.dir && refused < 2) { refused += 1; throw Object.assign(new Error(`EPERM: operation not permitted, rename '${from}'`), {code: 'EPERM'}); }
+    return rename(from, to);
+  };
+  try {
+    const done = reset.applyPending(b.dir);
+    assert.equal(refused, 2);   // the lock really happened
+    assert.equal(done.imported, true);
+    assert.equal(done.waited, 500);
+    assert.ok(fs.existsSync(done.backup));
+  } finally { fs.renameSync = rename; }
+});
+
+test('whenUnlocked: only a lock is retried, and only for so long', () => {
+  const failing = code => () => { throw Object.assign(new Error(code), {code}); };
+  let calls = 0;
+  assert.throws(() => reset.whenUnlocked(() => { calls += 1; failing('ENOENT')(); }, {every: 1}), /ENOENT/);
+  assert.equal(calls, 1);   // not a lock: thrown at once
+  calls = 0;
+  const waited = {ms: 0};
+  assert.throws(() => reset.whenUnlocked(() => { calls += 1; failing('EBUSY')(); }, {tries: 3, every: 1, waited}), /EBUSY/);
+  assert.deepEqual([calls, waited.ms], [3, 2]);   // a lock that lasts is thrown after the last try
+});

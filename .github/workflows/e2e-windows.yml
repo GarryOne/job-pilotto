@@ -135,10 +135,12 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
-      - name: Chromium for the extension (the apply suite loads the real Chrome extension in it)
-        if: matrix.suite == 'apply' || matrix.suite == 'applycv'
+      - name: Chromium for the suites that use a browser (the real extension, the extension's page code)
         working-directory: desktop/e2e
-        run: npx playwright-core install chromium
+        # As on the Mac (e2e.yml): the suite says it needs one (`export const browser = true` or `export const needsChromium = true`). A list of suite names here
+        # missed visitread and visitsauto (7 Oct 2026: "Executable doesn't exist at ...chrome.exe").
+        run: |
+          if [ -f "suites/${{ matrix.suite }}.mjs" ] && grep -qE '^export const (browser|needsChromium) = true' "suites/${{ matrix.suite }}.mjs"; then npx playwright-core install chromium; else echo "no browser needed"; fi
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
       - name: Earlier AI answers (replayed instead of paid again; lib/ai-meter.mjs)
@@ -254,7 +256,7 @@ jobs:
         run: |
           if ! ls "$GITHUB_WORKSPACE"/blob-reports/*.zip > /dev/null 2>&1; then echo "No suite wrote a report (a build older than the HTML report): none for this run." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           npm ci || npm install
-          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports --reporter html "$GITHUB_WORKSPACE/blob-reports"
+          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html "$GITHUB_WORKSPACE/blob-reports"
           echo "made=1" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v6
         if: steps.merge.outputs.made == '1'

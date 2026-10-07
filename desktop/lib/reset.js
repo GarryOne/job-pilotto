@@ -77,29 +77,45 @@ export function request(dir, {backup = true, archived = null} = {}, now = new Da
   fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup, archived, at: now.toISOString()}));
 }
 
-// At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true} / {archived}.
+// Windows keeps a folder locked for a moment after the process that had files open in it exits: the relaunch after "Import an export…" tried to
+// move the data folder half a second after the old app quit and got EPERM, so the import was not applied (7 Oct 2026, the Windows settings suite).
+// Those errors are retried for a few seconds; any other error, or one that lasts, is thrown as before. waited: the milliseconds it took (for the log).
+const LOCKED = new Set(['EPERM', 'EBUSY', 'EACCES', 'ENOTEMPTY']);
+const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+export function whenUnlocked(work, {tries = 40, every = 250, waited = {ms: 0}} = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try { return work(); } catch (error) {
+      if (!LOCKED.has(error.code) || attempt >= tries) throw error;
+      pause(every);
+      waited.ms += every;
+    }
+  }
+}
+
+// At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true} / {archived} / {waited: ms on a locked folder}.
 export function applyPending(dir, now = new Date()) {
   const marker = path.join(dir, MARKER);
   if (!fs.existsSync(marker)) return null;
   let wanted = {backup: true};
   try { wanted = JSON.parse(fs.readFileSync(marker, 'utf8')); } catch {}
-  const done = {};
+  const done = {}, waited = {ms: 0}, unlocked = work => whenUnlocked(work, {waited});
   if (wanted.backup !== false) {
     done.backup = backupName(dir, now);
-    fs.renameSync(dir, done.backup);
+    unlocked(() => fs.renameSync(dir, done.backup));
     fs.rmSync(path.join(done.backup, MARKER), {force: true});
   } else {
-    fs.rmSync(dir, {recursive: true, force: true});
+    unlocked(() => fs.rmSync(dir, {recursive: true, force: true}));
     done.deleted = true;
   }
   if (wanted.archived) done.archived = wanted.archived;
   if (wanted.import && fs.existsSync(wanted.import)) {
-    fs.renameSync(wanted.import, dir);
+    unlocked(() => fs.renameSync(wanted.import, dir));
     fs.rmSync(path.join(dir, 'manifest.json'), {force: true});
     fs.rmSync(path.join(dir, NOTION_FILE), {force: true});  // a copy for the user to keep; Notion stays the truth
     done.imported = true;
     if (notionLeftBehind(dir)) done.notionElsewhere = true;
   }
+  if (waited.ms) done.waited = waited.ms;
   return done;
 }
 

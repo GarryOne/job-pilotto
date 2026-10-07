@@ -331,7 +331,7 @@ jobs:
         run: |
           if ! ls "$GITHUB_WORKSPACE"/blob-reports/*.zip > /dev/null 2>&1; then echo "No suite wrote a report (a build older than the HTML report): none for this run." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           npm ci || npm install
-          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports --reporter html "$GITHUB_WORKSPACE/blob-reports"
+          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html "$GITHUB_WORKSPACE/blob-reports"
           echo "made=1" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v6
         if: steps.merge.outputs.made == '1'

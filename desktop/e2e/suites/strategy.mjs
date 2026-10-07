@@ -52,7 +52,19 @@ export async function run(ctx) {
   };
   const settingsPage = () => linkedPage(page);
   const profileId = await page.evaluate(() => window.pilot.state()).then(s => s.settings.notionIds.NOTION_PROFILE_PAGE_ID);
-  const sections = async () => pageSections(NOTION, await settingsPage());
+  // Read right after the app rewrote the page, Notion can list it without its headings for a while (7 Oct 2026: "Cannot read properties of undefined
+  // (reading 'filter')" on 'Roles to look for', 14 s after a delete-and-append rewrite). Wait for the headings every step reads, then say which were missing.
+  const HEADINGS = ['Roles to look for', 'Best places', 'Companies to skip'];
+  const sections = async () => {
+    const id = await settingsPage();
+    let found = {};
+    for (let i = 0; i < 10; i++) {
+      found = await pageSections(NOTION, id);
+      if (HEADINGS.every(heading => found[heading])) return found;
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    throw new Error(`the Search settings page (${id}) still lacks ${HEADINGS.filter(heading => !found[heading]).join(', ')} after 30 s; it reads: ${Object.keys(found).join(' | ') || 'no headings'}`);
+  };
   const has = (list, word) => (list || []).some(entry => new RegExp(word, 'i').test(entry));
 
   // This suite is about which postings the crawl keeps, not about scoring them: the AI answers "no credit" locally, so it costs nothing and does not depend on the test key's limit.

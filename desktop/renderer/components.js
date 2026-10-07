@@ -67,12 +67,14 @@ menu.hidden = true;
 menu.setAttribute('role', 'menu');
 document.body.append(menu);
 let menuAnchor = null;   // the ⋯ button the open menu belongs to
+let menuAt = null;   // where that button was when the menu opened: a scroll that did not move it leaves the menu open
 // within: close it only when its ⋯ button is inside that element. A list that redraws passes its own page, so a background redraw of Jobs
 // does not close a menu open on Focus (6 Oct 2026: the e2e "I'm out: withdraw" click found no menu, closed by a Jobs read finishing).
 export function closeMenu(within = null) {
   if (within && !(menuAnchor && within.contains(menuAnchor))) return;
   menu.hidden = true;
   menuAnchor = null;
+  menuAt = null;
   for (const open of document.querySelectorAll('.ui-more[aria-expanded="true"]')) open.setAttribute('aria-expanded', 'false');
 }
 export function openMenu(anchor, items) {
@@ -92,6 +94,7 @@ export function openMenu(anchor, items) {
   menu.hidden = false;
   anchor.setAttribute('aria-expanded', 'true'); menuAnchor = anchor;
   const box = anchor.getBoundingClientRect();
+  menuAt = {top: box.top, left: box.left};
   const below = box.bottom + 6 + menu.offsetHeight <= window.innerHeight;
   menu.style.top = `${Math.max(8, below ? box.bottom + 6 : box.top - menu.offsetHeight - 6)}px`;
   menu.style.left = `${Math.max(8, box.right - menu.offsetWidth)}px`;
@@ -99,7 +102,15 @@ export function openMenu(anchor, items) {
 }
 document.addEventListener('click', event => { if (!menu.hidden && !event.target.closest('.ui-menu, .ui-more')) closeMenu(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
-document.addEventListener('scroll', () => closeMenu(), true);   // not `closeMenu` itself: the Event would be taken as `within` and throw (#307)
+// A scroll closes the menu only when it moved its ⋯ button (or the button left the page). Scroll events arrive a frame late: the scroll that brings a
+// button into view before a click (Playwright's, a keyboard focus) landed after the menu had opened and shut it at once (7 Oct 2026, the Windows
+// focusdismiss suite: "waiting for getByRole('menuitem', { name: 'Dismiss interview' })" for 30 s).
+export function scrollCloses(anchor, at) {
+  if (!anchor?.isConnected || !at) return true;
+  const box = anchor.getBoundingClientRect();
+  return Math.abs(box.top - at.top) > 1 || Math.abs(box.left - at.left) > 1;
+}
+document.addEventListener('scroll', () => { if (!menu.hidden && scrollCloses(menuAnchor, menuAt)) closeMenu(); }, true);   // not `closeMenu` itself: the Event would be taken as `within` and throw (#307)
 
 // The ⋯ button that opens a menu. items: an array, or a function returning one (built when opened).
 export function moreButton(items, title = 'More actions') {
