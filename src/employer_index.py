@@ -147,6 +147,8 @@ def for_you(index, me, n=8):
 def central_nofeed(cache=None, today=None, days=30):
     """{key} of employers some install or the central scout found with no readable job site in the last `days` days (6 Oct 2026): this
     install's scout skips them instead of probing the same dead end."""
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR') and cache is None:   # a fixture run reads nothing downloaded (as load() does)
+        return set()
     cutoff = ((today or datetime.now(timezone.utc).date()) - timedelta(days=days)).isoformat()
     stored = _read(cache or CACHE) or {}
     return {item['key'] for item in stored.get('nofeed') or [] if item.get('last', '') >= cutoff}

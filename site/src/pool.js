@@ -76,7 +76,7 @@ export async function contribute(request, env, now = new Date()) {
   for (const item of (Array.isArray(body.nofeed) ? body.nofeed : []).slice(0, MAX_NOFEED)) {
     const company = typeof item?.company === 'string' ? item.company.trim().slice(0, 120) : '';
     const key = company.toLowerCase().replace(/\b(ag|sa|gmbh|ltd|inc|llc|plc)\b/g, '').replace(/[^a-z0-9]/g, '');
-    if (!key || keys.has(key)) { if (!key) drop('nofeed'); continue; }
+    if (!key || keys.has(key) || /^e2e/.test(key)) { if (!key || /^e2e/.test(key)) drop('nofeed'); continue; }   // test employers never enter the pool
     keys.add(key);
     nofeed.push({key, company, host: typeof item.host === 'string' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host) ? item.host.slice(0, 100) : null});
   }

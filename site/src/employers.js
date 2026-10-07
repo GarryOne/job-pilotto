@@ -120,7 +120,7 @@ async function slice(env, regions) {
   const rows = (await env.STATS.prepare(`SELECT body, generated FROM index_feeds WHERE ${where} ORDER BY ats, slug`)
     .bind(...regions.map(r => `%,${r},%`)).all()).results || [];
   if (!rows.length) return null;
-  const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]');
+  const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]').filter(item => !/^e2e/.test(item?.key || ''));   // stored before the filter
   const boards = JSON.parse((await env.WAITLIST?.get(BOARDS_KEY)) || '[]');
   return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards});
 }
@@ -176,7 +176,8 @@ async function publish(request, env) {
   if (env.STATS) await store(env.STATS, feeds, generated);
   await env.WAITLIST?.put(GENERATED_KEY, generated);
   // "No readable job site", checked here like everything published: a key, a name, a host, a date.
-  const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
+  // Test employers ("E2E Ghost", 7 Oct 2026) are never published, whatever reached the central scout.
+  const nofeed = (Array.isArray(body.nofeed) ? body.nofeed : []).filter(item => item && /^[a-z0-9]{1,120}$/.test(item.key || '') && !/^e2e/.test(item.key) && /^\d{4}-\d{2}-\d{2}$/.test(item.last || ''))
     .slice(0, 5000).map(item => ({key: item.key, company: String(item.company || '').slice(0, 120), host: /^[a-z0-9.-]+\.[a-z]{2,}$/.test(item.host || '') ? item.host : null, last: item.last}));
   if (env.WAITLIST) await env.WAITLIST.put(NOFEED_KEY, JSON.stringify(nofeed));
   if (env.WAITLIST && Array.isArray(body.boards)) await env.WAITLIST.put(BOARDS_KEY, JSON.stringify(boardsOf(body.boards)));

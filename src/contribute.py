@@ -298,6 +298,8 @@ def due(now=None, stamp=None):
 
 def send(body, url=None, post=None, now=None, stamp=None):
     """POST the payload; True when accepted. Never raises: the pool is a favour, not part of the run."""
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR') and not url and not post:   # a fixture run (tests, desktop/e2e) never reaches the real pool
+        return False   # (7 Oct 2026: "E2E Ghost" and "E2E Hollow" were in the central "no readable site" list)
     stamp = STAMP if stamp is None else stamp
     url = url or os.getenv('JOB_PILOTTO_CONTRIBUTE_URL') or URL
 
