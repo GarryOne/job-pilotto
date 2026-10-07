@@ -41,8 +41,18 @@ def _work_mode_badge(value):
     return None
 
 
+def _placed(job):
+    """Claude's answer for the job's location (src/ai/place_triage.py): 'best', 'in', 'out', or None when not placed yet."""
+    from .sources import feeds
+    return feeds.place_of(job)
+
+
 def in_places(job):
-    """True when the job is in one of your places (config/search.json: best places, anywhere in the country)."""
+    """True when the job is in one of your places: Claude's answer when it placed the location (7 Oct 2026: "Genève" was "outside your
+    preferred locations" for a search that says "geneva"), else your place words (config/search.json)."""
+    verdict = _placed(job)
+    if verdict is not None:
+        return verdict != 'out'
     return bool(job.get('city')) or bool(HOME.search(job.get('location') or ''))
 
 
@@ -71,12 +81,17 @@ WORK_RIGHTS = work_rights_regex(PREFERENCES.get('work_rights'))
 def needs_sponsorship(job):
     """True when the job is in one of your places abroad and your citizenship / work rights do not cover it, so you would need a
     visa. Your own places never do; with no work rights set, every place abroad does."""
+    from .sources import feeds
+    visa = feeds.needs_visa(job)   # Claude's answer from your work rights as you wrote them, when it placed the location
+    if visa is not None:
+        return visa
     if in_places(job):
         return False
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
     if WORK_RIGHTS and WORK_RIGHTS.search(where):
         return False
-    return bool(PREFERRED_ABROAD.search(where))
+    # No places abroad: none needs a visa (7 Oct 2026: the empty pattern matched every place, and each Geneva job said "visa sponsorship needed").
+    return bool(_SEARCH['locations'].get('abroad')) and bool(PREFERRED_ABROAD.search(where))
 
 
 def location_points(job):
@@ -84,7 +99,8 @@ def location_points(job):
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
     remote = ((job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote'
               or (job.get('work_mode') or '').startswith('Remote'))
-    if BEST_PLACES.search(where):
+    verdict = _placed(job)
+    if verdict == 'best' or (verdict is None and BEST_PLACES.search(where)):
         return 5
     if in_places(job):
         return 4

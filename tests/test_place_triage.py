@@ -60,3 +60,22 @@ class PlaceTriageTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DigestPlacesTests(unittest.TestCase):
+    def tearDown(self):
+        feeds.PLACED = None
+
+    def test_the_digest_follows_claude_for_places_and_visas(self):
+        from src import digest
+        with mock.patch.object(feeds, 'PLACED', {'genève, switzerland': 'best', 'lyon, france': 'in:visa', 'basel': 'out'}):
+            self.assertTrue(digest.in_places({'location': 'Genève, Switzerland'}), '"Genève" for a search that says "geneva"')
+            self.assertEqual(digest.location_points({'location': 'Genève, Switzerland'}), 5)
+            self.assertFalse(digest.needs_sponsorship({'location': 'Genève, Switzerland'}))
+            self.assertTrue(digest.needs_sponsorship({'location': 'Lyon, France'}))
+            self.assertFalse(digest.in_places({'location': 'Basel'}))
+
+    def test_no_places_abroad_means_no_visa_warning_from_the_words(self):
+        from src import digest
+        with mock.patch.object(feeds, 'PLACED', {}), mock.patch.dict(digest._SEARCH['locations'], {'abroad': []}):
+            self.assertFalse(digest.needs_sponsorship({'location': 'Somewhere not placed yet'}))

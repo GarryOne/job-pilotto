@@ -137,7 +137,15 @@ def placed():
 def place_of(job):
     """Claude's answer for this job's location ('best', 'in', 'out'), or None when it has not placed it (the place words decide then)."""
     from ..ai.place_triage import norm
-    return placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
+    verdict = placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
+    return verdict.split(':')[0] if verdict else None
+
+
+def needs_visa(job):
+    """Claude's answer: True when your work rights do not cover this job's place, False when they do, None when it has not placed it."""
+    from ..ai.place_triage import norm
+    verdict = placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
+    return None if verdict is None else verdict.endswith(':visa')
 
 
 def triage_places(jobs):
