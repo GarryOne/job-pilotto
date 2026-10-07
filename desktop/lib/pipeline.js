@@ -208,8 +208,10 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       engineLog.end({code, seconds, runId});
       appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
       for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId, timedOut, result}); } catch {} }
-      if (timedOut && rowUrl) {   // killed, so it could not close its own row
-        const closed = await (await import('./run-history.js')).closeStopped(storage, rowUrl, stoppedReason(timedOut)).catch(() => false);
+      // Killed (by the watchdog, or from outside: no exit code), so it could not close its own row.
+      if ((timedOut || exitCode === null) && rowUrl) {
+        const reason = timedOut ? stoppedReason(timedOut) : 'Stopped before it finished. What it saved is kept; the next run continues.';
+        const closed = await (await import('./run-history.js')).closeStopped(storage, rowUrl, reason).catch(() => false);
         appLog('run', `its Notion row ${closed ? 'was closed as Failed' : 'was already closed'}`, {run_id: runId});
       }
       resolve({code, stdout, result, runId, timedOut});

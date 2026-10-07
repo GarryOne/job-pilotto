@@ -220,7 +220,10 @@ export function merge(notionRuns, localRuns, pending = []) {
     const local = byUrl.get(pageKey(row.notionUrl));
     if (!local) return row;
     used.add(local);
-    return row.live ? {...row, id: local.id} : {...row, ...local, pageId: row.pageId, url: row.url, where: 'mac', result: row.result};
+    // This Mac saw the run end (its record has endedAt): its row is not live, even if Notion still says Running (7 Oct 2026: a search stopped
+    // from outside could not close its row, and Activity showed it running with an empty log after a reload).
+    return row.live && !local.endedAt ? {...row, id: local.id}
+      : {...row, ...local, live: false, pageId: row.pageId, url: row.url, where: 'mac', result: row.result};
   });
   const oldest = notionRuns.length ? Math.min(...notionRuns.map(row => row.id)) : 0;
   // A run that never got a Notion row (before Notion was connected, or its row write failed) is only here: always kept.

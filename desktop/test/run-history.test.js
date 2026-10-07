@@ -149,3 +149,16 @@ test('a running row whose last line is a crash shows "Running", not the tracebac
   const fine = history.fromRow(row('r9', {started: '2026-09-28T12:08:00Z', mode: 'scout', status: 'Running', trigger: 'Mac (you)', summary: '⏳ Scout: checking 7 employer(s)…'}), NOW);
   assert.equal(fine.step, 'Scout: checking 7 employer(s)…');
 });
+
+test('merge: a run this Mac saw end is not live, even while its Notion row still says Running (stopped from outside)', () => {
+  const url = 'https://app.notion.com/p/2026-10-07-12-01-Search-for-new-jobs-3f2b1a9cbb8a8199b2b6f8c09cc827bd';
+  const notion = [{id: 1, notionUrl: url, live: true, status: 'Running', step: 'Reading new jobs with AI: 31 of 100'}];
+  const ended = [{id: 2, kind: 'search', notionUrl: url, startedAt: '2026-10-07T10:01:20Z', endedAt: '2026-10-07T10:23:06Z', ok: false, log: ['…']}];
+  const {runs, live} = history.merge(notion, ended);
+  assert.equal(live, null, 'nothing is running');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].ok, false);
+  assert.equal(runs[0].live, false);
+  const stillGoing = history.merge(notion, []);
+  assert.equal(stillGoing.live?.status, 'Running', 'without an ended record on this Mac, Notion says it runs');
+});
