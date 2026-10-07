@@ -68,6 +68,12 @@ class NoShadowTests(unittest.TestCase):
         local = [node.lineno for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef) for node in ast.walk(fn)
                  if isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name) == 'budget' for alias in node.names)]
         self.assertEqual(local, [])
+        # The same for every module daily.py imports at the top (7 Oct 2026: a local "added" hid src.ai.added): no assignment rebinds one.
+        top = {(alias.asname or alias.name).split('.')[0] for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
+        main = next(fn for fn in tree.body if isinstance(fn, ast.FunctionDef) and fn.name == 'main')
+        rebound = sorted({target.id for node in ast.walk(main) if isinstance(node, ast.Assign) for target in node.targets
+                          if isinstance(target, ast.Name) and target.id in top})
+        self.assertEqual(rebound, [], f'these names are modules daily.py imports: {rebound}')
 
 
 class SizedBatchTests(unittest.TestCase):

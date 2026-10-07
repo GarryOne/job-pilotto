@@ -710,6 +710,10 @@ def main():
                     visits.refused(source['company'], careers_pages.decode(source['slug']), source.get('error') or '')
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
+            # What this refresh added, by place (owner, 7 Oct 2026: "we should understand what's being added, what's being removed").
+            new_here = Counter(store.place_name(job.get('location')) for job, status in zip(report.get('jobs', []), imported) if status == 'new')
+            if new_here:
+                print(f'Added {sum(new_here.values())} new job(s): {store.grouped(new_here)}', flush=True)
             if args.mode in ('scheduled', 'run', 'today'):
                 try:  # opt-in (src/contribute.py); the pool never affects a run
                     contribute.maybe_send(feed_list, report, tracker, db=db, stages=stages)
@@ -717,8 +721,9 @@ def main():
                     print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
             if args.mode in ('scheduled', 'run'):
                 # Only full crawls can tell that a job disappeared.
-                run['closed_stale'] = store.close_stale(db, STALE_DAYS)
-                print(f"Closed {run['closed_stale']} job(s) not seen for {STALE_DAYS} days")
+                gone_from = Counter()
+                run['closed_stale'] = store.close_stale(db, STALE_DAYS, who=gone_from)
+                print(f"Closed {run['closed_stale']} job(s) not seen for {STALE_DAYS} days" + (f': {store.grouped(gone_from)}' if gone_from else ''))
                 if not employer_index.problem:   # a list that failed to download is not a list of dropped employers
                     dropped = store.close_dropped(db, {source['company'] for source in feed_list})
                     if dropped:
@@ -730,9 +735,10 @@ def main():
             # Last of the imports (7 Oct 2026: the job boards' report, imported after it, opened again jobs this had just closed): jobs outside
             # your places close; acted on, added by you, or with no place stay.
             from .sources import feeds as feed_places
-            elsewhere = store.close_elsewhere(db, feed_places.wanted_location)
+            outside = Counter()
+            elsewhere = store.close_elsewhere(db, feed_places.wanted_location, where=outside)
             if elsewhere:
-                print(f'Closed {elsewhere} job(s) outside your places')
+                print(f'Closed {elsewhere} job(s) outside your places: {store.grouped(outside)}')
         # Jobs that came without a description (SmartRecruiters' list, a jobs.ch page that failed) get it now, or
         # they'd never be enriched or scored. A few per run; a failure is tried again next run.
         try:

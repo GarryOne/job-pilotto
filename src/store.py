@@ -243,16 +243,34 @@ def import_company_report(db, report):
     return statuses
 
 
-def close_stale(db, days=7, now=None):
-    """Close open jobs not seen for `days`; a job seen again is reopened by upsert_job. Returns the count."""
+def close_stale(db, days=7, now=None, who=None):
+    """Close open jobs not seen for `days`; a job seen again is reopened by upsert_job. Returns the count. who: a Counter filled with their
+    employers, for the refresh's log line."""
     from datetime import timedelta
     cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat(timespec='seconds')
+    if who is not None:
+        who.update(row[0] for row in db.execute("""SELECT companies.name FROM jobs JOIN companies ON companies.id = jobs.company_id
+            WHERE jobs.state = 'open' AND jobs.last_seen_at < ?""", (cutoff,)))
     closed = db.execute("UPDATE jobs SET state='closed' WHERE state='open' AND last_seen_at < ?", (cutoff,)).rowcount
     db.commit()
     return closed
 
 
-def close_elsewhere(db, wanted):
+def place_name(location):
+    """A location as one short place name for a summary line: its first part, without a postal code ("1211 Genf, Genf, CH" -> "Genf")."""
+    first = str(location or '').split(',')[0].split(' - ')[0].strip()
+    return re.sub(r'^\d{4,5}\s+', '', first) or 'no place'
+
+
+def grouped(counts, top=8):
+    """Counter -> "Lausanne 120, Vevey 31, … and 23 more": what a refresh added or removed, readable in one line."""
+    items = counts.most_common()
+    shown = ', '.join(f'{name} {n}' for name, n in items[:top])
+    rest = len(items) - top
+    return shown + (f' and {rest} more' if rest > 0 else '')
+
+
+def close_elsewhere(db, wanted, where=None):
     """Close open jobs whose place is no longer one of yours (wanted: feeds.wanted_location), after the places changed (7 Oct 2026: a search
     narrowed from all of Switzerland to Romandie kept 1,300 St. Gallen and Zürich jobs as matches). A job you acted on (any status but
     a job you added yourself, or one without a place is kept. A job seen again in your places is reopened by upsert_job.
@@ -261,8 +279,10 @@ def close_elsewhere(db, wanted):
         WHERE jobs.state = 'open' AND COALESCE(applications.status, 'unreviewed') IN ('unreviewed', 'saved', 'dismissed')
         AND COALESCE(jobs.notes, '') != 'imported'
         AND COALESCE(jobs.location, '') != ''""").fetchall()
-    gone = [row[0] for row in rows
-            if not wanted({'location': row[1], 'remote': 'remote' in (row[2] or '').lower()})]
+    gone = [row for row in rows if not wanted({'location': row[1], 'remote': 'remote' in (row[2] or '').lower()})]
+    if where is not None:   # the places they were in, for the refresh's log line
+        where.update(place_name(row[1]) for row in gone)
+    gone = [row[0] for row in gone]
     db.executemany("UPDATE jobs SET state='closed' WHERE id = ?", [(job_id,) for job_id in gone])
     db.commit()
     return len(gone)

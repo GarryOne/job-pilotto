@@ -44,3 +44,17 @@ class BatchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ClosedHereTests(unittest.TestCase):
+    def test_a_job_closed_on_this_mac_leaves_the_list_before_notion_hears_of_it(self):
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE jobs (url TEXT, state TEXT)')
+        db.executemany('INSERT INTO jobs VALUES (?, ?)', [('https://x/vevey', 'closed'), ('https://x/applied', 'closed')])
+        rows = [{'url': 'https://x/vevey', 'title': 'Vendeur', 'company': 'Fnac', 'location': 'Vevey', 'work_mode': '', 'fit': 66,
+                 'reason': '', 'match_status': 'Open', 'first_seen': '2026-10-07'},
+                {'url': 'https://x/applied', 'title': 'Vendeur', 'company': 'Fnac', 'location': 'Vevey', 'work_mode': '', 'fit': 60,
+                 'reason': '', 'match_status': 'Open', 'first_seen': '2026-10-07', 'stage': 'Applied', 'notion_url': 'n'}]
+        with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=([], [])), mock.patch.object(desktop.score, 'load', return_value={}):
+            listed = {row['url'] for row in desktop.jobs(db, notion_jobs=rows)['jobs']}
+        self.assertEqual(listed, {'https://x/applied'}, 'closed and not acted on: gone now; applied: stays')

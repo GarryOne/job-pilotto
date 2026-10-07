@@ -65,6 +65,12 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     hidden = {(job.get('url') or '').strip() for job in blocked} - asked
     # Deleted here (delete_job): left out even while Notion's query still returns its trashed page (it lags; the totals settled 3 refreshes later).
     hidden |= _deleted_urls(db)
+    # Closed on this Mac (gone from its site, or outside your places) while its Notion row still says Open: Notion is told at the end of the
+    # refresh; the list leaves it out now, so the count drops as the refresh works (owner, 7 Oct 2026). A job you acted on stays (NOT_YET).
+    try:
+        closed_here = {(row[0] or '').strip() for row in db.execute("SELECT url FROM jobs WHERE state = 'closed'")}
+    except sqlite3.Error:   # a test's bare database
+        closed_here = set()
     rows = []
 
     def row(job, fit, reason, status, stage, step, page, **extra):
@@ -84,7 +90,8 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
         for item in notion_jobs:
             url, stage = item['url'], item.get('stage')
             seen.add(url)
-            if url in hidden or (digest.company_excluded(item) and url not in asked) or (item.get('match_status') in GONE and (stage or '') in NOT_YET):
+            if url in hidden or (digest.company_excluded(item) and url not in asked) or (
+                    (item.get('match_status') in GONE or url in closed_here) and (stage or '') in NOT_YET):
                 continue
             status = stage_status(stage) if stage else {'Applied': 'applied', 'Dismissed': 'dismissed'}.get(item.get('match_status'), 'unreviewed')
             cached = local.get(url)
