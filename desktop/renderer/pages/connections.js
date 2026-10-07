@@ -272,6 +272,20 @@ export async function showGoogle() {
   $('google-more').replaceChildren(...(google.connected ? [moreButton([{label: 'Disconnect Gmail', danger: true, run: disconnectGoogle}])] : []));
   noteCheck({google: {connected: !!google.connected, email: google.email || ''}});  // the cards above follow
 }
+// Telegram's way out, the same ⋯ menu as Gmail's (owner, 7 Oct 2026).
+export function showTelegram() {
+  const on = !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId);
+  $('telegram-more').hidden = !on;
+  $('telegram-more').replaceChildren(...(on ? [moreButton([{label: 'Disconnect Telegram', danger: true, run: disconnectTelegram}])] : []));
+}
+async function disconnectTelegram() {
+  message('telegram-message', 'Disconnecting…', 'waiting');
+  const result = await window.pilot.telegramDisconnect().catch(error => ({ok: false, error: error.message}));
+  if (!result.ok) { message('telegram-message', result.error, 'error'); return; }
+  await loadSettings();
+  message('telegram-message', `Disconnected: no more messages${result.github === true ? ', from this Mac or Always on' : ''}. ` +
+    `The bot${result.bot ? ` @${result.bot}` : ''} is still yours in Telegram (@BotFather → /deletebot removes it).`, 'ok');
+}
 async function disconnectGoogle() {
   message('google-message', 'Disconnecting…', 'waiting');
   const result = await window.pilot.googleDisconnect().catch(error => ({ok: false, error: error.message}));

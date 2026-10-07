@@ -4,7 +4,7 @@ import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
-import {showCloud, showExtensionStatus, showGoogle, showSchedule} from './connections.js';
+import {showCloud, showExtensionStatus, showGoogle, showSchedule, showTelegram} from './connections.js';
 import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {renderOverview} from './settings.js';
@@ -213,6 +213,7 @@ export async function loadSettings() {
     line.classList.toggle('on', set);
   });
   showGoogle();
+  showTelegram();
   const ext = await window.pilot.extensionInfo();
   showExtensionStatus();
   $('ext-url').textContent = ext.url;

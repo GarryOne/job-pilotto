@@ -877,6 +877,21 @@ function handlers() {
   // Telegram buttons, always on: the user's own Cloudflare Worker (lib/telegram-cloud.js).
   handleImportant('telegramCloudOn', 'Setting up the Telegram buttons', async (_, token) => { const gate = needsNotion('telegram'); if (gate) return gate; const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
   handleImportant('telegramCloudOff', 'Turning off the Telegram buttons', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
+  // Settings → Telegram → ⋯ → Disconnect Telegram (owner, 7 Oct 2026, after Gmail's): the bot token and chat are forgotten, the Telegram
+  // buttons' Worker goes (it answers for this bot), the app stops listening, and with Always on the repo's two Telegram secrets go too.
+  // The bot itself stays in Telegram (@BotFather → /deletebot removes it). Logged, never the token.
+  handleImportant('telegramDisconnect', 'Disconnecting Telegram', async () => {
+    if (DEMO) return {ok: false, error: 'Demo mode: Telegram is not changed.'};
+    const bot = storage.settings().telegramBot || '', buttons = !!storage.settings().telegramCloud;
+    if (buttons) await telegramCloud.turnOff(storage);
+    storage.setSecret('TELEGRAM_BOT_TOKEN', '');
+    storage.saveSettings({telegramChatId: null, telegramBot: null, telegramOffset: null});
+    restartTelegram();
+    let inRepo = false;
+    if (cloud()) inRepo = await github.removeRepoSecrets(storage, ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID']).catch(error => { appLog('connections', 'Telegram secrets not removed from GitHub', {error: error.message}); return 'failed'; });
+    appLog('connections', 'Telegram disconnected', {from: 'settings', buttonsOff: buttons, github: inRepo});
+    return {ok: true, bot, github: inRepo};
+  });
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
   handleImportant('telegramConnect', 'Connecting Telegram', async (_, pasted) => {
     const gate = needsNotion('telegram');
