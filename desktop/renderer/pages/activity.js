@@ -17,6 +17,7 @@ import {parseInterviewReview} from '../interview-review.js';
 import {kitsOutcome, parseKitsReady} from '../kits-ready.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
+import {seeded} from '../live-log.js';
 import {adviceEvent, coverageActions, runAction} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 import {showScheduleState} from './connections.js';
@@ -388,6 +389,7 @@ export function renderActivity(fresh) {
   showAwaitedResult(data.runs);
   const {running, runs, nextSearchAt, nextMailAt, nextScoutAt} = data;
   if (!running) shared.idleSeen = true;
+  else shared.logLines = seeded(running.log, shared.logLines);   // the app's copy wins when the window lost lines (reopened, ⌘R)
   const last = runs[0];
   const lastSearch = runs.find(run => kindOf(run) === 'search');
   const lastMail = runs.find(run => kindOf(run) === 'mail');
