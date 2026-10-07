@@ -17,7 +17,7 @@
 2. **When the build finishes**, `e2e.yml` runs **every suite on the build's own commit** (`desktop/e2e/plan-run.mjs`; only for the nightly build: one made by hand is for trying).
 3. **When all suites pass and `build.yml` is green on that commit**, its `promote` job runs `tools/release-stable.sh` (the Windows installer must be the build's own). Friends get the update by morning.
 4. **A red suite, a red `build.yml`, a failed Windows job, or no build:** nothing is promoted; stable stays; the next night's build carries the fixes.
-There is **no waiting period** and no telemetry check: the end-to-end journey is the gate. Dry run of step 3 for a release: `gh workflow run e2e.yml -f promote_tag=<tag>`.
+There is **no waiting period** and no telemetry check: the end-to-end journey is the gate. Dry run of step 3 for a release: `gh workflow run promote-dry-run.yml -f tag=<tag>`.
 
 **Beta approval is per platform, each on its own (owner, 6 Oct 2026):** one release and one version for both. Shared checks (`tools/release-checks.sh`: unit suites,
 additive schema) + Mac/Linux suites green → `Beta-approved:` (Macs get it). Shared checks + every Windows suite green → `Beta-approved (Windows):`

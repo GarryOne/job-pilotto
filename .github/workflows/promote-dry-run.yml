@@ -1,0 +1,30 @@
+name: CI · Promotion dry run
+
+# By hand: gh workflow run promote-dry-run.yml -f tag=desktop-v0.5.3 : what promoting a release to stable would do (tools/release-stable.sh), changing nothing.
+# Its own workflow since 7 Oct 2026: in e2e.yml it showed as a skipped "promote-dry-run" step in every release run's graph.
+run-name: ${{ format('Promotion dry run {0}', inputs.tag) }}
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The release tag (desktop-v<version>) whose promotion to stable to dry-run'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: What the promotion would do
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: What the promotion would do
+        env:
+          E2E_ALREADY_GREEN: '1'
+          DRY_RUN: '1'
+          PROMOTE_TAG: ${{ inputs.tag }}
+        run: tools/release-stable.sh "$PROMOTE_TAG" | tee -a "$GITHUB_STEP_SUMMARY"

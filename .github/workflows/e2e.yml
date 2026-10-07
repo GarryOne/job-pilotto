@@ -38,9 +38,6 @@ on:
         type: boolean
         default: false
         description: 'A top-up run on a release candidate (canary-promote.yml): no paid AI judge; its findings ARE filed, naming the build'
-      promote_tag:
-        description: 'DRY RUN of the promotion step for this release tag (runs no suite, promotes nothing)'
-        required: false
       all_on_mac:
         description: 'Run every suite on macOS (as before 6 Oct 2026), to compare with the Linux runners'
         type: boolean
@@ -111,7 +108,6 @@ jobs:
           SHA: ${{ github.sha }}
           BEFORE: ${{ github.event.before }}
           ONLY: ${{ inputs.suite }}
-          PROMOTE_TAG: ${{ inputs.promote_tag }}
           TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}
           GATE_TAG: ${{ inputs.gate_tag }}
         run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
@@ -376,7 +372,6 @@ jobs:
       tag: ${{ needs.plan.outputs.tag }}
       sha: ${{ needs.plan.outputs.ref }}
 
-  # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.5.3 : what the promotion step would do for a release, changing nothing.
   windows:
     # The same suites on Windows (e2e-windows.yml), started here only when this run tested something, so Windows never runs empty; it skips a commit it
     # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. After a gate by hand it is the Windows beta gate (approve-windows), started
@@ -385,7 +380,7 @@ jobs:
     needs: [plan, suite]
     # Windows only for the release gate, the schedule and a gate by hand (6 Oct 2026): a push run's Windows jobs held runner slots (20 at once, shared) while
     # the next run's Mac + Linux suites waited. A Windows-only problem from a push is found at the next scheduled run or gate.
-    if: always() && needs.plan.outputs.count != '0' && !inputs.release_run && !inputs.canary && !inputs.soak && !inputs.promote_tag && !inputs.mutant && (github.event_name == 'schedule' || inputs.gate_tag)
+    if: always() && needs.plan.outputs.count != '0' && !inputs.release_run && !inputs.canary && !inputs.soak && !inputs.mutant && (github.event_name == 'schedule' || inputs.gate_tag)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -399,21 +394,3 @@ jobs:
           gh workflow run e2e-windows.yml --repo "${{ github.repository }}" --ref main \
             -f mac_run=${{ github.run_id }} -f sha=${{ needs.plan.outputs.ref }} -f review=${{ needs.plan.outputs.review }} -f full="$FULL" -f tag="${{ needs.plan.outputs.tag }}"
           echo "Windows run started for commit ${{ needs.plan.outputs.ref }} (it skips a commit Windows already tested)." >> "$GITHUB_STEP_SUMMARY"
-
-  promote-dry-run:
-    needs: plan
-    if: github.event_name == 'workflow_dispatch' && inputs.promote_tag != ''
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v5
-      - name: What the promotion would do
-        env:
-          E2E_ALREADY_GREEN: '1'
-          DRY_RUN: '1'
-          PROMOTE_TAG: ${{ inputs.promote_tag }}
-        run: tools/release-stable.sh "$PROMOTE_TAG" | tee -a "$GITHUB_STEP_SUMMARY"
