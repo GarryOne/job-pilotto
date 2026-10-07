@@ -131,7 +131,11 @@ class ScoutTests(unittest.TestCase):
             db.execute("UPDATE scout_candidates SET status='none', checked_at='2026-10-06', next_check=?, checked_with='0123456789ab' WHERE name='Old'", (later,))
             db.execute("UPDATE scout_candidates SET status='none', checked_at='2026-10-06', next_check=?, checked_with=? WHERE name='Current'", (later, scout.READERS))
             names = [c['name'] for c in scout.next_batch(db, 50) if c['name'] in ('Old', 'Current', 'New')]
-            self.assertEqual(names, ['New', 'Old'], 'never-checked names first, then the old judgement; the current one waits its 90 days')
+            # Owner, 7 Oct 2026: Migros, Coop, Lidl and Aldi, judged before the readers improved, waited behind ~600 new names (about 40 runs).
+            self.assertEqual(names, ['Old', 'New'], 'the judgement by older readers first, then never-checked names; the current one waits its 90 days')
+            db.execute("UPDATE scout_candidates SET next_check='2000-01-01T00:00:00+00:00' WHERE name='Current'")   # due by date, same readers
+            names = [c['name'] for c in scout.next_batch(db, 50) if c['name'] in ('Old', 'Current', 'New')]
+            self.assertEqual(names, ['Old', 'New', 'Current'], 'a re-check due by date keeps its place after the new names')
 
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])

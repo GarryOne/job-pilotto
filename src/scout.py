@@ -334,7 +334,9 @@ def next_batch(db, size, skip=()):
     return [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
         WHERE (status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
            OR (status IN ('low', 'none', 'watch') AND (next_check <= ? OR COALESCE(checked_with, '') != ?))) {where}
-        ORDER BY status IN ('low', 'none', 'watch') ASC, priority DESC, added_at ASC LIMIT ?   -- re-checks after names never checked""", (stamp, READERS, *params, size))]
+        ORDER BY (status IN ('low', 'none', 'watch') AND COALESCE(checked_with, '') != ?) DESC,   -- judged by older readers: first (owner, 7 Oct 2026)
+                 status IN ('low', 'none', 'watch') ASC, priority DESC, added_at ASC LIMIT ?   -- then names never checked, then re-checks that are due""",
+        (stamp, READERS, *params, READERS, size))]
 
 
 def skipping(skip):
