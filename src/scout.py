@@ -324,34 +324,33 @@ def harvest(db, seeds, sources=None, skip=()):
 
 
 # The code that decides whether an employer has a readable job feed: when it changes (a release with better readers), the employers an older
-# version judged "no feed", "low" or "watch" are looked at again, a batch at a time, instead of waiting out their 21 or 90 days (owner, 6 Oct
-# 2026: the employers probed while the readers were wrong stayed skipped). A fingerprint of the files, so no version has to be bumped by hand.
+# version judged "no feed", "low" or "watch" are looked at again instead of waiting out their 21 or 90 days (owner, 6 Oct 2026: the employers
+# probed while the readers were wrong stayed skipped). A fingerprint of that code only (src/sources/readers.py): the reader modules and the
+# functions here that judge a site, without comments, docstrings or print lines, so a wording change elsewhere in this file wakes no one.
 READER_FILES = ('sources/ats.py', 'sources/careers.py', 'sources/web_search.py', 'sources/render.py', 'scout.py')
+JUDGES = ('belongs_to', 'job_hosts', 'find_feed', 'quality', 'relevant_roles', 'job_places')
 
 
 def readers_version():
-    import hashlib
-    digest = hashlib.sha256()
-    for name in READER_FILES:
-        try:
-            digest.update((Path(__file__).parent / name).read_bytes())
-        except OSError:
-            digest.update(name.encode())
-    return digest.hexdigest()[:12]
+    from .sources.readers import code_fingerprint
+    return code_fingerprint(READER_FILES, only={'scout.py': JUDGES})
 
 
 READERS = readers_version()
 
 
 def next_batch(db, size, skip=()):
-    """The next candidates to probe, best first; a search outside IT skips those a tech-only list queued earlier (or before its roles changed)."""
+    """The next candidates to probe, best first; a search outside IT skips those a tech-only list queued earlier (or before its roles changed).
+    Names never checked come first, all of them; an employer checked before waits at the end, even when newer readers would judge it again
+    (owner, 7 Oct 2026: a run of 92 checked 36 again and 4 new names while 548 waited)."""
     stamp = now().isoformat(timespec='seconds')
     where, params = skipping(skip)
     return [dict(row) for row in db.execute(f"""SELECT * FROM scout_candidates
         WHERE (status = 'pending' OR (status = 'manual' AND checked_at IS NULL)
            OR (status IN ('low', 'none', 'watch') AND (next_check <= ? OR COALESCE(checked_with, '') != ?))) {where}
-        ORDER BY (status IN ('low', 'none', 'watch') AND COALESCE(checked_with, '') != ?) DESC,   -- judged by older readers: first (owner, 7 Oct 2026)
-                 status IN ('low', 'none', 'watch') ASC, priority DESC, added_at ASC LIMIT ?   -- then names never checked, then re-checks that are due""",
+        ORDER BY status IN ('low', 'none', 'watch') ASC,   -- names never checked first, then re-checks
+                 (status IN ('low', 'none', 'watch') AND COALESCE(checked_with, '') != ?) DESC,   -- judged by older readers, then due by date
+                 priority DESC, added_at ASC LIMIT ?""",
         (stamp, READERS, *params, READERS, size))]
 
 
@@ -1032,18 +1031,23 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         if ideas:
             added += harvest(db, seeds, [lambda: ideas['candidates']], skip)
     batch = batch_for(pending_count(db), batch)
-    candidates = next_batch(db, batch, skip)
-    if not CENTRAL:   # employers some install (or the central scout) found with no readable job site lately: not probed again here
-        dead = employer_index.central_nofeed()
+    candidates, left = next_batch(db, batch, skip), 0
+    # Employers some install (or the central scout) found with no readable job site lately are not probed again here; the next names take
+    # their places, so a run probes its whole batch (7 Oct 2026: 52 of 92 were left out and the run checked 40).
+    dead = set() if CENTRAL else employer_index.central_nofeed()
+    for _ in range(10):
         skipped = [c for c in candidates if key_for(c['name']) in dead and c['status'] != 'manual']
-        if skipped:
-            later = (now() + timedelta(days=30)).isoformat(timespec='seconds')
-            for c in skipped:
-                db.execute("UPDATE scout_candidates SET status='none', checked_at=?, next_check=?, checked_with=? WHERE key=?",
-                           (now().isoformat(timespec='seconds'), later, READERS, c['key']))
-            db.commit()
-            print(f'Scout: {len(skipped)} employer(s) left for 30 days: other installs found no readable job site there lately.')
-            candidates = [c for c in candidates if c not in skipped]
+        if not skipped:
+            break
+        later = (now() + timedelta(days=30)).isoformat(timespec='seconds')
+        for c in skipped:
+            db.execute("UPDATE scout_candidates SET status='none', checked_at=?, next_check=?, checked_with=? WHERE key=?",
+                       (now().isoformat(timespec='seconds'), later, READERS, c['key']))
+        db.commit()
+        left += len(skipped)
+        candidates = next_batch(db, batch, skip)   # those just left out now wait 30 days, so the next names come in
+    if left:
+        print(f'Scout: {left} employer(s) left for 30 days: other installs found no readable job site there lately; others took their places.')
     print(f'Scout: checking {len(candidates)} employer(s)…')
     active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new

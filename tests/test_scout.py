@@ -131,11 +131,35 @@ class ScoutTests(unittest.TestCase):
             db.execute("UPDATE scout_candidates SET status='none', checked_at='2026-10-06', next_check=?, checked_with='0123456789ab' WHERE name='Old'", (later,))
             db.execute("UPDATE scout_candidates SET status='none', checked_at='2026-10-06', next_check=?, checked_with=? WHERE name='Current'", (later, scout.READERS))
             names = [c['name'] for c in scout.next_batch(db, 50) if c['name'] in ('Old', 'Current', 'New')]
-            # Owner, 7 Oct 2026: Migros, Coop, Lidl and Aldi, judged before the readers improved, waited behind ~600 new names (about 40 runs).
-            self.assertEqual(names, ['Old', 'New'], 'the judgement by older readers first, then never-checked names; the current one waits its 90 days')
+            # Owner, 7 Oct 2026 (later the same day): every name never checked first; an employer checked before waits at the end.
+            self.assertEqual(names, ['New', 'Old'], 'never-checked names first, then the judgement by older readers; the current one waits its 90 days')
             db.execute("UPDATE scout_candidates SET next_check='2000-01-01T00:00:00+00:00' WHERE name='Current'")   # due by date, same readers
             names = [c['name'] for c in scout.next_batch(db, 50) if c['name'] in ('Old', 'Current', 'New')]
-            self.assertEqual(names, ['Old', 'New', 'Current'], 'a re-check due by date keeps its place after the new names')
+            self.assertEqual(names, ['New', 'Old', 'Current'], 'a re-check due by date comes after the new names and the older-reader ones')
+
+    def test_names_left_out_for_other_installs_are_replaced(self):
+        """7 Oct 2026: 52 of a batch of 92 were left out (no job site other installs could read) and the run checked 40: the next names fill in."""
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                mock.patch.object(scout, 'CENTRAL', False), \
+                mock.patch.object(scout.employer_index, 'central_nofeed', return_value={'dead0', 'dead1', 'dead2'}):
+            names = [f'Dead{i}' for i in range(3)] + [f'Live{i}' for i in range(5)]
+            scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=99 - i) for i, n in enumerate(names)]])
+            summary, results = scout.run(db, batch=4, harvest_sources=[], probe=lambda system, slug: [])
+            self.assertEqual(sorted(c['name'] for c, _ in results), ['Live0', 'Live1', 'Live2', 'Live3'], 'four checked, none of them left out')
+            self.assertEqual({r[0] for r in db.execute("SELECT name FROM scout_candidates WHERE status='none' AND name LIKE 'Dead%'")},
+                             {'Dead0', 'Dead1', 'Dead2'}, 'the left-out names wait their 30 days')
+
+    def test_reader_fingerprint_ignores_wording(self):
+        """A comment, docstring or printed line changed in the reader code must not send every judged employer back to the queue."""
+        from src.sources import readers
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(readers, 'SRC', Path(tmp)):
+            code = Path(tmp) / 'r.py'
+            code.write_text('def judge(x):\n    """Old words."""\n    print("checking")\n    return x > 1  # note\n\ndef other():\n    return 1\n')
+            before = readers.code_fingerprint(['r.py'], only={'r.py': ('judge',)})
+            code.write_text('def judge(x):\n    """New words."""\n    print("looking")\n    return x > 1  # other note\n\ndef other():\n    return 2\n')
+            self.assertEqual(readers.code_fingerprint(['r.py'], only={'r.py': ('judge',)}), before, 'wording, and functions that do not judge')
+            code.write_text('def judge(x):\n    return x > 2\n')
+            self.assertNotEqual(readers.code_fingerprint(['r.py'], only={'r.py': ('judge',)}), before, 'a change in how it judges')
 
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])

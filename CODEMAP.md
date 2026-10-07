@@ -347,6 +347,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/google.py` — Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).
 - `src/sources/job_alerts.py` — Jobs from the job-alert emails in the user's own Gmail: LinkedIn, jobs.ch, jobup.ch, Indeed and Glassdoor send the jobs that match the
 - `src/sources/page_recipes.py` — Recipes: how to read one careers page without AI, learned from the one time AI read it.
+- `src/sources/readers.py` — A fingerprint of the code that reads job sites: when it changes, verdicts made by the older code are looked at again.
 - `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
 - `src/sources/visits.py` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
 - `src/sources/web_search.py` — A web search for a company's own job site ("<company> jobs"), as a person would do it, for employers the scout cannot reach by name or website

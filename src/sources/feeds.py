@@ -227,14 +227,10 @@ REST_TABLE = 'CREATE TABLE IF NOT EXISTS feed_rest (board TEXT PRIMARY KEY, miss
 
 
 def _readers():
-    """A fingerprint of the job readers: an employer resting under older readers (which may have read it wrong) is woken by a release."""
-    digest = hashlib.sha256()
-    for name in ('ats.py', 'careers.py', 'render.py', 'feeds.py'):
-        try:
-            digest.update((Path(__file__).parent / name).read_bytes())
-        except OSError:
-            digest.update(name.encode())
-    return digest.hexdigest()[:12]
+    """A fingerprint of the job readers: an employer resting under older readers (which may have read it wrong) is woken by a release.
+    Code only (readers.py): a comment or a printed line changed in these files wakes no one."""
+    from .readers import code_fingerprint
+    return code_fingerprint([f'sources/{name}' for name in ('ats.py', 'careers.py', 'render.py', 'feeds.py')])
 
 
 READERS = _readers()
