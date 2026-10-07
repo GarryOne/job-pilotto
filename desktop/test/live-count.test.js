@@ -18,5 +18,8 @@ test('every place that shows a running search uses it', () => {
   assert.match(source, /export function searchPhase\(step = ''\) \{\n  const live = liveCount\(step\)/, 'header, bottom bar and Recent activity row');
   assert.match(source, /run\?\.live && i === at \? lines\.map\(liveCount\)/, 'the running step in the run detail');
   const runs = fs.readFileSync(new URL('../renderer/pages/runs-page.js', import.meta.url), 'utf8');
-  assert.match(runs, /liveCount\(running\.step\)/, 'the Actions banner');
+  assert.doesNotMatch(runs, /running\.step \|\|/, 'no raw step on the Actions page');
+  assert.equal((runs.match(/stepWords\(running\.step\)/g) || []).length, 2, 'the banner and the Running now summary');
+  const stepWords = new Function('searchPhase', `${/export function stepWords[\s\S]+?\n\}/.exec(source)[0].replace('export ', '')}; return stepWords;`)(() => '');
+  assert.equal(stepWords('Scored 60 of 60 job(s) with claude-sonnet-5-5; 0 failed; tokens in 120 (+173594 cached), out 22743'), 'Scored 60 of 60 job(s)');
 });

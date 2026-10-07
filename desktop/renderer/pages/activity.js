@@ -60,6 +60,11 @@ const PHASES = [
   {match: /^(Searching job boards|Job boards:)/, label: 'Job boards'},
   {match: /^Checking employer career pages/, label: 'Employer career pages & scoring'},
 ];
+// A running task's step as words, wherever it is shown (Actions banner and summary, header, bottom bar): a known phrase, else the engine's line
+// without its technical tail (7 Oct 2026: "Scored 60 of 60 job(s) with claude-sonnet-5-5; 0 failed; tokens in 120 (+173594 cached), out 22743").
+export function stepWords(step = '') {
+  return searchPhase(step) || String(step).split(';')[0].replace(/\s+with claude-[\w.-]+/g, '').replace(/\s*\(\+?[\d,]+ cached\)/g, '').trim();
+}
 // A "⏳ <step>: N of M …" counter line as its words, or '' (the app's own "⏳ Still running" heartbeat is not a counter).
 export const liveCount = (line = '') => (/^⏳\s*(?!Still running)(.+: \d[\d,]* of \d[\d,]*.*)$/.exec(line) || [])[1] || '';
 // A search's current log line as a short phrase for the header and the bottom bar (the raw line is in the log).
@@ -69,8 +74,8 @@ export function searchPhase(step = '') {
   const phase = PHASES.find(item => item.match.test(step));
   if (phase) return phase.label;
   let m;
-  if ((m = step.match(/^Scored (\d+) of (\d+)/))) return `Scoring new jobs · ${m[1]} of ${m[2]}`;
-  if ((m = step.match(/^Enriched (\d+) of (\d+)/))) return `Reading new jobs · ${m[1]} of ${m[2]}`;
+  if ((m = step.match(/^Scored (\d+) of (\d+)/))) return `Scored ${m[1]} of ${m[2]} jobs`;
+  if ((m = step.match(/^Enriched (\d+) of (\d+)/))) return `Read ${m[1]} of ${m[2]} new jobs with AI`;
   if (/^Checked: /.test(step)) return 'Employer career pages';
   if (/^Job Matches:/.test(step)) return 'Saving to Notion';
   if (/digest|telegram/i.test(step)) return 'Sending your digest';
@@ -403,7 +408,7 @@ export function renderActivity(fresh) {
     const next = (data.queued || []).length;
     $('activity-title').textContent = kindOf(running) === 'search' ? `Searching for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
       : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
-    $('activity-step').textContent = searchPhase(running.step) || running.step || 'Starting…';
+    $('activity-step').textContent = stepWords(running.step) || 'Starting…';
     barLabel();
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
