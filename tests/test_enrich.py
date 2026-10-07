@@ -97,6 +97,40 @@ class EnrichTests(unittest.TestCase):
         self.assertNotIn('🇬🇧', message)
 
 
+class TimeBudgetTopUpTests(unittest.TestCase):
+    """7 Oct 2026: a first refresh guessed 12 s a job (no measured pace yet), read 6 of 10 in 15 s of its 3 minutes and left 4 for the next
+    refresh. When a batch is done with time left, the next batch is sized from the pace just measured."""
+    def tearDown(self):
+        from src import time_budget
+        time_budget.start(0)
+
+    def run_with(self, seconds, now=None):
+        import contextlib, io
+        from unittest import mock
+        from src import time_budget
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('src.paths.DATA', Path(tmp)), job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            seed(db, [{'title': f'SRE {i}'} for i in range(10)])
+            time_budget.start(seconds, now=now)
+            first = time_budget.batch('enrich', 10, say=False)
+            client, out, stats = FakeClient(facts()), io.StringIO(), {}
+            with contextlib.redirect_stdout(out):
+                summary = enrich.run(db, 'claude-haiku-4-5', 50, client=client, workers=4, stats=stats)
+            return first, summary, out.getvalue(), stats, len(client.requests)
+
+    def test_time_left_after_a_batch_reads_the_next_one(self):
+        first, summary, out, stats, calls = self.run_with(180)
+        self.assertLess(first, 10, 'positive control: the default pace takes only part of the jobs in the first batch')
+        self.assertEqual(calls, 10)
+        self.assertIn('Enriched 10 of 10', summary)
+        self.assertEqual(stats['late'], 0)
+        self.assertNotIn('next', out, 'nothing waits, so the log says nothing waits')
+
+    def test_time_up_reads_none_and_says_how_many_wait(self):
+        first, summary, out, stats, calls = self.run_with(1, now=0)   # long spent
+        self.assertEqual((first, calls, stats['late']), (0, 0, 10))
+        self.assertIn('10 job(s) left for the next one', out)
+
+
 class ExcludedCompanyTests(unittest.TestCase):
     def test_excluded_company_is_hard_filtered_like_a_language(self):
         original = digest.PREFERENCES.get('excluded_companies', [])

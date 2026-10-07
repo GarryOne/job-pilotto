@@ -185,11 +185,12 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     because the SQLite connection must not be shared across threads.
     """
     from .. import time_budget as budget
-    jobs = pending_jobs(db, max_jobs)
-    jobs = jobs[:budget.batch('enrich', len(jobs))]   # a batch this refresh can finish (src/time_budget.py), best places first
-    if not jobs:
+    queue = pending_jobs(db, max_jobs)
+    # A batch this refresh can finish (src/time_budget.py), best places first; when it is done with time left, the next batch, sized from the pace just
+    # measured (7 Oct 2026: a first refresh guessed 12 s a job, read 6 of 10 in 15 s of its 3 min, and left 4 for "the next refresh").
+    jobs = queue[:budget.batch('enrich', len(queue), say=False)]
+    if not queue:
         return f'0 job(s) to enrich with {model}'
-    began = time.monotonic()
     try:
         import anthropic  # Only needed when actually calling the API.
         transient = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)
@@ -202,53 +203,69 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     client = client or engine.client(action='enrich')
     tokens_in = tokens_out = failures = enriched = 0
     from ..progress import Ticker
-    ticker, done = Ticker('Reading new jobs with AI', len(jobs)), 0
+    ticker, done = Ticker('Reading new jobs with AI', len(queue)), 0
     late = 0   # not started: the search's time was up (src/time_budget.py); the next search reads them
+    taken, stopped = 0, False   # jobs handed to a batch so far; the API or the AI limit stopped the run
 
     def one(job):
         return None if budget.over('enrich') else extract(client, model, job)
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(one, job): job for job in jobs}
-        for future in as_completed(futures):
-            job = futures[future]
-            done += 1
-            ticker.tick(done)
-            try:
-                result = future.result()
-                if result is None:
-                    late += 1
-                    continue
-                data, usage = result
-            except transient as error:
-                # Transient after the SDK's own retries: stop and let the next run continue.
-                # A line starting "Warning:": it is how the app and the run row know the run did not fully work (a plain line left it "Completed").
-                print(f'Warning: API unavailable ({type(error).__name__}), {len(jobs) - enriched - failures} job(s) left for the next check')
-                for pending in futures:
-                    pending.cancel()
-                break
-            except (*permanent, RuntimeError, json.JSONDecodeError, StopIteration) as error:
-                if cost.limit_reached(error):
-                    # The account's spend limit: every other call would fail the same way. Stop; the next run continues.
-                    if stats is not None:
-                        stats['limit'] = 'cli' if cost.cli_limit(error) else True
-                    print(f'AI limit reached: {cost.limit_reason(error)}, {len(jobs) - enriched - failures} job(s) left for the next check')
+
+    def read(jobs):
+        """One batch, in parallel. True when the run must stop (the API is down, or the AI limit): the next run continues."""
+        nonlocal done, late, failures, enriched, tokens_in, tokens_out
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(one, job): job for job in jobs}
+            for future in as_completed(futures):
+                job = futures[future]
+                done += 1
+                ticker.tick(done)
+                try:
+                    result = future.result()
+                    if result is None:
+                        late += 1
+                        continue
+                    data, usage = result
+                except transient as error:
+                    # Transient after the SDK's own retries: stop and let the next run continue.
+                    # A line starting "Warning:": it is how the app and the run row know the run did not fully work (a plain line left it "Completed").
+                    print(f'Warning: API unavailable ({type(error).__name__}), {len(queue) - enriched - failures} job(s) left for the next check')
                     for pending in futures:
                         pending.cancel()
-                    break
-                failures += 1
-                print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
-                continue
-            save(db, job, model, data)
-            enriched += 1
-            tokens_in += usage.input_tokens
-            tokens_out += usage.output_tokens
-            cost.add(stats, model, usage)
-    if late:
-        print(budget.left_line('enrich', late), flush=True)
-    budget.record('enrich', time.monotonic() - began, enriched)
+                    return True
+                except (*permanent, RuntimeError, json.JSONDecodeError, StopIteration) as error:
+                    if cost.limit_reached(error):
+                        # The account's spend limit: every other call would fail the same way. Stop; the next run continues.
+                        if stats is not None:
+                            stats['limit'] = 'cli' if cost.cli_limit(error) else True
+                        print(f'AI limit reached: {cost.limit_reason(error)}, {len(queue) - enriched - failures} job(s) left for the next check')
+                        for pending in futures:
+                            pending.cancel()
+                        return True
+                    failures += 1
+                    print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
+                    continue
+                save(db, job, model, data)
+                enriched += 1
+                tokens_in += usage.input_tokens
+                tokens_out += usage.output_tokens
+                cost.add(stats, model, usage)
+        return False
+
+    while jobs:
+        began, before = time.monotonic(), enriched
+        stopped = read(jobs)
+        budget.record('enrich', time.monotonic() - began, enriched - before)   # this computer's pace: the next batch is sized from it
+        taken += len(jobs)
+        if stopped or late:
+            break
+        rest = queue[taken:]
+        jobs = rest[:budget.batch('enrich', len(rest), say=False)]
+    waiting = late + (0 if stopped else len(queue) - taken)   # time up: said once, how many the next refresh reads
+    if waiting:
+        print(budget.left_line('enrich', waiting), flush=True)
     if stats is not None:
-        stats.update(pending=len(jobs), done=enriched, failed=failures, late=late)
-    return (f'Enriched {enriched} of {len(jobs)} job(s) with {model}; {failures} failed; '
+        stats.update(pending=taken, done=enriched, failed=failures, late=waiting)
+    return (f'Enriched {enriched} of {taken} job(s) with {model}; {failures} failed; '
             f'tokens in {tokens_in}, out {tokens_out}')
 
 

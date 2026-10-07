@@ -41,14 +41,16 @@ def _paces():
         return dict(PACE)
 
 
-def batch(step, wanted, now=None):
+def batch(step, wanted, now=None, say=True):
     """How many of `wanted` items this step takes so the refresh ends on time: its share of the time left, at its measured pace. Says the
-    plan in the log when it takes fewer. Without a budget: all of them."""
+    plan in the log when it takes fewer (say=False: a step that tops up with further batches says what is left once, at its end). Without a budget: all of them."""
     if DEADLINE is None or wanted <= 0:
         return wanted
     left = DEADLINE - (now if now is not None else time.monotonic())
     pace = max(0.5, _paces().get(step, PACE[step]))
     n = max(0, min(wanted, int(left * SHARE[step] / pace)))
+    if not say:
+        return n
     if not n:
         print(f'⏱ No time left in this refresh to {WORDS[step].split(" ", 1)[0].rstrip("s")} any: {wanted} {NOUN[step]} wait for the next one', flush=True)
     elif n < wanted:
