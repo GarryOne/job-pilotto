@@ -1764,18 +1764,36 @@ function withFewJobsHelp(foot, runId) {
     line.append(words, button);
     return line;
   };
-  const doneText = label => kept.done?.[label];
+  // Every button in this box that does something (a word chip, Set up, Read them in Chrome, Explain with AI): the run card redraws while a run
+  // goes on, so what each is doing lives in `kept`, not on the button. A redraw keeps it busy or done, and the outcome lands on the button now on
+  // screen (7 Oct 2026: a click's "busy" was lost on the next redraw and the answer went to a button no longer shown).
+  const keepButton = (key, button) => {
+    kept.buttons = kept.buttons || new Map();
+    kept.buttons.set(key, button);
+    if (kept.done?.[key]) { button.disabled = true; button.textContent = kept.done[key]; }
+    else if (kept.pending?.has(key)) button.disabled = true;
+    return button;
+  };
+  const onScreen = key => kept.buttons.get(key);   // the newest drawing's button for it
+  const busyWhile = async (key, work) => {
+    kept.pending = kept.pending || new Set();
+    kept.pending.add(key);
+    onScreen(key).disabled = true;
+    try { return await work(); } finally {
+      kept.pending.delete(key);
+      onScreen(key).disabled = !!kept.done?.[key];
+    }
+  };
+  const markDone = (key, text) => { kept.done = {...kept.done, [key]: text}; Object.assign(onScreen(key), {textContent: text, disabled: true}); };
   const act = (action, button) => {
     adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
-    if (doneText(action.label)) { button.disabled = true; button.textContent = doneText(action.label); }
+    keepButton(action.label, button);
     button.addEventListener('click', async () => {
-      button.disabled = true;
-      const done = await runAction(action, {pilot: window.pilot, openSetting}).catch(error => ({ok: false, error: error.message}));
+      const done = await busyWhile(action.label, () => runAction(action, {pilot: window.pilot, openSetting})).catch(error => ({ok: false, error: error.message}));
       if (done?.ok) adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
-      if (done?.opened) { if (action.kind === 'source') openActivity(false); button.disabled = false; return; }
-      button.textContent = done?.ok ? `✓ ${action.label.replace(/^[+−] /, '')}` : `Not changed: ${done?.error || 'try again'}`;
-      if (done?.ok) kept.done = {...kept.done, [action.label]: button.textContent};   // a redraw keeps it done
-      else button.disabled = false;
+      if (done?.opened) { if (action.kind === 'source') openActivity(false); return; }
+      if (done?.ok) markDone(action.label, `✓ ${action.label.replace(/^[+−] /, '')}`);
+      else onScreen(action.label).textContent = `Not changed: ${done?.error || 'try again'}`;
     });
     return button;
   };
@@ -1790,18 +1808,17 @@ function withFewJobsHelp(foot, runId) {
   };
   const explain = el('button', 'link', 'Explain with AI');
   explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
+  keepButton('explain', explain);
   const settle = result => {
-    explain.disabled = false;
     if (!result?.ok) { answer.textContent = result?.error || 'Claude could not answer now.'; return; }
     showAnswer(result);
   };
   if (kept.explained) showAnswer(kept.explained);
-  else if (kept.asking) { explain.disabled = true; showAsking(); kept.asking.then(settle); }
+  else if (kept.asking) { showAsking(); kept.asking.then(settle); }
   explain.addEventListener('click', () => {
     adviceEvent('taken', 'explain', 'few-jobs');
-    explain.disabled = true;
     showAsking();
-    kept.asking = window.pilot.explainCoverage().catch(error => ({ok: false, error: error.message})).then(result => {
+    kept.asking = busyWhile('explain', () => window.pilot.explainCoverage()).catch(error => ({ok: false, error: error.message})).then(result => {
       kept.asking = null;
       if (result?.ok) kept.explained = result;
       return result;
@@ -1843,13 +1860,11 @@ function withFewJobsHelp(foot, runId) {
       const shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
       adviceEvent('shown', 'visit', 'few-jobs');
       const read = Object.assign(el('button', 'secondary', 'Read them in Chrome'), {type: 'button', title: 'Opens them in your Chrome, two at a time; the Job Pilotto extension filters and reads each, then your next check scores the jobs'});
+      keepButton('read-sites', read);
       read.addEventListener('click', async () => {
-        read.disabled = true;
-        const result = await window.pilot.visitsRun({urls: groups.visits.map(site => site.url), atOnce: 2, filter: true}).catch(error => ({text: error.message}));
-        if (result?.started) { adviceEvent('taken', 'visit', 'few-jobs'); read.textContent = '✓ Reading in Chrome'; return; }
-        read.disabled = false;
-        read.textContent = 'Read them in Chrome';
-        read.title = result?.text || read.title;
+        const result = await busyWhile('read-sites', () => window.pilot.visitsRun({urls: groups.visits.map(site => site.url), atOnce: 2, filter: true})).catch(error => ({text: error.message}));
+        if (result?.started) { adviceEvent('taken', 'visit', 'few-jobs'); markDone('read-sites', '✓ Reading in Chrome'); return; }
+        onScreen('read-sites').title = result?.text || read.title;
       });
       parts.push(section('Sites only you can open', rows([row(`${names.length} site${names.length === 1 ? '' : 's'} we cannot read by ourselves`, shown, read)])));
     }
