@@ -338,7 +338,8 @@ async function saveDraft(parts = null) {
   // A replaced strategy: back to the app; the first setup: on to the last step.
   setTimeout(() => {
     $('save-dialog').close();
-    if (replacing) { show($('wizard'), false); show($('app')); loadJobs(); toastMessage('Strategy replaced ✓', 'The previous one is kept in Notion as “🗂 Previous strategy”.'); }
+    // The Strategy page read again: it still showed the strategy from before (7 Oct 2026: "Your Profile is empty" stayed after a rebuild filled it).
+    if (replacing) { show($('wizard'), false); show($('app')); loadJobs(); import('./strategy.js').then(page => page.loadStrategy()); toastMessage('Strategy replaced ✓', 'The previous one is kept in Notion as “🗂 Previous strategy”.'); }
     else goStep('extras');
   }, 900);
 }
