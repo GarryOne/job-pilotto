@@ -110,6 +110,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 
 - **Scout that keeps learning** *(new)*: Claude proposes employers, their own job sites and company lists to look at, then learns from what each probe found. The shared employer list grows with every install.
 - **Roles that fit you** *(new)*: on Strategy, Claude suggests up to eight neighbouring roles from your Profile, each with the open jobs it would add in your places; at most once a day.
+- **Knows where each job is** *(new)*: Claude decides whether each job location is in your best places, your places or outside them (and if your work rights cover it); a location that names only a country is placed from the posting's own words.
 - **Sorts job titles your words miss** *(new)*: only the place is strict; a title in your places that your role words miss is sorted by Claude (Haiku) against your search words, once per title, then scored as usual.
 - **Finds the job list** *(new)*: before a site only you can open is read, its job list is found (its Careers link, Claude's pick among its links, or a "<company> jobs" web search), kept for the site, and looked for again when it shows no jobs twice.
 - **Gets past a dead end** *(new)*: a job site that shows no jobs even after Claude's reading gets at most two steps toward the list, picked by Claude among the page's own buttons, links and search boxes; never a sign-in, an apply or a robot check (it says when the page needs you).

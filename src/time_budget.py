@@ -27,10 +27,10 @@ def over(step='score', now=None):
 # Each step's share of the time left when it starts: title sorting least (a backlog that shrinks to a few dozen titles a day), scoring all
 # that remains (it puts jobs in your list with a fit). Default paces (seconds of wall time per item, Claude Code taking 2 calls at a time):
 # measured on the owner's Mac, 7 Oct 2026; replaced by this computer's own after one refresh.
-SHARE = {'place_rounds': 0.15, 'titles': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
-PACE = {'place_rounds': 10.0, 'titles': 1.8, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end; place_rounds: per round of calls
-NOUN = {'place_rounds': 'round(s) of place calls', 'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
-WORDS = {'place_rounds': 'places {n} of {total} job locations', 'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
+SHARE = {'place_rounds': 0.15, 'place_reading': 0.1, 'titles': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
+PACE = {'place_rounds': 10.0, 'place_reading': 15.0, 'titles': 1.8, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end; place_rounds: per round of calls
+NOUN = {'place_rounds': 'round(s) of place calls', 'place_reading': 'round(s) of postings read for their place', 'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
+WORDS = {'place_rounds': 'places {n} of {total} job locations', 'place_reading': 'reads {n} of {total} postings for their place', 'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
          'job': 'reads and scores {n} of {total} new jobs'}
 
 
@@ -60,7 +60,7 @@ def batch(step, wanted, now=None, say=True):
     return n
 
 
-def in_calls(step, wanted, size, parallel, now=None):
+def in_calls(step, wanted, size, parallel, now=None, noun='location(s)'):
     """How many of `wanted` items a step that answers `size` items a call, `parallel` calls at once, takes: its share of the time left
     over its measured time per round of calls (7 Oct 2026: placing locations was paced per location, at least 0.5 s each, so a refresh
     asked 32 of 1,500 locations in one call when Haiku answers 60 a call in ~6 s, two at a time)."""
@@ -70,7 +70,7 @@ def in_calls(step, wanted, size, parallel, now=None):
     rounds = batch(step, -(-wanted // per_round), now=now, say=False)
     n = min(wanted, rounds * per_round)
     if not n:
-        print(f'⏱ No time left in this refresh to place any: {wanted} location(s) wait for the next one', flush=True)
+        print(f'⏱ No time left in this refresh for these: {wanted} {noun} wait for the next one', flush=True)
     elif n < wanted:
         print(f'⏱ This refresh {WORDS[step].format(n=n, total=wanted)} ({rounds} round(s) of {max(1, parallel)} calls, about '
               f'{round(max(0.5, _paces().get(step, PACE[step])), 1):g} s each); {wanted - n} wait for the next refresh, best places first', flush=True)
