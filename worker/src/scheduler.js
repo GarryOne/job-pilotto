@@ -22,7 +22,7 @@ export function jobsFor(cron, now = new Date()) {
 
 // The title each on-time run shows on GitHub (its run-name), so a person reading Actions sees who started it (6 Oct 2026: the owner looks at GitHub only, and these
 // were plain workflow_dispatch runs by their account). desktop.yml's is read by the e2e gate too: keep it. test/schedule-titles.test.js holds the workflows to these.
-export const TITLES = {'desktop.yml': 'Nightly build', 'e2e.yml': 'Scheduled e2e · on time (Worker cron)', 'self-heal-stats.yml': 'Self-heal stats · on time (Worker cron)'};
+export const TITLES = {'desktop.yml': 'Nightly beta', 'e2e.yml': 'Scheduled e2e · on time (Worker cron)', 'self-heal-stats.yml': 'Self-heal stats · on time (Worker cron)'};
 
 // dispatch(env, inputs, workflow) starts a workflow on main (index.js); notify(text) tells the owner when it could not, on Telegram; report(text) on GitHub, in the
 // watchdog's issue (watchdog.js), where the owner looks. Neither can reach anyone when the token is the problem: the GitHub-side watchdog covers that.

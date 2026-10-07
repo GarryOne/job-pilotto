@@ -1,8 +1,10 @@
 name: CI · End-to-end on Mac + Linux
 
 # The real Job Pilotto app, driven by Playwright on a macOS runner, one suite per Notion test page (desktop/e2e/README.md). It does two jobs, on two clocks:
-#  1. RELEASE GATE. (With the repository variable JOB_PILOTTO_SOAK = on the gate only APPROVES the build for beta testers; canary-promote.yml then soaks it and promotes.) The nightly build (desktop.yml, 04:00 Zurich, only when the app changed) finishes -> this workflow runs EVERY suite on that build's own commit ->
-#     when all pass (and build.yml is green on the commit) the `promote` job makes the build the stable release. Red or no build: nothing is promoted.
+#  1. RELEASE GATE. The release run (desktop.yml, "Release · Build, test, beta") calls this workflow as its "Test · Mac + Linux" job right after the build (7 Oct 2026: one run
+#     per release, build -> test -> approve, instead of three runs chained by triggers). It runs EVERY gate suite on the build's commit -> when all pass (and build.yml is green
+#     on the commit) the `promote` job approves the build for Mac beta testers (JOB_PILOTTO_SOAK = on; canary-promote.yml then soaks it and promotes) or makes it stable (soak off).
+#     The release run then calls e2e-windows.yml with the same suites: the Windows approval. Red: nothing is approved on that platform.
 #  2. IMPROVEMENT LOOP. Three runs on main in the working day (09:47, 13:47, 17:47 UTC) feed ui-findings.yml (issues; ui-fix.yml turns the most critical into a pull request once a day). A scheduled run
 #     goes ahead on a new commit; on an unchanged one it takes a second and a third look (each a different seeded path, lib/variation.mjs) and then stops until the next commit:
 #     at most 3 runs per commit (lib/plan.mjs exploreDecision), so a busy day costs the schedule (3 runs) and an idle weekend 3 runs in all. A look at an unchanged commit runs ONLY the suites that
@@ -10,7 +12,7 @@ name: CI · End-to-end on Mac + Linux
 #     The AI review of screenshots (the costly part) runs when the UI or its tests changed, a finding waits, or the run is exploring. A push to main runs NO e2e (decided: e2e never runs on commit); by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
-run-name: ${{ inputs.scheduled && 'Scheduled e2e · on time (Worker cron)' || inputs.mutant && format('Mutant {0}', inputs.mutant) || inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Beta E2E tests {0}', inputs.gate_tag) || github.event_name == 'workflow_run' && format('Beta E2E tests {0}', github.event.workflow_run.head_sha) || format('E2E Mac + Linux · {0} · {1}', inputs.suite || 'all suites', github.ref_name) }}   # a run by hand says which suites (owner, 7 Oct 2026). Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' and 'Gate <sha>' (the release gate: GitHub gives a workflow_run its own commit as main's, so the tested one is in the name) for gate 4
+run-name: ${{ inputs.scheduled && 'Scheduled e2e · on time (Worker cron)' || inputs.mutant && format('Mutant {0}', inputs.mutant) || inputs.canary && format('Stable canary {0}', inputs.target_ref) || inputs.soak && format('RC soak {0}', inputs.target_ref) || inputs.gate_tag && format('Beta E2E tests {0}', inputs.gate_tag) || format('E2E Mac + Linux · {0} · {1}', inputs.suite || 'all suites', github.ref_name) }}   # a run by hand says which suites (owner, 7 Oct 2026). Both name the release they test: ui-findings.yml ignores 'Stable canary'; canary_promote.py counts 'RC soak <tag>' for gate 4. Called by the release run (desktop.yml), this run-name is not used: the jobs show as "Test · Mac + Linux / <job>"
 
 on:
   workflow_dispatch:
@@ -48,9 +50,28 @@ on:
         required: false
   schedule:
     - cron: '47 9,13,17 * * *'   # 11:47, 15:47, 19:47 in Zurich in summer (the UI loop's producer, ui-findings.yml, follows each run)
-  workflow_run:
-    workflows: ['Release · Desktop app']   # the nightly build (or a manual one) finished: verify it, and promote it when it passes
-    types: [completed]
+  # The release run (desktop.yml) calls this as its "Test · Mac + Linux" job, right after it built the release (7 Oct 2026). GitHub names the jobs "Test · Mac + Linux / <job>"
+  # and uses the CALLER's event (schedule, workflow_dispatch): the gate is told by gate_tag, never by the event.
+  workflow_call:
+    inputs:
+      gate_tag:
+        description: 'The release just built: every gate suite on its commit, then the promote job approves it for Mac beta testers'
+        type: string
+        required: true
+      release_run:
+        description: 'Called by the release run, which starts the Windows gate itself: no "Windows follows" dispatch from here'
+        type: boolean
+        default: true
+    outputs:
+      suites:
+        description: 'The suites this gate ran, comma-separated: the Windows gate runs the same ones'
+        value: ${{ jobs.plan.outputs.suites }}
+      review:
+        description: '1 = the AI screenshot review ran here: the Windows gate does the same'
+        value: ${{ jobs.plan.outputs.review }}
+      ref:
+        description: 'The commit tested'
+        value: ${{ jobs.plan.outputs.ref }}
 
 permissions:
   contents: read
@@ -68,6 +89,7 @@ jobs:
       ref: ${{ steps.list.outputs.ref }}
       tag: ${{ steps.list.outputs.tag }}
       review: ${{ steps.list.outputs.review }}
+      suites: ${{ steps.list.outputs.suites }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -88,11 +110,6 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           BEFORE: ${{ github.event.before }}
-          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          RUN_ID: ${{ github.event.workflow_run.id }}   # its `build` job: skipped (nothing new) = nothing to gate
-          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          RUN_EVENT: ${{ github.event.workflow_run.event }}
-          RUN_TITLE: ${{ github.event.workflow_run.display_title }}   # a build named Nightly build (the Worker, on time) or Beta build (a beta by hand) is gated; any other is for trying
           ONLY: ${{ inputs.suite }}
           PROMOTE_TAG: ${{ inputs.promote_tag }}
           TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}
@@ -139,12 +156,13 @@ jobs:
       # by hand) answers a request it has seen before from the replay cache, and pays only for new ones (lib/ai-meter.mjs). Judges on Haiku, except the quality suite,
       # which measures Sonnet's scoring.
       E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
-      E2E_AI_REPLAY: ${{ (github.event_name == 'schedule' || inputs.scheduled) && '0' || '1' }}
+      E2E_AI_REPLAY: ${{ !inputs.gate_tag && (github.event_name == 'schedule' || inputs.scheduled) && '0' || '1' }}   # a gate called from a scheduled release run is still a gate: replay
       E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
+      E2E_RUN_KIND: ${{ inputs.gate_tag && 'gate' || '' }}   # how an issue names the run (lib/replay.mjs): a gate in a scheduled release run is not a three-a-day run
       JOB_PILOTTO_E2E_EXPECTS_FAILURES: ${{ inputs.mutant && '1' || '' }}   # a mutant run breaks the app on purpose: its crash reports are tagged expected, so the Sentry loop ignores them
-      E2E_SEED: ${{ (github.event_name == 'workflow_run' || inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
-      E2E_FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant && !inputs.scheduled)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
+      E2E_SEED: ${{ (inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
+      E2E_FULL: ${{ (inputs.gate_tag || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant && !inputs.scheduled)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
       - uses: actions/checkout@v5
         with:
@@ -343,7 +361,7 @@ jobs:
         if: steps.merge.outputs.made == '1'
         run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
-  # The release gate. Only after the nightly build: every suite passed on the build's commit, and so did build.yml.
+  # The release gate (the release run's "Test · Mac + Linux", or a gate by hand): every suite passed on the build's commit, and so did build.yml.
   promote:
     needs: [plan, suite]
     if: needs.plan.outputs.tag != '' && needs.suite.result == 'success'
@@ -395,13 +413,13 @@ jobs:
   # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.5.3 : what the promotion step would do for a release, changing nothing.
   windows:
     # The same suites on Windows (e2e-windows.yml), started here only when this run tested something, so Windows never runs empty; it skips a commit it
-    # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. It is the Windows beta gate (approve-windows), started whatever
-    # this run's result: Windows never waits for the Mac/Linux suites.
+    # has already tested. A canary, a soak or a promotion dry run is not repeated on Windows. After a gate by hand it is the Windows beta gate (approve-windows), started
+    # whatever this run's result. In the release run (release_run) the Windows gate is the release run's own "Test · Windows" job: nothing to start here.
     name: Windows follows
     needs: [plan, suite]
     # Windows only for the release gate, the schedule and a gate by hand (6 Oct 2026): a push run's Windows jobs held runner slots (20 at once, shared) while
     # the next run's Mac + Linux suites waited. A Windows-only problem from a push is found at the next scheduled run or gate.
-    if: always() && needs.plan.outputs.count != '0' && !inputs.canary && !inputs.soak && inputs.promote_tag == '' && inputs.mutant == '' && (github.event_name == 'workflow_run' || github.event_name == 'schedule' || inputs.gate_tag != '')
+    if: always() && needs.plan.outputs.count != '0' && !inputs.release_run && !inputs.canary && !inputs.soak && !inputs.promote_tag && !inputs.mutant && (github.event_name == 'schedule' || inputs.gate_tag)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -410,7 +428,7 @@ jobs:
       - name: Start the Windows run on this commit
         env:
           GH_TOKEN: ${{ github.token }}
-          FULL: ${{ (github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && !inputs.scheduled)) && '1' || '' }}
+          FULL: ${{ (github.event_name == 'workflow_dispatch' && !inputs.scheduled) && '1' || '' }}
         run: |
           gh workflow run e2e-windows.yml --repo "${{ github.repository }}" --ref main \
             -f mac_run=${{ github.run_id }} -f sha=${{ needs.plan.outputs.ref }} -f review=${{ needs.plan.outputs.review }} -f full="$FULL" -f tag="${{ needs.plan.outputs.tag }}"

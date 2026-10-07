@@ -5,7 +5,9 @@
 import {same, sign, viewer} from './auth.js';
 import {remember} from './stats.js';
 
-const WORKFLOWS = [{file: 'e2e.yml', os: ''}, {file: 'e2e-windows.yml', os: 'Windows'}];
+// desktop.yml is the release run (7 Oct 2026): it calls both e2e workflows as its gates, so one run holds a Mac + Linux gate and a Windows gate (releaseGates below).
+const WORKFLOWS = [{file: 'e2e.yml', os: ''}, {file: 'e2e-windows.yml', os: 'Windows'}, {file: 'desktop.yml', release: true}];
+const GATES = [{prefix: 'Test · Mac + Linux / ', os: ''}, {prefix: 'Test · Windows / ', os: 'Windows'}];
 const NOT_SUITES = new Set(['plan', 'promote', 'promote-dry-run', 'Windows follows', 'approve-windows', 'HTML report', 'Windows HTML report']);
 const RUNS = 10;
 const REPORT = 'e2e-report';   // the run's merged Playwright HTML report (the workflows' report job)
@@ -29,16 +31,34 @@ export function suiteRows(jobs = [], artifacts = [], os = '') {
   }).sort((a, b) => (b.conclusion === 'failure') - (a.conclusion === 'failure') || a.name.localeCompare(b.name));   // failed first
 }
 
-// The last runs of both workflows, newest first, each with its suites.
+// A release run's jobs -> its gates, each as the e2e runs list draws a run: the called workflow's jobs, named "Test · Windows / <job>", with the prefix taken off.
+// A gate that never started (a build only, a night with nothing new) is left out. The gate's verdict is its own jobs', not the release run's (a red Windows gate is not a red Mac one).
+export function releaseGates(jobs = []) {
+  return GATES.map(({prefix, os}) => {
+    const own = jobs.filter(job => job.name.startsWith(prefix)).map(job => ({...job, name: job.name.slice(prefix.length)}));
+    const going = own.some(job => job.status !== 'completed');
+    const conclusion = going ? null : own.some(job => ['failure', 'timed_out', 'cancelled'].includes(job.conclusion)) ? 'failure' : 'success';
+    return {os, jobs: own, status: going ? 'in_progress' : 'completed', conclusion};
+  }).filter(gate => gate.jobs.some(job => job.conclusion !== 'skipped'));
+}
+const reportName = os => (os ? `${REPORT}-windows` : REPORT);
+
+// The last runs of the e2e workflows and the release run's gates, newest first, each with its suites.
 export async function recentRuns(env, fetcher = fetch) {
-  const lists = await Promise.all(WORKFLOWS.map(async ({file, os}) => ((await json(env, `/actions/workflows/${file}/runs?per_page=${RUNS}`, fetcher)).workflow_runs || []).map(run => ({run, os}))));
+  const lists = await Promise.all(WORKFLOWS.map(async ({file, os, release}) => ((await json(env, `/actions/workflows/${file}/runs?per_page=${RUNS}`, fetcher)).workflow_runs || [])
+    .filter(run => !release || !String(run.display_title || '').startsWith('Build only')).map(run => ({run, os, release}))));
   const runs = lists.flat().sort((a, b) => Date.parse(b.run.created_at) - Date.parse(a.run.created_at)).slice(0, RUNS);
-  return Promise.all(runs.map(async ({run, os}) => {
+  const rows = await Promise.all(runs.map(async ({run, os, release}) => {
     const [jobs, artifacts] = await Promise.all([json(env, `/actions/runs/${run.id}/jobs?per_page=100`, fetcher), json(env, `/actions/runs/${run.id}/artifacts?per_page=100`, fetcher)]);
-    return {id: run.id, title: String(run.display_title || '').replace(/\b([0-9a-f]{7})[0-9a-f]{33}\b/g, '$1'), os, event: run.event, sha: (run.head_sha || '').slice(0, 7), status: run.status, conclusion: run.conclusion,
-      created: run.created_at, url: run.html_url, suites: suiteRows(jobs.jobs, artifacts.artifacts, os),
-      report: (artifacts.artifacts || []).some(item => item.name === REPORT && !item.expired)};
+    const row = (gate, title) => ({id: run.id, title, os: gate.os, event: run.event, sha: (run.head_sha || '').slice(0, 7), status: gate.status, conclusion: gate.conclusion,
+      created: run.created_at, url: run.html_url, suites: suiteRows(gate.jobs, artifacts.artifacts, gate.os),
+      // a Windows run's report: e2e-report-windows (since 7 Oct 2026), e2e-report before
+      report: (artifacts.artifacts || []).some(item => !item.expired && (item.name === reportName(gate.os) || (gate.os && !release && item.name === REPORT)))});
+    const title = String(run.display_title || '').replace(/\b([0-9a-f]{7})[0-9a-f]{33}\b/g, '$1');
+    if (release) return releaseGates(jobs.jobs).map(gate => row(gate, `${title} · ${gate.os ? 'Windows' : 'Mac + Linux'}`));
+    return [row({os, jobs: jobs.jobs, status: run.status, conclusion: run.conclusion}, title)];
   }));
+  return rows.flat();
 }
 
 // The files inside a zip (GitHub's artifact download), from its central directory: name -> {method, compressedSize, offset}. Stored (0) and deflated (8) entries.
@@ -153,7 +173,9 @@ export async function runReport(request, env, fetcher = fetch) {
   const url = new URL(request.url), run = url.pathname.match(/^\/admin\/e2e\/run\/(\d+)\/report$/)?.[1];
   if (!run) return new Response('Not found', {status: 404});
   const [info, artifacts] = await Promise.all([json(env, `/actions/runs/${run}`, fetcher), json(env, `/actions/runs/${run}/artifacts?per_page=100`, fetcher)]);
-  const report = (artifacts.artifacts || []).find(item => item.name === REPORT && !item.expired);
+  // ?os=windows: the Windows gate's report (e2e-report-windows; a Windows run before 7 Oct 2026 named it e2e-report). A release run holds both.
+  const live = (artifacts.artifacts || []).filter(item => !item.expired);
+  const report = url.searchParams.get('os') === 'windows' ? live.find(item => item.name === reportName('Windows')) || live.find(item => item.name === REPORT) : live.find(item => item.name === REPORT);
   const suite = (url.searchParams.get('suite') || '').replace(/[^\w-]/g, '');
   if (report) return new Response(null, {status: 302, headers: {Location: `/admin/e2e/report/${report.id}/${await reportToken(env, report.id)}/index.html${suite ? `#?q=${encodeURIComponent(suite)}` : ''}`, 'Cache-Control': 'no-store'}});
   const going = info.status !== 'completed';
@@ -258,7 +280,7 @@ function card(run) {
   const failed = run.suites.filter(s => s.conclusion === 'failure').length;
   return el('div', {className: 'card'}, el('div', {className: 'run-head'}, el('span', {textContent: icon(run)}), el('b', {textContent: run.title + (run.os ? ' · ' + run.os : '')}),
     el('span', {className: 'meta', textContent: run.suites.length + ' suites' + (failed ? ', ' + failed + ' failed' : '') + ' · ' + run.event + ' · ' + run.sha + ' · ' + ago(run.created)}),
-    ...(run.report ? [el('a', {href: '/admin/e2e/run/' + run.id + '/report', target: '_blank', className: 'button', textContent: '📊 HTML report'})] : []),
+    ...(run.report ? [el('a', {href: '/admin/e2e/run/' + run.id + '/report' + (run.os ? '?os=windows' : ''), target: '_blank', className: 'button', textContent: '📊 HTML report'})] : []),
     el('a', {href: run.url, target: '_blank', className: 'meta', textContent: 'GitHub'})), ...suites(run));
 }
 // Suites that need a look (failed, running) one by one; the passed ones under one line, closed: "✅ 19 passed — show".

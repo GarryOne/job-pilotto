@@ -1,7 +1,8 @@
 // What a run of .github/workflows/e2e.yml does, decided in one place and printed as step outputs (matrix, count, ref, tag, review):
-//   node plan-run.mjs >> "$GITHUB_OUTPUT"      (env: EVENT, REPO, SHA, BEFORE, RUN_HEAD_SHA, RUN_CONCLUSION, RUN_EVENT, ONLY, PROMOTE_TAG; needs `gh` and GH_TOKEN)
+//   node plan-run.mjs >> "$GITHUB_OUTPUT"      (env: EVENT, REPO, SHA, BEFORE, ONLY, PROMOTE_TAG, GATE_TAG, TARGET_REF; needs `gh` and GH_TOKEN)
 // schedule: every suite, unless nothing changed since the last run and no finding waits. push: the suites whose files changed. manual: the ones named.
-// workflow_run (after the nightly build): every suite, on the build's own commit, and `tag` = the release to promote when all of them pass.
+// GATE_TAG (the release run's "Test · Mac + Linux", desktop.yml, or a gate by hand): every gate suite, on the release's own commit, and `tag` = the release to approve when
+// all of them pass. Whatever the event: a gate called from a scheduled release run arrives as `schedule` (7 Oct 2026: one run per release, no workflow_run any more).
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {autoSuites, exploreDecision, runnerOf, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
@@ -12,13 +13,13 @@ const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
 export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = []}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
-  // TARGET_REF (a manual run of the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
+  // TARGET_REF (the gate, the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
   // inputs (canary, soak), so the run is started on main and told which tag to check out.
   let target = '';
-  if (event === 'workflow_dispatch' && env.TARGET_REF) {
+  if (env.TARGET_REF) {
     try { target = gh(['api', `repos/${repo}/commits/${env.TARGET_REF}`, '-q', '.sha']).trim(); } catch { throw new Error(`target_ref ${env.TARGET_REF} is not a commit of ${repo}`); }
   }
-  const ref = event === 'workflow_run' ? env.RUN_HEAD_SHA : target || sha;
+  const ref = target || sha;
   const lines = text => String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
   const changed = (from, to) => { try { return lines(gh(['api', `repos/${repo}/compare/${from}...${to}`, '--paginate', '-q', '.files[].filename'])); } catch { return null; } };
   const json = args => { try { return JSON.parse(gh(args)); } catch { return []; } };
@@ -33,25 +34,9 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
 
   let suites = [], tag = '';
   if (event === 'push') suites = suitesFor(changed(env.BEFORE, sha) || ['desktop/e2e/suite.mjs'], all, {watches, cadence});
-  else if (event === 'workflow_run') {
-    // The nightly build: the schedule's own run, or the one the Worker's cron started on time (named Nightly build, worker/src/scheduler.js). A beta by hand (named Beta build,
-    // desktop.yml -f beta=true) is gated the same way. Any other build started by hand is for trying.
-    if (env.RUN_CONCLUSION === 'success' && (env.RUN_EVENT === 'schedule' || /^(Nightly|Beta) build$/.test(env.RUN_TITLE || ''))) {
-      // The build made a release of this very commit? (A nightly with nothing new builds nothing, and then there is nothing to verify.)
-      for (const {tagName} of json(['release', 'list', '-R', repo, '-L', '5', '--exclude-drafts', '--json', 'tagName'])) {
-        let built = '';
-        try { built = gh(['api', `repos/${repo}/commits/${tagName}`, '-q', '.sha']).trim(); } catch { /* an unreadable tag is not it */ }
-        if (built === ref) { tag = tagName; break; }
-      }
-      // Only a run that BUILT something is gated (6 Oct 2026): a nightly that found nothing new skips its build but still ends "success", and then found the release a
-      // beta by hand had just made of the same commit, so that commit was gated twice. RUN_ID is the build's run; its `build` job ran or was skipped.
-      let built = true;
-      if (tag && env.RUN_ID) { try { built = gh(['api', `repos/${repo}/actions/runs/${env.RUN_ID}/jobs`, '-q', '.jobs[] | select(.name == "build") | .conclusion']).trim() === 'success'; } catch { /* unreadable: gate, as before */ } }
-      if (tag && !built) why = `the build run ${env.RUN_ID} built nothing (nothing new since ${tag}): ${tag} is gated by the run that built it`;
-      else if (tag) suites = autoSuites(all, cadence);   // the nightly gate: always + nightly suites, not the manual ones
-    }
-  } else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
-  else if (event === 'workflow_dispatch' && env.GATE_TAG) { tag = env.GATE_TAG; suites = autoSuites(all, cadence); }   // the gate for one tag, by hand: the same suites as the nightly gate, on that tag's commit, and the promote job follows
+  else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
+  // The gate: the release run calls it only for a release it built (a nightly or a beta by hand, desktop.yml), or a gate by hand. Always + nightly suites, not the manual ones.
+  else if (env.GATE_TAG) { tag = env.GATE_TAG; suites = autoSuites(all, cadence); }
   else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
     const decision = exploreDecision({head: ref, lastSha, runsOnHead: runs.filter(own)});
     exploring = decision.exploring; why = decision.why;
@@ -73,7 +58,7 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   }
   const include = [];
   for (const suite of suites) include.push({suite, minutes: await minutes(suite), os: await os(suite)});
-  return {matrix: JSON.stringify({include}), count: String(include.length), ref, tag, review: review ? '1' : '0', why};
+  return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), ref, tag, review: review ? '1' : '0', why};
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

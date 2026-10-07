@@ -4,6 +4,8 @@ name: CI · End-to-end on Windows
 # environment) was invisible there. One job per suite, like e2e.yml. By hand: the `suites` input (empty = all), `fixed: true` = the fixed path (E2E_SEED=0).
 # 4 Oct 2026, parity with the Mac: the Mac run (e2e.yml, job "Windows follows") starts this one when it tested something, with its commit, the same
 # suites and the same AI review (plan-windows.mjs). A commit Windows already tested is not run again. On a release gate's build it is the Windows beta gate (approve-windows).
+# 7 Oct 2026: the release run (desktop.yml) calls it as its "Test · Windows" job, after "Test · Mac + Linux", with that gate's suites, on the fixed path as the Mac gate
+# (it used to take the Mac run's id as its seed: a gate walked a different path on Windows than on the Mac).
 run-name: ${{ format('E2E Windows · {0} · {1}', inputs.suites || inputs.mac_run && 'the Mac run''s suites' || 'all suites', inputs.sha || github.ref_name) }}   # which suites, at a glance (owner, 7 Oct 2026)
 on:
   workflow_dispatch:
@@ -30,6 +32,33 @@ on:
       tag:
         description: 'Set by e2e.yml on a release gate: the build to approve for Windows beta testers when every Windows suite passes'
         required: false
+  # The release run (desktop.yml) calls this as its "Test · Windows" job: the Windows beta gate for the release it built.
+  workflow_call:
+    inputs:
+      suites:
+        description: "The Mac + Linux gate's suites (its `suites` output), comma-separated; empty = all"
+        type: string
+        default: ''
+      sha:
+        description: 'The commit the release was built from'
+        type: string
+        required: true
+      tag:
+        description: 'The release to approve for Windows beta testers when every Windows suite passes'
+        type: string
+        required: true
+      review:
+        description: "1 = the AI screenshot review, as on the Mac + Linux gate"
+        type: string
+        default: ''
+      full:
+        description: '1 = the paid AI judge steps, as on the Mac + Linux gate'
+        type: string
+        default: '1'
+      fixed:
+        description: 'The fixed path (E2E_SEED=0), as the Mac + Linux gate'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -115,6 +144,7 @@ jobs:
       E2E_AI_REPLAY: '1'
       E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
+      E2E_RUN_KIND: ${{ inputs.tag && 'gate' || '' }}   # how an issue names the run (lib/replay.mjs), as e2e.yml
     steps:
       - uses: actions/checkout@v5
         with:
@@ -247,7 +277,7 @@ jobs:
           node-version: '22'
       - uses: actions/download-artifact@v7
         with:
-          pattern: blob-*
+          pattern: blob-windows-*   # only Windows: in the release run the Mac gate's blob-<suite> sit in the same run
           path: blob-reports
           merge-multiple: true
       - name: Merge the suites into one HTML report
@@ -261,12 +291,12 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: steps.merge.outputs.made == '1'
         with:
-          name: e2e-report
+          name: e2e-report-windows   # its own name: in the release run it sits beside the Mac + Linux gate's e2e-report (site/src/e2e.js reads both)
           path: e2e-report
           compression-level: 0
       - name: The link on the run's Summary page
         if: steps.merge.outputs.made == '1'
-        run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "## 📊 [Open the Windows HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report?os=windows) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
   # Windows beta approval (owner, 6 Oct 2026): every Windows suite green on a release gate's build, no real high-severity finding and the shared release checks
   # (tools/release-checks.sh) add "Beta-approved (Windows):" to that release. Each platform is approved on its own (desktop/lib/updater.js approvedFor): one

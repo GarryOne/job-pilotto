@@ -60,7 +60,7 @@ export async function runSuite(name, report = null) {
           const {stepSummary} = await import('./step-summary.mjs');
           const windows = process.platform === 'win32', env = process.env;
           fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `${stepSummary(name, ctx.runner.results, {traces: traceFiles(), os: windows ? 'Windows' : '', rerun: env.E2E_RERUN === '1',
-            artifact: `e2e-artifacts-${windows ? 'windows-' : ''}${name}`, reportUrl: env.GITHUB_RUN_ID && env.E2E_REPORT !== '0' ? `https://www.jobpilotto.workers.dev/admin/e2e/run/${env.GITHUB_RUN_ID}/report?suite=${name}` : '', runUrl: env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : ''})}\n`);
+            artifact: `e2e-artifacts-${windows ? 'windows-' : ''}${name}`, reportUrl: env.GITHUB_RUN_ID && env.E2E_REPORT !== '0' ? `https://www.jobpilotto.workers.dev/admin/e2e/run/${env.GITHUB_RUN_ID}/report?suite=${name}${windows ? '&os=windows' : ''}` : '', runUrl: env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}` : ''})}\n`);
         } catch (error) { console.log(`  (step summary not written: ${error.message})`); }
       }
       // The HTML report: the trace (the report opens it in Playwright's viewer) and the app's logs, on the suite's test.

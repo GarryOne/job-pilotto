@@ -6,7 +6,8 @@ name: CI · UI findings
 # (ui-fix.yml does that, four times a day, for the most critical issue). A false positive is closed with the label `wontfix-auto`; a real one a person marks `confirmed`.
 on:
   workflow_run:
-    workflows: ['CI · End-to-end on Mac + Linux', 'CI · End-to-end on Windows']   # a Windows run files its own issues, labelled platform:windows
+    # a Windows run files its own issues, labelled platform:windows. The release run (desktop.yml, 7 Oct 2026) holds both gates: filed once per platform (the matrix below).
+    workflows: ['CI · End-to-end on Mac + Linux', 'CI · End-to-end on Windows', 'Release · Build, test, beta']
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -36,6 +37,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event != 'push' && !startsWith(github.event.workflow_run.display_title, 'Stable canary') && !startsWith(github.event.workflow_run.display_title, 'Mutant'))   # a mutation test breaks the app on purpose: never filed
     runs-on: ubuntu-24.04
     timeout-minutes: 35   # 15 for filing, up to 15 more for judging before filing (its own step limit below)
+    # The release run tested both platforms in one run: Mac + Linux first, then Windows, one after the other (both write issues). Any other run: one platform.
+    strategy:
+      max-parallel: 1
+      matrix:
+        platform: ${{ fromJson(github.event.workflow_run.name == 'Release · Build, test, beta' && '["mac","windows"]' || '[""]') }}
     env:
       GH_TOKEN: ${{ github.token }}
       NOTION_BRAIN_WRITE_TOKEN: ${{ secrets.NOTION_BRAIN_WRITE_TOKEN }}   # a planted bug no detector caught becomes a Bug Tracker row (desktop/e2e/lib/tracker-write.mjs); no token, no row
@@ -47,7 +53,7 @@ jobs:
       RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}   # main, or the release tag
       RUN_SHA: ${{ github.event.workflow_run.head_sha }}
       RUN_EVENT: ${{ github.event.workflow_run.event }}
-      PLATFORM: ${{ inputs.platform || (contains(github.event.workflow_run.name, 'Windows') && 'windows') || 'mac' }}
+      PLATFORM: ${{ matrix.platform || inputs.platform || (contains(github.event.workflow_run.name, 'Windows') && 'windows') || 'mac' }}
       BASE: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v5
@@ -63,6 +69,9 @@ jobs:
             echo "DRY RUN on $BASE: triaging a planted finding." >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "$RUN_ID" ]; then
             gh run download "$RUN_ID" --repo "$REPO" --pattern 'e2e-artifacts-*' --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"   # one folder per suite
+            # Only this platform's suites (the release run has both: e2e-artifacts-<suite> and e2e-artifacts-windows-<suite>).
+            if [ "$PLATFORM" = windows ]; then find e2e-artifacts -mindepth 1 -maxdepth 1 -name 'e2e-artifacts-*' ! -name 'e2e-artifacts-windows-*' -exec rm -rf {} +
+            else find e2e-artifacts -mindepth 1 -maxdepth 1 -name 'e2e-artifacts-windows-*' -exec rm -rf {} +; fi
           fi
       # JUDGE BEFORE FILING (desktop/e2e/lib/prejudge.mjs): the run's new findings (at most 3) are judged in one Claude session before any issue opens; noise is
       # never filed. Only with JOB_PILOTTO_FIXER_VERDICTS = "on" (AI credit) and while the AI budget breaker is closed; otherwise everything is filed as before.
@@ -117,12 +126,12 @@ jobs:
           judged=(); if [ -f .heal/verdicts.json ]; then judged=(--verdicts .heal/verdicts.json); fi
           # The suites whose job was cancelled or timed out in the run under test: their findings are partial, and each issue says so (desktop/e2e/lib/run-context.mjs).
           incomplete=""
-          if [ -n "$RUN_ID" ]; then incomplete=$(gh run view "$RUN_ID" --repo "$REPO" --json jobs -q '[.jobs[] | select(.conclusion == "cancelled" or .conclusion == "timed_out") | .name] | join(",")' 2>/dev/null || true); fi
+          if [ -n "$RUN_ID" ]; then incomplete=$(gh run view "$RUN_ID" --repo "$REPO" --json jobs -q '[.jobs[] | select(.conclusion == "cancelled" or .conclusion == "timed_out") | .name | sub("^.* / "; "") | sub(" \\(Windows\\)$"; "")] | join(",")' 2>/dev/null || true); fi
           node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD" --platform "$PLATFORM" --incomplete "$incomplete" "${judged[@]}"
       # What this run filed, dropped and called stale, kept as numbers for /self-heal (desktop/e2e/lib/run-summary.mjs): the reasons findings were dropped were only in the step summary.
       - uses: actions/upload-artifact@v6
         if: always() && hashFiles('.heal/run-summary.json') != ''
         with:
-          name: finder-run-summary
+          name: finder-run-summary${{ matrix.platform && format('-{0}', matrix.platform) || '' }}   # two in a release run; selfheal-stats.mjs reads every finder-run-summary*
           path: .heal/run-summary.json
           retention-days: 60

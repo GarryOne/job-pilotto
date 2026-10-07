@@ -48,7 +48,7 @@ export async function collect({days = 30} = {}) {
   // What the producer filtered out and called stale, run by run (finder-run-summary artifacts, lib/run-summary.mjs).
   const summaries = [];
   try {
-    const found = gh(['api', `repos/${repo()}/actions/artifacts?per_page=100`, '--paginate', '--jq', '[.artifacts[] | select(.name == "finder-run-summary") | {id, created_at, expired}]']).split('\n').filter(line => line.trim()).flatMap(line => JSON.parse(line));
+    const found = gh(['api', `repos/${repo()}/actions/artifacts?per_page=100`, '--paginate', '--jq', '[.artifacts[] | select(.name | startswith("finder-run-summary")) | {id, created_at, expired}]']).split('\n').filter(line => line.trim()).flatMap(line => JSON.parse(line));
     for (const item of found.filter(entry => !entry.expired && Date.parse(entry.created_at) >= since).slice(0, 100)) {
       try {
         const zip = path.join(tmp, `summary-${item.id}.zip`);

@@ -1,4 +1,4 @@
-"""Release · Desktop app workflow: builds for everything the app bundles, and a 403 after main moved hands over."""
+"""Release · Build, test, beta workflow: builds for everything the app bundles, a 403 after main moved hands over, and both gates run in the same run."""
 import pathlib
 import re
 import unittest
@@ -29,11 +29,9 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('[ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]', WORKFLOW)
         self.assertIn('workflow_dispatch:', triggers)
         # The Worker's cron starts the nightly on time (worker/src/scheduler.js): named, diffed like the schedule, and with no 04:00-15:59 window of its own.
-        self.assertIn("run-name: ${{ inputs.nightly && 'Nightly build'", WORKFLOW)
-        # A beta by hand is named Beta build, and the e2e gate (desktop/e2e/plan-run.mjs) gates exactly the two names: a rename here would ship ungated betas.
-        self.assertIn("inputs.beta && 'Beta build'", WORKFLOW)
-        plan = (pathlib.Path(__file__).resolve().parent.parent / 'desktop/e2e/plan-run.mjs').read_text()
-        self.assertIn("/^(Nightly|Beta) build$/", plan)
+        self.assertIn("run-name: ${{ (inputs.nightly || github.event_name == 'schedule') && 'Nightly beta'", WORKFLOW)
+        self.assertIn("inputs.beta && 'Beta by hand'", WORKFLOW)
+        self.assertIn('select(.displayTitle == "Beta by hand")', (pathlib.Path(__file__).resolve().parent.parent / 'tools/beta-release.sh').read_text())
         self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ] && [ "$NIGHTLY" != true ]', WORKFLOW)
         self.assertIn('[ "$GITHUB_EVENT_NAME" = schedule ] && { [ $((10#$hour)) -lt 4 ]', WORKFLOW)
         self.assertIn("if: needs.changes.outputs.build == 'true'", WORKFLOW)
@@ -55,6 +53,25 @@ class DesktopWorkflowTest(unittest.TestCase):
         # the fresh build keeps what the refused one was: a beta stays a beta (gated and approved), a nightly a nightly (6 Oct 2026)
         self.assertIn("-f beta=${{ inputs.beta && 'true' || 'false' }}", WORKFLOW)
         self.assertIn("-f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}", WORKFLOW)
+
+    def test_one_run_builds_tests_and_approves_each_platform(self):
+        # 7 Oct 2026 (owner): one run per release instead of a build, then e2e.yml by workflow_run, then e2e-windows.yml by dispatch.
+        e2e = (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/e2e.yml').read_text()
+        self.assertNotIn('workflow_run:', e2e.split('permissions:')[0], 'the gate is called by the release run, not triggered after it')
+        self.assertIn('uses: ./.github/workflows/e2e.yml', WORKFLOW)
+        self.assertIn('uses: ./.github/workflows/e2e-windows.yml', WORKFLOW)
+        self.assertIn('gate_tag: desktop-v${{ needs.build.outputs.version }}', WORKFLOW)
+        # only a nightly or a beta by hand is gated; a build by hand is for trying
+        self.assertIn("(github.event_name == 'schedule' || inputs.nightly || inputs.beta)", WORKFLOW)
+        windows = WORKFLOW.split('  test-windows:')[1].split('\n\n')[0]
+        # Windows is approved only for a release that carries this run's own installer, after the Mac gate whatever its result, with its suites
+        self.assertIn("needs.windows.result == 'success'", windows)
+        self.assertIn("needs.test-mac.result != 'skipped'", windows)
+        self.assertIn('suites: ${{ needs.test-mac.outputs.suites }}', windows)
+        # the clean-up runs after both approvals are written, so it keeps tonight's beta
+        self.assertIn('needs: [build, windows, mac-only, test-mac, test-windows]', WORKFLOW)
+        # the release run never starts a second Windows run through e2e.yml's "Windows follows"
+        self.assertIn('!inputs.release_run', e2e)
 
 
 if __name__ == '__main__':

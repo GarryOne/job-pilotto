@@ -330,6 +330,19 @@ class RunsForTests(unittest.TestCase):
         self.assertEqual([r['createdAt'] for r in got], ['a', 'd', 'f', 'h', 'j'])
 
 
+class ReleaseRunGate(unittest.TestCase):
+    # 7 Oct 2026: the gate runs inside the release run (desktop.yml); gate 4 counts its Mac + Linux gate, never the whole run's colour.
+    def test_the_mac_gate_decides_not_the_windows_one(self):
+        run = {'created_at': '2026-10-07T10:00:00Z'}
+        job = lambda name, conclusion: {'name': name, 'conclusion': conclusion}
+        green = [job('Build · Mac', 'success'), job('Test · Mac + Linux / jobs', 'success'), job('Test · Mac + Linux / promote', 'success'),
+                 job('Test · Windows / jobs (Windows)', 'failure')]
+        self.assertEqual(canary.release_gate_run(run, green), {'conclusion': 'success', 'createdAt': run['created_at']})
+        red = [job('Test · Mac + Linux / jobs', 'failure'), job('Test · Mac + Linux / promote', 'skipped')]
+        self.assertEqual(canary.release_gate_run(run, red)['conclusion'], 'failure')
+        self.assertIsNone(canary.release_gate_run(run, [job('Build · Mac', 'success'), job('Test · Mac + Linux / plan', 'skipped')]), 'a build only: no gate ran')
+
+
 class PromotesWithoutStartingARun(unittest.TestCase):
     def test_the_promotion_may_not_start_an_end_to_end_run(self):
         # release-stable.sh starts one by default and waits ~15 minutes; this job has 10 minutes and cannot start workflows.

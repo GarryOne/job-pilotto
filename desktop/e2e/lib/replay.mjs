@@ -6,12 +6,14 @@ export const REPLAY_VERSION = 1;
 
 const EVENTS = {
   schedule: 'scheduled run (three a day, a new path each time)',
-  workflow_run: 'release gate (fixed path)',
+  gate: 'release gate (fixed path)',
+  workflow_run: 'release gate (fixed path)',   // before 7 Oct 2026 the gate followed the build by workflow_run
   workflow_dispatch: 'run started by hand',
   push: 'run for a push',
   local: 'run on a developer\'s Mac',
 };
-export const eventOf = env => String(env.GITHUB_EVENT_NAME || (env.CI ? 'ci' : 'local'));
+// E2E_RUN_KIND=gate: the release run's gates (e2e.yml, e2e-windows.yml) arrive with the release run's own event, `schedule` for the GitHub-scheduled nightly (7 Oct 2026).
+export const eventOf = env => String(env.E2E_RUN_KIND || env.GITHUB_EVENT_NAME || (env.CI ? 'ci' : 'local'));
 export const runTypeWords = event => EVENTS[event] || `run (${event})`;
 
 const sha7 = value => String(value || '').slice(0, 7);

@@ -23,5 +23,7 @@ test('a commit Windows already tested is not run again; a cancelled or empty ear
 
 test('a run by hand takes the named suites, or every suite', () => {
   assert.deepEqual(plan({only: 'jobs, focus', all: ['a']}).suites, ['jobs', 'focus']);
+  assert.equal(plan({only: 'jobs'}).review, false, 'by hand: no review unless asked');
+  assert.equal(plan({only: 'jobs', review: true}).review, true, "the release run's Windows gate: the Mac + Linux gate's review");
   assert.deepEqual(plan({all: ['a', 'b']}).suites, ['a', 'b']);
 });

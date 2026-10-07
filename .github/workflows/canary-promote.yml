@@ -68,6 +68,10 @@ jobs:
           # a top-up is a run NAMED "RC soak <tag>" (it runs main's workflow file on the tag's commit), or a run whose own commit is the tag's
           recent=$(gh run list -R "$REPO" --workflow=e2e.yml -L 40 --json createdAt,status,conclusion,headSha,displayTitle \
             -q "[.[] | select(.headSha == \"$sha\" or .displayTitle == \"RC soak $tag\" or .displayTitle == \"Gate $sha\" or .displayTitle == \"Beta E2E tests $sha\") | select(.status != \"completed\" or .conclusion == \"success\" or .conclusion == \"failure\") | select((.createdAt | fromdateiso8601) > (now - 25200))] | length")
+          # the gate's own run: inside the release run that built this commit since 7 Oct 2026 (desktop.yml "Test · Mac + Linux"); a build only has no gate
+          gated=$(gh run list -R "$REPO" --workflow=desktop.yml -L 20 --json createdAt,headSha,displayTitle \
+            -q "[.[] | select(.headSha == \"$sha\") | select(.displayTitle | startswith(\"Build only\") | not) | select((.createdAt | fromdateiso8601) > (now - 25200))] | length")
+          recent=$(( ${recent:-0} + ${gated:-0} ))
           if [ "${recent:-0}" = 0 ]; then gh workflow run e2e.yml -R "$REPO" --ref main -f soak=true -f target_ref="$tag"; echo "Top-up end-to-end run started on $tag." >> "$GITHUB_STEP_SUMMARY"
           else echo "$tag had an end-to-end run in the last 7 hours: no top-up." >> "$GITHUB_STEP_SUMMARY"; fi
       - name: Decide (and promote when switched on)

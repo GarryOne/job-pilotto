@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {deflateRawSync} from 'node:zlib';
 import {test} from 'node:test';
-import {remoteEntries, reportFile, reportToken, suiteRows, view, zipEntries, zipFile} from '../src/e2e.js';
+import {releaseGates, remoteEntries, reportFile, reportToken, suiteRows, view, zipEntries, zipFile} from '../src/e2e.js';
 
 // A zip as GitHub serves an artifact: local headers, the central directory, the end record. method 0 = stored, 8 = deflated.
 function zip(files, method = 0) {
@@ -51,6 +51,7 @@ function github(calls = []) {
     const path = new URL(url).pathname;
     if (path.endsWith('/actions/workflows/e2e.yml/runs')) return Response.json({workflow_runs: [{id: 1, display_title: 'Nightly', event: 'schedule', head_sha: 'abcdef123', status: 'in_progress', created_at: '2026-10-06T10:00:00Z', html_url: 'https://github.com/run/1'}]});
     if (path.endsWith('/actions/workflows/e2e-windows.yml/runs')) return Response.json({workflow_runs: []});
+    if (path.endsWith('/actions/workflows/desktop.yml/runs')) return Response.json({workflow_runs: []});
     if (path.endsWith('/runs/1/jobs')) return Response.json({jobs: [{name: 'jobs', status: 'completed', conclusion: 'failure'}]});
     if (path.endsWith('/runs/1/artifacts')) return Response.json({artifacts: [{name: 'e2e-view-jobs', id: 42}]});
     if (path.endsWith('/actions/artifacts/42/zip')) return new Response(null, {status: 302, headers: {Location: 'https://blob.example/42.zip?sig=1'}});
@@ -147,9 +148,38 @@ test('a run title with a full commit hash shows its 7-character short form', asy
     const path = new URL(url).pathname;
     if (path.endsWith('/actions/workflows/e2e.yml/runs')) return Response.json({workflow_runs: []});
     if (path.endsWith('/actions/workflows/e2e-windows.yml/runs')) return Response.json({workflow_runs: [{id: 9, display_title: `Windows ${sha} · Windows`, event: 'workflow_dispatch', head_sha: sha, created_at: '2026-10-06T10:00:00Z'}]});
+    if (path.endsWith('/actions/workflows/desktop.yml/runs')) return Response.json({workflow_runs: []});
     if (/\/runs\/9\/(jobs|artifacts)$/.test(path)) return Response.json({jobs: [], artifacts: []});
     return new Response('nope', {status: 404});
   };
   const runs = await (await ask('/admin/e2e?json=1', owner, fetcher)).json();
   assert.equal(runs.runs[0].title, 'Windows 6390681 · Windows');
+});
+
+// 7 Oct 2026: the release run (desktop.yml) calls both e2e workflows as its gates. One run, two rows: each gate with its own suites, verdict, views and report.
+test('a release run shows its Mac + Linux gate and its Windows gate as two rows; a build-only run shows none', async () => {
+  const jobs = [
+    {name: 'Build · Mac', status: 'completed', conclusion: 'success'},
+    {name: 'Test · Mac + Linux / plan', status: 'completed', conclusion: 'success'},
+    {name: 'Test · Mac + Linux / jobs', status: 'completed', conclusion: 'success'},
+    {name: 'Test · Mac + Linux / promote', status: 'completed', conclusion: 'success'},
+    {name: 'Test · Windows / plan', status: 'completed', conclusion: 'success'},
+    {name: 'Test · Windows / jobs (Windows)', status: 'completed', conclusion: 'failure'},
+    {name: 'Test · Windows / approve-windows', status: 'completed', conclusion: 'skipped'},
+  ];
+  assert.deepEqual(releaseGates(jobs).map(gate => [gate.os, gate.conclusion, gate.jobs.length]), [['', 'success', 3], ['Windows', 'failure', 3]]);
+  assert.deepEqual(releaseGates([{name: 'Build · Mac', status: 'completed', conclusion: 'success'}, {name: 'Test · Windows / plan', status: 'completed', conclusion: 'skipped'}]), []);
+  const fetcher = async url => {
+    const path = new URL(url).pathname;
+    if (/workflows\/e2e(-windows)?\.yml\/runs$/.test(path)) return Response.json({workflow_runs: []});
+    if (path.endsWith('/actions/workflows/desktop.yml/runs')) return Response.json({workflow_runs: [
+      {id: 5, display_title: 'Nightly beta', event: 'schedule', head_sha: 'abc1234', status: 'completed', conclusion: 'failure', created_at: '2026-10-07T10:00:00Z'},
+      {id: 6, display_title: 'Build only (by hand, not tested)', event: 'workflow_dispatch', head_sha: 'abc1234', status: 'completed', conclusion: 'success', created_at: '2026-10-07T11:00:00Z'}]});
+    if (path.endsWith('/runs/5/jobs')) return Response.json({jobs});
+    if (path.endsWith('/runs/5/artifacts')) return Response.json({artifacts: [{name: 'e2e-report', id: 1}, {name: 'e2e-view-windows-jobs', id: 2}]});
+    return new Response('nope', {status: 404});
+  };
+  const {runs} = await (await ask('/admin/e2e?json=1', owner, fetcher)).json();
+  assert.deepEqual(runs.map(run => [run.title, run.os, run.conclusion, run.report]), [['Nightly beta · Mac + Linux', '', 'success', true], ['Nightly beta · Windows', 'Windows', 'failure', false]]);
+  assert.deepEqual(runs[1].suites.map(s => [s.name, s.view]), [['jobs', 2]], 'the Windows suite, its view artifact found by name');
 });

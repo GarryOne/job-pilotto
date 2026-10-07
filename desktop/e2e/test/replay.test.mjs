@@ -97,3 +97,10 @@ test('a producer run adds up the paths its suites walked: fixed and seeded, wind
   const total = totalRuns([summary, summary]);
   assert.deepEqual([total.paths.suites, total.paths.fixed, total.paths.seeded, total.paths.windows['1024x640'], total.paths.events.schedule], [4, 2, 2, 2, 2]);
 });
+
+// 7 Oct 2026: the gates run inside the release run (desktop.yml) and arrive with its event: `schedule` for the GitHub-scheduled nightly. E2E_RUN_KIND names them.
+test('a gate inside a scheduled release run is named a release gate, not a three-a-day run', () => {
+  const replay = buildReplay({suite: 'jobs', env: {GITHUB_EVENT_NAME: 'schedule', E2E_RUN_KIND: 'gate'}});
+  assert.equal(replay.runType, 'release gate (fixed path)');
+  assert.equal(buildReplay({suite: 'jobs', env: {GITHUB_EVENT_NAME: 'schedule', E2E_RUN_KIND: ''}}).runType, 'scheduled run (three a day, a new path each time)');
+});

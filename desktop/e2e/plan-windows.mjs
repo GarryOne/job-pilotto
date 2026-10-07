@@ -1,4 +1,5 @@
-// What the Windows e2e (e2e-windows.yml) runs. The Mac run (e2e.yml, job "Windows follows") starts it when it tested something: the same suites
+// What the Windows e2e (e2e-windows.yml) runs. In the release run (desktop.yml, "Test · Windows") the Mac + Linux gate's suites, named (ONLY) with its review.
+// After a scheduled Mac run (e2e.yml, job "Windows follows"), when it tested something: the same suites
 // on the same commit, with the AI screenshot review where the Mac run had it, so Windows has the Mac's coverage (4 Oct 2026: it ran 7 of 13
 // suites, weekly). A commit Windows already tested is not run again (the Mac looks at an unchanged commit up to three times; Windows once).
 //   node plan-windows.mjs     (GH_TOKEN, REPO, MAC_RUN, SHA, REVIEW from e2e.yml; or ONLY=<suites> for a run by hand) -> GITHUB_OUTPUT lines
@@ -18,7 +19,8 @@ export const testedBefore = (runs, sha, current) => runs.filter(run => String(ru
   && ['success', 'failure'].includes(run.conclusion) && run.suitesRan > 0);
 
 export function plan({only = '', all = [], mac = null, sha = '', review = false, previous = []}) {
-  if (only.trim()) return {suites: only.split(',').map(name => name.trim()).filter(Boolean), review: false};
+  // Named suites: by hand (no review asked), or the release run's Windows gate, which passes the Mac + Linux gate's suites and its review (7 Oct 2026).
+  if (only.trim()) return {suites: only.split(',').map(name => name.trim()).filter(Boolean), review};
   if (!mac) return {suites: all, review: false};
   if (previous.length) return {suites: [], review: false, why: `commit ${sha.slice(0, 7)} was already tested on Windows (run ${previous[0].id}): nothing new to run`};
   return {suites: macSuites(mac.jobs || []), review};

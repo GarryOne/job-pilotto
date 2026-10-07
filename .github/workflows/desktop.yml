@@ -1,7 +1,11 @@
-name: Release · Desktop app
-# A build started by the Worker's cron (worker/src/scheduler.js) is the nightly: it is named so, and the e2e gate (plan-run.mjs) treats it like the schedule's own.
-# A beta by hand (gh workflow run desktop.yml -f beta=true, or tools/beta-release.sh) is named Beta build and gated the same way; it always builds.
-run-name: ${{ inputs.nightly && 'Nightly build' || inputs.beta && 'Beta build' || 'Release · Desktop app' }}
+name: Release · Build, test, beta
+# ONE RUN PER RELEASE (owner, 7 Oct 2026: three runs chained by triggers, and the build named "Release", were hard to follow):
+#   Anything new? -> Build · Mac -> Build · Windows -> Test · Mac + Linux (e2e.yml) -> Test · Windows (e2e-windows.yml) -> Clean up old builds
+# Each Test job ends by approving the release for that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):" in its notes,
+# desktop/lib/updater.js): the platforms are approved independently. The run is red when a gate is red; that platform's testers are then not offered it.
+# Names: the Worker's cron (worker/src/scheduler.js) and GitHub's schedule start the "Nightly beta"; tools/beta-release.sh (-f beta=true) a "Beta by hand"; a plain
+# gh workflow run desktop.yml is a "Build only": built and published as a pre-release for trying, never tested here, offered to nobody.
+run-name: ${{ (inputs.nightly || github.event_name == 'schedule') && 'Nightly beta' || inputs.beta && 'Beta by hand' || 'Build only (by hand, not tested)' }}
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release: nightly at 04:00 Zurich (only when something that goes into the app changed on main since the last release) or on
@@ -47,6 +51,7 @@ concurrency:
 jobs:
   # Nightly runs only: did anything that goes into the app change since the newest release? (A manual run always builds.)
   changes:
+    name: Anything new?
     runs-on: ubuntu-24.04
     outputs:
       build: ${{ steps.diff.outputs.build }}
@@ -79,6 +84,7 @@ jobs:
           fi
 
   build:
+    name: Build · Mac
     needs: changes
     if: needs.changes.outputs.build == 'true'
     runs-on: macos-14   # Apple Silicon
@@ -202,6 +208,7 @@ jobs:
           echo "released=true" >> "$GITHUB_OUTPUT"
 
   windows:
+    name: Build · Windows
     needs: build   # the release exists and has its version
     if: needs.build.outputs.released == 'true'
     runs-on: windows-latest
@@ -268,6 +275,7 @@ jobs:
   # The Windows build failed: publish the Mac release anyway, carrying over the last working Windows installer
   # so the website's Windows link (latest release) keeps working until a Windows build passes again.
   mac-only:
+    name: Publish without Windows
     needs: [build, windows]
     if: always() && needs.build.result == 'success' && needs.build.outputs.released == 'true' && needs.windows.result != 'success'
     runs-on: ubuntu-24.04
@@ -288,9 +296,44 @@ jobs:
           fi
           gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
 
-  # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh).
-  prune:
+  # TEST: the release gate, in this run (7 Oct 2026; before, e2e.yml followed this run by workflow_run and started e2e-windows.yml by dispatch). A nightly or a beta by hand
+  # only: a build by hand is for trying. After the release is published (by Build · Windows, or Publish without Windows), so the approval edits a published release.
+  test-mac:
+    name: Test · Mac + Linux
     needs: [build, windows, mac-only]
+    if: always() && needs.build.outputs.released == 'true' && (needs.windows.result == 'success' || needs.mac-only.result == 'success') && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
+    permissions:            # what e2e.yml's jobs ask for: a called workflow gets at most its caller job's permissions
+      contents: write       # promote: the "Beta-approved:" line
+      actions: write        # plan reads runs; "Windows follows" (skipped here) starts runs
+      issues: write         # block-check reads the UI-loop issues; the release scripts file one when something blocks
+    uses: ./.github/workflows/e2e.yml
+    with:
+      gate_tag: desktop-v${{ needs.build.outputs.version }}
+    secrets: inherit
+
+  # The same suites on Windows, on the same fixed path, after the Mac + Linux gate whatever its result (each platform is approved on its own). Only when this run built the
+  # Windows installer: a release that carries an older .exe (Publish without Windows) is never approved for Windows.
+  test-windows:
+    name: Test · Windows
+    needs: [build, windows, test-mac]
+    if: always() && needs.windows.result == 'success' && needs.test-mac.result != 'skipped' && needs.test-mac.result != 'cancelled'
+    permissions:
+      contents: write       # approve-windows: the "Beta-approved (Windows):" line
+      actions: read         # plan, approve-windows: this run's artifacts and jobs
+      issues: write         # as test-mac
+    uses: ./.github/workflows/e2e-windows.yml
+    with:
+      suites: ${{ needs.test-mac.outputs.suites }}
+      review: ${{ needs.test-mac.outputs.review }}
+      sha: ${{ github.sha }}
+      tag: desktop-v${{ needs.build.outputs.version }}
+    secrets: inherit
+
+  # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh) and each platform's newest beta. After the tests, so
+  # tonight's approvals are already written when it decides what to keep.
+  prune:
+    name: Clean up old builds
+    needs: [build, windows, mac-only, test-mac, test-windows]
     if: always() && needs.build.result == 'success'
     runs-on: ubuntu-24.04
     permissions:

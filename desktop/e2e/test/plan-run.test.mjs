@@ -1,5 +1,5 @@
-// What a run of the e2e workflow does, decided in one place (plan-run.mjs): which suites, which commit, whether the AI reviews screenshots, and, for the run chained after
-// the nightly build, which release to promote when everything passes. gh is a stub: no network.
+// What a run of the e2e workflow does, decided in one place (plan-run.mjs): which suites, which commit, whether the AI reviews screenshots, and, for the release gate
+// (the release run's "Test · Mac + Linux", desktop.yml), which release to approve when everything passes. gh is a stub: no network.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {planRun} from '../plan-run.mjs';
@@ -98,36 +98,10 @@ test('a manual run runs what it names', async () => {
   assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['jobs', 'settings']);
 });
 
-test('the run chained after a build tests the build\'s commit and names the release to promote', async () => {
-  const out = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule'}, {releases: [['desktop-v1.2', HEAD], ['desktop-v1.1', OLD]]});
-  assert.deepEqual([out.count, out.ref, out.tag], ['4', HEAD, 'desktop-v1.2']);
-});
 
-test('a build somebody started by hand is not verified or promoted by the pipeline (it is for trying)', async () => {
-  const out = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch'}, {releases: [['desktop-v1.2', HEAD]]});
-  assert.deepEqual([out.count, out.tag], ['0', '']);
-});
 
-test('the nightly the Worker started on time is gated like the schedule\'s own; a build by hand with another name is not', async () => {
-  const worker = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Nightly build'}, {releases: [['desktop-v1.2', HEAD]]});
-  assert.deepEqual([worker.count, worker.ref, worker.tag], ['4', HEAD, 'desktop-v1.2']);
-  const hand = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Release · Desktop app'}, {releases: [['desktop-v1.2', HEAD]]});
-  assert.deepEqual([hand.count, hand.tag], ['0', '']);
-});
 
-test('a beta started by hand (Beta build) gets the full nightly gate, and its tag is the one approved', async () => {
-  const beta = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Beta build'}, {releases: [['desktop-v1.2', HEAD]]});
-  assert.deepEqual([beta.count, beta.ref, beta.tag], ['4', HEAD, 'desktop-v1.2']);
-  const failed = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'failure', RUN_EVENT: 'workflow_dispatch', RUN_TITLE: 'Beta build'}, {releases: [['desktop-v1.2', HEAD]]});
-  assert.deepEqual([failed.count, failed.tag], ['0', '']);
-});
 
-test('a nightly with nothing to build, or a failed build, starts no run', async () => {
-  const none = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule'}, {releases: [['desktop-v1.1', OLD]]});
-  assert.equal(none.count, '0');
-  const failed = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'failure', RUN_EVENT: 'schedule'}, {releases: [['desktop-v1.2', HEAD]]});
-  assert.equal(failed.count, '0');
-});
 
 test('cadence: always runs on every schedule, nightly only in the nightly gate, manual never by itself', async () => {
   const cadence = {settings: 'always', jobs: 'always', apply: 'nightly', activity: 'manual'};
@@ -145,7 +119,7 @@ test('cadence: always runs on every schedule, nightly only in the nightly gate, 
 
 test('cadence: the nightly release gate runs the always and nightly suites, not the manual ones', async () => {
   const cadence = {settings: 'always', jobs: 'always', apply: 'nightly', activity: 'manual'};
-  const out = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_run', RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule'},
+  const out = await planRun({env: {REPO: 'o/r', EVENT: 'schedule', SHA: OLD, TARGET_REF: 'desktop-v1', GATE_TAG: 'desktop-v1'},
     gh: gh({releases: [['desktop-v1', HEAD]]}), all: ALL, cadence, minutes: () => 15});
   assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['apply', 'jobs', 'settings']);
 });
@@ -172,11 +146,14 @@ test('the interactions suite has the time it needs: a job limit under what it ta
   assert.ok(minutes >= 20, `interactions is given ${minutes} minutes: it ran past 11 and was cancelled twice at 10`);
 });
 
-// 6 Oct 2026: a nightly with nothing new skipped its build but ended "success", found the release a beta by hand had just made of that commit, and gated it a second time.
-test('a build run that built nothing is not gated; one that built is', async () => {
-  const env = {EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule', RUN_ID: '42'};
-  const skipped = await plan(env, {releases: [['desktop-v1.2', HEAD]], build: 'skipped'});
-  assert.equal(skipped.count, '0');
-  assert.match(skipped.why, /built nothing/);
-  assert.notEqual((await plan(env, {releases: [['desktop-v1.2', HEAD]], build: 'success'})).count, '0');
+
+// 7 Oct 2026: the release run (desktop.yml) calls the gate as a job, so the gate arrives with the release run's own event: `schedule` for the GitHub-scheduled nightly,
+// `workflow_dispatch` for the Worker's nightly and a beta by hand. gate_tag decides, never the event: a scheduled release must not be planned as a three-a-day run.
+test('the gate called from the release run tests the release\'s commit whatever the event, and says its suites for the Windows gate', async () => {
+  for (const EVENT of ['schedule', 'workflow_dispatch']) {
+    const out = await plan({EVENT, SHA: OLD, TARGET_REF: 'desktop-v1.2', GATE_TAG: 'desktop-v1.2'}, {releases: [['desktop-v1.2', HEAD]], runs: [{event: 'schedule', headSha: HEAD, conclusion: 'success'}]});
+    assert.deepEqual([out.count, out.ref, out.tag], ['4', HEAD, 'desktop-v1.2'], EVENT);
+    assert.equal(out.suites, ALL.join(','), 'the same list goes to e2e-windows.yml');
+  }
+  assert.equal((await plan({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: 'jobs,settings'}, {})).suites, 'jobs,settings');
 });
