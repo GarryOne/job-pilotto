@@ -118,6 +118,23 @@ def approved_tags(api_releases):
     return {r['tag_name'] for r in api_releases if re.search(r'^Beta-approved:', r.get('body') or '', re.M)}
 
 
+# The lines the gate writes and each platform's app reads (desktop/lib/updater.js BETA_MARK, BETA_MARK_WINDOWS).
+BETA_MARKS = (re.compile(r'^Beta-approved:', re.M), re.compile(r'^Beta-approved \(Windows\):', re.M))
+
+
+def beta_kept(api_releases):
+    """The test builds tools/prune-releases.sh must keep: per platform, the newest release approved for its beta testers, when that is a
+    pre-release (stable ones are never pruned). From GET /repos/{repo}/releases. 7 Oct 2026: keeping only the newest 3 test builds deleted
+    desktop-v0.5.16, the one build approved for Windows, after four builds failed their gate."""
+    live = sorted((r for r in api_releases if not r.get('draft')), key=lambda r: r.get('created_at') or '', reverse=True)
+    kept = set()
+    for mark in BETA_MARKS:
+        newest = next((r for r in live if mark.search(r.get('body') or '')), None)
+        if newest and newest.get('prerelease'):
+            kept.add(newest['tag_name'])
+    return kept
+
+
 def approved_only(releases, approved):
     """With the soak on (JOB_PILOTTO_SOAK=on) only a build the release gate approved is soaked: the other pre-releases drop out, stable stays.
     Without it the oldest newer build was the candidate, so a build that failed its gate held up the approved one until it was dropped after 48 h
@@ -395,7 +412,12 @@ def main(argv=None):
     parser.add_argument('--canary', action='store_true',
                         help="read `gh release list --json tagName,isPrerelease,isDraft,isLatest,createdAt` on stdin, "
                              "print the canary build's tag (empty when none)")
+    parser.add_argument('--beta-kept', action='store_true',
+                        help="read GET /repos/{repo}/releases (with bodies) on stdin, print the test builds that are a platform's newest beta, one per line")
     args = parser.parse_args(argv)
+    if args.beta_kept:
+        print('\n'.join(sorted(beta_kept(json.load(sys.stdin)))))
+        return 0
     if args.canary:
         found = canary_of(json.load(sys.stdin), datetime.now(timezone.utc))
         print(found['tagName'] if found else '')

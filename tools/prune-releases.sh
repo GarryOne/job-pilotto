@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases).
+# Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases), plus each platform's newest beta.
 # Older pre-releases lose their release page and files; their git tags stay (friends' Always on runs point at tags).
 # Runs after each desktop build (desktop.yml); by hand: tools/prune-releases.sh [how many test builds to keep, default 3]
 # Also kept: the canary, the oldest test build newer than stable, so it can age 48 h and be auto-promoted
@@ -12,9 +12,12 @@ keep=${1:-3}
 releases=$(gh release list -R "$repo" -L 1000 --json tagName,isPrerelease,isDraft,isLatest,createdAt)
 # The canary: one rule for this script, the auto-promote and the owner's app (tools/canary_promote.py canary_of).
 canary=$(python3 "$(dirname "$0")/canary_promote.py" --canary <<<"$releases")
+# Each platform's newest beta stays (7 Oct 2026: four failed builds deleted desktop-v0.5.16, the only Windows beta). Needs the release notes: the API, not `gh release list`.
+betas=$(gh api "repos/$repo/releases?per_page=100" | python3 "$(dirname "$0")/canary_promote.py" --beta-kept)
 jq -r '[.[] | select(.isPrerelease and (.isDraft | not))] | sort_by(.createdAt) | reverse | .['"$keep"':][] | .tagName' <<<"$releases" |
 while read -r tag; do
   [ "$tag" = "$canary" ] && { echo "Kept canary $tag (auto-promote candidate)"; continue; }
+  grep -qxF "$tag" <<<"$betas" && { echo "Kept $tag: a platform's newest beta"; continue; }
   gh release delete "$tag" -R "$repo" --yes
   echo "Removed test build $tag (tag kept)"
 done

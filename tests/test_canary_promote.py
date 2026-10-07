@@ -208,6 +208,23 @@ class CanaryPromoteTests(unittest.TestCase):
                              capture_output=True, text=True, check=True).stdout.strip()
         self.assertEqual(out, 'desktop-v0.5.65')
 
+    def test_prune_keeps_the_newest_beta_of_each_platform(self):
+        # 7 Oct 2026: the pruner kept only the newest 3 test builds, so four failed builds deleted desktop-v0.5.16, the only build ever
+        # approved for Windows beta testers. The newest approved build of each platform stays (the marks the app reads, desktop/lib/updater.js).
+        def api(tag, created, body='', pre=True):
+            return {'tag_name': tag, 'created_at': created, 'prerelease': pre, 'draft': False, 'body': body}
+        mac = 'Beta-approved: unit suites and every end-to-end suite passed on commit abc (2026-10-07)'
+        win = 'Beta-approved (Windows): unit suites and every Windows end-to-end suite passed on commit abc (2026-10-06)'
+        releases = [api('desktop-v0.5.23', '2026-10-07T03:10:00Z', mac), api('desktop-v0.5.22', '2026-10-07T02:10:00Z'),
+                    api('desktop-v0.5.17', '2026-10-06T16:04:00Z', mac, pre=False), api('desktop-v0.5.16', '2026-10-06T14:00:00Z', 'notes\n' + win),
+                    api('desktop-v0.5.15', '2026-10-06T13:00:00Z', win + '\n' + mac)]
+        self.assertEqual(canary.beta_kept(releases), {'desktop-v0.5.23', 'desktop-v0.5.16'})
+        # a stable release that is the newest approved one needs nothing kept: stable is never pruned
+        self.assertEqual(canary.beta_kept([api('desktop-v0.5.17', '2026-10-06T16:04:00Z', mac, pre=False), api('desktop-v0.5.14', '2026-10-06T10:00:00Z', mac)]), set())
+        self.assertEqual(canary.beta_kept([api('desktop-v0.5.22', '2026-10-07T02:10:00Z', 'Beta-approved (Windows) maybe')]), set())   # the mark only at a line start, with its colon
+        out = subprocess.run([sys.executable, str(SCRIPT), '--beta-kept'], input=json.dumps(releases), capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(sorted(out), ['desktop-v0.5.16', 'desktop-v0.5.23'])
+
     def test_version_order(self):
         key = canary.version_key
         self.assertGreater(key('0.5.10'), key('0.5.9'))
