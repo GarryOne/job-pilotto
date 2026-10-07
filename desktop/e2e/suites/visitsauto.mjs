@@ -16,6 +16,7 @@ import {browserChannel, copyExtension, freePort} from '../lib/extension.mjs';
 export const name = 'visitsauto';
 export const minutes = 4;
 export const light = true;
+export const needsChromium = true;   // CI installs Chromium for it (.github/workflows/e2e.yml)
 export const keepGoing = true;
 
 const FIXTURES = path.join(import.meta.dirname, '..', 'fixtures', 'visits');

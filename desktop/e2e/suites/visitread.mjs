@@ -13,6 +13,7 @@ import {chromium} from 'playwright-core';
 export const name = 'visitread';
 export const minutes = 2;
 export const light = true;
+export const needsChromium = true;   // CI installs Chromium for it (.github/workflows/e2e.yml)
 export const keepGoing = true;
 
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
