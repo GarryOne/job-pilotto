@@ -279,6 +279,14 @@ def jobsch_terms(search):
 
 
 
+def jobsch_status(listed, fit, fresh):
+    """One jobs.ch page in the log: how many fit your role words (and are in Switzerland, not expired) of all listed, and how many of those this run
+    had not already seen on an earlier search word ('0 of 20' once read as 'nothing fits' when they were all seen already)."""
+    if not listed: return 'No listings on this page'
+    seen = f', {fit-fresh} already seen this run' if fit > fresh else ''
+    return f'{fit} of {listed} listed fit your roles{seen}'
+
+
 def _board_label(url):
     """'jobs.ch · vendeur magasin · genève · page 2' for a board search URL; the URL itself when it isn't one."""
     import urllib.parse
@@ -311,7 +319,7 @@ def main():
                     result=client.get(url);found=parse_jobs(result['html'],url,'jobs.ch')
                     listed=sum(1 for _ in walk(Page(result['html']).schemas,'JobPosting'))
                     fresh=[job for job in found if job['url'] not in seen_urls];seen_urls.update(job['url'] for job in found);jobs.extend(fresh)
-                    sources.append({'source':url,'status':f'{len(fresh)} for your roles of {listed} listed' if listed else 'No listings on this page'})
+                    sources.append({'source':url,'status':jobsch_status(listed,len(found),len(fresh))})
                     if listed<PAGE_SIZE or (page>1 and not fresh and listed):break
                 except Exception as e:
                     sources.append({'source':url,'status':str(e)});break

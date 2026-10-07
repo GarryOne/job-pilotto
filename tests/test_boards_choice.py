@@ -27,3 +27,12 @@ class BoardChoiceTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class JobsChStatus(unittest.TestCase):
+    def test_fit_and_already_seen_are_said_apart(self):
+        from src.sources.boards import jobsch_status
+        self.assertEqual(jobsch_status(20, 4, 4), '4 of 20 listed fit your roles')
+        self.assertEqual(jobsch_status(20, 3, 0), '3 of 20 listed fit your roles, 3 already seen this run')
+        self.assertEqual(jobsch_status(20, 0, 0), '0 of 20 listed fit your roles')
+        self.assertEqual(jobsch_status(0, 0, 0), 'No listings on this page')
