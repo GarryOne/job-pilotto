@@ -118,6 +118,14 @@ function allowanceBlock() {
   toWindow('allowance', over);
   return {ok: false, allowance: true, error: 'The free allowance is over. Paste a license key in Settings → License to keep starting new applications.'};
 }
+// Jobs read in Chrome that match the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count
+// never grows": they waited for the next scheduled check). Pages read in Chrome stay on this Mac, so with Always on they wait for a local search.
+function scoreVisitJobs(fits, by) {
+  if (!fits) return;
+  const cloud = !!storage.settings().cloud?.repo;
+  appLog('visit', cloud ? 'fitting jobs left for a search on this Mac (Always on)' : 'search started to score the jobs read in Chrome', {fits, by});
+  if (!cloud && !allowanceBlock()) pipeline.refresh(storage, log, 'run', 'you');
+}
 // Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
 function healthOnce() {
   // Once a day, and again the same day when the line's content changed (HEALTH_VERSION), so new counts arrive at once.
@@ -1908,15 +1916,7 @@ function handlers() {
       tee(text.split('\n')[1]);
       tee('<<<message'); text.split('\n').forEach(line => tee(line)); tee('message>>>');
       return results.some(result => result.ok);
-    }).then(() => {
-      // Jobs that fit the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count never
-      // grows": they waited for the next scheduled check). Pages read in Chrome stay on this Mac, so with Always on they wait for a local search.
-      const fits = visits.lastFits();
-      if (!fits) return;
-      const cloud = !!storage.settings().cloud?.repo;
-      appLog('visit', cloud ? 'fitting jobs left for a search on this Mac (Always on)' : 'search started to score the jobs read in Chrome', {fits, by: 'read sites task'});
-      if (!cloud && !allowanceBlock()) pipeline.refresh(storage, log, 'run', 'you');
-    }).catch(error => appLog('visit', 'search after read sites not started', {error: error.message}));
+    }).then(() => scoreVisitJobs(visits.lastFits(), 'read sites task')).catch(error => appLog('visit', 'search after read sites not started', {error: error.message}));
     return {started: true};
   });   // a site only you can open, in the browser that has the extension
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
@@ -2329,9 +2329,20 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
     toWindow('review', state);
   });
+  const readReported = new Set();   // Read with Claude sessions already reported (a session's Stop can arrive more than once)
   server.setSessionReporter((id, info) => {
     const {session, needsYou} = terminals.report(id, info);
     if (session && needsYou) sessionNeedsYou(session);
+    // A Read with Claude session that finished: what it saved, said like the extension's reads (log, toast, the site's button) and scored
+    // (owner, 7 Oct 2026: "Read with Claude never reports back"). Its pages were saved under its session name (claude-session.js readPrompt).
+    if (session?.kind === 'read' && session.status === 'done' && !readReported.has(id)) {
+      readReported.add(id);
+      visits.claudeResult(storage, id).then(result => {
+        appLog('visit', 'read with Claude finished', {host: (() => { try { return new URL(session.url).hostname; } catch { return ''; } })(), jobs: result?.jobs ?? 0, fits: result?.fits ?? 0});
+        toWindow('visit-claude-done', {url: session.url, name: session.company || result?.name || '', jobs: result?.jobs || 0, fits: result?.fits || 0});
+        scoreVisitJobs(result?.fits || 0, 'read with Claude');
+      }).catch(error => appLog('visit', 'read with Claude result not read', {error: error.message}));
+    }
   });
   if (!DEMO) {
     // User data left on this Mac -> Notion (source of truth), once. It runs while the window loads, so the

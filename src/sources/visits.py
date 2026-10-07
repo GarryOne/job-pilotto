@@ -265,6 +265,18 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
     return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added, 'fits': fits}
 
 
+def session_result(session):
+    """What one paging session saved (a Read with Claude session's pages add up under its session name): {name, jobs, fits, feed}, or
+    None when it saved nothing. The app reports it when the session ends (owner, 7 Oct 2026: "Read with Claude never reports back")."""
+    data = _load()
+    feed = (data.get('sessions') or {}).get(session)
+    page = (data.get('pages') or {}).get(feed) if feed else None
+    if not page:
+        return None
+    jobs = page.get('jobs') or []
+    return {'name': page.get('name') or '', 'jobs': len(jobs), 'fits': len(fitting(jobs)), 'feed': feed}
+
+
 MISS_DAYS = 7   # a site whose job page a search could not find is not searched again for a week
 BAD_DAYS = 30   # a job page that showed no jobs is not chosen again for this long
 

@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onAllowance: callback => ipcRenderer.on('allowance', (_, state) => callback(state)),
   onFewJobs: callback => ipcRenderer.on('few-jobs', (_, info) => callback(info)),
   onVisitRead: callback => ipcRenderer.on('visit-read', (_, answer) => callback(answer)),
+  onVisitClaudeDone: callback => ipcRenderer.on('visit-claude-done', (_, result) => callback(result)),
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'), testerLogsSet: call('testerLogsSet'),
   poolShareGet: call('poolShareGet'), poolShareSet: call('poolShareSet'), poolShareShown: call('poolShareShown'),
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'), betaState: call('betaState'), betaSet: call('betaSet'), betaRollback: call('betaRollback'),

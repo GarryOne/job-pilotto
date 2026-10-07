@@ -73,6 +73,12 @@ export async function withJobPages(storage, sites, tee = () => {}, runEngine) {
   return sites.map(site => (pages[site.url] ? {...site, url: pages[site.url]} : site));
 }
 
+// What a Read with Claude session saved: its pages went to the engine under the session name read_<id>.json (claude-session.js readPrompt).
+export async function claudeResult(storage, id, runEngine = pipeline.run) {
+  const {stdout} = await runEngine(storage, ['src.desktop', 'visit-session', `read_${id}.json`], onLine);
+  try { return JSON.parse(String(stdout).trim().split('\n').pop()).result || null; } catch { return null; }
+}
+
 // The recipe kept for a site (or forget it: it found nothing).
 export async function recipe(storage, page, runEngine) {
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false};

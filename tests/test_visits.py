@@ -123,6 +123,16 @@ class VisitsTest(unittest.TestCase):
             again = visits.find_job_pages(site, [], search=search, now=NOW)
         self.assertEqual(again, {'https://www.maison.example': 'https://www.maison.example/ch-fr/careers'}, 'the next lookup skips the page that showed nothing')
 
+    def test_what_a_read_with_claude_session_saved_is_totalled_for_its_report(self):
+        cards = [{'title': 'Client Advisor', 'url': '/jobs/1234567', 'lines': ['IWC', 'Genève']}, {'title': 'Logistician', 'url': '/jobs/2234567', 'lines': ['IWC', 'Schaffhausen']}]
+        from src.sources import feeds
+        with mock.patch.object(feeds, 'wanted_title', lambda title: 'advisor' in title.lower()), mock.patch.object(feeds, 'wanted_location', lambda job: True):
+            visits.read('https://careers.richemont.com/en/jobs/iwc', '<html></html>', cards[:1], now=NOW, session='read_ab12cd34.json')
+            visits.read('https://careers.richemont.com/en/jobs/iwc?page=2', '<html></html>', cards, now=NOW, session='read_ab12cd34.json')
+            result = visits.session_result('read_ab12cd34.json')
+        self.assertEqual((result['jobs'], result['fits']), (2, 1))
+        self.assertIsNone(visits.session_result('read_none.json'), 'a session that saved nothing')
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'

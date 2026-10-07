@@ -370,6 +370,7 @@ def main(argv=None):
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
     sub.add_parser('visit-context').add_argument('file')   # for a "Read with Claude" session: the search's own role words and places (plain words)
+    sub.add_parser('visit-session').add_argument('session')   # what a Read with Claude session saved (its session name): jobs, matching
     sub.add_parser('visit-jobpages').add_argument('file')   # sites about to be read (JSON [{name, url, kind}]): their job pages, a web search each when unknown
     sub.add_parser('visit-jobpage').add_argument('file')   # a page that is not a job list (JSON: url, html): the job list's address, kept per site
     sub.add_parser('visit-read').add_argument('file')
@@ -457,6 +458,10 @@ def main(argv=None):
             if recipe:
                 visits.save_recipe(page['url'], recipe)
             print(json.dumps({'ok': True, 'recipe': recipe}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-session':
+            from .sources import visits
+            print(json.dumps({'ok': True, 'result': visits.session_result(args.session)}, ensure_ascii=False))
             return 0
         if args.command == 'visit-jobpages':
             from .sources import visits

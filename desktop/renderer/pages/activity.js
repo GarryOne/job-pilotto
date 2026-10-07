@@ -286,6 +286,25 @@ async function pressWhile(key, busyText, work) {
   try { return await work(); } finally { setPress(key, {busy: false}); }
 }
 
+// A Read with Claude session that finished or stopped: its button comes back, with what it read in the row (owner, 7 Oct 2026: "the button
+// stays on 'Claude is reading in Chrome' even after the session ends"; "Read with Claude never reports back").
+function claudeReadEnded(url, said) {
+  const key = `claude:${url}`;
+  if (!presses.get(key)?.done) return;
+  setPress(key, {done: false, text: 'Read with Claude', error: said});
+  const shown = pressedButton(key)?.closest('li')?.querySelector('.item-words');
+  shown?.querySelector('.visit-claude-error')?.remove();
+  shown?.append(el('span', 'muted visit-claude-error', said));
+}
+window.pilot?.onVisitClaudeDone?.(result => {
+  claudeReadEnded(result.url, `Claude read ${result.jobs} job${result.jobs === 1 ? '' : 's'}, ${result.fits} matching your search`);
+  toastMessage(`Claude read ${result.jobs} jobs from ${result.name || 'the site'}, ${result.fits} matching your search`,
+    result.fits ? 'A search started to score the matching ones for your Jobs list.' : 'None has your role words and places, so your Jobs list stays the same.');
+});
+window.pilot?.onSession?.((event, payload) => {   // a session that stopped without finishing (closed, failed)
+  if (event === 'update' && payload?.kind === 'read' && ['ended', 'failed'].includes(payload.status)) claudeReadEnded(payload.url, `Claude's session ${payload.status === 'failed' ? 'stopped' : 'ended'} before it finished`);
+});
+
 // "Read sites only you can open" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
 // 7 Oct 2026): Read with Claude (a Claude in Chrome session, when the extension could not) and Open it myself.
 export function renderVisitsCard(card, target = $('activity-card')) {

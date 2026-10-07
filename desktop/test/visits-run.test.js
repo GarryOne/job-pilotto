@@ -202,3 +202,11 @@ test('each site finds its job page in its own lane, just before its tab opens: t
   assert.ok(opened.find(([url]) => url === 'https://quick.example/careers')[1] - started < 150, 'Quick opened before Slow\'s lookup ended');
   assert.deepEqual(results.map(result => [result.name, result.url, result.start]), [['Quick', 'https://quick.example/careers', 'https://quick.example'], ['Slow', 'https://slow.example/careers', 'https://slow.example']]);
 });
+
+test('a Read with Claude session\'s result is read under its session name', async () => {
+  const {claudeResult} = await import('../lib/visits.js');
+  let asked = null;
+  const result = await claudeResult(null, 'ab12cd34', async (_, args) => { asked = args; return {code: 0, stdout: 'Visit: …\n{"ok": true, "result": {"name": "IWC", "jobs": 4, "fits": 1}}'}; });
+  assert.deepEqual(asked, ['src.desktop', 'visit-session', 'read_ab12cd34.json']);
+  assert.deepEqual([result.jobs, result.fits], [4, 1]);
+});
