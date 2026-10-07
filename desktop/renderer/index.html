@@ -536,6 +536,15 @@
               <div class="task-words"><b>Find new employers</b><span class="muted">Step 1 · Finds companies hiring for your roles and adds their career sites to your search</span></div>
               <button class="secondary action" data-command="scout"><b hidden>Find new employers</b>Run</button></div>
           </div>
+          <div class="task-card" id="visits-card">
+            <span class="task-category">DISCOVERY</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="globe"></i></span>
+              <div class="task-words"><b>Read sites only you can open</b><span class="muted">Sites that refuse automated visitors, and job portals with no other way in, read in your Chrome by the extension</span></div>
+              <input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once">
+              <button class="secondary action" id="visits-run" data-palette="visits"><b hidden>Read sites only you can open</b>Run</button></div>
+            <ul class="item-rows" id="visits-sites" hidden></ul>
+            <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
+          </div>
           <div class="task-card">
             <span class="task-category">DISCOVERY</span>
             <div class="task-body"><span class="task-tile"><i data-icon="search"></i></span>

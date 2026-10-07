@@ -424,6 +424,7 @@ export const TASKS = {
   insight: {name: 'Insight', result: /^(Insight sent: |Insight: )/},
   weekly: {name: 'Search analysis', result: /^Weekly report sent: /},
   kits: {name: 'Prepare top matches', result: /^Kits ready: /},
+  visits: {name: 'Read sites only you can open', result: /^Read \d+ of \d+ sites?/},
   tailor: {name: 'Tailor CVs', result: /^Tailored \d+ of \d+ CV/},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off|^\d+ checked · \d+ new sources?/},   // the older wording, and the card's second line

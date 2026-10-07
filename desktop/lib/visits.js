@@ -84,3 +84,46 @@ export async function read(storage, page, runEngine = pipeline.run) {
     fs.rmSync(file, {force: true});
   }
 }
+
+// "Read sites only you can open" (Actions, owner 7 Oct 2026): open the chosen sites in the browser with the extension, `atOnce` at a time,
+// each marked so the extension filters (if asked) and reads it by itself (extension/visit.js autoRead); each reports back (done) and closes,
+// then the next opens. A site that does not report within WAIT_MS counts as stopped.
+export const WAIT_MS = 8 * 60 * 1000;
+const waiting = new Map();   // start address -> resolve
+const key = url => String(url || '').split('#')[0].replace(/\/$/, '');
+export function done(payload) {
+  const resolve = waiting.get(key(payload?.url));
+  if (resolve) { waiting.delete(key(payload.url)); resolve(payload); }
+  return {ok: true};
+}
+export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS} = {}) {
+  const queue = [...sites], results = [];
+  const one = async site => {
+    const finished = new Promise(resolve => {
+      waiting.set(key(site.url), resolve);
+      setTimeout(() => { if (waiting.delete(key(site.url))) resolve({stopped: 'no answer from the extension in time (is it installed and allowed?)', jobs: 0, added: 0}); }, waitMs);
+    });
+    const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}`);
+    if (!opened.ok) { waiting.delete(key(site.url)); return {...site, ok: false, why: opened.error, jobs: 0, added: 0}; }
+    tee(`Reading ${site.name} in your browser…`);
+    const state = await finished;
+    const ok = (state.jobs || 0) > 0;
+    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
+    log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
+    return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0};
+  };
+  const lanes = Array.from({length: Math.max(1, Math.min(5, atOnce))}, async () => {
+    while (queue.length) results.push(await one(queue.shift()));
+  });
+  await Promise.all(lanes);
+  return sites.map(site => results.find(result => result.url === site.url));
+}
+// The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
+export function resultMessage(results) {
+  const read = results.filter(result => result.ok);
+  const jobs = read.reduce((sum, result) => sum + result.jobs, 0), added = read.reduce((sum, result) => sum + result.added, 0);
+  const clean = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').slice(0, 120);
+  return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new)`,
+    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} jobs (${result.added} new) · ${key(result.url)}`
+      : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`)].join('\n');
+}

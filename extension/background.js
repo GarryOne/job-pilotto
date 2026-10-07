@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {markListed, readSite} from './visit.js';
+import {autoRead, markListed, readSite, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
 import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
@@ -280,7 +280,12 @@ async function markPage(tabId, url) {
 }
 if (chrome.webNavigation) {
   // A site on the app's visit list lights the icon ("Read"): no access to the page is needed for that (visit.js).
-  chrome.webNavigation.onCompleted.addListener(details => { if (details.frameId === 0 && /^https:/.test(details.url)) markListed(details.tabId, details.url); });
+  chrome.webNavigation.onCompleted.addListener(details => {
+    if (details.frameId !== 0 || !/^https?:/.test(details.url)) return;
+    if (/#jp-read(-filter)?$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
+    markListed(details.tabId, details.url);
+  });
+  chrome.permissions.onAdded.addListener(() => startWaiting());
   chrome.webNavigation.onCommitted.addListener(async details => {
     if (details.frameId !== 0) return;
     const key = `armed:${details.tabId}`;

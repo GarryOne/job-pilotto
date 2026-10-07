@@ -49,7 +49,7 @@ export function openView(name, {fromHistory = false} = {}) {
 // ⌘K / Ctrl+K: the command palette. Its commands are the app's own buttons, read when it opens (so a disabled
 // button or a missing Notion link isn't offered); running one opens its page, then clicks it.
 const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search check jobs find refresh scan crawl',
-  tailor: 'tailor cv resume top matches',
+  tailor: 'tailor cv resume top matches', visits: 'linkedin indeed glassdoor sites read portals visit extension',
   scout: 'employers companies discover', status: 'health check', weekly: 'report stats weekly insight review', insight: 'tip advice', kits: 'kits prepare applications cover letter', tune: 'strategy settings roles places tune',
   today: 'telegram list', applied: 'applications', saved: 'bookmarks starred'};
 // A button's own words: the count badge and the dot inside a nav button are not part of its label.

@@ -369,6 +369,7 @@ def main(argv=None):
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
+    sub.add_parser('visit-context').add_argument('file')   # for a "Read with Claude" session: the search's own role words and places (plain words)
     sub.add_parser('visit-read').add_argument('file')
     sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
     sub.add_parser('visit-recipe').add_argument('file')   # the recipe kept for a site (JSON: url, forget), or null   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
@@ -413,6 +414,15 @@ def main(argv=None):
         if args.command == 'visit-list':
             from .paths import load_search_config
             print(json.dumps({'ok': True, 'visits': _visits(load_search_config(matching=False))}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-context':
+            from .notion.search_settings import terms
+            from .paths import load_search_config
+            search = load_search_config(matching=False)
+            places = search.get('locations') or {}
+            print(json.dumps({'role_words': terms(search.get('role_keywords'))[:10], 'places_first': terms(places.get('top_tier'))[:6],
+                              'places_also': terms((places.get('country_wide') or []) + (places.get('abroad') or []))[:6],
+                              'title_words_ruled_out': terms(search.get('title_exclude_keywords'))[:12]}, ensure_ascii=False))
             return 0
         if args.command == 'visit-filters':
             from .ai import visit_filters

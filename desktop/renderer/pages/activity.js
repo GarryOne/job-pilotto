@@ -8,6 +8,7 @@ import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {cardText, emptyResult, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
+import {parseVisits} from '../visits-card.js';
 import {employersAdvice} from '../onboarding.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
 import {comparisonTable, confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
@@ -76,7 +77,7 @@ export function searchPhase(step = '') {
 }
 // icon: emoji for text the owner reads (toasts, messages); line: the line icon for rows and headers (same as Actions → Recent runs).
 export const KIND = {search: {icon: '🔎', line: 'search', name: 'Search for new jobs'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
-  interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'}, tailor: {icon: '✂️', line: 'scissors', name: 'Tailor CVs'},
+  interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'}, tailor: {icon: '✂️', line: 'scissors', name: 'Tailor CVs'}, visits: {icon: '🌐', line: 'globe', name: 'Read sites'},
   weekly: {icon: '📊', line: 'file', name: 'Search analysis'}, kits: {icon: '📝', line: 'file-text', name: 'Prepare top matches'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
   add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, import: {icon: '➕', line: 'search', name: 'Add a job'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
@@ -115,7 +116,7 @@ function warningSummary(warnings) {
   return humanError(warnings[0]) || '';
 }
 // "<task> completed with warnings": which run it is, said in the box's title.
-const WARN_NOUN = {search: 'Job search', scout: 'Employer search', mail: 'Gmail check', tailor: 'Tailoring', kits: 'Kit drafting',
+const WARN_NOUN = {search: 'Job search', scout: 'Employer search', mail: 'Gmail check', tailor: 'Tailoring', visits: 'Site reading', kits: 'Kit drafting',
   weekly: 'Search analysis', insight: 'The insight', today: 'Today’s list'};
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
@@ -184,13 +185,14 @@ export async function refreshGmailConnection() {
 // A kind's Run button on the Actions page (its data-command), or nothing for a kind without one.
 const runButton = kind => {
   if (kind === 'tailor') return document.getElementById('tailor-top');   // no Telegram command: its own button
+  if (kind === 'visits') return document.getElementById('visits-run');
   const command = Object.keys(COMMAND_KIND).find(key => COMMAND_KIND[key] === kind);
   return command ? document.querySelector(`button.action[data-command="${command}"]`) : null;
 };
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', kits: 'kits', scout: 'scout', mail: 'mail', run: 'search'};
 // Buttons outside the Actions cards that start the same task (Jobs → Search for new jobs, Settings → Check Gmail now, Tailor's own card): turned off while
 // it runs (runs-page.js syncRunButtons) and left out of ⌘K when an Actions card already offers it (nav.js paletteCommands), so a task is listed once.
-export const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['tailor', '#tailor-top', '#tailor-top-n']];
+export const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['tailor', '#tailor-top', '#tailor-top-n'], ['visits', '#visits-run', '#visits-at-once']];
 // The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
 // The card a finished run's message makes, as a function that draws it into a card box, or null when the message has no card shape (then it is shown as text).
 // One place for both views: the Actions page and Recent activity must never show the same run as a card in one and as Telegram text in the other (5 Oct 2026:
@@ -217,7 +219,45 @@ export function cardFor(run, text) {
   if (review) return target => renderInterviewCard(review, target);
   const kits = KITS_CARD.has(kindOf(run)) ? parseKitsReady(text) : null;
   if (kits) return target => renderKitsCard(kits, target);
+  const sites = parseVisits(text);
+  if (sites) return target => renderVisitsCard(sites, target);
   return null;
+}
+
+// "Read sites only you can open" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
+// 7 Oct 2026): Read with Claude (a Claude in Chrome session, when the extension could not) and Open it myself.
+export function renderVisitsCard(card, target = $('activity-card')) {
+  const box = el('div', 'insight-card');
+  const head = el('header', 'insight-head');
+  const kicker = el('div', 'insight-kicker');
+  kicker.append(el('span', 'insight-category', 'Sites only you can open'));
+  head.append(kicker, el('h3', 'insight-title', `Read ${card.read} of ${plural(card.total, 'site')} · ${plural(card.jobs, 'job')} (${card.fresh} new)`));
+  head.append(el('p', 'insight-subtitle', 'Your next jobs check filters and scores them like any other.'));
+  const list = el('ul', 'item-rows');
+  for (const site of card.sites) {
+    const row = el('li', site.ok ? '' : 'is-failed');
+    const words = el('div', 'item-words');
+    words.append(el('b', '', site.name), el('span', 'muted', site.detail));
+    row.append(words);
+    if (!site.ok) {
+      const claude = el('button', 'secondary item-action', 'Read with Claude');
+      claude.type = 'button';
+      claude.title = 'A Claude in Chrome session opens this site, sets the filters for your search and reads its jobs (needs Claude Code)';
+      claude.addEventListener('click', async () => {
+        claude.disabled = true;
+        const started = await window.pilot.visitWithClaude?.(site.url, site.name).catch(error => ({ok: false, error: error.message}));
+        claude.disabled = false;
+        if (started && !started.ok) claude.title = started.error || claude.title;
+      });
+      const myself = el('button', 'link item-action', 'Open it myself');
+      myself.type = 'button';
+      myself.addEventListener('click', () => window.pilot.openVisit(site.url));
+      row.append(claude, myself);
+    }
+    list.append(row);
+  }
+  box.append(head, list);
+  target.replaceChildren(box);
 }
 function showActionsResult(run, kind, draw) {
   show($('command-answer'), false);
@@ -514,7 +554,7 @@ export function renderActivity(fresh) {
   const shownText = cardText(run, run ? runResults.get(run.id) : null);
   // Its card says it better than the raw text, whole: the header doesn't repeat it cut short (a digest, an insight, a weekly report).
   const hasCard = !!(shownText && (parseRunMessage(shownText) || parseInsight(shownText) || parseWeekly(shownText)
-    || (KITS_CARD.has(kindOf(run)) && parseKitsReady(shownText))));
+    || (KITS_CARD.has(kindOf(run)) && parseKitsReady(shownText)) || parseVisits(shownText)));
   // A stopped run's box says why in full: the header doesn't repeat it.
   // A box that names what happened in full (stopped, couldn't start, stopped unexpectedly): the header doesn't repeat it.
   const boxSaysIt = run && (stoppedHead({...run, kind: kindOf(run)}) || waitedHead({...run, kind: kindOf(run)}) || failureHead({...run, kind: kindOf(run)})?.unexpected);
@@ -580,6 +620,7 @@ export function renderActivity(fresh) {
     ? parseInterviewReview(run.message) : null;
   const kits = !run?.live && !card && !mail && !insight && !weekly && !review && KITS_CARD.has(kindOf(run)) && run?.message ? parseKitsReady(run.message) : null;
   if (kits) kits.outcome = kitsOutcome(kits, run.log);
+  const sites = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message ? parseVisits(run.message) : null;   // Read sites only you can open
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) {
@@ -589,9 +630,10 @@ export function renderActivity(fresh) {
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
   else if (kits) renderKitsCard(kits);
+  else if (sites) renderVisitsCard(sites);
   else if (reading) renderCardSkeleton();
-  if (card || insight || weekly || mail || review || kits) show($('activity-result'), false);  // the card shows the same, laid out
-  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || reading);
+  if (card || insight || weekly || mail || review || kits || sites) show($('activity-result'), false);  // the card shows the same, laid out
+  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || !!sites || reading);
   // A search that can't have found much yet suggests Find new employers, whatever its result card shows (renderer/onboarding.js employersAdvice).
   const advice = employersAdvice(run && {...run, kind: kindOf(run)}, {runs: lastActivity?.runs, settings: shared.state?.settings});
   if (advice) {
@@ -602,11 +644,11 @@ export function renderActivity(fresh) {
     $('activity-next').replaceChildren(el('span', 'insight-next-icon', icon('building')), words);
   }
   show($('activity-next'), !!advice);
-  const plain = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message;
+  const plain = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && !sites && run?.message;
   $('activity-message').textContent = plain ? plainMessage(plain) : '';
   show($('activity-message'), !!plain && !reading);
   markFallback($('activity-message'), kindOf(run), plain && !reading ? plain : '');
-  const drew = !!card || !!mail || !!insight || !!weekly || !!review || !!kits || reading || !!plain || !$('activity-result').hidden;
+  const drew = !!card || !!mail || !!insight || !!weekly || !!review || !!kits || !!sites || reading || !!plain || !$('activity-result').hidden;
   if (emptyResult(kindOf(run), run, drew)) $('activity-panel').dataset.emptyResult = kindOf(run); else delete $('activity-panel').dataset.emptyResult;
   markFallback($('activity-result'), kindOf(run), $('activity-result').hidden ? '' : $('activity-result').textContent);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says

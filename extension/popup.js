@@ -26,6 +26,15 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
   if (!app || !tab?.id || !/^https?:/.test(tab.url || '')) return;
   $('visit').hidden = false;
   const host = new URL(tab.url).hostname;
+  // A tab the app opened to read by itself, waiting for the one-time permission (Chrome asks; withdraw it any time in Chrome's settings).
+  if (/#jp-read(-filter)?$/.test(tab.url) && !(await chrome.permissions.contains({origins: ['https://*/*', 'http://*/*']}))) {
+    $('visit-allow').hidden = false;
+    $('visit-text').textContent = 'The Job Pilotto app opened this site to read its jobs. Allow the extension, once, to read the sites the app opens for you:';
+    $('visit-allow').addEventListener('click', async () => {
+      const ok = await chrome.permissions.request({origins: ['https://*/*', 'http://*/*']}).catch(() => false);
+      $('visit-progress').textContent = ok ? 'Allowed: reading starts on the tabs the app opened.' : 'Not allowed: click "Read" on each site instead.';
+    });
+  }
   if (/(^|\.)linkedin\.com$/.test(host)) $('visit-note').textContent = LINKEDIN;
   const show = state => {
     if (!state) return;

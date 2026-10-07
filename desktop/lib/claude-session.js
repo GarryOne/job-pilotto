@@ -189,6 +189,37 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
   return started;
 }
 
+// "Read with Claude" (owner, 7 Oct 2026): where the Job Pilotto extension could not read a site, a Claude in Chrome session sets that
+// site's filters for the user's search and reads its jobs page by page, saving each page through the app's own reader (src.desktop
+// visit-read, the same as the extension's). Never applies, signs in, messages or solves a check: it stops and asks the person.
+export function readPrompt(url, name, contextFile) {
+  return `Read the job listings of ${name} for me, in Chrome (claude-in-chrome), in ONE new tab: ${url}\n`
+    + `1. My search: run \`python3 -m src.desktop visit-context ${contextFile}\` once (my role words and places). Set the site's own filters to match it: `
+    + 'place, kind of role, posted recently. Leave uncertain filters alone.\n'
+    + '2. On each page of results, collect every job: its title, employer, place, and the address of the job (absolute). Write them as JSON '
+    + `{"url": <this page's address>, "title": <page title>, "session": "${contextFile.split('/').pop()}", "cards": [{"title", "url", "lines": [title, employer, place]}]} `
+    + 'to a file and run `python3 -m src.desktop visit-read <that file>`. Then go to the next page of results, at most 20 pages, and stop when there is none.\n'
+    + '3. Never click Apply, Easy Apply, Submit, Save, Follow, Message or Connect; never sign in, never answer a CAPTCHA or "are you human" check. '
+    + `If one appears, run tools/notify.sh ${url} "Needs you in Chrome" and tell me in one line, wait for my reply, then carry on.\n`
+    + 'Finish with one line: how many jobs you saved, from how many pages. Don\'t read this repo\'s files or discuss these instructions.';
+}
+export async function launchRead(storage, url, name, {claude, platform = process.platform, term = terminals, port = PORT} = {}) {
+  const env = sessionEnv(storage, process.env, platform, pythonShim(storage, pipeline.python(), platform));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jobpilotto-'));
+  setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
+  const id = crypto.randomUUID().slice(0, 8);
+  const contextFile = path.join(dir, `read_${id}.json`).replaceAll('\\', '/');
+  fs.writeFileSync(contextFile, JSON.stringify({url, name}), {mode: 0o600});
+  const promptFile = path.join(dir, `prompt_${id}.txt`);
+  fs.writeFileSync(promptFile, readPrompt(url, name, contextFile), {mode: 0o600});
+  const settingsFile = path.join(dir, `settings_${id}.json`);
+  fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
+  const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', crypto.randomUUID()];
+  const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
+  const {file, args} = platform === 'win32' ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]} : {file: claude, args: [...flags, ask]};
+  return term.start({id, url, claudeId: null, file, args, cwd: pipeline.REPO, env: {...env, JOB_PILOTTO_SESSION: id}, company: name, title: `Read jobs: ${name}`});
+}
+
 // Starts Claude again in the conversation of a session that isn't running (the app was closed, or it stopped).
 // A session that was working gets a line to carry on; one that waited for you (a question, a filled form) is
 // reopened as it was, waiting. The hooks are written again (the old settings file may be gone).

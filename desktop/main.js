@@ -9,6 +9,7 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
+import * as claudeSession from './lib/claude-session.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import * as critical from './lib/critical.js';
 import * as pageRender from './lib/page-render.js';
@@ -1856,7 +1857,38 @@ function handlers() {
   ipcMain.handle('coverLetterOpen', () => (fs.existsSync(letters.pdfPath(storage)) ? shell.openPath(letters.pdfPath(storage)) : ''));
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
-  ipcMain.handle('openVisit', (_, url) => visits.open(url));   // a site only you can open, in the browser that has the extension
+  ipcMain.handle('openVisit', (_, url) => visits.open(url));
+  // Read with Claude: a Claude in Chrome session reads a site the extension could not (Apply with Claude's needs: Claude Code, its consent).
+  ipcMain.handle('visitWithClaude', async (_, url, name) => {
+    const ready = apply.claudeReady(storage);
+    if (!ready.ok) return ready;
+    if (!/^https:\/\//.test(url || '')) return {ok: false, error: 'This site has no address to open.'};
+    appLog('visit', 'read with Claude started', {host: new URL(url).hostname, by: 'you'});
+    const started = await claudeSession.launchRead(storage, url, String(name || '').slice(0, 80), {claude: apply.claudeBinary()}).catch(error => ({error: error.message}));
+    return started?.error ? {ok: false, error: started.error} : {ok: true};
+  });
+  ipcMain.handle('visitsList', async () => {
+    const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
+    try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false, visits: []}; }
+  });
+  // "Read sites only you can open" (Actions): a tracked task like Tailor CVs, so the banner, Recent activity and the result card follow it.
+  ipcMain.handle('visitsRun', async (_, {urls = [], atOnce = 2, filter = true} = {}) => {
+    const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
+    const listed = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()).visits || []; } catch { return []; } })();
+    const chosen = listed.filter(site => urls.includes(site.url));
+    if (!chosen.length) return {text: 'Tick at least one site to read.'};
+    const n = Math.max(1, Math.min(5, Number(atOnce) || 2));
+    appLog('visit', 'read sites task', {sites: chosen.length, atOnce: n, filter: !!filter, by: 'you'});
+    pipeline.work(storage, 'visits', log, async tee => {
+      tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
+      const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee});
+      const text = visits.resultMessage(results);
+      tee(text.split('\n')[1]);
+      tee('<<<message'); text.split('\n').forEach(line => tee(line)); tee('message>>>');
+      return results.some(result => result.ok);
+    });
+    return {started: true};
+  });   // a site only you can open, in the browser that has the extension
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
   // "Open filled form": the session's form tab through the extension (an empty label: bring it forward, no scroll).
   // `taken` says whether the page's panel answered — the one thing the window needs to know whether the "Reload the
@@ -2198,6 +2230,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setVisitFilters(page => visits.filters(storage, page));
   server.setVisitRoute('/extension/visit-understand', outline => visits.understand(storage, outline));
   server.setVisitRoute('/extension/visit-recipe', page => visits.recipe(storage, page));
+  server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));   // a tab the Actions task opened has been read
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
     if (answer.ok) toWindow('visit-read', answer);

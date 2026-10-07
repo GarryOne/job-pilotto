@@ -1,0 +1,33 @@
+// "Read sites only you can open" (7 Oct 2026): N at a time, each waits for its extension report, a silent one counts as stopped; the result
+// message the app writes is exactly what its card reads.
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {done, resultMessage, runAll} from '../lib/visits.js';
+import {parseVisits} from '../renderer/visits-card.js';
+
+test('sites open a few at a time, each closes on its report, a silent one stops in time', async () => {
+  const opened = [];
+  let open = 0, most = 0;
+  const openTab = url => {
+    opened.push(url); open++; most = Math.max(most, open);
+    const start = url.split('#')[0];
+    if (!start.includes('silent')) setTimeout(() => { open--; done({url: start, jobs: start.includes('empty') ? 0 : 12, added: 3, pages: 2, stopped: start.includes('empty') ? 'the site asks you to sign in' : 'no next page'}); }, 20);
+    else setTimeout(() => { open--; }, 60);
+    return {ok: true};
+  };
+  const sites = ['a', 'b', 'empty', 'silent'].map(name => ({name, url: `https://${name}.example/jobs`}));
+  const results = await runAll(sites, {atOnce: 2, openTab, waitMs: 80});
+  assert.equal(most, 2, 'never more than two at once');
+  assert.ok(opened.every(url => url.endsWith('#jp-read-filter')));
+  assert.deepEqual(results.map(result => [result.name, result.ok, result.jobs]), [['a', true, 12], ['b', true, 12], ['empty', false, 0], ['silent', false, 0]]);
+  assert.match(results[3].why, /no answer from the extension/);
+});
+
+test('the result message is what the card reads, with each stopped site and its address', () => {
+  const text = resultMessage([{name: 'LinkedIn', url: 'https://www.linkedin.com/jobs/search/?keywords=photographe', ok: true, jobs: 64, added: 20},
+    {name: 'Rolex', url: 'https://www.rolex.com', ok: false, why: 'the site asks you to sign in · do it, then click again', jobs: 0, added: 0}]);
+  const card = parseVisits(text);
+  assert.deepEqual([card.read, card.total, card.jobs, card.fresh], [1, 2, 64, 20]);
+  assert.deepEqual(card.sites.map(site => [site.name, site.ok, site.url]), [['LinkedIn', true, 'https://www.linkedin.com/jobs/search/?keywords=photographe'], ['Rolex', false, 'https://www.rolex.com']]);
+  assert.match(card.sites[1].detail, /sign in/);
+});

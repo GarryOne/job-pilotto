@@ -29,6 +29,19 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
     });
 
+    await ctx.run('Read sites only you can open: its card counts the sites and jobs, and a stopped site offers Read with Claude and Open it myself', async () => {
+      const {page, select} = states;
+      await select('visits--2-of-3-sites-read-1-stopped');
+      const card = await text(page, '#activity-card');
+      const problems = [];
+      if (!/Read 2 of 3 sites · 116 jobs \(51 new\)/.test(card)) problems.push(`heading: "${card.split('\n').slice(0, 3).join(' / ')}"`);
+      if (await page.locator('#activity-card .item-rows > li').count() !== 3) problems.push('not one row per site');
+      const stopped = page.locator('#activity-card .item-rows > li.is-failed');
+      if (!/Rolex/.test(await stopped.innerText().catch(() => ''))) problems.push('Rolex is not the stopped row');
+      for (const label of ['Read with Claude', 'Open it myself']) if (!await stopped.getByRole('button', {name: label}).count()) problems.push(`no "${label}" on the stopped site`);
+      if (problems.length) throw new Error(problems.join('; '));
+    });
+
     await ctx.run('a partial Tailor run: its counts, its row actions and its warning status agree', async () => {
       const {page, select} = states;
       await select('tailor--3-of-5-partial');

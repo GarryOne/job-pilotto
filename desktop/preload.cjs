@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onInterviewProgress: callback => ipcRenderer.on('ivProgress', (_, step) => callback(step)),
   onCallLevel: callback => ipcRenderer.on('ivLevel', (_, level) => callback(level)),
   cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'), cloudTurnOffConfirmed: call('cloudTurnOffConfirmed'), telegramCloudOn: call('telegramCloudOn'), telegramCloudOff: call('telegramCloudOff'),
-  openExternal: call('openExternal'), openVisit: call('openVisit'), showBrowser: call('showBrowser'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
+  openExternal: call('openExternal'), openVisit: call('openVisit'), visitsList: call('visitsList'), visitsRun: call('visitsRun'), visitWithClaude: call('visitWithClaude'), showBrowser: call('showBrowser'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
   onMoved: callback => ipcRenderer.on('moved', (_, steps) => callback(steps)),
 });

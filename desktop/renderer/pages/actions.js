@@ -52,6 +52,46 @@ export async function init() {
     answer(result?.text || result?.error || 'Done.');
   });
   $('tailor-top-n').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('tailor-top').click(); } });   // Enter in the count box = Run
+  // Read sites only you can open (owner, 7 Oct 2026): the list from the engine, all ticked but the ones read in the last week; Run opens them
+  // in Chrome `at once` at a time, where the extension filters and reads each by itself; a tracked task like Tailor CVs.
+  const paintVisits = async () => {
+    const answer = await window.pilot.visitsList().catch(() => null);
+    const sites = answer?.visits || [];
+    const list = $('visits-sites');
+    show(list, sites.length > 0);
+    list.replaceChildren(...sites.map(site => {
+      const row = document.createElement('li');
+      const label = document.createElement('label');
+      label.className = 'check-row';   // the shared checkbox row (components.css), inside the shared item-rows list
+      const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: site.kind === 'portal' || !site.last_read, value: site.url});
+      const words = document.createElement('span');
+      const name = document.createElement('b');
+      name.textContent = site.kind === 'portal' ? `${site.name} · your search` : `${site.name} (${new URL(site.url).hostname.replace(/^www\./, '')})`;
+      const when = document.createElement('span');
+      when.className = 'muted';
+      when.textContent = site.last_read ? `read ${site.last_read.slice(0, 10)}` : 'never read';
+      if (site.note) when.title = site.note;
+      words.append(name, when);
+      label.append(box, words);
+      row.append(label);
+      return row;
+    }));
+    $('visits-run').disabled = !sites.length;
+  };
+  paintVisits();
+  document.querySelector('.nav[data-view=actions]')?.addEventListener('click', paintVisits);
+  $('visits-run').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const urls = [...document.querySelectorAll('#visits-sites input:checked')].map(box => box.value);
+    show($('actions-result'), false);
+    hold(button);
+    const result = await window.pilot.visitsRun({urls, atOnce: Number($('visits-at-once').value) || 2, filter: $('visits-filter').checked})
+      .catch(error => ({text: `⚠️ ${error.message}`}));
+    if (result?.started) { refreshActivity(); show($('command-answer'), false); return; }
+    release(button);
+    answer(result?.text || result?.error || 'Done.');
+  });
+  $('visits-at-once').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('visits-run').click(); } });
   // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
   // the fit scores) is offered, never applied by itself.
   $('replace-cv').addEventListener('click', async () => {

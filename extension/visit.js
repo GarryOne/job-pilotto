@@ -313,6 +313,37 @@ async function waitForPage(tabId) {
   await wait(900);
 }
 
+// Tabs the app opened for "Read sites only you can open" (Actions): marked #jp-read (or #jp-read-filter), read by themselves once the person
+// has allowed the extension on the sites the app opens (Chrome's own prompt, once, from the popup). Each reports to the app and closes, so the
+// app can open the next. Only marked tabs: any other page still needs the person's click.
+export const MARKS = {'#jp-read': false, '#jp-read-filter': true};
+export const ALL_SITES = {origins: ['https://*/*', 'http://*/*']};
+const started = new Set();
+export async function autoRead(tabId, url) {
+  const mark = Object.keys(MARKS).find(key => String(url).endsWith(key));
+  if (!mark || started.has(tabId)) return;
+  if (!(await chrome.permissions.contains(ALL_SITES))) {
+    await chrome.storage.session.set({[`waiting:${tabId}`]: url});
+    badge(tabId, '!', 'Job Pilotto: click here once to let it read the sites the app opens');
+    return;
+  }
+  started.add(tabId);
+  const start = url.slice(0, -mark.length);
+  const state = await readSite(tabId, {filter: MARKS[mark]}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
+  await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ...state})}).catch(() => {});
+  started.delete(tabId);
+  await chrome.tabs.remove(tabId).catch(() => {});   // done: the app opens the next site in its place
+}
+// Allowed from the popup: the tabs that were waiting start now.
+export async function startWaiting() {
+  const all = await chrome.storage.session.get(null);
+  for (const [key, url] of Object.entries(all)) {
+    if (!key.startsWith('waiting:')) continue;
+    await chrome.storage.session.remove(key);
+    autoRead(Number(key.slice(8)), url);
+  }
+}
+
 // Sites on the app's visit list light the toolbar icon (the badge needs no access to the page). Asked of the app at most every 10 minutes.
 let hosts = {at: 0, list: []};
 export async function markListed(tabId, url) {

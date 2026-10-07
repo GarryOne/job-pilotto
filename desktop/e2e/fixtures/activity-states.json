@@ -465,6 +465,15 @@
      "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100"
     ]
    }
+  },
+  {
+   "name": "visits--2-of-3-sites-read-1-stopped",
+   "run": {
+    "kind": "visits",
+    "ok": true,
+    "result": "Read 2 of 3 sites · 116 jobs (51 new)",
+    "message": "🌐 Sites read\nRead 2 of 3 sites · 116 jobs (51 new)\n✓ LinkedIn · 64 jobs (20 new) · https://www.linkedin.com/jobs/search/?keywords=photographe&location=Gen%C3%A8ve\n✓ Indeed · 52 jobs (31 new) · https://www.indeed.com/jobs?q=photographe&l=Gen%C3%A8ve\n✗ Rolex · the site asks you to sign in: do it, then click again · https://www.rolex.com"
+   }
   }
  ]
 }

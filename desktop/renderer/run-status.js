@@ -91,7 +91,7 @@ export function notConnectedHead(run, connectedNow = null) {
 }
 // A run that ended while it waited for another Job Pilotto run (lib/pipeline.js run_lock): it never started its work (fix #10).
 const WAITED = /Another Job Pilotto (?:search|run) is running[^\n]*waiting for it/i;
-const DOING_NOUN = {tailor: 'tailoring', kits: 'preparing kits', search: 'the search', scout: 'finding employers', weekly: 'the analysis',
+const DOING_NOUN = {tailor: 'tailoring', visits: 'reading sites', kits: 'preparing kits', search: 'the search', scout: 'finding employers', weekly: 'the analysis',
   insight: 'the insight', mail: 'the Gmail check', review: 'the review', interview: 'the interview review'};
 export function waitedHead(run) {
   if (!run || run.live || run.waiting || run.ok || run.problem) return null;
