@@ -1858,6 +1858,7 @@ function handlers() {
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   ipcMain.handle('openVisit', (_, url) => visits.open(url));
+  ipcMain.handle('focusBrowser', () => visits.focusBrowser());
   // Read with Claude: a Claude in Chrome session reads a site the extension could not (Apply with Claude's needs: Claude Code, its consent).
   ipcMain.handle('visitWithClaude', async (_, url, name) => {
     const ready = apply.claudeReady(storage);
@@ -1878,6 +1879,12 @@ function handlers() {
     const chosen = listed.filter(site => urls.includes(site.url));
     if (!chosen.length) return {text: 'Tick at least one site to read.'};
     const n = Math.max(1, Math.min(5, Number(atOnce) || 2));
+    // An older extension in Chrome cannot read the sites by itself (owner's run, 7 Oct 2026: it waited 8 min on 0.9.3): said now, not after.
+    const seen = server.extensionSeen?.()?.version, latest = server.latestExtension();
+    if (seen && latest && seen !== latest) {
+      appLog('visit', 'read sites refused: Chrome has an older extension', {seen, latest});
+      return {text: `Chrome still has the Job Pilotto extension ${seen}; reading sites needs ${latest}. In Chrome open chrome://extensions, press Reload on Job Pilotto, then Run again.`};
+    }
     appLog('visit', 'read sites task', {sites: chosen.length, atOnce: n, filter: !!filter, by: 'you'});
     pipeline.work(storage, 'visits', log, async tee => {
       tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
@@ -2231,7 +2238,13 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setVisitRoute('/extension/visit-understand', outline => visits.understand(storage, outline));
   server.setVisitRoute('/extension/visit-recipe', page => visits.recipe(storage, page));
   server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));
-  server.setVisitRoute('/extension/visit-waiting', payload => visits.waitingFor(payload));   // the extension waits on the person: said, not "reading"   // a tab the Actions task opened has been read
+  server.setVisitRoute('/extension/visit-waiting', payload => visits.waitingFor(payload));
+  let waitingSaid = 0;
+  visits.onWaiting(() => {   // once a run: a notification that brings Chrome forward on click
+    if (Date.now() - waitingSaid < 10 * 60000) return;
+    waitingSaid = Date.now();
+    notify('Job Pilotto is waiting for you in Chrome', 'Press "Allow on the sites the app opens" once: then it reads the sites by itself.', () => visits.focusBrowser());
+  });   // the extension waits on the person: said, not "reading"   // a tab the Actions task opened has been read
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
     if (answer.ok) toWindow('visit-read', answer);

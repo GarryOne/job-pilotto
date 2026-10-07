@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
-import {chromeCommand, extensionBrowser} from './apply.js';
+import {chromeCommand, extensionBrowser, launchBrowser} from './apply.js';
 import * as pipeline from './pipeline.js';
 import {log} from './log.js';
 
@@ -75,6 +75,16 @@ export async function filters(storage, page, runEngine = pipeline.run) {
   }
 }
 
+// "Go to Chrome and allow" (owner, 7 Oct 2026: "the app should explicitly say it, with a call to action"): the browser with the extension to the
+// front, where the extension's Allow page is the active tab.
+export function focusBrowser(run = spawn, platform = process.platform) {
+  const app = launchBrowser();
+  if (platform === 'darwin') run('open', ['-a', app], {detached: true, stdio: 'ignore'}).unref();
+  else { const command = chromeCommand([], platform, process.env, fs.existsSync, extensionBrowser()); if (command) run(...command, {detached: true, stdio: 'ignore'}).unref(); }
+  log('visit', 'brought the browser forward for the Allow', {app, decidedBy: 'user click'});
+  return {ok: true};
+}
+
 // One page the extension sent: through a file (a page can be megabytes), read by the engine. Counts in the log, never the page.
 const MAX_HTML = 3_000_000;
 export async function read(storage, page, runEngine = pipeline.run) {
@@ -102,12 +112,15 @@ export async function read(storage, page, runEngine = pipeline.run) {
 // then the next opens. A site that does not report within WAIT_MS counts as stopped.
 export const WAIT_MS = 8 * 60 * 1000;
 const waiting = new Map();   // start address -> resolve
-const blocked = new Set();   // start addresses waiting on the person (the one-time Allow in Chrome)
+const blocked = new Set();
+let waitingNotice = null;   // main.js: a notification whose click brings Chrome forward
+export function onWaiting(fn) { waitingNotice = fn; }   // start addresses waiting on the person (the one-time Allow in Chrome)
 // The extension waits on the person for a site: said in the task's log and as its running step (the banner), not "Reading …".
 export function waitingFor(payload) {
   const url = key(payload?.url);
   if (!waiting.has(url) || blocked.has(url)) return {ok: true};
   blocked.add(url);
+  waitingNotice?.();
   onLine('⏳ Waiting for you in Chrome: press "Allow on the sites the app opens" on the Job Pilotto page it opened (once)');
   log('visit', 'waiting for the person in Chrome', {host: new URL(url).hostname, why: String(payload?.why || '').slice(0, 20)});
   return {ok: true};

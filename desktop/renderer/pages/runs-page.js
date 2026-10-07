@@ -56,7 +56,9 @@ export function syncRunButtons(busy) {
   for (const node of document.querySelectorAll('.action[data-command]')) if (COMMAND_KIND[node.dataset.command]) set(node, COMMAND_KIND[node.dataset.command]);
   for (const [kind, ...selectors] of TASK_BUTTONS) for (const selector of selectors) set(document.querySelector(selector), kind);
 }
+let actWired = false;
 export function renderActionsPage(data) {
+  if (!actWired && $('run-banner-act')) { actWired = true; $('run-banner-act').addEventListener('click', () => window.pilot.focusBrowser()); }
   if (!data) return;
   const {running, runs = []} = data;
   const connected = !!(shared.state.settings.telegramChatId || shared.state.settings.telegramCloud);
@@ -72,6 +74,9 @@ export function renderActionsPage(data) {
     const kind = kindOf(running);
     $('run-banner-title').textContent = `${TASK_TITLE[kind] || KIND[kind]?.name || 'A task'} is running`;
     $('run-banner-step').textContent = `Started ${new Date(running.startedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · ${stepWords(running.step) || 'starting'}`;
+    // Waiting on the person (Read sites: the one-time Allow in Chrome): the one action, as a primary button, not text only (owner, 7 Oct 2026).
+    const waitsOnYou = /^⏳ Waiting for you in Chrome/.test(String(running.step ?? ''));
+    $('run-banner-act').hidden = !waitsOnYou;
     const log = $('run-banner-log');
     log.hidden = !running.rowUrl;
     log.dataset.url = running.rowUrl || '';

@@ -39,6 +39,7 @@ class VisitsTest(unittest.TestCase):
         self.assertEqual([item['name'] for item in listed][:4], ['Coop', 'LinkedIn', 'Indeed', 'Glassdoor'])
         self.assertNotIn('levels.fyi', [item['name'] for item in listed], 'levels.fyi lists tech jobs: not for a photographer')
         self.assertIn('keywords=photographe&location=Gen%C3%A8ve', listed[1]['url'], 'the user\'s own words, not a regex')
+        self.assertTrue(listed[2]['url'].startswith('https://ch.indeed.com/jobs?'), f"a Swiss search opens Switzerland's Indeed, not the US one: {listed[2]['url']}")
         self.assertTrue(listed[1]['note'].startswith('LinkedIn forbids'))
         self.assertTrue(visits.listed('https://www.linkedin.com/jobs/search/?x=1') and visits.listed('https://jobs.coop.ch/offres'))
         self.assertFalse(visits.listed('https://example.org/jobs'))

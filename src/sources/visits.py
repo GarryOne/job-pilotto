@@ -25,10 +25,16 @@ LOCK = threading.Lock()
 PORTALS = {
     'linkedin': {'name': 'LinkedIn', 'host': 'linkedin.com', 'url': 'https://www.linkedin.com/jobs/search/?keywords={role}&location={place}',
                  'note': 'LinkedIn forbids reading its pages with an extension and may restrict accounts that do: one read per click keeps that small, not zero'},
-    'indeed': {'name': 'Indeed', 'host': 'indeed.', 'url': 'https://www.indeed.com/jobs?q={role}&l={place}', 'note': ''},
+    'indeed': {'name': 'Indeed', 'host': 'indeed.', 'url': 'https://{indeed}/jobs?q={role}&l={place}', 'note': ''},
     'glassdoor': {'name': 'Glassdoor', 'host': 'glassdoor.', 'url': 'https://www.glassdoor.com/Job/jobs.htm?sc.keyword={role}&locKeyword={place}', 'note': ''},
     'levelsfyi': {'name': 'levels.fyi', 'host': 'levels.fyi', 'url': 'https://www.levels.fyi/jobs?searchText={role}&location={place}', 'note': '', 'kinds': {'software'}},
 }
+# Indeed's site per country (7 Oct 2026: a Swiss search opened www.indeed.com and read jobs in Michigan); the search's own countries pick it.
+INDEED = {'ch': 'ch.indeed.com', 'de': 'de.indeed.com', 'at': 'at.indeed.com', 'fr': 'fr.indeed.com', 'it': 'it.indeed.com', 'gb': 'uk.indeed.com',
+          'ie': 'ie.indeed.com', 'nl': 'nl.indeed.com', 'be': 'be.indeed.com', 'lu': 'lu.indeed.com', 'es': 'es.indeed.com', 'pt': 'pt.indeed.com',
+          'se': 'se.indeed.com', 'dk': 'dk.indeed.com', 'no': 'no.indeed.com', 'fi': 'fi.indeed.com', 'pl': 'pl.indeed.com', 'cz': 'cz.indeed.com',
+          'ro': 'ro.indeed.com', 'gr': 'gr.indeed.com', 'us': 'www.indeed.com', 'ca': 'ca.indeed.com', 'au': 'au.indeed.com', 'sg': 'sg.indeed.com',
+          'in': 'in.indeed.com', 'ae': 'ae.indeed.com', 'br': 'br.indeed.com', 'mx': 'mx.indeed.com', 'jp': 'jp.indeed.com'}
 REFUSED = re.compile(r'\b(401|403|429)\b|Refused|bot check', re.I)
 
 
@@ -95,11 +101,14 @@ def portals(search=None, kinds=None):
     places = _plain_words((search.get('locations') or {}).get('top_tier') or [])
     if not roles:
         return []
+    from .. import pool_tags
+    countries, _ = pool_tags.places([*places, *_plain_words((search.get('locations') or {}).get('country_wide') or [])])
+    indeed = next((INDEED[country] for country in countries if country in INDEED), 'www.indeed.com')
     out = []
     for key, portal in PORTALS.items():
         if portal.get('kinds') and kinds is not None and not (portal['kinds'] & set(kinds)):
             continue
-        url = portal['url'].format(role=urllib.parse.quote(roles[0]), place=urllib.parse.quote(places[0] if places else ''))
+        url = portal['url'].format(role=urllib.parse.quote(roles[0]), place=urllib.parse.quote(places[0] if places else ''), indeed=indeed)
         out.append({'key': key, 'name': portal['name'], 'url': url, 'note': portal['note']})
     return out
 
