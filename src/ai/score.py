@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import json
+import time
 import re
 from pathlib import Path
 import os
@@ -293,8 +294,11 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
         return PAUSED
     full, profile = profile, scoring_profile(profile)
     jobs = pending_jobs(db, candidates, profile, max_jobs, full_profile=full)
+    from .. import time_budget as planner
+    jobs = jobs[:planner.batch('score', len(jobs))]   # a batch this refresh can finish (src/time_budget.py), best places first
     if not jobs:
         return f'0 job(s) to score with {model}'
+    began = time.monotonic()
     try:
         import anthropic
         transient = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)
@@ -387,6 +391,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
         batch(jobs, model)
     if late[0]:
         print(budget.left_line('score', late[0]), flush=True)
+    budget.record('score', time.monotonic() - began, scored)
     if stats is not None:
         stats.update(pending=len(jobs), done=scored, failed=failures, late=late[0])
     return (f'Scored {scored} of {len(jobs)} job(s) with {model}{f" (first pass {first_pass})" if cascade else ""}; {failures} failed; tokens in '

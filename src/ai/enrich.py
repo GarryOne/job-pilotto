@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import json
+import time
 import os
 from pathlib import Path
 
@@ -185,8 +186,10 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
     """
     from .. import time_budget as budget
     jobs = pending_jobs(db, max_jobs)
+    jobs = jobs[:budget.batch('enrich', len(jobs))]   # a batch this refresh can finish (src/time_budget.py), best places first
     if not jobs:
         return f'0 job(s) to enrich with {model}'
+    began = time.monotonic()
     try:
         import anthropic  # Only needed when actually calling the API.
         transient = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)
@@ -242,6 +245,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
             cost.add(stats, model, usage)
     if late:
         print(budget.left_line('enrich', late), flush=True)
+    budget.record('enrich', time.monotonic() - began, enriched)
     if stats is not None:
         stats.update(pending=len(jobs), done=enriched, failed=failures, late=late)
     return (f'Enriched {enriched} of {len(jobs)} job(s) with {model}; {failures} failed; '

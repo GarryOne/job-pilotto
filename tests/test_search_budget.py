@@ -51,7 +51,7 @@ class TitlesStopTests(unittest.TestCase):
             got = title_triage.decide(['Collaborateur Magasin', 'Head of Growth'], SEARCH, client)
         self.assertEqual(client.calls, [])
         self.assertEqual(got, {}, 'undecided titles are asked about next search')
-        self.assertIn('2 title(s) left for the next one', out.getvalue())
+        self.assertIn('2 title(s) wait for the next one', out.getvalue())
 
 
 if __name__ == '__main__':
@@ -68,3 +68,27 @@ class NoShadowTests(unittest.TestCase):
         local = [node.lineno for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef) for node in ast.walk(fn)
                  if isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name) == 'budget' for alias in node.names)]
         self.assertEqual(local, [])
+
+
+class SizedBatchTests(unittest.TestCase):
+    """Owner, 7 Oct 2026: "not a hard cut, a batch that is reasonably small": each step takes what it can finish, from its own pace."""
+    def tearDown(self):
+        budget.start(0)
+
+    def test_no_budget_takes_everything_and_measures_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('src.paths.DATA', pathlib.Path(tmp)):
+            budget.start(0)
+            self.assertEqual(budget.batch('score', 60), 60)
+            budget.record('score', 30, 10)
+            self.assertFalse((pathlib.Path(tmp) / 'step_pace.json').exists(), 'a test or a one-off command never sets the pace')
+
+    def test_each_step_takes_its_share_at_its_own_measured_pace(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('src.paths.DATA', pathlib.Path(tmp)), contextlib.redirect_stdout(io.StringIO()) as out:
+            budget.start(180, now=0)
+            self.assertEqual(budget.batch('score', 60, now=120), 20, '60 s left at 3 s a job')
+            budget.record('score', 60, 30)   # this Mac scores at 2 s a job: the pace moves halfway there
+            self.assertEqual(budget.batch('score', 60, now=120), 24, '60 s left at 2.5 s a job')
+            self.assertEqual(budget.batch('titles', 300, now=60), 13, '20% of 120 s at 1.8 s a title')
+            self.assertEqual(budget.batch('enrich', 5, now=0), 5, 'a small batch is taken whole, nothing said')
+        self.assertIn('This refresh scores 20 of 60 jobs', out.getvalue())
+        self.assertIn('40 wait for the next refresh, best places first', out.getvalue())

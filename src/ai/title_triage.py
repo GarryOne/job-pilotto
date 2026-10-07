@@ -8,6 +8,7 @@ JOB_PILOTTO_DISABLE=title_triage: the exact role words only, as before.
 """
 import hashlib
 import json
+import time
 import threading
 
 from ..paths import DATA
@@ -52,6 +53,8 @@ def decide(titles, search, client=None):
     from . import engine
     key, decided = _key(search), dict(known(search))
     ask = list(dict.fromkeys(t for t in (_norm(t) for t in titles) if t and t not in decided))[:MAX_NEW]
+    from .. import time_budget as budget
+    ask = ask[:budget.batch('titles', len(ask))]   # a batch this refresh can finish (src/time_budget.py); the rest is asked next time
     if not ask:
         return decided
     client = client or engine.client(action='title_triage')
@@ -60,7 +63,6 @@ def decide(titles, search, client=None):
     from . import cost
     from ..progress import Ticker
     from concurrent.futures import ThreadPoolExecutor
-    from .. import time_budget as budget
     batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
     # Said before the first answer, then after each batch with the time left (owner, 7 Oct 2026: 6 batches ran ~2 min each with only
     # "Still running · no new output" on screen). Batches run side by side; Claude Code still takes engine.PARALLEL at a time.
@@ -85,8 +87,10 @@ def decide(titles, search, client=None):
                 decided[title] = n in fit
             sorted_[0] += len(batch)
             ticker.tick(sorted_[0])
+    began = time.monotonic()
     with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
         list(pool.map(one, batches))
+    budget.record('titles', time.monotonic() - began, sorted_[0])
     with LOCK:
         data = _load()
         data[key] = {**(data.get(key) or {}), **decided}
