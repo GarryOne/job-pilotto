@@ -58,7 +58,7 @@ export async function run(ctx) {
       if (after !== 'none') throw new Error(`after the last page it went on by "${after}"`);
     });
 
-    await ctx.run('filters: the page\'s own controls are listed for Claude, never Easy Apply, Sign in or Save; its chosen steps are applied, a forbidden one refused', async () => {
+    await ctx.run('filters: the page\'s own controls are listed for Claude, never Easy Apply, Sign in or Save; only its place step is kept and applied, a forbidden one refused', async () => {
       await page.goto(`${base}/filters.html`);
       const controls = await call(page, 'collectControls');
       const labels = controls.map(control => control.label);
@@ -67,21 +67,23 @@ export async function run(ctx) {
       const remote = controls.find(control => /remote/i.test(control.label));
       const where = controls.find(control => /city/i.test(control.label));
       if (!when || !remote || !where || !when.options.includes('Past week')) throw new Error(`controls ${JSON.stringify(controls)}`);
-      // What the engine keeps of Claude's answer (src/ai/visit_filters.py, with a stand-in for the model): only listed controls and offered options.
+      // What the engine keeps of Claude's answer (src/ai/visit_filters.py, with a stand-in for the model): only listed controls, and since 4af2670 (owner, 7 Oct
+      // 2026: "filter only by location") only steps for the place: a date step ("for": "other") and an unlisted control are dropped.
       const script = `import json, sys
 from types import SimpleNamespace
 from src.ai import visit_filters
 controls = json.loads(sys.argv[1])
-answer = {'why': 'recent, Geneva', 'steps': [{'control': sys.argv[2], 'action': 'select', 'value': 'Past week'}, {'control': sys.argv[3], 'action': 'type', 'value': 'Genève'},
-  {'control': 'easy', 'action': 'click', 'value': ''}]}
+answer = {'why': 'Geneva', 'steps': [{'control': sys.argv[2], 'action': 'select', 'value': 'Past week', 'for': 'other'}, {'control': sys.argv[3], 'action': 'type', 'value': 'Genève', 'for': 'place'},
+  {'control': 'easy', 'action': 'click', 'value': '', 'for': 'place'}]}
 client = SimpleNamespace(messages=SimpleNamespace(create=lambda **k: SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps(answer))], usage=SimpleNamespace(input_tokens=1, output_tokens=1))))
 print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls': controls}, {'role_keywords': ['photographe'], 'locations': {'top_tier': ['Genève']}}, client=client)))`;
       const planned = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(controls), when.id, where.id], {cwd: repo, encoding: 'utf8', env: pythonEnv({JOB_PILOTTO_FOLLOW_APP: '0'})}).trim().split('\n').pop());
-      if (planned.steps.length !== 2) throw new Error(`the engine kept ${JSON.stringify(planned.steps)}: an unlisted control must be dropped`);
+      if (planned.steps.length !== 1 || planned.steps[0].value !== 'Genève') throw new Error(`the engine kept ${JSON.stringify(planned.steps)}: only the place step, never a date step or an unlisted control`);
       await page.evaluate(() => { document.getElementById('easy').dataset.jpControl = 'sneaky'; });
       const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([...planned.steps, {control: 'sneaky', action: 'click', value: ''}])})`);
       const state = await page.evaluate(() => ({when: document.getElementById('when').value, where: document.getElementById('where').value, applied: document.body.dataset.applied || ''}));
-      if (state.when !== 'Past week' || state.where !== 'Genève') throw new Error(`filters not set: ${JSON.stringify(state)}`);
+      if (state.where !== 'Genève') throw new Error(`the place filter was not set: ${JSON.stringify(state)}`);
+      if (state.when === 'Past week') throw new Error('a date filter was set: only the place is filtered (4af2670)');
       if (state.applied || done.at(-1).ok) throw new Error('Easy Apply was pressed: it must be refused even when asked');
     });
 
