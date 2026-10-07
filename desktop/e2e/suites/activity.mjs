@@ -146,7 +146,8 @@ export async function run(ctx) {
     const kept = data.runs.filter(run => run.log.length && !(Date.parse(run.startedAt) >= restartedAt));
     if (kept.length) throw new Error(`the local run record was not removed: this would test nothing (runs from before the restart with a log: ${kept.map(run => `${run.kind || 'search'} by ${run.trigger} at ${run.startedAt}, ${run.log.length} line(s)`).join('; ')})`);
     if (!data.runs.length) throw new Error('the history read from Notion is empty after a fresh start');
-    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true});
+    // Waits for the page read (7 Oct 2026: on CI it took 1.9-4.7 s, and the step looked at 1.5 s; the app had read 17 lines, the pane still said "No log for this run").
+    const opened = await openRun(ctx, LABEL.weekly, {inPanel: true, untilResult: true});
     const lines = opened.log.split('\n').filter(Boolean).length;
     console.log(`  from Notion: ${data.runs.length} run(s); weekly log ${lines} line(s)`);
     if (/^(Nothing to show yet|No log for this run)/.test(opened.log.trim()) || !lines) throw new Error('a run read from Notion shows no log');
