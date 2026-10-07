@@ -27,10 +27,10 @@ def over(step='score', now=None):
 # Each step's share of the time left when it starts: title sorting least (a backlog that shrinks to a few dozen titles a day), scoring all
 # that remains (it puts jobs in your list with a fit). Default paces (seconds of wall time per item, Claude Code taking 2 calls at a time):
 # measured on the owner's Mac, 7 Oct 2026; replaced by this computer's own after one refresh.
-SHARE = {'titles': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
-PACE = {'titles': 1.8, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end
-NOUN = {'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
-WORDS = {'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
+SHARE = {'places': 0.15, 'titles': 0.2, 'enrich': 0.45, 'score': 1.0, 'job': 1.0}
+PACE = {'places': 0.6, 'titles': 1.8, 'enrich': 12.0, 'score': 3.0, 'job': 15.0}   # job: read and scored, end to end
+NOUN = {'places': 'location(s)', 'titles': 'title(s)', 'enrich': 'job(s) to read', 'score': 'job(s) to score', 'job': 'new job(s)'}
+WORDS = {'places': 'places {n} of {total} job locations', 'titles': 'sorts {n} of {total} job titles', 'enrich': 'reads {n} of {total} new jobs', 'score': 'scores {n} of {total} jobs',
          'job': 'reads and scores {n} of {total} new jobs'}
 
 
@@ -83,4 +83,8 @@ def best_first(jobs):
     """Jobs in your best places first (Search settings "Best places"), the order kept otherwise: a short search spends its time on them."""
     from .paths import keyword_regex, load_search_config
     best = keyword_regex((load_search_config().get('locations') or {}).get('top_tier') or [r'(?!x)x'])
-    return sorted(jobs, key=lambda job: 0 if best.search(job.get('location') or '') else 1)
+    from .sources import feeds
+    def first(job):   # Claude's answer when it placed the location (src/ai/place_triage.py), else the best places' words
+        verdict = feeds.place_of(job)
+        return 0 if (verdict == 'best' if verdict is not None else best.search(job.get('location') or '')) else 1
+    return sorted(jobs, key=first)

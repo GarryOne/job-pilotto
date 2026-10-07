@@ -120,8 +120,47 @@ def remote_wanted(search=None):
 REMOTE_WANTED = remote_wanted()
 
 
+PLACED = None   # {location: 'best' | 'in' | 'out'} decided by Claude for these places (src/ai/place_triage.py), read once a run
+
+
+def placed():
+    global PLACED
+    if PLACED is None:
+        try:
+            from ..ai import place_triage
+            PLACED = dict(place_triage.known(_SEARCH))
+        except Exception:  # noqa: BLE001 — the place words then decide
+            PLACED = {}
+    return PLACED
+
+
+def place_of(job):
+    """Claude's answer for this job's location ('best', 'in', 'out'), or None when it has not placed it (the place words decide then)."""
+    from ..ai.place_triage import norm
+    return placed().get(norm(job.get('location'))) if (job.get('location') or '').strip() else None
+
+
+def triage_places(jobs):
+    """Ask Claude where the new locations are, for the jobs that could be kept (their title fits); each location once per version of the
+    places. Off without AI or with JOB_PILOTTO_DISABLE=place_triage: the place words only."""
+    from .. import features
+    from ..ai import engine
+    locations = [job.get('location') for job in jobs if (job.get('location') or '').strip() and job.get('title') and wanted_title(job['title'])]
+    if not locations or features.disabled('place_triage') or not engine.ready():
+        return
+    try:
+        from ..ai import place_triage
+        placed().update(place_triage.decide(locations, _SEARCH))
+    except Exception as error:  # noqa: BLE001 — not placed this run: the place words decide, said
+        print(f'Warning: job locations not placed by Claude ({type(error).__name__}): your place words decide this run')
+
+
 def wanted_location(job):
-    """One of your preferred places (config/search.json), or remote that isn't limited elsewhere (unless you want no remote jobs)."""
+    """One of your places: Claude's answer for this location when it has placed it (src/ai/place_triage.py); else the place words
+    (config/search.json), or remote that isn't limited elsewhere (unless you want no remote jobs)."""
+    verdict = place_of(job)
+    if verdict is not None:
+        return verdict != 'out'
     where = job.get("location") or ""
     if PLACE.search(where) or PLACE.search(plain(where)):
         return True
@@ -261,6 +300,7 @@ def scan(sources, db, fetcher=fetch, details=None):
         downloads = list(pool.map(fetch, sources))
     report = {"generated_at": now, "sources": [], "jobs": [], "rested": len(rested)}
     tally = coverage.Tally()
+    triage_places([job for jobs, failure in downloads if not failure for job in jobs or []])   # where the new locations are: Claude, once each
     triage([job for jobs, failure in downloads if not failure for job in jobs or []])   # titles the words miss: Claude sorts the new ones, once
     for source, (jobs, failure) in zip(sources, downloads):
         board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
