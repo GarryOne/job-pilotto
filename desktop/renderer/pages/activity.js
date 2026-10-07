@@ -33,6 +33,7 @@ import {renderActionsPage} from './runs-page.js';
 import {toastMessage} from './startup.js';
 import {renderDraft, showDraftIntro} from './strategy-review.js';
 import {goStep} from './wizard.js';
+import {showStop, stopRunning} from '../stop-task.js';
 
 // ---------- runs ----------
 export const clockTime = iso => new Date(iso).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'});
@@ -194,6 +195,7 @@ export function outcome(run) {
   return deliveryHead({...run, kind: kindOf(run)}) ? `${capital(said)} · Telegram not sent` : said;
 }
 function outcomeOf(run) {
+  if (run.stopped === 'you') return 'Stopped by you · what it saved is kept, the next run continues';
   const explained = notConnectedHead(run) || waitedHead({...run, kind: kindOf(run)});
   if (explained) return explained.short;   // the box says the rest
   const stopped = stoppedHead({...run, kind: kindOf(run)});
@@ -699,6 +701,7 @@ export function renderActivity(fresh) {
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
+  showStop($('activity-stop'), run?.live ? run : null);   // a task this Mac runs can be stopped from its detail too
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
   // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
   const shownText = cardText(run, run ? runResults.get(run.id) : null);
@@ -1710,6 +1713,7 @@ export async function init() {
     if (/notion\.(so|com)\//.test(link.href)) window.pilot.openNotion(link.href, event.metaKey);
     else window.pilot.openExternal(link.href);
   });
+  $('activity-stop').addEventListener('click', event => stopRunning(event.currentTarget));
   for (const id of ['activity-notion', 'activity-github']) $(id).addEventListener('click', event => {
     event.preventDefault();
     if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);

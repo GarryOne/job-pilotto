@@ -6,6 +6,7 @@ import {COMMAND_KIND, KIND, TASK_BUTTONS, capital, clockTime, hhmm, kindOf, last
 import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
 import {runStatus, runWarned} from '../run-status.js';
+import {showStop, stopRunning} from '../stop-task.js';
 
 // Status: what's running, the last and next search, the last and next Gmail check, as a small card.
 export async function showStatusCard() {
@@ -64,6 +65,7 @@ export function renderActionsPage(data) {
   const connected = !!(shared.state.settings.telegramChatId || shared.state.settings.telegramCloud);
   $('actions-telegram').replaceChildren(el('span', `dot ${connected ? 'is-on' : ''}`), document.createTextNode(connected ? 'Telegram connected' : 'Telegram not connected'));
   show($('run-banner'), !!running);
+  showStop($('run-banner-stop'), running);
   syncRunButtons([running, ...(data.queued || [])].filter(Boolean).map(kindOf));
   // The menu says so too, on every screen: a spinner on Actions while a task runs (not a count: the other badges mean "waiting for you").
   const dot = $('nav-actions-running');
@@ -101,6 +103,7 @@ export function renderActionsPage(data) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   $('run-banner-log').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(event.currentTarget.dataset.url); });
+  $('run-banner-stop').addEventListener('click', event => stopRunning(event.currentTarget));
   $('run-banner-view').addEventListener('click', () => { shared.selectedRun = null; openActivity(true); });   // null = the running task, not whichever row was open last
   $('actions-result-close').addEventListener('click', () => show($('actions-result'), false));
   $('runs-all').addEventListener('click', event => { event.preventDefault(); openActivity(true); });

@@ -1085,6 +1085,12 @@ function handlers() {
       return {ok: true, ...result};
     } catch (error) { appLog('strategy', 'targets not saved', {error: error.message}); return {ok: false, error: error.message}; }
   });
+  // Stop on a running task (Actions banner, Recent activity): its commands end, what it saved is kept, the next run continues.
+  ipcMain.handle('stopTask', () => {
+    const result = pipeline.stopTask();
+    appLog('run', result.ok ? 'stopped by you' : 'stop refused', {kind: result.kind || pipeline.running()?.kind || '', error: result.error || ''});
+    return result;
+  });
   // Strategy → Your goals: one goal corrected in the Profile (lib/goals.js). The fit scores follow it over the next searches.
   ipcMain.handle('editGoal', async (_, key, value) => {
     if (DEMO) return {ok: true, where: 'demo'};

@@ -133,6 +133,21 @@ export function readable(text) {
 // failing on their next line once the app is gone).
 const children = new Set();
 export function stopRunning() { for (const child of children) child.kill('SIGTERM'); }
+// Stop the running task (Actions and Recent activity, owner 7 Oct 2026: a search ran for an hour with no way to stop it). Its commands are
+// ended (SIGTERM, then SIGKILL after 5 s) and its next steps don't start; what it saved stays (each job read or scored is saved as it
+// finishes), its Notion row is closed (run()'s close handler) and the next run continues. -> {ok, kind} or {ok: false, error}.
+export function stopTask() {
+  const ticket = runningTicket;
+  if (!ticket || !current?.stoppable) return {ok: false, error: 'Nothing that can be stopped is running'};
+  if (ticket.stopped) return {ok: true, kind: ticket.kind};
+  ticket.stopped = true;
+  ticket.tee?.('⏹ Stopped by you. What it saved is kept; the next run continues from there.');
+  for (const child of ticket.children) {
+    child.kill('SIGTERM');
+    setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 5000).unref?.();
+  }
+  return {ok: true, kind: ticket.kind};
+}
 
 // Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine (made readable).
 // stdout itself stays as printed, for the callers that parse it.
@@ -166,11 +181,15 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
   engineLog.start(args, new Date(), runId);
   appLog('run', `start: python -m ${args.join(' ')}`, {run_id: runId});
   onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };
+  // The task this command belongs to (its output goes to the task's own log): Stop ends it, and a stopped task starts no next step.
+  const owner = runningTicket && told === runningTicket.tee ? runningTicket : null;
+  if (owner?.stopped) { engineLog.end({code: null, seconds: 0, runId}); return Promise.resolve({code: null, stdout: '', result: null, runId, timedOut: false}); }
   return new Promise((resolve, reject) => {
     const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv,
       JOB_PILOTTO_RUN_ID: runId, JOB_PILOTTO_RESULT_FILE: resultFile}});
     children.add(child);
-    child.on('exit', () => children.delete(child));
+    owner?.children.add(child);
+    child.on('exit', () => { children.delete(child); owner?.children.delete(child); });
     const stopper = stopAfterMs ? setTimeout(() => {
       appLog('run', `stopped after ${Math.round(stopAfterMs / 1000)} s: python -m ${args.join(' ')} (its answer is no longer used)`, {run_id: runId});
       child.kill('SIGTERM');
@@ -486,7 +505,9 @@ export function scout(storage, onLine, trigger = 'you', batch = null) {   // nul
 }
 // A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
 export function work(storage, kind, onLine, doWork, trigger = 'you') {
-  return tracked(storage, kind, trigger, onLine, async tee => ({ok: !!(await doWork(tee))}), null, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
+  // The app's own code, not an engine command: nothing here can be ended from outside, so no Stop.
+  return tracked(storage, kind, trigger, onLine, async tee => ({ok: !!(await doWork(tee))}), null, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}),
+    {stoppable: false});
 }
 export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
@@ -529,7 +550,7 @@ export const HEARTBEAT_MS = {every: 15 * 1000, quiet: 30 * 1000};
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
-function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false} = {}) {
+function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false, stoppable = true} = {}) {
   // The same task already waiting, or already running: a second click joins it instead of queueing it again (a second search seconds after the first, with nothing
   // new to find, was run in full; 2 Oct 2026). Another task still waits its turn.
   const twin = waiting.find(ticket => ticket.kind === kind) || (runningTicket?.kind === kind ? runningTicket : null);
@@ -542,7 +563,8 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
     runningTicket = ticket;
     const log = [];
     const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
-    current = {...record, step: 'Starting', resume};
+    current = {...record, step: 'Starting', resume, stoppable};
+    ticket.children = new Set();
     saveQueue(storage);
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
     let lastAt = Date.now();
@@ -559,6 +581,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
       teeing = true;
       try { onLine(line); } finally { teeing = false; }
     };
+    ticket.tee = tee;
     keepLine = line => {
       if (isDataLine(line)) return;
       if (STATUS_LINE.test(line) && STATUS_LINE.test(log.at(-1) || '')) log.pop();
@@ -582,6 +605,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
       const notionUrl = result?.notion_url || log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
       Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, runId: result?.run_id || null,
         log: log.slice(-400), ...summarize(record, log)});
+      if (ticket.stopped) Object.assign(record, {ok: false, stopped: 'you', summary: 'Stopped by you. What it saved is kept; the next run continues from there.'});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
       keepLine = null;
