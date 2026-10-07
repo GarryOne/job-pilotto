@@ -2169,6 +2169,11 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .dialog-steps { margin: var(--sp-3) 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-2); }
 
 /* "Your search may be too narrow": the role words that appear in titles the keywords miss, one click to add each. */
+/* The "Few new jobs" box under a run card (pages/activity.js withFewJobsHelp): its groups in the card's own column, the shared parts inside. */
+.run-card-help { display: grid; gap: var(--sp-4); margin-top: var(--sp-3); }
+.run-card-help-group { display: grid; gap: var(--sp-2); }
+.run-card-help-group .item-rows { margin-top: 0; border-top: 0; }   /* the group title already heads the list */
+.run-card-help .score-track { background: var(--line); }   /* visible on the card's white */
 .coverage-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* The card's place while the engine reads (seconds): about the height of the card that replaces it, so nothing below moves when it arrives. */
 #strategy-coverage-checking { min-height: 132px; }

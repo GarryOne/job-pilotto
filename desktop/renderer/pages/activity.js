@@ -1708,12 +1708,16 @@ function withFewJobsHelp(foot, runId) {
   }
   const kept = fewJobsHelp.get(runId);
   const box = el('div', 'run-card-help');
-  const section = (title, ...children) => { const part = el('div', 'run-card-body'); part.append(el('h4', 'run-card-title', title), ...children); return part; };
+  // Each group sits in the run card's own column (no padded wrapper of its own: it lines up with "No new jobs this run"); rows are the shared
+  // item-rows list with its compact item-action buttons (as the kits card).
+  const section = (title, ...children) => { const part = el('div', 'run-card-help-group'); part.append(el('h4', 'run-card-title', title), ...children); return part; };
+  const rows = items => { const list = el('ul', 'item-rows'); list.append(...items); return list; };
   const row = (name, sub, button, title = '') => {
-    const line = el('div', 'run-card-row');
-    const words = el('span', 'run-card-words');
+    const line = el('li', '');
+    const words = el('div', 'item-words');
     words.append(el('b', '', name), el('span', 'muted', sub));
     if (title) line.title = title;
+    button.classList.add('item-action');
     line.append(words, button);
     return line;
   };
@@ -1757,15 +1761,15 @@ function withFewJobsHelp(foot, runId) {
       const fill = el('span', 'score-fill');
       fill.style.width = `${e.fill}%`;
       track.append(fill);
-      const scout = el('button', e.dry ? 'primary' : 'secondary', 'Find new employers');
+      const scout = el('button', `${e.dry ? 'primary' : 'secondary'} item-action`, 'Find new employers');
       scout.type = 'button';
       scout.addEventListener('click', () => { adviceEvent('taken', 'employer', 'few-jobs'); document.querySelector('.action[data-command="scout"]')?.click(); });
       adviceEvent('shown', 'employer', 'few-jobs');
-      const line = el('div', 'run-card-row');
-      const words = el('span', 'run-card-words');
-      words.append(el('b', '', `${e.read} employers read · ${e.matched} had a job for you`), el('span', 'muted', `${e.advice} · ${e.next}`));
+      const line = el('li', '');
+      const words = el('div', 'item-words');
+      words.append(el('b', '', `${e.matched} of ${e.read} employers had a job for you`), el('span', 'muted', `${e.advice} · ${e.next}`));
       line.append(words, scout);
-      parts.push(section('Your employers', track, line));
+      parts.push(section('Your employers', track, rows([line])));
     }
     if (groups?.words?.length) {
       const chips = el('div', 'coverage-chips');
@@ -1773,21 +1777,17 @@ function withFewJobsHelp(foot, runId) {
       parts.push(section('Change your search', chips));
     }
     if (groups?.sources?.length) {
-      parts.push(section('Connect a job source', ...groups.sources.map(source => row(source.name, source.sub,
-        act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title))));
+      parts.push(section('Connect a job source', rows(groups.sources.map(source => row(source.name, source.sub,
+        act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title)))));
     }
     if (groups?.visits?.length) {
-      parts.push(section('Sites only you can open', ...groups.visits.map(site => row(site.name, site.sub,
-        act({kind: 'visit', label: `Open ${site.name}`, value: site.url}, Object.assign(el('button', 'secondary', 'Open'), {type: 'button'})), site.title))));
+      parts.push(section('Sites only you can open', rows(groups.visits.map(site => row(site.name, site.sub,
+        act({kind: 'visit', label: `Open ${site.name}`, value: site.url}, Object.assign(el('button', 'secondary', 'Open'), {type: 'button'})), site.title)))));
     }
     if (!parts.length) parts.push(el('p', 'muted small', 'Nothing obvious to change yet.'));
-    const tail = el('div', 'run-card-body');
-    tail.append(why, answer);
-    box.replaceChildren(...parts, tail);
+    box.replaceChildren(...parts, why, answer);
   };
-  const footer = el('div', 'run-card-body');
-  footer.append(why, answer);
-  box.append(footer);
+  box.append(why, answer);
   if (kept.ready !== undefined) paint(kept.ready); else kept.groups.then(groups => { kept.ready = groups; paint(groups); });
   const wrap = el('div', '');
   wrap.append(foot, box);
