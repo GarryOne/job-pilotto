@@ -141,6 +141,7 @@ export function runStatus(run, warned) {
   if (run.live) return ['Running', 'info', {dot: true}];
   if (run.waiting) return ['Queued', 'neutral'];
   if (run.off) return ['Not checked', 'warn'];   // nothing was checked: not a failure, a connection to make
+  if (run.interrupted) return ['Interrupted', 'warn'];   // the app was closed while it ran (lib/pipeline.js takeQueue)
   if (!run.ok) return stoppedHead(run) ? ['Stopped', 'bad'] : ['Failed', 'bad'];
   return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
 }

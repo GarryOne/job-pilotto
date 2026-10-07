@@ -347,8 +347,10 @@ const QUEUE_FILE = 'queue.json';
 let frozen = false;
 function saveQueue(storage) {
   if (frozen) return;
-  const jobs = [...(current?.resume ? [{...current, interrupted: true}] : []), ...waiting]
-    .map(({kind, trigger, queuedAt, startedAt, resume, interrupted}) => ({kind, trigger, queuedAt: queuedAt || startedAt, resume, ...(interrupted ? {interrupted} : {})}));
+  // The running task too when it can't be started again (Read sites, Tailor CVs): with its log, so the next start lists it as Interrupted.
+  const jobs = [...(current ? [{...current, interrupted: true}] : []), ...waiting]
+    .map(({kind, trigger, queuedAt, startedAt, resume, interrupted, log}) => ({kind, trigger, queuedAt: queuedAt || startedAt, resume,
+      ...(interrupted ? {interrupted} : {}), ...(interrupted && !resume ? {startedAt, log: (log || []).slice(-300)} : {})}));
   storage.writeText(QUEUE_FILE, JSON.stringify(jobs));
 }
 export function freezeQueue(storage) { saveQueue(storage); frozen = true; }
@@ -357,6 +359,15 @@ export function takeQueue(storage) {
   let jobs = [];
   try { jobs = JSON.parse(storage.readText(QUEUE_FILE)) || []; } catch {}
   storage.writeText(QUEUE_FILE, '[]');
+  // A task that can't be started again stays in Recent activity as Interrupted, with what it said (7 Oct 2026: Read sites vanished after a restart).
+  const lost = jobs.filter(job => job && job.kind && job.interrupted && !job.resume);
+  if (lost.length) {
+    const endedAt = new Date().toISOString();
+    const rows = lost.map((job, i) => ({id: Date.now() + i, kind: job.kind, trigger: job.trigger, startedAt: job.startedAt || job.queuedAt, endedAt,
+      ok: false, interrupted: true, summary: 'Interrupted: Job Pilotto was closed while this ran',
+      log: [...(job.log || []), 'Interrupted: Job Pilotto was closed while this ran; start it again from Actions.']}));
+    storage.writeText('runs.json', JSON.stringify([...rows, ...runs(storage)].slice(0, RUN_HISTORY)));
+  }
   return jobs.filter(job => job && job.kind && job.resume);
 }
 // Resolves once nothing runs and nothing waits (for "Quit when done").
