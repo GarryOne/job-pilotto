@@ -1450,6 +1450,9 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .insight-head .visits-claude-all { margin-top: var(--sp-3); }
 #visits-sites { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
 #visits-sites::-webkit-scrollbar { width: 8px; }   /* shown, not the overlay one that hides until you scroll: there is more below */
+#visits-sites .visits-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+#visits-sites .visits-row .check-row { flex: 1; min-width: 0; }
+#visits-sites .visits-remove { flex: none; }
 #visits-dialog .visits-pick { margin: var(--sp-4) 0 var(--sp-2); }
 #visits-dialog .task-count-field { display: flex; margin: var(--sp-2) 0 var(--sp-4); }
 #visits-sites::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }

@@ -194,3 +194,64 @@ class OnlyVisitsTest(unittest.TestCase):
                               env={**__import__('os').environ, 'JOB_PILOTTO_FOLLOW_APP': '0', 'JOB_PILOTTO_DISABLE': 'mail,notion,telegram,google_jobs'})
         self.assertEqual(done.returncode, 2)
         self.assertIn('--only-visits needs --mode today', done.stderr)
+
+
+class VisitListCareTests(unittest.TestCase):
+    """The browser's site list (7 Oct 2026): one entry a company, failures said, removed sites gone, and only employers likely to hire your
+    kinds of role (Cornèr Bank and levels.fyi were read for a photographer and shop seller)."""
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.patch = mock.patch.object(visits, 'STORE', Path(self.tmp.name) / 'visits.json')
+        self.patch.start()
+        self.search = {'role_keywords': ['vendeur', 'photographe'], 'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}}
+        self.picks = [{'name': 'Rolex', 'url': 'https://www.rolex.com'}, {'name': 'Rolex', 'url': 'https://www.carrieres-rolex.com'},
+                      {'name': 'Tiffany & Co.', 'url': 'https://www.tiffany.com'}, {'name': 'Tiffany', 'url': 'https://www.tiffanycareers.com'},
+                      {'name': 'Cornèr Bank', 'url': 'https://jobs.corner.ch'}, {'name': 'Manor', 'url': 'https://www.manor.ch/jobs'}]
+
+    def tearDown(self):
+        self.patch.stop()
+        self.tmp.cleanup()
+
+    def names(self, listed):
+        return [item['name'] for item in listed if item['kind'] == 'employer']
+
+    def test_one_entry_a_company_failures_said_and_removed_sites_gone(self):
+        visits._save({'jobpages': {'www.tiffany.com': 'https://www.tiffanycareers.com', 'tiffany.com': 'https://www.tiffanycareers.com'}})
+        with mock.patch.object(visits, 'relevant', lambda items, search: items):
+            listed = visits.visit_list(self.search, set(), now=NOW, picks=self.picks)
+            self.assertEqual(self.names(listed), ['Rolex', 'Tiffany & Co.', 'Cornèr Bank', 'Manor'], 'one Rolex, one Tiffany')
+            visits.outcome([{'url': 'https://www.manor.ch/jobs', 'ok': False, 'why': 'no job list found'}], now=NOW)
+            visits.outcome([{'url': 'https://www.manor.ch/jobs', 'ok': False, 'why': 'no job list found'}], now=NOW)
+            manor = next(i for i in visits.visit_list(self.search, set(), now=NOW, picks=self.picks) if i['name'] == 'Manor')
+            self.assertTrue(manor['failing'])
+            self.assertIn('Failed 2 times in a row: no job list found', manor['note'])
+            visits.outcome([{'url': 'https://www.manor.ch/jobs', 'ok': True}], now=NOW)
+            self.assertNotIn('failing', next(i for i in visits.visit_list(self.search, set(), now=NOW, picks=self.picks) if i['name'] == 'Manor'))
+            visits.hide('https://jobs.corner.ch')
+            self.assertNotIn('Cornèr Bank', self.names(visits.visit_list(self.search, set(), now=NOW, picks=self.picks)))
+
+    def test_claude_leaves_out_sites_unlikely_for_your_roles_once_per_list(self):
+        import json
+        from types import SimpleNamespace
+        asked = []
+
+        class Client:
+            def __init__(self):
+                self.messages = SimpleNamespace(create=self.create)
+
+            def create(self, **kwargs):
+                asked.append(kwargs)
+                lines = kwargs['messages'][0]['content'].split('The sites:\n', 1)[1].split('\n')
+                keep = [int(line.split('.', 1)[0]) for line in lines if 'Bank' not in line and 'levels.fyi' not in line]
+                return SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps({'keep': keep}))], usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+        items = [{'name': 'Manor', 'url': 'https://www.manor.ch/jobs', 'kind': 'employer'}, {'name': 'Cornèr Bank', 'url': 'https://jobs.corner.ch', 'kind': 'employer'},
+                 {'name': 'levels.fyi', 'url': 'https://www.levels.fyi', 'kind': 'portal'}]
+        with mock.patch('src.ai.engine.ready', lambda *a: True):
+            kept = visits.relevant(items, self.search, Client())
+            visits.relevant(items, self.search, Client())
+        self.assertEqual([i['name'] for i in kept], ['Manor'])
+        self.assertEqual(len(asked), 1, 'asked once for the same list, roles and places')
+        self.assertIn('photographe', asked[0]['messages'][0]['content'])
+        with mock.patch('src.ai.engine.ready', lambda *a: False):
+            self.assertEqual(len(visits.relevant(items + [{'name': 'X', 'url': 'https://x.test', 'kind': 'employer'}], self.search)), 4, 'no AI: every site')

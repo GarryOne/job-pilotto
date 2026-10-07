@@ -8,6 +8,7 @@ filters, scores and tracks them like any other feed. A page read more than STALE
 import hashlib
 import json
 import re
+import sys
 import threading
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -155,7 +156,94 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
         last = (read.get(host_of(portal['url'])) or {}).get('at')
         if not last or last < stale:
             out.append({'name': portal['name'], 'url': portal['url'], 'kind': 'portal', 'why': 'no way in but your own visit', 'last_read': last, 'note': portal['note']})
-    return sorted(out, key=lambda item: (item['kind'] != 'employer', item['last_read'] or ''))[:MAX_LIST]
+    # One entry per company and per job page (7 Oct 2026: Nestlé, Rolex, Tag Heuer twice; Tiffany read twice in one run), none you removed
+    hidden, fails, seen, kept = data.get('hidden') or {}, data.get('fails') or {}, set(), []
+    for item in out:
+        name = re.sub(r'[^a-z0-9]', '', item['name'].lower())
+        host = host_of(jobpages.get(host_of(item['url']), item['url']))   # tiffany.com and tiffanycareers.com: one job list, read once
+        if host in hidden or host_of(item['url']) in hidden or name in seen or host in seen:
+            continue
+        seen.update({name, host})
+        failed = fails.get(host) or {}
+        if failed.get('count', 0) >= 2:   # failed twice in a row: offered, not ticked, with why (owner: "let the user delete/dismiss them")
+            item = {**item, 'failing': True, 'note': f"Failed {failed['count']} times in a row: {failed.get('why', '')}"[:200]}
+        kept.append(item)
+    kept = relevant(kept, search)
+    return sorted(kept, key=lambda item: (item['kind'] != 'employer', item['last_read'] or ''))[:MAX_LIST]
+
+
+RELEVANT_MODEL = 'claude-haiku-4-5'
+RELEVANT_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['keep'], 'properties': {'keep': {
+    'type': 'array', 'items': {'type': 'integer'}, 'description': 'Numbers of the sites likely to have jobs of their kinds in their places'}}}
+RELEVANT_SYSTEM = """You get a job seeker's roles and places, and numbered sites to read jobs from (an employer's name and address, or a job \
+portal). Answer the numbers of the sites likely to have jobs of their kinds of role in their places: an employer that runs shops, studios, \
+warehouses or offices there where such people work, or a portal that lists such jobs. Leave out sites whose jobs are of other kinds (a \
+private bank for a shop seller, a tech salary site for a photographer) or that have no presence in their places. When unsure, keep it."""
+
+
+def relevant(items, search, client=None):
+    """The sites worth your browser's time for these roles and places, by Claude once per list (7 Oct 2026: Cornèr Bank, Geneva Freeport and
+    levels.fyi were read for a photographer and shop seller); all of them without AI. Claude sees site names and addresses, roles and places."""
+    from ..notion.search_settings import terms
+    search = search or load_search_config(matching=False)
+    roles = terms(search.get('role_keywords'))[:40]
+    places = terms([*(search.get('locations') or {}).get('top_tier', []), *(search.get('locations') or {}).get('country_wide', [])])[:12]
+    if not items or not roles:
+        return items
+    key = hashlib.sha256(json.dumps([sorted(i['url'] for i in items), sorted(roles), places], ensure_ascii=False).encode()).hexdigest()[:12]
+    data = _load()
+    kept = (data.get('relevant') or {}).get(key)
+    if kept is None:
+        try:
+            from ..ai import cost, engine
+            if not engine.ready():
+                return items
+            client = client or engine.client(action='visit_relevant')
+            listed = '\n'.join(f"{n}. {i['name']} ({i['url']}) [{i['kind']}]" for n, i in enumerate(items, 1))
+            response = client.messages.create(model=RELEVANT_MODEL, max_tokens=600, system=[{'type': 'text', 'text': RELEVANT_SYSTEM}],
+                                              messages=[{'role': 'user', 'content': f'Their roles: {json.dumps(roles, ensure_ascii=False)}\nTheir places: '
+                                                                                    f'{json.dumps(places, ensure_ascii=False)}\nThe sites:\n{listed}'}],
+                                              output_config=engine.structured(RELEVANT_SCHEMA, RELEVANT_MODEL, 'low'))
+            cost.side(RELEVANT_MODEL, response.usage)
+            numbers = {int(n) for n in json.loads(next(b.text for b in response.content if b.type == 'text')).get('keep') or [] if str(n).isdigit()}
+            kept = [items[n - 1]['url'] for n in sorted(numbers) if 1 <= n <= len(items)]
+        except Exception as error:  # noqa: BLE001 — every site this time
+            print(f'Visit list: not sorted by AI ({type(error).__name__}); every site is offered', file=sys.stderr)
+            return items
+        with LOCK:
+            data = _load()
+            data['relevant'] = {key: kept}
+            _save(data)
+        left = [i['name'] for i in items if i['url'] not in kept]
+        if left:
+            print(f"Visit list: left out as unlikely for your roles: {', '.join(left)}", file=sys.stderr)
+    return [i for i in items if i['url'] in kept]
+
+
+def outcome(results, now=None):
+    """A browser run's results [{url, ok, why}]: a site that failed twice in a row is offered unticked with why; one that read jobs is clear."""
+    now = now or _now()
+    with LOCK:
+        data = _load()
+        fails = data.setdefault('fails', {})
+        for result in results or []:
+            host = host_of(result.get('url') or '')
+            if not host:
+                continue
+            if result.get('ok'):
+                fails.pop(host, None)
+            else:
+                fails[host] = {'count': (fails.get(host) or {}).get('count', 0) + 1, 'why': str(result.get('why') or '')[:160],
+                               'at': now.isoformat(timespec='seconds')}
+        _save(data)
+
+
+def hide(url, now=None):
+    """You removed this site from the list (a dead page, a site you do not want): not offered again."""
+    with LOCK:
+        data = _load()
+        data.setdefault('hidden', {})[host_of(url)] = (now or _now()).isoformat(timespec='seconds')
+        _save(data)
 
 
 def listed(url):

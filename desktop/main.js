@@ -2024,6 +2024,13 @@ function handlers() {
     if (started?.id) readSites.set(started.id, chosen.map(site => site.url));
     return started?.error ? {ok: false, error: started.error} : {ok: true};
   });
+  // Remove a site from Find jobs using your browser's list (owner, 7 Oct 2026: "broken, 404: let the user delete/dismiss them"): not offered again.
+  ipcMain.handle('visitsHide', async (_, url) => {
+    if (!/^https?:\/\//.test(String(url || ''))) return {ok: false};
+    appLog('visit', 'site removed from the list by you', {host: new URL(url).hostname});
+    const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-hide', String(url)]).catch(() => ({stdout: ''}));
+    try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false}; }
+  });
   ipcMain.handle('visitsList', async () => {
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false, visits: []}; }
@@ -2045,6 +2052,7 @@ function handlers() {
     pipeline.work(storage, 'visits', log, async (tee, signal) => {
       tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
       const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0], signal});
+      if (!signal?.aborted) await visits.remember(storage, results);   // failures remembered: a site failing twice is offered unticked, with why
       // The matching jobs are scored and written to Jobs before this run ends, in its own turn (owner, 7 Oct 2026: "can't we score them right
       // away?"; a search queued after it waited behind Find new employers): the light run that reads only the pages read in Chrome.
       const fits = visits.lastFits();

@@ -477,6 +477,8 @@ def main(argv=None):
     sub.add_parser('rescore-previous')
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
+    sub.add_parser('visit-outcome').add_argument('file')   # a browser run's results (JSON [{url, ok, why}]): failures remembered (src/sources/visits.py)
+    sub.add_parser('visit-hide').add_argument('url')   # you removed this site from the list: not offered again
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-unblock').add_argument('file')   # a page with no job list (JSON: url, title, text, ways): at most 2 steps toward it, or "needs you"
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
@@ -545,6 +547,16 @@ def main(argv=None):
                 print(json.dumps({'ok': False, 'ideas': [], 'error': f'No role ideas this time ({type(error).__name__})'}))
                 return 0
             print(json.dumps({'ok': True, 'ideas': found}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-outcome':
+            from .sources import visits
+            visits.outcome(json.loads(Path(args.file).read_text()))
+            print(json.dumps({'ok': True}))
+            return 0
+        if args.command == 'visit-hide':
+            from .sources import visits
+            visits.hide(args.url)
+            print(json.dumps({'ok': True}))
             return 0
         if args.command == 'visit-list':
             from .paths import load_search_config

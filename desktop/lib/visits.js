@@ -42,6 +42,13 @@ async function engineJson(storage, command, body, runEngine = pipeline.run) {
   }
 }
 
+// A browser run's results to the engine: a site that failed twice in a row is offered unticked with why (src/sources/visits.py outcome).
+export async function remember(storage, results, runEngine) {
+  const body = (results || []).map(result => ({url: String(result.url || result.start || ''), ok: !!result.ok, why: String(result.why || '').slice(0, 160)}));
+  const answer = await engineJson(storage, 'visit-outcome', body, runEngine).catch(() => null);
+  log('visit', 'run results remembered', {sites: body.length, failed: body.filter(result => !result.ok).length, ok: !!answer?.ok});
+}
+
 // A page the quick guess could not read: Claude makes a recipe from its outline (src/ai/visit_reader.py), kept per site.
 export async function understand(storage, outline, runEngine) {
   if (!/^https?:\/\//.test(String(outline?.url || ''))) return {ok: false, error: 'no page address'};

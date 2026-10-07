@@ -77,7 +77,8 @@ export async function init() {
       const row = document.createElement('li');
       const label = document.createElement('label');
       label.className = 'check-row';   // the shared checkbox row (components.css), inside the shared item-rows list
-      const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: site.kind === 'portal' || !site.last_read, value: site.url});
+      // Ticked: not read this week, and not failing twice in a row (that one says why, unticked)
+      const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: !site.failing && (site.kind === 'portal' || !site.last_read), value: site.url});
       box.addEventListener('change', countVisits);
       const words = document.createElement('span');
       const name = document.createElement('b');
@@ -88,7 +89,15 @@ export async function init() {
       if (site.note) when.title = site.note;
       words.append(name, when);
       label.append(box, words);
-      row.append(label);
+      // Remove: a dead or unwanted site leaves the list for good (owner, 7 Oct 2026)
+      const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'link visits-remove', textContent: 'Remove', title: 'Not offered again'});
+      remove.addEventListener('click', async () => {
+        remove.disabled = true;
+        const done = await window.pilot.visitsHide(site.url).catch(() => null);
+        if (done?.ok) { row.remove(); countVisits(); } else remove.disabled = false;
+      });
+      row.className = 'visits-row';
+      row.append(label, remove);
       return row;
     }));
     countVisits();
