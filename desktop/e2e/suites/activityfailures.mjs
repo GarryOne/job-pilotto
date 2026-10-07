@@ -274,7 +274,8 @@ export async function runParts(ctx, parts) {
         await sleep(page, 3000);
         await ctx.relaunch();   // the app is killed as a crash or a power cut would: nothing gets to tidy up
         await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-        // The app picks up what you had started ("Picking up 1 job from before you quit") 3 s after launch here (20 s for a user). Wait for that run to start, then until it is idle again.
+        // The app asks whether to start again what you had started (a native dialog; the journey answers "Start again": lib/resume-queue.js askResume),
+        // 3 s after launch here (20 s for a user). Wait for that run to start, then until it is idle again.
         await page.waitForFunction(() => window.pilot.runs().then(data => !!data.running || data.runs.some(run => run.kind === 'search')), null, {timeout: 60000, polling: 1000}).catch(() => {});
         await sleep(page, 4000);
         await quiet(ctx, {forMs: 3000, maxMs: 300000});

@@ -38,7 +38,7 @@ import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
 import {cloudNextAt, nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
 import {e2eMs} from './lib/e2e-timing.js';
-import {resumeDelay, scheduleResume} from './lib/resume-queue.js';
+import {askResume, resumeDelay, scheduleResume} from './lib/resume-queue.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import {watchOrphans} from './lib/orphans.js';
@@ -2602,23 +2602,27 @@ async function focusReminder(now = new Date()) {
 }
 
 
-// Jobs you started that were running or waiting when the app quit (pipeline queue.json) start again. The
-// schedule's own (searches, Gmail checks) aren't: its catch-up runs whatever is due anyway.
+// Jobs you started that were running or waiting when the app quit (pipeline queue.json): the app asks whether to start them again (owner,
+// 7 Oct 2026). The schedule's own (searches, Gmail checks) aren't asked about: its catch-up runs whatever is due anyway.
 async function resumeQueue(jobs) {
-  // First close the Notion rows of the runs the quit killed (they stay "Running" for 3 h otherwise, on Windows where the engine dies with the app), then start them again.
+  if (!jobs.length) return;
+  const names = [...new Set(jobs.map(job => pipeline.taskName(job.kind)))];
+  const parent = window && !window.isDestroyed() ? window : null;
+  const {start, decidedBy} = await askResume(names, {ask: options => (parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options))})
+    .catch(error => { appLog('run', 'resume question failed', {error: error.message}); return {start: false, decidedBy: 'question failed'}; });
+  appLog('run', start ? 'started again after a quit' : 'left stopped after a quit', {kinds: jobs.map(job => job.kind).join(','), decidedBy});
+  // The Notion row of a run the quit killed: the engine closes it itself now (src/notion/cron_runs.py); this is for one that could not (Windows ends the whole tree).
   try {
-    const closed = await runHistory.closeInterrupted(storage, jobs);
-    for (const row of closed) appLog('run', 'closed the row of a run the quit interrupted', {kind: row.kind, started: row.startedAt, decidedBy: 'resume after quit'});
+    const closed = await runHistory.closeInterrupted(storage, jobs, {reason: start ? 'Interrupted: the app was closed before this run finished; it was started again.'
+      : 'Interrupted: the app was closed before this run finished; left stopped.'});
+    for (const row of closed) appLog('run', 'closed the row of a run the quit interrupted', {kind: row.kind, started: row.startedAt, decidedBy});
   } catch (error) { appLog('run', 'interrupted rows not closed', {error: error.message}); }
+  if (!start) return;
   for (const job of jobs) {
     const failed = error => log(`${pipeline.taskName(job.kind)} failed: ${error.message}`);
     if (job.kind === 'search') pipeline.refresh(storage, log, job.resume.mode || 'run', 'you').catch(failed);
     else if (job.kind === 'mail') pipeline.checkMail(storage, log, 'you').catch(failed);
     else if (pipeline.TASKS[job.kind] && Array.isArray(job.resume.args)) pipeline.task(storage, job.kind, job.resume.args, log, 'you').catch(failed);
-  }
-  if (jobs.length) {
-    notify(`Picking up ${jobs.length} job${jobs.length === 1 ? '' : 's'} from before you quit`,
-      jobs.map(job => pipeline.taskName(job.kind)).join(', '), {activity: true});
   }
 }
 

@@ -393,13 +393,15 @@ export const queued = () => waiting.map(({id, kind, trigger, queuedAt}) => ({id,
 // each again (resume: a search's mode, a task's command). The app starts the ones you started again next time
 // (the schedule catches up its own). freezeQueue() keeps it as it is while the app quits.
 const QUEUE_FILE = 'queue.json';
+export const INTERRUPTED = 'Interrupted: Job Pilotto was closed while this ran';
 let frozen = false;
 function saveQueue(storage) {
   if (frozen) return;
-  // The running task too when it can't be started again (Read sites, Tailor CVs): with its log, so the next start lists it as Interrupted.
+  // The running task with its log and its Notion row, so the next start lists it as Interrupted with what it said (7 Oct 2026: a restarted
+  // Find new employers showed only the lines after the restart), whether or not it is started again.
   const jobs = [...(current ? [{...current, interrupted: true}] : []), ...waiting]
-    .map(({kind, trigger, queuedAt, startedAt, resume, interrupted, log}) => ({kind, trigger, queuedAt: queuedAt || startedAt, resume,
-      ...(interrupted ? {interrupted} : {}), ...(interrupted && !resume ? {startedAt, log: (log || []).slice(-300)} : {})}));
+    .map(({kind, trigger, queuedAt, startedAt, resume, interrupted, log, rowUrl}) => ({kind, trigger, queuedAt: queuedAt || startedAt, resume,
+      ...(interrupted ? {interrupted, startedAt, log: (log || []).slice(-300), ...(rowUrl ? {notionUrl: rowUrl} : {})} : {})}));
   storage.writeText(QUEUE_FILE, JSON.stringify(jobs));
 }
 export function freezeQueue(storage) { saveQueue(storage); frozen = true; }
@@ -418,13 +420,14 @@ export function takeQueue(storage) {
   let jobs = [];
   try { jobs = JSON.parse(storage.readText(QUEUE_FILE)) || []; } catch {}
   storage.writeText(QUEUE_FILE, '[]');
-  // A task that can't be started again stays in Recent activity as Interrupted, with what it said (7 Oct 2026: Read sites vanished after a restart).
-  const lost = jobs.filter(job => job && job.kind && job.interrupted && !job.resume);
+  // The task that was running stays in Recent activity as Interrupted, with what it said and its Notion row (so it is listed once), whether it
+  // is started again or not: a restart is a new run (7 Oct 2026: Read sites vanished after a restart; a restarted scout lost its log).
+  const lost = jobs.filter(job => job && job.kind && job.interrupted);
   if (lost.length) {
     const endedAt = new Date().toISOString();
-    const rows = lost.map((job, i) => ({id: Date.now() + i, kind: job.kind, trigger: job.trigger, startedAt: job.startedAt || job.queuedAt, endedAt,
-      ok: false, interrupted: true, summary: 'Interrupted: Job Pilotto was closed while this ran',
-      log: [...(job.log || []), 'Interrupted: Job Pilotto was closed while this ran; start it again from Actions.']}));
+    const rows = lost.map((job, i) => ({id: Date.parse(job.startedAt || job.queuedAt) || Date.now() + i, kind: job.kind, trigger: job.trigger,
+      startedAt: job.startedAt || job.queuedAt, endedAt, ok: false, interrupted: true, summary: INTERRUPTED,
+      ...(job.notionUrl ? {notionUrl: job.notionUrl} : {}), log: [...(job.log || []), `${INTERRUPTED}.`]}));
     storage.writeText('runs.json', JSON.stringify([...rows, ...runs(storage)].slice(0, RUN_HISTORY)));
   }
   return jobs.filter(job => job && job.kind && job.resume);

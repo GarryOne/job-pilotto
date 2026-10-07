@@ -105,6 +105,11 @@ export function waitedHead(run) {
 
 export function failureHead(run, name = '') {
   if (!run || run.live || run.waiting || (run.ok && !run.off)) return null;
+  // Job Pilotto was closed while it ran (lib/pipeline.js takeQueue): not an error, and its log is kept (owner, 7 Oct 2026: it read "stopped unexpectedly").
+  if (run.interrupted) {
+    return {problem: 'interrupted', quiet: true, short: 'Interrupted', viewLog: true, title: `${name || 'The run'} was interrupted`,
+      summary: 'Job Pilotto was closed while this ran. What it saved is kept; run it again to continue.', fix: {label: 'Run again', rerun: true}};
+  }
   const problem = String(run.problem || '').trim();
   // No reason recognised: say it stopped unexpectedly, offer to run it again and the log (the owner's fix #7, 6 Oct 2026: "Had problems" over a raw log).
   if (!problem) {

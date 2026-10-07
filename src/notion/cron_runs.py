@@ -530,9 +530,28 @@ def log_run(tracker, run, failed=False):
         return None
 
 
+STOPPED_WORDS = 'Stopped before it finished: Job Pilotto was closed, or Stop was pressed'
+EXIT_GRACE_S = 3
+
+
 def _on_terminate(signum, frame):
-    """The desktop app's watchdog stops a stuck run with SIGTERM: leave through sys.exit so atexit runs and the row says what
-    happened (SIGTERM alone kills Python at once and the row stayed "Running" for hours, 2 Oct 2026)."""
+    """The app stops a run with SIGTERM (Stop, quitting the app, its watchdog). The open row is closed as stopped here, then the run
+    leaves through sys.exit so `finally` and atexit run; worker threads still busy (the scout checks 6 employers at once, each with a
+    Claude call) are not waited for: the process ends EXIT_GRACE_S later whatever they do. 7 Oct 2026: a scout kept running for
+    minutes after the app quit, held the run lock, and the restarted run waited for it."""
+    import threading
+    run = _open.get('run')
+    if run is not None:
+        run['warnings'] = list(run.get('warnings') or []) + [STOPPED_WORDS]
+        run['stopped'] = True
+        try:
+            log_run(_open['tracker'], run, failed=True)
+        except Exception:  # noqa: BLE001  log_run never raises; a stop must not hang on Notion either way
+            pass
+    print(STOPPED_WORDS, flush=True)
+    timer = threading.Timer(EXIT_GRACE_S, lambda: os._exit(128 + signum))
+    timer.daemon = True
+    timer.start()
     sys.exit(128 + signum)
 
 

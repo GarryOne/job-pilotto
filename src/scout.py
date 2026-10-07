@@ -17,7 +17,7 @@ one stopped. Nothing here applies to jobs; it only finds where jobs are posted.
 """
 import argparse
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from html import escape, unescape
 import json
@@ -1098,15 +1098,10 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
         status = 'duplicate' if (system, slug) in active else ('found' if useful else 'low')
         return {'status': status, 'ats': system, 'slug': slug, 'quality': score, 'stats': stats}
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        outcomes = list(pool.map(check, candidates))
-    for key, url in note_site:
-        db.execute("UPDATE scout_candidates SET careers = ? WHERE key = ? AND COALESCE(careers, '') = ''", (url, key))
-    record_unread(db, unread)
-
     stamp = now()
     shared = {'found': [], 'none': [], 'failed': 0}   # the instant shares of this run, said once at the end (7 Oct 2026)
-    for candidate, outcome in zip(candidates, outcomes):
+    def save(candidate, outcome):
+        """One checked employer, written at once: a run stopped halfway keeps what it checked (7 Oct 2026)."""
         status = 'found' if outcome['status'] == 'duplicate' else outcome['status']
         next_check = (stamp + timedelta(days=RECHECK_DAYS[status])).isoformat(timespec='seconds') \
             if status in RECHECK_DAYS else None
@@ -1139,6 +1134,23 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
                 mark_synced(db, candidate['key'])
             except Exception as error:
                 print(f"Warning: Notion not updated for {candidate['name']}: {type(error).__name__}: {error}")
+
+
+    # Each employer is saved as soon as it is checked, here on this thread (the database is not shared across threads); a stop (SIGTERM)
+    # leaves at once instead of waiting for the whole batch (src/notion/cron_runs.py _on_terminate).
+    outcomes = [None] * len(candidates)
+    pool = ThreadPoolExecutor(max_workers=workers)
+    try:
+        futures = {pool.submit(check, candidate): i for i, candidate in enumerate(candidates)}
+        for future in as_completed(futures):
+            i = futures[future]
+            outcomes[i] = future.result()
+            save(candidates[i], outcomes[i])
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    for key, url in note_site:
+        db.execute("UPDATE scout_candidates SET careers = ? WHERE key = ? AND COALESCE(careers, '') = ''", (url, key))
+    record_unread(db, unread)
 
     if shared['found'] or shared['none'] or shared['failed']:
         names = lambda items: ', '.join(items[:10]) + (f' and {len(items) - 10} more' if len(items) > 10 else '')  # noqa: E731

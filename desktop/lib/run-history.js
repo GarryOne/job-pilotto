@@ -89,7 +89,8 @@ export async function closeStopped(storage, url, reason, {fetcher} = {}) {
 // close its own row only when it exits by itself. A Mac leaves the orphaned engine running and it finishes; Windows ends the whole process tree, so the row stayed Running
 // and the app listed the task as running for hours (the Windows activityfailures run, 3 Oct 2026, #91). The app closes this Mac's matching row first (the new run's row does
 // not exist yet). Matched by kind, by a Mac trigger and by the start time (Notion keeps it to the minute); the nearest row wins. Returns the rows it closed.
-export async function closeInterrupted(storage, jobs, {fetcher, size = 25, windowMs = 3 * 60 * 1000} = {}) {
+export async function closeInterrupted(storage, jobs, {fetcher, size = 25, windowMs = 3 * 60 * 1000,
+  reason = 'Interrupted: the app was closed before this run finished; it was started again.'} = {}) {
   const wanted = jobs.filter(job => job?.interrupted && (job.queuedAt || job.startedAt));
   if (!wanted.length) return [];
   const rows = (await list(storage, {fetcher, size}) || []).filter(row => row.live && row.where === 'mac');
@@ -100,7 +101,7 @@ export async function closeInterrupted(storage, jobs, {fetcher, size = 25, windo
       .sort((a, b) => Math.abs(Date.parse(a.startedAt) - at) - Math.abs(Date.parse(b.startedAt) - at))[0];
     if (!near) continue;
     taken.add(near);
-    if (await closeStopped(storage, near.notionUrl, 'Interrupted: the app was closed before this run finished; it was started again.', {fetcher})) closed.push({kind: near.kind, pageId: near.pageId, startedAt: near.startedAt});
+    if (await closeStopped(storage, near.notionUrl, reason, {fetcher})) closed.push({kind: near.kind, pageId: near.pageId, startedAt: near.startedAt});
   }
   return closed;
 }
