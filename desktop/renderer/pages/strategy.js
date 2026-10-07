@@ -40,9 +40,21 @@ let strategyShown = false;
 // First load: every card in its final shape, greyed (the same rows, icons and chips), and a pill in the header.
 function strategySkeleton() {
   const chipBones = n => { const box = el('div', 'chip-list'); for (let i = 0; i < n; i++) box.append(bone('chip')); return box; };
-  const row = (glyph, label, value) => { const dt = el('dt'); dt.append(icon(glyph), label); const dd = el('dd'); dd.append(value); return [dt, dd]; };
-  $('strategy-targets').replaceChildren(...row('briefcase', 'Roles', chipBones(3)), ...row('pin', 'Locations', chipBones(3)),
-    ...row('chart', 'Compensation', bone('w-80 tall')), ...row('building', 'Company interests', chipBones(3)));
+  // The target cards themselves (TARGET_CARDS: head, then each list's label and chips), greyed. 7 Oct 2026: the old Roles/Locations rows,
+  // left from before the cards, fell into the cards' grid as loose lines.
+  $('strategy-targets').replaceChildren(...TARGET_CARDS.map(([key, glyph, title, lists]) => {
+    const card = el('section', 'card is-loading'), head = el('div', 'card-head'), heading = el('h3');
+    card.dataset.list = key;
+    heading.append(icon(glyph), title);
+    head.append(heading);
+    card.append(head);
+    for (const [name, label] of lists) {
+      if (name === 'places') { const priority = el('div', 'priority'); priority.append(el('b', '', label), chipBones(2)); card.append(priority); continue; }
+      if (label) card.append(el('p', 'sub', label));
+      card.append(chipBones(lists.length > 1 ? 2 : 3));
+    }
+    return card;
+  }));
   $('strategy-scores').replaceChildren(...['settings', 'layers', 'pin', 'chart'].map(glyph => {
     const line = el('div', 'score-bar is-loading');
     line.append(icon(glyph), bone('w-name tall'), bone('w-track'), bone('w-level'));
