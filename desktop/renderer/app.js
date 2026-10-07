@@ -42,9 +42,11 @@ import {init as license} from './pages/license.js';
 import {init as appFeedback} from './pages/app-feedback.js';
 import {init as whyStop} from './pages/why-stop.js';
 import {init as notionConnect} from './pages/notion-connect.js';
+import {startListening as saveProgress} from './save-progress.js';
 
 await core();
 notionConnect();
+saveProgress();   // Search settings saves say how far they are (save-progress.js)
 await wizard();
 await demo();
 await activity();

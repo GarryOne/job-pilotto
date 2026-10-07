@@ -957,6 +957,18 @@ function handlers() {
     if (code !== 0) return {ok: false, error: 'Claude could not answer now (see the activity log)'};
     try { return {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: false, error: 'Claude\'s answer could not be read'}; }
   });
+  // Every save that rewrites ⚙️ Search settings in Notion (Strategy's Save, its chips, the few-jobs chips, Tune, the daily target): what it is doing,
+  // told to the window as it goes (renderer/save-progress.js), as the page is rewritten a block at a time (7 Oct 2026: Save sat on "Saving…" 71 s,
+  // 107 blocks deleted one by one behind a search, and nothing said why).
+  const settingsProgress = (stage, extra = {}) => toWindow('settingsProgress', {stage, ...extra});
+  const settingsDeps = () => ({
+    run: (store, args, ...rest) => {
+      if (args[0] === 'src.notion.search_settings' && args[1] === 'sync') settingsProgress('read');
+      return pipeline.run(store, args, ...rest);
+    },
+    ensurePage: notion.ensurePage,
+    writePage: (token, page, markdown) => notion.writePage(token, page, markdown, undefined, (done, total) => settingsProgress('write', {done, total})),
+  });
   ipcMain.handle('loosenSearch', async (_, asked = {}) => {
     if (DEMO) return {ok: true, removed: []};
     try {
@@ -965,7 +977,7 @@ function handlers() {
       const said = JSON.parse(stdout.trim().split('\n').pop()) || {};
       const listedWords = new Set((said.excluded || []).map(item => item.fragment)), listedLanguages = new Set((said.languages || []).map(item => item.language));
       const result = await strategy.loosen(storage, {excludes: (asked.excludes || []).filter(word => listedWords.has(word)),
-        languages: (asked.languages || []).filter(language => listedLanguages.has(language))}, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+        languages: (asked.languages || []).filter(language => listedLanguages.has(language))}, settingsDeps());
       appLog('search', `filters loosened: ${result.removed.join(', ') || 'none'}`);
       return {ok: true, ...result};
     } catch (error) { return {ok: false, error: error.message}; }
@@ -973,7 +985,7 @@ function handlers() {
   ipcMain.handle('addRoles', async (_, terms) => {
     if (DEMO) return {ok: true, added: []};
     try {
-      const result = await strategy.addRoles(storage, terms, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      const result = await strategy.addRoles(storage, terms, settingsDeps());
       appLog('search', `role terms added: ${result.added.join(', ') || 'none'}`);
       // Counted for the starter keyword pack: only words the card itself offered (a fixed vocabulary), with the search's coarse role and region.
       try {
@@ -992,7 +1004,7 @@ function handlers() {
       const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
       if (code !== 0) throw new Error('Could not read the coverage (see the activity log)');
       const offered = (JSON.parse(stdout.trim().split('\n').pop())?.places?.options || []).filter(option => (Array.isArray(names) ? names : []).includes(option.place));
-      const result = await strategy.addPlaces(storage, offered, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      const result = await strategy.addPlaces(storage, offered, settingsDeps());
       appLog('search', `places added: ${result.added.join(', ') || 'none'}`, {offered: offered.length});
       return {ok: true, ...result};
     } catch (error) { return {ok: false, error: error.message}; }
@@ -1016,7 +1028,7 @@ function handlers() {
   ipcMain.handle('editTargets', async (_, edits) => {
     if (DEMO) return {ok: true, changed: Object.keys(edits || {})};
     try {
-      const result = await strategy.editLists(storage, edits, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      const result = await strategy.editLists(storage, edits, settingsDeps());
       const asked = strategy.cleanEdits(edits);
       appLog('strategy', 'targets edited', {lists: result.changed.join(','), added: Object.values(asked).reduce((n, e) => n + e.add.length, 0),
         removed: Object.values(asked).reduce((n, e) => n + e.remove.length, 0), notion: !!storage.secret('NOTION_TOKEN')});
@@ -1031,7 +1043,7 @@ function handlers() {
       const fresh = await tuneProposals();
       if (!fresh.ok) return fresh;
       const {chosen, asked} = strategy.chooseOffered(fresh.proposals, ids);
-      const result = await strategy.retune(storage, chosen, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      const result = await strategy.retune(storage, chosen, settingsDeps());
       appLog('strategy', 'tune applied', {asked, applied: chosen.length, kinds: chosen.map(item => item.kind).join(',')});
       return {ok: true, ...result, missing: asked - chosen.length};
     } catch (error) { return {ok: false, error: error.message}; }
@@ -1336,7 +1348,7 @@ function handlers() {
     const gate = needsNotion('focus');
     if (gate) return gate;
     try {
-      return {ok: true, target: await strategy.setDailyTarget(storage, value, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage})};
+      return {ok: true, target: await strategy.setDailyTarget(storage, value, settingsDeps())};
     } catch (error) { return {ok: false, error: `Notion: ${error.message}. The target wasn't changed.`}; }
   });
   // Demo mode: a fictional history.

@@ -1101,6 +1101,7 @@ main { min-width: 0; }
 .focus-bar span { display: block; height: 100%; width: 0; background: var(--info); border-radius: var(--r-pill); transition: width .3s var(--ease); }
 .focus-target-edit { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); color: var(--ink-2); }
 .focus-target-edit input { width: 80px; }
+.focus-target-edit[data-saving]::after { content: attr(data-saving); color: var(--muted); font-size: var(--fs-sm); }   /* save-progress.js: how far the save is */
 .focus-tip { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4); padding: var(--sp-3); border-radius: var(--r-md);
   background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
 .focus-tip .icon { width: 18px; height: 18px; color: var(--info); flex: none; }

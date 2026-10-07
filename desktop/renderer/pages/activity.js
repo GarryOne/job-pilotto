@@ -1,4 +1,5 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
+import {withSaveProgress} from '../save-progress.js';
 import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
@@ -1800,7 +1801,11 @@ function withFewJobsHelp(foot, runId) {
     adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
     keepButton(action.label, button);
     button.addEventListener('click', async () => {
-      const done = await busyWhile(action.label, () => runAction(action, {pilot: window.pilot, openSetting})).catch(error => ({ok: false, error: error.message}));
+      const opens = action.kind === 'source' || action.kind === 'visit';   // opens a panel or a page: nothing saved, nothing to wait on
+      const run = () => runAction(action, {pilot: window.pilot, openSetting});
+      const done = await busyWhile(action.label, () => (opens ? run() : withSaveProgress(words => setPress(`few:${runId}:${action.label}`, {text: `${action.label} · ${words}`}), run)))
+        .catch(error => ({ok: false, error: error.message}));
+      if (!done?.ok) setPress(`few:${runId}:${action.label}`, {text: action.label});
       if (done?.ok) adviceEvent('taken', action.kind, 'few-jobs', {source: action.value});
       if (done?.opened) { if (action.kind === 'source') openActivity(false); return; }
       if (done?.ok) markDone(action.label, `✓ ${action.label.replace(/^[+−] /, '')}`);

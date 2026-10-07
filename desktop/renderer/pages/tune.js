@@ -1,5 +1,6 @@
 // Tune my strategy (Actions page): the changes your own results support (src/tune.py, no AI), each one ticked or not;
 // only the ticked ones are written to ⚙️ Search settings (main.js tuneApply → lib/strategy.js retune).
+import {withSaveProgress} from '../save-progress.js';
 import {el} from '../components.js';
 import {$, message, show} from './core.js';
 import {applyLabel, basisParts, proposalCounts, proposalTitle} from '../tune-text.js';
@@ -55,8 +56,7 @@ async function apply() {
   const ids = [...$('tune-list').querySelectorAll('input:checked')].map(box => box.value);
   if (!ids.length) { message('tune-message', 'Tick at least one change, or close.', 'bad'); return; }
   $('tune-apply').disabled = true;
-  message('tune-message', 'Saving to your search settings…', 'waiting');
-  const result = await window.pilot.tuneApply(ids);
+  const result = await withSaveProgress(words => message('tune-message', words, 'waiting'), () => window.pilot.tuneApply(ids)).catch(error => ({ok: false, error: error.message}));
   countTicked();
   if (!result?.ok) { message('tune-message', result?.error || 'Nothing changed. Try again.', 'bad'); return; }
   $('tune-dialog').close();

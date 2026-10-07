@@ -1,4 +1,5 @@
 // Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there.
+import {withSaveProgress} from '../save-progress.js';
 import {compensationText} from '../compensation.js';
 import {openInNotion} from './notion-connect.js';
 import {el, tile} from '../components.js';
@@ -132,7 +133,7 @@ async function saveTargets() {
     const word = input.value.trim().toLowerCase(), edit = targetEdits[input.dataset.list];
     if (word && !edit.add.includes(word)) edit.add.push(word);
   });
-  const result = await window.pilot.editTargets(targetEdits).catch(error => ({ok: false, error: error.message}));
+  const result = await withSaveProgress(words => { button.textContent = words; }, () => window.pilot.editTargets(targetEdits)).catch(error => ({ok: false, error: error.message}));
   button.textContent = 'Save';
   if (!result.ok) { message('targets-message', result.error || 'Not saved.', 'error'); button.disabled = false; return; }
   targetEdits = null;
@@ -295,7 +296,8 @@ function showCard(card, ids, add, done, kind = ids.box.replace(/^strategy-/, '')
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
     button.addEventListener('click', async () => {
       button.disabled = true;
-      const result = await add(chip).catch(error => ({ok: false, error: error.message}));
+      const result = await withSaveProgress(words => { button.textContent = `${chip.label} · ${words}`; }, () => add(chip)).catch(error => ({ok: false, error: error.message}));
+      button.textContent = chip.label;
       if (result.ok) adviceEvent('taken', kind, 'strategy');
       toastMessage(result.ok ? 'Search widened' : 'Not added', result.ok ? done(chip) : result.error);
       if (result.ok) loadCoverage(); else button.disabled = false;

@@ -1,4 +1,5 @@
 // Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
+import {withSaveProgress} from '../save-progress.js';
 import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {EMPTY_FUNNEL_HINT, funnelIsEmpty, funnelSteps, inboundSteps} from '../funnel-view.js';
@@ -436,8 +437,10 @@ function editTarget() {
 // The target is a line of ⚙️ Search settings in Notion; changing it here (or in Settings) writes it there.
 export async function saveDailyTarget(input) {
   input.disabled = true;
-  const result = await window.pilot.setDailyTarget(input.value);
+  const result = await withSaveProgress(words => { input.title = words; input.closest('label')?.setAttribute('data-saving', words); }, () => window.pilot.setDailyTarget(input.value))
+    .catch(error => ({ok: false, error: error.message}));
   input.disabled = false;
+  input.title = ''; input.closest('label')?.removeAttribute('data-saving');
   if (!result.ok) { toastMessage('Target not changed', result.error); return false; }
   for (const id of ['focus-target', 'set-target']) $(id).value = result.target;
   return true;
