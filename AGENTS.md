@@ -67,6 +67,19 @@ decides that through their own permission settings.
   running (Haiku extraction, Sonnet scoring, Sonnet kit drafting) — a fourth or a big re-run needs
   the owner's sign-off first.
 
+## Reading websites: one universal algorithm, AI where rules would grow (owner, 8 Oct 2026)
+Find jobs using your browser, the extension (`extension/visit.js`) and the engine's site readers (`src/sources/visits.py`, `careers.py`) will meet
+**thousands of sites**. A fix must work on any site, not the one in front of you.
+- **No code for one website.** No site names, hosts or URL paths in the logic; no branch that exists because of one site.
+- **No growing lists of words or patterns** (place spellings, button labels, frame hosts, query parameters). A list that will need a new entry
+  for the next site is the signal to stop.
+- **Use AI where a rule would need special cases**: give Claude what the page offers (its controls, links, suggestions, outline) and let it
+  choose; keep the answer per site (recipes, job pages, pool facts) so the next visit costs nothing. The page's structure (frames, roles,
+  links, JSON-LD) is fine to use: it is the same on every site.
+- **A reader for a job system** (Workday, SmartRecruiters, ...) is fine only because one system serves many employers, and it is found
+  generically (from the page or address), never listed per employer.
+- **Test the class:** a fixture that stands for a kind of page (a list in a frame, a box that suggests, cards without links), not a copy of one site.
+
 ## Data ownership: Notion is the source of truth (one copy of everything)
 Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
 - **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
