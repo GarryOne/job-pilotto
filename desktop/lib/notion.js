@@ -209,7 +209,9 @@ export function markdownBlocks(text) {
     }
     table = [];
   };
-  for (const line of text.split('\n')) {
+  // CRLF too: the Search settings page is the engine's stdout, which Python writes with \r\n on Windows; a kept \r made every bullet differ from
+  // the page (Notion drops it), so each save rewrote the whole page (7 Oct 2026, the Windows strategy suite).
+  for (const line of text.split(/\r?\n/)) {
     if (line.startsWith('|')) { table.push(line); continue; }
     flush();
     if (!line.trim()) continue;
@@ -318,8 +320,12 @@ async function patchPage(token, pageId, blocks, old, fetcher, onProgress) {
     }
   }
   // Trusted only when the page now reads exactly as the new content (Notion's list can lag, a delete can not stick): else the whole rewrite.
-  const now = (await listBlocks(token, pageId, fetcher)).map(blockSignature);
-  return now.length === blocks.length && now.every((signature, k) => signature !== null && signature === blockSignature(blocks[k]));
+  const read = await listBlocks(token, pageId, fetcher), now = read.map(blockSignature);
+  const at = now.length === blocks.length ? now.findIndex((signature, k) => signature === null || signature !== blockSignature(blocks[k])) : Math.min(now.length, blocks.length);
+  if (at < 0) return true;
+  // Where it differed, never what it says: the first block that did not read back, its type each way, and the counts (the Windows \r of 7 Oct 2026 took a CI run to find).
+  log('notion', 'page patch read back differently', {page: String(pageId).slice(0, 8), at, sent: blocks.length, read: read.length, sentType: blocks[at]?.type || '', readType: read[at]?.type || ''});
+  return false;
 }
 async function writePageNow(token, pageId, markdown, fetcher, onProgress = () => {}) {
   const blocks = markdownBlocks(markdown);

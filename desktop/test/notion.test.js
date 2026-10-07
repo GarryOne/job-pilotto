@@ -296,3 +296,14 @@ test('two edits far apart touch only those blocks, each new one after its neighb
   assert.deepEqual(page.texts(), want);
   assert.deepEqual(page.calls.filter(call => !call.startsWith('GET')), ['DELETE blocks/k5', 'DELETE blocks/k55', 'PATCH blocks/page/children', 'PATCH blocks/page/children']);
 });
+
+// 7 Oct 2026 (Windows strategy suite): the Search settings page comes from the engine's stdout (src.notion.search_settings render), which Python writes
+// with CRLF on Windows. Every bullet went out as "…\r", Notion kept it without the \r, so no block ever matched: each save deleted and re-added the
+// whole page (186 DELETEs, ~90 s) and the suite ran out of time. Mac/Linux: one block changed, 1 s.
+test('markdownBlocks: Windows line endings give the same blocks, so an unchanged page needs no patch', () => {
+  const lf = '## Roles to look for\n- zebra wrangler\n- **data** analyst\n1. first\n| Field | Answer |\n|---|---|\n| Notice | 1 month |\n\nWrite one per line.\n';
+  const crlf = lf.replace(/\n/g, '\r\n');
+  assert.deepEqual(notion.markdownBlocks(crlf), notion.markdownBlocks(lf));
+  const stored = notion.markdownBlocks(lf).map((block, i) => ({...block, id: `b${i}`}));
+  assert.deepEqual(notion.patchPlan(stored.filter(block => block.type !== 'table'), notion.markdownBlocks(crlf).filter(block => block.type !== 'table')), {remove: [], inserts: []});
+});
