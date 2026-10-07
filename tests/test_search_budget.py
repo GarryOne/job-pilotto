@@ -98,3 +98,21 @@ class SizedBatchTests(unittest.TestCase):
             self.assertEqual(budget.batch('enrich', 5, now=0), 5, 'a small batch is taken whole, nothing said')
         self.assertIn('This refresh scores 20 of 60 jobs', out.getvalue())
         self.assertIn('40 wait for the next refresh, best places first', out.getvalue())
+
+
+class PlaceCallsTests(unittest.TestCase):
+    """Placing locations is paced per round of calls, not per location: Haiku answers 60 a call, two calls at once (7 Oct 2026: a refresh
+    placed 32 of 1,500 locations, at 0.5 s a location at least)."""
+    def tearDown(self):
+        budget.start(0)
+
+    def test_a_refresh_places_whole_rounds_of_calls(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch('src.paths.DATA', pathlib.Path(tmp)), contextlib.redirect_stdout(io.StringIO()) as out:
+            budget.start(180, now=0)
+            self.assertEqual(budget.in_calls('place_rounds', 1500, 60, 2, now=0), 240, '15% of 180 s at 10 s a round: 2 rounds of 2 calls of 60')
+            budget.record('place_rounds', 6, 1)   # this Mac: a round in 6 s, the pace moves halfway there
+            self.assertEqual(budget.in_calls('place_rounds', 1500, 60, 2, now=0), 360, '27 s at 8 s a round: 3 rounds')
+            self.assertEqual(budget.in_calls('place_rounds', 50, 60, 2, now=0), 50, 'fewer than a round: all of them, nothing said')
+        self.assertIn('This refresh places 240 of 1500 job locations', out.getvalue())
+        budget.start(0)
+        self.assertEqual(budget.in_calls('place_rounds', 1500, 60, 2), 1500, 'no budget: all of them')

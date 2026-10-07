@@ -81,7 +81,7 @@ def decide(locations, search, client=None):
     from .. import time_budget as budget
     key, decided = _key(search), dict(known(search))
     ask = list(dict.fromkeys(n for n in (norm(loc) for loc in locations) if n and n not in decided))
-    ask = ask[:budget.batch('places', len(ask))]
+    ask = ask[:budget.in_calls('place_rounds', len(ask), BATCH, engine.PARALLEL)]
     if not ask:
         return decided
     client = client or engine.client(action='place_triage')
@@ -93,7 +93,7 @@ def decide(locations, search, client=None):
     ticker, lock, sorted_ = Ticker('Placing job locations with AI', len(ask), every=0), threading.Lock(), [0]
 
     def one(batch):
-        if budget.over('places'):
+        if budget.over('place_rounds'):
             return
         listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
         response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': SYSTEM}],
@@ -113,7 +113,7 @@ def decide(locations, search, client=None):
     began = time.monotonic()
     with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
         list(pool.map(one, batches))
-    budget.record('places', time.monotonic() - began, sorted_[0])
+    budget.record('place_rounds', time.monotonic() - began, -(-sorted_[0] // (BATCH * max(1, engine.PARALLEL))))
     with LOCK:
         data = _load()
         data[key] = {**(data.get(key) or {}), **decided}
