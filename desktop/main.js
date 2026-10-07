@@ -2195,6 +2195,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   }).catch(error => appLog('visit', 'visit list not read', {error: error.message}));
   if (!DEMO) setTimeout(refreshVisitHosts, 20000);
   server.setVisitHosts(() => visitHosts);
+  server.setVisitFilters(page => visits.filters(storage, page));
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
     if (answer.ok) toWindow('visit-read', answer);

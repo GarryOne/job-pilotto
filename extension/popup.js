@@ -30,20 +30,24 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
   const show = state => {
     if (!state) return;
     $('visit-progress').textContent = state.stopped
-      ? `${state.jobs} jobs read from ${state.name || host} on ${state.pages} page${state.pages === 1 ? '' : 's'}: stopped, ${state.stopped}.`
+      ? `${state.filters?.length ? `Filters: ${state.filters.join(', ')}. ` : ''}${state.jobs} jobs read from ${state.name || host} on ${state.pages} page${state.pages === 1 ? '' : 's'}: stopped, ${state.stopped}.`
       : `Reading ${state.name || host}: page ${state.pages}, ${state.jobs} jobs so far…`;
   };
   show((await chrome.storage.session.get(`visit:${tab.id}`))[`visit:${tab.id}`]);
   chrome.storage.onChanged.addListener((changes, area) => { if (area === 'session' && changes[`visit:${tab.id}`]) show(changes[`visit:${tab.id}`].newValue); });
-  $('visit-read').addEventListener('click', async () => {
-    $('visit-read').disabled = true;
+  const start = filter => async () => {
+    $('visit-read').disabled = $('visit-filter').disabled = true;
     // Access to this one site, asked once, so the reading goes on as the list moves to its next pages (Chrome asks you).
     const origin = `${new URL(tab.url).origin}/*`;
     const allowed = await chrome.permissions.request({origins: [origin]}).catch(() => false);
     $('visit-progress').textContent = allowed ? 'Reading…' : 'Reading this page only (no access to its next pages)…';
-    chrome.runtime.sendMessage({type: 'visitRead', tabId: tab.id}, state => {
-      $('visit-read').disabled = false;
+    if (filter) $('visit-progress').textContent = 'Claude is choosing the filters for your search…';
+    chrome.runtime.sendMessage({type: 'visitRead', tabId: tab.id, filter}, state => {
+      $('visit-read').disabled = $('visit-filter').disabled = false;
       if (!state?.ok) $('visit-progress').textContent = `Not read: ${state?.error || 'the app did not answer'}.`;
     });
-  });
+  };
+  // Filter first: Claude picks this site's filters for your search (your role words, places, recent jobs), through the app; then it reads.
+  $('visit-filter').addEventListener('click', start(true));
+  $('visit-read').addEventListener('click', start(false));
 })();

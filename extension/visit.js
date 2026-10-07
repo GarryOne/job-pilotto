@@ -33,6 +33,59 @@ export function extractPage() {
   };
 }
 
+// Runs inside the page: its filter controls, for Claude to choose from (the app's src/ai/visit_filters.py). Labels and options only, never the
+// page's other text. Each gets a data-jp-control id so the chosen steps find it again. Anything that applies, signs in, messages, saves,
+// follows, pays or leaves the site is never listed (and applyFilters refuses it again).
+export function collectControls() {
+  const NEVER = /apply|postuler|bewerb|candidat|submit|envoyer|sign ?in|sign ?up|log ?in|connexion|anmeld|register|message|connect|follow|save|enregistr|speicher|alert|premium|upgrade|buy|subscribe|abonn|share|partager|report|delete|easy apply|candidature simplifi/i;
+  const visible = node => node.offsetParent !== null || node.getClientRects().length > 0;
+  const labelOf = node => (node.getAttribute('aria-label') || (node.id && document.querySelector(`label[for="${CSS.escape(node.id)}"]`)?.innerText)
+    || node.closest('label')?.innerText || node.innerText || node.getAttribute('placeholder') || node.getAttribute('title') || node.name || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const out = [];
+  const nodes = document.querySelectorAll('select, input[type=checkbox], input[type=radio], input[type=text], input[type=search], input:not([type]), '
+    + 'button[aria-expanded], button[aria-haspopup], button[aria-pressed], [role=checkbox], [role=radio], [role=switch], [role=option], [role=menuitemcheckbox], [role=menuitemradio]');
+  for (const node of nodes) {
+    if (!visible(node) || node.disabled) continue;
+    const label = labelOf(node);
+    if (!label || NEVER.test(label) || node.closest('form[action*="login"], form[action*="apply"]')) continue;
+    const id = node.dataset.jpControl || `c${out.length + 1}`;
+    node.dataset.jpControl = id;
+    const kind = node.tagName === 'SELECT' ? 'select' : node.tagName === 'INPUT' ? (['checkbox', 'radio'].includes(node.type) ? node.type : 'text') : (node.getAttribute('role') || 'button');
+    out.push({id, kind, label, options: node.tagName === 'SELECT' ? [...node.options].map(option => option.text.trim()).slice(0, 25) : [],
+      on: !!(node.checked || node.getAttribute('aria-checked') === 'true' || node.getAttribute('aria-pressed') === 'true' || node.getAttribute('aria-selected') === 'true')});
+    if (out.length >= 150) break;
+  }
+  return out;
+}
+
+// Runs inside the page: the steps Claude chose, on the controls listed above only, refusing again anything that applies, signs in or leaves.
+export function applyFilters(steps) {
+  const NEVER = /apply|postuler|bewerb|candidat|submit|envoyer|sign ?in|sign ?up|log ?in|connexion|anmeld|register|message|connect|follow|save|enregistr|speicher|alert|premium|upgrade|buy|subscribe|abonn|share|partager|report|delete|easy apply|candidature simplifi/i;
+  const done = [];
+  for (const step of steps || []) {
+    const node = document.querySelector(`[data-jp-control="${CSS.escape(String(step.control))}"]`);
+    const label = node ? (node.getAttribute('aria-label') || node.innerText || node.getAttribute('placeholder') || '').trim() : '';
+    if (!node || NEVER.test(label) || (node.tagName === 'A' && node.host && node.host !== location.host)) { done.push({control: step.control, ok: false}); continue; }
+    if (step.action === 'select' && node.tagName === 'SELECT') {
+      const option = [...node.options].find(item => item.text.trim() === step.value);
+      if (!option) { done.push({control: step.control, ok: false}); continue; }
+      node.value = option.value;
+      node.dispatchEvent(new Event('change', {bubbles: true}));
+    } else if (step.action === 'type' && node.tagName === 'INPUT') {
+      node.focus();
+      node.value = step.value;
+      node.dispatchEvent(new Event('input', {bubbles: true}));
+      node.dispatchEvent(new Event('change', {bubbles: true}));
+      node.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+      node.form?.requestSubmit?.();
+    } else {
+      node.click();
+    }
+    done.push({control: step.control, ok: true});
+  }
+  return done;
+}
+
 // Runs inside the page: the next page of the same list. A "next" link or button, else the next page number, else a "more jobs" button,
 // else scroll to the end (lists that load as you scroll). Returns how it went on, or 'none'.
 export function goNext() {
@@ -63,16 +116,35 @@ const badge = (tabId, text, title) => {
   chrome.action.setBadgeText({tabId, text}).catch(() => {});   // the tab may already be closed
   if (title) chrome.action.setTitle({tabId, title}).catch(() => {});
 };
-const run = async (tabId, func) => (await chrome.scripting.executeScript({target: {tabId}, func}))[0]?.result;
+const run = async (tabId, func, args = []) => (await chrome.scripting.executeScript({target: {tabId}, func, args}))[0]?.result;
+export const FILTER_ROUNDS = 3;   // filter panels open more filters: look again, at most this often
+
+// Claude chooses the page's filters for this person's search (through the app), the steps are applied with a pause between rounds.
+async function setFilters(tabId, config, state) {
+  for (let round = 0; round < FILTER_ROUNDS; round++) {
+    const controls = await run(tabId, collectControls);
+    if (!controls?.length) break;
+    const tab = await chrome.tabs.get(tabId);
+    const plan = await api(config, '/extension/visit-filters', {method: 'POST', body: JSON.stringify({url: tab.url, title: tab.title, controls})});
+    if (!plan?.ok || !plan.steps?.length) break;
+    const done = await run(tabId, applyFilters, [plan.steps]);
+    state.filters.push(...plan.steps.filter((step, i) => done?.[i]?.ok).map(step => `${step.label}${step.value ? `: ${step.value}` : ''}`));
+    badge(tabId, 'F', `Job Pilotto: filters for your search: ${state.filters.join(', ')}`);
+    await chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
+    await pause();
+    await waitForPage(tabId).catch(() => {});
+  }
+}
 
 // The whole visit, from the person's click: pages read, jobs the app kept, and why it stopped. Progress on the toolbar icon and in session
 // storage (the popup shows it while open).
-export async function readSite(tabId, {pages = MAX_PAGES} = {}) {
+export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) {
   const session = `${tabId}-${Date.now()}`;
   const config = await settings();
-  const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: ''};
+  const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: []};
   const say = () => chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
   try {
+    if (filter) await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
     for (let page = 0; page < pages; page++) {
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }

@@ -532,7 +532,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message?.type === 'visitRead') {
     const tabId = Number(message.tabId);
     if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
-    readSite(tabId).then(state => reply({ok: true, ...state}), error => reply({ok: false, error: error.message}));
+    readSite(tabId, {filter: !!message.filter}).then(state => reply({ok: true, ...state}), error => reply({ok: false, error: error.message}));
     return true;
   }
   // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.

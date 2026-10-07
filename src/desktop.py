@@ -368,6 +368,7 @@ def main(argv=None):
     sub.add_parser('tune')   # Tune my strategy: what your outcomes say about the search settings (src/tune.py)
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
+    sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
     sub.add_parser('visit-read').add_argument('file')   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
     sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
@@ -410,6 +411,20 @@ def main(argv=None):
         if args.command == 'visit-list':
             from .paths import load_search_config
             print(json.dumps({'ok': True, 'visits': _visits(load_search_config(matching=False))}, ensure_ascii=False))
+            return 0
+        if args.command == 'visit-filters':
+            from .ai import visit_filters
+            from .paths import load_search_config
+            from .digest import PREFERENCES
+            page = json.loads(Path(args.file).read_text())
+            try:
+                planned = visit_filters.plan(page, load_search_config(matching=False), PREFERENCES)
+            except Exception as error:  # noqa: BLE001 — said to the extension, which then reads the page as it is
+                print(json.dumps({'ok': False, 'error': f'Claude could not choose the filters ({type(error).__name__})'}))
+                return 0
+            print(f"Visit filters: {len(planned['steps'])} steps for {str(page.get('url') or '')[:80]}: "
+                  + '; '.join(f"{s['action']} {s['label'][:40]}{' = ' + s['value'] if s['value'] else ''}" for s in planned['steps']), file=sys.stderr)
+            print(json.dumps({'ok': True, **planned}, ensure_ascii=False))
             return 0
         if args.command == 'visit-read':
             from .sources import visits

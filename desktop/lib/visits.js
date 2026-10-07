@@ -20,6 +20,21 @@ export function open(url, run = spawn) {
   return {ok: true};
 }
 
+// The page's filter controls: which to set for this person's search (src/ai/visit_filters.py, through the engine's AI). Labels in the log.
+export async function filters(storage, page, runEngine = pipeline.run) {
+  if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
+  const file = path.join(os.tmpdir(), `jp-visit-filters-${process.pid}-${Date.now()}.json`);
+  fs.writeFileSync(file, JSON.stringify({url: String(page.url), title: String(page.title || '').slice(0, 300), controls: Array.isArray(page.controls) ? page.controls.slice(0, 200) : []}));
+  try {
+    const {stdout} = await runEngine(storage, ['src.desktop', 'visit-filters', file]);
+    const answer = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return null; } })();
+    log('visit', 'filters chosen', {host: new URL(page.url).hostname, steps: answer?.steps?.length ?? null, labels: (answer?.steps || []).map(step => step.label).join(' | ').slice(0, 300)});
+    return answer || {ok: false, error: 'The app could not choose the filters.'};
+  } finally {
+    fs.rmSync(file, {force: true});
+  }
+}
+
 // One page the extension sent: through a file (a page can be megabytes), read by the engine. Counts in the log, never the page.
 const MAX_HTML = 3_000_000;
 export async function read(storage, page, runEngine = pipeline.run) {

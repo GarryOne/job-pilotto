@@ -1,3 +1,4 @@
+/* global document */
 // "Read the jobs on this page" (7 Oct 2026): the extension's own page functions (extension/visit.js extractPage and goNext, as they run inside
 // a page) in a real Chromium on fixture pages, then the engine's reader (src/sources/visits.py) on what they sent. A portal-like list over
 // two pages (title, employer, place per card, a Next link), an employer page with job data, and a bot-check page, where it must stop.
@@ -19,7 +20,7 @@ const fixtures = path.join(import.meta.dirname, '..', 'fixtures', 'visits');
 const python = () => process.env.E2E_PYTHON || (fs.existsSync(path.join(repo, '.venv', 'bin', 'python')) ? path.join(repo, '.venv', 'bin', 'python') : 'python3');
 // The two functions as the extension injects them: their own source, nothing re-written for the test.
 const source = fs.readFileSync(path.join(repo, 'extension', 'visit.js'), 'utf8');
-const fn = name => { const match = new RegExp(`export function ${name}\\(\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js`); return match[0].replace('export ', ''); };
+const fn = name => { const match = new RegExp(`export function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js`); return match[0].replace('export ', ''); };
 const call = (page, name) => page.evaluate(`(${fn(name).replace(`function ${name}`, 'function')})()`);
 
 export async function run(ctx) {
@@ -53,6 +54,33 @@ export async function run(ctx) {
       if (seen.cards.length !== 2) throw new Error(`${seen.cards.length} cards on page 2`);
       const after = await call(page, 'goNext');
       if (after !== 'none') throw new Error(`after the last page it went on by "${after}"`);
+    });
+
+    await ctx.run('filters: the page\'s own controls are listed for Claude, never Easy Apply, Sign in or Save; its chosen steps are applied, a forbidden one refused', async () => {
+      await page.goto(`${base}/filters.html`);
+      const controls = await call(page, 'collectControls');
+      const labels = controls.map(control => control.label);
+      if (labels.some(label => /easy apply|sign in|save/i.test(label))) throw new Error(`a forbidden control was listed: ${JSON.stringify(labels)}`);
+      const when = controls.find(control => /date posted/i.test(control.label));
+      const remote = controls.find(control => /remote/i.test(control.label));
+      const where = controls.find(control => /city/i.test(control.label));
+      if (!when || !remote || !where || !when.options.includes('Past week')) throw new Error(`controls ${JSON.stringify(controls)}`);
+      // What the engine keeps of Claude's answer (src/ai/visit_filters.py, with a stand-in for the model): only listed controls and offered options.
+      const script = `import json, sys
+from types import SimpleNamespace
+from src.ai import visit_filters
+controls = json.loads(sys.argv[1])
+answer = {'why': 'recent, Geneva', 'steps': [{'control': sys.argv[2], 'action': 'select', 'value': 'Past week'}, {'control': sys.argv[3], 'action': 'type', 'value': 'Genève'},
+  {'control': 'easy', 'action': 'click', 'value': ''}]}
+client = SimpleNamespace(messages=SimpleNamespace(create=lambda **k: SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps(answer))], usage=SimpleNamespace(input_tokens=1, output_tokens=1))))
+print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls': controls}, {'role_keywords': ['photographe'], 'locations': {'top_tier': ['Genève']}}, client=client)))`;
+      const planned = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(controls), when.id, where.id], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}}).trim().split('\n').pop());
+      if (planned.steps.length !== 2) throw new Error(`the engine kept ${JSON.stringify(planned.steps)}: an unlisted control must be dropped`);
+      await page.evaluate(() => { document.getElementById('easy').dataset.jpControl = 'sneaky'; });
+      const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([...planned.steps, {control: 'sneaky', action: 'click', value: ''}])})`);
+      const state = await page.evaluate(() => ({when: document.getElementById('when').value, where: document.getElementById('where').value, applied: document.body.dataset.applied || ''}));
+      if (state.when !== 'Past week' || state.where !== 'Genève') throw new Error(`filters not set: ${JSON.stringify(state)}`);
+      if (state.applied || done.at(-1).ok) throw new Error('Easy Apply was pressed: it must be refused even when asked');
     });
 
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {

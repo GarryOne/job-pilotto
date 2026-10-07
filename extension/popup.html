@@ -20,6 +20,7 @@
   .status.on::before { background: var(--good); }
   .visit { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
   .visit small { color: var(--muted); font-size: 11px; }
+  button.quiet { background: #fff; color: var(--ink); border: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -28,7 +29,8 @@
   <p>The application panel appears only on a tab the Job Pilotto app opens: press <b>Apply</b> in the app.</p>
   <section class="visit" id="visit" hidden>
     <p id="visit-text">A job list the app cannot read by itself? Read it from here: this page and its next pages, then the app filters and scores the jobs.</p>
-    <button id="visit-read">Read the jobs on this page</button>
+    <button id="visit-filter">Filter for my search, then read</button>
+    <button id="visit-read" class="quiet">Read the jobs as they are</button>
     <small id="visit-note"></small>
     <small id="visit-progress"></small>
   </section>
