@@ -251,6 +251,15 @@ def with_matching_words(config):
     return config
 
 
+def place_regex(fragments):
+    """keyword_regex for places: a plain word (letters, spaces, hyphens, apostrophes) matches only as a whole word (7 Oct 2026: the place
+    "gland" let "Derby, England" in); a fragment with regex in it is the author's pattern, kept as written."""
+    import re
+    plain = re.compile(r"[\w\s'’.-]+")
+    return keyword_regex([rf'(?<!\w){fragment}(?!\w)' if plain.fullmatch(str(fragment)) and '\\' not in str(fragment) else fragment
+                          for fragment in fragments])
+
+
 def keyword_regex(fragments):
     """Case-insensitive regex matching any of these already-regex fragments (word boundaries,
 

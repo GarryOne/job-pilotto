@@ -744,7 +744,7 @@ def main():
             from .sources import feeds as feed_places
             outside = Counter()
             feed_places.place_open_jobs(db)
-            elsewhere = store.close_elsewhere(db, feed_places.wanted_location, where=outside)
+            elsewhere = store.close_elsewhere(db, feed_places.keep_open, where=outside)
             if elsewhere:
                 print(f'Closed {elsewhere} job(s) outside your places: {store.grouped(outside)}')
         # Jobs that came without a description (SmartRecruiters' list, a jobs.ch page that failed) get it now, or

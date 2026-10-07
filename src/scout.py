@@ -33,7 +33,7 @@ import urllib.request
 
 from . import contribute, employer_index, role_kinds, store, telegram, tgcard
 from .notion import client as notion, cron_runs
-from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
+from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config, place_regex
 from .sources import ats, careers, feeds
 
 SEEDS = CONFIG / 'scout_seeds.json'
@@ -105,9 +105,9 @@ CREATE TABLE IF NOT EXISTS feed_sources (
 """
 _SEARCH = load_search_config()
 STACK = keyword_regex(_SEARCH['quality_stack_keywords'])
-SWISS_OR_ZURICH = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
+SWISS_OR_ZURICH = place_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
                                 r'\bch\b'])
-LOCATION_WORDS = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
+LOCATION_WORDS = place_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
                                 *_SEARCH['locations']['abroad'], 'remote'])
 ROLE_WORDS = keyword_regex(_SEARCH['role_keywords'])
 

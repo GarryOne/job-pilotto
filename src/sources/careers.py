@@ -221,9 +221,9 @@ def jsonld_jobs(markup, url):
 
 def _places():
     """Your places as one pattern (config/search.json), to find where a job page says the job is."""
-    from ..paths import keyword_regex, load_search_config
+    from ..paths import keyword_regex, load_search_config, place_regex
     groups = (load_search_config().get('locations') or {})
-    return keyword_regex([*groups.get('top_tier', []), *groups.get('country_wide', []), *groups.get('abroad', [])] or [r'(?!x)x'])
+    return place_regex([*groups.get('top_tier', []), *groups.get('country_wide', []), *groups.get('abroad', [])] or [r'(?!x)x'])
 
 
 def job_from_page(markup, url):

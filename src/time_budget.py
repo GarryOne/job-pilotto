@@ -98,8 +98,8 @@ def left_line(step, left, noun='job(s)'):
 
 def best_first(jobs):
     """Jobs in your best places first (Search settings "Best places"), the order kept otherwise: a short search spends its time on them."""
-    from .paths import keyword_regex, load_search_config
-    best = keyword_regex((load_search_config().get('locations') or {}).get('top_tier') or [r'(?!x)x'])
+    from .paths import keyword_regex, load_search_config, place_regex
+    best = place_regex((load_search_config().get('locations') or {}).get('top_tier') or [r'(?!x)x'])
     from .sources import feeds
     def first(job):   # Claude's answer when it placed the location (src/ai/place_triage.py), else the best places' words
         verdict = feeds.place_of(job)

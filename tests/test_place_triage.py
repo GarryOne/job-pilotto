@@ -236,3 +236,33 @@ class VagueScoringTests(unittest.TestCase):
         source = pathlib.Path(daily.__file__).read_text()
         self.assertNotIn('score.queue(db, digest.eligible_jobs', source)
         self.assertNotIn('score.run(db, digest.eligible_jobs', source)
+
+
+class PlaceChangeTests(unittest.TestCase):
+    """After a change of places, until Claude has placed a location the place words decide: whole words only, and they never close an open job
+    Claude is about to place (7 Oct 2026: "gland" let Derby, England in; Carouge and Meyrin jobs closed for a Geneva search)."""
+    def tearDown(self):
+        feeds.PLACED = feeds.READ = None
+
+    def test_a_place_word_is_a_whole_word(self):
+        from src import digest
+        from src.paths import place_regex
+        words = place_regex(['geneva', 'gland'])
+        with mock.patch.object(feeds, 'PLACE', words), mock.patch.object(digest, 'HOME', words), mock.patch.object(feeds, 'REMOTE_WANTED', False):
+            feeds.PLACED = {}
+            self.assertFalse(feeds.wanted_location({'location': 'Derby, England'}))
+            self.assertFalse(digest.in_places({'location': 'Derby, England'}))
+            self.assertTrue(feeds.wanted_location({'location': 'Gland, Vaud'}))
+
+    def test_an_open_job_waits_for_claude_before_it_closes(self):
+        feeds.PLACED = {}
+        job = {'location': 'Carouge', 'title': 'Vendeur'}
+        with mock.patch.object(feeds, 'PLACE', feeds.place_regex(['geneva'])), mock.patch.object(feeds, 'REMOTE_WANTED', False), \
+                mock.patch.object(feeds, 'wanted_title', lambda title: title == 'Vendeur'):
+            with mock.patch.object(feeds, 'placing', return_value=True):
+                self.assertTrue(feeds.keep_open(job), 'not placed yet: stays open')
+                feeds.PLACED = {'carouge': 'out'}
+                self.assertFalse(feeds.keep_open(job), 'placed outside: closes')
+            feeds.PLACED = {}
+            with mock.patch.object(feeds, 'placing', return_value=False):
+                self.assertFalse(feeds.keep_open(job), 'no AI: the words decide')

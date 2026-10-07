@@ -275,11 +275,11 @@ def close_elsewhere(db, wanted, where=None):
     narrowed from all of Switzerland to Romandie kept 1,300 St. Gallen and Zürich jobs as matches). A job you acted on (any status but
     a job you added yourself, or one without a place is kept. A job seen again in your places is reopened by upsert_job.
     Owner, 7 Oct 2026: jobs at most saved or with a prepared kit go too; ones you applied to, interview for, or got an answer from stay."""
-    rows = db.execute("""SELECT jobs.id, jobs.location, jobs.work_mode FROM jobs LEFT JOIN applications ON applications.job_id = jobs.id
+    rows = db.execute("""SELECT jobs.id, jobs.location, jobs.work_mode, jobs.title FROM jobs LEFT JOIN applications ON applications.job_id = jobs.id
         WHERE jobs.state = 'open' AND COALESCE(applications.status, 'unreviewed') IN ('unreviewed', 'saved', 'dismissed')
         AND COALESCE(jobs.notes, '') != 'imported'
         AND COALESCE(jobs.location, '') != ''""").fetchall()
-    gone = [row for row in rows if not wanted({'location': row[1], 'remote': 'remote' in (row[2] or '').lower()})]
+    gone = [row for row in rows if not wanted({'location': row[1], 'remote': 'remote' in (row[2] or '').lower(), 'title': row[3] or ''})]
     if where is not None:   # the places they were in, for the refresh's log line
         where.update(place_name(row[1]) for row in gone)
     gone = [row[0] for row in gone]

@@ -9,7 +9,7 @@ import re
 from . import store, tgcard
 from .ai import enrich, score
 from .notion import client as notion
-from .paths import CONFIG, keyword_regex, load_search_config
+from .paths import CONFIG, keyword_regex, load_search_config, place_regex
 
 WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', 'Remote mentioned': '🌍 Remote?'}
 TELEGRAM_LIMIT = 4096
@@ -17,7 +17,7 @@ TELEGRAM_LIMIT = 4096
 CHUNK_LIMIT = TELEGRAM_LIMIT - 200
 PAGE_SIZE = 10  # Jobs per digest message; '➕ Next' loads the following page.
 _SEARCH = load_search_config()
-HOME = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
+HOME = place_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
 RELEVANT = keyword_regex(_SEARCH['role_keywords'])
 PREFERENCES = json.loads((CONFIG / 'preferences.json').read_text())
 MIN_DIGEST_SCORE = PREFERENCES.get('digest_min_score', 50)
@@ -61,8 +61,8 @@ def in_places(job):
     return bool(job.get('city')) or _mentions(HOME, job.get('location') or '')
 
 
-BEST_PLACES = keyword_regex(_SEARCH['locations']['top_tier'])
-PREFERRED_ABROAD = keyword_regex(_SEARCH['locations']['abroad'])
+BEST_PLACES = place_regex(_SEARCH['locations']['top_tier'])
+PREFERRED_ABROAD = place_regex(_SEARCH['locations']['abroad'])
 # Where the user may work without a visa beyond their own places (citizenship / work rights): ⚙️ Search settings → "Where you
 # can work without a visa", e.g. "EU" for an EU citizen. "EU" stands for every EU member state.
 EU_PLACES = ['austria', 'belgium', 'bulgaria', 'croatia', 'cyprus', 'czech', 'denmark', 'estonia', 'finland', 'france', 'germany', 'greece',

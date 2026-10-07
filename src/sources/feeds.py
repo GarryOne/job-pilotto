@@ -16,7 +16,7 @@ import urllib.request
 
 from . import ats
 from .. import coverage
-from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config
+from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config, place_regex
 
 DESCRIPTION_LIMIT = 12000
 _SEARCH = load_search_config()
@@ -94,7 +94,7 @@ def dropped_by(title):
 # Only the user's places (7 Oct 2026: a hard-coded \bch\b and UAE, left from the first search, let every Swiss town in for a
 # Romandie search; a place word "Switzerland" adds \bch\b itself, src/regions.py).
 _PLACES = [*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'], *_SEARCH['locations']['abroad']]
-PLACE = keyword_regex(_PLACES)
+PLACE = place_regex(_PLACES)
 _REMOTE_SYNONYMS = r'remote|anywhere|worldwide|global|emea|europe'
 
 
@@ -104,7 +104,7 @@ def fetch(source):
 
 
 # Remote roles restricted to these regions (config/search.json) are not open to someone in your places.
-REMOTE_ELSEWHERE = keyword_regex(_SEARCH['remote_excluded_regions'] or [r'(?!x)x'])   # no region skipped: an empty pattern would match every text and drop every remote job
+REMOTE_ELSEWHERE = place_regex(_SEARCH['remote_excluded_regions'] or [r'(?!x)x'])   # no region skipped: an empty pattern would match every text and drop every remote job
 
 
 def plain(text):
@@ -204,6 +204,15 @@ def placing():
     from .. import features
     from ..ai import engine
     return not features.disabled('place_triage') and engine.ready()
+
+
+def keep_open(job):
+    """For the cleanup of jobs outside your places: an open job whose title fits and whose location Claude has not placed for these places
+    yet stays open until it has (7 Oct 2026: after a change of places, the place words closed Carouge and Meyrin jobs for a Geneva search;
+    place_open_jobs places the open jobs' locations first, so this waits a refresh or two, for the open jobs only)."""
+    if placing() and job.get('title') and wanted_title(job['title']) and (job.get('location') or '').strip() and place_of(job) is None:
+        return True
+    return wanted_location(job)
 
 
 def place_open_jobs(db):
