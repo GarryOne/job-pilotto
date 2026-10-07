@@ -229,8 +229,28 @@ export function collectWays() {
 }
 
 // Runs inside the page: the steps Claude chose, on the controls listed above only, refusing again anything that applies, signs in or leaves.
-export function applyFilters(steps) {
+export async function applyFilters(steps) {
   const NEVER = /apply|postuler|bewerb|candidat|submit|envoyer|sign ?in|sign ?up|log ?in|connexion|anmeld|register|message|connect|follow|save|enregistr|speicher|alert|premium|upgrade|buy|subscribe|abonn|share|partager|report|delete|easy apply|candidature simplifi/i;
+  // A box that suggests as you type (Tom Select, select2, an ARIA combobox) filters only once a suggestion is picked: typed text alone is
+  // just its search (7 Oct 2026: Van Cleef's "Location = Geneva" was typed three times and 220 jobs worldwide were read; picked, 6).
+  const plain = text => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const suggests = node => node.getAttribute('role') === 'combobox' || node.hasAttribute('aria-autocomplete') || node.hasAttribute('aria-controls');
+  const pickSuggestion = async (node, value) => {
+    const want = plain(value);
+    for (let tries = 0; tries < 15; tries++) {   // up to 3 s: suggestions often come after a pause or from the server
+      await new Promise(done => setTimeout(done, 200));
+      const list = document.getElementById(node.getAttribute('aria-controls') || node.getAttribute('aria-owns') || '');
+      const options = [...(list || document).querySelectorAll('[role=option], .ts-dropdown .option, .select2-results__option, .ui-menu-item, .autocomplete-suggestion')]
+        .filter(option => (option.offsetParent !== null || option.getClientRects().length > 0) && option.getAttribute('aria-disabled') !== 'true');
+      const option = options.find(item => plain(item.innerText) === want) || options.find(item => plain(item.innerText).startsWith(want))
+        || options.find(item => plain(item.innerText).includes(want));
+      if (option) {
+        for (const type of ['mousedown', 'mouseup', 'click']) option.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true}));
+        return option.innerText.replace(/\s+/g, ' ').trim().slice(0, 80);
+      }
+    }
+    return '';
+  };
   const done = [];
   for (const step of steps || []) {
     const node = document.querySelector(`[data-jp-control="${CSS.escape(String(step.control))}"]`);
@@ -245,6 +265,12 @@ export function applyFilters(steps) {
       node.focus();
       node.value = step.value;
       node.dispatchEvent(new Event('input', {bubbles: true}));
+      if (suggests(node)) {   // the suggestion first, then the search: an Enter or submit before it sends the form without the place
+        const picked = await pickSuggestion(node, step.value);
+        done.push({control: step.control, ok: true, picked, suggests: true});
+        node.form?.requestSubmit?.();
+        continue;
+      }
       node.dispatchEvent(new Event('change', {bubbles: true}));
       node.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
       node.form?.requestSubmit?.();
@@ -312,7 +338,9 @@ async function setFilters(tabId, config, state) {
     if (!plan?.ok) { state.note = plan?.error || 'filters not set'; break; }   // said in the popup; the page is read as it is
     if (!plan.steps?.length) break;
     const done = await run(tabId, applyFilters, [plan.steps]);
-    state.filters.push(...plan.steps.filter((step, i) => done?.[i]?.ok).map(step => `${step.label}${step.value ? `: ${step.value}` : ''}`));
+    // Said in the site's row (and so the run log): whether a suggest box's place was really picked, or only typed and so filtered nothing.
+    state.filters.push(...plan.steps.map((step, i) => [step, done?.[i]]).filter(([, result]) => result?.ok).map(([step, result]) => `${step.label}${step.value ? `: ${step.value}` : ''}`
+      + (result.suggests ? (result.picked ? ` (picked "${result.picked}")` : ' (typed, but no suggestion matched: not filtered)') : '')));
     badge(tabId, 'F', `Job Pilotto: filters for your search: ${state.filters.join(', ')}`);
     await chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
     await pause();

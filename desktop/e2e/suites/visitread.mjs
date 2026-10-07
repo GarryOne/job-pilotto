@@ -21,7 +21,7 @@ const repo = path.resolve(import.meta.dirname, '..', '..', '..');
 const fixtures = path.join(import.meta.dirname, '..', 'fixtures', 'visits');
 // The two functions as the extension injects them: their own source, nothing re-written for the test.
 const source = fs.readFileSync(path.join(repo, 'extension', 'visit.js'), 'utf8');
-const fn = name => { const match = new RegExp(`export function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js`); return match[0].replace('export ', ''); };
+const fn = name => { const match = new RegExp(`export (?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js`); return match[0].replace('export ', ''); };
 const call = (page, name) => page.evaluate(`(${fn(name).replace(`function ${name}`, 'function')})()`);
 
 export async function run(ctx) {
@@ -85,6 +85,16 @@ print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls
       if (state.where !== 'Genève') throw new Error(`the place filter was not set: ${JSON.stringify(state)}`);
       if (state.when === 'Past week') throw new Error('a date filter was set: only the place is filtered (4af2670)');
       if (state.applied || done.at(-1).ok) throw new Error('Easy Apply was pressed: it must be refused even when asked');
+    });
+
+    await ctx.run('filters: a place typed in a suggest box is picked from its suggestions before the search is sent (Van Cleef, 7 Oct 2026)', async () => {
+      await page.goto(`${base}/combobox.html`);
+      const controls = await call(page, 'collectControls');
+      const box = controls.find(control => control.label === 'Location');
+      if (!box) throw new Error(`the suggest box was not listed: ${JSON.stringify(controls)}`);
+      const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([{control: box.id, action: 'type', value: 'geneva'}])})`);
+      const searched = await page.evaluate(() => document.body.dataset.searched);
+      if (done[0]?.picked !== 'Geneva' || searched !== 'Geneva') throw new Error(`picked ${JSON.stringify(done)}, the form sent ${searched}: typed text alone filters nothing`);
     });
 
     await ctx.run('any site: where the quick guess reads nothing, Claude\'s recipe from the page outline reads the jobs and finds the next page', async () => {

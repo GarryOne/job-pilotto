@@ -1,0 +1,17 @@
+<!doctype html><html><head><title>Jobs | Portal with a suggest box</title></head><body>
+<!-- A Tom Select-like place box (Van Cleef & Arpels, 7 Oct 2026): typed text only searches its suggestions; the hidden select, which the form
+     sends, changes only when a suggestion is clicked, and the suggestions come after a pause, as from a server. -->
+<form id="filters" onsubmit="event.preventDefault(); document.body.dataset.searched = [...document.getElementById('city').selectedOptions].map(o => o.value).join(',') || 'none'">
+  <select id="city" name="location" multiple style="position:absolute;opacity:0;width:1px;height:1px" aria-label="City"><option value="">City</option><option>Amsterdam</option><option>Geneva</option><option>Geneva Airport</option></select>
+  <input type="text" id="city-ts-control" role="combobox" aria-controls="city-dropdown" placeholder="Location">
+  <div id="city-dropdown" role="listbox"></div>
+</form>
+<script>
+const box = document.getElementById('city-ts-control'), list = document.getElementById('city-dropdown'), select = document.getElementById('city');
+box.addEventListener('input', () => setTimeout(() => {
+  list.innerHTML = [...select.options].filter(o => o.value && o.text.toLowerCase().includes(box.value.toLowerCase())).map(o => `<div role="option" data-value="${o.value}">${o.text}</div>`).join('');
+}, 400));
+list.addEventListener('mousedown', event => { const option = event.target.closest('[role=option]'); if (option) [...select.options].find(o => o.value === option.dataset.value).selected = true; });
+</script>
+<ul><li class="job-card"><a href="/jobs/view/3001">Retail Operations Intern</a><div>Van Cleef</div><div>Geneva</div></li></ul>
+</body></html>
