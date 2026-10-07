@@ -132,6 +132,12 @@ class VisitsTest(unittest.TestCase):
             result = visits.session_result('read_ab12cd34.json')
         self.assertEqual((result['jobs'], result['fits']), (2, 1))
         self.assertIsNone(visits.session_result('read_none.json'), 'a session that saved nothing')
+        visits.read('https://www.hublot.com/en-ch/job-offers', '<html></html>', [{'title': 'Client Advisor Genève', 'url': '/job/5234567', 'lines': ['Genève']}], now=NOW, session='read_ff00ff00_1.json')
+        visits.read('https://careers.richemont.com/en/jobs/iwc', '<html></html>', cards, now=NOW, session='read_ff00ff00_2.json')
+        with mock.patch.object(feeds, 'wanted_title', lambda title: 'advisor' in title.lower()), mock.patch.object(feeds, 'wanted_location', lambda job: True):
+            many = visits.session_result('read_ff00ff00.json')
+        self.assertEqual((many['sites'], many['jobs'], many['fits']), (2, 3, 2), 'a session that read two sites: both, never merged into one feed')
+        self.assertEqual(len(set(many['feeds'])), 2)
 
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',

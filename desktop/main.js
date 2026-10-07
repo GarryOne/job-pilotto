@@ -120,6 +120,7 @@ function allowanceBlock() {
 }
 // Jobs read in Chrome that match the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count
 // never grows": they waited for the next scheduled check). Pages read in Chrome stay on this Mac, so with Always on they wait for a local search.
+const readSites = new Map();   // Read with Claude session id -> the addresses it reads
 function scoreVisitJobs(fits, by) {
   if (!fits || allowanceBlock()) return;
   const cloud = !!storage.settings().cloud?.repo;   // Always on: the search runs on GitHub, which never sees pages read in Chrome
@@ -1890,6 +1891,19 @@ function handlers() {
     if (!/^https:\/\//.test(url || '')) return {ok: false, error: 'This site has no address to open.'};
     appLog('visit', 'read with Claude started', {host: new URL(url).hostname, by: 'you'});
     const started = await claudeSession.launchRead(storage, url, String(name || '').slice(0, 80), {claude: apply.claudeBinary()}).catch(error => ({error: error.message}));
+    if (started?.id) readSites.set(started.id, [url]);
+    return started?.error ? {ok: false, error: started.error} : {ok: true};
+  });
+  // "Read the failed sites with Claude" (owner, 7 Oct 2026): one session reads them in turn (claude-session.js readManyPrompt).
+  ipcMain.handle('visitsWithClaude', async (_, sites = []) => {
+    const ready = apply.claudeReady(storage);
+    if (!ready.ok) return ready;
+    const chosen = (Array.isArray(sites) ? sites : []).filter(site => /^https:\/\//.test(site?.url || '')).slice(0, 10)
+      .map(site => ({url: String(site.url), name: String(site.name || '').slice(0, 80)}));
+    if (!chosen.length) return {ok: false, error: 'These sites have no address to open.'};
+    appLog('visit', 'read with Claude started', {sites: chosen.length, hosts: chosen.map(site => new URL(site.url).hostname).join(' '), by: 'you'});
+    const started = await claudeSession.launchRead(storage, chosen[0].url, `${chosen.length} sites`, {claude: apply.claudeBinary(), sites: chosen}).catch(error => ({error: error.message}));
+    if (started?.id) readSites.set(started.id, chosen.map(site => site.url));
     return started?.error ? {ok: false, error: started.error} : {ok: true};
   });
   ipcMain.handle('visitsList', async () => {
@@ -2333,7 +2347,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
     toWindow('review', state);
   });
-  const readReported = new Set();   // Read with Claude sessions already reported (a session's Stop can arrive more than once)
+  const readReported = new Set();
+  // (readSites, set when a Read with Claude session starts: its sites' addresses, so each site's button is told when it ends)   // Read with Claude sessions already reported (a session's Stop can arrive more than once)
   server.setSessionReporter((id, info) => {
     const {session, needsYou} = terminals.report(id, info);
     if (session && needsYou) sessionNeedsYou(session);
@@ -2343,7 +2358,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       readReported.add(id);
       visits.claudeResult(storage, id).then(result => {
         appLog('visit', 'read with Claude finished', {host: (() => { try { return new URL(session.url).hostname; } catch { return ''; } })(), jobs: result?.jobs ?? 0, fits: result?.fits ?? 0});
-        toWindow('visit-claude-done', {url: session.url, name: session.company || result?.name || '', jobs: result?.jobs || 0, fits: result?.fits || 0});
+        toWindow('visit-claude-done', {url: session.url, urls: readSites.get(id) || [session.url], name: result?.name || session.company || '', jobs: result?.jobs || 0, fits: result?.fits || 0});
         scoreVisitJobs(result?.fits || 0, 'read with Claude');
       }).catch(error => appLog('visit', 'read with Claude result not read', {error: error.message}));
     }

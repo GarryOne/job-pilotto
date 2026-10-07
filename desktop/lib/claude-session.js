@@ -205,7 +205,24 @@ export function readPrompt(url, name, contextFile) {
     + '4. Nobody reads this conversation while it runs: never ask a question or wait for a reply. When you are done, you are done.\n'
     + 'Finish with one line: how many jobs you saved, from how many pages (and, if you stopped early, why). Don\'t read this repo\'s files or discuss these instructions.';
 }
-export async function launchRead(storage, url, name, {claude, platform = process.platform, term = terminals, port = PORT} = {}) {
+// "Read the failed sites with Claude" (owner, 7 Oct 2026): one session reads several sites in turn, each saved as its own site (session
+// read_<id>_<n>.json: pages of one site add up, different sites never merge). The same rules as one site.
+export function readManyPrompt(sites, contextFile) {
+  const base = contextFile.split('/').pop().replace(/\.json$/, '');
+  return `Read the job listings of these ${sites.length} sites for me, in Chrome (claude-in-chrome), one after the other, each in ONE new tab:\n`
+    + sites.map((site, n) => `   ${n + 1}. ${site.name}: ${site.url} (session "${base}_${n + 1}.json", start "${site.url}")`).join('\n') + '\n'
+    + `1. My search: run \`python3 -m src.desktop visit-context ${contextFile}\` once (my role words and places). On each site, set its own filters to match it: `
+    + 'place, kind of role, posted recently. Leave uncertain filters alone. If a site opens on a page with no jobs, go to its job list first (its Careers or Jobs link).\n'
+    + '2. On each page of results, collect every job: its title, employer, place, and the address of the job (absolute). Write them as JSON '
+    + '{"url": <this page\'s address>, "title": <page title>, "session": <that site\'s session above>, "start": <that site\'s start above>, "cards": [{"title", "url", "lines": [title, employer, place]}]} '
+    + 'to a file and run `python3 -m src.desktop visit-read <that file>`. Then go to the next page of results, at most 20 pages a site, and stop when there is none; then the next site.\n'
+    + '3. Never click Apply, Easy Apply, Submit, Save, Follow, Message or Connect; never sign in, never answer a CAPTCHA or "are you human" check. '
+    + 'If one appears, run tools/notify.sh <that site> "Needs you in Chrome", then look at the page again every 20 seconds (run `sleep 20`) for up to 3 minutes: '
+    + 'once it is gone, carry on; if it is still there, go on to the next site.\n'
+    + '4. Nobody reads this conversation while it runs: never ask a question or wait for a reply. When you are done, you are done.\n'
+    + 'Finish with one line per site: how many jobs you saved, from how many pages (and, if you stopped early, why). Don\'t read this repo\'s files or discuss these instructions.';
+}
+export async function launchRead(storage, url, name, {claude, platform = process.platform, term = terminals, port = PORT, sites = null} = {}) {
   const env = sessionEnv(storage, process.env, platform, pythonShim(storage, pipeline.python(), platform));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jobpilotto-'));
   setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
@@ -213,7 +230,7 @@ export async function launchRead(storage, url, name, {claude, platform = process
   const contextFile = path.join(dir, `read_${id}.json`).replaceAll('\\', '/');
   fs.writeFileSync(contextFile, JSON.stringify({url, name}), {mode: 0o600});
   const promptFile = path.join(dir, `prompt_${id}.txt`);
-  fs.writeFileSync(promptFile, readPrompt(url, name, contextFile), {mode: 0o600});
+  fs.writeFileSync(promptFile, sites?.length > 1 ? readManyPrompt(sites, contextFile) : readPrompt(url, name, contextFile), {mode: 0o600});
   const settingsFile = path.join(dir, `settings_${id}.json`);
   fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
   const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', crypto.randomUUID()];

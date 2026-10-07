@@ -288,7 +288,14 @@ async function pressWhile(key, busyText, work) {
 
 // A Read with Claude session that finished or stopped: its button comes back, with what it read in the row (owner, 7 Oct 2026: "the button
 // stays on 'Claude is reading in Chrome' even after the session ends"; "Read with Claude never reports back").
+const claudeGroups = new Map();   // first site's address -> every site one "Read the stopped sites with Claude" session reads
 function claudeReadEnded(url, said) {
+  for (const each of claudeGroups.get(url) || [url]) claudeSiteEnded(each, said);
+  claudeGroups.delete(url);
+  const all = [...presses.keys()].find(key => key.startsWith('claude-all:') && key.includes(url));
+  if (all) setPress(all, {done: false, text: presses.get(all).idle || 'Read them with Claude'});
+}
+function claudeSiteEnded(url, said) {
   const key = `claude:${url}`;
   if (!presses.get(key)?.done) return;
   setPress(key, {done: false, text: 'Read with Claude', error: said});
@@ -297,7 +304,7 @@ function claudeReadEnded(url, said) {
   shown?.append(el('span', 'muted visit-claude-error', said));
 }
 window.pilot?.onVisitClaudeDone?.(result => {
-  claudeReadEnded(result.url, `Claude read ${result.jobs} job${result.jobs === 1 ? '' : 's'}, ${result.fits} matching your search`);
+  claudeReadEnded(result.url, `Claude read ${result.jobs} job${result.jobs === 1 ? '' : 's'}${(result.urls || []).length > 1 ? ` from ${result.urls.length} sites` : ''}, ${result.fits} matching your search`);
   toastMessage(`Claude read ${result.jobs} jobs from ${result.name || 'the site'}, ${result.fits} matching your search`,
     result.fits ? 'A search started to score the matching ones: those that fit your profile join your Jobs list.' : 'None has your role words and places, so your Jobs list stays the same.');
 });
@@ -316,8 +323,27 @@ export function renderVisitsCard(card, target = $('activity-card')) {
     : `Read ${plural(card.jobs, 'job')}, ${card.fits} matching your search`));   // the reading works, said first; how many reach Jobs beside it (owner)
   // How many reach Jobs, said plainly (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count never grows"): only those with your role words and places.
   head.append(el('p', 'insight-subtitle', card.fits === null ? 'Your next jobs check filters and scores them like any other.'
-    : `From ${card.read} of ${plural(card.total, 'site')}. ` + (card.fits ? `A search started to score the matching ${card.fits === 1 ? 'one' : 'ones'}: ${card.fits === 1 ? 'if it fits' : 'those that fit'} your profile ${card.fits === 1 ? 'joins' : 'join'} your Jobs list.`
+    : `From ${card.read} of ${plural(card.total, 'site')}. ` + (card.fits ? (card.fits === 1 ? 'A search started to score the matching one: if it fits your profile, it joins your Jobs list.' : 'A search started to score the matching ones: those that fit your profile join your Jobs list.')
       : 'None has your role words and places, so your Jobs list stays the same.')));
+  // Two or more stopped sites: one Claude session reads them all, in turn (owner, 7 Oct 2026: "a 'Read the failed sites with Claude' button").
+  const stopped = card.sites.filter(site => !site.ok);
+  if (stopped.length > 1) {
+    const idle = `Read the ${stopped.length} stopped sites with Claude`;
+    const all = el('button', 'secondary', idle);
+    all.type = 'button';
+    all.title = 'One Claude in Chrome session opens them one after the other, sets their filters for your search and reads their jobs (needs Claude Code)';
+    const key = `claude-all:${stopped.map(site => site.url).join(' ')}`;
+    keepPress(key, all);
+    presses.set(key, {...presses.get(key), idle});
+    all.addEventListener('click', async () => {
+      const started = await pressWhile(key, 'Starting Claude…', () => window.pilot.visitsWithClaude(stopped.map(site => ({url: site.url, name: site.name})))).catch(error => ({ok: false, error: error.message}));
+      if (!started?.ok) { setPress(key, {text: idle, error: started?.error || 'Claude could not start.'}); toastMessage('Claude did not start', started?.error || ''); return; }
+      setPress(key, {done: true, text: `Claude is reading ${stopped.length} sites in Chrome`});
+      claudeGroups.set(stopped[0].url, stopped.map(site => site.url));
+      for (const site of stopped) setPress(`claude:${site.url}`, {done: true, text: 'Claude is reading in Chrome'});
+    });
+    head.append(el('div', 'visits-claude-all', all));
+  }
   const list = el('ul', 'item-rows');
   for (const site of card.sites) {
     const row = el('li', site.ok ? '' : 'is-failed');

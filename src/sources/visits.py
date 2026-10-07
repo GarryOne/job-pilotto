@@ -266,15 +266,19 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
 
 
 def session_result(session):
-    """What one paging session saved (a Read with Claude session's pages add up under its session name): {name, jobs, fits, feed}, or
-    None when it saved nothing. The app reports it when the session ends (owner, 7 Oct 2026: "Read with Claude never reports back")."""
+    """What a Read with Claude session saved: its pages add up under its session name (read_<id>.json), or one name per site when it read
+    several (read_<id>_<n>.json): {name, jobs, fits, feeds, sites}, or None when it saved nothing. The app reports it when the session ends
+    (owner, 7 Oct 2026: "Read with Claude never reports back")."""
     data = _load()
-    feed = (data.get('sessions') or {}).get(session)
-    page = (data.get('pages') or {}).get(feed) if feed else None
-    if not page:
+    base = re.sub(r'\.json$', '', session)
+    names = [name for name in (data.get('sessions') or {}) if name == session or re.fullmatch(re.escape(base) + r'(_\d+)?\.json', name)]
+    pages = [(data.get('pages') or {}).get(data['sessions'][name]) for name in names]
+    pages = [page for page in pages if page]
+    if not pages:
         return None
-    jobs = page.get('jobs') or []
-    return {'name': page.get('name') or '', 'jobs': len(jobs), 'fits': len(fitting(jobs)), 'feed': feed}
+    jobs = [job for page in pages for job in page.get('jobs') or []]
+    return {'name': ', '.join(page.get('name') or '' for page in pages)[:160], 'jobs': len(jobs), 'fits': len(fitting(jobs)),
+            'feeds': [data['sessions'][name] for name in names], 'sites': len(pages)}
 
 
 MISS_DAYS = 7   # a site whose job page a search could not find is not searched again for a week
