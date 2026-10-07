@@ -62,6 +62,17 @@ export async function init() {
     if (saved.atOnce) $('visits-at-once').value = saved.atOnce;
     if (typeof saved.filter === 'boolean') $('visits-filter').checked = saved.filter;
   } catch {}
+  // The dialog's two tabs (the app's .tabs, as Strategy's): which list shows.
+  let visitsTab = 'visits-sites';
+  const showVisitsTab = id => {
+    visitsTab = id;
+    for (const tab of document.querySelectorAll('#visits-tabs [data-tab]')) {
+      const on = tab.dataset.tab === id;
+      tab.classList.toggle('is-active', on);
+      tab.setAttribute('aria-selected', String(on));
+      $(tab.dataset.tab).hidden = !on;
+    }
+  };
   const visitBoxes = () => [...document.querySelectorAll('#visits-sites input[type=checkbox]')];
   const unreadBoxes = () => [...document.querySelectorAll('#visits-unread input[type=checkbox]')];
   // One row of the dialog: a ticked box, its name and a muted line, and a link that drops it for good (Remove a site, Dismiss a job).
@@ -96,8 +107,11 @@ export async function init() {
     const ticked = visitBoxes().filter(box => box.checked).length, all = visitBoxes().length;
     const jobs = unreadBoxes().filter(box => box.checked).length, unread = unreadBoxes().length;
     $('visits-lead').textContent = all ? `${plural(all, 'site')} · ${ticked} selected (${visitsAgain ? 'the ones that did not finish last time' : 'the ones not read this week'})` : 'No sites to read yet.';
-    $('visits-unread-h').textContent = `Jobs we couldn't read (${unread})`;
-    for (const id of ['visits-unread-h', 'visits-unread']) $(id).hidden = !unread;
+    // Two tabs when there are jobs we couldn't read, each with its count ticked of all; else the sites alone, no tabs.
+    $('visits-sites-count').textContent = `${ticked}/${all}`;
+    $('visits-unread-count').textContent = `${jobs}/${unread}`;
+    $('visits-tabs').hidden = !unread;
+    if (!unread && visitsTab !== 'visits-sites') showVisitsTab('visits-sites');
     $('visits-start').textContent = jobs ? `Read ${ticked ? `${plural(ticked, 'site')}, ` : ''}${plural(jobs, 'job')}` : `Read ${plural(ticked, 'site')}`;
     $('visits-start').disabled = !ticked && !jobs;
   };
@@ -110,7 +124,8 @@ export async function init() {
     const loading = el('li', 'list-loading');
     loading.append(el('span', 'spinner'), el('div', '', 'Finding your sites…'), el('div', 'muted small', 'Claude checks which suit your roles, a few seconds'));
     $('visits-sites').replaceChildren(loading);
-    for (const id of ['visits-unread-h', 'visits-unread']) $(id).hidden = true;
+    $('visits-tabs').hidden = true;
+    showVisitsTab('visits-sites');
     const [answer, stuck] = await Promise.all([window.pilot.visitsList().catch(() => null), window.pilot.visitsStuck().catch(() => null)]);
     visitsLoading = false;
     // Run again on a run: its sites, not this week's default (pages/activity.js, renderer/visits-card.js rerunSites)
@@ -122,8 +137,11 @@ export async function init() {
     for (const id of ['visits-all', 'visits-none']) $(id).disabled = false;
     const sites = answer?.visits || [];
     // Ticked: not read this week, and not failing twice in a row (that one says why, unticked). Remove: a dead or unwanted site leaves the list for good (owner, 7 Oct 2026).
-    $('visits-sites').replaceChildren(...sites.map(site => visitRow({value: site.url,
-      ticked: wanted ? wanted.names.has(site.name) || wanted.urls.has(plainUrl(site.url)) : !site.failing && (site.kind === 'portal' || !site.last_read),
+    const tickedSite = site => (wanted ? wanted.names.has(site.name) || wanted.urls.has(plainUrl(site.url)) : !site.failing && (site.kind === 'portal' || !site.last_read));
+    // The ticked ones first (owner, 8 Oct 2026: on Run again, the 4 ticked sites were below 12 unticked ones, out of sight).
+    const ordered = [...sites.filter(tickedSite), ...sites.filter(site => !tickedSite(site))];
+    $('visits-sites').replaceChildren(...ordered.map(site => visitRow({value: site.url,
+      ticked: tickedSite(site),
       name: site.kind === 'portal' ? `${site.name} · your search` : `${site.name} (${new URL(site.url).hostname.replace(/^www\./, '')})`,
       note: site.last_read ? `read ${site.last_read.slice(0, 10)}` : 'never read', title: site.note,
       drop: 'Remove', dropTitle: 'Not offered again', onDrop: () => window.pilot.visitsHide(site.url)})));
@@ -138,8 +156,11 @@ export async function init() {
     paintVisits();
   });
   for (const id of ['visits-close', 'visits-cancel']) $(id).addEventListener('click', () => $('visits-dialog').close());
-  $('visits-all').addEventListener('click', () => { for (const box of [...visitBoxes(), ...unreadBoxes()]) box.checked = true; countVisits(); });
-  $('visits-none').addEventListener('click', () => { for (const box of [...visitBoxes(), ...unreadBoxes()]) box.checked = false; countVisits(); });
+  // Select all / none: the open tab's list only.
+  const shownBoxes = () => (visitsTab === 'visits-unread' ? unreadBoxes() : visitBoxes());
+  $('visits-all').addEventListener('click', () => { for (const box of shownBoxes()) box.checked = true; countVisits(); });
+  $('visits-none').addEventListener('click', () => { for (const box of shownBoxes()) box.checked = false; countVisits(); });
+  for (const tab of document.querySelectorAll('#visits-tabs [data-tab]')) tab.addEventListener('click', () => showVisitsTab(tab.dataset.tab));
   $('visits-start').addEventListener('click', async () => {
     const urls = visitBoxes().filter(box => box.checked).map(box => box.value), postings = unreadBoxes().filter(box => box.checked).map(box => box.value);
     const atOnce = Math.min(5, Math.max(1, Number($('visits-at-once').value) || 2)), filter = $('visits-filter').checked;

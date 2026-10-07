@@ -1496,11 +1496,15 @@
   <div class="dialog-head"><span class="dialog-icon"><i data-icon="globe"></i></span>
     <div class="cv-head"><h2>Find jobs using your browser</h2><p class="dialog-lead" id="visits-lead">Reading your sites…</p></div>
     <button class="ghost icon-btn" id="visits-close" aria-label="Close"><i data-icon="close"></i></button></div>
+  <!-- Two tabs, one list at a time (owner, 8 Oct 2026: two stacked lists, each scrolling, pushed the buttons off the dialog): the sites to read, and
+       jobs in your places whose posting only your browser can open (a sign-in site, a site that refused this Mac), read here and then scored.
+       The tabs show only when there are such jobs. -->
+  <div class="tabs visits-tabs" role="tablist" aria-label="What to read" id="visits-tabs" hidden>
+    <button type="button" role="tab" class="is-active" aria-selected="true" aria-controls="visits-sites" data-tab="visits-sites">Sites<span class="ui-pill tab-count" id="visits-sites-count"></span></button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="visits-unread" data-tab="visits-unread">Jobs we couldn't read<span class="ui-pill tone-warn tab-count" id="visits-unread-count"></span></button></div>
   <p class="inline small visits-pick"><button type="button" class="link" id="visits-all">Select all</button><span class="muted">·</span><button type="button" class="link" id="visits-none">Select none</button></p>
-  <ul class="item-rows" id="visits-sites"></ul>
-  <!-- Jobs in your places whose posting only your browser can open (a sign-in site, a site that refused this Mac): read here, then scored -->
-  <h3 class="match-h" id="visits-unread-h" hidden>Jobs we couldn't read</h3>
-  <ul class="item-rows" id="visits-unread" hidden></ul>
+  <ul class="item-rows" id="visits-sites" role="tabpanel"></ul>
+  <ul class="item-rows" id="visits-unread" role="tabpanel" hidden></ul>
   <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
   <label class="task-count-field"><input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once"><span class="task-count-unit">at a time</span></label>
   <div class="dialog-foot"><span class="muted small">Each site opens in Chrome, where the extension reads it.</span>
