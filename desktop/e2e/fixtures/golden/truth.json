@@ -136,6 +136,9 @@
   "roleFamily": null,
   "fit": "low",
   "filterMayDrop": true,
+  "mayBeEmpty": [
+   "Technologies"
+  ],
   "description": "Sell our SaaS product to mid-market companies in Germany, Austria and Switzerland. Quota carrying, 5 years of enterprise sales experience, fluent German required. Hybrid in Zurich."
  },
  {
@@ -215,6 +218,9 @@
   "roleFamily": null,
   "fit": "mid",
   "filterMayDrop": true,
+  "mayBeEmpty": [
+   "Technologies"
+  ],
   "description": "Lead a team of 8 infrastructure engineers: hiring, roadmap, on-call rota and stakeholder management. Management role, little hands-on work. Hybrid in Zurich, English working language."
  },
  {
