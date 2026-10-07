@@ -331,6 +331,13 @@ export function saveRuns(storage, list) { storage.writeText('runs.json', JSON.st
 export function runs(storage) { try { return JSON.parse(storage.readText('runs.json')) || []; } catch { return []; } }
 let current = null;
 export const running = () => current;
+// A line that is a JSON object is the engine's answer for the app ({"ok": true, "name": "Indeed", "jobs": 98, …}), not words for a person: it never
+// becomes a task's step, its log or the window's live log (7 Oct 2026: Read sites' banner showed it). The command's stdout still has it for its caller.
+export function isDataLine(line) {
+  const text = String(line).trim();
+  if (!text.startsWith('{') || !text.endsWith('}')) return false;
+  try { return typeof JSON.parse(text) === 'object'; } catch { return false; }
+}
 // Lines the app shows in the window while a tracked task runs but that don't come through the task's own output (a step it starts with its own
 // command, like Read sites' filter choice): kept in the task's log too, so the Technical log after a reopen or ⌘R is what was shown live
 // (7 Oct 2026: a reset brought back 4 lines of a log that had shown many more). main.js's log() calls it for every line it sends.
@@ -515,6 +522,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
     let lastAt = Date.now();
     const tee = line => {
+      if (isDataLine(line)) return;
       if (STATUS_LINE.test(line) && STATUS_LINE.test(log.at(-1) || '')) log.pop();
       log.push(line);
       if (!line.startsWith('⏳ Still running')) lastAt = Date.now();
@@ -527,6 +535,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
       try { onLine(line); } finally { teeing = false; }
     };
     keepLine = line => {
+      if (isDataLine(line)) return;
       if (STATUS_LINE.test(line) && STATUS_LINE.test(log.at(-1) || '')) log.pop();
       log.push(line);
       current = {...current, log: log.slice(-300)};

@@ -342,7 +342,7 @@ function createWindow() {
 function toWindow(...args) {
   if (window && !window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(...args);
 }
-const log = line => { pipeline.keep(line); toWindow('log', line); };   // a running task keeps what the window was shown (lib/pipeline.js keep)
+const log = line => { if (pipeline.isDataLine(line)) return; pipeline.keep(line); toWindow('log', line); };   // JSON answers are for the app, not the window   // a running task keeps what the window was shown (lib/pipeline.js keep)
 
 // Every cloud run this app starts is written to its own log, with the caller named at the call site: a dispatch
 // spends money and time on GitHub, and two runs 38 s apart for one interview could not be told apart afterwards
