@@ -502,10 +502,20 @@ def _says_no_jobs(markup):
     return bool(NO_JOBS.search(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', markup))))
 
 
+def _listed(page, url, result):
+    """Whether what a page gave is a list of single jobs, not a careers menu: its job data, jobs a reader found, or at least 3 job links
+    ending in a job id (a UUID, a long number). A menu is jobs that are all the page's own links, none with an id."""
+    links = set(job_links(page, url))
+    jobs = [job.get('url') for job in result.get('jobs') or []]
+    if not jobs or jsonld_jobs(page, url) or not set(jobs) <= links:
+        return True
+    return sum(1 for link in jobs if JOB_ID.search(urllib.parse.urlsplit(link).path.rstrip('/'))) >= 3
+
+
 def _explore(start, home, fetch_page, show=None, links=None, limit=8):
     """The careers links of a page, then (one level deeper) the job-list links of the best of them. A careers page that says it has no open
     jobs right now is remembered: when nothing better turns up it is the answer, to be watched ({'empty': True})."""
-    seen, empty = set(), None
+    seen, empty, weak = set(), None, None
     queue = [(link, 0) for link in (links if links is not None else careers_links(home, start))]
     while queue and len(seen) < limit:
         link, depth = queue.pop(0)
@@ -532,11 +542,20 @@ def _explore(start, home, fetch_page, show=None, links=None, limit=8):
                     result['slug'] = encode(link)
                 except ValueError:
                     continue
+                # A page whose "jobs" are links without a job id is a careers menu (7 Oct 2026: jobs.migros.ch's trainee, career-changer
+                # pages; its 23 Geneva jobs were one link deeper, on "postes vacants"): kept only if nothing deeper lists real jobs.
+                if not _listed(page, link, result):
+                    weak = weak or result
+                    if depth == 0:
+                        queue += [(deeper, 1) for deeper in careers_links(page, link) if deeper not in seen][:5]
+                    continue
             return result
         if not empty and _says_no_jobs(page):
             empty = link
         if depth == 0:   # a general careers page: the list of jobs is usually one link further
             queue += [(deeper, 1) for deeper in careers_links(page, link) if deeper not in seen][:3]
+    if weak:
+        return weak
     if empty:
         try:
             return {'ats': 'careers', 'slug': encode(empty), 'jobs': [], 'empty': True}

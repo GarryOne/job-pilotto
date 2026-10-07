@@ -80,12 +80,32 @@ class ReadingTests(unittest.TestCase):
                 careers.get_text(bad)
 
 
+MENU = (('trainee', 'Trainee Store Manager'), ('quereinstieg', 'Sales Assistant career change'), ('nachwuchs', 'Junior Department Manager'))
+KINDS = ('Alimentaire', 'Produits Laitiers', 'Non alimentaire', 'Boulangerie')
+
+
 class DiscoverTests(unittest.TestCase):
     def test_home_page_to_careers_page_with_job_data(self):
         pages = {'https://acme.ch': '<a href="/en/careers">Careers</a><a href="/contact">Contact</a>',
                  'https://acme.ch/en/careers': page(POSTING)}
         found = careers.discover('acme.ch', site(pages))
         self.assertEqual((found['ats'], found['slug'], len(found['jobs'])), ('careers', 'acme.ch__en__careers', 1))
+
+    def test_a_careers_menu_is_passed_for_the_list_of_jobs_one_link_deeper(self):
+        # 7 Oct 2026: jobs.migros.ch's landing page linked "trainee", "career changers"... (no job id) and was taken for the job list;
+        # its jobs (Geneva saleswomen) were one link deeper, on "offene Stellen", each ending in a job id.
+        menu = ''.join(f'<a href="/de/karriere/{name}">{title}</a>' for name, title in MENU)
+        jobs = ''.join(f'<a href="/fr/job/migros-geneve/vendeuse-{n}/39cc4566-19a5-455a-a125-dc8a0258caa{n}">Vendeuse spécialisée {kind} (F/H/D)</a>' for n, kind in enumerate(KINDS))
+        pages = {'https://jobs.migros.example': '<a href="/de">Karriere</a>',   # as on the real site: the first careers link is the menu page
+                 'https://jobs.migros.example/de': menu + '<a href="/de/offene-stellen">Offene Stellen</a>',
+                 'https://jobs.migros.example/de/offene-stellen': '<h1>Offene Stellen</h1>' + jobs}
+        for n in range(4):
+            pages[f'https://jobs.migros.example/fr/job/migros-geneve/vendeuse-{n}/39cc4566-19a5-455a-a125-dc8a0258caa{n}'] = page(
+                {**POSTING, 'title': f'Vendeuse spécialisée {KINDS[n]} (F/H/D)', 'url': f'/fr/job/migros-geneve/vendeuse-{n}/39cc4566-19a5-455a-a125-dc8a0258caa{n}'})
+        for name, title in MENU:   # career pages whose data reads like a job: what made the landing page look like a list
+            pages[f'https://jobs.migros.example/de/karriere/{name}'] = page({**POSTING, 'title': title, 'url': f'/de/karriere/{name}'})
+        found = careers.discover('https://jobs.migros.example', site(pages))
+        self.assertEqual(found['slug'], 'jobs.migros.example__de__offene-stellen')
 
     def test_an_embedded_job_system_wins_over_reading_the_page(self):
         pages = {'https://acme.ch': '<a href="/karriere">Karriere</a>', 'https://acme.ch/karriere': '<iframe src="https://join.com/companies/acme-ag"></iframe>'}
