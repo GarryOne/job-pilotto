@@ -54,3 +54,25 @@ test('a day past its cap keeps its newest part, from a line start', () => {
   assert.equal(capDay(file, 10_000), false);
   assert.equal(localDay(new Date(2026, 0, 2)), '2026-01-02');
 });
+
+// notion-requests.log has a second writer (the Python jobs, one open-append-close per line): a line it writes while the
+// app caps or rolls the file must not be lost. Simulated by appending in the middle of the cap.
+test('a line another process appends while the file is capped or rolled is kept', () => {
+  const dir = folder(), file = path.join(dir, 'notion-requests.log');
+  fs.writeFileSync(file, Array.from({length: 100}, (_, i) => `line ${i}`).join('\n') + '\n');
+  const rename = fs.renameSync;
+  fs.renameSync = (from, to) => { rename(from, to); fs.appendFileSync(file, 'python line\n'); };   // Python writes right after the move
+  try { assert.equal(capDay(file, 200, 100), true); } finally { fs.renameSync = rename; }
+  const lines = fs.readFileSync(file, 'utf8').trim().split('\n');
+  assert.equal(lines[0], 'python line');
+  assert.equal(lines.at(-1), 'line 99');
+  assert.deepEqual(fs.readdirSync(dir), ['notion-requests.log']);   // nothing left aside
+
+  forgetSeen();
+  fs.writeFileSync(path.join(dir, 'notion-requests-2026-10-05.log'), 'earlier\n');
+  written(file, 'later\n', new Date(2026, 9, 5, 12));
+  fs.renameSync = (from, to) => { rename(from, to); fs.appendFileSync(file, 'python line\n'); };
+  try { rollDay(file, {now: new Date(2026, 9, 6, 9)}); } finally { fs.renameSync = rename; }
+  assert.equal(fs.readFileSync(path.join(dir, 'notion-requests-2026-10-05.log'), 'utf8'), 'earlier\nlater\n');
+  assert.equal(fs.readFileSync(file, 'utf8'), 'python line\n');
+});

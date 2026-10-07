@@ -50,12 +50,13 @@ test('search: any case, newest 100 hits, and it stops before reading older days 
   assert.deepEqual(await search(folder, 'app', '  '), {lines: [], more: false});
 });
 
-test('notion rotates by size; long lines are cut; unknown names and bad days read as empty', async () => {
+test('the Notion log by day too; long lines are cut; unknown names and bad days read as empty', async () => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-logview-'));
-  fs.writeFileSync(path.join(folder, 'notion-requests.log.1'), 'older\n');
+  fs.writeFileSync(path.join(folder, 'notion-requests-2026-10-06.log'), 'older\n');
   fs.writeFileSync(path.join(folder, 'notion-requests.log'), 'newer\n');
-  assert.deepEqual(tail(folder, 'notion').lines, ['older', 'newer']);
-  assert.deepEqual(days(folder, 'notion').map(d => d.day), ['today']);
+  assert.deepEqual(tail(folder, 'notion').lines, ['newer']);
+  assert.deepEqual(days(folder, 'notion').map(d => d.day), ['today', '2026-10-06']);
+  assert.deepEqual((await search(folder, 'notion', 'e')).lines, ['older', 'newer']);
   fs.writeFileSync(path.join(folder, 'engine.log'), `${'x'.repeat(5000)}\n`);
   assert.ok(tail(folder, 'engine').lines[0].length < LINE_CHARS + 30);
   assert.deepEqual(files(folder, 'app', '../../etc/passwd'), []);

@@ -85,7 +85,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
 - `desktop/lib/recipes.js` — The app's side of the shared recipe library (site/src/recipes.js; design in Notion "Self-improving form filling").
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
-- `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log (5 MB, then
+- `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log for today,
 - `desktop/lib/reset.js` — Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
 - `desktop/lib/resume-queue.js` — Jobs you had started when the app last quit (pipeline queue.json) start again a little after launch. The queue is taken at LAUNCH and started later: read at
 - `desktop/lib/review.js` — The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much

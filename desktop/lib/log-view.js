@@ -5,12 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {dayFiles, dayFile} from './log-days.js';
 
-// app and engine: one file per day (lib/log-days.js). notion: also written by the Python jobs, so it rotates by size
-// (notion-requests.log, then .1) and reads as a single "day".
+// Every log: one file per day (lib/log-days.js).
 export const LOGS = {
-  app: {file: 'app.log', daily: true},
-  engine: {file: 'engine.log', daily: true},
-  notion: {file: 'notion-requests.log', daily: false},
+  app: {file: 'app.log'},
+  engine: {file: 'engine.log'},
+  notion: {file: 'notion-requests.log'},
 };
 export const PAGE = 100, MATCHES = 100, MAX_SHOWN = 1000, LINE_CHARS = 1000;
 const CHUNK = 64 * 1024;
@@ -24,7 +23,7 @@ export function days(folder, name) {
   const current = path.join(folder, log.file);
   const size = file => { try { return fs.statSync(file).size; } catch { return 0; } };
   const list = exists(current) ? [{day: 'today', bytes: size(current)}] : [];
-  if (log.daily) list.push(...dayFiles(current).map(({day, file}) => ({day, bytes: size(file)})));
+  list.push(...dayFiles(current).map(({day, file}) => ({day, bytes: size(file)})));
   return list;
 }
 
@@ -33,11 +32,11 @@ export function files(folder, name, day = 'today') {
   const log = LOGS[name];
   if (!log) return [];
   const current = path.join(folder, log.file);
-  const older = log.daily ? dayFiles(current).map(d => d.file) : [`${current}.1`];
-  if (day === 'today') return [current, ...(log.daily ? [] : older)].filter(exists);
+  const older = dayFiles(current).map(d => d.file);
+  if (day === 'today') return [current].filter(exists);
   if (!day) return [current, ...older].filter(exists);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
-  return log.daily ? [dayFile(current, day)].filter(exists) : [];
+  return [dayFile(current, day)].filter(exists);
 }
 
 // One file's lines from the end, newest first, until `want` are read (64 KB at a time).

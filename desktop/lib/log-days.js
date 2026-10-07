@@ -32,7 +32,8 @@ export function rollDay(file, {now = new Date(), keepDays = KEEP_DAYS, maxTotal 
     const day = localDay(fs.statSync(file).mtime);
     if (day !== today) {
       const target = dayFile(file, day);
-      if (fs.existsSync(target)) { fs.appendFileSync(target, fs.readFileSync(file)); fs.unlinkSync(file); } else fs.renameSync(file, target);
+      if (!fs.existsSync(target)) fs.renameSync(file, target);
+      else { const moved = aside(file); fs.appendFileSync(target, fs.readFileSync(moved)); fs.unlinkSync(moved); }
       rolled = true;
     }
   } catch {}
@@ -56,15 +57,25 @@ export function prune(file, {now = new Date(), keepDays = KEEP_DAYS, maxTotal = 
   }
 }
 
-// A day past its cap keeps its newest `keep` bytes, from a line start.
+// Another process may append at any moment (the Python jobs write notion-requests.log too, opening it per line): the
+// file is first renamed aside, atomically, so a line written meanwhile starts a new file instead of being lost.
+function aside(file) {
+  const moved = `${file}.${process.pid}.moving`;
+  fs.renameSync(file, moved);
+  return moved;
+}
+
+// A day past its cap keeps its newest `keep` bytes, from a line start (appended back, after any line written meanwhile).
 export function capDay(file, max, keep = Math.floor(max / 2)) {
   try {
     const size = fs.statSync(file).size;
     if (size <= max) return false;
-    const fd = fs.openSync(file, 'r'), buffer = Buffer.alloc(keep);
-    fs.readSync(fd, buffer, 0, keep, size - keep); fs.closeSync(fd);
+    const moved = aside(file);
+    const fd = fs.openSync(moved, 'r'), length = Math.min(keep, fs.fstatSync(fd).size), buffer = Buffer.alloc(length);
+    fs.readSync(fd, buffer, 0, length, fs.fstatSync(fd).size - length); fs.closeSync(fd);
     const text = buffer.toString('utf8');
-    fs.writeFileSync(file, text.slice(text.indexOf('\n') + 1));
+    fs.appendFileSync(file, text.slice(text.indexOf('\n') + 1));
+    fs.unlinkSync(moved);
     return true;
   } catch { return false; }
 }

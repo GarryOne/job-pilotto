@@ -75,13 +75,12 @@ def _who():
 
 def _log_request(method, path, status, started, attempt):
     """One line per Notion request in the app's notion-requests.log (desktop/lib/request-log.js has the format), when the
-    app gave its path (JOB_PILOTTO_NOTION_LOG). Routes and statuses only, never content."""
+    app gave its path (JOB_PILOTTO_NOTION_LOG). Routes and statuses only, never content. Appends only: the app rolls the
+    file by day and caps it (desktop/lib/log-days.js); a rename from here too would race it."""
     target = os.getenv('JOB_PILOTTO_NOTION_LOG')
     if not target:
         return
     try:
-        if os.path.exists(target) and os.path.getsize(target) > 5_000_000:
-            os.replace(target, target + '.1')
         stamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.') + f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
         with open(target, 'a', encoding='utf-8') as handle:
             handle.write('\t'.join([stamp, _who(), method, path.split('?')[0], str(status),
