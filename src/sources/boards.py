@@ -119,10 +119,12 @@ def posting_places(posting):
     return swiss
 
 
-def parse_jobs(source, source_url, label):
+def parse_jobs(source, source_url, label, roles=True):
+    """The page's JobPostings in Switzerland. roles=False: every title, for the AI title check to judge (jobs.ch, 7 Oct 2026: "4 of 20 listed
+    fit your roles" was a word match that dropped 16 titles no AI ever saw)."""
     result=[]
     for j in walk(Page(source).schemas,'JobPosting'):
-        if not ROLE.search(j.get('title','')): continue
+        if roles and not ROLE.search(j.get('title','')): continue
         swiss=posting_places(j)
         if not swiss: continue
         expiry=j.get('validThrough')
@@ -265,26 +267,94 @@ MAX_TERMS = 8
 
 
 def jobsch_places(search):
-    """The user's Swiss cities as jobs.ch knows them (its local name: Genève, Zürich), or [None] (all of Switzerland) when their places name
-    no city we know. 6 Oct 2026: searching all of Switzerland, a Geneva search got St. Gallen and Wallisellen (41 'vendeur' jobs in Geneva, 1 kept)."""
+    """Every one of the user's places, as they wrote them (jobs.ch takes "geneva" as well as "Genève"), or [None] (all of Switzerland) when
+    they want the whole country or name none. 7 Oct 2026: a list of ten known cities meant Nyon, Morges and Gland were never searched."""
     from ..notion.search_settings import terms
     places = (search or {}).get('locations') or {}
-    words = [w.lower() for w in terms([*places.get('top_tier', []), *places.get('country_wide', [])])]
-    found = [variants[0] for city, variants in CITIES.items() if any(w in variants or w == city for w in words)]
-    whole = any(re.fullmatch(r'switzerland|schweiz|suisse|svizzera|swiss|ch', w) for w in words)   # the whole country is wanted too
+    words = terms([*places.get('top_tier', []), *places.get('country_wide', [])])
+    whole = [w for w in words if re.fullmatch(r'switzerland|schweiz|suisse|svizzera|swiss|ch', w.lower())]
+    from .feeds import plain
+    found = list({plain(w).lower(): w for w in reversed(words) if w not in whole}.values())[::-1]   # "zurich" and "zürich": one search
     return found + ([None] if whole or not found else [])
 
 
-def jobsch_terms(search):
-    """The search phrases, then each of their words the board keywords name on its own ("vendeur magasin" -> also "vendeur"): a two-word
-    phrase finds only postings with both words. At most MAX_TERMS."""
+QUERIES_MODEL = 'claude-haiku-4-5'
+QUERIES_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['queries'], 'properties': {'queries': {
+    'type': 'array', 'maxItems': 8, 'items': {'type': 'string', 'description': 'One or two words a job board search box understands'}}}}
+QUERIES_SYSTEM = """You turn a job seeker's roles into searches for a job board's keyword box. You get their roles (in any language) and \
+their places. Answer up to 8 searches, one or two words each, in the language most job titles in their places use (French in Geneva, \
+German in Zurich), that together find the jobs of all their roles: one word per family where it covers it ("vendeur" finds "Vendeur", \
+"Vendeuse en boutique"), a separate word where a role's titles use another one ("caissier", "magasinier", "photographe"). No place names."""
+
+
+def board_queries(search, client=None):
+    """Searches for every role the user has (7 Oct 2026: 30 roles, and the board was asked about 5 words), by Claude once per set of roles
+    and places, kept in data/board_queries.json; [] without AI. Claude sees the role words and places only."""
+    from ..notion.search_settings import terms
+    from ..paths import DATA
+    roles = terms((search or {}).get('role_keywords'))[:40]
+    if not roles:
+        return []
+    key = hashlib.sha256(json.dumps([sorted(roles), jobsch_places(search)], ensure_ascii=False).encode()).hexdigest()[:12]
+    store = DATA / 'board_queries.json'
+    try:
+        kept = json.loads(store.read_text())
+    except (OSError, ValueError):
+        kept = {}
+    if key in kept:
+        return kept[key]
+    try:
+        from ..ai import cost, engine
+        if not engine.ready():
+            return []
+        client = client or engine.client(action='board_queries')
+        response = client.messages.create(model=QUERIES_MODEL, max_tokens=400, system=[{'type': 'text', 'text': QUERIES_SYSTEM}],
+                                          messages=[{'role': 'user', 'content': json.dumps({'roles': roles, 'places': [p for p in jobsch_places(search) if p]}, ensure_ascii=False)}],
+                                          output_config=engine.structured(QUERIES_SCHEMA, QUERIES_MODEL, 'low'))
+        cost.side(QUERIES_MODEL, response.usage)
+        queries = [str(q).strip()[:40] for q in json.loads(next(b.text for b in response.content if b.type == 'text')).get('queries') or [] if str(q).strip()][:8]
+    except Exception as error:  # noqa: BLE001 — the user's own board searches only, this time
+        print(f'Job boards: searches from your roles not worked out ({type(error).__name__}); your own board searches only', flush=True)
+        return []
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text(json.dumps({key: queries}, ensure_ascii=False))
+    print(f"Job boards: searches for all your roles worked out with AI: {', '.join(queries)}", flush=True)
+    return queries
+
+
+def jobsch_terms(search, client=None):
+    """The user's own board searches, each of their words the board keywords name on its own ("vendeur magasin" -> also "vendeur": a two-word
+    phrase finds only postings with both), then the searches worked out for all their roles (board_queries)."""
     out, role = [], keyword_regex((search or {}).get('board_discovery_keywords') or [])
     for phrase in (search or {}).get('jobs_board_search_queries') or []:
         for term in [phrase, *(word for word in str(phrase).split() if len(word) > 3 and role.search(word))]:
             if term.lower() not in (t.lower() for t in out):
                 out.append(term)
-    return out[:MAX_TERMS]
+    for term in board_queries(search, client) if search else []:
+        if term.lower() not in (t.lower() for t in out):
+            out.append(term)
+    return out
 
+
+MAX_REQUESTS = 24   # jobs.ch pages a refresh asks for (it refused more, 403, on 7 Oct 2026); the next refresh goes on from there
+
+
+def rotation(pairs, now_key=None):
+    """The (search, place) pairs in the order this refresh asks them: from where the last refresh stopped, then round again."""
+    from ..paths import DATA
+    store = DATA / 'board_rotation.json'
+    key = hashlib.sha256(json.dumps(pairs, ensure_ascii=False).encode()).hexdigest()[:12]
+    try:
+        start = json.loads(store.read_text()).get(key, 0) % max(1, len(pairs))
+    except (OSError, ValueError, AttributeError):
+        start = 0
+    def done(count):
+        try:
+            store.parent.mkdir(parents=True, exist_ok=True)
+            store.write_text(json.dumps({key: (start + count) % max(1, len(pairs))}))
+        except OSError:
+            pass
+    return pairs[start:] + pairs[:start], done
 
 
 def jobsch_status(listed, fit, fresh):
@@ -318,19 +388,35 @@ def main():
     if not used:
         print('Job boards: none (for these roles and places: SwissDevJobs and TechTree list developer jobs, jobs.ch Swiss ones)',flush=True);return 0
     print('Job boards: '+', '.join(used)+(f' (Swiss place word: {swiss_word})' if swiss else '')+('' if 'TechTree' in used else '; developer boards left out: your roles are outside IT'),flush=True)   # the app's activity list shows these names as they are
-    seen_urls=set()
-    for query in jobsch_terms(_SEARCH) if 'jobs.ch' in used else []:
-        for place in jobsch_places(_SEARCH):
-            for page in range(1,args.pages+1):   # --pages is the most read: a short page or one with nothing new ends the search
-                url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,**({'location':place} if place else {}),'page':page})
-                try:
-                    result=client.get(url);found=parse_jobs(result['html'],url,'jobs.ch')
-                    listed=sum(1 for _ in walk(Page(result['html']).schemas,'JobPosting'))
-                    fresh=[job for job in found if job['url'] not in seen_urls];seen_urls.update(job['url'] for job in found);jobs.extend(fresh)
-                    sources.append({'source':url,'status':jobsch_status(listed,len(found),len(fresh))})
-                    if listed<PAGE_SIZE or (page>1 and not fresh and listed):break
-                except Exception as e:
-                    sources.append({'source':url,'status':str(e)});break
+    seen_urls=set();pages_found=[];asked=0
+    pairs=[[query,place] for query in (jobsch_terms(_SEARCH) if 'jobs.ch' in used else []) for place in jobsch_places(_SEARCH)]
+    ordered,done=rotation(pairs);taken=0
+    for query,place in ordered:   # every role x every place, MAX_REQUESTS pages a refresh, the next refresh going on from here
+        if asked>=MAX_REQUESTS:break
+        taken+=1
+        for page in range(1,args.pages+1):   # --pages is the most read: a short page or one with nothing new ends the search
+            if asked>=MAX_REQUESTS:break
+            url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,**({'location':place} if place else {}),'page':page})
+            try:
+                asked+=1
+                result=client.get(url);found=parse_jobs(result['html'],url,'jobs.ch',roles=False)
+                listed=sum(1 for _ in walk(Page(result['html']).schemas,'JobPosting'))
+                fresh=[job for job in found if job['url'] not in seen_urls];seen_urls.update(job['url'] for job in found)
+                pages_found.append((url,listed,found,fresh))
+                if listed<PAGE_SIZE or (page>1 and not fresh and listed):break
+            except Exception as e:
+                sources.append({'source':url,'status':str(e)});break
+    done(taken)
+    if pairs and taken<len(pairs):
+        print(f'Job boards: {taken} of {len(pairs)} searches this refresh (your roles x your places); the next refresh goes on from there',flush=True)
+    # Which titles are your kind of job: the AI title check, as for every source (7 Oct 2026: a word match dropped most titles here)
+    from . import feeds
+    board_jobs=[job for _,_,_,fresh in pages_found for job in fresh]
+    try:feeds.triage_places(board_jobs);feeds.triage(board_jobs)
+    except Exception as e:print(f'Warning: job board titles not checked by AI ({type(e).__name__}): your role words decide',flush=True)
+    for url,listed,found,fresh in pages_found:
+        fit=[job for job in found if feeds.wanted_title(job['title'])];fit_fresh=[job for job in fresh if feeds.wanted_title(job['title'])]
+        jobs.extend(fit_fresh);sources.append({'source':url,'status':jobsch_status(listed,len(fit),len(fit_fresh))})
     for label,url in [('SwissDevJobs','https://swissdevjobs.ch/api/jobsLight'),('TechTree','https://jobs.techtree.dev/')]:
         if label not in used:continue
         try:
