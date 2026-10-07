@@ -250,7 +250,8 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
         empty = data.setdefault('jobpage_empty', {})
         if found_at and not going_on:
             empty[feed] = 0 if merged else empty.get(feed, 0) + 1
-        if found_at and not merged and not going_on and empty.get(feed, 0) >= 2:
+        missing = bool(re.search(r'\b404\b|not found|introuvable|nicht gefunden|non trovata', title or '', re.I))   # a page that is not there: at once
+        if found_at and not merged and not going_on and (empty.get(feed, 0) >= 2 or missing):
             empty.pop(feed, None)
             for site in found_at:
                 data['jobpages'].pop(site)
@@ -281,6 +282,43 @@ def session_result(session):
             'feeds': [data['sessions'][name] for name in names], 'sites': len(pages)}
 
 
+JOBLIST = re.compile(r'job|offre|stelle|vacanc|search|opening|position|poste|emploi|karriere|carri|career|recrut|lavora', re.I)
+NOT_A_LIST = re.compile(r'login|signin|sign-in|logon|auth|alert|register|subscribe|newsletter|password|account|/content/|/news|/article|/blog|/press|\b20\d\d\b', re.I)
+LOCALE = re.compile(r'(?:^|[/_.-])([a-z]{2})(?:[-_]([a-z]{2}))?(?=$|[/_.])', re.I)
+
+
+def _usable(url):
+    """An address that can be a job list: https, no template code (7 Oct 2026: DHL's '${getUrl(linkEle,' was taken for a link), not a sign-in,
+    job-alert, article or news page (Baume & Mercier went to Workday's jobAlerts sign-in; Rolex to a 2024 article)."""
+    url = str(url or '')
+    if url.startswith('http://'):
+        url = 'https://' + url[7:]
+    path = urllib.parse.urlsplit(url).path
+    return url if url.startswith('https://') and not re.search(r'\$\{|\{\{|%7B', url) and not NOT_A_LIST.search(path) else ''
+
+
+def _best(urls, countries=()):
+    """Usable addresses, best first: one for your country (/ch-fr/, ?country=ch), then one in no language or in English, then a job-list
+    word in the path; another country's or language's page last (7 Oct 2026: Franck Muller's /ar/careers was an Arabic 404)."""
+    codes = {code.lower() for code in countries or ()}
+    def rank(url):
+        parts = urllib.parse.urlsplit(url)
+        found = [(a.lower(), (b or '').lower()) for a, b in LOCALE.findall(parts.path)]
+        local = any(a in codes or b in codes for a, b in found) or any(f'={code}' in parts.query.lower() for code in codes)
+        foreign = found and not local and not any(a == 'en' for a, _ in found)
+        return (0 if local else 2 if foreign else 1, 0 if JOBLIST.search(parts.path) else 1)
+    usable = [u for u in (_usable(url) for url in urls) if u]
+    return sorted(dict.fromkeys(usable), key=rank)
+
+
+def _countries():
+    try:
+        from .. import employer_index
+        return employer_index.me_now().get('countries') or []
+    except Exception:  # noqa: BLE001 — no search yet: no country preferred
+        return []
+
+
 MISS_DAYS = 7   # a site whose job page a search could not find is not searched again for a week
 BAD_DAYS = 30   # a job page that showed no jobs is not chosen again for this long
 
@@ -300,7 +338,6 @@ def find_job_pages(sites, countries=(), search=None, now=None):
     data = _load()
     known, missed = data.get('jobpages') or {}, data.get('jobpage_misses') or {}
     recent = (now - timedelta(days=MISS_DAYS)).isoformat(timespec='seconds')
-    local = [re.compile(rf'(?<![a-z]){re.escape(code.lower())}(?![a-z])') for code in countries or () if len(code) == 2]
     found = {}
     for site in sites:
         host = host_of(site['url'])
@@ -312,8 +349,7 @@ def find_job_pages(sites, countries=(), search=None, now=None):
             continue
         bad = _bad_pages(data, now)
         urls = [url for url in search(site['name']) if url.split('#')[0].rstrip('/') not in {site['url'].rstrip('/'), *bad}]
-        ours = [url for url in urls if any(code.search(urllib.parse.urlsplit(url.lower()).path + '?' + urllib.parse.urlsplit(url.lower()).query) for code in local)]
-        page = (ours or urls or [None])[0]
+        page = (_best(urls, countries) or [None])[0]
         print(f"Visit: job page of {site['name']}: {page or 'not found'}")
         with LOCK:
             fresh = _load()
@@ -349,7 +385,7 @@ def job_page(url, markup):
                 print(f'Warning: web search for {name} jobs failed ({type(error).__name__})')
                 found = []
     bad = _bad_pages(_load(), _now())
-    page = next((link for link in found if link.split('#')[0] != url.split('#')[0] and link.split('#')[0].rstrip('/') not in bad), None)
+    page = next((link for link in _best(found, _countries()) if link.split('#')[0] != url.split('#')[0] and link.split('#')[0].rstrip('/') not in bad), None)
     if page:
         with LOCK:
             data = _load()

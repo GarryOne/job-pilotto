@@ -139,6 +139,20 @@ class VisitsTest(unittest.TestCase):
         self.assertEqual((many['sites'], many['jobs'], many['fits']), (2, 3, 2), 'a session that read two sites: both, never merged into one feed')
         self.assertEqual(len(set(many['feeds'])), 2)
 
+    def test_job_page_candidates_are_ranked_and_bad_ones_dropped(self):
+        # 7 Oct 2026, the owner's run: DHL's template code, Baume & Mercier's Workday jobAlerts sign-in, Rolex's 2024 article, Franck Muller's /ar/.
+        found = visits._best(['https://careers.dhl.com/global/${getUrl(linkEle,', 'https://richemont.wd3.myworkdayjobs.com/en-US/richemont/jobAlerts',
+                              'https://www.carrieres-rolex.com/content/Zoom-metiers-maintenance-2024/', 'https://www.franckmuller.com/ar/careers',
+                              'https://www.franckmuller.com/careers', 'http://www.hublot.com/joboffers/en', 'https://www.chopard.com/fr-ch/careers.html'], ['ch'])
+        self.assertEqual(found, ['https://www.chopard.com/fr-ch/careers.html', 'https://www.franckmuller.com/careers', 'https://www.hublot.com/joboffers/en',
+                                 'https://www.franckmuller.com/ar/careers'])
+
+    def test_a_job_page_that_is_a_404_is_forgotten_at_once(self):
+        with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
+            visits.find_job_pages([{'name': 'FM', 'url': 'https://www.fm.example', 'kind': 'employer'}], [], search=lambda name: ['https://www.fm.example/careers'], now=NOW)
+        visits.read('https://www.fm.example/careers', '<html></html>', [], title='Error 404', now=NOW)
+        self.assertNotIn('fm.example', visits._load().get('jobpages') or {})
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'

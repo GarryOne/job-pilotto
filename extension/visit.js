@@ -442,6 +442,8 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       if (how !== 'scroll') await waitForPage(tabId);
     }
     if (!state.stopped) state.stopped = `${pages} pages read: the most at once`;
+    // Nothing read at all: not "the end of the list" (there was none), said as what it is (owner's run, 7 Oct 2026).
+    if (!state.jobs && /end of the list|no next page/.test(state.stopped)) state.stopped = 'no job list found on this page: try Read with Claude, or Open it myself';
   } catch (error) {
     state.stopped = /Cannot access|permission/i.test(error.message) ? 'the next page is on another site, or access was not given' : (error.message || 'stopped');
   }

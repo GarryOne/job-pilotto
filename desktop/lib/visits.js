@@ -14,7 +14,8 @@ import {log} from './log.js';
 const NO_BROWSER = 'No Chrome (or Edge, Brave, Vivaldi) found to open it in. Install Chrome and the Job Pilotto extension.';
 
 export function open(url, run = spawn) {
-  if (!/^https:\/\//.test(url || '')) return {ok: false, error: 'This site has no address to open.'};
+  url = String(url || '').replace(/^http:\/\//i, 'https://');   // a scout's plain-http address (Tag Heuer, Hublot, 7 Oct 2026): opened as https
+  if (!/^https:\/\//.test(url)) return {ok: false, error: 'This site has no address to open.'};
   const command = chromeCommand([url], process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!command) return {ok: false, error: NO_BROWSER};
   run(...command, {detached: true, stdio: 'ignore'}).unref();

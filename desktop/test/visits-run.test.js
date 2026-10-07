@@ -210,3 +210,10 @@ test('a Read with Claude session\'s result is read under its session name', asyn
   assert.deepEqual(asked, ['src.desktop', 'visit-session', 'read_ab12cd34.json']);
   assert.deepEqual([result.jobs, result.fits], [4, 1]);
 });
+
+test('a scout\'s plain-http address is opened as https, not refused as "no address" (Tag Heuer, Hublot, 7 Oct 2026)', async () => {
+  const {open} = await import('../lib/visits.js');
+  const opened = open('http://www.hublot.com/joboffers/en', () => ({unref() {}}));
+  assert.notEqual(opened.error, 'This site has no address to open.');
+  assert.equal(open('ftp://x.example').error, 'This site has no address to open.');
+});

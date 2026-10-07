@@ -326,9 +326,10 @@ export function renderVisitsCard(card, target = $('activity-card')) {
     : `From ${card.read} of ${plural(card.total, 'site')}. ` + (card.fits ? (card.fits === 1 ? 'A search started to score the matching one: if it fits your profile, it joins your Jobs list.' : 'A search started to score the matching ones: those that fit your profile join your Jobs list.')
       : 'None has your role words and places, so your Jobs list stays the same.')));
   // Two or more stopped sites: one Claude session reads them all, in turn (owner, 7 Oct 2026: "a 'Read the failed sites with Claude' button").
-  const stopped = card.sites.filter(site => !site.ok);
+  const stopped = card.sites.filter(site => !site.ok).slice(0, 10);   // one session reads at most 10 (main.js visitsWithClaude)
+  const allStopped = card.sites.filter(site => !site.ok).length;
   if (stopped.length > 1) {
-    const idle = `Read the ${stopped.length} stopped sites with Claude`;
+    const idle = allStopped > stopped.length ? `Read the first ${stopped.length} of ${allStopped} stopped sites with Claude` : `Read the ${stopped.length} stopped sites with Claude`;
     const all = el('button', 'secondary', idle);
     all.type = 'button';
     all.title = 'One Claude in Chrome session opens them one after the other, sets their filters for your search and reads their jobs (needs Claude Code)';
