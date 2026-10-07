@@ -1,5 +1,5 @@
 // Jobs: the list, adding jobs and messages, questions to answer once.
-import {closeMenu, el, moreButton, pill, tag, tile} from '../components.js';
+import {closeMenu, el, moreButton, pill, setCount, tag, tile} from '../components.js';
 import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
@@ -911,17 +911,18 @@ function showJobsData(data) {
       (data.waiting ? ` · ${data.waiting} found, waiting for a score` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
-    $('stat-total').textContent = count.total;
-    $('stat-high').textContent = count.high;
-    $('stat-inbound').textContent = inboundCount(shared.allJobs);
+    setCount($('stat-total'), count.total);
+    setCount($('stat-high'), count.high);
+    setCount($('stat-inbound'), inboundCount(shared.allJobs));
     // The menu item counts the list as it opens ("New matches"), the number the list bar shows too. "New this week" is
     // a delta, not how many jobs there are: it goes in the tooltip and the line above the cards instead of the badge.
     const toReviewCount = toReview(shared.allJobs) + (data.review_beyond || 0);   // with the rows not loaded (a cut list)
-    Object.assign($('nav-jobs-badge'), {hidden: !toReviewCount, textContent: toReviewCount,
+    setCount($('nav-jobs-badge'), toReviewCount);
+    Object.assign($('nav-jobs-badge'), {hidden: !toReviewCount,
       title: `${toReviewCount} job${toReviewCount === 1 ? '' : 's'} to review · ${count.week} new this week`});
-    $('stat-companies').textContent = count.companies;
+    setCount($('stat-companies'), count.companies);
     const applications = applicationStats(shared.allJobs);
-    for (const kind of Object.keys(applications)) $(`stat-${kind}`).textContent = applications[kind];
+    for (const kind of Object.keys(applications)) setCount($(`stat-${kind}`), applications[kind]);
     const talking = inProcess(shared.allJobs);
     document.querySelector('[data-stat="interviews"]').title = `Now: ${talking.screening} screening · ${talking.interviews} interviewing or offer.`;
     document.querySelector('[data-stat="applied"]').title = 'Applications sent = waiting for a reply + in process + closed. Forms still being filled are sessions, not counted here.';
