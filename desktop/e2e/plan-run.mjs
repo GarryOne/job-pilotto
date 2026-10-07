@@ -40,6 +40,10 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
     const decision = exploreDecision({head: ref, lastSha, runsOnHead: runs.filter(own)});
     exploring = decision.exploring; why = decision.why;
+    // A release run is testing (desktop.yml, both lanes at once, 7 Oct 2026): its gate jobs wait in the per-suite groups (e2e-<suite>), and a newer job queued in a group
+    // CANCELS the one already waiting there. A scheduled run then would cancel the release's gate: it skips, and the next one runs.
+    const releasing = json(['run', 'list', '-R', repo, '--workflow', 'desktop.yml', '-L', '5', '--json', 'status,displayTitle']).filter(run => run.status !== 'completed' && !/^Build only/.test(run.displayTitle || ''));
+    if (releasing.length) { decision.run = false; why = `a release run is testing (${releasing[0].displayTitle}): skipped, so its gate jobs are not cancelled in the shared suite groups`; }
     // Exploring (an unchanged commit): only the suites that walk a different path each run; the others would repeat themselves at full cost. None vary: nothing to explore.
     suites = !decision.run ? [] : decision.exploring ? autoSuites(all, cadence, true).filter(suite => varies.includes(suite)) : autoSuites(all, cadence, true);
   }
@@ -61,12 +65,17 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), ref, tag, review: review ? '1' : '0', why};
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+// What every suite says about itself (cadence, watches, varies, minutes, runner): planRun's inputs from the real suites. plan-windows.mjs plans the Windows gate with it too.
+export async function suiteFacts() {
   const {SUITES} = await import('./lib/context.mjs');
   const cadence = {}, watches = {}, varies = [];
   for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); }
-  const out = await planRun({env: process.env, all: SUITES, cadence, watches, varies, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
-    os: async suite => runnerOf(await import(`./suites/${suite}.mjs`))});
+  return {all: SUITES, cadence, watches, varies, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
+    os: async suite => runnerOf(await import(`./suites/${suite}.mjs`))};
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  const out = await planRun({env: process.env, ...(await suiteFacts())});
   for (const [key, value] of Object.entries(out)) console.log(`${key}=${value}`);
   const summary = `Suites: ${JSON.parse(out.matrix).include.map(item => item.suite).join(', ') || '(none)'} · commit ${String(out.ref).slice(0, 7)}${out.tag ? ` · promotes ${out.tag} when all pass` : ''} · AI review ${out.review === '1' ? 'on' : 'off'}`;
   console.error(out.why ? `${summary} · ${out.why}` : summary);

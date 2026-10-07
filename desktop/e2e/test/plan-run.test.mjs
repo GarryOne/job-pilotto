@@ -10,9 +10,10 @@ const HEAD = 'a'.repeat(40), OLD = 'b'.repeat(40);
 const issue = (comments = 0, labels = [], kind = 'layout') => ({number: 1, state: 'OPEN', body: `**MEDIUM** · ${kind} · found by the AI screenshot review`, labels: [{name: 'auto-ui'}, ...labels.map(name => ({name}))], comments: Array.from({length: comments}, () => ({body: 'Seen again in run x'}))});
 
 // A gh that answers the calls the plan makes. `files`: what changed between two commits; `runs`: finished e2e runs, newest first; `issues`: open auto-ui issues; `releases`: [tag, sha] newest first.
-function gh({files = [], runs = [], issues = [], releases = [], build = 'success'} = {}) {
+function gh({files = [], runs = [], issues = [], releases = [], build = 'success', releasing = []} = {}) {
   return args => {
     const text = args.join(' ');
+    if (args[0] === 'run' && args[1] === 'list' && args.includes('desktop.yml')) return JSON.stringify(releasing);
     if (/^api repos\/[^/]+\/[^/]+\/compare\//.test(text)) return files.join('\n');
     if (args[0] === 'run' && args[1] === 'list') return JSON.stringify(runs);
     if (args[0] === 'issue' && args[1] === 'list') return JSON.stringify(issues);
@@ -156,4 +157,16 @@ test('the gate called from the release run tests the release\'s commit whatever 
     assert.equal(out.suites, ALL.join(','), 'the same list goes to e2e-windows.yml');
   }
   assert.equal((await plan({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: 'jobs,settings'}, {})).suites, 'jobs,settings');
+});
+
+// 7 Oct 2026: both lanes test at once, so the release's gate jobs wait in the shared per-suite groups; a scheduled run queued there would cancel them.
+test('a scheduled run skips while a release run is testing; a build only does not hold it', async () => {
+  const stub = {runs: [{event: 'schedule', headSha: OLD, conclusion: 'success'}], files: ['desktop/lib/x.js']};
+  assert.notEqual((await plan({EVENT: 'schedule', SHA: HEAD}, stub)).count, '0', 'positive control: the same schedule runs when no release is testing');
+  const held = await plan({EVENT: 'schedule', SHA: HEAD}, {...stub, releasing: [{status: 'in_progress', displayTitle: 'Nightly beta'}]});
+  assert.equal(held.count, '0');
+  assert.match(held.why, /release run is testing/);
+  assert.notEqual((await plan({EVENT: 'schedule', SHA: HEAD}, {...stub, releasing: [{status: 'in_progress', displayTitle: 'Build only (by hand, not tested)'}]})).count, '0');
+  const gate = await plan({EVENT: 'schedule', SHA: OLD, TARGET_REF: 'desktop-v1.2', GATE_TAG: 'desktop-v1.2'}, {releases: [['desktop-v1.2', HEAD]], releasing: [{status: 'in_progress', displayTitle: 'Nightly beta'}]});
+  assert.equal(gate.count, '4', 'the gate itself, called from that release run, runs');
 });

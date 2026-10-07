@@ -36,7 +36,7 @@ on:
   workflow_call:
     inputs:
       suites:
-        description: "The Mac + Linux gate's suites (its `suites` output), comma-separated; empty = all"
+        description: 'Suites, comma-separated; empty = the gate plans them itself (plan-windows.mjs: the same plan as the Mac + Linux gate)'
         type: string
         default: ''
       sha:
@@ -48,7 +48,7 @@ on:
         type: string
         required: true
       review:
-        description: "1 = the AI screenshot review, as on the Mac + Linux gate"
+        description: '1 = the AI screenshot review (only with suites named; a planned gate decides it as the Mac + Linux gate)'
         type: string
         default: ''
       full:
@@ -76,6 +76,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: read     # the release gate's plan (plan-run.mjs) reads the waiting UI findings for its AI review decision, as the Mac + Linux gate's
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
       count: ${{ steps.pick.outputs.count }}
@@ -98,6 +99,7 @@ jobs:
           MAC_RUN: ${{ inputs.mac_run }}
           SHA: ${{ inputs.sha }}
           REVIEW: ${{ inputs.review }}
+          GATE_TAG: ${{ inputs.tag }}   # the release run's Windows gate: planned as the Mac + Linux gate (plan-run.mjs), not after it
         run: node plan-windows.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
 
   suite:

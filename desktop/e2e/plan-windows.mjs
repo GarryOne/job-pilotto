@@ -1,4 +1,5 @@
-// What the Windows e2e (e2e-windows.yml) runs. In the release run (desktop.yml, "Test · Windows") the Mac + Linux gate's suites, named (ONLY) with its review.
+// What the Windows e2e (e2e-windows.yml) runs. In the release run (desktop.yml, "Test · Windows", GATE_TAG) the gate's own plan: plan-run.mjs planRun, exactly as the Mac + Linux
+// gate plans it (its suites, its AI review), so the Windows lane never waits for the Mac lane (7 Oct 2026).
 // After a scheduled Mac run (e2e.yml, job "Windows follows"), when it tested something: the same suites
 // on the same commit, with the AI screenshot review where the Mac run had it, so Windows has the Mac's coverage (4 Oct 2026: it ran 7 of 13
 // suites, weekly). A commit Windows already tested is not run again (the Mac looks at an unchanged commit up to three times; Windows once).
@@ -38,7 +39,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     previous = testedBefore(runs.map(run => ({id: run.databaseId, title: run.displayTitle, conclusion: run.conclusion,
       suitesRan: JSON.parse(gh(['api', `repos/${repo}/actions/runs/${run.databaseId}/jobs?per_page=100`, '--jq', '[.jobs[] | select(.name != "plan" and .conclusion != "skipped" and .conclusion != "cancelled")] | length']))})), sha, process.env.GITHUB_RUN_ID);
   }
-  const result = plan({only: process.env.ONLY || '', all, mac, sha, review: process.env.REVIEW === '1', previous});
+  let result;
+  if (process.env.GATE_TAG && !id && !process.env.ONLY) {   // the release run's Windows gate
+    const {planRun, suiteFacts} = await import('./plan-run.mjs');
+    const gate = await planRun({env: {EVENT: 'gate', REPO: repo, SHA: sha, TARGET_REF: process.env.GATE_TAG, GATE_TAG: process.env.GATE_TAG}, ...(await suiteFacts())});
+    result = {suites: gate.suites ? gate.suites.split(',') : [], review: gate.review === '1', why: `the release gate for ${process.env.GATE_TAG}: ${gate.suites || 'no suites'}`};
+  } else result = plan({only: process.env.ONLY || '', all, mac, sha, review: process.env.REVIEW === '1', previous});
   console.error(result.why || `Windows runs ${result.suites.length} suite(s)${mac ? ` after Mac run ${id}, commit ${sha.slice(0, 7)}` : ''}: ${result.suites.join(', ') || 'none'}; AI review: ${result.review ? 'yes' : 'no'}`);
   console.log(`matrix=${JSON.stringify({suite: result.suites})}`);
   console.log(`count=${result.suites.length}`);

@@ -1,17 +1,19 @@
 name: Release · Build, test, beta
-# ONE RUN PER RELEASE (owner, 7 Oct 2026: three runs chained by triggers, and the build named "Release", were hard to follow):
-#   Anything new? -> Build · Mac -> Build · Windows -> Test · Mac + Linux (e2e.yml) -> Test · Windows (e2e-windows.yml) -> Clean up old builds
-# Each Test job ends by approving the release for that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):" in its notes,
-# desktop/lib/updater.js): the platforms are approved independently. The run is red when a gate is red; that platform's testers are then not offered it.
+# ONE RUN PER RELEASE, ONE LANE PER PLATFORM (owner, 7 Oct 2026: three runs chained by triggers were hard to follow; then "2 parallel pipelines"):
+#   Anything new? -+- Build · Mac     -> Test · Mac + Linux (e2e.yml)    -+- Clean up old builds
+#                  +- Build · Windows -> Test · Windows (e2e-windows.yml) -+
+# Each lane builds, publishes its files to the one release, tests, and approves it for that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):",
+# desktop/lib/updater.js): a lane never waits for the other. The same suite on both platforms takes turns (it owns one Notion test page: concurrency group e2e-<suite>).
+# The run is red when a lane is red; that platform's testers are then not offered it.
 # Names: the Worker's cron (worker/src/scheduler.js) and GitHub's schedule start the "Nightly beta"; tools/beta-release.sh (-f beta=true) a "Beta by hand"; a plain
 # gh workflow run desktop.yml is a "Build only": built and published as a pre-release for trying, never tested here, offered to nobody.
 run-name: ${{ (inputs.nightly || github.event_name == 'schedule') && 'Nightly beta' || inputs.beta && 'Beta by hand' || 'Build only (by hand, not tested)' }}
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release: nightly at 04:00 Zurich (only when something that goes into the app changed on main since the last release) or on
-# demand (gh workflow run desktop.yml, always builds). The release starts as a
-# draft; the Windows job adds the x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") and then
-# publishes it as a pre-release (a build: offered to nobody until the gate approves it for beta). Friends' apps and the website follow the latest *stable* release: one
+# demand (gh workflow run desktop.yml, always builds). The release starts as a draft (made by Anything new?); Build · Mac adds the .dmg/.zip,
+# Build · Windows the x64 installer (.exe, unsigned: SmartScreen asks "Run anyway"), and the first one done publishes it as a pre-release
+# (a build: offered to nobody until a lane's gate approves it for that platform's beta). Friends' apps and the website follow the latest *stable* release: one
 # promoted with tools/release-stable.sh (then its .exe and .dmg are what "latest" serves).
 on:
   # Nightly, and by hand (gh workflow run desktop.yml). Not on every push: with several pushes an hour, a release per push
@@ -42,19 +44,20 @@ permissions:
   attestations: write  # (verify: gh attestation verify <file> -R GarryOne/job-pilotto)
   actions: write       # start a fresh build of main when this one can't be released (see Release)
 
-# A release runs to the end (Mac, then the Windows installer), so the latest release always has both
-# downloads the website links to; a newer run waits, and only the newest waiting one runs.
+# A release runs to the end (both lanes, their gates, the clean-up); a newer run waits, and only the newest waiting one runs.
 concurrency:
   group: desktop-release
   cancel-in-progress: false
 
 jobs:
-  # Nightly runs only: did anything that goes into the app change since the newest release? (A manual run always builds.)
+  # Did anything that goes into the app change since the newest release (a nightly; a manual run always builds)? If so, create the release, and both lanes start.
   changes:
     name: Anything new?
     runs-on: ubuntu-24.04
     outputs:
       build: ${{ steps.diff.outputs.build }}
+      version: ${{ steps.version.outputs.version }}     # the release both lanes add their files to
+      released: ${{ steps.release.outputs.released }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -82,20 +85,91 @@ jobs:
             echo "Changes since ${tag:-the start}: building."
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
+      # Something to build: the release both lanes add their files to, here so each lane starts straight from this job (owner, 7 Oct 2026: "Anything new should
+      # trigger 2 separate pipelines"). Its version (the next patch), its tag (at the start: a push to main during the builds costs nothing) and a draft with the notes.
+      - uses: actions/setup-node@v5
+        if: steps.diff.outputs.build == 'true'
+        with:
+          node-version: '22'
+      - name: Version
+        if: steps.diff.outputs.build == 'true'
+        id: version
+        working-directory: desktop
+        # package.json holds the target (0.5.0): each build is the next patch, 0.5.1, 0.5.2 … The channel (build, beta, stable) says how proven it is, not the version.
+        run: |
+          version=$(scripts/next-version.sh)
+          echo "Releasing $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Tag this build now (its workflows still match main's)
+        if: steps.diff.outputs.build == 'true'
+        # GitHub refuses (HTTP 403) to let this run's token create a tag on a commit whose workflow files differ from main's. Tagged here, at the
+        # start, that can't happen: a push to main during the build no longer costs a rebuild (7 Oct 2026). A build that fails after this leaves
+        # its number unused; scripts/next-version.sh then takes the next one.
+        run: |
+          tag="desktop-v${{ steps.version.outputs.version }}"
+          if git push -q origin "$GITHUB_SHA:refs/tags/$tag"; then echo "Tagged $tag at ${GITHUB_SHA::7}"
+          else echo "::warning::Could not tag $tag at the start: the Release step tags it (and rebuilds main if workflows changed meanwhile)."; fi
+      - name: Release
+        if: steps.diff.outputs.build == 'true'
+        id: release
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          version: ${{ steps.version.outputs.version }}
+        run: |
+          # GitHub refuses (HTTP 403) to let this run's token tag a commit whose workflow files differ from main's.
+          # When workflows changed on main during the build, a fresh build of main releases instead.
+          tag="desktop-v${version}"
+          # Tagged at the start (above): nothing to refuse. Only a build that could not tag then still needs main's workflows to match.
+          git fetch -q origin main
+          if [ "$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)" != "$GITHUB_SHA" ] && ! git diff --quiet "$GITHUB_SHA" origin/main -- .github/workflows; then
+            echo "::warning::Workflows changed on main during this build: not released; a new build of main starts."
+            echo "### ⚠️ ${version} not released: workflows changed on main during the build; a new build of main started." >> "$GITHUB_STEP_SUMMARY"
+            # what this run was, as below: a beta stays a beta, a nightly a nightly
+            gh workflow run desktop.yml --ref main -f beta=${{ inputs.beta && 'true' || 'false' }} -f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; echo
+            echo "Built by GitHub Actions from ${GITHUB_SHA::7}. Check a download: \`gh attestation verify <file> -R ${GITHUB_REPOSITORY}\`"
+          } > release-notes.md
+          # A draft under this tag is a build that never finished (cancelled, or refused after main moved): this newer build replaces it. A PUBLISHED one means two
+          # builds took the same version: stop, rather than attach files to another commit's release (6 Oct 2026: 0.5.11 was published from a cancelled build's draft).
+          if existing=$(gh release view "$tag" --json isDraft -q .isDraft 2>/dev/null); then
+            if [ "$existing" = true ]; then gh release delete "$tag" --yes; echo "::warning::Removed a draft $tag left by an unfinished earlier build."
+            else echo "::error::$tag is already published (another build took this version): not releasing over it."; exit 1; fi
+          fi
+          if ! gh release create "$tag" \
+            --title "$(scripts/release-title.sh "$version")" \
+            --notes-file release-notes.md \
+            --target "$GITHUB_SHA" \
+            --draft 2> release-error.txt; then   # a draft with no files: each build lane adds its own and publishes it
+            cat release-error.txt >&2
+            # The same 403 when workflows changed on main in the seconds after the check above: hand over to a fresh
+            # build of main instead of failing. Only when main has moved, so a real 403 on main itself still fails.
+            git fetch -q origin main
+            if grep -q 'HTTP 403' release-error.txt && [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+              gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true   # a half-made draft, if any
+              echo "::warning::Release refused (403) after main moved: not released; a new build of main starts."
+              # Keep what this build was (6 Oct 2026: a beta by hand came back as a plain build, which no gate approves): a beta stays a beta, a nightly a nightly.
+              gh workflow run desktop.yml --ref main -f beta=${{ inputs.beta && 'true' || 'false' }} -f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "released=true" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build · Mac
-    needs: changes
-    if: needs.changes.outputs.build == 'true'
+    needs: changes   # the version and the draft release exist
+    if: needs.changes.outputs.released == 'true'
     runs-on: macos-14   # Apple Silicon
     timeout-minutes: 30
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      released: ${{ steps.release.outputs.released }}
+    env:
+      VERSION: ${{ needs.changes.outputs.version }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0   # full history and tags: the release notes list changes since the last build
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -124,23 +198,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/stage.mjs --app && scripts/python.sh
-      - name: Version
-        id: version
-        working-directory: desktop
-        # package.json holds the target (0.5.0): each build is the next patch, 0.5.1, 0.5.2 … The channel (build, beta, stable) says how proven it is, not the version.
-        run: |
-          version=$(scripts/next-version.sh)
-          npm version "$version" --no-git-tag-version --allow-same-version >/dev/null
-          echo "Releasing $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Tag this build now (its workflows still match main's)
-        # GitHub refuses (HTTP 403) to let this run's token create a tag on a commit whose workflow files differ from main's. Tagged here, at the
-        # start, that can't happen: a push to main during the build no longer costs a rebuild (7 Oct 2026). A build that fails after this leaves
-        # its number unused; scripts/next-version.sh then takes the next one.
-        run: |
-          tag="desktop-v${{ steps.version.outputs.version }}"
-          if git push -q origin "$GITHUB_SHA:refs/tags/$tag"; then echo "Tagged $tag at ${GITHUB_SHA::7}"
-          else echo "::warning::Could not tag $tag at the start: the Release step tags it (and rebuilds main if workflows changed meanwhile)."; fi
       - name: Build
         working-directory: desktop
         env:
@@ -148,6 +205,7 @@ jobs:
           MAC_SIGN_P12: ${{ secrets.MAC_SIGN_P12 }}
           MAC_SIGN_PASSWORD: ${{ secrets.MAC_SIGN_PASSWORD }}
         run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null
           npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
           codesign -dvv dist/mac-arm64/*.app 2>&1 | grep -q "Authority=Job Pilotto Self-Signed" \
             || { echo "::error::The app isn't signed with the release certificate"; exit 1; }
@@ -155,69 +213,28 @@ jobs:
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: desktop/dist/Job-Pilotto-*-arm64.*
-      - name: Release
-        id: release
+      - name: Add to the release, and publish it (the first lane done publishes; the other adds its files to the published pre-release)
         working-directory: desktop
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # GitHub refuses (HTTP 403) to let this run's token tag a commit whose workflow files differ from main's.
-          # When workflows changed on main during the build, a fresh build of main releases instead.
-          version=$(node -p "require('./package.json').version")
-          tag="desktop-v${version}"
-          # Tagged at the start (above): nothing to refuse. Only a build that could not tag then still needs main's workflows to match.
-          git fetch -q origin main
-          if [ "$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)" != "$GITHUB_SHA" ] && ! git diff --quiet "$GITHUB_SHA" origin/main -- .github/workflows; then
-            echo "::warning::Workflows changed on main during this build: not released; a new build of main starts."
-            echo "### ⚠️ ${version} not released: workflows changed on main during the build; a new build of main started." >> "$GITHUB_STEP_SUMMARY"
-            gh workflow run desktop.yml --ref main
-            echo "released=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           # Stable names too, so a download link can always point at the latest build.
-          cp "dist/Job-Pilotto-${version}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
-          cp "dist/Job-Pilotto-${version}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
-          { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; echo
-            echo "Built by GitHub Actions from ${GITHUB_SHA::7}. Check a download: \`gh attestation verify <file> -R ${GITHUB_REPOSITORY}\`"
-          } > release-notes.md
-          # A draft under this tag is a build that never finished (cancelled, or refused after main moved): this newer build replaces it. A PUBLISHED one means two
-          # builds took the same version: stop, rather than attach files to another commit's release (6 Oct 2026: 0.5.11 was published from a cancelled build's draft).
-          if existing=$(gh release view "$tag" --json isDraft -q .isDraft 2>/dev/null); then
-            if [ "$existing" = true ]; then gh release delete "$tag" --yes; echo "::warning::Removed a draft $tag left by an unfinished earlier build."
-            else echo "::error::$tag is already published (another build took this version): not releasing over it."; exit 1; fi
-          fi
-          if ! gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
-            --title "$(scripts/release-title.sh "$version")" \
-            --notes-file release-notes.md \
-            --target "$GITHUB_SHA" \
-            --draft 2> release-error.txt; then   # published by the windows job once the .exe is there (or by mac-only if it fails)
-            cat release-error.txt >&2
-            # The same 403 when workflows changed on main in the seconds after the check above: hand over to a fresh
-            # build of main instead of failing. Only when main has moved, so a real 403 on main itself still fails.
-            git fetch -q origin main
-            if grep -q 'HTTP 403' release-error.txt && [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
-              gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true   # a half-made draft, if any
-              echo "::warning::Release refused (403) after main moved: not released; a new build of main starts."
-              # Keep what this build was (6 Oct 2026: a beta by hand came back as a plain build, which no gate approves): a beta stays a beta, a nightly a nightly.
-              gh workflow run desktop.yml --ref main -f beta=${{ inputs.beta && 'true' || 'false' }} -f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}
-              echo "released=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            exit 1
-          fi
-          echo "released=true" >> "$GITHUB_OUTPUT"
+          cp "dist/Job-Pilotto-${VERSION}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
+          cp "dist/Job-Pilotto-${VERSION}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
+          gh release upload "desktop-v${VERSION}" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip
+          gh release edit "desktop-v${VERSION}" --draft=false --prerelease
 
   windows:
     name: Build · Windows
-    needs: build   # the release exists and has its version
-    if: needs.build.outputs.released == 'true'
+    needs: changes   # the version and the draft release exist: no wait for the Mac build
+    if: needs.changes.outputs.released == 'true'
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
       run:
         shell: bash
     env:
-      VERSION: ${{ needs.build.outputs.version }}
+      VERSION: ${{ needs.changes.outputs.version }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -258,11 +275,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: windows-screens-${{ needs.build.outputs.version }}
+          name: windows-screens-${{ needs.changes.outputs.version }}
           path: desktop/smoke
           if-no-files-found: ignore
           retention-days: 14
-      - name: Add to the release
+      - name: Add to the release, and publish it (as Build · Mac, whichever lane is done first publishes)
         working-directory: desktop
         env:
           GH_TOKEN: ${{ github.token }}
@@ -272,21 +289,21 @@ jobs:
           gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
           gh release edit "desktop-v${VERSION}" --draft=false --prerelease
 
-  # The Windows build failed: publish the Mac release anyway, carrying over the last working Windows installer
-  # so the website's Windows link (latest release) keeps working until a Windows build passes again.
+  # Build · Windows failed: the release carries the last working Windows installer, so the Windows download link of a release that becomes stable keeps working until a
+  # Windows build passes again. It is never approved for Windows (Test · Windows needs this run's own Windows build).
   mac-only:
-    name: Publish without Windows
-    needs: [build, windows]
-    if: always() && needs.build.result == 'success' && needs.build.outputs.released == 'true' && needs.windows.result != 'success'
+    name: Windows fallback (last installer)
+    needs: [changes, build, windows]
+    if: always() && needs.changes.outputs.released == 'true' && needs.build.result == 'success' && needs.windows.result != 'success'
     runs-on: ubuntu-24.04
     steps:
-      - name: Publish without the Windows installer
+      - name: Carry over the last working Windows installer
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
+          VERSION: ${{ needs.changes.outputs.version }}
         run: |
           prev=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" \
-            -q '[.[] | select(.draft | not) | select(any(.assets[]; .name == "Job-Pilotto-windows-x64.exe"))][0].tag_name')
+            -q '[.[] | select(.draft | not) | select(.tag_name != "desktop-v'"$VERSION"'") | select(any(.assets[]; .name == "Job-Pilotto-windows-x64.exe"))][0].tag_name')
           if [ -n "$prev" ]; then
             gh release download "$prev" --repo "$GITHUB_REPOSITORY" -p Job-Pilotto-windows-x64.exe -D previous
             gh release upload "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" previous/Job-Pilotto-windows-x64.exe
@@ -294,53 +311,55 @@ jobs:
           else
             echo "::warning::Windows build failed and no earlier release has a Windows installer."
           fi
-          gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
 
-  # TEST: the release gate, in this run (7 Oct 2026; before, e2e.yml followed this run by workflow_run and started e2e-windows.yml by dispatch). A nightly or a beta by hand
-  # only: a build by hand is for trying. After the release is published (by Build · Windows, or Publish without Windows), so the approval edits a published release.
+  # TEST: each lane's release gate, as soon as its own build is done (7 Oct 2026). A nightly or a beta by hand only: a build by hand is for trying.
   test-mac:
     name: Test · Mac + Linux
-    needs: [build, windows, mac-only]
-    if: always() && needs.build.outputs.released == 'true' && (needs.windows.result == 'success' || needs.mac-only.result == 'success') && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
+    needs: [changes, build]
+    if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
     permissions:            # what e2e.yml's jobs ask for: a called workflow gets at most its caller job's permissions
       contents: write       # promote: the "Beta-approved:" line
       actions: write        # plan reads runs; "Windows follows" (skipped here) starts runs
       issues: write         # block-check reads the UI-loop issues; the release scripts file one when something blocks
     uses: ./.github/workflows/e2e.yml
     with:
-      gate_tag: desktop-v${{ needs.build.outputs.version }}
+      gate_tag: desktop-v${{ needs.changes.outputs.version }}
     secrets: inherit
 
-  # The same suites on Windows, on the same fixed path, after the Mac + Linux gate whatever its result (each platform is approved on its own). Only when this run built the
-  # Windows installer: a release that carries an older .exe (Publish without Windows) is never approved for Windows.
+  # The Windows lane's gate: the gate suites, planned by itself (plan-windows.mjs, the same plan as the Mac + Linux gate), on the fixed path. Only after this run's own
+  # Windows build: a release that carries an older .exe is never approved for Windows.
   test-windows:
     name: Test · Windows
-    needs: [build, windows, test-mac]
-    if: always() && needs.windows.result == 'success' && needs.test-mac.result != 'skipped' && needs.test-mac.result != 'cancelled'
+    needs: [changes, windows]
+    if: needs.windows.result == 'success' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
     permissions:
       contents: write       # approve-windows: the "Beta-approved (Windows):" line
       actions: read         # plan, approve-windows: this run's artifacts and jobs
       issues: write         # as test-mac
     uses: ./.github/workflows/e2e-windows.yml
     with:
-      suites: ${{ needs.test-mac.outputs.suites }}
-      review: ${{ needs.test-mac.outputs.review }}
       sha: ${{ github.sha }}
-      tag: desktop-v${{ needs.build.outputs.version }}
+      tag: desktop-v${{ needs.changes.outputs.version }}
     secrets: inherit
 
-  # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh) and each platform's newest beta. After the tests, so
+  # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh) and each platform's newest beta. After both lanes, so
   # tonight's approvals are already written when it decides what to keep.
   prune:
     name: Clean up old builds
-    needs: [build, windows, mac-only, test-mac, test-windows]
-    if: always() && needs.build.result == 'success'
+    needs: [changes, build, windows, mac-only, test-mac, test-windows]
+    if: always() && needs.changes.outputs.released == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write   # delete the older test builds, retitle releases
       issues: write     # the pinned Release channels issue
     steps:
       - uses: actions/checkout@v5
+      - name: A release neither build published (both failed) is removed; its tag stays and its number is not reused
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: desktop-v${{ needs.changes.outputs.version }}
+        run: |
+          if [ "$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then gh release delete "$TAG" --yes; echo "::warning::$TAG: no build finished; its draft is removed."; fi
       - name: Remove older test builds (their tags stay)
         env:
           GH_TOKEN: ${{ github.token }}
