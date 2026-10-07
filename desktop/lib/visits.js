@@ -23,7 +23,7 @@ export function open(url, run = spawn) {
   return {ok: true};
 }
 
-// The Read sites task's own log (owner's Technical log): while it runs, what the engine says for each page goes there too (another session's
+// The Find employers in Chrome task's own log (owner's Technical log): while it runs, what the engine says for each page goes there too (another session's
 // report, 7 Oct 2026: its log showed 4 lines and "no new output for 5 min" while visit-filters ran 130 s, printing only to app.log).
 let taskTee = null;
 // Indented: kept in the log as detail, never the task's running step (pipeline isProgressStep skips indented lines); the step is runAll's own.
@@ -158,7 +158,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
   }
 }
 
-// "Read sites only you can open" (Actions, owner 7 Oct 2026): open the chosen sites in the browser with the extension, `atOnce` at a time,
+// "Find employers in Chrome" (Actions, owner 7 Oct 2026): open the chosen sites in the browser with the extension, `atOnce` at a time,
 // each marked so the extension filters (if asked) and reads it by itself (extension/visit.js autoRead); each reports back (done) and closes,
 // then the next opens. A site that does not report within WAIT_MS counts as stopped.
 export const WAIT_MS = 8 * 60 * 1000;
@@ -202,7 +202,7 @@ export function noteTabs({ids, boot, reading} = {}) {
 let active = null;   // {queue, sites, lastPage: Map(start address -> page address), back(site)}
 export function again(url) {
   const site = active?.sites.find(item => key(item.url) === key(url));
-  if (!site) return {ok: false, error: 'This run has ended: start Read sites again for it.'};
+  if (!site) return {ok: false, error: 'This run has ended: start Find employers in Chrome again for it.'};
   active.back(site);
   log('visit', 'site opened again', {host: new URL(site.url).hostname, decidedBy: 'user click'});
   return {ok: true};
@@ -328,7 +328,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       return {...site, start: chosen.url, ok: false, why: opened.error, jobs: 0, added: 0};
     }
     tee(siteLine('opening', site.name, 'Opening in Chrome…'));
-    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads
+    tee(`⏳ Reading employer sites in Chrome: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads
     const state = await finished;
     watchers.delete(ticket);
     blocked.delete(ticket);
@@ -341,7 +341,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'}`);
     doneCount += 1;
     tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} job${state.jobs === 1 ? '' : 's'} read (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'));
-    tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
+    tee(`⏳ Reading employer sites in Chrome: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, fits, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
     return {...site, start: chosen.url, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
   };

@@ -1,4 +1,4 @@
-// "Read sites only you can open" (7 Oct 2026): N at a time, each waits for its extension report, a silent one counts as stopped; the result
+// "Find employers in Chrome" (7 Oct 2026): N at a time, each waits for its extension report, a silent one counts as stopped; the result
 // message the app writes is exactly what its card reads.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -57,12 +57,12 @@ test('a site that keeps talking but never finishes is stopped at its time budget
   assert.match(results[0].why, /s are up: skipped, the jobs read so far are kept/);
 });
 
-test('a Read sites run draws a row per tab at its latest state, and how far it is', async () => {
+test('a Find employers in Chrome run draws a row per tab at its latest state, and how far it is', async () => {
   const {siteLine} = await import('../lib/visits.js');
   const {parseSiteRows} = await import('../renderer/visits-card.js');
   const log = ['Reading 3 sites in your browser, 2 at a time', siteLine('next', 'Tag Heuer', 'https://www.tagheuer.com'), siteLine('next', 'Hublot · CH', 'https://www.hublot.com'),
     siteLine('next', 'Glassdoor', 'https://de.glassdoor.ch'), siteLine('opening', 'Tag Heuer', 'Opening in Chrome…'), siteLine('reading', 'Tag Heuer', 'page 2 · 14 jobs'),
-    '⏳ Reading sites in your browser: 0 of 3 done · 0% · now Tag Heuer', siteLine('waiting', 'Hublot · CH', 'Waiting for you in Chrome'), siteLine('done', 'Tag Heuer', '14 jobs (8 new)'),
+    '⏳ Reading employer sites in Chrome: 0 of 3 done · 0% · now Tag Heuer', siteLine('waiting', 'Hublot · CH', 'Waiting for you in Chrome'), siteLine('done', 'Tag Heuer', '14 jobs (8 new)'),
     siteLine('stopped', 'Glassdoor', 'it stopped answering')];
   const rows = parseSiteRows(log);
   assert.deepEqual(rows.sites.map(site => [site.name, site.state]), [['Tag Heuer', 'done'], ['Hublot, CH', 'waiting'], ['Glassdoor', 'stopped']]);

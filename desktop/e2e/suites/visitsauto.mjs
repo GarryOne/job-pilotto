@@ -1,5 +1,5 @@
 /* global chrome */
-// "Read sites only you can open" from the Actions card (7 Oct 2026): the REAL extension (a copy that talks to a stand-in app on a free port) in a real
+// "Find employers in Chrome" from the Actions card (7 Oct 2026): the REAL extension (a copy that talks to a stand-in app on a free port) in a real
 // Chromium, on fixture job lists served over HTTPS. A page the app did not mark is left alone; a marked tab without the one-time permission waits
 // (and is read nowhere); a marked tab on a site the extension may read is read by itself, page after page, reported to the app and closed.
 // Simulated: Chrome's one-time "all sites" grant cannot be given from a script, so for the read step the extension's check of it is stubbed in its

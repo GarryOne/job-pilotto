@@ -1,5 +1,5 @@
 // The engine's JSON answers ({"ok": true, "name": "Indeed", "jobs": 98, …}) never reach a person: not a task's step, log or the window's live log
-// (7 Oct 2026: the Read sites banner showed them). Words lines still do.
+// (7 Oct 2026: the Find employers in Chrome banner showed them). Words lines still do.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

@@ -170,7 +170,7 @@ export const stoppedReason = timedOut => `Stopped by Job Pilotto: ${timedOut}. T
 // How long a run was silent, for the watchdog's message: minutes for a real run, seconds when the journey shortens the limit.
 export const quietText = ms => (ms < 90 * 1000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 // `stopAfterMs`: a run whose answer is no use after that long is stopped then (7 Oct 2026: Claude's filter choices went on for 130 s after
-// the page had been read without them, slowing every other Claude call of a Read sites run).
+// the page had been read without them, slowing every other Claude call of a Find employers in Chrome run).
 export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterMs = 0} = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
@@ -349,7 +349,7 @@ export function dailyArgs(storage, inputs = {}) {
 }
 
 // Crawls share one SQLite file: run them one at a time, like the workflow's concurrency group. In order, except a task queued `first`
-// (7 Oct 2026: the light scoring run after Read sites waited behind a 15-minute Find new employers queued before it).
+// (7 Oct 2026: the light scoring run after Find employers in Chrome waited behind a 15-minute Find new employers queued before it).
 const lane = [];
 let laneBusy = false;
 export function serial(task, {first = false} = {}) {
@@ -376,14 +376,14 @@ export function runs(storage) { try { return JSON.parse(storage.readText('runs.j
 let current = null;
 export const running = () => current;
 // A line that is a JSON object is the engine's answer for the app ({"ok": true, "name": "Indeed", "jobs": 98, …}), not words for a person: it never
-// becomes a task's step, its log or the window's live log (7 Oct 2026: Read sites' banner showed it). The command's stdout still has it for its caller.
+// becomes a task's step, its log or the window's live log (7 Oct 2026: Find employers in Chrome' banner showed it). The command's stdout still has it for its caller.
 export function isDataLine(line) {
   const text = String(line).trim();
   if (!text.startsWith('{') || !text.endsWith('}')) return false;
   try { return typeof JSON.parse(text) === 'object'; } catch { return false; }
 }
 // Lines the app shows in the window while a tracked task runs but that don't come through the task's own output (a step it starts with its own
-// command, like Read sites' filter choice): kept in the task's log too, so the Technical log after a reopen or ⌘R is what was shown live
+// command, like Find employers in Chrome' filter choice): kept in the task's log too, so the Technical log after a reopen or ⌘R is what was shown live
 // (7 Oct 2026: a reset brought back 4 lines of a log that had shown many more). main.js's log() calls it for every line it sends.
 let keepLine = null, teeing = false;
 export function keep(line) { if (keepLine && !teeing) keepLine(line); }
@@ -423,7 +423,7 @@ export function takeQueue(storage) {
   try { jobs = JSON.parse(storage.readText(QUEUE_FILE)) || []; } catch {}
   storage.writeText(QUEUE_FILE, '[]');
   // The task that was running stays in Recent activity as Interrupted, with what it said and its Notion row (so it is listed once), whether it
-  // is started again or not: a restart is a new run (7 Oct 2026: Read sites vanished after a restart; a restarted scout lost its log).
+  // is started again or not: a restart is a new run (7 Oct 2026: Find employers in Chrome vanished after a restart; a restarted scout lost its log).
   const lost = jobs.filter(job => job && job.kind && job.interrupted);
   if (lost.length) {
     const endedAt = new Date().toISOString();
@@ -507,7 +507,7 @@ export const TASKS = {
   insight: {name: 'Insight', result: /^(Insight sent: |Insight: )/},
   weekly: {name: 'Search analysis', result: /^Weekly report sent: /},
   kits: {name: 'Prepare top matches', result: /^Kits ready: /},
-  visits: {name: 'Read sites only you can open', result: /^Read \d+ of \d+ sites?/},
+  visits: {name: 'Find employers in Chrome', result: /^Read \d+ of \d+ sites?/},
   tailor: {name: 'Tailor CVs', result: /^Tailored \d+ of \d+ CV/},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
   // The older wording, and the card's second line: "7 checked · 7 new to the search · 2 new sources" (counts between the two may come and go; 3c45aa3 added one).

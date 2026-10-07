@@ -1967,7 +1967,7 @@ function handlers() {
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   ipcMain.handle('openVisit', (_, url) => visits.open(url));
   ipcMain.handle('focusBrowser', () => visits.focusBrowser());
-  ipcMain.handle('visitShowTab', (_, url) => visits.showTab(url));   // Read sites' rows (Recent activity): the tab reading this site
+  ipcMain.handle('visitShowTab', (_, url) => visits.showTab(url));   // Find employers in Chrome' rows (Recent activity): the tab reading this site
   ipcMain.handle('visitAgain', (_, url) => visits.again(url));        // ... and a site whose tab you closed, back in the run
   // Read with Claude: a Claude in Chrome session reads a site the extension could not (Apply with Claude's needs: Claude Code, its consent).
   ipcMain.handle('visitWithClaude', async (_, url, name) => {
@@ -1995,7 +1995,7 @@ function handlers() {
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
     try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return {ok: false, visits: []}; }
   });
-  // "Read sites only you can open" (Actions): a tracked task like Tailor CVs, so the banner, Recent activity and the result card follow it.
+  // "Find employers in Chrome" (Actions): a tracked task like Tailor CVs, so the banner, Recent activity and the result card follow it.
   ipcMain.handle('visitsRun', async (_, {urls = [], atOnce = 2, filter = true} = {}) => {
     const {stdout} = await pipeline.run(storage, ['src.desktop', 'visit-list']).catch(() => ({stdout: ''}));
     const listed = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()).visits || []; } catch { return []; } })();
@@ -2006,7 +2006,7 @@ function handlers() {
     const seen = server.extensionSeen?.()?.version, latest = server.latestExtension();
     if (seen && latest && seen !== latest) {
       appLog('visit', 'read sites refused: Chrome has an older extension', {seen, latest});
-      return {text: `Chrome still has the Job Pilotto extension ${seen}; reading sites needs ${latest}. In Chrome open chrome://extensions, press Reload on Job Pilotto, then Run again.`};
+      return {text: `Chrome still has the Job Pilotto extension ${seen}; Find employers in Chrome needs ${latest}. In Chrome open chrome://extensions, press Reload on Job Pilotto, then Run again.`};
     }
     appLog('visit', 'read sites task', {sites: chosen.length, atOnce: n, filter: !!filter, by: 'you'});
     pipeline.work(storage, 'visits', log, async tee => {
@@ -2386,7 +2386,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   });   // the extension waits on the person: said, not "reading"   // a tab the Actions task opened has been read
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
-    // A page you read by your own click is said at once; one read for a Read sites run (it has a ticket) is said by that run's card, which also
+    // A page you read by your own click is said at once; one read for a Find employers in Chrome run (it has a ticket) is said by that run's card, which also
     // starts the search (7 Oct 2026: a toast per page said "your next jobs check scores them" while the card said a search had started).
     if (answer.ok && !page?.ticket) toWindow('visit-read', answer);
     return answer;
@@ -2419,7 +2419,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     }
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
-  server.setTabsHandler(report => { review.noteTabs(report); visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Read sites)
+  server.setTabsHandler(report => { review.noteTabs(report); visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Find employers in Chrome)
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {

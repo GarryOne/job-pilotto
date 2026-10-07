@@ -52,7 +52,7 @@ export async function init() {
     answer(result?.text || result?.error || 'Done.');
   });
   $('tailor-top-n').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('tailor-top').click(); } });   // Enter in the count box = Run
-  // Read sites only you can open (owner, 7 Oct 2026): the list from the engine, all ticked but the ones read in the last week; Run opens them
+  // Find employers in Chrome (owner, 7 Oct 2026): the list from the engine, all ticked but the ones read in the last week; Run opens them
   // in Chrome `at once` at a time, where the extension filters and reads each by itself; a tracked task like Tailor CVs.
   const paintVisits = async () => {
     const answer = await window.pilot.visitsList().catch(() => null);

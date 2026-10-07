@@ -1,4 +1,4 @@
-// The result of "Read sites only you can open" (Actions; lib/visits.js resultMessage writes it): parsed for its card. Pure.
+// The result of "Find employers in Chrome" (Actions; lib/visits.js resultMessage writes it): parsed for its card. Pure.
 // 🌐 Sites read / Read 4 of 5 sites · 186 jobs (61 new) / ✓ LinkedIn · 64 jobs (20 new) · <url> / ✗ Rolex · <why> · <url>
 export function parseVisits(text) {
   const lines = String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
@@ -12,7 +12,7 @@ export function parseVisits(text) {
   }
   return {kind: 'visits', read: Number(head[1]), total: Number(head[2]), jobs: Number(head[3]), fresh: Number(head[4]), fits: head[5] === undefined ? null : Number(head[5]), listed: head[6] === undefined ? null : Number(head[6]), sites};
 }
-// A Read sites run's tabs, from its log (lib/visits.js siteLine: `  ▸ <state> · <site> · <words>`): one row per site in the order they were
+// A Find employers in Chrome run's tabs, from its log (lib/visits.js siteLine: `  ▸ <state> · <site> · <words>`): one row per site in the order they were
 // listed, each at its latest state, and how far the run is (sites finished of all, as a percent). Pure; null when the log has none.
 const FINISHED = new Set(['done', 'stopped', 'closed']);
 export function parseSiteRows(lines) {

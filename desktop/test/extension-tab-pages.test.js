@@ -203,7 +203,7 @@ test('a page the app opens starts its own job; the same page loading again (a fo
   assert.equal(startsOwnJob('https://api.easytemp.ch/live/bew/1-FR.php', 'https://api.easytemp.ch/live/bew/1-FR.php#jobpilotto-fill'), false);
 });
 
-test('Read sites tabs are reported by ticket, from the mark or kept after a redirect dropped it', async () => {
+test('Find employers in Chrome tabs are reported by ticket, from the mark or kept after a redirect dropped it', async () => {
   const {readTabs} = await import('../../extension/tab-pages.js');
   const tabs = [{id: 4, url: 'https://www.hublot.com/en-ch#jp-read-filter-3b887be2'}, {id: 7, url: 'https://www.omegawatches.com/careers'}, {id: 9, url: 'https://news.example'}];
   const {reading, mark} = readTabs(tabs, {7: 'c8fe5319', 12: 'gone0000'});

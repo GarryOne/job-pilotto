@@ -1,5 +1,5 @@
-// A task the app can't start again (Read sites, Tailor CVs) that was running when the app quit stays in Recent activity as Interrupted, with its
-// log (7 Oct 2026: Read sites vanished from the list after a restart). A search, which is started again, is still handed back to resume.
+// A task the app can't start again (Find employers in Chrome, Tailor CVs) that was running when the app quit stays in Recent activity as Interrupted, with its
+// log (7 Oct 2026: Find employers in Chrome vanished from the list after a restart). A search, which is started again, is still handed back to resume.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

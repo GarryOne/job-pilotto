@@ -230,7 +230,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/update-label.js` — The sidebar's update button: one short line from the version ("Update to 0.5.1 beta"); the release's full title, which names the
 - `desktop/renderer/update-text.js` — Settings → Diagnostics → Updates: whether this is the latest version, from main's updateStatus.
 - `desktop/renderer/view-history.js` — Back and forward through the screens you opened (⌘← / ⌘→, ⌘[ / ⌘], the mouse's side buttons; Alt+← / Alt+→ on
-- `desktop/renderer/visits-card.js` — The result of "Read sites only you can open" (Actions; lib/visits.js resultMessage writes it): parsed for its card. Pure.
+- `desktop/renderer/visits-card.js` — The result of "Find employers in Chrome" (Actions; lib/visits.js resultMessage writes it): parsed for its card. Pure.
 - `desktop/renderer/weekly-card.js` — A weekly report's message as its card reads it, kept free of the DOM, like run-cards.js, mail-report.js and
 - `desktop/renderer/wheel.js` — The session log's mouse wheel. Claude Code turns on the terminal's mouse reporting and scrolls its own view, so
 
