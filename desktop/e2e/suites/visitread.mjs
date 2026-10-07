@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import {chromium} from 'playwright';
+import {chromium} from 'playwright-core';
 
 export const name = 'visitread';
 export const minutes = 2;
@@ -32,7 +32,8 @@ export async function run(ctx) {
   });
   await new Promise(done => server.listen(0, '127.0.0.1', done));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch();
+  // The full Chromium in its new headless mode, as the extension suites run it: CI installs that one, not the separate headless shell.
+  const browser = await chromium.launch({headless: false, args: [...(process.env.E2E_HEADED ? [] : ['--headless=new'])]});
   const page = await browser.newPage();
   const sent = [];
   try {

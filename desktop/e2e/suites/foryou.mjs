@@ -84,7 +84,7 @@ export async function run(ctx) {
       if (!lines.length) throw new Error('nothing recorded');
       const leaked = lines.filter(line => line.includes(first.company) || /Gen[eè]v|Zurich|photograph/i.test(line));
       if (leaked.length) throw new Error(`free words in: ${leaked.join(' | ')}`);
-      const odd = lines.filter(line => !/(shown|taken|dismissed) (role|place|filter|source|explain|employer) on (strategy|few-jobs)/.test(line));
+      const odd = lines.filter(line => !/(shown|taken|dismissed) (role|place|filter|source|explain|employer|visit) on (strategy|few-jobs)/.test(line));
       if (odd.length) throw new Error(`not in the fixed shape: ${odd.join(' | ')}`);
     });
   } finally {
