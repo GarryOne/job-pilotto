@@ -265,9 +265,17 @@ function loadSaved(again = false) {
   return savedLoad;
 }
 const readAgain = () => loadSaved(true);
+// Each step of the library's load goes to logs/app.log (area "ui"): 7 Oct 2026 the page stayed on its skeleton while the
+// engine's read had answered in 3 s, and nothing said which step the window was stuck on. Counts and flags only.
+const libraryLog = (step, fields = {}) => window.pilot.uiLog(`interviews library: ${step}`, fields).catch(() => {});
 async function loadSavedOnce() {
+  const started = Date.now();
+  libraryLog('load', {rows: ivSavedRows.length});
   try { shownAt = await showSavedLoading(); } catch (error) { failed('library (saved copy)', error); }
+  libraryLog('asking Notion', {cached: !!shownAt, ms: Date.now() - started});
   const result = await iv.saved().catch(error => ({ok: false, error: String(error?.message || error)}));
+  libraryLog('answer', {ok: !!result?.ok, rows: Array.isArray(result?.interviews) ? result.interviews.length : -1,
+    needsNotion: !!result?.needsNotion, ms: Date.now() - started});
   const next = afterLoad(result, {rows: ivSavedRows, at: shownAt});
   $('iv-lib-stats').textContent = next.ok ? IV_SAVED_TO : next.stats || IV_SAVED_TO;
   if (!next.ok) {
@@ -297,6 +305,7 @@ async function loadSavedOnce() {
   if (reviewing.size) reviewPoll = setTimeout(readAgain, 30 * 1000);
   else if (next.insight?.outdated && insightWaits > 0) { insightWaits -= 1; reviewPoll = setTimeout(readAgain, 30 * 1000); }
   renderAll();
+  libraryLog('drawn', {rows: ivSavedRows.length, ms: Date.now() - started});
 }
 // The library, then the Insights card, each on its own: a throw in one never blanks the other, and says so.
 function renderAll() {
