@@ -408,8 +408,6 @@ def main(argv=None):
             print(json.dumps({'ok': True, 'visits': _visits(load_search_config(matching=False))}, ensure_ascii=False))
             return 0
         if args.command == 'visit-read':
-            from . import store
-            from .paths import JOBS_DB
             from .sources import visits
             page = json.loads(Path(args.file).read_text())
             result = visits.read(page['url'], page.get('html') or '', page.get('cards'), page.get('title') or '', session=page.get('session') or '')
