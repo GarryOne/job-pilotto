@@ -170,3 +170,28 @@ test('a scheduled run skips while a release run is testing; a build only does no
   const gate = await plan({EVENT: 'schedule', SHA: OLD, TARGET_REF: 'desktop-v1.2', GATE_TAG: 'desktop-v1.2'}, {releases: [['desktop-v1.2', HEAD]], releasing: [{status: 'in_progress', displayTitle: 'Nightly beta'}]});
   assert.equal(gate.count, '4', 'the gate itself, called from that release run, runs');
 });
+
+// 7 Oct 2026 (owner: "$30 a week"): quality (Sonnet) ran in every beta by hand and on Windows too. Now: the Mac lane only, and in a beta by hand only when
+// what it watches changed since the last release approved for Mac. The nightly always runs it.
+test('quality: the nightly runs it; a beta by hand only after a change it watches; never on Windows', async () => {
+  const cadence = {quality: 'nightly'}, watches = {quality: ['src/ai/score.py']};
+  const stub = files => args => {
+    const text = args.join(' ');
+    if (args[0] === 'release' && args[1] === 'list') return JSON.stringify([{tagName: 'desktop-v1.3', body: ''}, {tagName: 'desktop-v1.2', body: 'notes\nBeta-approved: unit suites…'}]);
+    if (/commits\/desktop-v1\.2/.test(text)) return OLD;
+    if (/commits\/desktop-v1\.3/.test(text)) return HEAD;
+    if (/compare\//.test(text)) return files.join('\n');
+    return '[]';
+  };
+  const run = (kind, files) => planRun({env: {REPO: 'o/r', EVENT: 'gate', SHA: HEAD, TARGET_REF: 'desktop-v1.3', GATE_TAG: 'desktop-v1.3', GATE_KIND: kind},
+    gh: stub(files), all: [...ALL, 'quality'], cadence, watches, sameOnEveryOs: ['quality'], minutes: () => 15});
+  const names = out => out.suites.split(',');
+  const quiet = await run('beta', ['desktop/renderer/pages/jobs.js']);
+  assert.ok(!names(quiet).includes('quality'), 'positive control below: same plan, a scoring change runs it');
+  assert.match(quiet.why, /quality not run: nothing it watches changed/);
+  assert.ok(names(await run('beta', ['src/ai/score.py'])).includes('quality'));
+  const nightly = await run('nightly', ['desktop/renderer/pages/jobs.js']);
+  assert.ok(names(nightly).includes('quality'), 'the nightly always runs it');
+  assert.ok(!nightly.windows_suites.split(',').includes('quality'), 'never on Windows');
+  assert.ok(nightly.windows_suites.split(',').includes('jobs'));
+});

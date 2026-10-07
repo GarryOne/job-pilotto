@@ -11,7 +11,7 @@ import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
-export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = []}) {
+export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = [], sameOnEveryOs = []}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
   // TARGET_REF (the gate, the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
   // inputs (canary, soak), so the run is started on main and told which tag to check out.
@@ -36,7 +36,21 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   if (event === 'push') suites = suitesFor(changed(env.BEFORE, sha) || ['desktop/e2e/suite.mjs'], all, {watches, cadence});
   else if (env.PROMOTE_TAG) suites = [];   // a manual dry run of the promotion step: no suites
   // The gate: the release run calls it only for a release it built (a nightly or a beta by hand, desktop.yml), or a gate by hand. Always + nightly suites, not the manual ones.
-  else if (env.GATE_TAG) { tag = env.GATE_TAG; suites = autoSuites(all, cadence); }
+  else if (env.GATE_TAG) {
+    tag = env.GATE_TAG; suites = autoSuites(all, cadence);
+    // A beta by hand (GATE_KIND=beta) is often a re-run: a nightly-only suite (quality: Sonnet, ~$0.30 a run) runs only when what it watches changed since the
+    // last release approved for Mac, whose gate it passed (the nightly) or had nothing to judge. The nightly always runs it (owner, 7 Oct 2026: "$30 a week").
+    if (env.GATE_KIND === 'beta') {
+      const nightly = suites.filter(suite => cadence[suite] === 'nightly');
+      let base = '';
+      for (const {tagName, body} of json(['release', 'list', '-R', repo, '-L', '15', '--exclude-drafts', '--json', 'tagName,body'])) {
+        if (tagName !== tag && /^Beta-approved:/m.test(body || '')) { try { base = gh(['api', `repos/${repo}/commits/${tagName}`, '-q', '.sha']).trim(); } catch { /* unreadable: run it */ } break; }
+      }
+      const files = base ? changed(base, ref) : null;
+      const skip = nightly.filter(suite => files && !files.some(file => (watches[suite] || []).some(watched => file === watched || file.startsWith(watched))));
+      if (skip.length) { suites = suites.filter(suite => !skip.includes(suite)); why = `${skip.join(', ')} not run: nothing it watches changed since the last Mac-approved release (the nightly runs it)`; }
+    }
+  }
   else if (event === 'schedule') {   // the three-a-day schedule: the always suites, on a new commit, for a finding that waits, or while exploring still finds something
     const decision = exploreDecision({head: ref, lastSha, runsOnHead: runs.filter(own)});
     exploring = decision.exploring; why = decision.why;
@@ -62,15 +76,17 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   }
   const include = [];
   for (const suite of suites) include.push({suite, minutes: await minutes(suite), os: await os(suite)});
-  return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), ref, tag, review: review ? '1' : '0', why};
+  // Windows runs the same suites, less those that judge what is the same on every OS (quality: the AI's answers; owner, 7 Oct 2026: Windows paid $1.36 a day for it).
+  const windows = suites.filter(suite => !sameOnEveryOs.includes(suite));
+  return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), windows_suites: windows.join(','), ref, tag, review: review ? '1' : '0', why};
 }
 
 // What every suite says about itself (cadence, watches, varies, minutes, runner): planRun's inputs from the real suites. plan-windows.mjs plans the Windows gate with it too.
 export async function suiteFacts() {
   const {SUITES} = await import('./lib/context.mjs');
-  const cadence = {}, watches = {}, varies = [];
-  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); }
-  return {all: SUITES, cadence, watches, varies, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
+  const cadence = {}, watches = {}, varies = [], sameOnEveryOs = [];
+  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); if (module.sameOnEveryOs) sameOnEveryOs.push(suite); }
+  return {all: SUITES, cadence, watches, varies, sameOnEveryOs, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
     os: async suite => runnerOf(await import(`./suites/${suite}.mjs`))};
 }
 

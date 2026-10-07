@@ -77,6 +77,23 @@ export function recall(key, env = process.env) {
     return {status: kept.status, contentType: kept.contentType, body: Buffer.from(kept.body, 'base64')};
   } catch { return null; }
 }
+// A request replay could not answer (CI, replaying): kept in the suite's artifacts (ai-misses/<key>.json), so two runs' misses can be compared field by field.
+// 7 Oct 2026: interactions paid 14-18 of its ~20 app calls in every gate, on the fixed path: something in its requests changes from run to run, and nothing showed what.
+// Test data only (the suites' synthetic workspace), at most MAX_MISSES per suite run.
+const MAX_MISSES = 60;
+let misses = 0;
+export function keepMiss(key, url, body, env = process.env) {
+  if (!replaying(env) || !env.E2E_ARTIFACTS || misses >= MAX_MISSES) return;
+  let request;
+  try { request = JSON.parse(body.toString('utf8') || '{}'); delete request.metadata; } catch { return; }
+  try {
+    const dir = path.join(env.E2E_ARTIFACTS, 'ai-misses');
+    fs.mkdirSync(dir, {recursive: true});
+    fs.writeFileSync(path.join(dir, `${key}.json`), JSON.stringify({url, request}, null, 1));
+    misses++;
+  } catch {}
+}
+
 // Keep a successful answer (CI only: E2E_AI_CACHE is set by the workflow; a Mac never records).
 export function keep(key, {status, contentType, body}, env = process.env) {
   const dir = cacheDir(env);

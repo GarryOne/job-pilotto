@@ -3,7 +3,7 @@
 // It can also fail on purpose (setMode): the API answering 429 / 500 / 401, an empty credit balance, or never answering, so the failure states of a run are tested
 // without a real outage and without spending anything.
 import http from 'node:http';
-import {count, countError, countReplay, keep, recall, requestKey, usageOf} from './ai-meter.mjs';
+import {count, countError, countReplay, keep, keepMiss, recall, requestKey, usageOf} from './ai-meter.mjs';
 
 // What the Anthropic API sends for each failure the app must survive (bodies copied from the real API's error shape).
 export const FAILURES = {
@@ -42,6 +42,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     }
     // Replay (CI, lib/ai-meter.mjs): the same request answered before is answered from the cache, free; anything new is paid, counted, and kept for next time.
     const body = Buffer.concat(chunks), key = requestKey(req.url, body), kept = recall(key);
+    if (!kept) keepMiss(key, req.url, body);   // what changed since a run replay could answer (lib/ai-meter.mjs keepMiss)
     if (kept) {
       countReplay('app', usageOf(kept.body.toString('utf8'), kept.contentType));
       res.writeHead(kept.status, {'content-type': kept.contentType, 'content-length': kept.body.length});

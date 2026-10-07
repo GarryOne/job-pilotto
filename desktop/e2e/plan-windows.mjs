@@ -45,6 +45,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     const gate = await planRun({env: {EVENT: 'gate', REPO: repo, SHA: sha, TARGET_REF: process.env.GATE_TAG, GATE_TAG: process.env.GATE_TAG}, ...(await suiteFacts())});
     result = {suites: gate.suites ? gate.suites.split(',') : [], review: gate.review === '1', why: `the release gate for ${process.env.GATE_TAG}: ${gate.suites || 'no suites'}`};
   } else result = plan({only: process.env.ONLY || '', all, mac, sha, review: process.env.REVIEW === '1', previous});
+  // A suite that judges what is the same on every OS (quality: the AI's answers) runs on the Mac lane only, unless named by hand (7 Oct 2026).
+  if (!process.env.ONLY) {
+    const same = [];
+    for (const suite of result.suites) { if ((await import(`./suites/${suite}.mjs`).catch(() => ({}))).sameOnEveryOs) same.push(suite); }
+    result.suites = result.suites.filter(suite => !same.includes(suite));
+  }
   console.error(result.why || `Windows runs ${result.suites.length} suite(s)${mac ? ` after Mac run ${id}, commit ${sha.slice(0, 7)}` : ''}: ${result.suites.join(', ') || 'none'}; AI review: ${result.review ? 'yes' : 'no'}`);
   console.log(`matrix=${JSON.stringify({suite: result.suites})}`);
   console.log(`count=${result.suites.length}`);

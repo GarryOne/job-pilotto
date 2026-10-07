@@ -121,3 +121,16 @@ test('a refused call is recorded with the API\'s status, type and message', asyn
   write(out);
   assert.ok(fs.existsSync(path.join(out, 'ai-errors.json')));
 });
+
+// 7 Oct 2026: interactions paid most of its app calls in every gate on the fixed path; a miss is now kept in the suite's artifacts to compare runs.
+test('a request replay cannot answer is kept in the artifacts, without its metadata; not when not replaying', async () => {
+  const {keepMiss} = await import('../lib/ai-meter.mjs');
+  const fsMod = await import('node:fs'), osMod = await import('node:os'), pathMod = await import('node:path');
+  const dir = fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), 'miss-'));
+  const body = Buffer.from(JSON.stringify({model: 'm', messages: [{role: 'user', content: 'hi'}], metadata: {user_id: 'x'}}));
+  keepMiss('k1', '/v1/messages', body, {E2E_AI_REPLAY: '1', E2E_AI_CACHE: dir, E2E_ARTIFACTS: dir});
+  const kept = JSON.parse(fsMod.readFileSync(pathMod.join(dir, 'ai-misses', 'k1.json'), 'utf8'));
+  assert.deepEqual(kept, {url: '/v1/messages', request: {model: 'm', messages: [{role: 'user', content: 'hi'}]}});
+  keepMiss('k2', '/v1/messages', body, {E2E_AI_REPLAY: '0', E2E_AI_CACHE: dir, E2E_ARTIFACTS: dir});
+  assert.equal(fsMod.existsSync(pathMod.join(dir, 'ai-misses', 'k2.json')), false, 'a live run (no replay) keeps nothing');
+});
