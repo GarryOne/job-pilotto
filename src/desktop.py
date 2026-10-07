@@ -607,7 +607,8 @@ def main(argv=None):
             if args.command == 'visit-recipe':
                 if page.get('forget'):
                     visits.forget_recipe(page['url'])
-                print(json.dumps({'ok': True, 'recipe': None if page.get('forget') else visits.recipe_for(page['url'])}))
+                forgot = bool(page.get('missed')) and visits.recipe_missed(page['url'])
+                print(json.dumps({'ok': True, 'forgot': forgot, 'recipe': None if page.get('forget') or forgot else visits.recipe_for(page['url'])}))
                 return 0
             from .ai import visit_reader
             try:

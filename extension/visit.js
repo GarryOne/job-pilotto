@@ -442,10 +442,16 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       if (!seen) { state.stopped = 'the page could not be read'; break; }
       if (seen.login || seen.challenge) { state.stopped = seen.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again'; break; }
       let cards = recipe ? await run(tabId, cardsByRecipe, [recipe]) : seen.cards;
-      if (recipe && !cards.length && page === 0) {   // a recipe that no longer fits this site: forgotten, read afresh
-        await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: seen.url, forget: true})}).catch(() => {});
-        recipe = null;
-        cards = seen.cards;
+      if (recipe && !cards.length && page === 0) {
+        if (plausible(seen.cards)) {   // the quick guess reads a list the recipe misses: it no longer fits this site, forgotten and read afresh
+          await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: seen.url, forget: true})}).catch(() => {});
+          recipe = null;
+          cards = seen.cards;
+        } else {   // no list by either: maybe this page has no jobs (a brand filtered to your place). Kept, and not learned again for it, until
+          // it misses twice in a row (7 Oct 2026: Richemont's layout was forgotten on one brand and learned again on the next, the same).
+          const kept = await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: seen.url, missed: true})}).catch(() => null);
+          if (kept?.forgot) { recipe = null; cards = seen.cards; } else asked = true;
+        }
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
       if (!cards?.length && page === 0 && unstuck < UNBLOCK_TRIES) {   // no jobs here yet: Claude picks a way to them (owner: "ask Claude how to get unblocked")

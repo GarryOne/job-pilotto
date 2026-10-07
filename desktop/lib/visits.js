@@ -87,11 +87,13 @@ export async function claudeResult(storage, id, runEngine = pipeline.run) {
   try { return JSON.parse(String(stdout).trim().split('\n').pop()).result || null; } catch { return null; }
 }
 
-// The recipe kept for a site (or forget it: it found nothing).
+// The recipe kept for a site (or forget it: it found nothing; or `missed`: it found nothing on a page that may have no jobs).
 export async function recipe(storage, page, runEngine) {
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false};
   if (page.forget) log('visit', 'recipe found nothing: learned again next time', {host: new URL(page.url).hostname});
-  return (await engineJson(storage, 'visit-recipe', {url: String(page.url), forget: !!page.forget}, runEngine)) || {ok: false};
+  const answer = (await engineJson(storage, 'visit-recipe', {url: String(page.url), forget: !!page.forget, missed: !!page.missed}, runEngine)) || {ok: false};
+  if (page.missed) log('visit', 'recipe found no jobs on a page with no list', {host: new URL(page.url).hostname, forgot: !!answer.forgot});
+  return answer;
 }
 
 // A page with no job list even after Claude's reading: at most two steps toward it, or "needs you" (src/ai/visit_unblock.py). Claude's time is

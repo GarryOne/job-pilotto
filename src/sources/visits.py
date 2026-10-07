@@ -334,6 +334,8 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
         site = (data.get('sites') or {}).get(host)
         name = PORTALS[portal]['name'] if portal else (site or {}).get('company') or (title or host).split('|')[0].split(' - ')[0].strip()[:120] or host
         data.setdefault('reads', {})[host] = {'at': now.isoformat(timespec='seconds'), 'url': url, 'jobs': len(jobs)}
+        if jobs and ((data.get('recipes') or {}).get(host) or {}).get('missed'):   # the recipe read jobs again: its misses start over
+            data['recipes'][host]['missed'] = 0
         sessions = data.setdefault('sessions', {})
         going_on = bool(session) and session in sessions   # a later page of the same list: its jobs add to the first page's
         feed = sessions[session] if going_on else url.split('#')[0]
@@ -548,6 +550,27 @@ def save_recipe(url, recipe, now=None):
         data.setdefault('recipes', {})[host_of(url)] = {'recipe': recipe, 'learned_at': (now or _now()).isoformat(timespec='seconds')}
         _save(data)
     print(f"Visit: learned how to read {host_of(url)}: blocks {recipe['selector'][:60]}, next page by {recipe['next']}")
+
+
+RECIPE_MISSES = 2   # visits in a row on which a learned recipe found nothing, before it is learned again
+
+
+def recipe_missed(url):
+    """A recipe that found no jobs on a page where the quick guess found none either: maybe the page simply has none (a brand's list filtered
+    to your place, 7 Oct 2026: Richemont's recipe was forgotten on one brand and learned again with Claude on the next, same layout). Kept
+    until it misses RECIPE_MISSES visits in a row; a page read with jobs (read) resets the count. True when it is forgotten now."""
+    with LOCK:
+        data = _load()
+        kept = (data.get('recipes') or {}).get(host_of(url))
+        if not kept:
+            return False
+        kept['missed'] = kept.get('missed', 0) + 1
+        gone = kept['missed'] >= RECIPE_MISSES
+        if gone:
+            data['recipes'].pop(host_of(url))
+        _save(data)
+    print(f"Visit: the recipe for {host_of(url)} found no jobs ({'twice in a row: learned again next time' if gone else 'kept: the page may have none'})")
+    return gone
 
 
 def forget_recipe(url):

@@ -148,6 +148,18 @@ class VisitsTest(unittest.TestCase):
         self.assertEqual(found, ['https://www.chopard.com/fr-ch/careers.html', 'https://www.franckmuller.com/careers', 'https://www.hublot.com/joboffers/en',
                                  'https://www.franckmuller.com/ar/careers'])
 
+    def test_a_recipe_that_finds_no_jobs_is_kept_until_it_misses_twice_in_a_row(self):
+        # 7 Oct 2026: Richemont's recipe was forgotten on a brand page with no jobs (filtered to your place) and learned again on the next brand.
+        recipe = {'selector': 'div.card-job', 'title': 0, 'company': -1, 'place': 4, 'link': 0, 'next': 'Next page', 'why': 'cards'}
+        visits.save_recipe('https://careers.richemont.com/en/jobs/van-cleef-arpels/', recipe, now=NOW)
+        self.assertFalse(visits.recipe_missed('https://careers.richemont.com/en/jobs/jaeger-lecoultre/'))
+        self.assertEqual(visits.recipe_for('https://careers.richemont.com/en/jobs/iwc/'), recipe, 'one miss: kept')
+        visits.read('https://careers.richemont.com/en/jobs/iwc/', '<html></html>', [{'title': 'Client Advisor', 'url': '/en/jobs/iwc/1234567', 'lines': ['IWC', 'Genève']}], now=NOW)
+        self.assertFalse(visits.recipe_missed('https://careers.richemont.com/en/jobs/piaget/'), 'a page read with jobs started the count over')
+        self.assertTrue(visits.recipe_missed('https://careers.richemont.com/en/jobs/cartier/'), 'two misses in a row: learned again')
+        self.assertIsNone(visits.recipe_for('https://careers.richemont.com/en/jobs/iwc/'))
+        self.assertFalse(visits.recipe_missed('https://careers.richemont.com/en/jobs/iwc/'), 'no recipe: nothing to forget')
+
     def test_a_job_page_that_is_a_404_is_forgotten_at_once(self):
         with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
             visits.find_job_pages([{'name': 'FM', 'url': 'https://www.fm.example', 'kind': 'employer'}], [], search=lambda name: ['https://www.fm.example/careers'], now=NOW)
