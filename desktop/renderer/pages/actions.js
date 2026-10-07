@@ -62,11 +62,11 @@ export async function init() {
     if (typeof saved.filter === 'boolean') $('visits-filter').checked = saved.filter;
   } catch {}
   const visitBoxes = () => [...document.querySelectorAll('#visits-sites input[type=checkbox]')];
-  let visitsLoading = false;   // the list is on its way (the first of the day asks Claude which sites suit your roles: ~10 s)
+  let visitsLoading = false, visitsAgain = false;   // the list is on its way (the first of the day asks Claude which sites suit your roles: ~10 s)
   const countVisits = () => {
     if (visitsLoading) return;   // 7 Oct 2026: a click while loading said "No sites to read yet · Read 0 sites"
     const ticked = visitBoxes().filter(box => box.checked).length, all = visitBoxes().length;
-    $('visits-lead').textContent = all ? `${plural(all, 'site')} · ${ticked} selected (the ones not read this week)` : 'No sites to read yet.';
+    $('visits-lead').textContent = all ? `${plural(all, 'site')} · ${ticked} selected (${visitsAgain ? 'the ones that did not finish last time' : 'the ones not read this week'})` : 'No sites to read yet.';
     $('visits-start').textContent = `Read ${plural(ticked, 'site')}`;
     $('visits-start').disabled = !ticked;
   };
@@ -76,6 +76,12 @@ export async function init() {
     for (const id of ['visits-start', 'visits-all', 'visits-none']) $(id).disabled = true;
     const answer = await window.pilot.visitsList().catch(() => null);
     visitsLoading = false;
+    // Run again on a run: its sites, not this week's default (pages/activity.js, renderer/visits-card.js rerunSites)
+    const again = shared.visitsPreselect;
+    shared.visitsPreselect = null;
+    const plainUrl = url => String(url || '').toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[#?].*$/, '').replace(/\/$/, '');
+    const wanted = again ? {names: new Set(again.map(site => site.name)), urls: new Set(again.map(site => plainUrl(site.url)))} : null;
+    visitsAgain = !!wanted;
     for (const id of ['visits-all', 'visits-none']) $(id).disabled = false;
     const sites = answer?.visits || [];
     $('visits-sites').replaceChildren(...sites.map(site => {
@@ -83,7 +89,9 @@ export async function init() {
       const label = document.createElement('label');
       label.className = 'check-row';   // the shared checkbox row (components.css), inside the shared item-rows list
       // Ticked: not read this week, and not failing twice in a row (that one says why, unticked)
-      const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: !site.failing && (site.kind === 'portal' || !site.last_read), value: site.url});
+      const ticked = wanted ? wanted.names.has(site.name) || wanted.urls.has(plainUrl(site.url))
+        : !site.failing && (site.kind === 'portal' || !site.last_read);
+      const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: ticked, value: site.url});
       box.addEventListener('change', countVisits);
       const words = document.createElement('span');
       const name = document.createElement('b');

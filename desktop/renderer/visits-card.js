@@ -29,3 +29,12 @@ export function parseSiteRows(lines) {
   const sites = [...rows.values()], done = sites.filter(site => FINISHED.has(site.state)).length;
   return {sites, done, total: sites.length, percent: Math.round(done / sites.length * 100)};
 }
+
+// Run again on a Find jobs using your browser run: the sites of that run that did not finish (or all of them when none did), so the dialog
+// ticks those and not this week's default (owner, 8 Oct 2026: "selects all, not the specific ones I want to rerun"). [{name, url}]
+export function rerunSites(lines) {
+  const rows = parseSiteRows(lines);
+  if (!rows) return [];
+  const left = rows.sites.filter(site => site.state !== 'done');
+  return (left.length ? left : rows.sites).map(site => ({name: site.name, url: site.url}));
+}

@@ -8,7 +8,7 @@ import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {byFit, cardText, emptyResult, markFallback, newJobsShown, parseRunMessage, plainMessage, runItems} from '../run-cards.js';
-import {parseSiteRows, parseVisits} from '../visits-card.js';
+import {parseSiteRows, parseVisits, rerunSites} from '../visits-card.js';
 import {employersAdvice} from '../onboarding.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
 import {comparisonTable, confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
@@ -874,6 +874,7 @@ export function renderActivity(fresh) {
     // Run again: the task's own Run button on the Actions page, so it queues, joins and reports like any other run.
     const again = head?.fix?.rerun ? runButton(kindOf(run)) : null;
     $('activity-warnings-fix').dataset.rerun = again ? kindOf(run) : '';
+    $('activity-warnings-fix').dataset.sites = again && kindOf(run) === 'visits' ? JSON.stringify(rerunSites(run.log || [])) : '';
     if (head?.fix?.rerun && !again) show($('activity-warnings-fix'), false);
     show($('activity-warnings-log'), !!head?.viewLog || (!head && warnings.length > 0));   // warnings: the exact lines are in the log
     show($('activity-warnings-limit'), limited > 0);
@@ -1806,7 +1807,8 @@ export async function init() {
   document.addEventListener('focus-rendered', () => { if (lastActivity && !$('activity-panel').hidden) renderActivity(lastActivity); });
   $('activity-warnings-fix').addEventListener('click', event => {
     event.preventDefault();
-    const {view, rerun} = event.currentTarget.dataset;
+    const {view, rerun, sites} = event.currentTarget.dataset;
+    if (rerun === 'visits' && sites) shared.visitsPreselect = JSON.parse(sites);   // the dialog ticks this run's sites (pages/actions.js)
     if (rerun) runButton(rerun)?.click(); else if (view) openView(view);
   });
   $('log').addEventListener('scroll', showJumpToLatest);

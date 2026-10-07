@@ -20,3 +20,12 @@ test('a failed app task says why: its first ✗ line', async () => {
   assert.equal(failedLine(log), 'Tiffany & Co.: it stopped answering (nothing for 30 s) (it never started reading: is the extension on in Chrome?)');
   assert.equal(failedLine(['all fine']), undefined);
 });
+
+test('Run again on a browser run ticks its sites that did not finish, or all of them', async () => {
+  const {rerunSites} = await import('../renderer/visits-card.js');
+  const log = ['  ▸ next · Bulgari · https://www.bulgari.com', '  ▸ next · Chanel · https://www.chanel.com', '  ▸ next · Tiffany & Co. · https://www.tiffany.com',
+    '  ▸ done · Bulgari · 47 jobs read', '  ▸ stopped · Tiffany & Co. · it stopped answering', '  ▸ reading · Chanel · page 3'];
+  assert.deepEqual(rerunSites(log).map(site => site.name), ['Chanel', 'Tiffany & Co.']);
+  assert.deepEqual(rerunSites(['  ▸ next · Bulgari · https://www.bulgari.com', '  ▸ done · Bulgari · 1 job']).map(site => site.url), ['https://www.bulgari.com']);
+  assert.deepEqual(rerunSites(['nothing']), []);
+});

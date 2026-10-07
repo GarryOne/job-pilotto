@@ -1,5 +1,6 @@
 // State more than one page changes (an imported binding is read-only, so it lives on one object).
 export const shared = {
+  visitsPreselect: null,   // Run again on a browser run: the sites the dialog ticks (pages/activity.js -> pages/actions.js)
   state: await window.pilot.state(),
   outdatedShown: false,
   openSessionId: null,
