@@ -554,6 +554,16 @@ def main(argv=None):
                 db.executescript(scout.TABLES)
                 db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES ('visit', ?, ?, 'Standard', NULL, ?)""",
                            (result['feed'], result['name'], datetime.now(timezone.utc).isoformat(timespec='seconds')))
+                # A page that is a job system the engine reads by itself (Chanel's Workday, 7 Oct 2026): a feed like any other from now on, read
+                # whole with each job's place at every search, no browser needed.
+                from .sources import ats
+                system = ats.detect(page['url'])
+                if system and system[0] in ats.FETCHERS and system[0] not in ('careers', 'visit'):
+                    company = (page.get('site') or result['name'])[:120]
+                    added = db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES (?, ?, ?, 'Standard', NULL, ?)""",
+                                       (system[0], system[1], company, datetime.now(timezone.utc).isoformat(timespec='seconds'))).rowcount
+                    if added:
+                        print(f'Visit: {company} runs on {system[0]} ({system[1]}): read by every search from now on, no browser needed', file=sys.stderr)
                 db.commit()
             print(json.dumps({'ok': True, 'name': result['name'], 'jobs': len(result['jobs']), 'added': result['added'], 'fits': result['fits'], 'kind': result['kind']}, ensure_ascii=False))
             return 0

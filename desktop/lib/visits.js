@@ -137,7 +137,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
   heardFrom(page?.ticket);
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
   const file = path.join(os.tmpdir(), `jp-visit-${process.pid}-${Date.now()}.json`);
-  const body = {url: String(page.url), title: String(page.title || '').slice(0, 300), session: String(page.session || '').slice(0, 64),
+  const body = {url: String(page.url), title: String(page.title || '').slice(0, 300), session: String(page.session || '').slice(0, 64), site: siteNames.get(String(page?.ticket || '')) || '',
     html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : []};
   fs.writeFileSync(file, JSON.stringify(body));
   try {
@@ -168,6 +168,7 @@ export const QUIET_MS = 30 * 1000;   // a site that sends no news (no page read,
 export const SITE_MS = 75 * 1000;
 let fitsLast = 0;
 export const lastFits = () => fitsLast;   // the last task's jobs that fit the search: main.js starts a search to score them
+const siteNames = new Map();   // ticket -> the site's name in the list ("Chanel"), for a job system found while reading it
 const fitsBy = new Map();   // ticket -> jobs of that site's visit that fit the search (role words and places), for the task's result
 const lastNews = new Map();   // ticket -> time of the extension's last report for that tab
 export function heardFrom(ticket) { if (ticket && lastNews.has(ticket)) lastNews.set(ticket, Date.now()); }
@@ -278,6 +279,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       site = {...chosen, ...(await prepare(chosen).catch(() => chosen))};
     }
     const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
+    siteNames.set(ticket, site.name);
     active?.tickets.set(key(site.url), ticket);
     lastNews.set(ticket, Date.now());
     const openedAt = Date.now();
