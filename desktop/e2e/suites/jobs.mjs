@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {longestSilence, watch} from '../lib/activity.mjs';
+import {runsData} from '../lib/activity-steps.mjs';
 import {emptyDatabase, findPage, rows} from '../lib/notion.mjs';
 import {compareJobs} from '../lib/truth-data.mjs';
 import {finish, visit} from '../lib/layout.mjs';
@@ -71,6 +72,10 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
   await ctx.run('every scored job in the Jobs list is its Notion row, with the same score, and none is missing', async () => {
     // Screen against source: a list that drops, adds or rescored a job is a wrong result no screenshot shows (lib/truth-data.mjs).
+    // After the refresh ends: the list shows a job the moment it is scored, and the refresh writes its Notion rows in groups and at its end (7 Oct 2026: the
+    // step compared at "scored 5 of 6", before any row was written, and failed on Mac and Windows).
+    for (let waited = 0; (await runsData(page)).running && waited < 240000; waited += 3000) await page.waitForTimeout(3000);
+    if ((await runsData(page)).running) throw new Error('the refresh was still running 4 minutes after its first scored job');
     const app = await page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '') && job.fit != null && job.fit !== '').map(job => ({url: job.url, title: job.title, fit: job.fit})));
     const notion = await rows(NOTION, 'Job Matches — AI Scored');   // emptied at the start of this suite: only this run's fixture jobs
     const problems = compareJobs(app, notion);
