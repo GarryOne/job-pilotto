@@ -107,7 +107,7 @@ export async function filters(storage, page, runEngine = pipeline.run) {
   fs.writeFileSync(file, JSON.stringify({url: String(page.url), title: String(page.title || '').slice(0, 300), controls: Array.isArray(page.controls) ? page.controls.slice(0, 200) : []}));
   try {
     const late = new Promise(resolve => setTimeout(() => resolve({late: true}), FILTER_WAIT_MS));
-    const ran = await whileThinking(String(page.ticket || ''), Promise.race([runEngine(storage, ['src.desktop', 'visit-filters', file], onLine), late]));
+    const ran = await whileThinking(String(page.ticket || ''), Promise.race([runEngine(storage, ['src.desktop', 'visit-filters', file], onLine, {}, {stopAfterMs: FILTER_WAIT_MS + 2000}), late]));
     if (ran.late) {
       log('visit', 'filters: Claude took too long, the page is read as it is', {host: new URL(page.url).hostname, waitedMs: FILTER_WAIT_MS});
       onLine(`Filters for ${new URL(page.url).hostname}: Claude took over ${FILTER_WAIT_MS / 1000} s, so the page is read as it is`);
@@ -141,7 +141,9 @@ export async function read(storage, page, runEngine = pipeline.run) {
     html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : []};
   fs.writeFileSync(file, JSON.stringify(body));
   try {
-    const {code, stdout} = await runEngine(storage, ['src.desktop', 'visit-read', file], onLine);
+    // Saving a page can ask Claude too (a list whose links do not look like jobs: src/sources/careers.py _asked): that time is not silence
+    // (owner's run, 7 Oct 2026: Tag Heuer and Hublot were skipped as silent while it answered).
+    const {code, stdout} = await whileThinking(String(page?.ticket || ''), runEngine(storage, ['src.desktop', 'visit-read', file], onLine));
     const answer = (() => { try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return null; } })();
     if (code !== 0 || !answer?.ok) {
       log('visit', 'page not read', {host: new URL(body.url).hostname, code});

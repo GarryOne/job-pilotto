@@ -152,7 +152,9 @@ export const LIMITS = {idleMs: E2E_IDLE || 15 * 60 * 1000, totalMs: 45 * 60 * 10
 export const stoppedReason = timedOut => `Stopped by Job Pilotto: ${timedOut}. The run went quiet, so it was stopped. Run it again; if it keeps stopping, check your AI key or plan in Settings.`;
 // How long a run was silent, for the watchdog's message: minutes for a real run, seconds when the journey shortens the limit.
 export const quietText = ms => (ms < 90 * 1000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
-export function run(storage, args, onLine = () => {}, extraEnv = {}) {
+// `stopAfterMs`: a run whose answer is no use after that long is stopped then (7 Oct 2026: Claude's filter choices went on for 130 s after
+// the page had been read without them, slowing every other Claude call of a Read sites run).
+export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterMs = 0} = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
   const told = onLine;
@@ -168,6 +170,11 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       JOB_PILOTTO_RUN_ID: runId, JOB_PILOTTO_RESULT_FILE: resultFile}});
     children.add(child);
     child.on('exit', () => children.delete(child));
+    const stopper = stopAfterMs ? setTimeout(() => {
+      appLog('run', `stopped after ${Math.round(stopAfterMs / 1000)} s: python -m ${args.join(' ')} (its answer is no longer used)`, {run_id: runId});
+      child.kill('SIGTERM');
+    }, stopAfterMs) : null;
+    child.on('exit', () => clearTimeout(stopper));
     let stdout = '', buffer = '', lastOutputAt = Date.now(), timedOut = '', killTimer = null, rowUrl = '';
     const watch = (args[0] === 'src' || LIMITS.watchAll) ? setInterval(() => {
       if (timedOut) return;

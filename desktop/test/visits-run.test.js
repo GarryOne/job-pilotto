@@ -236,3 +236,15 @@ test('Open in Chrome finds a site\'s tab by the id the extension reported, where
   assert.deepEqual(asked, [['id', 1044091821]], 'by its id, not by the address it started at');
   assert.equal(shown.found, true);
 });
+
+test('a page whose saving asks Claude (slower than the quiet time) does not get its site skipped as silent', async () => {
+  const {read} = await import('../lib/visits.js');
+  const slowSave = () => new Promise(resolve => setTimeout(() => resolve({code: 0, stdout: '{"ok": true, "name": "Hublot", "jobs": 3, "added": 3, "fits": 0}'}), 150));
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    read(null, {url: url.split('#')[0], ticket, html: '<html></html>', cards: []}, slowSave).then(() => done({url: url.split('#')[0], ticket, jobs: 3, added: 3, pages: 1}));
+    return {ok: true};
+  };
+  const results = await runAll([{name: 'Hublot', url: 'https://www.hublot.example'}], {atOnce: 1, openTab, quietMs: 40, siteMs: 5000, waitMs: 5000});
+  assert.deepEqual(results.map(result => [result.name, result.ok]), [['Hublot', true]]);
+});
