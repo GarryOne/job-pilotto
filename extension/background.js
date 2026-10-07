@@ -280,20 +280,29 @@ async function markPage(tabId, url) {
 }
 if (chrome.webNavigation) {
   // A site on the app's visit list lights the icon ("Read"): no access to the page is needed for that (visit.js).
-  chrome.webNavigation.onCompleted.addListener(details => {
+  // Read as soon as the page's own content is there (DOMContentLoaded), not only when every image and script has loaded (onCompleted):
+  // 7 Oct 2026: Tiffany's site took longer than the app's 30 s to "complete", and the app skipped it as "it never started reading".
+  // autoRead runs once a tab, whichever comes first.
+  const readWhenLoaded = details => {
     if (details.frameId !== 0 || !/^https?:/.test(details.url)) return;
     if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
     // A site that redirected and dropped the mark (iwc.com to iwc.com/ch-en, 7 Oct 2026: the tab sat there unread): the mark it was opened with.
     const key = `readmark:${details.tabId}`;
     chrome.storage.session.get(key).then(kept => {
       if (kept[key]) autoRead(details.tabId, `${details.url.split('#')[0]}${kept[key]}`);
-      else markListed(details.tabId, details.url);
-    }).catch(() => markListed(details.tabId, details.url));
-  });
+      else if (details.complete) markListed(details.tabId, details.url);
+    }).catch(() => { if (details.complete) markListed(details.tabId, details.url); });
+  };
+  chrome.webNavigation.onDOMContentLoaded.addListener(readWhenLoaded);
+  chrome.webNavigation.onCompleted.addListener(details => readWhenLoaded({...details, complete: true}));
   // The mark of a tab the app opened to read, kept for the tab: its next pages may have lost it (a redirect).
   chrome.webNavigation.onBeforeNavigate.addListener(details => {
-    const found = details.frameId === 0 && /#jp-read(?:-filter)?(?:-[a-z0-9]{4,16})?$/.exec(details.url);
-    if (found) chrome.storage.session.set({[`readmark:${details.tabId}`]: found[0]}).catch(() => {});
+    const found = details.frameId === 0 && /#jp-read(?:-filter)?(?:-([a-z0-9]{4,16}))?$/.exec(details.url);
+    if (!found) return;
+    chrome.storage.session.set({[`readmark:${details.tabId}`]: found[0]}).catch(() => {});
+    // The app hears at once that the extension has the tab (its site row says so, and it is not silence): "never started reading" then
+    // means the extension never saw it (an old version, the extension off), not a slow page.
+    if (found[1]) settings().then(config => api(config, '/extension/visit-state', {method: 'POST', body: JSON.stringify({ticket: found[1], words: 'the extension has the tab: waiting for the page to load'})})).catch(() => {});
   });
   chrome.tabs.onRemoved.addListener(tabId => { chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {}); });
   chrome.permissions.onAdded.addListener(() => startWaiting());

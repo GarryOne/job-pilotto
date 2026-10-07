@@ -485,8 +485,10 @@ const started = new Set();
 export async function autoRead(tabId, url) {
   const found = MARK.exec(String(url));
   if (!found || started.has(tabId)) return;
+  started.add(tabId);   // at once: the page-ready and page-complete events can both arrive while the next line waits
   const mark = found[0], filter = !!found[2], ticket = found[3] || '';
   if (!(await chrome.permissions.contains(ALL_SITES))) {
+    started.delete(tabId);   // waiting for Allow: the next load of this tab tries again
     // Waiting on the person (owner, 7 Oct 2026: "if there is an action from my side and it's blocking, show it"): the extension's own
     // page with the Allow button opens beside the site (once), and the app is told, so its banner says "waiting for you", not "reading".
     await chrome.storage.session.set({[`waiting:${tabId}`]: url});
@@ -499,7 +501,6 @@ export async function autoRead(tabId, url) {
     await api(await settings(), '/extension/visit-waiting', {method: 'POST', body: JSON.stringify({url: url.slice(0, -mark.length), ticket, why: 'allow'})}).catch(() => {});
     return;
   }
-  started.add(tabId);
   const start = url.slice(0, -mark.length);
   const state = await readSite(tabId, {filter, ticket}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
   await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
