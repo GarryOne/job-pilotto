@@ -280,6 +280,16 @@ export async function workflowRun(storage, runId, {fetcher} = {}) {
   return asRun(await gh.api('GET', `/repos/${gh.repo}/actions/runs/${runId}`));
 }
 
+// Stop on a run in GitHub (Actions banner, Recent activity): GitHub cancels it, which ends the engine there (SIGINT, then SIGTERM),
+// and the engine closes its Notion row as stopped (src/notion/cron_runs.py). 202 Accepted: GitHub does it in a few seconds.
+export const runIdOf = url => /\/actions\/runs\/(\d+)/.exec(String(url || ''))?.[1] || null;
+export async function cancelRun(storage, runId, {fetcher} = {}) {
+  const gh = actionsApi(storage, fetcher);
+  if (!gh) throw new Error('GitHub is not connected');
+  if (!runId) throw new Error('GitHub has not listed this run yet: try again in a few seconds');
+  await gh.api('POST', `/repos/${gh.repo}/actions/runs/${runId}/cancel`);
+}
+
 // The link to open: the job that is actually running, else the workflow run.
 export function runLink(run, jobs = []) {
   const job = (jobs || []).find(item => item.status === 'in_progress')

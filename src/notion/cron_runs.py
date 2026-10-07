@@ -558,7 +558,7 @@ EXIT_GRACE_S = 3
 
 
 def _on_terminate(signum, frame):
-    """The app stops a run with SIGTERM (Stop, quitting the app, its watchdog). The open row is closed as stopped here, then the run
+    """The app stops a run with SIGTERM (Stop, quitting the app, its watchdog); GitHub's cancel (Stop on a GitHub run) with SIGINT. The open row is closed as stopped here, then the run
     leaves through sys.exit so `finally` and atexit run; worker threads still busy (the scout checks 6 employers at once, each with a
     Claude call) are not waited for: the process ends EXIT_GRACE_S later whatever they do. 7 Oct 2026: a scout kept running for
     minutes after the app quit, held the run lock, and the restarted run waited for it."""
@@ -578,10 +578,13 @@ def _on_terminate(signum, frame):
     sys.exit(128 + signum)
 
 
-try:
-    signal.signal(signal.SIGTERM, _on_terminate)
-except ValueError:  # not the main thread (a test): nothing to install
-    pass
+# SIGINT too: Stop on a GitHub run cancels it there, and Actions sends SIGINT first (then SIGTERM, then a kill): the row says
+# "Stopped", not "ended before its report" (7 Oct 2026).
+for _signal in (signal.SIGTERM, signal.SIGINT):
+    try:
+        signal.signal(_signal, _on_terminate)
+    except ValueError:  # not the main thread (a test): nothing to install
+        pass
 
 
 @atexit.register

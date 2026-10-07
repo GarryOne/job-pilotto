@@ -214,3 +214,19 @@ test('a dispatch is logged with its caller, and its failure is reported, not swa
   assert.equal(failed.error, 'Workflow does not have');
   assert.match(lines.at(-1), /^failed Run now \(Refresh\) → daily \(run\) #[0-9a-f]{8} in ada\/job-pilotto-private: Workflow does not have$/);
 });
+
+test('Stop on a GitHub run cancels it there, by the run id in its address', async () => {
+  assert.equal(github.runIdOf('https://github.com/ada/job-pilotto-private/actions/runs/20/job/99'), '20');
+  assert.equal(github.runIdOf('https://github.com/ada/job-pilotto-private/actions/runs/20'), '20');
+  assert.equal(github.runIdOf('https://www.notion.so/page'), null);   // a row with no GitHub address: nothing to cancel
+  const storage = userStorage();
+  storage.setSecret('GITHUB_TOKEN', 'gho_token');
+  storage.saveSettings({cloud: {repo: 'ada/job-pilotto-private'}});
+  const calls = [];
+  const fetcher = async (url, init) => { calls.push([init.method, url.replace('https://api.github.com', '')]); return {ok: true, status: 202, json: async () => ({})}; };
+  await github.cancelRun(storage, '20', {fetcher});
+  assert.deepEqual(calls, [['POST', '/repos/ada/job-pilotto-private/actions/runs/20/cancel']]);
+  await assert.rejects(github.cancelRun(storage, null, {fetcher}), /not listed this run yet/);
+  storage.saveSettings({cloud: null});
+  await assert.rejects(github.cancelRun(storage, '20', {fetcher}), /not connected/);
+});

@@ -36,6 +36,11 @@ SCRIPT = textwrap.dedent('''
 
 class StopMeansStop(unittest.TestCase):
     def test_a_stopped_scout_ends_at_once_and_keeps_its_finished_checks(self):
+        for sig in (signal.SIGTERM, signal.SIGINT):   # SIGINT: Stop on a GitHub run (Actions' cancel sends it first)
+            with self.subTest(signal=sig.name):
+                self._stop_with(sig)
+
+    def _stop_with(self, sig):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'jobs.sqlite'
             env = {**os.environ, 'JOB_PILOTTO_FOLLOW_APP': '0', 'JOB_PILOTTO_DISABLE': 'mail,notion,telegram,google_jobs', 'PYTHONUNBUFFERED': '1'}
@@ -49,7 +54,7 @@ class StopMeansStop(unittest.TestCase):
                 self.assertEqual(checked(), {'Fast1', 'Fast2'}, 'setup: the fast checks are saved while the slow ones still run')
                 self.assertIsNone(child.poll(), 'setup: the run is still going')
                 started = time.time()
-                child.send_signal(signal.SIGTERM)
+                child.send_signal(sig)
                 output, _ = child.communicate(timeout=15)
                 self.assertLess(time.time() - started, 8, 'ended within seconds, not after the slow checks')
             finally:

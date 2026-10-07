@@ -438,6 +438,11 @@ function notify(title, body, target = null) {
 }
 
 // Recent activity: Notion's run history merged with this Mac's own runs and the jobs just sent to GitHub.
+// A run going on in GitHub can be stopped too, once Actions has listed it (its address carries the run id): Stop cancels it there.
+function cloudStop(run) {
+  const githubRun = github.runIdOf(run?.runUrl || run?.url);
+  return githubRun && storage.settings().cloud?.repo ? {...run, stoppable: true, githubRun} : run;
+}
 function activity() {
   pendingCloud = pendingCloud.filter(job => Date.now() - job.id < 10 * 60000);
   const local = pipeline.runs(storage);
@@ -445,7 +450,7 @@ function activity() {
   pendingCloud = waiting;
   const settings = storage.settings();
   const cloud = cloudNextAt(settings);  // Always on: GitHub's schedule (the Mac's own is off then)
-  return {runs, running: pipeline.running() || live, queued: pipeline.queued(), lastSearchAt: settings.lastSearchAt || null,
+  return {runs, running: pipeline.running() || cloudStop(live), queued: pipeline.queued(), lastSearchAt: settings.lastSearchAt || null,
     nextSearchAt: nextAt(settings) ?? cloud.search, nextMailAt: nextMailAt(settings) ?? cloud.mail, nextScoutAt: cloud.scout,
     cloud: !!settings.cloud?.repo, historyLoaded: !!notionRuns};  // false until the run history was read from Notion
 }
@@ -1095,7 +1100,19 @@ function handlers() {
     } catch (error) { appLog('strategy', 'targets not saved', {error: error.message}); return {ok: false, error: error.message}; }
   });
   // Stop on a running task (Actions banner, Recent activity): its commands end, what it saved is kept, the next run continues.
-  ipcMain.handle('stopTask', () => {
+  ipcMain.handle('stopTask', async () => {
+    const elsewhere = pipeline.running() ? null : activity().running;
+    if (elsewhere?.githubRun) {
+      const kind = elsewhere.kind || elsewhere.mode || '';
+      try {
+        await github.cancelRun(storage, elsewhere.githubRun);
+        appLog('run', 'github run cancelled by you', {kind, run: elsewhere.githubRun});
+        return {ok: true, kind, cloud: true};
+      } catch (error) {
+        appLog('run', 'github cancel refused', {kind, run: elsewhere.githubRun, error: error.message, status: error.status || 0});
+        return {ok: false, error: `GitHub did not stop it: ${error.message}`};
+      }
+    }
     const result = pipeline.stopTask();
     appLog('run', result.ok ? 'stopped by you' : 'stop refused', {kind: result.kind || pipeline.running()?.kind || '', error: result.error || ''});
     return result;
