@@ -87,7 +87,7 @@ SCHEMA = {
         # IT families, then the kinds of role of every other trade (src/role_kinds.py KINDS): 6 Oct 2026, a photographer's shop and warehouse
         # jobs could only be 'other'. A test keeps this list and role_kinds.KINDS in step.
         'role_family': {'type': 'string', 'enum': ['sre', 'platform', 'devops', 'cloud_infrastructure', 'software',
-                                                   'data', 'security', 'support_it', 'sales_retail', 'logistics', 'hospitality', 'healthcare',
+                                                   'data', 'security', 'support_it', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare',
                                                    'creative_media', 'finance_admin', 'education', 'trades', 'other']},
         'technologies': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 12 key technologies'},
         'on_call': {'type': 'string', 'enum': ['yes', 'no', 'unknown']},

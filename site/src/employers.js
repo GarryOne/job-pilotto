@@ -33,7 +33,7 @@ export function recipeOf(recipe) {
   return null;
 }
 // What a feed hires for: {kind: share}, fixed kinds only (src/role_kinds.py KINDS, checked equal by tests/test_role_kinds.py), shares 0–1.
-export const KINDS = ['software', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];
+export const KINDS = ['software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other'];
 export const kindsOf = kinds => {
   if (!kinds || typeof kinds !== 'object' || Array.isArray(kinds)) return null;
   const out = Object.fromEntries(Object.entries(kinds).filter(([kind, share]) => KINDS.includes(kind) && typeof share === 'number' && share >= 0 && share <= 1)

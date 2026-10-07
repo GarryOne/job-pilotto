@@ -9,9 +9,12 @@ import re
 from .coverage import _TECH_STEMS, _TECH_WORDS
 
 # Order matters: the first kind whose words a title has is its kind ("Retail data analyst" is software, "Store manager" retail).
-KINDS = ('software', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other')
+KINDS = ('software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other')
 _WORDS = {
-    'sales_retail': r'sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|client advis|sales advis|magasin(?!ier)|filial|g[eé]rante?|detailhandel|cashier|caissi|kassier|merchandis|account (manager|executive)|commercial|conseill[eè]re? de vente|customer (service|success)|service client',
+    # Selling to companies, apart from selling in a shop (7 Oct 2026: Datadog's account executives made it 43% "retail", so tech companies
+    # passed a store seller's employer filter). Before sales_retail: "Sales Manager" is B2B, "Sales Associate" a shop.
+    'sales_b2b': r'account (manager|executive|director|lead)|business develop|bizdev|customer success|sales (engineer|manager|director|development|representative|executive|operations|ops|lead|enablement)|\bsdr\b|\bbdr\b|partnership|solutions? (engineer|consultant|architect)|pre-?sales|key account|inside sales|field sales|enterprise sales|revenue (operations|manager)|commercial (manager|director|lead)',
+    'sales_retail': r'sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|client advis|sales advis|magasin(?!ier)|filial|g[eé]rante?|detailhandel|cashier|caissi|kassier|merchandis|commercial|conseill[eè]re? de vente|customer service|service client',
     'logistics': r'logisti|warehouse|entrep[oô]t|lager|magasinier|picker|pr[eé]parateur|driver|chauffeur|fahrer|courier|livreu|supply chain|shipping|forklift|cariste|dispatch|stock',
     'hospitality': r'chef|cook|cuisin|koch|waiter|serveu|kellner|barista|bartender|hotel|h[oô]tel|reception|housekeep|restaurant|kitchen|catering|gastro',
     'healthcare': r'nurse|infirmi|pflege|doctor|m[eé]decin|arzt|pharmac|therap|care assistant|aide.soignant|medical|m[eé]dical|clinic|dental|midwife|hebamme|caregiver',
@@ -65,10 +68,21 @@ def of_search(search):
     return kinds or None   # only words we cannot place: as unknown
 
 
+MIN_FIT = 0.15        # the wanted kinds' share of an employer's jobs below which it is not read (any share passed before 7 Oct 2026)
+TECH_HEAVY = 0.3      # a software share from which an employer counts as a tech company, for a search that wants no software
+
+
 def fits(feed_kinds, wanted):
-    """Whether an employer with this mix hires for the wanted kinds. Unknown on either side keeps it, and so does a feed whose titles
-    are mostly ones we cannot place (a language or trade the word lists miss): skipping is only for a clear mismatch."""
+    """Whether an employer with this mix hires for the wanted kinds: at least MIN_FIT of its jobs (7 Oct 2026: 7% "creative" kept a tech
+    startup for a photographer), and for a search with no software, not a company whose software jobs outnumber the wanted ones. Unknown on
+    either side keeps it, and so does a feed whose titles are mostly ones we cannot place (a language or trade the word lists miss), unless
+    it also hires software people: skipping is for a clear mismatch."""
     feed_kinds = valid(feed_kinds)
     if not feed_kinds or not wanted:
         return True
-    return bool(wanted & set(feed_kinds)) or feed_kinds.get('other', 0) >= 0.5
+    share, tech = sum(feed_kinds.get(kind, 0) for kind in wanted), feed_kinds.get('software', 0)
+    if 'software' not in wanted and tech >= TECH_HEAVY and share < tech:
+        return False
+    if share >= MIN_FIT:
+        return True
+    return feed_kinds.get('other', 0) >= 0.5 and tech < 0.1

@@ -38,13 +38,25 @@ class KindTests(unittest.TestCase):
         index = [{'company': 'Datadog', 'places': ['Geneva'], 'kinds': {'software': 0.95}},
                  {'company': 'Manor', 'places': ['Geneva'], 'kinds': {'sales_retail': 0.6, 'logistics': 0.3}},
                  {'company': 'Old entry', 'places': ['Geneva']},
-                 {'company': 'Unreadable titles', 'places': ['Geneva'], 'kinds': {'other': 0.8, 'software': 0.2}},
-                 {'company': 'Zurich shop', 'places': ['Zurich'], 'kinds': {'sales_retail': 1.0}}]
+                 {'company': 'Unreadable titles', 'places': ['Geneva'], 'kinds': {'other': 0.9, 'logistics': 0.1}},
+                 {'company': 'Zurich shop', 'places': ['Zurich'], 'kinds': {'sales_retail': 1.0}},
+                 # 7 Oct 2026, stricter (the owner's photographer search read ~200 employers, mostly tech): a tiny wanted share, a tech company
+                 # whose B2B sales once counted as retail, and a research lab of unplaceable titles that also hires software people are left out.
+                 {'company': 'Startup with a designer', 'places': ['Geneva'], 'kinds': {'software': 0.5, 'other': 0.43, 'creative_media': 0.07}},
+                 {'company': 'Datadog-like', 'places': ['Geneva'], 'kinds': {'sales_b2b': 0.43, 'other': 0.29, 'software': 0.18, 'creative_media': 0.05}},
+                 {'company': 'Research lab', 'places': ['Geneva'], 'kinds': {'other': 0.77, 'software': 0.23}},
+                 {'company': 'Watchmaker with boutiques', 'places': ['Geneva'], 'kinds': {'other': 0.5, 'sales_retail': 0.2, 'trades': 0.2, 'software': 0.1}}]
         geneva = lambda job: 'geneva' in job['location'].lower()
         kept = [f['company'] for f in employer_index.relevant(index, geneva, wanted)]
-        self.assertEqual(kept, ['Manor', 'Old entry', 'Unreadable titles'])
-        self.assertEqual(len(employer_index.relevant(index, geneva)), 4, 'without kinds: places only, as before')
-        self.assertEqual(len(employer_index.relevant(index, geneva, None)), 4, 'roles not known: nothing skipped by kind')
+        self.assertEqual(kept, ['Manor', 'Old entry', 'Unreadable titles', 'Watchmaker with boutiques'])
+        self.assertEqual(len(employer_index.relevant(index, geneva)), 8, 'without kinds: places only, as before')
+        self.assertEqual(len(employer_index.relevant(index, geneva, None)), 8, 'roles not known: nothing skipped by kind')
+        sre = role_kinds.of_search({'role_keywords': ['site reliability', 'devops']})
+        self.assertIn('Datadog-like', [f['company'] for f in employer_index.relevant(index, geneva, sre)], 'a tech search keeps a tech company')
+
+    def test_selling_to_companies_is_not_retail(self):
+        self.assertEqual([role_kinds.kind_of(t) for t in ('Account Executive, DACH', 'Sales Manager EMEA', 'Customer Success Manager', 'Sales Associate', 'Store Manager', 'Conseillère de vente')],
+                         ['sales_b2b', 'sales_b2b', 'sales_b2b', 'sales_retail', 'sales_retail', 'sales_retail'])
 
     def test_the_index_keeps_a_valid_mix_only(self):
         feeds_in = [{'company': 'A', 'ats': 'lever', 'slug': 'a', 'kinds': {'software': 0.9, 'hacking': 1, 'other': 3}},

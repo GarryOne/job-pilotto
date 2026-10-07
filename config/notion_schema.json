@@ -597,6 +597,10 @@
               "color": "gray"
             },
             {
+              "name": "sales_b2b",
+              "color": "orange"
+            },
+            {
               "name": "sales_retail",
               "color": "orange"
             },
