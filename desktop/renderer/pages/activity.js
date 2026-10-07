@@ -150,12 +150,11 @@ function siteRow(site) {
   const note = el('span', 'phase-note', capital(site.words));
   const action = site.url && siteAction(site);
   if (action) {
-    const link = Object.assign(el('button', 'link', action[0]), {type: 'button'});
+    const key = `site:${site.url}:${action[0]}`;
+    const link = keepPress(key, Object.assign(el('button', 'link', action[0]), {type: 'button'}));
     link.addEventListener('click', async () => {
-      link.disabled = true;
-      const done = await Promise.resolve(action[1]()).catch(error => ({ok: false, error: error.message}));
-      if (done?.ok === false) link.textContent = done.error || 'Could not do it now';
-      else link.disabled = false;
+      const done = await pressWhile(key, '', async () => action[1]()).catch(error => ({ok: false, error: error.message}));
+      if (done?.ok === false) setPress(key, {text: done.error || 'Could not do it now'});
     });
     note.append(' ', link);
   }
@@ -265,6 +264,27 @@ export function cardFor(run, text) {
   return null;
 }
 
+// A button on a card Recent activity redraws (on every log line and refresh): what it is doing lives here by key, not on the button, so a redraw
+// keeps "Starting Claude…" or its "✓", and the outcome lands on the button now on screen (7 Oct 2026: Read with Claude, then the few-jobs box,
+// showed no loading: the busy button was replaced by a fresh one). Every such button goes through keepPress + pressWhile (a test checks).
+const presses = new Map();          // key -> {busy, done, text, error}
+const pressedButtons = new Map();   // key -> its button on screen now
+function paintPress(key) {
+  const state = presses.get(key), button = pressedButtons.get(key);
+  if (!state || !button) return;
+  if (state.text) button.textContent = state.text;
+  button.disabled = !!(state.busy || state.done);
+  button.toggleAttribute('aria-busy', !!state.busy);
+}
+function keepPress(key, button) { pressedButtons.set(key, button); paintPress(key); return button; }
+function setPress(key, state) { presses.set(key, {...presses.get(key), ...state}); paintPress(key); }
+const pressedButton = key => pressedButtons.get(key);
+const pressError = key => presses.get(key)?.error || '';
+async function pressWhile(key, busyText, work) {
+  setPress(key, {busy: true, error: '', ...(busyText ? {text: busyText} : {})});
+  try { return await work(); } finally { setPress(key, {busy: false}); }
+}
+
 // "Read sites only you can open" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
 // 7 Oct 2026): Read with Claude (a Claude in Chrome session, when the extension could not) and Open it myself.
 export function renderVisitsCard(card, target = $('activity-card')) {
@@ -290,14 +310,16 @@ export function renderVisitsCard(card, target = $('activity-card')) {
       claude.title = 'A Claude in Chrome session opens this site, sets the filters for your search and reads its jobs (needs Claude Code)';
       // Starting a Claude session takes ~10 s (owner, 7 Oct 2026: "I press, nothing happens"): said on the button, the way Re-score does it,
       // then it stays off while that session reads; a refusal is said in the row.
+      const key = `claude:${site.url}`;
+      keepPress(key, claude);
+      if (pressError(key)) words.append(el('span', 'muted visit-claude-error', pressError(key)));
       claude.addEventListener('click', async () => {
-        claude.disabled = true; claude.setAttribute('aria-busy', 'true'); claude.textContent = 'Starting Claude…';
-        const started = await window.pilot.visitWithClaude?.(site.url, site.name).catch(error => ({ok: false, error: error.message}));
-        claude.removeAttribute('aria-busy');
-        if (started?.ok) { claude.textContent = 'Claude is reading in Chrome'; return; }
-        claude.disabled = false; claude.textContent = 'Read with Claude';
-        words.querySelector('.visit-claude-error')?.remove();
-        words.append(el('span', 'muted visit-claude-error', started?.error || 'Claude could not start.'));
+        const started = await pressWhile(key, 'Starting Claude…', () => window.pilot.visitWithClaude(site.url, site.name)).catch(error => ({ok: false, error: error.message}));
+        if (started?.ok) { setPress(key, {done: true, text: 'Claude is reading in Chrome'}); return; }
+        setPress(key, {text: 'Read with Claude', error: started?.error || 'Claude could not start.'});
+        const shown = pressedButton(key)?.closest('li')?.querySelector('.item-words');
+        shown?.querySelector('.visit-claude-error')?.remove();
+        shown?.append(el('span', 'muted visit-claude-error', pressError(key)));
       });
       const myself = el('button', 'link item-action', 'Open it myself');
       myself.type = 'button';
@@ -1769,27 +1791,11 @@ function withFewJobsHelp(foot, runId) {
     line.append(words, button);
     return line;
   };
-  // Every button in this box that does something (a word chip, Set up, Read them in Chrome, Explain with AI): the run card redraws while a run
-  // goes on, so what each is doing lives in `kept`, not on the button. A redraw keeps it busy or done, and the outcome lands on the button now on
-  // screen (7 Oct 2026: a click's "busy" was lost on the next redraw and the answer went to a button no longer shown).
-  const keepButton = (key, button) => {
-    kept.buttons = kept.buttons || new Map();
-    kept.buttons.set(key, button);
-    if (kept.done?.[key]) { button.disabled = true; button.textContent = kept.done[key]; }
-    else if (kept.pending?.has(key)) button.disabled = true;
-    return button;
-  };
-  const onScreen = key => kept.buttons.get(key);   // the newest drawing's button for it
-  const busyWhile = async (key, work) => {
-    kept.pending = kept.pending || new Set();
-    kept.pending.add(key);
-    onScreen(key).disabled = true;
-    try { return await work(); } finally {
-      kept.pending.delete(key);
-      onScreen(key).disabled = !!kept.done?.[key];
-    }
-  };
-  const markDone = (key, text) => { kept.done = {...kept.done, [key]: text}; Object.assign(onScreen(key), {textContent: text, disabled: true}); };
+  // Its buttons go through the page's one mechanism (keepPress), keyed by this run: a redraw keeps them busy or done.
+  const keepButton = (key, button) => keepPress(`few:${runId}:${key}`, button);
+  const busyWhile = (key, work) => pressWhile(`few:${runId}:${key}`, '', work);
+  const markDone = (key, text) => setPress(`few:${runId}:${key}`, {done: true, text});
+  const onScreen = key => pressedButton(`few:${runId}:${key}`);
   const act = (action, button) => {
     adviceEvent('shown', action.kind, 'few-jobs', {source: action.value});
     keepButton(action.label, button);

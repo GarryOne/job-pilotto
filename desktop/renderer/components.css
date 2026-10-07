@@ -583,3 +583,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .chip.removable .x:hover { color: var(--bad); }
 .chip.removable.is-added { background: var(--good-soft); }
 input.add { font-size: var(--fs-md); padding: 6px 10px; }
+/* A button waiting on its action (activity.js pressWhile sets aria-busy): the small spinner before its words, as .spinner.small. */
+button[aria-busy="true"]::before { content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px;
+  border: 2px solid var(--line); border-top-color: var(--signal); border-radius: 50%; animation: spin .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { button[aria-busy="true"]::before { animation: none; } }

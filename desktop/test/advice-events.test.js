@@ -50,14 +50,14 @@ test('the Few new jobs box: an employers meter with one recommendation, words as
   assert.match(fewJobsGroups({employers: {read: 10, matched: 6, pending: 0}}).employers.next, /every candidate checked/);
 });
 
-test('every button in the Few new jobs box keeps its busy and done state across a redraw (one mechanism, a new button without it fails here)', () => {
+test('every button Recent activity redraws that waits on something keeps its busy and done state (one mechanism; a new one without it fails here)', () => {
   const activity = readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
-  const start = activity.indexOf('function withFewJobsHelp('), end = activity.indexOf('\n}\n', start);
-  const box = activity.slice(start, end);
-  const clicks = box.match(/(\w+)\.addEventListener\('click'/g).map(found => found.split('.')[0]);
-  const kept = new Set([...box.matchAll(/keepButton\((?:'[\w-]+'|action\.label), (\w+)\)/g)].map(found => found[1]));
-  // act(action, button) keeps the chips and Set up buttons; "Find new employers" only clicks the scout task's button (nothing to wait on).
-  const waitless = new Set(['scout']);
-  for (const name of clicks) assert.ok(kept.has(name) || waitless.has(name), `${name}: an action button in the box without keepButton`);
-  assert.doesNotMatch(box.replace(/const (keepButton|busyWhile|markDone) = [\s\S]*?\n  };?\n/g, ''), /\.disabled = (true|false)/, 'no button is disabled by hand: busyWhile/markDone do it');
+  // Buttons made while drawing (a name, not a fixed $('…') element) whose click awaits something.
+  const waiting = [...activity.matchAll(/\b(\w+)\.addEventListener\('click', async/g)].map(found => found[1]);
+  const kept = new Set([...activity.matchAll(/(?:keepPress|keepButton)\((?:[^,()]|\([^()]*\))+, (\w+)\)/g)].map(found => found[1])
+    .concat([...activity.matchAll(/const (\w+) = keepPress\(/g)].map(found => found[1])));
+  for (const name of waiting) assert.ok(kept.has(name), `${name}: a redrawn button that waits, without keepPress`);
+  assert.ok(waiting.length >= 4, 'Read with Claude, the Read sites row links, the few-jobs chips and Set up, Read them in Chrome');
+  const start = activity.indexOf('function withFewJobsHelp('), box = activity.slice(start, activity.indexOf('\n}\n', start));
+  assert.doesNotMatch(box, /\.disabled = (true|false)/, 'no button in the few-jobs box is disabled by hand');
 });
