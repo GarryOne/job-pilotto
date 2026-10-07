@@ -130,3 +130,29 @@ test('the result says how many jobs fit the search, and the card reads it (owner
   assert.match(card.sites[0].detail, /5 jobs \(5 new\), 1 matching your search/);
   assert.equal(parseVisits('🌐 Sites read\nRead 1 of 1 site · 4 jobs (4 new)\n✓ A · 4 jobs (4 new) · https://a.example').fits, null, 'an older result still reads');
 });
+
+test('each step a read tab takes shows live in its row, in the words of the page banner, and keeps the site from counting as silent', async () => {
+  const {stepOf, siteLine} = await import('../lib/visits.js');
+  const {tellStep} = await import('../../extension/visit.js');
+  const banners = [], sent = [];
+  const runIn = async (tabId, func, args) => { banners.push(args[0]); };
+  const send = async (config, route, {body}) => { sent.push([route, JSON.parse(body)]); stepOf(JSON.parse(body)); return {ok: true}; };
+  const lines = [];
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    (async () => {
+      await tellStep(5, {}, ticket, 'Claude is choosing the filters for your search…', runIn, send);
+      for (let i = 0; i < 6; i++) { await new Promise(resolve => setTimeout(resolve, 25)); stepOf({ticket, words: 'Claude is choosing the filters for your search…'}); }   // 150 ms: 3x the quiet time
+      await tellStep(5, {}, ticket, 'reading page 1…', runIn, send);
+      done({url: url.split('#')[0], ticket, jobs: 6, added: 6, pages: 1});
+    })();
+    return {ok: true};
+  };
+  const results = await runAll([{name: 'Hublot', url: 'https://www.hublot.com'}], {openTab, tee: line => lines.push(line), quietMs: 50, siteMs: 5000, waitMs: 5000});
+  assert.equal(results[0].ok, true, 'not skipped as silent while Claude chose the filters');
+  assert.deepEqual(banners, ['Job Pilotto: Claude is choosing the filters for your search…', 'Job Pilotto: reading page 1…']);
+  assert.ok(sent.every(([route, body]) => route === '/extension/visit-state' && body.ticket && body.words));
+  assert.ok(lines.includes(siteLine('reading', 'Hublot', 'Claude is choosing the filters for your search…')));
+  await tellStep(5, {}, '', 'a tab the person opened', runIn, send);
+  assert.equal(sent.length, 2, 'a tab the app did not open tells only its banner');
+});

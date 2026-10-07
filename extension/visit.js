@@ -277,6 +277,11 @@ export async function readSite(tabId, {pages = MAX_PAGES, filter = false, ticket
 
 // A site the app opened gets one minute of reading (owner, 7 Oct 2026: "a timeout of 30-60 s per website"); the jobs read by then are kept.
 export const SITE_MS = 60 * 1000;
+// What this tab is doing, in the same words twice: the banner on the page, and the app's row for the site (Recent activity, a tab the app opened).
+export async function tellStep(tabId, config, ticket, words, runIn = run, send = api) {
+  await runIn(tabId, pageBanner, [words ? `Job Pilotto: ${words}` : '']).catch(() => {});
+  if (ticket && words) await send(config, '/extension/visit-state', {method: 'POST', body: JSON.stringify({ticket, words})}).catch(() => {});
+}
 async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
   const deadline = ticket ? Date.now() + SITE_MS : Infinity;
   const session = `${tabId}-${Date.now()}`;
@@ -287,18 +292,20 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     // Not a job list (a home page, an "about" page): go to the site's job list first, as a person would, then filter and read there.
     const first = await run(tabId, extractPage).catch(() => null);
     if (first && !first.login && !first.challenge && !plausible(first.cards)) {
-      await run(tabId, pageBanner, ['Job Pilotto: looking for this site\'s job list…']).catch(() => {});
+      await tellStep(tabId, config, ticket, 'looking for this site\'s job list…');
       const found = await api(config, '/extension/visit-jobpage', {method: 'POST', body: JSON.stringify({url: first.url, html: first.html, ticket})}).catch(() => null);
       if (found?.url && found.url.split('#')[0] !== first.url.split('#')[0]) {
         state.jobpage = found.url;
+        await tellStep(tabId, config, ticket, `going to its job list: ${found.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)}`);
         await chrome.tabs.update(tabId, {url: found.url});
         await pause();
         await waitForPage(tabId).catch(() => {});
       }
     }
     if (filter) {
-      await run(tabId, pageBanner, ['Job Pilotto: Claude is choosing the filters for your search…']).catch(() => {});
+      await tellStep(tabId, config, ticket, 'Claude is choosing the filters for your search…');
       await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
+      await tellStep(tabId, config, ticket, state.filters.length ? `filters set: ${state.filters.join(', ').slice(0, 100)}` : `no filters set${state.note ? ` (${state.note})` : ''}: reading the page as it is`);
     }
     // How to read this site: its saved recipe (no AI), else the quick guess, else Claude from the page's outline (once per visit).
     const start = (await chrome.tabs.get(tabId)).url;
@@ -306,6 +313,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     let asked = false;
     const learn = async () => {
       asked = true;
+      await tellStep(tabId, config, ticket, 'Claude is learning how to read this site (once)…');
       const outline = await run(tabId, pageOutline);
       const answer = await api(config, '/extension/visit-understand', {method: 'POST', body: JSON.stringify(outline)}).catch(() => null);
       if (answer?.recipe) { recipe = answer.recipe; state.learned = true; }
@@ -313,7 +321,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     };
     for (let page = 0; page < pages; page++) {
       if (Date.now() > deadline) { state.stopped = `${SITE_MS / 1000} s are up: the jobs read so far are kept`; break; }
-      await run(tabId, pageBanner, [`Job Pilotto is reading this page${page ? ` · page ${page + 1}` : ''}…`]).catch(() => {});
+      await tellStep(tabId, config, ticket, `reading page ${page + 1}…`);
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }
       if (seen.login || seen.challenge) { state.stopped = seen.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again'; break; }
@@ -333,6 +341,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       let how = recipe ? await run(tabId, nextByRecipe, [recipe]) : await run(tabId, goNext);
       if (how === 'none' && !recipe && !asked && await learn() && recipe.next !== 'none') how = await run(tabId, nextByRecipe, [recipe]);
       if (how === 'none') { state.stopped = 'no next page'; break; }
+      await tellStep(tabId, config, ticket, how === 'scroll' ? 'scrolling for more jobs…' : `going to page ${page + 2}…`);
       await pause();
       if (how !== 'scroll') await waitForPage(tabId);
     }

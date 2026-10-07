@@ -192,6 +192,15 @@ export function waitingFor(payload) {
 const key = url => String(url || '').split('#')[0].replace(/\/$/, '');
 // The tab's ticket (in its mark) first: a site that redirected reports another address. Its start address otherwise (an older extension).
 const which = payload => (payload?.ticket && waiting.has(payload.ticket) ? payload.ticket : key(payload?.url));
+// What a tab is doing now, in the extension's own words (extension/visit.js tellStep: the same as its banner on the page): the site's row says it,
+// and it counts as news, so a site whose Claude is still choosing filters is not skipped as silent.
+export function stepOf(payload) {
+  const ticket = String(payload?.ticket || ''), words = String(payload?.words || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (!ticket || !words) return {ok: true};
+  heardFrom(ticket);
+  watchers.get(ticket)?.({step: words});
+  return {ok: true};
+}
 export function done(payload) {
   const resolve = waiting.get(which(payload));
   if (resolve) { waiting.delete(which(payload)); resolve(payload); }
@@ -236,6 +245,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
         log('visit', 'read tab closed by the person', {host: new URL(site.url).hostname, pages});
         resolve?.({stopped: 'You closed the tab', closed: true, jobs: 0, added: 0});
       }
+      if (event.step) tee(siteLine('reading', site.name, `${event.step}${jobs ? ` · ${jobs} jobs so far` : ''}`));
       if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
       if (event.page) { active?.lastPage.set(key(site.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });

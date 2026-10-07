@@ -147,7 +147,7 @@ function siteAction(site) {
 }
 function siteRow(site) {
   const li = el('li', SITE_MARK[site.state] || 'todo', site.name);
-  const note = el('span', 'phase-note', site.words);
+  const note = el('span', 'phase-note', capital(site.words));
   const action = site.url && siteAction(site);
   if (action) {
     const link = Object.assign(el('button', 'link', action[0]), {type: 'button'});

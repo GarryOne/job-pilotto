@@ -2254,6 +2254,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setVisitRoute('/extension/visit-jobpage', page => visits.jobPage(storage, page));   // a home page: where its job list is
   server.setVisitRoute('/extension/visit-done', payload => visits.done(payload));
   server.setVisitRoute('/extension/visit-waiting', payload => visits.waitingFor(payload));
+  server.setVisitRoute('/extension/visit-state', payload => visits.stepOf(payload));   // what each read tab is doing, live in its row
   let waitingSaid = 0;
   visits.onWaiting(() => {   // once a run: a notification that brings Chrome forward on click
     if (Date.now() - waitingSaid < 10 * 60000) return;
