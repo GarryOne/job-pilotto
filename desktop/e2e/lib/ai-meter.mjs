@@ -68,11 +68,17 @@ export function requestKey(url, body) {
 const cacheDir = (env = process.env) => env.E2E_AI_CACHE || '';
 export const replaying = (env = process.env) => env.E2E_AI_REPLAY === '1' && !!cacheDir(env);
 
-// -> {status, contentType, body: Buffer} kept for this request, or null.
-export function recall(key, env = process.env) {
+// A kept answer is replayed for MAX_AGE_DAYS after it was paid for, then asked again live and kept fresh (owner, 7 Oct 2026): replayed forever, a change in
+// the model's own behaviour (a model update) would never reach the suites. An answer kept before this rule has no date: it is asked again once.
+export const MAX_AGE_DAYS = 3;
+const maxAgeMs = env => (Number(env.E2E_AI_MAX_AGE_DAYS) || MAX_AGE_DAYS) * 86400000;
+
+// -> {status, contentType, body: Buffer} kept for this request, or null (none, or older than its maximum age).
+export function recall(key, env = process.env, now = Date.now()) {
   if (!replaying(env)) return null;
   try {
     const file = path.join(cacheDir(env), `${key}.json`), kept = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!(now - Date.parse(kept.savedAt) < maxAgeMs(env))) return null;   // too old, or undated: asked live, and keep() saves it fresh
     try { const now = new Date(); fs.utimesSync(file, now, now); } catch {}   // still in use: the workflow drops answers untouched for a week
     return {status: kept.status, contentType: kept.contentType, body: Buffer.from(kept.body, 'base64')};
   } catch { return null; }
@@ -98,7 +104,7 @@ export function keepMiss(key, url, body, env = process.env) {
 export function keep(key, {status, contentType, body}, env = process.env) {
   const dir = cacheDir(env);
   if (!dir || status !== 200) return;
-  try { fs.mkdirSync(dir, {recursive: true}); fs.writeFileSync(path.join(dir, `${key}.json`), JSON.stringify({status, contentType, body: Buffer.from(body).toString('base64')})); } catch {}
+  try { fs.mkdirSync(dir, {recursive: true}); fs.writeFileSync(path.join(dir, `${key}.json`), JSON.stringify({status, contentType, savedAt: new Date().toISOString(), body: Buffer.from(body).toString('base64')})); } catch {}
 }
 
 // The suite's figures, one file per kind, in the shape ai-cost-report.mjs --file reads ({usd, calls}); the rest is for the log and the artifact.

@@ -134,3 +134,17 @@ test('a request replay cannot answer is kept in the artifacts, without its metad
   keepMiss('k2', '/v1/messages', body, {E2E_AI_REPLAY: '0', E2E_AI_CACHE: dir, E2E_ARTIFACTS: dir});
   assert.equal(fsMod.existsSync(pathMod.join(dir, 'ai-misses', 'k2.json')), false, 'a live run (no replay) keeps nothing');
 });
+
+// 7 Oct 2026 (owner): a replayed answer never aged, so a change in the model's behaviour would never reach the suites. Kept answers now expire after 3 days.
+test('a kept answer is replayed for 3 days, then asked live again; an undated one is asked again', async () => {
+  const {keep, recall} = await import('../lib/ai-meter.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'replay-'));
+  const env = {E2E_AI_REPLAY: '1', E2E_AI_CACHE: dir};
+  keep('fresh', {status: 200, contentType: 'application/json', body: Buffer.from('{"ok":1}')}, env);
+  assert.equal(recall('fresh', env)?.body.toString(), '{"ok":1}', 'positive control: a new answer is replayed');
+  const saved = Date.parse(JSON.parse(fs.readFileSync(path.join(dir, 'fresh.json'), 'utf8')).savedAt);
+  assert.ok(recall('fresh', env, saved + 2.9 * 86400000), 'still replayed on day 3');
+  assert.equal(recall('fresh', env, saved + 3.1 * 86400000), null, 'asked live after 3 days');
+  fs.writeFileSync(path.join(dir, 'old.json'), JSON.stringify({status: 200, contentType: 'application/json', body: Buffer.from('{}').toString('base64')}));
+  assert.equal(recall('old', env), null, 'an answer kept before the rule (no date) is asked again once');
+});
