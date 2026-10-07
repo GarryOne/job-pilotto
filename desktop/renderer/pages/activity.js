@@ -146,10 +146,14 @@ function siteAction(site) {
   if (site.state === 'stopped' && /no answer from the extension|did not answer/.test(site.words)) return ['Check the extension', () => openSetting('extension')];
   return null;
 }
-function siteRow(site) {
+// live: the run is going. A finished run keeps its rows and marks (owner, 7 Oct 2026: "keep the ticks and crosses after the task completes"),
+// without the links that act on a running tab; a site the run left mid-way reads as stopped there, not as still going.
+const settled = site => (['done', 'stopped', 'closed'].includes(site.state) ? site : {...site, state: 'stopped', words: `${site.words.replace(/…$/, '')}: the run ended here`});
+function siteRow(site, live = true) {
+  if (!live) site = settled(site);
   const li = el('li', SITE_MARK[site.state] || 'todo', site.name);
   const note = el('span', 'phase-note', capital(site.words));
-  const action = site.url && siteAction(site);
+  const action = site.url && (live || site.state === 'stopped') && siteAction(site);
   if (action) {
     const key = `site:${site.url}:${action[0]}`;
     const link = keepPress(key, Object.assign(el('button', 'link', action[0]), {type: 'button'}));
@@ -723,9 +727,10 @@ export function renderActivity(fresh) {
       return li;
     })));
   // Read sites: a row per tab it opens in Chrome, each at its state, and how far the run is (owner, 7 Oct 2026: "right now it's a black box").
-  // The same step card and row marks as a search's steps; once it ends, its result card lists the sites.
-  const tabs = run?.live && kindOf(run) === 'visits' ? parseSiteRows(lines) : null;
-  if (tabs) $('activity-phases').replaceChildren(siteProgress(tabs), ...tabs.sites.map(siteRow));
+  // The same step card and row marks as a search's steps, kept once it ends (its result card then adds the ways on for a stopped site).
+  const tabs = run && kindOf(run) === 'visits' ? parseSiteRows(lines) : null;
+  const shownTabs = tabs && !run.live ? {...tabs, done: tabs.total, percent: 100} : tabs;   // a finished run: every site is settled (settled())
+  if (tabs) $('activity-phases').replaceChildren(siteProgress(shownTabs), ...tabs.sites.map(site => siteRow(site, !!run.live)));
   show($('activity-phases'), updates.length > 0 || at >= 0 || !!tabs);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
   // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
