@@ -800,6 +800,13 @@ function handlers() {
     : cloud() ? dispatchCloud('First search (after setup)', {mode: 'run'}).then(r => ({ok: r.ok, cloud: true, error: r.error}))  // background jobs run in one place
       : pipeline.refresh(storage, log, 'run', 'first')));
   // The list sends the best `jobsLimit` rows; "Show more" raises it for the rest of this launch, so a refresh after a search keeps them.
+  // The window's own line for logs/app.log, area "ui": what a person saw that the app's side can't tell (7 Oct 2026: a counter that
+  // flashed only sometimes). Short identity fields only (numbers, flags, names), never a job or anything the user wrote.
+  ipcMain.handle('uiLog', (_, message, fields = {}) => {
+    const kept = Object.entries(fields && typeof fields === 'object' ? fields : {}).slice(0, 12)
+      .map(([key, value]) => [String(key).slice(0, 40), typeof value === 'number' || typeof value === 'boolean' ? value : String(value).slice(0, 60)]);
+    appLog('ui', String(message).slice(0, 120), Object.fromEntries(kept));
+  });
   ipcMain.handle('jobs', async (_, options = {}) => {
     if (options?.limit) jobsLimit = Math.max(JOBS_PAGE, Math.round(options.limit));
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));

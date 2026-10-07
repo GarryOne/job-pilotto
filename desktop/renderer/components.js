@@ -151,16 +151,19 @@ export function notionGate({reasonText = '', onConnect = () => {}} = {}) {
 // A number that changes while you look at it (a refresh scores, closes, writes) flashes once: up and down in their own colour, the card it
 // sits in glows with it. Not on the first value, not when it is the same, not with reduced motion (components.css .count-up/.count-down).
 // Owner, 7 Oct 2026: "flash it every time it increases/decreases".
+// Returns what it did, for the log: 'first', 'same', 'not a number' or 'flashed'.
 export function setCount(node, value) {
-  if (!node) return;
+  if (!node) return 'no node';
   const before = Number(node.textContent), after = Number(value);
   node.textContent = value;
-  if (node.dataset.counted !== '1') { node.dataset.counted = '1'; return; }
-  if (!Number.isFinite(before) || !Number.isFinite(after) || before === after) return;
+  if (node.dataset.counted !== '1') { node.dataset.counted = '1'; return 'first'; }
+  if (!Number.isFinite(before) || !Number.isFinite(after)) return 'not a number';
+  if (before === after) return 'same';
   const card = node.closest('.stat') || node;
   for (const target of new Set([node, card])) {
     target.classList.remove('count-up', 'count-down');
     void target.offsetWidth;   // restart the animation when it changes twice in a row
     target.classList.add(after > before ? 'count-up' : 'count-down');
   }
+  return 'flashed';
 }

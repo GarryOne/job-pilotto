@@ -911,7 +911,11 @@ function showJobsData(data) {
       (data.waiting ? ` · ${data.waiting} found, waiting for a score` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
-    setCount($('stat-total'), count.total);
+    const totalBefore = $('stat-total').textContent, flash = setCount($('stat-total'), count.total);
+    // Whether a person could see it (7 Oct 2026: "the flashing is not consistently working"): logs/app.log, area ui
+    if (flash !== 'same') window.pilot.uiLog?.('Total matches changed', {from: totalBefore, to: count.total, flash,
+      page: document.querySelector('.view[data-view="jobs"]')?.offsetParent ? 'jobs' : 'another page',
+      window: document.visibilityState, focused: document.hasFocus(), reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches}).catch?.(() => {});
     setCount($('stat-high'), count.high);
     setCount($('stat-inbound'), inboundCount(shared.allJobs));
     // The menu item counts the list as it opens ("New matches"), the number the list bar shows too. "New this week" is
