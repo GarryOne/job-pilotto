@@ -1,0 +1,86 @@
+// The Technical log in plain words (owner, 7 Oct 2026: "readable by a non-technical person: what it is doing, if it added a job, closed a
+// job, is waiting for Claude, is struggling, is scoring, is handling the locations with AI"). The engine's raw lines stay in logs/engine.log
+// for debugging; this turns them into one line per thing that happened: noise dropped (Claude timings, pool sharing, Notion links), counters
+// collapsed to their latest value, the rest reworded. A line it does not know is kept as it is.
+const SLOW_S = 20, WAITED_S = 30;   // a Claude answer this slow, or a wait for a free slot this long, is worth a line
+
+const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
+const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
+
+// [pattern, line -> text | null (dropped) | {key, text} (replaces the earlier line with the same key)]
+const RULES = [
+  [/^Claude Code (\w+): answered in (\d+) s.*?(?:waited (\d+) s for a free slot)?;/, (m) => {
+    const took = Number(m[2]), waited = Number(m[3] || 0);
+    if (waited >= WAITED_S) return `⏳ Waited ${waited} s for Claude: it answers two things at a time`;
+    if (took >= SLOW_S) return `🐢 Claude was slow: ${took} s for one answer`;
+    return null;
+  }],
+  [/^(Pool labels|Shared \d+ employer feeds|Pool catch-up|Cronjob run logged|AI: )/, () => null],
+  [/^Job Matches: .*\(so far\)$/, () => null],
+  [/^Job Matches: (\d+) created, (\d+) updated/, m => (Number(m[1]) + Number(m[2]) ? `📒 Notion Job Matches: ${m[1]} added, ${m[2]} updated` : null)],
+  [/^Time budget: this search stops its AI steps at (.+?);/, m => `⏱ Claude gets up to ${m[1]} this refresh; what is left waits for the next one`],
+  [/^Checked: (.+)$/, (m, state) => ({key: 'checked', text: `🏢 Looked up ${plural(state.count('checked'), 'employer')} from the job boards`})],
+  [/^Job board: (\S+) · (.+?) · (.+?)(?: · page \d+)? · (.+)$/, (m, state) => ({key: 'board', text: `🔎 Searched ${m[1]}: ${plural(state.count('board'), 'page')} read`})],
+  [/^⏱ This refresh places (\d+) of (\d+) job locations.*?; (\d+) wait/, m => `📍 Asking Claude where ${m[1]} of ${m[2]} job locations are (${m[3]} next time)`],
+  [/^Places: asking Claude where/, () => null],
+  [/^Places: Claude placed (\d+) location\(s\); (\d+) are in your places/, m => `📍 Claude placed ${plural(m[1], 'location')}: ${m[2]} in your places`],
+  [/^⏱ This refresh sorts (\d+) of (\d+) job titles/, m => `🏷️ Asking Claude about ${m[1]} of ${m[2]} job titles your role words miss`],
+  [/^Titles: asking Claude/, () => null],
+  [/^Titles: Claude sorted (\d+) new title\(s\) in your places; (\d+) could fit/, m => `🏷️ Claude checked ${plural(m[1], 'job title')}: ${m[2]} could fit you`],
+  [/^Added (\d+) new job\(s\): (.+)$/, m => `➕ Added ${plural(m[1], 'new job')}: ${m[2]}`],
+  [/^Closed 0 job\(s\)/, () => null],
+  [/^Closed (\d+) job\(s\) not seen for (\d+) days/, m => `🗑️ Closed ${plural(m[1], 'job')} no longer listed for ${m[2]} days`],
+  [/^Closed (\d+) job\(s\) outside your places: (.+)$/, m => `🗑️ Closed ${plural(m[1], 'job')} outside your places: ${m[2]}`],
+  [/^Closed (\d+) job\(s\) from employers your search no longer reads/, m => `🗑️ Closed ${plural(m[1], 'job')} from employers you no longer search`],
+  [/^Descriptions: (\d+) of (\d+) missing fetched, (\d+) can't be read from (.+)$/, m =>
+    `📄 Fetched ${m[1]} of ${m[2]} missing job texts; ${m[3]} sites don't let us read them (${m[4]})`],
+  [/^⏱ This refresh scores (\d+) of (\d+) jobs.*?; (\d+) wait/, m => `🎯 Scoring ${m[1]} of ${m[2]} jobs against your Profile (${m[3]} next time)`],
+  [/^Scored (\d+) of (\d+) job\(s\)$/, m => ({key: 'scored', text: `🎯 Scored ${m[1]} of ${plural(m[2], 'job')}`})],
+  [/^Scored (\d+) of (\d+) job\(s\) with [^;]+; (\d+) failed/, m => ({key: 'scored', text: `🎯 Scored ${m[1]} of ${plural(m[2], 'job')}` + (Number(m[3]) ? `, ${m[3]} failed` : '')})],
+  [/^\d+ job\(s\) to score with/, () => null],
+  [/^⏱ (\d+) found job\(s\) wait for the next refresh/, m => `⏱ ${plural(m[1], 'found job')} wait for the next refresh to be scored`],
+  [/^Enriched (\d+) of (\d+) job\(s\)/, m => (Number(m[1]) ? `🔍 Claude read ${plural(m[1], 'job')} for facts (languages, level, pay)` : null)],
+  [/^⏱ Time is up for this refresh: (\d+) (.+?) left/, m => `⏱ Time is up: ${m[1]} ${m[2]} wait for the next refresh`],
+  [/^Digest ready: (\d+) jobs?, (\d+) new/, m => `📨 Digest ready: ${plural(m[1], 'job')}, ${m[2]} new`],
+  [/^Warning: (.+)$/, m => `⚠️ ${m[1]}`],
+  // Reading job sites you opened (the extension's "Read the jobs on this page", the Read sites task)
+  [/^Visit: read (\d+) jobs on (.+?) \((.+?)\) from a page you opened; (\d+) new in this visit, \d+ in all, (\d+) matching/, m =>
+    `🌐 Read ${plural(m[1], 'job')} on ${m[2]}: ${m[4]} new, ${m[5]} match your search`],
+  [/^Visit: the job list of (\S+) is /, m => `🌐 Found the job list of ${m[1]}`],
+  [/^Visit filters: 0 steps/, () => null],
+  [/^Visit filters: (\d+) steps for (\S+?):? (.+)$/, m => `🎛️ Set ${plural(m[1], 'filter')} on ${host(m[2])}: ${m[3]}`],
+  [/^Visit unblock: 0 steps/, () => null],
+  [/^Visit unblock: (\d+) steps for (\S+?):? /, m => `🎛️ Tried ${plural(m[1], 'step')} to show the jobs on ${host(m[2])}`],
+  [/^Visit: no job list on (\S+?),/, m => `⚠️ Couldn't find a job list on ${host(m[1])}`],
+  [/^Visit: the recipe for (\S+) found no jobs/, m => `🔁 ${m[1]} changed: learning how to read it again`],
+  [/^Visit: job page of (.+?): not found/, m => `⚠️ No jobs page found for ${m[1]}`],
+];
+
+// Progress lines ("⏳ Scoring jobs…: 3 of 29") keep only their latest value, per kind of progress.
+const PROGRESS = /^⏳ ([^:·]+?)(?::| ·)/;
+
+export function readableLog(lines = []) {
+  const out = [], at = new Map(), counts = new Map();
+  let inMessage = false;
+  const state = {count: key => { counts.set(key, (counts.get(key) || 0) + 1); return counts.get(key); }};
+  const put = (key, text) => {
+    if (key && at.has(key)) { out[at.get(key)] = text; return; }
+    if (key) at.set(key, out.length);
+    out.push(text);
+  };
+  for (const raw of lines) {
+    const line = String(raw ?? '').trimEnd();
+    if (line === '<<<message') { inMessage = true; continue; }   // the digest itself: the run's card shows it
+    if (line === 'message>>>') { inMessage = false; continue; }
+    if (inMessage || !line.trim() || /^[{[]/.test(line)) continue;   // data lines for the app
+    const progress = PROGRESS.exec(line);
+    if (progress) { put(`progress:${progress[1]}`, line); continue; }
+    const rule = RULES.find(([pattern]) => pattern.test(line));
+    if (!rule) { put('', line); continue; }
+    const result = rule[1](rule[0].exec(line), state);
+    if (result == null) continue;
+    if (typeof result === 'string') put('', result);
+    else put(result.key, result.text);
+  }
+  return out;
+}

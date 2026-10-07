@@ -28,6 +28,7 @@ import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions, prepAction
 import {openView, panelClosed, panelOpened} from './nav.js';
 import {whichJob} from './reassign.js';
 import {openPrep, prepRunning} from './prep.js';
+import {readableLog} from '../human-log.js';
 import {renderSessionPage} from './session-log.js';
 import {renderActionsPage} from './runs-page.js';
 import {toastMessage} from './startup.js';
@@ -897,11 +898,13 @@ export function renderActivity(fresh) {
   if (noLog) $('activity-log').open = false;
   $('activity-log').classList.toggle('is-empty', noLog);   // the same row, "No log available", nothing to open
   $('log-title').textContent = noLog ? 'No log available' : 'Technical log';
-  $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
+  // In plain words (renderer/human-log.js): the raw lines stay in logs/engine.log; the progress bar and warnings above read the raw ones
+  const readable = readableLog(lines);
+  $('log-count').textContent = readable.length ? `· ${plural(readable.length, 'line')}` : '';
   show($('log-live'), !!run?.live);
   show($('log-copy'), !noLog);   // nothing to copy on "No log available"
   const log = $('log');
-  const text = lines.join('\n') || (githubLive
+  const text = readable.join('\n') || (githubLive
     ? (run.url ? 'This run is on GitHub. Its log is copied here when it finishes.' : 'Starting on GitHub…')
     : (run?.live ? 'Nothing to show yet.' : 'No log for this run.'));
   if (log.textContent !== text) {

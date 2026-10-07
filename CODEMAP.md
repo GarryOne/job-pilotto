@@ -180,6 +180,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
 - `desktop/renderer/goal-tiles.js` — The setup goals as label/value rows (Target level, Work mode, Minimum salary, Languages you work in): the setup review and the Strategy page
+- `desktop/renderer/human-log.js` — The Technical log in plain words (owner, 7 Oct 2026: "readable by a non-technical person: what it is doing, if it added a job, closed a
 - `desktop/renderer/icons.js` — Line icons (paths from Lucide, ISC licence), drawn in the current text colour.
 - `desktop/renderer/insight-card.js` — A daily insight's message as its card reads it, kept free of the DOM, like run-cards.js and mail-report.js, so the
 - `desktop/renderer/intel.js` — What a job's fit score and what became of it look like to the product, as counts (src/intelligence.js on the site): the score bands, the states,
