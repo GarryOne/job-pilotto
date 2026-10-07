@@ -282,7 +282,7 @@ if (chrome.webNavigation) {
   // A site on the app's visit list lights the icon ("Read"): no access to the page is needed for that (visit.js).
   chrome.webNavigation.onCompleted.addListener(details => {
     if (details.frameId !== 0 || !/^https?:/.test(details.url)) return;
-    if (/#jp-read(-filter)?$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
+    if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
     markListed(details.tabId, details.url);
   });
   chrome.permissions.onAdded.addListener(() => startWaiting());

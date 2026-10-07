@@ -35,7 +35,7 @@ class VisitsTest(unittest.TestCase):
     def test_a_refusing_site_and_the_portals_are_offered_least_recently_read_first(self):
         self.assertFalse(visits.refused('Down Co', 'https://down.example', 'URLError: timed out'), 'down is not a refusal')
         self.assertTrue(visits.refused('Coop', 'https://jobs.coop.ch', 'HTTP 403', now=NOW))
-        listed = visits.visit_list(SEARCH, {'creative_media'}, now=NOW)
+        listed = visits.visit_list(SEARCH, {'creative_media'}, now=NOW, picks=[])
         self.assertEqual([item['name'] for item in listed][:4], ['Coop', 'LinkedIn', 'Indeed', 'Glassdoor'])
         self.assertNotIn('levels.fyi', [item['name'] for item in listed], 'levels.fyi lists tech jobs: not for a photographer')
         self.assertIn('keywords=photographe&location=Gen%C3%A8ve', listed[1]['url'], 'the user\'s own words, not a regex')
@@ -52,11 +52,16 @@ class VisitsTest(unittest.TestCase):
         jobs = {job['title']: job for job in ats.FETCHERS['visit'](second['feed'])}
         self.assertEqual((jobs['Photographe de mode']['employer'], jobs['Photographe de mode']['location']), ('Studio Lumière', 'Genève, Suisse'))
         self.assertEqual(jobs['Retoucheur photo']['url'], 'https://www.linkedin.com/jobs/view/222')
-        names = [item['name'] for item in visits.visit_list(SEARCH, {'creative_media'}, now=NOW + timedelta(days=1))]
+        names = [item['name'] for item in visits.visit_list(SEARCH, {'creative_media'}, now=NOW + timedelta(days=1), picks=[])]
         self.assertNotIn('LinkedIn', names, 'read yesterday: not offered again yet')
-        self.assertIn('LinkedIn', [item['name'] for item in visits.visit_list(SEARCH, {'creative_media'}, now=NOW + timedelta(days=8))])
+        self.assertIn('LinkedIn', [item['name'] for item in visits.visit_list(SEARCH, {'creative_media'}, now=NOW + timedelta(days=8), picks=[])])
         with mock.patch.object(visits, '_now', lambda: NOW + timedelta(days=30)):
             self.assertEqual(visits.fetch(second['feed']), [], 'an old visit stops serving its jobs')
+
+    def test_the_scouts_unread_picks_for_this_search_come_before_the_portals(self):
+        picks = [{'name': 'H&M Switzerland', 'url': 'https://www.hm.com'}, {'name': 'Manor', 'url': 'https://careers.manor.ch'}]
+        names = [item['name'] for item in visits.visit_list(SEARCH, {'sales_retail'}, now=NOW, picks=picks)]
+        self.assertEqual(names[:3], ['H&M Switzerland', 'Manor', 'LinkedIn'])
 
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',

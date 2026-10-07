@@ -338,11 +338,15 @@ async function waitForPage(tabId) {
 // has allowed the extension on the sites the app opens (Chrome's own prompt, once, from the popup). Each reports to the app and closes, so the
 // app can open the next. Only marked tabs: any other page still needs the person's click.
 export const MARKS = {'#jp-read': false, '#jp-read-filter': true};
+// A mark may carry the app's id for the tab (#jp-read-filter-a1b2c3): reported back, so a site that redirects (www.glassdoor.com to
+// de.glassdoor.ch, 7 Oct 2026) is still matched to the run that opened it.
+export const MARK = /#(jp-read(-filter)?)(?:-([a-z0-9]{4,16}))?$/;
 export const ALL_SITES = {origins: ['https://*/*']};   // as declared in manifest.json; asking or checking more is always refused
 const started = new Set();
 export async function autoRead(tabId, url) {
-  const mark = Object.keys(MARKS).find(key => String(url).endsWith(key));
-  if (!mark || started.has(tabId)) return;
+  const found = MARK.exec(String(url));
+  if (!found || started.has(tabId)) return;
+  const mark = found[0], filter = !!found[2], ticket = found[3] || '';
   if (!(await chrome.permissions.contains(ALL_SITES))) {
     // Waiting on the person (owner, 7 Oct 2026: "if there is an action from my side and it's blocking, show it"): the extension's own
     // page with the Allow button opens beside the site (once), and the app is told, so its banner says "waiting for you", not "reading".
@@ -353,13 +357,13 @@ export async function autoRead(tabId, url) {
       const tab = await chrome.tabs.create({url: chrome.runtime.getURL('allow.html'), active: true}).catch(() => null);
       if (tab) await chrome.storage.session.set({allowTab: tab.id});
     }
-    await api(await settings(), '/extension/visit-waiting', {method: 'POST', body: JSON.stringify({url: url.slice(0, -mark.length), why: 'allow'})}).catch(() => {});
+    await api(await settings(), '/extension/visit-waiting', {method: 'POST', body: JSON.stringify({url: url.slice(0, -mark.length), ticket, why: 'allow'})}).catch(() => {});
     return;
   }
   started.add(tabId);
   const start = url.slice(0, -mark.length);
-  const state = await readSite(tabId, {filter: MARKS[mark]}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
-  await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ...state})}).catch(() => {});
+  const state = await readSite(tabId, {filter}).catch(error => ({stopped: error.message, jobs: 0, pages: 0}));
+  await api(await settings(), '/extension/visit-done', {method: 'POST', body: JSON.stringify({url: start, ticket, ...state})}).catch(() => {});
   started.delete(tabId);
   await chrome.tabs.remove(tabId).catch(() => {});   // done: the app opens the next site in its place
 }

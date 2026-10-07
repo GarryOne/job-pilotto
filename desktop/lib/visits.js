@@ -1,6 +1,7 @@
 // Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors and portals with no API (LinkedIn,
 // Indeed, Glassdoor). The app opens the page in the browser that has the extension; the person, as themselves, presses "Read the jobs" in
 // the extension, which sends each page it sees here; the engine reads it (src/sources/visits.py) and the next jobs check scores it.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -117,7 +118,7 @@ let waitingNotice = null;   // main.js: a notification whose click brings Chrome
 export function onWaiting(fn) { waitingNotice = fn; }   // start addresses waiting on the person (the one-time Allow in Chrome)
 // The extension waits on the person for a site: said in the task's log and as its running step (the banner), not "Reading …".
 export function waitingFor(payload) {
-  const url = key(payload?.url);
+  const url = which(payload);
   if (!waiting.has(url) || blocked.has(url)) return {ok: true};
   blocked.add(url);
   waitingNotice?.();
@@ -126,9 +127,11 @@ export function waitingFor(payload) {
   return {ok: true};
 }
 const key = url => String(url || '').split('#')[0].replace(/\/$/, '');
+// The tab's ticket (in its mark) first: a site that redirected reports another address. Its start address otherwise (an older extension).
+const which = payload => (payload?.ticket && waiting.has(payload.ticket) ? payload.ticket : key(payload?.url));
 export function done(payload) {
-  const resolve = waiting.get(key(payload?.url));
-  if (resolve) { waiting.delete(key(payload.url)); resolve(payload); }
+  const resolve = waiting.get(which(payload));
+  if (resolve) { waiting.delete(which(payload)); resolve(payload); }
   return {ok: true};
 }
 export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS} = {}) {
@@ -136,19 +139,20 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
   taskTee = tee;
   let doneCount = 0;
   const one = async site => {
+    const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
     const finished = new Promise(resolve => {
-      waiting.set(key(site.url), resolve);
+      waiting.set(ticket, resolve);
       setTimeout(() => {
-        if (!waiting.delete(key(site.url))) return;
-        resolve({stopped: blocked.has(key(site.url)) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Job Pilotto page)'
+        if (!waiting.delete(ticket)) return;
+        resolve({stopped: blocked.has(ticket) ? 'you have not allowed the extension on the sites the app opens yet (Chrome, the Job Pilotto page)'
           : 'no answer from the extension in time: is it installed and enabled in Chrome?', jobs: 0, added: 0});
       }, waitMs);
     });
-    const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}`);
-    if (!opened.ok) { waiting.delete(key(site.url)); return {...site, ok: false, why: opened.error, jobs: 0, added: 0}; }
+    const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
+    if (!opened.ok) { waiting.delete(ticket); return {...site, ok: false, why: opened.error, jobs: 0, added: 0}; }
     tee(`Reading ${site.name} in your browser…`);
     const state = await finished;
-    blocked.delete(key(site.url));
+    blocked.delete(ticket);
     const ok = (state.jobs || 0) > 0;
     tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
     doneCount += 1;

@@ -10,15 +10,15 @@ test('sites open a few at a time, each closes on its report, a silent one stops 
   let open = 0, most = 0;
   const openTab = url => {
     opened.push(url); open++; most = Math.max(most, open);
-    const start = url.split('#')[0];
-    if (!start.includes('silent')) setTimeout(() => { open--; done({url: start, jobs: start.includes('empty') ? 0 : 12, added: 3, pages: 2, stopped: start.includes('empty') ? 'the site asks you to sign in' : 'no next page'}); }, 20);
+    const start = url.split('#')[0], ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (!start.includes('silent')) setTimeout(() => { open--; done({url: start.replace('b.example', 'b.example.ch'), ticket, jobs: start.includes('empty') ? 0 : 12, added: 3, pages: 2, stopped: start.includes('empty') ? 'the site asks you to sign in' : 'no next page'}); }, 20);
     else setTimeout(() => { open--; }, 60);
     return {ok: true};
   };
   const sites = ['a', 'b', 'empty', 'silent'].map(name => ({name, url: `https://${name}.example/jobs`}));
   const results = await runAll(sites, {atOnce: 2, openTab, waitMs: 80});
   assert.equal(most, 2, 'never more than two at once');
-  assert.ok(opened.every(url => url.endsWith('#jp-read-filter')));
+  assert.ok(opened.every(url => /#jp-read-filter-[a-z0-9]{8}$/.test(url)), 'each tab carries its ticket');
   assert.deepEqual(results.map(result => [result.name, result.ok, result.jobs]), [['a', true, 12], ['b', true, 12], ['empty', false, 0], ['silent', false, 0]]);
   assert.match(results[3].why, /no answer from the extension/);
 });

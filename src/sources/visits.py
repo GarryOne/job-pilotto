@@ -19,7 +19,7 @@ STORE = DATA / 'visits.json'
 STALE_DAYS = 7          # a page read longer ago is offered for a visit again (its jobs come and go)
 KEEP_DAYS = 21          # a visit's jobs are served for this long; then the feed is empty until the next visit
 MAX_JOBS = 500
-MAX_LIST = 12
+MAX_LIST = 15
 LOCK = threading.Lock()
 # Portals with no API for this: a visit is the way in. The search page is built from the user's own first role word and place.
 PORTALS = {
@@ -113,8 +113,25 @@ def portals(search=None, kinds=None):
     return out
 
 
-def visit_list(search=None, kinds=None, now=None):
-    """What to offer for a visit, least recently read first: [{name, url, kind: 'employer'|'portal', why, last_read, note}]."""
+def unread_picks(db_path=None, limit=8):
+    """Employers the scout picked for THIS search (its AI ideas and the user's own lists, never the old tech seed lists) that ended with no
+    readable job site, with an address to open: [{name, url}], best first. Owner, 7 Oct 2026: "for a photographer or store manager, start with
+    H&M, Manor… the sites we cannot read ourselves that are relevant for such a candidate", not only LinkedIn and Glassdoor."""
+    import sqlite3
+    from ..paths import JOBS_DB
+    try:
+        with sqlite3.connect(db_path or JOBS_DB) as db:
+            rows = db.execute("""SELECT name, COALESCE(NULLIF(careers, ''), website) FROM scout_candidates
+                WHERE status IN ('none', 'watch') AND COALESCE(NULLIF(careers, ''), website, '') LIKE 'http%'
+                AND origin NOT LIKE 'Tier 1%' AND origin NOT LIKE 'Seed%' ORDER BY priority DESC, checked_at DESC LIMIT ?""", (limit,)).fetchall()
+    except sqlite3.Error:
+        return []
+    return [{'name': name, 'url': url} for name, url in rows]
+
+
+def visit_list(search=None, kinds=None, now=None, picks=None):
+    """What to offer for a visit: the employers first (refused ones, then the scout's unread picks for this search), then the portals, each
+    group least recently read first: [{name, url, kind: 'employer'|'portal', why, last_read, note}]."""
     now = now or _now()
     data = _load()
     read = data.get('reads') or {}
@@ -124,11 +141,18 @@ def visit_list(search=None, kinds=None, now=None):
         last = (read.get(host_of(site['url'])) or {}).get('at')
         if not last or last < stale:
             out.append({'name': site['company'], 'url': site['url'], 'kind': 'employer', 'why': 'refuses automated visitors', 'last_read': last, 'note': ''})
+    have = {host_of(item['url']) for item in out}
+    for pick in (unread_picks() if picks is None else picks):
+        last = (read.get(host_of(pick['url'])) or {}).get('at')
+        if host_of(pick['url']) not in have and (not last or last < stale):
+            have.add(host_of(pick['url']))
+            out.append({'name': pick['name'], 'url': pick['url'], 'kind': 'employer', 'why': 'picked for your search, no job list we can read', 'last_read': last,
+                        'note': 'Opens their site: if it is not their job list, go to it, then click the Job Pilotto icon'})
     for portal in portals(search, kinds):
         last = (read.get(host_of(portal['url'])) or {}).get('at')
         if not last or last < stale:
             out.append({'name': portal['name'], 'url': portal['url'], 'kind': 'portal', 'why': 'no way in but your own visit', 'last_read': last, 'note': portal['note']})
-    return sorted(out, key=lambda item: (item['last_read'] or '', item['kind'] != 'employer'))[:MAX_LIST]
+    return sorted(out, key=lambda item: (item['kind'] != 'employer', item['last_read'] or ''))[:MAX_LIST]
 
 
 def listed(url):
