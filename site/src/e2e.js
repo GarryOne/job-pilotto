@@ -7,7 +7,7 @@ import {remember} from './stats.js';
 
 // desktop.yml is the release run (7 Oct 2026): it calls both e2e workflows as its gates, so one run holds a Mac + Linux gate and a Windows gate (releaseGates below).
 const WORKFLOWS = [{file: 'e2e.yml', os: ''}, {file: 'e2e-windows.yml', os: 'Windows'}, {file: 'desktop.yml', release: true}];
-const GATES = [{prefix: 'E2E · Mac + Linux / ', os: ''}, {prefix: 'E2E · Windows / ', os: 'Windows'}];
+const GATES = [{prefix: 'E2E · Mac + Linux · ', os: ''}, {prefix: 'E2E · Windows · ', os: 'Windows'}];   // the release run's E2E boxes: one job per suite (desktop.yml)
 const NOT_SUITES = new Set(['plan', 'promote', 'promote-dry-run', 'Windows follows', 'approve-windows', 'HTML report', 'Windows HTML report']);
 const RUNS = 10;
 const REPORT = 'e2e-report';   // the run's merged Playwright HTML report (the workflows' report job)

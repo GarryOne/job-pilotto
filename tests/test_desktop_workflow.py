@@ -55,42 +55,31 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn("-f beta=${{ inputs.beta && 'true' || 'false' }}", WORKFLOW)
         self.assertIn("-f nightly=${{ (inputs.nightly || github.event_name == 'schedule') && 'true' || 'false' }}", WORKFLOW)
 
-    def test_one_run_builds_tests_and_approves_each_platform(self):
-        # 7 Oct 2026 (owner): one run per release instead of a build, then e2e.yml by workflow_run, then e2e-windows.yml by dispatch.
-        e2e = (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/e2e.yml').read_text()
-        self.assertNotIn('workflow_run:', e2e.split('permissions:')[0], 'the gate is called by the release run, not triggered after it')
-        self.assertIn('uses: ./.github/workflows/e2e.yml', WORKFLOW)
-        self.assertIn('uses: ./.github/workflows/e2e-windows.yml', WORKFLOW)
-        self.assertIn('gate_tag: desktop-v${{ needs.changes.outputs.version }}', WORKFLOW)
-        # only a nightly or a beta by hand is gated; a build by hand is for trying
-        self.assertIn("(github.event_name == 'schedule' || inputs.nightly || inputs.beta)", WORKFLOW)
-        job = lambda name: WORKFLOW.split(f'  {name}:\n')[1].split('\n\n')[0]
-        # Two lanes (owner, 7 Oct 2026: "2 parallel pipelines"): each build needs only the release, each gate only its own build; neither lane waits for the other.
+    def test_each_lane_is_build_then_e2e_then_release_one_box_each(self):
+        # Owner, 7 Oct 2026: "Anything new? -> Build -> E2E -> Release" per platform, "literally that clean": each step one box (a job or one matrix), no called workflows.
+        job = lambda name: WORKFLOW.split(f'\n  {name}:\n')[1].split('\n\n  # ')[0]
+        self.assertNotIn('uses: ./.github/workflows/', WORKFLOW, 'a called workflow draws all its jobs in the graph')
         self.assertIn('needs: changes ', job('build'))
         self.assertIn('needs: changes ', job('windows'))
         self.assertIn('needs: [changes, build]', job('test-mac'))
         self.assertIn('needs: [changes, windows]', job('test-windows'))
-        # Windows is approved only for a release that carries this run's own installer
-        self.assertIn("needs.windows.result == 'success'", job('test-windows'))
-        # each build publishes what it uploaded: the first lane done makes the draft a pre-release
-        for name in ('build', 'windows'):
-            self.assertIn('gh release edit "desktop-v${VERSION}" --draft=false --prerelease', WORKFLOW.split(f'  {name}:\n')[1].split('\n  # ')[0])
-        # the clean-up runs after both lanes, so it keeps tonight's beta
-        self.assertIn('needs: [changes, build, windows, mac-only, test-mac, test-windows, release-mac, release-windows]', WORKFLOW)
-        # Build -> E2E test -> Release, three distinct steps per lane (owner, 7 Oct 2026): the release step is its own job after its lane's E2E
-        for platform, gate in (('mac', 'test-mac'), ('windows', 'test-windows')):
-            release = job(f'release-{platform}')
-            self.assertIn(f'needs: [changes, {gate}]', release)
-            self.assertIn(f"if: needs.{gate}.result == 'success'", release)
-            self.assertIn('uses: ./.github/workflows/beta-approve.yml', release)
-            self.assertIn(f'platform: {platform}', release)
-        # ...and the E2E workflows do not approve a second time inside the release run
-        self.assertIn('!inputs.release_run', e2e.split('  promote:')[1].split('\n\n')[0])
-        windows_e2e = (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/e2e-windows.yml').read_text()
-        self.assertIn('!inputs.release_run', windows_e2e.split('  approve-windows:')[1])
-        # the release run never starts a second Windows run through e2e.yml's "Windows follows"
-        self.assertIn('!inputs.release_run', e2e)
-
+        self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))
+        self.assertIn('fromJson(needs.changes.outputs.windows_matrix)', job('test-windows'))
+        for e2e in ('test-mac', 'test-windows'):   # the gate's settings: the fixed path, the paid judge
+            self.assertIn("E2E_SEED: '0'", job(e2e))
+            self.assertIn("E2E_FULL: '1'", job(e2e))
+        for name, e2e, script in (('release-mac', 'test-mac', 'tools/beta-approve.sh "$TAG"'), ('release-windows', 'test-windows', 'tools/beta-approve.sh --windows "$TAG"')):
+            release = job(name)
+            self.assertIn(f'needs: [changes, {e2e}]', release)
+            self.assertIn(f"if: needs.{e2e}.result != 'success'", release)   # red, "not released", when an E2E suite failed
+            self.assertIn(script, release)
+        # only a nightly or a beta by hand is tested; the plan is made once, for both lanes
+        self.assertIn("(github.event_name == 'schedule' || inputs.nightly || inputs.beta)", job('changes'))
+        self.assertIn('node plan-run.mjs', job('changes'))
+        # the Windows fallback is a step of Build · Windows, not a box
+        self.assertIn('if: failure()', job('windows'))
+        self.assertNotIn('\n  mac-only:\n', WORKFLOW)
+        self.assertIn('needs: [changes, build, windows, test-mac, test-windows, release-mac, release-windows]', WORKFLOW)
 
 if __name__ == '__main__':
     unittest.main()

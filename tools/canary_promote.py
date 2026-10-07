@@ -262,7 +262,7 @@ def runs_for(workflow_runs, sha, tag):
             and (r.get('head_sha') == sha or r.get('display_title') in (f'RC soak {tag}', f'Gate {sha}', f'Gate {tag}', f'Beta E2E tests {sha}', f'Beta E2E tests {tag}'))]
 
 
-MAC_GATE = 'E2E · Mac + Linux / '   # the release run's Mac + Linux gate: desktop.yml calls e2e.yml as this job (7 Oct 2026)
+MAC_GATE = 'E2E · Mac + Linux · '   # the release run's Mac + Linux gate: desktop.yml calls e2e.yml as this job (7 Oct 2026)
 
 
 def release_gate_run(run, jobs):

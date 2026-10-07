@@ -160,15 +160,15 @@ test('a run title with a full commit hash shows its 7-character short form', asy
 test('a release run shows its Mac + Linux gate and its Windows gate as two rows; a build-only run shows none', async () => {
   const jobs = [
     {name: 'Build · Mac', status: 'completed', conclusion: 'success'},
-    {name: 'E2E · Mac + Linux / plan', status: 'completed', conclusion: 'success'},
-    {name: 'E2E · Mac + Linux / jobs', status: 'completed', conclusion: 'success'},
-    {name: 'E2E · Mac + Linux / promote', status: 'completed', conclusion: 'success'},
-    {name: 'E2E · Windows / plan', status: 'completed', conclusion: 'success'},
-    {name: 'E2E · Windows / jobs (Windows)', status: 'completed', conclusion: 'failure'},
-    {name: 'E2E · Windows / approve-windows', status: 'completed', conclusion: 'skipped'},
+    {name: 'E2E · Mac + Linux · plan', status: 'completed', conclusion: 'success'},
+    {name: 'E2E · Mac + Linux · jobs', status: 'completed', conclusion: 'success'},
+    {name: 'E2E · Mac + Linux · promote', status: 'completed', conclusion: 'success'},
+    {name: 'E2E · Windows · plan', status: 'completed', conclusion: 'success'},
+    {name: 'E2E · Windows · jobs (Windows)', status: 'completed', conclusion: 'failure'},
+    {name: 'E2E · Windows · approve-windows', status: 'completed', conclusion: 'skipped'},
   ];
   assert.deepEqual(releaseGates(jobs).map(gate => [gate.os, gate.conclusion, gate.jobs.length]), [['', 'success', 3], ['Windows', 'failure', 3]]);
-  assert.deepEqual(releaseGates([{name: 'Build · Mac', status: 'completed', conclusion: 'success'}, {name: 'E2E · Windows / plan', status: 'completed', conclusion: 'skipped'}]), []);
+  assert.deepEqual(releaseGates([{name: 'Build · Mac', status: 'completed', conclusion: 'success'}, {name: 'E2E · Windows · plan', status: 'completed', conclusion: 'skipped'}]), []);
   const fetcher = async url => {
     const path = new URL(url).pathname;
     if (/workflows\/e2e(-windows)?\.yml\/runs$/.test(path)) return Response.json({workflow_runs: []});

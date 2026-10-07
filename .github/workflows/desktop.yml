@@ -1,7 +1,9 @@
 name: Release · Build, test, beta
 # ONE RUN PER RELEASE, ONE LANE PER PLATFORM (owner, 7 Oct 2026: three runs chained by triggers were hard to follow; then "2 parallel pipelines"):
-#   Anything new? -+- Build · Mac     -> E2E · Mac + Linux (e2e.yml)    -> Release · Mac beta     (beta-approve.yml) -+- Clean up old builds
-#                  +- Build · Windows -> E2E · Windows (e2e-windows.yml) -> Release · Windows beta (beta-approve.yml) -+
+#   Anything new? -+- Build · Mac     -> E2E · Mac + Linux -> Release · Mac beta     -+- Clean up old builds
+#                  +- Build · Windows -> E2E · Windows     -> Release · Windows beta -+
+# One box per step (owner, 7 Oct 2026: "I want it to literally look that clean"): Anything new? also plans the suites, each E2E is one matrix box (the suite jobs of
+# e2e.yml / e2e-windows.yml, copied with the gate's settings), each Release also merges its lane's HTML report.
 # Three distinct steps per lane (owner, 7 Oct 2026): Build publishes the files to the one pre-release (offered to nobody), E2E runs the gate suites on it, Release
 # offers it to that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):", desktop/lib/updater.js). A lane never waits for the other. The same suite on both platforms takes turns (it owns one Notion test page: concurrency group e2e-<suite>).
 # The run is red when a lane is red; that platform's testers are then not offered it.
@@ -58,6 +60,15 @@ jobs:
       build: ${{ steps.diff.outputs.build }}
       version: ${{ steps.version.outputs.version }}     # the release both lanes add their files to
       released: ${{ steps.release.outputs.released }}
+      gate: ${{ steps.plan.outputs.gate }}                 # a nightly or a beta by hand that released: both lanes test it
+      mac_matrix: ${{ steps.plan.outputs.matrix }}
+      windows_matrix: ${{ steps.plan.outputs.windows_matrix }}
+      count: ${{ steps.plan.outputs.count }}
+      review: ${{ steps.plan.outputs.review }}
+    permissions:
+      contents: write   # the tag and the draft release
+      actions: write    # a fresh build of main when this one can't be released
+      issues: read      # the gate's plan reads the waiting UI findings (its AI review decision)
     steps:
       - uses: actions/checkout@v5
         with:
@@ -159,6 +170,25 @@ jobs:
             exit 1
           fi
           echo "released=true" >> "$GITHUB_OUTPUT"
+      # The gate's plan, once for both lanes (desktop/e2e/plan-run.mjs, GATE_TAG): the same suites on Mac + Linux and on Windows, and whether the AI screenshot
+      # review runs. A build by hand ("Build only") is not tested.
+      - name: Plan the E2E suites for both lanes
+        id: plan
+        if: steps.release.outputs.released == 'true' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: gate
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          TARGET_REF: desktop-v${{ steps.version.outputs.version }}
+          GATE_TAG: desktop-v${{ steps.version.outputs.version }}
+        run: |
+          npm ci || npm install
+          node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
+          suites=$(grep '^suites=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
+          echo "windows_matrix=$(node -e 'console.log(JSON.stringify({suite: process.argv[1] ? process.argv[1].split(",") : []}))' "$suites")" >> "$GITHUB_OUTPUT"
+          echo "gate=true" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build · Mac
@@ -288,94 +318,531 @@ jobs:
           cp "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
           gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
           gh release edit "desktop-v${VERSION}" --draft=false --prerelease
-
-  # Build · Windows failed: the release carries the last working Windows installer, so the Windows download link of a release that becomes stable keeps working until a
-  # Windows build passes again. It is never approved for Windows (E2E · Windows needs this run's own Windows build).
-  mac-only:
-    name: Windows fallback (last installer)
-    needs: [changes, build, windows]
-    if: always() && needs.changes.outputs.released == 'true' && needs.build.result == 'success' && needs.windows.result != 'success'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Carry over the last working Windows installer
+      # Build · Windows failed: the release carries the last working Windows installer, so the Windows download link of a release that becomes stable keeps working until a
+      # Windows build passes again. It is never approved for Windows (E2E · Windows needs this build to pass). A step, not a job: no box of its own in the graph.
+      - name: Build failed, so carry over the last working Windows installer
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.changes.outputs.version }}
         run: |
           prev=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" \
             -q '[.[] | select(.draft | not) | select(.tag_name != "desktop-v'"$VERSION"'") | select(any(.assets[]; .name == "Job-Pilotto-windows-x64.exe"))][0].tag_name')
           if [ -n "$prev" ]; then
             gh release download "$prev" --repo "$GITHUB_REPOSITORY" -p Job-Pilotto-windows-x64.exe -D previous
-            gh release upload "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" previous/Job-Pilotto-windows-x64.exe
+            gh release upload "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" previous/Job-Pilotto-windows-x64.exe --clobber
             echo "::warning::Windows build failed; desktop-v${VERSION} carries the Windows installer from ${prev}."
           else
             echo "::warning::Windows build failed and no earlier release has a Windows installer."
           fi
 
-  # TEST: each lane's release gate, as soon as its own build is done (7 Oct 2026). A nightly or a beta by hand only: a build by hand is for trying.
+  # E2E: the gate suites on this build, one box (a matrix) per lane. The suite job of e2e.yml with the gate's settings (fixed path, replayed AI answers, paid judge);
+  # a copy so the graph shows one box, not e2e.yml's plan/report/approve jobs (owner, 7 Oct 2026: "I want it to literally look that clean"). Keep the two in step.
   test-mac:
-    name: E2E · Mac + Linux
+    name: E2E · Mac + Linux · ${{ matrix.suite }}
     needs: [changes, build]
-    if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
-    permissions:            # what e2e.yml's jobs ask for: a called workflow gets at most its caller job's permissions
-      contents: write       # promote (skipped here: Release · Mac beta) asks for it, and a called workflow gets at most its caller job's permissions
-      actions: write        # plan reads runs; "Windows follows" (skipped here) starts runs
-      issues: write         # plan reads the UI-loop issues; promote (skipped here) asks for it
-    uses: ./.github/workflows/e2e.yml
-    with:
-      gate_tag: desktop-v${{ needs.changes.outputs.version }}
-    secrets: inherit
+    if: needs.build.result == 'success' && needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0'
+    runs-on: ${{ matrix.os || 'macos-latest' }}   # Linux unless the suite needs the Mac (lib/plan.mjs runnerOf); a virtual display there
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false      # one suite failing must not hide what the others found
+      matrix: ${{ fromJson(needs.changes.outputs.mac_matrix) }}
+    concurrency:
+      group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
+      cancel-in-progress: false
+    env:
+      # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels
+      # had never run (no token) and showed ✓. Forks have no secrets: they still skip with a warning.
+      E2E_REQUIRE_SECRETS: ${{ github.repository == 'GarryOne/job-pilotto' && '1' || '' }}
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
+      E2E_NOTION_TOKEN_FAILURESNOTION: ${{ secrets.E2E_NOTION_TOKEN_FAILURESNOTION }}
+      E2E_NOTION_TOKEN_FAILURESCHANNELS: ${{ secrets.E2E_NOTION_TOKEN_FAILURESCHANNELS }}
+      E2E_NOTION_TOKEN_JOBS: ${{ secrets.E2E_NOTION_TOKEN_JOBS }}
+      E2E_NOTION_TOKEN_INTERVIEWS: ${{ secrets.E2E_NOTION_TOKEN_INTERVIEWS }}
+      E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}
+      E2E_NOTION_TOKEN_PERSONAS: ${{ secrets.E2E_NOTION_TOKEN_PERSONAS }}
+      E2E_NOTION_TOKEN_EMPLOYERS: ${{ secrets.E2E_NOTION_TOKEN_EMPLOYERS }}
+      E2E_NOTION_TOKEN_CALENDAR: ${{ secrets.E2E_NOTION_TOKEN_CALENDAR }}
+      E2E_NOTION_TOKEN_FOCUS: ${{ secrets.E2E_NOTION_TOKEN_FOCUS }}
+      E2E_NOTION_TOKEN_FOCUSDISMISS: ${{ secrets.E2E_NOTION_TOKEN_FOCUSDISMISS }}
+      E2E_NOTION_TOKEN_APPLY: ${{ secrets.E2E_NOTION_TOKEN_APPLY }}
+      E2E_NOTION_TOKEN_APPLYCV: ${{ secrets.E2E_NOTION_TOKEN_APPLYCV }}
+      E2E_NOTION_TOKEN_ACTIVITY: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITY }}
+      E2E_NOTION_TOKEN_ACTIVITYFAILURES: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITYFAILURES }}
+      E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
+      E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
+      E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
+      E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
+      # AI cost (7 Oct 2026: the e2e key billed ~$10 a day, mostly unseen). Only the scheduled runs ask the model live; every other run (gates, soaks, the canary, reruns,
+      # by hand) answers a request it has seen before from the replay cache, and pays only for new ones (lib/ai-meter.mjs). Judges on Haiku, except the quality suite,
+      # which measures Sonnet's scoring.
+      E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
+      E2E_AI_REPLAY: '1'   # the gate replays AI answers it has seen (lib/ai-meter.mjs)
+      E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
+      E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
+      E2E_RUN_KIND: gate   # how an issue names the run (lib/replay.mjs)
+      E2E_SEED: '0'   # the fixed path (lib/variation.mjs), on both platforms
+      E2E_FULL: '1'   # the paid AI judge steps
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Record which commit this run tested (ui-findings.yml names it in every issue)
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          printf '%s %s\n' "${{ github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Chromium for the suites that use a browser (the real extension, the extension's page code)
+        working-directory: desktop/e2e
+        # A suite says it needs one: `export const browser = true` (the app's extension browser) or `export const needsChromium = true` (a plain Chromium).
+        run: |
+          if grep -qE '^export const (browser|needsChromium) = true' "suites/${{ matrix.suite }}.mjs"; then npx playwright-core install chromium; else echo "no browser needed"; fi
+      - name: Python packages the engine needs
+        run: pip install --quiet -r requirements.txt
+      - name: A virtual display and Electron's libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libnss3 libgbm1 libasound2t64 libgtk-3-0 libxss1 fonts-noto-color-emoji fonts-dejavu-core >/dev/null
+      - name: Earlier AI answers (replayed instead of paid again; lib/ai-meter.mjs)
+        if: env.E2E_ANTHROPIC_KEY != ''
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-answers-${{ matrix.suite }}-
+      - name: Run the ${{ matrix.suite }} suite
+        id: suite_run
+        # A red first run is not the verdict (owner, 6 Oct 2026): the step below runs the suite once more on the same commit and decides. Flaky (red, then green)
+        # passes the job and is filed and labelled `flaky`; red twice fails it. A mutation test has no second try: its red means the bug was caught.
+        continue-on-error: true
+        working-directory: desktop/e2e
+        timeout-minutes: 10   # the suite stops itself at its 7-minute budget (lib/runner.mjs) with its evidence; this catches only a suite that cannot
+        run: |
+          # A run on an older commit (target_ref: the stable canary, a release candidate) plans with main's suite list; a suite added since does not exist in that build.
+          if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs ${{ matrix.suite }}; else node suite.mjs ${{ matrix.suite }}; fi
+      # Flaky or real? A red suite runs once more on the same commit (6 Oct 2026). The job stays red either way; a pass the second time writes flaky.json beside the
+      # first run's artifacts, and triage labels those failed steps `flaky` (the test, not the product). Its own artifacts stay out of the upload: nothing is filed twice.
+      - name: The ${{ matrix.suite }} suite once more, to tell flaky from real
+        if: steps.suite_run.outcome == 'failure'
+        working-directory: desktop/e2e
+        timeout-minutes: 10
+        run: |
+          first="$E2E_ARTIFACTS"
+          export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}" E2E_RERUN=1   # its step table says "second try" (lib/step-summary.mjs)
+          again() { if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs "$1"; else node suite.mjs "$1"; fi; }
+          if again ${{ matrix.suite }}; then
+            echo '{"rerun": "passed"}' > "$first/flaky.json"
+            echo "Passed on the second try: the failed steps are flaky (labelled by triage)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Failed again on the same commit: a real failure." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1   # red twice: the job (and the gate) fail
+          fi
+      - name: Report what the suite paid for AI to /ai-cost (the app under test and the judges)
+        if: always() && env.E2E_ANTHROPIC_KEY != ''
+        continue-on-error: true   # a report never decides a run
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          for kind in app judges; do
+            for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}"; do
+              file="$dir/ai-usage-$kind.json"; [ -f "$file" ] || continue
+              tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
+              node desktop/e2e/ai-cost-report.mjs --job "e2e-$kind" --suffix "${{ matrix.suite }}$tag" --file "$file"
+            done
+          done
+      - name: Keep the AI answers for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        run: find desktop/e2e/.ai-cache -name '*.json' -mtime +7 -delete   # an answer not replayed for a week is dropped (a replay touches it)
+      - if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Earlier AI reviews (an unchanged screenshot is not asked again)
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1'
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-review-${{ matrix.suite }}-
+      - name: AI review of the screenshots
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1'   # the costly part: only when the UI or its tests changed, or a finding waits
+        working-directory: desktop/e2e
+        timeout-minutes: 15   # the batch waits up to 6 min, then asks what is left directly
+        run: node review-ui.mjs
+      # Its cost, as the other AI jobs leave theirs (ai-cost artifacts): /self-heal sums them (desktop/e2e/selfheal-stats.mjs). It was the one AI cost not summed.
+      - name: The AI review's cost
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        run: |
+          node -e 'const fs=require("fs"); const u=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); fs.writeFileSync(process.argv[2], JSON.stringify({job: "review", usd: Number(u.usd)||0, turns: Number(u.calls)||0, at: new Date().toISOString(), limit: false}))' "$E2E_ARTIFACTS/ai-review-usage.json" "$RUNNER_TEMP/ai-cost.json"
+      - name: Reporting tools from main (a soak tests an older tag, whose code may predate them; the workflow's own tooling must match the workflow)
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1'
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: tools-main
+          sparse-checkout: desktop/e2e
+      - name: Report the AI cost to /ai-cost
+        continue-on-error: true   # a report never decides a run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: node tools-main/desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "${{ matrix.suite }}" --file "$RUNNER_TEMP/ai-cost.json"
+      - uses: actions/upload-artifact@v6
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
+        with:
+          name: ai-cost-review-${{ matrix.suite }}
+          path: ${{ runner.temp }}/ai-cost.json
+          if-no-files-found: ignore
+      - name: Keep the AI reviews for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: The suite's part of the HTML report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: blob-${{ matrix.suite }}
+          path: blob-report
+          if-no-files-found: ignore
+          retention-days: 3
+      # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
+      - name: Steps and trace for /admin/e2e
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-view-${{ matrix.suite }}
+          path: |
+            e2e-artifacts/${{ matrix.suite }}/steps.json
+            e2e-artifacts/${{ matrix.suite }}/trace-*.zip
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Screenshots and timings
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-artifacts-${{ matrix.suite }}
+          path: e2e-artifacts/${{ matrix.suite }}
+          if-no-files-found: ignore
 
-  # The Windows lane's gate: the gate suites, planned by itself (plan-windows.mjs, the same plan as the Mac + Linux gate), on the fixed path. Only after this run's own
-  # Windows build: a release that carries an older .exe is never approved for Windows.
+  # The Windows lane's E2E box: e2e-windows.yml's suite job with the gate's settings, the same suites as the Mac lane (planned once, in Anything new?).
   test-windows:
-    name: E2E · Windows
+    name: E2E · Windows · ${{ matrix.suite }}
     needs: [changes, windows]
-    if: needs.windows.result == 'success' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
-    permissions:
-      contents: write       # approve-windows (skipped here: Release · Windows beta) asks for it
-      actions: read         # plan reads runs
-      issues: write         # plan reads the UI-loop issues; approve-windows (skipped here) asks for it
-    uses: ./.github/workflows/e2e-windows.yml
-    with:
-      sha: ${{ github.sha }}
-      tag: desktop-v${{ needs.changes.outputs.version }}
-    secrets: inherit
+    if: needs.windows.result == 'success' && needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.changes.outputs.windows_matrix) }}
+    defaults:
+      run:
+        shell: bash   # the suites' commands use bash syntax; pwsh would mangle quoting
+    concurrency:
+      # The suite owns one Notion page: never together with the same suite on the Mac (e2e.yml uses the same group). A NEW pending job cancels an
+      # older pending one in the group, so start a by-hand Windows run only when no e2e.yml job of that suite is still queued.
+      group: e2e-${{ matrix.suite }}
+      cancel-in-progress: false
+    env:
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
+      E2E_NOTION_TOKEN_JOBS: ${{ secrets.E2E_NOTION_TOKEN_JOBS }}
+      E2E_NOTION_TOKEN_INTERVIEWS: ${{ secrets.E2E_NOTION_TOKEN_INTERVIEWS }}
+      E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}
+      E2E_NOTION_TOKEN_PERSONAS: ${{ secrets.E2E_NOTION_TOKEN_PERSONAS }}
+      E2E_NOTION_TOKEN_EMPLOYERS: ${{ secrets.E2E_NOTION_TOKEN_EMPLOYERS }}
+      E2E_NOTION_TOKEN_CALENDAR: ${{ secrets.E2E_NOTION_TOKEN_CALENDAR }}
+      E2E_NOTION_TOKEN_FOCUS: ${{ secrets.E2E_NOTION_TOKEN_FOCUS }}
+      E2E_NOTION_TOKEN_FOCUSDISMISS: ${{ secrets.E2E_NOTION_TOKEN_FOCUSDISMISS }}
+      E2E_NOTION_TOKEN_APPLY: ${{ secrets.E2E_NOTION_TOKEN_APPLY }}
+      E2E_NOTION_TOKEN_APPLYCV: ${{ secrets.E2E_NOTION_TOKEN_APPLYCV }}
+      E2E_NOTION_TOKEN_ACTIVITY: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITY }}
+      E2E_NOTION_TOKEN_ACTIVITYFAILURES: ${{ secrets.E2E_NOTION_TOKEN_ACTIVITYFAILURES }}
+      E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
+      E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
+      E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
+      E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
+      E2E_FULL: '1'   # the paid AI judge steps, as the Mac lane
+      E2E_SEED: '0'   # the fixed path, as the Mac lane
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
+      # AI cost: as e2e.yml. A Windows run follows a Mac run that already asked live, so it always replays what it has seen (its own cache: paths differ).
+      E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
+      E2E_AI_REPLAY: '1'
+      E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
+      E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
+      E2E_RUN_KIND: gate
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Record which commit this run tested (ui-findings.yml names it in every issue)
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          printf '%s %s\n' "${{ github.ref_name }}" "$(git rev-parse HEAD)" > "$E2E_ARTIFACTS/tested.txt"
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Chromium for the suites that use a browser (the real extension, the extension's page code)
+        working-directory: desktop/e2e
+        # As on the Mac (e2e.yml): the suite says it needs one (`export const browser = true` or `export const needsChromium = true`). A list of suite names here
+        # missed visitread and visitsauto (7 Oct 2026: "Executable doesn't exist at ...chrome.exe").
+        run: |
+          if [ -f "suites/${{ matrix.suite }}.mjs" ] && grep -qE '^export const (browser|needsChromium) = true' "suites/${{ matrix.suite }}.mjs"; then npx playwright-core install chromium; else echo "no browser needed"; fi
+      - name: Python packages the engine needs
+        run: pip install --quiet -r requirements.txt
+      - name: Earlier AI answers (replayed instead of paid again; lib/ai-meter.mjs)
+        if: env.E2E_ANTHROPIC_KEY != ''
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-answers-windows-${{ matrix.suite }}-
+      - name: Run the ${{ matrix.suite }} suite on Windows
+        working-directory: desktop/e2e
+        timeout-minutes: 12   # the suite stops itself at its 7-minute budget, and by force 3 min later (suite.mjs)
+        run: |
+          if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node suite.mjs ${{ matrix.suite }}
+      - name: The apply suite again in Microsoft Edge (the Windows default; preinstalled on the runner)
+        if: matrix.suite == 'apply'
+        working-directory: desktop/e2e
+        timeout-minutes: 30
+        env:
+          E2E_BROWSER: msedge
+          E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/apply-edge   # its own folder: the Chromium run's evidence stays
+        run: node suite.mjs apply
+      - name: Report what the suite paid for AI to /ai-cost (the app under test and the judges)
+        if: always() && env.E2E_ANTHROPIC_KEY != ''
+        continue-on-error: true   # a report never decides a run
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+        run: |
+          for kind in app judges; do
+            for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-artifacts-windows/apply-edge"; do
+              file="$dir/ai-usage-$kind.json"; [ -f "$file" ] || continue
+              tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
+              node desktop/e2e/ai-cost-report.mjs --job "e2e-$kind" --suffix "windows-${{ matrix.suite }}$tag" --file "$file"
+            done
+          done
+      - name: Keep the AI answers for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        run: find desktop/e2e/.ai-cache -name '*.json' -mtime +7 -delete   # an answer not replayed for a week is dropped (a replay touches it)
+      - if: always() && env.E2E_ANTHROPIC_KEY != '' && hashFiles('desktop/e2e/.ai-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.ai-cache
+          key: ai-answers-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Earlier AI reviews (an unchanged screenshot is not asked again)
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1'
+        uses: actions/cache/restore@v5
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-review-windows-${{ matrix.suite }}-
+      - name: AI review of the screenshots
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1'   # only when the Mac run had it (the UI or its tests changed, or a finding waits)
+        working-directory: desktop/e2e
+        timeout-minutes: 15   # the batch waits up to 6 min, then asks what is left directly
+        run: node review-ui.mjs
+      - name: Keep the AI reviews for the next run
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.changes.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: desktop/e2e/.review-cache
+          key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: The suite's part of the HTML report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: blob-windows-${{ matrix.suite }}
+          path: blob-report
+          if-no-files-found: ignore
+          retention-days: 3
+      # For the owner's /admin/e2e page (site/src/e2e.js): the steps and a failed suite's trace, uncompressed so the site reads them without unzipping.
+      - name: Steps and trace for /admin/e2e
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-view-windows-${{ matrix.suite }}
+          path: |
+            e2e-artifacts-windows/${{ matrix.suite }}/steps.json
+            e2e-artifacts-windows/${{ matrix.suite }}/trace-*.zip
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-artifacts-windows-${{ matrix.suite }}
+          path: e2e-artifacts-windows/${{ matrix.suite }}
+          if-no-files-found: ignore
 
-  # RELEASE: the lane's E2E passed -> its beta testers are offered the build (beta-approve.yml: no real high-severity finding, unit suites green, then the notes' line).
+  # RELEASE: the lane's HTML report (always), then, only when every E2E suite of the lane passed: no real high-severity finding, the shared release checks, and the
+  # "Beta-approved:" line that offers the build to Mac beta testers (desktop/lib/updater.js). Red = not released on Mac.
   release-mac:
     name: Release · Mac beta
     needs: [changes, test-mac]
-    if: needs.test-mac.result == 'success'
+    if: always() && needs.changes.outputs.gate == 'true' && needs.test-mac.result != 'skipped' && needs.test-mac.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
-      contents: write
-      actions: read
-      issues: write
-    uses: ./.github/workflows/beta-approve.yml
-    with:
-      platform: mac
-      tag: desktop-v${{ needs.changes.outputs.version }}
-      sha: ${{ github.sha }}
+      contents: write   # the approval line (release-stable.sh when the soak is off)
+      actions: read     # this run's artifacts, build.yml's verdict on the commit
+      issues: write     # block-check.mjs reads the UI-loop issues; the release scripts rewrite the pinned Release channels issue
+    concurrency:
+      group: release-promote   # one writer of a release's notes at a time: both lanes edit the same body
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: desktop-v${{ needs.changes.outputs.version }}
+      REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The E2E suites' HTML report (also when one failed)
+        working-directory: desktop/e2e
+        run: |
+          npm ci || npm install
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'blob-*' --dir blob-reports || true
+          mkdir -p blob-reports flat
+          find blob-reports -mindepth 1 -maxdepth 1 -name 'blob-windows-*' -exec rm -rf {} +
+          find blob-reports -name '*.zip' -exec cp {} flat/ \;
+          if ls flat/*.zip >/dev/null 2>&1; then
+            PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html flat
+            echo "## 📊 [Open the Mac HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
+          else echo "No suite wrote a report." >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v6
+        if: hashFiles('e2e-report/index.html') != ''
+        with:
+          name: e2e-report   # site/src/e2e.js serves it
+          path: e2e-report
+          compression-level: 0
+      - name: Not released on Mac, an E2E suite failed
+        if: needs.test-mac.result != 'success'
+        run: |
+          echo "### ❌ $TAG is not offered to Mac beta testers: an E2E suite failed (see the report above)." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: No real high-severity finding in the Mac suites
+        working-directory: desktop/e2e
+        run: |
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'e2e-artifacts-*' --dir ../../e2e-artifacts || echo "no artifacts to read"
+          mkdir -p ../../e2e-artifacts
+          find ../../e2e-artifacts -mindepth 1 -maxdepth 1 -name 'e2e-artifacts-windows-*' -exec rm -rf {} +
+          status=0
+          node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
+          cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "$TAG is not offered on Mac: a real high-severity finding in its end-to-end suites." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
+        env:
+          JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Release it to Mac beta testers
+        env:
+          E2E_ALREADY_GREEN: '1'   # every Mac suite passed on this commit, in this run
+          SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: |
+          if [ "$SOAK" = on ]; then
+            tools/beta-approve.sh "$TAG"
+            echo "Beta-approved: $TAG (unit suites and every end-to-end suite passed on its commit). It becomes stable through canary-promote.yml: more end-to-end runs, no blocking finding, then healthy beta use." >> "$GITHUB_STEP_SUMMARY"
+          else
+            tools/release-stable.sh "$TAG"
+            echo "Stable: $TAG (every suite passed on its commit)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
+  # RELEASE: the lane's HTML report (always), then, only when every E2E suite of the lane passed: no real high-severity finding, the shared release checks, and the
+  # "Beta-approved (Windows):" line that offers the build to Windows beta testers (desktop/lib/updater.js). Red = not released on Windows.
   release-windows:
     name: Release · Windows beta
     needs: [changes, test-windows]
-    if: needs.test-windows.result == 'success'
+    if: always() && needs.changes.outputs.gate == 'true' && needs.test-windows.result != 'skipped' && needs.test-windows.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
-      contents: write
-      actions: read
-      issues: write
-    uses: ./.github/workflows/beta-approve.yml
-    with:
-      platform: windows
-      tag: desktop-v${{ needs.changes.outputs.version }}
-      sha: ${{ github.sha }}
+      contents: write   # the approval line (release-stable.sh when the soak is off)
+      actions: read     # this run's artifacts, build.yml's verdict on the commit
+      issues: write     # block-check.mjs reads the UI-loop issues; the release scripts rewrite the pinned Release channels issue
+    concurrency:
+      group: release-promote   # one writer of a release's notes at a time: both lanes edit the same body
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: desktop-v${{ needs.changes.outputs.version }}
+      REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The E2E suites' HTML report (also when one failed)
+        working-directory: desktop/e2e
+        run: |
+          npm ci || npm install
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'blob-*' --dir blob-reports || true
+          mkdir -p blob-reports flat
+          find blob-reports -mindepth 1 -maxdepth 1 -name 'blob-*' ! -name 'blob-windows-*' -exec rm -rf {} +
+          find blob-reports -name '*.zip' -exec cp {} flat/ \;
+          if ls flat/*.zip >/dev/null 2>&1; then
+            PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html flat
+            echo "## 📊 [Open the Windows HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report?os=windows) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
+          else echo "No suite wrote a report." >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v6
+        if: hashFiles('e2e-report/index.html') != ''
+        with:
+          name: e2e-report-windows   # site/src/e2e.js serves it
+          path: e2e-report
+          compression-level: 0
+      - name: Not released on Windows, an E2E suite failed
+        if: needs.test-windows.result != 'success'
+        run: |
+          echo "### ❌ $TAG is not offered to Windows beta testers: an E2E suite failed (see the report above)." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: No real high-severity finding in the Windows suites
+        working-directory: desktop/e2e
+        run: |
+          gh run download "${{ github.run_id }}" --repo "$GITHUB_REPOSITORY" --pattern 'e2e-artifacts-*' --dir ../../e2e-artifacts || echo "no artifacts to read"
+          mkdir -p ../../e2e-artifacts
+          find ../../e2e-artifacts -mindepth 1 -maxdepth 1 -name 'e2e-artifacts-*' ! -name 'e2e-artifacts-windows-*' -exec rm -rf {} +
+          status=0
+          node block-check.mjs --artifacts ../../e2e-artifacts > block.txt || status=$?
+          cat block.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "$TAG is not offered on Windows: a real high-severity finding in its end-to-end suites." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: The shared release checks (unit suites green on the commit; soak on, the Notion schema additive over stable)
+        env:
+          JOB_PILOTTO_SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: tools/release-checks.sh "$TAG" "$REF" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Release it to Windows beta testers
+        env:
+          E2E_ALREADY_GREEN: '1'   # every Windows suite passed on this commit, in this run
+          SOAK: ${{ vars.JOB_PILOTTO_SOAK }}
+        run: |
+          tools/beta-approve.sh --windows "$TAG" | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh) and each platform's newest beta. After both lanes, so
   # tonight's approvals are already written when it decides what to keep.
   prune:
     name: Clean up old builds
-    needs: [changes, build, windows, mac-only, test-mac, test-windows, release-mac, release-windows]
+    needs: [changes, build, windows, test-mac, test-windows, release-mac, release-windows]
     if: always() && needs.changes.outputs.released == 'true'
     runs-on: ubuntu-24.04
     permissions:

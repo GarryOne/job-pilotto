@@ -36,7 +36,9 @@ class ReleaseJobsMayWriteIssues(unittest.TestCase):
                 granted = permissions(job) if permissions(job) is not None else top
                 checked.append(f'{path.name}:{name}')
                 self.assertEqual((granted or {}).get('issues'), 'write', f'{path.name} job {name} runs a release script without issues: write')
-        self.assertIn('beta-approve.yml:approve', checked)   # the parser found the jobs (a broken split would check nothing)
+        self.assertIn('beta-approve.yml:approve', checked)
+        self.assertIn('desktop.yml:release-mac', checked)
+        self.assertIn('desktop.yml:release-windows', checked)   # the parser found the jobs (a broken split would check nothing)
 
     def test_every_job_that_calls_the_release_step_grants_issues_write(self):
         # A called workflow gets at most its caller job's permissions (7 Oct 2026: the release step is beta-approve.yml, called from three places).
@@ -50,7 +52,7 @@ class ReleaseJobsMayWriteIssues(unittest.TestCase):
                     callers.append(f'{path.name}:{name}')
                     self.assertEqual((permissions(job) or {}).get('issues'), 'write', f'{path.name} job {name} calls the release step without issues: write')
                     self.assertEqual((permissions(job) or {}).get('contents'), 'write', f'{path.name} job {name} calls the release step without contents: write')
-        self.assertEqual(sorted(callers), ['desktop.yml:release-mac', 'desktop.yml:release-windows', 'e2e-windows.yml:approve-windows', 'e2e.yml:promote'])
+        self.assertEqual(sorted(callers), ['e2e-windows.yml:approve-windows', 'e2e.yml:promote'])   # gates by hand; the release run's Release jobs run the scripts themselves
 
 
 if __name__ == '__main__':

@@ -335,12 +335,12 @@ class ReleaseRunGate(unittest.TestCase):
     def test_the_mac_gate_decides_not_the_windows_one(self):
         run = {'created_at': '2026-10-07T10:00:00Z'}
         job = lambda name, conclusion: {'name': name, 'conclusion': conclusion}
-        green = [job('Build · Mac', 'success'), job('E2E · Mac + Linux / plan', 'success'), job('E2E · Mac + Linux / jobs', 'success'), job('E2E · Mac + Linux / promote', 'skipped'),
-                 job('E2E · Windows / jobs (Windows)', 'failure')]
+        green = [job('Build · Mac', 'success'), job('E2E · Mac + Linux · plan', 'success'), job('E2E · Mac + Linux · jobs', 'success'), job('E2E · Mac + Linux · promote', 'skipped'),
+                 job('E2E · Windows · jobs (Windows)', 'failure')]
         self.assertEqual(canary.release_gate_run(run, green), {'conclusion': 'success', 'createdAt': run['created_at']})
-        red = [job('E2E · Mac + Linux / jobs', 'failure'), job('E2E · Mac + Linux / promote', 'skipped')]
+        red = [job('E2E · Mac + Linux · jobs', 'failure'), job('E2E · Mac + Linux · promote', 'skipped')]
         self.assertEqual(canary.release_gate_run(run, red)['conclusion'], 'failure')
-        self.assertIsNone(canary.release_gate_run(run, [job('Build · Mac', 'success'), job('E2E · Mac + Linux / plan', 'skipped')]), 'a build only: no gate ran')
+        self.assertIsNone(canary.release_gate_run(run, [job('Build · Mac', 'success'), job('E2E · Mac + Linux · plan', 'skipped')]), 'a build only: no gate ran')
 
 
 class PromotesWithoutStartingARun(unittest.TestCase):
