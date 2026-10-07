@@ -46,8 +46,12 @@ class StopMeansStop(unittest.TestCase):
             env = {**os.environ, 'JOB_PILOTTO_FOLLOW_APP': '0', 'JOB_PILOTTO_DISABLE': 'mail,notion,telegram,google_jobs', 'PYTHONUNBUFFERED': '1'}
             child = subprocess.Popen([sys.executable, '-c', SCRIPT, str(path)], cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             try:
-                checked = lambda: {row[0] for row in sqlite3.connect(path).execute(  # noqa: E731
-                    "SELECT name FROM scout_candidates WHERE checked_at IS NOT NULL")} if path.exists() else set()
+                def checked():
+                    # The child creates the table a moment after the file: polled in between, "no such table" is "nothing checked yet" (7 Oct 2026: 2 of 5 local runs failed so).
+                    try:
+                        return {row[0] for row in sqlite3.connect(path).execute("SELECT name FROM scout_candidates WHERE checked_at IS NOT NULL")} if path.exists() else set()
+                    except sqlite3.OperationalError:
+                        return set()
                 deadline = time.time() + 30
                 while time.time() < deadline and not {'Fast1', 'Fast2'} <= checked():
                     time.sleep(0.2)
