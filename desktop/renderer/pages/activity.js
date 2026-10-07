@@ -1704,7 +1704,7 @@ function withFewJobsHelp(foot, runId) {
   // The owner's approved layout (7 Oct 2026): groups, not one row of chips. Your employers (a meter and the one recommended action), words
   // to add (chips), job sources to connect and sites only you can open (rows with their own button), then Explain with AI, quietly.
   if (!fewJobsHelp.has(runId)) {
-    fewJobsHelp.set(runId, {groups: window.pilot.searchCoverage().then(result => fewJobsGroups(result?.coverage)).catch(() => null), explained: null, done: null});
+    fewJobsHelp.set(runId, {groups: window.pilot.searchCoverage().then(result => fewJobsGroups(result?.coverage)).catch(() => null), explained: null, asking: null, done: null});
   }
   const kept = fewJobsHelp.get(runId);
   const box = el('div', 'run-card-help');
@@ -1738,18 +1738,32 @@ function withFewJobsHelp(foot, runId) {
   };
   const answer = el('div', 'muted small');
   const showAnswer = result => answer.replaceChildren(el('p', '', result.why), ...(result.first_steps || []).map((step, i) => el('p', '', `${i + 1}. ${step}`)));
-  if (kept.explained) showAnswer(kept.explained);
+  // The card redraws while a run is going: the pending question lives in `kept`, so a redraw keeps the spinner and the answer lands in the
+  // card that is on screen, not in one already replaced.
+  const showAsking = () => {
+    const line = el('p', 'run-card-asking');
+    line.append(el('span', 'spinner small'), 'Claude is reading this search\'s counts…');
+    answer.replaceChildren(line);
+  };
   const explain = el('button', 'link', 'Explain with AI');
   explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
-  explain.addEventListener('click', async () => {
-    adviceEvent('taken', 'explain', 'few-jobs');
-    explain.disabled = true;
-    answer.textContent = 'Asking Claude…';
-    const result = await window.pilot.explainCoverage().catch(error => ({ok: false, error: error.message}));
+  const settle = result => {
     explain.disabled = false;
     if (!result?.ok) { answer.textContent = result?.error || 'Claude could not answer now.'; return; }
-    kept.explained = result;
     showAnswer(result);
+  };
+  if (kept.explained) showAnswer(kept.explained);
+  else if (kept.asking) { explain.disabled = true; showAsking(); kept.asking.then(settle); }
+  explain.addEventListener('click', () => {
+    adviceEvent('taken', 'explain', 'few-jobs');
+    explain.disabled = true;
+    showAsking();
+    kept.asking = window.pilot.explainCoverage().catch(error => ({ok: false, error: error.message})).then(result => {
+      kept.asking = null;
+      if (result?.ok) kept.explained = result;
+      return result;
+    });
+    kept.asking.then(settle);
   });
   const why = el('p', 'muted small');
   why.append('Why so few? ', explain);

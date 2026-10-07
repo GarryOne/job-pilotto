@@ -2176,6 +2176,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 /* The "Few new jobs" box under a run card (pages/activity.js withFewJobsHelp): its groups in the card's own column, the shared parts inside. */
 .run-card-help { display: grid; gap: var(--sp-4); margin-top: var(--sp-3); }
 .run-card-help-group { display: grid; gap: var(--sp-2); }
+.run-card-asking { display: flex; align-items: center; gap: var(--sp-2); margin: 0; }   /* "Explain with AI" waiting: the shared small spinner + one line */
 .run-card-help-group .item-rows { margin-top: 0; border-top: 0; }   /* the group title already heads the list */
 .run-card-help .score-track { background: var(--line); }   /* visible on the card's white */
 .coverage-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
