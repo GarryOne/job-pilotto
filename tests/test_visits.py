@@ -25,6 +25,13 @@ class VisitsTest(unittest.TestCase):
         self.patch.stop()
         self.tmp.cleanup()
 
+    def test_portal_searches_use_real_words_for_the_place_and_role(self):
+        # 7 Oct 2026: gen[èe]ve became "gen ve", so LinkedIn ignored the place and showed the signed-in account's own job suggestions.
+        self.assertEqual(visits._plain_words(['gen[èe]ve', 'z[uü]rich', 'vendeu(r|se)', 'photograph(e|er)?', '\\bsales associate\\b']),
+                         ['genève', 'zürich', 'vendeur', 'photograph', 'sales associate'])
+        urls = {p['key']: p['url'] for p in visits.portals({'role_keywords': ['photographe'], 'locations': {'top_tier': ['gen[èe]ve']}})}
+        self.assertEqual(urls['linkedin'], 'https://www.linkedin.com/jobs/search/?keywords=photographe&location=gen%C3%A8ve')
+
     def test_a_refusing_site_and_the_portals_are_offered_least_recently_read_first(self):
         self.assertFalse(visits.refused('Down Co', 'https://down.example', 'URLError: timed out'), 'down is not a refusal')
         self.assertTrue(visits.refused('Coop', 'https://jobs.coop.ch', 'HTTP 403', now=NOW))

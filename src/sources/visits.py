@@ -68,7 +68,24 @@ def refused(company, url, why, now=None):
 
 
 def _plain_words(fragments):
-    return [re.sub(r'\\b|\\|[()?]|\.\*|\[[^\]]*\]', ' ', str(f)).strip() for f in fragments if str(f).strip()]
+    """A search pattern as the words a portal's search box takes: a letter choice as its accented letter ("gen[èe]ve" -> "genève",
+    7 Oct 2026: it became "gen ve", so LinkedIn ignored the place and showed the signed-in account's own suggestions), a choice of forms as
+    the first one ("vendeu(r|se)" -> "vendeur"), an optional ending left out ("photograph(e|er)?" -> "photograph")."""
+    def letter(match):
+        choice = match.group(1)
+        return next((c for c in choice if ord(c) > 127), choice[-1:])
+    words = []
+    for fragment in fragments:
+        text = re.sub(r'\\b', '', str(fragment))
+        text = re.sub(r'\([^()]*\)\?', '', text)
+        text = re.sub(r'\(([^()|]*)\|[^()]*\)', r'\1', text)
+        text = re.sub(r'\[([^\]]*)\]', letter, text)
+        text = re.sub(r'\\(.)', r'\1', text)
+        text = re.sub(r'[()?*+|^$]|\.\*', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        if text:
+            words.append(text)
+    return words
 
 
 def portals(search=None, kinds=None):
