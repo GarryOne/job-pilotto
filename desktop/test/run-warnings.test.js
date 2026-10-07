@@ -92,7 +92,7 @@ test('the JavaScript SDK error body is said in words, with the day the limit res
   assert.equal((page.match(/\$\('cv-message'\)\.textContent = [^;]*result\.error/g) || []).filter(line => !/cvError\(result\.error/.test(line)).length, 0, 'the CV message never shows result.error as it is');
 });
 
-test('a Find employers in Chrome run\'s site rows are not repeated as warnings above its card; another task\'s skipped line still is', () => {
+test('a Find jobs using your browser run\'s site rows are not repeated as warnings above its card; another task\'s skipped line still is', () => {
   const log = ['Reading 2 sites in your browser, 2 at a time', '⏳ IWC Schaffhausen is not responding: skipped, the next site opens',
     '  ✗ IWC Schaffhausen: it stopped answering (nothing for 30 s): skipped, you can close its tab',
     '  ▸ stopped · IWC Schaffhausen · it stopped answering (nothing for 30 s): skipped, you can close its tab', 'Warning: Notion is busy (429)'];

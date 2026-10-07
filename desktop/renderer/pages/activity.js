@@ -85,7 +85,7 @@ export function searchPhase(step = '') {
 }
 // icon: emoji for text the owner reads (toasts, messages); line: the line icon for rows and headers (same as Actions → Recent runs).
 export const KIND = {search: {icon: '🔎', line: 'search', name: 'Refresh jobs'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
-  interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'}, tailor: {icon: '✂️', line: 'scissors', name: 'Tailor CVs'}, visits: {icon: '🌐', line: 'globe', name: 'Find employers in Chrome'},
+  interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'}, tailor: {icon: '✂️', line: 'scissors', name: 'Tailor CVs'}, visits: {icon: '🌐', line: 'globe', name: 'Find jobs using your browser'},
   weekly: {icon: '📊', line: 'file', name: 'Search analysis'}, kits: {icon: '📝', line: 'file-text', name: 'Prepare top matches'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
   add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, import: {icon: '➕', line: 'search', name: 'Add a job'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
@@ -129,9 +129,9 @@ const WARN_NOUN = {search: 'Job search', scout: 'Employer search', mail: 'Gmail 
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
-// Find employers in Chrome' step card (renderer/visits-card.js parseSiteRows): the meter (the few-jobs box's score-track) and one row per site.
+// Find jobs using your browser' step card (renderer/visits-card.js parseSiteRows): the meter (the few-jobs box's score-track) and one row per site.
 const SITE_MARK = {next: 'todo', opening: 'now', waiting: 'warn', reading: 'now', done: 'done', stopped: 'fail', closed: 'fail'};
-// How far a running task is, over the shared meter: Find employers in Chrome ("N of M sites"), and any task whose live step counts (owner, 7 Oct 2026: "a live
+// How far a running task is, over the shared meter: Find jobs using your browser ("N of M sites"), and any task whose live step counts (owner, 7 Oct 2026: "a live
 // progress bar above the Technical log"): Find new employers' "checked 33 of 91", a search's "Reading employer job sites: 120 of 202".
 function runProgress({done, total, percent}, noun = '') {
   const li = el('li', 'run-progress');
@@ -352,7 +352,7 @@ function claudeReadButton(site, words) {
   return claude;
 }
 
-// "Find employers in Chrome" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
+// "Find jobs using your browser" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
 // 7 Oct 2026): Read with Claude (a Claude in Chrome session, when the extension could not) and Open it myself.
 // list: false when the run's step card already lists the sites with their marks and buttons (Recent activity), so they are not shown twice
 // (owner, 7 Oct 2026); the Actions page has no step card and keeps the list.
@@ -776,7 +776,7 @@ export function renderActivity(fresh) {
       if (i === at && stopped) li.append(...[stopped.doing && `Stopped while ${stopped.doing}.`, stopped.last && `Last reported: ${stopped.last}`].filter(Boolean).map(text => el('span', 'phase-note', text)));
       return li;
     })));
-  // Find employers in Chrome: a row per tab it opens in Chrome, each at its state, and how far the run is (owner, 7 Oct 2026: "right now it's a black box").
+  // Find jobs using your browser: a row per tab it opens in Chrome, each at its state, and how far the run is (owner, 7 Oct 2026: "right now it's a black box").
   // The same step card and row marks as a search's steps, kept once it ends (its result card then adds the ways on for a stopped site).
   // While it runs only: once it ends, the sites are one list inside its result card, with the same marks and their buttons (owner, 7 Oct 2026),
   // read from the result message, which has every site (the kept log is cut to its last 400 lines).
@@ -804,7 +804,7 @@ export function renderActivity(fresh) {
     ? parseInterviewReview(run.message) : null;
   const kits = !run?.live && !card && !mail && !insight && !weekly && !review && KITS_CARD.has(kindOf(run)) && run?.message ? parseKitsReady(run.message) : null;
   if (kits) kits.outcome = kitsOutcome(kits, run.log);
-  const sites = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message ? parseVisits(run.message) : null;   // Find employers in Chrome
+  const sites = !run?.live && !card && !mail && !insight && !weekly && !review && !kits && run?.message ? parseVisits(run.message) : null;   // Find jobs using your browser
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) {
@@ -1985,7 +1985,7 @@ function withFewJobsHelp(foot, runId) {
         act({kind: 'source', label: `Set up ${source.name}`, value: source.id}, Object.assign(el('button', 'secondary', 'Set up'), {type: 'button'})), source.title)))));
     }
     if (groups?.visits?.length) {
-      // One row, handed to Find employers in Chrome (owner, 7 Oct 2026: "pass them to Find employers in Chrome"): the extension reads them all in Chrome, a few at a time.
+      // One row, handed to Find jobs using your browser (owner, 7 Oct 2026: "pass them to Find jobs using your browser"): the extension reads them all in Chrome, a few at a time.
       const names = groups.visits.map(site => site.name);
       const shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
       adviceEvent('shown', 'visit', 'few-jobs');

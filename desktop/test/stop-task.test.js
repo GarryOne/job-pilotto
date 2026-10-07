@@ -30,7 +30,7 @@ test('Stop ends the running command at once and keeps the run as stopped by you'
   assert.equal(pipeline.stopTask().ok, false, 'nothing runs any more');
 });
 
-test("the app's own work (Tailor CVs, Find employers in Chrome) offers no Stop", async () => {
+test("the app's own work (Tailor CVs, Find jobs using your browser) offers no Stop", async () => {
   let seen = null;
   await pipeline.work(storage(), 'tailor', () => {}, async () => { seen = pipeline.running(); assert.equal(pipeline.stopTask().ok, false); return true; });
   assert.equal(seen.stoppable, false);

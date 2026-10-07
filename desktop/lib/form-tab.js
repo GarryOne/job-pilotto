@@ -169,7 +169,7 @@ export async function openFormTab({url, company}, openExternal, {confident = fal
     try { await jxa("Application('Google Chrome').activate()"); return 'chrome'; } catch { return 'chrome'; }
   }
 }
-// Find employers in Chrome' "Show tab" (lib/visits.js showTab): Chrome switched to the tab showing this page (its address without the #mark), true when found.
+// Find jobs using your browser' "Show tab" (lib/visits.js showTab): Chrome switched to the tab showing this page (its address without the #mark), true when found.
 // The Mac's scripting, as Open filled form; false elsewhere or without the permission, and the caller brings Chrome forward instead.
 export async function focusTabAt(url, platform = process.platform) {
   if (platform !== 'darwin' || !url) return false;
@@ -181,7 +181,7 @@ export async function focusTabAt(url, platform = process.platform) {
     return true;
   } catch { return false; }
 }
-// Find employers in Chrome' "Open in Chrome": the tab with this id. Chrome numbers a tab the same for its scripting and for extensions (its session id), so the
+// Find jobs using your browser' "Open in Chrome": the tab with this id. Chrome numbers a tab the same for its scripting and for extensions (its session id), so the
 // id the extension reported for a site's tab finds it whatever address it moved to (owner, 7 Oct 2026: by address it found the wrong tab).
 export async function focusTabById(id, platform = process.platform) {
   if (platform !== 'darwin' || id == null) return false;

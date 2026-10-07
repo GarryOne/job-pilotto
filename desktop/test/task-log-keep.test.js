@@ -1,4 +1,4 @@
-// A running task keeps every line the window was shown, not only its own output (7 Oct 2026: Find employers in Chrome' filter step reached the window through the
+// A running task keeps every line the window was shown, not only its own output (7 Oct 2026: Find jobs using your browser' filter step reached the window through the
 // app's log feed but not the task's log, so a reset Technical log came back with 4 lines of many).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

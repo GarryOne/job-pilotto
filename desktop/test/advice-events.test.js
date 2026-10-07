@@ -57,7 +57,7 @@ test('every button Recent activity redraws that waits on something keeps its bus
   const kept = new Set([...activity.matchAll(/(?:keepPress|keepButton)\((?:[^,()]|\([^()]*\))+, (\w+)\)/g)].map(found => found[1])
     .concat([...activity.matchAll(/const (\w+) = keepPress\(/g)].map(found => found[1])));
   for (const name of waiting) assert.ok(kept.has(name), `${name}: a redrawn button that waits, without keepPress`);
-  assert.ok(waiting.length >= 4, 'Read with Claude, the Find employers in Chrome row links, the few-jobs chips and Set up, Read them in Chrome');
+  assert.ok(waiting.length >= 4, 'Read with Claude, the Find jobs using your browser row links, the few-jobs chips and Set up, Read them in Chrome');
   const start = activity.indexOf('function withFewJobsHelp('), box = activity.slice(start, activity.indexOf('\n}\n', start));
   assert.doesNotMatch(box, /\.disabled = (true|false)/, 'no button in the few-jobs box is disabled by hand');
 });

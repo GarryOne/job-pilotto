@@ -29,7 +29,7 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
     });
 
-    await ctx.run('Find employers in Chrome: its card counts the sites and jobs, and a stopped site offers Read with Claude and Open it myself', async () => {
+    await ctx.run('Find jobs using your browser: its card counts the sites and jobs, and a stopped site offers Read with Claude and Open it myself', async () => {
       const {page, select} = states;
       await select('visits--2-of-3-sites-read-1-stopped');
       const card = await text(page, '#activity-card');
