@@ -671,8 +671,15 @@ function searchOnce(storage, onLine, mode, trigger = 'you') {
 
 // The jobs read in Chrome, scored at once after a read (Always on or not: those pages stay on this Mac). A run here that reads
 // only those pages (src/daily.py --only-visits, mode today: it closes nothing, no Telegram digest), scores what matches and writes it to Notion.
-export function visitsArgs(storage) {
-  return [...dailyArgs(storage, {mode: 'today'}).filter(arg => arg !== '--send'), '--only-visits'];
+// The light run after Find jobs using your browser scores the jobs it found that match, and nothing else (7 Oct 2026: it read 41 other
+// jobs with AI first, 2 minutes, and the 1 match waited behind them): no reading, no kits, as many scores as matches.
+export function visitsArgs(storage, fits = 60) {
+  const args = [...dailyArgs(storage, {mode: 'today'}).filter(arg => arg !== '--send'), '--only-visits'];
+  const set = (flag, value) => { const at = args.indexOf(flag); if (at >= 0) args[at + 1] = String(value); };
+  set('--enrich-max', 0);
+  set('--auto-kit-max', 0);
+  set('--score-max', Math.max(1, Math.min(60, Number(fits) || 60)));
+  return args;
 }
 export function scoreVisits(storage, onLine, trigger = 'you') {
   return tracked(storage, 'today', trigger, onLine, async tee => {

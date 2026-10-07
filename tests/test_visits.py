@@ -228,6 +228,9 @@ class VisitListCareTests(unittest.TestCase):
             self.assertIn('Failed 2 times in a row: no job list found', manor['note'])
             visits.outcome([{'url': 'https://www.manor.ch/jobs', 'ok': True}], now=NOW)
             self.assertNotIn('failing', next(i for i in visits.visit_list(self.search, set(), now=NOW, picks=self.picks) if i['name'] == 'Manor'))
+            data = visits._load(); data['jobpages']['chanel.com'] = 'https://cc.wd3.myworkdayjobs.com/en-US/ChanelCareers'; visits._save(data)
+            chanel = visits.visit_list(self.search, set(), now=NOW, picks=self.picks + [{'name': 'Chanel', 'url': 'https://www.chanel.com'}])
+            self.assertNotIn('Chanel', self.names(chanel), 'its job page is a Workday the engine reads at every refresh: not a browser job')
             visits.hide('https://jobs.corner.ch')
             self.assertNotIn('Cornèr Bank', self.names(visits.visit_list(self.search, set(), now=NOW, picks=self.picks)))
 

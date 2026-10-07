@@ -163,6 +163,9 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
         host = host_of(jobpages.get(host_of(item['url']), item['url']))   # tiffany.com and tiffanycareers.com: one job list, read once
         if host in hidden or host_of(item['url']) in hidden or name in seen or host in seen:
             continue
+        system = ats.detect(jobpages.get(host_of(item['url']), item['url']))
+        if system and system[0] in ats.FETCHERS and system[0] not in ('careers', 'visit'):   # the engine reads it itself at every refresh
+            continue   # 7 Oct 2026: Chanel's Workday, 220 jobs read in the browser for nothing
         seen.update({name, host})
         failed = fails.get(host) or {}
         if failed.get('count', 0) >= 2:   # failed twice in a row: offered, not ticked, with why (owner: "let the user delete/dismiss them")
@@ -369,7 +372,7 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
         pass
     here = sum(1 for job in placed if feeds.wanted_location(job))
     print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all, {fits} matching your search"
-          + (f"; {here} of {len(placed)} on this page in your places" if placed else ''))
+          + (f"; {here} of {len(placed)} on this page in your places" if placed else "; no place on this page's cards: where these jobs are is not known"))
     return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added, 'fits': fits,
             'in_places': here, 'placed': len(placed)}
 

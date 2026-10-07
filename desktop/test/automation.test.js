@@ -253,6 +253,9 @@ test('Always on: jobs read in Chrome are scored by a run on this Mac that reads 
   assert.deepEqual(args.slice(0, 4), ['src', 'daily', '--mode', 'today']);
   assert.ok(args.includes('--only-visits') && args.includes('--score-max'), args.join(' '));
   assert.ok(!args.includes('--send'), 'no Telegram digest for a few pages read in Chrome');
+  const one = pipeline.visitsArgs(storage, 1);   // 7 Oct 2026: it read 41 other jobs with AI before scoring the one match
+  const value = flag => one[one.indexOf(flag) + 1];
+  assert.deepEqual([value('--enrich-max'), value('--score-max')], ['0', '1'], 'the matches scored, nothing else read');
 });
 
 test('a task queued first runs before the ones already waiting, after the one running', async () => {

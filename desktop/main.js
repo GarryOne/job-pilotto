@@ -2061,7 +2061,7 @@ function handlers() {
       if (fits && !allowanceBlock() && !signal?.aborted) {   // stopped: the pages read are kept; the next jobs check scores them
         tee(`Scoring the ${fits} matching job${fits === 1 ? '' : 's'} for your Jobs list…`);
         appLog('visit', 'scoring the jobs read in Chrome inside the read sites run', {fits});
-        const {stdout = ''} = await pipeline.run(storage, pipeline.visitsArgs(storage), tee).catch(error => ({stdout: '', error}));
+        const {stdout = ''} = await pipeline.run(storage, pipeline.visitsArgs(storage, fits), tee).catch(error => ({stdout: '', error}));
         scored = /Job Matches: (\d+) created/.exec(String(stdout))?.[1] ?? null;
       }
       const text = visits.resultMessage(results, {added: scored === null ? null : Number(scored)});
