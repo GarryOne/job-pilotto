@@ -1821,7 +1821,7 @@ function handlers() {
     if (blocked) return blocked;
     appLog('cv', 'tailor top matches', {asked: n, by: 'you'});
     // A tracked task like a Jobs check: the banner, a live log, a row in Recent activity and the result line. Started, not awaited: the window follows it.
-    pipeline.work(storage, 'tailor', log, async tee => {
+    pipeline.work(storage, 'tailor', log, async (tee, signal) => {
       let done = 0, failed = 0, usd = 0;
       const tailored = [];
       tee(`Finding your ${n} best matches without a tailored CV…`);   // reading the job list takes a few seconds: the banner is already up
@@ -1834,6 +1834,7 @@ function handlers() {
       }
       tee(`Tailoring ${picked.length} CV${picked.length === 1 ? '' : 's'} for your best matches (1-2 minutes each)`);
       for (const [index, job] of picked.entries()) {
+        if (signal?.aborted) break;   // Stop: the CV being written is finished (its AI call is paid for), no next one starts
         tee(`Tailoring ${index + 1} of ${picked.length}: ${job.title} · ${job.company}`);
         const result = await tailorCv(job.code, `${job.title} · ${job.company}`, {show: false, quiet: true});
         if (result.ok) { done++; usd += result.usd || 0; tailored.push(job); tee(`  ✓ ${job.title} · ${job.company}`); } else {
@@ -2016,14 +2017,14 @@ function handlers() {
       return {text: `Chrome still has the Job Pilotto extension ${seen}; Find jobs using your browser needs ${latest}. In Chrome open chrome://extensions, press Reload on Job Pilotto, then Run again.`};
     }
     appLog('visit', 'read sites task', {sites: chosen.length, atOnce: n, filter: !!filter, by: 'you'});
-    pipeline.work(storage, 'visits', log, async tee => {
+    pipeline.work(storage, 'visits', log, async (tee, signal) => {
       tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
-      const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0]});
+      const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0], signal});
       // The matching jobs are scored and written to Jobs before this run ends, in its own turn (owner, 7 Oct 2026: "can't we score them right
       // away?"; a search queued after it waited behind Find new employers): the light run that reads only the pages read in Chrome.
       const fits = visits.lastFits();
       let scored = null;
-      if (fits && !allowanceBlock()) {
+      if (fits && !allowanceBlock() && !signal?.aborted) {   // stopped: the pages read are kept; the next jobs check scores them
         tee(`Scoring the ${fits} matching job${fits === 1 ? '' : 's'} for your Jobs list…`);
         appLog('visit', 'scoring the jobs read in Chrome inside the read sites run', {fits});
         const {stdout = ''} = await pipeline.run(storage, pipeline.visitsArgs(storage), tee).catch(error => ({stdout: '', error}));

@@ -142,6 +142,7 @@ export function stopTask() {
   if (!ticket || !current?.stoppable) return {ok: false, error: 'Nothing that can be stopped is running'};
   if (ticket.stopped) return {ok: true, kind: ticket.kind};
   ticket.stopped = true;
+  ticket.abort?.abort();   // the app's own tasks (work()): their loops end at their next step
   ticket.tee?.('⏹ Stopped by you. What it saved is kept; the next run continues from there.');
   for (const child of ticket.children) {
     child.kill('SIGTERM');
@@ -521,10 +522,10 @@ export function scout(storage, onLine, trigger = 'you', batch = null) {   // nul
   return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', ...(batch ? ['--batch', String(batch)] : []), '--budget', String(SCOUT_BUDGET_S)], onLine, trigger);
 }
 // A tracked task whose work is the app's own code, not an engine command (Tailor CVs): the same banner, live log, history row and result line. Not resumed after a restart.
+// Stop (owner, 7 Oct 2026: "I miss a Stop button"): doWork gets an AbortSignal and ends at its next step; the engine commands it runs are ended as for any task.
 export function work(storage, kind, onLine, doWork, trigger = 'you') {
-  // The app's own code, not an engine command: nothing here can be ended from outside, so no Stop.
-  return tracked(storage, kind, trigger, onLine, async tee => ({ok: !!(await doWork(tee))}), null, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}),
-    {stoppable: false});
+  return tracked(storage, kind, trigger, onLine, async (tee, signal) => ({ok: !!(await doWork(tee, signal))}), null,
+    (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
 }
 export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
@@ -567,7 +568,7 @@ export const HEARTBEAT_MS = {every: 15 * 1000, quiet: 30 * 1000};
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
-function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false, stoppable = true} = {}) {
+function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first = false} = {}) {
   // The same task already waiting, or already running: a second click joins it instead of queueing it again (a second search seconds after the first, with nothing
   // new to find, was run in full; 2 Oct 2026). Another task still waits its turn.
   const twin = waiting.find(ticket => ticket.kind === kind) || (runningTicket?.kind === kind ? runningTicket : null);
@@ -581,8 +582,9 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
     runningTicket = ticket;
     const log = [];
     const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
-    current = {...record, step: 'Starting', resume, stoppable};
+    current = {...record, step: 'Starting', resume, stoppable: true};   // every task the Mac runs can be stopped (Actions banner, Recent activity)
     ticket.children = new Set();
+    ticket.abort = new AbortController();
     saveQueue(storage);
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
     let lastAt = awakeNow();
@@ -613,7 +615,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
       if (quiet >= HEARTBEAT_MS.quiet) tee(`⏳ Still running · no new output for ${quietText(quiet)}`);
     }, HEARTBEAT_MS.every);
     try {
-      const outcome = (await work(tee)) || {};
+      const outcome = (await work(tee, ticket.abort.signal)) || {};
       ok = outcome.ok;
       result = outcome.result || null;
     } catch (error) {
@@ -623,7 +625,10 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize, {first
       const notionUrl = result?.notion_url || log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
       Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, runId: result?.run_id || null,
         log: log.slice(-400), ...summarize(record, log)});
-      if (ticket.stopped) Object.assign(record, {ok: false, stopped: 'you', summary: 'Stopped by you. What it saved is kept; the next run continues from there.'});
+      if (ticket.stopped) {   // the app's own work can return normally after Stop: still not a success
+        ok = false;
+        Object.assign(record, {ok: false, stopped: 'you', summary: 'Stopped by you. What it saved is kept; the next run continues from there.'});
+      }
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
       keepLine = null;

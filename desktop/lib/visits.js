@@ -267,8 +267,14 @@ export function done(payload) {
 }
 // `prepare` (a site -> the site to open, e.g. with its job page found): run in the site's own lane just before its tab opens, so the first tab
 // opens after one lookup, not after all of them (7 Oct 2026: "Finding the job page of 7 employers…" held every tab for about 2 minutes).
-export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS, prepare = null} = {}) {
+// signal: Stop (lib/pipeline.js work): no further site opens, and the ones reading now end at once (their tabs are left as they are).
+export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS, prepare = null, signal = null} = {}) {
   const queue = [...sites], results = [];
+  const mine = new Set();   // this run's tickets still waiting, for Stop
+  signal?.addEventListener('abort', () => {
+    queue.length = 0;
+    for (const ticket of mine) { const resolve = waiting.get(ticket); waiting.delete(ticket); resolve?.({stopped: 'Stopped by you', jobs: 0, added: 0}); }
+  }, {once: true});
   taskTee = tee;
   let doneCount = 0;
   for (const site of sites) tee(siteLine('next', site.name, key(site.url)));
@@ -283,6 +289,8 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     active?.tickets.set(key(site.url), ticket);
     lastNews.set(ticket, Date.now());
     const openedAt = Date.now();
+    if (signal?.aborted) return {...site, start: chosen.url, ok: false, why: 'Stopped by you', jobs: 0, added: 0};
+    mine.add(ticket);
     const finished = new Promise(resolve => {
       waiting.set(ticket, resolve);
       const watch = setInterval(() => {   // silent too long and not waiting on the person: skipped, with words that say so
@@ -330,6 +338,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     tee(siteLine('opening', site.name, 'Opening in Chrome…'));
     tee(`⏳ Finding jobs in your browser: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads
     const state = await finished;
+    mine.delete(ticket);
     watchers.delete(ticket);
     blocked.delete(ticket);
     lastNews.delete(ticket);
@@ -355,7 +364,8 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     while (queue.length) results.push(await one(queue.shift()));
   });
   await Promise.all(lanes).finally(() => { taskTee = null; active = null; });
-  const last = sites.map(site => results.findLast(result => (result.start || result.url) === site.url));   // a site opened again: its last reading
+  const last = sites.map(site => results.findLast(result => (result.start || result.url) === site.url)   // a site opened again: its last reading
+    || {...site, start: site.url, ok: false, why: 'Stopped by you', jobs: 0, added: 0});   // never opened: the run was stopped first
   fitsLast = last.reduce((sum, result) => sum + (result?.ok ? result.fits || 0 : 0), 0);
   return last;
 }

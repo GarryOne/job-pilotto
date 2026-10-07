@@ -23,6 +23,18 @@ test('sites open a few at a time, each closes on its report, a silent one stops 
   assert.match(results[3].why, /no answer from the extension/);
 });
 
+test('Stop: the sites reading now end at once, no further one opens, and every site is in the result', async () => {
+  const stop = new AbortController(), opened = [];
+  const openTab = url => { opened.push(url); if (opened.length === 2) setTimeout(() => stop.abort(), 20); return {ok: true}; };   // nobody answers
+  const sites = ['a', 'b', 'c', 'd'].map(name => ({name, url: `https://${name}.example/jobs`}));
+  const started = Date.now();
+  const results = await runAll(sites, {atOnce: 2, openTab, waitMs: 5000, quietMs: 5000, siteMs: 5000, signal: stop.signal});
+  assert.ok(Date.now() - started < 1000, 'it did not wait for the open tabs');
+  assert.equal(opened.length, 2, 'c and d never open');
+  assert.deepEqual(results.map(result => [result.name, result.ok, result.why]), ['a', 'b', 'c', 'd'].map(name => [name, false, 'Stopped by you']));
+  assert.match(resultMessage(results), /Read 0 of 4 sites/);
+});
+
 test('the result message is what the card reads, with each stopped site and its address', () => {
   const text = resultMessage([{name: 'LinkedIn', url: 'https://www.linkedin.com/jobs/search/?keywords=photographe', ok: true, jobs: 64, added: 20},
     {name: 'Rolex', url: 'https://www.rolex.com', ok: false, why: 'the site asks you to sign in · do it, then click again', jobs: 0, added: 0}]);
