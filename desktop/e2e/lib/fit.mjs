@@ -4,7 +4,7 @@
 // The Finder holds no list of professions or words. It collects what the app shows and judges it against who the candidate is, with a model; the checks around the model are plain code:
 // its quotes must really be on the page (a quote it made up is dropped), and an unreadable reply is never a pass. Pure functions here; `judge` makes the one call.
 import {modelFetch} from './model.mjs';
-export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5-5';
+export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-haiku-4-5';   // Haiku unless a suite asks (quality: Sonnet, set in the workflows); 7 Oct 2026, "$30 a week"
 const MAX_PAGE_CHARS = 6000;
 
 export const SYSTEM = `You review a job-search app for ONE candidate. You get the candidate (profession, roles, places, languages) and the text the app showed on its screens.

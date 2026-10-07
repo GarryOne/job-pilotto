@@ -9,7 +9,7 @@ import {guard} from './guard.js';
 import {view as intelligenceView} from './intelligence.js';
 import {view as scoutingView} from './scoutingadmin.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
-import {ingest as jobCostIngest, view as jobCostView} from './jobcost.js';
+import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from './jobcost.js';
 import {digestView, view as formLearningView} from './formlearning.js';
 import {adminPage, redirectOld} from './admin.js';
 import {reportFile as e2eReportFile, view as e2eView} from './e2e.js';
@@ -102,6 +102,7 @@ export default {
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
+    if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
     if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);

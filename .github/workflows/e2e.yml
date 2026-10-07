@@ -87,6 +87,7 @@ jobs:
       tag: ${{ steps.list.outputs.tag }}
       review: ${{ steps.list.outputs.review }}
       suites: ${{ steps.list.outputs.suites }}
+      over: ${{ steps.spend.outputs.over }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -98,6 +99,14 @@ jobs:
       - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         working-directory: desktop/e2e
         run: npm test
+      # Today's e2e AI budget (ai-spend.mjs; owner, 7 Oct 2026: "$30 a week"): spent, this run skips the paid judge and the screenshot review.
+      - name: Today's e2e AI budget
+        id: spend
+        working-directory: desktop/e2e
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+          E2E_DAILY_BUDGET: ${{ vars.E2E_DAILY_BUDGET }}
+        run: node ai-spend.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
       - name: What to run (suites, commit, AI review, release to promote)
         id: list
         working-directory: desktop/e2e
@@ -110,7 +119,8 @@ jobs:
           ONLY: ${{ inputs.suite }}
           TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}
           GATE_TAG: ${{ inputs.gate_tag }}
-        run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
+          OVER: ${{ steps.spend.outputs.over }}
+        run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"
   suite:
     name: ${{ matrix.suite }}
     needs: plan
@@ -152,13 +162,13 @@ jobs:
       # by hand) answers a request it has seen before from the replay cache, and pays only for new ones (lib/ai-meter.mjs). Judges on Haiku, except the quality suite,
       # which measures Sonnet's scoring.
       E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
-      E2E_AI_REPLAY: ${{ !inputs.gate_tag && (github.event_name == 'schedule' || inputs.scheduled) && '0' || '1' }}   # a gate called from a scheduled release run is still a gate: replay
+      E2E_AI_REPLAY: '1'   # every run replays an answer it has seen; only a request never seen goes to the model (owner, 7 Oct 2026: "$30 a week"; the schedule used to ask live)
       E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
       E2E_RUN_KIND: ${{ inputs.gate_tag && 'gate' || '' }}   # how an issue names the run (lib/replay.mjs): a gate in a scheduled release run is not a three-a-day run
       JOB_PILOTTO_E2E_EXPECTS_FAILURES: ${{ inputs.mutant && '1' || '' }}   # a mutant run breaks the app on purpose: its crash reports are tagged expected, so the Sentry loop ignores them
       E2E_SEED: ${{ (inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
-      E2E_FULL: ${{ (inputs.gate_tag || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant && !inputs.scheduled)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
+      E2E_FULL: ${{ needs.plan.outputs.over != 'true' && (inputs.gate_tag || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant && !inputs.scheduled)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
       - uses: actions/checkout@v5
         with:
@@ -389,7 +399,7 @@ jobs:
       - name: Start the Windows run on this commit
         env:
           GH_TOKEN: ${{ github.token }}
-          FULL: ${{ (github.event_name == 'workflow_dispatch' && !inputs.scheduled) && '1' || '' }}
+          FULL: ''   # no paid AI judge on Windows: the Mac run judged the same screens (owner, 7 Oct 2026: "$30 a week")
         run: |
           gh workflow run e2e-windows.yml --repo "${{ github.repository }}" --ref main \
             -f mac_run=${{ github.run_id }} -f sha=${{ needs.plan.outputs.ref }} -f review=${{ needs.plan.outputs.review }} -f full="$FULL" -f tag="${{ needs.plan.outputs.tag }}"

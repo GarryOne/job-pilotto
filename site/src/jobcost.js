@@ -127,6 +127,20 @@ export async function ingest(request, env) {
   return new Response(JSON.stringify({ok: true, runs: runs.length, billed: billed.length, keys: keys.length}), {headers: {'Content-Type': 'application/json'}});
 }
 
+// GET /ai-cost/data?day=YYYY-MM-DD&prefix=e2e- (Bearer AI_COST_PUBLISH_KEY): what the jobs whose id starts with `prefix` reported that day (UTC), for a budget
+// guard in CI (desktop/e2e/ai-spend.mjs: a day's e2e spend over its budget skips the paid judge and the screenshot review; owner, 7 Oct 2026: "$30 a week"). -> {day, prefix, usd, runs}
+export async function spent(request, env) {
+  const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!(env.AI_COST_PUBLISH_KEY && equal(given, env.AI_COST_PUBLISH_KEY))) return new Response('Not found', {status: 404});
+  const url = new URL(request.url);
+  const asked = url.searchParams.get('day') || new Date().toISOString().slice(0, 10), prefix = url.searchParams.get('prefix') || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asked) || !/^[a-z0-9._-]{0,32}$/.test(prefix)) return new Response('Bad request', {status: 400});
+  const row = env.STATS ? await env.STATS.prepare('SELECT COALESCE(SUM(usd), 0) AS usd, COUNT(*) AS runs FROM ai_cost_runs WHERE day = ? AND job LIKE ?')
+    .bind(asked, `${prefix}%`).first().catch(() => null) : null;
+  return new Response(JSON.stringify({day: asked, prefix, usd: Math.round((Number(row?.usd) || 0) * 10000) / 10000, runs: Number(row?.runs) || 0}),
+    {headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store'}});
+}
+
 async function read(env) {
   try {
     const from = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);

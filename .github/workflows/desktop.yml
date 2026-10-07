@@ -65,6 +65,7 @@ jobs:
       windows_matrix: ${{ steps.plan.outputs.windows_matrix }}
       count: ${{ steps.plan.outputs.count }}
       review: ${{ steps.plan.outputs.review }}
+      over: ${{ steps.spend.outputs.over }}                # today's e2e AI budget is spent
     permissions:
       contents: write   # the tag and the draft release
       actions: write    # a fresh build of main when this one can't be released
@@ -170,6 +171,15 @@ jobs:
             exit 1
           fi
           echo "released=true" >> "$GITHUB_OUTPUT"
+      # Today's e2e AI budget (desktop/e2e/ai-spend.mjs; owner, 7 Oct 2026: "$30 a week"): spent, the lanes skip the paid judge and the screenshot review.
+      - name: Today's e2e AI budget
+        id: spend
+        if: steps.release.outputs.released == 'true' && (github.event_name == 'schedule' || inputs.nightly || inputs.beta)
+        working-directory: desktop/e2e
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+          E2E_DAILY_BUDGET: ${{ vars.E2E_DAILY_BUDGET }}
+        run: node ai-spend.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
       # The gate's plan, once for both lanes (desktop/e2e/plan-run.mjs, GATE_TAG): the same suites on Mac + Linux and on Windows, and whether the AI screenshot
       # review runs. A build by hand ("Build only") is not tested.
       - name: Plan the E2E suites for both lanes
@@ -183,9 +193,10 @@ jobs:
           SHA: ${{ github.sha }}
           TARGET_REF: desktop-v${{ steps.version.outputs.version }}
           GATE_TAG: desktop-v${{ steps.version.outputs.version }}
+          OVER: ${{ steps.spend.outputs.over }}
         run: |
           npm ci || npm install
-          node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
+          node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"
           suites=$(grep '^suites=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
           echo "windows_matrix=$(node -e 'console.log(JSON.stringify({suite: process.argv[1] ? process.argv[1].split(",") : []}))' "$suites")" >> "$GITHUB_OUTPUT"
           echo "gate=true" >> "$GITHUB_OUTPUT"
@@ -383,7 +394,7 @@ jobs:
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
       E2E_RUN_KIND: gate   # how an issue names the run (lib/replay.mjs)
       E2E_SEED: '0'   # the fixed path (lib/variation.mjs), on both platforms
-      E2E_FULL: '1'   # the paid AI judge steps
+      E2E_FULL: ${{ (github.event_name == 'schedule' || inputs.nightly) && needs.changes.outputs.over != 'true' && '1' || '' }}   # the paid AI judge steps: the nightly beta only, under today's budget (7 Oct 2026)
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -574,7 +585,7 @@ jobs:
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
-      E2E_FULL: '1'   # the paid AI judge steps, as the Mac lane
+      E2E_FULL: ''   # no paid AI judge on Windows: it would judge the same screens the Mac lane judges (owner, 7 Oct 2026: "$30 a week")
       E2E_SEED: '0'   # the fixed path, as the Mac lane
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
       # AI cost: as e2e.yml. A Windows run follows a Mac run that already asked live, so it always replays what it has seen (its own cache: paths differ).

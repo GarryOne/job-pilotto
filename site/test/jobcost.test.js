@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {byKey, ingest, page, summarize, view} from '../src/jobcost.js';
+import {byKey, ingest, page, spent, summarize, view} from '../src/jobcost.js';
 
 const now = new Date('2026-10-04T12:00:00Z');
 const rows = [
@@ -62,4 +62,17 @@ test('per-key rows: stored by name, a real key is refused, and the card shows to
   const keys = byKey([{day: '2026-10-07', key: 'e2e', usd: 1}, {day: '2026-10-02', key: 'e2e', usd: 2}, {day: '2026-09-20', key: 'e2e', usd: 4}, {day: '2026-08-01', key: 'e2e', usd: 100}], now);
   assert.deepEqual(keys, [{key: 'e2e', today: 1, week: 3, month: 7, last: '2026-10-07'}]);
   assert.match(page([], [], [{day: '2026-10-07', key: 'job-pilotto-e2e-testing', usd: 1}]), /By API key[\s\S]*job-pilotto-e2e-testing/);
+});
+
+// 7 Oct 2026 (owner: "$30 a week" for e2e): CI reads a day's reported e2e spend to skip the paid judge once over budget (desktop/e2e/ai-spend.mjs).
+test('a day\'s reported spend for a job prefix, with the publishing key only', async () => {
+  const asked = [];
+  const env = {AI_COST_PUBLISH_KEY: 'k', STATS: {prepare: sql => ({bind: (...args) => ({first: async () => { asked.push({sql, args}); return {usd: 4.123456, runs: 17}; }})})}};
+  const get = (query, key = 'k') => spent(new Request(`https://x.dev/ai-cost/data${query}`, {headers: {Authorization: `Bearer ${key}`}}), env);
+  assert.equal((await get('?day=2026-10-07&prefix=e2e-', 'wrong')).status, 404);
+  assert.equal((await get('?day=yesterday')).status, 400);
+  assert.equal((await get('?prefix=E2E%25;drop')).status, 400);
+  const answer = await (await get('?day=2026-10-07&prefix=e2e-')).json();
+  assert.deepEqual(answer, {day: '2026-10-07', prefix: 'e2e-', usd: 4.1235, runs: 17});
+  assert.deepEqual(asked[0].args, ['2026-10-07', 'e2e-%']);
 });

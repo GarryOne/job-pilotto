@@ -65,9 +65,12 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('needs: [changes, windows]', job('test-windows'))
         self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))
         self.assertIn('fromJson(needs.changes.outputs.windows_matrix)', job('test-windows'))
-        for e2e in ('test-mac', 'test-windows'):   # the gate's settings: the fixed path, the paid judge
+        for e2e in ('test-mac', 'test-windows'):   # the gate's settings: the fixed path
             self.assertIn("E2E_SEED: '0'", job(e2e))
-            self.assertIn("E2E_FULL: '1'", job(e2e))
+        # The paid AI judge (owner, 7 Oct 2026: "$30 a week"): the nightly beta's Mac lane only, and not once today's e2e budget is spent; never on Windows.
+        self.assertIn("E2E_FULL: ${{ (github.event_name == 'schedule' || inputs.nightly) && needs.changes.outputs.over != 'true' && '1' || '' }}", job('test-mac'))
+        self.assertIn("E2E_FULL: ''", job('test-windows'))
+        self.assertIn('node ai-spend.mjs', job('changes'))
         for name, e2e, script in (('release-mac', 'test-mac', 'tools/beta-approve.sh "$TAG"'), ('release-windows', 'test-windows', 'tools/beta-approve.sh --windows "$TAG"')):
             release = job(name)
             self.assertIn(f'needs: [changes, {e2e}]', release)
