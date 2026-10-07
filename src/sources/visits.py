@@ -513,6 +513,11 @@ def job_page(url, markup):
     careers link (careers.careers_links, no AI), else the scout's AI link chooser. Kept per site, so the next Open goes straight there.
     Owner, 7 Oct 2026: "on this homepage there are no jobs; this should be the right page"."""
     found = careers.careers_links(markup or '', url)
+    name = re.sub(r'<[^>]+>', '', (re.search(r'<title[^>]*>(.*?)</title>', markup or '', re.S | re.I) or [None, ''])[1]).split('|')[0].split(' - ')[0].strip()
+    name = name if 2 <= len(name) <= 60 else host_of(url).split('.')[0]
+    if found:   # the page's own careers links go through the same check as a search's (8 Oct 2026: Fust's link led to its "application process" page)
+        from . import web_search
+        found = web_search.only_job_lists(name, url.split('#')[0], found)
     if not found:
         choose = careers.chooser()
         try:
@@ -523,8 +528,6 @@ def job_page(url, markup):
     if not found:   # no careers link and no AI pick: "<company> jobs", as a person would (owner, 7 Oct 2026: the most reliable)
         from . import web_search
         if web_search.provider():
-            name = re.sub(r'<[^>]+>', '', (re.search(r'<title[^>]*>(.*?)</title>', markup or '', re.S | re.I) or [None, ''])[1]).split('|')[0].split(' - ')[0].strip()
-            name = name if 2 <= len(name) <= 60 else host_of(url).split('.')[0]
             try:
                 found = web_search.job_sites(name, site=url.split('#')[0])
             except Exception as error:  # noqa: BLE001

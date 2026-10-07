@@ -350,3 +350,15 @@ class PoolLayoutTests(unittest.TestCase):
         self.assertEqual(visits.recipe_for('https://careers.richemont.com/en/jobs/iwc'), self.RECIPE)
         self.assertTrue(visits._load()['recipes']['careers.richemont.com']['pooled'], 'kept like a learned one, marked as from the pool')
         self.assertIsNone(visits.recipe_for('https://evil.test/jobs'), 'a served layout that fails the check is not used')
+
+
+class JobPageLinksTests(unittest.TestCase):
+    """A page's own careers links go through the same AI check as a search's (8 Oct 2026: Fust's link led to its application-process page)."""
+    def test_the_pages_own_links_are_checked(self):
+        import tempfile
+        from src.sources import careers, web_search
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(visits, 'STORE', Path(tmp) / 'visits.json'), \
+                mock.patch.object(careers, 'careers_links', lambda markup, url: ['https://www.fust.ch/footer/offene-stellen/bewerbungs-prozess', 'https://www.fust.ch/footer/offene-stellen']), \
+                mock.patch.object(web_search, 'only_job_lists', lambda company, site, urls, client=None: [u for u in urls if 'bewerbungs' not in u]):
+            answer = visits.job_page('https://www.fust.ch', '<html><title>Fust | Home</title></html>')
+        self.assertEqual(answer, 'https://www.fust.ch/footer/offene-stellen')
