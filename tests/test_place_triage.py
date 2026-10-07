@@ -24,9 +24,14 @@ class Client:
     def create(self, **kwargs):
         content = kwargs['messages'][0]['content']
         self.calls.append(content)
-        listed = content.split('The job locations:\n', 1)[1].split('\n')
-        pick = lambda words: [int(line.split('.', 1)[0]) for line in listed if any(w in line for w in words)]
-        return SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps({'best': pick(self.BEST), 'inside': pick(self.INSIDE)}))],
+        if 'Countries:' in content:
+            answer = {'visa': []}
+        else:
+            listed = content.split('The job locations:\n', 1)[1].split('\n')
+            answer = {'locations': [{'n': int(line.split('.', 1)[0]), 'where': '', 'country': 'Switzerland', 'nearest': 'none', 'km': -1,
+                                     'answer': 'best' if any(w in line for w in self.BEST) else 'inside' if any(w in line for w in self.INSIDE) else 'out'}
+                                    for line in listed]}
+        return SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps(answer))],
                                usage=SimpleNamespace(input_tokens=1, output_tokens=1))
 
 
@@ -47,8 +52,10 @@ class PlaceTriageTests(unittest.TestCase):
         self.assertIn('"best_places": ["geneva", "lausanne"]', client.calls[0], 'the places as the user wrote them, not patterns')
         self.assertIn('"remote_jobs": "no"', client.calls[0])
         place_triage.decide(['Sion', 'Brig, Wallis, CH'], SEARCH, client)
-        self.assertEqual(len(client.calls), 2)
-        self.assertNotIn('Sion', client.calls[1].split('The job locations:')[1].replace('sion', ''), 'Sion was placed before')
+        places_calls = [call for call in client.calls if 'The job locations:' in call]
+        self.assertEqual(len(places_calls), 2)
+        self.assertNotIn('work_rights', places_calls[0], 'the place question never sees the work rights (7 Oct 2026: Swiss towns became "inside")')
+        self.assertNotIn('Sion', places_calls[1].split('The job locations:')[1].replace('sion', ''), 'Sion was placed before')
         self.assertEqual(place_triage.known({**SEARCH, 'remote_jobs': ['Yes']}), {}, 'other places: asked afresh')
 
     def test_the_filter_follows_claude_and_falls_back_to_the_words(self):

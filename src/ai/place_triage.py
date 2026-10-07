@@ -15,25 +15,33 @@ import time
 from ..paths import DATA
 
 MODEL = 'claude-haiku-4-5'
-BATCH = 60   # short strings: ~60 a call
+BATCH = 30   # one line of reasoning per location: 30 a call (7 Oct 2026: 60 at once misfiled Swiss towns)
+VERSION = 3   # 3: nearest place and distance per location, visa asked apart (7 Oct 2026); a new version asks again
 STORE = DATA / 'place_triage.json'
 LOCK = threading.Lock()
-SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['best', 'inside', 'visa'],
-          'properties': {'best': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Numbers of locations in one of the best places'},
-                         'inside': {'type': 'array', 'items': {'type': 'integer'},
-                                    'description': 'Numbers of the other locations inside the places they accept'},
-                         'visa': {'type': 'array', 'items': {'type': 'integer'},
-                                  'description': 'Numbers of the best or inside locations where their work rights do not let them work without a visa'}}}
+SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['locations'], 'properties': {'locations': {'type': 'array', 'items': {
+    'type': 'object', 'additionalProperties': False, 'required': ['n', 'where', 'country', 'nearest', 'km', 'answer'],
+    'properties': {'n': {'type': 'integer'},
+                   'where': {'type': 'string', 'description': 'The town or area this location is, in English ("" when it names no place)'},
+                   'country': {'type': 'string', 'description': 'Its country in English, "" when unknown'},
+                   'nearest': {'type': 'string', 'description': 'Which of their places it is nearest to, as they wrote it, or "none"'},
+                   'km': {'type': 'integer', 'description': 'Road distance to that place in km, -1 when unknown'},
+                   'answer': {'type': 'string', 'enum': ['best', 'inside', 'out']}}}}}}
 SYSTEM = """You decide where job postings are, for one job seeker. You get the places they accept, in their own words (their best places, \
 places where anywhere is fine, cities abroad, whether remote jobs count), and a numbered list of job locations as postings write them, in any \
-language or format ("1211 Genf, Genf, CH", "Biel/Bienne", "Klagenfurt, AT, 9020", "Remote - EMEA", "Fnac Lausanne (Manor) (1)"). Use what \
-you know of geography: a town belongs to its region and country; a region word ("Romandie", "Bay Area") stands for the towns in it; a suburb \
-of a best city counts as near it only if it is really part of that city's area. Answer with the numbers of the locations in a best place \
-("best") and of the other locations inside the places they accept ("inside"). Leave out: places outside them, a location naming only a \
-country or a large area that is wider than their places ("Switzerland" for someone who wants only Romandie), and remote jobs unless they \
-accept remote work and the posting does not limit it to a region outside their places. When a location is unclear, leave it out. Then, of \
-the best and inside ones, answer in "visa" the numbers where their work rights (as they wrote them: a permit, a citizenship, "EU") do not \
-let them work without a visa or sponsorship; when they gave no work rights, leave "visa" empty."""
+language or format ("1211 Genf, Genf, CH", "Biel/Bienne", "Klagenfurt, AT, 9020", "Remote - EMEA", "Fnac Lausanne (Manor) (1)"). For each \
+location, first say where it is (town or area, country), which of their places it is nearest to and how far by road in km; then answer:
+- "best": in one of their best places, or a suburb that is really part of that city's area (it touches the city; a separate town 15 km or \
+more away is not part of it).
+- "inside": not a best place, but inside a place where anywhere is fine for them (a region or country they listed there), or one of their \
+cities abroad. When they listed no such place, nothing is "inside".
+- "out": everything else, including a location naming only a country or an area wider than their places ("Switzerland" for someone who \
+wants only Geneva), and remote jobs unless they accept remote work and the posting does not limit it to a region outside their places.
+Being in the same country as their places does not make a town "inside". When unsure, answer "out"."""
+VISA_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['visa'],
+               'properties': {'visa': {'type': 'array', 'items': {'type': 'string'}, 'description': 'The countries, as given, where they need a visa'}}}
+VISA_SYSTEM = """You get a job seeker's work rights in their own words (a permit, a citizenship, "EU") and a list of countries. Answer the \
+countries where those work rights do not let them work without a visa or sponsorship. When they gave no work rights, answer an empty list."""
 
 
 def places_words(search, preferences=None):
@@ -56,7 +64,8 @@ def _preferences():
 
 
 def _key(search):
-    return hashlib.sha1(json.dumps(places_words(search, _preferences()), ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:12]
+    words = {**places_words(search, _preferences()), 'version': VERSION}
+    return hashlib.sha1(json.dumps(words, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:12]
 
 
 def norm(location):
@@ -92,27 +101,47 @@ def decide(locations, search, client=None):
     from ..progress import Ticker
     ticker, lock, sorted_ = Ticker('Placing job locations with AI', len(ask), every=0), threading.Lock(), [0]
 
+    places = {k: v for k, v in words.items() if k != 'work_rights'}   # the place question only (7 Oct 2026: "authorized to work in
+    # Switzerland" in the same call made Swiss towns "inside" a Geneva search)
+    countries = {}
+
     def one(batch):
         if budget.over('place_rounds'):
             return
         listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
-        response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': SYSTEM}],
-                                          messages=[{'role': 'user', 'content': f'Their places (JSON): {json.dumps(words, ensure_ascii=False)}\nThe job locations:\n{listed}'}],
+        response = client.messages.create(model=MODEL, max_tokens=4000, system=[{'type': 'text', 'text': SYSTEM}],
+                                          messages=[{'role': 'user', 'content': f'Their places (JSON): {json.dumps(places, ensure_ascii=False)}\nThe job locations:\n{listed}'}],
                                           output_config=engine.structured(SCHEMA, MODEL, 'low'))
         cost.side(MODEL, response.usage)
         answer = json.loads(next(b.text for b in response.content if b.type == 'text'))
-        best = {int(n) for n in answer.get('best') or [] if str(n).isdigit()}
-        inside = {int(n) for n in answer.get('inside') or [] if str(n).isdigit()}
-        visa = {int(n) for n in answer.get('visa') or [] if str(n).isdigit()}
         with lock:
-            for n, location in enumerate(batch, 1):
-                place = 'best' if n in best else 'in' if n in inside else 'out'
-                decided[location] = place + (':visa' if place != 'out' and n in visa else '')   # 'best', 'in', 'in:visa', 'out'
+            for item in answer.get('locations') or []:
+                n = item.get('n')
+                if not isinstance(n, int) or not 1 <= n <= len(batch):
+                    continue
+                place = {'best': 'best', 'inside': 'in'}.get(item.get('answer'), 'out')
+                decided[batch[n - 1]] = place
+                if place != 'out' and item.get('country'):
+                    countries[batch[n - 1]] = str(item['country']).strip()[:40]
             sorted_[0] += len(batch)
             ticker.tick(sorted_[0])
     began = time.monotonic()
     with ThreadPoolExecutor(max_workers=max(1, min(len(batches), engine.PARALLEL))) as pool:
         list(pool.map(one, batches))
+    rights = words.get('work_rights') or []
+    if countries and rights:
+        try:
+            response = client.messages.create(model=MODEL, max_tokens=400, system=[{'type': 'text', 'text': VISA_SYSTEM}],
+                                              messages=[{'role': 'user', 'content': f'Their work rights: {json.dumps(rights, ensure_ascii=False)}\n'
+                                                                                    f'Countries: {json.dumps(sorted(set(countries.values())), ensure_ascii=False)}'}],
+                                              output_config=engine.structured(VISA_SCHEMA, MODEL, 'low'))
+            cost.side(MODEL, response.usage)
+            needs = {str(c).strip().lower() for c in json.loads(next(b.text for b in response.content if b.type == 'text')).get('visa') or []}
+            for location, country in countries.items():
+                if country.lower() in needs:
+                    decided[location] += ':visa'
+        except Exception as error:  # noqa: BLE001 — placed without the visa answer; asked with the next new places
+            print(f'Warning: visa needs not answered ({type(error).__name__})', flush=True)
     budget.record('place_rounds', time.monotonic() - began, -(-sorted_[0] // (BATCH * max(1, engine.PARALLEL))))
     with LOCK:
         data = _load()
