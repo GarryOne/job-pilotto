@@ -4,7 +4,7 @@ import {emailNoun, questionWhy} from '../question-words.js';
 import {billingLabel} from '../ai-engine-view.js';
 import {AI_BUSY, groupWarnings, humanError, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
 import {unseenRun, withShown} from '../result-seen.js';
-import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, partialResult} from '../run-status.js';
+import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, partialResult, stepCount} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -131,14 +131,17 @@ export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
 // Read sites' step card (renderer/visits-card.js parseSiteRows): the meter (the few-jobs box's score-track) and one row per site.
 const SITE_MARK = {next: 'todo', opening: 'now', waiting: 'warn', reading: 'now', done: 'done', stopped: 'fail', closed: 'fail'};
-function siteProgress({done, total, percent}) {
-  const li = el('li', 'site-progress');
+// How far a running task is, over the shared meter: Read sites ("N of M sites"), and any task whose live step counts (owner, 7 Oct 2026: "a live
+// progress bar above the Technical log"): Find new employers' "checked 33 of 91", a search's "Reading employer job sites: 120 of 202".
+function runProgress({done, total, percent}, noun = '') {
+  const li = el('li', 'run-progress');
   const track = el('span', 'score-track'), fill = el('span', 'score-fill');
   fill.style.width = `${percent}%`;
   track.append(fill);
-  li.append(el('span', '', `${done} of ${total} sites · ${percent}%`), track);
+  li.append(el('span', '', `${done} of ${total}${noun ? ` ${noun}` : ''} · ${percent}%`), track);
   return li;
 }
+const COUNT_NOUN = {scout: 'employers checked'};
 // The one thing to do on a row, as a link after its words (as "Explain with AI"): a wait on you, a tab to look at, a tab you closed, a silent extension.
 // Each row's one action, a button on its right (owner, 7 Oct 2026: "per row, on the right, Open in Chrome"): the tab while it reads, the site
 // once it is done, Allow while it waits on you, Open again for a tab you closed, the extension when it did not answer.
@@ -779,8 +782,11 @@ export function renderActivity(fresh) {
   // read from the result message, which has every site (the kept log is cut to its last 400 lines).
   const tabs = run?.live && kindOf(run) === 'visits' ? parseSiteRows(lines) : null;
   const shownTabs = tabs && !run.live ? {...tabs, done: tabs.total, percent: 100} : tabs;   // a finished run: every site is settled (settled())
-  if (tabs) $('activity-phases').replaceChildren(siteProgress(shownTabs), ...tabs.sites.map(site => siteRow(site, !!run.live)));
-  show($('activity-phases'), updates.length > 0 || at >= 0 || !!tabs);
+  if (tabs) $('activity-phases').replaceChildren(runProgress(shownTabs, 'sites'), ...tabs.sites.map(site => siteRow(site, !!run.live)));
+  const counted = run?.live && !tabs ? stepCount(run.step) : null;   // any other running task whose step counts
+  // Over a search's steps; alone for any other task (the steps listed above are a search's only).
+  if (counted) { if (at >= 0 || updates.length) $('activity-phases').prepend(runProgress(counted, COUNT_NOUN[kindOf(run)])); else $('activity-phases').replaceChildren(runProgress(counted, COUNT_NOUN[kindOf(run)])); }
+  show($('activity-phases'), updates.length > 0 || at >= 0 || !!tabs || !!counted);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
   // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
   // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.

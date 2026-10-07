@@ -160,3 +160,11 @@ export function barState(running, shown) {
   if (!shown.ok || shown.off) return 'error';
   return runWarned(shown) ? 'warn' : 'ok';
 }
+
+// How far a running task is, from its live step when it counts ("Scout: checked 33 of 91: EF", "Reading employer job sites: 1,200 of 2,024"):
+// the progress meter above the Technical log (pages/activity.js runProgress). null when the step does not count.
+export function stepCount(step = '') {
+  const m = /(\d[\d,]*) of (\d[\d,]*)/.exec(String(step));
+  const [done, total] = m ? [m[1], m[2]].map(n => Number(n.replace(/,/g, ''))) : [0, 0];
+  return total > 0 && done <= total ? {done, total, percent: Math.round(done / total * 100)} : null;
+}

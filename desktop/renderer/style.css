@@ -1785,8 +1785,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .activity-phases li { padding: var(--sp-3) 0; font-weight: 600; }
 .activity-phases .phase-note { display: block; margin-left: 22px; font-size: var(--fs-md); font-weight: 400; color: var(--muted); }
 .activity-phases .phase-note + .phase-note { font-size: var(--fs-sm); }
-.activity-phases li.site-progress { display: grid; gap: 6px; font-weight: 600; margin-bottom: 4px; }   /* Read sites: "N of M sites · X%" over the shared meter */
-.activity-phases li.site-progress .score-track { background: var(--line); }
+.activity-phases li.run-progress { display: grid; gap: 6px; font-weight: 600; margin-bottom: 4px; }   /* a running task: "N of M · X%" over the shared meter */
+.activity-phases li.run-progress .score-track { background: var(--line); }
 /* Read sites: mark · name and its step · its one button on the right (activity.js siteRow) */
 .activity-panel .activity-phases li.site-row { display: flex; align-items: center; gap: var(--sp-3); }
 .activity-panel .activity-phases li.site-row[class]::before { margin-right: 0; flex: none; }   /* [class]: over li.done::before, which comes later */
