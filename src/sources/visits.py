@@ -187,7 +187,25 @@ def _from_cards(cards, url):
         if company:
             job['employer'] = company[:120]
         jobs.append(job)
-    return jobs
+    # When most cards link to a single job (an id in the path, or a job id in the query: Indeed's jk=, Glassdoor's jl=, LinkedIn's
+    # currentJobId=), the cards without one are the site's menu (7 Oct 2026: Glassdoor's "Zum Inhalt springen", "Jobs", "Für dich" were read as jobs).
+    with_id = [job for job in jobs if _has_job_id(job['url'])]
+    return with_id if len(with_id) >= 3 else jobs
+
+
+QUERY_ID = re.compile(r'(?:^|&)(?:jk|jl|jobid|job_id|currentjobid|vjk|gh_jid|id)=[0-9a-z_-]{5,}', re.I)
+
+
+def _has_job_id(link):
+    parts = urllib.parse.urlsplit(link)
+    return bool(careers.JOB_ID.search(parts.path.rstrip('/')) or QUERY_ID.search(parts.query))
+
+
+def fitting(jobs):
+    """The jobs a jobs check would keep: your role words and your places (src/sources/feeds.py, the same filter), so a read says
+    honestly how many of its jobs reach your list (owner, 7 Oct 2026: "Read 5 jobs from Indeed, but my Jobs count never grows")."""
+    from . import feeds
+    return [job for job in jobs if feeds.wanted_title(job.get('title') or '') and feeds.wanted_location(job)]
 
 
 def read(url, markup, cards=None, title='', now=None, session=''):
@@ -226,8 +244,9 @@ def read(url, markup, cards=None, title='', now=None, session=''):
         pages[feed] = {'name': name, 'portal': bool(portal), 'at': now.isoformat(timespec='seconds'), 'jobs': merged}
         data['reads'][host]['jobs'] = len(merged)
         _save(data)
-    print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all")
-    return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added}
+    fits = len(fitting(merged))
+    print(f"Visit: read {len(jobs)} jobs on {name} ({host}) from a page you opened; {added} new in this visit, {len(merged)} in all, {fits} matching your search")
+    return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added, 'fits': fits}
 
 
 def job_page(url, markup):

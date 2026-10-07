@@ -472,7 +472,7 @@ def main(argv=None):
                 db.execute("""INSERT OR IGNORE INTO feed_sources (ats, slug, company, tier, quality, added_at) VALUES ('visit', ?, ?, 'Standard', NULL, ?)""",
                            (result['feed'], result['name'], datetime.now(timezone.utc).isoformat(timespec='seconds')))
                 db.commit()
-            print(json.dumps({'ok': True, 'name': result['name'], 'jobs': len(result['jobs']), 'added': result['added'], 'kind': result['kind']}, ensure_ascii=False))
+            print(json.dumps({'ok': True, 'name': result['name'], 'jobs': len(result['jobs']), 'added': result['added'], 'fits': result['fits'], 'kind': result['kind']}, ensure_ascii=False))
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()

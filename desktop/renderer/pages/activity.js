@@ -272,8 +272,12 @@ export function renderVisitsCard(card, target = $('activity-card')) {
   const head = el('header', 'insight-head');
   const kicker = el('div', 'insight-kicker');
   kicker.append(el('span', 'insight-category', 'Sites only you can open'));
-  head.append(kicker, el('h3', 'insight-title', `Read ${card.read} of ${plural(card.total, 'site')} · ${plural(card.jobs, 'job')} (${card.fresh} new)`));
-  head.append(el('p', 'insight-subtitle', 'Your next jobs check filters and scores them like any other.'));
+  head.append(kicker, el('h3', 'insight-title', card.fits === null ? `Read ${card.read} of ${plural(card.total, 'site')} · ${plural(card.jobs, 'job')} (${card.fresh} new)`
+    : `Read ${plural(card.jobs, 'job')}, ${card.fits} matching your search`));   // the reading works, said first; how many reach Jobs beside it (owner)
+  // How many reach Jobs, said plainly (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count never grows"): only those with your role words and places.
+  head.append(el('p', 'insight-subtitle', card.fits === null ? 'Your next jobs check filters and scores them like any other.'
+    : `From ${card.read} of ${plural(card.total, 'site')}. ` + (card.fits ? `A search started to score the matching ${card.fits === 1 ? 'one' : 'ones'} for your Jobs list.`
+      : 'None has your role words and places, so your Jobs list stays the same.')));
   const list = el('ul', 'item-rows');
   for (const site of card.sites) {
     const row = el('li', site.ok ? '' : 'is-failed');

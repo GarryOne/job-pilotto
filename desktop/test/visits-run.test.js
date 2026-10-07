@@ -76,7 +76,7 @@ test('runAll writes each site\'s states, in order, for those rows', async () => 
   const lines = [];
   const openTab = url => { const ticket = /-([a-z0-9]+)$/.exec(url)[1]; setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 4, added: 1, pages: 1}), 10); return {ok: true}; };
   await runAll([{name: 'A', url: 'https://a.example'}], {openTab, tee: line => lines.push(line), waitMs: 500});
-  assert.deepEqual(lines.filter(line => line.includes('▸')), [siteLine('next', 'A', 'https://a.example'), siteLine('opening', 'A', 'Opening in Chrome…'), siteLine('done', 'A', '4 jobs (1 new)')]);
+  assert.deepEqual(lines.filter(line => line.includes('▸')), [siteLine('next', 'A', 'https://a.example'), siteLine('opening', 'A', 'Opening in Chrome…'), siteLine('done', 'A', '4 jobs read (1 new), 0 matching your search')]);
   assert.ok(lines.some(line => /^⏳ .*1 of 1 · 100%/.test(line)), 'the banner\'s step says the percent');
 });
 
@@ -119,4 +119,14 @@ test('"Open again" puts a site whose tab you closed back in the run; after the r
   assert.equal(lines.filter(line => line === siteLine('next', 'Flaky', 'https://flaky.example')).length, 2, 'its row is Next again');
   assert.ok(lines.some(line => /2 of 2 · 100%/.test(line)), 'the percent counts it once');
   assert.equal(again('https://flaky.example').ok, false);
+});
+
+test('the result says how many jobs fit the search, and the card reads it (owner: "Read 5 jobs, but my Jobs count never grows")', () => {
+  const text = resultMessage([{name: 'Indeed', url: 'https://ch.indeed.com/jobs?q=photographe', ok: true, jobs: 5, added: 5, fits: 1},
+    {name: 'Glassdoor', url: 'https://www.glassdoor.ch', ok: true, jobs: 3, added: 3, fits: 0}]);
+  assert.match(text.split('\n')[1], /· 1 matching your search$/);
+  const card = parseVisits(text);
+  assert.equal(card.fits, 1);
+  assert.match(card.sites[0].detail, /5 jobs \(5 new\), 1 matching your search/);
+  assert.equal(parseVisits('🌐 Sites read\nRead 1 of 1 site · 4 jobs (4 new)\n✓ A · 4 jobs (4 new) · https://a.example').fits, null, 'an older result still reads');
 });

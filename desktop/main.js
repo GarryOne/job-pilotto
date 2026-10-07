@@ -1896,7 +1896,15 @@ function handlers() {
       tee(text.split('\n')[1]);
       tee('<<<message'); text.split('\n').forEach(line => tee(line)); tee('message>>>');
       return results.some(result => result.ok);
-    });
+    }).then(() => {
+      // Jobs that fit the search are scored now, by a search started at once (owner, 7 Oct 2026: "Read 5 jobs, but my Jobs count never
+      // grows": they waited for the next scheduled check). Pages read in Chrome stay on this Mac, so with Always on they wait for a local search.
+      const fits = visits.lastFits();
+      if (!fits) return;
+      const cloud = !!storage.settings().cloud?.repo;
+      appLog('visit', cloud ? 'fitting jobs left for a search on this Mac (Always on)' : 'search started to score the jobs read in Chrome', {fits, by: 'read sites task'});
+      if (!cloud && !allowanceBlock()) pipeline.refresh(storage, log, 'run', 'you');
+    }).catch(error => appLog('visit', 'search after read sites not started', {error: error.message}));
     return {started: true};
   });   // a site only you can open, in the browser that has the extension
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).

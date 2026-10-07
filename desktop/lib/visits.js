@@ -114,7 +114,8 @@ export async function read(storage, page, runEngine = pipeline.run) {
       log('visit', 'page not read', {host: new URL(body.url).hostname, code});
       return {ok: false, error: 'The app could not read this page.'};
     }
-    log('visit', 'read a page the user opened', {host: new URL(body.url).hostname, name: answer.name, jobs: answer.jobs, added: answer.added, cards: body.cards.length, session: body.session});
+    log('visit', 'read a page the user opened', {host: new URL(body.url).hostname, name: answer.name, jobs: answer.jobs, added: answer.added, fits: answer.fits ?? null, cards: body.cards.length, session: body.session});
+    if (page?.ticket) fitsBy.set(String(page.ticket), answer.fits || 0);   // the site's latest count (pages of one visit add up in the engine)
     watchers.get(page?.ticket)?.({page: answer, url: body.url});
     return answer;
   } finally {
@@ -130,6 +131,9 @@ export const QUIET_MS = 30 * 1000;   // a site that sends no news (no page read,
 // One minute per site (owner, 7 Oct 2026): the extension stops its own read then (extension/visit.js SITE_MS); this is the app's cap
 // for an extension that hangs, a little later so its own stop arrives first. Waiting on the person (the one-time Allow) is not counted.
 export const SITE_MS = 75 * 1000;
+let fitsLast = 0;
+export const lastFits = () => fitsLast;   // the last task's jobs that fit the search: main.js starts a search to score them
+const fitsBy = new Map();   // ticket -> jobs of that site's visit that fit the search (role words and places), for the task's result
 const lastNews = new Map();   // ticket -> time of the extension's last report for that tab
 export function heardFrom(ticket) { if (ticket && lastNews.has(ticket)) lastNews.set(ticket, Date.now()); }
 const waiting = new Map();   // start address -> resolve
@@ -248,14 +252,16 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     watchers.delete(ticket);
     blocked.delete(ticket);
     lastNews.delete(ticket);
+    const fits = fitsBy.get(ticket) || 0;
+    fitsBy.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);
     const ok = (state.jobs || 0) > 0;
-    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'}`);
+    tee(`${ok ? '  ✓' : '  ✗'} ${site.name}: ${ok ? `${state.jobs} jobs (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'}`);
     doneCount += 1;
-    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} jobs (${state.added || 0} new)` : state.stopped || 'nothing read'));
+    tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} jobs read (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'));
     tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
-    log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
-    return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0};
+    log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, fits, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
+    return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
   };
   active = {queue, sites, lastPage: new Map(), back: site => {   // "Open again": the site is next once more, and no longer counted as finished
     if (queue.includes(site)) return;
@@ -267,14 +273,18 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     while (queue.length) results.push(await one(queue.shift()));
   });
   await Promise.all(lanes).finally(() => { taskTee = null; active = null; });
-  return sites.map(site => results.findLast(result => result.url === site.url));   // a site opened again: its last reading
+  const last = sites.map(site => results.findLast(result => result.url === site.url));   // a site opened again: its last reading
+  fitsLast = last.reduce((sum, result) => sum + (result?.ok ? result.fits || 0 : 0), 0);
+  return last;
 }
 // The result as the app shows it (renderer/visits-card.js parseVisits reads exactly this).
 export function resultMessage(results) {
   const read = results.filter(result => result.ok);
   const jobs = read.reduce((sum, result) => sum + result.jobs, 0), added = read.reduce((sum, result) => sum + result.added, 0);
+  const fits = read.reduce((sum, result) => sum + (result.fits || 0), 0);
+  const fit = n => `${n} matching your search`;
   const clean = text => String(text || '').replace(/\s*·\s*/g, ', ').replace(/\n/g, ' ').slice(0, 120);
-  return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new)`,
-    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} jobs (${result.added} new) · ${key(result.url)}`
+  return ['🌐 Sites read', `Read ${read.length} of ${results.length} site${results.length === 1 ? '' : 's'} · ${jobs} job${jobs === 1 ? '' : 's'} (${added} new) · ${fit(fits)}`,
+    ...results.map(result => result.ok ? `✓ ${clean(result.name)} · ${result.jobs} jobs (${result.added} new), ${fit(result.fits || 0)} · ${key(result.url)}`
       : `✗ ${clean(result.name)} · ${clean(result.why) || 'nothing read'} · ${key(result.url)}`)].join('\n');
 }

@@ -311,8 +311,8 @@ export async function init() {
   // Few new jobs twice in a row (lib/few-jobs.js): a dot on Strategy until it is opened.
   window.pilot.onFewJobs?.(() => show($('strategy-dot'), true));
   document.querySelector('.nav[data-view=strategy]')?.addEventListener('click', () => show($('strategy-dot'), false));
-  window.pilot.onVisitRead?.(answer => toastMessage(`Read ${answer.jobs} jobs from ${answer.name}`,
-    `${answer.added} new on this visit. Your next jobs check filters and scores them like any other.`));
+  window.pilot.onVisitRead?.(answer => toastMessage(answer.fits === undefined ? `Read ${answer.jobs} jobs from ${answer.name}` : `Read ${answer.jobs} jobs from ${answer.name}, ${answer.fits} matching your search`,
+    answer.fits ? 'Those matching are scored for your Jobs list by a jobs check.' : 'The reading works; none of these match your role words and places, so your Jobs list stays the same.'));
   $('open-profile').addEventListener('click', startTargetsEdit);
   $('profile-empty-rebuild').addEventListener('click', () => $('strategy-redo').click());   // the same Rebuild from CV as the Profile page
   $('targets-cancel').addEventListener('click', () => { targetEdits = null; message('targets-message', ''); renderTargets(); });

@@ -3,14 +3,14 @@
 export function parseVisits(text) {
   const lines = String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
   if (lines[0] !== '🌐 Sites read') return null;
-  const head = /^Read (\d+) of (\d+) sites? · (\d+) jobs? \((\d+) new\)/.exec(lines[1] || '');
+  const head = /^Read (\d+) of (\d+) sites? · (\d+) jobs? \((\d+) new\)(?: · (\d+) (?:fits? |matching )your search)?/.exec(lines[1] || '');
   if (!head) return null;
   const sites = [];
   for (const line of lines.slice(2)) {
     const row = /^([✓✗]) (.+?) · (.+) · (https?:\/\/\S+)$/.exec(line);
     if (row) sites.push({ok: row[1] === '✓', name: row[2], detail: row[3], url: row[4]});
   }
-  return {kind: 'visits', read: Number(head[1]), total: Number(head[2]), jobs: Number(head[3]), fresh: Number(head[4]), sites};
+  return {kind: 'visits', read: Number(head[1]), total: Number(head[2]), jobs: Number(head[3]), fresh: Number(head[4]), fits: head[5] === undefined ? null : Number(head[5]), sites};
 }
 // A Read sites run's tabs, from its log (lib/visits.js siteLine: `  ▸ <state> · <site> · <words>`): one row per site in the order they were
 // listed, each at its latest state, and how far the run is (sites finished of all, as a percent). Pure; null when the log has none.

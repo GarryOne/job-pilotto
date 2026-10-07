@@ -69,6 +69,20 @@ class VisitsTest(unittest.TestCase):
         listed = visits.visit_list(SEARCH, {'sales_retail'}, now=NOW, picks=[{'name': 'Hublot', 'url': 'https://www.hublot.com'}])
         self.assertEqual(listed[0]['url'], 'https://www.hublot.com/joboffers/en', 'Open goes to the job list once found')
 
+    def test_menu_cards_are_dropped_and_a_read_says_how_many_fit_the_search(self):
+        # 7 Oct 2026: Glassdoor's menu ("Zum Inhalt springen", "Jobs", "Für dich") was read as jobs, and "Read 5 jobs from Indeed" grew nothing:
+        # one of the five fit the search. Cards with a job id are the jobs; a read counts the ones the jobs check would keep.
+        cards = [{'title': 'Zum Inhalt springen', 'url': '#main'}, {'title': 'Für dich', 'url': '/member/home'},
+                 {'title': 'Photographer', 'url': '/rc/clk?jk=4a1b2c3d4e5f', 'lines': ['Studio AB', '1211 Geneva, GE']},
+                 {'title': 'Solutions Engineer', 'url': '/rc/clk?jk=5a1b2c3d4e5f', 'lines': ['LHH', 'Geneva, GE']},
+                 {'title': 'Photo assistant', 'url': '/rc/clk?jk=6a1b2c3d4e5f', 'lines': ['Studio C', 'Zürich']}]
+        from src.sources import feeds
+        with mock.patch.object(feeds, 'wanted_title', lambda title: 'photo' in title.lower()), \
+                mock.patch.object(feeds, 'wanted_location', lambda job: 'geneva' in (job.get('location') or '').lower()):
+            result = visits.read('https://ch.indeed.com/jobs?q=photographe', '<html></html>', cards, now=NOW)
+        self.assertEqual([job['title'] for job in result['jobs']], ['Photographer', 'Solutions Engineer', 'Photo assistant'])
+        self.assertEqual(result['fits'], 1, 'a photo job in Geneva: the one a jobs check keeps')
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'
