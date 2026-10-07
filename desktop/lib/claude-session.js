@@ -200,8 +200,10 @@ export function readPrompt(url, name, contextFile) {
     + `{"url": <this page's address>, "title": <page title>, "session": "${contextFile.split('/').pop()}", "start": "${url}", "cards": [{"title", "url", "lines": [title, employer, place]}]} `
     + 'to a file and run `python3 -m src.desktop visit-read <that file>`. Then go to the next page of results, at most 20 pages, and stop when there is none.\n'
     + '3. Never click Apply, Easy Apply, Submit, Save, Follow, Message or Connect; never sign in, never answer a CAPTCHA or "are you human" check. '
-    + `If one appears, run tools/notify.sh ${url} "Needs you in Chrome" and tell me in one line, wait for my reply, then carry on.\n`
-    + 'Finish with one line: how many jobs you saved, from how many pages. Don\'t read this repo\'s files or discuss these instructions.';
+    + `If one appears, run tools/notify.sh ${url} "Needs you in Chrome", then look at the page again every 20 seconds (run \`sleep 20\`) for up to 3 minutes: `
+    + 'once it is gone, carry on; if it is still there, finish.\n'
+    + '4. Nobody reads this conversation while it runs: never ask a question or wait for a reply. When you are done, you are done.\n'
+    + 'Finish with one line: how many jobs you saved, from how many pages (and, if you stopped early, why). Don\'t read this repo\'s files or discuss these instructions.';
 }
 export async function launchRead(storage, url, name, {claude, platform = process.platform, term = terminals, port = PORT} = {}) {
   const env = sessionEnv(storage, process.env, platform, pythonShim(storage, pipeline.python(), platform));
@@ -217,7 +219,7 @@ export async function launchRead(storage, url, name, {claude, platform = process
   const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', crypto.randomUUID()];
   const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
   const {file, args} = platform === 'win32' ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]} : {file: claude, args: [...flags, ask]};
-  return term.start({id, url, claudeId: null, file, args, cwd: pipeline.REPO, env: {...env, JOB_PILOTTO_SESSION: id}, company: name, title: `Read jobs: ${name}`});
+  return term.start({id, url, claudeId: null, file, args, cwd: pipeline.REPO, env: {...env, JOB_PILOTTO_SESSION: id}, company: name, title: `Read jobs: ${name}`, kind: 'read'});
 }
 
 // Starts Claude again in the conversation of a session that isn't running (the app was closed, or it stopped).

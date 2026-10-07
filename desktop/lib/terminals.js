@@ -148,8 +148,10 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
 
 // Start one session: file + args run in cwd with env, in a terminal of cols x rows. claudeId is the Claude Code
 // conversation it runs (claude --session-id), kept so the session can be resumed after the app was closed.
-export async function start({id, url, title = '', company = '', location = '', workMode = '', claudeId = '', ...launch}) {
-  const session = {id, url, title, company, location, workMode, claudeId, term: null, output: '', status: 'running', note: 'Starting…', startedAt: new Date().toISOString(), events: []};
+// kind: 'claude' (Apply with Claude) or 'read' (Read with Claude, lib/claude-session.js launchRead): a read is not an application, so it never
+// waits on you and never shows in Applying (renderer/pages/sessions.js), and it is closed when Claude is done.
+export async function start({id, url, title = '', company = '', location = '', workMode = '', claudeId = '', kind = 'claude', ...launch}) {
+  const session = {id, kind, url, title, company, location, workMode, claudeId, term: null, output: '', status: 'running', note: 'Starting…', startedAt: new Date().toISOString(), events: []};
   await attach(session, launch);
   sessions.set(id, session);
   mark(session, 'running', session.startedAt);
@@ -404,6 +406,8 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
   if (event === 'note' && /^Form filled/i.test(text)) Object.assign(session, {status: 'done', note: 'Form filled — review it in Chrome and Submit'});
   else if (event === 'note' && /Needs your input|No kit yet/i.test(text)) Object.assign(session, {status: 'input', note: text.replace(/\s*—\s*see Terminal$/, '')});
   else if (event === 'note' && text) Object.assign(session, {note: text});
+  else if (session.kind === 'read' && event === 'input') Object.assign(session, {note: 'Reading in Chrome…'});   // Claude Code's idle notice: nobody is asked
+  else if (session.kind === 'read' && event === 'stop') Object.assign(session, {status: 'done', note: String(session.question || 'Finished reading').slice(0, 200)});
   else if (event === 'input') Object.assign(session, {status: 'input', note: text || 'Claude needs your input'});
   else if (event === 'stop' && session.status !== 'done') Object.assign(session, {status: 'input', note: 'Waiting for your reply'});
   // The first prompt is the app's own instructions (Claude Code reports it like a reply): only later ones are yours.
@@ -413,6 +417,8 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
   mark(session);
   listener('update', publicView(session));
   save();
+  // A read whose Claude is done sits at its prompt: closed, its jobs are saved already (a reply would go nowhere).
+  if (session.kind === 'read' && event === 'stop') setTimeout(() => stop(id), 2000).unref?.();
   return {session: publicView(session), needsYou: session.status === 'input' && before !== 'input'};
 }
 

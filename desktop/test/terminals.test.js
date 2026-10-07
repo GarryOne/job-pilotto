@@ -302,3 +302,21 @@ test('a resumed Claude repainting an old "Interrupted" line does not pause the s
   assert.equal(terminals.get('p1').status, 'input');
   terminals._reset();
 });
+
+test('a Read with Claude session never needs you, is closed once Claude is done, and stays out of Applying', async () => {
+  const pty = fakePty();
+  terminals.usePty(pty.loader);
+  const started = await terminals.start({id: 'r1', url: 'https://www.linkedin.com/jobs', company: 'LinkedIn', title: 'Read jobs: LinkedIn', kind: 'read', file: 'claude', env: {}});
+  assert.equal(started.kind, 'read');
+  assert.equal(terminals.report('r1', {event: 'input', message: 'Claude is waiting for your input'}).needsYou, false, 'an idle notice asks nobody');
+  const done = terminals.report('r1', {event: 'stop'});
+  assert.equal(done.needsYou, false);
+  assert.equal(done.session.status, 'done');
+  await new Promise(resolve => setTimeout(resolve, 2100));
+  assert.equal(pty.spawned[0].killed, true, 'closed: a reply would go nowhere');
+  // An application's session, the same events: it waits for you (unchanged).
+  await terminals.start({id: 'a9', url: 'https://jobs.test/9', company: 'Acme', file: 'claude', env: {}});
+  assert.equal(terminals.report('a9', {event: 'stop'}).needsYou, true);
+  const sessions = fs.readFileSync(new URL('../renderer/pages/sessions.js', import.meta.url), 'utf8');
+  assert.match(sessions, /const stillOpen = items => \(items \|\| \[\]\)\.filter\(item => !isSubmitted\(item\) && item\.kind !== 'read'\)/, 'Applying\'s one list leaves reads out');
+});

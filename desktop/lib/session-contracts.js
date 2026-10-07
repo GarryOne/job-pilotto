@@ -17,7 +17,7 @@ export class ContractError extends TypeError {
   }
 }
 const sessionFields = {
-  id, kind: optional(oneOf(['claude', 'form'])), url: string, title: string, company: string,
+  id, kind: optional(oneOf(['claude', 'form', 'read'])), url: string, title: string, company: string,
   status: oneOf(['running', 'input', 'done', 'ended', 'failed']), note: string, startedAt: string,
   stuck: optional(string), question: optional(string), brief: optional(string), location: optional(string), workMode: optional(string), outcome: optional(string),
   live: optional(boolean), resumable: optional(boolean), askAtStart: optional(boolean),

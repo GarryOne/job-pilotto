@@ -39,8 +39,10 @@ export function sessionFor(url) {
 export const sessionJob = item => shared.allJobs.find(job => pageKey(job.url) === pageKey(item.url)) || {};
 export const sessionTitle = item => item.title || sessionJob(item).title || 'Application';
 export const sessionCompany = item => item.company || sessionJob(item).company || new URL(item.url || 'https://job').hostname.replace(/^www\./, '');
-// A submitted application is finished work: it lives on Jobs, not on this screen.
-const stillOpen = items => (items || []).filter(item => !isSubmitted(item));
+// A submitted application is finished work: it lives on Jobs, not on this screen. A Read with Claude session is not an application at all
+// (owner, 7 Oct 2026: "this is only for applying to jobs"): its result is in Recent activity. This list feeds the page, the badge, the dock and
+// "N sessions need you", so leaving it out here leaves it out of all of them.
+const stillOpen = items => (items || []).filter(item => !isSubmitted(item) && item.kind !== 'read');
 export async function refreshSessions() {
   const fresh = await window.pilot.sessions().catch(() => null);
   if (fresh) { sessionList = stillOpen(fresh); rememberSessions(sessionList); }  // a failed read keeps what we have, it doesn't blank it
