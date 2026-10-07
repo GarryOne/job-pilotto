@@ -10,7 +10,7 @@ import {runWarned} from '../renderer/run-status.js';   // pure (no DOM): the Act
 export {jobFrom};
 
 const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today', mail: 'mail', scout: 'scout', insight: 'insight',
-  weekly: 'weekly', kits: 'kits', tailor: 'tailor', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep', import: 'import'};
+  weekly: 'weekly', kits: 'kits', tailor: 'tailor', visits: 'visits', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep', import: 'import'};
 // What started it: the Mac's schedule, you (the app, Telegram, GitHub's Run button) or GitHub's schedule.
 const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
 const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
@@ -278,3 +278,4 @@ function noticeText(run) {
   }
   return {title: `${name} ${verdict}${where}`, body: String(run.result || run.summary || run.message || 'Done.').split('\n')[0].slice(0, 180) + look};
 }
+export {KIND as RUN_KINDS};   // every app task kind must be here, or its runs never get a Notion row (test/run-kinds.test.js)

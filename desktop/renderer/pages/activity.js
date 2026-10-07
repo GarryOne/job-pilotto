@@ -200,6 +200,8 @@ export function outcome(run) {
 }
 function outcomeOf(run) {
   if (run.stopped === 'you') return 'Stopped by you · what it saved is kept, the next run continues';
+  // Closed while it ran (lib/pipeline.js INTERRUPTED): said as such, as its box does (7 Oct 2026: the row read "Unexpected error")
+  if (run.interrupted) return 'Interrupted · Job Pilotto was closed while this ran; run it again to continue';
   const explained = notConnectedHead(run) || waitedHead({...run, kind: kindOf(run)});
   if (explained) return explained.short;   // the box says the rest
   const stopped = stoppedHead({...run, kind: kindOf(run)});

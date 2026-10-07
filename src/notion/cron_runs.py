@@ -162,7 +162,7 @@ def mail_lines(run):
 
 
 # One-off jobs (not crawls): their name when they finish without a result line of their own.
-ONE_OFF = {'add': 'Logged activity', 'insight': 'Insight', 'weekly': 'Search analysis', 'interview': 'Interview review',
+ONE_OFF = {'visits': 'Find jobs using your browser', 'tailor': 'Tailor CVs for top matches', 'add': 'Logged activity', 'insight': 'Insight', 'weekly': 'Search analysis', 'interview': 'Interview review',
            'prepare': 'Application kit', 'kits': 'Prepare top matches', 'apply': 'Marked applied', 'scout': 'Find new employers', 'prep': 'Interview prep kit'}
 # A job whose AI step has no queue needs a verb, not a column's label: the "Stages" line of a Gmail check.
 STEP_NAME = {'mail': 'Read job emails'}

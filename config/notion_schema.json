@@ -1113,6 +1113,14 @@
             {
               "name": "kits",
               "color": "yellow"
+            },
+            {
+              "name": "visits",
+              "color": "blue"
+            },
+            {
+              "name": "tailor",
+              "color": "yellow"
             }
           ]
         },
