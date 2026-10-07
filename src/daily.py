@@ -718,13 +718,16 @@ def main():
                     dropped = store.close_dropped(db, {source['company'] for source in feed_list})
                     if dropped:
                         print(f'Closed {dropped} job(s) from employers your search no longer reads')
-                from .sources import feeds as feed_places
-                elsewhere = store.close_elsewhere(db, feed_places.wanted_location)
-                if elsewhere:
-                    print(f'Closed {elsewhere} job(s) outside your places')
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += store.import_company_report(db, company_report)
+        if args.mode in ('scheduled', 'run'):
+            # Last of the imports (7 Oct 2026: the job boards' report, imported after it, opened again jobs this had just closed): jobs outside
+            # your places close; acted on, added by you, or with no place stay.
+            from .sources import feeds as feed_places
+            elsewhere = store.close_elsewhere(db, feed_places.wanted_location)
+            if elsewhere:
+                print(f'Closed {elsewhere} job(s) outside your places')
         # Jobs that came without a description (SmartRecruiters' list, a jobs.ch page that failed) get it now, or
         # they'd never be enriched or scored. A few per run; a failure is tried again next run.
         try:

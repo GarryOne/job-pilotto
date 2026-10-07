@@ -156,7 +156,7 @@ def jobsch(search, get=None):
                 if not where and towns.get(key.group(1)):
                     where.append(towns[key.group(1)])
                 fresh += 1
-                jobs.append(_job('jobsch', key.group(1), j['title'], (j.get('hiringOrganization') or {}).get('name'), ', '.join(f'{town}, Switzerland' for town in where) or 'Switzerland',
+                jobs.append(_job('jobsch', key.group(1), j['title'], (j.get('hiringOrganization') or {}).get('name'), ', '.join(f'{town}, Switzerland' for town in where) or (f'{place} area, Switzerland' if place else 'Switzerland'),   # a search in a town: near it
                                  url, str(j.get('datePosted') or '')[:10], j.get('description')))
             if len(listed) < boards.PAGE_SIZE or not fresh:
                 break

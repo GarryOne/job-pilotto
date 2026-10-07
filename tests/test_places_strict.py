@@ -85,6 +85,14 @@ class JobsChTownTests(unittest.TestCase):
             jobs = ats.jobsch('4259-fnac-suisse-sa')
         self.assertEqual([j['location'] for j in jobs], ['Vevey, Switzerland'])
 
+    def test_a_posting_with_an_address_block_and_capitals(self):
+        # 7 Oct 2026, a real jobs.ch page: listingTags and an address block sit between the id and the posting's own place; 15 of 20 missed.
+        state = ('{"id":"608e1edf-6066-4019-870e-509b373b9369","isActive":true,"listingTags":[{"name":"quickApply"}],"locations":[{"cantonCode":"VD",'
+                 '"city":"SAINT SULPICE","place":null}],"place":"SAINT SULPICE","title":"VENDEUR"},'
+                 '{"id":"f54105db-c638-4972-81a7-779e99399dd1","locations":[{"city":"Lausanne","place":null}],"place":null,"title":"Vendeur"}')
+        self.assertEqual(ats.jobsch_towns(state), {'608e1edf-6066-4019-870e-509b373b9369': 'Saint Sulpice',
+                                                   'f54105db-c638-4972-81a7-779e99399dd1': 'Lausanne'})
+
     def test_the_board_search_keeps_the_town_too(self):
         search = {'locations': {'top_tier': ['geneva'], 'country_wide': [], 'abroad': []}, 'jobs_board_search_queries': ['vendeur'],
                   'board_discovery_keywords': ['vendeur'], 'role_keywords': ['vendeur']}
@@ -116,3 +124,10 @@ class CutListTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CleanupOrderTests(unittest.TestCase):
+    def test_jobs_outside_your_places_close_after_every_import(self):
+        # 7 Oct 2026: the job boards' report was imported after the cleanup and opened again a Lausanne job stored as "Switzerland".
+        source = Path('src/daily.py').read_text()
+        self.assertGreater(source.index('store.close_elsewhere('), source.index('store.import_company_report('))

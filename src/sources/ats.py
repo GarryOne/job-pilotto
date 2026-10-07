@@ -394,8 +394,19 @@ def _postings(markup):
 
 def jobsch_towns(markup):
     """A jobs.ch page's job id -> its town ("Vevey"), from the page's own app data: the schema.org listing names only the country for many
-    postings (7 Oct 2026: Fnac's Vevey jobs were stored as "Switzerland", which a Romandie search can't place)."""
-    return {ident: town for ident, town in re.findall(r'"id":"([0-9a-f-]{36})"[^{}]*?"place":"([^"]+)"', markup or '')}
+    postings (7 Oct 2026: Fnac's Vevey jobs were stored as "Switzerland", which a Romandie search can't place). Each posting's part of the
+    data runs from its id to the next one; its own "place" is the last one there that is set (its address block has "place": null), else
+    the address's city. Capitals are written as a name ("SAINT SULPICE" -> "Saint Sulpice")."""
+    markup = markup or ''
+    starts = [(m.start(), m.group(1)) for m in re.finditer(r'"id":"([0-9a-f-]{36})"', markup)]
+    towns = {}
+    for n, (at, ident) in enumerate(starts):
+        part = markup[at:starts[n + 1][0] if n + 1 < len(starts) else at + 4000]
+        found = re.findall(r'"place":"([^"]+)"', part) or re.findall(r'"city":"([^"]+)"', part)
+        if found and ident not in towns:
+            town = found[-1].strip()
+            towns[ident] = town.title() if town.isupper() else town
+    return towns
 
 
 def jobsch_find(name, key, get=None):
