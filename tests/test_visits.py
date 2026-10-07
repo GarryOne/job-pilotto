@@ -160,6 +160,19 @@ class VisitsTest(unittest.TestCase):
         self.assertIsNone(visits.recipe_for('https://careers.richemont.com/en/jobs/iwc/'))
         self.assertFalse(visits.recipe_missed('https://careers.richemont.com/en/jobs/iwc/'), 'no recipe: nothing to forget')
 
+    def test_a_known_job_list_with_no_jobs_today_is_not_taken_for_a_wrong_page(self):
+        # A list filtered to your places, read by the site's learned layout, can have none: it keeps its place as the site's job page.
+        search = lambda name: ['https://careers.maison.example/en/jobs/maison/']
+        site = [{'name': 'Maison', 'url': 'https://www.maison.example', 'kind': 'employer'}]
+        with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
+            visits.find_job_pages(site, [], search=search, now=NOW)
+        for _ in range(3):
+            visits.read('https://careers.maison.example/en/jobs/maison/', '<html></html>', [], now=NOW, known_list=True)
+        self.assertIn('maison.example', visits._load().get('jobpages') or {}, 'kept: it is the list, with nothing in your places today')
+        for _ in range(2):
+            visits.read('https://careers.maison.example/en/jobs/maison/', '<html></html>', [], now=NOW)
+        self.assertNotIn('maison.example', visits._load().get('jobpages') or {}, 'an empty page with no known list still counts')
+
     def test_a_job_page_that_is_a_404_is_forgotten_at_once(self):
         with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
             visits.find_job_pages([{'name': 'FM', 'url': 'https://www.fm.example', 'kind': 'employer'}], [], search=lambda name: ['https://www.fm.example/careers'], now=NOW)

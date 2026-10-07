@@ -312,7 +312,7 @@ def fitting(jobs):
     return [job for job in jobs if feeds.wanted_title(job.get('title') or '') and feeds.wanted_location(job)]
 
 
-def read(url, markup, cards=None, title='', now=None, session='', start=''):
+def read(url, markup, cards=None, title='', now=None, session='', start='', known_list=False):
     """Read the jobs on a page a person opened and sent: the page's own job data, else the cards the extension saw, else the careers reader
     (its links, a recipe learned earlier, AI as the last resort). Nothing is fetched: a site that refused us would refuse that too.
     Pages of one paging session (the extension going through a list) add up under the session's first page. Returns {name, jobs, kind,
@@ -353,7 +353,8 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
         # Twice in a row: once may be a reading that failed (a banner, a slow page), not a wrong page.
         found_at = [site for site, page in (data.get('jobpages') or {}).items() if page.split('#')[0].rstrip('/') == url.split('#')[0].rstrip('/')]
         empty = data.setdefault('jobpage_empty', {})
-        if found_at and not going_on:
+        # known_list: the site's own list by its learned layout, with no jobs in your places today: not a wrong page, its count is left as is.
+        if found_at and not going_on and not (known_list and not merged):
             empty[feed] = 0 if merged else empty.get(feed, 0) + 1
         missing = bool(re.search(r'\b404\b|not found|introuvable|nicht gefunden|non trovata', title or '', re.I))   # a page that is not there: at once
         if found_at and not merged and not going_on and (empty.get(feed, 0) >= 2 or missing):

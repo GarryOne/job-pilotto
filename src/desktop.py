@@ -643,7 +643,7 @@ def main(argv=None):
             from .sources import visits
             page = json.loads(Path(args.file).read_text())
             result = visits.read(page['url'], page.get('html') or '', page.get('cards'), page.get('title') or '', session=page.get('session') or '',
-                                 start=page.get('start') or '')
+                                 start=page.get('start') or '', known_list=bool(page.get('known_list')))
             with store.connect(JOBS_DB) as db:   # the page becomes one of this user's feeds: the next jobs check reads, filters and scores it
                 from . import scout
                 db.executescript(scout.TABLES)

@@ -426,6 +426,9 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     const start = (await chrome.tabs.get(tabId)).url;
     let recipe = (await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: start})}).catch(() => null))?.recipe || null;
     let asked = false, unstuck = 0;
+    // This site's own job list, by its learned layout, showing no jobs (a list filtered to your places that has none): no way on to look for,
+    // and not a wrong job page (7 Oct 2026: Claude looked for "a way to the jobs" on an empty brand page, one AI call each).
+    let knownList = false;
     const learn = async () => {
       asked = true;
       await tellStep(tabId, config, ticket, 'Claude is learning how to read this site (once)…');
@@ -450,11 +453,11 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         } else {   // no list by either: maybe this page has no jobs (a brand filtered to your place). Kept, and not learned again for it, until
           // it misses twice in a row (7 Oct 2026: Richemont's layout was forgotten on one brand and learned again on the next, the same).
           const kept = await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: seen.url, missed: true})}).catch(() => null);
-          if (kept?.forgot) { recipe = null; cards = seen.cards; } else asked = true;
+          if (kept?.forgot) { recipe = null; cards = seen.cards; } else { asked = true; knownList = true; }
         }
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
-      if (!cards?.length && page === 0 && unstuck < UNBLOCK_TRIES) {   // no jobs here yet: Claude picks a way to them (owner: "ask Claude how to get unblocked")
+      if (!cards?.length && page === 0 && unstuck < UNBLOCK_TRIES && !knownList) {   // no jobs here yet: Claude picks a way to them (owner: "ask Claude how to get unblocked")
         unstuck += 1;
         await tellStep(tabId, config, ticket, 'no jobs on this page yet: Claude is looking for the way to them…');
         const page0 = await run(tabId, collectWays).catch(() => null);
@@ -477,9 +480,10 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       if (!cards?.length) {   // why nothing was read, said in the site's row: what the page showed, so "0 jobs" is never a mystery
         const banner = await closeConsentEverywhere(tabId);
         if (banner) state.consent = banner;
-        await tellStep(tabId, config, ticket, `no job cards on this page (${seen.cards?.length || 0} repeated items seen${asked ? ', none of them jobs by Claude\'s reading' : ''}${banner ? `; a cookie banner was still open, closed with "${banner.slice(0, 30)}"` : ''})`);
+        await tellStep(tabId, config, ticket, knownList ? 'its job list shows no jobs here (filtered to your places, it may have none)'
+          : `no job cards on this page (${seen.cards?.length || 0} repeated items seen${asked ? ', none of them jobs by Claude\'s reading' : ''}${banner ? `; a cookie banner was still open, closed with "${banner.slice(0, 30)}"` : ''})`);
       }
-      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, ticket: state.ticket, url: seen.url, title: seen.title, html: seen.html, cards})});
+      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, ticket: state.ticket, url: seen.url, title: seen.title, html: seen.html, cards, knownList})});
       if (!answer?.ok) { state.stopped = answer?.error || 'the app did not take the page'; break; }
       Object.assign(state, {pages: page + 1, jobs: answer.jobs, added: state.added + (answer.added || 0), name: answer.name});
       badge(tabId, String(state.pages), `Job Pilotto: reading ${answer.name}, page ${state.pages}: ${answer.jobs} jobs so far`);
@@ -498,7 +502,8 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     }
     if (!state.stopped) state.stopped = `${pages} pages read: the most at once`;
     // Nothing read at all: not "the end of the list" (there was none), said as what it is (owner's run, 7 Oct 2026).
-    if (!state.jobs && /end of the list|no next page/.test(state.stopped)) state.stopped = 'no job list found on this page: try Read with Claude, or Open it myself';
+    if (!state.jobs && /end of the list|no next page/.test(state.stopped)) state.stopped = knownList ? 'its job list has no jobs here today (filtered to your places)'
+      : 'no job list found on this page: try Read with Claude, or Open it myself';
   } catch (error) {
     state.stopped = /Cannot access|permission/i.test(error.message) ? 'the next page is on another site, or access was not given' : (error.message || 'stopped');
   }

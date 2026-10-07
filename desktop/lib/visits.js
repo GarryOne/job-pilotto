@@ -147,7 +147,7 @@ export async function read(storage, page, runEngine = pipeline.run) {
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};
   const file = path.join(os.tmpdir(), `jp-visit-${process.pid}-${Date.now()}.json`);
   const body = {url: String(page.url), title: String(page.title || '').slice(0, 300), session: String(page.session || '').slice(0, 64), site: siteNames.get(String(page?.ticket || '')) || '',
-    html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : []};
+    html: String(page.html || '').slice(0, MAX_HTML), cards: Array.isArray(page.cards) ? page.cards.slice(0, 500) : [], known_list: !!page.knownList};
   fs.writeFileSync(file, JSON.stringify(body));
   try {
     // Saving a page can ask Claude too (a list whose links do not look like jobs: src/sources/careers.py _asked): that time is not silence
