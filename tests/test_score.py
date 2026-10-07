@@ -333,3 +333,22 @@ class BatchOnlyTests(unittest.TestCase):
             client = ModelClient({'m': lambda title: 70})
             score.run(db, candidates, 'Profile', 'm', 10, client=client, only_ids={candidates[0]['id']})
             self.assertEqual(len(client.requests), 1)
+
+
+class QueueTests(unittest.TestCase):
+    """A refresh sizes its batches from score.queue(); a job run() has just scored is not waiting any more (7 Oct 2026: the queue was asked
+    with the whole Profile, every scored job looked out of date, the next batch found "0 job(s) to score" and the refresh stopped)."""
+    PROFILE = '# Experience\nSRE, Kubernetes.\n# Contact\nphone 079 000 00 00'
+
+    def test_a_scored_job_leaves_the_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                seed_jobs(db, 3)
+                candidates, _ = digest.eligible_jobs(db)
+                self.assertEqual(len(score.queue(db, candidates, self.PROFILE)), 3)
+                score.run(db, candidates, self.PROFILE, 'm', 2, client=FakeClient(), only_ids={candidates[0]['id'], candidates[1]['id']})
+                self.assertEqual([job['id'] for job in score.queue(db, candidates, self.PROFILE)], [candidates[2]['id']])
+
+    def test_the_refresh_asks_only_through_queue(self):
+        source = (Path(daily.__file__)).read_text()
+        self.assertNotIn('score.pending_jobs(', source, 'pending_jobs hashes with the profile it is given; use score.queue()')

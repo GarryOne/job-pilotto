@@ -754,7 +754,7 @@ def main():
         if time_budget_on() and args.score_max and (tracker or local_profile()):
             try:
                 from . import time_budget
-                waiting = score.pending_jobs(db, digest.eligible_jobs(db, hidden)[0], local_profile() or tracker.page_text(), 10_000)
+                waiting = score.queue(db, digest.eligible_jobs(db, hidden)[0], local_profile() or tracker.page_text())
                 taken = time_budget.batch('score', len(waiting))
                 batch, batch_started = {job['id'] for job in waiting[:taken]}, __import__('time').monotonic()
                 run['waiting'] = len(waiting) - taken
@@ -797,7 +797,7 @@ def main():
                     time_budget.record('job', now() - batch_started, run['score'].get('done') or 0)
                     # Done with time left: the next batch, sized from the pace just measured, read and scored the same way (the first is a guess).
                     while run.get('waiting') and not time_budget.over('score'):
-                        queue = score.pending_jobs(db, digest.eligible_jobs(db, hidden)[0], profile, 10_000)
+                        queue = score.queue(db, digest.eligible_jobs(db, hidden)[0], profile)
                         taken = time_budget.batch('score', len(queue), say=False)
                         if not taken:
                             break

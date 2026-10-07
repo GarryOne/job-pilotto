@@ -276,9 +276,16 @@ def rescore_previous(db):
     return len(ids)
 
 
+def queue(db, candidates, profile):
+    """The jobs waiting for a (re-)score with this profile (the whole Profile text), checked the way run() checks them: against the
+    scoring part of the Profile (7 Oct 2026: a refresh asked with the whole text, so every job it had just scored looked out of date,
+    its next batch held only those, run() found "0 job(s) to score" and the refresh stopped after one batch)."""
+    return pending_jobs(db, candidates, scoring_profile(profile), 10**9, full_profile=profile)
+
+
 def stale_count(db, candidates, profile):
     """How many scored-or-scorable jobs still wait for a (re-)score with this profile ("Scores updating")."""
-    return len(pending_jobs(db, candidates, scoring_profile(profile), 10**9, full_profile=profile))
+    return len(queue(db, candidates, profile))
 
 
 def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None, first_pass=None, escalate_min=None, on_scored=None, every=10, only_ids=None):
