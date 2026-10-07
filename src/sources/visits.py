@@ -243,6 +243,19 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
         merged = list({job['url']: job for job in [*before, *jobs]}.values())[:MAX_JOBS]
         added = len(merged) - len(before)
         pages[feed] = {'name': name, 'portal': bool(portal), 'at': now.isoformat(timespec='seconds'), 'jobs': merged}
+        # A job page that shows no jobs at all, twice, was the wrong page, or moved (7 Oct 2026: "a wrong job page sticks forever"): forgotten, and
+        # not chosen again for BAD_DAYS, so the next visit looks for the site's job list afresh.
+        # Twice in a row: once may be a reading that failed (a banner, a slow page), not a wrong page.
+        found_at = [site for site, page in (data.get('jobpages') or {}).items() if page.split('#')[0].rstrip('/') == url.split('#')[0].rstrip('/')]
+        empty = data.setdefault('jobpage_empty', {})
+        if found_at and not going_on:
+            empty[feed] = 0 if merged else empty.get(feed, 0) + 1
+        if found_at and not merged and not going_on and empty.get(feed, 0) >= 2:
+            empty.pop(feed, None)
+            for site in found_at:
+                data['jobpages'].pop(site)
+            data.setdefault('jobpage_bad', {})[url.split('#')[0]] = now.isoformat(timespec='seconds')
+            print(f"Visit: {url.split('#')[0]} showed no jobs: no longer used as {', '.join(found_at)}'s job page")
         if start and merged and not portal and feed.rstrip('/') != start.split('#')[0].rstrip('/'):   # the job list found elsewhere (iwc.com's on careers.richemont.com,
             data.setdefault('jobpages', {})[host_of(start)] = feed   # by a Read with Claude session, 7 Oct 2026): Open goes straight there next time
         data['reads'][host]['jobs'] = len(merged)
@@ -253,6 +266,12 @@ def read(url, markup, cards=None, title='', now=None, session='', start=''):
 
 
 MISS_DAYS = 7   # a site whose job page a search could not find is not searched again for a week
+BAD_DAYS = 30   # a job page that showed no jobs is not chosen again for this long
+
+
+def _bad_pages(data, now):
+    since = (now - timedelta(days=BAD_DAYS)).isoformat(timespec='seconds')
+    return {page.rstrip('/') for page, at in (data.get('jobpage_bad') or {}).items() if at > since}
 
 
 def find_job_pages(sites, countries=(), search=None, now=None):
@@ -275,7 +294,8 @@ def find_job_pages(sites, countries=(), search=None, now=None):
             if host in known:
                 found[site['url']] = known[host]
             continue
-        urls = [url for url in search(site['name']) if url.split('#')[0].rstrip('/') != site['url'].rstrip('/')]
+        bad = _bad_pages(data, now)
+        urls = [url for url in search(site['name']) if url.split('#')[0].rstrip('/') not in {site['url'].rstrip('/'), *bad}]
         ours = [url for url in urls if any(code.search(urllib.parse.urlsplit(url.lower()).path + '?' + urllib.parse.urlsplit(url.lower()).query) for code in local)]
         page = (ours or urls or [None])[0]
         print(f"Visit: job page of {site['name']}: {page or 'not found'}")
@@ -312,7 +332,8 @@ def job_page(url, markup):
             except Exception as error:  # noqa: BLE001
                 print(f'Warning: web search for {name} jobs failed ({type(error).__name__})')
                 found = []
-    page = next((link for link in found if link.split('#')[0] != url.split('#')[0]), None)
+    bad = _bad_pages(_load(), _now())
+    page = next((link for link in found if link.split('#')[0] != url.split('#')[0] and link.split('#')[0].rstrip('/') not in bad), None)
     if page:
         with LOCK:
             data = _load()

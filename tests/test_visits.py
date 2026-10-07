@@ -110,6 +110,19 @@ class VisitsTest(unittest.TestCase):
         listed = visits.visit_list(SEARCH, {'sales_retail'}, now=NOW + timedelta(days=8), picks=[{'name': 'IWC', 'url': 'https://www.iwc.com'}])
         self.assertEqual(listed[0]['url'], 'https://careers.richemont.com/en/jobs/iwc?country=Switzerland')
 
+    def test_a_job_page_that_shows_no_jobs_is_forgotten_and_not_chosen_again(self):
+        # 7 Oct 2026: "a wrong job page sticks forever" (Jaeger-LeCoultre's was a US page).
+        search = lambda name: ['https://www.maison.example/us-en/careers', 'https://www.maison.example/ch-fr/careers']
+        site = [{'name': 'Maison', 'url': 'https://www.maison.example', 'kind': 'employer'}]
+        with mock.patch('src.sources.web_search.provider', lambda: 'claude'):
+            self.assertEqual(visits.find_job_pages(site, [], search=search, now=NOW), {'https://www.maison.example': 'https://www.maison.example/us-en/careers'})
+            visits.read('https://www.maison.example/us-en/careers', '<html></html>', [], now=NOW)
+            self.assertIn('maison.example', visits._load().get('jobpages'), 'one empty read may be a reading that failed: kept')
+            visits.read('https://www.maison.example/us-en/careers', '<html></html>', [], now=NOW)
+            self.assertNotIn('maison.example', visits._load().get('jobpages') or {}, 'forgotten after two reads with no jobs')
+            again = visits.find_job_pages(site, [], search=search, now=NOW)
+        self.assertEqual(again, {'https://www.maison.example': 'https://www.maison.example/ch-fr/careers'}, 'the next lookup skips the page that showed nothing')
+
     def test_an_employer_page_with_job_data_is_read_and_nothing_is_fetched(self):
         markup = '<script type="application/ld+json">' + json.dumps({'@type': 'JobPosting', 'title': 'Photographe', 'url': 'https://jobs.coop.ch/1',
                                                                       'jobLocation': {'address': {'addressLocality': 'Genève'}}}) + '</script>'

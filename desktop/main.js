@@ -1903,7 +1903,7 @@ function handlers() {
     appLog('visit', 'read sites task', {sites: chosen.length, atOnce: n, filter: !!filter, by: 'you'});
     pipeline.work(storage, 'visits', log, async tee => {
       tee(`Reading ${chosen.length} site${chosen.length === 1 ? '' : 's'} in your browser, ${n} at a time`);
-      const results = await visits.runAll(await visits.withJobPages(storage, chosen, tee), {atOnce: n, filter: !!filter, tee});
+      const results = await visits.runAll(chosen, {atOnce: n, filter: !!filter, tee, prepare: async site => (await visits.withJobPages(storage, [site]))[0]});
       const text = visits.resultMessage(results);
       tee(text.split('\n')[1]);
       tee('<<<message'); text.split('\n').forEach(line => tee(line)); tee('message>>>');

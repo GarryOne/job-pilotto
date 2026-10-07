@@ -187,3 +187,18 @@ test('a tab whose Claude is still answering is not skipped as silent, its time i
   assert.deepEqual(results.map(result => [result.name, result.ok]), [['Thinker', true], ['Mute', false]]);
   assert.match(results[1].why, /\(last step: reading page 1\)/);
 });
+
+test('each site finds its job page in its own lane, just before its tab opens: the first tab does not wait for every lookup', async () => {
+  const opened = [];
+  const openTab = url => {
+    opened.push([url.split('#')[0], Date.now()]);
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 1, added: 1, pages: 1}), 5);
+    return {ok: true};
+  };
+  const prepare = site => new Promise(resolve => setTimeout(() => resolve({...site, url: `${site.url}/careers`}), site.name === 'Slow' ? 200 : 10));
+  const started = Date.now();
+  const results = await runAll([{name: 'Quick', url: 'https://quick.example'}, {name: 'Slow', url: 'https://slow.example'}], {atOnce: 2, openTab, prepare, waitMs: 5000});
+  assert.ok(opened.find(([url]) => url === 'https://quick.example/careers')[1] - started < 150, 'Quick opened before Slow\'s lookup ended');
+  assert.deepEqual(results.map(result => [result.name, result.url, result.start]), [['Quick', 'https://quick.example/careers', 'https://quick.example'], ['Slow', 'https://slow.example/careers', 'https://slow.example']]);
+});

@@ -238,12 +238,19 @@ export function done(payload) {
   if (resolve) { waiting.delete(which(payload)); resolve(payload); }
   return {ok: true};
 }
-export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS} = {}) {
+// `prepare` (a site -> the site to open, e.g. with its job page found): run in the site's own lane just before its tab opens, so the first tab
+// opens after one lookup, not after all of them (7 Oct 2026: "Finding the job page of 7 employers…" held every tab for about 2 minutes).
+export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, openTab = open, waitMs = WAIT_MS, quietMs = QUIET_MS, siteMs = SITE_MS, prepare = null} = {}) {
   const queue = [...sites], results = [];
   taskTee = tee;
   let doneCount = 0;
   for (const site of sites) tee(siteLine('next', site.name, key(site.url)));
-  const one = async site => {
+  const one = async chosen => {
+    let site = chosen;
+    if (prepare) {
+      tee(siteLine('opening', chosen.name, 'Finding its job page…'));
+      site = {...chosen, ...(await prepare(chosen).catch(() => chosen))};
+    }
     const ticket = crypto.randomBytes(4).toString('hex');   // in the tab's mark, reported back: matched even after a redirect
     lastNews.set(ticket, Date.now());
     const openedAt = Date.now();
@@ -282,14 +289,14 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       }
       if (event.step) tee(siteLine('reading', site.name, `${event.step}${jobs ? ` · ${jobs} jobs so far` : ''}`));
       if (event.waiting) tee(siteLine('waiting', site.name, 'Waiting for you in Chrome: press Allow on the Job Pilotto page'));
-      if (event.page) { active?.lastPage.set(key(site.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
+      if (event.page) { active?.lastPage.set(key(chosen.url), event.url); blocked.delete(ticket); pages += 1; jobs = Math.max(jobs, Number(event.page.jobs) || 0); tee(siteLine('reading', site.name, `page ${pages} · ${jobs} jobs`)); }
     });
     const opened = openTab(`${key(site.url)}#${filter ? 'jp-read-filter' : 'jp-read'}-${ticket}`);
     if (!opened.ok) {
       waiting.delete(ticket); watchers.delete(ticket);
       doneCount += 1;
       tee(siteLine('stopped', site.name, opened.error));
-      return {...site, ok: false, why: opened.error, jobs: 0, added: 0};
+      return {...site, start: chosen.url, ok: false, why: opened.error, jobs: 0, added: 0};
     }
     tee(siteLine('opening', site.name, 'Opening in Chrome…'));
     tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} done · ${percent(doneCount, sites.length)}% · now ${site.name}`);   // the banner's step while it reads
@@ -307,7 +314,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     tee(siteLine(ok ? 'done' : state.closed ? 'closed' : 'stopped', site.name, ok ? `${state.jobs} jobs read (${state.added || 0} new), ${fits} matching your search` : state.stopped || 'nothing read'));
     tee(`⏳ Reading sites in your browser: ${doneCount} of ${sites.length} · ${percent(doneCount, sites.length)}% · ${site.name}: ${ok ? `${state.jobs} jobs` : 'stopped'}`);   // the window's running step
     log('visit', 'site read by the Actions task', {host: new URL(site.url).hostname, jobs: state.jobs || 0, added: state.added || 0, fits, pages: state.pages || 0, stopped: String(state.stopped || '').slice(0, 80)});
-    return {...site, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
+    return {...site, start: chosen.url, ok, why: state.stopped || '', jobs: state.jobs || 0, added: state.added || 0, fits};
   };
   active = {queue, sites, lastPage: new Map(), back: site => {   // "Open again": the site is next once more, and no longer counted as finished
     if (queue.includes(site)) return;
@@ -319,7 +326,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     while (queue.length) results.push(await one(queue.shift()));
   });
   await Promise.all(lanes).finally(() => { taskTee = null; active = null; });
-  const last = sites.map(site => results.findLast(result => result.url === site.url));   // a site opened again: its last reading
+  const last = sites.map(site => results.findLast(result => (result.start || result.url) === site.url));   // a site opened again: its last reading
   fitsLast = last.reduce((sum, result) => sum + (result?.ok ? result.fits || 0 : 0), 0);
   return last;
 }
