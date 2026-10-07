@@ -426,6 +426,7 @@ def main(argv=None):
     sub.add_parser('visit-read').add_argument('file')
     sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
     sub.add_parser('visit-recipe').add_argument('file')   # the recipe kept for a site (JSON: url, forget), or null   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
+    sub.add_parser('role-ideas').add_argument('file', nargs='?')   # roles suggested from the Profile (JSON: set_aside), counted in the places' titles
     sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
@@ -463,6 +464,26 @@ def main(argv=None):
                 said['languages'] = coverage.language_drops()
                 said['visits'] = _visits(search)
             print(json.dumps(said, ensure_ascii=False))
+            return 0
+        if args.command == 'role-ideas':
+            from . import coverage, features
+            from .ai import engine, role_ideas
+            from .paths import load_search_config, local_profile
+            asked = json.loads(Path(args.file).read_text()) if args.file else {}
+            if features.disabled('role_ideas') or not engine.ready():
+                print(json.dumps({'ok': True, 'ideas': []}))
+                return 0
+            try:
+                profile = local_profile()
+                if not profile:
+                    from .notion.client import Tracker
+                    tracker = Tracker.from_env()
+                    profile = tracker.page_text() if tracker else ''
+                found = role_ideas.ideas(profile or '', load_search_config(), (coverage.load() or {}).get('missed_titles') or [], asked.get('set_aside') or [])
+            except Exception as error:  # noqa: BLE001 — no ideas this time, said; the box shows the market's words as before
+                print(json.dumps({'ok': False, 'ideas': [], 'error': f'No role ideas this time ({type(error).__name__})'}))
+                return 0
+            print(json.dumps({'ok': True, 'ideas': found}, ensure_ascii=False))
             return 0
         if args.command == 'visit-list':
             from .paths import load_search_config

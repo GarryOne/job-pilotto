@@ -288,6 +288,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/quality.py` — Quality checks for the words the AI writes for the owner (insight headline, next step).
 - `src/ai/reassign.py` — Your answer about an email the Gmail check wasn't sure where to place.
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.
+- `src/ai/role_ideas.py` — Roles suggested for you (owner, 7 Oct 2026: "suggest potential roles"): the "too narrow" box's chips were words common in the market's
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
 - `src/ai/scout_ideas.py` — The scout's own ideas: Claude proposes employers and public company lists to look at, and learns from what the probes found.
 - `src/ai/title_triage.py` — Which job titles could fit this search (owner, 7 Oct 2026: "Only the location should be strict"): the title gate in front of the AI fit

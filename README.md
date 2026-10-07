@@ -103,12 +103,13 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ## 🧠 AI at every step
 
-Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 35 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
+Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 36 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
 **Find: Finds what is worth your time**
 
 - **Scout that keeps learning** *(new)*: Claude proposes employers, their own job sites and company lists to look at, then learns from what each probe found. The shared employer list grows with every install.
+- **Roles that fit you** *(new)*: on Strategy, Claude suggests up to eight neighbouring roles from your Profile, each with the open jobs it would add in your places; at most once a day.
 - **Sorts job titles your words miss** *(new)*: only the place is strict; a title in your places that your role words miss is sorted by Claude (Haiku) against your search words, once per title, then scored as usual.
 - **Finds the job list** *(new)*: before a site only you can open is read, its job list is found (its Careers link, Claude's pick among its links, or a "<company> jobs" web search), kept for the site, and looked for again when it shows no jobs twice.
 - **Gets past a dead end** *(new)*: a job site that shows no jobs even after Claude's reading gets at most two steps toward the list, picked by Claude among the page's own buttons, links and search boxes; never a sign-in, an apply or a robot check (it says when the page needs you).

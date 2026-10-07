@@ -10,7 +10,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
-import {coverageCard, employersCard, filtersCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
+import {coverageCard, employersCard, filtersCard, ideasCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
 import {startSearch} from './jobs.js';
@@ -287,8 +287,24 @@ export async function loadCoverage({first = false} = {}) {
   const verdict = answer?.ok ? answer.coverage : null;
   if (answer?.ok) { try { localStorage.setItem(LAST, JSON.stringify({verdict})); } catch { /* the cards still show */ } }
   paintCoverage(verdict);
+  loadIdeas();
 }
 const PLACES_DISMISSED = 'jp.places.dismissed';
+// "Roles that fit you" (src/ai/role_ideas.py, owner 7 Oct 2026: "suggest potential roles"; the market's words did not fit them): roles from the
+// Profile, each with how many open jobs in the places it would add. A chip adds its word like the coverage chips; "Not now" sets these roles
+// aside, and the engine never proposes them again.
+const IDEAS_ASIDE = 'jp.ideas.aside';
+const aside = () => { try { return JSON.parse(localStorage.getItem(IDEAS_ASIDE) || '[]'); } catch { return []; } };
+async function loadIdeas() {
+  const answer = await window.pilot.roleIdeas?.(aside()).catch(() => null);
+  const card = ideasCard(answer?.ideas, aside());
+  showCard(card, {box: 'strategy-ideas', title: 'ideas-title', text: 'ideas-text', chips: 'ideas-chips', dismiss: 'ideas-dismiss', key: 'jp.ideas.dismissed'},
+    chip => window.pilot.addRoles([chip.term]), chip => `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`);
+  if (card) $('ideas-dismiss').onclick = () => {   // set aside for good: these roles are not proposed again
+    try { localStorage.setItem(IDEAS_ASIDE, JSON.stringify([...new Set([...aside(), ...card.chips.map(chip => chip.term)])].slice(-60))); } catch { /* shown again next time */ }
+    show($('strategy-ideas'), false);
+  };
+}
 
 function showCard(card, ids, add, done, kind = ids.box.replace(/^strategy-/, '')) {
   show($(ids.box), !!card);

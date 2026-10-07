@@ -70,6 +70,9 @@ def _pattern(term):
     return re.compile(r'(?<![a-z])' + r'[\s-]'.join(words) + r'(?![a-z])', re.I)
 
 
+MISSED_KEPT = 4000   # titles kept for counting suggested roles (a cache, rebuilt by every search)
+
+
 class Tally:
     """Counts one crawl. add() takes each fetched posting with the three decisions the crawl already made."""
 
@@ -80,6 +83,7 @@ class Tally:
         self.title_hits = self.elsewhere = 0   # role-keyword matches anywhere / those outside the wanted places
         self.places = {label: {'count': 0, 'examples': [], 'fragment': fragment} for label, fragment, _ in PLACE_PATTERNS}
         self.dropped = {}   # excluded-title word -> postings in the places that the role keywords caught and that word dropped
+        self.missed = set()   # titles in the places the role keywords miss (lowercased, at most MISSED_KEPT): counted by src/ai/role_ideas.py
 
     def feed(self):
         self.feeds += 1
@@ -101,6 +105,8 @@ class Tally:
         if matched:
             self.matched += 1
             return
+        if len(self.missed) < MISSED_KEPT:
+            self.missed.add(' '.join(str(title or '').lower().split())[:120])
         for term, pattern in self.vocab.items():
             if pattern.search(title or ''):
                 entry = self.near[term]
@@ -126,7 +132,7 @@ class Tally:
                         key=lambda item: -item['count'])
         return {'excluded': sorted(({'fragment': f, **e} for f, e in self.dropped.items()), key=lambda item: -item['count'])[:8], 'at': (now or datetime.now(timezone.utc)).isoformat(timespec='seconds'), 'feeds': self.feeds, 'fetched': self.fetched,
                 'in_places': self.in_places, 'matched': self.matched, 'suggestions': suggestions,
-                'title_hits': self.title_hits, 'places': places, 'elsewhere': self.elsewhere}
+                'title_hits': self.title_hits, 'places': places, 'elsewhere': self.elsewhere, 'missed_titles': sorted(self.missed)}
 
 
 def save(summary, path=FILE):
