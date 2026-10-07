@@ -710,13 +710,15 @@ def parse_applied(text, today=None):
     return value, approx
 
 
-# Sites whose pages are never fetched (terms, login walls): the title, company and text come from you instead.
-NO_FETCH = ('linkedin.com', 'glassdoor.', 'indeed.', 'levels.fyi', 'reddit.com')
+# Sites that often show a sign-in page instead of the posting. Read like any page since 7 Oct 2026 (owner: "let's remove this restriction";
+# a LinkedIn job page often answers a plain visit with its JobPosting data); when the text is missing, the user pastes it or reads it with the
+# extension. Never logged into, never past a block.
+WALLED = ('linkedin.com', 'glassdoor.', 'indeed.', 'levels.fyi', 'reddit.com')
 
 
-def no_fetch(url):
+def walled(url):
     host = (re.match(r'https?://([^/]+)', url or '') or [None, ''])[1].lower()
-    return any(site in host for site in NO_FETCH)
+    return any(site in host for site in WALLED)
 
 
 def _visible_text(page):
@@ -731,10 +733,8 @@ def page_meta(url, opener=urllib.request.urlopen):
     """Title, company, location, posting date and description of a job page.
 
     The board feed when the link is one a Jobs check reads (ats.posting), else the page's schema.org
-    JobPosting, else the words on the page. The same facts and fit score then read that text. Never for
-    NO_FETCH sites (LinkedIn, Glassdoor…): {} there."""
-    if no_fetch(url):
-        return {}
+    JobPosting, else the words on the page. The same facts and fit score then read that text. A sign-in page (LinkedIn, Glassdoor…)
+    gives little or nothing: the caller asks for the text then."""
     meta = dict(ats.posting(url) or {})
     try:
         request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Job Pilotto)'})

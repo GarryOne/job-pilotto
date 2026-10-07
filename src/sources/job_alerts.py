@@ -1,5 +1,5 @@
 """Jobs from the job-alert emails in the user's own Gmail: LinkedIn, jobs.ch, jobup.ch, Indeed and Glassdoor send the jobs that match the
-alerts the user set up there. Reading one's own email is fine; their pages are still never fetched (notion.ledger.NO_FETCH): a job keeps
+alerts the user set up there. Reading one's own email is fine; the alert itself carries each job (their pages often show a sign-in page, notion.ledger.WALLED): a job keeps
 the title, company and place the email gives, and its link.
 
 Each run (the jobs check, when Gmail is connected and an AI is available) looks at the alert emails of the last 3 days it has not read yet,

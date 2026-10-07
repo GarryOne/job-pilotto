@@ -2,7 +2,7 @@
 
 The posting is read, stored, given stage-1 facts and a stage-2 fit score, then written to Job Matches as
 Open. It is not an application: nothing is marked Applied and Gmail is not checked. A page that cannot be
-read (LinkedIn, Glassdoor, Indeed, or a page with no posting text) is refused. The caller shows that.
+read (a sign-in page instead of the posting, a refusal, or no posting text) is refused, saying what to do instead. The caller shows that.
 """
 from datetime import datetime, timezone
 
@@ -45,8 +45,10 @@ def run(db, tracker, url, *, client=None, stats=None, now=None):
                     'row': existing, 'created': False}
     description = (meta.get('description') or '').strip()
     if len(description) < MIN_DESCRIPTION:
-        raise ValueError('This page could not be read. LinkedIn, Glassdoor and Indeed are not read, and this '
-                         'page has no posting text.')
+        if ledger.walled(pasted):
+            raise ValueError('This site showed a sign-in page instead of the posting. Paste the job\'s text, or open the posting in Chrome '
+                             'and use the Job Pilotto extension\'s "Read the jobs on this page".')
+        raise ValueError('This page could not be read: it has no posting text.')
     now = now or datetime.now(timezone.utc)
     item = {'url': url, 'title': meta.get('title') or 'Role', 'company': meta.get('company') or '',
             'location': meta.get('location') or '', 'description': description,

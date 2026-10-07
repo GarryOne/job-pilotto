@@ -528,8 +528,8 @@ def main():
                                                               source='Telegram', meta=meta, found=found, origin=args.origin))
                 if fit:
                     reply += f' · {escape(fit)}'
-                if ledger.no_fetch(args.job) and not meta.get('description'):
-                    reply += ('\nℹ️ LinkedIn-type pages aren\'t read. For the fit score and facts, send me a screenshot of '
+                if ledger.walled(args.job) and not meta.get('description'):
+                    reply += ('\nℹ️ That page showed a sign-in page instead of the posting. For the fit score and facts, send me a screenshot of '
                               'the job posting too, or add it in the app with its text.')
                 # The app's Jobs list shows it too, as Applied (the local cache of the Applications row just written).
                 store.track_applied(db, args.job, meta)

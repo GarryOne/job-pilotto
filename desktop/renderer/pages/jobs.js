@@ -471,8 +471,8 @@ export function renderJobs() {
     : !text && !statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
-// Pages Job Pilotto never reads (src/notion/ledger.py NO_FETCH): ask for the title, company and text instead.
-const NO_FETCH = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
+// Sites that often show a sign-in page instead of the posting (src/notion/ledger.py WALLED): read like any page, with fields for the text in case.
+const WALLED = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
 let leadSteps = [];  // the Log box's steps so far ({text, at}), from the engine (lead-confirm.js addStep)
 let leadRunning = false;  // a log is being read now (the dialog may have been closed and reopened)
@@ -951,7 +951,7 @@ export async function init() {
   $('applied-url').addEventListener('input', () => {
     let host = '';
     try { host = new URL($('applied-url').value.trim()).hostname; } catch {}
-    $('applied-manual').hidden = !NO_FETCH.test(host);
+    $('applied-manual').hidden = !WALLED.test(host);
   });
   $('applied-go').addEventListener('click', async event => {
     event.preventDefault();

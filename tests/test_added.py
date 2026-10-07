@@ -208,13 +208,19 @@ class JobMatchesSyncTests(unittest.TestCase):
             self.assertEqual([j['url'] for j in daily.for_job_matches(db, set())], ['https://x.test/found'])
 
 
-class NoFetchTests(unittest.TestCase):
-    def test_linkedin_and_glassdoor_pages_are_never_fetched(self):
-        opener = mock.Mock(side_effect=AssertionError('fetched'))
-        self.assertEqual(ledger.page_meta('https://www.linkedin.com/jobs/view/123', opener=opener), {})
-        self.assertEqual(ledger.page_meta('https://www.glassdoor.ch/job-listing/x', opener=opener), {})
-        self.assertTrue(ledger.no_fetch('https://ch.indeed.com/viewjob?jk=1'))
-        self.assertFalse(ledger.no_fetch('https://boards.greenhouse.io/acme/jobs/1'))
+class WalledSiteTests(unittest.TestCase):
+    """7 Oct 2026, owner: LinkedIn, Glassdoor and the like are read like any page; a sign-in page instead of the posting asks for its text."""
+    def test_a_linkedin_job_page_is_read_when_it_answers_with_its_posting(self):
+        page = ('<script type="application/ld+json">{"@type": "JobPosting", "title": "Photographe", "hiringOrganization": {"name": "Studio"}, '
+                '"description": "' + 'Shoots for the spring collection, studio and outdoor. ' * 4 + '"}</script>')
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = page.encode()
+        response.__enter__.return_value.headers.get_content_charset.return_value = 'utf-8'
+        with mock.patch.object(ledger.ats, 'posting', return_value=None):
+            meta = ledger.page_meta('https://www.linkedin.com/jobs/view/123', opener=lambda *a, **k: response)
+        self.assertEqual(meta.get('title'), 'Photographe')
+        self.assertTrue(ledger.walled('https://ch.indeed.com/viewjob?jk=1'))
+        self.assertFalse(ledger.walled('https://boards.greenhouse.io/acme/jobs/1'))
 
 
 if __name__ == '__main__':
