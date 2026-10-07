@@ -12,7 +12,7 @@ export function coverageCard(verdict, dismissedAt = '') {
       `Of ${number(verdict.in_places)} postings in your places, your role keywords catch ${number(verdict.matched)} (${percent}%). ` +
       'These role words appear in titles your keywords miss; adding one makes the next searches look for it:',
     chips: verdict.suggestions.slice(0, 8).map(item => ({
-      term: item.term, label: `+ ${item.term} · ${number(item.count)}`,
+      term: item.term, count: item.count || 0, label: `+ ${item.term} · ${number(item.count)}`,
       // Each new posting is read and scored once (about 1.5 cents): said before the click, because a broad word brings many.
       title: `${number(item.count)} open posting${item.count === 1 ? '' : 's'}${item.examples?.length ? `, e.g. ${item.examples.join('; ')}` : ''}. About $${(Math.round(item.count * 1.5) / 100).toFixed(2)} once to read and score them.`,
     })),
@@ -29,9 +29,9 @@ export function filtersCard(verdict, dismissedAt = '') {
   return {
     title: 'Your own filters hide jobs',
     text: 'These jobs match your roles and places, but a filter of yours drops them. Remove a filter to see them in the next searches:',
-    chips: [...words.map(item => ({exclude: item.fragment, label: `− "${item.fragment.replace(/\\b/g, '')}" · ${number(item.count)}`,
+    chips: [...words.map(item => ({exclude: item.fragment, count: item.count || 0, label: `− "${item.fragment.replace(/\\b/g, '')}" · ${number(item.count)}`,
       title: `${number(item.count)} job${item.count === 1 ? '' : 's'} with this excluded word in the title${sample(item)}`})),
-    ...languages.map(item => ({language: item.language, label: `− requires ${item.language} · ${number(item.count)}`,
+    ...languages.map(item => ({language: item.language, count: item.count || 0, label: `− requires ${item.language} · ${number(item.count)}`,
       title: `${number(item.count)} job${item.count === 1 ? '' : 's'} hidden because they require ${item.language}${sample(item)}`}))],
     at: verdict.at || '',
   };
@@ -90,7 +90,7 @@ export function placesCard(verdict, dismissedAt = '') {
     title: 'Matching roles sit just outside your places',
     text: `Your role keywords match ${number(places.title_hits)} open roles; ${number(places.matched)} are in your places. ${number(extra)} more are in these places:` + elsewhere,
     chips: places.options.slice(0, 8).map(option => ({
-      place: option.place, label: `+ ${option.place} · ${number(option.count)}`,
+      place: option.place, count: option.count || 0, label: `+ ${option.place} · ${number(option.count)}`,
       title: `${number(option.count)} open role${option.count === 1 ? '' : 's'}${option.examples?.length ? `, e.g. ${option.examples.join('; ')}` : ''}. About $${(Math.round(option.count * 1.5) / 100).toFixed(2)} once to read and score them.`,
     })),
     at: verdict.at || '',
@@ -103,6 +103,6 @@ export function ideasCard(ideas, setAside = []) {
   const shown = (ideas || []).filter(idea => idea?.word && !hidden.has(idea.word.toLowerCase())).slice(0, 8);
   if (!shown.length) return null;
   return {title: 'Roles that fit you', text: 'From your Profile: roles you could do but do not search for yet, with the open jobs each would add in your places. Adding one makes the next searches look for it:',
-    chips: shown.map(idea => ({term: idea.word, label: `+ ${idea.role} · ${idea.count || 0}`, title: `${idea.why}. Searched as "${idea.word}"; ${idea.count || 0} open job${idea.count === 1 ? '' : 's'} in your places now.`})),
+    chips: shown.map(idea => ({term: idea.word, count: idea.count || 0, label: `+ ${idea.role} · ${idea.count || 0}`, title: `${idea.why}. Searched as "${idea.word}"; ${idea.count || 0} open job${idea.count === 1 ? '' : 's'} in your places now.`})),
     at: shown.map(idea => idea.word).join('|')};
 }

@@ -1473,8 +1473,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .score-bar.is-loading .icon { width: 18px; height: 18px; color: var(--ink-2); flex: none; }
 .glance-row.is-loading { display: flex; align-items: center; gap: var(--sp-3); }
 .glance-row.is-loading .glance-arrow { margin-left: auto; }
-#strategy-avoid .skeleton { display: inline-block; margin-right: var(--sp-2); }
-.summary-card.suggestion.is-loading h3, .summary-card.suggestion.is-loading .arrow-link { visibility: hidden; }
+.suggestion.is-loading h4, .suggestion.is-loading .arrow-link { visibility: hidden; }
 #strategy-insight-text .skeleton + .skeleton { margin-top: var(--sp-2); }
 .loading-pill { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 4px 12px; border-radius: var(--r-pill);
   background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: var(--fs-sm); }
@@ -2206,8 +2205,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .run-card-help-group .item-rows { margin-top: 0; border-top: 0; }   /* the group title already heads the list */
 .run-card-help .score-track { background: var(--line); }   /* visible on the card's white */
 .coverage-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
-/* The card's place while the engine reads (seconds): about the height of the card that replaces it, so nothing below moves when it arrives. */
-#strategy-coverage-checking { min-height: 132px; }
 .coverage-chip { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: var(--r-pill); padding: 4px 10px;
   font-size: var(--fs-sm); cursor: pointer; }
 .coverage-chip:hover { border-color: var(--signal); color: var(--signal-ink); }
@@ -2254,3 +2251,78 @@ button.is-busy { cursor: progress; opacity: .7; }
 /* Strategy → the setup review's cards with live settings: the Remote jobs switch keeps its own width (a .review card's grid stretches it). */
 .strategy-live .segmented { justify-self: start; }
 .strategy-live > .actions { display: flex; align-items: center; gap: var(--sp-3); justify-content: flex-end; }
+
+/* ---------- Strategy (owner mockup, 7 Oct 2026): your strategy, then suggestions, then scoring. Built on .card, .review, .tabs, .chip,
+   .coverage-chip, .priority and .summary-card; only the layouts they lack are here, scoped to the page. ---------- */
+.strategy-page .strategy-tabs { margin: var(--sp-2) 0 var(--sp-4); }
+.strategy-page .strategy-tabs button { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.strategy-page .strategy-tabs .nav-dot { margin-left: 0; }
+.strategy-section { margin-bottom: var(--sp-6); scroll-margin-top: var(--sp-4); }
+.strategy-section .section-head { margin-bottom: var(--sp-3); }
+.strategy-section .section-head h2 { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-xl); }
+.strategy-section .section-head h2 .icon { width: 20px; height: 20px; color: var(--ink-2); }
+.strategy-section .section-head p { margin: var(--sp-1) 0 0; }
+.strategy-page .review { margin-top: 0; padding-bottom: 0; }
+.strategy-page .review .card { margin-bottom: 0; padding: var(--sp-4) var(--sp-5); }
+.strategy-page .review-grid { align-items: start; }   /* each card as tall as its content */
+.strategy-page .review .card > .sub { margin: var(--sp-1) 0 var(--sp-2); }
+.strategy-page .card-edit { padding: 0; gap: var(--sp-1); }
+.strategy-page .card-edit .icon { width: 14px; height: 14px; }
+/* Goals: four columns, label over value; label/value rows when narrow. */
+.strategy-page .goals-card .card-head { display: block; }
+.strategy-page .goal-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto auto; grid-auto-flow: column; margin-top: var(--sp-3); }
+.strategy-page .goal-strip dt, .strategy-page .goal-strip dd { border-top: 0; border-left: 1px solid var(--line); padding: 0 var(--sp-4); }
+.strategy-page .goal-strip dt { padding-top: var(--sp-2); font-weight: 500; font-size: var(--fs-sm); color: var(--muted); }
+.strategy-page .goal-strip dd { padding-bottom: var(--sp-2); flex-wrap: wrap; font-weight: 600; }
+.strategy-page .goal-strip > :nth-child(-n+2) { border-left: 0; padding-left: 0; }
+.goal-rows dd.goal { flex-wrap: wrap; }
+.goal-note { flex-basis: 100%; margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 500; color: var(--warn); }
+.goal-note .link { padding: 0; font-size: inherit; }
+@media (max-width: 1000px) {
+  .strategy-page .goal-strip { grid-template-columns: 170px minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; }
+  .strategy-page .goal-strip dt, .strategy-page .goal-strip dd { border-left: 0; border-top: 1px solid var(--line); padding: var(--sp-2) 0; }
+}
+/* Roles by family, and the icon + label + value rows of the other cards. */
+.strategy-page .family-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
+.strategy-page .sub + .family-row { border-top: 0; }
+.strategy-page .family-row b { font-size: var(--fs-md); }
+.strategy-page .family-row .chips, .strategy-page .setting-body .chips { margin: 0; }
+.strategy-page .chip-more { padding: 2px 4px; font-size: var(--fs-sm); }
+.strategy-page .setting-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--sp-3); padding-top: var(--sp-3); }
+.strategy-page .family-row + .setting-row { margin-top: var(--sp-1); border-top: 1px solid var(--line); }
+.strategy-page .setting-row > .icon { width: 18px; height: 18px; color: var(--ink-2); margin-top: 2px; }
+.strategy-page .setting-body { display: grid; gap: var(--sp-1); min-width: 0; font-size: var(--fs-md); }
+.strategy-page .card-foot { margin: var(--sp-3) 0 0; padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.strategy-page .exclusion-warn { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-sm); color: var(--warn); }
+.strategy-page .exclusion-warn .icon { width: 15px; height: 15px; flex: none; }
+.strategy-page .exclusion-more { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.strategy-page .exclusion-more summary { display: grid; grid-template-columns: 18px auto minmax(0, 1fr); gap: var(--sp-3); align-items: center; cursor: pointer; font-weight: 600; font-size: var(--fs-md); }
+.strategy-page .exclusion-more summary .icon { width: 18px; height: 18px; color: var(--ink-2); }
+.strategy-page .exclusion-more summary .muted { justify-self: end; font-weight: 400; }
+/* Suggestions: one card, a row per kind; Review opens the row's options under it. */
+.strategy-page .suggestion-list { padding: 0 var(--sp-5); margin-bottom: 0; }
+.suggestion-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; gap: var(--sp-2) var(--sp-4); align-items: center; padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+.suggestion-row:first-child { border-top: 0; }
+.suggestion-row .suggestion-icon .icon, .suggestion-row > .icon { width: 20px; height: 20px; color: var(--ink-2); display: block; }
+.suggestion-row > button.secondary { padding: 5px 12px; font-size: var(--fs-sm); white-space: nowrap; }
+.suggestion-words { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: var(--sp-1) var(--sp-4); align-items: center; min-width: 0; font-size: var(--fs-md); }
+.suggestion-words > .muted { font-size: var(--fs-sm); }
+.suggestion-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.suggestion-chips > .muted { flex-basis: 100%; font-size: var(--fs-sm); }
+.suggestion-chips .coverage-chip { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.suggestion-chips .coverage-chip .icon { width: 12px; height: 12px; }
+.suggestion-detail { grid-column: 2 / -1; display: grid; gap: var(--sp-2); }
+.suggestion-detail > p { margin: 0; }
+.suggestion-detail > .link { justify-self: start; padding: 0; font-size: var(--fs-sm); }
+.option-row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-4); padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
+.option-row > div { display: grid; gap: 2px; min-width: 0; font-size: var(--fs-md); }
+.option-row > button { flex: none; padding: 4px 12px; font-size: var(--fs-sm); }
+.suggestion-row.is-loading { grid-template-columns: 22px auto minmax(0, 1fr); }
+.strategy-page .empty-row { margin: 0; padding: var(--sp-4) 0; }
+@media (max-width: 1000px) { .suggestion-words { grid-template-columns: minmax(0, 1fr); } }
+/* Scoring & results */
+.strategy-page .score-bar { grid-template-columns: 130px minmax(0, 1fr) 64px; }
+.strategy-page .score-foot { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-radius: var(--r-sm); }
+.strategy-page .score-foot .icon { width: 15px; height: 15px; flex: none; }
+.strategy-page .next-step { margin-top: var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.strategy-page .next-step h4 { margin: 0; font-size: var(--fs-base); }

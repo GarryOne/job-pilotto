@@ -717,11 +717,12 @@
       </section>
     </div>
 
-    <div class="view" data-view="strategy" hidden>
-      <header class="view-head"><div><h1>Strategy</h1><p class="muted">Shape which opportunities rise to the top.</p></div>
+    <div class="view strategy-page" data-view="strategy" hidden>
+      <header class="view-head"><div><h1>Strategy</h1><p class="muted">Choose the jobs you want and how they are ranked.</p></div>
         <div class="head-actions"><span class="synced" id="strategy-synced"></span>
           <button class="secondary" id="strategy-redo">↻ Rebuild from CV…</button>
-          <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button></div></header>
+          <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button>
+          <button class="primary" id="strategy-jobs">View matching jobs</button></div></header>
       <div class="alert tone-bad settings-alert" id="strategy-profile-empty" hidden><i data-icon="alert"></i>
         <div><strong>Your Profile is empty, so fit scores are paused</strong><p>Your Profile in Notion is still the blank template, so no job can be scored against it. Rebuild it from your CV here, or fill it in Notion.</p></div>
         <button class="primary" id="profile-empty-rebuild">Rebuild from CV</button></div>
@@ -732,68 +733,51 @@
         <div><strong>Your CV changed</strong><p>New applications already use it. Review what it changes in your Profile before anything is re-scored.</p></div>
         <button class="primary" id="strategy-cv-review">Review what changes</button></div>
       <div class="alert tone-info settings-alert" id="strategy-previous" hidden><i data-icon="info"></i>
-        <div><strong>Previous scoring method</strong><p id="strategy-previous-text"></p></div>
+        <div><strong id="strategy-previous-title">Older scores kept</strong><p id="strategy-previous-text"></p></div>
         <button class="secondary" id="strategy-rescore"></button></div>
-      <div class="alert tone-info settings-alert" id="strategy-coverage-checking" aria-busy="true" hidden><i data-icon="target"></i>
-        <div><strong>Checking whether your search is too narrow…</strong><p>Reading the postings your searches saw.</p></div></div>
-      <div class="alert tone-warn settings-alert" id="strategy-coverage" hidden><i data-icon="target"></i>
-        <div><strong id="coverage-title"></strong><p id="coverage-text"></p><div class="coverage-chips" id="coverage-chips"></div></div>
-        <button class="secondary" id="coverage-dismiss">Not now</button></div>
-      <div class="alert tone-warn settings-alert" id="strategy-ideas" hidden><i data-icon="target"></i>
-        <div><strong id="ideas-title"></strong><p id="ideas-text"></p><div class="coverage-chips" id="ideas-chips"></div></div>
-        <button class="secondary" id="ideas-dismiss">Not now</button></div>
-      <div class="alert tone-warn settings-alert" id="strategy-places" hidden><i data-icon="target"></i>
-        <div><strong id="places-title"></strong><p id="places-text"></p><div class="coverage-chips" id="places-chips"></div></div>
-        <button class="secondary" id="places-dismiss">Not now</button></div>
-      <div class="alert tone-warn settings-alert" id="strategy-filters" hidden><i data-icon="target"></i>
-        <div><strong id="filters-title"></strong><p id="filters-text"></p><div class="coverage-chips" id="filters-chips"></div></div>
-        <button class="secondary" id="filters-dismiss">Not now</button></div>
-      <div class="alert tone-info settings-alert" id="strategy-sources" hidden><i data-icon="search"></i>
-        <div><strong id="sources-title"></strong><p id="sources-text"></p><div class="coverage-chips" id="sources-chips"></div></div>
-        <button class="secondary" id="sources-dismiss">Not now</button></div>
-      <div class="alert tone-info settings-alert" id="strategy-visits" hidden><i data-icon="globe"></i>
-        <div><strong id="visits-title"></strong><p id="visits-text"></p><div class="coverage-chips" id="visits-chips"></div></div>
-        <button class="secondary" id="visits-dismiss">Not now</button></div>
-      <div class="alert tone-info settings-alert" id="strategy-foryou" hidden><i data-icon="building"></i>
-        <div><strong id="foryou-title"></strong><p id="foryou-text"></p><div class="coverage-chips" id="foryou-chips"></div></div>
-        <button class="secondary" id="foryou-dismiss">Not now</button></div>
-      <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
-      <div class="review strategy-live" id="strategy-live">
-        <section class="card overview">
-          <div class="card-head"><div><h2>Your goals</h2><p class="muted" id="goals-note">What every job is scored against. Click a value or its pencil to correct it.</p></div>
-            <button class="link with-icon" id="open-profile" title="Edit your roles, places, searches and filters"><i data-icon="edit"></i><span>Edit lists</span></button></div>
-          <dl class="target-rows goal-rows" id="strategy-goals"></dl>
-        </section>
-        <div class="review-grid" id="strategy-targets"></div>
-        <div class="actions" id="targets-actions" hidden><p class="muted small" id="targets-note">Saved to ⚙️ Search settings in Notion. The next search uses it.</p>
-          <span class="message" id="targets-message"></span><button class="secondary" id="targets-cancel">Cancel</button><button class="primary" id="targets-save">Save</button></div>
-      </div>
-      <div class="strategy-grid">
-        <div class="strategy-main">
+      <!-- Owner mockup, 7 Oct 2026: your strategy first, optional suggestions second, scoring last; the links scroll within the page. -->
+      <nav class="tabs strategy-tabs" aria-label="Strategy sections">
+        <button type="button" class="is-active" data-jump="strategy-yours">Your strategy</button>
+        <button type="button" data-jump="strategy-suggestions">Suggestions<span class="nav-dot" id="suggestions-dot" hidden title="Suggestions to widen your search"></span></button>
+        <button type="button" data-jump="strategy-scoring">Scoring</button></nav>
+      <section class="strategy-section" id="strategy-yours">
+        <div class="section-head"><h2><i data-icon="target"></i>Your strategy</h2>
+          <p class="muted">Changes apply to future searches. Existing scores may need updating.</p></div>
+        <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
+        <div class="review strategy-live" id="strategy-live">
+          <section class="card overview goals-card">
+            <div class="card-head"><h3>Goals</h3><p class="muted small" id="goals-note">What every job is scored against. Click a value to correct it.</p></div>
+            <dl class="target-rows goal-rows goal-strip" id="strategy-goals"></dl>
+          </section>
+          <div class="review-grid" id="strategy-targets"></div>
+          <div class="actions" id="targets-actions" hidden><p class="muted small" id="targets-note">Saved to ⚙️ Search settings in Notion. The next search uses it.</p>
+            <span class="message" id="targets-message"></span><button class="secondary" id="targets-cancel">Cancel</button><button class="primary" id="targets-save">Save</button></div>
+        </div>
+      </section>
+      <section class="strategy-section" id="strategy-suggestions">
+        <div class="section-head"><h2><i data-icon="bulb"></i>Suggestions</h2><p class="muted">Optional changes to widen your search. Nothing changes until you add it.</p></div>
+        <!-- One row per kind (pages/strategy.js SUGGESTIONS): Review opens what would change, ⋯ hides it. -->
+        <div class="card suggestion-list" id="suggestion-rows"></div>
+      </section>
+      <section class="strategy-section" id="strategy-scoring">
+        <div class="section-head"><h2><i data-icon="chart"></i>Scoring &amp; results</h2><p class="muted">How your matches score, and what to do next.</p></div>
+        <div class="strategy-grid">
           <article class="summary-card">
-            <h3>How matches are scored</h3>
-            <p class="muted" id="strategy-score-note">Average of each part of the fit score across your matches.</p>
+            <h3>Average match scores</h3>
+            <p class="muted" id="strategy-score-note">Averages across your matches, not scoring weights.</p>
             <div class="score-bars" id="strategy-scores"></div>
+            <p class="score-foot muted small" id="strategy-stale" hidden><i data-icon="clock"></i><span id="strategy-stale-text"></span></p>
           </article>
           <article class="summary-card">
-            <div class="summary-head"><i data-icon="close"></i><h3>Avoid</h3></div>
-            <p class="muted">Jobs matching these are scored lower or filtered out.</p>
-            <div class="chip-list" id="strategy-avoid"></div>
-          </article>
-        </div>
-        <div class="strategy-side">
-          <article class="summary-card">
-            <h3>Your search at a glance</h3>
+            <h3>Search overview</h3>
             <div class="glance" id="strategy-glance"></div>
-            <button class="primary wide-button" id="strategy-jobs">View matching jobs</button>
-          </article>
-          <article class="summary-card suggestion" id="strategy-insight" hidden>
-            <span class="file-tile"><i data-icon="target"></i></span>
-            <div><h3>Suggested adjustment</h3><p id="strategy-insight-text"></p>
-              <button class="arrow-link" id="strategy-insight-open">Review insight</button></div>
+            <div class="suggestion next-step" id="strategy-insight" hidden>
+              <span class="file-tile"><i data-icon="target"></i></span>
+              <div><h4>Suggested next step</h4><p id="strategy-insight-text"></p>
+                <button class="arrow-link" id="strategy-insight-open">Review insight</button></div></div>
           </article>
         </div>
-      </div>
+      </section>
       <p class="message" id="strategy-load"></p>
     </div>
 

@@ -344,6 +344,7 @@ def strategy(db, tracker=None):
     """What the Strategy page shows, all from the user's own data: search settings (the cache of ⚙️ Search settings),
     preferences, the average fit components of the scored open jobs, counts, the Profile's compensation line and
     the latest 💡 Insight."""
+    from . import role_kinds
     from .paths import CONFIG, load_search_config
     # The user's own words: with the regions and AI place words the crawl adds, the page listed a regex of every city as one "place".
     search = load_search_config(matching=False)
@@ -410,7 +411,9 @@ def strategy(db, tracker=None):
         'locations': unique((places.get('top_tier') or [])[:3] + (places.get('country_wide') or [])[:1] + (places.get('abroad') or [])),
         'stack': unique(search.get('quality_stack_keywords'))[:8],
         # The same lists in full, for editing them on the Strategy page: each entry as stored (removing sends it back) and as words.
-        'lists': {name: [{'fragment': str(item), 'label': _readable(item)} for item in items or [] if _readable(item)]
+        # Roles carry their kind (src/role_kinds.py), so the Strategy page groups them into families (Retail, Logistics…).
+        'lists': {name: [{'fragment': str(item), 'label': _readable(item), **({'kind': role_kinds.kind_of(_readable(item))} if name == 'roles' else {})}
+                         for item in items or [] if _readable(item)]
                   for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
                                       ('country', places.get('country_wide')), ('abroad', places.get('abroad')),
                                       ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')))},

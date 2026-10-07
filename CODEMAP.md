@@ -224,6 +224,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/sessions-cache.js` — The last known session list, so the Applying page paints it at once instead of a spinner — or, before this, the
 - `desktop/renderer/sidebar-rail.js` — The sidebar as an icon rail: automatically in a narrow window (under 1180 px, where there is no room for labels), or when the person
 - `desktop/renderer/stop-task.js` — Stop on a running task (owner, 7 Oct 2026: a search ran for an hour with no way to stop it): the Actions banner and Recent activity's
+- `desktop/renderer/strategy-parts.js` — The Strategy page's pure parts (owner mockup, 7 Oct 2026): role families, goal notes (estimated salary, language levels not set), the
 - `desktop/renderer/targets.js` — Where a click on a notification (macOS / Windows) or an in-window pop-up leads (pure, no DOM: main.js checks a target, the window follows it). A target is plain data with fixed keys, checked here befo
 - `desktop/renderer/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `desktop/renderer/tips.js` — The tip ticker on the Application sessions page (owner, 2 Oct 2026): one line of fact or advice scrolls right to left

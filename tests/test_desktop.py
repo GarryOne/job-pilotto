@@ -159,7 +159,7 @@ class StrategyTests(unittest.TestCase):
             tracker = SimpleNamespace(url_stages=lambda: {'a': 'Applied', 'b': 'Kit ready', 'c': 'Rejected', 'd': 'Saved'},
                                       page_text=lambda: '# Compensation\n- Target: CHF 150k\n# Other\n- x',
                                       _request=lambda *a, **k: {'results': []})
-            search = {'jobs_board_search_queries': ['site reliability'], 'locations': {'top_tier': ['z[uü]rich'], 'country_wide': ['switzerland', 'bern'], 'abroad': ['berlin']},
+            search = {'jobs_board_search_queries': ['site reliability'], 'role_keywords': ['vendeur', 'warehouse'], 'locations': {'top_tier': ['z[uü]rich'], 'country_wide': ['switzerland', 'bern'], 'abroad': ['berlin']},
                       'quality_stack_keywords': [r'\bk8s\b'], 'title_exclude_keywords': ['sales']}
             with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([{'id': 1}, {'id': 2}], [])), \
                     mock.patch.object(desktop.score, 'load', lambda db: fits), mock.patch('src.paths.load_search_config', lambda matching=True: search):
@@ -173,7 +173,8 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual(data['lists']['places'], [{'fragment': 'z[uü]rich', 'label': 'zürich'}])
         self.assertEqual([e['label'] for e in data['lists']['country']], ['switzerland', 'bern'])
         self.assertEqual(data['lists']['stack'], [{'fragment': r'\bk8s\b', 'label': 'k8s'}])
-        self.assertEqual(data['lists']['roles'], [])
+        # Each role with its family (src/role_kinds.py), for the page's Retail / Logistics groups.
+        self.assertEqual([(e['label'], e['kind']) for e in data['lists']['roles']], [('vendeur', 'sales_retail'), ('warehouse', 'logistics')])
         self.assertIn('Title: sales', data['avoid'])
         self.assertEqual({c['key']: c['value'] for c in data['components']},
                          {'role_fit': 70, 'location': 50, 'compensation': 50, 'growth': 50, 'risk': 80})  # risk shown as "low risk"

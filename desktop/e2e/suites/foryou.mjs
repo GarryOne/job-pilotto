@@ -29,11 +29,12 @@ export async function run(ctx) {
       page = session.page;
       await page.waitForSelector('.nav[data-view=focus]:not([hidden])', {timeout: 30000});
       await page.click('.nav[data-view=strategy]');
-      if (!await waitFor(() => page.locator('#strategy-foryou:visible').count().then(n => n > 0), 15000)) throw new Error('the card "Where people like you get interviews" never showed');
+      if (!await waitFor(() => page.locator('#strategy-foryou:visible').count().then(n => n > 0), 15000)) throw new Error('the row "Employers hiring people like you" never showed');
     });
 
-    await ctx.run('"Where people like you get interviews" lists employers with their interviews, and was recorded as shown', async () => {
-      const chips = await page.locator('#foryou-chips button').allInnerTexts();
+    await ctx.run('"Employers hiring people like you": Review lists employers with their interviews, and was recorded as shown', async () => {
+      await page.click('#strategy-foryou [data-review]');
+      const chips = await page.locator('#foryou-chips .option-row b').allInnerTexts();
       if (!chips.length || !chips[0].startsWith(first.company) || !/\binterviews?\b/.test(chips[0])) throw new Error(`chips: ${JSON.stringify(chips)}`);
       if (!await waitFor(async () => advice(profile).some(line => /shown employer on strategy/.test(line)))) throw new Error(`no "shown employer" in app.log: ${advice(profile).slice(-3).join(' | ')}`);
     });
@@ -51,13 +52,15 @@ export async function run(ctx) {
     await ctx.run('the job sources card says what a source gave people like you', async () => {
       await page.click('.nav[data-view=strategy]');
       await page.waitForSelector('#strategy-sources:visible', {timeout: 10000});
-      const chips = await page.locator('#sources-chips button').allInnerTexts();
+      await page.click('#strategy-sources [data-review]');
+      const chips = await page.locator('#sources-chips .option-row b').allInnerTexts();
       if (!chips.some(chip => /in 10 people like you/.test(chip))) throw new Error(`no "people like you" in ${JSON.stringify(chips)}`);
     });
 
-    await ctx.run('"Not now" hides the employers card, records it, and it stays hidden on the next visit', async () => {
-      await page.click('#foryou-dismiss');
-      if (await page.locator('#strategy-foryou:visible').count()) throw new Error('still shown after "Not now"');
+    await ctx.run('⋯ "Hide until the next search" hides the employers row, records it, and it stays hidden on the next visit', async () => {
+      await page.click('#strategy-foryou .ui-more');
+      await page.getByRole('menuitem', {name: 'Hide until the next search'}).click();
+      if (await page.locator('#strategy-foryou:visible').count()) throw new Error('still shown after "Hide until the next search"');
       if (!await waitFor(async () => advice(profile).some(line => /dismissed employer on strategy/.test(line)))) throw new Error('no "dismissed employer" in app.log');
       await page.click('.nav[data-view=focus]');
       await page.click('.nav[data-view=strategy]');

@@ -19,9 +19,16 @@ test('fixed kinds only, shown once per place a session, never the role word or p
 test('every recommending card records shown and taken (a new card without it fails here)', () => {
   const strategy = readFileSync(new URL('../renderer/pages/strategy.js', import.meta.url), 'utf8');
   const activity = readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
-  for (const card of strategy.matchAll(/showCard\((\w+Card)\(/g)) assert.ok(card, card[1]);   // all go through showCard, which records
-  assert.match(strategy, /function showCard[\s\S]*?adviceEvent\('shown'[\s\S]*?adviceEvent\('taken'[\s\S]*?adviceEvent\('dismissed'/);
-  assert.match(strategy, /sourcesCard\(verdict[\s\S]*?adviceEvent\('shown', 'source'/);
+  // Every Strategy suggestion is a row drawn by suggestionRow (records shown); each kind records taken (widen or its own call) and dismissed (⋯).
+  assert.match(strategy, /function suggestionRow[\s\S]*?adviceEvent\('shown', kind/);
+  assert.match(strategy, /const widen = [\s\S]*?adviceEvent\('taken', kind/);
+  assert.match(strategy, /const hideItem = [\s\S]*?adviceEvent\('dismissed', kind/);
+  const kinds = [...strategy.matchAll(/suggestionRow\(\{kind: '(\w+)'/g)].map(match => match[1]);
+  assert.deepEqual([...kinds].sort(), ['coverage', 'employer', 'filters', 'ideas', 'places', 'source', 'visit']);
+  for (const kind of kinds) {
+    assert.match(strategy, new RegExp(`widen\\('${kind}'|adviceEvent\\('taken', '${kind}'`), `${kind}: no "taken"`);
+    assert.match(strategy, new RegExp(`hideItem\\('${kind}'|adviceEvent\\('dismissed', '${kind}'`), `${kind}: no "dismissed"`);
+  }
   assert.match(activity, /adviceEvent\('shown', action\.kind[\s\S]*?adviceEvent\('taken', action\.kind/);
 });
 
