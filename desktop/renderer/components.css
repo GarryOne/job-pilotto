@@ -157,8 +157,8 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .item-rows .item-words b a { color: inherit; text-decoration: none; }
 .item-rows .item-words b a:hover { text-decoration: underline; }
 .item-rows .item-words .muted { display: block; font-size: var(--fs-md); }
-.item-rows .item-action { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-md); }
-.item-rows .item-action svg { width: 14px; height: 14px; }
+.item-rows .item-action, .activity-phases .item-action { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-md); }
+.item-rows .item-action svg, .activity-phases .item-action svg { width: 14px; height: 14px; }
 
 /* A small comparison table (a few rows of figures): header row muted, a line between rows, numbers bold on the right. */
 .data-table { width: 100%; border-collapse: collapse; margin-top: var(--sp-3); font-size: var(--fs-base); }

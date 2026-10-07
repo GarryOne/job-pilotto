@@ -1787,6 +1787,11 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-phases .phase-note + .phase-note { font-size: var(--fs-sm); }
 .activity-phases li.site-progress { display: grid; gap: 6px; font-weight: 600; margin-bottom: 4px; }   /* Read sites: "N of M sites · X%" over the shared meter */
 .activity-phases li.site-progress .score-track { background: var(--line); }
+/* Read sites: mark · name and its step · its one button on the right (activity.js siteRow) */
+.activity-panel .activity-phases li.site-row { display: flex; align-items: center; gap: var(--sp-3); }
+.activity-panel .activity-phases li.site-row[class]::before { margin-right: 0; flex: none; }   /* [class]: over li.done::before, which comes later */
+.activity-phases li.site-row .site-words { flex: 1; min-width: 0; }
+.activity-panel .activity-phases li.site-row .phase-note { margin-left: 0; }
 .activity-panel .activity-phases li + li { border-top: 1px solid var(--line); }
 .activity-panel .activity-phases li.done::before { content: '✓'; display: inline-grid; place-items: center; width: 22px; height: 22px;
   margin-right: var(--sp-3); border-radius: 50%; background: var(--good-bright); color: var(--on-accent); font-size: var(--fs-xs); }

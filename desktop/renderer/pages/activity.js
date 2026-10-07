@@ -139,31 +139,35 @@ function siteProgress({done, total, percent}) {
   return li;
 }
 // The one thing to do on a row, as a link after its words (as "Explain with AI"): a wait on you, a tab to look at, a tab you closed, a silent extension.
+// Each row's one action, a button on its right (owner, 7 Oct 2026: "per row, on the right, Open in Chrome"): the tab while it reads, the site
+// once it is done, Allow while it waits on you, Open again for a tab you closed, the extension when it did not answer.
 function siteAction(site) {
   if (site.state === 'waiting') return ['Go to Chrome and allow', () => window.pilot.focusBrowser()];
-  if (site.state === 'reading') return ['Show tab', () => window.pilot.visitShowTab(site.url)];
+  if (site.state === 'reading' || site.state === 'opening') return ['Open in Chrome', () => window.pilot.visitShowTab(site.url)];
   if (site.state === 'closed') return ['Open again', () => window.pilot.visitAgain(site.url)];
   if (site.state === 'stopped' && /no answer from the extension|did not answer/.test(site.words)) return ['Check the extension', () => openSetting('extension')];
-  return null;
+  return ['Open in Chrome', () => window.pilot.openVisit(site.url)];   // done or stopped: the site itself
 }
 // live: the run is going. A finished run keeps its rows and marks (owner, 7 Oct 2026: "keep the ticks and crosses after the task completes"),
 // without the links that act on a running tab; a site the run left mid-way reads as stopped there, not as still going.
 const settled = site => (['done', 'stopped', 'closed'].includes(site.state) ? site : {...site, state: 'stopped', words: `${site.words.replace(/…$/, '')}: the run ended here`});
 function siteRow(site, live = true) {
   if (!live) site = settled(site);
-  const li = el('li', SITE_MARK[site.state] || 'todo', site.name);
-  const note = el('span', 'phase-note', capital(site.words));
-  const action = site.url && (live || site.state === 'stopped') && siteAction(site);
-  if (action) {
+  const li = el('li', `${SITE_MARK[site.state] || 'todo'} site-row`);
+  const words = el('div', 'site-words', site.name);
+  words.append(el('span', 'phase-note', capital(site.words)));
+  li.append(words);
+  // A finished run keeps only what still makes sense: the site itself, or the extension check (not a running tab's actions).
+  const action = site.url && siteAction(site);
+  if (action && (live || ['done', 'stopped'].includes(site.state))) {
     const key = `site:${site.url}:${action[0]}`;
-    const link = keepPress(key, Object.assign(el('button', 'link', action[0]), {type: 'button'}));
-    link.addEventListener('click', async () => {
+    const button = keepPress(key, Object.assign(el('button', 'secondary item-action', action[0]), {type: 'button', title: site.url}));
+    button.addEventListener('click', async () => {
       const done = await pressWhile(key, '', async () => action[1]()).catch(error => ({ok: false, error: error.message}));
       if (done?.ok === false) setPress(key, {text: done.error || 'Could not do it now'});
     });
-    note.append(' ', link);
+    li.append(button);
   }
-  li.append(note);
   return li;
 }
 // A phase's label, with the sources the engine said it used ("Job boards: jobs.ch, …") instead of a fixed list.
