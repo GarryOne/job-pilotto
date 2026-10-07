@@ -171,3 +171,19 @@ test('employers open on their job page found before the tabs open; portals and u
   assert.deepEqual(sites.map(site => site.url), ['https://www.hublot.com/en-ch/job-offers', 'https://nobody.example', 'https://ch.indeed.com/jobs']);
   assert.match(lines[0], /Finding the job page of 2 employers/);
 });
+
+test('a tab whose Claude is still answering is not skipped as silent, its time is not counted, and a skipped site names its last step', async () => {
+  const {whileThinking, stepOf} = await import('../lib/visits.js');
+  const openTab = url => {
+    const ticket = /-([a-z0-9]+)$/.exec(url)[1];
+    if (url.includes('thinker')) {   // Claude answers for 150 ms: longer than the quiet time and the site's budget here
+      stepOf({ticket, words: 'Claude is learning how to read this site (once)…'});
+      whileThinking(ticket, new Promise(resolve => setTimeout(resolve, 150))).then(() => done({url: url.split('#')[0], ticket, jobs: 2, added: 2, pages: 1}));
+    } else stepOf({ticket, words: 'reading page 1…'});   // then nothing: skipped, with its last step named
+    return {ok: true};
+  };
+  const results = await runAll([{name: 'Thinker', url: 'https://thinker.example'}, {name: 'Mute', url: 'https://mute.example'}],
+    {atOnce: 1, openTab, quietMs: 40, siteMs: 60, waitMs: 5000});
+  assert.deepEqual(results.map(result => [result.name, result.ok]), [['Thinker', true], ['Mute', false]]);
+  assert.match(results[1].why, /\(last step: reading page 1\)/);
+});

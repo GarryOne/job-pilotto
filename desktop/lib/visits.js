@@ -44,9 +44,11 @@ async function engineJson(storage, command, body, runEngine = pipeline.run) {
 // A page the quick guess could not read: Claude makes a recipe from its outline (src/ai/visit_reader.py), kept per site.
 export async function understand(storage, outline, runEngine) {
   if (!/^https?:\/\//.test(String(outline?.url || ''))) return {ok: false, error: 'no page address'};
-  const answer = await engineJson(storage, 'visit-understand', {url: String(outline.url), title: String(outline.title || '').slice(0, 200),
-    groups: Array.isArray(outline.groups) ? outline.groups.slice(0, 12) : [], pager: Array.isArray(outline.pager) ? outline.pager.slice(0, 25) : []}, runEngine);
+  const answer = await whileThinking(String(outline.ticket || ''), engineJson(storage, 'visit-understand', {url: String(outline.url), title: String(outline.title || '').slice(0, 200),
+    groups: Array.isArray(outline.groups) ? outline.groups.slice(0, 12) : [], pager: Array.isArray(outline.pager) ? outline.pager.slice(0, 25) : []}, runEngine));
   log('visit', 'recipe asked of Claude', {host: new URL(outline.url).hostname, groups: outline.groups?.length || 0, found: !!answer?.recipe, next: answer?.recipe?.next});
+  // What Claude's reading found, in the task's log (owner, 7 Oct 2026: "are we getting enough details of what's happening in each tab?")
+  onLine(`  Claude's reading of ${new URL(outline.url).hostname}: ${answer?.recipe ? `a job list found (next page: ${answer.recipe.next || 'none'})` : `no job list found among the page's ${outline.groups?.length || 0} groups of repeated items`}`);
   return answer || {ok: false, error: 'The app could not read this page.'};
 }
 
@@ -54,7 +56,7 @@ export async function understand(storage, outline, runEngine) {
 export async function jobPage(storage, page, runEngine) {
   heardFrom(page?.ticket);
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false};
-  const answer = await engineJson(storage, 'visit-jobpage', {url: String(page.url), html: String(page.html || '').slice(0, MAX_HTML)}, runEngine);
+  const answer = await whileThinking(String(page.ticket || ''), engineJson(storage, 'visit-jobpage', {url: String(page.url), html: String(page.html || '').slice(0, MAX_HTML)}, runEngine));
   log('visit', 'job list looked for on a page that is not one', {host: new URL(page.url).hostname, found: !!answer?.url});
   return answer || {ok: false};
 }
@@ -86,7 +88,7 @@ export async function filters(storage, page, runEngine = pipeline.run) {
   fs.writeFileSync(file, JSON.stringify({url: String(page.url), title: String(page.title || '').slice(0, 300), controls: Array.isArray(page.controls) ? page.controls.slice(0, 200) : []}));
   try {
     const late = new Promise(resolve => setTimeout(() => resolve({late: true}), FILTER_WAIT_MS));
-    const ran = await Promise.race([runEngine(storage, ['src.desktop', 'visit-filters', file], onLine), late]);
+    const ran = await whileThinking(String(page.ticket || ''), Promise.race([runEngine(storage, ['src.desktop', 'visit-filters', file], onLine), late]));
     if (ran.late) {
       log('visit', 'filters: Claude took too long, the page is read as it is', {host: new URL(page.url).hostname, waitedMs: FILTER_WAIT_MS});
       onLine(`Filters for ${new URL(page.url).hostname}: Claude took over ${FILTER_WAIT_MS / 1000} s, so the page is read as it is`);
@@ -206,10 +208,28 @@ const key = url => String(url || '').split('#')[0].replace(/\/$/, '');
 const which = payload => (payload?.ticket && waiting.has(payload.ticket) ? payload.ticket : key(payload?.url));
 // What a tab is doing now, in the extension's own words (extension/visit.js tellStep: the same as its banner on the page): the site's row says it,
 // and it counts as news, so a site whose Claude is still choosing filters is not skipped as silent.
+const lastStep = new Map();   // ticket -> the tab's last step, named when a site is skipped ("stopped while Claude was learning…")
+// Claude's time for a tab (choosing filters, learning the page, finding the job list): not silence, and not counted against the site's minute
+// (owner's run, 7 Oct 2026: Hublot, Omega and Baume & Mercier were skipped as silent while Claude was answering).
+const thinking = new Map(), thoughtMs = new Map();
+export async function whileThinking(ticket, work) {
+  if (!ticket) return work;
+  const began = Date.now();
+  thinking.set(ticket, (thinking.get(ticket) || 0) + 1);
+  const beat = setInterval(() => heardFrom(ticket), 5000);
+  try { return await work; } finally {
+    clearInterval(beat);
+    thinking.set(ticket, thinking.get(ticket) - 1);
+    if (!thinking.get(ticket)) thinking.delete(ticket);
+    thoughtMs.set(ticket, (thoughtMs.get(ticket) || 0) + Date.now() - began);
+    heardFrom(ticket);
+  }
+}
 export function stepOf(payload) {
   const ticket = String(payload?.ticket || ''), words = String(payload?.words || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   if (!ticket || !words) return {ok: true};
   heardFrom(ticket);
+  lastStep.set(ticket, words);
   watchers.get(ticket)?.({step: words});
   return {ok: true};
 }
@@ -231,16 +251,19 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
       waiting.set(ticket, resolve);
       const watch = setInterval(() => {   // silent too long and not waiting on the person: skipped, with words that say so
         if (!waiting.has(ticket)) { clearInterval(watch); return; }
-        if (!blocked.has(ticket) && Date.now() - openedAt > siteMs) {
+        const stuck = lastStep.get(ticket) ? ` (last step: ${lastStep.get(ticket).replace(/…$/, '')})`
+          : (lastNews.get(ticket) || 0) > openedAt ? '' : ' (it never started reading: is the extension on in Chrome?)';
+        if (thinking.has(ticket)) return;   // Claude is answering for this tab: not silence, and its time is not counted
+        if (!blocked.has(ticket) && Date.now() - openedAt - (thoughtMs.get(ticket) || 0) > siteMs) {
           clearInterval(watch);
           waiting.delete(ticket);
-          resolve({stopped: `${Math.round(siteMs / 1000)} s are up: skipped, the jobs read so far are kept`, jobs: 0, added: 0, quiet: true});
+          resolve({stopped: `${Math.round(siteMs / 1000)} s are up${stuck}: skipped, the jobs read so far are kept`, jobs: 0, added: 0, quiet: true});
           return;
         }
         if (!blocked.has(ticket) && Date.now() - (lastNews.get(ticket) || 0) > quietMs) {
           clearInterval(watch);
           waiting.delete(ticket);
-          resolve({stopped: `it stopped answering (nothing for ${Math.round(quietMs / 1000)} s): skipped, you can close its tab`, jobs: 0, added: 0, quiet: true});
+          resolve({stopped: `it stopped answering (nothing for ${Math.round(quietMs / 1000)} s)${stuck}: skipped, you can close its tab`, jobs: 0, added: 0, quiet: true});
         }
       }, Math.min(5000, quietMs, siteMs));
       setTimeout(() => {
@@ -274,6 +297,7 @@ export async function runAll(sites, {atOnce = 2, filter = true, tee = () => {}, 
     watchers.delete(ticket);
     blocked.delete(ticket);
     lastNews.delete(ticket);
+    lastStep.delete(ticket); thoughtMs.delete(ticket);
     const fits = fitsBy.get(ticket) || 0;
     fitsBy.delete(ticket);
     if (state.quiet) tee(`⏳ ${site.name} is not responding: skipped, the next site opens`);

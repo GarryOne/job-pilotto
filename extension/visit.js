@@ -139,6 +139,26 @@ export function nextByRecipe(recipe) {
 }
 
 // Runs inside the page: a small banner while the extension reads it (owner: "otherwise a loading spinner/banner"), or none (text '').
+// A cookie or consent banner over the page (owner, 7 Oct 2026: "the extension doesn't know to accept cookies"; Omega's 6 jobs sat behind one):
+// closed the way a person would, choosing the least consent offered: "reject all" / "technical or necessary only" first, "accept" only when it
+// is the one way on. Only a box that speaks of cookies or consent, never one with a password field. Runs in the page; returns the label pressed.
+export function closeConsent() {
+  const visible = node => { const box = node.getBoundingClientRect(); const look = getComputedStyle(node); return box.width > 0 && box.height > 0 && look.visibility !== 'hidden' && look.display !== 'none'; };
+  const words = node => (node.innerText || node.value || node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+  const ABOUT = /cookie|consent|gdpr|privacy|datenschutz|confidentialit|traceurs|tracking/i;
+  const boxes = [...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog, [id*=cookie i], [class*=cookie i], [id*=consent i], [class*=consent i], [id*=onetrust i], [id*=didomi i], [id*=cmp i], [class*=cmp i]')]
+    .filter(node => visible(node) && ABOUT.test(node.innerText || '') && !node.querySelector('input[type=password]'));
+  const least = /^(reject|decline|refuse|deny|necessary|essential|only necessary|use necessary|allow (technical|necessary|essential)|tout refuser|refuser|continuer sans accepter|nur (notwendige|erforderliche|technisch)|ablehnen|alle ablehnen|rifiuta|solo (necessari|tecnici))/i;
+  const any = /^(accept|agree|allow all|got it|ok\b|okay|i understand|accepter|tout accepter|j'accepte|akzeptieren|alle akzeptieren|zustimmen|einverstanden|accetta|accetto)/i;
+  for (const pattern of [least, any]) {
+    for (const box of boxes) {
+      const button = [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].find(node => visible(node) && pattern.test(words(node)) && words(node).length < 60);
+      if (button) { button.click(); return words(button); }
+    }
+  }
+  return '';
+}
+
 export function pageBanner(text) {
   let node = document.getElementById('jobpilotto-reading');
   if (!text) { node?.remove(); return; }
@@ -284,27 +304,35 @@ export async function tellStep(tabId, config, ticket, words, runIn = run, send =
 }
 async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
   const deadline = ticket ? Date.now() + SITE_MS : Infinity;
+  let thought = 0;   // Claude's time (job list, filters, learning the page): not counted against the minute, as in the app
+  const thinking = async work => { const began = Date.now(); try { return await work(); } finally { thought += Date.now() - began; } };
+  const consent = async () => {   // a cookie banner in the way: closed, and said
+    const pressed = await run(tabId, closeConsent).catch(() => '');
+    if (pressed) { state.consent = pressed; await tellStep(tabId, config, ticket, `closed the cookie banner ("${pressed.slice(0, 40)}")`); await wait(800); }
+  };
   const session = `${tabId}-${Date.now()}`;
   const config = await settings();
   const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: [], learned: false, ticket};
   const say = () => chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
   try {
     // Not a job list (a home page, an "about" page): go to the site's job list first, as a person would, then filter and read there.
+    await consent();
     const first = await run(tabId, extractPage).catch(() => null);
     if (first && !first.login && !first.challenge && !plausible(first.cards)) {
       await tellStep(tabId, config, ticket, 'looking for this site\'s job list…');
-      const found = await api(config, '/extension/visit-jobpage', {method: 'POST', body: JSON.stringify({url: first.url, html: first.html, ticket})}).catch(() => null);
+      const found = await thinking(() => api(config, '/extension/visit-jobpage', {method: 'POST', body: JSON.stringify({url: first.url, html: first.html, ticket})}).catch(() => null));
       if (found?.url && found.url.split('#')[0] !== first.url.split('#')[0]) {
         state.jobpage = found.url;
         await tellStep(tabId, config, ticket, `going to its job list: ${found.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)}`);
         await chrome.tabs.update(tabId, {url: found.url});
         await pause();
         await waitForPage(tabId).catch(() => {});
+        await consent();
       }
     }
     if (filter) {
       await tellStep(tabId, config, ticket, 'Claude is choosing the filters for your search…');
-      await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
+      await thinking(() => setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ }));
       await tellStep(tabId, config, ticket, state.filters.length ? `filters set: ${state.filters.join(', ').slice(0, 100)}` : `no filters set${state.note ? ` (${state.note})` : ''}: reading the page as it is`);
     }
     // How to read this site: its saved recipe (no AI), else the quick guess, else Claude from the page's outline (once per visit).
@@ -315,12 +343,12 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       asked = true;
       await tellStep(tabId, config, ticket, 'Claude is learning how to read this site (once)…');
       const outline = await run(tabId, pageOutline);
-      const answer = await api(config, '/extension/visit-understand', {method: 'POST', body: JSON.stringify(outline)}).catch(() => null);
+      const answer = await thinking(() => api(config, '/extension/visit-understand', {method: 'POST', body: JSON.stringify({...outline, ticket})}).catch(() => null));
       if (answer?.recipe) { recipe = answer.recipe; state.learned = true; }
       return !!answer?.recipe;
     };
     for (let page = 0; page < pages; page++) {
-      if (Date.now() > deadline) { state.stopped = `${SITE_MS / 1000} s are up: the jobs read so far are kept`; break; }
+      if (Date.now() - thought > deadline) { state.stopped = `${SITE_MS / 1000} s are up: the jobs read so far are kept`; break; }
       await tellStep(tabId, config, ticket, `reading page ${page + 1}…`);
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }
@@ -332,6 +360,11 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         cards = seen.cards;
       }
       if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
+      if (!cards?.length) {   // why nothing was read, said in the site's row: what the page showed, so "0 jobs" is never a mystery
+        const banner = await run(tabId, closeConsent).catch(() => '');
+        if (banner) state.consent = banner;
+        await tellStep(tabId, config, ticket, `no job cards on this page (${seen.cards?.length || 0} repeated items seen${asked ? ', none of them jobs by Claude\'s reading' : ''}${banner ? `; a cookie banner was still open, closed with "${banner.slice(0, 30)}"` : ''})`);
+      }
       const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, ticket: state.ticket, url: seen.url, title: seen.title, html: seen.html, cards})});
       if (!answer?.ok) { state.stopped = answer?.error || 'the app did not take the page'; break; }
       Object.assign(state, {pages: page + 1, jobs: answer.jobs, added: state.added + (answer.added || 0), name: answer.name});

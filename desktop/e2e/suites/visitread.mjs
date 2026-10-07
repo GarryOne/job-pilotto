@@ -124,6 +124,16 @@ with mock.patch.object(visits, 'STORE', pathlib.Path(tempfile.mkdtemp()) / 'v.js
       if (!/\/joboffers\/en$/.test(found || '')) throw new Error(`found ${found}, the Careers link expected`);
     });
 
+    await ctx.run('a cookie banner over the list is closed with the least consent offered ("Reject all", not "Accept all"), a sign-in box never touched', async () => {
+      await page.goto(`${base}/consent.html`);
+      if (!(await page.isVisible('#cookie-banner'))) throw new Error('the fixture\'s banner is not showing: the step would prove nothing');
+      const pressed = await call(page, 'closeConsent');
+      const state = await page.evaluate('({choice: window.choice || null, signin: !!window.pressedSignIn, banner: !!document.querySelector("#cookie-banner")})');
+      if (pressed !== 'Reject all' || state.choice !== 'reject' || state.banner) throw new Error(`pressed "${pressed}", page ${JSON.stringify(state)}`);
+      if (state.signin) throw new Error('a box with a password field was pressed');
+      if (await call(page, 'closeConsent')) throw new Error('a second call pressed something on a page with no banner left');
+    });
+
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {
       await page.goto(`${base}/check.html`);
       const seen = await call(page, 'extractPage');
