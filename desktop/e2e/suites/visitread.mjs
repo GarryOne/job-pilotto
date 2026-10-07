@@ -140,6 +140,16 @@ print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls
       if (labels.some(label => /zurücksetzen/.test(label)) || !labels.includes('Weitere Stellen')) throw new Error(`ways ${JSON.stringify(labels)}`);
     });
 
+    await ctx.run('filters: a place typed in English is picked in the site\'s own spelling ("geneva" -> "Genève (GE)", Decathlon, 8 Oct 2026)', async () => {
+      await page.goto(`${base}/frenchsuggest.html`);
+      const controls = await call(page, 'collectControls');
+      const box = controls.find(control => /Région/.test(control.label));
+      if (!box) throw new Error(`the box was not listed: ${JSON.stringify(controls)}`);
+      const done = await page.evaluate(`(${fn('applyFilters').replace('function applyFilters', 'function')})(${JSON.stringify([{control: box.id, action: 'type', value: 'geneva'}])})`);
+      const searched = await page.evaluate(() => document.body.dataset.searched);
+      if (done[0]?.picked !== 'Genève (GE)' || searched !== 'Genève (GE)') throw new Error(`picked ${JSON.stringify(done)}, sent ${searched}`);
+    });
+
     await ctx.run('any site: where the quick guess reads nothing, Claude\'s recipe from the page outline reads the jobs and finds the next page', async () => {
       await page.goto(`${base}/odd.html`);
       const guess = await call(page, 'extractPage');

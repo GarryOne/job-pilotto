@@ -258,17 +258,29 @@ export async function applyFilters(steps) {
     .filter(option => (option.offsetParent !== null || option.getClientRects().length > 0) && option.getAttribute('aria-disabled') !== 'true');
   const pickSuggestion = async (node, value, before, waitMs) => {
     const want = plain(value);
+    // The place's stem too: the site may name it in its own language (8 Oct 2026: "geneva" typed on Decathlon's French site, which suggests
+    // "Genève"; Kanton "Genève" on coopjobs, which says "Genf"). "genev" finds "Genève (GE)"; never shorter than 4 letters.
+    const stem = want.slice(0, Math.max(4, want.length - 1));
+    let retyped = false;
     for (let waited = 0; waited < waitMs; waited += 200) {   // suggestions often come after a pause or from the server
       await new Promise(done => setTimeout(done, 200));
       const list = document.getElementById(node.getAttribute('aria-controls') || node.getAttribute('aria-owns') || '');
       const options = shown(list || document).filter(option => !before.has(option) && plain(option.innerText || option.textContent));
       const text = item => plain(item.innerText || item.textContent);
-      const option = options.find(item => text(item) === want) || options.find(item => text(item).startsWith(want)) || options.find(item => text(item).includes(want));
+      const option = options.find(item => text(item) === want) || options.find(item => text(item).startsWith(want)) || options.find(item => text(item).includes(want))
+        || options.find(item => text(item).startsWith(stem)) || options.find(item => text(item).split(/[\s,(/-]+/).some(word => word.startsWith(stem)));
+      // Nothing offered for the whole word halfway through: the stem typed instead, once (a site that knows only its own spelling).
+      if (!option && !options.length && !retyped && stem !== want && waited >= waitMs / 2) {
+        retyped = true;
+        node.value = String(value).slice(0, stem.length);
+        node.dispatchEvent(new Event('input', {bubbles: true}));
+      }
       if (option) {
         for (const type of ['mousedown', 'mouseup', 'click']) option.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true}));
         return (option.innerText || option.textContent).replace(/\s+/g, ' ').trim().slice(0, 80);
       }
     }
+    if (retyped) { node.value = value; node.dispatchEvent(new Event('input', {bubbles: true})); }   // nothing picked: the whole word back, searched as typed
     return '';
   };
   const done = [];
@@ -356,13 +368,17 @@ export const UNBLOCK_TRIES = 2;   // a page with no job list: at most this many 
 
 // Claude chooses the page's filters for this person's search (through the app), the steps are applied with a pause between rounds.
 async function setFilters(tabId, config, state) {
+  const tried = new Set();   // control|value: a step already taken is never taken again (8 Oct 2026: "geneva" typed into Decathlon's box three rounds running)
   for (let round = 0; round < FILTER_ROUNDS; round++) {
     const controls = await run(tabId, collectControls);
     if (!controls?.length) break;
     const tab = await chrome.tabs.get(tabId);
     const plan = await api(config, '/extension/visit-filters', {method: 'POST', body: JSON.stringify({url: tab.url, title: tab.title, controls, ticket: state.ticket})}).catch(error => ({ok: false, error: error.message}));
     if (!plan?.ok) { state.note = plan?.error || 'filters not set'; break; }   // said in the popup; the page is read as it is
-    if (!plan.steps?.length) break;
+    const fresh = (plan.steps || []).filter(step => !tried.has(`${step.label}|${step.value}`));
+    if (!fresh.length) break;
+    for (const step of fresh) tried.add(`${step.label}|${step.value}`);
+    plan.steps = fresh;
     const done = await run(tabId, applyFilters, [plan.steps]);
     // Said in the site's row (and so the run log): whether a suggest box's place was really picked, or only typed and so filtered nothing.
     state.filters.push(...plan.steps.map((step, i) => [step, done?.[i]]).filter(([, result]) => result?.ok).map(([step, result]) => `${step.label}${step.value ? `: ${step.value}` : ''}`
@@ -481,6 +497,10 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
           await pause();
           await waitForPage(tabId).catch(() => {});
           await consent();
+          if (filter) {   // the filters set before were the outer page's: this list has its own (Manor's, in live.solique.ch)
+            await tellStep(tabId, config, ticket, 'Claude is choosing the filters for your search…');
+            await thinking(() => setFilters(tabId, config, state).catch(() => {}));
+          }
           recipe = null; asked = false;
           page -= 1;
           continue;

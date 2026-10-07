@@ -1,0 +1,17 @@
+<!doctype html><html><head><title>Nos offres | Maison</title></head><body>
+<!-- A French site's place box (Decathlon, 8 Oct 2026): it suggests only its own spelling, "Genève (GE)", and nothing for "geneva". -->
+<form id="filters" onsubmit="event.preventDefault(); document.body.dataset.searched = document.getElementById('place').value || 'none'">
+  <input type="hidden" id="place">
+  <input type="text" id="where" placeholder="Région, Ville..." role="combobox" aria-controls="where-list">
+  <ul id="where-list" role="listbox"></ul>
+</form>
+<script>
+const box = document.getElementById('where'), list = document.getElementById('where-list');
+const plain = text => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+box.addEventListener('input', () => setTimeout(() => {
+  list.innerHTML = ['Genève (GE)', 'Gland (VD)'].filter(place => box.value && plain(place).startsWith(plain(box.value))).map(place => `<li role="option">${place}</li>`).join('');
+}, 300));
+list.addEventListener('mousedown', event => { const item = event.target.closest('li'); if (item) document.getElementById('place').value = item.textContent; });
+</script>
+<ul><li class="job-card"><a href="/annonce/1">Conseiller vente</a><div>Genève</div></li></ul>
+</body></html>
