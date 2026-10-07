@@ -20,6 +20,34 @@ export function open(url, run = spawn) {
   return {ok: true};
 }
 
+// Any engine command that takes one JSON file (a page outline, a site's recipe): its last stdout line as JSON, or null.
+async function engineJson(storage, command, body, runEngine = pipeline.run) {
+  const file = path.join(os.tmpdir(), `jp-${command}-${process.pid}-${Date.now()}.json`);
+  fs.writeFileSync(file, JSON.stringify(body));
+  try {
+    const {stdout} = await runEngine(storage, ['src.desktop', command, file]);
+    try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch { return null; }
+  } finally {
+    fs.rmSync(file, {force: true});
+  }
+}
+
+// A page the quick guess could not read: Claude makes a recipe from its outline (src/ai/visit_reader.py), kept per site.
+export async function understand(storage, outline, runEngine) {
+  if (!/^https?:\/\//.test(String(outline?.url || ''))) return {ok: false, error: 'no page address'};
+  const answer = await engineJson(storage, 'visit-understand', {url: String(outline.url), title: String(outline.title || '').slice(0, 200),
+    groups: Array.isArray(outline.groups) ? outline.groups.slice(0, 12) : [], pager: Array.isArray(outline.pager) ? outline.pager.slice(0, 25) : []}, runEngine);
+  log('visit', 'recipe asked of Claude', {host: new URL(outline.url).hostname, groups: outline.groups?.length || 0, found: !!answer?.recipe, next: answer?.recipe?.next});
+  return answer || {ok: false, error: 'The app could not read this page.'};
+}
+
+// The recipe kept for a site (or forget it: it found nothing).
+export async function recipe(storage, page, runEngine) {
+  if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false};
+  if (page.forget) log('visit', 'recipe found nothing: learned again next time', {host: new URL(page.url).hostname});
+  return (await engineJson(storage, 'visit-recipe', {url: String(page.url), forget: !!page.forget}, runEngine)) || {ok: false};
+}
+
 // The page's filter controls: which to set for this person's search (src/ai/visit_filters.py, through the engine's AI). Labels in the log.
 export async function filters(storage, page, runEngine = pipeline.run) {
   if (!/^https?:\/\//.test(String(page?.url || ''))) return {ok: false, error: 'no page address'};

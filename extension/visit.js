@@ -33,6 +33,111 @@ export function extractPage() {
   };
 }
 
+// Runs inside the page: a compact outline for Claude when no recipe or quick guess reads the list (owner, 7 Oct 2026: "intelligent enough to
+// adapt on any website"). Job cards are repeated blocks on any site: groups of 3+ siblings with the same tag and class, each with a CSS path
+// and a few samples (their text lines and links); plus the controls that look like paging. Never form values; text capped.
+export function pageOutline() {
+  // A block's lines: its visible text pieces in order (inline spans are separate lines; innerText would join them).
+  const linesOf = node => {
+    const out = [];
+    const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) {
+      const text = walk.currentNode.textContent.replace(/\s+/g, ' ').trim();
+      const parent = walk.currentNode.parentElement;
+      if (text && parent && (parent.offsetParent !== null || parent.getClientRects().length > 0) && out.at(-1) !== text) out.push(text);
+    }
+    return out;
+  };
+  const visible = node => node.offsetParent !== null || node.getClientRects().length > 0;
+  const path = node => {
+    const parts = [];
+    for (let at = node; at && at !== document.body && parts.length < 6; at = at.parentElement) {
+      const cls = [...at.classList].filter(c => /^[a-zA-Z][\w-]{1,40}$/.test(c) && !/\d{3,}/.test(c)).slice(0, 2).map(c => `.${CSS.escape(c)}`).join('');
+      parts.unshift(`${at.tagName.toLowerCase()}${cls}`);
+    }
+    return parts.join(' > ');
+  };
+  const signature = node => `${node.tagName}.${[...node.classList].filter(c => !/\d{3,}/.test(c)).sort().join('.')}`;
+  const groups = [];
+  const seen = new Set();
+  for (const parent of document.querySelectorAll('body *')) {
+    if (groups.length >= 12) break;
+    const kids = [...parent.children].filter(visible);
+    if (kids.length < 3) continue;
+    const counts = {};
+    for (const kid of kids) counts[signature(kid)] = (counts[signature(kid)] || 0) + 1;
+    const [best, n] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    if (n < 3) continue;
+    const items = kids.filter(kid => signature(kid) === best && (kid.innerText || '').trim().length > 8 && kid.querySelector('a[href]'));
+    if (items.length < 3) continue;
+    const selector = path(items[0]);
+    if (seen.has(selector)) continue;
+    seen.add(selector);
+    groups.push({id: `g${groups.length + 1}`, selector, count: document.querySelectorAll(selector).length,
+      samples: items.slice(0, 3).map(item => ({lines: linesOf(item).slice(0, 8).map(line => line.slice(0, 100)),
+        links: [...item.querySelectorAll('a[href]')].slice(0, 3).map(link => ({text: (link.innerText || '').trim().slice(0, 80), href: link.getAttribute('href').slice(0, 160)}))}))});
+  }
+  const pager = [];
+  for (const node of document.querySelectorAll('a[href], button, [role=button]')) {
+    const label = (node.getAttribute('aria-label') || node.innerText || node.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
+    if (!label || label.length > 30 || !visible(node)) continue;
+    if (!/^\d{1,3}$|next|suiv|weiter|nächst|sigu|succ|more|plus|mehr|›|»|>|→/i.test(label)) continue;
+    pager.push({label, kind: node.tagName === 'A' ? 'link' : 'button'});
+    if (pager.length >= 25) break;
+  }
+  return {url: location.href, title: document.title.slice(0, 200), groups, pager};
+}
+
+// Runs inside the page: the jobs a recipe (from Claude, saved per site) reads: each block matching recipe.selector, its job link, and the
+// lines it names for title, employer and place.
+export function cardsByRecipe(recipe) {
+  // A block's lines: its visible text pieces in order (inline spans are separate lines; innerText would join them).
+  const linesOf = node => {
+    const out = [];
+    const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) {
+      const text = walk.currentNode.textContent.replace(/\s+/g, ' ').trim();
+      const parent = walk.currentNode.parentElement;
+      if (text && parent && (parent.offsetParent !== null || parent.getClientRects().length > 0) && out.at(-1) !== text) out.push(text);
+    }
+    return out;
+  };
+  const cards = [];
+  const seen = new Set();
+  for (const item of document.querySelectorAll(recipe.selector)) {
+    const lines = linesOf(item);
+    const links = [...item.querySelectorAll('a[href]')];
+    const link = links[Math.min(recipe.link || 0, links.length - 1)] || item.closest('a[href]');
+    if (!link) continue;
+    const href = link.href.split('#')[0];
+    const title = (recipe.title >= 0 ? lines[recipe.title] : link.innerText) || '';
+    if (!title || seen.has(href)) continue;
+    seen.add(href);
+    const pick = index => (index >= 0 && lines[index] && lines[index] !== title ? lines[index] : '');
+    cards.push({title: title.slice(0, 160), url: href, lines: [title, pick(recipe.company), pick(recipe.place)].filter(Boolean)});
+    if (cards.length >= 300) break;
+  }
+  return cards;
+}
+
+// Runs inside the page: the next page by a recipe's paging: a control with that exact label, the page number after the current one, or scroll.
+export function nextByRecipe(recipe) {
+  const visible = node => node && (node.offsetParent !== null || node.getClientRects().length > 0) && !node.disabled && node.getAttribute('aria-disabled') !== 'true';
+  const labels = node => [node.getAttribute('aria-label'), node.innerText, node.getAttribute('title')].map(text => (text || '').replace(/\s+/g, ' ').trim());
+  const controls = [...document.querySelectorAll('a[href], button, [role=button]')].filter(visible);
+  if (recipe.next === 'scroll') { const before = document.documentElement.scrollHeight; window.scrollTo(0, before); return before > window.innerHeight + 50 ? 'scroll' : 'none'; }
+  if (recipe.next === 'number') {
+    const current = document.querySelector('[aria-current="page"], [aria-current="true"]');
+    const number = Number((current?.innerText || '').trim());
+    const following = number && controls.find(node => (node.innerText || '').trim() === String(number + 1));
+    if (following) { following.click(); return 'page number'; }
+    return 'none';
+  }
+  const target = controls.find(node => labels(node).includes(recipe.next));
+  if (target) { target.click(); return 'recipe'; }
+  return 'none';
+}
+
 // Runs inside the page: its filter controls, for Claude to choose from (the app's src/ai/visit_filters.py). Labels and options only, never the
 // page's other text. Each gets a data-jp-control id so the chosen steps find it again. Anything that applies, signs in, messages, saves,
 // follows, pays or leaves the site is never listed (and applyFilters refuses it again).
@@ -110,6 +215,15 @@ export function goNext() {
   return before > window.innerHeight + 50 ? 'scroll' : 'none';
 }
 
+// The quick guess is kept only when it clearly looks like a job list; otherwise Claude reads the page's outline.
+export function plausible(cards) {
+  const titles = (cards || []).map(card => String(card.title || '').trim()).filter(Boolean);
+  if (titles.length < 3 || new Set(titles).size < 3) return false;
+  const sorted = titles.map(title => title.length).sort((a, b) => a - b);
+  const middle = sorted[Math.floor(sorted.length / 2)];
+  return middle >= 8 && middle <= 100 && titles.filter(title => /^\d+$|^(next|more|see all|apply)/i.test(title)).length < titles.length / 3;
+}
+
 const wait = ms => new Promise(done => setTimeout(done, ms));
 const pause = () => wait(PAUSE_MS[0] + Math.random() * (PAUSE_MS[1] - PAUSE_MS[0]));
 const badge = (tabId, text, title) => {
@@ -141,21 +255,40 @@ async function setFilters(tabId, config, state) {
 export async function readSite(tabId, {pages = MAX_PAGES, filter = false} = {}) {
   const session = `${tabId}-${Date.now()}`;
   const config = await settings();
-  const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: []};
+  const state = {pages: 0, jobs: 0, added: 0, name: '', stopped: '', filters: [], learned: false};
   const say = () => chrome.storage.session.set({[`visit:${tabId}`]: {...state, at: Date.now()}});
   try {
     if (filter) await setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ });
+    // How to read this site: its saved recipe (no AI), else the quick guess, else Claude from the page's outline (once per visit).
+    const start = (await chrome.tabs.get(tabId)).url;
+    let recipe = (await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: start})}).catch(() => null))?.recipe || null;
+    let asked = false;
+    const learn = async () => {
+      asked = true;
+      const outline = await run(tabId, pageOutline);
+      const answer = await api(config, '/extension/visit-understand', {method: 'POST', body: JSON.stringify(outline)}).catch(() => null);
+      if (answer?.recipe) { recipe = answer.recipe; state.learned = true; }
+      return !!answer?.recipe;
+    };
     for (let page = 0; page < pages; page++) {
       const seen = await run(tabId, extractPage);
       if (!seen) { state.stopped = 'the page could not be read'; break; }
       if (seen.login || seen.challenge) { state.stopped = seen.login ? 'the site asks you to sign in: do it, then click again' : 'the site shows a check: answer it yourself, then click again'; break; }
-      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, url: seen.url, title: seen.title, html: seen.html, cards: seen.cards})});
+      let cards = recipe ? await run(tabId, cardsByRecipe, [recipe]) : seen.cards;
+      if (recipe && !cards.length && page === 0) {   // a recipe that no longer fits this site: forgotten, read afresh
+        await api(config, '/extension/visit-recipe', {method: 'POST', body: JSON.stringify({url: seen.url, forget: true})}).catch(() => {});
+        recipe = null;
+        cards = seen.cards;
+      }
+      if (!recipe && !plausible(cards) && !asked && await learn()) cards = await run(tabId, cardsByRecipe, [recipe]);
+      const answer = await api(config, '/extension/visit-read', {method: 'POST', body: JSON.stringify({session, url: seen.url, title: seen.title, html: seen.html, cards})});
       if (!answer?.ok) { state.stopped = answer?.error || 'the app did not take the page'; break; }
       Object.assign(state, {pages: page + 1, jobs: answer.jobs, added: state.added + (answer.added || 0), name: answer.name});
       badge(tabId, String(state.pages), `Job Pilotto: reading ${answer.name}, page ${state.pages}: ${answer.jobs} jobs so far`);
       await say();
       if (page > 0 && !answer.added) { state.stopped = 'no new jobs on this page: the end of the list'; break; }
-      const how = await run(tabId, goNext);
+      let how = recipe ? await run(tabId, nextByRecipe, [recipe]) : await run(tabId, goNext);
+      if (how === 'none' && !recipe && !asked && await learn() && recipe.next !== 'none') how = await run(tabId, nextByRecipe, [recipe]);
       if (how === 'none') { state.stopped = 'no next page'; break; }
       await pause();
       if (how !== 'scroll') await waitForPage(tabId);

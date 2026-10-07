@@ -369,7 +369,9 @@ def main(argv=None):
     sub.add_parser('explain-coverage')   # 'Explain with AI' on a jobs check with few new jobs (src/ai/few_jobs.py): on the user's click only
     sub.add_parser('visit-list')   # sites only you can open (src/sources/visits.py): refusing employers and portals, least recently read first
     sub.add_parser('visit-filters').add_argument('file')   # a page's filter controls (JSON: url, title, controls): which to set for this search (src/ai/visit_filters.py)
-    sub.add_parser('visit-read').add_argument('file')   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
+    sub.add_parser('visit-read').add_argument('file')
+    sub.add_parser('visit-understand').add_argument('file')   # a page outline the extension could not read: Claude's recipe, kept per site
+    sub.add_parser('visit-recipe').add_argument('file')   # the recipe kept for a site (JSON: url, forget), or null   # a page the extension sent (JSON: url, html, cards, title, session): its jobs, kept as a feed
     sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
@@ -425,6 +427,24 @@ def main(argv=None):
             print(f"Visit filters: {len(planned['steps'])} steps for {str(page.get('url') or '')[:80]}: "
                   + '; '.join(f"{s['action']} {s['label'][:40]}{' = ' + s['value'] if s['value'] else ''}" for s in planned['steps']), file=sys.stderr)
             print(json.dumps({'ok': True, **planned}, ensure_ascii=False))
+            return 0
+        if args.command in ('visit-understand', 'visit-recipe'):
+            from .sources import visits
+            page = json.loads(Path(args.file).read_text())
+            if args.command == 'visit-recipe':
+                if page.get('forget'):
+                    visits.forget_recipe(page['url'])
+                print(json.dumps({'ok': True, 'recipe': None if page.get('forget') else visits.recipe_for(page['url'])}))
+                return 0
+            from .ai import visit_reader
+            try:
+                recipe = visit_reader.understand(page)
+            except Exception as error:  # noqa: BLE001 — said; the extension reads what its quick guess found
+                print(json.dumps({'ok': False, 'error': f'Claude could not read this page ({type(error).__name__})'}))
+                return 0
+            if recipe:
+                visits.save_recipe(page['url'], recipe)
+            print(json.dumps({'ok': True, 'recipe': recipe}, ensure_ascii=False))
             return 0
         if args.command == 'visit-read':
             from .sources import visits

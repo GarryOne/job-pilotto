@@ -355,6 +355,8 @@ let learnedHandler = () => {};
 export function setLearnedHandler(fn) { learnedHandler = fn; }
 let visitHandler = async () => ({ok: false});   // a page the person opened and asked the extension to read (lib/visits.js)
 export function setVisitHandler(fn) { visitHandler = fn; }
+let visitMore = {};   // '/extension/visit-understand', '/extension/visit-recipe': (payload) => answer (lib/visits.js)
+export function setVisitRoute(route, fn) { visitMore[route] = fn; }
 let visitFilters = async () => ({ok: false});   // which filters to set on a page, for this search (lib/visits.js filters)
 export function setVisitFilters(fn) { visitFilters = fn; }
 let visitHosts = () => [];   // the sites on the visit list, for the extension's toolbar icon
@@ -542,14 +544,14 @@ export function start(storage, onError = () => {}) {
         if (ok) missesHandler(payload);
         return;
       }
-      if (req.url === '/extension/visit-read' || req.url === '/extension/visit-list' || req.url === '/extension/visit-filters') {
+      if (req.url === '/extension/visit-read' || req.url === '/extension/visit-list' || req.url === '/extension/visit-filters' || visitMore[req.url]) {
         const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
         const answer = !ok ? {ok: false, error: 'Wrong token'} : req.url === '/extension/visit-list' ? {ok: true, hosts: visitHosts()}
-          : req.url === '/extension/visit-filters' ? await visitFilters(payload) : await visitHandler(payload);
+          : req.url === '/extension/visit-filters' ? await visitFilters(payload) : visitMore[req.url] ? await visitMore[req.url](payload) : await visitHandler(payload);
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(answer));
         return;

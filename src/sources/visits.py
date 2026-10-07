@@ -178,6 +178,29 @@ def read(url, markup, cards=None, title='', now=None, session=''):
     return {'name': name, 'jobs': merged, 'kind': 'portal' if portal else 'employer', 'feed': feed, 'added': added}
 
 
+def recipe_for(url):
+    """The reading recipe learned for this site (src/ai/visit_reader.py), or None."""
+    return ((_load().get('recipes') or {}).get(host_of(url)) or {}).get('recipe')
+
+
+def save_recipe(url, recipe, now=None):
+    """Keep a recipe Claude made for this site; the extension replays it with no AI until it stops finding jobs."""
+    with LOCK:
+        data = _load()
+        data.setdefault('recipes', {})[host_of(url)] = {'recipe': recipe, 'learned_at': (now or _now()).isoformat(timespec='seconds')}
+        _save(data)
+    print(f"Visit: learned how to read {host_of(url)}: blocks {recipe['selector'][:60]}, next page by {recipe['next']}")
+
+
+def forget_recipe(url):
+    """A recipe that found nothing: dropped, so Claude is asked again."""
+    with LOCK:
+        data = _load()
+        if (data.get('recipes') or {}).pop(host_of(url), None) is not None:
+            _save(data)
+            print(f'Visit: the recipe for {host_of(url)} found no jobs; it is learned again')
+
+
 def fetch(slug, now=None):
     """The feed visit:<page address>: the jobs read on that page at the last visit, while under KEEP_DAYS old ([] after)."""
     page = (_load().get('pages') or {}).get(slug)

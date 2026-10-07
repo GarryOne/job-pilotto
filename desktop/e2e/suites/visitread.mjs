@@ -83,6 +83,31 @@ print(json.dumps(visit_filters.plan({'url': 'https://x', 'title': 't', 'controls
       if (state.applied || done.at(-1).ok) throw new Error('Easy Apply was pressed: it must be refused even when asked');
     });
 
+    await ctx.run('any site: where the quick guess reads nothing, Claude\'s recipe from the page outline reads the jobs and finds the next page', async () => {
+      await page.goto(`${base}/odd.html`);
+      const guess = await call(page, 'extractPage');
+      if (guess.cards.length) throw new Error(`the quick guess read ${guess.cards.length} cards: this page must need the adaptive path`);
+      const outline = await call(page, 'pageOutline');
+      const tiles = outline.groups.find(group => /tile/.test(group.selector));
+      if (!tiles || !outline.pager.some(item => item.label === '→ Suivante')) throw new Error(`outline ${JSON.stringify(outline).slice(0, 400)}`);
+      // Claude's answer stands in here; what the engine keeps of it is the real code (src/ai/visit_reader.py).
+      const script = `import json, sys
+from types import SimpleNamespace
+from src.ai import visit_reader
+outline = json.loads(sys.argv[1])
+answer = {'group': sys.argv[2], 'title': -1, 'company': 1, 'place': 2, 'link': 0, 'next': '→ Suivante', 'why': 'tiles'}
+reply = SimpleNamespace(content=[SimpleNamespace(type='text', text=json.dumps(answer))], usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+print(json.dumps(visit_reader.understand(outline, SimpleNamespace(messages=SimpleNamespace(create=lambda **k: reply)))))`;
+      const recipe = JSON.parse(execFileSync(python(), ['-c', script, JSON.stringify(outline), tiles.id], {cwd: repo, encoding: 'utf8', env: {...process.env, JOB_PILOTTO_FOLLOW_APP: '0'}}).trim().split('\n').pop());
+      const withRecipe = expr => page.evaluate(`(${fn(expr).replace(`function ${expr}`, 'function')})(${JSON.stringify(recipe)})`);
+      const cards = await withRecipe('cardsByRecipe');
+      if (cards.map(card => card.title).join('|') !== 'Vendeuse confirmée|Conseiller de vente horlogerie|Photographe produit e-shop' || cards[1].lines[1] !== 'Boutique Lac') throw new Error(`cards ${JSON.stringify(cards)}`);
+      if (await withRecipe('nextByRecipe') !== 'recipe') throw new Error('the next page was not reached by the recipe');
+      await page.waitForURL(/odd-2\.html/, {timeout: 5000});
+      const second = await withRecipe('cardsByRecipe');
+      if (second.length !== 3) throw new Error(`${second.length} cards on page 2 by the same recipe`);
+    });
+
     await ctx.run('a bot-check page stops it: nothing read, the person answers it', async () => {
       await page.goto(`${base}/check.html`);
       const seen = await call(page, 'extractPage');

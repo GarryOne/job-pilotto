@@ -103,12 +103,13 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ## 🧠 AI at every step
 
-Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 31 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
+Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 32 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
 **Find: Finds what is worth your time**
 
 - **Scout that keeps learning** *(new)*: Claude proposes employers, their own job sites and company lists to look at, then learns from what each probe found. The shared employer list grows with every install.
+- **Reads any job site** *(new)*: where the extension's quick guess cannot read a job list, Claude reads the page's outline (repeated blocks, paging buttons, a few samples) and makes a recipe kept for the site, so later visits need no AI.
 - **Filters for your search, on any job site** *(new)*: on a job list you opened (LinkedIn, Indeed, an employer's site), the extension's "Filter for my search, then read" asks Claude which of the page's own filters fit your search (places, kind of role, recent jobs); Claude sees only the filters' names and your search words; Apply, Sign in, Save and Message are never touched.
 - **Why so few jobs** *(new)*: when a search brings few new jobs, buttons say what would bring more, easiest first; "Explain with AI" asks Claude, on your click only, why and what to do first, from the search's numbers (never your CV).
 - **Facts, quoted from the posting**: Languages, seniority, salary and visa read from each description by AI, with the words they came from.

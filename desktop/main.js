@@ -2196,6 +2196,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) setTimeout(refreshVisitHosts, 20000);
   server.setVisitHosts(() => visitHosts);
   server.setVisitFilters(page => visits.filters(storage, page));
+  server.setVisitRoute('/extension/visit-understand', outline => visits.understand(storage, outline));
+  server.setVisitRoute('/extension/visit-recipe', page => visits.recipe(storage, page));
   server.setVisitHandler(async page => {
     const answer = await visits.read(storage, page);
     if (answer.ok) toWindow('visit-read', answer);
