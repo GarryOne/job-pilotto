@@ -40,3 +40,23 @@ test('a company on two sites is one chip with both pages', () => {
   assert.deepEqual(sites.map(site => [site.name, site.pages.map(page => hostOf(page.url))]),
     [['Nestlé', ['nestle-cwa.com', 'corporate.nestle.ca']], ['Rolex', ['rolex.com']]]);
 });
+
+test('the draft: a list is dirty when it has a change or text still typed in its input', async () => {
+  const {dirtyLists} = await import('../renderer/strategy-parts.js');
+  assert.deepEqual([...dirtyLists({roles: {add: [], remove: []}, places: {add: ['nyon'], remove: []}, remote: {set: 'No'}}, {stack: ' ', queries: 'vendeur'})].sort(),
+    ['places', 'queries', 'remote']);
+  assert.equal(dirtyLists(null).size, 0);
+});
+
+test('Save keeps the words still typed: added once, a removed word typed back is kept, the draft itself untouched', async () => {
+  const {withTyped} = await import('../renderer/strategy-parts.js');
+  const stored = name => ({roles: [{fragment: 'vendeu(r|se)', label: 'vendeur'}, {fragment: 'magasinier', label: 'magasinier'}]}[name] || []);
+  const edits = {roles: {add: ['cashier'], remove: ['vendeu(r|se)']}};
+  const out = withTyped(edits, {roles: 'Vendeur', queries: 'Photographe Mariage', stack: '  ', places: 'Magasinier'}, new Set(['queries']), stored);
+  assert.deepEqual(out.roles, {add: ['cashier'], remove: []}, 'typed back: the removal is undone, not added twice');
+  assert.deepEqual(out.queries, {add: ['Photographe Mariage'], remove: []}, 'a search phrase keeps its case');
+  assert.equal(out.stack, undefined, 'blank: nothing');
+  assert.deepEqual(out.places, {add: ['magasinier'], remove: []});
+  assert.deepEqual(edits.roles, {add: ['cashier'], remove: ['vendeu(r|se)']}, 'the draft on screen is not changed by a Save attempt');
+  assert.deepEqual(withTyped(edits, {roles: 'magasinier'}, new Set(), stored).roles.add, ['cashier'], 'already stored: not added again');
+});

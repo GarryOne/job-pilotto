@@ -61,3 +61,28 @@ export function sitesByName(chips) {
   return [...byName.values()];
 }
 export const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+// ---------- The strategy draft (owner, 7 Oct 2026: one draft for every editable card, one save bar) ----------
+// edits: {list: {add: [words], remove: [stored fragments]}, remote: {set}}; typed: {list: text still in its input, not yet added with Enter}.
+// The lists with a change, typed text included (it is part of the draft: Save keeps it, the bar and the Edited badges count it).
+export function dirtyLists(edits, typed = {}) {
+  const dirty = new Set();
+  for (const [name, edit] of Object.entries(edits || {})) if (name === 'remote' || edit.add?.length || edit.remove?.length) dirty.add(name);
+  for (const [name, text] of Object.entries(typed || {})) if (String(text || '').trim()) dirty.add(name);
+  return dirty;
+}
+// The edits Save sends: the draft plus the words still typed, each once (a word already stored or added is not added again; one removed
+// and typed back is kept). plain: lists stored as typed; the others lower-cased. stored(name): that list's labels as stored.
+export function withTyped(edits, typed, plain, stored = () => []) {
+  const out = structuredClone(edits || {});
+  for (const [name, text] of Object.entries(typed || {})) {
+    const word = plain.has(name) ? String(text || '').trim() : String(text || '').trim().toLowerCase();
+    if (!word) continue;
+    const edit = out[name] ||= {add: [], remove: []};
+    const same = label => String(label).toLowerCase() === word.toLowerCase();
+    const back = stored(name).find(entry => edit.remove.includes(entry.fragment) && same(entry.label));
+    if (back) edit.remove = edit.remove.filter(fragment => fragment !== back.fragment);
+    else if (!edit.add.some(same) && !stored(name).some(entry => same(entry.label))) edit.add.push(word);
+  }
+  return out;
+}

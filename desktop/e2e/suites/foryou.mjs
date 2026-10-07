@@ -29,6 +29,7 @@ export async function run(ctx) {
       page = session.page;
       await page.waitForSelector('.nav[data-view=focus]:not([hidden])', {timeout: 30000});
       await page.click('.nav[data-view=strategy]');
+      await page.click('[data-tab=strategy-suggestions]');   // the rows live in the Suggestions tab
       if (!await waitFor(() => page.locator('#strategy-foryou:visible').count().then(n => n > 0), 15000)) throw new Error('the row "Employers hiring people like you" never showed');
     });
 
@@ -51,6 +52,7 @@ export async function run(ctx) {
 
     await ctx.run('the job sources card says what a source gave people like you', async () => {
       await page.click('.nav[data-view=strategy]');
+      await page.click('[data-tab=strategy-suggestions]');   // the rows live in the Suggestions tab
       await page.waitForSelector('#strategy-sources:visible', {timeout: 10000});
       await page.click('#strategy-sources [data-review]');
       const chips = await page.locator('#sources-chips .option-row b').allInnerTexts();
@@ -64,6 +66,7 @@ export async function run(ctx) {
       if (!await waitFor(async () => advice(profile).some(line => /dismissed employer on strategy/.test(line)))) throw new Error('no "dismissed employer" in app.log');
       await page.click('.nav[data-view=focus]');
       await page.click('.nav[data-view=strategy]');
+      await page.click('[data-tab=strategy-suggestions]');   // the rows live in the Suggestions tab
       await page.waitForTimeout(1500);
       if (await page.locator('#strategy-foryou:visible').count()) throw new Error('back after leaving and coming back');
     });
@@ -89,6 +92,26 @@ export async function run(ctx) {
         const state = await page.locator('.suggestion-row').evaluateAll(list => list.map(row => `${row.id}:${row.querySelector('[data-review]')?.getAttribute('aria-expanded')}`));
         throw new Error(`no suggestion opened on Strategy; rows: ${state.join(', ') || 'none'}`);
       }
+    });
+
+    await ctx.run('a strategy draft: save bar and Edited badge, typed text kept across tabs, leaving asks, Save clears it', async () => {
+      await page.click('.nav[data-view=strategy]');
+      await page.click('[data-tab=strategy-yours]');
+      await page.locator('#strategy-targets .card-edit').first().click();
+      await page.fill('#strategy-targets input.add[data-list=roles]', 'cashier');
+      if (!await page.locator('#strategy-savebar:visible').count()) throw new Error('no save bar after typing');
+      if (!await page.locator('#strategy-targets .card[data-list=roles] .edited-badge:visible').count()) throw new Error('no Edited badge on Roles');
+      await page.click('[data-tab=strategy-scoring]');
+      if (!await page.locator('#strategy-savebar:visible').count()) throw new Error('the save bar left with the tab');
+      await page.click('[data-tab=strategy-yours]');
+      const kept = await page.inputValue('#strategy-targets input.add[data-list=roles]');
+      if (kept !== 'cashier') throw new Error(`typed text after a tab switch: "${kept}"`);
+      await page.click('.nav[data-view=focus]');
+      if (!await waitFor(() => page.locator('#strategy-leave-dialog[open]').count().then(n => n > 0), 3000)) throw new Error('leaving with a draft did not ask');
+      await page.click('#strategy-leave-dialog button[value=keep]');
+      if (await page.locator('.view[data-view=strategy]').isHidden()) throw new Error('Keep editing left the page anyway');
+      await page.click('#targets-save');
+      if (!await waitFor(() => page.locator('#strategy-savebar:visible').count().then(n => n === 0), 8000)) throw new Error(`still unsaved: ${await text(page, '#strategy-savebar')}`);
     });
 
     await ctx.run('what is recorded holds fixed words only: never a role word, a place or an employer\'s name', async () => {

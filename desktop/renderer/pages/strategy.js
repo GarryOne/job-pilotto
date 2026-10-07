@@ -1,19 +1,19 @@
 // Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there.
 import {withSaveProgress} from '../save-progress.js';
 import {openInNotion} from './notion-connect.js';
-import {el, moreButton, tile} from '../components.js';
+import {el, moreButton, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, savedAgo, show} from './core.js';
 import {bone} from './focus.js';
-import {openView} from './nav.js';
+import {guardLeave, openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
 import {goalTiles} from '../goal-tiles.js';
 import {showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {coverageCard, employersCard, filtersCard, ideasCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
 import {adviceEvent} from '../coverage-actions.js';
-import {byOpenings, exclusionGroups, hostOf, roleFamilies, sitesByName} from '../strategy-parts.js';
+import {byOpenings, dirtyLists, exclusionGroups, hostOf, roleFamilies, sitesByName, withTyped} from '../strategy-parts.js';
 import {openSetting} from './settings.js';
 import {startSearch} from './jobs.js';
 
@@ -43,7 +43,7 @@ function strategySkeleton() {
   const chipBones = n => { const box = el('div', 'chip-list'); for (let i = 0; i < n; i++) box.append(bone('chip')); return box; };
   // The target cards themselves (TARGET_CARDS: head, then each list's label and chips), greyed. 7 Oct 2026: the old Roles/Locations rows,
   // left from before the cards, fell into the cards' grid as loose lines.
-  $('strategy-targets').replaceChildren(...TARGET_CARDS.map(([key, glyph, title, lists]) => {
+  $('strategy-targets').replaceChildren(...inColumns(TARGET_CARDS.map(([key, glyph, title, lists]) => {
     const card = el('section', 'card is-loading'), head = el('div', 'card-head'), heading = el('h3');
     card.dataset.list = key;
     heading.append(icon(glyph), title);
@@ -55,7 +55,7 @@ function strategySkeleton() {
       card.append(chipBones(lists.length > 1 ? 2 : 3));
     }
     return card;
-  }));
+  })));
   $('strategy-scores').replaceChildren(...['settings', 'layers', 'pin', 'chart'].map(glyph => {
     const line = el('div', 'score-bar is-loading');
     line.append(icon(glyph), bone('w-name tall'), bone('w-track'), bone('w-level'));
@@ -88,7 +88,15 @@ export const TARGET_CARDS = [
 ];
 export const TARGET_LISTS = TARGET_CARDS.flatMap(([, , , lists]) => lists.map(([name]) => name));
 let lastStrategy = null, targetEdits = null;   // targetEdits: {list: {add: [words], remove: [stored entries]}, remote: {set}} while editing
-const pendingCount = () => Object.entries(targetEdits || {}).reduce((n, [name, edit]) => n + (name === 'remote' ? 1 : edit.add.length + edit.remove.length), 0);
+let typed = {};   // the text still in each list's input (not yet added with Enter): part of the draft
+const dirty = () => dirtyLists(targetEdits, typed);
+// Two columns that stack on their own (owner, 7 Oct 2026: cards sharing a grid row left tall gaps under the shorter one when zoomed out).
+const COLUMNS = [['roles', 'stack'], ['places', 'languages']];
+const inColumns = cards => COLUMNS.map(keys => {
+  const column = el('div', 'target-column');
+  column.append(...keys.map(key => cards.find(card => card.dataset.list === key)).filter(Boolean));
+  return column;
+});
 // A list's entries as stored ({fragment, label}): the match lists come as both, the plain ones (search phrases, languages) as written.
 const entriesOf = (data, name) => data?.lists?.[name] || (data?.texts?.[name] || []).map(text => ({fragment: text, label: text}));
 // One list as it will be after Save: the stored entries not removed, then the words added.
@@ -119,8 +127,9 @@ function listChips(name, placeholder) {
   }));
   if (!entries.length && !editing) box.append(el('span', 'muted small', 'None'));
   if (editing) {
-    const input = Object.assign(document.createElement('input'), {className: 'add', placeholder: `${placeholder}, then Enter`});
+    const input = Object.assign(document.createElement('input'), {className: 'add', placeholder: `${placeholder}, then Enter`, value: typed[name] || ''});
     input.dataset.list = name;
+    input.addEventListener('input', () => { typed[name] = input.value; refreshDraft(); });
     input.addEventListener('keydown', event => {
       const typed = input.value.trim(), word = PLAIN.has(name) ? typed : typed.toLowerCase();
       if (event.key !== 'Enter' || !word) return;
@@ -128,6 +137,8 @@ function listChips(name, placeholder) {
       const back = stored.find(entry => edit.remove.includes(entry.fragment) && same(entry));
       if (back) edit.remove = edit.remove.filter(fragment => fragment !== back.fragment);   // removed, then typed again: kept
       else if (!edit.add.some(added => added.toLowerCase() === word.toLowerCase()) && !stored.some(same)) edit.add.push(word);
+      event.preventDefault();   // Enter adds a chip; it never saves the strategy
+      delete typed[name];
       renderTargets();
       document.querySelector(`#strategy-targets input.add[data-list="${name}"]`)?.focus();
     });
@@ -159,6 +170,10 @@ function targetCard([key, glyph, title, lists]) {
   card.dataset.list = key;
   const head = el('div', 'card-head'), heading = el('h3');
   heading.append(icon(glyph), title);
+  const badge = pill('Edited', 'warn');
+  badge.classList.add('edited-badge');
+  badge.hidden = !lists.some(([name]) => dirty().has(name)) && !(key === 'places' && dirty().has('remote'));
+  heading.append(badge);
   head.append(heading);
   if (!targetEdits) {
     const edit = el('button', 'link with-icon card-edit', icon('edit'));
@@ -277,31 +292,64 @@ function renderGoals() {
 function renderTargets() {
   const editing = !!targetEdits;
   $('strategy-live').classList.toggle('is-editing', editing);
-  show($('targets-actions'), editing);
-  $('strategy-targets').replaceChildren(...TARGET_CARDS.map(targetCard));
-  if (editing) $('targets-save').disabled = !pendingCount();
+  $('strategy-targets').replaceChildren(...inColumns(TARGET_CARDS.map(targetCard)));
+  refreshDraft();
+}
+// The save bar and the Edited badges, from the draft (typing redraws only these, so the input keeps its focus).
+let saving = false;
+function refreshDraft() {
+  const changed = dirty();
+  show($('strategy-savebar'), !!targetEdits);
+  if (!targetEdits) return;
+  $('savebar-title').textContent = changed.size ? 'Unsaved strategy changes' : 'Editing your strategy';
+  $('savebar-sub').textContent = changed.size ? 'Applies to future searches.' : 'Add or remove what you want, then save.';
+  $('targets-save').disabled = saving || !changed.size;
+  $('targets-cancel').disabled = saving;
+  $('targets-cancel').textContent = changed.size ? 'Discard changes' : 'Done';
+  for (const card of document.querySelectorAll('#strategy-targets .card[data-list]')) {
+    const [key, , , lists] = TARGET_CARDS.find(([name]) => name === card.dataset.list);
+    const badge = card.querySelector('.edited-badge');
+    if (badge) badge.hidden = !lists.some(([name]) => changed.has(name)) && !(key === 'places' && changed.has('remote'));
+  }
 }
 function startTargetsEdit() {
   if (!lastStrategy?.lists) return;
-  targetEdits = {};
+  targetEdits ||= {};
   message('targets-message', '');
   renderTargets();
 }
-async function saveTargets() {
-  const button = $('targets-save');
-  button.disabled = true; button.textContent = 'Saving…';
-  // A word typed but not yet added with Enter still counts: people press Save straight after typing.
-  document.querySelectorAll('#strategy-targets input.add').forEach(input => {
-    const typed = input.value.trim(), word = PLAIN.has(input.dataset.list) ? typed : typed.toLowerCase(), edit = targetEdits[input.dataset.list];
-    if (word && !edit.add.includes(word)) edit.add.push(word);
-  });
-  const result = await withSaveProgress(words => { button.textContent = words; }, () => window.pilot.editTargets(targetEdits)).catch(error => ({ok: false, error: error.message}));
-  button.textContent = 'Save';
-  if (!result.ok) { message('targets-message', result.error || 'Not saved.', 'error'); button.disabled = false; return; }
+function discardTargets() {
   targetEdits = null;
-  toastMessage('Strategy saved ✓', 'Refresh your jobs to apply it.');
+  typed = {};
+  message('targets-message', '');
+  renderTargets();
+}
+// One save for the whole draft, words still typed included. On failure the draft stays, with Retry; "Synced to Notion" only once it is.
+async function saveTargets() {
+  if (saving || !targetEdits) return false;
+  const edits = withTyped(targetEdits, typed, PLAIN, name => entriesOf(lastStrategy, name));
+  const tooLong = Object.values(edits).flatMap(edit => edit.add || []).find(word => word.length > 80);
+  if (tooLong) { message('targets-message', `"${tooLong.slice(0, 30)}…" is too long for one entry (80 characters at most).`, 'error'); return false; }
+  const button = $('targets-save');
+  saving = true;
+  refreshDraft();
+  message('targets-message', '');
+  const result = await withSaveProgress(words => { button.textContent = words; }, () => window.pilot.editTargets(edits)).catch(error => ({ok: false, error: error.message}));
+  saving = false;
+  button.textContent = 'Save changes';
+  if (!result.ok) {
+    message('targets-message', `Couldn't save: ${result.error || 'try again'}`, 'error');
+    button.textContent = 'Retry';
+    refreshDraft();
+    return false;
+  }
+  targetEdits = null;
+  typed = {};
+  // Saved to Search settings; when Notion is connected, editLists has published it there before answering ok (lib/strategy.js).
+  toastMessage('Strategy saved ✓', `${shared.state?.notionConnected ? 'Synced to Notion. ' : ''}Refresh your jobs to apply it.`);
   await loadStrategy();
   renderTargets();
+  return true;
 }
 
 function renderStrategy(data) {
@@ -310,7 +358,7 @@ function renderStrategy(data) {
   show($('strategy-profile-empty'), !!data.profile_empty);
   wireSearchChanged();
   showSearchChanged(shared.state?.settings);   // scores are paused until it is filled (src/ai/score.py unfilled)
-  if (targetEdits) { renderTargets(); return; }   // a fresh read while editing keeps the edits on screen
+  if (targetEdits) { renderTargets(); drawImprove(); return; }   // a fresh read while editing keeps the edits on screen
   $('strategy-insight').classList.remove('is-loading');
   renderGoals();
   renderTargets();
@@ -322,13 +370,7 @@ function renderStrategy(data) {
   // unless you ask (src/ai/score.py).
   show($('strategy-stale'), !!data.stale);
   $('strategy-stale-text').textContent = data.stale ? `${data.stale} job${data.stale === 1 ? '' : 's'} queued for a new score after your Profile change · up to 60 per search` : '';
-  show($('strategy-previous'), !!data.previous);
-  if (data.previous) {
-    $('strategy-previous-title').textContent = `${data.previous} older score${data.previous === 1 ? '' : 's'} kept`;
-    $('strategy-previous-text').textContent = 'From before your last Profile change, all under 50, so hidden anyway. They are not queued for a new score: ' +
-      're-scoring them is optional.';
-    $('strategy-rescore').textContent = `Re-score · ≈ $${(data.previous * 0.015).toFixed(2)}`;
-  }
+  drawImprove();   // its "older scores" row
   $('strategy-scores').replaceChildren(...data.components.map(part => {
     const line = el('div', 'score-bar');
     const track = el('span', 'score-track');
@@ -379,7 +421,8 @@ let pendingReview = '';
 const openRows = new Set();   // rows whose options are showing: the rows are drawn again when the fresh verdict lands, and stay open
 export function reviewSuggestion(id) {
   pendingReview = id;
-  openView('strategy');
+  if (document.querySelector('.view[data-view=strategy]')?.hidden) openView('strategy');
+  showTab('strategy-suggestions');
   openPending();
 }
 function openPending() {
@@ -401,15 +444,69 @@ function drawSuggestions() {
     list.push(row);
   }
   box.replaceChildren(...(list.length ? list : [el('p', 'muted empty-row', 'No suggestions right now: your search already catches what the last check saw.')]));
-  show($('suggestions-dot'), ORDER.some(kind => rows[kind]));
+  const count = ORDER.filter(kind => rows[kind]).length;
+  $('suggestions-count').textContent = String(count);
+  show($('suggestions-count'), count > 0);
+  drawImprove();
   openPending();
+}
+// ---------- Improve your search: one compact row per kind, above the tabs (owner, 7 Oct 2026: the banners' actions were easy to miss in a tab) ----------
+// Neutral rows; the action opens that kind's detail in Suggestions (or the re-score's cost). briefs: what each row says, set as its row is built.
+const briefs = {};
+function drawImprove() {
+  const items = [];
+  const previous = lastStrategy?.previous || 0;
+  if (previous) {
+    const cost = `≈ $${(previous * 0.015).toFixed(2)}`;
+    const go = el('button', 'secondary item-action', `Re-score · ${cost}`);
+    go.type = 'button';
+    go.addEventListener('click', () => confirmRescore(previous, cost));
+    items.push(improveRow('refresh', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
+      'Scored before your last Profile change, all under 50 · Updating is optional', go));
+  }
+  for (const id of ORDER) {
+    const brief = rows[id] && briefs[id];
+    if (!brief) continue;
+    const go = el('button', 'secondary item-action', brief.cta);
+    go.type = 'button';
+    go.addEventListener('click', () => reviewSuggestion(id));
+    items.push(improveRow(brief.glyph, brief.title, brief.text, go));
+  }
+  $('improve-rows').replaceChildren(...items);
+  show($('strategy-improve'), items.length > 0);
+}
+function improveRow(glyph, title, text, button) {
+  const line = el('li', ''), words = el('div', 'item-words');
+  words.append(el('b', '', title), el('span', 'muted', text));
+  line.append(icon(glyph), words, button);
+  return line;
+}
+// Re-score: its cost said and confirmed first; then the kept scores are queued and a search starts at once (60 per search), shown like any
+// search (header status, Recent activity, its result). 7 Oct 2026: it only queued them for later searches, so nothing seemed to happen.
+function confirmRescore(count, cost) {
+  const dialog = $('rescore-dialog');
+  $('rescore-title').textContent = `Re-score ${count} older score${count === 1 ? '' : 's'}?`;
+  $('rescore-lead').textContent = `They are scored again against your current Profile, about ${cost.replace('≈ ', '')} of AI, spent once. ` +
+    `A search starts now and scores up to 60 of them${count > 60 ? '; the rest in the next searches' : ''}. Nothing else changes.`;
+  $('rescore-go').textContent = `Re-score · ${cost}`;
+  dialog.returnValue = '';
+  dialog.onclose = async () => {
+    if (dialog.returnValue !== 'go') return;
+    const result = await window.pilot.rescorePrevious().catch(error => ({ok: false, error: error.message}));
+    if (!result.ok) { toastMessage('Not re-scored', result.error); return; }
+    toastMessage('Re-scoring now', `${result.queued} jobs get a new score in this search${result.queued > 60 ? ' (60 now, the rest in the next one)' : ''}. Follow it in Recent activity.`);
+    await startSearch();
+    loadStrategy();
+  };
+  dialog.showModal();
 }
 // One row: icon, title, a line on what it is, Review (opens the options) and ⋯ (hide). options: [{label, preview, button, run(button)}].
 // Ids kept from the banners (#strategy-foryou, #foryou-chips…): the e2e suites and the late-shift watch find them by these.
 // Each row's id and its options' list, written out: the e2e suites (foryou) and the push check look for these words.
 const ROW_IDS = {coverage: ['strategy-coverage', 'coverage-chips'], places: ['strategy-places', 'places-chips'], filters: ['strategy-filters', 'filters-chips'],
   sources: ['strategy-sources', 'sources-chips'], visits: ['strategy-visits', 'visits-chips'], foryou: ['strategy-foryou', 'foryou-chips'], ideas: ['strategy-ideas', 'ideas-chips']};
-function suggestionRow({kind, id, glyph, title, summary, text, options, hidden = [], hiddenLabel = '', review = 'Review', menu}) {
+function suggestionRow({kind, id, glyph, title, summary, text, options, hidden = [], hiddenLabel = '', review = 'Review', menu, brief}) {
+  briefs[id] = {glyph, ...brief};
   const row = el('div', 'suggestion-row');
   row.id = ROW_IDS[id][0];
   const detail = el('div', 'suggestion-detail');
@@ -458,7 +555,13 @@ const hideItem = (kind, id, key, at) => ({label: 'Hide until the next search', i
   title: 'This row comes back when a search brings new numbers. Your settings do not change.',
   run: () => { adviceEvent('dismissed', kind, 'strategy'); try { localStorage.setItem(key, at); } catch { /* shown again next time */ } rows[id] = null; drawSuggestions(); }});
 // An option that changes your search (a role word, a place, a filter removed): saved to Search settings, then the rows are read again.
-const widen = (kind, act, done) => async button => {
+// While a draft changes the same list, applying waits: reviewing is fine, the change itself asks for Save or Discard first (owner, 7 Oct 2026).
+const widen = (kind, act, done, list = '') => async button => {
+  if (list && dirty().has(list)) {
+    toastMessage('Save or discard your changes first', `This changes your ${LIST_WORDS[list]}, which you are editing now. Save or discard that draft, then add it.`);
+    $('strategy-savebar').classList.remove('is-nudged'); void $('strategy-savebar').offsetWidth; $('strategy-savebar').classList.add('is-nudged');
+    return;
+  }
   const label = button.textContent;
   button.disabled = true;
   const result = await withSaveProgress(words => { button.textContent = words; }, act).catch(error => ({ok: false, error: error.message}));
@@ -468,13 +571,15 @@ const widen = (kind, act, done) => async button => {
   if (result.ok) loadCoverage(); else button.disabled = false;
 };
 
+const LIST_WORDS = {roles: 'roles', places: 'places', languages: 'excluded languages'};
 const paintCoverage = verdict => {
   shownVerdict = verdict;
   const coverage = coverageCard(verdict, remembered());
   rows.coverage = coverage && suggestionRow({kind: 'coverage', id: 'coverage', glyph: 'search', title: verdict.local ? 'Catch titles in other languages' : 'Add role words',
     summary: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, text: coverage.text,
     options: coverage.chips.map(chip => ({label: plain(chip.label), button: 'Add role word', preview: `Adds "${chip.term}" to your role words. ${chip.title}`,
-      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`)})),
+      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`, 'roles')})),
+    brief: {title: verdict.local ? 'Catch titles in other languages' : 'Add role words', text: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, cta: 'Review role words'},
     menu: [hideItem('coverage', 'coverage', DISMISSED, coverage.at)]});
   const places = placesCard(verdict, remembered(PLACES_DISMISSED));
   const topPlace = places?.chips[0];
@@ -482,7 +587,8 @@ const paintCoverage = verdict => {
     summary: `${topPlace.place} · ${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} outside your places${places.chips.length > 1 ? `, and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`,
     text: places.text,
     options: places.chips.map(chip => ({label: plain(chip.label), button: 'Add place', preview: `Adds ${chip.place} to your places; jobs you already have stay. ${chip.title}`,
-      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`)})),
+      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places. The next searches include it (also in your Search settings in Notion). Jobs you already have stay.`, 'places')})),
+    brief: {title: 'Expand your locations', text: `${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} in ${topPlace.place}${places.chips.length > 1 ? ` and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`, cta: 'Review location'},
     menu: [hideItem('places', 'places', PLACES_DISMISSED, places.at)]});
   // Filters of the user's own that hide matching jobs: an option removes that filter.
   const filters = filtersCard(verdict, remembered(FILTERS_DISMISSED));
@@ -492,7 +598,8 @@ const paintCoverage = verdict => {
     options: filters.chips.map(chip => ({label: plain(chip.label), button: 'Remove filter', preview: chip.title,
       run: widen('filters', () => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
         chip.exclude ? `Titles with "${chip.exclude}" are no longer left out. The next searches show them (also in your Search settings in Notion).`
-          : `Jobs that require ${chip.language} are no longer hidden. The next searches show them (also in your Search settings in Notion).`)})),
+          : `Jobs that require ${chip.language} are no longer hidden. The next searches show them (also in your Search settings in Notion).`, chip.language ? 'languages' : '')})),
+    brief: {title: 'Loosen your filters', text: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, cta: 'Review filters'},
     menu: [hideItem('filters', 'filters', FILTERS_DISMISSED, filters.at)]});
   // Unused job sources: an option opens its panel in Settings → Connections (a key to add there); nothing is turned on from here.
   const sources = sourcesCard(verdict, remembered(SOURCES_DISMISSED));
@@ -500,6 +607,7 @@ const paintCoverage = verdict => {
     summary: sources.chips.map(chip => plain(chip.label).split(' · ')[0]).join(' · '), text: sources.text,
     options: sources.chips.map(chip => ({label: plain(chip.label), button: 'Open in Settings', preview: chip.title,
       run: () => { adviceEvent('taken', 'source', 'strategy', {source: chip.id}); openSetting(chip.id); }})),
+    brief: {title: 'Connect more sources', text: sources.chips.map(chip => plain(chip.label).split(' · ')[0]).join(', '), cta: 'Set up'},
     menu: [hideItem('source', 'sources', SOURCES_DISMISSED, sources.at)]});
   // Sites only you can open: one chip per company in the row; Review lists every page (a company can have two genuinely different ones).
   const visits = visitCard(verdict, remembered(VISITS_DISMISSED));
@@ -523,6 +631,7 @@ const paintCoverage = verdict => {
       summary: inline, text: visits.text,
       options: sites.flatMap(site => site.pages.map(page => ({label: site.pages.length > 1 ? `${site.name} · ${hostOf(page.url)}` : site.name,
         button: 'Open', preview: page.title, run: openPage(page)}))),
+      brief: {title: `${sites.length} site${sites.length === 1 ? ' needs' : 's need'} manual browsing`, text: 'Open with the Chrome extension', cta: 'View sites'},
       menu: [hideItem('visit', 'visits', VISITS_DISMISSED, visits.at)]});
   } else rows.visits = null;
   // Employers where people like you got interviews (shared pool): an option shows that employer's jobs in the Jobs list.
@@ -535,6 +644,7 @@ const paintCoverage = verdict => {
       const box = $('filter-text');
       if (box) { box.value = chip.company; box.dispatchEvent(new Event('input', {bubbles: true})); }
     }})),
+    brief: {title: 'Employers hiring people like you', text: forYou.chips.slice(0, 3).map(chip => chip.company).join(', ') + (forYou.chips.length > 3 ? ` and ${forYou.chips.length - 3} more` : ''), cta: 'See employers'},
     menu: [hideItem('employer', 'foryou', FORYOU_DISMISSED, forYou.at)]});
   drawSuggestions();
   if (strategyShown && !targetEdits) renderTargets();   // the exclusions card says what the languages hid
@@ -563,7 +673,7 @@ async function loadIdeas() {
   if (!card) { rows.ideas = null; drawSuggestions(); return; }
   const option = chip => ({label: plain(chip.label).replace(/ · \d+$/, ''), button: 'Add role',
     preview: `Adds "${chip.term}" to your role words: ${chip.title}`,
-    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`)});
+    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).`, 'roles')});
   const {open, empty} = byOpenings(card.chips);
   const top = open[0];
   rows.ideas = suggestionRow({kind: 'ideas', id: 'ideas', glyph: 'user', title: 'Explore related roles',
@@ -571,6 +681,7 @@ async function loadIdeas() {
       : `${empty.length} role${empty.length === 1 ? '' : 's'} from your Profile, none with openings in your places now`,
     text: card.text, options: (open.length ? open : empty).map(option), hidden: open.length ? empty.map(option) : [],
     hiddenLabel: 'Show roles with no current openings',
+    brief: {title: 'Explore related roles', text: `${card.chips.length} suggestion${card.chips.length === 1 ? '' : 's'}${open.length ? `, ${open.length} with openings in your places` : ', no current openings in your places'}`, cta: 'Review roles'},
     menu: [{label: 'Don’t suggest these roles again', icon: 'close', title: 'Sets these roles aside for good; new ones can still be suggested.', run: () => {
       adviceEvent('dismissed', 'ideas', 'strategy');
       try { localStorage.setItem(IDEAS_ASIDE, JSON.stringify([...new Set([...aside(), ...card.chips.map(chip => chip.term)])].slice(-60))); } catch { /* shown again next time */ }
@@ -580,17 +691,26 @@ async function loadIdeas() {
   drawSuggestions();
 }
 
-// The section links scroll within the page; the one in view is marked.
-function wireSectionLinks() {
-  const links = [...document.querySelectorAll('.strategy-tabs [data-jump]')];
-  const mark = id => links.forEach(link => link.classList.toggle('is-active', link.dataset.jump === id));
-  for (const link of links) link.addEventListener('click', () => { mark(link.dataset.jump); $(link.dataset.jump).scrollIntoView({behavior: 'smooth', block: 'start'}); });
-  if (!('IntersectionObserver' in window)) return;
-  const watch = new IntersectionObserver(entries => {
-    const seen = entries.filter(entry => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-    if (seen) mark(seen.target.id);
-  }, {rootMargin: '0px 0px -60% 0px'});
-  links.forEach(link => watch.observe($(link.dataset.jump)));
+// Tabs (owner, 7 Oct 2026): each replaces the content under the bar; the draft and its save bar stay whatever the tab.
+function showTab(id) {
+  for (const tab of document.querySelectorAll('.strategy-tabs [data-tab]')) {
+    const on = tab.dataset.tab === id;
+    tab.classList.toggle('is-active', on);
+    tab.setAttribute('aria-selected', String(on));
+    show($(tab.dataset.tab), on);
+  }
+}
+// Leaving Strategy with unsaved changes: the one place the draft asks (Save / Discard / Keep editing). Switching tabs never asks.
+function leaveStrategy(proceed) {
+  if (!targetEdits || !dirty().size) return true;
+  const dialog = $('strategy-leave-dialog');
+  dialog.returnValue = '';
+  dialog.onclose = async () => {
+    if (dialog.returnValue === 'discard') { discardTargets(); proceed(); }
+    if (dialog.returnValue === 'save' && await saveTargets()) proceed();
+  };
+  dialog.showModal();
+  return false;
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
@@ -601,25 +721,11 @@ export async function init() {
   document.querySelector('.nav[data-view=strategy]')?.addEventListener('click', () => show($('strategy-dot'), false));
   window.pilot.onVisitRead?.(answer => toastMessage(answer.fits === undefined ? `Read ${answer.jobs} jobs from ${answer.name}` : `Read ${answer.jobs} jobs from ${answer.name}, ${answer.fits} matching your search`,
     answer.fits ? 'Your next jobs check scores the matching ones: those that fit your profile join your Jobs list.' : 'The reading works; none of these match your role words and places, so your Jobs list stays the same.'));
-  wireSectionLinks();
+  for (const tab of document.querySelectorAll('.strategy-tabs [data-tab]')) tab.addEventListener('click', () => showTab(tab.dataset.tab));
+  guardLeave('strategy', leaveStrategy);
   $('profile-empty-rebuild').addEventListener('click', () => $('strategy-redo').click());   // the same Rebuild from CV as the Profile page
-  $('targets-cancel').addEventListener('click', () => { targetEdits = null; message('targets-message', ''); renderTargets(); });
+  $('targets-cancel').addEventListener('click', discardTargets);
   $('targets-save').addEventListener('click', saveTargets);
   $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
-  // Re-score them now: the kept scores are queued, then a search starts at once and scores them (60 per search), shown like any search
-  // (header status, Recent activity, its result). 7 Oct 2026: it only queued them for later searches, so nothing seemed to happen.
-  $('strategy-rescore').addEventListener('click', async () => {
-    const button = $('strategy-rescore'), label = button.textContent;
-    button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Re-scoring…';
-    try {
-      const result = await window.pilot.rescorePrevious();
-      if (!result.ok) { toastMessage('Not re-scored', result.error); return; }
-      toastMessage('Re-scoring now', `${result.queued} jobs get a new score in this search${result.queued > 60 ? ' (60 now, the rest in the next one)' : ''}. Follow it in Recent activity.`);
-      await startSearch();
-    } finally {
-      button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = label;
-      loadStrategy();
-    }
-  });
 }

@@ -732,17 +732,16 @@
       <div class="alert tone-info settings-alert" id="strategy-cv-changed" hidden><i data-icon="info"></i>
         <div><strong>Your CV changed</strong><p>New applications already use it. Review what it changes in your Profile before anything is re-scored.</p></div>
         <button class="primary" id="strategy-cv-review">Review what changes</button></div>
-      <div class="alert tone-info settings-alert" id="strategy-previous" hidden><i data-icon="info"></i>
-        <div><strong id="strategy-previous-title">Older scores kept</strong><p id="strategy-previous-text"></p></div>
-        <button class="secondary" id="strategy-rescore"></button></div>
-      <!-- Owner mockup, 7 Oct 2026: your strategy first, optional suggestions second, scoring last; the links scroll within the page. -->
-      <nav class="tabs strategy-tabs" aria-label="Strategy sections">
-        <button type="button" class="is-active" data-jump="strategy-yours">Your strategy</button>
-        <button type="button" data-jump="strategy-suggestions">Suggestions<span class="nav-dot" id="suggestions-dot" hidden title="Suggestions to widen your search"></span></button>
-        <button type="button" data-jump="strategy-scoring">Scoring</button></nav>
-      <section class="strategy-section" id="strategy-yours">
-        <div class="section-head"><h2><i data-icon="target"></i>Your strategy</h2>
-          <p class="muted">Changes apply to future searches. Existing scores may need updating.</p></div>
+      <!-- Improve your search (owner, 7 Oct 2026): every suggestion kind and the older scores as one compact row each, above the tabs and on every
+           tab; an action opens its detail in Suggestions (pages/strategy.js drawImprove). -->
+      <section class="card improve-panel" id="strategy-improve" hidden><h3 class="improve-title">Improve your search</h3><ul class="item-rows" id="improve-rows"></ul></section>
+      <!-- Owner, 7 Oct 2026: real tabs (each replaces the content under the bar); the counts and the pointer line say what waits in the others. -->
+      <div class="tabs strategy-tabs" role="tablist" aria-label="Strategy">
+        <button type="button" role="tab" class="is-active" aria-selected="true" aria-controls="strategy-yours" data-tab="strategy-yours">Your strategy</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="strategy-suggestions" data-tab="strategy-suggestions">Suggestions<span class="ui-pill tone-warn tab-count" id="suggestions-count" hidden></span></button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="strategy-scoring" data-tab="strategy-scoring">Scoring &amp; results</button></div>
+      <section class="strategy-section" id="strategy-yours" role="tabpanel">
+        <p class="muted section-sub">Changes apply to future searches. Existing scores may need updating.</p>
         <!-- The same cards as the setup review (Review your strategy), with your live settings (owner, 7 Oct 2026). -->
         <div class="review strategy-live" id="strategy-live">
           <section class="card overview goals-card">
@@ -750,17 +749,15 @@
             <dl class="target-rows goal-rows goal-strip" id="strategy-goals"></dl>
           </section>
           <div class="review-grid" id="strategy-targets"></div>
-          <div class="actions" id="targets-actions" hidden><p class="muted small" id="targets-note">Saved to ⚙️ Search settings in Notion. The next search uses it.</p>
-            <span class="message" id="targets-message"></span><button class="secondary" id="targets-cancel">Cancel</button><button class="primary" id="targets-save">Save</button></div>
         </div>
       </section>
-      <section class="strategy-section" id="strategy-suggestions">
-        <div class="section-head"><h2><i data-icon="bulb"></i>Suggestions</h2><p class="muted">Optional changes to widen your search. Nothing changes until you add it.</p></div>
-        <!-- One row per kind (pages/strategy.js SUGGESTIONS): Review opens what would change, ⋯ hides it. -->
+      <section class="strategy-section" id="strategy-suggestions" role="tabpanel" hidden>
+        <p class="muted section-sub">Optional changes to widen your search. Nothing changes until you add it.</p>
+        <!-- One row per kind (pages/strategy.js ROW_IDS): Review opens what would change, ⋯ hides it. -->
         <div class="card suggestion-list" id="suggestion-rows"></div>
       </section>
-      <section class="strategy-section" id="strategy-scoring">
-        <div class="section-head"><h2><i data-icon="chart"></i>Scoring &amp; results</h2><p class="muted">How your matches score, and what to do next.</p></div>
+      <section class="strategy-section" id="strategy-scoring" role="tabpanel" hidden>
+        <p class="muted section-sub">How your matches score, and what to do next.</p>
         <div class="strategy-grid">
           <article class="summary-card">
             <h3>Average match scores</h3>
@@ -778,6 +775,12 @@
           </article>
         </div>
       </section>
+      <!-- One draft for every editable card (owner, 7 Oct 2026): shown while editing, on every tab, until saved or discarded. -->
+      <div class="save-bar" id="strategy-savebar" role="region" aria-label="Unsaved strategy changes" hidden>
+        <div class="save-bar-words"><b id="savebar-title">Unsaved strategy changes</b><span class="muted small" id="savebar-sub">Applies to future searches.</span></div>
+        <span class="message" id="targets-message"></span>
+        <button class="secondary" id="targets-cancel">Discard changes</button><button class="primary" id="targets-save">Save changes</button>
+      </div>
       <p class="message" id="strategy-load"></p>
     </div>
 
@@ -1623,6 +1626,29 @@
   </form>
 </dialog>
 <!-- The free allowance is over (pages/license.js): new work pauses, everything else keeps working. -->
+<!-- Re-score the older scores (Strategy → Improve your search): the cost, said before anything is spent. -->
+<dialog id="rescore-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2 id="rescore-title">Re-score older scores?</h2></div>
+    <p class="dialog-lead" id="rescore-lead"></p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel">Cancel</button>
+      <button class="primary" value="go" id="rescore-go">Re-score</button>
+    </div>
+  </form>
+</dialog>
+<!-- Leaving Strategy with unsaved changes (pages/strategy.js leaveStrategy): the only time the draft asks. -->
+<dialog id="strategy-leave-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="sliders"></i></span><h2>Save your strategy changes?</h2></div>
+    <p class="dialog-lead">You changed your strategy and have not saved it. Saved changes apply to your future searches.</p>
+    <div class="dialog-foot">
+      <button class="ghost" value="keep">Keep editing</button>
+      <button class="secondary" value="discard">Discard</button>
+      <button class="primary" value="save">Save changes</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="google-warning-dialog" class="panel-dialog">
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="mail"></i></span>

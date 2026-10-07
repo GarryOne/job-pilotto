@@ -2251,17 +2251,34 @@ button.is-busy { cursor: progress; opacity: .7; }
 
 /* ---------- Strategy (owner mockup, 7 Oct 2026): your strategy, then suggestions, then scoring. Built on .card, .review, .tabs, .chip,
    .coverage-chip, .priority and .summary-card; only the layouts they lack are here, scoped to the page. ---------- */
-.strategy-page .strategy-tabs { margin: var(--sp-2) 0 var(--sp-4); }
+.strategy-page .strategy-tabs { margin: var(--sp-4) 0 var(--sp-3); }
 .strategy-page .strategy-tabs button { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.strategy-page .strategy-tabs .nav-dot { margin-left: 0; }
-.strategy-section { margin-bottom: var(--sp-6); scroll-margin-top: var(--sp-4); }
-.strategy-section .section-head { margin-bottom: var(--sp-3); }
-.strategy-section .section-head h2 { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-xl); }
-.strategy-section .section-head h2 .icon { width: 20px; height: 20px; color: var(--ink-2); }
-.strategy-section .section-head p { margin: var(--sp-1) 0 0; }
+.strategy-page .tab-count { padding: 0 var(--sp-2); }
+.strategy-section .section-sub { margin: 0 0 var(--sp-3); }
+/* Improve your search: one white card, a thin line between rows, neutral (owner, 7 Oct 2026: no full-width colour per suggestion). */
+.strategy-page .improve-panel { padding: var(--sp-3) var(--sp-5); margin: 0; }
+.strategy-page .improve-title { margin: 0; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.strategy-page .improve-panel .item-rows { margin: var(--sp-1) 0 0; border-top: 0; }
+.strategy-page .improve-panel .item-rows > li { gap: var(--sp-3); }
+.strategy-page .improve-panel .item-rows > li > .icon { width: 18px; height: 18px; color: var(--ink-2); flex: none; }
+.strategy-page .improve-panel .item-words { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); }
+.strategy-page .improve-panel .item-words b { display: inline; }
+.strategy-page .improve-panel .item-words .muted { font-size: var(--fs-sm); }
+.strategy-page .improve-panel .item-action { padding: 4px 12px; font-size: var(--fs-sm); white-space: nowrap; }
+/* The draft's save bar: sticks to the bottom of the page's scroll, above the status bar, whatever the tab. */
+.strategy-page .save-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-5); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
+.strategy-page .save-bar-words { display: grid; gap: 2px; margin-right: auto; }
+.strategy-page .save-bar .message { margin: 0; }
+.strategy-page .save-bar.is-nudged { animation: save-bar-nudge .5s var(--ease) 2; }
+@keyframes save-bar-nudge { 50% { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); } }
+.strategy-page .edited-badge { margin-left: var(--sp-1); }
+/* The target cards in two columns that stack on their own: no empty space under the shorter card of a row. */
+.strategy-page .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+@media (max-width: 1000px) { .strategy-page .review-grid { grid-template-columns: minmax(0, 1fr); } }
+.strategy-page .target-column { display: grid; gap: 14px; align-content: start; min-width: 0; }
 .strategy-page .review { margin-top: 0; padding-bottom: 0; }
 .strategy-page .review .card { margin-bottom: 0; padding: var(--sp-4) var(--sp-5); }
-.strategy-page .review-grid { align-items: start; }   /* each card as tall as its content */
 .strategy-page .review .card > .sub { margin: var(--sp-1) 0 var(--sp-2); }
 .strategy-page .card-edit { padding: 0; gap: var(--sp-1); }
 .strategy-page .card-edit .icon { width: 14px; height: 14px; }

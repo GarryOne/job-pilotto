@@ -27,7 +27,14 @@ export const remembered = (key, value) => {
 let history = viewHistory.start(null);
 export const panelOpened = run => { history = viewHistory.openPanel(history, run); };
 export const panelClosed = run => { history = viewHistory.closePanel(history, run); };
+// A page with unsaved work can hold a move away (Strategy's draft): guard(proceed) returns true to let it go, or false and calls proceed() later.
+const leaveGuards = {};
+let currentView = '';
+export const guardLeave = (view, guard) => { leaveGuards[view] = guard; };
 export function openView(name, {fromHistory = false} = {}) {
+  const leaving = currentView;
+  if (leaving && leaving !== name && leaveGuards[leaving] && !leaveGuards[leaving](() => { currentView = ''; openView(name, {fromHistory}); })) return;
+  currentView = name;
   if (!fromHistory) history = viewHistory.visit(history, name);
   remembered('view', name);
   window.pilot.pageView?.(name).catch?.(() => {});   // the page's name only (a fixed list on the other side), for the usage funnel
