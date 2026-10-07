@@ -394,6 +394,7 @@ def begin(tracker, run):
         page = _without_missing(lambda props: tracker._request(
             'POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID}, 'properties': props}), properties)
         _open.update(tracker=tracker, id=page['id'], url=page.get('url'), run=run)
+        _heartbeat(run)
         run_result.note_notion(page.get('url'))
         print(f"Cronjob run logged: {page.get('url')}")  # the desktop app links its activity row to this
         return page.get('url')
@@ -416,6 +417,28 @@ def attach(blocks):
 
 
 STEP_EVERY = 10  # seconds between progress updates of a running row
+# A running row is edited at least this often, even through a long quiet step: its time so far goes into Duration (s). The app takes a "Running"
+# row nobody edited for 30 minutes as a lost run (desktop/lib/run-history.js LOST_MS): 7 Oct 2026, a run killed hard (SIGKILL: a GitHub
+# force-cancel, a dead runner, a crashed app not opened again) cannot close its row, and it showed as running for 3 hours.
+HEARTBEAT_S = 300
+
+
+def _heartbeat(run):
+    """While this run's row is open, write its elapsed seconds every HEARTBEAT_S (a daemon thread: it ends with the process)."""
+    import threading
+    import time
+    began = time.monotonic()
+
+    def beat():
+        stop = threading.Event()
+        while not stop.wait(HEARTBEAT_S):
+            if _open.get('run') is not run:   # the row was completed (log_run) or replaced: nothing to keep alive
+                return
+            try:
+                _open['tracker']._request('PATCH', f"pages/{_open['id']}", {'properties': {'Duration (s)': {'number': round(time.monotonic() - began)}}})
+            except Exception:  # noqa: BLE001 - best effort, like _progress
+                pass
+    threading.Thread(target=beat, name='run-row-heartbeat', daemon=True).start()
 _last_step = {'at': 0.0}
 # A crash's traceback and exception line are not a step (the app's own rule: desktop/lib/pipeline.js CRASH_LINE). 7 Oct 2026: the app was killed
 # mid-run on Windows, Python died printing its traceback, and the row stayed "Running" with "⏳ Traceback (most recent call last):" in Recent activity.

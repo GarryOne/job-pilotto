@@ -100,3 +100,25 @@ class RunHistoryTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class HeartbeatTests(unittest.TestCase):
+    """7 Oct 2026: a running row is edited at least every HEARTBEAT_S, through quiet steps too, so the app can tell a lost run (desktop/lib/run-history.js)."""
+    def test_an_open_row_gets_its_duration_until_the_run_is_completed(self):
+        import time
+        from unittest import mock
+        from src.notion import cron_runs
+        calls = []
+        tracker = mock.Mock(_request=lambda method, path, body: calls.append((method, path, body)))
+        run = {'mode': 'run'}
+        with mock.patch.object(cron_runs, 'HEARTBEAT_S', 0.05), mock.patch.dict(cron_runs._open, {'run': run, 'tracker': tracker, 'id': 'p1'}, clear=True):
+            cron_runs._heartbeat(run)
+            time.sleep(0.3)
+            beats = [body for _, path, body in calls if path == 'pages/p1']
+            self.assertGreaterEqual(len(beats), 2)
+            self.assertIn('Duration (s)', beats[0]['properties'])
+            cron_runs._open['run'] = None   # log_run completed the row
+            time.sleep(0.15)
+            done = len(calls)
+            time.sleep(0.2)
+            self.assertEqual(len(calls), done, 'a completed row is not touched again')

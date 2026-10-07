@@ -14,6 +14,9 @@ const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today
 // What started it: the Mac's schedule, you (the app, Telegram, GitHub's Run button) or GitHub's schedule.
 const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
 const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
+// A "Running" row nobody edited for this long lost its job too: a running engine edits it at least every 5 minutes (HEARTBEAT_S,
+// src/notion/cron_runs.py). 7 Oct 2026: a run killed hard (a GitHub force-cancel) cannot close its row and showed as running for 3 h.
+const LOST_MS = 30 * 60 * 1000;
 
 const text = prop => (prop?.rich_text || prop?.title || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
 
@@ -33,7 +36,8 @@ export function fromRow(page, now = Date.now()) {
   const trigger = p.Trigger?.select?.name || '';
   const seconds = p['Duration (s)']?.number;
   const summary = text(p.Summary);
-  const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS;
+  const seen = Math.max(Date.parse(startedAt), Date.parse(page.last_edited_time || '') || 0);   // its last sign of life
+  const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS && now - seen < LOST_MS;
   const ended = !running && seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : (running ? undefined : startedAt);
   // Notion keeps start times to the minute: two runs started in the same minute (a scheduled Gmail check and one you
   // started) would share an id, and the activity list would select both. A tie-breaker from the page id (< 1 s).

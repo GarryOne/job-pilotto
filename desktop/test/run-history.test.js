@@ -162,3 +162,16 @@ test('merge: a run this Mac saw end is not live, even while its Notion row still
   const stillGoing = history.merge(notion, []);
   assert.equal(stillGoing.live?.status, 'Running', 'without an ended record on this Mac, Notion says it runs');
 });
+
+// 7 Oct 2026: a run killed hard (SIGKILL: a GitHub force-cancel, a dead runner) cannot close its row, and it showed as running for 3 h. A running
+// engine edits its row at least every 5 minutes (src/notion/cron_runs.py HEARTBEAT_S), so a "Running" row unedited for 30 minutes lost its job.
+test('a "Running" row nobody edited for 30 minutes is a lost run; one edited recently is still running', () => {
+  const started = '2026-09-28T11:20:00Z';   // 50 minutes before NOW: well inside the 3-hour limit
+  const beating = history.fromRow(row('r8', {started, mode: 'run', status: 'Running', trigger: 'Schedule', summary: '⏳ Scoring jobs'},
+    {last_edited_time: '2026-09-28T12:07:00Z'}), NOW);
+  assert.equal(beating.live, true, 'positive control: a row its engine still edits is running');
+  const silent = history.fromRow(row('r9', {started, mode: 'run', status: 'Running', trigger: 'Schedule', summary: '⏳ Scoring jobs'},
+    {last_edited_time: '2026-09-28T11:30:00Z'}), NOW);
+  assert.equal(silent.live, undefined);
+  assert.equal(silent.ok, false);
+});
