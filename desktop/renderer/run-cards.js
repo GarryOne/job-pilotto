@@ -64,6 +64,14 @@ export function parseScout(text) {
 }
 
 export const parseRunMessage = text => parseDigest(text) || parseScout(text);
+// A digest's top matches: highest fit first, the jobs with no score yet after them (owner, 7 Oct 2026: "52, Not scored, 64" read as unordered).
+export const byFit = items => [...(items || [])].sort((a, b) => (b.fit != null) - (a.fit != null) || (b.fit ?? 0) - (a.fit ?? 0));
+// How many new jobs a finished search's "View new job(s)" counts: its card's own "N new this run" when the message has one, so the button and the
+// card never disagree (owner, 7 Oct 2026: "View new job" over "2 new this run"); else the run's record.
+export const newJobsShown = (run, text) => {
+  const card = text ? parseRunMessage(text) : null;
+  return card?.kind === 'digest' && card.fresh != null ? card.fresh : run?.new || 0;
+};
 
 // The text a finished run's card is drawn from: its own message (read from its Notion page), else the result the window
 // kept when it watched the run end (renderer/pages/activity.js runResults). A search run recorded on this Mac carries a log

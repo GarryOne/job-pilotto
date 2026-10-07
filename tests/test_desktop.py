@@ -146,6 +146,31 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual(written, {'top_tier': ['zurich'], 'country_wide': ['switzerland'], 'abroad': ['berlin']})
         self.assertIn('(?:', ''.join(crawled['country_wide']))  # the crawl still matches the cities of a region
 
+    def test_strategy_goals_come_from_the_local_profile_when_notion_gives_none(self):
+        # The demo's Notion is fictional (its read fails), and the app passes the demo's profile.md: its goals show (7 Oct 2026: all "—").
+        import os
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        from src import desktop, store
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, 'profile.md').write_text('- **Work mode:** Hybrid\n- **Minimum acceptable:** CHF 48,000 a year (estimate)\n')
+            db = store.connect(Path(tmp) / 'j.sqlite')
+            def fails():
+                raise RuntimeError('no Notion')
+            tracker = SimpleNamespace(url_stages=lambda: {}, page_text=fails, _request=lambda *a, **k: {'results': []})
+            with mock.patch.dict(os.environ, {'JOB_PILOTTO_PROFILE_FILE': str(Path(tmp, 'profile.md'))}), \
+                    mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), mock.patch('src.paths.load_search_config', lambda matching=True: {}):
+                data = desktop.strategy(db, tracker)
+            with mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop('JOB_PILOTTO_PROFILE_FILE', None)
+                with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), mock.patch('src.paths.load_search_config', lambda matching=True: {}):
+                    connected = desktop.strategy(db, tracker)
+            db.close()
+        self.assertEqual(data['goals'], {'work_mode': 'Hybrid', 'minimum_salary': 'CHF 48,000 a year (estimate)'})
+        self.assertEqual(connected['goals'], {}, 'a connected install with no local file: nothing invented')
+
     def test_strategy_shows_the_users_own_targets_scores_and_counts(self):
         import tempfile
         from pathlib import Path

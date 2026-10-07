@@ -2272,8 +2272,9 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .goal-strip dt { padding-top: var(--sp-2); font-weight: 500; font-size: var(--fs-sm); color: var(--muted); }
 .strategy-page .goal-strip dd { padding-bottom: var(--sp-2); flex-wrap: wrap; font-weight: 600; }
 .strategy-page .goal-strip > :nth-child(-n+2) { border-left: 0; padding-left: 0; }
-.goal-rows dd.goal { flex-wrap: wrap; }
-.goal-note { flex-basis: 100%; margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 500; color: var(--warn); }
+/* The value and its pencil side by side (a long value wraps beside it, not the pencil under it), the note under both. */
+.review .goal-rows dd.goal { display: grid; grid-template-columns: minmax(0, max-content) auto; justify-content: start; align-items: start; }
+.goal-note { grid-column: 1 / -1; margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 500; color: var(--warn); }
 .goal-note .link { padding: 0; font-size: inherit; }
 @media (max-width: 1000px) {
   .strategy-page .goal-strip { grid-template-columns: 170px minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; }

@@ -1,7 +1,7 @@
 // Recent activity: Today's list and Find new employers as small cards (renderer/run-cards.js).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {parseRunMessage} from '../renderer/run-cards.js';
+import {byFit, newJobsShown, parseRunMessage} from '../renderer/run-cards.js';
 
 test("Today's list: counts and one line per match", () => {
   const card = parseRunMessage(`✈️ Job Pilotto · 🆕 0 new · top 10 of 37
@@ -102,4 +102,18 @@ test('the digest in the card layout: unindented company line, score on a Fit: li
   assert.deepEqual([card.fresh, card.open, card.local, card.applied], [5, 173, 4, 2]);
   // A run from before 7 Oct 2026 said "pinned" for the same count: still read
   assert.equal(parseRunMessage(text.replace('4 in your places', '4 pinned')).local, 4);
+});
+
+test('top matches: highest fit first, the unscored after them, in their own order', () => {
+  const items = [{title: 'a', fit: 52}, {title: 'b', fit: null}, {title: 'c', fit: 64}, {title: 'd'}, {title: 'e', fit: 0}];
+  assert.deepEqual(byFit(items).map(item => item.title), ['c', 'a', 'e', 'b', 'd']);
+  assert.deepEqual(items.map(item => item.title), ['a', 'b', 'c', 'd', 'e'], 'the card\'s own list is left as it is');
+});
+
+test('"View new job(s)" counts what the card says, else the run\'s record', () => {
+  const digest = `✈️ Job Pilotto · 🆕 2 new · top 10 of 105
+105 open · 91 🇨🇭 · 0 applied`;
+  assert.equal(newJobsShown({new: 1}, digest), 2, 'the card says 2 new this run: the button says jobs, not job');
+  assert.equal(newJobsShown({new: 3}, 'Search done.'), 3, 'no card: the run\'s own count');
+  assert.equal(newJobsShown({}, null), 0);
 });

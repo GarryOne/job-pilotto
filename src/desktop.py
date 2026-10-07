@@ -364,7 +364,7 @@ def strategy(db, tracker=None):
             average = round(sum(values) / len(values))
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
     stages = {}
-    insight, compensation, goals = None, '', {}
+    insight, compensation, goals, profile = None, '', {}, None
     if tracker:
         from .ai.insights import INSIGHTS_DATABASE_ID
         from .notion.client import together
@@ -389,8 +389,10 @@ def strategy(db, tracker=None):
             props = rows[0]['properties']
             insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
                        'url': rows[0].get('url', '')}
-    if not tracker:   # Trying (no Notion): the Profile is on this Mac
-        from .paths import local_profile
+    from .paths import local_profile
+    # Trying (no Notion): the Profile is on this Mac. Also when Notion gave no Profile and the app passed a local one (only in Trying or the demo,
+    # whose Notion is fictional: desktop/lib/pipeline.js), so the demo's goals show.
+    if not tracker or (profile is None and local_profile()):
         goals = _goals(local_profile() or '')
         compensation = goals.get('minimum_salary') or _section(local_profile() or '', 'compensation')
     stale = 0

@@ -7,7 +7,7 @@ import {aiLimitHead, barState, doneTitle, failedOutcome, failureHead, phaseStatu
 import {el, moreButton, openMenu, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
-import {cardText, emptyResult, markFallback, parseRunMessage, plainMessage} from '../run-cards.js';
+import {byFit, cardText, emptyResult, markFallback, newJobsShown, parseRunMessage, plainMessage} from '../run-cards.js';
 import {parseSiteRows, parseVisits} from '../visits-card.js';
 import {employersAdvice} from '../onboarding.js';
 import {mailChanges, mailCounts, mailResults, parseMailReport, settleQuestion} from '../mail-report.js';
@@ -746,9 +746,7 @@ export function renderActivity(fresh) {
     run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : '',
   ].filter(Boolean).join(' · ');
   // A search that found new jobs: straight to them (newest first).
-  // The card's own "N new this run" when it has one, so the button and the card never disagree (owner, 7 Oct 2026: "View new job" over "2 new").
-  const digest = shownText ? parseRunMessage(shownText) : null;
-  const found = !run?.live && kindOf(run) === 'search' ? (digest?.kind === 'digest' && digest.fresh != null ? digest.fresh : run?.new || 0) : 0;
+  const found = !run?.live && kindOf(run) === 'search' ? newJobsShown(run, shownText) : 0;   // the card's own count (run-cards.js)
   show($('activity-go'), found > 0);
   $('activity-go').textContent = `View new job${found === 1 ? '' : 's'} →`;
   // The header's one visible link, then the rest under ⋯: a Notion page is the run's record, its GitHub run the build
@@ -965,9 +963,7 @@ function renderRunCard(card, run = null, target = $('activity-card')) {
     // this run's finds (owner, 6 Oct 2026: two runs in a row "found" the same two jobs). Its open jobs stay one click away, in Jobs.
     const nothingNew = card.fresh === 0;
     heading = nothingNew ? 'No new jobs this run' : 'Top matches';
-    // Highest fit first, the jobs with no score yet after them (owner, 7 Oct 2026: "52, Not scored, 64" read as unordered).
-    const byFit = [...card.items].sort((a, b) => (b.fit != null) - (a.fit != null) || (b.fit ?? 0) - (a.fit ?? 0));
-    rows.append(...(nothingNew ? [] : byFit).slice(0, 3).map(item => {
+    rows.append(...(nothingNew ? [] : byFit(card.items)).slice(0, 3).map(item => {   // highest fit first, unscored last
       const row = el('li', 'run-card-row');
       // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
       // the row never shows a bare "–"; the posting opens from the arrow.

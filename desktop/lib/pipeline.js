@@ -81,7 +81,8 @@ export function pipelineEnv(storage, parent = process.env) {
     const value = storage.secret(name);
     if (value) env[name] = value;
   }
-  if (!notionGate.connected(storage)) {
+  // Demo mode too: its "connected" Notion is fictional, and the Strategy page's goals come from the demo's own profile.md (desktop/demo/).
+  if (!notionGate.connected(storage) || demoMode) {
     for (const [variable, name] of [['JOB_PILOTTO_PROFILE_FILE', 'profile.md'], ['JOB_PILOTTO_ANSWERS_FILE', 'answers.md']]) {
       if (fs.existsSync(storage.path(name))) env[variable] = storage.path(name);
     }

@@ -69,6 +69,18 @@ test('Trying (no Notion): the engine reads the Profile and answers from this Mac
   assert.equal(env.JOB_PILOTTO_ANSWERS_FILE, undefined);
 });
 
+test('demo mode: the engine reads the demo\'s own Profile, though its fictional Notion counts as connected', () => {
+  const storage = tempStorage();
+  storage.writeText('profile.md', 'P');
+  storage.setSecret('NOTION_TOKEN', 'ntn_x');
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'profile'}});
+  try {
+    pipeline.setDemo(true);
+    assert.equal(pipeline.pipelineEnv(storage).JOB_PILOTTO_PROFILE_FILE, storage.path('profile.md'));
+  } finally { pipeline.setDemo(false); }
+  assert.equal(pipeline.pipelineEnv(storage).JOB_PILOTTO_PROFILE_FILE, undefined, 'a real connected install still reads Notion');
+});
+
 test('apply picks saved jobs first, then the best fit, only with a kit, never applied or dismissed ones', () => {
   const jobs = [
     {url: 'a', status: 'unreviewed', fit: 60, kit: true}, {url: 'b', status: 'applied', fit: 95, kit: true},
