@@ -41,6 +41,8 @@ export function registerExtServerHandlers(ctx) {
       const {code} = await pipeline.run(storage, ['src.ai.passwords', 'new', host, '--no-copy', ...(email ? ['--email', email] : [])]);
       made = code === 0;
       answer = credentials.forExtension(host, {applying});
+      // The password item now carries this email, which the next page would read as "an account made earlier": say the sign-up is only under way.
+      if (made && email && !storage.settings().siteAccounts?.[String(host).trim().toLowerCase()]) storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'creating')});
     }
     appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok});   // which site, never the password
     // sign-in only where THIS email has an account on this site (recorded when a sign-up was confirmed); anywhere else the extension signs up.

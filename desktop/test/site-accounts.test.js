@@ -61,3 +61,9 @@ test('the closer-look switch is in the window and off until turned on: saved as 
   assert.match(read('renderer/pages/startup.js'), /escalation: \$\('escalation'\)\.checked \? 'on' : 'off'/);
   assert.match(read('renderer/pages/settings.js'), /\$\('escalation'\)\.checked = shared\.state\.settings\.escalation === 'on'/);
 });
+
+test('a password just made for a sign-up under way is not an account: the next page stays a sign-up', () => {
+  const creating = record({}, 'auth.jobs.ch', 'me@example.com', 'creating');
+  assert.equal(modeOf(creating, 'auth.jobs.ch', 'me@example.com', 'me@example.com'), 'sign-up');   // the item already holds the email
+  assert.equal(modeOf(record(creating, 'auth.jobs.ch', 'me@example.com', 'confirmed'), 'auth.jobs.ch', 'me@example.com', 'me@example.com'), 'sign-in');   // the press overwrote it
+});

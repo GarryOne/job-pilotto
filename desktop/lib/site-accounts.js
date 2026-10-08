@@ -1,7 +1,7 @@
 // Which sites hold an account made for which email (owner, 8 Oct 2026): kept in settings.siteAccounts as {host: {email, state, at}}, never a password.
 // state: 'pending' = the extension pressed the account button and the confirmation mail is awaited; 'confirmed' = the mail's link was opened (or a sign-in
 // worked). The extension asks the app for the MODE on a sign-in or sign-up page: 'sign-in' only for a confirmed account of this very email, 'confirm' while
-// one is pending (nothing is pressed: the app waits for the mail), else 'sign-up'. Guard: test/site-accounts.test.js.
+// one is pending (nothing is pressed: the app waits for the mail), else 'sign-up' ('creating': the password was just made for a sign-up under way, no account yet). Guard: test/site-accounts.test.js.
 const key = host => String(host || '').trim().toLowerCase();
 
 // itemEmail: the email recorded on this host's password item in Settings → Credentials (an account made earlier, e.g. by Apply with Claude): the same address means we have an account.
@@ -9,6 +9,7 @@ export function modeOf(accounts, host, email, itemEmail = '') {
   const kept = accounts?.[key(host)];
   if (!kept && email && itemEmail && itemEmail.toLowerCase() === String(email).toLowerCase()) return 'sign-in';
   if (!kept || !email || String(kept.email || '').toLowerCase() !== String(email).toLowerCase()) return 'sign-up';
+  if (kept.state === 'creating') return 'sign-up';   // the app made this host's password for the sign-up now under way: not an account yet (Manor, 8 Oct 2026: the next page flipped to sign-in)
   return kept.state === 'confirmed' ? 'sign-in' : 'confirm';
 }
 

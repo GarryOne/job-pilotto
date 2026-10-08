@@ -109,3 +109,10 @@ test('an empty combobox is not filled by a neighbouring field\'s hidden value', 
     <div class="fd-input-group--control"><input type="text" role="combobox" aria-required="true" aria-label="Opening formula" value=""></div></div>`;
   assert.equal((await panel(FORM(neighbours))).before.pill, '1 left');
 });
+
+test('a small sign-in page has no panel, unless the AI says it needs the person: then the panel says what', { skip: !JSDOM }, async () => {
+  const SIGN_IN = '<form><label for="e">Email</label><input id="e" type="email" value=""><label for="p">Password</label><input id="p" type="password" value=""></form>';
+  assert.ok(!(await panel(SIGN_IN)).before);   // no panel at all
+  const flagged = await panel(SIGN_IN, document => document.documentElement.setAttribute('data-jobpilotto-needs', 'Check the code we sent you'));
+  assert.match(flagged.after?.pill || '', /^Needs you: Check the code we sent you/);
+});
