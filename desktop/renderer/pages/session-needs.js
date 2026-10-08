@@ -10,7 +10,7 @@ import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openView} from './nav.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
-import {firstLine, renderDock, sessionCompany, sessionList} from './sessions.js';
+import {firstLine, refreshSessions, renderDock, sessionCompany, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
 import {openMatchCheck} from './match-check.js';
 
@@ -280,17 +280,34 @@ export async function opening(button, work) {
     if (button) button.disabled = false;
   }
 }
-// Plain "Open in Chrome": one attempt. Chrome comes forward on that job's form tab, or the toast says no tab is it (nothing
-// is left queued that could pull Chrome forward later).
-// `reopen`: when no tab is the form, open it again (the way Reopen form does) instead of only saying so. For a form session the extension fills.
-export async function openForm(item, button, {reopen = false} = {}) {
+// Plain "Open in Chrome": one attempt. Chrome comes forward on that job's form tab; when no tab is it, the form opens again.
+export async function openForm(item, button) {
   const result = await opening(button, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
-  if (result?.went !== 'none') return result;
-  if (!reopen) { toastMessage('Form tab not found', 'No open Chrome tab is this job\'s form. Open the form in Chrome yourself, or press Start again.'); return result; }
-  const reopened = await opening(button, () => window.pilot.applyOne(item.url));
-  if (reopened?.ok === false) toastMessage('Could not open the form', reopened.error || 'Try again.');
-  else toastMessage('No tab had this form', 'Opened it in a new Chrome tab.');
-  return reopened;
+  return result?.went === 'none' ? reopenClosedTab(item, button) : result;
+}
+// What this page holds from the session's form tab: rows you handled, the form's progress, the stuck flag, Claude's question.
+const rowsOf = id => [...handled.keys(), ...syncedDone].filter(key => key.startsWith(`${id}|`));
+export const staleState = item => !!(rowsOf(item.id).length || reviewStates.get(item.id)?.total || item.stuck || (item.kind !== 'form' && item.question));
+// Every button that looks for the form's Chrome tab ends here when the tab is gone (Open in Chrome, Open filled form, Reopen
+// form, Review in form, Open in form, Open the form): the form opens again in a new tab with the fill mark, after asking
+// whether to start the application again when the page holds the closed tab's state (owner, 8 Oct 2026: the toast told you
+// to open it yourself, and the old rows stayed).
+export async function reopenClosedTab(item, button) {
+  const result = await window.pilot.sessionReopen(item.id, staleState(item));   // not 'Looking for the form tab…' under the question
+  if (result?.cancelled) return result;
+  if (result?.ok === false) { toastMessage('Could not open the form', result.error || 'Try again.'); return result; }
+  if (result?.reset) {
+    for (const key of rowsOf(item.id)) { handled.delete(key); syncedDone.delete(key); }
+    keep();
+    reviewStates.delete(item.id);
+    batch.delete(item.id);
+  }
+  toastMessage(result?.reset ? 'Started again' : 'The form tab was closed', result?.session
+    ? 'A new Claude session starts on this job and opens the form in Chrome.'
+    : result?.reset ? 'Opened the form in a new Chrome tab; the extension fills it from your kit.' : 'Opened the form again in a new Chrome tab.');
+  await refreshSessions();
+  if (result?.session?.id) openSession(result.session.id); else renderSessionPage();
+  return result;
 }
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
 async function showInForm(item, label, button) {
@@ -301,7 +318,8 @@ async function showInForm(item, label, button) {
   }
   if (result?.outdated) toastMessage('Reload the Chrome extension once', `Chrome still runs Job Pilotto ${result.extension}; this app has ${result.latest}. ` +
     'In Chrome open chrome://extensions and click ↻ on Job Pilotto. Your open forms keep their answers; later updates load by themselves.');
-  else if (result?.went !== 'tab') toastMessage('Form tab not found', 'No open Chrome tab matches this job. Find the tab Claude used, then click here again.');
+  else if (result?.went === 'none') await reopenClosedTab(item, button);
+  else if (result?.went !== 'tab') toastMessage('Opened the job in Chrome', `Find "${label}" in its form.`);
   else toastMessage('Scroll to it yourself this time', `The form tab is open, but the extension could not attach to it. Look for "${label}" in the form.`);
 }
 // Answers wait here until you send them all at once (owner, 8 Oct 2026: one answer sent at once made Claude reply, and its new

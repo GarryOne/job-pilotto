@@ -10,7 +10,7 @@ import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, openForm, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -305,15 +305,12 @@ export function renderNextStep(item) {
       await refreshSessions();
       if (result?.session?.id) openSession(result.session.id);
     }, 'bot'));
-    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => { await openForm(item, event.currentTarget, {reopen: true}); }, 'link'));
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => { await openForm(item, event.currentTarget); }, 'link'));
   }
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (gone) {
     // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.
-    actions.push(sessionButton('Reopen form', 'primary', async event => {
-      const result = await opening(event.currentTarget, () => window.pilot.applyOne(item.url));
-      if (result?.ok === false) toastMessage('Could not open the form', result.error || 'Try again.');
-    }, 'link'));
+    actions.push(sessionButton('Reopen form', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));
   }
   if (review) {
     if (!gone) actions.push(sessionButton('Open filled form', 'primary', async event => {
@@ -324,14 +321,7 @@ export function renderNextStep(item) {
         if (panelDead.delete(item.id)) renderSessionPage();
         return;
       }
-      if (result?.went === 'none') {   // no tab to bring forward: open the form again, as Reopen form does
-        reviewStates.delete(item.id);   // its "18 of 18, ready" was the closed tab's; the main process forgot it too
-        renderSessionPage();
-        const reopened = await opening(event.currentTarget, () => window.pilot.applyOne(item.url));
-        toastMessage(reopened?.ok === false ? 'Could not open the form' : 'The form tab was closed',
-          reopened?.ok === false ? reopened.error || 'Try again.' : 'Opened the form again in Chrome.');
-        return;
-      }
+      if (result?.went === 'none') { await reopenClosedTab(item, event.currentTarget); return; }   // no tab to bring forward: open the form again
       panelDead.add(item.id);
       renderSessionPage();
       toastMessage('Form tab not found', osText('The form\'s page didn\'t answer, so the extension isn\'t attached to it. '
