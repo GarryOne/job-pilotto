@@ -97,10 +97,10 @@ fields answer with exactly one of the listed options. Work authorisation and spo
 on the job's country: use the standard answers for that country. Demographic questions: use the \
 standard answer (default: decline). Consent/acknowledge questions: answer with the acknowledging \
 option and set needs_review.
-- Language: write the cover letter and the free-text answers in the language the posting is written \
-in (a French posting gets French, a German one German, an English one English), unless the standard \
-answers name a language for applications, which wins. Keep option values of select fields exactly as listed. \
-If the posting asks for a language the profile doesn't show, add it to check_before_sending.
+- Language: write the cover letter and the free-text answers in the language the posting is written in when the profile shows \
+the candidate speaks it well (a French posting gets French for a French speaker); otherwise in English, which the candidate can read \
+and defend in an interview. A language the standard answers name for applications wins over both. Keep option values of select \
+fields exactly as listed. If the posting asks for a language the profile doesn't show, add it to check_before_sending.
 - With no form given, answer the questions this posting's application most likely asks \
 (why this company, why this role, relevant experience), field "".
 - Where the standard answer is marked ❓ or missing, write your best short draft and set \

@@ -229,6 +229,7 @@ class KitLanguageTest(unittest.TestCase):
 
     def test_writes_in_the_postings_language(self):
         self.assertIn("in the posting's language", kit.SYSTEM)
+        self.assertIn('when the profile shows the candidate speaks it', kit.SYSTEM)   # an English speaker in Zurich keeps English letters
         self.assertNotIn('English, plain', kit.SYSTEM)
 
     def test_candidate_is_not_assumed_to_be_a_man(self):
