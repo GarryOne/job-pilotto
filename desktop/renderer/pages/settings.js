@@ -337,6 +337,15 @@ export async function init() {
   // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
   document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { $('contact-save').disabled = false; }));
   $('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
+  $('site-password-show').addEventListener('click', async () => {
+    const result = await window.pilot.sitePassword('show');
+    if (result?.password) $('site-password').textContent = result.password;
+    $('site-password-message').textContent = result?.ok ? (result.password ? '' : 'Copied: paste it to read it.') : result?.error || '';
+  });
+  $('site-password-copy').addEventListener('click', async () => {
+    const result = await window.pilot.sitePassword('copy');
+    $('site-password-message').textContent = result?.ok ? 'Copied.' : result?.error || '';
+  });
   // Data & backup and Advanced: explainers and the reset options open on demand; Diagnostics shows live status.
   $('reset-review').addEventListener('click', () => { $('reset-options').hidden = !$('reset-options').hidden; });
   $('diag-troubleshoot').addEventListener('click', () => {

@@ -129,6 +129,31 @@ class PasswordsTest(unittest.TestCase):
         self.assertEqual(copied, [stored, stored, ''])
         self.assertNotIn(stored, str(printed.call_args_list))
 
+    def test_every_site_gets_the_one_memorable_job_site_password_made_once(self):
+        store, copied = FakeKeyring(), []
+        with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
+                mock.patch.object(passwords, 'copy', copied.append), mock.patch('builtins.print') as printed:
+            self.assertEqual(passwords.main(['new', 'careers.a.com']), 0)
+            self.assertEqual(passwords.main(['new', 'auth.b.ch']), 0)
+            self.assertEqual(passwords.main(['shared']), 0)
+            self.assertEqual(passwords.main(['new', 'c.com', '--no-symbols']), 0)   # a site that refuses symbols: no hyphens
+            self.assertEqual(passwords.main(['new', 'd.com', '--length', '10']), 0)  # shorter than ours: a random one of its own
+        shared = store.items[('job-pilotto.sites.password', 'job-pilotto')]
+        self.assertRegex(shared, r'^[A-Z][a-x]{2,5}-[A-Z][a-x]{2,5}-[1-9][0-9]$')   # Maple-Rocket-42: no y/z (QWERTZ)
+        self.assertEqual(store.items[('job-pilotto.careers.a.com.password', 'job-pilotto')], shared)
+        self.assertEqual(store.items[('job-pilotto.auth.b.ch.password', 'job-pilotto')], shared)
+        self.assertEqual(store.items[('job-pilotto.c.com.password', 'job-pilotto')], shared.replace('-', ''))
+        self.assertEqual(len(store.items[('job-pilotto.d.com.password', 'job-pilotto')]), 10)
+        self.assertEqual(copied[:3], [shared, shared, shared])
+        self.assertNotIn(shared, str(printed.call_args_list))   # the app's run log keeps what is printed
+
+    def test_memorable_passwords_fit_common_sign_up_rules(self):
+        for _ in range(500):
+            password = passwords.memorable()
+            self.assertLessEqual(len(password), 16)
+            self.assertTrue(any(c.isupper() for c in password) and any(c.islower() for c in password))
+            self.assertTrue(any(c.isdigit() for c in password) and '-' in password)
+
 
 if __name__ == '__main__':
     unittest.main()

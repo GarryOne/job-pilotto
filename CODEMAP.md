@@ -106,6 +106,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/shared-log.js` — What the app sent to the Job Pilotto service, kept on this Mac so "See what's sent" shows it: the last 20 requests, exactly as they left
 - `desktop/lib/shared-read.js` — A read asked again while the same read runs joins it instead of starting another Python run (7 Oct 2026: ~10 job-list
 - `desktop/lib/shots.js` — Small copies of pasted screenshots: what goes to Notion is a narrow JPEG, not the full-size file (Claude reads the original).
+- `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows

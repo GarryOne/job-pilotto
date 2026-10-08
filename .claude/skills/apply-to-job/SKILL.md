@@ -362,14 +362,16 @@ per page where you can:
    - **Have one:** email from the CV, password pasted as in step 3.
    - **None:** follow "Create an account" / "Register" / "Not a registered user yet?".
 3. **Create the account.** Fill name, email, phone, country from the CV/Profile as for any form.
-   Password (16 chars with every class: sites often cap at 16–20 and want upper, lower, digit and
-   symbol), generated, stored and copied in one call, never shown:
+   Password: the owner's one job-site password (owner, 8 Oct 2026: the same easy one on every site,
+   e.g. `Maple-Rocket-42`, made once, shown to them in Settings), stored for this site and copied in
+   one call, never shown to you:
    `python3 -m src.ai.passwords new <host>`
    Click the password field, paste (`cmd+v` on the Mac, `ctrl+v` on Windows); the confirm field,
    paste; then `python3 -m src.ai.passwords clear`. Check with the audit (`filled: true`), never by
    reading the value. To sign in later: `python3 -m src.ai.passwords copy <host>`, paste, clear. If
-   the site rejects the password, regenerate to the rule it shows (`new <host> --length 12` or
-   `--no-symbols`; it overwrites the stored one) and paste again. Security questions and optional profile fields: answer from
+   the site rejects the password, fit it to the rule it shows (`new <host> --no-symbols` drops the
+   hyphens; `--length 12` makes a random one for a site that wants it shorter; it overwrites the
+   stored one) and paste again; say in the hand-over when a site got a password of its own. Security questions and optional profile fields: answer from
    the Profile/Application Answers like any field; leave them for the owner only when no source has them.
 4. **Confirmation email:** don't ask the owner. Read it from Gmail (read-only, connected in the
    app's Settings → Gmail and Calendar):
@@ -381,8 +383,9 @@ per page where you can:
    Fill everything else first, run `tools/notify.sh <job url> "Needs your input — see Terminal"`,
    say in one line exactly what to do in Chrome ("tick I'm not a robot and the terms box, then
    reply ok") and wait. Never try to solve or bypass a CAPTCHA. After the reply, click Create
-   account / Sign in and continue. Account exists but no stored password: use the site's "Forgot
-   password" to the owner's email and ask the owner for the reset link, or ask them to sign in.
+   account / Sign in and continue. Account exists but no stored password: sign in once with the
+   job-site password (`new <host>`, paste); if refused, use the site's "Forgot password" to the
+   owner's email, read the reset link with the Gmail command of step 4, set the job-site password, carry on.
 6. **After sign-in** the site usually lands on the application or a profile step; on a dashboard,
    open the job again from the careers page and press Apply. Fill page by page (Next / Save and
    continue is fine), audit each page before leaving it, and stop at the review or Submit page.

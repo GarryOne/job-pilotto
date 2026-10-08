@@ -9,6 +9,7 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
+import * as sitePassword from './lib/site-password.js';
 import * as claudeSession from './lib/claude-session.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import * as critical from './lib/critical.js';
@@ -1537,9 +1538,6 @@ function handlers() {
   // Checked session workflows share the production registration with the offline app scenario tests.
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, apply, pipeline, review, server, notion, claudeConsent});
-  const startClaude = async (url, details = null) => allowanceBlock() || (await claudeConsent())
-    ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) track('apply_started', {how: 'claude'}); terminals.dropForm(String(url).split('#')[0]); return result; })
-    : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'};
   ipcMain.handle('applyWithClaude', (_, url, details = null) => startClaude(url, details));
   server.setTakeOverHandler(async event => {   // the panel's button: the person's own request, the same start as the session card's Apply with Claude
     const job = event.job;
@@ -1622,6 +1620,15 @@ function handlers() {
     return result;
   });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
+  // Settings → Application assistant: the job-site password. Copy makes it the first time (the engine, on the clipboard, never printed).
+  ipcMain.handle('sitePassword', async (_, action) => {
+    if (DEMO) return {ok: true, password: 'Maple-Rocket-42'};
+    if (action === 'show' && sitePassword.read()) return {ok: true, password: sitePassword.read()};
+    const {code} = await pipeline.run(storage, ['src.ai.passwords', 'shared']);
+    appLog('apply', `job-site password ${action === 'show' ? 'shown' : 'copied'}`, {ok: code === 0});
+    if (code !== 0) return {ok: false, error: 'The password could not be made or read.'};
+    return {ok: true, copied: true, password: action === 'show' ? sitePassword.read() : null};
+  });
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
   // The token lives in the Keychain, where the Python side (src/sources/google.py) reads it.
@@ -2223,6 +2230,10 @@ const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
 
 // Apply with Claude sessions run without asking before each action (--permission-mode bypassPermissions), so the
 // user agrees once, knowing what that means; the answer is kept in settings.
+// Apply with Claude for one job: the job row's button, the page's "Take over" and an account page the extension reached.
+const startClaude = async (url, details = null) => allowanceBlock() || (await claudeConsent())
+  ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) track('apply_started', {how: 'claude'}); terminals.dropForm(String(url).split('#')[0]); return result; })
+  : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'};
 async function claudeConsent() {
   if (storage.settings().claudeConsent) return true;
   const {response} = await dialog.showMessageBox(window, {type: 'warning', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1,
@@ -2500,7 +2511,16 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
     const match = forms.find(session => apply.isFormOf(event.url, session.url));
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match});
-    if (match) terminals.noteStuck(match.id, event.why === 'account' ? 'account' : 'no-form');
+    const why = event.why === 'account' ? 'account' : 'no-form';
+    if (!match || !terminals.noteStuck(match.id, why) || why !== 'account') return;
+    // A sign-in or sign-up in front of the form (owner, 8 Oct 2026): Claude takes the job over at once, once, when Apply with Claude
+    // is allowed: it signs in or creates the account with the job-site password and confirms it from Gmail. Never a dialog here.
+    if (!storage.settings().claudeConsent) { appLog('extension', 'account page: left for the user, Apply with Claude not allowed', {host: event.host}); return; }
+    appLog('extension', 'account page: Claude takes over', {host: event.host, decidedBy: 'extension stuck: account'});
+    startClaude(match.url, {title: match.title, company: match.company, location: match.location, workMode: match.workMode}).then(result => {
+      if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); }
+      else appLog('extension', 'account page: Claude could not start', {host: event.host, error: String(result?.error || '').slice(0, 160)});
+    });
   });
   review.setReporter(state => {
     if (state.total > 0) terminals.clearStuck(state.id);

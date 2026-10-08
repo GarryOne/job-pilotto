@@ -1,13 +1,18 @@
 """Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.
 
-The session never sees or types a password: `new` generates one into this computer's secret store
+The session never sees or types a password: `new` stores one in this computer's secret store
 (Keychain / Credential Manager, item job-pilotto.<host>.password) and puts it on the clipboard, the
 session pastes it (cmd+v / ctrl+v), then `clear` empties the clipboard.
 
+Every site gets the user's one job-site password (owner, 8 Oct 2026: one they can remember and type, e.g.
+Maple-Rocket-42), made once and kept as job-pilotto.sites.password; Settings → Application assistant shows it.
+Only a site whose rule it breaks (--length shorter, --no-symbols) gets a random one of its own.
+
   python3 -m src.ai.passwords have <host>    exit 0 when one is stored for that site
-  python3 -m src.ai.passwords new <host>     generate (16 chars, every class), store and copy
-      [--length N] [--no-symbols]            to the rule a site shows; overwrites the stored one
+  python3 -m src.ai.passwords new <host>     the job-site password (or, for the rule a site shows,
+      [--length N] [--no-symbols]            a random one), stored for that site and copied
   python3 -m src.ai.passwords copy <host>    copy the stored one
+  python3 -m src.ai.passwords shared         make the job-site password if there is none, and copy it
   python3 -m src.ai.passwords clear          empty the clipboard
 """
 import argparse
@@ -21,8 +26,47 @@ from .. import secret_store
 ACCOUNT = 'job-pilotto'
 
 
+SHARED = 'job-pilotto.sites.password'
+
+# Short, plain words (at most 6 letters) that are easy to say and type on any layout: no y or z, which QWERTZ swaps.
+WORDS = ('amber apple arrow basil beach blue bread brick cedar chalk cloud coast comet coral cotton crane '
+         'delta eagle ember fable falcon fern field flame flint frost garden giant ginger glass grape green harbor '
+         'hazel island jade kite lemon light lilac lotus maple marble meadow melon mint moon north '
+         'ocean olive orange orbit otter panda paper peach pearl pepper piano pilot pine planet plum polar pond prism '
+         'rain raven river robin rocket rose salt sand silver smile snow solar spark spring star stone storm sugar sun '
+         'tiger toast tulip velvet violet water whale wind winter wolf').split()
+
+
 def service(host):
     return f'job-pilotto.{host}.password'
+
+
+def memorable():
+    """Two capitalised words and two digits, joined by hyphens: Maple-Rocket-42. At most 16 characters, with upper,
+    lower, digit and a symbol, which most sign-up rules ask for."""
+    first = secrets.choice(WORDS)
+    second = secrets.choice([word for word in WORDS if word != first])
+    return f'{first.capitalize()}-{second.capitalize()}-{secrets.randbelow(90) + 10}'
+
+
+def shared_password():
+    """The user's job-site password, made the first time it is needed."""
+    password = secret_store.get(SHARED, ACCOUNT)
+    if password is None:
+        password = memorable()
+        secret_store.put(SHARED, password, ACCOUNT, label='Job Pilotto: job-site password')
+    return password
+
+
+def for_site(length=None, symbols=True):
+    """The job-site password, fitted to a site's rule: without its hyphens when symbols are refused; a random one when
+    the site wants it shorter."""
+    password = shared_password()
+    if not symbols:
+        password = password.replace('-', '')
+    if length and len(password) > length:
+        return generate(max(8, length), '!#%+-=?@_' if symbols else '')
+    return password
 
 
 def generate(length=16, symbols='!#%+-=?@_'):
@@ -54,13 +98,17 @@ def copy(text):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='python3 -m src.ai.passwords', description=__doc__.split('\n')[0])
-    parser.add_argument('action', choices=['have', 'new', 'copy', 'clear'])
+    parser.add_argument('action', choices=['have', 'new', 'copy', 'shared', 'clear'])
     parser.add_argument('host', nargs='?')
-    parser.add_argument('--length', type=int, default=16)
+    parser.add_argument('--length', type=int, default=None)
     parser.add_argument('--no-symbols', action='store_true')
     args = parser.parse_args(argv)
     if args.action == 'clear':
         copy('')
+        return 0
+    if args.action == 'shared':   # never printed: the app's run log keeps what a command prints
+        copy(shared_password())
+        print(f'{SHARED}: on the clipboard')
         return 0
     if not args.host:
         parser.error('which site? give its host name, e.g. careers.example.com')
@@ -70,7 +118,7 @@ def main(argv=None):
         print('have' if found else 'none')
         return 0 if found else 1
     if args.action == 'new':
-        password = generate(max(8, args.length), '' if args.no_symbols else '!#%+-=?@_')
+        password = for_site(args.length, symbols=not args.no_symbols)
         secret_store.put(name, password, ACCOUNT, label=f'Job Pilotto: {args.host}')
         copy(password)
         print(f'stored {name}; on the clipboard, paste it')

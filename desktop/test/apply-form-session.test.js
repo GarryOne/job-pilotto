@@ -92,12 +92,13 @@ test('a stuck form session says so, is cleared when a form shows up, and is drop
   assert.match(terminals.get('f1').note, /can't reach the form/);
   terminals.clearStuck('f1');
   assert.equal(terminals.get('f1').stuck, '');
-  terminals.noteStuck('f1', 'account');
+  assert.equal(terminals.noteStuck('f1', 'account'), true);    // the first report: the app hands the job to Claude
+  assert.equal(terminals.noteStuck('f1', 'account'), false);   // the page reloads and reports again: no second Claude
   terminals.dropForm(URL1);
   assert.equal(terminals.list().length, 0);
   terminals.startForm({id: 'f2', url: URL1});
   terminals.setOutcome('f2', 'submitted');
-  terminals.noteStuck('f2', 'no-form');                       // a submitted one is never marked stuck
+  assert.equal(terminals.noteStuck('f2', 'no-form'), false);  // a submitted one is never marked stuck
   assert.equal(terminals.get('f2').stuck, '');
 });
 
@@ -108,4 +109,13 @@ test('a stuck report belongs to its own job only, never to another job at the sa
   assert.equal(apply.isFormOf(posting, posting), true);
   assert.equal(apply.isFormOf('https://jobs.ashbyhq.com/openai/0000aaaa-9daa-4c9e-949a-03d5730334e8/application', posting), false);
   assert.equal(apply.isFormOf('', posting), false);
+});
+
+test('the job-site password is read from the Keychain on a Mac only, and a missing one is null', async () => {
+  const sitePassword = await import('../lib/site-password.js');
+  const calls = [];
+  assert.equal(sitePassword.read('darwin', (...args) => { calls.push(args); return 'Maple-Rocket-42\n'; }), 'Maple-Rocket-42');
+  assert.deepEqual(calls[0].slice(0, 2), ['security', ['find-generic-password', '-a', 'job-pilotto', '-s', 'job-pilotto.sites.password', '-w']]);
+  assert.equal(sitePassword.read('darwin', () => { throw new Error('not found'); }), null);
+  assert.equal(sitePassword.read('win32', () => 'x'), null);
 });
