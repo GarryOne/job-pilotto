@@ -914,6 +914,72 @@
    "source": "contribute.py REMOTE"
   },
   {
+   "topic": "page-words",
+   "pattern": "career|karriere|carri[eè]re|jobs?\\b|stellen|offene.?stellen|vacanc|join.?us|work.?with.?us|emploi|recrut|lavora",
+   "answer": "careers_link",
+   "source": "careers.py CAREER_WORDS"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "/(?:job|jobs|stelle|stellen|vacanc\\w*|position|positions|offre|offres|emploi|posting|opening|openings|career|careers|karriere|job-advertisement|advertisement)/[^/?#]+",
+   "answer": "job_path",
+   "source": "careers.py JOB_PATH"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "(?:keine|leider keine|aktuell keine|zurzeit keine|derzeit keine)\\s+(?:offenen?\\s+)?(?:stellen|vakanzen|positionen|jobs)|no (?:open |current )?(?:positions|vacancies|openings|jobs)(?: (?:available|at the moment|right now))?|(?:aucun|pas de) (?:poste|offre)s? (?:ouvert|disponible|vacant)|nessuna posizione aperta",
+   "answer": "no_jobs",
+   "source": "careers.py NO_JOBS"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "offene.?stellen|stellenangebot|stellenmarkt|stellenportal|open.?positions?|openings|vacanc|job.?overview|jobportal|all.?jobs|alle.?jobs|current.?jobs|aktuelle.?stellen|offres?.?d.?emploi|postes?.?ouverts|\\bjobs\\b|\\bstellen\\b",
+   "answer": "strong_jobs",
+   "source": "careers.py STRONG_WORDS"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "(?:^|[.-])(?:jobs?|stellen|karriere|careers?|jobportal|recruiting|bewerbung|emploi)(?:[.-]|$)|(?:^|\\.)(?:abaservices\\.ch|prospective\\.ch|dualoo\\.com|jobdesk\\.ch|refline\\.ch|hr4you\\.org)$",
+   "answer": "job_host",
+   "source": "careers.py JOB_HOST"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "benefit|news|blog|press|presse|medien|event|impressum|datenschutz|privacy|cookie|kontakt|contact|lehre|ausbildung|praktik|studium|bewerbungsprozess|application-process|erfahrungsberichte|mitarbeiterstimmen|login|logout",
+   "answer": "not_jobs",
+   "source": "careers.py NOT_JOBS"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "engineer|ingenieur|ing[ée]nieur|developer|entwickler|d[ée]veloppeur|sviluppat|manager|leiter|leitung|responsable|specialist|spezialist|sp[ée]cialiste|consultant|berater|analyst|administrator|admin\\b|techniker|technician|technicien|architect|architekt|lead\\b|head of|scientist|designer|owner|scrum|operator|support|mitarbeiter|sachbearbeiter|assistent|assistant|praktik|intern\\b|\\d{2,3}\\s*%|\\(m/w|\\(w/m|m/w/d|m/f/d|f/m/d|h/f|f/h|all genders|\\(a\\)",
+   "answer": "job_title",
+   "source": "careers.py TITLE_LIKE"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "career|karriere|carri[eè]re|talent|opportunit|\\bsearch\\b|suche|students?|graduates?|absolvent|benefits|culture|kultur|life at|working at|arbeiten (?:bei|bei uns)|our people|why join|join us|who we are|über uns|about us|apprentice|lehrstellen|europe|americas|asia|africa|middle east|emea|apac",
+   "answer": "not_a_job",
+   "source": "careers.py NOT_A_JOB"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "career|karriere|carrière|carriere|stellen|vacanc|recruit|join.?us|offene.?jobs|work.with.us|/jobs(?:/|$)",
+   "answer": "board_careers_link",
+   "source": "boards.py CAREER"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "job|offre|stelle|vacanc|search|opening|position|poste|emploi|karriere|carri|career|recrut|lavora",
+   "answer": "job_list",
+   "source": "visits.py JOBLIST"
+  },
+  {
+   "topic": "page-words",
+   "pattern": "login|signin|sign-in|logon|auth|alert|register|subscribe|newsletter|password|account|/content/|/news|/article|/blog|/press|\\b20\\d\\d\\b",
+   "answer": "not_a_list",
+   "source": "visits.py NOT_A_LIST"
+  },
+  {
    "topic": "title-level",
    "pattern": "\\bsenior\\b",
    "answer": "senior",

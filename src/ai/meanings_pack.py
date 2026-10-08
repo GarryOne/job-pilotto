@@ -128,3 +128,24 @@ def queue(topic, wording, answer):
     if row not in rows:
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(json.dumps({'rows': (rows + [row])[-MAX_OUTBOX:]}, ensure_ascii=False))
+
+
+class Matcher:
+    """A pack-backed stand-in for a compiled keyword regex (`.search`, `.findall`): the rows of one topic and answer, read at each use, so the
+    site's rows and switch-offs apply without a release. The seed keeps each old list whole, as one row: the same matches as before."""
+
+    def __init__(self, topic, answer):
+        self.topic, self.answer = topic, answer
+
+    def _rows(self):
+        return [rx for rx, found in tables()[0].get(self.topic, []) if found == self.answer]
+
+    def search(self, text, *args):
+        return next((m for rx in self._rows() if (m := rx.search(text, *args))), None)
+
+    def findall(self, text, *args):
+        return [found for rx in self._rows() for found in rx.findall(text, *args)]
+
+
+def matcher(topic, answer):
+    return Matcher(topic, answer)

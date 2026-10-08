@@ -540,6 +540,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/flows-gate.mjs` — Pre-push check (tools/pre-push-check.sh): a push that changes an Applying flow file (desktop/e2e/flows.mjs FLOW_FILES) must have passed
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
+- `tools/meanings_parity.py` — Before an "AI instead of keyword lists" change ships: the owner's real search and data, AI off, on a baseline commit and on this tree;
 - `tools/meanings_seed.py` — Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read
 - `tools/new-e2e-steps.mjs` — Pre-push check (tools/pre-push-check.sh): every e2e step this push adds was seen passing, or the commit says why not (desktop/e2e/lib/new-steps.mjs).
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.

@@ -265,5 +265,21 @@
    "entry"
   ],
   "share": false
+ },
+ "page-words": {
+  "answers": [
+   "careers_link",
+   "job_path",
+   "no_jobs",
+   "strong_jobs",
+   "job_host",
+   "not_jobs",
+   "job_title",
+   "not_a_job",
+   "board_careers_link",
+   "job_list",
+   "not_a_list"
+  ],
+  "share": false
  }
 }

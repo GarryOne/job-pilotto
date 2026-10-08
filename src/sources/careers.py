@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from . import ats
 
 MAX_BYTES = 2_000_000
+from ..ai import meanings_pack
 from .careers_parse import (MAX_JOB_PAGES, CAREER_WORDS, JOB_PATH, JOB_ID, COUNTRIES, AGGREGATORS, own_site, encode, decode, links,  # noqa: F401
                             NO_JOBS, STRONG_WORDS, JOB_HOST, NOT_JOBS, registrable, careers_links, _walk, _words, jsonld_jobs, job_links,
                             MAX_LIST_PAGES, PAGE_PAUSE_S, page_links)
@@ -142,16 +143,11 @@ def reader():
 
 
 # A job title, in any of the usual languages, as opposed to a menu entry ("About us", "Benefits"): a role noun or a workload/gender mark.
-TITLE_LIKE = re.compile(r'engineer|ingenieur|ing[ée]nieur|developer|entwickler|d[ée]veloppeur|sviluppat|manager|leiter|leitung|responsable|'
-                        r'specialist|spezialist|sp[ée]cialiste|consultant|berater|analyst|administrator|admin\b|techniker|technician|technicien|'
-                        r'architect|architekt|lead\b|head of|scientist|designer|owner|scrum|operator|support|mitarbeiter|sachbearbeiter|'
-                        r'assistent|assistant|praktik|intern\b|\d{2,3}\s*%|\(m/w|\(w/m|m/w/d|m/f/d|f/m/d|h/f|f/h|all genders|\(a\)', re.I)
+TITLE_LIKE = meanings_pack.matcher('page-words', 'job_title')   # the meanings pack: the old list (seed) + rows the site adds
 
 
 # Headings of career pages themselves, not jobs: "Search Swiss Re Careers", "Early talent opportunities", "Life at Acme", "Students".
-NOT_A_JOB = re.compile(r'career|karriere|carri[eè]re|talent|opportunit|\bsearch\b|suche|students?|graduates?|absolvent|benefits|culture|kultur|'
-                       r'life at|working at|arbeiten (?:bei|bei uns)|our people|why join|join us|who we are|über uns|about us|apprentice|lehrstellen|'
-                       r'europe|americas|asia|africa|middle east|emea|apac', re.I)
+NOT_A_JOB = meanings_pack.matcher('page-words', 'not_a_job')   # the meanings pack: the old list (seed) + rows the site adds
 
 
 def _heading(title):

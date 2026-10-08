@@ -27,6 +27,7 @@ def next_sql():
     return MIGRATIONS / f'{number:04d}_meanings_seed.sql'
 REMOVED = '4df410c^'   # the last commit with the mail/calendar/round lists, before they became AI decisions
 PLACES = '10893d2'     # the place and role lists of the pool, Adzuna and Google Jobs, before they became AI decisions
+PAGES = 'feb9595'      # the careers-page and job-site word lists (careers.py, boards.py, visits.py), before they became pack rows
 KINDS = 'e35860b'      # the kinds of role (role_kinds.py) and the tech words (coverage.py), before they became AI decisions
 
 
@@ -81,6 +82,9 @@ def rows():
         for answer, pattern in assigned(PLACES, path, name).items():
             add(topic, pattern, answer, f'{path.rsplit("/", 1)[1]} {name}')
     add('job-region', assigned(PLACES, 'src/contribute.py', 'REMOTE'), 'remote', 'contribute.py REMOTE')
+    # Careers pages and job sites: each list whole, as one row, so the crawl reads them exactly as before; the site may add more rows.
+    for path, name, answer in [('src/sources/careers.py', 'CAREER_WORDS', 'careers_link'), ('src/sources/careers.py', 'JOB_PATH', 'job_path'), ('src/sources/careers.py', 'NO_JOBS', 'no_jobs'), ('src/sources/careers.py', 'STRONG_WORDS', 'strong_jobs'), ('src/sources/careers.py', 'JOB_HOST', 'job_host'), ('src/sources/careers.py', 'NOT_JOBS', 'not_jobs'), ('src/sources/careers.py', 'TITLE_LIKE', 'job_title'), ('src/sources/careers.py', 'NOT_A_JOB', 'not_a_job'), ('src/sources/boards.py', 'CAREER', 'board_careers_link'), ('src/sources/visits.py', 'JOBLIST', 'job_list'), ('src/sources/visits.py', 'NOT_A_LIST', 'not_a_list')]:
+        add('page-words', assigned(PAGES, path, name), answer, f'{path.rsplit("/", 1)[1]} {name}')
     for answer, name in (('senior', 'SENIOR'), ('entry', 'ENTRY')):   # titles that plainly name a level (levels.py): skipped for another level
         for pattern in assigned(KINDS, 'src/levels.py', name):
             add('title-level', pattern, answer, f'levels.py {name}')
@@ -99,10 +103,13 @@ def sql(seed):
     lines = ['-- The meanings pack seed (tools/meanings_seed.py): the keyword lists the code used before 8 Oct 2026, as rows. Generated; do not edit.',
              'CREATE TABLE IF NOT EXISTS meanings (topic TEXT NOT NULL, kind TEXT NOT NULL, wording TEXT NOT NULL, answer TEXT NOT NULL, ord INTEGER NOT NULL DEFAULT 0,',
              "  status TEXT NOT NULL DEFAULT 'verified', rollout INTEGER NOT NULL DEFAULT 100, source TEXT, updated_at TEXT, PRIMARY KEY (topic, kind, wording));",
-             "DELETE FROM meanings WHERE source LIKE 'seed:%';"]
+             # A reseed keeps each row's status and rollout (a seed row switched off on the site stays off); rows no longer in the seed go.
+             "UPDATE meanings SET ord = -1 WHERE source LIKE 'seed:%';"]
     for i, row in enumerate(seed):
-        lines.append(f"INSERT OR REPLACE INTO meanings (topic, kind, wording, answer, ord, status, rollout, source, updated_at) VALUES "
-                     f"({quote(row['topic'])}, 'pattern', {quote(row['pattern'])}, {quote(row['answer'])}, {i}, 'verified', 100, {quote('seed:' + row['source'])}, '2026-10-08');")
+        lines.append(f"INSERT INTO meanings (topic, kind, wording, answer, ord, status, rollout, source, updated_at) VALUES "
+                     f"({quote(row['topic'])}, 'pattern', {quote(row['pattern'])}, {quote(row['answer'])}, {i}, 'verified', 100, {quote('seed:' + row['source'])}, '2026-10-08') "
+                     "ON CONFLICT (topic, kind, wording) DO UPDATE SET answer = excluded.answer, ord = excluded.ord, source = excluded.source;")
+    lines.append("DELETE FROM meanings WHERE source LIKE 'seed:%' AND ord = -1;")
     return '\n'.join(lines) + '\n'
 
 

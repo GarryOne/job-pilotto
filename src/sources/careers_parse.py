@@ -10,10 +10,11 @@ import re
 import urllib.parse
 
 from . import ats
+from ..ai import meanings_pack
 
 MAX_JOB_PAGES = 40       # job pages read when the listing carries no data itself
-CAREER_WORDS = re.compile(r'career|karriere|carri[eè]re|jobs?\b|stellen|offene.?stellen|vacanc|join.?us|work.?with.?us|emploi|recrut|lavora', re.I)
-JOB_PATH = re.compile(r'/(?:job|jobs|stelle|stellen|vacanc\w*|position|positions|offre|offres|emploi|posting|opening|openings|career|careers|karriere|job-advertisement|advertisement)/[^/?#]+', re.I)
+CAREER_WORDS = meanings_pack.matcher('page-words', 'careers_link')   # the meanings pack: the old list (seed) + rows the site adds
+JOB_PATH = meanings_pack.matcher('page-words', 'job_path')   # the meanings pack: the old list (seed) + rows the site adds
 JOB_ID = re.compile(r'/(?:[^/]*-)?(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{5,}|[0-9a-z]{16,})$', re.I)
 COUNTRIES = {'CH': 'Switzerland', 'DE': 'Germany', 'AT': 'Austria', 'FR': 'France', 'IT': 'Italy', 'GB': 'United Kingdom', 'UK': 'United Kingdom',
              'NL': 'Netherlands', 'IE': 'Ireland', 'ES': 'Spain', 'PT': 'Portugal', 'PL': 'Poland', 'SE': 'Sweden', 'US': 'United States'}
@@ -62,16 +63,10 @@ def links(markup, base):
 
 
 
-NO_JOBS = re.compile(r'(?:keine|leider keine|aktuell keine|zurzeit keine|derzeit keine)\s+(?:offenen?\s+)?(?:stellen|vakanzen|positionen|jobs)|'
-                     r'no (?:open |current )?(?:positions|vacancies|openings|jobs)(?: (?:available|at the moment|right now))?|'
-                     r'(?:aucun|pas de) (?:poste|offre)s? (?:ouvert|disponible|vacant)|nessuna posizione aperta', re.I)
-STRONG_WORDS = re.compile(r'offene.?stellen|stellenangebot|stellenmarkt|stellenportal|open.?positions?|openings|vacanc|job.?overview|jobportal|all.?jobs|alle.?jobs|'
-                          r'current.?jobs|aktuelle.?stellen|offres?.?d.?emploi|postes?.?ouverts|\bjobs\b|\bstellen\b', re.I)
-JOB_HOST = re.compile(r'(?:^|[.-])(?:jobs?|stellen|karriere|careers?|jobportal|recruiting|bewerbung|emploi)(?:[.-]|$)|'
-                      # Swiss job-portal software whose pages are built by scripts (read through the browser): Abacus, Prospective, dualoo, jobdesk, refline, HR4YOU
-                      r'(?:^|\.)(?:abaservices\.ch|prospective\.ch|dualoo\.com|jobdesk\.ch|refline\.ch|hr4you\.org)$', re.I)
-NOT_JOBS = re.compile(r'benefit|news|blog|press|presse|medien|event|impressum|datenschutz|privacy|cookie|kontakt|contact|lehre|ausbildung|praktik|'
-                      r'studium|bewerbungsprozess|application-process|erfahrungsberichte|mitarbeiterstimmen|login|logout', re.I)
+NO_JOBS = meanings_pack.matcher('page-words', 'no_jobs')   # the meanings pack: the old list (seed) + rows the site adds
+STRONG_WORDS = meanings_pack.matcher('page-words', 'strong_jobs')   # the meanings pack: the old list (seed) + rows the site adds
+JOB_HOST = meanings_pack.matcher('page-words', 'job_host')   # the meanings pack: the old list (seed) + rows the site adds
+NOT_JOBS = meanings_pack.matcher('page-words', 'not_jobs')   # the meanings pack: the old list (seed) + rows the site adds
 
 
 def registrable(host):

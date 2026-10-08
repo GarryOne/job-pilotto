@@ -11,10 +11,11 @@ from datetime import timedelta
 
 from . import careers
 from . import visits
+from ..ai import meanings_pack
 
 
-JOBLIST = re.compile(r'job|offre|stelle|vacanc|search|opening|position|poste|emploi|karriere|carri|career|recrut|lavora', re.I)
-NOT_A_LIST = re.compile(r'login|signin|sign-in|logon|auth|alert|register|subscribe|newsletter|password|account|/content/|/news|/article|/blog|/press|\b20\d\d\b', re.I)
+JOBLIST = meanings_pack.matcher('page-words', 'job_list')   # the meanings pack: the old list (seed) + rows the site adds
+NOT_A_LIST = meanings_pack.matcher('page-words', 'not_a_list')   # the meanings pack: the old list (seed) + rows the site adds
 LOCALE = re.compile(r'(?:^|[/_.-])([a-z]{2})(?:[-_]([a-z]{2}))?(?=$|[/_.])', re.I)
 
 
