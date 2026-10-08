@@ -17,6 +17,38 @@ const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];
 const REVIEW_DAYS = 30;
 const PER_INSTALL_PER_DAY = 24, MIN_FAIL_CHECK = 20, HALT_ABOVE = 0.25, MIN_PROMOTE = 50, PROMOTE_BELOW = 0.05;
+// How many different installs must propose the same meaning before it runs (owner, 8 Oct 2026): 2 for an ordinary field, 3 for a sensitive one.
+const MIN_INSTALLS = 2, MIN_INSTALLS_SENSITIVE = 3;
+// A meaning people keep correcting by hand is wrong, even when every field took its value (the fill outcome can't tell): halted at
+// CORRECTED_MIN corrections making up CORRECTED_ABOVE of the fills of the wordings it covers (intel_fixes: labels and counts only).
+const CORRECTED_MIN = 3, CORRECTED_ABOVE = 0.3;
+async function correctedTooOften(db, phrase) {
+  const sums = await db.prepare("SELECT SUM(filled) AS filled, SUM(corrected) AS corrected FROM intel_fixes WHERE label = ? OR (' ' || label || ' ') LIKE ?")
+    .bind(phrase, `% ${phrase} %`).first().catch(() => null);
+  const filled = sums?.filled || 0, corrected = sums?.corrected || 0;
+  return corrected >= CORRECTED_MIN && corrected / Math.max(filled, 1) >= CORRECTED_ABOVE ? {filled, corrected} : null;
+}
+// Daily: the learning tables keep what is still deciding something, not every day forever (owner, 8 Oct 2026: "avoid growing the
+// database"). Fill outcomes older than 60 days go (canaries are judged on recent ones); proposals for a wording that already has a
+// meaning, or not seen for 90 days, go; meaning votes not seen for 90 days go unless their meaning is running (its votes keep it on);
+// correction counts not seen for 180 days go.
+export async function pruneLearning(db, now = new Date()) {
+  const ago = days => day(new Date(now.getTime() - days * 86400000));
+  const runs = [
+    ['alias_outcomes', () => db.prepare('DELETE FROM alias_outcomes WHERE day < ?').bind(ago(60))],
+    ['alias_proposals', () => db.prepare('DELETE FROM alias_proposals WHERE last_day < ? OR phrase IN (SELECT phrase FROM aliases)').bind(ago(90))],
+    ['meaning_votes', () => db.prepare(`DELETE FROM meaning_votes WHERE at < ? AND NOT EXISTS (SELECT 1 FROM meanings m WHERE m.topic = meaning_votes.topic
+      AND m.wording = meaning_votes.wording AND m.status IN ('canary', 'verified'))`).bind(new Date(now.getTime() - 90 * 86400000).toISOString())],
+    ['intel_fixes', () => db.prepare('DELETE FROM intel_fixes WHERE last_day < ?').bind(ago(180))],
+  ];
+  const removed = {};
+  for (const [table, statement] of runs) {
+    let done = null;
+    try { done = await statement().run(); } catch { done = null; }   // a table this database doesn't have yet: nothing to prune, the rest goes on
+    if (done) removed[table] = done.meta?.changes ?? done.changes ?? 0;
+  }
+  return removed;
+}
 const day = date => date.toISOString().slice(0, 10);
 const json = (body, status = 200) => Response.json(body, {status, headers: {'Cache-Control': 'private, no-store'}});
 
@@ -58,6 +90,12 @@ export async function evaluateVerifiedAliases(db, now = new Date()) {
   const from = day(new Date(now.getTime() - 6 * 86400000));
   const actions = [];
   for (const item of (await db.prepare("SELECT phrase FROM aliases WHERE status = 'verified'").all()).results || []) {
+    const wrong = await correctedTooOften(db, item.phrase);
+    if (wrong) {
+      await db.prepare("UPDATE aliases SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE phrase = ?").bind(`auto-rolled back: corrected by hand ${wrong.corrected} of ${wrong.filled} times`, now.toISOString(), item.phrase).run();
+      actions.push({alias: item.phrase, action: 'rolled back: corrected by hand', ...wrong});
+      continue;
+    }
     const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM alias_outcomes WHERE phrase = ? AND day >= ?').bind(item.phrase, from).first();
     const ok = sums?.ok || 0, failed = sums?.failed || 0, attempts = ok + failed, rate = attempts ? failed / attempts : 0;
     if (attempts >= MIN_FAIL_CHECK && rate > HALT_ABOVE) {
@@ -136,7 +174,7 @@ export async function storeUse(env, items, now = new Date()) {
 }
 
 // From POST /api/controls: [{key, phrase}] a learned note says a label wording stands for a fixed profile field. Counted per install digest; once
-// MIN_PEOPLE different installs sent the same pair it starts as a 5% canary at once, sensitive fields included (owner, 8 Oct 2026: "reuse
+// MIN_INSTALLS different installs (MIN_INSTALLS_SENSITIVE for a sensitive field) sent the same pair it starts as a 5% canary at once, sensitive fields included (owner, 8 Oct 2026: "reuse
 // learning from one installation to another"; only the wording and the field name are shared, never a value): evaluateAliases grows it as
 // fills succeed and halts it when they fail. A wording that already has a meaning is left alone.
 export async function storeProposals(env, items, install, now = new Date()) {
@@ -153,7 +191,7 @@ export async function storeProposals(env, items, install, now = new Date()) {
     await env.STATS.prepare(`INSERT INTO alias_proposals (phrase, key, installs, last_day) VALUES (?, ?, ?, ?)
       ON CONFLICT (phrase, key) DO UPDATE SET installs = excluded.installs, last_day = excluded.last_day`).bind(phrase, key, JSON.stringify(installs), day(now)).run();
     stored++;
-    if (installs.length >= MIN_PEOPLE) {
+    if (installs.length >= (SENSITIVE.includes(key) ? MIN_INSTALLS_SENSITIVE : MIN_INSTALLS)) {
       const made = await env.STATS.prepare(`INSERT INTO aliases (phrase, key, status, rollout, source, note, created_at, updated_at) VALUES (?, ?, 'canary', ${STEPS[0]}, 'installs', ?, ?, ?)
         ON CONFLICT (phrase) DO NOTHING`).bind(phrase, key, `proposed by ${installs.length} installs`, now.toISOString(), now.toISOString()).run();
       if ((made.meta?.changes ?? made.changes) > 0) promoted++;
@@ -167,6 +205,12 @@ export async function evaluateAliases(db, now = new Date()) {
   const running = (await db.prepare("SELECT phrase, key, rollout, updated_at FROM aliases WHERE status = 'canary'").all()).results || [];
   const actions = [];
   for (const item of running) {
+    const wrong = await correctedTooOften(db, item.phrase);
+    if (wrong) {
+      await db.prepare("UPDATE aliases SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE phrase = ?").bind(`auto-halted: corrected by hand ${wrong.corrected} of ${wrong.filled} times`, now.toISOString(), item.phrase).run();
+      actions.push({alias: item.phrase, action: 'halted: corrected by hand', ...wrong});
+      continue;
+    }
     const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM alias_outcomes WHERE phrase = ? AND day >= ?').bind(item.phrase, item.updated_at.slice(0, 10)).first();
     const ok = sums?.ok || 0, failed = sums?.failed || 0, attempts = ok + failed, rate = attempts ? failed / attempts : 0;
     if (attempts >= MIN_FAIL_CHECK && rate > HALT_ABOVE) {

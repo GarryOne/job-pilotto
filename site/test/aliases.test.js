@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {bucketOf} from '../../extension/recipe-schema.js';
-import {aliases, evaluateAliases, evaluateVerifiedAliases, pack, storeProposals} from '../src/aliases.js';
+import {aliases, evaluateAliases, evaluateVerifiedAliases, pack, pruneLearning, storeProposals} from '../src/aliases.js';
 import {controls, installToken} from '../src/recipes.js';
 
 function d1() {
@@ -109,18 +109,19 @@ test('changed-answer wordings become review targets only when enough people and 
   assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'rolled back']]);
 });
 
-test('a wording 3 different installs proposed starts as a 5% canary at once (sensitive fields too), and no sooner', async () => {
+test('a wording 2 different installs proposed starts as a 5% canary at once (a sensitive one at 3), and no sooner', async () => {
   const e = env();
   const item = {key: 'first_name', phrase: 'Preferred First Name'};
   await storeProposals(e, [item, item], 'install-a-0001', now);   // the same install twice counts once
-  await storeProposals(e, [item], 'install-b-0002', now);
   assert.deepEqual((await e.STATS.prepare('SELECT * FROM aliases').all()).results, []);
-  const third = await storeProposals(e, [item, {key: 'salary', phrase: 'pay'}, {key: 'email', phrase: 'I agree to terms'}], 'install-c-0003', now);
-  assert.deepEqual(third, {stored: 1, promoted: 1});   // the unknown field and the consent wording are refused
+  const second = await storeProposals(e, [item, {key: 'salary', phrase: 'pay'}, {key: 'email', phrase: 'I agree to terms'}], 'install-b-0002', now);
+  assert.deepEqual(second, {stored: 1, promoted: 1});   // the unknown field and the consent wording are refused
   const row = (await e.STATS.prepare('SELECT phrase, key, status, rollout, source FROM aliases').all()).results[0];
   assert.deepEqual({...row}, {phrase: 'preferred first name', key: 'first_name', status: 'canary', rollout: 5, source: 'installs'});
   // A sensitive field needs no owner approval any more: the canary and its automatic halt guard it (only wording + field are shared).
-  for (const install of ['install-a-0001', 'install-b-0002', 'install-c-0003']) await storeProposals(e, [{key: 'street', phrase: 'Rue et numéro'}], install, now);
+  for (const install of ['install-a-0001', 'install-b-0002']) await storeProposals(e, [{key: 'street', phrase: 'Rue et numéro'}], install, now);
+  assert.ok(!await e.STATS.prepare("SELECT status FROM aliases WHERE phrase = 'rue et numéro'").first());   // sensitive: 2 are not enough
+  await storeProposals(e, [{key: 'street', phrase: 'Rue et numéro'}], 'install-c-0003', now);
   assert.equal((await e.STATS.prepare("SELECT status FROM aliases WHERE phrase = 'rue et numéro'").first()).status, 'canary');
   await storeProposals(e, [{key: 'last_name', phrase: 'Preferred First Name'}], 'install-d-0004', now);   // a running meaning is not overwritten by more votes
   assert.equal((await e.STATS.prepare('SELECT status FROM aliases').first()).status, 'canary');
@@ -131,4 +132,34 @@ test('POST /api/controls takes proposals from an install', async () => {
   const send = install => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install, proposals: [{key: 'linkedin', phrase: 'Your LinkedIn profile'}]})}), e, now);
   for (const install of ['install-a-0001', 'install-b-0002', 'install-c-0003']) assert.equal((await send(install)).status, 200);
   assert.equal((await e.STATS.prepare("SELECT key FROM aliases WHERE phrase = 'your linkedin profile'").first()).key, 'linkedin');
+});
+
+// Owner, 8 Oct 2026: a wrong meaning fills fields that take the value, so the fill outcome alone grows it; people correcting it by hand halt it.
+test('a meaning people keep correcting by hand is halted (canary) or rolled back (verified), even when every field took its value', async () => {
+  const e = env();
+  await owner(e, 'PUT', {status: 'canary', rollout: 5, items: [{key: 'email', phrase: 'courriel'}]});
+  await owner(e, 'PUT', {status: 'verified', items: [{key: 'linkedin', phrase: 'profil linkedin'}]});
+  const fixes = (label, filled, corrected) => e.STATS.db.prepare("INSERT INTO intel_fixes (label, filled, corrected, installs, last_day) VALUES (?, ?, ?, '[]', '2026-10-01')").run(label, filled, corrected);
+  fixes('votre courriel', 8, 4); fixes('profil linkedin', 20, 2);   // 4 of 8 corrected: wrong; 2 of 20: fine
+  const report = (phrase, ok) => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-aaaa-1111', aliasUse: [{phrase, ok, failed: 0}]})}), e, now);
+  await report('courriel', 60);   // every fill took it
+  assert.deepEqual((await evaluateAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'halted: corrected by hand']]);
+  assert.deepEqual(await evaluateVerifiedAliases(e.STATS, now), []);
+  fixes('mon profil linkedin', 6, 6);   // now 8 of 26 corrected: over 30%
+  assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['profil linkedin', 'rolled back: corrected by hand']]);
+});
+
+test('the learning tables keep what still decides something: old outcomes, decided or stale proposals and stale votes go', async () => {
+  const e = env();
+  const db = e.STATS.db;
+  db.exec(readFileSync(new URL('../migrations/0040_meaning_votes.sql', import.meta.url), 'utf8'));
+  db.exec("CREATE TABLE IF NOT EXISTS meanings (topic TEXT, kind TEXT, wording TEXT, answer TEXT, ord INTEGER, status TEXT, rollout INTEGER, source TEXT, updated_at TEXT)");
+  db.prepare("INSERT INTO meanings (topic, kind, wording, answer, status, rollout, source) VALUES ('job-region', 'exact', 'running', 'x', 'canary', 5, 'learned')").run();
+  await owner(e, 'PUT', {status: 'canary', rollout: 5, items: [{key: 'email', phrase: 'courriel'}]});
+  db.prepare("INSERT INTO alias_outcomes (day, phrase, ok, failed) VALUES ('2026-06-01', 'courriel', 5, 0), ('2026-09-30', 'courriel', 5, 0)").run();
+  db.prepare("INSERT INTO alias_proposals (phrase, key, installs, last_day) VALUES ('courriel', 'email', '[]', '2026-10-01'), ('vieux', 'email', '[]', '2026-05-01'), ('frais', 'email', '[]', '2026-10-01')").run();
+  db.prepare("INSERT INTO meaning_votes (topic, wording, answer, install, at) VALUES ('job-region', 'old', 'x', 'i1', '2026-05-01T00:00:00Z'), ('job-region', 'new', 'x', 'i1', '2026-10-01T00:00:00Z'), ('job-region', 'running', 'x', 'i1', '2026-05-01T00:00:00Z')").run();   // a running meaning's old vote stays: it keeps it on
+  const removed = await pruneLearning(e.STATS, now);
+  assert.deepEqual([removed.alias_outcomes, removed.alias_proposals, removed.meaning_votes], [1, 2, 1]);
+  assert.deepEqual(db.prepare('SELECT phrase FROM alias_proposals').all().map(r => r.phrase), ['frais']);
 });

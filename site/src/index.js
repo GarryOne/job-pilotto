@@ -16,7 +16,7 @@ import {reportFile as e2eReportFile, view as e2eView} from './e2e.js';
 import {view as overviewView} from './overview.js';
 import {view as accessView} from './access.js';
 import {join, viewer} from './auth.js';
-import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack} from './aliases.js';
+import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack, pruneLearning} from './aliases.js';
 import {evaluateMeanings} from './meanings.js';
 import {tidy as tidyIntelligence} from './intelligence.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
@@ -147,6 +147,7 @@ export default {
       .catch(error => console.error(`meanings canary: ${error.message}`)));
     ctx.waitUntil((env.STATS ? evaluateAliases(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`aliases: ${JSON.stringify(actions)}`); })
       .catch(error => console.error(`alias canary: ${error.message}`)));
+    ctx.waitUntil((env.STATS ? pruneLearning(env.STATS) : Promise.resolve({})).then(removed => console.log(`learning pruned: ${JSON.stringify(removed)}`)).catch(error => console.log(`learning not pruned: ${error.message}`)));   // aliases.js pruneLearning
     ctx.waitUntil((env.STATS ? tidyIntelligence(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`intelligence tidy: ${error.message}`)));
     ctx.waitUntil((env.STATS ? tidyKnowledge(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`knowledge tidy: ${error.message}`)));
   },
