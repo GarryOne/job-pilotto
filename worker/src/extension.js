@@ -355,7 +355,8 @@ export async function handleExtension(request, env) {
         text: String(entry?.text || '').slice(0, 300),
         fields: Object.fromEntries(Object.entries(entry?.fields && typeof entry.fields === 'object' ? entry.fields : {})
           .slice(0, 8).map(([key, value]) => [String(key).slice(0, 24),
-            typeof value === 'string' ? value.slice(0, 60) : typeof value === 'number' || typeof value === 'boolean' ? value : ''])),
+            key === 'fields' && Array.isArray(value) ? fieldRows(value)
+              : typeof value === 'string' ? value.slice(0, 60) : typeof value === 'number' || typeof value === 'boolean' ? value : ''])),
       }));
       if (env.onLog) await env.onLog(clean);
       else console.log(`extension log: ${clean.map((entry) => `${entry.kind}: ${entry.text}`).join(' | ')}`);
@@ -385,4 +386,12 @@ export async function handleExtension(request, env) {
   } catch (error) {
     return json({ error: error.message }, 502);
   }
+}
+
+// A fill's per-field outcomes (extension/background.js "fields: …"): the one list the log boundary lets through, row by row and only these
+// keys, each a short string: the form's wording and kinds, never an answer (8 Oct 2026: "what happened to this field?" needed page probes).
+function fieldRows(rows) {
+  const keep = {label: 50, type: 16, outcome: 12, source: 30, reason: 80};
+  return rows.slice(0, 40).filter(row => row && typeof row === 'object')
+    .map(row => Object.fromEntries(Object.entries(keep).map(([key, max]) => [key, typeof row[key] === 'string' ? row[key].slice(0, max) : ''])));
 }

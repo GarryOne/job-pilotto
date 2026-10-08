@@ -245,3 +245,16 @@ test('an extension fill is logged as an Agent Runs row comparable with the agent
     assert.ok(sent[0].children.some((b) => b.type === 'table' && b.table.children.length === 3));
   } finally { globalThis.fetch = base; }
 });
+
+test("a fill's per-field outcomes pass the log boundary as short rows of wording and kinds, never an answer", async () => {
+  const seen = [];
+  const rows = [{label: 'Formule d\'appel', type: 'combobox', outcome: 'filled', source: 'Claude', reason: '', value: 'Monsieur', extra: {a: 1}},
+    ...Array.from({length: 50}, (_, i) => ({label: `Q${i} ${'x'.repeat(80)}`, type: 'text', outcome: 'left', source: '', reason: 'r'.repeat(200)}))];
+  await call('/extension/log', { method: 'POST', body: { entries: [{ kind: 'fill', text: 'fields: 1 filled, 50 left', fields: { fields: rows } }] } },
+    { onLog: async entries => seen.push(...entries) });
+  const kept = seen[0].fields.fields;
+  assert.equal(kept.length, 40);                                            // bounded
+  assert.deepEqual(kept[0], {label: 'Formule d\'appel', type: 'combobox', outcome: 'filled', source: 'Claude', reason: ''});   // no value, no other key
+  assert.equal(kept[1].label.length, 50);
+  assert.equal(kept[1].reason.length, 80);
+});

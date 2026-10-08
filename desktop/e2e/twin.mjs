@@ -65,6 +65,9 @@ async function main() {
   const app = spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'],
     env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port),
       PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool}});
+  // The kept profile keeps the extension's service-worker cache too: after an extension update it could keep running the previous
+  // background code (8 Oct 2026: a fix tested in the twin silently didn't run). Cleared at each start; sign-ins and cookies stay.
+  for (const cache of ['Service Worker', 'Code Cache']) fs.rmSync(path.join(LIVE, 'browser', 'Default', cache), {recursive: true, force: true});
   const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile: path.join(LIVE, 'browser'), debugPort: browserCdp});   // kept: site sign-ins survive
   fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, browser: `http://127.0.0.1:${browserCdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
   say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both.`);
