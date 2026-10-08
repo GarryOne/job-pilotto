@@ -18,3 +18,12 @@ test('the driver reaches only the twin\'s own ports and never reads a password v
   assert.match(source, /if \(el\.type === 'password'\) return \{label: text, type: 'password'\}/);
   assert.match(source, /looksLikeSubmit\(/);
 });
+
+test('every action in the app window is a visible one through its own screens, and each one checks for a Submit', () => {
+  const source = fs.readFileSync(new URL('../e2e/twin-drive.mjs', import.meta.url), 'utf8');
+  for (const name of ['click', 'press', 'type']) {
+    const body = source.slice(source.indexOf(`async ${name}(`), source.indexOf('\n  },', source.indexOf(`async ${name}(`)));
+    assert.match(body, /await show\(/, `${name} outlines its target first`);
+  }
+  for (const name of ['click', 'press']) assert.match(source.slice(source.indexOf(`async ${name}(`)).split('\n  },')[0], /looksLikeSubmit/, `${name} refuses a Submit`);
+});

@@ -6,6 +6,7 @@
 //   inspect <session>              the app's view (left, pending, proposals) + the page's own state for each pending field
 //   reopen <session>               the card's "Open in Chrome" path: the tab, else the form reopened with the fill mark
 //   click <tab> <selector> [why]   a real click in the twin's browser (tab: part of its address)
+//   press <text> [why]             a visible click in the app window on the control showing that text (a menu item, a session, a button)
 //   type <row title> <text>        types into a Needs your attention row of the app and presses Enter
 //   app "<js>" | page <tab> "<js>" evaluates in the app window | in a tab, prints the JSON result
 //   shot app|<tab> <file.png>      a screenshot of the app window or a tab
@@ -99,6 +100,20 @@ const commands = {
     await tab.waitForTimeout(1000);
     await browser.close();
     return 'clicked';
+  },
+  // The app the way the owner uses it: its own menu, lists and buttons, outlined first. Never a call to window.pilot.* behind the screen.
+  async press(text, why = '') {
+    const app = await connect('cdp');
+    const win = appWindow(app.pages);
+    const target = win.getByText(text, {exact: false}).filter({visible: true}).first();
+    if (!(await target.count())) { await app.close(); throw new Error(`nothing in the app shows "${text}"`); }
+    if (looksLikeSubmit(await target.evaluate(el => el.textContent || ''), false)) { await app.close(); throw new Error('refused: that looks like a Submit'); }
+    await win.bringToFront();
+    await show(target, why || `pressing "${text}"`);
+    await target.click();
+    await win.waitForTimeout(800);
+    await app.close();
+    return 'pressed';
   },
   async type(title, text) {
     const app = await connect('cdp');

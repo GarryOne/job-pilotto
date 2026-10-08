@@ -27,6 +27,7 @@
   |---|---|
   | `inspect <session>` | the app's view (left, pending, proposals) + the page's own state per pending field (never a password) |
   | `reopen <session>` | the card's "Open in Chrome" path (the form reopened with the fill mark when its tab is gone) |
+  | `press <text> [why]` | a visible click in the **app** on the control showing that text (Applying, a session, Apply). Drive the app through its own screens like this, never with `app "window.pilot.…"`: the owner watches the app too (9 Oct 2026) |
   | `click <tab> <selector> [why]` | a real click in the twin's browser (`tab`: part of its address) |
   | `type <row title> <text>` | types into a Needs your attention row and presses Enter |
   | `app "<js>"` / `page <tab> "<js>"` | reads state from the app window / a tab |
