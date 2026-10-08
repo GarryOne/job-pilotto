@@ -137,7 +137,7 @@ function showCvCheck(data) {
   show($('cvc-ai'), !!ai);
   show($('cvc-ai-run'), !!ats);
   $('cvc-run').textContent = ats ? 'Check again' : 'Check my CV (free)';
-  $('cvc-ai-run').textContent = ai ? 'Review again (~5¢)' : 'Add the content review (~5¢)';
+  $('cvc-ai-run').textContent = ai ? 'Review again (a few cents)' : 'Add the content review (a few cents)';
   $('cvc-state').textContent = ats ? `Checked ${runWhen(data.at)}` : 'Not checked yet';
   if (ats) {
     $('cvc-score').textContent = ats.score;

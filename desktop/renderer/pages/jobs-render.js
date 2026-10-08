@@ -270,7 +270,7 @@ export function renderJobs() {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
       const earlier = String(job.kit_state || '').startsWith('earlier');
       menu.push({icon: 'refresh', label: earlier ? 'Redraft kit (earlier inputs)' : 'Redraft kit',
-        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s, about 4¢); replaces it in Notion', run: () =>
+        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s, a few cents); replaces it in Notion', run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
@@ -306,10 +306,10 @@ export function renderJobs() {
         if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
       });
       menu.push({icon: 'scissors', label: job.tailored ? 'Re-tailor CV' : 'Tailor CV',
-        title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, ~10–15¢)',
+        title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, a few cents)',
         run: tailorNow});
       // Which terms the posting asks for the CV states, and which requirements could be a yes/no question on the form (a dialog: nothing added to the list).
-      menu.push({icon: 'scale', label: 'Check CV match', title: 'Compare your CV with this posting: stated, implied and missing terms, and the requirements that could be knockout questions (about 30 s, ~5¢)',
+      menu.push({icon: 'scale', label: 'Check CV match', title: 'Compare your CV with this posting: stated, implied and missing terms, and the requirements that could be knockout questions (about 30 s, a few cents)',
         run: () => openMatchCheck(job, {tailor: tailorNow})});
     }
     // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,
