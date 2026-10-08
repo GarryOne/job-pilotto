@@ -9,14 +9,19 @@
 #   tools/ship.sh --full     Tier 2: every suite (PUSH_FULL=1)
 #   tools/ship.sh --fix      this commit is the fix or revert of a red main (CI_RED_OK=1)
 #   tools/ship.sh --keep     leave the worktree and branch in place
+#   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
+# Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since
+# the start, and ends with exactly one marker line: `ship: DONE <sha>` or `ship: FAILED (exit N) ...`. A caller that cut the run short
+# (a timeout, a piped `| tail`) reads that last line of the log to know how it ended; running it again is safe.
 set -euo pipefail
-flags=""; keep=0
+flags=""; keep=0; background=0; args=()
 for arg in "$@"; do
   case "$arg" in
-    --full) flags="PUSH_FULL=1 $flags" ;;
-    --fix) flags="CI_RED_OK=1 $flags" ;;
-    --keep) keep=1 ;;
-    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep]" >&2; exit 2 ;;
+    --full) flags="PUSH_FULL=1 $flags"; args+=("$arg") ;;
+    --fix) flags="CI_RED_OK=1 $flags"; args+=("$arg") ;;
+    --keep) keep=1; args+=("$arg") ;;
+    --background) background=1 ;;
+    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep] [--background]" >&2; exit 2 ;;
   esac
 done
 
@@ -25,6 +30,24 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
 [ "$branch" != main ] || { echo "ship: this is the main checkout. Work in a worktree (tools/worktree.sh <topic>), then run this there." >&2; exit 2; }
 if ! git diff --quiet || ! git diff --cached --quiet; then echo "ship: uncommitted changes in tracked files: commit them first" >&2; exit 2; fi
+
+log="${SHIP_LOG:-${TMPDIR:-/tmp}/ship-${branch//\//-}.log}"
+if [ "$background" = 1 ]; then
+  : > "$log"
+  SHIP_LOG="$log" nohup "$0" ${args[@]+"${args[@]}"} >> "$log" 2>&1 < /dev/null &
+  echo "ship: started in the background (pid $!). Log: $log"
+  echo "ship: its last line says how it ended: 'ship: DONE <sha>' or 'ship: FAILED ...' (e.g. tail -3 $log)"
+  exit 0
+fi
+# From here every line also goes to the log; the exit trap writes the closing marker once.
+if [ -z "${SHIP_LOGGING:-}" ]; then
+  export SHIP_LOGGING=1
+  exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
+  echo "ship: log: $log"
+fi
+started=$SECONDS
+step() { echo "ship: [$((SECONDS - started))s] $*"; }
+trap 'code=$?; if [ "$code" -eq 0 ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (exit $code), log: $log"; fi' EXIT
 
 rebase() {
   git fetch -q origin
@@ -35,12 +58,25 @@ rebase() {
   fi
 }
 
+step "rebasing $branch onto origin/main"
 rebase
 [ "$(git rev-list --count origin/main..HEAD)" -gt 0 ] || { echo "ship: nothing to push, $branch has no commits beyond origin/main"; exit 0; }
 
 # The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here, once, as it would see the push.
 payload="$(jq -n --arg command "${flags}git push origin $branch:main" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
-bash "$here/tools/pre-push-check.sh" <<<"$payload" || exit $?
+# It prints nothing while it passes and takes minutes: a heartbeat every 20 s says it is still working; its own words show only on failure.
+step "running the push checks (the suites of the touched areas; ${flags:+$flags}this can take a few minutes)"
+checks="$(mktemp)"
+bash "$here/tools/pre-push-check.sh" <<<"$payload" > "$checks" 2>&1 &
+check_pid=$!
+while kill -0 "$check_pid" 2>/dev/null; do
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do kill -0 "$check_pid" 2>/dev/null || break; sleep 1; done
+  kill -0 "$check_pid" 2>/dev/null && step "the push checks are still running"
+done
+check_code=0; wait "$check_pid" || check_code=$?
+cat "$checks" >&2; rm -f "$checks"
+[ "$check_code" = 0 ] || exit "$check_code"
+step "the push checks passed"
 
 # A push that changes workflow files while a desktop build runs would make GitHub refuse that build's release, if the build could not tag at its
 # start (desktop.yml "Tag this build now"): wait for the build, up to 20 minutes (SHIP_NO_WAIT=1 skips the wait). Other pushes never wait.
@@ -53,6 +89,7 @@ if [ -z "${SHIP_NO_WAIT:-}" ] && ! git diff --quiet origin/main HEAD -- .github/
   done
 fi
 
+step "pushing to main"
 pushed=""
 for attempt in 1 2 3 4 5; do
   before="$(git rev-parse origin/main)"

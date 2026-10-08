@@ -116,7 +116,9 @@ them from colliding in one checkout:
   checkout's `node_modules` linked in, so the tests run at once; `node_modules` is git-ignored: leave the links alone).
 - Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks once (the suites of the
   areas you touched), push with a retry when another session pushed in between, update the main checkout, remove the worktree.
-  `--full` for Tier 2, `--fix` for the fix/revert of a red main, `--keep` to keep the worktree. By hand it is still
+  `--full` for Tier 2, `--fix` for the fix/revert of a red main, `--keep` to keep the worktree.
+  The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
+  `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
 - Remove the worktree afterwards: `tools/worktree.sh --done <topic>` (`ship.sh` does it).
 - Never force-push `main` — not `--force`, not `--force-with-lease`. Several agents push here in

@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -100,6 +101,43 @@ class ShipTest(unittest.TestCase):
         self.assertIn('conflicts', result.stderr)
         self.assertEqual(git(self.tree, 'status', '--porcelain'), '')
         self.assertNotIn('My a', git(self.origin, 'log', '--format=%s', 'main'))
+
+    def test_a_run_names_its_log_shows_its_steps_and_ends_with_one_marker_line(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        log = self.tmp / 'ship.log'
+        result = subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh')], cwd=self.tree, capture_output=True, text=True, timeout=60,
+                                env={**os.environ, 'SHIP_LOG': str(log)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f'ship: log: {log}', result.stdout)
+        lines = log.read_text().splitlines()
+        self.assertTrue(any('running the push checks' in line for line in lines))
+        self.assertTrue(lines[-1].startswith('ship: DONE '), lines[-1])
+        self.assertEqual(sum('ship: DONE' in line or 'ship: FAILED' in line for line in lines), 1)
+
+    def test_a_failed_run_ends_with_a_failed_marker_that_names_the_log(self):
+        self.change(self.tree, 'tools/pre-push-check.sh', '#!/bin/sh\necho "Push blocked: tests failed in desktop" >&2\nexit 2\n', 'Hook that refuses')
+        log = self.tmp / 'ship.log'
+        result = subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh')], cwd=self.tree, capture_output=True, text=True, timeout=60,
+                                env={**os.environ, 'SHIP_LOG': str(log)})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('Push blocked', result.stderr)
+        self.assertEqual(log.read_text().splitlines()[-1], f'ship: FAILED (exit 2), log: {log}')
+
+    def test_background_returns_at_once_and_the_log_ends_with_done(self):
+        self.change(self.tree, 'tools/pre-push-check.sh', '#!/bin/sh\ncat > /dev/null\nsleep 3\n', 'Slow hook')
+        log = self.tmp / 'ship.log'
+        started = time.time()
+        result = subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), '--background'], cwd=self.tree, capture_output=True, text=True, timeout=60,
+                                env={**os.environ, 'SHIP_LOG': str(log)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(time.time() - started, 2.5, 'it returned before the checks finished')
+        self.assertIn(str(log), result.stdout)
+        for _ in range(60):
+            if log.exists() and 'ship: DONE' in log.read_text():
+                break
+            time.sleep(0.5)
+        self.assertTrue(log.read_text().splitlines()[-1].startswith('ship: DONE '), log.read_text())
+        self.assertIn('Slow hook', git(self.origin, 'log', '--format=%s', 'main'))
 
 
 if __name__ == '__main__':
