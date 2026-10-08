@@ -76,10 +76,13 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/misses.js` — Controls the form reader could not read, kept on this Mac (extension/review.js -> /extension/misses): the first step of
 - `desktop/lib/needs-you.js` — Telegram, notification and toast for "Claude needs your input" (main.js sessionNeedsYou): once per question. A session
 - `desktop/lib/notify-watch.js` — macOS drops a notification from an app it hasn't allowed (the dev app from `npm start`, a fresh install) without
+- `desktop/lib/notion-core.js` — Notion, the shared core: the paced, retrying call(), the page-tree cache state, title helpers, the discovery search and listChildren.
 - `desktop/lib/notion-gate.js` — Notion later: what "Notion is connected" means, and the one answer a tracking action gives when it is not.
 - `desktop/lib/notion-oauth.js` — "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
 - `desktop/lib/notion-pace.js` — One Notion pace for every process on this computer that uses the same Notion connection: the app, the Python
+- `desktop/lib/notion-read.js` — Notion, reading pages: the kept page trees (re-read only when Notion says the page changed), text blocks and readable text, edits to one
 - `desktop/lib/notion-workspace.js` — Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto
+- `desktop/lib/notion-write.js` — Notion, writing pages: Markdown to blocks, rewriting a page in place (patch plan, delete passes, leftover sweep), appending answers,
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
 - `desktop/lib/orphans.js` — An engine run (`python -m src daily|check|scout|discover|feeds`) the app started and then lost: the app restarted, so the run's parent is now
 - `desktop/lib/outcomes.js` — "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
@@ -111,6 +114,10 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 - `desktop/lib/secrets.js` — Pasted keys and tokens: drop what copying adds (spaces, line breaks, invisible characters) and
 - `desktop/lib/sentry.js` — Crash reports to Sentry, without Sentry's SDK: the SDK instruments HTTP and console by default and drags in 58 MB, which is the wrong
+- `desktop/lib/server-contact.js` — "Your details" for the extension (GET /extension/me): the contact, CV and cover letter it fills a form with, read from Notion with the last
+- `desktop/lib/server-env.js` — What the extension's requests are answered with: its token, the Applied-session bookkeeping, the Apply-with-Claude tickets, the version
+- `desktop/lib/server-hooks.js` — The app's side of the extension server: what main.js plugs in (notifier, window signal, and one handler per extension message), kept as
+- `desktop/lib/server-pages.js` — Which page the extension is on: the open session of a job, the confirmation-page check that marks an application Applied, and the AI's
 - `desktop/lib/server.js` — The Chrome extension talks to the app on this computer (127.0.0.1) instead of a Cloudflare Worker.
 - `desktop/lib/session-contracts.js` — Runtime contracts for session IPC requests, responses and public session views; errors never contain values.
 - `desktop/lib/session-flow.js` — The Applying flows' decisions in the app, out of main.js so they are unit-tested (docs/flows/applying.md): what a "can't reach the
@@ -124,6 +131,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/shots.js` — Small copies of pasted screenshots: what goes to Notion is a narrow JPEG, not the full-size file (Claude reads the original).
 - `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
+- `desktop/lib/strategy-edit.js` — Strategy, the "What you're targeting" lists edited in the app: which lists, cleaning the edits, applying them, editLists.
+- `desktop/lib/strategy-rebuild.js` — Strategy, rebuild from the CV: what a new draft changes, grouped by what each change triggers (and its cost). Re-exported by strategy.js.
+- `desktop/lib/strategy-settings.js` — Strategy, saving and tuning: accepting a draft (Profile, answers, search settings), the ⚙️ Search settings page, the daily target, widening
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
@@ -312,6 +322,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
 - `extension/tabs.js` — Which tabs belong to which application (docs/flows/applying.md, owner 8 Oct 2026): a tab opened by an application's tab is the same
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
+- `extension/visit-page.js` — What the extension runs INSIDE a page it reads (chrome.scripting.executeScript { func }): each function is self-contained (it is serialised
 - `extension/visit.js` — "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
 - `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.
 

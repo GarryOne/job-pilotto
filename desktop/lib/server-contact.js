@@ -1,0 +1,72 @@
+// "Your details" for the extension (GET /extension/me): the contact, CV and cover letter it fills a form with, read from Notion with the last
+// good read kept on this Mac. Re-exported by server.js. Guarded by desktop/test/kept.test.js, cv.test.js and local-server.test.js.
+import * as cv from './cv.js';
+import * as letters from './cover-letter.js';
+import fs from 'node:fs';
+import * as knowledge from './knowledge.js';
+import * as viewCache from './view-cache.js';
+import * as contactDetails from './contact.js';
+import {log} from './log.js';
+
+// The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
+// the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
+// With the job page's URL (?url=), a CV tailored to that job is sent instead of the base one (same file name).
+// Your details from Notion; when Notion can't be read, the last ones it gave (a cache, rebuilt at the next good
+// read) and the reason, never a silent empty answer: that left a form without your name, reported as "no answer".
+let lastContact = null;
+async function readContact(storage) {
+  try {
+    const contact = await contactDetails.read(storage);
+    if (Object.keys(contact).length) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
+    return {contact, contactSource: 'notion', contactError: Object.keys(contact).length ? null : 'the 📇 Contact details section of your Notion Profile is empty'};
+  } catch (error) {
+    const kept = lastContact || viewCache.recall(storage, 'contact')?.result?.contact || null;
+    return {contact: kept || {}, contactSource: kept ? 'last read (Notion failed)' : 'none', contactError: `Notion: ${error.message}`};
+  }
+}
+// Answered at once from the last good read kept on this Mac (view-cache), refreshed from Notion in the background once
+// it's older than FRESH_MS; only the very first read waits for Notion. One refresh at a time per kind.
+const FRESH_MS = 10 * 60 * 1000;
+const refreshing = new Map();
+export async function kept(storage, name, load, {now = Date.now()} = {}) {
+  const saved = viewCache.recall(storage, name);
+  const refresh = () => {
+    if (!refreshing.has(name)) refreshing.set(name, Promise.resolve().then(load).finally(() => refreshing.delete(name)));
+    return refreshing.get(name);
+  };
+  if (!saved) return refresh();
+  if (now - Date.parse(saved.at) > FRESH_MS) refresh().catch(() => {});
+  return {...saved.result, fromCache: saved.at};
+}
+export const contactOf = storage => kept(storage, 'contact', () => readContact(storage)).then(result =>
+  result.fromCache ? {contact: result.contact || {}, contactSource: `kept from Notion (${result.fromCache.slice(11, 16)})`, contactError: null} : result);
+// After an edit in Settings → Your details: the kept copy is the new one at once.
+export function contactSaved(storage, contact) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
+
+export async function me(storage, url = '') {
+  const settings = storage.settings();
+  let resume = null;
+  const tailored = url ? cv.forUrl(storage, url) : null;
+  try {
+    const data = fs.readFileSync(tailored ? cv.pdfPath(storage, tailored.job.code) : storage.path('cv.pdf'));
+    // A tailored CV goes up under its own name (CV_<Name>_<Company>.pdf), so the form shows which one it got.
+    resume = {name: tailored ? cv.finalName(storage, tailored) : settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
+  } catch {}
+  // The approved general cover letter as a file, for forms that ask to upload one (Profile → Cover letter).
+  let coverLetterFile = null;
+  try {
+    if (letters.status(storage).pdf) coverLetterFile = {name: 'Cover letter.pdf', type: 'application/pdf', data: fs.readFileSync(letters.pdfPath(storage)).toString('base64')};
+  } catch {}
+  // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
+  const notes = await kept(storage, 'knowledge', async () => {
+    const list = (await knowledge.notes(storage)).map(({block, ...note}) => note);
+    viewCache.remember(storage, 'knowledge', {notes: list});
+    return {notes: list};
+  }).catch(() => ({notes: []}));
+  const direct = (notes.notes || []).filter(n => n.value && ['answer', 'option'].includes(n.kind));
+  const details = await contactOf(storage);
+  // Logged only when Notion was actually read or failed: an answer from the kept copy is the normal case (no noise).
+  if (!details.contactSource?.startsWith('kept')) log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
+    {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, coverLetter: !!coverLetterFile, ...(details.contactError ? {error: details.contactError} : {})});
+  return {...details, resume, coverLetterFile, knowledge: direct};
+}
