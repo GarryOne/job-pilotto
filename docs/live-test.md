@@ -9,7 +9,7 @@
 | Folder | `~/Library/Application Support/Job Pilotto` | `…/Job Pilotto (live test)/home`: a fresh clone at each start |
 | Notion | "Job Pilotto - mac - Photographer" | "🧪 Job Pilotto – Live Test" (one-way mirror, synced at each start) |
 | Token | Keychain `job-pilotto.notion.token-desktop-real` | Keychain `job-pilotto.notion.token-live-test` (404 on every real database: checked at start) |
-| Browser | the owner's Chrome | its own visible Chromium window, extension copy on the twin's port |
+| Browser | the owner's Chrome | its own visible Chromium window (profile kept), extension copy on the twin's port |
 | Port | 47111 | a free one (`twin.json`) |
 | Telegram, schedules, Always on, telemetry | on | off (`desktop/lib/twin.js`) |
 | AppleScript on Chrome / Terminal, Apply with Claude | yes | off |
@@ -18,7 +18,10 @@
 
 ## Run it
 - `cd desktop && npm run twin` (or `--no-sync` to skip the sync). Ctrl-C stops the app and its browser.
-- Drive its window: `~/Library/Application Support/Job Pilotto (live test)/twin.json` → `cdp` (Playwright `connectOverCDP`, call `window.pilot.*`).
+- Drive it from `~/Library/Application Support/Job Pilotto (live test)/twin.json` (Playwright `connectOverCDP`):
+  `cdp` is the twin app's window (call `window.pilot.*`), `browser` is its Chromium (read a tab, click a control; never Submit).
+- Its browser profile is kept in `…/Job Pilotto (live test)/browser/` (site sign-ins survive); its extension copy has "all sites" access built in,
+  as granted once in the owner's Chrome.
 - Its log: `…/Job Pilotto (live test)/home/logs/app.log`. The owner's `app.log` must show none of its lines.
 
 ## Rules
