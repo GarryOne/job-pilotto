@@ -7,6 +7,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const LIMIT = 500;
+// Files that stay over the limit on purpose, with the reason (owner, 8 Oct 2026). Chrome injects each as ONE classic content script (no import
+// without a build step, or without exposing modules to every page): they may not grow, and a new one needs the owner's yes.
+export const EXCEPTIONS = {
+  'extension/review.js': 'the page panel: injected as one classic script (background.js `files: [..., \'review.js\']`); no static imports in a content script',
+  'extension/page/fill.js': 'the form filler: an IIFE injected as one classic script (extension/flow.js); no static imports in a content script',
+};
 export const SOURCE = /\.(?:js|mjs|cjs|py)$/;
 export const SKIP = /^desktop\/shared\/|node_modules\/|\/vendor\/|\.min\.|^site\/public\//;
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -16,7 +22,8 @@ export function sizeProblems(files, linesOf, allowed) {
   for (const file of files) {
     if (!SOURCE.test(file) || SKIP.test(file)) continue;
     const lines = linesOf(file), limit = allowed[file] ?? LIMIT;
-    if (lines > limit) problems.push(allowed[file] ? `${file}: ${lines} lines, over its ${limit} (it may only shrink: move a part into its own file)`
+    if (lines > limit && EXCEPTIONS[file]) problems.push(`${file}: ${lines} lines, over its ${limit}: a documented exception (${EXCEPTIONS[file]}) may not grow`);
+    else if (lines > limit) problems.push(allowed[file] ? `${file}: ${lines} lines, over its ${limit} (it may only shrink: move a part into its own file)`
       : `${file}: ${lines} lines, over ${LIMIT} (split it: one concern per file)`);
   }
   for (const [file, limit] of Object.entries(allowed)) {
