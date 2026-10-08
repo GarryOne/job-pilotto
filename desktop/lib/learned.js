@@ -5,6 +5,8 @@
 //   - anything else short -> 🧠 Form knowledge (Notion) as an "answer"/"option" note for every site, which the extension
 //     uses on the next form that asks the same question (lib/server.js me() -> extension/flow.js).
 // Nothing leaves your Notion. You can read, fix or delete every line there.
+import {aliasKey} from '../shared/alias-schema.js';
+import * as sharedMeanings from './aliases.js';
 import * as contactDetails from './contact.js';
 import * as knowledge from './knowledge.js';
 import {log} from './log.js';
@@ -18,16 +20,20 @@ const PERSONAL = [
 // Already filled from Your details on every form.
 const KNOWN = /first\s*name|last\s*name|family\s*name|surname|e-?mail|phone|mobile|linked\s*in|github|website|^\s*(full\s*)?name\s*$/i;
 const clean = text => String(text || '').replace(/\s*\*+\s*$/, '').replace(/[:"\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-export const personalKey = label => PERSONAL.find(([, pattern]) => pattern.test(clean(label)))?.[0] || '';
+// The label meanings shared by every install (the alias pack: "Rua", "Código postal" in any language, learned) first, then these words.
+const PERSONAL_KEYS = PERSONAL.map(([key]) => key), CONTACT_KEYS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'linkedin', 'github', 'website'];
+export const personalKey = (label, aliases = []) => (key => (PERSONAL_KEYS.includes(key) ? key : ''))(aliasKey(clean(label), aliases))
+  || PERSONAL.find(([, pattern]) => pattern.test(clean(label)))?.[0] || '';
+const known = (label, aliases = []) => KNOWN.test(label) || CONTACT_KEYS.includes(aliasKey(label, aliases));
 
 // items [{label, value, kind}] -> {details: {street: ...}, notes: [...]}; what is already known is left out.
-export function plan(items, {contact = {}, notes = []} = {}) {
+export function plan(items, {contact = {}, notes = [], aliases = []} = {}) {
   const details = {}, fresh = [];
   const have = new Map(notes.map(note => [`${note.scope}|${String(note.field).toLowerCase()}`, note.value]));
   for (const item of Array.isArray(items) ? items : []) {
     const label = clean(item?.label), value = clean(item?.value);
-    if (label.length < 2 || !value || value.length > 300 || KNOWN.test(label)) continue;
-    const key = personalKey(label);
+    if (label.length < 2 || !value || value.length > 300 || known(label, aliases)) continue;
+    const key = personalKey(label, aliases);
     if (key) { if (!contact[key]) details[key] = value; continue; }
     if (have.get(`any|${label.toLowerCase()}`) === value) continue;
     fresh.push({scope: 'any', field: label, kind: item.kind === 'option' ? 'option' : 'answer', value, note: 'You entered this yourself'});
@@ -39,7 +45,8 @@ export async function save(storage, payload, {notify = () => {}, contactSaved = 
   try {
     const contact = await contactDetails.read(storage, fetcher).catch(() => ({}));
     const existing = await knowledge.notes(storage, fetcher).catch(() => []);
-    const {details, notes} = plan(payload?.items, {contact, notes: existing});
+    const aliases = await sharedMeanings.lookup(storage).catch(() => []);   // the shared label meanings (cached; none with technical reports off)
+    const {details, notes} = plan(payload?.items, {contact, notes: existing, aliases});
     if (Object.keys(details).length) { const merged = await contactDetails.save(storage, {...contact, ...details}, fetcher); contactSaved(merged); }
     if (notes.length) await knowledge.add(storage, notes, fetcher);
     const count = Object.keys(details).length + notes.length;

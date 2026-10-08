@@ -5,6 +5,8 @@
 // Acme)"). Answering replaces the ❓ with your answer on that same line, so every later kit and fill has it;
 // deleting the line in Notion works too. Notion is required (older local lists move there: lib/migrate.js).
 import * as notion from './notion.js';
+import {aliasKey, fileKind} from '../shared/alias-schema.js';
+import * as sharedMeanings from './aliases.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -79,7 +81,11 @@ export const isFileQuestion = text => /^\s*(cv|c\.v\.|resume|r[ée]sum[ée]|curr
 // Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has, and contact
 // fields, which come from the Profile).
 export async function collect(storage, run, company = '', fetcher) {
-  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && !CONTACT.test(unmarked(field.label)) && !isFileQuestion(field.label));
+  // A contact or file field by the shared label meanings too (any language: "Nome", "Currículo"), not only these words.
+  const aliases = await sharedMeanings.lookup(storage).catch(() => []);
+  const byMeaning = label => !!aliasKey(unmarked(label), aliases) || !!fileKind(unmarked(label), aliases);
+  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && !CONTACT.test(unmarked(field.label))
+    && !isFileQuestion(field.label) && !byMeaning(field.label));
   if (!wanted.length) return 0;
   const target = notionPage(storage);
   const fresh = [];

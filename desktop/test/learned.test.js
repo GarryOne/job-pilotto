@@ -34,3 +34,13 @@ test('saving writes details and notes once, logs only counts, and says so; a Not
   assert.equal(result.ok, false);
   assert.deepEqual(wrote, []);
 });
+
+test('what you typed is sorted by the shared label meanings too, any language: "Rua" is your street', async () => {
+  const {plan, personalKey} = await import('../lib/learned.js');
+  const aliases = [{key: 'street', phrase: 'rua'}, {key: 'first_name', phrase: 'nome próprio'}];
+  const result = plan([{label: 'Rua *', value: 'Rua Augusta 12'}, {label: 'Nome próprio', value: 'Ana'}, {label: 'Disponibilidade', value: 'Imediata'}], {aliases});
+  assert.deepEqual(result.details, {street: 'Rua Augusta 12'});
+  assert.deepEqual(result.notes.map(note => note.field), ['Disponibilidade']);   // a contact field is filled from your details: never a note
+  assert.equal(personalKey('Rua'), '', 'without the shared meanings, the old words alone do not know it');
+  assert.equal(personalKey('Strasse'), 'street');
+});
