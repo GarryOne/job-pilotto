@@ -3,11 +3,13 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {FOLD_MS, postingToClose} from './same-tab.js';
+import {decide, pushDecisions} from './log.js';
+import {accountSkip, noteRole, onAccountPage, roleOf} from './account.js';
+import {applyPressed, closePosting, followOpener} from './tabs.js';
 import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
-import {MEMORY_KEY, snapshot, startRun} from './tab-memory.js';
-import {isAccountPage, startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
+import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
+import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -16,45 +18,7 @@ async function onPage(tabId, url) {
   return sameSite(tab?.url, url) ? tab : null;
 }
 
-// ---- What the extension decided, and why ----
-// A service worker's console dies with it, and a decision it made (marking a job Applied, or refusing to) used to
-// leave no trace anywhere — which is why 1 Oct 2026's wrong "Applied" could not be explained. Every decision is kept
-// in a small ring buffer in chrome.storage.local and pushed to the app, whose log holds it (`grep extension
-// logs/app.log`); entries the push could not deliver stay unsent and go with the next one, so a crashed worker's
-// last decisions still arrive. Ids, hosts, reasons and counts only — never a form answer or a page's text.
-const LOG_KEY = 'jp-decisions';
-const LOG_KEEP = 50;
-async function decisions() {
-  const {[LOG_KEY]: kept = []} = await chrome.storage.local.get(LOG_KEY).catch(() => ({}));
-  return Array.isArray(kept) ? kept : [];
-}
-async function decide(kind, text, fields = {}) {
-  const entry = {at: new Date().toISOString(), kind: String(kind).slice(0, 24), text: String(text).slice(0, 300),
-    fields: {...fields, version: chrome.runtime.getManifest().version}, sent: false};
-  await inTurn(async () => chrome.storage.local.set({[LOG_KEY]: [...await decisions(), entry].slice(-LOG_KEEP)}).catch(() => {}));
-  pushDecisions();
-  return entry;
-}
-// One at a time: two lines written at once read the same list (one was lost), and two pushes at once sent the same unsent
-// lines twice or three times (8 Oct 2026: "closed the posting tab" logged 3x for one tab).
-let logTurn = Promise.resolve();
-const inTurn = work => (logTurn = logTurn.then(work, work));
-function pushDecisions() { return inTurn(pushNow); }
-async function pushNow() {
-  const kept = await decisions();
-  const unsent = kept.filter(entry => !entry.sent);
-  if (!unsent.length) return;
-  try {
-    const config = await settings();
-    const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/log`, {method: 'POST',
-      headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'},
-      body: JSON.stringify({entries: unsent.slice(-20)})});
-    if (!response.ok) return;
-    const sent = new Set(unsent.map(entry => entry.at + entry.text));
-    await chrome.storage.local.set({[LOG_KEY]: (await decisions())
-      .map(entry => (sent.has(entry.at + entry.text) ? {...entry, sent: true} : entry))});
-  } catch { /* not paired, or the app is closed: they stay unsent for the next push */ }
-}
+// What the extension decided, and why: log.js (decide), kept and pushed to the app's log.
 pushDecisions();  // a worker that just started delivers whatever the last one could not
 
 async function note(tabId, text, url = '') {
@@ -201,7 +165,6 @@ async function stuck(job, host, why, tabId = null) {
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, tab: tabId, session})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
-const applyPressed = new Map();   // tab id → {at, url}: when and on which page the extension pressed its Apply button
 const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
@@ -261,38 +224,10 @@ async function consider(tab, jobUrl) {
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
   reportFlow(tab, {role: 'form', ok: !result?.error});
 }
-// Each tab's page type (tab-pages.js pageRole: 'account' | 'form' | 'no-form'), for the page it was decided on. The one rule both
-// flows go by: a sign-in or sign-up page feeds nothing on the application side (no learned answers, no fill misses, no "submitted").
-async function noteRole(tabId, url, role) { await chrome.storage.session.set({[`role:${tabId}`]: {role, page: pageKey(url)}}).catch(() => {}); }
-async function roleOf(tabId, url) {
-  const stored = (await sessionGet(`role:${tabId}`).catch(() => ({})))[`role:${tabId}`];
-  return stored && stored.page === pageKey(url) ? stored.role : '';
-}
-// A sign-in or sign-up page: the rule said so for this page, or the panel sees a password box on it now (a page that became one).
-async function onAccountPage(tab, panelSaw = false, url = '') {
-  const stored = (await sessionGet(`role:${tab.id}`).catch(() => ({})))[`role:${tab.id}`];
-  return isAccountPage(stored, pageKey(url || tab.url), panelSaw, pageKey);
-}
-const accountSkip = (tab, what) => { let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ } decide('panel', `account page: ${what}`, {host}); };
-
 async function jobOf(tab) {
   const stored = await sessionGet([`from:${tab.id}`, `job:${tab.id}`]);
   return stored[`job:${tab.id}`] || stored[`from:${tab.id}`] || pageKey(tab.url);
 }
-// A tab opened by an armed tab (Apply in a new tab) is the same session. A tab the user opened is not.
-async function followOpener(tab) {
-  if (tab.openerTabId == null) return false;
-  const opener = tab.openerTabId;
-  const stored = await sessionGet([`armed:${opener}`, `from:${opener}`, `job:${opener}`, `session:${opener}`]);
-  if (!stored[`armed:${opener}`]) return false;
-  const next = {[`armed:${tab.id}`]: true};
-  if (stored[`session:${opener}`]) next[`session:${tab.id}`] = stored[`session:${opener}`];   // the same application: the newest tab is its tab now
-  if (stored[`from:${opener}`]) next[`from:${tab.id}`] = stored[`from:${opener}`];
-  if (stored[`job:${opener}`]) next[`job:${tab.id}`] = stored[`job:${opener}`];
-  await chrome.storage.session.set(next);
-  return true;
-}
-
 // The panel is injected only into a tab the desktop app opened, a later page in that tab, or a tab that tab
 // opened. A new document gets the scripts again. Nothing is injected into a tab the user opened themselves.
 async function arm(tabId, why = 'app tab') {
@@ -384,22 +319,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
 });
-// Apply opened its next page in a new tab by script (a link or form was already pointed at this tab): the new tab is the
-// application from now on, and the posting's tab closes, so one tab is left to follow. A pop-up window (a sign-in) never closes it.
-const postingHandled = new Set();   // new tab ids already looked at: each is handled once
-async function closePosting(tab, host) {
-  if (postingHandled.has(tab.id)) return;
-  postingHandled.add(tab.id);
-  const opener = tab.openerTabId == null ? null : await chrome.tabs.get(tab.openerTabId).catch(() => null);
-  // Strict: the new tab's opener is the very tab whose Apply was just pressed, still on that page (another flow's tab never is).
-  const posting = postingToClose(tab, applyPressed, opener?.url, Date.now(), pageKey);
-  if (posting == null) return;
-  applyPressed.delete(posting);
-  const win = await chrome.windows.get(tab.windowId).catch(() => null);
-  if (win?.type !== 'normal') { decide('panel', 'Apply opened a pop-up: the posting tab stays', {host, opener: posting, tab: tab.id}); return; }
-  await chrome.tabs.remove(posting).catch(() => {});
-  decide('panel', 'Apply opened a new tab: followed it, closed the posting tab', {host, opener: tab.openerTabId, closed: posting, tab: tab.id, within: FOLD_MS});
-}
 chrome.tabs.onCreated.addListener(async tab => {
   if (!(await followOpener(tab))) return;
   let host = '';
@@ -917,7 +836,7 @@ const memoryReady = (async () => {
 })();
 const bootId = () => memoryReady;
 // Every read of the tabs' memory waits until it is put back (a reload's first messages come at once).
-function sessionGet(keys) { return memoryReady.then(() => chrome.storage.session.get(keys)); }
+memoryReadyIs(memoryReady);   // every read of the tabs' memory (tab-memory.js sessionGet) waits until it is put back
 // The live copy: written shortly after session storage changes, and right before the extension's own update reload.
 async function keepMemory() {
   await memoryReady;

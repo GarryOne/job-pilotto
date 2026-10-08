@@ -6,7 +6,9 @@ import crypto from 'node:crypto';
 // The code the flows run on. A file added for a flow goes here too (tools/flows-gate.mjs checks it is listed when it is a flow file).
 export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
+  'extension/tabs.js', 'extension/account.js', 'extension/log.js', 'extension/tab-memory.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
+  'desktop/lib/session-flow.js',
 ];
 
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs (E2E_STEPS); `unit`: desktop/test files.
@@ -15,11 +17,11 @@ export const MATRIX = [
   {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Apply opens its form from the page\'s script: followed, posting closed', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Two applications side by side: one tab and its own kit each', e2e: ['side by side'], unit: ['test/review.test.js']},
-  {scenario: 'Sign-up page before the form: account step kept apart', e2e: ['sign-up page'], unit: ['test/extension-tab-pages.test.js', 'test/review.test.js']},
+  {scenario: 'Sign-up page before the form: account step kept apart', e2e: ['sign-up page'], unit: ['test/extension-tab-pages.test.js', 'test/review.test.js', 'test/session-flow.test.js']},
   {scenario: 'Account and application on one page: it is the form', e2e: ['one page'], unit: ['test/extension-tab-pages.test.js']},
   {scenario: 'Form tab closed → the app sees it → Reopen fills it again', e2e: ['tab is closed'], unit: ['test/form-tab-closed.test.js', 'test/session-state.test.js']},
   {scenario: 'The person submits → Applied, session leaves the list', e2e: ['person submits a form'], unit: []},
-  {scenario: 'Claude takes over an account page; the unfilled tab closes', e2e: [], unit: ['test/apply-form-session.test.js']},
+  {scenario: 'Claude takes over an account page; the unfilled tab closes', e2e: [], unit: ['test/apply-form-session.test.js', 'test/session-flow.test.js']},
   {scenario: 'Start-up "Checking…", then "Chrome isn\'t reporting"', e2e: [], unit: ['test/session-state.test.js']},
   {scenario: 'Never submits, never contacts another host', e2e: ['through all of it'], unit: []},
 ];

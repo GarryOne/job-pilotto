@@ -4,8 +4,19 @@
 > The push is blocked until it passes on exactly that code (`tools/flows-gate.mjs`), or the commit says `Flows-unverified: <why>`.
 > Why: a fix for one flow (account creation) must never quietly break another (the application form). Owner, 8 Oct 2026.
 
-**Flow files** (the list is `FLOW_FILES` in `desktop/e2e/flows.mjs`): `extension/background.js`, `tab-pages.js`, `same-tab.js`, `review.js`,
-`flow.js`; `desktop/lib/review.js`, `terminals.js`, `apply.js`, `session-handlers.js`, `form-tab.js`.
+**Flow files** (the list is `FLOW_FILES` in `desktop/e2e/flows.mjs`), one concern each:
+
+| File | Owns |
+|---|---|
+| `extension/tab-pages.js` | the one page rule (`pageRole`, `isAccountPage`), pure |
+| `extension/tabs.js` + `same-tab.js` | which tabs are one application: inherit, follow, close the posting |
+| `extension/account.js` | each tab's page type, the account guards every learner asks |
+| `extension/background.js` | the fill flow: posting → Apply → form → fill, submit watching |
+| `extension/review.js` | the page's panel: progress, what you typed, the submit press |
+| `extension/log.js`, `tab-memory.js`, `flow.js` | shared: the decision log, the tabs' memory, the app/Worker calls |
+| `desktop/lib/session-flow.js` | the app's decisions: stuck → hand-over, the stage from each report, the hand-over's tab |
+| `desktop/lib/review.js` | which session a report belongs to (carried session, newest tab) |
+| `desktop/lib/terminals.js`, `apply.js`, `session-handlers.js`, `form-tab.js` | sessions, opening forms, reopen, Chrome's tabs |
 
 ## The one decision every flow follows
 
@@ -23,13 +34,13 @@
 |---|---|---|---|
 | Direct application form (Greenhouse, Workday, Lever, multi-step) | filled from the kit, Submit untouched | `flow.js`, `background.js` consider/fill | e2e: Greenhouse-like, Workday-shaped, Lever-like, multi-step |
 | Posting → Apply link or form into a new tab → same tab, posted data kept | the link/form is pointed at this tab before the click | `background.js` pressApply | e2e: Apply opens a new tab · `extension-same-tab.test.js` |
-| Apply opens its form from the page's script: followed, posting closed | the new tab is the application; the posting closes only if it is the pressed tab, still on that page | `same-tab.js`, `background.js` closePosting | e2e: side by side · `extension-same-tab.test.js` |
-| Two applications side by side: one tab and its own kit each | a tab carries its session (`session:<tab>`); a session follows its newest tab; older tabs go quiet | `background.js` review relay/followOpener, `desktop/lib/review.js` pick | e2e: side by side · `review.test.js` |
-| Sign-up page before the form: account step kept apart | account page: not filled, nothing learned, "Create account" is not a submit; session at the account step | `tab-pages.js` isAccountPage, `background.js` guards, `lib/review.js` | e2e: sign-up page · `extension-tab-pages.test.js`, `review.test.js` |
+| Apply opens its form from the page's script: followed, posting closed | the new tab is the application; the posting closes only if it is the pressed tab, still on that page | `same-tab.js`, `tabs.js` closePosting | e2e: side by side · `extension-same-tab.test.js` |
+| Two applications side by side: one tab and its own kit each | a tab carries its session (`session:<tab>`); a session follows its newest tab; older tabs go quiet | `tabs.js` followOpener, `background.js` review relay, `desktop/lib/review.js` pick | e2e: side by side · `review.test.js` |
+| Sign-up page before the form: account step kept apart | account page: not filled, nothing learned, "Create account" is not a submit; session at the account step | `tab-pages.js` isAccountPage, `account.js` guards, `lib/session-flow.js` reported, `lib/review.js` | e2e: sign-up page · `extension-tab-pages.test.js`, `review.test.js` |
 | Account and application on one page: it is the form | file upload / text box + password → `form`; passwords stay account fields | `tab-pages.js` pageRole, `review.js` byYou | e2e: one page · `extension-tab-pages.test.js` |
 | Form tab closed → the app sees it → Reopen fills it again | "The form tab was closed", Reopen opens it with `#jobpilotto-fill` for the same session | `session-handlers.js` sessionReopen, `renderer/session-state.js` tabClosed | e2e: tab is closed · `form-tab-closed.test.js`, `session-state.test.js` |
 | The person submits → Applied, session leaves the list | the page after Submit is read; Applied in Notion | `background.js` watchSubmission | e2e: person submits a form |
-| Claude takes over an account page; the unfilled tab closes | stuck `account` → Claude starts; the form tab closes if nothing was filled there | `apply.js` accountTakeOver/formTabsAtHandOver, `main.js` stuck handler | `apply-form-session.test.js` |
+| Claude takes over an account page; the unfilled tab closes | stuck `account` → Claude starts; the form tab closes if nothing was filled there | `lib/session-flow.js` stuck/handOver, `apply.js` accountTakeOver/formTabsAtHandOver | `apply-form-session.test.js`, `session-flow.test.js` |
 | Start-up "Checking…", then "Chrome isn't reporting" | no stale state while unknown; Open Chrome when the extension is silent | `renderer/session-state.js` checkingTabs/chromeSilent | `session-state.test.js` |
 | Never submits, never contacts another host | across every step above | the whole suite | e2e: through all of it |
 

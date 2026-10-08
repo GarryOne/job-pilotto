@@ -99,6 +99,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/sentry.js` — Crash reports to Sentry, without Sentry's SDK: the SDK instruments HTTP and console by default and drags in 58 MB, which is the wrong
 - `desktop/lib/server.js` — The Chrome extension talks to the app on this computer (127.0.0.1) instead of a Cloudflare Worker.
 - `desktop/lib/session-contracts.js` — Runtime contracts for session IPC requests, responses and public session views; errors never contain values.
+- `desktop/lib/session-flow.js` — The Applying flows' decisions in the app, out of main.js so they are unit-tested (docs/flows/applying.md): what a "can't reach the
 - `desktop/lib/session-handlers.js` — Register the real session IPC flows with injected app services, so scenarios exercise the same handlers as Electron.
 - `desktop/lib/session-runs.js` — Each Apply with Claude session's statistics on its row in Notion 🎏 Agent Runs (session-stats.js computes them).
 - `desktop/lib/session-stats.js` — The statistics of an Apply with Claude session, for its row in Notion 🎏 Agent Runs, so the process can be measured
@@ -258,12 +259,14 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Chrome extension
 
+- `extension/account.js` — Account pages (sign-in, sign-up) kept apart from the application form (docs/flows/applying.md, owner 8 Oct 2026): each tab's page
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
 - `extension/fill-card.js` — One anonymous record per fill (a "fill card"), for learning how well the form filling does and why: counts and fixed words only,
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
+- `extension/log.js` — The extension's decision log (moved out of background.js, 8 Oct 2026): every part that decides something (fill, tabs, account pages)
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app
 - `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
@@ -272,6 +275,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/same-tab.js` — One tab per application (owner, 8 Oct 2026: Manor's Apply opened the sign-in in a second tab, and the app lost track of which
 - `extension/tab-memory.js` — The extension's memory of its tabs (which session and job each tab is, which the app opened, the sites being read) lives in
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
+- `extension/tabs.js` — Which tabs belong to which application (docs/flows/applying.md, owner 8 Oct 2026): a tab opened by an application's tab is the same
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `extension/visit.js` — "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
 - `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.

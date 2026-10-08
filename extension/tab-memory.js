@@ -25,3 +25,9 @@ export function startRun({kept, sawStartup = false, tabsNow = []} = {}) {
   if (was.length && !was.some(([id, host]) => now.get(Number(id)) === host)) return {boot: '', restore: null, why: 'its tabs are gone'};
   return {boot: kept.boot, restore: kept.items, why: 'extension reloaded'};
 }
+
+// Every flow module reads the tabs' memory through this: a read waits until the worker has put the memory back (background.js
+// memoryReady), or a reload's first messages read an empty memory. background.js says when it is ready.
+let ready = Promise.resolve();
+export function memoryReadyIs(promise) { ready = Promise.resolve(promise).catch(() => {}); }
+export function sessionGet(keys) { return ready.then(() => chrome.storage.session.get(keys)); }
