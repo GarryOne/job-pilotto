@@ -118,7 +118,7 @@ class Neighbours(unittest.TestCase):
 
     def test_a_review_run_updates_the_insights_and_counts_their_cost(self):
         from src import daily, daily_modes
-        from tests.test_interviews import FakeTracker
+        from tests.interviews_fixtures import FakeTracker
         argv = ['daily', '--mode', 'interview', '--interview', 'iv-1']
         env_ = {k: v for k, v in daily.os.environ.items() if k not in ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')}
 

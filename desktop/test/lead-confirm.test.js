@@ -300,7 +300,7 @@ test('no call time is asked, or sent, for a kind that has no call coming (a reje
   // Another kind keeps it (a booked call, a reply that may fix a time), and so does switching to it afterwards.
   assert.equal(lead.interviewShown(proposal, lead.set(lead.initial(proposal), 'kind', 'Interview scheduled')), true);
   assert.equal(lead.interviewShown(proposal, lead.set(lead.initial(proposal), 'kind', 'Reply received')), true);
-  // The engine's list (src/ai/inbox.py NO_CALL) is the same one.
-  const engine = readFileSync(new URL('../../src/ai/inbox.py', import.meta.url), 'utf8').match(/^NO_CALL = \((.*)\)$/m)[1];
+  // The engine's list (src/ai/inbox_fields.py NO_CALL) is the same one.
+  const engine = readFileSync(new URL('../../src/ai/inbox_fields.py', import.meta.url), 'utf8').match(/^NO_CALL = \((.*)\)$/m)[1];
   assert.deepEqual(engine.split(',').map(x => x.trim()).sort(), ['APPLIED', "'Confirmation received'", "'Rejected'", 'mail.employer_feedback.RECEIVED'].sort());
 });

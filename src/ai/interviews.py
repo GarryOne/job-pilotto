@@ -27,435 +27,46 @@ from datetime import datetime, timezone
 from html import escape
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import tempfile
-from pathlib import Path
 import urllib.request
 
+from . import cost
+from . import engine
+from . import meanings
+from . import transcribe
+from .. import tgcard
 from ..notion import client as notion
 from ..notion import titles
-from . import engine
-from .. import tgcard
+from ..notion.ledger import EVENTS_DATABASE_ID
+from ..notion.ledger import add_event
+from ..notion.ledger import plain
+from ..notion.titles import named
 from ..telegram import api_base as telegram_api_base
-from ..notion.titles import named  # noqa: F401 — the one placeholder rule (job titles too)
-from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
-from . import cost, meanings, transcribe
+from .interviews_ai import (
+    DEFAULT_MODEL, FACTS, FALLBACK_MODEL, MAX_CHARS,
+    MAX_TOKENS, NOT_STATED, SCHEMA, SELECT_OPTIONS,
+    SYSTEM, TEXT_TYPES, analyse, ask,
+    candidates)
+from .interviews_blocks import (
+    NO_JOB, _block, _line_key, analysis_blocks,
+    changes_lines, changes_summary, ensure_job_line, interview_title,
+    job_line, message, page_blocks, properties,
+    transcript_toggle)
+from .interviews_facts import _call_facts, _norm, fact_lines, facts_of, merge_facts  # noqa: F401
+from .interviews_input import clean, download, read_input  # noqa: F401
+from .interviews_review import (
+    PLACEHOLDER, REVIEW_HEADINGS, _plain_block, add_review,
+    replace_review, review_block_ids)
+from .interviews_stages import (
+    APP_SOURCE, BEFORE_INTERVIEW, CANCELLED, CANDIDATE_STAGES,
+    CLOSED, IN_TALKS, held_stage)
+from .interviews_store import _place, application_for, by_url, delete, saved_transcript  # noqa: F401
 
-# Opus for reviews and the insights built on them (owner, 30 Sep 2026): rare, judgment-heavy calls on noisy transcripts.
-# Opus thinks by default (it can't be switched off), so its answers get room: MAX_TOKENS. A request it declines is answered
-# once by FALLBACK_MODEL (ask()).
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-opus-5-5')
-FALLBACK_MODEL = 'claude-sonnet-5-5'
-MAX_TOKENS = 16000
+
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
-TEXT_TYPES = ('.txt', '.md', '.srt', '.vtt', '.text')
-MAX_CHARS = 180_000  # about 3 hours of speech, within Notion's request size; longer files are cut, with a note
-# Stages an interview can move an application forward from; later stages are never overwritten.
-BEFORE_INTERVIEW = ('Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Applying', 'No response',
-                    'Recruiter lead')
-CANDIDATE_STAGES = BEFORE_INTERVIEW + ('Interviewing', 'Offer', 'Rejected')
-# Talking to them, or a call booked: once a call was held, the application is in process (Interviewing).
-IN_TALKS = ('Recruiter lead', 'Screening', 'Interview scheduled')
-# Never touched by an interview: an offer, or the application is over.
-CLOSED = ('Offer', 'Rejected', 'Withdrawn', 'Closed', 'Dismissed')
-CANCELLED = 'Interview cancelled'  # 📈 Application Events kind: the call didn't happen (Stage stays)
-APP_SOURCE = 'Job Pilotto app'
-
-# Facts a call can reveal about the job -> (label, Applications column, kind). Kind 'text' and 'select' are columns
-# of their own; 'fact' lines share the "Call facts" column ("Label: value · Label: value").
-FACTS = {
-    'salary': ('Salary', 'Salary', 'text'),
-    'salary_ask': ('Your ask', 'Call facts', 'fact'),
-    'contract': ('Contract', 'Contract', 'select'),
-    'location': ('Location', 'Location', 'text'),
-    'work_mode': ('Work mode', 'Work mode', 'select'),
-    'relocation': ('Relocation', 'Call facts', 'fact'),
-    'team_size': ('Team size', 'Call facts', 'fact'),
-    'company_size': ('Company size', 'Call facts', 'fact'),
-    'visa': ('Visa/permit', 'Call facts', 'fact'),
-    'start_date': ('Start date', 'Call facts', 'fact'),
-}
-SELECT_OPTIONS = {'Contract': ('Employee', 'B2B / contractor', 'Employee or B2B'), 'Work mode': ('On-site', 'Hybrid', 'Remote')}
-NOT_STATED = re.compile(r'^\s*(not stated|unknown|none|n/?a|-)?\s*\.?\s*$', re.I)
-
-SCHEMA = {
-    'type': 'object', 'additionalProperties': False,
-    'required': ['application', 'company', 'round', 'interviewers', 'duration_min', 'questions', 'strengths',
-                 'weaknesses', 'signals', 'red_flags', 'next_step', 'practice', 'overall', 'summary', 'facts'],
-    'properties': {
-        'application': {'type': 'integer', 'description': 'Index of the matching application in the list, or -1 if unclear'},
-        'company': {'type': 'string', 'description': 'The employer exactly as named in the caption or transcript; "" when it is not named '
-                                                     '(never a description, never "unnamed ...", never a guess)'},
-        'round': {'type': 'string', 'description': 'e.g. "Recruiter screen", "Technical 1", "System design", "Hiring manager"'},
-        'interviewers': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Roles only (e.g. "SRE manager"), no names'},
-        'duration_min': {'type': 'integer', 'description': 'Estimated from timestamps, or 0 if unknown'},
-        'questions': {'type': 'array', 'items': {
-            'type': 'object', 'additionalProperties': False,
-            'required': ['topic', 'question', 'answer', 'quality', 'better'],
-            'properties': {
-                'topic': {'type': 'string', 'description': 'Short topic label, e.g. "Kubernetes networking", "Incident response", "Motivation"'},
-                'question': {'type': 'string'},
-                'answer': {'type': 'string', 'description': "One-line gist of the candidate's answer"},
-                'quality': {'type': 'string', 'enum': ['strong', 'ok', 'weak', 'not_answered']},
-                'better': {'type': 'string', 'description': 'For ok/weak answers: what a stronger answer would add; else ""'},
-            }}},
-        'strengths': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 4, each with evidence'},
-        'weaknesses': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 4, each with evidence'},
-        'signals': {'type': 'array', 'items': {'type': 'string'},
-                    'description': 'What they revealed: team, salary range, process, concerns, enthusiasm'},
-        'red_flags': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Anything the candidate said that could count against them'},
-        'next_step': {'type': 'string', 'description': 'What happens next, as stated, or "not stated"'},
-        'practice': {'type': 'array', 'items': {'type': 'string'}, 'description': '1-3 concrete things to practise before the next round'},
-        'overall': {'type': 'string', 'enum': ['positive', 'neutral', 'negative']},
-        'summary': {'type': 'string', 'description': '2-3 sentences'},
-        'facts': {'type': 'array', 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['field', 'value', 'quote'],
-            'properties': {
-                'field': {'type': 'string', 'enum': list(FACTS)},
-                'value': {'type': 'string', 'description': 'The fact, short (see the rules for each field)'},
-                'quote': {'type': 'string', 'description': 'The words said in the call, verbatim, at most 20 words'},
-            }}, 'description': 'Facts about the job the call revealed; only what was actually said, each field at most once'},
-    },
-}
-
-SYSTEM = """You review job interviews for the candidate (the owner of Job Pilotto). You get the candidate's \
-profile, the list of their applications, the caption they wrote, and a transcript or their own notes.
-
-- Identify the application from the caption first, then the transcript (company, role). If two \
-applications at the same company fit, prefer the one in an interview stage or applied most recently. \
-Use -1 when you can't tell.
-- company: the employer's name only when the call or caption names it; otherwise an empty string. Never a \
-description, never "unnamed ...", never a guess (a recruiter may not name the client).
-- The transcript may not label speakers. Infer who is the candidate from context (the profile helps).
-- Be honest and specific. "weak" means the answer missed what the question was probing, was vague, or \
-was wrong; say what a stronger answer would add, using the candidate's real experience from the profile.
-- Only report what the transcript supports. Notes written by the candidate are their own recollection; \
-say less when the input is thin.
-- Interviewers by role only; never names.
-- facts: only what someone actually said in this call, never guesses or the posting. salary = the employer's \
-range or offer, with currency and period (e.g. "150-170k/year gross", in the currency said); salary_ask = what the candidate asked \
-for, same format; contract = exactly "Employee", "B2B / contractor" or "Employee or B2B"; work_mode = exactly \
-"On-site", "Hybrid" or "Remote"; location = a SHORT summary, at most about five words (e.g. "Hybrid, 2 days in office", "Remote, one region"), \
-never conditions: who can be employed where, through which setup, or relocation terms belong in relocation; relocation, \
-team_size, company_size, visa (work permit/sponsorship), start_date = short, as said.
-
-The candidate's profile follows.
-
-"""
-
-
-def download(token, file_id, opener=urllib.request.urlopen):
-    """(file name, bytes) of a Telegram document, audio or voice note, via getFile (bots: up to 20 MB)."""
-    with opener(f'{telegram_api_base()}/bot{token}/getFile?file_id={file_id}', timeout=20) as response:
-        info = json.load(response)
-    if not info.get('ok'):
-        raise RuntimeError(info.get('description', 'Telegram getFile failed'))
-    path = info['result']['file_path']
-    with opener(f'{telegram_api_base()}/file/bot{token}/{path}', timeout=60) as response:
-        raw = response.read()
-    return path.rsplit('/', 1)[-1], raw
-
-
-def clean(text):
-    """Subtitle files (.srt/.vtt) without cue numbers, timings and repeated lines; plain text as is."""
-    if not re.search(r'\d\d:\d\d[:.]\d\d[.,]\d{3}\s*-->', text):
-        return text.strip()
-    lines, last = [], None
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line == 'WEBVTT' or line.isdigit() or '-->' in line or line.startswith(('NOTE', 'Kind:', 'Language:')):
-            continue
-        line = re.sub(r'<[^>]+>', '', line)
-        if line != last:
-            lines.append(line)
-        last = line
-    return '\n'.join(lines)
-
-
-def candidates(tracker):
-    rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': stage}} for stage in CANDIDATE_STAGES]})
-    return sorted(rows, key=lambda r: plain(r['properties'].get('Applied on')) or '', reverse=True)
-
-
-def ask(client, model, **request):
-    """One structured call; when `model` declines it (stop_reason "refusal"), the same request once on FALLBACK_MODEL.
-    Returns (parsed JSON, usage, the model that answered): cost is counted at that model's price."""
-    response = client.messages.create(model=model, **request)
-    if response.stop_reason == 'refusal' and model != FALLBACK_MODEL:
-        print(f'Warning: {model} declined; asking {FALLBACK_MODEL}', file=sys.stderr)
-        model = FALLBACK_MODEL
-        response = client.messages.create(model=model, **request)
-    if response.stop_reason != 'end_turn':
-        raise RuntimeError(f'stopped with {response.stop_reason}')
-    return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage, model
-
-
-def analyse(client, model, profile, apps, caption, transcript):
-    listing = '\n'.join(
-        f"{i}. {plain(r['properties'].get('Company'))} — {titles.row_role(r)} "
-        f"(stage {plain(r['properties'].get('Stage'))}, applied {plain(r['properties'].get('Applied on')) or '?'})"
-        for i, r in enumerate(apps))
-    return ask(client, model, max_tokens=MAX_TOKENS,
-               system=[{'type': 'text', 'text': SYSTEM + profile}],
-               messages=[{'role': 'user', 'content': f'Applications:\n{listing or "(none)"}\n\nCaption: {caption or "(none)"}\n\n'
-                                                     f'Transcript or notes:\n{transcript}'}],
-               output_config=engine.structured(SCHEMA, model))
-
-
-def _block(kind, content, bold=False):
-    chunks = [content[i:i + 1900] for i in range(0, len(content), 1900)] or ['']
-    return {'object': 'block', 'type': kind, kind: {'rich_text': [
-        {'type': 'text', 'text': {'content': c}, 'annotations': {'bold': bold}} for c in chunks[:100]]}}
-
-
-NO_JOB = 'No job linked yet — link it in the Interviews page of the Job Pilotto app'
-
-
-def job_line(app):
-    """The visible first line of an interview page: "🔗 Job: <link to the Application> · company · title", or a hint."""
-    if not app:
-        return _block('paragraph', f'🔗 {NO_JOB}')
-    props = app.get('properties', {})
-    who = plain(props.get('Company')) or plain(props.get('Via')) or 'Job'
-    title = titles.row_role(app)  # the role: who is already said
-    url = app.get('url') or f"https://www.notion.so/{app['id'].replace('-', '')}"
-    text = lambda content, link=None: {'type': 'text', 'text': {'content': content, **({'link': dict(url=url)} if link else {})}}
-    return {'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': [
-        text('🔗 Job: '), text(f'{who} · {title}' if title else who, link=True)]}}
-
-
-def _line_key(rich_text):
-    return [(t.get('text', {}).get('content', t.get('plain_text', '')), (t.get('text', {}).get('link') or {}).get('url')) for t in rich_text]
-
-
-def ensure_job_line(tracker, page_id, app):
-    """Keep the job line at the top of an interview page, once: replaced when it is there (the first three blocks),
-    else put first. Returns True when the page changed."""
-    want = job_line(app)['paragraph']['rich_text']
-    blocks = tracker._children(page_id)
-    for block in blocks[:3]:
-        if block['type'] == 'paragraph' and plain({'type': 'rich_text', 'rich_text': block['paragraph'].get('rich_text', [])}).startswith('🔗 '):
-            if _line_key(block['paragraph']['rich_text']) == _line_key(want):
-                return False
-            tracker._request('PATCH', f"blocks/{block['id']}", {'paragraph': {'rich_text': want}})
-            return True
-    first = blocks[0] if blocks else None
-    if first and first['type'] == 'paragraph' and not first.get('children') and not first.get('has_children'):
-        # The API can't insert before a block: the first paragraph becomes the line and its old text goes right after.
-        old = first['paragraph'].get('rich_text', [])
-        tracker._request('PATCH', f"blocks/{first['id']}", {'paragraph': {'rich_text': want}})
-        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [{'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': old}}], 'after': first['id']})
-    else:
-        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [job_line(app)], **({'after': first['id']} if first else {})})
-    return True
-
-
-def transcript_toggle(transcript):
-    toggle = _block('heading_3', 'Transcript')
-    paragraphs = [transcript[i:i + 190_000] for i in range(0, len(transcript), 190_000)] or ['']
-    toggle['heading_3'].update(is_toggleable=True, children=[_block('paragraph', p) for p in paragraphs])
-    return toggle
-
-
-def analysis_blocks(result, merged=None):
-    """The review: summary, strengths, weak spots, signals, facts from the call, practice and every question.
-    merged (merge_facts) marks each fact as filled on the job or different from it. At most 94 blocks."""
-    marks = {'strong': '✅', 'ok': '➖', 'weak': '⚠️', 'not_answered': '❌'}
-    blocks = [_block('paragraph', result['summary'])]
-    for title, items in (('Strengths', result['strengths']), ('Weak spots', result['weaknesses']),
-                         ('Signals from them', result['signals']), ('Could count against you', result['red_flags']),
-                         ('Facts from the call', fact_lines(result, merged)),
-                         ('Practise before the next round', result['practice'])):
-        if items:
-            blocks += [_block('heading_3', title)] + [_block('bulleted_list_item', item) for item in items[:10]]
-    blocks.append(_block('heading_3', 'Questions'))
-    for q in result['questions'][:20]:
-        text = f"{marks.get(q['quality'], '')} [{q['topic']}] {q['question']} — {q['answer']}"
-        blocks.append(_block('bulleted_list_item', text + (f" → Better: {q['better']}" if q['better'] else '')))
-    return blocks[:94]
-
-
-def _norm(value):
-    return re.sub(r'[\W_]+', ' ', str(value or '')).strip().casefold()
-
-
-def _call_facts(text):
-    """The "Call facts" column as {label: value} ("Label: value" parts, separated by · or new lines)."""
-    facts = {}
-    for part in re.split(r'\s+·\s+|\n', text or ''):
-        label, sep, value = part.partition(':')
-        if sep and label.strip():
-            facts[label.strip()] = value.strip()
-    return facts
-
-
-def facts_of(result):
-    """The call's facts, one per field, without empty or "not stated" ones; selects only with a known option."""
-    seen = {}
-    for fact in result.get('facts') or []:
-        field, value = fact.get('field'), (fact.get('value') or '').strip()
-        if field not in FACTS or field in seen or NOT_STATED.match(value):
-            continue
-        column = FACTS[field][1]
-        if column in SELECT_OPTIONS:
-            value = next((o for o in SELECT_OPTIONS[column] if _norm(o) == _norm(value)), '')
-            if not value:
-                continue
-        seen[field] = {'field': field, 'label': FACTS[field][0], 'value': value[:300], 'quote': (fact.get('quote') or '').strip()[:300]}
-    return list(seen.values())
-
-
-def merge_facts(app, result):
-    """What the call adds to the application. Pure. Empty fields are filled; a field that already says the same
-    (or more) is left; a value the call makes more specific ("Remote" -> "Remote, Europe") is refined; a different
-    value is never overwritten: it's reported. Returns
-    {'changes': Notion properties, 'filled': [fact], 'differs': [fact + 'current'], 'same': [fact]}."""
-    props = (app or {}).get('properties', {})
-    merged = {'changes': {}, 'filled': [], 'differs': [], 'same': []}
-    known = _call_facts(plain(props.get('Call facts')) or '')
-    added = dict(known)
-    for fact in facts_of(result):
-        label, column, kind = FACTS[fact['field']]
-        current = known.get(label, '') if kind == 'fact' else (plain(props.get(column)) or '')
-        if not current:
-            merged['filled'].append(fact)
-            if kind == 'fact':
-                added[label] = fact['value']
-            elif kind == 'select':
-                merged['changes'][column] = {'select': {'name': fact['value']}}
-            else:
-                merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
-        elif _norm(fact['value']) == _norm(current) or _norm(fact['value']) in _norm(current):
-            merged['same'].append(fact)
-        elif kind == 'text' and _norm(current) in _norm(fact['value']):
-            # The job says less than the call ("Remote" -> "Remote, Europe"): a refinement, not a contradiction.
-            merged['filled'].append(dict(fact, refined=current))
-            merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
-        else:
-            merged['differs'].append(dict(fact, current=current))
-    if added != known:
-        text = ' · '.join(f'{label}: {value}' for label, value in added.items())
-        merged['changes']['Call facts'] = {'rich_text': [{'text': {'content': text[:2000]}}]}
-    return merged
-
-
-def fact_lines(result, merged=None):
-    """One line per fact for the review page: the value, the quote, and what happened on the job."""
-    filled = {f['field'] for f in (merged or {}).get('filled', [])}
-    differs = {f['field']: f['current'] for f in (merged or {}).get('differs', [])}
-    lines = []
-    for fact in facts_of(result):
-        line = f"{fact['label']}: {fact['value']}" + (f' — “{fact["quote"]}”' if fact['quote'] else '')
-        if fact['field'] in differs:
-            line += f" ⚠️ Different from the job (it says “{differs[fact['field']]}”): not changed, update it in Notion if the call is right."
-        elif fact['field'] in filled:
-            line += ' (added to the job)'
-        lines.append(line)
-    return lines
-
-
-def page_blocks(result, transcript, merged=None):
-    """Analysis first, then the full transcript in a toggle (within Notion's 100 blocks per request)."""
-    return analysis_blocks(result, merged) + [transcript_toggle(transcript)]
-
-
-def interview_title(company, round_, app=None):
-    """"Company · Round": the employer if named (in the call, else the application's Company), else the application's
-    Via (agency), else its job title, else just the round."""
-    props = (app or {}).get('properties', {})
-    name = (named(company) or named(plain(props.get('Company'))) or named(plain(props.get('Via')))
-            or named(titles.row_role(app)))
-    return ' · '.join(part for part in (name, (round_ or '').strip()) if part)[:200] or 'Interview'
-
-
-def properties(result, app, today, model, usd, source):
-    """source: 'Recording', 'Transcript' or 'Notes' (older callers pass True/False for transcript/notes)."""
-    source = {True: 'Transcript', False: 'Notes'}.get(source, source)
-    text = lambda value: {'rich_text': [{'text': {'content': value[:2000]}}]}
-    topics = list(dict.fromkeys(q['topic'] for q in result['questions']))
-    weak = list(dict.fromkeys(q['topic'] for q in result['questions'] if q['quality'] in ('weak', 'not_answered')))
-    props = {
-        'Interview': {'title': [{'text': {'content': interview_title(result['company'], result['round'], app)}}]},
-        'Date': {'date': {'start': today.isoformat()}},
-        'Round': text(result['round']),
-        'Overall': {'select': {'name': result['overall']}},
-        'Questions': {'number': len(result['questions'])},
-        'Weak answers': {'number': sum(q['quality'] in ('weak', 'not_answered') for q in result['questions'])},
-        'Topics': text('; '.join(topics)),
-        'Weak topics': text('; '.join(weak)),
-        'Next step': text(result['next_step']),
-        'Input': {'select': {'name': source}},
-        'Cost (USD)': {'number': round(usd, 4)},
-        'Model': text(model),
-    }
-    if app:
-        props['Application'] = {'relation': [{'id': app['id']}]}
-    return props
-
-
-def message(result, app, page_url, usd, truncated=False, merged=None, stage=None):
-    title = (tgcard.dot(plain(app['properties'].get('Company')), titles.row_role(app))
-             if app else f"{named(result['company']) or 'Unknown company'} · not linked to an application")
-    weak = [q for q in result['questions'] if q['quality'] in ('weak', 'not_answered')]
-    blocks = [tgcard.block(escape(title), escape(result['summary']))]
-    if result['strengths']:
-        blocks.append(tgcard.block('Strong', *[f'• {escape(s)}' for s in result['strengths'][:3]]))
-    if weak:
-        blocks.append(tgcard.block(f'Weak answers ({len(weak)} of {len(result["questions"])})', *[
-            f"• {escape(q['topic'])}: {escape(q['better'] or q['question'])}" for q in weak[:3]]))
-    if result['practice']:
-        blocks.append(tgcard.block('Practise', *[f'• {escape(p)}' for p in result['practice'][:3]]))
-    blocks.append(tgcard.block('Next step', escape(result['next_step']), f'Stage → {escape(stage)}' if stage else ''))
-    extra = changes_lines(merged)
-    if extra:
-        blocks.append(tgcard.block('Changes', *extra))
-    notes = (['The transcript was very long; only the first part was analysed.'] if truncated else []) \
-        + ([] if app else ['Link it to its application in Notion (Application column).'])
-    if notes:
-        blocks.append('\n'.join(escape(n) for n in notes))
-    return tgcard.card('Interview review', result['round'], blocks, emoji='🎤',
-                       footer=f'<a href="{escape(page_url, quote=True)}">Full analysis and transcript</a> · ${usd:.3f}')
-
-
-def changes_lines(merged):
-    """What the call filled on the job, and where it said something else (Telegram lines)."""
-    if not merged:
-        return []
-    lines = []
-    if merged['filled']:
-        lines.append('Added to the job: ' + escape('; '.join(f"{f['label']}: {f['value']}" for f in merged['filled'])))
-    for fact in merged['differs']:
-        lines.append(f"{escape(fact['label'])}: the call said “{escape(fact['value'])}”, the job says "
-                     f"“{escape(fact['current'])}” (not changed)")
-    return lines
-
-
-def changes_summary(merged, stage=None):
-    """The same, short, for the run's one-line result (the app shows it after a review)."""
-    parts = [f'stage → {stage}'] if stage else []
-    if merged and merged['filled']:
-        parts.append('filled ' + ', '.join(f"{f['label']} ({f['value'][:40]})" for f in merged['filled']))
-    if merged and merged['differs']:
-        parts.append('differs from the job, not changed: ' + ', '.join(
-            f"{f['label']} (call: {f['value'][:40]}; job: {f['current'][:40]})" for f in merged['differs']))
-    return '; '.join(parts)
-
-
-
-
-
-def held_stage(stage, round_=''):
-    """The Stage once an interview was held, or None to leave it: never a closed stage, never back from Interviewing.
-    A recruiter/screening round held is Screening (owner, 30 Sep 2026: the funnel's "Interviews" step starts with a
-    technical or hiring-manager round), even when the call was booked as "Interview scheduled"; any other round is
-    Interviewing."""
-    if stage in CLOSED or stage == 'Interviewing':
-        return None
-    if meanings.round_kind(round_) == 'recruiter_screen':
-        return None if stage == 'Screening' else 'Screening'
-    return 'Interviewing'
 
 
 def _moment(value):
@@ -496,56 +107,6 @@ def advance(tracker, app, *, now=None, round_='', next_step='', changes=None, no
     if update:
         tracker.update_page(app['id'], update)
     return target
-
-
-def read_input(file_id, token, opener, speakers=0):
-    """(file name, transcript text, was it a recording) for a local path or a Telegram file id."""
-    if Path(file_id).is_file():
-        # The desktop app passes a file from the Mac instead of a Telegram file id.
-        name, path, raw = Path(file_id).name, Path(file_id), None
-    else:
-        name, raw = download(token, file_id, opener)
-        path = None
-    lower = name.lower()
-    if lower.endswith(transcribe.AUDIO_TYPES):
-        if not transcribe.available():
-            raise ValueError(f'{name}: recordings need the transcription add-on (pip install -r requirements-transcribe.txt); '
-                             'or send a text transcript')
-        if path:
-            return name, transcribe.transcribe(path, speakers), True
-        with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / name
-            path.write_bytes(raw)
-            return name, transcribe.transcribe(path, speakers), True
-    if not lower.endswith(TEXT_TYPES):
-        raise ValueError(f'{name}: send a recording ({", ".join(transcribe.AUDIO_TYPES)}) '
-                         f'or a text transcript ({", ".join(TEXT_TYPES)})')
-    text = path.read_text(encoding='utf-8', errors='replace') if path else raw.decode('utf-8', errors='replace')
-    return name, clean(text), False
-
-
-def application_for(tracker, job_url):
-    """The Applications row for a job the owner picked; a job not tracked yet is added (an interview means
-    they applied; the date is marked approximate)."""
-    app = by_url(tracker, [], job_url)
-    if app:
-        return app
-    from ..notion.ledger import add_application
-    add_application(tracker, job_url.strip(), approx=True, source=os.getenv('JOB_PILOTTO_SOURCE') or 'Manual')
-    app = by_url(tracker, [], job_url)
-    if not app:
-        raise ValueError(f'Could not add {job_url} to your Applications')
-    return app
-
-
-def by_url(tracker, apps, job_url):
-    """The application with this Job URL: among the candidates, else any stage (the owner chose it)."""
-    same = lambda row: (plain(row['properties'].get('Job URL')) or '').strip() == job_url.strip()
-    found = next((row for row in apps if same(row)), None)
-    if found:
-        return found
-    rows = tracker.query_database(tracker.database_id, {'property': 'Job URL', 'url': {'equals': job_url.strip()}})
-    return rows[0] if rows else None
 
 
 def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_MODEL, client=None,
@@ -654,49 +215,6 @@ def review_again(tracker, page_id, saved, result, app, merged, props, usd, send=
             f". {extra[0].upper()}{extra[1:]} {page.get('url', '') or saved.get('url', '')}").strip()
 
 
-# The headings analysis_blocks() writes: how an earlier review is found on the page to be replaced.
-REVIEW_HEADINGS = ('Strengths', 'Weak spots', 'Signals from them', 'Could count against you', 'Facts from the call',
-                   'Practise before the next round', 'Questions')
-
-
-def _plain_block(block):
-    return plain({'type': 'rich_text', 'rich_text': block.get(block['type'], {}).get('rich_text', [])}) or ''
-
-
-def review_block_ids(blocks):
-    """The blocks of the review(s) on an interview page: each review's summary (the paragraph right before its first
-    heading), its headings and their bullets. The job line, the Transcript toggle and anything else stay."""
-    ids, inside = [], False
-    for i, block in enumerate(blocks):
-        kind = block['type']
-        if kind == 'heading_3' and not block[kind].get('is_toggleable') and _plain_block(block) in REVIEW_HEADINGS:
-            before = blocks[i - 1] if i else None
-            if not inside and before and before['type'] == 'paragraph' and before['id'] not in ids \
-                    and not _plain_block(before).startswith('🔗 ') and _plain_block(before) != PLACEHOLDER:
-                ids.append(before['id'])
-            ids.append(block['id'])
-            inside = True
-        elif inside and kind == 'bulleted_list_item':
-            ids.append(block['id'])
-        else:
-            inside = False
-    return ids
-
-
-def replace_review(tracker, page_id, blocks):
-    """Put a new review where the old one is: added right after it, then the old blocks removed (a failed add leaves
-    the old review whole; a second run also clears what a half-done delete left). No review yet: add_review."""
-    old = review_block_ids(tracker._children(page_id))
-    if not old:
-        return add_review(tracker, page_id, blocks)
-    tracker._request('PATCH', f'blocks/{page_id}/children', {'children': blocks, 'after': old[-1]})
-    for block_id in old:
-        tracker._request('DELETE', f'blocks/{block_id}')
-
-
-PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Job Pilotto app.'
-
-
 def save(tracker, transcript, title, *, job_url=None, source='Recording', now=None, page_id=None):
     """A transcript as a 🎤 Interviews row, without AI: title, date, Input, the chosen job, and the
     transcript in the page (a placeholder marks where the review goes). Returns the created page.
@@ -732,25 +250,6 @@ def save(tracker, transcript, title, *, job_url=None, source='Recording', now=No
     return page
 
 
-def saved_transcript(tracker, page_id):
-    """The transcript kept in a row's "Transcript" toggle."""
-    for block in tracker._children(page_id):
-        body = block.get(block['type'], {})
-        if block['type'] == 'heading_3' and plain({'type': 'rich_text', 'rich_text': body.get('rich_text', [])}) == 'Transcript':
-            return ''.join(plain({'type': 'rich_text', 'rich_text': child.get(child['type'], {}).get('rich_text', [])})
-                           for child in tracker._children(block['id']))
-    raise ValueError('This interview has no transcript in Notion')
-
-
-def add_review(tracker, page_id, blocks):
-    """Put the review where the placeholder is (the top of the page), or at the end if it's gone."""
-    marker = next((b for b in tracker._children(page_id) if b['type'] == 'paragraph' and
-                   plain({'type': 'rich_text', 'rich_text': b['paragraph'].get('rich_text', [])}) == PLACEHOLDER), None)
-    tracker._request('PATCH', f'blocks/{page_id}/children', {'children': blocks, **({'after': marker['id']} if marker else {})})
-    if marker:
-        tracker._request('DELETE', f"blocks/{marker['id']}")
-
-
 def link(tracker, page_id, job_url=None):
     """Set (or with no job_url, clear) the application a 🎤 Interviews row belongs to."""
     app = application_for(tracker, job_url) if job_url else None
@@ -759,23 +258,6 @@ def link(tracker, page_id, job_url=None):
     if app:  # a recorded call belongs to this job: it was held
         advance(tracker, app, note='Interview linked', source=APP_SOURCE, clear_past=False)
     return app['id'] if app else None
-
-
-def delete(tracker, page_id):
-    """Move a 🎤 Interviews row to Notion's trash (restorable there for 30 days)."""
-    tracker._request('PATCH', f'pages/{page_id}', {'archived': True})
-
-
-def _place(tracker, page_id, seen):
-    """Location and Work mode of a linked Applications row, read once per page (the app's jobs list may not
-    have it, e.g. an application made before Job Pilotto). {} when Notion can't give it."""
-    if page_id not in seen:
-        try:
-            props = tracker._request('GET', f'pages/{page_id}')['properties']
-            seen[page_id] = {'location': plain(props.get('Location')) or '', 'work_mode': plain(props.get('Work mode')) or ''}
-        except Exception:  # noqa: BLE001 - a trashed or unshared page: the row still lists, without a place
-            seen[page_id] = {}
-    return seen[page_id]
 
 
 def listing(tracker, limit=100, places=True):

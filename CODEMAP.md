@@ -361,11 +361,23 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
 - `src/ai/few_jobs.py` — 'Explain with AI' on a jobs check that found few new jobs: Claude reads the search's coverage counts and says why, and what to do first.
 - `src/ai/hints.py` — Scoring hints learned from what people dismiss (site/src/intelligence.js hints, fetched by desktop/lib/aliases.js into data/hints.json).
+- `src/ai/inbox_dates.py` — 📥 Log anything, part 2: dates as a chat writes them ("MONDAY 12:33 AM", "Sep 21") resolved against the day it is
+- `src/ai/inbox_events.py` — 📥 Log anything, part 5: the last message of a conversation as an event on the job, and the note an event carries.
+- `src/ai/inbox_fields.py` — 📥 Log anything, part 4: the confirmation step's questions (fields: ok / check / ask), the agreement to talk, and what an
+- `src/ai/inbox_notion.py` — 📥 Log anything, part 3: what a log writes in Notion: the job's page entry with its screenshots, a new Applications row,
+- `src/ai/inbox_reading.py` — 📥 Log anything, part 1: what Claude is told and how its reading is asked for (the kinds, the schema, the prompt,
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 - `src/ai/insights_text.py` — What the Insights messages say: the honesty rules shared by both prompts, the weekly report's schema and prompt, and the weekly Telegram text and Notion page body.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.
 - `src/ai/interview_insights_text.py` — Interview insights' constants and its one AI call's words: limits, categories, the pattern kinds, DATA_VERSION, the output schema and the system prompt.
 - `src/ai/interview_insights.py` — Interview insights: what your reviewed interviews say together, for the Interviews page and 💡 Insights.
+- `src/ai/interviews_ai.py` — Interview analysis, the Claude call: the model names, the facts a call can reveal, the review's schema and prompt,
+- `src/ai/interviews_blocks.py` — Interview analysis, what is written: the Interviews page (job line, review blocks, transcript), its row properties and
+- `src/ai/interviews_facts.py` — Interview analysis, the call's facts about the job (salary, contract, place…): read from the review, merged with what the
+- `src/ai/interviews_input.py` — Interview analysis, the input: a Telegram file, a subtitle file stripped of its timing, a recording transcribed on the
+- `src/ai/interviews_review.py` — Interview analysis, replacing a review on an Interviews page: finding the blocks an earlier review wrote and swapping them.
+- `src/ai/interviews_stages.py` — Interview analysis, the stages: which stages an interview moves forward, which it never touches, and the stage a held
+- `src/ai/interviews_store.py` — Interview analysis, finding things in Notion: the application a job URL names, a saved transcript, linking and deleting
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""

@@ -3,8 +3,5 @@
  "desktop/main.js": 1197,
  "extension/background.js": 933,
  "extension/page/fill.js": 571,
- "extension/review.js": 663,
- "src/ai/inbox.py": 1065,
- "src/ai/interviews.py": 959,
- "tests/test_interviews.py": 838
+ "extension/review.js": 663
 }

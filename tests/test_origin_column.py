@@ -5,7 +5,7 @@ import unittest
 from datetime import date
 from unittest import mock
 
-from src.ai import inbox, mail, mail_leads, opportunity
+from src.ai import inbox, inbox_notion, mail, mail_leads, opportunity
 from src.notion import client, funnel, ledger, origin
 
 
@@ -130,7 +130,7 @@ class WriterTests(unittest.TestCase):
     def test_a_pasted_application_made_elsewhere_is_outbound_even_from_linkedin(self):
         tracker = Fake()
         item = {'title': 'SRE', 'company': 'Acme', 'platform': 'LinkedIn'}
-        with mock.patch.object(inbox, 'add_event'):
+        with mock.patch.object(inbox_notion, 'add_event'):
             inbox._new_row(tracker, item, 'https://x/pasted', 'LinkedIn', 'App', '2026-09-20', 'logged')
         self.assertEqual(origin_of(tracker.app_props()[0]), 'Outbound')
 
