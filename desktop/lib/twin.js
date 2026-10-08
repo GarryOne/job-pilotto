@@ -12,9 +12,10 @@ import path from 'node:path';
 export const isTwin = (env = process.env) => !!env.JOB_PILOTTO_TWIN;
 
 // The owner's real folder (lib/storage.js: ~/Library/Application Support/Job Pilotto, or %APPDATA%\Job Pilotto).
+// Built with that platform's own separators (path.win32 / path.posix), whatever OS runs it (CI ran the Mac case on Windows: backslashes).
 export const realFolder = (home = os.homedir(), platform = process.platform, env = process.env) => (platform === 'win32'
-  ? path.join(env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Job Pilotto')
-  : path.join(home, 'Library', 'Application Support', 'Job Pilotto'));
+  ? path.win32.join(env.APPDATA || path.win32.join(home, 'AppData', 'Roaming'), 'Job Pilotto')
+  : path.posix.join(home, 'Library', 'Application Support', 'Job Pilotto'));
 
 // Why this twin may not start, or '' when it may: it needs its own folder and the mirror's token.
 export function twinRefusal(env = process.env, real = realFolder()) {
