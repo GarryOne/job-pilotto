@@ -24,3 +24,11 @@ test('Settings → Beta says what is on, and shows "Back to stable" only while t
   assert.equal(betaText({on: false, current: '0.5.255', stable: '0.5.252', ahead: true}).back, true, 'turning the beta off does not roll anyone back by itself');
   assert.equal(betaText({fromSource: true}).toggle, '');
 });
+
+test('Settings → Diagnostics → Test builds says what it is and offers the switch', async () => {
+  const {testText} = await import('../renderer/update-text.js');
+  assert.match(testText({test: false}).text, /can be broken/);
+  assert.equal(testText({test: false}).toggle, 'Get test builds');
+  assert.equal(testText({test: true}).toggle, 'Turn off');
+  assert.equal(testText({fromSource: true}).toggle, '');
+});

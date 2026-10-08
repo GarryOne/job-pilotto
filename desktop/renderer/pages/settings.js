@@ -2,7 +2,7 @@
 import {openLogs} from './logs.js';
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
-import {betaText, updateText} from '../update-text.js';
+import {betaText, testText, updateText} from '../update-text.js';
 import {shared} from './shared.js';
 import {$, aiReady, message, show} from './core.js';
 import {extensionState} from '../service-status.js';
@@ -307,7 +307,12 @@ async function renderBeta() {
   $('diag-beta-toggle').textContent = toggle;
   $('diag-beta-toggle').hidden = !toggle;
   $('diag-beta-toggle').dataset.on = state.on ? '1' : '';
-  $('diag-beta-back').hidden = !back;
+  $('diag-beta-back').hidden = !back;   // also for a test-build install that is ahead of stable
+  const test = testText(state);
+  $('diag-test-text').textContent = test.text;
+  $('diag-test-toggle').textContent = test.toggle;
+  $('diag-test-toggle').hidden = !test.toggle;
+  $('diag-test-toggle').dataset.on = state.test ? '1' : '';
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
@@ -327,6 +332,13 @@ export async function init() {
     const result = await window.pilot.betaSet(!button.dataset.on).catch(error => ({ok: false, text: error.message}));
     button.disabled = false;
     if (result?.ok === false && result.text) $('diag-beta-text').textContent = result.text; else renderBeta();
+  });
+  $('diag-test-toggle').addEventListener('click', async () => {
+    const button = $('diag-test-toggle');
+    button.disabled = true;
+    const result = await window.pilot.testSet(!button.dataset.on).catch(error => ({ok: false, text: error.message}));
+    button.disabled = false;
+    if (result?.ok === false && result.text) $('diag-test-text').textContent = result.text; else renderBeta();
   });
   $('diag-beta-back').addEventListener('click', async () => {
     const result = await window.pilot.betaRollback().catch(error => ({ok: false, text: error.message}));

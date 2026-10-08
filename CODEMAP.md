@@ -588,5 +588,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/stale-expectations.mjs` — Pre-push check (tools/pre-push-check.sh): the words this push removes from the window's code that an end-to-end suite still expects (desktop/e2e/lib/stale-expectations.mjs).
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the
 - `tools/sync_release_labels.py` — Make the release list readable: every release's title says what it IS, and a pinned issue names the ones that matter.
+- `tools/test-build.sh` — A test build for friends who switched on Settings → Diagnostics → Test builds: Mac and Windows are built from main and published as a pre-release,
 - `tools/wait-and-mark-applied.sh` — wait-and-mark-applied.sh <job URL> — wait until that job's application is submitted, then mark
 - `tools/worktree.sh` — One worktree per task (AGENTS.md → Working with git), ready to test at once: the packages installed in the main

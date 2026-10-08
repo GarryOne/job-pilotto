@@ -125,3 +125,13 @@ test('each platform takes a beta on its own line: Mac-only on a Mac, Windows-onl
   assert.equal(approvedFor(windows, 'linux'), false);
   assert.equal(approvedFor('', 'darwin'), false);
 });
+
+test('a test-builds install is offered the newest build, approved or not; beta and stable still are not', async () => {
+  const items = [release(54), release(53, {body: APPROVED}), release(52, {prerelease: false})];
+  assert.equal((await check('0.4.0-alpha.52', {channel: 'test', fetcher: listOf(items), platform: 'darwin'})).version, '0.4.0-alpha.54');
+  assert.equal(await check('0.4.0-alpha.54', {channel: 'test', fetcher: listOf(items), platform: 'darwin'}), null, 'nothing newer than the newest build');
+  assert.equal((await check('0.4.0-alpha.52', {channel: 'beta', fetcher: listOf(items), platform: 'darwin'})).version, '0.4.0-alpha.53', 'the beta still waits for the gate');
+  // On Windows a test build takes the build's own installer, never the generic one a failed Windows build leaves behind.
+  const noOwn = [release(54, {assets: [{name: 'Job-Pilotto-windows-x64.exe', browser_download_url: 'https://dl/generic.exe'}]}), release(52, {prerelease: false})];
+  assert.equal((await check('0.4.0-alpha.50', {channel: 'test', fetcher: listOf(noOwn), platform: 'win32'})).version, '0.4.0-alpha.52');
+});

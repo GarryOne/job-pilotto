@@ -8,6 +8,13 @@ export function updateText({offer, checkedAt, fromSource} = {}, now = Date.now()
   return {latest: true, text: `Up to date · checked ${ago(checkedAt, now)}`};
 }
 
+// Settings → Diagnostics → Test builds, from main's betaState: {test, on, fromSource}. Builds made by hand (tools/test-build.sh) with no test run on them.
+export function testText({test, fromSource} = {}) {
+  if (fromSource) return {text: 'Not in a build run from source', toggle: ''};
+  return test ? {text: 'On · you are offered every new build, tested or not: it can be broken', toggle: 'Turn off'}
+    : {text: 'Off · for testing fixes before the beta: builds can be broken', toggle: 'Get test builds'};
+}
+
 // Settings → Diagnostics → Beta, from main's betaState: {on, current, stable, ahead, fromSource}.
 export function betaText({on, current, stable, ahead, fromSource} = {}) {
   if (fromSource) return {text: 'Not in a build run from source', toggle: '', back: false};

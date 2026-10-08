@@ -65,10 +65,12 @@ const getJson = async (fetcher, url) => {
 
 // -> {version, name, notes, url} when a newer release is on offer, else null. Stable (the default): the latest stable release, if newer than `current`.
 // channel 'beta' (the person switched it on, Settings → Diagnostics → Beta): also pre-releases carrying the beta-approved line; the newest of them all wins.
+// channel 'test' (Settings → Diagnostics → Test builds): the newest release of any kind, approved or not: a "Build only" run (tools/test-build.sh) publishes one without the e2e gate, so a friend
+// who asked for it gets a fix in the time of a build instead of a gated beta. Nothing has checked it: that is the person's choice, and the label says so.
 export async function check(current, {channel = 'stable', fetcher = globalThis.fetch, platform = process.platform} = {}) {
-  if (channel === 'beta') {
+  if (channel === 'beta' || channel === 'test') {
     const list = await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases?per_page=30`);
-    const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || approvedFor(release.body, platform)))
+    const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || channel === 'test' || approvedFor(release.body, platform)))
       .map(release => offerOf(release, platform, {beta: !!release.prerelease})).filter(Boolean);
     const best = open.reduce((top, offer) => (!top || newer(offer.version, top.version) ? offer : top), null);
     return best && newer(best.version, current) ? best : null;
