@@ -802,6 +802,7 @@
           <button data-settings-go="appearance"><i data-icon="sun"></i>Appearance</button>
           <button data-settings-go="license"><i data-icon="zap"></i>License</button>
           <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
+          <button data-settings-go="credentials"><i data-icon="key"></i>Credentials</button>
           <button data-settings-go="logs"><i data-icon="terminal"></i>Logs</button>
         </nav>
         <div class="settings-pages">
@@ -1318,6 +1319,20 @@
         <div class="inline"><input type="text" id="reset-confirm" placeholder='Type RESET to confirm' autocomplete="off">
           <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
         <p class="message" id="reset-message"></p>
+            </div>
+          </div>
+        </div>
+        <div class="settings-page" data-settings-page="credentials" hidden>
+          <div class="settings-page-head"><h2>Credentials</h2><p class="muted">Accounts Claude created on job sites. The passwords stay in this Mac's Keychain, encrypted; one is shown only when you press Show.</p></div>
+          <div class="setting panel" id="setting-credentials">
+            <div class="task-table" id="credentials-table">
+              <div class="task-row is-head"><span>Site</span><span>Password</span><span></span></div>
+            </div>
+            <p class="muted small" id="credentials-empty" hidden>No accounts yet. When Claude signs up on a job site, the account appears here.</p>
+            <p class="message" id="credentials-message"></p>
+            <div class="switch-line">
+              <span class="cv-card-text"><span>Job-site password for new accounts: <b id="credentials-shared">••••••••</b></span><span class="muted small">The same one on every site, so you can sign in by hand too.</span></span>
+              <span class="inline"><button class="secondary small-button" id="credentials-shared-show">Show</button><button class="secondary small-button" id="credentials-shared-copy">Copy</button></span>
             </div>
           </div>
         </div>

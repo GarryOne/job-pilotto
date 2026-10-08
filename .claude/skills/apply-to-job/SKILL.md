@@ -365,7 +365,8 @@ per page where you can:
    Password: the owner's one job-site password (owner, 8 Oct 2026: the same easy one on every site,
    e.g. `Maple-Rocket-42`, made once, shown to them in Settings), stored for this site and copied in
    one call, never shown to you:
-   `python3 -m src.ai.passwords new <host>`
+   `python3 -m src.ai.passwords new <host> --email <the email you typed> --job <job url>`
+   (the email and job are kept beside it for the owner's Settings → Credentials).
    Click the password field, paste (`cmd+v` on the Mac, `ctrl+v` on Windows); the confirm field,
    paste; then `python3 -m src.ai.passwords clear`. Check with the audit (`filled: true`), never by
    reading the value. To sign in later: `python3 -m src.ai.passwords copy <host>`, paste, clear. If

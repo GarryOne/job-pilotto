@@ -14,6 +14,7 @@ export function settingsPage(name) {
   remembered('settingsPage', name);
   if (name === 'connections' && lastStatus) setTimeout(() => autoConnect(lastStatus), 0);  // after the page is shown
   if (name === 'profile') openProfile();
+  if (name === 'credentials') openCredentials();
   if (name === 'logs') setTimeout(() => openLogs().catch(error => console.error('Settings · logs:', error)), 0);  // after the page is shown
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   // The menu: Profile is a Settings page of its own there.
@@ -337,6 +338,18 @@ export async function init() {
   // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
   document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { $('contact-save').disabled = false; }));
   $('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
+  // The job-site password is on Credentials too (and on Profile → Application assistant): the same two buttons.
+  for (const [where, said] of [['credentials-shared', 'credentials-message']]) {
+    $(`${where}-show`).addEventListener('click', async () => {
+      const result = await window.pilot.sitePassword('show');
+      if (result?.password) $(where).textContent = result.password;
+      $(said).textContent = result?.ok ? (result.password ? '' : 'Copied: paste it to read it.') : result?.error || '';
+    });
+    $(`${where}-copy`).addEventListener('click', async () => {
+      const result = await window.pilot.sitePassword('copy');
+      $(said).textContent = result?.ok ? 'Copied.' : result?.error || '';
+    });
+  }
   $('site-password-show').addEventListener('click', async () => {
     const result = await window.pilot.sitePassword('show');
     if (result?.password) $('site-password').textContent = result.password;
@@ -354,4 +367,43 @@ export async function init() {
     help.open = true;
     setTimeout(() => help.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
   });
+}
+
+// Settings → Credentials: one row per site Claude made an account on. Passwords hidden until Show; Copy never shows them.
+const when = iso => (iso ? new Date(iso).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'}) : '');
+async function openCredentials() {
+  const result = await window.pilot.credentials();
+  const rows = result?.rows || [];
+  const table = $('credentials-table');
+  table.replaceChildren(table.firstElementChild, ...rows.map(row => {
+    const line = el('div', 'task-row');
+    const who = el('span');
+    const details = [row.email || 'email not recorded', when(row.created), row.job ? (() => { try { return new URL(row.job).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '']
+      .filter(Boolean).join(' · ');
+    who.append(el('b', '', row.host), el('small', '', details));
+    const secret = el('b', '', '••••••••');
+    const shown = el('span', '');
+    shown.append(secret);
+    const actions = el('span', 'inline');
+    const reveal = el('button', 'secondary small-button', 'Show');
+    reveal.addEventListener('click', async () => {
+      if (reveal.textContent === 'Hide') { secret.textContent = '••••••••'; reveal.textContent = 'Show'; return; }
+      const answer = await window.pilot.credentialReveal(row.host, 'show');
+      if (!answer?.ok) { $('credentials-message').textContent = answer?.error || ''; return; }
+      secret.textContent = answer.password;
+      reveal.textContent = 'Hide';
+    });
+    const copy = el('button', 'secondary small-button', 'Copy');
+    copy.addEventListener('click', async () => {
+      const answer = await window.pilot.credentialReveal(row.host, 'copy');
+      if (!answer?.ok) { $('credentials-message').textContent = answer?.error || ''; return; }
+      await navigator.clipboard.writeText(answer.password);
+      $('credentials-message').textContent = `Copied the password for ${row.host}.`;
+    });
+    actions.append(reveal, copy);
+    line.append(who, shown, actions);
+    return line;
+  }));
+  show($('credentials-empty'), !rows.length);
+  $('credentials-message').textContent = result?.ok === false ? result.error : '';
 }

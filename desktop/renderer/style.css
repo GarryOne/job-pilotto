@@ -2414,3 +2414,5 @@ button.is-busy { cursor: progress; opacity: .7; }
 .logs-page .panel-top .tabs { margin-bottom: 0; }
 /* The Needs card's send-all bar: the shared panel-foot, spaced from the rows above it. */
 #ss-needs-send { margin-top: var(--sp-3); }
+/* Credentials: the Show/Copy column ends at the panel edge, in line with the job-site password buttons under the table. */
+#credentials-table .task-row > span:last-child { justify-self: end; }

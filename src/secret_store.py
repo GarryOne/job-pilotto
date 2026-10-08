@@ -39,11 +39,12 @@ def get(service, user=None):
     return (store.get_password(service, user) or None) if store else None
 
 
-def put(service, value, user=None, label=None):
+def put(service, value, user=None, label=None, comment=None):
+    """comment: what the item is for, kept beside it (Keychain only; never a secret)."""
     user = account() if user is None else user
     if sys.platform == 'darwin':
         subprocess.run(['security', 'add-generic-password', '-U', '-a', user, '-s', service,
-                        *(['-l', label] if label else []), '-w', value], check=True)
+                        *(['-l', label] if label else []), *(['-j', comment] if comment else []), '-w', value], check=True)
         return
     store = _keyring()
     if not store:

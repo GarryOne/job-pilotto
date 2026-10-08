@@ -10,7 +10,9 @@ Only a site whose rule it breaks (--length shorter, --no-symbols) gets a random 
 
   python3 -m src.ai.passwords have <host>    exit 0 when one is stored for that site
   python3 -m src.ai.passwords new <host>     the job-site password (or, for the rule a site shows,
-      [--length N] [--no-symbols]            a random one), stored for that site and copied
+      [--length N] [--no-symbols]            a random one), stored for that site and copied;
+      [--email E] [--job URL]                the email the account uses and the job it was made for,
+                                             kept with it for Settings → Credentials
   python3 -m src.ai.passwords copy <host>    copy the stored one
   python3 -m src.ai.passwords shared         make the job-site password if there is none, and copy it
   python3 -m src.ai.passwords clear          empty the clipboard
@@ -59,6 +61,12 @@ def shared_password():
     return password
 
 
+def note(email='', job=''):
+    """What Settings → Credentials shows beside a site's password: 'email=<email> job=<url>' (no spaces inside either)."""
+    parts = [f'{key}={value.strip()}' for key, value in (('email', email), ('job', job)) if value and value.strip() and ' ' not in value.strip()]
+    return ' '.join(parts) or None
+
+
 def for_site(length=None, symbols=True):
     """The job-site password, fitted to a site's rule: without its hyphens when symbols are refused; a random one when
     the site wants it shorter."""
@@ -103,6 +111,8 @@ def main(argv=None):
     parser.add_argument('host', nargs='?')
     parser.add_argument('--length', type=int, default=None)
     parser.add_argument('--no-symbols', action='store_true')
+    parser.add_argument('--email', default='')
+    parser.add_argument('--job', default='')
     args = parser.parse_args(argv)
     if args.action == 'clear':
         copy('')
@@ -120,7 +130,7 @@ def main(argv=None):
         return 0 if found else 1
     if args.action == 'new':
         password = for_site(args.length, symbols=not args.no_symbols)
-        secret_store.put(name, password, ACCOUNT, label=f'Job Pilotto: {args.host}')
+        secret_store.put(name, password, ACCOUNT, label=f'Job Pilotto: {args.host}', comment=note(args.email, args.job))
         copy(password)
         print(f'stored {name}; on the clipboard, paste it')
         return 0

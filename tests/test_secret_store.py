@@ -44,6 +44,17 @@ class SecretStoreTest(unittest.TestCase):
         self.assertEqual(calls[1], ['security', 'add-generic-password', '-U', '-a', 'job-pilotto', '-s', 'job-pilotto.x.password',
                                     '-l', 'Job Pilotto: x', '-w', 'pw'])
 
+    def test_a_site_password_keeps_its_email_and_job_beside_it_never_in_the_password(self):
+        calls = []
+        with mock.patch.object(sys, 'platform', 'darwin'), \
+                mock.patch.object(secret_store.subprocess, 'run', lambda args, **_: calls.append(args) or mock.Mock(returncode=1, stdout='')), \
+                mock.patch.object(passwords, 'copy', lambda text: None), mock.patch('builtins.print'):
+            passwords.main(['new', 'career2.successfactors.eu', '--email', 'ilie@example.com', '--job', 'https://jobs.migros.ch/x'])
+        stored = [call for call in calls if call[:2] == ['security', 'add-generic-password'] and 'job-pilotto.career2.successfactors.eu.password' in call][0]
+        self.assertEqual(stored[stored.index('-j') + 1], 'email=ilie@example.com job=https://jobs.migros.ch/x')
+        self.assertEqual(passwords.note('', ''), None)
+        self.assertEqual(passwords.note('a b@c', 'https://x'), 'job=https://x')   # a value with a space is left out
+
     def test_no_store_elsewhere_reads_nothing(self):
         with mock.patch.object(sys, 'platform', 'linux'):
             self.assertIsNone(secret_store.get('anything'))

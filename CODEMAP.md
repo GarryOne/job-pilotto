@@ -34,6 +34,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/control-events.js` — How the form reader and the generic operators fared, as reports for the product (docs: Notion "Self-improving form filling").
 - `desktop/lib/cover-letter.js` — The user's general cover letter (Settings → Profile → Cover letter): drafted once by the AI from the CV, the Profile and
 - `desktop/lib/crash-line.js` — A line of a crash: the traceback's first line, or the exception line (KeyboardInterrupt, BrokenPipeError: …). Never a run's step, wherever the
+- `desktop/lib/credentials.js` — Settings → Credentials: the accounts Claude made on job sites (src/ai/passwords.py: Keychain item job-pilotto.<site>.password,
 - `desktop/lib/critical.js` — Work that quitting must not cut off half-way: an export, a Notion workspace being built, archived or filled, Always on or the Telegram buttons
 - `desktop/lib/cv-change.js` — A replaced CV after setup (Strategy → Replace CV…): what follows it and what doesn't.
 - `desktop/lib/cv-check.js` — CV check: how well a hiring system can read the CV the person uploaded, before any tailoring.

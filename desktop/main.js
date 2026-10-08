@@ -10,6 +10,7 @@ import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as sitePassword from './lib/site-password.js';
+import * as credentials from './lib/credentials.js';
 import * as claudeSession from './lib/claude-session.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import * as critical from './lib/critical.js';
@@ -1628,6 +1629,13 @@ function handlers() {
     appLog('apply', `job-site password ${action === 'show' ? 'shown' : 'copied'}`, {ok: code === 0});
     if (code !== 0) return {ok: false, error: 'The password could not be made or read.'};
     return {ok: true, copied: true, password: action === 'show' ? sitePassword.read() : null};
+  });
+  // Settings → Credentials: the sites' accounts from the Keychain (attributes only), and one password when you press Show or Copy.
+  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z'}]} : credentials.list()));
+  ipcMain.handle('credentialReveal', (_, host, why) => {
+    const password = DEMO ? 'Maple-Rocket-42' : credentials.reveal(host);
+    appLog('apply', `credential ${why === 'copy' ? 'copied' : 'shown'}`, {host: String(host || '').slice(0, 120), found: !!password});   // which site, never the password
+    return password ? {ok: true, password} : {ok: false, error: 'Not in the Keychain any more.'};
   });
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
