@@ -121,3 +121,14 @@ test('every tip bar scrolls at one speed, measured again when it is shown or res
   for (const [, id] of read('../renderer/index.html').matchAll(/class="ss-tips" id="([^"]+)"/g))
     assert.ok(id === 'ss-tips' || app.includes(`mountStageTips('${id}'`), `${id} is built by tips.js (and so paced on resize)`);
 });
+
+test('refocusing a window that sat in the background swaps one tip, not a flash of them (owner, 9 Oct 2026)', async () => {
+  const {mayAdvance} = await import('../renderer/tips.js');
+  assert.equal(mayAdvance({now: 100000, last: 0}), true, 'a normal end of a line');
+  assert.equal(mayAdvance({now: 100000, last: 0, hidden: true}), false, 'never while the window is hidden');
+  // The browser delivers every missed animationiteration at once on refocus: only the first of the burst may advance.
+  let last = 0, advanced = 0;
+  for (const now of [100000, 100002, 100004, 100009, 100015, 100021]) if (mayAdvance({now, last})) { last = now; advanced += 1; }
+  assert.equal(advanced, 1);
+  assert.equal(mayAdvance({now: 100000 + 10000, last}), true, 'the next line, a whole pass later');
+});

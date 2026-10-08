@@ -14,6 +14,7 @@ function askAudience() {   // at most once a minute: a changed strategy reaches 
 
 const SEEN_KEY = 'jp.tips.seen', HIDDEN_KEY = 'jp.tips.hidden';
 const PIXELS_PER_SECOND = 55, MIN_SECONDS = 10, STILL_MS = 14000;
+const MIN_GAP_MS = MIN_SECONDS * 500;   // a real tip is on screen at least MIN_SECONDS: two advances closer than half of that are a burst
 
 // Which application system a form is on, from its address (only the ones we have system-specific tips for).
 export function atsOf(url) {
@@ -53,9 +54,20 @@ const still = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').
 
 // One bar per page that shows tips: the Application sessions page (its address decides which system's tips come first) and, on the other stops, the topics
 // of that stop. Hiding is global: one × hides the bars everywhere, "Show tips" brings them back.
-const ATS = new WeakMap(), TICK = new WeakMap();
+const ATS = new WeakMap(), TICK = new WeakMap(), LAST = new WeakMap();
 
-function advance(slot) {
+// Whether a tip may be swapped now. A window in the background throttles its animations and timers; on refocus the browser delivers every missed
+// animationiteration at once, and each one used to swap the line, so the bar flashed through tips in a few milliseconds (owner, 9 Oct 2026).
+// Never while the window is hidden, and never twice inside MIN_GAP_MS: the burst advances one tip, the rest are dropped.
+export function mayAdvance({now, last = 0, hidden = false, minGap = MIN_GAP_MS} = {}) {
+  return !hidden && now - last >= minGap;
+}
+// Back in view: the line starts again from its start, in step with the clock, instead of catching up on what it missed.
+function restart(text) { text.style.animation = 'none'; void text.offsetWidth; text.style.animation = ''; }
+
+function advance(slot, {force = false} = {}) {
+  if (!force && !mayAdvance({now: Date.now(), last: LAST.get(slot), hidden: document.hidden})) return;
+  LAST.set(slot, Date.now());
   askAudience();
   const picked = nextTip({seen: read(SEEN_KEY, []), ats: ATS.get(slot) || '', categories: slot.dataset.categories?.split(',') || null, technical});
   if (!picked.tip) return;
@@ -84,7 +96,7 @@ function build(slot) {
   slot.replaceChildren(el('span', 'ss-tip-chip'), frame, hide);
   // The next tip starts when the last one has left the frame (the animation ran once through).
   text.addEventListener('animationiteration', () => advance(slot));
-  advance(slot);
+  advance(slot, {force: true});   // a bar just built always shows its first line
   globalThis.ResizeObserver && new ResizeObserver(() => pace(text)).observe(frame);   // shown for the first time, or the window resized
   clearInterval(TICK.get(slot));
   if (still()) TICK.set(slot, setInterval(() => advance(slot), STILL_MS));   // no motion: swap the line instead
@@ -104,6 +116,12 @@ function paint(slot) {
   slot.classList.remove('is-hidden');
   build(slot);
 }
+
+// Refocused: restart each line cleanly, never replay what the background held back.
+globalThis.document?.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  for (const slot of document.querySelectorAll('.ss-tips[data-ready]')) { const text = slot.querySelector('.ss-tip-text'); if (text) restart(text); }
+});
 
 const barsOnScreen = () => [...document.querySelectorAll('.ss-tips[data-ready]')];
 function repaintAll() { for (const slot of barsOnScreen()) paint(slot); }
