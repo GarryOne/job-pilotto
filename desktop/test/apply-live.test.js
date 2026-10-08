@@ -1,7 +1,7 @@
 // The live run (e2e/lib/apply-live.mjs) picks its posting without touching anything: LIVE_URL wins, else the newest match in the owner's job list, opened read-only.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {livePosting} from '../e2e/lib/apply-live.mjs';
+import {livePosting} from '../e2e/lib/live-posting.mjs';
 
 test('LIVE_URL names the posting; the company is its host unless told', () => {
   assert.deepEqual(livePosting({LIVE_URL: ' https://jobs.example.ch/a/1 '}), {url: 'https://jobs.example.ch/a/1', title: 'Live posting', company: 'jobs.example.ch', kit: []});
