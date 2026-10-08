@@ -70,15 +70,27 @@
   };
   // Greenhouse removes the file input once a file is attached and shows its name instead, so the
   // resume counts as attached when its section shows a document filename.
+  // The * of an upload slot can sit in a label above the box ("* CV and diplomas"): look a few levels up, never into a box that holds text fields.
+  const starred = box => {
+    for (let up = box, i = 0; up && i < 3; up = up.parentElement, i++) {
+      if (up.querySelector('input:not([type=file]):not([type=hidden]), textarea, select')) return false;
+      if (/\*/.test(up.textContent || '')) return true;
+    }
+    return false;
+  };
   const resumeRow = () => {
     const heading = Array.from(document.querySelectorAll('label, legend, h2, h3, h4, span, div'))
-      .find(el => !el.children?.length && /^\s*(resume|cv|resume\s*\/\s*cv)\b/i.test(el.textContent || ''));
+      .find(el => !el.children?.length && /^\s*(resume|cv|resume\s*\/\s*cv)\b/i.test(el.textContent || ''))
+      // An upload box that names the CV in a few words ("Upload a CV", "Charger un CV"): SuccessFactors draws it as a + button, no input yet.
+      || Array.from(document.querySelectorAll('span, div, label')).find(el => !el.children?.length && el.getClientRects().length &&
+        (el.textContent || '').trim().length < 40 && /\b(resume|cv|lebenslauf)\b/i.test(el.textContent) && !/cover/i.test(el.textContent));
     if (!heading) return null;
     let box = heading;
     for (let i = 0; i < 4 && box.parentElement; i++) box = box.parentElement;
     const fileInput = box.querySelector('input[type=file]');
-    const named = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i.test(box.textContent || '');
-    return {field: 'resume', label: 'Resume/CV', type: 'file', required: /\*/.test(heading.textContent || ''),
+    // The words a person sees: a script or hidden text in the box can mention "x.doc" without any file being attached.
+    const named = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i.test(box.innerText || '');
+    return {field: 'resume', label: 'Resume/CV', type: 'file', required: /\*/.test(heading.textContent || '') || starred(box),
       legal: false, filled: named || !!fileInput?.files?.length};
   };
   window.__jobPilottoAuditVisibleFields = () => {

@@ -241,25 +241,8 @@
     return box.checked === want;
   };
 
-  // Put a PDF into the file input whose surroundings match `pattern` (a lone file input takes it when `alone`).
-  const attachFile = (file, pattern, alone, skip = null) => {
-    const inputs = Array.from(document.querySelectorAll('input[type=file]'));
-    const context = el => `${el.id} ${el.name} ${el.getAttribute('aria-label') || ''} ${el.closest('div, fieldset, section')?.textContent || ''}`;
-    const input = inputs.find(el => pattern.test(context(el)) && !(skip && skip.test(`${el.id} ${el.name} ${el.getAttribute('aria-label') || ''}`)))
-      || (alone && inputs.length === 1 ? inputs[0] : null);
-    if (!input) return false;
-    // A file the person chose stays. One this extension attached earlier is replaced by a different one (a CV tailored after the first fill).
-    const ours = input.dataset.jobPilottoFile;
-    if (input.files?.length && !(ours && input.files[0].name === ours && ours !== file.name)) return false;
-    const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
-    const transfer = new DataTransfer();
-    transfer.items.add(new File([bytes], file.name, {type: file.type || 'application/pdf'}));
-    input.files = transfer.files;
-    input.dataset.jobPilottoFile = file.name;
-    input.dispatchEvent(new Event('input', {bubbles: true}));
-    input.dispatchEvent(new Event('change', {bubbles: true}));
-    return true;
-  };
+  // Attaching a PDF (page/upload.js owns it, with the + button slots some forms draw instead of a file input).
+  const attachFile = (...args) => window.__jobPilottoUpload.attachFile(...args);
   const attachResume = resume => attachFile(resume, /resume|\bcv\b|lebenslauf/i, true, /cover/i);
   // The approved general cover letter as a file, only into an input that says Cover letter (never a lone input).
   const attachCoverLetter = file => attachFile(file, /cover\s*letter|anschreiben/i, false);
@@ -447,8 +430,8 @@
       window.__jobPilottoOperatedQuestions = operated.map(result => result.question);
       window.__jobPilottoOperated = operated.map(({kind, fp, recipe, ok, why}) => ({kind, fp, recipe: recipe || 0, ok, why: why || ''}));
     }
-    const resumeAttached = resume?.data ? attachResume(resume) : false;
-    const letterFileAttached = resume?.coverLetterFile ? attachCoverLetter(resume.coverLetterFile) : false;
+    const resumeAttached = resume?.data ? await attachResume(resume) : false;
+    const letterFileAttached = resume?.coverLetterFile ? await attachCoverLetter(resume.coverLetterFile) : false;
     if (letterFileAttached) filled += 1;
     if (coverLetter && await fillCoverLetter(coverLetter)) filled += 1;
     await sleep(300);

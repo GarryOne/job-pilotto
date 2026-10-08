@@ -4,7 +4,7 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(new URL(`../../../${path}`, import.meta.url), 'utf8');
 export const PAGE_SCRIPTS = ['extension/page/browser-submit-guard.js', 'extension/page/browser-form-fastpath.js',
-  'extension/page/snapshot.js', 'extension/page/skeleton.js', 'extension/page/controls.js', 'extension/page/coverage.js', 'extension/page/propose.js', 'extension/page/fill.js'];
+  'extension/page/snapshot.js', 'extension/page/skeleton.js', 'extension/page/controls.js', 'extension/page/coverage.js', 'extension/page/propose.js', 'extension/page/upload.js', 'extension/page/fill.js'];
 
 // jsdom is a dev dependency: CI installs it (npm ci). A worktree whose linked node_modules predates it skips the
 // DOM tests locally with a note instead of failing every other suite; `npm install` in worker/ brings it.

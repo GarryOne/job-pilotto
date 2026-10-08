@@ -128,7 +128,7 @@ test('a kit fill starts at once: kit and contact details prefetched, no fixed wa
 });
 
 test('a CV tailored after the first fill replaces the one the extension attached, never one the person chose', () => {
-  const fill = read('extension/page/fill.js');
+  const fill = read('extension/page/upload.js');   // page/upload.js owns attaching a file
   assert.match(fill, /input\.dataset\.jobPilottoFile = file\.name/);
   assert.match(fill, /ours && input\.files\[0\]\.name === ours && ours !== file\.name/);
   const review = read('extension/review.js');
