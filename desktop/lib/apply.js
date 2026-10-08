@@ -74,6 +74,16 @@ export function isFormOf(reported, posting) {
   return !!page && !!job && (page === job || page === key(formUrl(posting)) || page.startsWith(`${job}/`));
 }
 
+// A form session at a sign-in or sign-up page: Claude takes the job over, unless a Claude session is already on it. Asked on every
+// account report, not only the first: a session marked 'account' before a restart (or before the hand-over existed) was never
+// handed over (Manor, 8 Oct 2026). → 'start', 'not-account' or 'claude-open'.
+export function accountTakeOver(sessions, form) {
+  if (form?.stuck !== 'account' || form.outcome) return 'not-account';
+  const job = String(form.url || '').split('#')[0];
+  return sessions.some(other => other.kind === 'claude' && !other.outcome && other.status !== 'failed' && String(other.url || '').split('#')[0] === job)
+    ? 'claude-open' : 'start';
+}
+
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
 export function openOne(url, open = spawn) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};

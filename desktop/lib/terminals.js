@@ -179,10 +179,12 @@ export function startForm({id, url, title = '', company = '', location = '', wor
 
 // The extension could not get to this form ('no-form': no form and no Apply button it may press; 'account': it needs a sign-in):
 // the session says so and offers Apply with Claude. Cleared when the extension reports a form on it after all.
-// → true the first time (the caller may hand the job to Claude once), false when nothing changed.
+// → true when it changed, false when nothing did. 'account' is the furthest point of the chain (posting → Apply → sign-in): a
+// later 'no-form' from a tab earlier in it (the posting the Apply button left behind) never takes it back (owner, 8 Oct 2026:
+// Manor's sign-in page was reported, then its posting tabs said "no form" and the card lost the account step).
 export function noteStuck(id, why) {
   const session = sessions.get(id);
-  if (!session || session.kind !== 'form' || session.outcome || session.stuck === why) return false;
+  if (!session || session.kind !== 'form' || session.outcome || session.stuck === why || session.stuck === 'account') return false;
   session.stuck = why;
   session.note = why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form';
   listener('update', publicView(session));

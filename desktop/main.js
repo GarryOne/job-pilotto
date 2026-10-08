@@ -2521,20 +2521,26 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     toWindow('session', 'open', {id});
     return true;
   });
+  const takingOver = new Set();   // form sessions whose Claude is starting: a second account report meanwhile starts no second one
   server.setStuckHandler(event => {   // tier 3: the extension can't reach a form: that job's form session offers Apply with Claude
     const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
     const match = forms.find(session => apply.isFormOf(event.url, session.url));
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match});
     const why = event.why === 'account' ? 'account' : 'no-form';
-    if (!match || !terminals.noteStuck(match.id, why) || why !== 'account') return;
-    // A sign-in or sign-up in front of the form (owner, 8 Oct 2026): Claude takes the job over at once, once, when Apply with Claude
+    if (!match) return;
+    if (!terminals.noteStuck(match.id, why) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
+    if (why !== 'account') return;
+    // A sign-in or sign-up in front of the form (owner, 8 Oct 2026): Claude takes the job over at once when Apply with Claude
     // is allowed: it signs in or creates the account with the job-site password and confirms it from Gmail. Never a dialog here.
+    const decision = takingOver.has(match.id) ? 'claude-open' : apply.accountTakeOver(terminals.list(), terminals.get(match.id));
+    if (decision !== 'start') { appLog('extension', `account page: no hand-over (${decision})`, {host: event.host, id: match.id}); return; }
     if (!storage.settings().claudeConsent) { appLog('extension', 'account page: left for the user, Apply with Claude not allowed', {host: event.host}); return; }
-    appLog('extension', 'account page: Claude takes over', {host: event.host, decidedBy: 'extension stuck: account'});
+    appLog('extension', 'account page: Claude takes over', {host: event.host, id: match.id, decidedBy: 'extension stuck: account'});
+    takingOver.add(match.id);
     startClaude(match.url, {title: match.title, company: match.company, location: match.location, workMode: match.workMode}).then(result => {
       if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); }
       else appLog('extension', 'account page: Claude could not start', {host: event.host, error: String(result?.error || '').slice(0, 160)});
-    });
+    }).finally(() => takingOver.delete(match.id));
   });
   review.setReporter(state => {
     if (state.total > 0) terminals.clearStuck(state.id);

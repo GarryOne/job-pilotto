@@ -93,7 +93,9 @@ test('a stuck form session says so, is cleared when a form shows up, and is drop
   terminals.clearStuck('f1');
   assert.equal(terminals.get('f1').stuck, '');
   assert.equal(terminals.noteStuck('f1', 'account'), true);    // the first report: the app hands the job to Claude
-  assert.equal(terminals.noteStuck('f1', 'account'), false);   // the page reloads and reports again: no second Claude
+  assert.equal(terminals.noteStuck('f1', 'account'), false);   // the page reloads and reports again: nothing changed
+  assert.equal(terminals.noteStuck('f1', 'no-form'), false);   // the posting tab behind the sign-in says "no form": the account step stays
+  assert.equal(terminals.get('f1').stuck, 'account');
   terminals.dropForm(URL1);
   assert.equal(terminals.list().length, 0);
   terminals.startForm({id: 'f2', url: URL1});
@@ -118,4 +120,13 @@ test('the job-site password is read from the Keychain on a Mac only, and a missi
   assert.deepEqual(calls[0].slice(0, 2), ['security', ['find-generic-password', '-a', 'job-pilotto', '-s', 'job-pilotto.sites.password', '-w']]);
   assert.equal(sitePassword.read('darwin', () => { throw new Error('not found'); }), null);
   assert.equal(sitePassword.read('win32', () => 'x'), null);
+});
+
+test('an account page hands the job to Claude on any report, unless a Claude session is already on it', async () => {
+  const {accountTakeOver} = await import('../lib/apply.js');
+  const form = {id: 'f1', kind: 'form', url: URL1, stuck: 'account', outcome: ''};
+  assert.equal(accountTakeOver([form], form), 'start');   // marked before a restart: still handed over (Manor, 8 Oct 2026)
+  assert.equal(accountTakeOver([form, {kind: 'claude', url: `${URL1}#jobpilotto-fill`, status: 'input', outcome: ''}], form), 'claude-open');
+  assert.equal(accountTakeOver([form, {kind: 'claude', url: URL1, status: 'done', outcome: 'cancelled'}], form), 'start');
+  assert.equal(accountTakeOver([form], {...form, stuck: 'no-form'}), 'not-account');
 });
