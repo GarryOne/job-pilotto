@@ -154,3 +154,14 @@ test("a session's Chrome tab on its card: host and path, no query or www, long p
   assert.equal(tabAddress(''), '');
   assert.equal(tabAddress(undefined), '');
 });
+
+test('after the first look, a session waiting on its tab says Chrome is not reporting until the extension does', async () => {
+  const {chromeSilent, CHECK_MS} = await import('../renderer/session-state.js');
+  const claude = {id: 'c1', kind: 'claude', live: false, status: 'input'}, form = {id: 'f1', kind: 'form'};
+  assert.equal(chromeSilent(form, {known: false, ids: []}, CHECK_MS + 1), true);
+  assert.equal(chromeSilent(claude, null, CHECK_MS + 1), true);                         // the app never heard back at all
+  assert.equal(chromeSilent(form, {known: false, ids: []}, 500), false);                // still the first look ("Checking…")
+  assert.equal(chromeSilent(form, {known: true, ids: []}, CHECK_MS + 1), false);        // reporting: closed or open, the card says which
+  assert.equal(chromeSilent({...claude, live: true, status: 'running'}, null, CHECK_MS + 1), false);
+  assert.equal(chromeSilent({...form, outcome: 'submitted', live: false}, null, CHECK_MS + 1), false);
+});

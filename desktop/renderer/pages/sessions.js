@@ -10,13 +10,13 @@ import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
 // The state other pages show uses the form page's state too: ready to submit once the form says so.
 const closedForm = item => formGone(item);  // its Chrome tab was closed (a form or a Claude session's)
-const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
+const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : silentChrome(item) ? ['Chrome not reporting', 'warn'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
@@ -257,8 +257,22 @@ function renderChecking() {
   $('ss-actions').replaceChildren(el('span', 'skeleton button'), el('span', 'skeleton button small'));
   for (const id of ['ss-form-card', 'ss-needs-card', 'ss-happened-card', 'ss-full-toggle', 'ss-full']) show($(id), false);
 }
+// Chrome hasn't reported (closed, or the extension isn't running): the card can't know the tab, so it says that, with the way
+// back (the extension's own page, which starts it reporting); it updates by itself once Chrome reports.
+function renderSilent() {
+  renderChecking();
+  $('ss-decision').className = 'ss-next tone-warn';
+  $('ss-next-title').textContent = 'Chrome isn\'t reporting';
+  $('ss-question').replaceChildren(el('p', 'rich-p', 'Job Pilotto can\'t see this application\'s tab: Chrome is closed, or its Job Pilotto extension isn\'t running. Open Chrome and this card updates by itself.'));
+  $('ss-actions').replaceChildren(sessionButton('Open Chrome', 'primary', async event => {
+    const result = await opening(event.currentTarget, () => window.pilot.extensionOptions());
+    window.pilot.uiLog('sessions: Chrome not reporting, Open Chrome pressed', {opened: !!result?.opened});
+    if (!result?.opened) toastMessage('Chrome didn\'t open', 'Open Google Chrome yourself; the card updates once its Job Pilotto extension reports.');
+  }, 'link'));
+}
 export function renderNextStep(item) {
   if (checkingTab(item)) { renderChecking(); return; }
+  if (silentChrome(item)) { renderSilent(); return; }
   const submitted = isSubmitted(item);
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
   const gone = !submitted && formGone(item);

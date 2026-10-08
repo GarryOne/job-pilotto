@@ -104,3 +104,10 @@ export function tabAddress(url, limit = 70) {
   const text = (parsed.hostname.replace(/^www\./, '') + decodeURIComponent(parsed.pathname)).replace(/\/$/, '');
   return text.length <= limit ? text : `${text.slice(0, limit - 21)}…${text.slice(-20)}`;
 }
+
+// After the first look (CHECK_MS) the extension still hasn't reported which tabs are open (Chrome is closed, or its Job Pilotto
+// extension isn't running): a session waiting on its tab can't be seen, so its card says so instead of its last state (owner, 8 Oct 2026).
+export function chromeSilent(item, formsOpen, sinceStart) {
+  if (!item || formsOpen?.known || sinceStart <= CHECK_MS || isSubmitted(item) || item.outcome) return false;
+  return item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item));
+}
