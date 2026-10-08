@@ -231,7 +231,7 @@ export function report(sessions, payload, now = Date.now()) {
   const tabAt = before?.tabAt && before.tab === tabId ? before.tabAt : now;
   const states = {};
   for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
-  const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), tab: tabId, boot: Number.isInteger(tab) ? boot : before?.boot || '', tabAt, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
+  const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), tab: tabId, boot: Number.isInteger(tab) ? boot : before?.boot || '', tabAt, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), needs: String(payload.needs || '').replace(/\s+/g, ' ').trim().slice(0, 80), states,
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
@@ -245,7 +245,7 @@ export function report(sessions, payload, now = Date.now()) {
   // A sign-in or sign-up page (the extension's page rule, or the panel saw a password box): its fields are the account's, never the
   // application's progress: no "ready to submit", no Form completion, no empty-field rows (the session page reads `account`).
   if (payload.role ? payload.role === 'account' : payload.account) state.account = true;   // the rule's word wins: a combined page (CV + password) is the form
-  state.ready = !state.account && state.total > 0 && state.left === 0;
+  state.ready = !state.account && state.total > 0 && state.left === 0 && !state.needs;   // the AI's "needs you" (extension/form-ready.js) vetoes it: the card then says what is needed
   // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
   // Fields already filled when the app first hears of the form have no time (it didn't see them being filled); a field
   // filled after a fill is over was filled by you. A restarted app keeps what it had (persist).

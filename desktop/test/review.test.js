@@ -288,3 +288,15 @@ test('an account page\'s report is never the application form\'s progress: no "r
   review.report([manor], {url: 'https://career55.sapsf.eu/careers/apply#jobpilotto-fill', title: 'Apply', tab: 61, session: 'm3', total: 9, left: 0, role: 'form'});
   assert.deepEqual([heard.at(-1).account, heard.at(-1).ready], [undefined, true]);
 });
+
+test('the AI\'s "needs you" (extension/form-ready.js) vetoes "ready": every counted field filled, still not ready, and the need is kept for the card; cleared, it is ready again', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({left: 0, total: 8, needs: ' Lire et accepter la déclaration '}));
+  assert.deepEqual([heard.at(-1).ready, heard.at(-1).needs], [false, 'Lire et accepter la déclaration']);
+  review.report(sessions, form({left: 0, total: 8, needs: ''}));
+  assert.deepEqual([heard.at(-1).ready, heard.at(-1).needs], [true, '']);
+  review.report(sessions, form({left: 0, total: 8, needs: 'x'.repeat(200)}));
+  assert.equal(heard.at(-1).needs.length, 80);
+});

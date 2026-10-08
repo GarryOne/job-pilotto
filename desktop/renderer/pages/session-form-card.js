@@ -69,6 +69,7 @@ export function showFormCard(item, state) {
   const done = state.total - state.left;
   $('ss-form-pill').replaceChildren(isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
     : state.ready ? pill('Ready to submit', 'good', {dot: true})
+    : state.needs && !state.left ? pill(`Needs you: ${state.needs === '1' ? 'see what the form asks' : state.needs}`, 'warn', {title: 'Every counted field is filled, but the page still asks for something only you can give'})   // the AI's veto (a consent link, a picklist the count cannot see)
     : pill(`${state.left} remaining`, 'warn', {title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists the rest)`}));
   const count = $('ss-form-count');
   count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
