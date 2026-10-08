@@ -55,21 +55,25 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     terminals.remove(old.id);
     return {ok: true, closed};
   });
-  // A new Apply with Claude session on the same job, this one closed (its statistics are kept in Notion).
-  const restartClaude = async old => {
-    if (!(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Allow it in Settings.'};
+  // A new session on the same job, this one closed (its statistics are kept in Notion): in Chrome (a form session, the
+  // extension fills it) or with Claude, as the person chose. Start again never starts Claude by itself.
+  const details = old => ({title: old.title, company: old.company, location: old.location, workMode: old.workMode});
+  const restartAs = async (old, how) => {
+    if (how === 'claude' && !(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Allow it in Settings.'};
     terminals.setOutcome(old.id, 'restarted');
     terminals.remove(old.id);
-    return apply.claudeOne(storage, old.url, undefined, undefined, undefined, {title: old.title, company: old.company, location: old.location, workMode: old.workMode});
+    appLog('sessions', `started again by the user: ${how}`, {id: old.id, kind: old.kind});
+    if (how === 'claude') return apply.claudeOne(storage, old.url, undefined, undefined, undefined, details(old));
+    return DEMO ? apply.openOne(old.url) : apply.applyOne(storage, old.url, details(old));
   };
   checkedSessions.handle('sessionRestart', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
     const {message, detail, buttons} = quitDialog.restart(old.company);
     const {response} = await dialog.showMessageBox(getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined,
-      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 1, message, detail});
-    if (response !== 0) return {ok: false, cancelled: true};
-    return restartClaude(old);
+      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 2, message, detail});
+    if (response === 2) return {ok: false, cancelled: true};
+    return restartAs(old, response === 1 ? 'claude' : 'chrome');
   });
   // The session's form tab was closed (a button looked for it and Chrome has none): the form opens again in a new tab with
   // the fill mark, so the extension's panel follows it. When the page holds state from the closed tab (`stale`: answers,
@@ -80,15 +84,17 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     let reset = false;
     if (stale) {
       appLog('review', `tab gone ${old.id}: asked whether to start again`, {kind: old.kind});
-      const {message, detail, buttons} = quitDialog.tabClosed(old.company, old.kind !== 'form');
+      const claude = old.kind !== 'form';
+      const {message, detail, buttons} = quitDialog.tabClosed(old.company, claude);
+      const keep = buttons.indexOf('Keep and reopen'), cancel = buttons.length - 1;
       const {response} = await dialog.showMessageBox(getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined,
-        {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 1, cancelId: 2, message, detail});
-      if (response === 2) { appLog('review', `tab gone ${old.id}: cancelled, nothing opened`); return {ok: false, cancelled: true}; }
-      reset = response === 0;
+        {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: keep, cancelId: cancel, message, detail});
+      if (response === cancel) { appLog('review', `tab gone ${old.id}: cancelled, nothing opened`); return {ok: false, cancelled: true}; }
+      reset = response < keep;
       appLog('review', `tab gone ${old.id}: start again ${reset ? 'yes' : 'no'}`, {kind: old.kind});
+      // A Claude session starts again as Start again does, in Chrome or with Claude as chosen; the new session opens the tab itself.
+      if (reset && claude) return {...(await restartAs(old, response === 1 ? 'claude' : 'chrome')), reset};
     } else appLog('review', `tab gone ${old.id}: nothing to clear, reopening`, {kind: old.kind});
-    // A Claude session starts again as Start again does: the new session opens the marked tab itself.
-    if (reset && old.kind !== 'form') return {...(await restartClaude(old)), reset};
     if (reset) { review.forget(old.id); terminals.clearStuck(old.id); }
     const opened = apply.openOne(old.url);
     appLog('review', `tab gone ${old.id}: ${opened.ok ? 'reopened the form with the fill mark' : 'could not reopen'}`, {reset, error: opened.error || ''});

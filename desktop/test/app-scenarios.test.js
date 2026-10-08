@@ -56,7 +56,9 @@ function scenario(t) {
   dialog: {showMessageBox: async (_window, options) => {
     dialogs.push(options); assert.ok(choices.length, 'scenario must explicitly answer each dialog'); return {response: choices.shift()};
   }}, nativeImage: {createFromPath: () => ({})},
-  apply: {resumeSession: (_storage, id) => resumeInApp(storage, id, {claude: 'fictional-claude', platform: 'darwin', watch: () => commands.push('watch submission')})},
+  apply: {applyOne: async (_storage, url) => { commands.push(`apply in Chrome ${url}`); return {ok: true}; },
+    claudeOne: async (_storage, url) => { commands.push(`apply with Claude ${url}`); return {ok: true}; },
+    resumeSession: (_storage, id) => resumeInApp(storage, id, {claude: 'fictional-claude', platform: 'darwin', watch: () => commands.push('watch submission')})},
   pipeline, review: {queueClose: () => commands.push('close form'), delivered: async () => true},
   server: {openTabs: () => [], sessionSubmitted: () => null}, notion: {call: () => { throw new Error('unexpected live Notion call'); }},
   claudeConsent: async () => consent, closeTab: async () => { throw new Error('unexpected browser fallback'); }, tabs: async () => [],
@@ -245,3 +247,27 @@ test('journey: closing a review-ready session needs an explicit submission decis
   assert.equal(sessionState(await s.view(id))[0], 'Ready for review');
   assert.equal(s.status(), 'applying'); assert.ok(!s.commands.includes('Notion applied'));
 });
+
+// Start again never starts Claude by itself (owner, 8 Oct 2026): both ways in (the header's Start again, and Start again
+// after the form tab was closed) ask Chrome or Claude, Chrome first; Cancel starts nothing.
+for (const [way, call] of [['Start again', (pilot, id) => pilot.sessionRestart(id)], ['tab closed', (pilot, id) => pilot.sessionReopen(id, true)]]) {
+  test(`journey: ${way} asks Chrome or Claude, Chrome first, and only Claude starts Claude`, async t => {
+    for (const [choice, expected] of [[0, `apply in Chrome ${URL}`], [1, `apply with Claude ${URL}`]]) {
+      const s = scenario(t), id = await s.start();
+      s.choices.push(choice);
+      assert.equal((await call(s.pilot, id)).ok, true);
+      assert.equal(s.dialogs[0].buttons[s.dialogs[0].defaultId], way === 'Start again' ? 'Start in Chrome' : 'Keep and reopen');
+      assert.match(s.dialogs[0].buttons[0], /Chrome/);
+      assert.match(s.dialogs[0].buttons[1], /Claude/);
+      assert.deepEqual(s.commands.filter(c => c.startsWith('apply ')), [expected]);
+      assert.equal(s.processes.length, 1, 'no Claude started by the app itself');
+      assert.equal(await s.view(id), undefined, 'the old session is closed');
+      terminals._reset();
+    }
+    const s = scenario(t), id = await s.start();
+    s.choices.push(way === 'Start again' ? 2 : 3);
+    assert.equal((await call(s.pilot, id)).cancelled, true);
+    assert.deepEqual(s.commands.filter(c => c.startsWith('apply ')), []);
+    assert.ok(await s.view(id), 'cancel keeps the session');
+  });
+}

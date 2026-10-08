@@ -24,19 +24,22 @@ export function tabClosed(company, claude) {
   return {
     message: `The ${company ? `${company} form` : 'form'} tab was closed. Start this application again?`,
     detail: (claude
-      ? 'Start again: this Claude session closes and a new one starts on the same job; what it asked you and the form progress are cleared. '
+      ? 'Start again: this session closes and what it asked you and the form progress are cleared. A new session starts on ' +
+        'the same job, in Chrome (the extension fills the form from your kit) or with Claude, as you choose. '
       : 'Start again: the answers you gave here and the form progress are cleared, and the form opens in a new Chrome tab, filled from your kit. ')
       + 'Keep and reopen: everything stays and the form opens again in a new Chrome tab.',
-    buttons: ['Start again', 'Keep and reopen', 'Cancel'],
+    buttons: claude ? ['Start again in Chrome', 'Start again with Claude', 'Keep and reopen', 'Cancel'] : ['Start again', 'Keep and reopen', 'Cancel'],
   };
 }
 
+// Start again never starts Claude by itself: Chrome (the extension fills the form) is the first choice, Claude the second.
 export function restart(company) {
   return {
     message: `Start the ${company ? `${company} application` : 'application'} again from scratch?`,
-    detail: 'This session stops and is closed (its statistics are kept in Notion). A new Apply with Claude session then ' +
-      'starts on the same job from the beginning. The form tab stays open in Chrome: close it first for an empty form.',
-    buttons: ['Start again', 'Cancel'],
+    detail: 'This session stops and is closed (its statistics are kept in Notion). A new session then starts on the same job: ' +
+      'in Chrome, where the extension fills the form from your kit, or with Claude. ' +
+      'The form tab stays open in Chrome: close it first for an empty form.',
+    buttons: ['Start in Chrome', 'Start with Claude', 'Cancel'],
   };
 }
 

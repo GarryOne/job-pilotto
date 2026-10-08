@@ -18,6 +18,7 @@ function setup({choice = null} = {}) {
     storage: {}, getWindow: () => null, here, DEMO: false, nativeImage: {createFromPath: () => ({})},
     dialog: {showMessageBox: async (_window, options) => { dialogs.push(options); return {response: choice}; }},
     apply: {openOne: url => { calls.push(`open ${url}`); return {ok: true}; },
+      applyOne: async (_storage, url) => { calls.push(`chrome ${url}`); return {ok: true}; },
       claudeOne: async (_storage, url) => { calls.push(`claude ${url}`); return {ok: true}; }},
     review: {forget: id => calls.push(`forget ${id}`)}, pipeline: {}, server: {}, notion: {}, claudeConsent: async () => true});
   const reopen = (id, stale) => handles.get('sessionReopen')({}, id, stale);
@@ -61,17 +62,25 @@ test('cancel: nothing opens and nothing changes', async () => {
   assert.deepEqual(s.calls, []);
 });
 
-test('a Claude session started again is a new Claude session (it opens the marked tab itself); kept, the tab reopens with the mark', async () => {
-  const yes = setup({choice: 0});
-  await terminals.start({id: 'c1', url: URL, kind: 'claude', file: 'claude'});
-  assert.equal((await yes.reopen('c1', true)).reset, true);
-  assert.deepEqual(yes.calls, [`claude ${URL}`]);
-  assert.equal(terminals.get('c1'), null);
-  assert.equal(yes.dialogs[0].detail, tabClosed('', true).detail);
-  const no = setup({choice: 1});
+test('a Claude session started again: in Chrome or with Claude, as chosen (never Claude by itself); kept, the tab reopens with the mark', async () => {
+  for (const [choice, expected] of [[0, `chrome ${URL}`], [1, `claude ${URL}`]]) {
+    const s = setup({choice});
+    await terminals.start({id: 'c1', url: URL, kind: 'claude', file: 'claude'});
+    assert.equal((await s.reopen('c1', true)).reset, true);
+    assert.deepEqual(s.calls, [expected]);
+    assert.equal(terminals.get('c1'), null);
+    assert.equal(s.dialogs[0].detail, tabClosed('', true).detail);
+    assert.deepEqual(s.dialogs[0].buttons, ['Start again in Chrome', 'Start again with Claude', 'Keep and reopen', 'Cancel']);
+    assert.equal(s.dialogs[0].defaultId, 2);
+  }
+  const no = setup({choice: 2});
   await terminals.start({id: 'c2', url: URL, kind: 'claude', file: 'claude'});
   assert.deepEqual(await no.reopen('c2', true), {ok: true, reset: false});
   assert.deepEqual(no.calls, [`open ${URL}`]);
+  const cancel = setup({choice: 3});
+  await terminals.start({id: 'c3', url: URL, kind: 'claude', file: 'claude'});
+  assert.equal((await cancel.reopen('c3', true)).cancelled, true);
+  assert.deepEqual(cancel.calls, []);
 });
 
 // The class: every place in the session pages that looks for the form's tab hands a closed one to reopenClosedTab, and no

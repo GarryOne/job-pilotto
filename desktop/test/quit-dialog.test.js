@@ -40,8 +40,8 @@ test('removing a session whose job is still Applying asks whether it was submitt
 test('start again from scratch: asked once, says what closes, what starts and that the form tab stays', () => {
   const dialog = restart('Canonical');
   assert.equal(dialog.message, 'Start the Canonical application again from scratch?');
-  assert.match(dialog.detail, /This session stops and is closed.*A new Apply with Claude session then starts on the same job.*close it first for an empty form/s);
-  assert.deepEqual(dialog.buttons, ['Start again', 'Cancel']);
+  assert.match(dialog.detail, /This session stops and is closed.*A new session then starts on the same job: in Chrome.*or with Claude.*close it first for an empty form/s);
+  assert.deepEqual(dialog.buttons, ['Start in Chrome', 'Start with Claude', 'Cancel']);
 });
 
 test('cancel: asked once, says the form tab closes (what was filled is lost) and the job goes back to Kit ready', () => {
