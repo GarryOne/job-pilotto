@@ -239,7 +239,7 @@ export function report(sessions, payload, now = Date.now()) {
   if (Array.isArray(payload.knockouts)) state.knockouts = payload.knockouts.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
   // What the fill proposed for a field it left (a value), or the contact detail it asks for (a key): the session page's rows offer it.
   if (Array.isArray(payload.proposals)) state.proposals = payload.proposals.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120),
-    value: String(item?.value || '').slice(0, 200), key: CONTACT_KEYS.includes(item?.key) ? item.key : '',
+    value: String(item?.value || '').slice(0, 200), key: CONTACT_KEYS.includes(item?.key) ? item.key : '', guess: item?.guess === true,   // the AI's likely answer, not a stated fact
     options: (Array.isArray(item?.options) ? item.options : []).slice(0, 60).map(option => String(option).slice(0, 80)).filter(Boolean)}))
     .filter(item => item.label && (item.value || item.key));
   // A sign-in or sign-up page (the extension's page rule, or the panel saw a password box): its fields are the account's, never the

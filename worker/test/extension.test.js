@@ -160,7 +160,7 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   assert.deepEqual(result.answers.map((a) => a.field), ['q1']);
   // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
   const { ms, ...trace } = traces[0];
-  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn' });
+  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0 });
   assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
   assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
   assert.equal(result.eligible, true);
@@ -257,4 +257,23 @@ test("a fill's per-field outcomes pass the log boundary as short rows of wording
   assert.deepEqual(kept[0], {label: 'Formule d\'appel', type: 'combobox', outcome: 'filled', source: 'Claude', reason: ''});   // no value, no other key
   assert.equal(kept[1].label.length, 50);
   assert.equal(kept[1].reason.length, 80);
+});
+
+test('a likely answer the profile does not state comes back as a proposal; never for a legal, demographic or knockout question', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  const answers = [
+    { field: 'hours', value: 'Oui', confidence: 'medium', note: 'applying to this 50% role', category: 'normal', use: 'propose' },
+    { field: 'visa', value: 'Yes', confidence: 'low', note: '', category: 'knockout', use: 'propose' },
+    { field: 'gender', value: 'Female', confidence: 'low', note: '', category: 'demographic', use: 'propose' },
+    { field: 'terms', value: 'checked', confidence: 'low', note: '', category: 'legal', use: 'propose' },
+    { field: 'email', value: 'ada@example.com', confidence: 'high', note: '', category: 'contact', use: 'fill' },
+  ];
+  const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
+    content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
+  const traces = [];
+  const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
+  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
+    { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['email', 'fill']]);
+  assert.equal(traces[0].proposed, 1);
 });

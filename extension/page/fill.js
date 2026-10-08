@@ -339,8 +339,10 @@
     return true;
   };
 
-  window.__jobPilottoExtensionFill = async (answers, profile, resume, coverLetter = '', acceptConsents = false) => {
+  window.__jobPilottoExtensionFill = async (all, profile, resume, coverLetter = '', acceptConsents = false) => {
     if (!('__jobPilottoGuardActive' in window)) return {error: 'The page helpers did not load; nothing was filled.'};
+    // The AI's likely answers it was not told (use: "propose", worker/src/extension.js): shown to you as proposals, never typed.
+    const answers = (all || []).filter(a => a.use !== 'propose'), proposedOf = Object.fromEntries((all || []).filter(a => a.use === 'propose').map(a => [a.field, a]));
     const form = await window.__jobPilottoDescribeForm();
     for (const group of window.__jobPilottoCheckboxQuestions()) {
       form.push({field: `group:${group.question}`, question: group.question, label: group.question, type: 'checkbox-group', options: group.options,
@@ -520,13 +522,14 @@
       let reason = '';
       if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
       else if (row.unread && !row.filled) reason = 'question on the page not read';
+      else if (!row.filled && proposedOf[row.field]) reason = 'proposed for you to confirm';
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
       // The question read as one of its own choices (or nothing): the page's title wasn't found, so no answer could be right.
       else if (!row.filled && !answer && (!label || (rowOf[row.field]?.options || []).some(o => norm(o) === norm(label)))) reason = 'question text not found on the page';
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
-      if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer, (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
+      if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer || proposedOf[row.field], (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};

@@ -74,3 +74,20 @@ test('a proposal for an ARIA question is kept on its group, for the panel and th
   assert.equal(group.dataset.jobpilottoSuggested, 'No');
   assert.deepEqual(JSON.parse(group.dataset.jobpilottoOptions), ['Yes', 'No']);
 });
+
+test('the AI\'s likely answer (use: propose) is never typed: it is the question\'s proposal, marked as a guess, "proposed for you to confirm"', { skip: !JSDOM }, async () => {
+  const window = openPage(JSDOM, FORM);
+  behave(window);
+  const summary = await window.__jobPilottoExtensionFill([
+    { field: 'name', value: 'Ada Tester', source: 'kit' },
+    { field: 'aria:employed', value: 'No', source: 'Claude (on the page)', use: 'propose', category: 'normal' },
+  ], {}, null, '', false);
+  const group = window.document.getElementById('employed');
+  assert.equal(window.document.querySelector('[aria-labelledby="employed-o1"]').getAttribute('aria-checked'), 'false');   // not picked for you
+  assert.equal(group.dataset.jobpilottoSuggested, 'No');
+  assert.equal(group.dataset.jobpilottoGuess, '1');
+  const row = Array.from(summary.trace).find((item) => item.label === 'Are you or were you employed by this group?');
+  assert.equal(row.outcome, 'left');
+  assert.equal(row.reason, 'proposed for you to confirm');
+  assert.equal(window.document.getElementById('name').value, 'Ada Tester');   // a stated answer is still typed
+});

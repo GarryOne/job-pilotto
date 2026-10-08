@@ -20,7 +20,8 @@ export function onChoices(proposal, choice) {
 }
 function proposalOf({proposals = [], label, key = '', contact = {}, cv = []} = {}) {
   const found = proposals.find(proposal => proposal.label === label);
-  if (found?.value) return {value: found.value, key: found.key || key || '', from: 'Proposed by the fill: the form did not take it'};
+  if (found?.value) return {value: found.value, key: found.key || key || '', from: found.guess ? 'Your most likely answer, from your profile and this job: check it'
+    : 'Proposed by the fill: the form did not take it'};
   const wants = found?.key || key;
   if (!wants) return null;
   if (String(contact?.[wants] || '').trim()) return {value: contact[wants], key: wants, from: 'From your details'};

@@ -11,6 +11,9 @@ import {keysFor} from '../lib/contact-keys.js';
 test('the proposed answer: what the fill proposed, else your detail, else the CV, else a box that keeps it; nothing known: no proposal', () => {
   const proposals = [{label: 'Formule d\'appel', value: 'Monsieur', key: ''}, {label: 'Numéro de téléphone', value: '', key: 'phone'}];
   assert.deepEqual(pickProposal({proposals, label: 'Formule d\'appel'}), {value: 'Monsieur', key: '', from: 'Proposed by the fill: the form did not take it'});
+  // The AI's likely answer for you and this job (worker use: "propose"; kept through the app's review state): said to be one, to check.
+  assert.equal(pickProposal({proposals: [{label: 'Disponible le week-end ?', value: 'Oui', key: '', guess: true}], label: 'Disponible le week-end ?'}).from,
+    'Your most likely answer, from your profile and this job: check it');
   assert.equal(pickProposal({proposals, label: 'Numéro de téléphone', contact: {phone: '+41 79 1'}}).from, 'From your details');
   assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone', cv: [{field: 'phone', value: '+41 79 2', sure: false}]}),
     {value: '+41 79 2', key: 'phone', from: 'From your CV: check it'});
@@ -28,7 +31,7 @@ test('the form\'s report keeps the proposals (cleaned) and "Use" reaches the for
       {label: 'x', key: 'not-a-detail'}, {label: '', value: 'y'}]};
   review.report(sessions, page);
   assert.deepEqual(review.allStates().find(state => state.id === "s1").proposals,
-    [{label: 'Formule d\'appel', value: 'Monsieur', key: '', options: []}, {label: 'Numéro de téléphone', value: '', key: 'phone', options: []}]);
+    [{label: 'Formule d\'appel', value: 'Monsieur', key: '', guess: false, options: []}, {label: 'Numéro de téléphone', value: '', key: 'phone', guess: false, options: []}]);
   review.queueFill('s1', 'Rue et numéro', 'Rue du Lac 1');
   assert.deepEqual(review.report(sessions, page).commands, [{fill: {label: 'Rue et numéro', value: 'Rue du Lac 1'}}]);
   assert.deepEqual(review.report(sessions, page).commands, []);   // once

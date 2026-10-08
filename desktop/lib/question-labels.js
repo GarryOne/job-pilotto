@@ -39,7 +39,7 @@ export const LEFT_REASONS = ['no_answer', 'not_taken', 'real_click', 'no_option'
 export function leftReason(reason) {
   const text = String(reason || '');
   if (/^(legal|no CV)/.test(text)) return '';
-  if (text.startsWith('no answer')) return 'no_answer';
+  if (text.startsWith('no answer') || text.startsWith('proposed')) return 'no_answer';   // proposed: not in your profile; the AI's likely answer is shown
   if (/^question (on the page not read|text not found)/.test(text)) return 'unread';
   if (text.startsWith('answer given')) return 'not_taken';
   if (text.startsWith('dropdown that opens')) return 'real_click';

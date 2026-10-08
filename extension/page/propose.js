@@ -18,6 +18,7 @@
     if (!el || row.filled || row.legal) return;
     if (row.options?.length) el.dataset.jobpilottoOptions = JSON.stringify(row.options.slice(0, 60));   // a select's choices: the app proposes one of them
     if (answer?.value) el.dataset.jobpilottoSuggested = String(answer.value).split(' || ')[0].slice(0, 200);
+    if (answer?.use === 'propose') el.dataset.jobpilottoGuess = '1';   // the AI's likely answer, not a stated fact: the app says so
     else if (key) el.dataset.jobpilottoWants = key;
   };
 
