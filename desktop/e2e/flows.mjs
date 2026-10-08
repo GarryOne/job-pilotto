@@ -8,7 +8,7 @@ export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
   'extension/tabs.js', 'extension/account.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
-  'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js',
+  'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js',
 ];
 
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs (E2E_STEPS); `unit`: desktop/test files.

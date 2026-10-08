@@ -9,7 +9,7 @@ test('lastReset hands the import/reset result to the window once, then null', as
   assert.ok(line, 'the lastReset handler exists');
   const resetDone = {imported: true, backup: 'x'};
   const body = line.trim().replace(/^ipcMain\.handle\('lastReset',\s*/, '').replace(/\);$/, '');
-  const handler = new Function('resetDone', `let resetTold = false; return ${body};`)(resetDone);
+  const handler = new Function('getResetDone', `let resetTold = false; return ${body};`)(() => resetDone);   // lib/system-handlers.js: the reset result through a getter
   assert.deepEqual(handler(), resetDone);
   assert.equal(handler(), null, 'a reload does not show it again');
 });

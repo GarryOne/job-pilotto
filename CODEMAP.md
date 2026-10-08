@@ -20,16 +20,19 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/app-meta-handlers.js` — The app's own state over IPC (moved out of main.js, 8 Oct 2026): the license, technical reports (telemetry, tester logs), sharing
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
+- `desktop/lib/apply-handlers.js` — The application flow's IPC (moved out of main.js, 8 Oct 2026): Apply and Apply with Claude, the form page's review state, watch and focus, showing a
 - `desktop/lib/apply.js` — "Apply to N jobs": pick the N best open jobs and start applying.
 - `desktop/lib/awake.js` — The time this computer has been awake: Date.now() minus the time it slept. Watchdogs measure with it, so a Mac asleep with its lid
 - `desktop/lib/background-chrome.js` — A Chrome an automation left behind is not just clutter: macOS keeps ONE Apple Event connection per application, and
 - `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
 - `desktop/lib/benchmarks.js` — What applications typically get on a job board, from the website's counts of how people's applications went (site/src/knowledge.js benchmarks).
+- `desktop/lib/browser-handlers.js` — The browser and extension setup IPC (moved out of main.js, 8 Oct 2026): showing a job's form tab, reloading it, opening Notion and folders,
 - `desktop/lib/browser-launch.js` — Which Chromium browser to open a URL in, and how. Chrome first (what the app always did), then Edge (the Windows
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
 - `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
+- `desktop/lib/cloud-handlers.js` — The Always on and Telegram IPC (moved out of main.js, 8 Oct 2026): connecting and turning off Always on (the user's GitHub repo), the Telegram buttons
 - `desktop/lib/confirmation.js` — A submit press, then a change: a redirect, or new content on the same page. This file turns that page into
 - `desktop/lib/contact-from-cv.js` — "Your details from your CV": Claude reads the CV once per CV file and proposes a value for each empty contact field it states
 - `desktop/lib/contact-handlers.js` — Settings → Profile → Your details over IPC: read and save the 📇 Contact details (lib/contact.js), and the values Claude proposes
@@ -54,6 +57,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
 - `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
+- `desktop/lib/focus-handlers.js` — The jobs, focus and status IPC (moved out of main.js, 8 Oct 2026): the theme and automation switches, deleting a job and setting its status, the Focus
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
 - `desktop/lib/goals.js` — The setup goals (level, work mode, minimum salary, languages), corrected on the Strategy page as the setup review does (owner, 7 Oct 2026:
@@ -62,8 +66,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/interview-handlers.js` — The Interviews page's IPC (moved out of main.js, 8 Oct 2026): drafts on this Mac (recording, transcribing, editing), saved interviews in
 - `desktop/lib/interview-reminders.js` — Interview reminders and job matching (pure; the timer and notifications are in main.js). The jobs come from Notion
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
+- `desktop/lib/job-actions-handlers.js` — The job actions' IPC (moved out of main.js, 8 Oct 2026): running a Telegram-style command from the app, adding a job or an applied one by hand, standard
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
+- `desktop/lib/jobs-handlers.js` — The jobs and runs IPC (moved out of main.js, 8 Oct 2026): the page's view of a run, the runs list and a run's detail, checking mail, the first search,
+- `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
+- `desktop/lib/leads-handlers.js` — The "log anything" IPC (moved out of main.js, 8 Oct 2026): the clipboard's image, proposing a lead from a pasted message or screenshot (the one AI
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 40 applications
@@ -113,6 +121,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/run-result.js` — The engine's result file (src/run_result.py): one object per run, instead of the last stdout line.
 - `desktop/lib/schedule.js` — Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
+- `desktop/lib/search-tuning-handlers.js` — The search settings' IPC (moved out of main.js, 8 Oct 2026): how well the search covers the roles and places, ideas, loosening and adding
 - `desktop/lib/secrets.js` — Pasted keys and tokens: drop what copying adds (spaces, line breaks, invisible characters) and
 - `desktop/lib/sentry.js` — Crash reports to Sentry, without Sentry's SDK: the SDK instruments HTTP and console by default and drags in 58 MB, which is the wrong
 - `desktop/lib/server-contact.js` — "Your details" for the extension (GET /extension/me): the contact, CV and cover letter it fills a form with, read from Notion with the last
@@ -125,17 +134,21 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/session-handlers.js` — Register the real session IPC flows with injected app services, so scenarios exercise the same handlers as Electron.
 - `desktop/lib/session-runs.js` — Each Apply with Claude session's statistics on its row in Notion 🎏 Agent Runs (session-stats.js computes them).
 - `desktop/lib/session-stats.js` — The statistics of an Apply with Claude session, for its row in Notion 🎏 Agent Runs, so the process can be measured
+- `desktop/lib/settings-deps.js` — What the strategy writers (lib/strategy.js: addRoles, addPlaces, editLists, retune, setDailyTarget...) are given to write the Notion settings
 - `desktop/lib/setup-funnel.js` — Setup funnel: each install reports, once per step, the furthest setup step it reached (and when setup finished),
+- `desktop/lib/setup-handlers.js` — The setup and settings IPC (moved out of main.js, 8 Oct 2026): connecting Notion (the sign-in and its gate), saving settings, the contact details and
 - `desktop/lib/shared-check.js` — One check, shared: callers asking at the same time (or within `ttl` ms) get the same answer instead of each starting
 - `desktop/lib/shared-log.js` — What the app sent to the Job Pilotto service, kept on this Mac so "See what's sent" shows it: the last 20 requests, exactly as they left
 - `desktop/lib/shared-read.js` — A read asked again while the same read runs joins it instead of starting another Python run (7 Oct 2026: ~10 job-list
 - `desktop/lib/shots.js` — Small copies of pasted screenshots: what goes to Notion is a narrow JPEG, not the full-size file (Claude reads the original).
 - `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
+- `desktop/lib/strategy-draft-handlers.js` — The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
 - `desktop/lib/strategy-edit.js` — Strategy, the "What you're targeting" lists edited in the app: which lists, cleaning the edits, applying them, editLists.
 - `desktop/lib/strategy-rebuild.js` — Strategy, rebuild from the CV: what a new draft changes, grouped by what each change triggers (and its cost). Re-exported by strategy.js.
 - `desktop/lib/strategy-settings.js` — Strategy, saving and tuning: accepting a draft (Profile, answers, search settings), the ⚙️ Search settings page, the daily target, widening
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
+- `desktop/lib/system-handlers.js` — The system IPC (moved out of main.js, 8 Oct 2026): the microphone and screen permissions, relaunching the app, resetting the profile, backups
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
@@ -144,6 +157,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
+- `desktop/lib/visits-handlers.js` — The job-site visits' IPC (moved out of main.js, 8 Oct 2026): opening a site or its tab, visiting again, Read with Claude, hiding and dismissing
 - `desktop/lib/visits.js` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors and portals with no API (LinkedIn,
 - `desktop/lib/window-log.js` — What happened to the main window, in logs/app.log (area `window`): how long it took to load, a load that failed, the
 

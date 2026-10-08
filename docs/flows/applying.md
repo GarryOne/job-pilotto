@@ -15,6 +15,7 @@
 | `extension/background.js` | the worker: tabs and pages the app opened, fills, submit watching, messages |
 | `extension/review.js` | the page's panel: progress, what you typed, the submit press |
 | `extension/log.js`, `tab-memory.js`, `flow.js` | shared: the decision log, the tabs' memory, the app/Worker calls |
+| `desktop/lib/apply-handlers.js`, `browser-handlers.js`, `kit-handlers.js` | the app's IPC for the application flow: Apply and Apply with Claude, the form page's review state, showing a form tab, the kit a job needs (moved out of main.js) |
 | `desktop/lib/session-flow.js` | the app's decisions: stuck → hand-over, the stage from each report, the hand-over's tab |
 | `desktop/lib/review.js` | which session a report belongs to (carried session, newest tab) |
 | `desktop/lib/terminals.js`, `apply.js`, `session-handlers.js`, `form-tab.js` | sessions, opening forms, reopen, Chrome's tabs |

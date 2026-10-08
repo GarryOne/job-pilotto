@@ -2,7 +2,7 @@
  "desktop/e2e/lib/triage.mjs": 547,
  "desktop/e2e/suites/apply.mjs": 647,
  "desktop/e2e/test/triage.test.mjs": 589,
- "desktop/main.js": 2485,
+ "desktop/main.js": 1197,
  "desktop/renderer/pages/connections.js": 508,
  "desktop/renderer/pages/interviews.js": 777,
  "desktop/renderer/pages/session-needs.js": 530,
