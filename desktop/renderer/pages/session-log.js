@@ -20,6 +20,7 @@ export async function openSession(id) {
   if (!id) return;
   if (id !== shared.openSessionId) shared.termShownFor = null;  // the log shows this session's output once it's open
   shared.openSessionId = id;
+  shared.openWanted = {id, at: Date.now()};   // asked for now: a render with a list from before it existed must not swap it for another
   openView('sessions');  // the list we already have, before the log is read (that read is what made the page feel stuck)
   if (!sessionTail[id]) {
     const output = await window.pilot.sessionOutput(id).catch(() => '');
@@ -41,7 +42,10 @@ export function renderSessionPage() {
   // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).
   shared.openSessionId = shared.openSessionId || remembered('session') || null;
   const item = sessionList.find(entry => entry.id === shared.openSessionId) || sessionList[0];
-  if (item && item.id !== shared.openSessionId) { shared.openSessionId = item.id; shared.termShownFor = null; }
+  // A session opened a moment ago (Take over, a notification) may not be in this list yet: keep it asked for; the next list has it.
+  // (9 Oct 2026: after Take over the app showed the oldest session, Manor, instead of the new one.)
+  const wanted = shared.openWanted && Date.now() - shared.openWanted.at < 15000 ? shared.openWanted.id : null;
+  if (item && item.id !== shared.openSessionId && shared.openSessionId !== wanted) { shared.openSessionId = item.id; shared.termShownFor = null; }
   if (item) remembered('session', item.id);
   // Nothing read yet → the spinner. A remembered list, even an empty one, is the page (Updating… until the app
   // answers). The app's own empty list → the empty state. The shell never paints before one of those is known.

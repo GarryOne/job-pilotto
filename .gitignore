@@ -12,3 +12,6 @@ config/google_oauth_client.json
 
 # also a symlink to a shared install (worktrees): never committed
 node_modules
+
+# Written by the Playwright MCP of a twin's Claude session (desktop/lib/twin.js), in the cwd
+.playwright-mcp/

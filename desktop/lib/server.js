@@ -10,6 +10,7 @@ import http from 'node:http';
 import {handleExtension} from '../shared/worker/extension.js';
 import {log as appLog} from './log.js';
 import * as pipeline from './pipeline.js';
+import * as viewCache from './view-cache.js';
 import {extensionToken, issueTicket, checkTicket, localEnv, latestExtension} from './server-env.js';
 import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickChoice} from './server-pages.js';
@@ -251,9 +252,10 @@ export function start(storage, onError = () => {}) {
         res.end(JSON.stringify({ok}));
         if (ok) {
           const event = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
-          const {jobs} = await pipeline.jobs(storage).catch(() => ({jobs: []}));
           // The page the panel reports may be the posting's form (Ashby /application, Lever /apply), not the posting itself.
-          const job = jobs.find(j => pageKey(j.url) === pageKey(event.url)) || jobs.find(j => j.url && isFormOf(event.url, j.url));
+          const find = jobs => jobs.find(j => pageKey(j.url) === pageKey(event.url)) || jobs.find(j => j.url && isFormOf(event.url, j.url));
+          // The Jobs screen's last list first: a fresh read takes 10-15 s, and Take over waited on it (9 Oct 2026). A job not in it: the fresh read.
+          const job = find(viewCache.recall(storage, 'jobs')?.result?.jobs || []) || find((await pipeline.jobs(storage).catch(() => ({jobs: []}))).jobs || []);
           if (event.type === 'stuck') stuckHandler(event);
           if (event.type === 'account-pressed') accountPressedHandler(event);
           if (event.type === 'take-over') takeOverHandler({...event, job});
