@@ -25,7 +25,7 @@ test('every Search settings save in main.js reports progress, and every renderer
   const calls = [...main.matchAll(/strategy\.(loosen|addRoles|addPlaces|editLists|retune|setDailyTarget)\(([\s\S]*?)\);/g)];
   assert.ok(calls.length >= 6);
   for (const [, name, args] of calls) assert.match(args, /settingsDeps\(\)/, `strategy.${name} without settingsDeps (no progress told)`);
-  const pages = ['pages/strategy.js', 'pages/tune.js', 'pages/focus.js', 'pages/activity.js'].map(file => [file, file === 'pages/activity.js' ? activitySource() : readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8')]);
+  const pages = ['pages/strategy.js', 'pages/strategy-targets.js', 'pages/tune.js', 'pages/focus.js', 'pages/activity.js'].map(file => [file, file === 'pages/activity.js' ? activitySource() : readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8')]);
   for (const [file, source] of pages) {
     for (const call of source.matchAll(/pilot\.(editTargets|tuneApply|setDailyTarget)\(/g)) {
       const before = source.slice(Math.max(0, call.index - 200), call.index);

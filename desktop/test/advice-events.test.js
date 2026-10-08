@@ -18,7 +18,7 @@ test('fixed kinds only, shown once per place a session, never the role word or p
 });
 
 test('every recommending card records shown and taken (a new card without it fails here)', () => {
-  const strategy = readFileSync(new URL('../renderer/pages/strategy.js', import.meta.url), 'utf8');
+  const strategy = readFileSync(new URL('../renderer/pages/strategy-suggestions.js', import.meta.url), 'utf8');
   const activity = activitySource();
   // Every Strategy suggestion is a row drawn by suggestionRow (records shown); each kind records taken (widen or its own call) and dismissed (⋯).
   assert.match(strategy, /function suggestionRow[\s\S]*?adviceEvent\('shown', kind/);

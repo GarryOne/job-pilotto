@@ -157,7 +157,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/focus.js` — Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 - `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
-- `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
+- `desktop/renderer/pages/jobs-fit.js` — Jobs page, match analysis: the panel a score ring opens (parts as bars, risk, strengths and gaps). Guarded by: npm run shot -- jobs (no unit test reads it).
+- `desktop/renderer/pages/jobs-lead.js` — Jobs page, Log a message: the recruiter-lead dialog (screenshots, confirm step, job picker) and wireLead(). Guarded by: test/lead-confirm.test.js.
+- `desktop/renderer/pages/jobs-questions.js` — Jobs page, questions to answer once: cached list, read from Notion, Save/Skip. Guarded by: test/question-save.test.js, questions-load-error.test.js, questions-error-text.test.js.
+- `desktop/renderer/pages/jobs-render.js` — Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
+- `desktop/renderer/pages/jobs-state.js` — Jobs page, shared state: one jobsState object (a value reassigned later stays ONE binding for every piece) and the link keys. Guarded by: the Jobs tests (count-flash, live-count, activity-selection-ke
+- `desktop/renderer/pages/jobs.js` — Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 - `desktop/renderer/pages/logs.js` — Settings → Logs: the app's logs on this Mac, for the user (and whoever helps them) to see what happened. One day at a
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
@@ -178,7 +183,10 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/shared.js` — State more than one page changes (an imported binding is read-only, so it lives on one object).
 - `desktop/renderer/pages/startup.js` — Start-up: what the window opens on.
 - `desktop/renderer/pages/strategy-review.js` — Setup step 5: review the drafted strategy.
-- `desktop/renderer/pages/strategy.js` — Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there.
+- `desktop/renderer/pages/strategy-state.js` — Strategy page, shared state: one strategyState object (a value reassigned later stays ONE binding for every piece) and the tab switch. Guarded by: the Strategy tests (advice-events, save-progress).
+- `desktop/renderer/pages/strategy-suggestions.js` — Strategy page, suggestions: the Improve-your-search rows, coverage verdict, ideas, rescore confirm. Guarded by: test/advice-events.test.js, test/coverage-card.test.js, test/filters-card.test.js.
+- `desktop/renderer/pages/strategy-targets.js` — Strategy page, goals and targets: the four target cards, their lists (chips, Edit, Save, remote choice), goals, renderStrategy. Guarded by: test/save-progress.test.js (and test/strategy-targets.test.j
+- `desktop/renderer/pages/strategy.js` — Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there. Entry: loadStrategy and init; the cards are strategy-targets.js and strategy-suggestions.js, shared
 - `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
 - `desktop/renderer/pages/tune.js` — Tune my strategy (Actions page): the changes your own results support (src/tune.py, no AI), each one ticked or not;

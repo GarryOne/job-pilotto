@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 test('question Save starts disabled and follows the answer field', () => {
-  const source = fs.readFileSync(new URL('../renderer/pages/jobs.js', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../renderer/pages/jobs-questions.js', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf("textContent: 'Save'"), source.indexOf("skip.addEventListener('click'"));
   assert.match(body, /save\.disabled = true;/);
   assert.match(body, /addEventListener\('input', \(\) => \{ save\.disabled = !input\.value\.trim\(\); \}\)/);

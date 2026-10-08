@@ -11,6 +11,6 @@ test('the live log handler never clears the selected run; the buttons that start
   const start = jobs.slice(jobs.indexOf('export async function startSearch('), jobs.indexOf('export async function startSearch(') + 400);
   assert.match(start, /selectedRun = null/, 'a search started from a button follows the run it starts');
   assert.match(jobs, /\$\('refresh'\)\.addEventListener\('click', \(\) => startSearch\(\)\)/, 'Refresh starts it through startSearch');
-  const strategy = fs.readFileSync(new URL('../renderer/pages/strategy.js', import.meta.url), 'utf8');
+  const strategy = fs.readFileSync(new URL('../renderer/pages/strategy-suggestions.js', import.meta.url), 'utf8');
   assert.match(strategy, /await startSearch\(\{reason: 'rescore'/, 'Re-score starts the search the same way, saying why');
 });

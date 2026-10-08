@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import fs from 'node:fs';
 
-const page = fs.readFileSync(new URL('../renderer/pages/jobs.js', import.meta.url), 'utf8');
+const page = fs.readFileSync(new URL('../renderer/pages/jobs-questions.js', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
 
 test('a failed read opens the card and has a Retry button wired to loadQuestions', () => {

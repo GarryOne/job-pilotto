@@ -16,7 +16,7 @@ test('another failure: one plain sentence, retry stays', () => {
 });
 
 test('the page uses the helper', () => {
-  const page = fs.readFileSync(new URL('../renderer/pages/jobs.js', import.meta.url), 'utf8');
+  const page = fs.readFileSync(new URL('../renderer/pages/jobs-questions.js', import.meta.url), 'utf8');
   assert.match(page, /questionsProblem\(error\)/);
   assert.doesNotMatch(page, /from Notion: \$\{error\}/);
 });
