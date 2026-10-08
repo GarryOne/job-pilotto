@@ -170,7 +170,7 @@
   const armCombo = (field, answer) => {
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
     if (!el) return false;
-    const control = comboControl(el);
+    const control = comboControl(el); control.__jobPilottoDisarm?.();   // armed again (Use in the app, a re-arm): the earlier answer's click handler goes
     control.style.outline = '3px solid #d9540b';
     control.style.outlineOffset = '2px';
     const badge = document.createElement('div');
@@ -186,19 +186,19 @@
         let option = matchOption(answer);
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
-          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60);   // the menu's own choices, as it opened
+          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = []; for (let w = 0; w < 1500 && !shown.length; w += 150) { await sleep(150); shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60); } option = matchOption(answer);   // the menu's own choices once drawn (a slow menu: Coop, 8 Oct 2026)
           // Long menus (countries, cities) show only their first entries: type the answer to filter,
           // which the menu accepts once your click has opened it.
           // Search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
-          el.dispatchEvent(new Event('input', {bubbles: true}));
+          if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
+          if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
         }
         if (option) { option.click(); done(); }
         else { badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; window.__jobPilottoMenuMissed?.(el, shown); }   // page/propose.js: no text left in the box; its choices go to the app
       }, 120);
     };
-    control.addEventListener('mousedown', onOpen, true);
+    control.addEventListener('mousedown', onOpen, true); control.__jobPilottoDisarm = done;
     return true;
   };
 

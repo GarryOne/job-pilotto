@@ -4,6 +4,8 @@ import * as contactDetails from './contact.js';
 import * as fromCv from './contact-from-cv.js';
 import {keysFor} from './contact-keys.js';
 import {pickOption} from './option-pick.js';
+import {menuRearm} from './menu-rearm.js';
+import * as review from './review.js';
 import {aiClient} from './confirmation.js';
 import {hashOf} from './cv-check.js';
 
@@ -12,6 +14,7 @@ const DEMO_PROPOSALS = [{field: 'phone', value: '+44 20 7946 0000', sure: true},
   {field: 'postal_code', value: 'SW1A 1AA', sure: true}, {field: 'salutation', value: 'Mr', sure: false}];
 
 export function registerContactHandlers({ipcMain, storage, DEMO, connected, needsNotion, contactSaved, log}) {
+  if (!DEMO) review.onState(menuRearm({storage, client: () => aiClient(storage), queueFill: review.queueFill, log}));   // a menu's choice by meaning
   ipcMain.handle('contact', () => (DEMO || !connected() ? {} : contactDetails.read(storage)));
   ipcMain.handle('saveContact', (_, contact) => needsNotion('profile') || contactDetails.save(storage, contact).then(saved => { contactSaved(saved || contact); return {ok: true}; })
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));

@@ -30,7 +30,7 @@ test('a field left empty is marked with the answer the form did not take, or the
   assert.deepEqual(JSON.parse(box.dataset.jobpilottoOptions), ['Madam', 'Sir']);
   assert.equal($('tel').dataset.jobpilottoWants, 'phone');            // a detail you haven't given
   assert.equal($('rue').dataset.jobpilottoWants, undefined);          // a label the extension doesn't know: the app asks Claude
-  assert.deepEqual(JSON.parse(JSON.stringify(await window.__jobPilottoFillOne('Rue et numéro', 'Rue du Lac 1'))), { ok: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(await window.__jobPilottoFillOne('Rue et numéro', 'Rue du Lac 1'))), { ok: true, armed: false, translated: false });
   assert.equal($('rue').value, 'Rue du Lac 1');
 });
 

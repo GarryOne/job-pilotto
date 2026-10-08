@@ -37,6 +37,8 @@ function save() {
   try { fs.writeFileSync(keptFile, JSON.stringify([...last.values()]), {mode: 0o600}); } catch {}
 }
 export const setReporter = fn => { reporter = fn; };
+const stateListeners = [];   // more readers of each new form state (lib/menu-rearm.js), beside the window's reporter
+export const onState = fn => { stateListeners.push(fn); };
 
 // The session a form page belongs to: the best match by the job's URL, ID, company and site; the later start wins a tie.
 // A page that says which job its tab was opened for (the extension remembers it, even when the form sits on another site
@@ -231,7 +233,7 @@ export function report(sessions, payload, now = Date.now()) {
   const seen = new Map((before?.filled || []).map(item => [item.label, item]));
   if (Array.isArray(payload.filled)) state.filled = payload.filled.slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
     .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy ? 'you' : 'fill'});
-  if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); }
+  if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); for (const fn of stateListeners) { try { fn(state); } catch {} } }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);
   if (due.length) { for (const done of waiting.get(session.id) || []) done(); waiting.delete(session.id); }

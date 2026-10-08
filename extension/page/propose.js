@@ -38,7 +38,9 @@
       const result = await window.__jobPilottoExtensionFill([{field: row.field, value: String(value), source: 'you, from Job Pilotto'}], {}, null, '', false);
       const ok = !result?.error && (result?.filled || 0) > 0;
       if (ok) delete elOf(row.field)?.dataset.jobpilottoSuggested;
-      return {ok};
+      // Chrome's page translation rewrites the form's words (labels, a menu's choices) but not the answers: said in the log.
+      return {ok, armed: !!elOf(row.field)?.closest('[data-jobpilotto-armed]') || !!document.querySelector('[data-jobpilotto-armed]'),
+        translated: /\btranslated-(ltr|rtl)\b/.test(document.documentElement.className)};
     } catch { return {ok: false}; }
   };
 })();

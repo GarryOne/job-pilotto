@@ -36,3 +36,16 @@ test('the row proposes the form\'s own choice: waiting while asked, the choice o
   assert.match(onChoices(proposal, '').from, /None of this form's choices means "Monsieur"/);
   assert.equal(onChoices({...proposal, value: 'sir'}, undefined).value, 'Sir');   // the same text: no question
 });
+
+test('a menu the form showed other choices for is armed again with the one that means the same, once', async () => {
+  const {menuRearm} = await import('../lib/menu-rearm.js');
+  const files = {}, storage = {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }};
+  const queued = [], sent = [];
+  const listen = menuRearm({storage, client: () => claude('Monsieur', sent), queueFill: (...args) => queued.push(args)});
+  const state = {id: 's1', proposals: [{label: 'Formule d\'appel', value: 'Sir', key: '', options: ['Madame', 'Monsieur']},
+    {label: 'Indicatif', value: '+41', key: '', options: ['+41', '+33']}]};   // already one of the choices: left alone
+  listen(state); listen(state);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(queued, [['s1', 'Formule d\'appel', 'Monsieur']]);
+  assert.equal(sent.length, 1);
+});

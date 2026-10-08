@@ -29,8 +29,9 @@ function onFillOne(message, sender, reply) {
       await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: PAGE_FILES});
       result = await run();
     }
-    decide('fill', result.ok ? 'filled one field asked from the app' : 'could not fill one field asked from the app', {field: label.slice(0, 60)});
-    reply({ok: !!result.ok});
+    decide('fill', result.ok ? 'filled one field asked from the app' : result.armed ? 'a menu armed for your click, asked from the app' : 'could not fill one field asked from the app',
+      {field: label.slice(0, 60), translated: !!result.translated});
+    reply({ok: !!result.ok, armed: !!result.armed});
   }).catch(error => reply({ok: false, error: String(error?.message || error)}));
   return true;
 }
