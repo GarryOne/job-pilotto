@@ -118,12 +118,15 @@ function applyCandidates(tabId) {
     return {index, tag: el.tagName.toLowerCase(), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
       area: Math.round(box.width * box.height), visible: el.getClientRects().length > 0 && style.visibility !== 'hidden',
       disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true', href: el.getAttribute('href') || '',
-      // Hard floor, by structure (any language): a control that submits a form, or that the site's own code names its submit/save button, is never
-      // a posting's Apply (9 Oct 2026, live: a SuccessFactors form still loading, 0 inputs, read as a posting; its "Postuler" was SPAN#..._submitBtn.rcmSaveButton).
+      // Hard floor, by structure (any language): never a posting's Apply when it submits a form that has fields to fill (an application's
+      // Submit), or when the site's own code names it (or its 2 parents) a submit/save button (9 Oct 2026, live: a SuccessFactors form still
+      // loading, 0 inputs, read as a posting; its "Postuler" was SPAN#..._submitBtn.rcmSaveButton). A form of hidden inputs only that posts
+      // on to the application (an agency's "To apply") is a way in, not a Submit: it is pressed (e2e chain-step).
       submits: (() => {
         const own = node => `${node.id || ''} ${node.getAttribute('name') || ''} ${typeof node.className === 'string' ? node.className : ''}`;
         for (let node = el, depth = 0; node && depth < 3; node = node.parentElement, depth++) if (/submit|save/i.test(own(node))) return true;
-        return (el.type === 'submit' && !!el.form) || (el.tagName === 'INPUT' && el.type === 'submit');
+        const fields = form => !!form && [...form.elements].some(item => !['hidden', 'submit', 'button', 'reset', 'image'].includes(item.type) && item.getClientRects().length > 0);
+        return ['submit', 'image'].includes(el.type) && fields(el.form);
       })()};
   }), args: [PAGE_BUTTONS]}).then(rows => rows?.[0]?.result || []).catch(() => []);
 }
