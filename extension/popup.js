@@ -1,6 +1,7 @@
 // The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app
 // cannot read by itself. The application panel and the fill start only on a tab the desktop app opened (Apply).
 import {api, settings} from './flow.js';
+import {popupMode} from './tab-pages.js';
 
 const $ = id => document.getElementById(id);
 $('settings').addEventListener('click', event => { event.preventDefault(); chrome.runtime.openOptionsPage(); });
@@ -23,11 +24,15 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
   }
   // "Read the jobs on this page": only on a web page, only on the person's click (the click also gives the access: activeTab).
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  if (!app || !tab?.id || !/^https?:/.test(tab.url || '')) return;
+  if (!app || !tab?.id) return;
+  const mode = popupMode({url: tab.url, armed: (await chrome.storage.session.get(`armed:${tab.id}`).catch(() => ({})))[`armed:${tab.id}`]});
+  // A tab the app opened to apply: the panel on the page fills the form; reading this page's jobs has nothing to do with it.
+  if (mode === 'fill') { $('intro').textContent = 'The Job Pilotto app opened this page to apply: the panel on the page fills the form and tells you what is left.'; return; }
+  if (mode === 'none') return;
   $('visit').hidden = false;
   const host = new URL(tab.url).hostname;
   // A tab the app opened to read by itself, waiting for the one-time permission (Chrome asks; withdraw it any time in Chrome's settings).
-  if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$/.test(tab.url) && !(await chrome.permissions.contains({origins: ['https://*/*']}))) {
+  if (mode === 'read' && !(await chrome.permissions.contains({origins: ['https://*/*']}))) {
     $('visit-allow').hidden = false;
     $('visit-text').textContent = 'The Job Pilotto app opened this site to read its jobs. Allow the extension, once, to read the sites the app opens for you:';
     $('visit-allow').addEventListener('click', async () => {
@@ -43,7 +48,7 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
       : `Reading ${state.name || host}: page ${state.pages}, ${state.jobs} jobs so far…`;
   };
   // A tab the app opened to read (Read sites): it reads by itself, so no buttons (pressing one would start a second reading); only what it does.
-  if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$/.test(tab.url)) {
+  if (mode === 'read') {
     $('visit-filter').hidden = $('visit-read').hidden = true;
     $('visit-text').textContent = 'The Job Pilotto app opened this page and the extension is reading it by itself: nothing to press here.';
   }

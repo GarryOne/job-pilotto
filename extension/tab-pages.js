@@ -13,6 +13,19 @@ export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, ''
 // A page the user is just browsing, Calendly included, is not one of those.
 export const tabArmed = ({url, armed} = {}) => !!armed || String(url || '').includes('#jobpilotto-fill');
 
+// What the toolbar popup offers on a tab, one kind each (8 Oct 2026: a tab the app opened to apply showed the "read this job list" buttons):
+//   fill:   the app opened it to apply (Apply); the panel on the page does the work, nothing to read
+//   read:   the app opened it to read its jobs (Read sites, #jp-read) or one posting (#jp-posting); it reads by itself, no buttons
+//   browse: any other web page; "Read the jobs on this page" is offered
+//   none:   not a web page (chrome://, a file)
+const OPENED_TO_READ = /#jp-read(-filter)?(-[a-z0-9]{4,16})?$|#jp-posting-[a-z0-9]{4,16}$/;   // with or without its ticket (READ_MARK below needs one)
+export const popupMode = ({url, armed} = {}) => {
+  const href = String(url || '');
+  if (!/^https?:/.test(href)) return 'none';
+  if (tabArmed({url: href, armed}) && !neverForm(href)) return 'fill';
+  return OPENED_TO_READ.test(href) ? 'read' : 'browse';
+};
+
 // Pages that are never a job form, wherever the tab came from: the user's own Notion (the kit and the tracker live there) and
 // search results (Claude researching a company in the armed tab, 2 Oct 2026: a Google results page got "answering 1 question").
 // An armed tab pointed at one of them is let go: no panel, no fill, until the app arms it again. Only results pages: a real form

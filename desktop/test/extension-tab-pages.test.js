@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {startsOwnJob, kitStance, pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {startsOwnJob, kitStance, pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed, popupMode} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -14,6 +14,25 @@ test('the panel runs only on a tab the desktop app opened', () => {
   assert.equal(tabArmed({url: 'https://calendly.com/acme/30min'}), false);
   assert.equal(tabArmed({url: JOB}), false);
   assert.equal(tabArmed({}), false);
+});
+
+// 8 Oct 2026: a tab the app opened to apply showed the popup's "read this job list" buttons. Every kind of tab, one row each: a new kind
+// added to popupMode without a row here fails.
+test('the popup offers what fits the tab: apply, read by itself, read on a click, nothing', () => {
+  const cases = [
+    [{url: `${JOB}#jobpilotto-fill`}, 'fill'],
+    [{url: 'https://www.jobs.ch/en/vacancies/detail/e644/#jobpilotto-fill'}, 'fill'],
+    [{url: 'https://calendly.com/acme/30min', armed: true}, 'fill'],             // a later page of an apply tab
+    [{url: 'https://www.notion.so/kit-123', armed: true}, 'browse'],             // an apply tab sent to Notion is let go
+    [{url: 'https://www.jobs.ch/en/vacancies/#jp-read'}, 'read'],
+    [{url: 'https://www.jobs.ch/en/vacancies/#jp-read-filter-ab12'}, 'read'],
+    [{url: 'https://www.jobs.ch/en/vacancies/detail/e644/#jp-posting-ab12cd'}, 'read'],
+    [{url: 'https://www.jobs.ch/en/vacancies/'}, 'browse'],
+    [{url: 'chrome://extensions'}, 'none'],
+    [{}, 'none'],
+  ];
+  for (const [tab, mode] of cases) assert.equal(popupMode(tab), mode, JSON.stringify(tab));
+  assert.deepEqual([...new Set(cases.map(([, mode]) => mode))].sort(), ['browse', 'fill', 'none', 'read']);
 });
 
 test('a later page is a form, an account page, or neither', () => {
