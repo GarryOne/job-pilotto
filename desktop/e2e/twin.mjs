@@ -5,7 +5,7 @@
 //   3. a fresh copy of the real app folder (APFS clone) without the real Notion token, Always on or Telegram, pointed at the mirror
 //   4. the app in twin mode (desktop/lib/twin.js) on its own port + a debugging port; its own visible Chromium with an extension copy on that port
 // Everything live-test lives in ~/Library/Application Support/Job Pilotto (live test)/: ids.env (the mirror's ids), notion-copy/ (sync map),
-// home/ (the twin's folder, replaced at each start), browser/ (only its site sign-ins: cookies, local storage), twin.json (ports, for a script that drives the window). Ctrl-C stops both.
+// home/ (the twin's folder, replaced at each start), browser/ (only its site sign-ins: cookies, local storage), isolated-secrets.json (the job-site passwords it made), twin.json (ports, for a script that drives the window). Ctrl-C stops both.
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -46,6 +46,10 @@ async function main() {
   execFileSync('cp', ['-c', '-R', REAL, HOME]);   // an APFS clone: instant, no extra space
   for (const name of fs.readdirSync(HOME).filter(name => name.startsWith('Singleton'))) fs.rmSync(path.join(HOME, name), {force: true});
   fs.rmSync(path.join(HOME, 'logs'), {recursive: true, force: true});
+  // The job-site passwords the twin made (lib/keychain.js isolatedFile) outlive the folder: an account a twin created on a real site
+  // must still sign in at the next start (9 Oct 2026: they were wiped with home/ at every start). Kept beside browser/, 0600.
+  const KEPT = path.join(LIVE, 'isolated-secrets.json');
+  if (fs.existsSync(KEPT)) fs.copyFileSync(KEPT, path.join(HOME, 'isolated-secrets.json'));
   const secrets = JSON.parse(fs.readFileSync(path.join(HOME, 'secrets.json'), 'utf8'));
   delete secrets.NOTION_TOKEN; delete secrets.EXTENSION_TOKEN; delete secrets.TELEGRAM_BOT_TOKEN; delete secrets.GITHUB_TOKEN;
   fs.writeFileSync(path.join(HOME, 'secrets.json'), JSON.stringify(secrets, null, 2));
@@ -89,6 +93,7 @@ async function main() {
     fs.rmSync(path.join(LIVE, 'browser'), {recursive: true, force: true});   // the sign-ins kept for next time, nothing else
     fs.mkdirSync(path.join(LIVE, 'browser', 'Default'), {recursive: true});
     carry(profile, path.join(LIVE, 'browser'));
+    if (fs.existsSync(path.join(HOME, 'isolated-secrets.json'))) { fs.copyFileSync(path.join(HOME, 'isolated-secrets.json'), KEPT); fs.chmodSync(KEPT, 0o600); }
     fs.rmSync(profile, {recursive: true, force: true});
     process.exit(0);
   };
