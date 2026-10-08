@@ -125,6 +125,9 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 
 // jobUrl: the posting the kit belongs to, when the form lives elsewhere (a job board's Apply led to the employer's site).
 // me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
+// The page scripts a fill needs, in order (also loaded for one field's "Use" from the app: fill-flow.js).
+export const PAGE_FILES = ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js',
+  'page/coverage.js', 'page/propose.js', 'page/fill.js'];
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];
@@ -143,8 +146,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   onStep('Reading the form…');
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
-  await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
-    files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js', 'page/coverage.js', 'page/fill.js']});
+  await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', files: PAGE_FILES});
   // Recipes for the kinds of control on this form, asked of the app by fingerprint (it asks the site, and remembers). A recipe
   // only configures a generic operator; no recipe, or no answer, and the operators work with their own defaults.
   try {

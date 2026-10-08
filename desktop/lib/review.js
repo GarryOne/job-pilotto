@@ -5,6 +5,8 @@
 //   app -> page  the reply: {matched, watch: [{id, label}], commands: [{focus: label}]}
 import fs from 'node:fs';
 import {ATS, scoreTab} from './form-tab.js';
+import {LABELS} from './contact.js';
+const CONTACT_KEYS = Object.keys(LABELS);
 
 const MIN_SCORE = 50;          // the company in the title or an application-form host naming it, at least
 const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the page to pick it up
@@ -97,6 +99,10 @@ export function queueReload(id, now = Date.now()) {
 export function cancelFocus(id) {
   const rest = (commands.get(id) || []).filter(command => command.focus === undefined);
   if (rest.length) commands.set(id, rest); else commands.delete(id);
+}
+// "Use" on the session page: the form's own panel fills that field through the extension's fill (extension/page/propose.js).
+export function queueFill(id, label, value, now = Date.now()) {
+  commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {fill: {label: String(label).slice(0, 120), value: String(value).slice(0, 200)}, at: now}]);
 }
 export function queueFocus(id, label, now = Date.now()) {
   focusAnswers.delete(id);
@@ -210,6 +216,9 @@ export function report(sessions, payload, now = Date.now()) {
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
+  // What the fill proposed for a field it left (a value), or the contact detail it asks for (a key): the session page's rows offer it.
+  if (Array.isArray(payload.proposals)) state.proposals = payload.proposals.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120),
+    value: String(item?.value || '').slice(0, 200), key: CONTACT_KEYS.includes(item?.key) ? item.key : ''})).filter(item => item.label && (item.value || item.key));
   // A sign-in or sign-up page (the extension's page rule, or the panel saw a password box): its fields are the account's, never the
   // application's progress: no "ready to submit", no Form completion, no empty-field rows (the session page reads `account`).
   if (payload.role ? payload.role === 'account' : payload.account) state.account = true;   // the rule's word wins: a combined page (CV + password) is the form
@@ -228,7 +237,7 @@ export function report(sessions, payload, now = Date.now()) {
   const about = {id: session.id, url: session.url, title: session.title || '', company: session.company || '', status: session.status,
     note: session.note || '', live: session.live ?? !session.endedAt};
   return {matched: session.id, session: about, watch: watches.get(session.id) || [],
-    commands: due.map(({focus, close, reload}) => (close ? {close: true} : reload ? {reload: true} : {focus}))};
+    commands: due.map(({focus, close, reload, fill}) => (close ? {close: true} : reload ? {reload: true} : fill ? {fill} : {focus}))};
 }
 // The form's tab is gone and the page can't report (the extension can't reach the app): its cached "18 of 18, ready"
 // describes a form that no longer exists. Forget it, here and on disk.

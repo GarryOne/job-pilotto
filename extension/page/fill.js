@@ -549,7 +549,7 @@
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
-      if (outcome === 'filled' && source) markFilled(row.field);
+      if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.(row, answer, (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};

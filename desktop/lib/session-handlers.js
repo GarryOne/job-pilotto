@@ -81,6 +81,15 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   // The session's form tab was closed (a button looked for it and Chrome has none): the form opens again in a new tab with
   // the fill mark, so the extension's panel follows it. What the page held from the closed tab (`stale`: answers, form
   // progress, the stuck flag) is cleared.
+  // "Use" on a Needs your attention row: the form's panel fills that one field through the extension (lib/review.js queueFill).
+  // Logged: which session and field, never the value. The row checks the next report to see that it took.
+  checkedSessions.handle('sessionFillField', (_, id, label, value) => {
+    if (!terminals.get(String(id))) return {ok: false, error: 'This session is no longer in the list.'};
+    if (!String(value).trim()) return {ok: false, error: 'Write an answer first.'};
+    review.queueFill(String(id), label, value.trim());
+    appLog('review', `fill one field asked from the session page`, {id, field: String(label).slice(0, 60)});
+    return {ok: true};
+  });
   checkedSessions.handle('sessionReopen', async (_, id, stale) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};

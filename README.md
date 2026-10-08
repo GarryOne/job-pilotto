@@ -103,7 +103,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ## 🧠 AI at every step
 
-Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 38 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
+Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 39 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
 **Find: Finds what is worth your time**
@@ -121,6 +121,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - **Fit score out of 100**: Role, place, pay, growth and risk scored against your Profile, with the reasons. Re-scored when your Profile changes.
 - **Hints from what people dismiss** *(new)*: Why jobs get turned down (seniority, place, tech) is counted across installs and nudges the score. Counts only, never a job or a name.
 - **A finding a day**: One useful discovery about your search each day, with its evidence and one action. A weekly report on Mondays.
+- **An answer ready for every empty field** *(new)*: on the Applying page, each field a form left empty shows its proposed answer (what the fill tried, or the detail it asks for, from your details or CV); Claude reads which detail a label asks for, in any language, once per label; Use fills it and keeps it for future forms.
 - **Your details from your CV** *(new)*: the contact details forms ask for and you haven't given (phone, street, postal code, town, date of birth, salutation) are read from your CV once and put in Profile → Your details, marked "From your CV"; nothing is kept until you check them and Save.
 - **Strategy from your CV**: Goals, a draft Profile, standard answers and search settings from your CV in one pass. You review before anything is saved.
 - **Strategy insights**: What your best-fit jobs ask for, how much of the market your keywords catch, and where your target pay stands.

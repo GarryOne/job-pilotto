@@ -3,7 +3,7 @@
 // "no-form"). Scenarios owned: "Direct application form", "Posting → Apply", "What kind of page", "Sign-up page before the form"
 // (docs/flows/applying.md). Guards: extension-tab-pages.test.js, extension-same-tab.test.js, page-kind.test.js and the e2e rows (npm run flows).
 // background.js hands over what lives on with the worker (initFillFlow): the tabs a fill started on, the fill itself, its report, onPage.
-import {api, settings} from './flow.js';
+import {PAGE_FILES, api, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {applyPressed} from './tabs.js';
@@ -11,7 +11,29 @@ import {sessionGet} from './tab-memory.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true;
-export function initFillFlow(shared) { ({started, fillOpenedTab, reportFlow, onPage} = shared); }
+export function initFillFlow(shared) {
+  ({started, fillOpenedTab, reportFlow, onPage} = shared);
+  chrome.runtime.onMessage.addListener(onFillOne);
+}
+
+// "Use" on the app's Needs your attention row, passed on by the form's panel (review.js stays read only): that one field is filled
+// in the page by the extension's own fill (page/propose.js), the page scripts loaded first if a reload took them. Logged without the value.
+function onFillOne(message, sender, reply) {
+  if (message?.type !== 'panelFillOne' || !sender.tab) return false;
+  const tabId = sender.tab.id, label = String(message.label || '').slice(0, 120), value = String(message.value || '').slice(0, 200);
+  const run = () => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [label, value],
+    func: (l, v) => (window.__jobPilottoFillOne ? window.__jobPilottoFillOne(l, v) : {ok: false, missing: true})}).then(([frame]) => frame?.result || {ok: false});
+  run().then(async result => {
+    if (result.missing) {
+      await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
+      await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: PAGE_FILES});
+      result = await run();
+    }
+    decide('fill', result.ok ? 'filled one field asked from the app' : 'could not fill one field asked from the app', {field: label.slice(0, 60)});
+    reply({ok: !!result.ok});
+  }).catch(error => reply({ok: false, error: String(error?.message || error)}));
+  return true;
+}
 
 // Counts only, in the page: no labels and no values. Passwords and file inputs are counted apart from the rest.
 function pageShape(tabId) {

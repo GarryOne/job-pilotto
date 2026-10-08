@@ -1,0 +1,55 @@
+// "Needs your attention" proposes an answer for every way a form gets filled (owner, 8 Oct 2026: the 30 Sep rows proposed Claude's answer
+// only from Claude's message; once Apply went through the extension they were bare "still empty" rows). The global rule: a new path into
+// an existing screen keeps all its features, tested for each producer.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {test} from 'node:test';
+import {pickProposal} from '../renderer/proposal-pick.js';
+import * as review from '../lib/review.js';
+import {keysFor} from '../lib/contact-keys.js';
+
+test('the proposed answer: what the fill proposed, else your detail, else the CV, else a box that keeps it; nothing known: no proposal', () => {
+  const proposals = [{label: 'Formule d\'appel', value: 'Monsieur', key: ''}, {label: 'Numéro de téléphone', value: '', key: 'phone'}];
+  assert.deepEqual(pickProposal({proposals, label: 'Formule d\'appel'}), {value: 'Monsieur', key: '', from: 'Proposed by the fill: the form did not take it'});
+  assert.equal(pickProposal({proposals, label: 'Numéro de téléphone', contact: {phone: '+41 79 1'}}).from, 'From your details');
+  assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone', cv: [{field: 'phone', value: '+41 79 2', sure: false}]}),
+    {value: '+41 79 2', key: 'phone', from: 'From your CV: check it'});
+  assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone'}), {value: '', key: 'phone', from: 'Your phone: type it once, every form gets it'});
+  // A label only Claude could read (lib/contact-keys.js): its key comes from there.
+  assert.equal(pickProposal({label: 'Rue et numéro', key: 'street', cv: [{field: 'street', value: 'Rue du Lac 1', sure: true}]}).value, 'Rue du Lac 1');
+  assert.equal(pickProposal({label: 'Employment subscription'}), null);
+});
+
+test('the form\'s report keeps the proposals (cleaned) and "Use" reaches the form\'s panel as one fill command', () => {
+  review._reset();
+  const sessions = [{id: 's1', url: 'https://jobs.coop.ch/job/1/', company: 'Coop Suisse', status: 'done', startedAt: '2026-10-08T13:09:00Z'}];
+  const page = {url: 'https://career2.successfactors.eu/careers?company=Coop#jobpilotto-fill', title: 'Coop', session: 's1', tab: 7, left: 2, total: 19,
+    pending: ['Formule d\'appel', 'Rue et numéro'], proposals: [{label: 'Formule d\'appel', value: 'Monsieur'}, {label: 'Numéro de téléphone', key: 'phone'},
+      {label: 'x', key: 'not-a-detail'}, {label: '', value: 'y'}]};
+  review.report(sessions, page);
+  assert.deepEqual(review.allStates().find(state => state.id === "s1").proposals,
+    [{label: 'Formule d\'appel', value: 'Monsieur', key: ''}, {label: 'Numéro de téléphone', value: '', key: 'phone'}]);
+  review.queueFill('s1', 'Rue et numéro', 'Rue du Lac 1');
+  assert.deepEqual(review.report(sessions, page).commands, [{fill: {label: 'Rue et numéro', value: 'Rue du Lac 1'}}]);
+  assert.deepEqual(review.report(sessions, page).commands, []);   // once
+});
+
+test('Claude reads which detail a label asks for, once per label, in any language; labels only', async () => {
+  const files = {}, storage = {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }};
+  const sent = [], logged = [];
+  const client = {messages: {create: async request => { sent.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({items: [
+    {label: 'rue et numéro', key: 'street'}, {label: 'localité', key: 'location'}, {label: 'indicatif de pays', key: 'none'}]})}]}; }}};
+  const labels = ['Rue et numéro *', 'Localité', 'Indicatif de pays'];
+  assert.deepEqual(await keysFor(storage, labels, {client, log: (...line) => logged.push(line)}), {'Rue et numéro *': 'street', 'Localité': 'location', 'Indicatif de pays': ''});
+  assert.deepEqual(JSON.parse(sent[0].messages[0].content), ['rue et numéro', 'localité', 'indicatif de pays']);
+  await keysFor(storage, labels, {client});
+  assert.equal(sent.length, 1);                                         // kept
+  assert.deepEqual(await keysFor(storage, ['Unknown'], {client: null}), {Unknown: ''});   // no AI: nothing guessed
+  assert.match(logged[0][1], /2 of 3/);
+});
+
+test('every way the card is fed shows proposals: Claude\'s message (askRow) and the form\'s report (emptyRow)', () => {
+  const needs = fs.readFileSync(new URL('../renderer/pages/session-needs.js', import.meta.url), 'utf8');
+  assert.match(needs, /export function askRow[\s\S]*?input\.value = saved \|\| need\.suggested/);
+  assert.match(needs, /export function emptyRow\(label, item\) \{\n  const proposal = proposalFor\(item, label\); if \(proposal\) return proposedRow/);
+});

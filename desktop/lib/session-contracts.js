@@ -53,6 +53,7 @@ export const sessionContracts = Object.freeze({
   sessionSkip: {args: [id], response: result},
   sessionRestart: {args: [id], response: result},
   sessionReopen: {args: [id, boolean], response: result},
+  sessionFillField: {args: [id, string, string], response: result},
   sessionFinish: {args: [id], response: result},
   sessionsLeftOpen: {args: [array(id)], response: leftOpen},
 });

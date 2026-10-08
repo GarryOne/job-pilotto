@@ -2,6 +2,7 @@
 // for the empty ones from the CV (lib/contact-from-cv.js). Moved out of main.js (8 Oct 2026). Guarded by test/contact-from-cv.test.js.
 import * as contactDetails from './contact.js';
 import * as fromCv from './contact-from-cv.js';
+import {keysFor} from './contact-keys.js';
 import {aiClient} from './confirmation.js';
 import {hashOf} from './cv-check.js';
 
@@ -13,6 +14,20 @@ export function registerContactHandlers({ipcMain, storage, DEMO, connected, need
   ipcMain.handle('contact', () => (DEMO || !connected() ? {} : contactDetails.read(storage)));
   ipcMain.handle('saveContact', (_, contact) => needsNotion('profile') || contactDetails.save(storage, contact).then(saved => { contactSaved(saved || contact); return {ok: true}; })
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
+  // One detail confirmed on the session page ("Use" on a row): merged into the others, never replacing them.
+  ipcMain.handle('saveContactField', async (_, key, value) => {
+    const gate = needsNotion('profile');
+    if (gate) return gate;
+    if (!contactDetails.LABELS[key] || !String(value || '').trim()) return {ok: false, error: 'Nothing to save'};
+    try {
+      const saved = await contactDetails.save(storage, {...await contactDetails.read(storage), [key]: String(value).trim()});
+      contactSaved(saved);
+      log('profile', 'a detail saved from the session page', {field: key});
+      return {ok: true};
+    } catch (error) { return {ok: false, error: `Notion: ${error.message}`}; }
+  });
+  // Which contact detail each form label asks for (Claude reads labels it hasn't seen; kept per label).
+  ipcMain.handle('contactKeysFor', (_, labels) => (DEMO ? {} : keysFor(storage, Array.isArray(labels) ? labels.map(String) : [], {client: aiClient(storage), log})));
   // {again}: read the CV anew (the button); otherwise what was proposed for this CV, or one Claude call when it was never read for this.
   ipcMain.handle('contactProposals', async (_, {again = false} = {}) => {
     if (DEMO) return {proposals: DEMO_PROPOSALS, fresh: false};

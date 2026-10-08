@@ -5,7 +5,7 @@ import {checkingTabs, chromeSilent, isSubmitted, tabClosed} from '../session-sta
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
 import {KNOCKOUT} from '../knockout.js';
-import {answerOptions} from '../answer-options.js';
+import {answerOptions} from '../answer-options.js'; import {proposalFor, proposedRow} from './need-proposal.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openView} from './nav.js';
@@ -43,7 +43,7 @@ function loadAnswers() {
 // The answer you have for one question (this page's own memory first, then the ones saved in Notion).
 const savedFor = question => (knownAnswers.find(item => sameQuestion(item.question, question)) || {}).answer || '';
 // The row's badge: its place in the list (updateNeedsCount numbers the open ones), a tick once it's handled.
-const badge = () => el('span', 'ss-need-num', '');
+export const badge = () => el('span', 'ss-need-num', '');
 // The row's two lines: a bold title, and under it Claude's own words about it (a judgement call's "**Pay:** below
 // your minimum." reads as the title "Pay" and the line "below your minimum.").
 function rowWords(need) {
@@ -54,7 +54,7 @@ function rowWords(need) {
   return {title: unbold(title), desc: unbold(desc)};   // Claude's **bold** marks are not words to show (8 Oct 2026)
 }
 // A title keeps to one line (the row is a summary): the whole question on hover.
-function titleLine(text) {
+export function titleLine(text) {
   const node = el('b', 'ss-need-title', text);
   node.title = text;
   return node;
@@ -102,7 +102,7 @@ export function updateNeedsCount() {
   if (head && head.dataset.state !== String(!open.length)) { const glyph = icon(open.length ? 'alert' : 'check'); glyph.dataset.state = String(!open.length); head.replaceWith(glyph); }
 }
 const capital = text => text.replace(/^./, c => c.toUpperCase());
-function smallButton(text, kind, run, title = '') {
+export function smallButton(text, kind, run, title = '') {
   const button = el('button', `${kind} ss-need-button`, text);
   if (title) { button.disabled = true; button.title = title; }
   button.addEventListener('click', run);
@@ -250,10 +250,10 @@ export function emptyFields(item, needs) {
   return left;
 }
 export function emptyRow(label, item) {
+  const proposal = proposalFor(item, label); if (proposal) return proposedRow(item, label, proposal);   // its answer, back (need-proposal.js)
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
-  const more = /^\d+ more fields?$/.test(label);
-  const name = label.replace(/\s*\*\s*$/, '');
+  const more = /^\d+ more fields?$/.test(label), name = label.replace(/\s*\*\s*$/, '');
   body.append(titleLine(name), el('span', 'ss-need-desc small', more
     ? `Still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
     : 'This section is still empty in the form.'));
@@ -308,7 +308,7 @@ export async function reopenClosedTab(item, button) {
   return result;
 }
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
-async function showInForm(item, label, button) {
+export async function showInForm(item, label, button) {
   const result = await opening(button, () => window.pilot.reviewFocus(item.id, label, item.url, sessionCompany(item)));
   if (result?.taken) {
     if (result.found === false) toastMessage('Not a field on this form', `"${label}" is not a label on the open form.`);

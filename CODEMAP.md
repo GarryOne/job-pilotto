@@ -33,6 +33,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/confirmation.js` — A submit press, then a change: a redirect, or new content on the same page. This file turns that page into
 - `desktop/lib/contact-from-cv.js` — "Your details from your CV": Claude reads the CV once per CV file and proposes a value for each empty contact field it states
 - `desktop/lib/contact-handlers.js` — Settings → Profile → Your details over IPC: read and save the 📇 Contact details (lib/contact.js), and the values Claude proposes
+- `desktop/lib/contact-keys.js` — Which contact detail a form field asks for ("Rue et numéro" → street, "Numéro postal d'acheminement" → postal_code, "Formule d'appel"
 - `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
 - `desktop/lib/control-events.js` — How the form reader and the generic operators fared, as reports for the product (docs: Notion "Self-improving form filling").
 - `desktop/lib/cover-letter.js` — The user's general cover letter (Settings → Profile → Cover letter): drafted once by the AI from the CV, the Profile and
@@ -161,6 +162,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/logs.js` — Settings → Logs: the app's logs on this Mac, for the user (and whoever helps them) to see what happened. One day at a
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
+- `desktop/renderer/pages/need-proposal.js` — "Needs your attention", a field the form still has empty, with its proposed answer back (owner, 8 Oct 2026: "we had this, it got
 - `desktop/renderer/pages/notion-connect.js` — Connecting Notion from anywhere in the window (Notion later: the app only tries until it is connected): the dialog with the
 - `desktop/renderer/pages/open-target.js` — A clicked notification or pop-up opens what it is about (lib/targets.js): the result of a finished task, a page, a section, a job's row.
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.
@@ -229,6 +231,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/practice-session.js` — Interviews → Insights → "Start practice session": rehearse the "Practice next" steps out loud, one at a time, with a
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
+- `desktop/renderer/proposal-pick.js` — The proposed answer for a field the form still has empty (no DOM: the session page's row asks this, a test feeds it every source).
 - `desktop/renderer/question-words.js` — The words of a "Which job is this email about?" question, shared by the Gmail card (pages/activity.js) and its popup (pages/reassign.js).
 - `desktop/renderer/questions-view.js` — What the "Answer once" card says when its questions couldn't be read: nothing while Notion isn't connected, else one plain line.
 - `desktop/renderer/result-seen.js` — Which finished runs have had their result card shown on Actions (#280, 5 Oct 2026). A run's id is its start time, so a search started at 10:00 that ends at 10:30 has a

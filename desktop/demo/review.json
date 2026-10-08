@@ -47,6 +47,13 @@
     "label": "Why do you want to work at Acme Robotics?",
     "at": 1790624589000
    }
+  ],
+  "proposals": [
+   {
+    "label": "Notice period",
+    "value": "1 month",
+    "key": ""
+   }
   ]
  }
 ]
