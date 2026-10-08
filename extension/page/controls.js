@@ -85,7 +85,10 @@
   async function setToggleGroup(box, value, params = {}) {
     const buttons = [...box.querySelectorAll(params.option || OPTION)];
     const wanted = yesNo(value) || norm(value);
-    const target = buttons.find(button => (yesNo(button.textContent) || norm(button.textContent)) === wanted);
+    // By its accessible name: an ARIA radio's words often live in another element (aria-labelledby), its own text is empty (page/radios.js).
+    const named = button => button.getAttribute('aria-label') || (button.getAttribute('aria-labelledby') || '').split(/\s+/)
+      .map(id => (id && document.getElementById(id)?.textContent) || '').join(' ') || button.textContent;
+    const target = buttons.find(button => (yesNo(named(button)) || norm(named(button))) === wanted);
     if (!target) return {ok: false, why: `no "${clean(value)}" option`};
     if (refuses(target)) return REFUSED;
     const on = button => (params.onAttr ? button.getAttribute(params.onAttr) === (params.onValue ?? 'true')

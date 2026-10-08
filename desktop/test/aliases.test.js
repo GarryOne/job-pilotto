@@ -70,6 +70,7 @@ test('how an alias fared is batched as counts per phrase, with no answer in it',
 function filler() {
   const window = {};
   const context = vm.createContext({window, document: {querySelectorAll: () => [], getElementById: () => null, body: {innerText: ''}}, getComputedStyle: () => ({}), setTimeout, console});
+  vm.runInContext(fs.readFileSync(new URL('../../extension/page/radios.js', import.meta.url), 'utf8'), context);   // injected before fill.js
   vm.runInContext(fs.readFileSync(new URL('../../extension/page/fill.js', import.meta.url), 'utf8'), context);
   return window;
 }

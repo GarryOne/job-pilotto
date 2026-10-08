@@ -97,6 +97,7 @@
   const comboControl = el => el.closest('[class*=control]') || el;
   const comboValue = el => (el.closest('[class*=select__container]') || el.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]') ||   // react-select's chip,
     (() => { for (let b = el.parentElement, i = 0; b && i < 4 && b.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; b = b.parentElement, i++) { const h = [...b.querySelectorAll('input[type=hidden][id]')].find(x => x.value && document.querySelector(`label[for="${CSS.escape(x.id)}"]`)); if (h) return h; } return null; })();   // else a labelled hidden input holding it (review.js comboFilled)
+  const radioOps = window.__jobPilottoRadios({clean, norm, labelOf, questionOf, LEGAL, visible});   // page/radios.js, injected first
 
   // Searchable dropdowns (react-select on Greenhouse) only open for real user input: scripted clicks
   // and keys are ignored (checked on a live form, 27 Sep 2026). So the extension never opens them;
@@ -161,6 +162,7 @@
           filled: type === 'select' ? el.selectedIndex > 0 : !!String(el.value || '').trim(), legal: LEGAL.test(labelOf(el))});
       }
     }
+    fields.push(...radioOps.ariaFields());   // ARIA radio groups (page/radios.js)
     return fields.filter(f => f.field);
   };
 
@@ -202,15 +204,6 @@
     return true;
   };
 
-  const pickRadio = (name, answer) => {
-    const radios = Array.from(document.querySelectorAll(`input[type=radio][name="${CSS.escape(name)}"]`));
-    const want = norm(answer);
-    const match = radios.find(r => norm(labelOf(r)) === want) ||
-      (radios.filter(r => norm(labelOf(r)).includes(want)).length === 1 ? radios.find(r => norm(labelOf(r)).includes(want)) : null);
-    if (!match || LEGAL.test(`${questionOf(match)} ${labelOf(match)}`)) return false;
-    if (!match.checked) match.click();
-    return match.checked;
-  };
 
   // A group of checkboxes that is one question ("How did you hear about us?": LinkedIn / Careers website / …):
   // tick the option whose label best matches the answer (exact, then contained either way, then shared words).
@@ -379,7 +372,7 @@
       if (!row || row.filled || row.legal) continue;
       let ok = null;
       if (row.type === 'combobox') { if (armCombo(item.field, item.value)) armed.push(row.label); continue; }
-      else if (row.type === 'radio') ok = pickRadio(item.field.slice(6), item.value);
+      else if (row.type === 'radio') ok = item.field.startsWith('aria:') ? radioOps.pickAriaRadio(item.field.slice(5), item.value) : radioOps.pickRadio(item.field.slice(6), item.value);
       else if (row.type === 'checkbox') ok = setCheckbox(item.field, item.value);
       else if (row.type === 'checkbox-group') ok = pickCheckboxOption(row.question, item.value);
       if (ok === true) filled += 1;
@@ -464,6 +457,7 @@
     });
     // Required questions the page shows that nothing above read (page/coverage.js): a layout the reader doesn't know. Each is
     // listed for you, counted as required, and traced as a reading failure, so it is reported (with its HTML) and learned.
+    after.push(...radioOps.ariaRows(form));   // not in the audit (no <input>): listed, and counted when picked
     const unread = [];
     if (window.__jobPilottoCoverage) {
       // Read = asked about: the described fields and the widgets an operator answered. Not the audit's rows: a field can be on

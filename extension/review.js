@@ -132,13 +132,13 @@
       if (!firstState.has(el)) firstState.set(el, state);
       groups.set(el, {el, label: question(el), required: true, filled: state !== firstState.get(el), ai: false, custom: true});   // custom: still a miss for reportMisses
     }
-    // Required questions the page shows that none of the readers above read (page/coverage.js): left for you until something in
-    // their area is answered, and told apart at Submit (a question the fill never saw).
+    // Required questions the page shows that none of the readers above read (page/coverage.js): left for you until answered, told apart at Submit.
     const cover = window.__jobPilottoCoverage;
     if (cover) {
       const read = [...groups.values()].map(entry => entry.label);
-      for (const item of cover.unread(document, read, visible)) {
-        groups.set(item.area, {el: item.area, label: item.question, required: true, filled: cover.answered(item.area), ai: false, unread: true});
+      for (const item of cover.unread(document, read, visible)) {   // an ARIA radio group is read by the fill (page/radios.js): not unread, and its marks count
+        const aria = item.area.matches?.('[role=radiogroup]') ? item.area : item.area.querySelector?.('[role=radiogroup]');
+        groups.set(item.area, {el: item.area, label: item.question, required: true, filled: cover.answered(item.area), ai: false, unread: !aria, suggested: aria?.dataset.jobpilottoSuggested || '', options: aria?.dataset.jobpilottoOptions || ''});
       }
     }
     return [...groups.values()];

@@ -13,7 +13,7 @@ function page(rows) {
     documentElement: {className: ''}};
   const context = vm.createContext({window, document, getComputedStyle: () => ({}), setTimeout, clearTimeout, CSS: {escape: s => s}, console,
     Event: class {}, HTMLInputElement: class {}, HTMLTextAreaElement: class {}});
-  for (const file of ['categories.js', 'fill.js']) vm.runInContext(fs.readFileSync(new URL(`../../extension/page/${file}`, import.meta.url), 'utf8'), context);
+  for (const file of ['categories.js', 'radios.js', 'fill.js']) vm.runInContext(fs.readFileSync(new URL(`../../extension/page/${file}`, import.meta.url), 'utf8'), context);
   window.__jobPilottoDescribeForm = async () => rows.map(row => ({...row}));
   window.__jobPilottoCheckboxQuestions = () => [];
   window.__jobPilottoFillKnownFields = () => ({filled: []});

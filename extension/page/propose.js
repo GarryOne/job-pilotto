@@ -10,6 +10,7 @@
   window.__jobPilottoProposeLoaded = true;
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\*\s*$/, '').trim().toLowerCase();
   const elOf = field => (String(field).startsWith('radio:') ? document.querySelector(`[name="${CSS.escape(String(field).slice(6))}"]`)
+    : String(field).startsWith('aria:') ? document.getElementById(String(field).slice(5)) || document.querySelector(`[data-jobpilotto-group="${CSS.escape(String(field).slice(5))}"]`)   // page/radios.js
     : document.getElementById(field) || document.querySelector(`[name="${CSS.escape(String(field))}"]`));
 
   window.__jobPilottoMarkProposal = (row, answer, key) => {

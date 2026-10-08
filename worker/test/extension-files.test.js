@@ -34,7 +34,9 @@ test('manifest asks for activeTab, alarms, debugger, scripting and storage, and 
 
 test('contact details go into matching empty text fields, never over kit answers or filled fields', () => {
   const window = {};
-  vm.runInNewContext(read('extension/page/fill.js'), {window, document: {}});
+  const context = vm.createContext({window, document: {}});
+  vm.runInContext(read('extension/page/radios.js'), context);   // injected before fill.js (extension/flow.js)
+  vm.runInContext(read('extension/page/fill.js'), context);
   const rows = [
     {field: 'first_name', label: 'First Name*', type: 'text', filled: false},
     {field: 'last_name', label: 'Last Name', type: 'text', filled: false},
