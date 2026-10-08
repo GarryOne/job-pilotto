@@ -3,6 +3,7 @@
 // means the same (lib/option-pick.js) and the menu is armed again with it, so your next click on it picks the right one. Once per field,
 // answer and choices. Logged: which session and field, never the answer. Guarded by test/option-pick.test.js.
 import {pickOption} from './option-pick.js';
+import {rememberChoice} from './menu-choices.js';
 
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 // The choice is remembered, and the menu armed with it again while the field stays empty: a fill still running re-arms the menu with its raw
@@ -26,7 +27,9 @@ export function menuRearm({storage, client, queueFill, log = () => {}, later = (
       if (done.has(key)) continue;
       done.add(key);
       pickOption(storage, proposal, {client: client(), log}).then(({choice}) => {
-        if (choice) arm(state.id, proposal.label, choice, 1, 'menu armed again with the choice that means the same');
+        if (!choice) return;
+        rememberChoice(storage, {url: state.url, label: proposal.label, value: proposal.value, choice});   // the next fill on this site tries it first
+        arm(state.id, proposal.label, choice, 1, 'menu armed again with the choice that means the same');
       });
     }
   };

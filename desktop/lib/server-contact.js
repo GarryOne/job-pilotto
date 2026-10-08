@@ -7,6 +7,7 @@ import * as knowledge from './knowledge.js';
 import * as viewCache from './view-cache.js';
 import * as contactDetails from './contact.js';
 import {log} from './log.js';
+import {choicesFor} from './menu-choices.js';
 
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
 // the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
@@ -68,5 +69,5 @@ export async function me(storage, url = '') {
   // Logged only when Notion was actually read or failed: an answer from the kept copy is the normal case (no noise).
   if (!details.contactSource?.startsWith('kept')) log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
     {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, coverLetter: !!coverLetterFile, ...(details.contactError ? {error: details.contactError} : {})});
-  return {...details, resume, coverLetterFile, knowledge: direct};
+  return {...details, resume, coverLetterFile, knowledge: direct, menuChoices: choicesFor(storage)};   // lib/menu-choices.js: all of them; the extension keeps the form tab's site (the url here is the posting's)
 }

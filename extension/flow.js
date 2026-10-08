@@ -242,6 +242,17 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       (n.scope === 'any' || host.includes(n.scope) || n.scope.toLowerCase() === company));
     if (note) { answers.push({field: field.field, value: note.value, source: 'form knowledge', question: field.label}); answered.add(field.field); }
   }
+  // A menu answer this site showed under another wording is given as the menu's own choice (desktop/lib/menu-choices.js: "+41" -> "Suisse").
+  // Every pass's answers: the first ones here, Claude's later ones below.
+  const useRemembered = list => {
+    for (const answer of list) {
+      const field = (debug.form || []).find(f => f.field === answer.field);
+      const known = field && (me?.menuChoices || []).find(c => (host === c.host || host.endsWith(`.${c.host}`)) && labelKey(c.label) === labelKey(field.label) && labelKey(c.value) === labelKey(answer.value));
+      if (known) Object.assign(answer, {value: known.choice, note: 'the choice this site\'s menu uses for it'});
+    }
+    return list;
+  };
+  useRemembered(answers);
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
   debug.details = {coverLetterFile: !!me?.coverLetterFile, fields: Object.keys(me?.contact || {}), source: me?.contactSource || null, cv: me?.resume?.name || null, tailoredCv: !!me?.resume?.tailored};
   if (me?.contactError) debug.errors.push(`your details: ${me.contactError}`);
@@ -295,7 +306,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       ai = await api(config, '/extension/answer', {method: 'POST',
         body: JSON.stringify({url: tab.url, fields: later, page_text: pageText, test: !!config.testMode})});
       step('Claude answered (after the fill)');
-      const extra = ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'}));
+      const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'})));
       if (extra.length) {
         // Only Claude's answers this time: no contact details or CV again (they're in already).
         const more = await inPage(tab.id, (list, consents) => window.__jobPilottoExtensionFill(list, {}, null, '', consents), [extra, config.acceptConsents === true]);

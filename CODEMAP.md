@@ -93,6 +93,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log for today, app-YYYY-MM-DD.log for each of the last 30
 - `desktop/lib/main-window.js` — The app's windows (moved out of main.js, 8 Oct 2026): the main window (its size, theme background, the page it loads, what it does when closed or when its page
 - `desktop/lib/match-check.js` — CV match: one CV against one job posting, the way a recruiter's search and a hiring system's match grade meet them.
+- `desktop/lib/menu-choices.js` — A menu's answer in another wording, remembered as the menu's own choice per site, field and answer ("+41" on Coop's "Indicatif de pays" ->
 - `desktop/lib/menu-rearm.js` — A menu the fill could not answer from its choices ("Sir" asked, "Madame"/"Monsieur" shown; or Chrome's page translation showing
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 - `desktop/lib/misses.js` — Controls the form reader could not read, kept on this Mac (extension/review.js -> /extension/misses): the first step of
