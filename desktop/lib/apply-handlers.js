@@ -58,14 +58,16 @@ export function registerApplyHandlers(ctx) {
     if (process.platform === 'darwin') {
       // The page this session's own reports came from, and the pages other sessions' came from (never taken for this one).
       const states = review.allStates();
-      const hints = {own: states.find(state => state.id === key)?.url || '', claimed: states.filter(state => state.id !== key).map(state => state.url).filter(Boolean)};
+      // By tab id first: two sessions on one form site (SuccessFactors' /careers) report the same address.
+      const mine = states.find(state => state.id === key), others = states.filter(state => state.id !== key);
+      const hints = {own: mine?.url || '', ownTab: mine?.tab ?? '', claimed: others.map(state => state.url).filter(Boolean), claimedTabs: others.map(state => state.tab).filter(tab => tab != null)};
       const direct = await openFormTab({url, company}, shell.openExternal, {confident: true, ...hints}).catch(() => 'none');
       if (direct !== 'tab') {
-        appLog('review', `show ${key}: no tab is this job's form; nothing queued`, {went: direct});
+        appLog('review', `show ${key}: no tab is this job's form; nothing queued`, {went: direct, ownTab: hints.ownTab, others: hints.claimedTabs.length});
         review.forget(key);
         return {taken: false, went: 'none', found: null};
       }
-      if (!name) { appLog('review', `show ${key}: went straight to the form tab`, {went: direct}); return {taken: true, went: direct, found: null}; }
+      if (!name) { appLog('review', `show ${key}: went straight to the form tab`, {went: direct, ownTab: hints.ownTab, others: hints.claimedTabs.length}); return {taken: true, went: direct, found: null}; }
       // A field: the tab is in front now, so its page checks in quickly and scrolls to it.
       review.queueFocus(key, name);
       const answered = await review.delivered(key, 6000);

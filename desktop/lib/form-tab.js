@@ -43,16 +43,26 @@ export function markedTab(tabs) {
   const marked = (tabs || []).filter(tab => String(tab.url || '').includes('jobpilotto-fill') && !ATS.test(hostOf(tab.url)));
   return marked.length === 1 ? marked[0] : null;
 }
-// The tab to bring forward for a job: the page this session's own reports came from (when still open), else its best match
-// when that tab is one the app armed (the form itself), else the lone armed agency form (the plain posting tab matches a job
-// best, but it is not the form), else the best match. Tabs another session's reports came from (`claimed`) are never taken:
-// 1 Oct 2026, a card whose own tab had no fill mark opened another card's agency form.
-export function chooseTab(tabs, target, {own = '', claimed = []} = {}) {
-  const key = url => String(url || '').split(/[?#]/)[0].replace(/\/+$/, '');
-  const mine = own && tabs.find(tab => key(tab.url) === key(own));
+// The tab to bring forward for a job: the session's own tab by its id (Chrome numbers a tab the same for its scripting and
+// for extensions), else the page its own reports came from (when still open and no other session reported that address),
+// else its best match when that tab is one the app armed (the form itself), else the lone armed agency form (the plain posting
+// tab matches a job best, but it is not the form), else the best match. Tabs another session owns (`claimedTabs`) or reported
+// from (`claimed`) are never taken: 1 Oct 2026, a card whose own tab had no fill mark opened another card's agency form;
+// 8 Oct 2026, Migros's closed form "found" Coop's open one, both at career2.successfactors.eu/careers (one address, every company).
+const idOf = id => (id === null || id === undefined || id === '' ? '' : String(id));
+export function ownTabOf(tabs, {own = '', claimed = [], ownTab = ''} = {}) {
+  const byId = idOf(ownTab) && tabs.find(tab => idOf(tab.id) === idOf(ownTab) && (!own || hostOf(tab.url) === hostOf(own)));
+  if (byId) return byId;
+  const shared = claimed.some(url => bare(url) === bare(own));   // another session reported the same address: it says nothing
+  return (own && !shared && tabs.find(tab => bare(tab.url) === bare(own))) || null;
+}
+export function chooseTab(tabs, target, {own = '', claimed = [], ownTab = '', claimedTabs = []} = {}) {
+  const others = new Set(claimedTabs.map(idOf).filter(Boolean));
+  const open = tabs.filter(tab => !others.has(idOf(tab.id)));
+  const mine = ownTabOf(open, {own, claimed, ownTab});
   if (mine) return mine;
-  const taken = new Set(claimed.map(key).filter(Boolean));
-  const free = tabs.filter(tab => !taken.has(key(tab.url)));
+  const taken = new Set(claimed.map(bare).filter(Boolean));
+  const free = open.filter(tab => !taken.has(bare(tab.url)));
   const best = pickTab(free, target);
   if (best && String(best.url || '').includes('jobpilotto-fill')) return best;
   return markedTab(free) || best;
@@ -147,13 +157,13 @@ export const markedUrl = url => (/^https?:/.test(url || '') && !String(url).incl
 // opens only when Chrome isn't running: on most job sites the posting's link IS the form, so opening it while Chrome
 // runs would add a second, empty copy of the form next to the filled one.
 // `confident`: act only on a sure match (an armed tab, or the job's ID or address in it); otherwise do nothing and say 'none'.
-export async function openFormTab({url, company}, openExternal, {confident = false, own = '', claimed = []} = {}) {
+export async function openFormTab({url, company}, openExternal, {confident = false, own = '', claimed = [], ownTab = '', claimedTabs = []} = {}) {
   if (process.platform !== 'darwin') { await openExternal(url); return 'posting'; }
   try {
     const tabs = JSON.parse(await jxa(LIST));
     if (!tabs) { await openExternal(url); return 'posting'; }
-    const tab = chooseTab(tabs, {url, company}, {own, claimed});
-    const isOwn = !!(tab && own && String(tab.url || '').split(/[?#]/)[0].replace(/\/+$/, '') === String(own).split(/[?#]/)[0].replace(/\/+$/, ''));
+    const tab = chooseTab(tabs, {url, company}, {own, claimed, ownTab, claimedTabs});
+    const isOwn = !!tab && tab === ownTabOf(tabs, {own, claimed, ownTab});
     if (confident && !(tab && (isOwn || String(tab.url || '').includes('jobpilotto-fill') || scoreTab(tab, {url, company}) >= 70))) return 'none';
     if (tab) {
       // A tab without the fill mark is one the extension never joined (Claude opened it): add the mark so it does.

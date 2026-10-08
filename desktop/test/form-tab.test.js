@@ -98,3 +98,26 @@ test('a session\'s own form tab wins; another session\'s armed tab is never take
   // Without hints (a session that never reported) the old rule still holds.
   assert.equal(chooseTab([agency], {url: 'https://www.jobs.ch/en/vacancies/detail/c59e9c97/', company: 'Undisclosed employer'}), agency);
 });
+
+// Which open tab is whose, as a matrix: two sessions on one form site report one address (SuccessFactors' /careers serves every
+// company), so only the tab id tells them apart. 8 Oct 2026: Migros's form tab was closed and "Open in Chrome" brought Coop's forward.
+test('two sessions on one form address: each finds only its own tab, a closed one finds none', () => {
+  const address = 'https://career2.successfactors.eu/careers';
+  const coopTab = {id: '101', win: 1, index: 3, url: `${address}?company=Coop#jobpilotto-fill`, title: 'Career Opportunities: Retail Assistant'};
+  const migrosTab = {id: '102', win: 1, index: 5, url: `${address}?company=Migros#jobpilotto-fill`, title: 'Career Opportunities: Vendeuse'};
+  const other = {id: '7', win: 1, index: 1, url: 'https://github.com/GarryOne/job-pilotto', title: 'GitHub'};
+  const coop = {target: {url: 'https://jobs.coop.ch/coop/job/Nyon-Assistante/1234567', company: 'Coop Suisse'}, own: address, ownTab: 101};
+  const migros = {target: {url: 'https://jobs.migros.ch/fr/offres/7654321', company: 'Migros Industrie / Micarna'}, own: address, ownTab: 102};
+  const hints = (me, them) => ({own: me.own, ownTab: me.ownTab, claimed: [them.own], claimedTabs: [them.ownTab]});
+  const cases = [
+    ['both open: Coop', [other, coopTab, migrosTab], coop, migros, coopTab],
+    ['both open: Migros', [other, coopTab, migrosTab], migros, coop, migrosTab],
+    ['Migros closed: none, never Coop\'s', [other, coopTab], migros, coop, null],
+    ['Coop closed: none, never Migros\'s', [migrosTab, other], coop, migros, null],
+    ['no ids known, one address: none rather than a guess', [coopTab], {...migros, ownTab: ''}, {...coop, ownTab: ''}, null],
+    ['own id reused after a Chrome restart by another site: not taken', [{...other, id: '102'}], migros, coop, null],
+  ];
+  for (const [name, tabs, me, them, want] of cases) assert.equal(chooseTab(tabs, me.target, hints(me, them)), want, name);
+  // The 1 Oct rule is unchanged: one session alone, found by its address.
+  assert.equal(chooseTab([other, coopTab], coop.target, {own: address}), coopTab);
+});
