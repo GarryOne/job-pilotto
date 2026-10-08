@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
 import * as reset from '../lib/reset.js';
 import {createStorage} from '../lib/storage.js';
 import {tar} from '../lib/tar.js';
@@ -45,11 +46,67 @@ test('export then import on another computer: files and settings come back, keys
   assert.ok(!fs.existsSync(path.join(b.dir, reset.KEYS_FILE)));
 });
 
+// 8 Oct 2026: an export without keys, imported back on the same Mac, asked to connect Notion from scratch.
+test('an export without keys keeps them on the computer that made it, and only there', () => {
+  const a = profile();
+  a.storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
+  const file = path.join(a.base, 'export.tar.gz');
+  reset.exportTo(a.dir, file);
+  reset.stageImport(a.dir, file);
+  assert.equal(reset.applyPending(a.dir).notionElsewhere, true);   // decided before the keys can be opened: main.js checks again
+  assert.equal(createStorage(a.dir, fakeCrypto).secret('NOTION_TOKEN'), 'ntn_real');
+  const b = profile();
+  reset.stageImport(b.dir, file);
+  reset.applyPending(b.dir);
+  const elsewhere = createStorage(b.dir, {encrypt: v => v, decrypt: () => { throw new Error('sealed elsewhere'); }});
+  assert.equal(elsewhere.secret('NOTION_TOKEN'), '');   // asked again
+  assert.deepEqual(elsewhere.unreadableSecrets(), ['NOTION_TOKEN']);
+});
+
+test('an older export without keys takes them from this computer\'s backup of the same Profile, never another one\'s', () => {
+  const a = profile();
+  a.storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
+  a.storage.setSecret('GITHUB_TOKEN', 'gh_real');
+  const file = path.join(a.base, 'export.tar.gz');
+  reset.exportTo(a.dir, file);
+  const old = path.join(a.base, 'old.tar.gz');   // as exports were made before 8 Oct 2026: no secrets.json
+  const unpacked = fs.mkdtempSync(path.join(a.base, 'u-'));
+  execFileSync(tar(), ['-xzf', file, '-C', unpacked]);
+  fs.rmSync(path.join(unpacked, 'secrets.json'));
+  execFileSync(tar(), ['-czf', old, '-C', unpacked, ...fs.readdirSync(unpacked)]);
+  // Then a new workspace with its own key and Profile (backed up by the import, newer than the right one).
+  reset.request(a.dir);
+  reset.applyPending(a.dir, new Date('2026-10-06T10:00:00Z'));
+  const other = createStorage(a.dir, fakeCrypto);
+  other.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-2'}});
+  other.setSecret('NOTION_TOKEN', 'ntn_other');
+  reset.stageImport(a.dir, old);
+  reset.applyPending(a.dir, new Date('2026-10-08T10:00:00Z'));
+  const imported = createStorage(a.dir, fakeCrypto);
+  assert.equal(imported.secret('NOTION_TOKEN'), '');
+  const kept = reset.adoptBackupKeys(imported);
+  assert.deepEqual(kept.names.sort(), ['GITHUB_TOKEN', 'NOTION_TOKEN']);
+  assert.match(path.basename(kept.from), /backup 2026-10-06/);
+  assert.equal(imported.secret('NOTION_TOKEN'), 'ntn_real');
+  assert.equal(reset.adoptBackupKeys(imported), null);   // nothing left to take
+});
+
+test('a backup key this computer cannot open is not adopted', () => {
+  const a = profile();
+  a.storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
+  reset.request(a.dir);
+  reset.applyPending(a.dir);
+  const fresh = createStorage(a.dir, {encrypt: v => v, decrypt: () => { throw new Error('sealed elsewhere'); }});
+  fresh.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'page-1'}});
+  assert.equal(reset.adoptBackupKeys(fresh), null);
+  assert.ok(!fs.existsSync(fresh.path('secrets.json')) || !JSON.parse(fs.readFileSync(fresh.path('secrets.json'), 'utf8')).NOTION_TOKEN);
+});
+
 // A data folder as an install really has it (6 Oct 2026, the owner's Mac): the user's files, Chromium's, logs and locks.
-const KEPT = ['settings.json', 'runs.json', 'cv.pdf', 'cv.previous.pdf', 'profile.md', 'answers.md', 'draft.json', 'misses.json', 'sessions.json',
+const KEPT = ['settings.json', 'secrets.json', 'runs.json', 'cv.pdf', 'cv.previous.pdf', 'profile.md', 'answers.md', 'draft.json', 'misses.json', 'sessions.json',
   'review-states.json', 'queue.json', 'cv/v2.pdf', 'cover-letter/acme.md', 'interviews/call.json', 'recordings/call.webm', 'apply-runs/run.json',
   'config/search.json', 'config/preferences.json', 'data/jobs.sqlite', 'data/places.json', 'data/reports/last-run.json'];
-const DROPPED = ['secrets.json', 'Cache/data_0', 'Code Cache/js/x', 'GPUCache/x', 'GraphiteDawnCache/x', 'DawnWebGPUCache/x', 'view-cache/jobs.json',
+const DROPPED = ['Cache/data_0', 'Code Cache/js/x', 'GPUCache/x', 'GraphiteDawnCache/x', 'DawnWebGPUCache/x', 'view-cache/jobs.json',
   'recipes-cache.json', 'Local Storage/leveldb/x', 'Session Storage/x', 'IndexedDB/x', 'Network/Cookies', 'Network Persistent State', 'Local State',
   'Preferences', 'SingletonLock', 'DIPS', 'DIPS-wal', 'logs/app.log', 'bin/python3', 'data/run.lock', 'data/insights.lock'];
 
@@ -65,8 +122,7 @@ test('export then import brings back every file of the user, 1:1, and none of Ch
   reset.stageImport(b.dir, file);
   reset.applyPending(b.dir);
   for (const name of KEPT) assert.equal(fs.readFileSync(path.join(b.dir, name), 'utf8'), `content of ${name}`, `${name} came back as it was`);
-  for (const name of DROPPED) assert.ok(!fs.existsSync(path.join(b.dir, name)) || name === 'secrets.json', `${name} is not exported`);
-  // secrets.json here is the one adoptKeys writes from keys.json, sealed for this computer: the exported computer's sealed file never travels.
+  for (const name of DROPPED) assert.ok(!fs.existsSync(path.join(b.dir, name)), `${name} is not exported`);
   const imported = createStorage(b.dir, fakeCrypto);
   reset.adoptKeys(imported);
   assert.equal(imported.secret('NOTION_TOKEN'), 'ntn_real');
@@ -75,7 +131,7 @@ test('export then import brings back every file of the user, 1:1, and none of Ch
 test('every file the app keeps in its data folder is exported, unless it is left out on purpose', () => {
   // The class, not one case: each top-level name main.js or lib/ reads or writes there. A new file is exported by default; one that must not
   // travel goes in reset.LEFT_OUT and in this list, with its reason.
-  const ON_PURPOSE = {'secrets.json': 'sealed for this computer; keys travel as keys.json', bin: 'rebuilt at start'};
+  const ON_PURPOSE = {bin: 'rebuilt at start'};
   const here = path.dirname(fileURLToPath(import.meta.url));   // not URL.pathname: '/D:/…' on Windows
   const sources = [path.join(here, '..', 'main.js'), ...fs.readdirSync(path.join(here, '..', 'lib')).filter(f => f.endsWith('.js')).map(f => path.join(here, '..', 'lib', f))];
   const names = new Set();

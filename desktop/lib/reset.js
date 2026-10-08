@@ -15,9 +15,11 @@ export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only 
 export const NOTION_FILE = 'notion.json';  // a Notion copy older exports could carry (no longer made, 8 Oct 2026): dropped at import
 // What an export leaves out of the data folder; everything else goes in, so a file the app starts keeping is exported without anyone listing it
 // (6 Oct 2026: a fixed list missed profile.md and answers.md, a user's whole profile before Notion, plus the strategy draft, the "Answer once" list
-// and the Apply sessions). Left out: Chromium's own files (caches, cookies, its storage, its locks), logs, the keys sealed for this computer only
-// (secrets.json: an export carries keys as keys.json, when asked), what the app rebuilds at start (bin/), and the files of an export or reset in progress.
-export const LEFT_OUT = [/cache/i, /^(Dawn.*|Graphite.*|Shared Dictionary|SharedStorage.*|blob_storage|Local Storage|Session Storage|IndexedDB|WebStorage|Network|Network Persistent State|Crashpad|Preferences|Local State|Trust Tokens.*|Cookies.*|Dictionaries|Service Worker|VideoDecodeStats|shared_proto_db|databases|Partitions|DIPS.*|declarative_performance_observer\.db.*|DevToolsActivePort|Singleton.*|TransportSecurity|Origin Bound Certs|QuotaManager.*|Login Data.*|Web Data.*|Visited Links|Favicons.*|History.*|Top Sites.*|logs|bin|secrets\.json|manifest\.json|keys\.json|notion\.json|reset-pending\.json)$/];
+// and the Apply sessions). Left out: Chromium's own files (caches, cookies, its storage, its locks), logs, what the app rebuilds at start (bin/), and the
+// files of an export or reset in progress. secrets.json goes in (8 Oct 2026: left out, an export imported back on the same Mac lost its Notion key and
+// asked to connect from scratch): its keys are sealed for this computer, so they open only here; elsewhere they count as unreadable and are asked again
+// (storage.js), unless keys.json (plain keys, when asked for at export) brings them.
+export const LEFT_OUT = [/cache/i, /^(Dawn.*|Graphite.*|Shared Dictionary|SharedStorage.*|blob_storage|Local Storage|Session Storage|IndexedDB|WebStorage|Network|Network Persistent State|Crashpad|Preferences|Local State|Trust Tokens.*|Cookies.*|Dictionaries|Service Worker|VideoDecodeStats|shared_proto_db|databases|Partitions|DIPS.*|declarative_performance_observer\.db.*|DevToolsActivePort|Singleton.*|TransportSecurity|Origin Bound Certs|QuotaManager.*|Login Data.*|Web Data.*|Visited Links|Favicons.*|History.*|Top Sites.*|logs|bin|manifest\.json|keys\.json|notion\.json|reset-pending\.json)$/];
 // Inside the folders that go in: a run's lock (data/run.lock) would make the first run after an import wait for a holder that is gone.
 const LEFT_OUT_INSIDE = ['*.lock'];
 export const exported = dir => fs.readdirSync(dir).filter(name => !LEFT_OUT.some(rule => rule.test(name)));
@@ -127,6 +129,26 @@ export function notionLeftBehind(dir) {
   try { settings = JSON.parse(read('settings.json') || '{}'); } catch {}
   try { keys = JSON.parse(read(KEYS_FILE) || '{}'); } catch {}
   return !!settings.notionIds?.NOTION_PROFILE_PAGE_ID && !keys.NOTION_TOKEN && !read('profile.md').trim();
+}
+
+// After an import of an export made before 8 Oct 2026 (no secrets.json in it), on the computer that made it: a backup folder next to the data folder holds that profile's keys, sealed
+// for this computer (8 Oct 2026: an export without keys, imported back on the same Mac, asked to connect Notion from scratch while the backup of the
+// same Profile still had its Notion key). The newest backup whose settings name the same Profile page gives every key the import lacks; one this
+// computer cannot open is dropped again, so it is asked for as before. -> {from: <backup folder>, names: [...]}, or null.
+export function adoptBackupKeys(storage) {
+  const profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
+  if (!profile) return null;
+  const parent = path.dirname(storage.dir), prefix = `${path.basename(storage.dir)} (backup `;
+  const read = (dir, name) => { try { return JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')); } catch { return {}; } };
+  const backups = fs.readdirSync(parent).filter(name => name.startsWith(prefix)).sort().reverse().map(name => path.join(parent, name));
+  const from = backups.find(dir => read(dir, 'settings.json').notionIds?.NOTION_PROFILE_PAGE_ID === profile && Object.keys(read(dir, 'secrets.json')).length);
+  if (!from) return null;
+  const sealed = read(from, 'secrets.json'), mine = read(storage.dir, 'secrets.json');
+  const wanted = Object.keys(sealed).filter(name => !mine[name]);
+  if (!wanted.length) return null;
+  fs.writeFileSync(storage.path('secrets.json'), JSON.stringify({...mine, ...Object.fromEntries(wanted.map(name => [name, sealed[name]]))}, null, 2) + '\n', {mode: 0o600});
+  const names = wanted.filter(name => storage.secret(name) || (storage.setSecret(name, ''), false));
+  return names.length ? {from, names} : null;
 }
 
 // After an import: keys that came in plain text are stored encrypted, and the plain file is deleted.

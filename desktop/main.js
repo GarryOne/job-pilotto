@@ -2276,13 +2276,19 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge('DEV'); }  // from source: never mistaken for the installed app
   logTo(path.join(app.getPath('userData'), 'logs'), electronLog);
-  if (resetDone?.notionElsewhere) appLog('data', 'import: Profile and tracking are in the backup\'s Notion workspace, no key came with it', {decidedBy: 'reset.notionLeftBehind'});
   if (resetDone) appLog('data', resetDone.failed ? `reset or import not applied: ${resetDone.failed}` : `applied at start: ${resetDone.imported ? 'import' : resetDone.deleted ? 'reset (deleted)' : 'reset'}`, {backup: resetDone.backup || '', waitedMs: resetDone.waited || 0});   // waitedMs: Windows still held the folder after the old app quit
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   engineLog.setFile(path.join(app.getPath('userData'), 'logs', 'engine.log'));  // everything a run printed, in full
   // E2E on a Linux CI runner only (no keyring there): Electron's safeStorage refuses the basic store unless told to. A user's app never takes this path.
   if (process.platform === 'linux' && process.env.JOB_PILOTTO_E2E && process.env.CI) safeStorage.setUsePlainTextEncryption?.(true);
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  // An import on the Mac that made it: its sealed keys open here; an older export without them takes them from the same Profile's backup (lib/reset.js adoptBackupKeys).
+  if (resetDone?.imported) {
+    const kept = reset.adoptBackupKeys(storage);
+    if (kept) appLog('data', 'import: keys taken from this computer\'s backup of the same Profile', {from: path.basename(kept.from), names: kept.names});
+    if (storage.secret('NOTION_TOKEN')) resetDone.notionElsewhere = false;
+  }
+  if (resetDone?.notionElsewhere) appLog('data', 'import: Profile and tracking are in the backup\'s Notion workspace, no key came with it', {decidedBy: 'reset.notionLeftBehind'});
   // An import whose Profile is in a Notion workspace it brought no key for (lib/reset.js notionLeftBehind): the Notion dialog says to pick that one, until connected.
   if (resetDone?.notionElsewhere) storage.saveSettings({importedNotion: {page: storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID || '', at: new Date().toISOString()}});
   { const lost = (storage.secretsPresent(), storage.unreadableSecrets()); if (lost.length) appLog('secrets', 'unreadable on this computer: asked again', {names: lost}); }
