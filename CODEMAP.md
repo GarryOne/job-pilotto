@@ -336,6 +336,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Chrome extension
 
+- `extension/account-fill.js` — What the extension types into a sign-in or sign-up page and presses (owner, 8 Oct 2026): the one site password into its password boxes, then the
+- `extension/account-step.js` — What the extension does on a sign-in or sign-up page in a tab the app opened (owner, 8 Oct 2026; the extension first, docs/flows/applying.md):
 - `extension/account.js` — Account pages (sign-in, sign-up) kept apart from the application form (docs/flows/applying.md, owner 8 Oct 2026): each tab's page
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).

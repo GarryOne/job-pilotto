@@ -303,18 +303,18 @@
 
   // ---- drawing ----
   function render(list = fields()) {
+    const account = !!document.querySelector('input[type=password]');
+    // An empty password box is filled from the Keychain (asked again now and then; the value never comes to this panel). Asked BEFORE the
+    // field count below: a sign-in page has two boxes (Coop's SuccessFactors, live run 8 Oct 2026), too few for a panel.
+    if (account && Date.now() - askedPassword > 6000 && [...document.querySelectorAll('input[type=password]')].some(box => !box.value && box.getClientRects().length)) {
+      askedPassword = Date.now();
+      send({type: 'sitePassword'}).catch(() => {});
+    }
     if (list.length < MIN_FIELDS) { host.remove(); return null; }
     if (!host.isConnected) document.documentElement.append(host);
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     const needed = list.filter(f => f.required || f.ai);
     shown = needed.filter(f => !f.filled);
-    const account = !!document.querySelector('input[type=password]');
-    // An empty password box: the extension fills it from the Keychain (a sign-up's password exists once Claude has made it, so
-    // ask again now and then). The value never comes to this panel.
-    if (account && Date.now() - askedPassword > 6000 && [...document.querySelectorAll('input[type=password]')].some(box => !box.value && box.getClientRects().length)) {
-      askedPassword = Date.now();
-      send({type: 'sitePassword'}).catch(() => {});
-    }
     const total = needed.length, left = shown.length, ready = total > 0 && left === 0;
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready);

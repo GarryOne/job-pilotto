@@ -66,7 +66,8 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
   if (answer.by === 'ai' && answer.applyButton) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);
   return answer.error ? {ok: true, kind: '', error: answer.error}
-    : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || ''};
+    : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '',
+      accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', accountButton: answer.accountButton || ''};
 }
 
 

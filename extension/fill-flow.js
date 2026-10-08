@@ -79,7 +79,7 @@ async function forgetKind(tab, kind, reason) {
     await api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({forget: true, reason, kind: kind?.kind || '', url: tab.url.split('#')[0], ...(sketch || {})})});
   } catch { /* the app is closed: asked again once it is back */ }
 }
-async function askKind(tab) {
+export async function askKind(tab) {
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) return null;
   try {
@@ -199,6 +199,13 @@ export async function consider(tab, jobUrl) {
   // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
   const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
   if (kind && role === 'form' && controls === 0) { await forgetKind(tab, kind, 'a form with no fields'); role = ruled; }
+  // A sign-in or sign-up page whose step matches what the app says about this email on this site (sign_up while we have no account here, sign_in once we do):
+  // the person's details go in by the normal fill (the label meanings, any language); the passwords and the account button are account-step.js.
+  if (role === 'account' && kind?.accountStep) {
+    const host0 = (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })();
+    const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true})}).catch(() => null);
+    if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
+  }
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
   await noteRole(tab.id, tab.url, role);

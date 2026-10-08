@@ -13,4 +13,4 @@ export const cadence = 'manual';   // never chosen by a push or a schedule (lib/
 export const browser = true;
 export const engine = 'api';   // the proxy answers the app's AI calls (the page kinds, the open question)
 export const name = 'applyflows';
-export const run = ctx => runApply(ctx, ['flows']);
+export const run = ctx => runApply(ctx, process.env.LIVE ? ['live'] : ['flows']);   // LIVE=1: the live run on a real posting (npm run live), not the matrix

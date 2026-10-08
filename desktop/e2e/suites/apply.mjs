@@ -10,6 +10,7 @@ import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mj
 import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {appLogLines, appLogText} from '../lib/app-log.mjs';
+import {livePosting, realKind, runLive} from '../lib/apply-live.mjs';
 import {runCvSteps} from '../lib/apply-cv-steps.mjs';
 import {runJourneys} from '../lib/apply-journeys.mjs';
 import {BASE_CV, CONTACT, OPEN_ANSWER, POSTING, expectedOf, pause, tailoredFrom} from '../lib/apply-fixtures.mjs';
@@ -36,7 +37,8 @@ const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV'
 const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a sign-up page before the form', 'the account and the application on one page',
   'the form tab is closed', 'a second browser with the extension', 'the AI gave a page the wrong kind', '"I submitted it"'];
 const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
-export const partOf = name => (SHARED_STEPS.some(head => name.startsWith(head)) ? 'both' : CV_STEPS.some(head => name.startsWith(head)) ? 'cv' : FLOW_STEPS.some(head => name.startsWith(head)) ? 'flows' : 'forms');
+const LIVE_STEPS = ['a real posting, watched live'];
+export const partOf = name => (LIVE_STEPS.some(head => name.startsWith(head)) ? 'live' : SHARED_STEPS.some(head => name.startsWith(head)) ? 'both' : CV_STEPS.some(head => name.startsWith(head)) ? 'cv' : FLOW_STEPS.some(head => name.startsWith(head)) ? 'flows' : 'forms');
 
 export const run = ctx => runApply(ctx, ['forms']);
 export async function runApply(ctx, parts) {
@@ -47,14 +49,15 @@ export async function runApply(ctx, parts) {
   console.log(ctx.vary.fixed ? '  variation: fixed forms' : `  variation: seed ${ctx.vary.seed}; ${forms.variation}; replay with E2E_SEED=${ctx.vary.seed}`);
   await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
   const all = ctx.run;
-  ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
+  const live = parts.includes('live') ? livePosting() : null;   // the live run: one real posting, read from this Mac's job list; the fixture checks do not apply to it
+  ctx.run = (name, fn, options) => ((partOf(name) === 'both' && !(live && name.startsWith('through all of it'))) || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
   // The jobs this part seeds: the journeys use their own fixtures, the forms and the CV steps the form fixtures.
-  const fixtures = [...(parts.some(part => part !== 'flows') ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED] : [])];
+  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED] : [])];
   const urls = fixtures.map(form => form.url);
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
-    await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
+    await page.evaluate(contact => window.pilot.saveContact(contact), live && process.env.LIVE_EMAIL ? {...CONTACT, email: process.env.LIVE_EMAIL} : CONTACT);   // LIVE_EMAIL: the live run signs up with the owner's own plus address
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
     for (const form of fixtures) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
@@ -71,6 +74,7 @@ export async function runApply(ctx, parts) {
         const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form',
           [SIGNUP.path]: 'posting', [SIGNUP.accountPath]: 'account', [SIGNUP.formPath]: 'form', [ONEPAGE.path]: 'account-form',
           [MISLABELLED.path]: 'posting'};   // deliberately wrong: the self-correction row
+        if (live) return realKind(body);   // a real site: a real model answers (this Mac's Claude Code, lib/model.mjs), the way the app's own AI would
         return JSON.stringify({kind: kinds[where.replace(/\/$/, '')] || 'form', confidence: 0.95});
       }
       const asked = /<form_fields>\n([\s\S]*?)\n<\/form_fields>/.exec(typeof content === 'string' ? content : (content || []).map(part => part.text || '').join(''));
@@ -86,7 +90,7 @@ export async function runApply(ctx, parts) {
         const seen = await page.evaluate(() => (window.__jp.shared.allJobs || []).map(job => `${job.company} [${job.stage}${job.kit ? ', kit' : ''}]`));
         throw new Error(`the Jobs list never showed every kit job with an Apply button; it holds ${seen.length}: ${seen.join('; ')}`);
       });
-    ctx.browser = await launchBrowser({port: forms.port, spool: ctx.shim.spool, extensionDir: ctx.extensionDir});
+    ctx.browser = await launchBrowser({port: forms.port, spool: ctx.shim.spool, extensionDir: ctx.extensionDir, real: !!live});
     await ctx.browser.serviceWorker();
   }, {needs: ctx.needs});
 
@@ -268,6 +272,7 @@ export async function runApply(ctx, parts) {
     unknownTab = tab;
   }, {needs: ctx.needs});
 
+  await runLive(ctx, {page, posting: live, NOTION});   // lib/apply-live.mjs (only when parts has 'live')
   await runJourneys(ctx, {cv, dumpExtension, fail, forms, page});   // lib/apply-journeys.mjs
 
   const sessionsOf = url => page.evaluate(target => window.pilot.sessions().then(list => list.filter(item => String(item.url || '').replace(/\/$/, '') === target.replace(/\/$/, '')).map(item => `${item.kind}:${item.id}`)), url);

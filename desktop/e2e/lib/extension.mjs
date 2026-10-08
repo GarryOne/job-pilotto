@@ -38,6 +38,16 @@ export function copyExtension(port, from = EXTENSION_DIR) {
   fs.writeFileSync(flow, source.replaceAll(address, `http://127.0.0.1:${port}`));
   const left = fs.readdirSync(dir).filter(file => file.endsWith('.js') && fs.readFileSync(path.join(dir, file), 'utf8').includes(`127.0.0.1:${DEFAULT_APP_PORT}`));
   if (left.length) throw new Error(`the test extension still mentions 127.0.0.1:${DEFAULT_APP_PORT} in ${left.join(', ')}`);
+  if (process.env.LIVE) {   // the live run (lib/apply-live.mjs): a fresh Chrome has not granted the optional "any site" permission the owner's Chrome has, so the test copy holds it
+    const manifestFile = path.join(dir, 'manifest.json'), manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    manifest.host_permissions = [...new Set([...(manifest.host_permissions || []), 'https://*/*'])];
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+    if (!process.env.LIVE_SUBMIT) {   // a live run stops BEFORE the account form's own button (creating a real account is the owner's go: LIVE_SUBMIT=1)
+      const step = path.join(dir, 'account-step.js'), text = fs.readFileSync(step, 'utf8'), press = "if (filled && move === 'fill-press') {";
+      if (!text.includes(press)) throw new Error('extension/account-step.js no longer contains the press guard: update copyExtension() (a live run must not press the account button)');
+      fs.writeFileSync(step, text.replace(press, "if (false && filled && move === 'fill-press') {"));
+    }
+  }
   return dir;
 }
 

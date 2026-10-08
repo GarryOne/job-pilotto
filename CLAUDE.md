@@ -34,6 +34,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   One mechanism: engine `src/ai/decide.py` (fixed answers, kept per item in `decisions`); each decision with its no-AI rule lives in
   `src/ai/meanings.py`. Rule placement: high-volume items (titles, links) take the rule's yes for free and send the rest to AI;
   few high-stakes items (form questions, buttons, emails) are decided by AI, the rule answers only without AI and stays a safety floor.
+- **Universal first (owner, 8 Oct 2026): any website, any form, any language.** Avoid hard-coding; rely on AI decisions with fixed answers (global rules: "Universal first"). Account pages are the example: the page-kind AI names the step (sign in / sign up), the register control and the submit control; code keeps only structure and safety floors.
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
 - **Validate a form fix on the real extension** (owner, 8 Oct 2026: "for better validating"): unit and shape tests do not load the extension, so after
   a fix to form filling (`extension/page/*`, `fill-flow.js`, flows) also run `cd desktop && npm run real-extension` (headless Chrome, the real extension and
@@ -206,6 +207,19 @@ The plain **Apply** button (the Chrome extension alone) is the product: easier, 
 Every step of an application (posting → Apply → account sign-up/sign-in → email confirmation → the form) is built for the extension to do
 end to end. **Apply with Claude** is the backup: offered (a button, never started by itself) when the extension can't finish a step, and
 chosen by technically advanced users. A new capability goes into the extension's flow first; "Claude can do it" is not a reason to skip it.
+
+## Test a flow live, on a real site, in a window the owner can watch (owner, 8 Oct 2026)
+Fixtures prove a flow's SHAPE; only a real site shows what it really does (a sign-up page, a bot check, a stall). So when a flow touches real
+sites, run it live before and after a change, not only the matrix:
+- **How:** `cd desktop && npm run live` (LIVE_URL=<posting>, LIVE_LIKE='%host%', LIVE_SECONDS=120): the e2e app (its own profile and Notion test
+  page, never the owner's data) + a visible Chrome with the real extension, on a real posting read read-only from the owner's job list
+  (`e2e/lib/apply-live.mjs`). It presses Apply through the app's own API and prints a timeline (page kind, stage, fill state, the app's
+  extension/review log lines). It presses nothing on the page: no account button, never Submit.
+- **Which one:** `npm run live` is the quick run (the e2e app and its test workspace, a real posting, no sync, about 3 minutes); `npm run twin` ([docs/live-test.md](docs/live-test.md)) is the owner's real state mirrored. Live first, the twin when the owner's own data matters.
+- **Use it for any flow** (apply, account, visit, mail): add a `runLive`-style step to the suite, same rules: read-only on the owner's data,
+  test workspace for writes, nothing irreversible on a real site without the owner saying so.
+- **Report what it shows**: what worked, what did not, what the log cannot tell (then add the log line). The owner's own app window and
+  Chrome tabs I cannot drive; the harness's I can.
 
 ## Applying flows: change one, run them all (owner, 8 Oct 2026)
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:

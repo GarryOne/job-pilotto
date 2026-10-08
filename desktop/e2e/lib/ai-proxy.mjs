@@ -31,7 +31,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     const failure = failureFor(stats.mode);
     if (failure) { res.writeHead(failure.status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(failure.body), 'retry-after-ms': '10'}); res.end(failure.body); return; }   // retry-after-ms: the SDK retries a 429 / 500 after what the answer says, not after seconds of backoff
     if (canned) {
-      const text = canned(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
+      const text = await canned(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));   // may be async (the live run asks a real model)
       if (text != null) {
         stats.canned++;
         const body = Buffer.from(JSON.stringify(message(text)));

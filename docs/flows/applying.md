@@ -11,6 +11,7 @@
 | `extension/tab-pages.js` | the one page rule (`pageRole`, `isAccountPage`), pure |
 | `extension/tabs.js` + `same-tab.js` | which tabs are one application: inherit, follow, close the posting |
 | `extension/account.js` | each tab's page type, the account guards every learner asks |
+| `extension/account-step.js`, `account-fill.js` | on a sign-in/sign-up page: the AI's step decides register / fill / press (once per tab per action); the app's `mode` says whether this email has an account here |
 | `extension/fill-flow.js` | the fill flow: the page's kind, posting → Apply → form → fill, "can't reach" reports |
 | `extension/background.js` | the worker: tabs and pages the app opened, fills, the page's messages (dispatcher) |
 | `extension/messages-learning.js`, `messages-panel.js`, `messages-app.js` | the page's messages by group: what it learned, the panel's, the site password and the review relay |

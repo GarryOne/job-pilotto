@@ -13,6 +13,7 @@
     "test": "npm run lint && node --test test/*.test.js",
     "flows": "node e2e/flows-run.mjs",
     "twin": "node scripts/stage.mjs && node e2e/twin.mjs",
+    "live": "cd e2e && E2E_HEADED=1 LIVE=1 node run-all.mjs --only applyflows",
     "test:scenarios": "node scripts/stage.mjs && node --test test/app-scenarios.test.js",
     "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never",
     "screenshots": "node scripts/stage.mjs && node scripts/screenshots.mjs",

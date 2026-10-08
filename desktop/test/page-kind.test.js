@@ -104,3 +104,18 @@ test('a button by meaning: the app picks among the page\'s own buttons only, kep
   assert.equal((await pickChoice(storage, {label: 'A cookie banner', value: 'Accept cookies', options}, {client: said('Sign in')})).choice, '', 'never a button the page does not show');
   assert.equal((await pickChoice(storage, {value: 'x', options: []}, {client: said('x')})).choice, '');
 });
+
+test('an account page in any language: the AI names the step, the register control and the submit button among the page\'s own controls, kept with the kind', async () => {
+  const signIn = {url: 'https://karriere.example/career', title: 'Anmelden', headings: ['Mit bestehendem Profil anmelden'], controls: [{type: 'text', label: 'E-Mail-Adresse', required: true}, {type: 'password', label: 'Kennwort', required: true}],
+    buttons: ['Anmelden', 'Kennwort vergessen?', 'Noch kein Profil? Hier registrieren', 'FR']};
+  const cache = cacheIn(), calls = [];
+  const answer = await pageKind(fake({kind: 'account', confidence: 0.95, account_step: 'sign_in', register_control: 'Noch kein Profil? Hier registrieren', account_button: 'Anmelden'}, calls), signIn, cache);
+  assert.deepEqual([answer.kind, answer.accountStep, answer.registerControl, answer.accountButton], ['account', 'sign_in', 'Noch kein Profil? Hier registrieren', 'Anmelden']);
+  const again = await pageKind(fake({}), signIn, cache);
+  assert.deepEqual([again.by, again.accountStep, again.registerControl, again.accountButton, calls.length], ['remembered', 'sign_in', 'Noch kein Profil? Hier registrieren', 'Anmelden', 1]);
+  // a control the page does not show is never kept; a sign-up page has no register control; a posting has no account step at all
+  const fabricated = await pageKind(fake({kind: 'account', confidence: 0.9, account_step: 'sign_up', register_control: 'Sign up now', account_button: 'Create it'}), {...signIn, url: 'https://other.example/join'}, cacheIn());
+  assert.deepEqual([fabricated.accountStep, fabricated.registerControl, fabricated.accountButton], ['sign_up', '', '']);
+  const posting = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: '', account_step: 'sign_in', register_control: 'Anmelden', account_button: 'Anmelden'}), {...signIn, url: 'https://x.example/job/1'}, cacheIn());
+  assert.deepEqual([posting.accountStep, posting.registerControl, posting.accountButton], ['', '', '']);
+});
