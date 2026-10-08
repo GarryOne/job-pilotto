@@ -250,3 +250,28 @@ test('a site the app opened that cannot be reached is said at once in plain word
   assert.equal(unreachableWhy('net::ERR_CONNECTION_TIMED_OUT'), 'it did not answer');
   assert.equal(unreachableWhy('net::ERR_ABORTED'), '');
 });
+
+// Account pages and the application form kept apart (owner, 8 Oct 2026): one rule says which a page is, and an account page feeds
+// nothing on the application side (learned answers, fill misses, "submitted").
+test('a sign-in or sign-up page is told apart from the application form by one rule, for every learner', async () => {
+  const {isAccountPage, pageRole} = await import('../../extension/tab-pages.js');
+  const signIn = 'https://career55.sapsf.eu/careers?career_ns=job_application';
+  assert.equal(pageRole({fields: 3, passwords: 1}, signIn), 'account');      // Manor's sign-in: email, password, "not a robot"
+  assert.equal(pageRole({fields: 9, files: 1}, 'https://career55.sapsf.eu/careers/apply'), 'form');
+  assert.equal(isAccountPage({role: 'account', page: signIn}, `${signIn}#jobpilotto-fill`), true);
+  assert.equal(isAccountPage({role: 'form', page: signIn}, signIn), false);
+  assert.equal(isAccountPage({role: 'account', page: signIn}, 'https://career55.sapsf.eu/careers/apply'), false);   // the rule was for another page
+  assert.equal(isAccountPage(null, signIn, true), true);                       // the panel sees a password box now
+  assert.equal(isAccountPage(undefined, signIn), false);
+});
+
+test('a page with both the account and the application (CV upload + password, Coop on SuccessFactors) is the application form', async () => {
+  const {isAccountPage, pageRole} = await import('../../extension/tab-pages.js');
+  const coop = 'https://career2.successfactors.eu/careers?company=Coop';
+  assert.equal(pageRole({fields: 14, passwords: 2, files: 0, anyFiles: 1}, coop), 'form');   // "Upload a CV" hides its file input
+  assert.equal(pageRole({fields: 14, passwords: 2}, coop), 'account');                       // many fields, no CV and no text box: a long sign-up
+  assert.equal(pageRole({fields: 1, passwords: 1, textareas: 1}, coop), 'form');              // a cover-letter box
+  assert.equal(pageRole({fields: 5, passwords: 2}, coop), 'account');                          // a sign-up: email, confirm, names, username
+  // The rule's word wins over the panel's "there is a password box" (which a combined page has too).
+  assert.equal(isAccountPage({role: 'form', page: coop}, coop, true), false);
+});

@@ -165,3 +165,9 @@ test('after the first look, a session waiting on its tab says Chrome is not repo
   assert.equal(chromeSilent({...claude, live: true, status: 'running'}, null, CHECK_MS + 1), false);
   assert.equal(chromeSilent({...form, outcome: 'submitted', live: false}, null, CHECK_MS + 1), false);
 });
+
+test('Claude working on a sign-in or sign-up page says "Creating account", not "Applying"', () => {
+  assert.deepEqual(sessionState({kind: 'claude', status: 'running', stage: 'account', live: true}), ['Creating account', 'info']);
+  assert.notDeepEqual(sessionState({kind: 'claude', status: 'running', stage: 'form', live: true}), ['Creating account', 'info']);
+  assert.deepEqual(sessionState({kind: 'form', stuck: 'account', status: 'done'}), ['Needs an account', 'warn']);
+});

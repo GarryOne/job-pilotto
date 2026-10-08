@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, realFieldId} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNUP, ONEPAGE, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -21,7 +21,7 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): every form step needs the applicant, the kits and the proxy's answers.
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
-  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'cannot operate': [SETUP]};
+  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
 // The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).
@@ -57,13 +57,13 @@ export async function runApply(ctx, parts) {
   await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
   const all = ctx.run;
   ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
-  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url, SCRIPTED.url];
+  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url, SCRIPTED.url, SIGNUP.url, ONEPAGE.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of [...Object.values(FORMS), CHAIN, SCRIPTED]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
+    for (const form of [...Object.values(FORMS), CHAIN, SCRIPTED, SIGNUP, ONEPAGE]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
@@ -338,6 +338,68 @@ export async function runApply(ctx, parts) {
       const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? "");
       if (value !== answer) problems.push(`${job.company}: Kubernetes years "${value}", its own kit says ${answer}${value === (answer === '9' ? '7' : '9') ? ' (the other job\'s kit)' : ''}`);
     }
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  // Account creation and the application form kept apart (owner, 8 Oct 2026). The posting's Apply leads to a sign-up page: the extension leaves it alone and
+  // the session shows the account step, no form progress. The test, as the person, creates the account; the form behind it is filled from the kit and the
+  // session moves on to the form. Nothing typed on the sign-up page is learned as an answer or a fill miss, and "Create account" is not the application sent.
+  await ctx.run('a sign-up page before the form: the account step is kept apart from the application form', async () => {
+    const appLog = () => appLogText(ctx.profile);
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [SIGNUP.url, {title: SIGNUP.title, company: SIGNUP.company}]);
+    const find = url => ctx.browser.context.pages().find(item => item.url().startsWith(url)) || null;
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = find(SIGNUP.accountUrl); await pause(1000); }
+    if (!tab) { await dumpExtension(); throw new Error(`the sign-up page was never reached. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`); }
+    const session = async () => (await page.evaluate(target => window.pilot.sessions(), null)).find(item => String(item.url || '').replace(/\/$/, '') === SIGNUP.url) || null;
+    let at = null;
+    for (let waited = 0; waited < 30000 && at?.stage !== 'account'; waited += 1000) { at = await session(); await pause(1000); }
+    const problems = [];
+    if (at?.stage !== 'account') problems.push(`on the sign-up page the session is not at the account step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
+    if (await tab.locator('#signup_email').inputValue() !== '') problems.push('the extension filled the sign-up page (it must leave account pages to the person or Claude)');
+    // The person creates the account: typed fields (trusted input), the box ticked, Create account pressed.
+    await tab.fill('#signup_email', 'e2e.person@example.com');
+    await tab.fill('#signup_username', 'e2e-person');
+    await tab.fill('#signup_password', 'Fictional-Pass-1234');
+    await tab.check('#robot');
+    await tab.click('#create_account');
+    let state = null;
+    for (let waited = 0; waited < 60000; waited += 500) { if (tab.url().startsWith(SIGNUP.formUrl)) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; } await pause(500); }
+    if (state?.state !== 'done') problems.push(`the application form after the sign-up was not filled (at ${tab.url()}, state ${JSON.stringify(state)})`);
+    else {
+      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
+      if (value !== '5') problems.push(`the form after the sign-up has Kubernetes years "${value}", its kit says 5`);
+    }
+    for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await session(); await pause(1000); }
+    if (at?.stage !== 'form') problems.push(`on the application form the session did not move to the form step (stage: ${at?.stage})`);
+    const log = appLog();
+    if (!/account page: answers typed there are not learned/.test(log)) problems.push('the answers typed on the sign-up page were not kept out of the learned answers (no "not learned" line in the app log)');
+    if (!/account page: a sign-in or sign-up press, not an application submit/.test(log)) problems.push('"Create account" was not told apart from submitting the application');
+    if (/learned.*Username|Username.*learned/i.test(log)) problems.push('"Username" from the sign-up page reached the learned answers');
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  // The account and the application on one page (Coop, 8 Oct 2026): a CV upload says it is the application. It is filled from the kit, the session is at the
+  // form step, and its password boxes are never counted as questions the fill missed.
+  await ctx.run('the account and the application on one page: it is the application form, its passwords stay account fields', async () => {
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [ONEPAGE.url, {title: ONEPAGE.title, company: ONEPAGE.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(ONEPAGE.url)) || null; await pause(1000); }
+    if (!tab) throw new Error(`the one-page form never opened. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`);
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error' || state?.state === 'account') break; await pause(500); }
+    const problems = [];
+    if (state?.state !== 'done') problems.push(`the one-page form was not filled as the application (state: ${JSON.stringify(state)}): a CV upload beside the password makes it the form`);
+    else {
+      const actual = await readForm(tab);
+      const value = id => String(actual[id]?.value ?? actual[id] ?? '');
+      if (value('first_name') !== CONTACT.first_name) problems.push(`first name "${value('first_name')}", expected ${CONTACT.first_name}`);
+      if (value('question_3001') !== '3') problems.push(`Kubernetes years "${value('question_3001')}", its kit says 3`);
+    }
+    const sessionNow = async () => (await page.evaluate(() => window.pilot.sessions())).find(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url) || null;
+    let at = null;
+    for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await sessionNow(); await pause(1000); }
+    if (at?.stage !== 'form') problems.push(`the session is not at the form step (stage: ${at?.stage}, stuck: ${at?.stuck}): this page is the application`);
     fail(problems);
   }, {needs: ctx.needs});
 

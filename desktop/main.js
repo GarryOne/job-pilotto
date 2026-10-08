@@ -2591,7 +2591,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   });
   review.onBind(({id, tab, before, by, host}) => appLog('review', `tab ${tab} is session ${id}'s now`, {before, by, host}));   // which tab a session follows, and why
   review.setReporter(state => {
-    if (state.total > 0) { terminals.clearStuck(state.id); if (terminals.setStage(state.id, 'form')) appLog('review', `stage ${state.id}: the application form`, {fields: state.total}); }
+    // The step the session is at, from the same page rule: an account page keeps it at the account step (its fields are not the form's).
+    if (state.account) { if (terminals.setStage(state.id, 'account', (() => { try { return new URL(state.url).hostname; } catch { return ''; } })())) appLog('review', `stage ${state.id}: the account page`, {fields: state.total}); }
+    else if (state.total > 0) { terminals.clearStuck(state.id); if (terminals.setStage(state.id, 'form')) appLog('review', `stage ${state.id}: the application form`, {fields: state.total}); }
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
     toWindow('review', state);
   });

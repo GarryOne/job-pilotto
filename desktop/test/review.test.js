@@ -275,3 +275,14 @@ test('a session follows its newest tab: an older tab of it goes quiet and is tol
   assert.deepEqual(review.allStates().map(state => [state.id, state.total]), [['m2', 3]]);   // the older tab's "9 left" never reached the card
   assert.deepEqual(binds.map(({tab, before, by}) => [tab, before, by]), [[50, null, 'session'], [52, 50, 'session']]);
 });
+
+test('an account page\'s report is never the application form\'s progress: no "ready", flagged account, by the rule or the panel', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  const manor = {id: 'm3', url: 'https://www.jobs.ch/en/vacancies/detail/manor3/', company: 'Manor AG', status: 'running'};
+  review.report([manor], {url: 'https://career55.sapsf.eu/careers#jobpilotto-fill', title: 'Sign In', tab: 60, session: 'm3', total: 3, left: 0, role: 'account'});
+  assert.deepEqual([heard.at(-1).account, heard.at(-1).ready], [true, false]);   // all three filled is "ready to create the account", not "ready to submit"
+  review.report([manor], {url: 'https://career55.sapsf.eu/careers/apply#jobpilotto-fill', title: 'Apply', tab: 61, session: 'm3', total: 9, left: 0, role: 'form'});
+  assert.deepEqual([heard.at(-1).account, heard.at(-1).ready], [undefined, true]);
+});

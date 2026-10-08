@@ -6,7 +6,7 @@ import {ensureAlarm} from './report-alarm.js';
 import {FOLD_MS, postingToClose} from './same-tab.js';
 import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
-import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
+import {isAccountPage, startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -97,7 +97,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (carried !== tab.url) {
     const prior = (await chrome.storage.session.get(`from:${tabId}`))[`from:${tabId}`];
     if (!startsOwnJob(prior, tab.url)) { /* same page again: keep its job */ } else {
-      await chrome.storage.session.remove(`job:${tabId}`);
+      // Nor the session a tab that happened to be active handed it (8 Oct 2026, e2e: the app's new tab for one job reported as another job's).
+      await chrome.storage.session.remove([`job:${tabId}`, `session:${tabId}`]);
       await chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
     }
   }
@@ -117,6 +118,7 @@ function pageShape(tabId) {
       fields: controls.filter(el => el.tagName !== 'TEXTAREA' && !skip.has(el.type)).length,
       passwords: controls.filter(el => el.type === 'password').length,
       files: controls.filter(el => el.type === 'file').length,
+      anyFiles: document.querySelectorAll('input[type=file]').length,   // an upload behind a button ("Upload a CV"): its input is hidden
       textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
@@ -222,6 +224,7 @@ async function consider(tab, jobUrl) {
     return;
   }
   let role = pageRole(counts, tab.url);
+  await noteRole(tab.id, tab.url, role);
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
@@ -240,7 +243,7 @@ async function consider(tab, jobUrl) {
       const after = await formAfterPress(tab.id, tab.url);
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
-      if (after) role = 'form';
+      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); }
     }
   }
   if (role !== 'form') {
@@ -257,6 +260,20 @@ async function consider(tab, jobUrl) {
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
   reportFlow(tab, {role: 'form', ok: !result?.error});
 }
+// Each tab's page type (tab-pages.js pageRole: 'account' | 'form' | 'no-form'), for the page it was decided on. The one rule both
+// flows go by: a sign-in or sign-up page feeds nothing on the application side (no learned answers, no fill misses, no "submitted").
+async function noteRole(tabId, url, role) { await chrome.storage.session.set({[`role:${tabId}`]: {role, page: pageKey(url)}}).catch(() => {}); }
+async function roleOf(tabId, url) {
+  const stored = (await chrome.storage.session.get(`role:${tabId}`).catch(() => ({})))[`role:${tabId}`];
+  return stored && stored.page === pageKey(url) ? stored.role : '';
+}
+// A sign-in or sign-up page: the rule said so for this page, or the panel sees a password box on it now (a page that became one).
+async function onAccountPage(tab, panelSaw = false, url = '') {
+  const stored = (await chrome.storage.session.get(`role:${tab.id}`).catch(() => ({})))[`role:${tab.id}`];
+  return isAccountPage(stored, pageKey(url || tab.url), panelSaw, pageKey);
+}
+const accountSkip = (tab, what) => { let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ } decide('panel', `account page: ${what}`, {host}); };
+
 async function jobOf(tab) {
   const stored = await chrome.storage.session.get([`from:${tab.id}`, `job:${tab.id}`]);
   return stored[`job:${tab.id}`] || stored[`from:${tab.id}`] || pageKey(tab.url);
@@ -628,6 +645,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // What you answered yourself in the form, sent at the Submit press: the app keeps it so no form asks again.
   if (message?.type === 'learned' && sender.tab && Array.isArray(message.items)) {
     (async () => {
+      if (await onAccountPage(sender.tab, message.account, message.url)) { accountSkip(sender.tab, 'answers typed there are not learned'); return {ok: false, account: true}; }
       const config = await settings();
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
       let host = '';
@@ -675,7 +693,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const byYou = labels(message.byYou).map(item => ({label: String(item?.label || '').slice(0, 120), kind: String(item?.kind || '').slice(0, 20), unread: !!item?.unread}));
     const invalid = labels(message.invalid).map(label => String(label || '').slice(0, 120));
     const fillId = /^[\w-]{8,40}$/.test(String(message.fillId || '')) ? message.fillId : '';
-    reportFlow(sender.tab, null, {...(byYou.length ? {byYou} : {}), ...(invalid.length ? {invalid} : {}), ...(fillId ? {fillId, submitted: !!message.submitted} : {})});
+    // What the fill missed teaches the form-filling data (recipes, the board's misses): never from a sign-in or sign-up page.
+    onAccountPage(sender.tab, message.account, message.url).then(account => {
+      if (account) { accountSkip(sender.tab, 'its fields are not counted as fill misses'); return; }
+      reportFlow(sender.tab, null, {...(byYou.length ? {byYou} : {}), ...(invalid.length ? {invalid} : {}), ...(fillId ? {fillId, submitted: !!message.submitted} : {})});
+    });
     reply({ok: true});
     return false;
   }
@@ -685,8 +707,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const at = Date.now();
     const fingerprint = pageFingerprint(message.snapshot || {});
     const where = submissionOutcome({at, from: url, to: url, before: fingerprint, after: fingerprint});
-    chrome.storage.session.set({[`submit:${tabId}`]: {at, url, fingerprint, calls: 0}}).then(() => watchSubmission(tabId)).catch(() => {});
-    decide('submitted', 'submit pressed', {host: where.host, path: where.path});
+    // "Create account" or "Sign in" is not the application being sent: its "thanks for registering" must never mark it Applied.
+    onAccountPage(sender.tab, message.account, message.url).then(account => {
+      if (account) { decide('submitted', 'account page: a sign-in or sign-up press, not an application submit', {host: where.host, path: where.path}); return; }
+      chrome.storage.session.set({[`submit:${tabId}`]: {at, url, fingerprint, calls: 0}}).then(() => watchSubmission(tabId)).catch(() => {});
+      decide('submitted', 'submit pressed', {host: where.host, path: where.path});
+    });
     reply({ok: true});
     return false;
   }
@@ -819,7 +845,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
       // The session this tab belongs to travels with it (next pages, tabs it opens): the app uses it instead of guessing.
       const key = `session:${sender.tab.id}`, carried = (await chrome.storage.session.get(key))[key] || '';
-      const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, job: await jobOf(sender.tab), session: carried})});
+      const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, job: await jobOf(sender.tab), session: carried,
+        role: await roleOf(sender.tab.id, sender.tab.url)})});   // the page type by the one rule (an account page never counts as the form's progress)
       if (answer?.matched && answer.matched !== carried) await chrome.storage.session.set({[key]: answer.matched});
       return answer;
     })().then(reply, () => reply({matched: null}));
@@ -931,7 +958,7 @@ function connected(ok, why = '') {
 // ever carried over to whatever opens next (tab-pages.js).
 chrome.tabs.onRemoved.addListener(async tabId => {
   reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
-  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `session:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
+  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `session:${tabId}`, `role:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
   for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
   // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
   // matched it and the new tab was treated as already filled.

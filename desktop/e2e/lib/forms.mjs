@@ -83,6 +83,24 @@ export const SCRIPTED = {
 };
 SCRIPTED.url = `https://${SCRIPTED.host}${SCRIPTED.path}`;
 SCRIPTED.formUrl = `https://${SCRIPTED.formHost}${SCRIPTED.formPath}`;
+// A sign-up page in front of the form (8 Oct 2026, Manor/Migros on SuccessFactors): the posting's Apply leads to "Create an account" (email,
+// password, "not a robot"), which really posts; the account then leads to the application form. The extension must leave the sign-up
+// alone (an account page), the session must show the account step with no form progress, and nothing typed there may be learned.
+export const SIGNUP = {
+  title: 'Store Associate, Sign-up First', company: 'E2E Sign-up Retail', host: 'jobs.lever.co', path: '/e2e-signup/4001007',
+  accountHost: 'e2e.wd3.myworkdayjobs.com', accountPath: '/e2e/signup', formPath: '/e2e/signup-application',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '5', needs_review: false}],
+};
+SIGNUP.url = `https://${SIGNUP.host}${SIGNUP.path}`;
+SIGNUP.accountUrl = `https://${SIGNUP.accountHost}${SIGNUP.accountPath}`;
+SIGNUP.formUrl = `https://${SIGNUP.accountHost}${SIGNUP.formPath}`;
+// The account and the application on ONE page (8 Oct 2026, Coop on SuccessFactors): an "Upload a CV" button with its file input hidden,
+// email twice, a password twice, names and more. It is the application (filled, counted, the form step); its passwords stay account fields.
+export const ONEPAGE = {
+  title: 'Retail Assistant, One-page Sign-up', company: 'E2E One-page Retail', host: 'e2e.wd3.myworkdayjobs.com', path: '/e2e/one-page-apply',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '3', needs_review: false}],
+};
+ONEPAGE.url = `https://${ONEPAGE.host}${ONEPAGE.path}`;
 // A form the TEST (playing the person) really submits: its Submit POSTs and the same address answers with the site's own "submitted" banner (like OK Job,
 // api.easytemp.ch), so the extension must see the Submit press, the page change, and send that page to the AI. Never reported to `fired`: it is the one
 // form allowed to be submitted, and only by the person (the test), never by the extension.
@@ -160,6 +178,12 @@ ${realSubmit ? '' : "document.addEventListener('submit', event => { event.preven
 ${script}
 </script></body></html>`;
 
+const ONEPAGE_HTML = () => page(ONEPAGE, `<p>Are you already registered? <a href="#login">Log in here.</a></p><form id="application_form"><div class="field"><button type="button" id="upload_cv" onclick="document.getElementById('cv_file').click()">Upload a CV</button><input id="cv_file" name="cv_file" type="file" style="display:none"></div>${field('email', 'Email', {type: 'email', required: true})}${field('email_again', 'Please re-enter your email address', {type: 'email', required: true})}<div class="field"><label for="password">Choose a password *</label><input id="password" name="password" type="password" required></div><div class="field"><label for="password_again">Confirm password *</label><input id="password_again" name="password_again" type="password" required></div>${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('city', 'City', {required: true})}${field('phone', 'Phone', {type: 'tel', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`);
+const SIGNUP_PAGES = {
+  posting: () => page(SIGNUP, `<p>Join our store team.</p><a id="apply_link" href="${SIGNUP.accountUrl}" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a>`),
+  account: () => page(SIGNUP, `<h2>Create an account</h2><form id="signup_form" method="post" action="${SIGNUP.accountPath}">${field('signup_email', 'Email Address', {type: 'email', required: true})}${field('signup_username', 'Username', {required: true})}<div class="field"><label for="signup_password">Password *</label><input id="signup_password" name="signup_password" type="password" required></div><div class="field"><label><input id="robot" type="checkbox" required> I'm not a robot</label></div><button type="submit" id="create_account">Create account</button></form>`, '', {realSubmit: true}),
+  form: () => page(SIGNUP, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`),
+};
 const SCRIPTED_PAGES = {
   posting: () => page(SCRIPTED, `<p>Join the platform team.</p><button id="apply_now" type="button" onclick="window.open('${SCRIPTED.formUrl}', '_blank')" style="padding:12px 28px;background:#222;color:#fff;font-size:18px;border:0">Apply now</button>`, '', {realSubmit: true}),
   form: () => page(SCRIPTED, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`),
@@ -263,6 +287,14 @@ export async function startForms({vary = null} = {}) {
     const host = String(req.headers.host || '').split(':')[0];
     hits.push(`${host}${url.pathname}`);
     if (req.method === 'POST' && url.pathname === '/__fired') { fired.push({kind: url.searchParams.get('kind'), form: url.searchParams.get('form')}); res.writeHead(204).end(); return; }
+    const signup = url.pathname.replace(/(.)\/$/, '$1');
+    if (host === ONEPAGE.host && signup === ONEPAGE.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(ONEPAGE_HTML()); return; }
+    if (host === SIGNUP.host && signup === SIGNUP.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.posting()); return; }
+    if (host === SIGNUP.accountHost && signup === SIGNUP.accountPath) {
+      if (req.method === 'POST') { req.resume(); req.on('end', () => res.writeHead(303, {location: SIGNUP.formPath}).end()); return; }   // the account is made: on to the form
+      res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.account()); return;
+    }
+    if (host === SIGNUP.accountHost && signup === SIGNUP.formPath) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.form()); return; }
     if (req.method === 'POST' && host === FORMS.submitter.host && url.pathname === FORMS.submitter.path) {
       posts.push({host, path: url.pathname});
       req.resume();

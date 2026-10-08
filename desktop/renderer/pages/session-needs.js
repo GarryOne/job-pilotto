@@ -183,7 +183,7 @@ function showBefore(item, left, account = false) {
 const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 function showFormCard(item, state) {
   const card = $('ss-form-card');
-  card.hidden = !state?.total || formGone(item);
+  card.hidden = !state?.total || !!state.account || formGone(item);   // Form completion is the application form's, never a sign-in page's
   if (card.hidden) return;
   const done = state.total - state.left;
   $('ss-form-pill').replaceChildren(isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
@@ -242,6 +242,7 @@ export function emptyFields(item, needs) {
   // extension before 0.8.12 sends only the required ones), and never fewer than its count: "16 / 17" beside "All
   // handled" was a contradiction.
   const state = reviewStates.get(item.id);
+  if (state?.account) return [];   // a sign-in or sign-up page's empty fields are the account's, not the application's
   const listed = needs.flatMap(need => [agreeLabel(need), need.question, need.text]).filter(Boolean);
   const left = (state?.pending || state?.missing || []).filter(label => label && !listed.some(text => sameQuestion(text, label)));
   const unnamed = (state?.left || 0) - (state?.pending || state?.missing || []).length;

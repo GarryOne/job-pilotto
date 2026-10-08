@@ -174,8 +174,10 @@ export function report(sessions, payload, now = Date.now()) {
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
-  state.ready = state.total > 0 && state.left === 0;
-  if (payload.account) state.account = true;   // a sign-in or sign-up page: the session shows no CV card
+  // A sign-in or sign-up page (the extension's page rule, or the panel saw a password box): its fields are the account's, never the
+  // application's progress: no "ready to submit", no Form completion, no empty-field rows (the session page reads `account`).
+  if (payload.role ? payload.role === 'account' : payload.account) state.account = true;   // the rule's word wins: a combined page (CV + password) is the form
+  state.ready = !state.account && state.total > 0 && state.left === 0;
   // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
   // Fields already filled when the app first hears of the form have no time (it didn't see them being filled); a field
   // filled after a fill is over was filled by you. A restarted app keeps what it had (persist).

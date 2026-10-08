@@ -73,11 +73,27 @@ export const kitStance = ({kitAnswers = [], hasKit = false, matched = 0} = {}) =
 // A sign-in address is an account page too, before its password box shows: jobs.ch's Apply leads to auth.jobs.ch/u/login/identifier,
 // which asks for the email first (8 Oct 2026: it was called "no form").
 const SIGN_IN_PATH = /\/(login|log-in|signin|sign-in|sign_in|authwall|uas\/login|oauth2?\/authorize|authorize)\b/i;
-export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0} = {}, url = '') {
-  if ((Number(passwords) || 0) > 0) return 'account';
+// A password box alone makes a sign-in or sign-up page ('account'), however many fields beside it (a sign-up asks names, email twice,
+// a username). With an application's own sign beside it, a file upload (a CV, even behind an "Upload a CV" button that hides its input)
+// or a text box (a cover letter), the page is the application with its account made on the way ('form': owner, 8 Oct 2026, Coop on
+// SuccessFactors: CV, email, password, name, date of birth on one page); its password boxes stay account fields (filled from the
+// Keychain, never learned, never a fill miss).
+export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0, anyFiles = 0} = {}, url = '') {
+  if ((Number(passwords) || 0) > 0) {
+    const applying = (Number(files) || 0) > 0 || (Number(anyFiles) || 0) > 0 || (Number(textareas) || 0) > 0;
+    return applying ? 'form' : 'account';
+  }
   try { if (SIGN_IN_PATH.test(new URL(String(url)).pathname)) return 'account'; } catch { /* not a url */ }
   if ((Number(files) || 0) > 0 || (Number(textareas) || 0) > 0 || (Number(fields) || 0) >= 3) return 'form';
   return 'no-form';
+}
+
+// Is this a sign-in or sign-up page, for everything that learns from a page or judges a submit? `stored`: the role pageRole gave
+// and the page it was decided on ({role, page}); `page`: the page now; `panelSaw`: the page's panel sees a password box, used only
+// for a page the rule hasn't decided. An account page never teaches the form-filling data, never adds answers, never counts as "submitted".
+export function isAccountPage(stored, page, panelSaw = false, key = url => String(url || '').split('#')[0]) {
+  if (stored && key(stored.page) === key(page)) return stored.role === 'account';   // the rule decided this page: it wins (a combined page has a password box too)
+  return !!panelSaw;
 }
 
 // The URL's origin, or '' when it isn't a URL.

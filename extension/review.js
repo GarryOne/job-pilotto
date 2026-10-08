@@ -601,7 +601,9 @@
     }
     return [...out.values()].slice(0, 40);
   };
-  const noteLearned = () => { const items = learned(); if (items.length) send({type: 'learned', url: location.href, items}).catch(() => {}); };
+  // A sign-in or sign-up page (a password box): said with every message, so the worker never takes it for the application.
+  const accountNow = () => !!document.querySelector('input[type=password]');
+  const noteLearned = () => { const items = learned(); if (items.length) send({type: 'learned', url: location.href, items, account: accountNow()}).catch(() => {}); };
   // What the fill missed, seen at Submit: the questions you answered yourself that the fill left (by_you) or never read
   // (by_you_unread), and those the page then flags as wrong or missing. Labels (the form's wording) and kinds only, never a
   // value. Counted per board by the product; a question the fill never read is a reading failure to learn from.
@@ -613,6 +615,7 @@
     const out = [];
     for (const entry of list) {
       if (entry.byUs || entry.ai || !entry.filled || !entry.label) continue;
+      if (String(entry.el?.type || '').toLowerCase() === 'password') continue;   // an account field (Keychain), never a question the fill missed
       const area = entry.unread || entry.custom ? entry.el : entry.el.closest?.('fieldset') || entry.el;
       const name = entry.el.name;
       if (!mine.some(el => el === entry.el || area.contains(el) || (name && el.name === name))) continue;
@@ -637,15 +640,15 @@
     const answered = byYou(fields());
     // The fill's record (fill-card.js), so the digest knows this form was submitted and what you answered yourself.
     const fillId = document.documentElement.dataset.jobpilottoFill || '';
-    if (answered.length || fillId) send({type: 'formLearning', url: location.href, byYou: answered, fillId, submitted: true}).catch(() => {});
+    if (answered.length || fillId) send({type: 'formLearning', url: location.href, byYou: answered, fillId, submitted: true, account: accountNow()}).catch(() => {});
     // Still here a moment later: the page refused the submit; what it flags is what was missed or wrong.
     setTimeout(() => {
       if (!host.isConnected) return;
       const invalid = flagged();
-      if (invalid.length) send({type: 'formLearning', url: location.href, invalid, fillId: document.documentElement.dataset.jobpilottoFill || ''}).catch(() => {});
+      if (invalid.length) send({type: 'formLearning', url: location.href, invalid, fillId: document.documentElement.dataset.jobpilottoFill || '', account: accountNow()}).catch(() => {});
     }, 2500);
   };
-  const noteSubmit = () => { noteLearned(); noteMissed(); send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {}); };
+  const noteSubmit = () => { noteLearned(); noteMissed(); send({type: 'submitted', url: location.href, snapshot: snapshot(), account: accountNow()}).catch(() => {}); };
   document.addEventListener('submit', () => noteSubmit(), true);
   document.addEventListener('click', event => {
     const button = event.target?.closest?.('button, input[type=submit], [role=button]');
