@@ -1,0 +1,218 @@
+// The fill flow (moved out of background.js, 8 Oct 2026): what one page of an application's journey is (the AI's kind, the structure rule
+// without AI), and what the extension does there: press a posting's Apply, fill the form, or report it can't reach one ("account",
+// "no-form"). Scenarios owned: "Direct application form", "Posting → Apply", "What kind of page", "Sign-up page before the form"
+// (docs/flows/applying.md). Guards: extension-tab-pages.test.js, extension-same-tab.test.js, page-kind.test.js and the e2e rows (npm run flows).
+// background.js hands over what lives on with the worker (initFillFlow): the tabs a fill started on, the fill itself, its report, onPage.
+import {api, settings} from './flow.js';
+import {decide} from './log.js';
+import {noteRole} from './account.js';
+import {applyPressed} from './tabs.js';
+import {sessionGet} from './tab-memory.js';
+import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
+
+let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true;
+export function initFillFlow(shared) { ({started, fillOpenedTab, reportFlow, onPage} = shared); }
+
+// Counts only, in the page: no labels and no values. Passwords and file inputs are counted apart from the rest.
+function pageShape(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+    const shown = el => el.getClientRects().length > 0 && el.type !== 'hidden';
+    const controls = [...document.querySelectorAll('input, textarea, select')].filter(shown);
+    const skip = new Set(['submit', 'button', 'reset', 'search', 'image', 'password', 'file', 'hidden']);
+    return {
+      fields: controls.filter(el => el.tagName !== 'TEXTAREA' && !skip.has(el.type)).length,
+      passwords: controls.filter(el => el.type === 'password').length,
+      files: controls.filter(el => el.type === 'file').length,
+      anyFiles: document.querySelectorAll('input[type=file]').length,   // an upload behind a button ("Upload a CV"): its input is hidden
+      textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
+    };
+  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+}
+// A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
+// (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
+function pageSketchOf(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+    const shown = el => el.getClientRects().length > 0;
+    const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
+    const controls = [...document.querySelectorAll('input, select, textarea')]
+      .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
+      .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
+      .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
+    const buttons = [...document.querySelectorAll('button, input[type=submit], [role=button], a')].filter(shown)
+      .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
+    return {title: document.title, headings: [...document.querySelectorAll('h1, h2, h3')].filter(shown).map(text).filter(Boolean).slice(0, 8),
+      controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20)};
+  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+}
+// The page's kind from the app (the AI's answer, kept per site and page shape), or null: then the structure rule decides alone.
+// The kept kind was wrong for this page: the app drops it (desktop/lib/page-kind.js forgetPageKind) and the next visit asks again.
+async function forgetKind(tab, kind, reason) {
+  const sketch = await pageSketchOf(tab.id);
+  decide('fill', `page kind corrected: ${reason}`, {was: kind?.kind || '', by: kind?.by || ''});
+  try {
+    const config = await settings();
+    if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
+    await api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({forget: true, reason, kind: kind?.kind || '', url: tab.url.split('#')[0], ...(sketch || {})})});
+  } catch { /* the app is closed: asked again once it is back */ }
+}
+async function askKind(tab) {
+  const sketch = await pageSketchOf(tab.id);
+  if (!sketch) return null;
+  try {
+    const config = await settings();
+    if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
+    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...sketch})}),
+      new Promise(resolve => setTimeout(() => resolve(null), 15000))]);
+    return answer?.role ? answer : null;
+  } catch { return null; }
+}
+// Claude reads this on <html data-jobpilotto-fill>. States: running, done, error, no-form, account.
+function writeState(tabId, value) {
+  return chrome.scripting.executeScript({target: {tabId}, args: [JSON.stringify(value)],
+    func: text => { if (document.documentElement) document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
+}
+// The posting before its form: a page with no form and one "Apply" button (chosen by rule: tab-pages.js pickApplyButton).
+const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
+function applyCandidates(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: selector => [...document.querySelectorAll(selector)].map((el, index) => {
+    const box = el.getBoundingClientRect(), style = getComputedStyle(el);
+    return {index, tag: el.tagName.toLowerCase(), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
+      area: Math.round(box.width * box.height), visible: el.getClientRects().length > 0 && style.visibility !== 'hidden',
+      disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true', href: el.getAttribute('href') || ''};
+  }), args: [PAGE_BUTTONS]}).then(rows => rows?.[0]?.result || []).catch(() => []);
+}
+// The start-applying phrases the service has learned (extension/alias-schema.js, key apply_button), asked of the app which asks the site and
+// remembers: added to the built-in words, never replacing them. None, and the built-in words work alone.
+let phrasesAt = 0, phrasesKept = [];
+async function applyPhrases() {
+  if (Date.now() - phrasesAt < 5 * 60 * 1000) return phrasesKept;
+  try {
+    const found = await api(await settings(), '/extension/aliases', {method: 'POST', body: '{}'});
+    phrasesKept = (Array.isArray(found?.aliases) ? found.aliases : []).filter(item => item && item.key === 'apply_button').slice(0, 500);
+    phrasesAt = Date.now();
+  } catch { /* the built-in words are enough */ }
+  return phrasesKept;
+}
+// -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
+// when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
+async function pressApply(tabId, phrases = []) {
+  const candidates = await applyCandidates(tabId);
+  const pick = pickApplyButton(candidates, phrases);
+  if (!pick) {
+    const seen = [...new Set(candidates.filter(item => item.visible && !item.disabled).sort((a, b) => b.area - a.area).map(item => String(item.text || '').replace(/\s+/g, ' ').trim())
+      .filter(text => text && text.length <= 40))].slice(0, 25);
+    return {pressed: null, via: '', buttons: seen};
+  }
+  const done = await chrome.scripting.executeScript({target: {tabId}, func: (selector, index) => {
+    const el = document.querySelectorAll(selector)[index];
+    if (!el) return false;
+    el.scrollIntoView({block: 'center'});
+    // The next page in this same tab, the way the browser goes there itself (a form keeps what it posts, the page loads once):
+    // a link or form that names another tab is pointed at this one (same-tab.js; a tab the page opens by script is followed instead).
+    let same = '';
+    const link = el.closest('a[target]');
+    if (link && link.target.toLowerCase() !== '_self') { link.target = '_self'; same = 'link'; }
+    const form = el.form || el.closest('form');
+    if (el.getAttribute('formtarget') && el.getAttribute('formtarget').toLowerCase() !== '_self') { el.setAttribute('formtarget', '_self'); same = 'form'; }
+    if (form?.target && form.target.toLowerCase() !== '_self') { form.target = '_self'; same = 'form'; }
+    const aimed = (link?.getAttribute('target') || el.getAttribute('formtarget') || form?.getAttribute('target') || '').slice(0, 20);
+    el.click();
+    return {same, tag: el.tagName.toLowerCase(), aimed};
+  }, args: [PAGE_BUTTONS, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
+  if (done?.error) { decide('fill', 'the Apply button could not be pressed', {error: done.error}); return {pressed: null, via: '', buttons: []}; }
+  return {pressed: done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null, via: done ? pick.viaPhrase || '' : '', buttons: [],
+    same: done?.same || '', tag: done?.tag || '', aimed: done?.aimed || ''};
+}
+// After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
+// whole decision again). null when neither happens in time.
+async function formAfterPress(tabId, url, ms = 8000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const live = await chrome.tabs.get(tabId).catch(() => null);
+    if (!live) return 'navigated';   // closed: Apply's new tab is the application now (same-tab.js), not a page with "no form"
+    if (pageKey(live.url) !== pageKey(url)) return 'navigated';
+    const counts = await pageShape(tabId);
+    if (counts && pageRole(counts, live.url) === 'form') return counts;
+  }
+  return null;
+}
+// The app is told the extension can't get to this form (its session offers "Apply with Claude"): why, and the site.
+// `page`: the page this is about. A tab that has moved on (the account made, the form loaded) sends nothing: a late "account" moved a
+// session back from the form to the account step (8 Oct 2026, the matrix's sign-up row). The app checks it too (lib/session-flow.js).
+async function stuck(job, host, why, tabId = null, page = '') {
+  if (tabId != null && page && !(await onPage(tabId, page))) { decide('fill', 'the page moved on: no "can\'t reach" report for it', {host, why}); return; }
+  const session = tabId == null ? '' : (await sessionGet(`session:${tabId}`))[`session:${tabId}`] || '';
+  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
+}
+const triedApply = new Set();
+export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
+// One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
+// and the page says which, so Claude does not wait for a fill that will not come.
+export async function consider(tab, jobUrl) {
+  const key = fillKey(tab.id, tab.url);
+  if (started.has(key)) return;
+  started.add(key);
+  await new Promise(resolve => setTimeout(resolve, 1500)); // the form renders after the load event
+  const live = await chrome.tabs.get(tab.id).catch(() => null);
+  if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
+  // The page can refuse a read right after its load (still swapping documents, the worker just woke): look again before giving up,
+  // or the tab is left with no fill and no state at all, for Claude and the app to wait on.
+  let counts = await pageShape(tab.id);
+  for (let again = 0; !counts && again < 4; again++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    counts = await pageShape(tab.id);
+  }
+  if (!counts) {
+    started.delete(key);
+    decide('fill', 'the page could not be read', {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+    return;
+  }
+  // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
+  // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
+  const ruled = pageRole(counts, tab.url), kind = await askKind(tab);
+  let role = kind?.role || ruled;
+  // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
+  const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
+  if (kind && role === 'form' && controls === 0) { await forgetKind(tab, kind, 'a form with no fields'); role = ruled; }
+  decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,
+    ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+  await noteRole(tab.id, tab.url, role);
+  let host = '';
+  try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+  // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
+  let pressed = false, buttonsSeen = [];
+  if (role === 'no-form' && !triedApply.has(key)) {
+    triedApply.add(key);
+    const phrases = await applyPhrases();
+    applyPressed.set(tab.id, {at: Date.now(), url: tab.url});   // before the click: the site opens its new tab during it (same-tab.js)
+    const attempt = await pressApply(tab.id, phrases);
+    if (!attempt.pressed) applyPressed.delete(tab.id);
+    const label = attempt.pressed;
+    buttonsSeen = attempt.buttons;
+    if (label) {
+      pressed = true;
+      decide('fill', 'pressed the Apply button', {host, label, tag: attempt.tag, aimed: attempt.aimed, sameTab: attempt.same});   // sameTab: a link/form aimed at a new tab, pointed at this one
+      const after = await formAfterPress(tab.id, tab.url);
+      if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
+      if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
+      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); }
+    }
+  }
+  // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
+  if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
+  if (role !== 'form') {
+    await writeState(tab.id, {state: role});
+    decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
+    stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url);   // tier 3: the app offers Apply with Claude
+    reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
+    return;
+  }
+  decide('fill', 'filling', {host, job: new URL(String(jobUrl || tab.url)).pathname, page: new URL(tab.url).pathname});   // which posting's kit this page uses
+  await writeState(tab.id, {state: 'running'});
+  const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
+  await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
+    : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
+  reportFlow(tab, {role: 'form', ok: !result?.error});
+}

@@ -11,7 +11,8 @@
 | `extension/tab-pages.js` | the one page rule (`pageRole`, `isAccountPage`), pure |
 | `extension/tabs.js` + `same-tab.js` | which tabs are one application: inherit, follow, close the posting |
 | `extension/account.js` | each tab's page type, the account guards every learner asks |
-| `extension/background.js` | the fill flow: posting → Apply → form → fill, submit watching |
+| `extension/fill-flow.js` | the fill flow: the page's kind, posting → Apply → form → fill, "can't reach" reports |
+| `extension/background.js` | the worker: tabs and pages the app opened, fills, submit watching, messages |
 | `extension/review.js` | the page's panel: progress, what you typed, the submit press |
 | `extension/log.js`, `tab-memory.js`, `flow.js` | shared: the decision log, the tabs' memory, the app/Worker calls |
 | `desktop/lib/session-flow.js` | the app's decisions: stuck → hand-over, the stage from each report, the hand-over's tab |

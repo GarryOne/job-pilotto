@@ -15,7 +15,7 @@
  "desktop/renderer/pages/sessions.js": 503,
  "desktop/renderer/pages/strategy.js": 834,
  "desktop/test/app.test.js": 732,
- "extension/background.js": 1132,
+ "extension/background.js": 933,
  "extension/page/fill.js": 571,
  "extension/review.js": 663,
  "extension/visit.js": 696,

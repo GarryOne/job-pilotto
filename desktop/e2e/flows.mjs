@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 // The code the flows run on. A file added for a flow goes here too (tools/flows-gate.mjs checks it is listed when it is a flow file).
 export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
-  'extension/tabs.js', 'extension/account.js', 'extension/log.js', 'extension/tab-memory.js',
+  'extension/tabs.js', 'extension/account.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js',
 ];
