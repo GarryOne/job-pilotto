@@ -131,6 +131,11 @@ if command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -
   unseen="$(cd "$repo" && node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
 fi
 
+# A push that changes Applying flow code (desktop/e2e/flows.mjs FLOW_FILES) passed the whole scenario matrix on that exact code, or says why
+# not (tools/flows-gate.mjs; owner, 8 Oct 2026: a fix for account creation must never quietly break the application form). No node: skipped.
+if command -v node >/dev/null && [ -f "$repo/tools/flows-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  flows="$(cd "$repo" && node tools/flows-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $flows" >&2; exit 2; }
+fi
 # A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,
 # and were diagnosed again from scratch): "Fixes #N", "Refs #N" or "E2E-issue: none <why>" (tools/e2e-issue-links.mjs). `E2E_ISSUE_OK=1` on the push skips it.
 case "$command" in *E2E_ISSUE_OK=1*) ;; *)

@@ -1,0 +1,34 @@
+// The Applying flows' scenario matrix (docs/flows/applying.md): every scenario a session and the Chrome extension handle, and the e2e
+// step or unit tests that guard it. A change to any FLOW_FILES file runs the WHOLE matrix (npm run flows), not only its own row, so a
+// fix for one flow (account creation) can't land while it breaks another (the application form): tools/flows-gate.mjs blocks the push.
+import crypto from 'node:crypto';
+
+// The code the flows run on. A file added for a flow goes here too (tools/flows-gate.mjs checks it is listed when it is a flow file).
+export const FLOW_FILES = [
+  'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
+  'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
+];
+
+// One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs (E2E_STEPS); `unit`: desktop/test files.
+export const MATRIX = [
+  {scenario: 'Direct application form (Greenhouse, Workday, Lever, multi-step)', e2e: ['Greenhouse-like form', 'Workday-shaped form', 'Lever-like form', 'multi-step form'], unit: ['test/extension-tab-pages.test.js']},
+  {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
+  {scenario: 'Apply opens its form from the page\'s script: followed, posting closed', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
+  {scenario: 'Two applications side by side: one tab and its own kit each', e2e: ['side by side'], unit: ['test/review.test.js']},
+  {scenario: 'Sign-up page before the form: account step kept apart', e2e: ['sign-up page'], unit: ['test/extension-tab-pages.test.js', 'test/review.test.js']},
+  {scenario: 'Account and application on one page: it is the form', e2e: ['one page'], unit: ['test/extension-tab-pages.test.js']},
+  {scenario: 'Form tab closed → the app sees it → Reopen fills it again', e2e: ['tab is closed'], unit: ['test/form-tab-closed.test.js', 'test/session-state.test.js']},
+  {scenario: 'The person submits → Applied, session leaves the list', e2e: ['person submits a form'], unit: []},
+  {scenario: 'Claude takes over an account page; the unfilled tab closes', e2e: [], unit: ['test/apply-form-session.test.js']},
+  {scenario: 'Start-up "Checking…", then "Chrome isn\'t reporting"', e2e: [], unit: ['test/session-state.test.js']},
+  {scenario: 'Never submits, never contacts another host', e2e: ['through all of it'], unit: []},
+];
+
+export const matrixSteps = () => [...new Set(MATRIX.flatMap(row => row.e2e))];
+export const matrixUnits = () => [...new Set(MATRIX.flatMap(row => row.unit))];
+// The flow files' content, as one short digest: a matrix pass counts only for exactly the code it ran on.
+export function flowDigest(read) {
+  const hash = crypto.createHash('sha256');
+  for (const file of FLOW_FILES) hash.update(`${file}\0${read(file) ?? ''}\0`);
+  return hash.digest('hex').slice(0, 16);
+}

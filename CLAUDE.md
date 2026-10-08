@@ -149,6 +149,12 @@ button a person would look for (Add a job, Log activity…) is added with `butto
 input instead of running at once. Settings needs nothing: every page, section (by its heading), Connections card and button there is listed from the page itself
 (danger-zone buttons are focused, not pressed), checked by the settings suite's ⌘K step. A new long task that runs on this Mac is a tracked task (`pipeline.work` / `pipeline.task`), so the banner, Recent activity and the result follow it.
 
+## Applying flows: change one, run them all (owner, 8 Oct 2026)
+A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:
+the one page rule (`extension/tab-pages.js` `pageRole`), every scenario, its code and its guard. Touching a flow file (`desktop/e2e/flows.mjs` `FLOW_FILES`)
+→ `cd desktop && npm run flows` (whole matrix, ~4 min) before the push; the hook blocks it otherwise (`tools/flows-gate.mjs`, or `Flows-unverified: <why>`).
+A new scenario gets a row there and in `MATRIX`, with a step or test that fails first. Never add a second page classifier.
+
 ## Facts that are easy to get wrong
 - **A ⏱️ Search runs row's `Summary` is only the report's first line** (`src/notion/cron_runs.py`,
   `Summary: _text(lines[0])`). The rest — where a GitHub run's `Warning: …` lines are — is the page's Report bullets:
