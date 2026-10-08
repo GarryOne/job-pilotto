@@ -167,3 +167,37 @@ export function setCount(node, value) {
   }
   return 'flashed';
 }
+
+// Collapsible panel: the whole head bar (.panel-top) of a .panel is the toggle, not only the chevron. Keyboard: Enter / Space.
+// A click on a button, link or field inside the bar (its actions) does not toggle. The choice is remembered per `key`.
+// Collapsed hides everything but the bar (components.css .panel.is-collapsed). Use it for any panel that can get long.
+const COLLAPSE_KEY = 'collapsed-panels';
+const savedCollapsed = () => { try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {}; } catch { return {}; } };
+export function isInteractiveTarget(target, bar) {
+  const hit = target?.closest?.('button, a, input, select, textarea, label');
+  return !!hit && bar.contains(hit) && hit !== bar;
+}
+export function collapsiblePanel(panel, key = panel.id) {
+  const bar = panel.querySelector(':scope > .panel-top');
+  if (!bar || bar.dataset.collapsible) return null;
+  bar.dataset.collapsible = '1';
+  bar.classList.add('is-toggle');
+  bar.tabIndex = 0;
+  bar.setAttribute('role', 'button');
+  const chevron = icon('chevron', 'icon panel-chevron');
+  (bar.querySelector('.panel-actions') || bar).append(chevron);
+  const set = (collapsed, {remember = true} = {}) => {
+    panel.classList.toggle('is-collapsed', collapsed);
+    bar.setAttribute('aria-expanded', String(!collapsed));
+    if (!remember || !key) return;
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify({...savedCollapsed(), [key]: collapsed})); } catch { /* private window: it still works, just not remembered */ }
+  };
+  bar.addEventListener('click', event => { if (!isInteractiveTarget(event.target, bar)) set(!panel.classList.contains('is-collapsed')); });
+  bar.addEventListener('keydown', event => {
+    if (event.target !== bar || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    set(!panel.classList.contains('is-collapsed'));
+  });
+  set(!!savedCollapsed()[key], {remember: false});
+  return {set};
+}

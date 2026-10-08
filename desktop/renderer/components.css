@@ -234,6 +234,14 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .panel-lead { margin: 0; }
 .panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
 .panel-actions { display: flex; align-items: center; gap: var(--sp-4); }
+/* Collapsible panel (components.js collapsiblePanel): the whole head bar toggles; collapsed keeps only the bar. */
+.panel-top.is-toggle { cursor: pointer; user-select: none; border-radius: var(--r-sm); }
+.panel-top.is-toggle:hover .panel-chevron { color: var(--ink); }
+.panel-top.is-toggle:focus-visible { outline: 2px solid var(--signal-line); outline-offset: 4px; }
+.panel-chevron { width: 18px; height: 18px; flex: none; color: var(--ink-2); transform: rotate(90deg); transition: transform .15s; }
+.panel.is-collapsed .panel-chevron { transform: rotate(0deg); }
+.panel.is-collapsed > :not(.panel-top) { display: none !important; }
+@media (prefers-reduced-motion: reduce) { .panel-chevron { transition: none; } }
 .panel-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); }
 .panel-foot .message { margin: 0; flex: 1; }
 .settings-page-head.has-action { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); }

@@ -42,3 +42,10 @@ test('the details form shows the candidate\'s own example, and the Swiss field o
   assert.deepEqual([none.locationExample, none.showOrigin], ['e.g. your town or city', false]);
   assert.match(uk.dateExample, /Dec 1990/, 'a date example that names its month: no day-month order to assume');
 });
+
+test('the GitHub link is asked only of a technical candidate, or one who already has it', () => {
+  assert.equal(contactHints({technical: false}, {}).showGithub, false);
+  assert.equal(contactHints({}, {}).showGithub, false);
+  assert.equal(contactHints({technical: true}, {}).showGithub, true);
+  assert.equal(contactHints({technical: false}, {github: 'https://github.com/x'}).showGithub, true);
+});

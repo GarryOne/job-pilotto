@@ -22,8 +22,10 @@ const SWISS_REGION = /^(romandie|suisse romande|deutschschweiz|ticino|tessin|gre
 export const swissPlaces = (places = []) => places.some(place => SWISS_PLACE.test(String(place)) || SWISS_PLACE.test(plainPlace(place)) || SWISS_REGION.test(plainPlace(place)));
 
 // What the "Your details" form shows this candidate: an example city of their own (never a fixed one), an unambiguous date example, and the Swiss "place of origin"
-// only for someone with Swiss places (or who already filled it in).
-export function contactHints({places = []} = {}, contact = {}) {
+// only for someone with Swiss places (or who already filled it in), and the GitHub link only for someone technical (or who already has one).
+export function contactHints({places = [], technical = false} = {}, contact = {}) {
   const own = places.map(plainPlace).find(Boolean);
-  return {locationExample: own ? `e.g. ${own}` : 'e.g. your town or city', dateExample: 'e.g. 31 Dec 1990', showOrigin: swissPlaces(places) || Boolean(String(contact.place_of_origin || '').trim())};
+  return {locationExample: own ? `e.g. ${own}` : 'e.g. your town or city', dateExample: 'e.g. 31 Dec 1990', showOrigin: swissPlaces(places) || Boolean(String(contact.place_of_origin || '').trim()),
+    // GitHub is a developer's profile: a non-technical candidate is not asked for it (unless they already filled it in).
+    showGithub: Boolean(technical) || Boolean(String(contact.github || '').trim())};
 }

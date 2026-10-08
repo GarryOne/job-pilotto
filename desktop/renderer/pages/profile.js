@@ -1,7 +1,7 @@
 // Settings → Application profile.
 import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
-import {el, pill, tile} from '../components.js';
+import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {showCloud, showExtensionStatus, showGoogle, showSchedule, showTelegram} from './connections.js';
@@ -76,9 +76,10 @@ function initLetter() {
   $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
 }
 // Professional links: shown as tiles; Edit shows the fields (saved with the details' Save changes).
+let showGithub = true;   // false for a non-technical candidate (fitDetailsToCandidate)
 function showLinks() {
   const value = name => document.querySelector(`[data-contact="${name}"]`).value.trim();
-  $('links-view').replaceChildren(...[['linkedin', 'LinkedIn', 'user'], ['github', 'GitHub', 'bot'], ['website', 'Website', 'link']].map(([key, name, glyph]) => {
+  $('links-view').replaceChildren(...[['linkedin', 'LinkedIn', 'user'], ['github', 'GitHub', 'bot'], ['website', 'Website', 'link']].filter(([key]) => key !== 'github' || showGithub).map(([key, name, glyph]) => {
     const box = el('div', 'link-tile');
     const text = el('span');
     text.append(el('b', '', name), el('span', 'muted small', value(key).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') || 'Not added'));
@@ -240,6 +241,9 @@ function fitDetailsToCandidate(contact) {
     document.querySelector('[data-contact="birth_date"]').placeholder = hints.dateExample;
     const origin = document.querySelector('[data-swiss-only]');
     if (origin) origin.hidden = !hints.showOrigin;
+    showGithub = hints.showGithub;
+    document.querySelector('[data-contact="github"]').closest('label').hidden = !showGithub;
+    showLinks();
   }).catch(() => {});
 }
 export function showContact() {
@@ -296,6 +300,7 @@ export async function init() {
     $('cv-import').disabled = false;
     show($('cv-limit-link'), false);
   });
+  collapsiblePanel($('setting-cvcheck'));
   $('cvc-run').addEventListener('click', () => cvCheckAction($('cvc-run'), 'Reading your CV…', () => window.pilot.cvCheckRun()));
   $('cvc-ai-run').addEventListener('click', () => cvCheckAction($('cvc-ai-run'), 'Reviewing… (about 30 s)', () => window.pilot.cvCheckAi()));
   $('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());
