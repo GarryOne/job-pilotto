@@ -5,11 +5,6 @@
  "extension/page/fill.js": 571,
  "extension/review.js": 663,
  "src/ai/inbox.py": 1065,
- "src/ai/insights.py": 514,
- "src/ai/interview_insights.py": 530,
  "src/ai/interviews.py": 959,
- "src/ai/mail.py": 1193,
- "tests/test_interview_insights.py": 628,
- "tests/test_interviews.py": 838,
- "tests/test_mail.py": 862
+ "tests/test_interviews.py": 838
 }

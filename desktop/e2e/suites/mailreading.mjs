@@ -10,7 +10,7 @@ export const name = 'mailreading';
 export const minutes = 5;
 export const light = true;
 export const cadence = 'watched';
-export const watches = ['src/ai/mail.py', 'tools/mail_eval.py', 'tests/fixtures/mail_eval.json'];
+export const watches = ['src/ai/mail.py', 'src/ai/mail_inbox.py', 'src/ai/mail_read.py', 'src/ai/mail_triage.py', 'tools/mail_eval.py', 'tests/fixtures/mail_eval.json'];   // the model's reading lives in these pieces of the mail check
 
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
 

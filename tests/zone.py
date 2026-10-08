@@ -8,10 +8,10 @@ ZURICH = ZoneInfo('Europe/Zurich')
 
 def pinned():
     from src import focus
-    from src.ai import mail
+    from src.ai import mail, mail_calendar, mail_inbox, mail_read, mail_record
     from src import focus_items, focus_state
     from src.notion import cron_report, cron_runs
-    patches = [mock.patch('src.tz.zone_name', return_value='Europe/Zurich'), *(mock.patch.object(module, 'TZ', ZURICH) for module in (focus, focus_items, focus_state, mail, cron_runs, cron_report))]
+    patches = [mock.patch('src.tz.zone_name', return_value='Europe/Zurich'), *(mock.patch.object(module, 'TZ', ZURICH) for module in (focus, focus_items, focus_state, mail, mail_calendar, mail_inbox, mail_read, mail_record, cron_runs, cron_report))]
 
     def set_up():
         for patch in patches:

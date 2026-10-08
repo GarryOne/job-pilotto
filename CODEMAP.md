@@ -362,11 +362,23 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/few_jobs.py` — 'Explain with AI' on a jobs check that found few new jobs: Claude reads the search's coverage counts and says why, and what to do first.
 - `src/ai/hints.py` — Scoring hints learned from what people dismiss (site/src/intelligence.js hints, fetched by desktop/lib/aliases.js into data/hints.json).
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
+- `src/ai/insights_text.py` — What the Insights messages say: the honesty rules shared by both prompts, the weekly report's schema and prompt, and the weekly Telegram text and Notion page body.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.
+- `src/ai/interview_insights_text.py` — Interview insights' constants and its one AI call's words: limits, categories, the pattern kinds, DATA_VERSION, the output schema and the system prompt.
 - `src/ai/interview_insights.py` — Interview insights: what your reviewed interviews say together, for the Interviews page and 💡 Insights.
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
+- `src/ai/mail_calendar.py` — The Calendar pass: events that belong to an application, interview reminders and the prep message.
+- `src/ai/mail_config.py` — Constants of the Gmail check: model, state file, sender lists, kinds, stage ranks, the classifier's schema and prompt.
+- `src/ai/mail_failure.py` — Why a Gmail check read nothing, in the app's words (NOT_CHECKED, failure_cause, failure_warning).
+- `src/ai/mail_inbox.py` — The Gmail pass: search, classify, and decide for each new email (record, ask, lead or skip).
+- `src/ai/mail_leads.py` — Jobs an email introduces: the application a confirmation names, an interview lead, a recruiter lead.
+- `src/ai/mail_lines.py` — How the check names and reports a job: ask() for an email it cannot place, the run's short update lines and Telegram headings.
+- `src/ai/mail_match.py` — Matching an email or calendar event to a tracked application: company, agency, contact names, ambiguity.
+- `src/ai/mail_read.py` — Reading side of the Gmail check: saved state, the open applications, the Gmail queries and the model classification of emails.
+- `src/ai/mail_record.py` — Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), the Changes column text and record().
+- `src/ai/mail_sent.py` — Your own sent emails to a recruiter (Replied events) and the review of new rejections.
 - `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
 - `src/ai/meanings_pack.py` — The meanings pack on this computer: wording -> fixed answer, per topic, before any AI is asked (approved by the owner, 8 Oct 2026: the
