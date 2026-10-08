@@ -111,7 +111,7 @@ class ShapeTests(unittest.TestCase):
 
     def test_the_search_catches_every_sender_kind_that_is_about_an_application(self):
         query = mail.query([app('p1', 'Acme Labs', 'SRE')], 2)
-        for part in ('from:greenhouse-mail.io', 'subject:"interview"', '"Acme Labs"'):
+        for part in ('from:greenhouse-mail.io', '"Acme Labs"'):
             self.assertIn(part, query)
 
 

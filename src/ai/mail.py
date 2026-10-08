@@ -39,7 +39,7 @@ from ..notion.funnel import PREPARED_STAGES
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
-from . import cost, engine, opportunity
+from . import cost, engine, mail_triage, opportunity
 from .. import feedback as employer_feedback
 from .models import SMALL_MODEL
 
@@ -63,10 +63,6 @@ INVITES = 'filename:invite.ics'
 # Google's own wrappers around an invitation (an unknown sender's booking, the notification once it is accepted): the
 # attachment's file name is not a safe thing to rely on alone (2 Oct 2026: a Calendly booking was never found).
 INVITE_MAILS = ('from:calendar-notification@google.com', 'subject:"Invitation from an unknown sender"', 'filename:ics')
-# Short forms of the user's role words, as recruiters write them in subjects.
-ROLE_SHORT = {'site reliability': 'SRE', 'devops': 'DevOps', 'platform engineer': 'Platform', 'kubernetes': 'Kubernetes'}
-SUBJECT_WORDS = ('application', 'applying', 'applied', 'interview', 'candidacy', 'your candidature', 'next steps',
-                 'screening', 'offer', 'opportunity', 'role', 'position', 'hiring', 'feedback')
 # LinkedIn's own notification emails for a new message or InMail (the owner's mail, not LinkedIn scraping).
 LINKEDIN_SENDERS = ('messages-noreply@linkedin.com', 'inmail-hit-reply@linkedin.com')
 OUTREACH = 'Recruiter outreach'
@@ -181,12 +177,10 @@ def verified_feedback(value, original):
 
 
 def query(apps, days):
-    """One Gmail search: known senders, application-ish subjects, or a tracked company's name."""
+    """One Gmail search: known senders or a tracked company's name, in any tab (an employer's mail can land in Promotions). No subject
+    words: every other new inbox email is sorted by Claude, in any language (mail_triage)."""
     names = {n for r in apps for n in (_field(r, 'Company'), _field(r, 'Via')) if n and len(n) > 2 and len(n) < 40}
-    roles = role_words()
-    short = tuple(dict.fromkeys(s for key, s in ROLE_SHORT.items() if any(key in r.lower() for r in roles)))
-    terms = ([f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'subject:"{w}"' for w in SUBJECT_WORDS + roles + short]
-             + [f'"{n}"' for n in sorted(names)])
+    terms = [f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'"{n}"' for n in sorted(names)]
     return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
 
 
@@ -195,17 +189,6 @@ def extra_query(days):
     calendar invitations, which the first search misses when nothing about them is tracked yet."""
     terms = [f'from:{d}' for d in RECRUITER_DOMAINS] + [INVITES, *INVITE_MAILS]
     return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
-
-
-def role_words():
-    """The user's own job-board searches ("site reliability engineer", "devops"): a recruiter's subject line
-    usually names the role."""
-    from ..paths import load_search_config
-    try:
-        queries = load_search_config().get('jobs_board_search_queries') or []
-    except (OSError, ValueError):
-        return ()
-    return tuple(q for q in queries if isinstance(q, str) and 2 < len(q) < 40 and '"' not in q)
 
 
 def listing(apps):
@@ -514,7 +497,11 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
     found = list(dict.fromkeys(google.search(query(apps, days), limit=60) + google.search(extra_query(days), limit=30)))
-    ids = [i for i in found if i not in seen and i not in index[0]]
+    # Any other new inbox email: Claude says whether it is about your job search, in any language (src/ai/mail_triage.py).
+    job, other = mail_triage.new_from_inbox(google, client, days, set(found), seen | set(index[0]), stats)
+    if not dry_run:
+        state['seen'] += other   # judged once: not about your job search
+    ids = [i for i in dict.fromkeys(found + job) if i not in seen and i not in index[0]]
     emails = sorted((google.message(i) for i in ids), key=lambda m: m['date'])
     if not emails:
         return [], 0

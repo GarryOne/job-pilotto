@@ -114,7 +114,8 @@ class MailTests(unittest.TestCase):
     def test_query_covers_senders_subjects_and_tracked_companies(self):
         q = mail.query([app('a', 'Zephyr AI', 'Infra', via='TechTree')], 2)
         self.assertTrue(q.startswith('newer_than:2d -in:chats'))
-        for part in ('from:greenhouse-mail.io', 'from:techtree.dev', 'subject:"interview"', '"Zephyr AI"', '"TechTree"'):
+        self.assertNotIn('subject:', q)   # no words: other inbox mail is sorted by Claude (mail_triage), in any language
+        for part in ('from:greenhouse-mail.io', 'from:techtree.dev', '"Zephyr AI"', '"TechTree"'):
             self.assertIn(part, q)
 
     def test_rejection_moves_stage_and_is_never_logged_twice(self):
@@ -397,11 +398,8 @@ class MailTests(unittest.TestCase):
         mail.save_state({'ledger': 'real-events', 'seen': ['m2'], 'notified': []}, self.state)
         self.assertEqual(mail.load_state(self.state, ledger='real-events')['seen'], ['m2'])
 
-    def test_query_also_asks_for_agencies_invitations_and_short_role_names(self):
-        with mock.patch.object(mail, 'role_words', lambda: ('site reliability', 'devops engineer')):
-            q = mail.query([], 2)
-        self.assertIn('subject:"SRE"', q)
-        self.assertIn('subject:"DevOps"', q)
+    def test_query_also_asks_for_agencies_and_invitations(self):
+        q = mail.query([], 2)
         extra = mail.extra_query(2)
         self.assertIn('from:huxley.com', extra)
         self.assertIn('filename:invite.ics', extra)

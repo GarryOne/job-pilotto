@@ -179,11 +179,10 @@ class MailOutreachTests(unittest.TestCase):
         self.run_mail(tracker, google, [[result(0, 0, mail.OUTREACH)]])
         self.assertEqual([p['Kind']['select']['name'] for p in tracker.created], ['Reply received'])
 
-    def test_the_search_includes_linkedin_message_emails_and_the_users_role_searches(self):
-        with mock.patch('src.paths.load_search_config', lambda: {'jobs_board_search_queries': ['site reliability engineer']}):
-            q = mail.query([], 2)
-        for part in ('from:messages-noreply@linkedin.com', 'subject:"opportunity"', 'subject:"site reliability engineer"'):
-            self.assertIn(part, q)
+    def test_the_search_includes_linkedin_message_emails(self):
+        q = mail.query([], 2)
+        self.assertIn('from:messages-noreply@linkedin.com', q)
+        self.assertNotIn('subject:', q)   # a recruiter's pitch from anyone else is found by the inbox triage (mail_triage), in any language
 
     def test_recruiter_leads_are_among_the_applications_emails_can_belong_to(self):
         lead = app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='Example Talent')

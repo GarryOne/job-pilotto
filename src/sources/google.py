@@ -116,6 +116,13 @@ class Google:
                 break
         return ids
 
+    def snippet(self, message_id):
+        """{id, from, subject, snippet} of one email, without its body: what the inbox triage reads (src/ai/mail_triage.py)."""
+        data = self.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}',
+                        {'format': 'metadata', 'metadataHeaders': ['From', 'Subject']})
+        headers = {h['name'].lower(): h['value'] for h in (data.get('payload') or {}).get('headers', [])}
+        return {'id': data['id'], 'from': headers.get('from', ''), 'subject': headers.get('subject', ''), 'snippet': data.get('snippet', '')}
+
     def message(self, message_id):
         """{id, from, to, subject, date (ISO), body} of one email; the body is plain text, capped."""
         data = self.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}', {'format': 'full'})
