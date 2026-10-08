@@ -365,6 +365,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/next-step.js` — The next step of a multi-step application (owner, 8 Oct 2026: approved, "assist" by default). When the form judge (form-ready.js) says THIS page state is
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/page-picture.js` — What the closer look takes of a page (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md): the typed values are hidden BEFORE the screenshot and shown again right after, so labels and
+- `extension/panel-start.js` — The panel's first seconds on a page the app opened to fill: its button spins with "Starting…" until the fill says its own first step
 - `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app
 - `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and

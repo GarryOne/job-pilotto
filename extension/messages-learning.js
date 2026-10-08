@@ -3,6 +3,7 @@
 // (account.js). Each returns a function that answers the messages it owns and returns undefined for any other. A FLOW FILE (docs/flows/applying.md). Guards:
 // the learned-answers, submit and account tests in desktop/test and the matrix (npm run flows).
 import {accountSkip} from './account.js';
+import {STARTING} from './panel-start.js';
 import {api} from './flow.js';
 import {decide} from './log.js';
 import {onAccountPage} from './account.js';
@@ -68,7 +69,7 @@ export function createLearningMessages(ctx) {
     if (message?.type === 'panelStepNow' && sender.tab) {
       const text = stepNow.get(sender.tab.id) || '';
       if (text) stepBox(sender.tab.id, '');
-      reply({text});
+      reply({text, wait: text === STARTING ? 20000 : 0});   // the fill has not said its first step yet (panel-start.js)
       return false;
     }
     if (message?.type === 'panelAllowed' && sender.tab) {

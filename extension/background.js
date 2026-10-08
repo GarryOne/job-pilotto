@@ -13,6 +13,7 @@ import {consider, initFillFlow} from './fill-flow.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, pageKey, sameSite, navigationKind, neverForm, tabArmed, withMark} from './tab-pages.js';
+import {noteStart} from './panel-start.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -71,6 +72,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     }
   }
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
+  if (info.status === 'loading') noteStart(stepNow, tabId, tab.url);   // the panel spins "Starting…" until the fill's first step (panel-start.js)
   if (info.status !== 'complete') return;
   // The job, not this page: a page the extension carried the mark onto (an agency's form) belongs to the posting that led to it.
   await consider(tab, await jobOf(tab));

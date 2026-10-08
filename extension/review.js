@@ -394,7 +394,7 @@
   // What the fill is doing, shown in the button. A fill started elsewhere (Claude's session, the popup) sends steps but
   // no end: the button comes back a few seconds after its last step.
   let stepTimer = null, filledOnce = false, stepped = false;
-  function showStep(text) {
+  function showStep(text, wait = 6000) {
     stepped = true;
     const button = $('.fill');
     button.classList.add('is-busy');
@@ -402,7 +402,7 @@
     button.title = text;
     $('.fill .label').textContent = text;
     clearTimeout(stepTimer);
-    if (!filling) stepTimer = setTimeout(endStep, 6000);
+    if (!filling) stepTimer = setTimeout(endStep, wait);
   }
   function endStep() {
     clearTimeout(stepTimer);
@@ -474,7 +474,7 @@
   });
 
   // A fill already on a step when this panel appeared: show it here (the background removes its floating copy).
-  send({type: 'panelStepNow'}).then(answer => { if (answer?.text && host.isConnected) { showStep(answer.text); if (!open) setOpen(true); } }).catch(() => {});
+  send({type: 'panelStepNow'}).then(answer => { if (answer?.text && host.isConnected) { showStep(answer.text, answer.wait || 6000); if (!open) setOpen(true); } }).catch(() => {});
 
   // ---- controls the form model did not read (learning input; see page/skeleton.js) ----
   // A widget that is not a native input and is part of no field the panel counted: its fingerprint, structure (no text) and
