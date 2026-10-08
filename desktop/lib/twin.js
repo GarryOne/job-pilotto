@@ -6,8 +6,10 @@
 // - no Telegram polling, no schedules, no telemetry, no AppleScript on Chrome or Terminal (no Apply with Claude);
 // - the engine sees no Keychain (src/secret_store.py isolated(): no Telegram bot, no Google sign-in).
 // Guarded by desktop/test/twin.test.js.
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 export const isTwin = (env = process.env) => !!env.JOB_PILOTTO_TWIN;
 
@@ -29,3 +31,39 @@ export function twinRefusal(env = process.env, real = realFolder()) {
 
 // A secret the twin takes from its environment instead of secrets.json: only the Notion token. null: read it as usual.
 export const twinSecret = (name, env = process.env) => (isTwin(env) && name === 'NOTION_TOKEN' ? String(env.JOB_PILOTTO_TWIN_NOTION_TOKEN || '') : null);
+
+// The twin's own browser for its Claude sessions (owner, 8 Oct 2026: test "Take over with Claude" in the twin): twin.mjs passes the twin Chromium's debugging
+// address; a session then drives THAT browser through Playwright MCP, never the owner's Chrome (--chrome = the Claude in Chrome extension, which lives in the
+// owner's Chrome only). '' when not a twin or no browser is known.
+export const twinBrowser = (env = process.env) => (isTwin(env) ? String(env.JOB_PILOTTO_TWIN_BROWSER_CDP || '') : '');
+// The browser flags of a Claude session: --chrome for the owner; in a twin only a Playwright MCP on the twin's browser (--strict-mcp-config: no other server
+// loads, so the Chrome extension's tools are not even there). dir: where the MCP config is written.
+// The session's browser: the person's Chrome (--chrome), or in a twin the twin's own Chromium through a Playwright MCP that
+//   - loads tools/browser-submit-guard.js into every page (--init-script), as the agent launchers always did;
+//   - masks the job-site passwords in everything the session reads (--secrets: a snapshot shows input values), from a 0600 file in the session's folder.
+// secrets: the twin's job-site passwords (lib/keychain.js lets a twin read only those).
+const GUARD = fileURLToPath(new URL('../../tools/browser-submit-guard.js', import.meta.url));
+
+export function browserFlags(dir, env = process.env, {secrets = []} = {}) {
+  const cdp = twinBrowser(env);
+  if (isTwin(env) && !cdp) throw new Error('a live-test twin without its own browser: no Claude session (it would drive your own Chrome)');
+  if (!cdp) return ['--chrome'];
+  const file = path.join(dir, 'twin-mcp.json');
+  const args = ['@playwright/mcp@latest', '--cdp-endpoint', cdp, '--init-script', GUARD];
+  const values = [...new Set(secrets.filter(Boolean).map(String))];
+  if (values.length) {
+    const secretsFile = path.join(dir, 'twin-secrets.env');
+    fs.writeFileSync(secretsFile, values.map((value, i) => `SITE_PASSWORD_${i + 1}=${JSON.stringify(value)}`).join('\n') + '\n', {mode: 0o600});
+    args.push('--secrets', secretsFile);
+  }
+  fs.writeFileSync(file, JSON.stringify({mcpServers: {playwright: {command: 'npx', args}}}), {mode: 0o600});
+  // --no-chrome: the person's own "Claude in Chrome by default" setting would otherwise hand this session their real Chrome too.
+  return ['--no-chrome', '--mcp-config', file, '--strict-mcp-config'];
+}
+// Said to the session in a twin, after its usual instructions.
+// First in the prompt: it overrides the apply skill's claude-in-chrome steps, which this session does not have.
+export const twinNote = (env = process.env) => (twinBrowser(env) ? 'LIVE TEST (a twin of the app). This overrides every claude-in-chrome step of the skill: '
+  + 'your browser is the twin\'s own Chromium, reached ONLY through the Playwright MCP tools (mcp__playwright__*). It is a real Chromium with the '
+  + 'Job Pilotto extension installed and the person\'s sign-ins; the form tab is already open there (mcp__playwright__browser_tabs to select it). '
+  + 'Use browser_navigate / browser_snapshot / browser_click / browser_type / browser_evaluate where the skill says navigate / read_page / '
+  + 'computer / form_input / javascript_tool. There is no claude-in-chrome here and that is expected: never stop to ask for it. Never press Submit.\n\n' : '');

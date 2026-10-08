@@ -64,7 +64,7 @@ async function main() {
   fs.writeFileSync(path.join(extensionDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('JOB_PILOTTO_')));
   const app = spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'],
-    env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port),
+    env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_TWIN_BROWSER_CDP: `http://127.0.0.1:${browserCdp}`,
       PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool}});
   // A fresh browser profile at each start, with only the site sign-ins carried over (cookies, local storage) and saved back at stop.
   // A whole kept profile also kept the extension's worker state: once it ran stale background code, once (after clearing that) no worker

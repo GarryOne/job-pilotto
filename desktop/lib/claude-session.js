@@ -16,7 +16,11 @@ import crypto from 'node:crypto';
 import * as pipeline from './pipeline.js';
 import {PORT} from './server.js';
 import * as terminals from './terminals.js';
-import {isTwin} from './twin.js';
+import {browserFlags as flagsFor, isTwin, twinBrowser, twinNote} from './twin.js';
+import * as credentials from './credentials.js';
+import * as sitePassword from './site-password.js';
+// A twin's session masks the job-site passwords (lib/twin.js): the shared one and each site's own.
+const browserFlags = dir => flagsFor(dir, process.env, {secrets: twinBrowser() ? [sitePassword.read(), ...(credentials.list().rows || []).map(row => credentials.reveal(row.host))] : []});
 
 // What a session gets from the app on top of the user's own environment: Notion, Telegram and the app's
 // folders. Never ANTHROPIC_API_KEY: Claude Code runs on the user's own Claude login, not their API key.
@@ -161,7 +165,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
 // tools/notify.sh report its state (JOB_PILOTTO_SESSION names it). Resolves with the sessions started.
 export async function launchInApp(storage, urls, {claude, platform = process.platform, pipelineRun = pipeline.run,
   gap = GAP_MS, term = terminals, port = PORT, details = {}, open = () => {}} = {}) {
-  if (isTwin()) throw new Error('Apply with Claude is off in a live-test twin: Claude would drive your own Chrome.');   // lib/twin.js
+  if (isTwin() && !twinBrowser()) throw new Error('Apply with Claude is off in a live-test twin without its own browser: Claude would drive your own Chrome.');   // lib/twin.js
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);
@@ -175,10 +179,10 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
     const auditFile = path.join(dir, `audit_${id}.json`).replaceAll('\\', '/');
     const promptFile = path.join(dir, `prompt_${id}.txt`);
     const settingsFile = path.join(dir, `settings_${id}.json`);
-    fs.writeFileSync(promptFile, prompt(url, {auditFile}), {mode: 0o600});
+    fs.writeFileSync(promptFile, twinNote() + prompt(url, {auditFile}), {mode: 0o600});
     fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
     const claudeId = crypto.randomUUID();  // the conversation: resume() can reopen it after the app was closed
-    const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', claudeId];
+    const flags = [...browserFlags(dir), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', claudeId];
     // A one-line instruction naming the file: the terminal starts clean (not a screen of instructions, nor the
     // extension ticket), and cmd.exe on Windows needn't quote a long argument.
     const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
@@ -233,10 +237,10 @@ export async function launchRead(storage, url, name, {claude, platform = process
   const contextFile = path.join(dir, `read_${id}.json`).replaceAll('\\', '/');
   fs.writeFileSync(contextFile, JSON.stringify({url, name}), {mode: 0o600});
   const promptFile = path.join(dir, `prompt_${id}.txt`);
-  fs.writeFileSync(promptFile, sites?.length > 1 ? readManyPrompt(sites, contextFile) : readPrompt(url, name, contextFile), {mode: 0o600});
+  fs.writeFileSync(promptFile, twinNote() + (sites?.length > 1 ? readManyPrompt(sites, contextFile) : readPrompt(url, name, contextFile)), {mode: 0o600});
   const settingsFile = path.join(dir, `settings_${id}.json`);
   fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
-  const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', crypto.randomUUID()];
+  const flags = [...browserFlags(dir), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', crypto.randomUUID()];
   const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
   const {file, args} = platform === 'win32' ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]} : {file: claude, args: [...flags, ask]};
   return term.start({id, url, claudeId: null, file, args, cwd: pipeline.REPO, env: {...env, JOB_PILOTTO_SESSION: id}, company: name, title: `Read jobs: ${name}`, kind: 'read'});
@@ -256,7 +260,7 @@ export async function resumeInApp(storage, id, {claude, platform = process.platf
   fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
   setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
   const stopped = old.status === 'ended' || old.status === 'failed';
-  const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--resume', term.claudeIdOf(id)];
+  const flags = [...browserFlags(path.dirname(settingsFile)), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--resume', term.claudeIdOf(id)];
   const ask = stopped ? ['Job Pilotto was closed while you were working on this application. Carry on where you left off: check the form in Chrome (its tab may still be open), finish it, and stop before Submit.'] : [];
   const {file, args} = platform === 'win32'
     ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ...ask]}

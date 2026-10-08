@@ -56,7 +56,8 @@ test('every path out of a twin is guarded: Telegram, schedules, AppleScript on C
   const lib = fs.readdirSync(new URL('../lib/', import.meta.url)).filter(name => name.endsWith('.js'));
   const callers = lib.filter(name => /['"]osascript['"]/.test(read(`lib/${name}`))).sort();
   assert.deepEqual(callers, ['claude-session.js', 'form-tab.js']);
-  assert.equal((read('lib/claude-session.js').match(/if \(isTwin\(\)\) throw/g) || []).length, 2);
+  assert.equal((read('lib/claude-session.js').match(/if \(isTwin\(\)\) throw/g) || []).length, 1);   // the Terminal launcher: never in a twin
+  assert.equal((read('lib/claude-session.js').match(/'--chrome'/g) || []).length, 0);                // every in-app session takes browserFlags()
 });
 
 test('in a twin, "no page answered" is "no tab": the card then reopens the form in the twin\'s browser', async () => {
@@ -66,4 +67,22 @@ test('in a twin, "no page answered" is "no tab": the card then reopens the form 
     process.env.JOB_PILOTTO_TWIN = '1';
     assert.equal(await openFormTab({url: 'https://jobs.coop.ch/x', company: 'Coop'}, async () => { throw new Error('opened a URL'); }), 'none');
   } finally { process.env = saved; }
+});
+
+test('a twin\'s Claude sessions drive the twin\'s own browser through Playwright MCP, never --chrome; without that browser, no session at all', async () => {
+  const {browserFlags, twinNote} = await import('../lib/twin.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-twin-mcp-'));
+  assert.deepEqual(browserFlags(dir, {}), ['--chrome']);                                          // the owner's app
+  const flags = browserFlags(dir, {...twin, JOB_PILOTTO_TWIN_BROWSER_CDP: 'http://127.0.0.1:63578'}, {secrets: ['pw-1', '', 'pw-1']});
+  assert.deepEqual(flags.filter(flag => flag.startsWith('--')), ['--no-chrome', '--mcp-config', '--strict-mcp-config']);
+  const config = JSON.parse(fs.readFileSync(flags[flags.indexOf('--mcp-config') + 1], 'utf8'));
+  assert.deepEqual(config.mcpServers.playwright.args.slice(1, 3), ['--cdp-endpoint', 'http://127.0.0.1:63578']);
+  assert.ok(config.mcpServers.playwright.args.includes('--init-script') && fs.existsSync(config.mcpServers.playwright.args[config.mcpServers.playwright.args.indexOf('--init-script') + 1]));   // the submit guard
+  const secrets = config.mcpServers.playwright.args[config.mcpServers.playwright.args.indexOf('--secrets') + 1];
+  assert.equal(fs.readFileSync(secrets, 'utf8'), 'SITE_PASSWORD_1="pw-1"\n');   // masked in what the session reads; once, no blanks
+  assert.equal(fs.statSync(secrets).mode & 0o777, 0o600);
+  assert.throws(() => browserFlags(dir, twin), /without its own browser/);
+  assert.match(twinNote({...twin, JOB_PILOTTO_TWIN_BROWSER_CDP: 'x'}), /^LIVE TEST.*overrides every claude-in-chrome step.*Never press Submit/s);
+  assert.equal(twinNote({}), '');
+  assert.equal((fs.readFileSync(new URL('../lib/claude-session.js', import.meta.url), 'utf8').match(/twinNote\(\) \+ /g) || []).length, 2);   // first in both in-app prompts (apply, read)
 });
