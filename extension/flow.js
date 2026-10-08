@@ -2,6 +2,7 @@
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
+import {settleTrace} from './trace-settle.js';
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -311,6 +312,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     [(summary.trace || []).filter(row => MECHANICAL.some(reason => String(row.reason || '').startsWith(reason))).map(row =>
       ({label: row.label, field: (debug.form || []).find(f => f.label === row.label)?.field || ''})),
     Object.values(me?.contact || config.profile || {}).filter(value => typeof value === 'string')]).catch(() => ({}));
+  // Every field's outcome as the page holds it once all passes are done (extension/trace-settle.js).
+  const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.()).catch(() => null);
+  summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : []);
   // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
   // the panel can add, at Submit, what you answered yourself.
   summary.card = fillCard({id: crypto.randomUUID(), trace: summary.trace || [], form: debug.form || [],

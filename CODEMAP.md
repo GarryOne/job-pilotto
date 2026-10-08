@@ -366,6 +366,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/tab-report.js` — Telling the app which tabs are open (moved out of background.js, 8 Oct 2026): the report of open job and form tabs (the app's "Opened in Chrome" and "form closed"), every 30 s
 - `extension/tabs.js` — Which tabs belong to which application (docs/flows/applying.md, owner 8 Oct 2026): a tab opened by an application's tab is the same
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
+- `extension/trace-settle.js` — The fill's per-field record, settled at the end: one row per field, its outcome what the page holds once every pass is done.
 - `extension/visit-page.js` — What the extension runs INSIDE a page it reads (chrome.scripting.executeScript { func }): each function is self-contained (it is serialised
 - `extension/visit.js` — "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
 - `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.
