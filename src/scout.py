@@ -237,11 +237,25 @@ WIKIDATA_QUERY = """SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {
   ?c rdfs:label ?label. FILTER(LANG(?label) = "en") } GROUP BY ?label ?site ORDER BY DESC(?employees) LIMIT 1500"""
 
 
+# Any other country (8 Oct 2026: a search in Lisbon had only Swiss companies): the same query, the country found by its English name and
+# an ISO code (so "Georgia" is the country). `staffed=False` also takes companies with no head count, which Wikidata lacks for many countries.
+WIKIDATA_MIN_ROWS = 200
+
+
+def wikidata_query(country='Switzerland', staffed=True):
+    if country == 'Switzerland' and staffed:
+        return WIKIDATA_QUERY
+    where = (f'?country rdfs:label "{country}"@en; wdt:P297 []. ?c wdt:P17 ?country; wdt:P31/wdt:P279* wd:Q4830453; wdt:P856 ?site'
+             + ('; wdt:P1128 ?staff. FILTER(?staff >= 30)' if staffed else '. OPTIONAL { ?c wdt:P1128 ?staff }'))
+    return ('SELECT ?label ?site (MAX(?staff) AS ?employees) WHERE {\n  ' + where + '\n  ?c rdfs:label ?label. FILTER(LANG(?label) = "en") }'
+            ' GROUP BY ?label ?site ORDER BY DESC(?employees) LIMIT 1500')
+
+
 WIKIDATA_TIMEOUT_S = 150         # the query takes about 65 s (7 Oct 2026); at the old 30 s it failed in every run
 WIKIDATA_MAX_AGE = timedelta(days=7)   # the list of Swiss companies barely changes in a week
 
 
-def wikidata_rows(get=_get_json, cache=None, clock=None):
+def wikidata_rows(get=_get_json, cache=None, clock=None, query=WIKIDATA_QUERY):
     """Wikidata's answer, kept on disk for a week (data/cache/wikidata-companies.json): one slow query a week instead of one a run,
     and a failed or slow day reuses the last good list (said in the log) instead of leaving a search outside IT with no list at all."""
     from .paths import DATA
@@ -254,7 +268,7 @@ def wikidata_rows(get=_get_json, cache=None, clock=None):
         kept, kept_at = None, None
     if kept and current - kept_at < WIKIDATA_MAX_AGE:
         return kept['rows']
-    url = 'https://query.wikidata.org/sparql?format=json&query=' + urllib.parse.quote(WIKIDATA_QUERY)
+    url = 'https://query.wikidata.org/sparql?format=json&query=' + urllib.parse.quote(query)
     try:
         rows = get(url, timeout=WIKIDATA_TIMEOUT_S)['results']['bindings']
     except Exception as error:  # noqa: BLE001 — the copy from before, when there is one
@@ -267,13 +281,41 @@ def wikidata_rows(get=_get_json, cache=None, clock=None):
     return rows
 
 
-def wikidata_candidates(get=_get_json, cache=None, clock=None):
-    """Swiss companies with a website and at least 30 employees, from Wikidata's open SPARQL service (bigger first). Any trade: the
-    probe then keeps only those whose careers page lists jobs for your roles in your places."""
-    for row in wikidata_rows(get, cache, clock):
-        name, site = row['label']['value'], row['site']['value']
-        staff = int(float(row.get('employees', {}).get('value', 0) or 0))
-        yield dict(name=name, origin='Wikidata: Swiss companies', priority=60 if staff >= 200 else 50, website=site)
+def search_countries():
+    """The countries of the user's places (src/places.py), Switzerland when none is known yet: the product's first market."""
+    try:
+        from . import places
+        return places.countries(load_search_config()) or ['Switzerland']
+    except Exception as error:  # noqa: BLE001 — no places worked out (offline, no AI): as before
+        print(f'Warning: the countries of your places are not known ({type(error).__name__}): looking in Switzerland')
+        return ['Switzerland']
+
+
+def wikidata_candidates(get=_get_json, cache=None, clock=None, countries=None):
+    """Companies with a website and at least 30 employees in each country of your places, from Wikidata's open SPARQL service (bigger first);
+    where Wikidata has fewer than WIKIDATA_MIN_ROWS of them, companies with no head count too. Any trade: the probe then keeps only those whose
+    careers page lists jobs for your roles in your places. Each country's list is kept a week (Switzerland's in the file it always had)."""
+    from .paths import DATA
+    base = Path(cache) if cache else DATA / 'cache' / 'wikidata-companies.json'
+    for country in countries or search_countries():
+        slug = re.sub(r'[^a-z]+', '-', country.lower()).strip('-')
+        file = base if country == 'Switzerland' else base.with_name(f'{base.stem}-{slug}{base.suffix}')
+        try:
+            rows = wikidata_rows(get, file, clock, wikidata_query(country))
+            if len(rows) < WIKIDATA_MIN_ROWS:
+                rows = rows + wikidata_rows(get, file.with_name(f'{file.stem}-all{file.suffix}'), clock, wikidata_query(country, staffed=False))
+        except Exception as error:  # noqa: BLE001 — one country down leaves the others
+            print(f'Warning: Wikidata companies in {country} skipped ({type(error).__name__}: {error})')
+            continue
+        origin = 'Wikidata: Swiss companies' if country == 'Switzerland' else f'Wikidata: companies in {country}'
+        seen = set()
+        for row in rows:
+            name, site = row['label']['value'], row['site']['value']
+            if site in seen:
+                continue
+            seen.add(site)
+            staff = int(float(row.get('employees', {}).get('value', 0) or 0))
+            yield dict(name=name, origin=origin, priority=60 if staff >= 200 else 50, website=site)
 
 
 def skipped_origins(seeds, technical):

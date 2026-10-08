@@ -22,8 +22,10 @@ NAME_OK = re.compile(r"[^\W\d_](?:[^\W\d_]|[ .'’\-])*[^\W\d_.]")
 SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['places'],
     'properties': {'places': {'type': 'array', 'items': {
-        'type': 'object', 'additionalProperties': False, 'required': ['word', 'kind', 'names'],
+        'type': 'object', 'additionalProperties': False, 'required': ['word', 'kind', 'names', 'countries'],
         'properties': {'word': {'type': 'string', 'description': 'The place word exactly as given'},
+                       'countries': {'type': 'array', 'items': {'type': 'string'},
+                                     'description': 'The country it is in, or the countries a region covers, by their English name'},
                        'kind': {'type': 'string', 'enum': ['country', 'region', 'state', 'city', 'other']},
                        'names': {'type': 'array', 'items': {'type': 'string'}}}}}},
 }
@@ -36,6 +38,8 @@ For a country, region or state: names = the main cities and towns where employer
 (the local name and the English name when they differ, e.g. "München" and "Munich"), plus the states, provinces or countries inside it when it is a region or a country with \\
 states. Short forms postings use, such as "UK", "USA", "NYC", count too. Only real places: never invent one, and leave out a name that is also a common word.
 For a city or other: names = [] (up to three other spellings of the city that postings really use, if any).
+countries = the country the place is in (a city, a state, a country itself), or the countries a region covers (up to 10, biggest job markets first), \
+by the English name Wikipedia uses ("Portugal", "United States", "Germany"); [] for "other".
 Answer for every word given, with the word exactly as written."""
 
 
@@ -90,6 +94,22 @@ def words_of(search):
     return found
 
 
+def countries(search, cache=None, limit=3):
+    """The countries the search's places are in, the user's first places first (at most `limit`): Swiss region words from the fixed table
+    (src/regions.py), every other word from what the model said. [] when none is known yet."""
+    from .notion.search_settings import readable
+    from .regions import region_of
+    cache = load() if cache is None else cache
+    found = []
+    for key in ('top_tier', 'country_wide', 'abroad'):
+        for fragment in ((search.get('locations') or {}).get(key) or []):
+            word = readable(fragment).strip('"')
+            for country in ['Switzerland'] if region_of(fragment) else (cache.get(_key(word)) or {}).get('countries') or []:
+                if country not in found:
+                    found.append(country)
+    return found[:limit]
+
+
 def pattern(names):
     """One regex fragment for these names: each as a whole word, accents ignored (the matcher also reads the posting without its accents)."""
     return '(?:' + '|'.join(rf"(?<!\w){re.escape(_plain(name).lower())}(?!\w)" for name in names) + ')'
@@ -123,7 +143,8 @@ def ask(client, words):
     for item in answer.get('places') or []:
         key = _key(item.get('word', ''))
         if key in asked and item.get('kind') in ('country', 'region', 'state', 'city', 'other'):
-            out[key] = {'word': asked[key], 'kind': item['kind'], 'names': clean_names(item.get('names')) if item['kind'] != 'other' else [], 'at': stamp}
+            out[key] = {'word': asked[key], 'kind': item['kind'], 'names': clean_names(item.get('names')) if item['kind'] != 'other' else [],
+                        'countries': clean_names(item.get('countries'))[:10] if item['kind'] != 'other' else [], 'at': stamp}
     return out
 
 
@@ -131,7 +152,8 @@ def refresh(search, client=None, file=None):
     """Work out the place words of this search that are not in the cache yet; returns how many it asked about. Nothing is asked when all are known."""
     file = file or path()
     cache = load(file)
-    words = [word for word in words_of(search) if _key(word) not in cache][:MAX_WORDS]
+    # a word kept before 8 Oct 2026 has no countries yet: asked once more, so Find new employers knows where to look
+    words = [word for word in words_of(search) if 'countries' not in cache.get(_key(word), {})][:MAX_WORDS]
     if not words:
         return 0
     if client is None:

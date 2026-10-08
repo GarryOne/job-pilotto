@@ -63,7 +63,7 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual(call['model'], 'claude-haiku-5-5')
         self.assertIn('untrusted', call['system'][0]['text'])
         self.assertIn('Site Reliability Engineer (100%) -> https://acme.ch/jobs/sre-zh', call['messages'][0]['content'])
-        self.assertEqual(call['output_config']['format']['schema']['required'], ['jobs'])
+        self.assertEqual(call['output_config']['format']['schema']['required'], ['page', 'jobs'])
 
     def test_a_process_stops_asking_after_its_limit_but_keeps_earlier_answers(self):
         client = FakeClient()
@@ -72,6 +72,20 @@ class ReaderTests(unittest.TestCase):
         self.assertIsNone(page_reader.read('https://other.ch/k', PAGE, client, self.db))
         self.assertEqual(len(client.calls), 1)
         self.assertEqual(len(page_reader.read('https://acme.ch/k', PAGE, client, self.db)), 2)   # cached
+
+    def test_a_careers_page_with_no_jobs_is_known_in_any_language(self):
+        """8 Oct 2026: careers.NO_JOBS knows four languages; the model says it as one fixed word, kept per page."""
+        page = '<h1>Carreiras</h1><p>Não temos vagas de momento. Envie-nos a sua candidatura espontânea.</p>'
+        client = FakeClient({'page': 'no_open_jobs', 'jobs': []})
+        self.assertIsNone(page_reader.read('https://acme.pt/carreiras', page, client, self.db), 'not a careers page by the rules: no call')
+        self.assertEqual(page_reader.read('https://acme.pt/carreiras', page, client, self.db, careers_page=True), [])
+        self.assertTrue(page_reader.said_no_open_jobs('https://acme.pt/carreiras', self.db))
+        self.assertFalse(page_reader.said_no_open_jobs('https://other.pt/x', self.db))
+        self.assertEqual(len(client.calls), 1)
+        kept = page_reader.said_no_open_jobs
+        with mock.patch.object(careers, 'READER', 'auto'), mock.patch.object(page_reader, 'said_no_open_jobs', lambda url: kept(url, self.db)):
+            self.assertTrue(careers._says_no_jobs(page, 'https://acme.pt/carreiras'))
+        self.assertFalse(careers._says_no_jobs(page, 'https://acme.pt/carreiras'), 'no model in tests: rules only')
 
     def test_a_cut_off_answer_raises_and_nothing_is_cached(self):
         with self.assertRaises(RuntimeError):

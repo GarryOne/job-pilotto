@@ -173,9 +173,44 @@ class CatalogTests(unittest.TestCase):
         rows = {'results': {'bindings': [{'label': {'value': 'Big AG'}, 'site': {'value': 'https://big.ch'}, 'employees': {'value': '900.0'}},
                                          {'label': {'value': 'Mid AG'}, 'site': {'value': 'https://mid.ch'}, 'employees': {'value': '45'}}]}}
         with tempfile.TemporaryDirectory() as tmp:
-            found = list(scout.wikidata_candidates(get=lambda url, **_: rows, cache=Path(tmp) / 'w.json'))
+            found = list(scout.wikidata_candidates(get=lambda url, **_: rows, cache=Path(tmp) / 'w.json', countries=['Switzerland']))
         self.assertEqual([(c['name'], c['priority']) for c in found], [('Big AG', 60), ('Mid AG', 50)])
         self.assertIn('wd:Q39', scout.WIKIDATA_QUERY)
+
+    def test_wikidata_looks_in_the_countries_of_your_places(self):
+        """8 Oct 2026: a search in Lisbon was seeded with Swiss companies only. Wikidata has a head count for 33 Portuguese companies (live,
+        8 Oct 2026), so a thin country also gets the companies without one."""
+        import urllib.parse
+        asked = []
+        def get(url, **_):
+            query = urllib.parse.unquote(url.split('query=', 1)[1])
+            asked.append(query)
+            staffed = 'FILTER(?staff >= 30)' in query
+            site = 'https://big.pt' if staffed else 'https://small.pt'
+            return {'results': {'bindings': [{'label': {'value': 'Big SA'}, 'site': {'value': 'https://big.pt'}, 'employees': {'value': '900'}}]
+                                + ([] if staffed else [{'label': {'value': 'Small Lda'}, 'site': {'value': site}}])}}
+        with tempfile.TemporaryDirectory() as tmp:
+            found = list(scout.wikidata_candidates(get=get, cache=Path(tmp) / 'w.json', countries=['Portugal']))
+            self.assertEqual([(c['name'], c['origin']) for c in found], [('Big SA', 'Wikidata: companies in Portugal'), ('Small Lda', 'Wikidata: companies in Portugal')])
+            self.assertTrue(all('"Portugal"@en' in query and 'wd:Q39' not in query for query in asked))
+            self.assertEqual(len(asked), 2)
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ['w-portugal-all.json', 'w-portugal.json'])   # Switzerland's file untouched
+            list(scout.wikidata_candidates(get=get, cache=Path(tmp) / 'w.json', countries=['Portugal']))
+            self.assertEqual(len(asked), 2, 'kept a week, per country')
+
+    def test_one_country_down_leaves_the_others_and_no_country_means_switzerland(self):
+        rows = {'results': {'bindings': [{'label': {'value': f'Co {i}'}, 'site': {'value': f'https://c{i}.ch'}, 'employees': {'value': '50'}} for i in range(250)]}}
+        def get(url, **_):
+            if 'Atlantis' in urllib.parse.unquote(url):
+                raise TimeoutError('slow')
+            return rows
+        import urllib.parse
+        with tempfile.TemporaryDirectory() as tmp:
+            found = list(scout.wikidata_candidates(get=get, cache=Path(tmp) / 'w.json', countries=['Atlantis', 'Switzerland']))
+        self.assertEqual(len(found), 250)
+        with mock.patch.object(scout, 'load_search_config', return_value={'locations': {'top_tier': ['Planet X']}}), \
+                mock.patch('src.places.load', return_value={}):
+            self.assertEqual(scout.search_countries(), ['Switzerland'])
 
     def test_wikidata_list_is_kept_a_week_and_reused_when_the_service_fails(self):
         from datetime import datetime, timedelta, timezone

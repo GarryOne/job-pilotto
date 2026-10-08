@@ -108,5 +108,26 @@ class ExpandingTests(unittest.TestCase):
         self.assertIn('lausanne', config['locations']['top_tier'][0].lower())
 
 
+
+class CountryTests(unittest.TestCase):
+    """8 Oct 2026: Find new employers looks for companies in the countries of your places, not only in Switzerland."""
+
+    def test_each_place_word_knows_its_countries_and_old_entries_are_asked_once_more(self):
+        answer = {'places': [{'word': 'Lisboa', 'kind': 'city', 'names': ['Lisbon'], 'countries': ['Portugal']},
+                             {'word': 'Benelux', 'kind': 'region', 'names': ['Amsterdam', 'Brussels'], 'countries': ['Netherlands', 'Belgium', 'Luxembourg']}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / 'places.json'
+            file.write_text(json.dumps({'lisboa': {'word': 'Lisboa', 'kind': 'city', 'names': [], 'at': '2026-10-05'}}))   # kept before countries existed
+            client = FakeClient(answer)
+            self.assertEqual(places.refresh(search(top=['Lisboa'], abroad=['Benelux']), client, file), 2)
+            self.assertEqual(places.refresh(search(top=['Lisboa'], abroad=['Benelux']), client, file), 0)
+            self.assertIn('countries', client.calls[0]['output_config']['format']['schema']['properties']['places']['items']['required'])
+            found = places.countries(search(top=['Lisboa', 'Romandie'], abroad=['Benelux']), places.load(file))
+        self.assertEqual(found, ['Portugal', 'Switzerland', 'Netherlands'])   # first places first, a Swiss region from the fixed table, at most three
+
+    def test_no_place_known_yet_gives_no_country(self):
+        self.assertEqual(places.countries(search(top=['Nowhere']), {}), [])
+
+
 if __name__ == '__main__':
     unittest.main()

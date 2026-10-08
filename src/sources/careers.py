@@ -384,7 +384,7 @@ def _from_recipe(url, markup, fetch_page):
         return list(pool.map(one, items[:40]))
 
 
-def _asked(url, markup, jobs, fetch_page=None):
+def _asked(url, markup, jobs, fetch_page=None, careers_page=False):
     """Rules' jobs when they look like jobs; else a recipe learned earlier (no AI); else, when a model can read the page, its answer,
     and a recipe derived from that answer so the next read needs no model."""
     jobs = [job for job in jobs if not _heading(job['title'])]   # career-page headings are never jobs
@@ -399,7 +399,7 @@ def _asked(url, markup, jobs, fetch_page=None):
     read = reader()
     if not read:
         return []
-    answer = read(url, markup)
+    answer = read(url, markup, careers_page=True) if careers_page and READER == 'auto' else read(url, markup)
     if answer is None:
         return []
     if answer and READER == 'auto':   # a real model answered: learn how to read this page without it
@@ -441,7 +441,7 @@ def successfactors_site(page, link):
     return host if re.search(r'rmkcdn\.successfactors\.com|rmk-map-\d|successfactors\.(?:eu|com)/career', page or '') and re.search(r'rmkcdn', page or '') else ''
 
 
-def _look(page, link, fetch_page):
+def _look(page, link, fetch_page, careers_page=False):
     """What one careers page offers: {'ats', 'slug'}, {'ats': 'careers', 'jobs'} (slug added by the caller), or None."""
     found = embedded_system(page)
     if found:
@@ -452,7 +452,7 @@ def _look(page, link, fetch_page):
     jobs = jsonld_jobs(page, link) or read_page_from(page, link, fetch_page)
     if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
         jobs = []   # that link is one job's page, not the list of jobs
-    jobs = _asked(link, page, jobs, fetch_page)
+    jobs = _asked(link, page, jobs, fetch_page, careers_page)
     return {'ats': 'careers', 'jobs': jobs} if jobs else None
 
 
@@ -507,8 +507,17 @@ def _quiet(fetch_page, url):
         return ''
 
 
-def _says_no_jobs(markup):
-    return bool(NO_JOBS.search(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', markup))))
+def _says_no_jobs(markup, link=''):
+    """The page says it has no open jobs: in the four languages NO_JOBS knows (free), or in any other as the AI reader read it (kept per page)."""
+    if NO_JOBS.search(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', markup))):
+        return True
+    if not link or READER != 'auto':
+        return False
+    try:
+        from ..ai import page_reader
+        return page_reader.said_no_open_jobs(link)
+    except Exception:  # noqa: BLE001 — no cache yet: as before
+        return False
 
 
 def _listed(page, url, result):
@@ -538,11 +547,11 @@ def _explore(start, home, fetch_page, show=None, links=None, limit=8):
             page = fetch_page(link)
         except Exception:  # noqa: BLE001
             continue
-        result = _look(page, link, fetch_page)
+        result = _look(page, link, fetch_page, careers_page=True)
         if not result and show and _shell(page):   # the plain page is an empty frame: read this one page again after its scripts ran
             try:
                 page = show(link)
-                result = _look(page, link, show)
+                result = _look(page, link, show, careers_page=True)
             except Exception:  # noqa: BLE001 — refused or no browser: nothing more to do
                 pass
         if result:
@@ -559,7 +568,7 @@ def _explore(start, home, fetch_page, show=None, links=None, limit=8):
                         queue += [(deeper, 1) for deeper in careers_links(page, link) if deeper not in seen][:5]
                     continue
             return result
-        if not empty and _says_no_jobs(page):
+        if not empty and _says_no_jobs(page, link):
             empty = link
         if depth == 0:   # a general careers page: the list of jobs is usually one link further
             queue += [(deeper, 1) for deeper in careers_links(page, link) if deeper not in seen][:3]
