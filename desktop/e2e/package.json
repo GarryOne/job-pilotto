@@ -5,6 +5,7 @@
   "description": "End-to-end journey tests: Playwright drives the real Electron app (see README.md here). Kept out of ../package.json so the shipped app never bundles it.",
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "real-extension": "JP_LIVE=1 node --test test/real-extension.test.mjs",
     "wizard": "node suite.mjs wizard",
     "jobs": "node suite.mjs jobs",
     "interviews": "node suite.mjs interviews",

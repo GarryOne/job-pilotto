@@ -35,6 +35,11 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   `src/ai/meanings.py`. Rule placement: high-volume items (titles, links) take the rule's yes for free and send the rest to AI;
   few high-stakes items (form questions, buttons, emails) are decided by AI, the rule answers only without AI and stays a safety floor.
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
+- **Validate a form fix on the real extension** (owner, 8 Oct 2026: "for better validating"): unit and shape tests do not load the extension, so after
+  a fix to form filling (`extension/page/*`, `fill-flow.js`, flows) also run `cd desktop && npm run real-extension` (headless Chrome, the real extension and
+  panel, a real Coop form, isolated: `desktop/e2e/lib/real-extension.mjs`). Prove the test with a positive control: `REAL_EXTENSION_DIR=<the build from
+  before the fix>` must fail it. A new case gets its own test there on a real site that shows it, always through `startRealExtension` (never a hand-rolled
+  launcher: it cuts off the live app, profile, CV, Keychain and AI, and asserts it). Say in the reply what it showed.
 - **Tests and automation never touch the owner's live app, accounts or real data** (8 Oct 2026: a headless browser with the real extension, launched
   without the harness's port rewrite, paired with the live app on 127.0.0.1:47111 and used the real profile, the Keychain password, the real CV and AI
   budget on an employer's site). Before running product code, list what it reaches (ports, apps, Keychain, tokens, real profile/CV, paid APIs), cut each
