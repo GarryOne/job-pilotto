@@ -1368,7 +1368,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* The log keeps a terminal window's shape (16:10), full width, but never taller than 560 px or 75% of the window
    (zoomed out on a wide screen it filled the whole page) */
 .ss-transcript, .ss-terminal { aspect-ratio: 16 / 10; height: auto; max-height: min(75vh, 560px); min-height: 240px; }
-.ss-transcript { overflow: auto; padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-3);
+.ss-transcript { overflow: auto; padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-3); align-content: start;   /* a short talk keeps its rows together: a fixed-height grid stretched them apart (8 Oct 2026) */
   color: var(--on-navy); font-size: var(--fs-md); line-height: 1.55; }
 .ss-tr-who { display: flex; gap: var(--sp-2); align-items: baseline; margin-bottom: 2px; font-size: var(--fs-sm); }
 .ss-tr-who span { color: var(--on-navy-muted); font-variant-numeric: tabular-nums; }
