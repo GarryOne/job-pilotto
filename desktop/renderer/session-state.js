@@ -56,3 +56,13 @@ export function firstLine(text, limit = 110) {
   }
   return shown;
 }
+
+// Which step of the application the session is at, said plainly (owner, 8 Oct 2026: show whether we are creating the employer
+// account or filling the job's own form). Step numbers only when there was an account step; nothing once it is submitted.
+export function sessionStage(item) {
+  if (!item || item.outcome === 'submitted') return null;
+  const site = item.accountHost ? ` on ${item.accountHost.replace(/^www\./, '')}` : '';
+  if (item.stage === 'account' || item.stuck === 'account') return {step: 1, text: `Step 1 of 2 · Creating your account${site}`, tone: 'info'};
+  if (item.stage === 'form') return {step: 2, text: item.accountHost ? 'Step 2 of 2 · Filling the application form' : 'Filling the application form', tone: 'info'};
+  return null;
+}

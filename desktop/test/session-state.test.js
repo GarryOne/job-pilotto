@@ -99,3 +99,13 @@ test('the dock counts and orders sessions like the list: closed forms are not ac
   const shown = [...items].sort((a, b) => dockOrder(a, gone) - dockOrder(b, gone)).map(item => item.id);
   assert.deepEqual(shown, ['ue', 'amazon', 'openai-1', 'openai-2']);
 });
+
+test('the stage says whether the session is creating the account or filling the application form', async () => {
+  const {sessionStage} = await import('../renderer/session-state.js');
+  assert.equal(sessionStage({stage: 'account', accountHost: 'career55.sapsf.eu'}).text, 'Step 1 of 2 · Creating your account on career55.sapsf.eu');
+  assert.equal(sessionStage({kind: 'form', stuck: 'account'}).step, 1);   // marked before stages existed
+  assert.equal(sessionStage({stage: 'form', accountHost: 'career55.sapsf.eu'}).text, 'Step 2 of 2 · Filling the application form');
+  assert.equal(sessionStage({stage: 'form'}).text, 'Filling the application form');   // no account step: no step numbers
+  assert.equal(sessionStage({stage: 'form', outcome: 'submitted'}), null);
+  assert.equal(sessionStage({}), null);
+});

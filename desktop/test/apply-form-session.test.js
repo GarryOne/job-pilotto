@@ -130,3 +130,13 @@ test('an account page hands the job to Claude on any report, unless a Claude ses
   assert.equal(accountTakeOver([form, {kind: 'claude', url: URL1, status: 'done', outcome: 'cancelled'}], form), 'start');
   assert.equal(accountTakeOver([form], {...form, stuck: 'no-form'}), 'not-account');
 });
+
+test('the stage follows the tab: account with its site, then the form; the account site is kept', () => {
+  terminals._reset();
+  terminals.startForm({id: 'f1', url: URL1});
+  terminals.noteStuck('f1', 'account', 'career55.sapsf.eu');
+  assert.deepEqual([terminals.get('f1').stage, terminals.get('f1').accountHost], ['account', 'career55.sapsf.eu']);
+  assert.equal(terminals.setStage('f1', 'form'), true);
+  assert.equal(terminals.setStage('f1', 'form'), false);
+  assert.deepEqual([terminals.get('f1').stage, terminals.get('f1').accountHost], ['form', 'career55.sapsf.eu']);
+});

@@ -93,7 +93,7 @@ const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: 
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  stuck: s.stuck || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', stage: s.stage || '', accountHost: s.accountHost || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
@@ -182,11 +182,23 @@ export function startForm({id, url, title = '', company = '', location = '', wor
 // → true when it changed, false when nothing did. 'account' is the furthest point of the chain (posting → Apply → sign-in): a
 // later 'no-form' from a tab earlier in it (the posting the Apply button left behind) never takes it back (owner, 8 Oct 2026:
 // Manor's sign-in page was reported, then its posting tabs said "no form" and the card lost the account step).
-export function noteStuck(id, why) {
+export function noteStuck(id, why, host = '') {
   const session = sessions.get(id);
   if (!session || session.kind !== 'form' || session.outcome || session.stuck === why || session.stuck === 'account') return false;
   session.stuck = why;
+  if (why === 'account') Object.assign(session, {stage: 'account', accountHost: host || session.accountHost || ''});
   session.note = why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form';
+  listener('update', publicView(session));
+  save();
+  return true;
+}
+// Where the application is, from what the extension sees in its tab: 'account' (a sign-in or sign-up page, on `host`) or 'form'
+// (the application form, its fields reported). The account's site is kept, so the form step can say it is step 2 of 2.
+export function setStage(id, stage, host = '') {
+  const session = sessions.get(id);
+  if (!session || session.outcome || (session.stage === stage && (!host || session.accountHost === host))) return false;
+  session.stage = stage;
+  if (stage === 'account' && host) session.accountHost = host;
   listener('update', publicView(session));
   save();
   return true;

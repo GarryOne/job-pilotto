@@ -2527,8 +2527,10 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const match = forms.find(session => apply.isFormOf(event.url, session.url));
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match});
     const why = event.why === 'account' ? 'account' : 'no-form';
+    // A Claude session on the same job at a sign-in page: its card says it is at the account step.
+    if (why === 'account') for (const other of terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url))) terminals.setStage(other.id, 'account', event.host);
     if (!match) return;
-    if (!terminals.noteStuck(match.id, why) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
+    if (!terminals.noteStuck(match.id, why, event.host) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
     if (why !== 'account') return;
     // A sign-in or sign-up in front of the form (owner, 8 Oct 2026): Claude takes the job over at once when Apply with Claude
     // is allowed: it signs in or creates the account with the job-site password and confirms it from Gmail. Never a dialog here.
@@ -2538,12 +2540,13 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     appLog('extension', 'account page: Claude takes over', {host: event.host, id: match.id, decidedBy: 'extension stuck: account'});
     takingOver.add(match.id);
     startClaude(match.url, {title: match.title, company: match.company, location: match.location, workMode: match.workMode}).then(result => {
+      if (result?.session?.id) terminals.setStage(result.session.id, 'account', event.host);   // it starts where the form session stopped
       if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); }
       else appLog('extension', 'account page: Claude could not start', {host: event.host, error: String(result?.error || '').slice(0, 160)});
     }).finally(() => takingOver.delete(match.id));
   });
   review.setReporter(state => {
-    if (state.total > 0) terminals.clearStuck(state.id);
+    if (state.total > 0) { terminals.clearStuck(state.id); if (terminals.setStage(state.id, 'form')) appLog('review', `stage ${state.id}: the application form`, {fields: state.total}); }
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
     toWindow('review', state);
   });
