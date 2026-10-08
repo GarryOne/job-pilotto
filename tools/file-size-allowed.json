@@ -6,7 +6,7 @@
  "desktop/lib/pipeline.js": 783,
  "desktop/lib/server.js": 682,
  "desktop/lib/strategy.js": 606,
- "desktop/main.js": 2678,
+ "desktop/main.js": 2600,
  "desktop/renderer/pages/activity.js": 2070,
  "desktop/renderer/pages/connections.js": 508,
  "desktop/renderer/pages/interviews.js": 777,

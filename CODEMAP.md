@@ -18,6 +18,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/analytics.js` — Product analytics (PostHog, EU cloud) without PostHog's SDK: which steps people take and where they stop (setup, first search, kit,
 - `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
+- `desktop/lib/app-meta-handlers.js` — The app's own state over IPC (moved out of main.js, 8 Oct 2026): the license, technical reports (telemetry, tester logs), sharing
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
 - `desktop/lib/apply.js` — "Apply to N jobs": pick the N best open jobs and start applying.
 - `desktop/lib/awake.js` — The time this computer has been awake: Date.now() minus the time it slept. Watchdogs measure with it, so a Mac asleep with its lid
