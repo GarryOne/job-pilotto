@@ -1,5 +1,5 @@
 /* global document */
-// "Read the jobs on this page" (7 Oct 2026): the extension's own page functions (extension/visit.js extractPage and goNext, as they run inside
+// "Read the jobs on this page" (7 Oct 2026): the extension's own page functions (extension/visit.js and visit-page.js: extractPage, goNext, as they run inside
 // a page) in a real Chromium on fixture pages, then the engine's reader (src/sources/visits.py) on what they sent. A portal-like list over
 // two pages (title, employer, place per card, a Next link), an employer page with job data, and a bot-check page, where it must stop.
 // No app window, no Notion, no AI, no network: about ten seconds. What it does not cover: the popup click and Chrome's access prompt.
@@ -19,9 +19,9 @@ export const keepGoing = true;
 
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
 const fixtures = path.join(import.meta.dirname, '..', 'fixtures', 'visits');
-// The two functions as the extension injects them: their own source, nothing re-written for the test.
-const source = fs.readFileSync(path.join(repo, 'extension', 'visit.js'), 'utf8');
-const fn = name => { const match = new RegExp(`export (?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js`); return match[0].replace('export ', ''); };
+// The page functions as the extension injects them: their own source, nothing re-written for the test (split over two files since 25ed270).
+const source = ['visit.js', 'visit-page.js'].map(file => fs.readFileSync(path.join(repo, 'extension', file), 'utf8')).join('\n');
+const fn = name => { const match = new RegExp(`export (?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}\\n`).exec(source); if (!match) throw new Error(`${name} not found in extension/visit.js or visit-page.js`); return match[0].replace('export ', ''); };
 const call = (page, name) => page.evaluate(`(${fn(name).replace(`function ${name}`, 'function')})()`);
 
 export async function run(ctx) {
