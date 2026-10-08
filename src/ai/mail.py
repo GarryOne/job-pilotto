@@ -495,7 +495,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
               on_new=None):
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
-    found = list(dict.fromkeys(google.search(query(apps, days), limit=60) + google.search(extra_query(days), limit=30)))
+    found = list(dict.fromkeys(google.search(query(apps, days), limit=60) + google.search(extra_query(days), limit=30) + google.search(mail_triage.subject_query(days), limit=60)))
     # Any other new inbox email: Claude says whether it is about your job search, in any language (src/ai/mail_triage.py).
     job, other = mail_triage.new_from_inbox(google, client, days, set(found), seen | set(index[0]), stats)
     if not dry_run:

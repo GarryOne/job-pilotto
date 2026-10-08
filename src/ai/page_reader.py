@@ -23,6 +23,7 @@ MAX_TEXT = 14000
 MAX_LINKS = 150
 MAX_JOBS = 60
 MAX_READS_PER_RUN = 25     # model calls in one process: a crawl never turns into a bill
+MAX_ANY_LANGUAGE_READS = 10   # more, for careers pages the role and job words don't recognise (another language), never taken from the 25
 MAX_TOKENS = 4000
 _reads = {'n': 0}
 
@@ -116,8 +117,11 @@ def read(url, markup, client=None, db=None, careers_page=False):
     careers_page: the scout reached it as a company's careers page: read whatever its language, within the same per-run limit."""
     text = text_for(markup, url)
     # Worth a call when the page names a role you look for, or reads like a list of jobs (the role and place filters decide afterwards).
-    if not (careers_page or wanted_text().search(text) or len(careers.STRONG_WORDS.findall(text)) + len(careers.TITLE_LIKE.findall(text)) >= 3):
+    worth = wanted_text().search(text) or len(careers.STRONG_WORDS.findall(text)) + len(careers.TITLE_LIKE.findall(text)) >= 3
+    if not (worth or careers_page):
         return None
+    # A page only careers_page lets in has its own allowance: the reads that found your roles before 8 Oct 2026 keep all of theirs.
+    counter, limit = ('n', MAX_READS_PER_RUN) if worth else ('any_language', MAX_ANY_LANGUAGE_READS)
     digest = hashlib.sha256(text.encode()).hexdigest()[:20]
     own = db is None
     db = db or _db()
@@ -125,10 +129,10 @@ def read(url, markup, client=None, db=None, careers_page=False):
         row = db.execute('SELECT digest, jobs_json FROM page_reads WHERE url = ?', (url,)).fetchone()
         if row and row[0] == digest:
             return clean(json.loads(row[1]), url)
-        if _reads['n'] >= MAX_READS_PER_RUN:
+        if _reads.get(counter, 0) >= limit:
             return clean(json.loads(row[1]), url) if row else None
         client = client or engine.client(action='scout')
-        _reads['n'] += 1
+        _reads[counter] = _reads.get(counter, 0) + 1
         response = client.messages.create(
             model=MODEL, max_tokens=MAX_TOKENS, system=[{'type': 'text', 'text': SYSTEM}],
             messages=[{'role': 'user', 'content': f'Careers page: {url}\n\n{text}'}], output_config=engine.structured(SCHEMA, MODEL, 'low'))

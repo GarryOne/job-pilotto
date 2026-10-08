@@ -64,5 +64,16 @@ class TriageTests(unittest.TestCase):
         google = SimpleNamespace(search=lambda query, limit=50: list(INBOX))   # an older client (or a test fake) with no snippet()
         self.assertEqual(mail_triage.new_from_inbox(google, FakeClient({0}), 3, set(), set()), ([], []))
 
+class SubjectSearchTests(unittest.TestCase):
+    def test_the_subject_words_search_every_folder_as_before(self):
+        """8 Oct 2026 (a regression check): an English "Your application" archived or in Promotions is still found."""
+        from unittest import mock
+        with mock.patch.object(mail_triage, 'role_words', lambda: ('site reliability',)):
+            q = mail_triage.subject_query(2)
+        for part in ('subject:"application"', 'subject:"interview"', 'subject:"site reliability"', 'subject:"SRE"'):
+            self.assertIn(part, q)
+        self.assertNotIn('in:inbox', q)
+
+
 if __name__ == '__main__':
     unittest.main()

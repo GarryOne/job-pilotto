@@ -31,7 +31,7 @@ class FakeClient:
 
 class ReaderTests(unittest.TestCase):
     def setUp(self):
-        page_reader._reads['n'] = 0
+        page_reader._reads.clear()
         self.db = sqlite3.connect(':memory:')
         self.db.execute('CREATE TABLE page_reads (url TEXT PRIMARY KEY, digest TEXT NOT NULL, jobs_json TEXT NOT NULL, read_at TEXT NOT NULL)')
         patch = mock.patch.object(page_reader, 'wanted_text', lambda: page_reader.careers.ats.re.compile(r'site reliability|\bsre\b', 2))
@@ -86,6 +86,16 @@ class ReaderTests(unittest.TestCase):
         with mock.patch.object(careers, 'READER', 'auto'), mock.patch.object(page_reader, 'said_no_open_jobs', lambda url: kept(url, self.db)):
             self.assertTrue(careers._says_no_jobs(page, 'https://acme.pt/carreiras'))
         self.assertFalse(careers._says_no_jobs(page, 'https://acme.pt/carreiras'), 'no model in tests: rules only')
+
+    def test_any_language_reads_never_use_up_the_reads_that_find_your_roles(self):
+        """8 Oct 2026 (a regression check): careers pages read in any language have their own allowance."""
+        client = FakeClient({'page': 'no_open_jobs', 'jobs': []})
+        foreign = '<h1>Carreiras</h1><p>Não temos vagas de momento.</p>'
+        for i in range(page_reader.MAX_ANY_LANGUAGE_READS + 3):
+            page_reader.read(f'https://pt{i}.example/c', foreign, client, self.db, careers_page=True)
+        self.assertEqual(len(client.calls), page_reader.MAX_ANY_LANGUAGE_READS)
+        self.assertEqual(page_reader._reads.get('n', 0), 0)
+        self.assertIsNotNone(page_reader.read('https://acme.ch/k', PAGE, FakeClient(), self.db))   # a page with your role is still read
 
     def test_a_cut_off_answer_raises_and_nothing_is_cached(self):
         with self.assertRaises(RuntimeError):
