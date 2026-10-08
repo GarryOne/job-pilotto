@@ -11,6 +11,15 @@ const CACHE = 'aliases-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 export const HINT_REASONS = ['seniority', 'location', 'tech', 'company', 'role'];
 // Only a fixed reason word and its share are kept: the sentence the scorer reads is the engine's own template, never text from the site.
+// The meanings pack's rows the site learned and the seed rows it switched off (site/src/meanings.js). Only the shape is checked here: the
+// engine checks every row against config/meanings_schema.json and compiles its pattern before using it (src/ai/meanings_pack.py).
+const short = (value, max) => typeof value === 'string' && value.trim() && value.length <= max;
+export const cleanMeanings = pack => ({
+  rows: (Array.isArray(pack?.rows) ? pack.rows : []).filter(row => short(row?.topic, 60) && ['pattern', 'exact'].includes(row.kind)
+    && short(row.wording, row.kind === 'exact' ? 200 : 2000) && short(row.answer, 60)).slice(0, 5000)
+    .map(({topic, kind, wording, answer, ord}) => ({topic, kind, wording, answer, ord: Number(ord) || 0})),
+  off: (Array.isArray(pack?.off) ? pack.off : []).filter(item => Array.isArray(item) && item.length === 3 && item.every(part => short(part, 2000))).slice(0, 5000),
+});
 export const cleanHints = list => (Array.isArray(list) ? list : []).filter(item => HINT_REASONS.includes(item?.reason) && Number(item.share) > 0 && Number(item.share) <= 1)
   .slice(0, 3).map(item => ({reason: item.reason, share: Math.round(Number(item.share) * 100) / 100}));
 const enabled = storage => storage.settings().telemetry !== false;
@@ -33,6 +42,7 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
     storage.writeText(CACHE, JSON.stringify({at: now, aliases}));
     benchmarks.save(storage, body.benchmarks, now);
     storage.writeText('data/hints.json', JSON.stringify({at: now, hints: cleanHints(body.hints)}));   // read by the scoring step (src/ai/hints.py)
+    storage.writeText('data/meanings.json', JSON.stringify({at: now, ...cleanMeanings(body.meanings)}));   // read by src/ai/meanings_pack.py
     return aliases;
   } catch (error) {
     log('aliases', `not asked: ${error.message}`);   // offline or the site down: the built-in patterns work alone

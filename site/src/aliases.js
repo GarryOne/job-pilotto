@@ -11,6 +11,7 @@ import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, digestOf, flag} from './guard.js';
 import {benchmarks, report} from './knowledge.js';
 import {isOwner} from './stats.js';
+import {packMeanings} from './meanings.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];
@@ -39,7 +40,8 @@ export async function pack(request, env, now = new Date()) {
     const rollout = row.status === 'verified' ? 100 : row.rollout;
     if (checked.ok && appliesTo({rollout}, install)) out.push({...checked.alias, rollout});
   }
-  return json({ok: true, aliases: out, hints: await hints(env.STATS, now).catch(() => []), benchmarks: await benchmarks(env.STATS, now).catch(() => [])});
+  return json({ok: true, aliases: out, hints: await hints(env.STATS, now).catch(() => []), benchmarks: await benchmarks(env.STATS, now).catch(() => []),
+    meanings: await packMeanings(env.STATS, install).catch(() => ({rows: [], off: []}))});
 }
 
 // Daily: a verified alias keeps being judged over the last week; if it starts failing it is switched off like a canary would be.

@@ -2,7 +2,8 @@
 interpret/decide rather than relying on hard-coded keywords ... scalable to thousands of websites, forms, CVs"; CLAUDE.md "Meaning comes
 from AI, never from keyword lists").
 
-decide(topic, items, answers, instructions): each item (key -> short text) gets exactly one of the fixed `answers`, which is all the code
+Lookup order: this computer's decisions -> the meanings pack (src/ai/meanings_pack.py: the old keyword lists as seed, plus what the site
+learned) -> the model. decide(topic, items, answers, instructions): each item (key -> short text) gets exactly one of the fixed `answers`, which is all the code
 ever reads. A small model answers in batches; every answer is kept per (topic, key) in jobs.sqlite (`decisions`), so an item is asked once.
 It returns None when no AI is available or a call fails: the caller then uses its rule (a safety net, never the decider when AI runs).
 The text sent is untrusted page/email text, and the model is told so; nothing it writes is used except the chosen answer.
@@ -54,7 +55,8 @@ def kept(topic, keys, db=None):
 
 
 def decide(topic, items, answers, instructions, client=None, db=None):
-    """{key: answer} for every item, from the cache or the model; None when an item needed the model and none could answer."""
+    """{key: answer} from the cache, the pack or the model. Without the model (none, failed, past its limit): the answers the cache and the
+    pack gave (items they don't know are left out), or None when they gave none."""
     items = {str(key): str(text or '')[:MAX_TEXT] for key, text in (items or {}).items()}
     if not items:
         return {}
@@ -62,12 +64,16 @@ def decide(topic, items, answers, instructions, client=None, db=None):
     db = _table(db or _db())
     try:
         out = kept(topic, items, db)
+        from . import meanings_pack   # then the pack (the old lists as seed + what the site learned): free, offline, never worse
+        for key in items:
+            if key not in out and (known := meanings_pack.first(topic, items[key])):
+                out[key] = known
         todo = [key for key in items if key not in out]
         if not todo:
             return out
         if client is None:
             if not engine.ready():
-                return None
+                return out or None   # no AI: what the cache and the pack know, else None (the caller's rule)
             client = engine.client(action='decide')
         schema = {'type': 'object', 'additionalProperties': False, 'required': ['results'], 'properties': {'results': {'type': 'array', 'items': {
             'type': 'object', 'additionalProperties': False, 'required': ['index', 'answer'],
@@ -75,7 +81,7 @@ def decide(topic, items, answers, instructions, client=None, db=None):
         stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
         for start in range(0, len(todo), BATCH):
             if _calls['n'] >= MAX_CALLS_PER_RUN:
-                return None
+                return out or None
             _calls['n'] += 1
             chunk = todo[start:start + BATCH]
             text = f'Task: {instructions}\nAllowed answers: {", ".join(answers)}\n\n' + '\n\n'.join(
@@ -89,14 +95,14 @@ def decide(topic, items, answers, instructions, client=None, db=None):
                 results = json.loads(next(block.text for block in response.content if block.type == 'text')).get('results') or []
             except Exception as error:  # noqa: BLE001 — the caller's rule decides this time
                 print(f'Warning: AI could not decide {topic} ({type(error).__name__}); the rule decides this time', flush=True)
-                return None
+                return out or None
             for result in results:
                 index, answer = result.get('index', -1), result.get('answer')
                 if 0 <= index < len(chunk) and answer in answers:
                     out[chunk[index]] = answer
                     db.execute('INSERT OR REPLACE INTO decisions (topic, key, answer, at) VALUES (?, ?, ?, ?)', (topic, chunk[index], answer, stamp))
             db.commit()
-        return out if all(key in out for key in items) else None
+        return out if out else None
     finally:
         if own:
             db.close()

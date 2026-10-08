@@ -105,3 +105,12 @@ test('hints from the site keep only a fixed reason word and a share between 0 an
     [{reason: 'seniority', share: 0.46}, {reason: 'role', share: 0.3}, {reason: 'location', share: 0.3}]);
   assert.deepEqual(cleanHints('nope'), []);
 });
+
+test('the meanings pack reaches the engine in its shape only (the engine checks the schema)', async () => {
+  const {cleanMeanings} = await import('../lib/aliases.js');
+  const pack = cleanMeanings({rows: [{topic: 'pool-country', kind: 'exact', wording: 'lisboa', answer: 'pt', ord: 3, extra: 'dropped'},
+    {topic: 'x', kind: 'script', wording: 'alert(1)', answer: 'y'}, {topic: 'pool-metro', kind: 'pattern', wording: 'x'.repeat(2001), answer: 'z'}],
+    off: [['asks-to-book', 'pattern', '\\bbook\\b'], ['bad']]});
+  assert.deepEqual(pack, {rows: [{topic: 'pool-country', kind: 'exact', wording: 'lisboa', answer: 'pt', ord: 3}], off: [['asks-to-book', 'pattern', '\\bbook\\b']]});
+  assert.deepEqual(cleanMeanings(undefined), {rows: [], off: []});
+});

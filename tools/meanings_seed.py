@@ -1,0 +1,107 @@
+"""Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read
+from pinned commits, so a Swiss or English user gets exactly the answers they got before, offline and without AI (owner, 8 Oct 2026:
+"I'd like my experience as Swiss/english to not worsen by a bit. Just to improve"). The same seed is loaded into the site's meanings
+table (site/migrations) and shipped with the app as the offline floor; the site's learned rows are added on top.
+
+    python3 tools/meanings_seed.py          write config/meanings_seed.json and site/migrations/0039_meanings_seed.sql
+    python3 tools/meanings_seed.py --check  exit 1 when the files are not what the sources give (tests/test_meanings_pack.py)
+"""
+import ast
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SEED = ROOT / 'config' / 'meanings_seed.json'
+SQL = ROOT / 'site' / 'migrations' / '0039_meanings_seed.sql'
+REMOVED = '4df410c^'   # the last commit with the mail/calendar/round lists, before they became AI decisions
+PLACES = '10893d2'     # the place and role lists of the pool, Adzuna and Google Jobs, before they became AI decisions
+
+
+def _tree(rev, path):
+    return ast.parse(subprocess.run(['git', 'show', f'{rev}:{path}'], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+
+
+def _value(node):
+    """A regex string, from r'...' or re.compile(r'...', ...); a dict of them; or a function's re.search patterns in order."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Call) and node.args:
+        return _value(node.args[0])
+    if isinstance(node, ast.Dict):
+        return {k.value: _value(v) for k, v in zip(node.keys, node.values)}
+    if isinstance(node, ast.BinOp):   # 'a|' 'b' + 'c'
+        return _value(node.left) + _value(node.right)
+    raise ValueError(f'not a literal: {ast.dump(node)[:80]}')
+
+
+def assigned(rev, path, name):
+    for node in _tree(rev, path).body:
+        if isinstance(node, ast.Assign) and any(getattr(t, 'id', None) == name for t in node.targets):
+            return _value(node.value)
+    raise KeyError(f'{name} not in {rev}:{path}')
+
+
+def searches(rev, path, function):
+    """The re.search patterns of one function, in the order it tries them."""
+    for node in ast.walk(_tree(rev, path)):
+        if isinstance(node, ast.FunctionDef) and node.name == function:
+            return [_value(call.args[0]) for call in ast.walk(node) if isinstance(call, ast.Call)
+                    and getattr(call.func, 'attr', '') == 'search' and getattr(call.func.value, 'id', '') == 're']
+    raise KeyError(f'{function} not in {rev}:{path}')
+
+
+def rows():
+    out = []
+    add = lambda topic, pattern, answer, source: out.append({'topic': topic, 'pattern': pattern, 'answer': answer, 'source': source})
+    add('calendar-event', assigned(REMOVED, 'src/ai/mail.py', 'INTERVIEWISH'), 'job_interview', 'mail.py INTERVIEWISH')
+    add('asks-to-book', assigned(REMOVED, 'src/focus.py', 'BOOKING'), 'asks_to_book', 'focus.py BOOKING')
+    technical, manager = searches(REMOVED, 'src/ai/interview_insights.py', 'round_type')
+    add('interview-round', technical, 'technical', 'interview_insights.py round_type')
+    add('interview-round', manager, 'hiring_manager', 'interview_insights.py round_type')
+    add('interview-round', assigned(REMOVED, 'src/ai/interviews.py', 'SCREEN'), 'recruiter_screen', 'interviews.py SCREEN')
+    for topic, path, name in (('pool-country', 'src/pool_tags.py', 'COUNTRIES'), ('pool-metro', 'src/pool_tags.py', 'METROS'),
+                              ('pool-family', 'src/pool_tags.py', 'FAMILIES'), ('pool-role', 'src/contribute.py', 'ROLES'),
+                              ('pool-region', 'src/contribute.py', 'REGIONS'), ('job-region', 'src/contribute.py', 'REGIONS'),
+                              ('place-country', 'src/sources/aggregators.py', 'ADZUNA_COUNTRIES')):
+        for answer, pattern in assigned(PLACES, path, name).items():
+            add(topic, pattern, answer, f'{path.rsplit("/", 1)[1]} {name}')
+    add('job-region', assigned(PLACES, 'src/contribute.py', 'REMOTE'), 'remote', 'contribute.py REMOTE')
+    return out
+
+
+def sql(seed):
+    quote = lambda s: "'" + str(s).replace("'", "''") + "'"
+    lines = ['-- The meanings pack seed (tools/meanings_seed.py): the keyword lists the code used before 8 Oct 2026, as rows. Generated; do not edit.',
+             'CREATE TABLE IF NOT EXISTS meanings (topic TEXT NOT NULL, kind TEXT NOT NULL, wording TEXT NOT NULL, answer TEXT NOT NULL, ord INTEGER NOT NULL DEFAULT 0,',
+             "  status TEXT NOT NULL DEFAULT 'verified', rollout INTEGER NOT NULL DEFAULT 100, source TEXT, updated_at TEXT, PRIMARY KEY (topic, kind, wording));",
+             "DELETE FROM meanings WHERE source LIKE 'seed:%';"]
+    for i, row in enumerate(seed):
+        lines.append(f"INSERT OR REPLACE INTO meanings (topic, kind, wording, answer, ord, status, rollout, source, updated_at) VALUES "
+                     f"({quote(row['topic'])}, 'pattern', {quote(row['pattern'])}, {quote(row['answer'])}, {i}, 'verified', 100, {quote('seed:' + row['source'])}, '2026-10-08');")
+    return '\n'.join(lines) + '\n'
+
+
+def main():
+    try:
+        seed = rows()
+    except subprocess.CalledProcessError:   # a shallow clone (CI) has no old commits: check that the SQL is the JSON's, at least
+        if '--check' not in sys.argv:
+            raise
+        seed = json.loads(SEED.read_text())['patterns']
+        print('sources not in this clone (shallow): checking the SQL against the JSON only')
+    text = json.dumps({'_doc': 'Generated by tools/meanings_seed.py: the offline floor of the meanings pack. Do not edit.', 'patterns': seed},
+                      indent=1, ensure_ascii=False) + '\n'
+    if '--check' in sys.argv:
+        stale = [p.name for p, want in ((SEED, text), (SQL, sql(seed))) if not p.exists() or p.read_text() != want]
+        print('stale: ' + ', '.join(stale) if stale else 'meanings seed up to date')
+        return 1 if stale else 0
+    SEED.write_text(text)
+    SQL.write_text(sql(seed))
+    print(f'{len(seed)} seed patterns -> {SEED.relative_to(ROOT)}, {SQL.relative_to(ROOT)}')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -362,6 +362,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
 - `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
+- `src/ai/meanings_pack.py` — The meanings pack on this computer: wording -> fixed answer, per topic, before any AI is asked (approved by the owner, 8 Oct 2026: the
 - `src/ai/meanings.py` — What content means, decided by AI in any language (CLAUDE.md "Meaning comes from AI, never from keyword lists"; the shared mechanism is
 - `src/ai/models.py` — The model of the small AI steps (title, page and place checks, triage, search picks, stage 1 facts, mail), as data.
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
@@ -482,6 +483,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/flows-gate.mjs` — Pre-push check (tools/pre-push-check.sh): a push that changes an Applying flow file (desktop/e2e/flows.mjs FLOW_FILES) must have passed
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
+- `tools/meanings_seed.py` — Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read
 - `tools/new-e2e-steps.mjs` — Pre-push check (tools/pre-push-check.sh): every e2e step this push adds was seen passing, or the commit says why not (desktop/e2e/lib/new-steps.mjs).
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links
