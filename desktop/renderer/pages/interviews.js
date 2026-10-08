@@ -1,17 +1,19 @@
 // Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
 import * as pendingReviews from '../review-pending.js';
 import * as reviewAgain from '../review-again.js';
-import {closeMenu, el, moreButton, pill, tile} from '../components.js';
+import {closeMenu, el, moreButton, pill} from '../components.js';
 import {searchSelect} from '../search-select.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
-import * as practice from '../practice-session.js';
 import {afterLoad} from '../interview-library.js';
 import {humanError} from '../run-warnings.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
 import {$, aiReady, message, osText, show} from './core.js';
+import {showPermission, startRecording, isRecording, stopRecording, onLevel, openPrivacySettings} from './interview-recorder.js';
+import {agoText, endPractice, showMoments, skeletonRows, startPractice} from './interview-practice.js';
+import {PASTE, jobForPage, jobList, jobOptions, jobUrlOf, renderDrafts as renderDraftList, renderSpeakers as renderSpeakerFields} from './interview-lists.js';
 
 // ---------- interviews: drafts on this Mac, saved ones in Notion 🎤 Interviews ----------
 const iv = window.pilot.interviews;
@@ -21,47 +23,6 @@ let ivInsight = null;       // the Insights card's row (💡 Insights, Interview
 let insightBusy = false, insightNote = '';
 let insightCollapsed = true;  // folded until you open it; the choice is remembered on this Mac
 try { insightCollapsed = localStorage.getItem('ivInsightOpen') !== '1'; } catch {}
-const plainId = id => String(id || '').replace(/-/g, '');
-const jobList = () => (Array.isArray(shared.allJobs) ? shared.allJobs : []);  // unset while the job list loads
-const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
-const jobForPage = pageId => jobList().find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
-
-// Every job in the list (applied and tracked ones first); one not in Applications yet is added there on save.
-const PASTE = '__paste__';
-function jobOptions(select, chosenUrl, emptyLabel) {
-  const rank = job => (job.status === 'applied' ? 0 : job.notion_url ? 1 : 2);
-  const jobs = jobList().filter(job => job.url && job.status !== 'dismissed')
-    .sort((a, b) => rank(a) - rank(b) || a.company.localeCompare(b.company));
-  select.replaceChildren(new Option(emptyLabel, ''), ...jobs.map(job => new Option(jobName(job), job.url, false, job.url === chosenUrl)));
-  if (chosenUrl && !jobs.some(job => job.url === chosenUrl)) select.append(new Option(chosenUrl, chosenUrl, false, true));
-  select.append(new Option('Paste a job link…', PASTE));
-}
-const jobUrlOf = (select, input) => (select.value === PASTE ? (/^https?:\/\//.test(input.value.trim()) ? input.value.trim() : '') : select.value);
-
-// Which macOS permission is missing, with a button to its System Settings page and one to restart
-// (macOS applies Screen & System Audio Recording only after the app restarts).
-let permissionKind = 'screen';
-async function showPermission(noCallAudio = false) {
-  const access = await iv.access();
-  // npm start: macOS may list the terminal that started the app instead of Electron.
-  const who = access.dev ? 'your terminal app (e.g. <b>iTerm</b>; quit and reopen it)' : '<b>Job Pilotto</b> (+ to add it)';
-  let text = '';
-  if (access.microphone === 'denied' || access.microphone === 'restricted') {
-    permissionKind = 'microphone';
-    text = `🎙️ <b>Allow the microphone</b>: Privacy &amp; Security → Microphone → ${who}, then restart.`;
-  } else if (await iv.tapAvailable()) {
-    // AudioTee: only "System Audio Recording Only" is needed; shown when a recording hears no call audio.
-    if (noCallAudio) {
-      permissionKind = 'screen';
-      text = `🔊 <b>No call audio yet</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → <b>System Audio Recording Only</b> → ${who}, then restart.`;
-    }
-  } else if (access.screen !== 'granted' || noCallAudio) {
-    permissionKind = 'screen';
-    text = `🔊 <b>Allow the call's audio</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → <b>top list</b> (not "System Audio Recording Only") → ${who}, then restart.`;
-  }
-  $('iv-permission-text').innerHTML = text;
-  show($('iv-permission'), !!text);
-}
 
 // Each part on its own, none waiting for another (owner, 30 Sep 2026: this awaited a fresh job list, a Python run of
 // 10–60 s at start-up, before drawing anything, so the page showed only its table header).
@@ -96,48 +57,8 @@ function failed(part, error) {
     message: `${part}: ${error?.message || String(error)}`, stack: error?.stack}).catch(() => {});
 }
 
-function renderDrafts(drafts) {
-  show($('iv-drafts-block'), drafts.length > 0);
-  $('iv-unsaved').textContent = `${drafts.length} unsaved`;
-  // Status: words for the meta line, and a pill.
-  const STATUS = {new: 'Not transcribed', recording: 'Recording…', transcribing: 'Transcribing…', stopped: 'Stopped: transcribe again',
-    failed: 'Failed', ready: 'Transcript ready'};
-  const PILL = {ready: ['good', 'Ready'], transcribing: ['signal', 'Transcribing'], recording: ['signal', 'Recording'], failed: ['bad', 'Failed']};
-  $('iv-drafts').replaceChildren(...drafts.map(draft => {
-    const busy = draft.status === 'recording' || draft.status === 'transcribing';
-    const row = el('div', `iv-draft${draft.id === ivOpen ? ' open' : ''}`);
-    const text = el('div', 'iv-draft-text');
-    const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-    const meta = el('div', 'muted small');
-    const parts = [when, draft.seconds ? `${Math.max(1, Math.round(draft.seconds / 60))} min` : '', STATUS[draft.status] || draft.status,
-      draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);
-    meta.textContent = parts.join('  ·  ');
-    text.append(el('b', '', draft.title), meta);
-    const [tone, label] = PILL[draft.status] || ['neutral', STATUS[draft.status] || draft.status];
-    const state = pill(label, tone, {dot: true});
-    // The next step for this draft: transcribe it, or review the transcript and save it.
-    const needsTranscript = draft.kind === 'audio' && ['new', 'stopped', 'failed'].includes(draft.status);
-    const main = Object.assign(el('button', 'primary iv-main', draft.status === 'ready' ? 'Review & save' : needsTranscript ? 'Transcribe' : 'Open'),
-      {disabled: busy && draft.id !== ivOpen});
-    main.addEventListener('click', () => openDraft(draft.id));
-    const menu = [{label: 'Open', run: () => openDraft(draft.id)}];
-    if (draft.pageUrl) menu.push({label: '↗ Transcript in Notion', run: () => window.pilot.openExternal(draft.pageUrl)});
-    menu.push({label: osText('Show in Finder'), run: () => iv.recordings(), title: 'The recordings kept on this Mac'});
-    if (!busy) {
-      menu.push('-', {label: draft.pageId ? 'Delete here and in Notion' : 'Delete recording', danger: true, run: async () => {
-        if (!confirm(draft.pageId ? `Delete "${draft.title}" on this Mac and in Notion?` : `Delete "${draft.title}" and its recording?`)) return;
-        await iv.discard(draft.id);
-        if (ivOpen === draft.id) { ivOpen = null; show($('iv-editor'), false); }
-        renderDrafts(await iv.drafts());
-      }});
-    }
-    const actions = el('div', 'row-actions');
-    actions.append(main, moreButton(menu, 'More: open, show in Finder, delete'));
-    row.append(tile(draft.kind === 'audio' ? 'mic' : 'file'), text, state, actions);
-    return row;
-  }));
-}
-
+const renderDrafts = drafts => renderDraftList(drafts, {openId: () => ivOpen, openDraft, closeEditor: () => { ivOpen = null; show($('iv-editor'), false); }});
+const renderSpeakers = () => renderSpeakerFields(saveOpenDraft);
 async function openDraft(id) {
   const draft = (await iv.drafts()).find(d => d.id === id);
   if (!draft) return;
@@ -164,24 +85,6 @@ async function openDraft(id) {
   $('iv-editor').scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
-// One field per speaker; renaming rewrites every "[time] Name:" line of the transcript.
-function renderSpeakers() {
-  const names = [...new Set([...$('iv-text').value.matchAll(/^\[\d\d:\d\d:\d\d\] ([^:\n]{1,60}):/gm)].map(m => m[1]))];
-  $('iv-speakers').replaceChildren(...names.map(name => {
-    const label = Object.assign(document.createElement('label'), {textContent: name});
-    const input = Object.assign(document.createElement('input'), {value: name, placeholder: 'e.g. You, Recruiter, Hiring manager'});
-    input.addEventListener('change', () => {
-      const to = input.value.replace(/[:\n[\]]/g, ' ').trim();
-      if (!to || to === name) { input.value = name; return; }
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      $('iv-text').value = $('iv-text').value.replace(new RegExp(`^(\\[\\d\\d:\\d\\d:\\d\\d\\] )${escaped}:`, 'gm'), `$1${to}:`);
-      saveOpenDraft();
-      renderSpeakers();
-    });
-    label.append(input);
-    return label;
-  }));
-}
 
 let draftTimer;
 function saveOpenDraft() {
@@ -220,19 +123,6 @@ const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
 const IV_SAVED_TO = 'Saved to Notion 🎤 Interviews';
 // Loading: the last good list at once (lib/view-cache.js, "saved 3 min ago · updating…"); with nothing saved yet,
 // skeleton rows in the table (the boxes are there, shimmering) until Notion answers.
-function skeletonRows(n = 3) {
-  return Array.from({length: n}, () => {
-    const tr = document.createElement('tr');
-    tr.className = 'iv-skeleton';
-    for (const cls of ['w-60', 'w-80', 'w-80', 'w-40', 'w-40', 'button small']) {
-      const td = document.createElement('td');
-      td.append(el('span', `skeleton ${cls}`));
-      if (cls === 'w-80') td.append(el('span', 'skeleton w-40'));
-      tr.append(td);
-    }
-    return tr;
-  });
-}
 async function showSavedLoading() {
   show($('iv-empty'), false);
   if (ivSavedRows.length) { $('iv-lib-stats').textContent = 'Refreshing from Notion…'; return shownAt; }
@@ -250,10 +140,6 @@ async function showSavedLoading() {
   show($('iv-insight'));
   $('iv-lib-stats').textContent = 'Loading from Notion…';
   return null;
-}
-function agoText(at) {
-  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60000));
-  return minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`;
 }
 // One read at a time: coming back to the page while one runs waits for it (they piled up: each a Python run and a
 // share of Notion's rate limit). A change made here (save, link, review, ↻) reads again once that one is done.
@@ -322,74 +208,14 @@ function renderInsight() {
   const view = insightView(ivInsight, ivSavedRows);
   show($('iv-insight'), !!view);
   insightShown = view;
-  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: title => showMoments(title), onPractice: startPractice, refresh: refreshInsights,
+  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: title => showMoments(insightShown, showRow, title), onPractice: () => startPractice(insightShown?.steps || [], tickStep), refresh: refreshInsights,
     onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote, updating: !insightFresh && !!ivInsight}));
 }
 let insightShown = null, insightFresh = false, insightWaits = 0;
 // "Updated 3 min ago" keeps up while the page is open.
 setInterval(() => { if (insightShown && !$('iv-insight')?.hidden) renderInsight(); }, 60 * 1000);
 
-// View supporting moments: the quotes behind each pattern; a name opens that interview in the library.
-function showMoments(title = '') {
-  const view = insightShown;
-  if (!view?.moments?.length) return;
-  $('moments-body').replaceChildren(...view.moments.map(group => {
-    const box = el('div', 'iv-moments-group');
-    box.dataset.title = group.title;
-    box.append(el('h3', '', group.title));
-    for (const item of group.quotes) {
-      const line = el('div', 'iv-moment');
-      line.append(el('span', '', `“${item.quote}”`));
-      const who = Object.assign(el('button', 'link small', item.where || item.name), {type: 'button', title: 'Show this interview in the library'});
-      who.addEventListener('click', () => { $('moments-dialog').close(); showRow(item.id); });
-      line.append(who);
-      box.append(line);
-    }
-    return box;
-  }));
-  show($('moments-notion'), !!view.supporting?.url);
-  $('moments-notion').onclick = () => window.pilot.openNotion(view.supporting.url);
-  $('moments-dialog').showModal();
-  // opened from a pattern's "N quotes": scrolled to that pattern
-  if (typeof title === 'string' && title) [...$('moments-body').children].find(box => box.dataset.title === title)?.scrollIntoView({block: 'start'});
-}
 
-// Start practice session: the steps still to do, one at a time, each with a countdown; "Done" ticks it (saved in Notion).
-let session = null, sessionTimer = null;
-function startPractice() {
-  const state = practice.begin(insightShown?.steps || []);
-  if (state.finished) return;
-  session = state;
-  drawPractice();
-  $('practice-dialog').showModal();
-  clearInterval(sessionTimer);
-  sessionTimer = setInterval(() => { session = practice.tick(session); drawPractice(); }, 1000);
-}
-function endPractice() { clearInterval(sessionTimer); sessionTimer = null; session = null; }
-function drawPractice() {
-  if (!session) return;
-  const button = (label, cls, run) => { const b = Object.assign(el('button', cls, label), {type: 'button'}); b.addEventListener('click', run); return b; };
-  const body = $('practice-body'), foot = $('practice-foot');
-  const step = practice.current(session);
-  if (!step) {
-    const {done, skipped, total} = practice.summary(session);
-    body.replaceChildren(el('h3', '', done === total ? 'All done' : `${done} of ${total} practised`),
-      el('p', 'muted', skipped ? `${skipped} skipped: they stay in Practice next.` : 'Ticked in Practice next. Do it again before the next interview.'));
-    foot.replaceChildren(button('Close', 'primary', () => $('practice-dialog').close()));
-    return;
-  }
-  const time = el('div', `iv-practice-clock${session.remaining === 0 ? ' is-over' : ''}`, session.remaining === 0 ? "Time's up" : practice.clock(session.remaining));
-  body.replaceChildren(el('p', 'muted small', `Step ${session.index + 1} of ${session.steps.length}`), el('h3', '', step.title),
-    ...(step.detail ? [el('p', 'muted', step.detail)] : []), el('p', '', 'Say your answer out loud, as you would in the interview. Then mark it done.'), time);
-  const go = button(session.running ? 'Pause' : session.remaining === practice.STEP_SECONDS ? 'Start the clock' : 'Resume', 'secondary', () => { session = practice.toggle(session); drawPractice(); });
-  foot.replaceChildren(go, button('Skip', 'ghost', () => { session = practice.finishStep(session, 'skipped'); drawPractice(); }),
-    button('Done, next', 'primary', () => {
-      const text = step.text;
-      session = practice.finishStep(session, 'done');
-      tickStep({text}, true);
-      drawPractice();
-    }));
-}
 
 // Fold the card to its header (remembered on this Mac: a view preference, not data).
 function toggleInsight() {
@@ -573,132 +399,6 @@ async function reviewAgainRow(pageId) {
   if (result.ok) loadSaved();
 }
 
-// Recorder: your microphone on the left channel, the call's audio (screen capture) on the right, so the
-// transcript can tell which speaker is you. Without the call's audio it records the microphone alone.
-let recorder = null;
-// Record starts only with the call's audio (otherwise only your voice would be kept); the permission panel
-// says what to allow. "Record my microphone only" is the explicit choice for in-person or speaker calls.
-async function callAudio() {
-  // Without macOS Screen & System Audio Recording permission the request may never answer: give up after 5 s.
-  try {
-    const request = navigator.mediaDevices.getDisplayMedia({audio: true, video: {frameRate: 1, width: 320, height: 200}});
-    const call = await Promise.race([request, new Promise(resolve => setTimeout(() => resolve(null), 5000))]);
-    if (!call) { request.then(late => late.getTracks().forEach(t => t.stop()), () => {}); return null; }
-    if (!call.getAudioTracks().length) { call.getTracks().forEach(t => t.stop()); return null; }
-    return call;
-  } catch { return null; }
-}
-
-let levelListener = null;
-
-async function startRecording(micOnly) {
-  message('iv-message', '');
-  if (!$('iv-consent').checked) { message('iv-message', 'First ask everyone on the call and tick the consent box.', 'error'); return; }
-  if (recorder) return;
-  $('iv-record').disabled = true;
-  let call = null;
-  const tap = !micOnly && await iv.tapAvailable();  // the call's audio through AudioTee, no screen capture
-  if (!micOnly && !tap) {
-    message('iv-message', 'Connecting to the call\'s audio…');
-    call = await callAudio();
-    if (!call) {
-      message('iv-message', 'Not recording: allow the call\'s audio first (above), or choose Mic only.', 'error');
-      await showPermission(true);
-      $('iv-record').disabled = !$('iv-consent').checked;
-      $('iv-permission').scrollIntoView({behavior: 'smooth', block: 'center'});
-      return;
-    }
-    message('iv-message', '');
-  }
-  let mic;
-  try {
-    mic = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
-  } catch {
-    call?.getTracks().forEach(t => t.stop());
-    message('iv-message', 'Job Pilotto may not use the microphone yet: allow it (see above), then restart.', 'error');
-    showPermission();
-    $('iv-record').disabled = !$('iv-consent').checked;
-    return;
-  }
-  const context = new AudioContext();
-  const destination = context.createMediaStreamDestination();
-  const mono = stream => {
-    const gain = context.createGain();
-    Object.assign(gain, {channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers'});
-    context.createMediaStreamSource(stream).connect(gain);
-    return gain;
-  };
-  if (call) {
-    const merger = context.createChannelMerger(2);
-    mono(mic).connect(merger, 0, 0);
-    mono(call).connect(merger, 0, 1);
-    destination.channelCount = 2;
-    merger.connect(destination);
-  } else {
-    destination.channelCount = 1;
-    mono(mic).connect(destination);
-  }
-  const id = await iv.recordStart({stereo: !!call || tap});
-  if (tap) {
-    const tapped = await iv.tapStart(id);
-    if (!tapped.ok) {
-      mic.getTracks().forEach(t => t.stop());
-      context.close();
-      await iv.recordStop(id, 0);
-      await iv.discard(id);
-      message('iv-message', `Not recording: the call's audio couldn't start (${tapped.error}). Try again, or choose Mic only.`, 'error');
-      $('iv-record').disabled = !$('iv-consent').checked;
-      return;
-    }
-  }
-  const media = new MediaRecorder(destination.stream, {mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: call ? 96000 : 48000});
-  // AudioTee's level: the meter moves when the other people speak; flat for 20 s = likely no permission.
-  let heard = false;
-  const quiet = tap ? setTimeout(() => {
-    if (!heard && recorder === media) {
-      $('iv-sources').textContent = 'No call audio heard yet.';
-      showPermission(true);
-    }
-  }, 20000) : null;
-  levelListener = ({id: tapped, level}) => {
-    if (tapped !== id) return;
-    if (level > 0.02 && !heard) { heard = true; $('iv-sources').textContent = 'Your microphone and the call\'s audio'; show($('iv-permission'), false); }
-    $('iv-meter-bar').style.width = `${Math.min(100, Math.round(Math.sqrt(level) * 140))}%`;
-  };
-  const started = Date.now();
-  let writing = Promise.resolve();
-  media.ondataavailable = event => {
-    if (event.data.size) writing = writing.then(async () => iv.recordChunk(id, new Uint8Array(await event.data.arrayBuffer())));
-  };
-  const timer = setInterval(() => {
-    const s = Math.round((Date.now() - started) / 1000);
-    $('iv-timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  }, 500);
-  media.onstop = async () => {
-    clearInterval(timer);
-    await writing;
-    [mic, call].filter(Boolean).forEach(stream => stream.getTracks().forEach(track => track.stop()));
-    context.close();
-    clearTimeout(quiet);
-    levelListener = null;
-    await iv.recordStop(id, (Date.now() - started) / 1000, {micStartedAt});
-    recorder = null;
-    show($('iv-recorder'), false);
-    $('iv-consent').checked = false;
-    $('iv-record').disabled = true;
-    openDraft(id);
-  };
-  media.start(5000);  // a chunk every 5 s goes to disk
-  const micStartedAt = Date.now();
-  recorder = media;
-  $('iv-record').disabled = true;
-  $('iv-timer').textContent = '00:00';
-  $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' : tap ? 'Listening for the call\'s audio…' : 'Your microphone only (as you chose)';
-  show($('iv-meter'), tap);
-  $('iv-meter-bar').style.width = '0';
-  show($('iv-permission'), false);
-  show($('iv-recorder'));
-}
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
@@ -707,8 +407,8 @@ export async function init() {
   $('iv-remind').checked = remind.on;
   $('iv-remind').addEventListener('change', event => iv.remindSet(event.target.checked));
   window.pilot.onOpenInterviews(() => document.querySelector('.nav[data-view="interviews"]').click());
-  $('iv-permission-open').addEventListener('click', () => iv.openPrivacy(permissionKind));
-  $('iv-permission-restart').addEventListener('click', () => { if (!recorder) iv.relaunch(); });
+  $('iv-permission-open').addEventListener('click', () => openPrivacySettings());
+  $('iv-permission-restart').addEventListener('click', () => { if (!isRecording()) iv.relaunch(); });
   $('iv-title').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(saveOpenDraft, 600); });
   $('iv-text').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(() => { saveOpenDraft(); renderSpeakers(); }, 800); });
   $('iv-job').addEventListener('change', () => {
@@ -768,10 +468,10 @@ export async function init() {
   $('iv-recordings').addEventListener('click', () => iv.recordings());
   $('practice-dialog').addEventListener('close', endPractice);
   // Consent first: Record stays off until the box is ticked, and the tick is asked again for every call.
-  $('iv-consent').addEventListener('change', () => { $('iv-record').disabled = !$('iv-consent').checked || !!recorder; });
+  $('iv-consent').addEventListener('change', () => { $('iv-record').disabled = !$('iv-consent').checked || isRecording(); });
 
-  $('iv-record').addEventListener('click', () => startRecording(false));
-  $('iv-mic-only').addEventListener('click', () => startRecording(true));
-  window.pilot.onCallLevel(level => levelListener?.(level));
-  $('iv-stop').addEventListener('click', () => recorder?.state === 'recording' && recorder.stop());
+  $('iv-record').addEventListener('click', () => startRecording(false, openDraft));
+  $('iv-mic-only').addEventListener('click', () => startRecording(true, openDraft));
+  window.pilot.onCallLevel(level => onLevel(level));
+  $('iv-stop').addEventListener('click', () => stopRecording());
 }

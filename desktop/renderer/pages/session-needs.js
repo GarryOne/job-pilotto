@@ -1,10 +1,9 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
-import {checkingTabs, chromeSilent, isSubmitted, tabClosed} from '../session-state.js';
+import {checkingTabs, chromeSilent, tabClosed} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
-import {KNOCKOUT} from '../knockout.js';
 import {answerOptions} from '../answer-options.js'; import {proposalFor, proposedRow} from './need-proposal.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -12,7 +11,7 @@ import {openView} from './nav.js';
 import {openSession, renderSessionPage, say} from './session-log.js';
 import {firstLine, refreshSessions, renderDock, sessionCompany, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
-import {openMatchCheck} from './match-check.js';
+import {showFormCard} from './session-form-card.js';
 
 // Something only you can do, with its most likely action one click away: a judgement call (Claude's proposed
 // answer, or another you saved for the same question) or an agreement (open the form to tick it).
@@ -128,94 +127,6 @@ export function showFormState(item) {
   const state = reviewStates.get(item.id);
   showFormCard(item, state);
   $('ss-form-state').replaceChildren();  // the "Form completion" card says it (count, bar, pill): once
-}
-// "Form completion", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded under
-// them: what's left first, then each filled one with its time since the fill started (the first field filled).
-// "Before you submit": what decides an application more than the CV, from what the form says is still open. The knockout questions (a hiring system can be set to
-// reject on them: docs/research/ats-reddit-2026-10.md) and which CV goes in: the general one, or one tailored to this job, with a way to tailor it.
-const fullKey = url => String(url || '').trim().replace(/\/$/, '');
-const cvSeen = new Map();   // job url → {at, info}
-async function cvInfo(url) {
-  const known = cvSeen.get(url);
-  if (known && Date.now() - known.at < 4000) return known.info;
-  const info = await window.pilot.cvOf(url).catch(() => null);
-  cvSeen.set(url, {at: Date.now(), info});
-  return info;
-}
-function showBefore(item, left, account = false) {
-  const knockouts = left.filter(label => KNOCKOUT.test(label));
-  const submitted = isSubmitted(item);
-  show($('ss-before-knock'), !submitted && knockouts.length > 0);
-  if (knockouts.length) {
-    $('ss-before-knock-title').textContent = `${knockouts.length} question${knockouts.length === 1 ? '' : 's'} can reject you automatically, if the employer set a rule`;
-    $('ss-before-knock-list').textContent = `Answer ${knockouts.length === 1 ? 'it' : 'them'} yourself, truthfully: ${knockouts.slice(0, 3).map(label => label.replace(/\s*\*\s*$/, '')).join(' · ')}${knockouts.length > 3 ? ' …' : ''}`;
-  }
-  const job = shared.allJobs.find(candidate => fullKey(candidate.url) === fullKey(item.url));
-  show($('ss-before-cv'), false);
-  // A sign-in or sign-up page is not the application: no CV goes there (owner, 8 Oct 2026).
-  if (submitted || !item.url || account) return show($('ss-before'), !submitted && knockouts.length > 0);
-  cvInfo(item.url).then(info => {
-    if (!info) return;
-    show($('ss-before-cv'), true);
-    $('ss-before-cv-mark').textContent = info.tailored ? '✓' : '○';
-    $('ss-before-cv-title').textContent = info.tailored ? 'A CV tailored to this job is ready' : info.working ? 'Tailoring your CV for this job…' : 'This form gets your general CV';
-    $('ss-before-cv-sub').textContent = info.tailored ? 'Press Fill again on the form if it still shows your general CV.' : info.working ? 'About 1–2 minutes. Then fill the form again.'
-      : 'A CV written for the job gets noticeably more replies than a general one.';
-    const compare = $('ss-before-match-btn');
-    show(compare, !!job?.code);
-    compare.onclick = () => openMatchCheck(job);
-    const button = $('ss-before-cv-btn');
-    show(button, !info.tailored && !info.working && !!job?.code);
-    button.disabled = false;
-    button.onclick = async () => {
-      button.disabled = true;
-      button.textContent = 'Tailoring… (about 1–2 min)';
-      const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
-      button.textContent = result.ok ? 'Tailored ✓' : 'Retry';
-      button.disabled = !!result.ok;
-      cvSeen.delete(item.url);
-      if (result.ok) showBefore(item, left);
-    };
-    show($('ss-before'), true);
-  });
-  show($('ss-before'), knockouts.length > 0);
-}
-const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-function showFormCard(item, state) {
-  const card = $('ss-form-card');
-  card.hidden = !state?.total || !!state.account || formGone(item);   // Form completion is the application form's, never a sign-in page's
-  if (card.hidden) return;
-  const done = state.total - state.left;
-  $('ss-form-pill').replaceChildren(isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
-    : state.ready ? pill('Ready to submit', 'good', {dot: true})
-    : pill(`${state.left} remaining`, 'warn', {title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists the rest)`}));
-  const count = $('ss-form-count');
-  count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
-  $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
-  card.classList.toggle('is-ready', !!state.ready);
-  showBefore(item, state.pending || state.missing || [], !!state.account);
-  // An extension older than 0.8.12 sends no filled fields: then only what's left.
-  const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
-  const left = state.pending || state.missing || [];
-  const start = filled.find(field => field.at)?.at || 0;
-  $('ss-form-more').hidden = !filled.length && !left.length;
-  const leftCount = Math.max(left.length, state.left);
-  const leftText = leftCount ? `${leftCount} ${item.status === 'running' ? 'to go' : 'left'}` : '';
-  $('ss-form-summary').textContent = filled.length ? `Show the ${filled.length} filled field${filled.length === 1 ? '' : 's'}${leftText ? ` and ${leftText}` : ''}`
-    : `Show the ${leftText}`;
-  // Who filled it: you (after the fill was over) or the fill (Claude, the extension); the time only when the app saw it.
-  const row = (kind, time, mark, label, by = '') => {
-    const li = el('li', kind);
-    const text = el('span', 'ss-form-label', label);
-    text.title = label;
-    li.append(el('span', 'ss-form-time', time), el('b', 'ss-form-mark', mark), text);
-    if (by) li.append(el('span', 'ss-form-by', by));
-    return li;
-  };
-  $('ss-form-fields').replaceChildren(
-    ...left.map(label => row('is-left', '', '○', label)),
-    ...filled.map(field => row(field.by === 'you' ? 'is-filled is-yours' : 'is-filled', field.at ? clock(Math.max(0, field.at - start)) : '', '✓', field.label,
-      field.by === 'you' ? 'you' : '')));
 }
 export function applyFormStates(item) {
   const state = reviewStates.get(item.id);

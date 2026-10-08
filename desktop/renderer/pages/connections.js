@@ -3,7 +3,6 @@ import {notionConnected, openNotionConnect} from './notion-connect.js';
 import {shared} from './shared.js';
 import {$, message, osPick, osText, show} from './core.js';
 import {moreButton, pill} from '../components.js';
-import {icon} from '../icons.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {extensionState} from '../service-status.js';
@@ -12,36 +11,8 @@ import {inBrowser, retarget} from '../browser-words.js';
 import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
+import {showClaudePrereqs} from './claude-prereqs.js';
 
-// ---------- Apply with Claude: what only the user can install (wizard, Optional extras) ----------
-async function showClaudePrereqs() {
-  const found = await window.pilot.claudePrereqs().catch(() => null);
-  if (!found) return;
-  const link = (href, text) => Object.assign(document.createElement('a'), {href, target: '_blank', textContent: text});
-  const items = [
-    [found.claude, 'Claude Code installed', link('https://claude.com/claude-code', 'Install Claude Code')],
-    [found.signedIn, 'Signed in to Claude Code with your Claude account', document.createTextNode(
-      found.windows ? 'Open PowerShell, run claude, then /login' : 'Open Terminal, run claude, then /login')],
-    ...(found.windows ? [[found.git, 'Git for Windows installed (Claude Code needs it)', link('https://git-scm.com/downloads/win', 'Install Git for Windows')]] : []),
-    [found.chrome, found.chrome ? 'Claude in Chrome extension added (sign in to it in Chrome once)' : 'Claude in Chrome extension added and signed in',
-      link('https://chromewebstore.google.com/search/Claude', 'Get it from the Chrome Web Store')],
-    // Built into the app (nothing to install): sessions run inside Job Pilotto; without it, in Terminal windows.
-    [found.inApp, found.inApp ? 'In-app terminal ready (built in): sessions run inside Job Pilotto' : 'In-app terminal unavailable',
-      document.createTextNode('sessions open in Terminal windows instead')],
-  ];
-  $('claude-prereqs').replaceChildren(...items.map(([done, text, action]) => {
-    const li = document.createElement('li');
-    li.className = done ? 'done' : '';
-    const words = document.createElement('span');
-    words.append(text);
-    if (!done) words.append(' · ', action);
-    li.append(icon(done ? 'check-circle' : 'info'), words);
-    return li;
-  }));
-}
-
-// A windowless Chrome from an earlier automation holds macOS's one Apple Event connection to Chrome, so the app
-// cannot reach the user's window with its scripting (focus, reload). Nothing owns it any more, so it can be quit.
 function showStray(entry) {
   const box = $('ext-stray');
   show(box, !!entry);

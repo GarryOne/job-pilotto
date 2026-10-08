@@ -178,6 +178,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/calendar.js` — Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
+- `desktop/renderer/pages/claude-prereqs.js` — Apply with Claude prerequisites checklist (wizard, Optional extras): what only the user can install.
 - `desktop/renderer/pages/connections.js` — Settings → connections: Apply with Claude, the extension, how often, Always on.
 - `desktop/renderer/pages/contact-proposals.js` — "Your details from your CV" in the window: the values Claude proposed from the CV (lib/contact-from-cv.js) go into the empty boxes of
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
@@ -189,6 +190,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/find.js` — ⌘F on every page: a small find bar (top right) that highlights what the page shows (CSS Highlight API) and scrolls to each
 - `desktop/renderer/pages/focus.js` — Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
+- `desktop/renderer/pages/interview-lists.js` — Interviews page, the job list helpers (names, the picker's options, the pasted link), the unsaved-recordings list and
+- `desktop/renderer/pages/interview-practice.js` — Interviews page, small parts: the supporting-moments dialog, the practice session, the loading skeleton rows and
+- `desktop/renderer/pages/interview-recorder.js` — Interviews page, recording: the macOS permission panel and the recorder (your microphone on the left channel, the
 - `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
 - `desktop/renderer/pages/jobs-fit.js` — Jobs page, match analysis: the panel a score ring opens (parts as bars, risk, strengths and gaps). Guarded by: npm run shot -- jobs (no unit test reads it).
 - `desktop/renderer/pages/jobs-lead.js` — Jobs page, Log a message: the recruiter-lead dialog (screenshots, confirm step, job picker) and wireLead(). Guarded by: test/lead-confirm.test.js.
@@ -209,6 +213,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/reassign.js` — Where an email belongs, in your words: Focus → "Is this about …?" (an email the Gmail check wasn't sure about).
 - `desktop/renderer/pages/rich-text.js` — Claude's messages as readable text.
 - `desktop/renderer/pages/runs-page.js` — Status card and the Actions page.
+- `desktop/renderer/pages/session-actions.js` — Session actions: remove, close, cancel, skip, restart, resume and pause one application session.
+- `desktop/renderer/pages/session-form-card.js` — Session page, "Form completion" card and "Before you submit" box (knockout questions, which CV goes in).
 - `desktop/renderer/pages/session-log.js` — Session page: opening a session and its log.
 - `desktop/renderer/pages/session-needs.js` — Session page: what Claude needs from you, and the form page in step.
 - `desktop/renderer/pages/sessions.js` — Application sessions: the dock, the list, the next step.
