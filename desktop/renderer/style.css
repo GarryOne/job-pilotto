@@ -2375,7 +2375,11 @@ button.is-busy { cursor: progress; opacity: .7; }
 /* Recent activity, a search with few new jobs (owner mockup, 7 Oct 2026): Employer coverage and Other ways to broaden your search, two cards beside
    the run card. Built on .ap-card, .insight-numbers, .item-rows and details.plain; only the head and the row icons are new. */
 .few-help { display: grid; }
-.activity-panel .few-card { display: grid; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); }
+.few-card { display: grid; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); }
+/* On the Actions page the help is drawn inside the result card, already a box: sections split by a line, the card body's side padding (8 Oct 2026:
+   the .activity-panel-only padding left them flush with the card edge). */
+.run-card > .run-card-help { gap: 0; }
+.run-card > .run-card-help > .few-card { padding: var(--sp-4); border-top: 1px solid var(--line); }
 .few-head { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: start; }
 .few-head > .icon { width: 22px; height: 22px; color: var(--ink-2); margin-top: 2px; }
 .few-head h3 { margin: 0; font-size: var(--fs-lg); }
