@@ -67,16 +67,16 @@ test('targets: questions 3+ installs report that no alias placed yet', async () 
   assert.ok(targets.keys.includes('place_of_origin') && targets.sensitive.includes('birth_date'));
 });
 
-test('how aliases fared is counted, and the canary grows what works, halts what fails, and never grows a sensitive one', async () => {
+test('how aliases fared is counted, and the canary grows what works (a sensitive field too: owner, 8 Oct 2026), halts what fails', async () => {
   const e = env();
   await owner(e, 'PUT', {status: 'canary', rollout: 5, items: [{key: 'email', phrase: 'courriel'}, {key: 'location', phrase: 'ville de résidence'}]});
   await owner(e, 'PUT', {status: 'canary', rollout: 5, approved: true, items: [{key: 'birth_date', phrase: 'jour de naissance'}]});
   const report = (phrase, ok, failed) => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-aaaa-1111', aliasUse: [{phrase, ok, failed}]})}), e, now);
   await report('courriel', 60, 0); await report('ville de résidence', 10, 15); await report('jour de naissance', 80, 0); await report('unknown phrase', 3, 0);
   const actions = await evaluateAliases(e.STATS, now);
-  assert.deepEqual(actions.map(a => [a.alias, a.action]).sort(), [['courriel', 'grown to 25%'], ['ville de résidence', 'halted']]);
+  assert.deepEqual(actions.map(a => [a.alias, a.action]).sort(), [['courriel', 'grown to 25%'], ['jour de naissance', 'grown to 25%'], ['ville de résidence', 'halted']]);
   const status = Object.fromEntries(e.STATS.db.prepare('SELECT phrase, status, rollout FROM aliases').all().map(r => [r.phrase, `${r.status} ${r.rollout}`]));
-  assert.deepEqual(status, {courriel: 'canary 25', 'ville de résidence': 'disabled 0', 'jour de naissance': 'canary 5'});
+  assert.deepEqual(status, {courriel: 'canary 25', 'ville de résidence': 'disabled 0', 'jour de naissance': 'canary 25'});
 });
 
 test('button texts of pages with no known Apply button are targets of their own; reviewed wordings rest; a button alias must look like an apply button', async () => {
@@ -109,7 +109,7 @@ test('changed-answer wordings become review targets only when enough people and 
   assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'rolled back']]);
 });
 
-test('a wording proposed by learned notes becomes a candidate only once 3 different installs sent it, and is never served', async () => {
+test('a wording 3 different installs proposed starts as a 5% canary at once (sensitive fields too), and no sooner', async () => {
   const e = env();
   const item = {key: 'first_name', phrase: 'Preferred First Name'};
   await storeProposals(e, [item, item], 'install-a-0001', now);   // the same install twice counts once
@@ -118,10 +118,11 @@ test('a wording proposed by learned notes becomes a candidate only once 3 differ
   const third = await storeProposals(e, [item, {key: 'salary', phrase: 'pay'}, {key: 'email', phrase: 'I agree to terms'}], 'install-c-0003', now);
   assert.deepEqual(third, {stored: 1, promoted: 1});   // the unknown field and the consent wording are refused
   const row = (await e.STATS.prepare('SELECT phrase, key, status, rollout, source FROM aliases').all()).results[0];
-  assert.deepEqual({...row}, {phrase: 'preferred first name', key: 'first_name', status: 'candidate', rollout: 0, source: 'installs'});
-  assert.deepEqual((await (await serve(e, 'install-served-01')).json()).aliases, []);   // a candidate is not served
-  await owner(e, 'PUT', {status: 'canary', rollout: 5, items: [{key: 'first_name', phrase: 'preferred first name'}]});   // the owner's decision is not overwritten by more votes
-  await storeProposals(e, [{key: 'last_name', phrase: 'Preferred First Name'}], 'install-d-0004', now);
+  assert.deepEqual({...row}, {phrase: 'preferred first name', key: 'first_name', status: 'canary', rollout: 5, source: 'installs'});
+  // A sensitive field needs no owner approval any more: the canary and its automatic halt guard it (only wording + field are shared).
+  for (const install of ['install-a-0001', 'install-b-0002', 'install-c-0003']) await storeProposals(e, [{key: 'street', phrase: 'Rue et numéro'}], install, now);
+  assert.equal((await e.STATS.prepare("SELECT status FROM aliases WHERE phrase = 'rue et numéro'").first()).status, 'canary');
+  await storeProposals(e, [{key: 'last_name', phrase: 'Preferred First Name'}], 'install-d-0004', now);   // a running meaning is not overwritten by more votes
   assert.equal((await e.STATS.prepare('SELECT status FROM aliases').first()).status, 'canary');
 });
 
