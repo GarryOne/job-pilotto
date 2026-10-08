@@ -9,6 +9,7 @@
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
   if (window.__jobPilottoReviewAlive?.()) return;
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
+  let askedPassword = 0;
   const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
   // The desktop app is the only way onto a page. Anywhere else this script was injected (an old "every site"
   // registration, a reload) it draws nothing and listens for nothing.
@@ -308,6 +309,12 @@
     const needed = list.filter(f => f.required || f.ai);
     shown = needed.filter(f => !f.filled);
     const account = !!document.querySelector('input[type=password]');
+    // An empty password box: the extension fills it from the Keychain (a sign-up's password exists once Claude has made it, so
+    // ask again now and then). The value never comes to this panel.
+    if (account && Date.now() - askedPassword > 6000 && [...document.querySelectorAll('input[type=password]')].some(box => !box.value && box.getClientRects().length)) {
+      askedPassword = Date.now();
+      send({type: 'sitePassword'}).catch(() => {});
+    }
     const total = needed.length, left = shown.length, ready = total > 0 && left === 0;
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready);

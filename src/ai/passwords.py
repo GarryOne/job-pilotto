@@ -113,6 +113,7 @@ def main(argv=None):
     parser.add_argument('--no-symbols', action='store_true')
     parser.add_argument('--email', default='')
     parser.add_argument('--job', default='')
+    parser.add_argument('--no-copy', action='store_true', help='store only: the app asks for it, the extension fills it')
     args = parser.parse_args(argv)
     if args.action == 'clear':
         copy('')
@@ -131,6 +132,9 @@ def main(argv=None):
     if args.action == 'new':
         password = for_site(args.length, symbols=not args.no_symbols)
         secret_store.put(name, password, ACCOUNT, label=f'Job Pilotto: {args.host}', comment=note(args.email, args.job))
+        if args.no_copy:
+            print(f'stored {name}')
+            return 0
         copy(password)
         print(f'stored {name}; on the clipboard, paste it')
         return 0

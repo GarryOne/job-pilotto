@@ -33,3 +33,12 @@ export function reveal(host, platform = process.platform, exec = execFileSync) {
   try { return exec('security', ['find-generic-password', '-a', 'job-pilotto', '-s', `job-pilotto.${host}.password`, '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim() || null; }
   catch { return null; }
 }
+
+// The owner's choice (8 Oct 2026): the extension fills a sign-in or sign-up page's password boxes from the Keychain, as a
+// browser's password manager would, in a tab the app opened. Given only while an application is open, and only a site's own
+// item (a plain host name with a dot). host: from Chrome's tab address, not from the page.
+export function forExtension(host, {applying = false, read = reveal} = {}) {
+  if (!applying || !/^[a-z0-9.-]{1,253}$/i.test(String(host || '')) || !String(host).includes('.')) return {ok: false};
+  const password = read(host);
+  return password ? {ok: true, password} : {ok: false};
+}

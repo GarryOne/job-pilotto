@@ -2432,6 +2432,25 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) for (const session of terminals.list()) { const record = terminals.record(session.id); if (record) saveConversation(record); }
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
+  // A site with no account item yet gets the one job-site password (made the first time), kept under its own name so Settings →
+  // Credentials lists it with the profile's email (owner, 8 Oct 2026: the whole flow by itself, one password reused everywhere).
+  server.setSitePasswordHandler(async ({host} = {}) => {
+    const applying = terminals.list().some(session => !session.outcome && !session.endedAt);
+    if (DEMO || !applying || !credentials.forExtension(host, {applying, read: () => 'x'}).ok) {
+      appLog('extension', 'site password refused', {host: String(host || '').slice(0, 120), applying});
+      return {ok: false};
+    }
+    let answer = credentials.forExtension(host, {applying});
+    let made = false;
+    if (!answer.ok) {
+      const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
+      const {code} = await pipeline.run(storage, ['src.ai.passwords', 'new', host, '--no-copy', ...(email ? ['--email', email] : [])]);
+      made = code === 0;
+      answer = credentials.forExtension(host, {applying});
+    }
+    appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok});   // which site, never the password
+    return answer;
+  });
   server.setReviewHandler(payload => { const report = review.report(terminals.list(), payload); return report.session ? {...report, cv: cvOf(report.session.url)} : report; });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   recipeReporterRef = recipeReporter;

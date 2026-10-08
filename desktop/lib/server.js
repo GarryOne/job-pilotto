@@ -350,6 +350,8 @@ let sessionReporter = () => {};
 export function setSessionReporter(fn) { sessionReporter = fn; }
 // The application form page (extension/review.js) and its session: what is left in the form, what to show (lib/review.js).
 let reviewHandler = () => ({matched: null, watch: [], commands: []});
+let sitePasswordHandler = () => ({ok: false});
+export function setSitePasswordHandler(fn) { sitePasswordHandler = fn; }   // ({host}) → {ok, password}: the extension fills a sign-in/sign-up page (lib/credentials.js)
 export function setReviewHandler(fn) { reviewHandler = fn; }
 let learnedHandler = () => {};
 export function setLearnedHandler(fn) { learnedHandler = fn; }
@@ -555,6 +557,13 @@ export function start(storage, onError = () => {}) {
           : req.url === '/extension/visit-filters' ? await visitFilters(payload) : visitMore[req.url] ? await visitMore[req.url](payload) : await visitHandler(payload);
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(answer));
+        return;
+      }
+      if (req.url === '/extension/site-password') {
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json'});   // no CORS: only the extension's own worker asks, never a page
+        res.end(JSON.stringify(ok ? await sitePasswordHandler(payload) : {error: 'Wrong token'}));
         return;
       }
       if (req.url === '/extension/review') {

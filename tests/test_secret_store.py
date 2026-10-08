@@ -53,6 +53,16 @@ class SecretStoreTest(unittest.TestCase):
         stored = [call for call in calls if call[:2] == ['security', 'add-generic-password'] and 'job-pilotto.career2.successfactors.eu.password' in call][0]
         self.assertEqual(stored[stored.index('-j') + 1], 'email=ilie@example.com job=https://jobs.migros.ch/x')
         self.assertEqual(passwords.note('', ''), None)
+
+    def test_new_with_no_copy_stores_and_leaves_the_clipboard_alone(self):
+        store, copied = FakeKeyring(), []
+        with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
+                mock.patch.object(passwords, 'copy', copied.append), mock.patch('builtins.print') as printed:
+            self.assertEqual(passwords.main(['new', 'auth.jobs.ch', '--no-copy']), 0)
+        shared = store.items[('job-pilotto.sites.password', 'job-pilotto')]
+        self.assertEqual(store.items[('job-pilotto.auth.jobs.ch.password', 'job-pilotto')], shared)   # the one password, reused
+        self.assertEqual(copied, [])
+        self.assertNotIn(shared, str(printed.call_args_list))
         self.assertEqual(passwords.note('a b@c', 'https://x'), 'job=https://x')   # a value with a space is left out
 
     def test_no_store_elsewhere_reads_nothing(self):

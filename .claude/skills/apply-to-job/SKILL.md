@@ -75,9 +75,9 @@ in that file next time — keep evolving it.
 - **Employer accounts: sign up or sign in yourself, but never see the password.** (Owner decision
   28 Sep 2026, replacing "never create accounts": Apply with Claude has to get from a job board
   through the employer's sign-up to the form.) Generate it into this computer's secret store
-  (Keychain on the Mac, Credential Manager on Windows) with `python3 -m src.ai.passwords`, paste it
-  from the clipboard, clear the clipboard; never type it, echo it, screenshot it with Show on, or write it
-  anywhere else. Steps: "Reaching the form" below.
+  (Keychain on the Mac, Credential Manager on Windows). **The extension fills password boxes itself**
+  (owner, 8 Oct 2026) on a sign-in or sign-up page in the tab the app opened: never paste, type, echo,
+  screenshot with Show on, or write a password anywhere. Steps: "Reaching the form" below.
 - Clicking **Apply now / Create account / Sign in / Next / Save and continue** to reach or move
   through the form is fine; the final **Submit / Send application** never is.
 - CAPTCHA or "verify you are human": the owner solves it. Never try to bypass it.
@@ -359,20 +359,18 @@ per page where you can:
    career site) → its own **Apply now »** → "Career Opportunities: Sign In".
 2. **Sign-in page.** Check for a stored password first (`<host>` = the sign-in page's hostname):
    `python3 -m src.ai.passwords have <host>` (prints `have` / `none`)
-   - **Have one:** email from the CV, password pasted as in step 3.
+   - **Have one:** type the email from the CV; the extension fills the password box within ~6 s.
    - **None:** follow "Create an account" / "Register" / "Not a registered user yet?".
 3. **Create the account.** Fill name, email, phone, country from the CV/Profile as for any form.
-   Password: the owner's one job-site password (owner, 8 Oct 2026: the same easy one on every site,
-   e.g. `Maple-Rocket-42`, made once, shown to them in Settings), stored for this site and copied in
-   one call, never shown to you:
-   `python3 -m src.ai.passwords new <host> --email <the email you typed> --job <job url>`
-   (the email and job are kept beside it for the owner's Settings → Credentials).
-   Click the password field, paste (`cmd+v` on the Mac, `ctrl+v` on Windows); the confirm field,
-   paste; then `python3 -m src.ai.passwords clear`. Check with the audit (`filled: true`), never by
-   reading the value. To sign in later: `python3 -m src.ai.passwords copy <host>`, paste, clear. If
-   the site rejects the password, fit it to the rule it shows (`new <host> --no-symbols` drops the
-   hyphens; `--length 12` makes a random one for a site that wants it shorter; it overwrites the
-   stored one) and paste again; say in the hand-over when a site got a password of its own. Security questions and optional profile fields: answer from
+   Password: nothing to do. The owner's one job-site password (made once, shown in Settings →
+   Credentials) is stored for this site and filled into every empty password box (password and
+   confirm) by the extension within ~6 s. Optionally record the job beside it first:
+   `python3 -m src.ai.passwords new <host> --no-copy --email <the email you typed> --job <job url>`.
+   Check with the audit (`filled: true`), never by reading the value. If the site rejects the
+   password, fit it to the rule it shows (`new <host> --no-copy --no-symbols` drops the hyphens;
+   `--length 12` makes a random one for a site that wants it shorter), clear both password boxes
+   (select all, Delete) and the extension fills the new one; say in the hand-over when a site got a
+   password of its own. Security questions and optional profile fields: answer from
    the Profile/Application Answers like any field; leave them for the owner only when no source has them.
 4. **Confirmation email:** don't ask the owner. Read it from Gmail (read-only, connected in the
    app's Settings → Gmail and Calendar):
@@ -385,7 +383,7 @@ per page where you can:
    say in one line exactly what to do in Chrome ("tick I'm not a robot and the terms box, then
    reply ok") and wait. Never try to solve or bypass a CAPTCHA. After the reply, click Create
    account / Sign in and continue. Account exists but no stored password: sign in once with the
-   job-site password (`new <host>`, paste); if refused, use the site's "Forgot password" to the
+   job-site password (the extension fills it); if refused, use the site's "Forgot password" to the
    owner's email, read the reset link with the Gmail command of step 4, set the job-site password, carry on.
 6. **After sign-in** the site usually lands on the application or a profile step; on a dashboard,
    open the job again from the careers page and press Apply. Fill page by page (Next / Save and

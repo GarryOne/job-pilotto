@@ -36,3 +36,14 @@ test('the list asks for attributes only, and a password is read for a plain host
   assert.equal(reveal('a.com', 'win32', () => 'nope'), null);
   assert.equal(list('win32').ok, false);
 });
+
+test('the extension gets a site password only while applying, for a plain site host, never another item', async () => {
+  const {forExtension} = await import('../lib/credentials.js');
+  const read = host => (host === 'career2.successfactors.eu' ? 'Maple-Rocket-42' : null);
+  assert.deepEqual(forExtension('career2.successfactors.eu', {applying: true, read}), {ok: true, password: 'Maple-Rocket-42'});
+  assert.deepEqual(forExtension('career2.successfactors.eu', {applying: false, read}), {ok: false});   // no application open
+  assert.deepEqual(forExtension('sites', {applying: true, read: () => 'x'}), {ok: false});            // the shared item by name
+  assert.deepEqual(forExtension('mac-sign', {applying: true, read: () => 'x'}), {ok: false});         // not a site
+  assert.deepEqual(forExtension('a.com"; rm', {applying: true, read: () => 'x'}), {ok: false});
+  assert.deepEqual(forExtension('auth.jobs.ch', {applying: true, read}), {ok: false});                 // none yet: the app makes it
+});
