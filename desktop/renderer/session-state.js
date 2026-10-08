@@ -33,6 +33,15 @@ export const dockCounts = (items, gone = () => false) => ({
   active: items.filter(item => !gone(item) && WORKING.includes(sessionState(item)[0])).length,
   waiting: items.filter(item => !gone(item) && item.status === 'input').length,
 });
+// Applying in the menu: the number is every card the Applying list shows, whatever its state (owner, 8 Oct 2026: it said 2
+// with 4 cards, counting only the ones that needed you). The colour is the most urgent: amber needs you, blue working,
+// green all ready to submit, else grey. `urgency`: 0-1 needs you, 2 working, 3 ready to submit.
+export function applyingBadge(items, urgency) {
+  const levels = items.map(urgency);
+  const tone = levels.some(level => level <= 1) ? 'warn' : levels.includes(2) ? 'info'
+    : items.length && levels.every(level => level === 3) ? 'good' : 'neutral';
+  return {count: items.length || '', tone};
+}
 const DOCK_ORDER = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
 export const dockOrder = (item, gone = () => false) => gone(item) ? 9 : (DOCK_ORDER[item.status] ?? 5);
 // Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the

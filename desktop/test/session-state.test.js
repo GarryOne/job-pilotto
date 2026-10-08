@@ -133,3 +133,14 @@ test('just after the app starts, a session waiting on its Chrome tab is "checkin
   assert.equal(checkingTabs({...claude, live: true, status: 'running'}, null, 500), false);
   assert.equal(checkingTabs({...form, outcome: 'submitted', live: false}, null, 500), false);
 });
+
+test('Applying in the menu counts every card in the list, whatever its state; the colour is the most urgent one', async () => {
+  const {applyingBadge} = await import('../renderer/session-state.js');
+  const level = item => item.level;
+  // 8 Oct 2026: four "Form closed" cards, the badge said 2 (only the two still flagged as questions were counted).
+  assert.deepEqual(applyingBadge([{level: 0}, {level: 0}, {level: 4}, {level: 4}], level), {count: 4, tone: 'warn'});
+  assert.deepEqual(applyingBadge([{level: 2}, {level: 3}, {level: 4}], level), {count: 3, tone: 'info'});
+  assert.deepEqual(applyingBadge([{level: 3}, {level: 3}], level), {count: 2, tone: 'good'});
+  assert.deepEqual(applyingBadge([{level: 4}], level), {count: 1, tone: 'neutral'});
+  assert.deepEqual(applyingBadge([], level), {count: '', tone: 'neutral'});
+});

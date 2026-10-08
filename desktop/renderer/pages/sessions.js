@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState} from '../session-state.js';
+import {applyingBadge, asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
@@ -83,8 +83,7 @@ function renderNavBadge() {
   const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
   const [text, tone] = needs ? [`${plural(needs, 'session')} need${needs === 1 ? 's' : ''} you`, 'warn']
     : working ? [`${working} applying`, 'info'] : ready ? [`${ready} ready to submit`, 'good'] : [plural(sessionList.length, 'session'), 'neutral'];
-  // Applying in the menu: amber = how many need you, blue = how many are working, green ✓ = all ready to submit.
-  const [count, countTone] = needs ? [needs, 'warn'] : working ? [working, 'info'] : ready && ready === open.length ? ['✓', 'good'] : ['', ''];
+  const {count, tone: countTone} = applyingBadge(sessionList, urgency);
   Object.assign($('nav-applying-badge'), {hidden: !count, textContent: count, className: `nav-badge tone-${countTone}`, title: text});
   $('nav-sessions').hidden = !sessionList.length;
   $('nav-sessions').className = `nav-sessions tone-${tone}`;
