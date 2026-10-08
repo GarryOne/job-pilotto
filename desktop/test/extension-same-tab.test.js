@@ -1,19 +1,30 @@
-// Apply in the same tab (extension/same-tab.js): only a tab opened right after the extension pressed Apply is folded back.
+// One tab per application (extension/same-tab.js): only the posting whose Apply the extension just pressed, still on that page, is closed.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {FOLD_MS, foldInto, foldableUrl} from '../../extension/same-tab.js';
+import {FOLD_MS, postingToClose} from '../../extension/same-tab.js';
 
-test('a tab opened by the posting right after Apply was pressed loads in the posting tab', () => {
-  const pressed = new Map([[7, 1000]]);
-  assert.equal(foldInto({id: 9, openerTabId: 7}, pressed, 1000 + 2000), 7);              // Manor: Apply → career55.sapsf.eu in a new tab
-  assert.equal(foldInto({id: 9, openerTabId: 7}, pressed, 1000 + FOLD_MS + 1), null);    // a pop-up the page opens later: left alone
-  assert.equal(foldInto({id: 9, openerTabId: 8}, pressed, 1500), null);                  // another tab's child
-  assert.equal(foldInto({id: 9}, pressed, 1500), null);                                  // a tab the user opened
+const POSTING = 'https://live.solique.ch/manor/job/details/4080388/';
+const pressed = new Map([[7, {at: 1000, url: `${POSTING}#jobpilotto-fill`}]]);
+
+test('a tab the posting opens by script right after Apply was pressed: the posting closes, the new tab is the application', () => {
+  assert.equal(postingToClose({id: 9, openerTabId: 7}, pressed, POSTING, 3000), 7);          // Manor: career55.sapsf.eu opened by script
 });
 
-test('only a web address is loaded in the posting tab', () => {
-  assert.equal(foldableUrl('https://career55.sapsf.eu/careers?x=1'), 'https://career55.sapsf.eu/careers?x=1');
-  assert.equal(foldableUrl('about:blank'), '');
-  assert.equal(foldableUrl('chrome://downloads'), '');
-  assert.equal(foldableUrl(undefined), '');
+test('never closed: a later pop-up, another tab\'s child, a tab the user opened, a posting that already moved on', () => {
+  assert.equal(postingToClose({id: 9, openerTabId: 7}, pressed, POSTING, 1000 + FOLD_MS + 1), null);
+  assert.equal(postingToClose({id: 9, openerTabId: 8}, pressed, POSTING, 1500), null);
+  assert.equal(postingToClose({id: 9}, pressed, POSTING, 1500), null);
+  // Apply's link was pointed at this tab, so it went on to the sign-in: it is the application now, whatever tab that page opens.
+  assert.equal(postingToClose({id: 9, openerTabId: 7}, pressed, 'https://career55.sapsf.eu/careers?x=1', 1500), null);
+});
+
+test('two flows pressing Apply 2 s apart: each new tab closes only its own posting, never the other flow\'s tab', () => {
+  const COOP = 'https://career2.successfactors.eu/career?company=coop', MANOR = POSTING;
+  const flows = new Map([[11, {at: 0, url: COOP}], [22, {at: 2000, url: MANOR}]]);
+  const shows = {11: COOP, 22: MANOR};
+  assert.equal(postingToClose({id: 30, openerTabId: 22}, flows, shows[22], 2500), 22);   // Manor's new tab: Manor's posting
+  assert.equal(postingToClose({id: 31, openerTabId: 11}, flows, shows[11], 2500), 11);   // Coop's own new tab: Coop's posting
+  assert.equal(postingToClose({id: 32, openerTabId: 33}, flows, MANOR, 2500), null);     // a tab neither flow opened
+  // Coop's tab moved on to its form: a tab its form opens later never closes it, though Manor pressed Apply 0.5 s ago.
+  assert.equal(postingToClose({id: 34, openerTabId: 11}, flows, 'https://career2.successfactors.eu/form', 2500), null);
 });

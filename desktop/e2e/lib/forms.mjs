@@ -64,7 +64,7 @@ export const FORMS = {
   },
 };
 // A journey over three pages and two tabs, like a job board posting that leads to an agency's own site (jobs.ch -> consultandpepper.com): the posting has
-// only an Apply link that opens a NEW tab, that page has only a "To apply" link (same tab), and the form is behind it. `kit` is for the posting's job.
+// only an Apply link that opens a NEW tab, that page has only a "To apply" button whose form POSTs into a new tab, and the form is behind it. `kit` is for the posting's job.
 export const CHAIN = {
   title: 'Fullstack Engineer with DevOps Mindset', company: 'E2E Chain Recruiting', host: 'boards.greenhouse.io', path: '/e2e/jobs/4001005',
   stepHost: 'e2e.recruitee.com', stepPath: '/o/chain-step', formPath: '/o/chain-form',
@@ -152,7 +152,10 @@ ${script}
 
 const CHAIN_PAGES = {
   posting: () => page(CHAIN, `<p>Join the team. <a id="apply_link" href="${CHAIN.stepUrl}" target="_blank" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a></p>`),
-  step: () => page(CHAIN, `<p>Contact: a consultant looks forward to your application.</p><p><a id="to_apply" href="${CHAIN.formUrl}" style="display:inline-block;padding:12px 28px;background:#f5d98b;font-size:18px;text-decoration:none">To apply</a></p>`),
+  // "To apply" submits a form into a NEW tab (8 Oct 2026): the form page answers only to that POST, so a journey that loads the address again (a GET) lands
+  // on "session expired" with no form, and only a press that keeps the posted data reaches the form.
+  step: () => page(CHAIN, `<p>Contact: a consultant looks forward to your application.</p><form id="to_apply_form" method="post" action="${CHAIN.formUrl}" target="_blank"><input type="hidden" name="ref" value="chain-step"><button id="to_apply" type="submit" style="display:inline-block;padding:12px 28px;background:#f5d98b;border:0;font-size:18px">To apply</button></form>`, '', {realSubmit: true}),   // this form really posts (it is the way to the form, not an application)
+  expired: () => page(CHAIN, '<p id="expired">Your session has expired. Please start again from the job posting.</p>'),
   // The agency's form has FLOATING labels: the label sits inside the field and moves up only when the field is left with a value (a blur, like a person's tab
   // away), so a value written without focus and blur sits on top of its label (3 Oct 2026, consultandpepper.com).
   form: () => page(CHAIN, `<style>.field label.up{font-size:11px;color:#667}</style><form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${resume}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}${submit}</form>`,
@@ -258,6 +261,12 @@ export async function startForms({vary = null} = {}) {
     }
     const chain = host === CHAIN.host && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.path ? 'posting' : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.stepPath ? 'step'
       : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.formPath ? 'form' : '';
+    if (chain === 'form') {   // only the step's POST opens the form
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(CHAIN_PAGES[req.method === 'POST' && /(^|&)ref=chain-step(&|$)/.test(body) ? 'form' : 'expired']()); });
+      return;
+    }
     if (chain) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(CHAIN_PAGES[chain]()); return; }
     const name = Object.keys(FORMS).find(key => FORMS[key].host === host && [FORMS[key].path, FORMS[key].formPath].includes(url.pathname.replace(/(.)\/$/, '$1')));
     if (!name) { res.writeHead(404, {'content-type': 'text/plain'}).end('not a fixture form'); return; }

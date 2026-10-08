@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {FOLD_MS, foldInto, foldableUrl} from './same-tab.js';
+import {FOLD_MS, postingToClose} from './same-tab.js';
 import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
 import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
@@ -157,10 +157,21 @@ async function pressApply(tabId, phrases = []) {
     const el = document.querySelectorAll(selector)[index];
     if (!el) return false;
     el.scrollIntoView({block: 'center'});
+    // The next page in this same tab, the way the browser goes there itself (a form keeps what it posts, the page loads once):
+    // a link or form that names another tab is pointed at this one (same-tab.js; a tab the page opens by script is followed instead).
+    let same = '';
+    const link = el.closest('a[target]');
+    if (link && link.target.toLowerCase() !== '_self') { link.target = '_self'; same = 'link'; }
+    const form = el.form || el.closest('form');
+    if (el.getAttribute('formtarget') && el.getAttribute('formtarget').toLowerCase() !== '_self') { el.setAttribute('formtarget', '_self'); same = 'form'; }
+    if (form?.target && form.target.toLowerCase() !== '_self') { form.target = '_self'; same = 'form'; }
+    const aimed = (link?.getAttribute('target') || el.getAttribute('formtarget') || form?.getAttribute('target') || '').slice(0, 20);
     el.click();
-    return true;
-  }, args: [PAGE_BUTTONS, pick.index]}).then(rows => !!rows?.[0]?.result).catch(() => false);
-  return {pressed: done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null, via: done ? pick.viaPhrase || '' : '', buttons: []};
+    return {same, tag: el.tagName.toLowerCase(), aimed};
+  }, args: [PAGE_BUTTONS, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
+  if (done?.error) { decide('fill', 'the Apply button could not be pressed', {error: done.error}); return {pressed: null, via: '', buttons: []}; }
+  return {pressed: done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null, via: done ? pick.viaPhrase || '' : '', buttons: [],
+    same: done?.same || '', tag: done?.tag || '', aimed: done?.aimed || ''};
 }
 // After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
 // whole decision again). null when neither happens in time.
@@ -169,7 +180,7 @@ async function formAfterPress(tabId, url, ms = 8000) {
   while (Date.now() < end) {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const live = await chrome.tabs.get(tabId).catch(() => null);
-    if (!live) return null;
+    if (!live) return 'navigated';   // closed: Apply's new tab is the application now (same-tab.js), not a page with "no form"
     if (pageKey(live.url) !== pageKey(url)) return 'navigated';
     const counts = await pageShape(tabId);
     if (counts && pageRole(counts, live.url) === 'form') return counts;
@@ -181,7 +192,7 @@ async function stuck(job, host, why) {
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
-const applyPressed = new Map();   // tab id → when the extension pressed its Apply button
+const applyPressed = new Map();   // tab id → {at, url}: when and on which page the extension pressed its Apply button
 const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
@@ -212,14 +223,14 @@ async function consider(tab, jobUrl) {
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
     const phrases = await applyPhrases();
-    applyPressed.set(tab.id, Date.now());   // before the click: the site opens its new tab during it (same-tab.js)
+    applyPressed.set(tab.id, {at: Date.now(), url: tab.url});   // before the click: the site opens its new tab during it (same-tab.js)
     const attempt = await pressApply(tab.id, phrases);
     if (!attempt.pressed) applyPressed.delete(tab.id);
     const label = attempt.pressed;
     buttonsSeen = attempt.buttons;
     if (label) {
       pressed = true;
-      decide('fill', 'pressed the Apply button', {host, label});
+      decide('fill', 'pressed the Apply button', {host, label, tag: attempt.tag, aimed: attempt.aimed, sameTab: attempt.same});   // sameTab: a link/form aimed at a new tab, pointed at this one
       const after = await formAfterPress(tab.id, tab.url);
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
@@ -348,37 +359,28 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
 });
-// The new tab's address, once it has one (window.open starts on about:blank, then navigates).
-async function addressOf(tabId, ms = 5000) {
-  const end = Date.now() + ms;
-  for (;;) {
-    const live = await chrome.tabs.get(tabId).catch(() => null);
-    const url = foldableUrl(live?.pendingUrl) || foldableUrl(live?.url);
-    if (!live || url || Date.now() > end) return url;
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
-}
-// Apply opened a new tab: its page loads in the posting's tab instead, and the new tab closes. Returns true when folded.
-async function foldNewTab(tab) {
-  const opener = foldInto(tab, applyPressed);
-  if (opener == null) return false;
-  const url = await addressOf(tab.id);
-  if (!url) { decide('panel', 'Apply opened a tab with no web address: followed, not folded', {}); return false; }
-  applyPressed.delete(opener);
-  const moved = await chrome.tabs.update(opener, {url, active: true}).catch(() => null);
-  if (!moved) return false;
-  await chrome.tabs.remove(tab.id).catch(() => {});
-  let host = '';
-  try { host = new URL(url).hostname; } catch { /* checked above */ }
-  decide('panel', 'Apply opened a new tab: loaded in the same tab instead', {host, within: FOLD_MS});
-  return true;
+// Apply opened its next page in a new tab by script (a link or form was already pointed at this tab): the new tab is the
+// application from now on, and the posting's tab closes, so one tab is left to follow. A pop-up window (a sign-in) never closes it.
+const postingHandled = new Set();   // new tab ids already looked at: each is handled once
+async function closePosting(tab, host) {
+  if (postingHandled.has(tab.id)) return;
+  postingHandled.add(tab.id);
+  const opener = tab.openerTabId == null ? null : await chrome.tabs.get(tab.openerTabId).catch(() => null);
+  // Strict: the new tab's opener is the very tab whose Apply was just pressed, still on that page (another flow's tab never is).
+  const posting = postingToClose(tab, applyPressed, opener?.url, Date.now(), pageKey);
+  if (posting == null) return;
+  applyPressed.delete(posting);
+  const win = await chrome.windows.get(tab.windowId).catch(() => null);
+  if (win?.type !== 'normal') { decide('panel', 'Apply opened a pop-up: the posting tab stays', {host, opener: posting, tab: tab.id}); return; }
+  await chrome.tabs.remove(posting).catch(() => {});
+  decide('panel', 'Apply opened a new tab: followed it, closed the posting tab', {host, opener: tab.openerTabId, closed: posting, tab: tab.id, within: FOLD_MS});
 }
 chrome.tabs.onCreated.addListener(async tab => {
-  if (await foldNewTab(tab)) return;   // the posting's tab goes on to the next page (onUpdated follows it, mark and all)
   if (!(await followOpener(tab))) return;
   let host = '';
   try { host = new URL(tab.pendingUrl || tab.url || '').hostname; } catch { /* the address is not ready yet */ }
   decide('panel', 'following a tab this session opened', {host, why: 'child'});
+  await closePosting(tab, host);
   // A page that loads faster than the lines above finish (a local or cached one) completed before this tab was armed, and the load listener above
   // let it go: nothing looks at it again. Look now, if it is already loaded; `consider` runs a page only once, so a page still loading is not doubled.
   const live = await chrome.tabs.get(tab.id).catch(() => null);

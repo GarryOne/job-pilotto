@@ -287,6 +287,9 @@ export async function runApply(ctx, parts) {
     }
     if (!tab) await dumpExtension();
     if (!tab) throw new Error(`the journey never reached the form. Tabs open: ${seen.join(' | ')}. ${seen.some(url => url.startsWith(CHAIN.stepUrl)) ? 'The new tab opened but "To apply" was not followed.' : 'Apply did not open the second tab.'}`);
+    // The form page answers only to the step's POST: "session expired" means the posted data was dropped (the address loaded again).
+    for (let waited = 0; waited < 10000 && !(await tab.locator('#application_form, form input').count().catch(() => 0)); waited += 500) await pause(500);
+    if (await tab.locator('#expired').count().catch(() => 0)) throw new Error('"To apply" posts its form into a new tab, and the form page said "session expired": the posted data was lost on the way to one tab');
     // One tab for the whole journey (owner, 8 Oct 2026): the page Apply opened in a new tab loads in the posting's own tab, and the new tab closes.
     const journey = ctx.browser.context.pages().filter(item => [CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl].some(url => item.url().startsWith(url.split('#')[0])));
     if (journey.length !== 1) throw new Error(`the journey was in ${journey.length} tabs, not one: ${journey.map(item => item.url().split('#')[0]).join(' | ')}`);

@@ -269,7 +269,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
-- `extension/same-tab.js` — Apply in the same tab: a tab opened by a page right after the extension pressed its Apply button is that page's next step,
+- `extension/same-tab.js` — One tab per application (owner, 8 Oct 2026: Manor's Apply opened the sign-in in a second tab, and the app lost track of which
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `extension/visit.js` — "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
