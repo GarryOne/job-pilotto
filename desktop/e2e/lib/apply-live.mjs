@@ -69,7 +69,8 @@ export async function lookViaWorker(ctx, tab, say) {
   const url = tab.url().split('#')[0];
   const action = await worker.evaluate(async address => {
     const tabs = await chrome.tabs.query({}), found = tabs.find(item => String(item.url).startsWith(address));
-    return globalThis.__jobPilottoCloserLook(found, 0, 'the live test asked for a closer look');   // set by extension/escalate.js
+    const decided = await globalThis.__jobPilottoCloserLook(found, 0, 'the live test asked for a closer look');
+    return `${decided} (tabs: ${JSON.stringify(tabs.map(item => [item.id, item.active, item.windowId, String(item.url).slice(0, 30)]))})`;   // set by extension/escalate.js
   }, url).catch(error => `error: ${String(error).slice(0, 100)}`);
   say(`  live look: the closer look decided ${JSON.stringify(action)}`);
 }

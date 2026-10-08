@@ -17,6 +17,15 @@ export function unsureTwice(seen, tabId, sig) {
   return next.count === UNSURE_BEFORE_LOOKING;   // exactly the second time, once per page state
 }
 
+// The tab as a data: URL. captureVisibleTab needs the page's host permission (an unlisted site has none), so the debugger (already a permission) takes it then.
+async function shot(live) {
+  try { return await chrome.tabs.captureVisibleTab(live.windowId, {format: 'jpeg', quality: 60}); } catch { /* no host permission: the debugger below */ }
+  const target = {tabId: live.id};
+  await chrome.debugger.attach(target, '1.3');
+  try { const {data} = await chrome.debugger.sendCommand(target, 'Page.captureScreenshot', {format: 'jpeg', quality: 60}); return `data:image/jpeg;base64,${data}`; }
+  finally { await chrome.debugger.detach(target).catch(() => {}); }
+}
+
 // The visible page as a JPEG of at most 1280 px, base64, values hidden while it is taken. null when the tab is not in front.
 async function picture(tab, frameId) {
   const live = await chrome.tabs.get(tab.id).catch(() => null);
@@ -24,7 +33,7 @@ async function picture(tab, frameId) {
   await run(tab, frameId, hideValues);
   try {
     await new Promise(resolve => setTimeout(resolve, 120));   // the style paints before the capture
-    const url = await chrome.tabs.captureVisibleTab(live.windowId, {format: 'jpeg', quality: 60});
+    const url = await shot(live);
     const bitmap = await createImageBitmap(await (await fetch(url)).blob());
     const scale = Math.min(1, 1280 / bitmap.width), canvas = new OffscreenCanvas(Math.round(bitmap.width * scale), Math.round(bitmap.height * scale));
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
@@ -32,7 +41,7 @@ async function picture(tab, frameId) {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     let binary = ''; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     return btoa(binary);
-  } catch { return null; } finally { await run(tab, frameId, showValues); }
+  } catch (error) { decide('fill', 'closer look: no picture', {why: String(error?.message || error).slice(0, 120)}); return null; } finally { await run(tab, frameId, showValues); }
 }
 
 // -> 'none' | 'click' | 'wait' | 'ask_person' (what was done or decided). reason: why we ask (for the log and the model).
@@ -41,7 +50,7 @@ export async function closerLook(tab, frameId, reason) {
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return 'none';
   const sketch = await run(tab, frameId, accountSketch);
   const image = sketch ? await picture(tab, frameId) : null;
-  if (!sketch || !image) { decide('fill', 'closer look: no picture (the tab is not in front)', {}); return 'none'; }
+  if (!sketch || !image) { decide('fill', 'closer look: no picture (not in front, or no sketch)', {}); return 'none'; }
   const url = tab.url.split('#')[0];
   const answer = await api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind: 'account', sketch, image, reason})}).catch(() => null);
   const action = answer?.action || 'none';
