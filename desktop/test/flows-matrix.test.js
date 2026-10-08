@@ -7,7 +7,8 @@ import {test} from 'node:test';
 import {FLOW_FILES, MATRIX, flowDigest} from '../e2e/flows.mjs';
 
 const desktop = path.resolve(import.meta.dirname, '..'), root = path.resolve(desktop, '..');
-const titles = [...fs.readFileSync(path.join(desktop, 'e2e/suites/apply.mjs'), 'utf8').matchAll(/ctx\.run\('((?:[^'\\]|\\.)*)'/g)].map(match => match[1].toLowerCase());
+const applySources = ['suites/apply.mjs', ...fs.readdirSync(path.join(desktop, 'e2e/lib')).filter(file => /^apply-.*\.mjs$/.test(file)).map(file => `lib/${file}`)];   // the steps live in the suite and its apply-*.mjs step modules
+const titles = [...applySources.map(file => fs.readFileSync(path.join(desktop, 'e2e', file), 'utf8')).join('\n').matchAll(/ctx\.run\('((?:[^'\\]|\\.)*)'/g)].map(match => match[1].toLowerCase());
 
 test('every matrix row is guarded by steps and tests that exist', () => {
   for (const row of MATRIX) {

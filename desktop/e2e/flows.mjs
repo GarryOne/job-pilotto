@@ -12,7 +12,7 @@ export const FLOW_FILES = [
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/ext-server-handlers.js',
 ];
 
-// One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs (E2E_STEPS); `unit`: desktop/test files.
+// One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs or lib/apply-*.mjs (E2E_STEPS); `unit`: desktop/test files.
 export const MATRIX = [
   {scenario: 'What kind of page: the AI decides once per site and page shape, the structure rule only without AI', e2e: ['one page', 'wrong kind'], unit: ['test/page-kind.test.js', 'test/extension-tab-pages.test.js']},
   {scenario: 'Direct application form (Greenhouse, Workday, Lever, multi-step)', e2e: ['Greenhouse-like form', 'Workday-shaped form', 'Lever-like form', 'multi-step form'], unit: ['test/extension-tab-pages.test.js']},

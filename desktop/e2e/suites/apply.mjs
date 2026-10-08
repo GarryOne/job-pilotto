@@ -3,14 +3,16 @@
 // person's to decide, and never submits. Starts from a set-up install; writes and removes only its own jobs in its Notion page. The forms are local
 // (lib/forms.mjs, behind the real job-site host names), the AI answer is canned, so the suite costs nothing and no employer site is contacted.
 import fs from 'node:fs';
-import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
-import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
+import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {appLogLines, appLogText} from '../lib/app-log.mjs';
+import {runCvSteps} from '../lib/apply-cv-steps.mjs';
+import {runJourneys} from '../lib/apply-journeys.mjs';
+import {BASE_CV, CONTACT, OPEN_ANSWER, POSTING, expectedOf, pause, tailoredFrom} from '../lib/apply-fixtures.mjs';
 
 // Walks other data and timing on each seeded run (lib/forms.mjs varyForms): an exploring run on an unchanged commit includes it.
 export const varies = true;
@@ -24,22 +26,6 @@ export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, '
   'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
-// The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).
-const CONTACT = {first_name: 'Ada', last_name: 'Tester', full_name: 'Ada Tester', email: 'ada.tester@example.test', phone: '+41 79 555 01 23', location: 'Zurich, Switzerland', linkedin: 'https://www.linkedin.com/in/ada-tester'};
-const OPEN_ANSWER = 'Because the platform work here is about reliability at scale, which is what I have done for eight years.';
-
-const expectedOf = form => Object.fromEntries(form.kit.filter(item => !form.legal.includes(item.field)).map(item => [item.field, item.answer]));
-const POSTING = 'Lead the reliability of a Kubernetes platform on AWS: own the SLOs, the on-call rota and incident reviews, and mentor four engineers. '.repeat(3);
-// What the stand-in AI hands back for the CV import and the tailoring (the schemas of lib/cv.js): a one-job CV, then the same CV reworded.
-const BASE_CV = {name: 'Ada Tester', location: 'Zurich', summary: 'Site Reliability Engineer with eight years of platform work.', links: [],
-  jobs: [{company: 'Acme', href: '', roles: [{title: 'Site Reliability Engineer', period: 'Jan 2020 – Present', place: 'Zurich', intro: '',
-    bullets: ['Ran the on-call rota for a payments platform.', 'Moved 40 services to Kubernetes.', 'Wrote the incident reviews.'], skills: 'Kubernetes, AWS'}]}],
-  education: [], skills: '', languages: ''};
-const tailoredFrom = numbered => ({summary: 'Site Reliability Engineer who owns SLOs and incident reviews on Kubernetes.',
-  jobs: numbered.jobs.map(job => ({company: job.company, roles: job.roles.map(role => ({title: role.title, skills: role.skills,
-    bullets: [...role.bullets].reverse().map(bullet => ({source: bullet.index, text: bullet.text}))}))})),
-  changes: [{where: 'Summary', change: 'Leads with SLOs and incident reviews', why: 'The posting asks for both'}]});
-const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Parts of this file (6 Oct 2026, the 7-minute budget; the journeys split off on 8 Oct 2026): `apply` fills the forms; `applycv` (suites/applycv.mjs) runs the
 // tailored-CV and kitless-Apply steps AND the journeys across pages and tabs (docs/flows/applying.md: a posting that opens a new tab, two applications side by
@@ -282,197 +268,7 @@ export async function runApply(ctx, parts) {
     unknownTab = tab;
   }, {needs: ctx.needs});
 
-  // Found by asking "can the extension follow a journey from one tab to another?" (3 Oct 2026): a posting whose Apply opens a NEW tab (since 8 Oct 2026
-  // loaded in the posting's own tab instead, extension/same-tab.js), whose page has only a
-  // "To apply" link, and only then the form (jobs.ch -> an agency's own site). The extension must press Apply, follow the new tab as the same application, press
-  // "To apply" in it, and fill the form it reaches; Submit untouched.
-  await ctx.run('a posting whose Apply opens a new tab, then a "To apply" step, then the form: the journey is followed and the form filled', async () => {
-    const opened = ctx.browser.opened.length;
-    await page.click('.nav[data-view="jobs"]');
-    await page.locator('article.job-row').filter({hasText: CHAIN.company}).first().locator('.row-main').click();
-    for (let waited = 0; ctx.browser.opened.length === opened && waited < 30000; waited += 250) await pause(250);
-    if (ctx.browser.opened.length === opened) throw new Error('Apply did not open the posting in the browser');
-    const seen = [];
-    let tab = null;
-    for (let waited = 0; waited < 90000 && !tab; waited += 1000) {
-      const pages = ctx.browser.context.pages();
-      seen.splice(0, seen.length, ...pages.map(item => item.url().split('#')[0]));
-      tab = pages.find(item => item.url().startsWith(CHAIN.formUrl)) || null;
-      await pause(1000);
-    }
-    if (!tab) await dumpExtension();
-    if (!tab) throw new Error(`the journey never reached the form. Tabs open: ${seen.join(' | ')}. ${seen.some(url => url.startsWith(CHAIN.stepUrl)) ? 'The new tab opened but "To apply" was not followed.' : 'Apply did not open the second tab.'}`);
-    // The form page answers only to the step's POST: "session expired" means the posted data was dropped (the address loaded again).
-    for (let waited = 0; waited < 10000 && !(await tab.locator('#application_form, form input').count().catch(() => 0)); waited += 500) await pause(500);
-    if (await tab.locator('#expired').count().catch(() => 0)) throw new Error('"To apply" posts its form into a new tab, and the form page said "session expired": the posted data was lost on the way to one tab');
-    // One tab for the whole journey (owner, 8 Oct 2026): the page Apply opened in a new tab loads in the posting's own tab, and the new tab closes.
-    const journey = ctx.browser.context.pages().filter(item => [CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl].some(url => item.url().startsWith(url.split('#')[0])));
-    if (journey.length !== 1) throw new Error(`the journey was in ${journey.length} tabs, not one: ${journey.map(item => item.url().split('#')[0]).join(' | ')}`);
-    let state = null;
-    for (let waited = 0; waited < 90000; waited += 500) {
-      state = await fillState(tab).catch(() => null);
-      if (state?.state === 'done' || state?.state === 'error') break;
-      await pause(500);
-    }
-    if (state?.state !== 'done') throw new Error(`the form was reached but not filled (state: ${JSON.stringify(state)})`);
-    const actual = await readForm(tab);
-    fail([...fillProblems({expected: {first_name: CONTACT.first_name, last_name: CONTACT.last_name, email: CONTACT.email, question_3001: '7'}, actual}), ...cvProblems(actual, cv),
-      ...submitProblems(forms.fired, CHAIN.path), ...submitProblems(forms.fired, CHAIN.formPath)]);
-    // Floating labels: a filled field was left like a person leaves it (focus, then blur), so the site moved its label out of the way.
-    const stuckLabels = await tab.evaluate(() => ['first_name', 'last_name', 'email', 'question_3001'].filter(id => !document.querySelector(`label[for=${id}]`)?.classList.contains('up')));
-    if (stuckLabels.length) throw new Error(`filled, but the site never saw the field being left (its floating label stayed over the value): ${stuckLabels.join(', ')}`);
-    // The panel offers "Take over with Claude" on this tab (the person's click starts a Claude session: not pressed here, a test must never launch one).
-    const offered = await tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden && /take over with claude/i.test(button.textContent); });
-    if (!offered) throw new Error('the panel does not offer "Take over with Claude" on an armed form tab');
-  }, {needs: ctx.needs});
-
-  // Two applications side by side (8 Oct 2026: Coop and Manor started seconds apart; Migros's sign-in page showed on Manor's card). SCRIPTED's Apply opens its
-  // form from the page's own script (nothing to point at the same tab: the new tab is followed, the posting closes); CHAIN's goes link → posted form. Started
-  // 2 s apart, each ends in one tab, filled from its OWN kit (9 vs 7: a form credited to the other job shows the wrong number).
-  await ctx.run('two applications side by side, one whose Apply opens its form from script: each keeps one tab and its own kit', async () => {
-    for (const item of ctx.browser.context.pages()) if ([CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl, SCRIPTED.url, SCRIPTED.formUrl].some(url => item.url().startsWith(url))) await item.close();   // an earlier step's tabs
-    // Apply's own call (the row's button, which on a job already applying in an earlier step only opens its session): both start here.
-    const apply = job => page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [job.url, {title: job.title, company: job.company}]);
-    await apply(SCRIPTED);
-    await pause(2000);
-    await apply(CHAIN);
-    const find = url => ctx.browser.context.pages().find(item => item.url().startsWith(url)) || null;
-    let scripted = null, chain = null;
-    for (let waited = 0; waited < 90000 && !(scripted && chain); waited += 1000) { scripted = find(SCRIPTED.formUrl); chain = find(CHAIN.formUrl); await pause(1000); }
-    const seen = () => ctx.browser.context.pages().map(item => item.url().split('#')[0]).join(' | ');
-    if (!scripted || !chain) { await dumpExtension(); throw new Error(`not both forms were reached (scripted: ${!!scripted}, chain: ${!!chain}). Tabs open: ${seen()}`); }
-    const tabsOf = urls => ctx.browser.context.pages().filter(item => urls.some(url => item.url().startsWith(url))).length;
-    for (let waited = 0; waited < 10000 && tabsOf([SCRIPTED.url, SCRIPTED.formUrl]) > 1; waited += 500) await pause(500);   // the posting closes once its new tab is followed
-    const problems = [];
-    if (tabsOf([SCRIPTED.url, SCRIPTED.formUrl]) !== 1) problems.push(`the scripted application is in ${tabsOf([SCRIPTED.url, SCRIPTED.formUrl])} tabs, not one: ${seen()}`);
-    if (tabsOf([CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl]) !== 1) problems.push(`the chain application is in ${tabsOf([CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl])} tabs, not one: ${seen()}`);
-    for (const [tab, job, answer] of [[scripted, SCRIPTED, '9'], [chain, CHAIN, '7']]) {
-      let state = null;
-      for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
-      if (state?.state !== 'done') { problems.push(`${job.company}: its form was reached but not filled (state: ${JSON.stringify(state)})`); continue; }
-      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? "");
-      if (value !== answer) problems.push(`${job.company}: Kubernetes years "${value}", its own kit says ${answer}${value === (answer === '9' ? '7' : '9') ? ' (the other job\'s kit)' : ''}`);
-    }
-    fail(problems);
-  }, {needs: ctx.needs});
-
-  // Account creation and the application form kept apart (owner, 8 Oct 2026). The posting's Apply leads to a sign-up page: the extension leaves it alone and
-  // the session shows the account step, no form progress. The test, as the person, creates the account; the form behind it is filled from the kit and the
-  // session moves on to the form. Nothing typed on the sign-up page is learned as an answer or a fill miss, and "Create account" is not the application sent.
-  await ctx.run('a sign-up page before the form: the account step is kept apart from the application form', async () => {
-    const appLog = () => appLogText(ctx.profile);
-    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [SIGNUP.url, {title: SIGNUP.title, company: SIGNUP.company}]);
-    const find = url => ctx.browser.context.pages().find(item => item.url().startsWith(url)) || null;
-    let tab = null;
-    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = find(SIGNUP.accountUrl); await pause(1000); }
-    if (!tab) { await dumpExtension(); throw new Error(`the sign-up page was never reached. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`); }
-    const session = async () => (await page.evaluate(target => window.pilot.sessions(), null)).find(item => String(item.url || '').replace(/\/$/, '') === SIGNUP.url) || null;
-    let at = null;
-    for (let waited = 0; waited < 30000 && at?.stage !== 'account'; waited += 1000) { at = await session(); await pause(1000); }
-    const problems = [];
-    if (at?.stage !== 'account') problems.push(`on the sign-up page the session is not at the account step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
-    if (await tab.locator('#signup_email').inputValue() !== '') problems.push('the extension filled the sign-up page (it must leave account pages to the person or Claude)');
-    // The person creates the account: typed fields (trusted input), the box ticked, Create account pressed.
-    await tab.fill('#signup_email', 'e2e.person@example.com');
-    await tab.fill('#signup_username', 'e2e-person');
-    await tab.fill('#signup_password', 'Fictional-Pass-1234');
-    await tab.check('#robot');
-    await tab.click('#create_account');
-    let state = null;
-    for (let waited = 0; waited < 60000; waited += 500) { if (tab.url().startsWith(SIGNUP.formUrl)) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; } await pause(500); }
-    if (state?.state !== 'done') problems.push(`the application form after the sign-up was not filled (at ${tab.url()}, state ${JSON.stringify(state)})`);
-    else {
-      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
-      if (value !== '5') problems.push(`the form after the sign-up has Kubernetes years "${value}", its kit says 5`);
-    }
-    for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await session(); await pause(1000); }
-    if (at?.stage !== 'form') problems.push(`on the application form the session did not move to the form step (stage: ${at?.stage})`);
-    const log = appLog();
-    if (!/account page: answers typed there are not learned/.test(log)) problems.push('the answers typed on the sign-up page were not kept out of the learned answers (no "not learned" line in the app log)');
-    if (!/account page: a sign-in or sign-up press, not an application submit/.test(log)) problems.push('"Create account" was not told apart from submitting the application');
-    if (/learned.*Username|Username.*learned/i.test(log)) problems.push('"Username" from the sign-up page reached the learned answers');
-    fail(problems);
-  }, {needs: ctx.needs});
-
-  // The account and the application on one page (Coop, 8 Oct 2026): a CV upload says it is the application. It is filled from the kit, the session is at the
-  // form step, and its password boxes are never counted as questions the fill missed.
-  await ctx.run('the account and the application on one page: it is the application form, its passwords stay account fields', async () => {
-    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [ONEPAGE.url, {title: ONEPAGE.title, company: ONEPAGE.company}]);
-    let tab = null;
-    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(ONEPAGE.url)) || null; await pause(1000); }
-    if (!tab) throw new Error(`the one-page form never opened. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`);
-    let state = null;
-    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error' || state?.state === 'account') break; await pause(500); }
-    const problems = [];
-    if (state?.state !== 'done') problems.push(`the one-page form was not filled as the application (state: ${JSON.stringify(state)}): a CV upload beside the password makes it the form`);
-    else {
-      const actual = await readForm(tab);
-      const value = id => String(actual[id]?.value ?? actual[id] ?? '');
-      if (value('first_name') !== CONTACT.first_name) problems.push(`first name "${value('first_name')}", expected ${CONTACT.first_name}`);
-      if (value('question_3001') !== '3') problems.push(`Kubernetes years "${value('question_3001')}", its kit says 3`);
-    }
-    const sessionNow = async () => (await page.evaluate(() => window.pilot.sessions())).find(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url) || null;
-    let at = null;
-    for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await sessionNow(); await pause(1000); }
-    if (at?.stage !== 'form') problems.push(`the session is not at the form step (stage: ${at?.stage}, stuck: ${at?.stuck}): this page is the application`);
-    // The page's kind came from the AI (the stand-in), not the structure rule: the path every install takes when it has AI.
-    if (!/page kind: account-form/.test(appLogText(ctx.profile))) problems.push('the one-page form\'s kind never came from the AI ("page kind: account-form" missing in the app log)');
-    fail(problems);
-  }, {needs: ctx.needs});
-
-  // The form tab closed (owner, 8 Oct 2026): the app sees it, and Reopen opens the form again with the fill mark, for the same session, filled again.
-  await ctx.run('the form tab is closed: the app sees it and Reopen opens the form again, filled, for the same session', async () => {
-    for (const item of ctx.browser.context.pages()) if (item.url().startsWith(ONEPAGE.url)) await item.close();   // an earlier step's tab of the same job
-    await pause(2000);
-    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [ONEPAGE.url, {title: ONEPAGE.title, company: ONEPAGE.company}]);
-    const tabOf = () => ctx.browser.context.pages().find(item => item.url().startsWith(ONEPAGE.url)) || null;
-    const filled = async tab => { for (let waited = 0; waited < 90000; waited += 500) { const state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') return state; await pause(500); } return null; };
-    let tab = null;
-    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = tabOf(); await pause(1000); }
-    if (!tab) throw new Error('the form never opened');
-    if ((await filled(tab))?.state !== 'done') throw new Error('the form was not filled the first time');
-    const session = (await page.evaluate(() => window.pilot.sessions())).find(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url);
-    if (!session) throw new Error('no session for the job');
-    await tab.close();
-    let forms = null;
-    for (let waited = 0; waited < 45000; waited += 1000) { forms = await page.evaluate(() => window.pilot.formsOpen()); if (forms?.known && !forms.ids.includes(session.id)) break; await pause(1000); }
-    const problems = [];
-    if (!forms?.known || forms.ids.includes(session.id)) problems.push(`the app never saw the tab closed (forms open: ${JSON.stringify(forms)})`);
-    const reopened = await page.evaluate(id => window.pilot.sessionReopen(id, false), session.id);
-    if (!reopened?.ok) problems.push(`Reopen failed: ${JSON.stringify(reopened)}`);
-    let again = null;
-    for (let waited = 0; waited < 60000 && !again; waited += 1000) { again = tabOf(); await pause(1000); }
-    if (!again) problems.push('Reopen opened no tab on the form');
-    else {
-      if (!again.url().includes('jobpilotto-fill')) problems.push(`the reopened tab has no fill mark: ${again.url()}`);
-      if ((await filled(again))?.state !== 'done') problems.push('the reopened form was not filled again');
-      const after = (await page.evaluate(() => window.pilot.sessions())).filter(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url);
-      if (after.length !== 1 || after[0].id !== session.id) problems.push(`the reopened form is not the same session (${after.map(item => item.id).join(', ')} vs ${session.id})`);
-    }
-    fail(problems);
-  }, {needs: ctx.needs});
-
-  // A wrong kind kept by the AI corrects itself (owner, 8 Oct 2026): the stand-in calls this application form a "posting". The extension finds no Apply to
-  // press while the page has a form's fields, drops the kind (logged), and fills the form from the kit this visit.
-  await ctx.run('the AI gave a page the wrong kind: the page contradicts it, the kind is dropped and the form is filled', async () => {
-    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [MISLABELLED.url, {title: MISLABELLED.title, company: MISLABELLED.company}]);
-    let tab = null;
-    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(MISLABELLED.url)) || null; await pause(1000); }
-    if (!tab) throw new Error('the mislabelled form never opened');
-    let state = null;
-    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (['done', 'error', 'no-form', 'account'].includes(state?.state)) break; await pause(500); }
-    const problems = [];
-    const log = appLogText(ctx.profile);
-    if (!/page kind: posting/.test(log)) problems.push('the stand-in\'s wrong kind was never given (no "page kind: posting"): the row proves nothing');
-    if (!/page kind corrected: a posting with no Apply but a form's fields/.test(log)) problems.push('the wrong kind was not corrected (no "page kind corrected" line)');
-    if (!/page kind forgotten/.test(log)) problems.push('the app never dropped the kept kind (no "page kind forgotten" line)');
-    if (state?.state !== 'done') problems.push(`the form was not filled after the correction (state: ${JSON.stringify(state)})`);
-    else {
-      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
-      if (value !== '4') problems.push(`Kubernetes years "${value}", its kit says 4`);
-    }
-    fail(problems);
-  }, {needs: ctx.needs});
+  await runJourneys(ctx, {cv, dumpExtension, fail, forms, page});   // lib/apply-journeys.mjs
 
   const sessionsOf = url => page.evaluate(target => window.pilot.sessions().then(list => list.filter(item => String(item.url || '').replace(/\/$/, '') === target.replace(/\/$/, '')).map(item => `${item.kind}:${item.id}`)), url);
   const logTail = () => { try { return appLogLines(ctx.profile).filter(line => /\[extension\]|\[applied\]/.test(line)).slice(-6).map(line => line.slice(0, 220)).join('\n    '); } catch { return '(no log)'; } };
@@ -508,132 +304,7 @@ export async function runApply(ctx, parts) {
     if ((await stageOf(NOTION, CHAIN.url)) !== 'Applied') throw new Error('the Notion row is not Applied');
   }, {needs: ctx.needs});
 
-  await ctx.run('Tailor CV on a job writes a CV from its posting: the PDF on this Mac, the file on the job in Notion, and the extension attaches it, not the base CV', async () => {
-    const form = FORMS.greenhouse;
-    const code = crypto.createHash('sha1').update(form.url.trim()).digest('hex').slice(0, 8);
-    const tailoredPdf = path.join(ctx.profile, 'cv', 'tailored', `${code}.pdf`);
-    await page.click('.nav[data-view="jobs"]');
-    // The list redraws while sessions update, which closes an open ⋯ menu: open it again until the item is there.
-    let items = [];
-    for (let attempt = 0; attempt < 8; attempt++) {
-      await page.locator('article.job-row').filter({hasText: form.company}).first().getByRole('button', {name: 'More actions'}).click();
-      await pause(600);
-      items = await page.getByRole('menuitem').allInnerTexts();
-      if (items.some(text => /Tailor CV/.test(text))) break;
-    }
-    if (!items.some(text => /Tailor CV/.test(text))) throw new Error(`the ⋯ menu of ${form.company} has no Tailor CV (it lists: ${items.join(' | ') || 'nothing'})`);
-    await page.getByRole('menuitem', {name: /Tailor CV/}).click();
-    for (let waited = 0; !fs.existsSync(tailoredPdf) && waited < 120000; waited += 1000) await pause(1000);
-    if (!fs.existsSync(tailoredPdf)) throw new Error('Tailor CV wrote no PDF within two minutes (see the "Tailoring failed" toast)');
-    const size = fs.statSync(tailoredPdf).size;
-    if (size === cv.size) throw new Error('the tailored PDF is the size of the base CV: it was not written from the posting');
-    let files = 0;
-    for (let i = 0; i < 10 && !files; i++) { files = await tailoredFiles(NOTION, form.url); if (!files) await pause(3000); }
-    if (!files) throw new Error('the tailored CV is not on the job\'s row in Notion (column "Tailored CV")');
-    const {tab, state} = await apply(form, {viaApi: true});
-    if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
-    fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Greenhouse_Labs.pdf', size}));   // the tailored file's bytes, under its own name: the form shows which CV it got
-  }, {needs: ctx.needs});
-
-  await ctx.run('the form\'s panel offers a tailored CV: asked there, it is written, and filling again attaches it under its own name', async () => {
-    const form = FORMS.lever;
-    const code = crypto.createHash('sha1').update(form.url.trim()).digest('hex').slice(0, 8);
-    const tailoredPdf = path.join(ctx.profile, 'cv', 'tailored', `${code}.pdf`);
-    fs.rmSync(tailoredPdf, {force: true});
-    const {tab, state} = await apply(form, {viaApi: true});
-    if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
-    let panel = await panelOf(tab);
-    for (let i = 0; i < 10 && !/general CV/.test(panel?.tailor || ''); i++) { await pause(1500); panel = await readPanel(tab); }
-    if (!/general CV/.test(panel?.tailor || '')) throw new Error(`the panel does not offer a tailored CV (its tailor line: "${panel?.tailor}")`);
-    await tab.locator('#jobpilotto-review-host .t-btn').click();
-    for (let waited = 0; !fs.existsSync(tailoredPdf) && waited < 120000; waited += 1000) await pause(1000);
-    if (!fs.existsSync(tailoredPdf)) throw new Error('asking from the panel wrote no tailored CV within two minutes');
-    for (let i = 0; i < 20 && !/ready/.test(panel?.tailor || ''); i++) { await pause(1500); panel = await readPanel(tab); }
-    if (!/ready/.test(panel?.tailor || '')) throw new Error(`the panel never said the tailored CV is ready (its tailor line: "${panel?.tailor}")`);
-    await tab.locator('#jobpilotto-review-host .fill').click();
-    await pause(2500);
-    for (let waited = 0; waited < 90000; waited += 500) { const now = await fillState(tab).catch(() => null); if (now?.state === 'done' || now?.state === 'error') break; await pause(500); }
-    fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Lever_Systems.pdf', size: fs.statSync(tailoredPdf).size}));
-  }, {needs: ctx.needs});
-
-  // Tailor CVs for top matches (Actions): the best open jobs without a tailored CV, in fit order, only as many as asked. The stand-in AI answers the tailoring.
-  const topUrls = [1, 2, 3].map(n => `https://boards.greenhouse.io/e2e-top/jobs/90000${n}`);
-  const codeOf = url => crypto.createHash('sha1').update(url.trim()).digest('hex').slice(0, 8);
-  const tailoredAt = url => path.join(ctx.profile, 'cv', 'tailored', `${codeOf(url)}.pdf`);
-    await ctx.run('Tailor CVs for top matches: asked for 2, it tailors the two best open jobs without a CV, in fit order, and leaves the third alone', async () => {
-    await removeJobsByUrl(NOTION, topUrls);   // rows an earlier failed run left behind
-    const added = [];
-    for (const [index, fit] of [99, 98, 97].entries()) added.push((await addKitJob(NOTION, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
-      kit: {answers: [], cover_letter: '', check_before_sending: []}, description: POSTING})).id.replace(/-/g, ''));
-    await page.reload();
-    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-    await page.click('.nav[data-view="jobs"]');
-    // The NEW rows, by page id (6 Oct 2026: the saved list painted on reload still held the rows just archived, same URLs; Tailor then wrote to an archived page).
-    await page.waitForFunction(ids => ids.every(id => (window.__jp.shared.allJobs || []).some(job => String(job.notion_url || '').replace(/-/g, '').includes(id))), added, {timeout: 120000, polling: 2000})
-      .catch(async () => {
-        const held = await page.evaluate(urls => (window.__jp.shared.allJobs || []).filter(job => urls.includes(job.url)).map(job => `${job.url.slice(-6)} → ${String(job.notion_url || 'no page').slice(-32)}`), topUrls);
-        throw new Error(`the Jobs list never showed the three new top-match rows ${added.map(id => id.slice(-8)).join(', ')}; it holds: ${held.join(' | ') || 'none of their URLs'}`);
-      });
-    await page.click('.nav[data-view="actions"]');
-    if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
-    await page.fill('#tailor-top-n', '2');
-    await page.click('#tailor-top');
-    // A tracked task: the banner follows it and Recent activity holds its row, with the result line as its summary.
-    await page.waitForFunction(() => /Tailor CVs/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
-      .catch(() => { throw new Error('the Actions banner never showed Tailor CVs running'); });
-    // "View activity" on the banner opens the RUNNING task, even when a finished row was open before.
-    await page.click('#run-banner-view');
-    const finished = page.locator('#activity-recent .recent-row').filter({hasNotText: 'Running'}).first();
-    if (await finished.count()) { await finished.click(); await page.click('#activity-toggle').catch(() => {}); }
-    await page.click('#run-banner-view');
-    await page.waitForFunction(() => /Running/.test(document.querySelector('#activity-recent .recent-row.current')?.textContent || ''), null, {timeout: 10000})
-      .catch(() => { throw new Error('"View activity" did not open the running Tailor CVs task'); });
-    if (!(await page.locator('#tailor-top').isDisabled())) throw new Error('Run is still pressable while Tailor CVs is running');
-    let said = '';
-    for (let waited = 0; !/Tailored \d+ of \d+ CV/.test(said) && waited < 420000; waited += 3000) {
-      await pause(3000);
-      said = await page.evaluate(async () => ((await window.pilot.runs()).runs || []).find(run => run.kind === 'tailor')?.summary || '');
-    }
-    await page.waitForFunction(() => !document.getElementById('tailor-top').disabled, null, {timeout: 20000}).catch(() => { throw new Error('Run stayed disabled after Tailor CVs ended'); });
-    if (!/Tailored 2 of 2 CVs/.test(said)) throw new Error(`Recent activity has no Tailor CVs run that says two CVs were tailored: "${said}"`);
-    const made = topUrls.map(url => fs.existsSync(tailoredAt(url)));
-    if (made.join() !== 'true,true,false') throw new Error(`expected CVs for the 99 and 98 fit jobs only, got ${JSON.stringify(Object.fromEntries(topUrls.map((url, i) => [url.slice(-6), made[i]])))}`);
-    await page.reload();   // the list is read again from Notion, where the CVs now sit on their rows
-    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-    await page.click('.nav[data-view="jobs"]');
-    await page.waitForFunction(urls => { const jobs = window.__jp.shared.allJobs || []; return jobs.filter(job => urls.includes(job.url) && job.tailored).length === 2; }, topUrls, {timeout: 90000, polling: 2000})
-      .catch(() => { throw new Error('the Jobs list does not show 📄 Tailored CV on the two jobs'); });
-    await removeJobsByUrl(NOTION, topUrls);
-  }, {needs: ctx.needs});
-
-  // One Apply button (5 Oct 2026): pressed on a saved job with no kit, it drafts the kit first. Here the AI answers every call with a server error, so the draft cannot
-  // be made: the button must say so ("Retry apply"), no form may open, and the job stays without a kit. The success path needs a form to read (not faked here).
-  // (A board that does not exist is not enough: an unreadable form still gets a kit from the posting, src/ai/kit.py prepare_one; the gate of 6 Oct 2026 drafted one.)
-  await ctx.run('Apply on a saved job without a kit: it prepares first, and when the kit cannot be drafted says Retry apply and opens nothing', async () => {
-    const bareUrl = 'https://boards.greenhouse.io/e2e-no-such-board/jobs/900010';
-    await removeJobsByUrl(NOTION, [bareUrl]);
-    await addKitJob(NOTION, {title: 'Bare Platform Engineer', company: 'E2E Bare', url: bareUrl, kit: null, fit: 60, stage: 'Saved', nextStep: '', description: POSTING});
-    await page.reload();
-    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-    await page.click('.nav[data-view="jobs"]');
-    await page.evaluate(() => { const filter = document.getElementById('filter-status'); filter.value = 'saved'; filter.dispatchEvent(new Event('change')); });   // Saved jobs are not in the default "New matches"
-    const rowText = () => page.evaluate(() => [...document.querySelectorAll('article.job-row')].filter(row => /E2E Bare/.test(row.textContent)).map(row => row.querySelector('.row-main')?.textContent.trim())[0] || '');
-    for (let waited = 0; !(await rowText()) && waited < 120000; waited += 2000) await pause(2000);
-    if ((await rowText()) !== 'Apply') throw new Error(`a saved job without a kit should show Apply, it shows "${await rowText()}"`);
-    const opened = ctx.browser.opened.length, asked = proxy.stats.calls;
-    proxy.setMode('server-error');
-    try {
-      await page.locator('article.job-row').filter({hasText: 'E2E Bare'}).first().locator('.row-main').click();
-      for (let waited = 0; (await rowText()) !== 'Retry apply' && waited < 180000; waited += 1000) {
-        if (ctx.browser.opened.length !== opened) throw new Error('a form was opened for a job whose kit was never drafted');
-        await pause(1000);
-      }
-    } finally { proxy.setMode('pass'); }
-    if (proxy.stats.calls === asked) throw new Error('the AI was never asked to draft the kit, so this step did not test a failed draft');
-    if ((await rowText()) !== 'Retry apply') throw new Error(`the button never said Retry apply (it says "${await rowText()}")`);
-    if (ctx.browser.opened.length !== opened) throw new Error('a form was opened for a job whose kit was never drafted');
-    await removeJobsByUrl(NOTION, [bareUrl]);
-  }, {needs: ctx.needs});
+  await runCvSteps(ctx, {NOTION, apply, cv, fail, page, panelOf, proxy});   // lib/apply-cv-steps.mjs
 
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
     fail(submitProblems(forms.fired, ''));
