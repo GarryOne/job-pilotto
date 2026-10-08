@@ -2190,7 +2190,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .ss-tip-chip { flex: none; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--signal-ink); }
 .ss-tip-frame { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-size: var(--fs-sm);
   -webkit-mask-image: linear-gradient(90deg, transparent, var(--ink) 6%, var(--ink) 94%, transparent); mask-image: linear-gradient(90deg, transparent, var(--ink) 6%, var(--ink) 94%, transparent); }
-.ss-tip-text { display: inline-block; padding-left: 100%; animation: ss-ticker 20s linear infinite; }
+/* Each tip starts a little in from the left, readable at once: from the right edge (100%) a wide bar stood empty ~27 s per tip (8 Oct 2026). */
+.ss-tip-text { display: inline-block; padding-left: min(100%, 12rem); animation: ss-ticker 20s linear infinite; }
 .ss-tips:hover .ss-tip-text { animation-play-state: paused; }
 @keyframes ss-ticker { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 .ss-tip-hide, .ss-tip-show { flex: none; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: var(--fs-sm); line-height: 1; padding: 2px 6px; border-radius: var(--r-sm); }
