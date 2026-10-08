@@ -186,6 +186,9 @@ def sources(env=None):
                                                       ('Jobicy', lambda search: jobicy() if technical_search(search) else [])]   # its tags are IT ones
     if not disabled('aggregators', env) and not disabled('jobsch', env):
         found.append(('jobs.ch', jobsch))   # Swiss places only (it returns nothing otherwise)
+    if not disabled('aggregators', env) and not disabled('found_boards', env):   # boards found for your countries (src/sources/found_boards.py)
+        from . import found_boards
+        found.append(('Job boards found', found_boards.read))
     if env.get('ADZUNA_APP_ID') and env.get('ADZUNA_APP_KEY') and not disabled('adzuna', env):
         found.append(('Adzuna', adzuna))
     if env.get('JOOBLE_API_KEY') and not disabled('jooble', env):

@@ -493,6 +493,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/careers.py` — A company's own careers page, for employers with no job-system feed (Greenhouse, Lever, ...).
 - `src/sources/describe.py` — Descriptions for jobs that arrived without one.
 - `src/sources/feeds.py` — Small, dependency-free job watcher. Python 3.10+."""
+- `src/sources/found_boards.py` — Reading the job boards found for the user's countries (src/ai/board_ideas.py; spec docs/superpowers/specs/2026-10-08-job-board-discovery.md).
 - `src/sources/google_jobs.py` — Google Jobs through SerpApi's paid API (engine=google_jobs). Python 3.10+, no dependencies.
 - `src/sources/google_setup.py` — Guided setup of your own Google app for Job Pilotto (`python -m src.sources.google setup`).
 - `src/sources/google.py` — Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).

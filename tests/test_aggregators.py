@@ -127,8 +127,9 @@ class AggregatorTests(unittest.TestCase):
 
     def test_keyed_sources_only_with_their_keys_and_free_ones_can_be_switched_off(self):
         names = lambda env: [name for name, _ in aggregators.sources(env)]
-        self.assertEqual(names({}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'jobs.ch'])
-        self.assertEqual(names({'ADZUNA_APP_ID': 'i', 'ADZUNA_APP_KEY': 'k', 'JOOBLE_API_KEY': 'j'}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'jobs.ch', 'Adzuna', 'Jooble'])
+        self.assertEqual(names({}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'jobs.ch', 'Job boards found'])
+        self.assertEqual(names({'ADZUNA_APP_ID': 'i', 'ADZUNA_APP_KEY': 'k', 'JOOBLE_API_KEY': 'j'}), ['Arbeitnow', 'Himalayas', 'Jobicy', 'jobs.ch', 'Job boards found', 'Adzuna', 'Jooble'])
+        self.assertNotIn('Job boards found', names({'JOB_PILOTTO_DISABLE': 'found_boards'}))
         self.assertEqual(names({'JOB_PILOTTO_DISABLE': 'aggregators', 'JOOBLE_API_KEY': 'j'}), ['Jooble'])
 
     def test_adzuna_asks_per_country_of_your_places(self):
