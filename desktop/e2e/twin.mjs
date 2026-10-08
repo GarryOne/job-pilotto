@@ -63,8 +63,19 @@ async function main() {
   const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile: path.join(LIVE, 'browser')});   // kept: site sign-ins survive
   fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
   say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both.`);
-  const stop = async () => { await browser.close().catch(() => {}); app.kill(); fs.rmSync(path.join(LIVE, 'twin.json'), {force: true}); process.exit(0); };
-  process.on('SIGINT', stop); process.on('SIGTERM', stop);
+  // Stopping always stops the app first (8 Oct 2026: a stop that awaited the browser first left the twin's app running on its ports),
+  // and an exit by any path kills it as a last resort.
+  let stopping = false;
+  const stop = async () => {
+    if (stopping) return;
+    stopping = true;
+    app.kill();
+    fs.rmSync(path.join(LIVE, 'twin.json'), {force: true});
+    await browser.close().catch(() => {});
+    process.exit(0);
+  };
+  process.on('SIGINT', stop); process.on('SIGTERM', stop); process.on('SIGHUP', stop);
+  process.on('exit', () => { try { app.kill(); } catch { /* already gone */ } });
   app.on('exit', code => { say(`app exited (${code})`); stop(); });
 }
 
