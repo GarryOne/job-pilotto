@@ -73,3 +73,17 @@ test('a menu still empty after its re-arm is armed again with the remembered cho
   timers.shift().fn();
   assert.equal(queued.length, before + 1);        // no re-arm once filled
 });
+
+test('the same form reopened in a new tab gets its menu armed again (live twin, 8 Oct 2026: the reopened tab was never re-armed)', async () => {
+  const {menuRearm} = await import('../lib/menu-rearm.js');
+  const files = {}, storage = {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }};
+  const queued = [];
+  const listen = menuRearm({storage, client: () => claude('Suisse'), queueFill: (...args) => queued.push(args), later: () => {}});
+  const state = tab => ({id: 's1', tab, pending: ['Indicatif de pays'], proposals: [{label: 'Indicatif de pays', value: '+41', key: '', options: ['Suisse', 'France']}]});
+  listen(state(101));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  listen(state(101));                              // the same tab: handled
+  listen(state(202));                              // reopened: a new tab
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(queued.length, 2);
+});

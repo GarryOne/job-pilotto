@@ -3,7 +3,7 @@
 // "no-form"). Scenarios owned: "Direct application form", "Posting → Apply", "What kind of page", "Sign-up page before the form"
 // (docs/flows/applying.md). Guards: extension-tab-pages.test.js, extension-same-tab.test.js, page-kind.test.js and the e2e rows (npm run flows).
 // background.js hands over what lives on with the worker (initFillFlow): the tabs a fill started on, the fill itself, its report, onPage.
-import {PAGE_FILES, api, settings} from './flow.js';
+import {PAGE_FILES, api, clickCombos, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {accountOutcome, accountStep} from './account-step.js';
@@ -11,9 +11,9 @@ import {applyPressed} from './tabs.js';
 import {sessionGet} from './tab-memory.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
 
-let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true;
+let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set();
 export function initFillFlow(shared) {
-  ({started, fillOpenedTab, reportFlow, onPage} = shared);
+  ({started, fillOpenedTab, reportFlow, onPage, fillsNow = new Set()} = shared);
   chrome.runtime.onMessage.addListener(onFillOne);
 }
 
@@ -24,14 +24,25 @@ function onFillOne(message, sender, reply) {
   const tabId = sender.tab.id, label = String(message.label || '').slice(0, 120), value = String(message.value || '').slice(0, 200);
   const run = () => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [label, value],
     func: (l, v) => (window.__jobPilottoFillOne ? window.__jobPilottoFillOne(l, v) : {ok: false, missing: true})}).then(([frame]) => frame?.result || {ok: false});
-  run().then(async result => {
+  // Never while this tab's fill is still running: its last pass arms and clicks the menus again and overrode the app's pick (8 Oct 2026, the
+  // live twin: "Suisse" picked at 20:13:35, "Allemagne" after the fill's last pass at 20:13:42). Waits for it, at most 90 s.
+  const fillDone = async () => { for (let waited = 0; fillsNow.has(tabId) && waited < 90000; waited += 300) await new Promise(resolve => setTimeout(resolve, 300)); };
+  fillDone().then(run).then(async result => {
     if (result.missing) {
       await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
       await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: PAGE_FILES});
       result = await run();
     }
-    decide('fill', result.ok ? 'filled one field asked from the app' : result.armed ? 'a menu armed for your click, asked from the app' : 'could not fill one field asked from the app',
-      {field: label.slice(0, 60), translated: !!result.translated});
+    // A menu armed with the app's choice (the one that means the same: "Suisse" for "+41") is picked at once when "Fill drop-down menus too" is
+    // on, as during the fill; it used to wait for your click every time (owner, 8 Oct 2026: "why are we always stopped at this field?").
+    if (!result.ok && result.armed && (await settings()).clickDropdowns !== false) {
+      const combos = await clickCombos(tabId).catch(() => []);
+      const same = text => String(text || '').replace(/[\s*:]+$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const mine = combos.find(combo => combo.picked && same(combo.label) === same(label));
+      if (mine) result = {...result, ok: mine.matched !== false, armed: false, picked: true, matched: mine.matched};
+    }
+    decide('fill', result.picked ? (result.matched === false ? 'a menu click selected another choice than asked, asked from the app' : 'a menu picked for you, asked from the app') : result.ok ? 'filled one field asked from the app' : result.armed ? 'a menu armed for your click, asked from the app' : 'could not fill one field asked from the app',
+      {field: label.slice(0, 60), translated: !!result.translated, ...(result.picked ? {matched: result.matched !== false} : {})});
     reply({ok: !!result.ok, armed: !!result.armed});
   }).catch(error => reply({ok: false, error: String(error?.message || error)}));
   return true;

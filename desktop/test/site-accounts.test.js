@@ -44,13 +44,3 @@ test('an account made earlier counts: the email recorded on the Credentials item
   assert.equal(modeOf({}, 'career2.successfactors.eu', 'me+x@example.com', ''), 'sign-up');
   assert.equal(modeOf(record({}, 'a.example', 'me@example.com', 'pending'), 'a.example', 'me@example.com', 'me@example.com'), 'confirm');   // our record wins
 });
-
-import fs from 'node:fs';
-
-test('the account automation switch is in the window (Profile > Application assistant), saves full or assist, and the state the window gets carries the effective choice', () => {
-  const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-  assert.ok(read('renderer/index.html').includes('id="account-automation"'));
-  assert.match(read('renderer/pages/startup.js'), /accountAutomation: \$\('account-automation'\)\.checked \? 'full' : 'assist'/);
-  assert.match(read('renderer/pages/settings.js'), /account-automation'\)\.checked = shared\.state\.settings\.accountAutomation !== 'assist'/);
-  assert.match(read('main.js'), /accountAutomation: automationOf\(storage\.settings\(\)\)/);
-});

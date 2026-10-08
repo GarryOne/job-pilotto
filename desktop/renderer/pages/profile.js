@@ -209,7 +209,6 @@ export async function loadSettings() {
   showSchedule();
   showContact();
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
-  $('account-automation').checked = shared.state.settings.accountAutomation !== 'assist';
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = shared.state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';

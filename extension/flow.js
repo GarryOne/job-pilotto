@@ -47,7 +47,10 @@ export async function clickCombos(tabId) {
         picked = (await page(() => window.__jobPilottoArmedCount())) < before;
         if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 100)); }  // close the menu
       }
-      results.push({label: spot.label, picked, ms: Date.now() - started});
+      // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
+      const last = picked ? await page(() => { const pick = window.__jobPilottoLastPick; window.__jobPilottoLastPick = null; return pick; }) : null;
+      const matched = !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
+      results.push({label: spot.label, picked, matched, ms: Date.now() - started});
       if (!picked) skip += 1;
     }
     // A phone widget whose country was just picked: type the number for real, so the form registers it.
@@ -268,8 +271,10 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       const picked = combos.filter(c => c.picked).length;
       for (const combo of combos) {
         const row = (summary.trace || []).find(r => r.label === combo.label);
-        if (row) Object.assign(row, {outcome: combo.picked ? 'filled' : 'left', source: row.source || 'kit',
-          reason: combo.picked ? `dropdown clicked for you (${(combo.ms / 1000).toFixed(1)} s)` : `dropdown clicked, but no option matched (${(combo.ms / 1000).toFixed(1)} s)`});
+        const wrong = combo.picked && combo.matched === false;   // the click selected another choice than the answer: not a fill
+        if (row) Object.assign(row, {outcome: combo.picked && !wrong ? 'filled' : 'left', source: row.source || 'kit',
+          reason: wrong ? `dropdown clicked, but it selected another choice (${(combo.ms / 1000).toFixed(1)} s)`
+            : combo.picked ? `dropdown clicked for you (${(combo.ms / 1000).toFixed(1)} s)` : `dropdown clicked, but no option matched (${(combo.ms / 1000).toFixed(1)} s)`});
       }
       if (picked) {
         summary.filled = (summary.filled || 0) + picked;

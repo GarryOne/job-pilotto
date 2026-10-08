@@ -22,7 +22,7 @@ export function menuRearm({storage, client, queueFill, log = () => {}, later = (
     if (state?.id) latest.set(state.id, state);
     for (const proposal of state?.proposals || []) {
       if (!proposal.value || !proposal.options?.length || proposal.options.some(option => same(option, proposal.value))) continue;
-      const key = `${state.id}|${proposal.label}|${proposal.value}|${proposal.options.join('|')}`;
+      const key = `${state.id}|${state.tab ?? ''}|${proposal.label}|${proposal.value}|${proposal.options.join('|')}`;   // a form reopened in a new tab is asked again
       if (done.has(key)) continue;
       done.add(key);
       pickOption(storage, proposal, {client: client(), log}).then(({choice}) => {

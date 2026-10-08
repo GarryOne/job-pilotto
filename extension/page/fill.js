@@ -194,7 +194,7 @@
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
         }
-        if (option) { option.click(); done(); }
+        if (option) { window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: clean(option.textContent)}; option.click(); done(); }   // flow.js clickCombos checks asked = got
         else { badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; window.__jobPilottoMenuMissed?.(el, shown); }   // page/propose.js: no text left in the box; its choices go to the app
       }, 120);
     };
