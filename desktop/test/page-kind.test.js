@@ -93,3 +93,14 @@ test('a posting in any language: the AI names its Apply button among the page\'s
   assert.equal(applyButtonOf('Sign in', ['Sign in']), '', '…and never accepts the English ones');
   assert.equal(applyButtonOf('Submit', ['Submit']), '');
 });
+
+test('a button by meaning: the app picks among the page\'s own buttons only, kept; nothing outside them', async () => {
+  const {pickChoice} = await import('../lib/server-pages.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-pick-'));
+  const storage = {readText: name => { try { return fs.readFileSync(path.join(dir, name), 'utf8'); } catch { return null; } }, writeText: (name, text) => fs.writeFileSync(path.join(dir, name), text)};
+  const options = ['Aceitar todos', 'Rejeitar não essenciais', 'Saber mais'];
+  const said = choice => ({messages: {create: async () => ({stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: JSON.stringify({choice})}]})}});
+  assert.equal((await pickChoice(storage, {label: 'A cookie banner', value: 'Reject all cookies that are not necessary', options}, {client: said('Rejeitar não essenciais')})).choice, 'Rejeitar não essenciais');
+  assert.equal((await pickChoice(storage, {label: 'A cookie banner', value: 'Accept cookies', options}, {client: said('Sign in')})).choice, '', 'never a button the page does not show');
+  assert.equal((await pickChoice(storage, {value: 'x', options: []}, {client: said('x')})).choice, '');
+});

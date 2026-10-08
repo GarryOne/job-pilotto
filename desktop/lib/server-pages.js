@@ -68,3 +68,16 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   return answer.error ? {ok: true, kind: '', error: answer.error}
     : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || ''};
 }
+
+
+// Which of a page's own buttons means what the extension needs (a cookie banner's "reject non-essential", the extension/visit.js fallback
+// when its words know none of them), in any language: lib/option-pick.js, kept per meaning and set of buttons. Labels only, never a value.
+export async function pickChoice(storage, body, {client} = {}) {
+  const options = (Array.isArray(body?.options) ? body.options : []).map(text => String(text).replace(/\s+/g, ' ').trim().slice(0, 60)).filter(Boolean).slice(0, 20);
+  const value = String(body?.value || '').slice(0, 80), label = String(body?.label || '').slice(0, 80);
+  if (!options.length || !value) return {ok: true, choice: ''};
+  const {pickOption} = await import('./option-pick.js');
+  const found = await pickOption(storage, {label, value, options}, {client: client === undefined ? aiClient(storage) : client});
+  appLog('extension', `button by meaning: ${found.choice ? 'picked' : 'none'}`, {meaning: value.slice(0, 40), how: found.how, buttons: options.length});
+  return {ok: true, choice: options.includes(found.choice) ? found.choice : ''};
+}

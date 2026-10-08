@@ -21,8 +21,22 @@ const badge = (tabId, text, title) => {
 };
 const run = async (tabId, func, args = []) => (await chrome.scripting.executeScript({target: {tabId}, func, args}))[0]?.result;
 // The cookie closer in every frame of the tab: a consent message drawn in an iframe is out of the page's own reach. The first label pressed.
-const closeConsentEverywhere = async tabId => ((await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: closeConsent}).catch(() => []))
-  .map(frame => frame?.result).find(Boolean) || '');
+const inFrames = async (tabId, args = []) => (await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: closeConsent, args}).catch(() => []))
+  .map(frame => frame?.result);
+// Its words first (free); a banner in another language: the app picks, from the banner's own buttons, the one that refuses what is not
+// necessary, else the one that accepts (desktop/lib/server-pages.js pickChoice, by meaning, kept), and that one is pressed.
+const closeConsentEverywhere = async tabId => {
+  const pressed = (await inFrames(tabId)).find(Boolean);
+  if (pressed) return pressed;
+  const buttons = [...new Set((await inFrames(tabId, [{list: true}])).flatMap(found => (Array.isArray(found) ? found : [])))].slice(0, 20);
+  if (!buttons.length) return '';
+  const config = await settings().catch(() => null);
+  for (const value of ['Reject all cookies that are not necessary', 'Accept cookies']) {
+    const choice = config && (await api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons})}).catch(() => null))?.choice;
+    if (choice) return (await inFrames(tabId, [{press: choice}])).find(Boolean) || '';
+  }
+  return '';
+};
 // Template code where an address should be (DHL, 7 Oct 2026: careers.dhl.com/global/${getUrl(linkEle,): never a place to go.
 const TEMPLATE = /\$\{|\{\{|%7B/i;
 export const FILTER_ROUNDS = 3;

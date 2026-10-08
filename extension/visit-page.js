@@ -73,14 +73,15 @@ export function pageOutline() {
       samples: items.slice(0, 3).map(item => ({lines: linesOf(item).slice(0, 8).map(line => line.slice(0, 100)),
         links: [...item.querySelectorAll('a[href]')].slice(0, 3).map(link => ({text: (link.innerText || '').trim().slice(0, 80), href: link.getAttribute('href').slice(0, 160)}))}))});
   }
-  const pager = [];
+  // The controls Claude may name as the next page (src/ai/visit_reader.py checks its answer is one of them): the ones these words know first,
+  // then the page's other short controls, so "Seguinte" or "Następna" can be chosen too; never one that applies, submits or signs in.
+  const pager = [], others = [];
   for (const node of document.querySelectorAll('a[href], button, [role=button]')) {
     const label = (node.getAttribute('aria-label') || node.innerText || node.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
-    if (!label || label.length > 30 || !visible(node)) continue;
-    if (!/^\d{1,3}$|next|suiv|weiter|nächst|sigu|succ|more|plus|mehr|›|»|>|→/i.test(label)) continue;
-    pager.push({label, kind: node.tagName === 'A' ? 'link' : 'button'});
-    if (pager.length >= 25) break;
+    if (!label || label.length > 30 || !visible(node) || /apply|submit|sign ?in|sign ?up|log ?in|register|password/i.test(label)) continue;
+    (/^\d{1,3}$|next|suiv|weiter|nächst|sigu|succ|more|plus|mehr|›|»|>|→/i.test(label) ? pager : others).push({label, kind: node.tagName === 'A' ? 'link' : 'button'});
   }
+  pager.splice(25); pager.push(...others.slice(-Math.max(0, 25 - pager.length)));   // a pager sits near the end of the page: its last controls
   return {url: location.href, title: document.title.slice(0, 200), groups, pager};
 }
 
@@ -138,7 +139,7 @@ export function nextByRecipe(recipe) {
 // A cookie or consent banner over the page (owner, 7 Oct 2026: "the extension doesn't know to accept cookies"; Omega's 6 jobs sat behind one):
 // closed the way a person would, choosing the least consent offered: "reject all" / "technical or necessary only" first, "accept" only when it
 // is the one way on. Only a box that speaks of cookies or consent, never one with a password field. Runs in the page; returns the label pressed.
-export function closeConsent() {
+export function closeConsent(want = null) {   // want: {list: true} -> the box's button labels; {press: label} -> press that one (visit.js asks the app which)
   const visible = node => { const box = node.getBoundingClientRect(); const look = getComputedStyle(node); return box.width > 0 && box.height > 0 && look.visibility !== 'hidden' && look.display !== 'none'; };
   const words = node => (node.innerText || node.value || node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
   const ABOUT = /cookie|consent|gdpr|privacy|datenschutz|confidentialit|traceurs|tracking/i;
@@ -148,6 +149,9 @@ export function closeConsent() {
     .filter(node => visible(node) && ABOUT.test(node.innerText || '') && !node.querySelector('input[type=password]'));
   const least = /^(reject|decline|refuse|deny|necessary|essential|only necessary|use necessary|allow (technical|necessary|essential)|tout refuser|refuser|continuer sans accepter|nur (notwendige|erforderliche|technisch)|ablehnen|alle ablehnen|rifiuta|solo (necessari|tecnici))/i;
   const any = /^(accept|agree|allow all|got it|ok\b|okay|i understand|accepter|tout accepter|j'accepte|akzeptieren|alle akzeptieren|zustimmen|einverstanden|accetta|accetto)/i;
+  const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && words(node) && words(node).length < 60);
+  if (want?.list) return [...new Set(boxes.flatMap(box => buttonsOf(box).map(words)))].slice(0, 20);
+  if (want?.press) { const button = boxes.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) button.click(); return button ? words(button) : ''; }
   for (const pattern of [least, any]) {
     for (const box of boxes) {
       const button = [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].find(node => visible(node) && pattern.test(words(node)) && words(node).length < 60);
