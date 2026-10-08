@@ -6,6 +6,7 @@ import {ensureAlarm} from './report-alarm.js';
 import {FOLD_MS, postingToClose} from './same-tab.js';
 import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
+import {packCarry, unpackCarry} from './carry.js';
 import {isAccountPage, startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -539,7 +540,13 @@ async function reportFlow(tab, flow, extra = {}) {
 const NO_ANSWER = 'no answer in the kit, Profile or your details';
 
 // fast: the page is already there (the panel's Fill): no wait for it to render.
-async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = false} = {}) {
+// Fills running now, by tab: an update waits for them (a reload mid-fill ended Claude's answers and reset the panel, 8 Oct 2026).
+const fillsNow = new Set();
+async function fillOpenedTab(tab, ...rest) {
+  fillsNow.add(tab.id);
+  try { return await fillOpenedTabNow(tab, ...rest); } finally { fillsNow.delete(tab.id); }
+}
+async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = false} = {}) {
   await arm(tab.id);
   if (!fast) await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   const page = tab.url || url;  // the page this fill belongs to: progress is only ever drawn while the tab shows it
@@ -861,6 +868,7 @@ chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install')
 // After a reload: put the panel back on tabs the app opened, and take it off every other page (Calendly, a job
 // site you were reading). The old script's listeners die with the reload; the pill they drew does not.
 async function settleOpenTabs() {
+  await carriedBack;   // the armed: marks of the worker before an update reload
   const tabs = await chrome.tabs.query({}).catch(() => []);
   for (const tab of tabs) {
     if (tab.id == null || !/^https:/.test(tab.url || '')) continue;
@@ -888,10 +896,20 @@ chrome.runtime.onStartup.addListener(settleOpenTabs);
 // This worker's own id: Chrome may stop the worker and start a new one, and every reading in progress dies with the old one; the app hands
 // those tabs back when the id changes.
 const WORKER = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-// This browser run's id (kept in session storage: a new one after a reload, an update or a Chrome restart), made once per worker: several
+// This browser run's id (kept in session storage: a new one after a reload by hand or a Chrome restart; carried over the extension's own update reload), made once per worker: several
 // reports at a worker's start each made their own before (7 Oct 2026, 22:05:39: three ids in half a second, the app took each for a restart).
+// What the worker before an update reload knew about its tabs (extension/carry.js), back in session storage before anything reads it.
+const carriedBack = (async () => {
+  const {carry} = await chrome.storage.local.get('carry').catch(() => ({}));
+  if (!carry) return;
+  await chrome.storage.local.remove('carry').catch(() => {});
+  const items = unpackCarry(carry);
+  if (items) await chrome.storage.session.set(items).catch(() => {});
+  decide('worker', items ? 'tab memory carried over the reload' : 'tab memory from a reload too old: dropped', {keys: Object.keys(carry.items || {}).length, ms: Date.now() - Number(carry.at)});
+})().catch(() => {});
 let bootReady = null;
 const bootId = () => (bootReady ||= (async () => {
+  await carriedBack;
   const {boot: kept} = await chrome.storage.session.get('boot').catch(() => ({}));
   const boot = kept || String(Date.now());
   if (!kept) await chrome.storage.session.set({boot}).catch(() => {});
@@ -931,12 +949,14 @@ async function reportTabs() {
     }
     // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
     // that can't update (a store install) doesn't reload over and over.
-    // Never while a site is being read: a reload ends every reading at once (7 Oct 2026: an update landed mid-run and a site died); the next
+    // Never while a form is being filled (fillsNow) or a site is being read: a reload ends every reading at once (7 Oct 2026: an update landed mid-run and a site died); the next
     // report after the last one ends does it.
-    if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version) && !readingNow()) {
+    if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version) && !readingNow() && !fillsNow.size) {
       const {reloadedFor} = await chrome.storage.local.get('reloadedFor');
       if (reloadedFor !== answer.latest) {
         await chrome.storage.local.set({reloadedFor: answer.latest});
+        // Its tabs' memory goes with it (extension/carry.js): the tabs outlive the reload, and their sessions must too.
+        await chrome.storage.local.set({carry: packCarry(await chrome.storage.session.get(null).catch(() => ({})))}).catch(() => {});
         await decide('worker', `reloading for version ${answer.latest}`);
         chrome.runtime.reload();
       }
