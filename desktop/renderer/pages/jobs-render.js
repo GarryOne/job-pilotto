@@ -270,14 +270,14 @@ export function renderJobs() {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
       const earlier = String(job.kit_state || '').startsWith('earlier');
       menu.push({icon: 'refresh', label: earlier ? 'Redraft kit (earlier inputs)' : 'Redraft kit',
-        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s, a few cents); replaces it in Notion', run: () =>
+        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s); replaces it in Notion', run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
         })});
     }
     if (!job.kit && job.code && job.url && job.status !== 'applied' && !prepareState(job)) {
-      menu.push({icon: 'layers', label: 'Prepare only', title: 'Draft the kit (about 20 s, a few cents) without opening the form: read it first, then Apply', run: () =>
+      menu.push({icon: 'layers', label: 'Prepare only', title: 'Draft the kit (about 20 s) without opening the form: read it first, then Apply', run: () =>
         background('Preparing kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Prepare failed', result.error || 'Try again.');
@@ -292,7 +292,7 @@ export function renderJobs() {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.
       menu.push({icon: 'search', label: job.rejection ? 'Review the rejection again' : 'Why was I rejected?',
-        title: 'Claude reviews this application: presentation, hard skills, soft skills, or not on you (~20 s, a few cents)',
+        title: 'Claude reviews this application: presentation, hard skills, soft skills, or not on you (~20 s)',
         run: () => background('🔎 Reviewing the rejection…', async () => {
           const result = await window.pilot.reviewRejection(job.url);
           toastMessage(result.ok ? 'Rejection reviewed' : 'Review failed', result.text);
@@ -306,10 +306,10 @@ export function renderJobs() {
         if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
       });
       menu.push({icon: 'scissors', label: job.tailored ? 'Re-tailor CV' : 'Tailor CV',
-        title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, a few cents)',
+        title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min)',
         run: tailorNow});
       // Which terms the posting asks for the CV states, and which requirements could be a yes/no question on the form (a dialog: nothing added to the list).
-      menu.push({icon: 'scale', label: 'Check CV match', title: 'Compare your CV with this posting: stated, implied and missing terms, and the requirements that could be knockout questions (about 30 s, a few cents)',
+      menu.push({icon: 'scale', label: 'Check CV match', title: 'Compare your CV with this posting: stated, implied and missing terms, and the requirements that could be knockout questions (about 30 s)',
         run: () => openMatchCheck(job, {tailor: tailorNow})});
     }
     // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,

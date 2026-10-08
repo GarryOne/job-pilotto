@@ -17,7 +17,7 @@ function row(label, tone, title, detail) {
 function showResult(data) {
   const result = data?.result;
   show($('match-result'), !!result);
-  $('match-run').textContent = result ? 'Check again (a few cents)' : 'Check the match (a few cents)';
+  $('match-run').textContent = result ? 'Check again' : 'Check the match';
   if (!result) return;
   $('match-grade').textContent = result.grade;
   $('match-grade').className = `cvc-score ${result.grade <= 'A' ? 'good' : result.grade === 'B' ? 'ok' : 'low'}`;

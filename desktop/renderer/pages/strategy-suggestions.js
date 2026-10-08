@@ -94,13 +94,12 @@ export function drawImprove() {
   const previous = strategyState.lastStrategy?.previous || 0;
   if (!previous && pendingImprove.has('previous') && expected('previous')) items.push(placeholderRow());
   if (previous) {
-    const cost = `≈ $${(previous * 0.015).toFixed(2)}`;
     // Off from the click until its refresh has ended (owner, 7 Oct 2026: a second click looked like a second re-score).
-    const go = el('button', 'secondary item-action', rescoring ? 'Re-scoring…' : `Re-score · ${cost}`);
+    const go = el('button', 'secondary item-action', rescoring ? 'Re-scoring…' : 'Re-score');
     go.type = 'button';
     go.disabled = rescoring;
     if (rescoring) go.title = 'Running in Refresh jobs: follow it in Recent activity';
-    go.addEventListener('click', () => confirmRescore(previous, cost));
+    go.addEventListener('click', () => confirmRescore(previous));
     items.push(improveRow('refresh', 'info', `${previous} job${previous === 1 ? ' has an older score' : 's have older scores'}`,
       'Below 50 before your Profile changed · Updating is optional', go));
   }
@@ -129,12 +128,12 @@ function improveRow(glyph, tone, title, text, button) {
 // Re-score: its cost said and confirmed first; then the kept scores are queued and a search starts at once (60 per search), shown like any
 // search (header status, Recent activity, its result). 7 Oct 2026: it only queued them for later searches, so nothing seemed to happen.
 let rescoring = false;
-function confirmRescore(count, cost) {
+function confirmRescore(count) {
   const dialog = $('rescore-dialog');
   $('rescore-title').textContent = `Re-score ${count} older score${count === 1 ? '' : 's'}?`;
-  $('rescore-lead').textContent = `They are scored again against your current Profile, about ${cost.replace('≈ ', '')} of AI, spent once. ` +
+  $('rescore-lead').textContent = `They are scored again against your current Profile with AI, once. ` +
     `A search starts now and scores up to 60 of them${count > 60 ? '; the rest in the next searches' : ''}. Nothing else changes.`;
-  $('rescore-go').textContent = `Re-score · ${cost}`;
+  $('rescore-go').textContent = `Re-score ${count}`;
   dialog.returnValue = '';
   dialog.onclose = async () => {
     if (dialog.returnValue !== 'go' || rescoring) return;

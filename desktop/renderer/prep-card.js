@@ -1,6 +1,6 @@
 // The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
 // src/focus.py builds (prep_at: when the kit was built; prep_stale: an interview was reviewed or booked since).
-export const COST_HINT = 'Claude Sonnet builds it from the job, your Profile and your earlier interviews (about $0.04)';
+export const COST_HINT = 'Claude Sonnet builds it from the job, your Profile and your earlier interviews';
 
 // "29 Sept", or "today"
 export function prepDay(at, today = new Date().toLocaleDateString('en-CA')) {

@@ -4,9 +4,9 @@
 // menu press is the ask; it never runs by itself.
 import {humanError} from './run-warnings.js';
 
-export const LABEL = 'Review again · updates the job (about $0.25)';
+export const LABEL = 'Review again · updates the job';
 export const BUSY = 'Reviewing again…';
-export const TITLE = 'Claude reviews the saved transcript again (one Claude Opus call, about $0.20-0.30): the review is replaced and the '
+export const TITLE = 'Claude reviews the saved transcript again (one Claude Opus call): the review is replaced and the '
   + "call's facts (salary, contract, visa…) fill the job's empty fields. Stage and filled fields are left as they are.";
 
 // The menu entry for a row, or null (not reviewed yet: the row's own Review button does it).

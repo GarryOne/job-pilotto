@@ -293,7 +293,7 @@ test('Rebuild from CV: changes grouped by what they trigger, contact edits ignor
   assert.equal(groups[0].linked, 'profile');
   assert.equal(groups[1].linked, 'search');
   assert.deepEqual(groups[1].changes, ['~ Goals']);
-  assert.equal(groups[1].cost, '≈ $1.80');
+  assert.equal(groups[1].cost, 'Uses AI');
   assert.match(groups[1].impact, /Re-scores 120 jobs over the next 2 searches; 5 unsent kits/);
   // A contact-only change isn't a Profile change for scoring.
   assert.deepEqual(rebuildGroups(current, {...draft, search: current.search, profile_markdown: '# Goals\n- SRE\n# Contact\n- Phone: 9'}), []);

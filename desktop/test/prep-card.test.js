@@ -10,8 +10,8 @@ test('a kit from an earlier call: "Build new prep kit" first, the earlier kit on
   const card = prepCard(item({prep_at: '2026-09-29', prep_stale: true, prep_why: 'reviewed', prep_since: '2026-09-30'}), TODAY);
   assert.equal(card.primary.label, 'Build new prep kit');
   assert.equal(card.primary.run, 'build');
-  assert.equal(card.primary.title, COST_HINT);  // the cost is shown before you press it
-  assert.match(COST_HINT, /about \$0\.04/);
+  assert.equal(card.primary.title, COST_HINT);  // what it does is said before you press it
+  assert.doesNotMatch(COST_HINT, /\$/);
   assert.match(card.meta[1], /^Kit from 29 Sept? · your call today was reviewed since$/);
   assert.equal(card.more.length, 1);
   assert.match(card.more[0].label, /^Open earlier kit \(built 29 Sept?\)$/);

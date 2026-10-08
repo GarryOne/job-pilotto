@@ -12,8 +12,8 @@ test('a narrow search says how little it catches and offers the terms that would
   assert.equal(card.title, 'Your search may be too narrow');
   assert.match(card.text, /Of 3,142 postings in your places, your role keywords catch 164 \(5%\)/);
   assert.deepEqual(card.chips.map(chip => chip.label), ['+ software engineer · 149', '+ backend · 49', '+ distributed systems · 1']);
-  assert.equal(card.chips[1].title, '49 open postings, e.g. Senior Backend Engineer; Backend Developer. About $0.74 once to read and score them.');
-  assert.equal(card.chips[2].title, '1 open posting. About $0.02 once to read and score them.');
+  assert.equal(card.chips[1].title, '49 open postings, e.g. Senior Backend Engineer; Backend Developer. Each is read and scored once.');
+  assert.equal(card.chips[2].title, '1 open posting. Each is read and scored once.');
   assert.deepEqual(card.chips.map(chip => chip.term), ['software engineer', 'backend', 'distributed systems']);   // what addRoles receives
 });
 
@@ -43,7 +43,7 @@ test('the places card says how many matching roles sit outside your places and o
   assert.match(card.text, /430 more are in places that need a visa/);
   assert.deepEqual(card.chips.map(chip => chip.label), ['+ Ireland · 11', '+ Spain · 1']);
   assert.deepEqual(card.chips.map(chip => chip.place), ['Ireland', 'Spain']);   // what addPlaces receives
-  assert.equal(card.chips[0].title, '11 open roles, e.g. Senior SRE; Platform Engineer. About $0.17 once to read and score them.');
+  assert.equal(card.chips[0].title, '11 open roles, e.g. Senior SRE; Platform Engineer. Each is read and scored once.');
 });
 
 test('the places card stays quiet without offers, and after Not now for this crawl', () => {

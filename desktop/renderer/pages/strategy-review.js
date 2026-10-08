@@ -236,8 +236,8 @@ export function showDraftIntro() {
   show($('draft-loading'), false); show($('draft-view'), false); show($('draft-error'), false); show($('draft-stale'), false);
   $('draft-title').textContent = 'Your strategy'; show($('draft-subtitle'), false); show($('draft-cost'), false);
   $('goals-cost-text').textContent = shared.state.settings.setupDone
-    ? 'Rebuilding reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20. Nothing in your strategy changes until you review the result and pick what to apply.'
-    : 'Building reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20. Nothing is saved until you review the result.';
+    ? 'Rebuilding reads your CV and your note with Claude Sonnet 5: once. Nothing in your strategy changes until you review the result and pick what to apply.'
+    : 'Building reads your CV and your note with Claude Sonnet 5: once. Nothing is saved until you review the result.';
 }
 export function renderDraft() {
   placeNote('review');
@@ -315,8 +315,8 @@ async function openRebuildReview() {
   const update = () => {
     const picked = result.groups.filter(group => boxes[group.id].checked);
     $('replace-go').disabled = !picked.length;
-    const usd = picked.map(group => Number((group.cost.match(/\$([\d.]+)/) || [])[1] || 0)).reduce((a, b) => a + b, 0);
-    $('rebuild-total').textContent = picked.length ? `Applying ${picked.length} of ${result.groups.length}: ${usd ? `≈ $${usd.toFixed(2)} of AI re-scoring, spread over the next searches` : 'no AI cost'}.` : 'Nothing selected.';
+    const uses = picked.some(group => group.cost === 'Uses AI');
+    $('rebuild-total').textContent = picked.length ? `Applying ${picked.length} of ${result.groups.length}: ${uses ? 'AI re-scores the jobs over the next searches' : 'no AI re-scoring'}.` : 'Nothing selected.';
   };
   $('rebuild-groups').replaceChildren(...result.groups.map(group => {
     const box = el('label', 'review-group');
@@ -325,7 +325,7 @@ async function openRebuildReview() {
     boxes[group.id] = check;
     const text = el('span', 'review-text');
     const head = el('span', 'review-head');
-    head.append(el('b', '', group.title), pill(group.cost, group.cost.startsWith('≈') ? 'warn' : 'neutral'));
+    head.append(el('b', '', group.title), pill(group.cost, group.cost === 'Uses AI' ? 'warn' : 'neutral'));
     const list = el('ul', 'review-changes');
     list.append(...group.changes.slice(0, 8).map(change => el('li', '', change)), ...(group.changes.length > 8 ? [el('li', 'muted', `+ ${group.changes.length - 8} more`)] : []));
     text.append(head, list, el('span', 'muted small', group.impact));

@@ -349,7 +349,7 @@ function renderSaved() {
       main.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
     } else {
       main = Object.assign(el('button', 'secondary iv-main', reviewing.has(row.id) ? 'Reviewing…' : 'Review'), {disabled: reviewing.has(row.id),
-        title: 'Claude Opus reviews it question by question (about $0.25); the review is added to the Notion page'});
+        title: 'Claude Opus reviews it question by question; the review is added to the Notion page'});
       main.addEventListener('click', () => reviewRow(row.id));
     }
     const menu = [

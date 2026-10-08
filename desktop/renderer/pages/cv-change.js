@@ -34,7 +34,7 @@ export async function openCvChange() {
     if (!data?.ok || !data.scored) return;
     const searches = Math.max(1, Math.ceil(data.scored / 60));
     $('cv-impact').textContent = `Applying Profile edits re-scores ${data.scored} jobs over the next ${searches} search${searches === 1 ? '' : 'es'} ` +
-      `(≈ $${(data.scored * 0.015).toFixed(2)})${data.counts?.kits ? `; ${data.counts.kits} unsent kits were drafted with the old Profile` : ''}.`;
+      `${data.counts?.kits ? `; ${data.counts.kits} unsent kits were drafted with the old Profile` : ''}.`;
   }).catch(() => {});
   $('cv-dialog-name').textContent = change.name || 'your CV';
   $('cv-dialog-sub').textContent = change.previous === change.name ? 'New upload · same file name as the previous CV' : `New upload${change.previous ? ` · replaces ${change.previous}` : ''}`;

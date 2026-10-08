@@ -13,8 +13,8 @@ export function coverageCard(verdict, dismissedAt = '') {
       'These role words appear in titles your keywords miss; adding one makes the next searches look for it:',
     chips: verdict.suggestions.slice(0, 8).map(item => ({
       term: item.term, count: item.count || 0, label: `+ ${item.term} · ${number(item.count)}`,
-      // Each new posting is read and scored once (about 1.5 cents): said before the click, because a broad word brings many.
-      title: `${number(item.count)} open posting${item.count === 1 ? '' : 's'}${item.examples?.length ? `, e.g. ${item.examples.join('; ')}` : ''}. About $${(Math.round(item.count * 1.5) / 100).toFixed(2)} once to read and score them.`,
+      // Each new posting is read and scored once (AI, once): said before the click, because a broad word brings many.
+      title: `${number(item.count)} open posting${item.count === 1 ? '' : 's'}${item.examples?.length ? `, e.g. ${item.examples.join('; ')}` : ''}. Each is read and scored once.`,
     })),
     at: verdict.at || '',
   };
@@ -91,7 +91,7 @@ export function placesCard(verdict, dismissedAt = '') {
     text: `Your role keywords match ${number(places.title_hits)} open roles; ${number(places.matched)} are in your places. ${number(extra)} more are in these places:` + elsewhere,
     chips: places.options.slice(0, 8).map(option => ({
       place: option.place, count: option.count || 0, label: `+ ${option.place} · ${number(option.count)}`,
-      title: `${number(option.count)} open role${option.count === 1 ? '' : 's'}${option.examples?.length ? `, e.g. ${option.examples.join('; ')}` : ''}. About $${(Math.round(option.count * 1.5) / 100).toFixed(2)} once to read and score them.`,
+      title: `${number(option.count)} open role${option.count === 1 ? '' : 's'}${option.examples?.length ? `, e.g. ${option.examples.join('; ')}` : ''}. Each is read and scored once.`,
     })),
     at: verdict.at || '',
   };

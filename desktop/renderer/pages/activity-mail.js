@@ -292,7 +292,7 @@ function jobPrep(company, title) {
   const id = found.page_id;
   if (kitBuilding.has(id)) return {label: 'Building…', busy: true, run: () => {}};
   if (kitReady.has(id) && found.notion_url) return {label: 'Open prep kit', run: event => window.pilot.openNotion(found.notion_url, event?.metaKey)};
-  return {label: 'Build prep kit', title: 'Claude Sonnet builds it from the job, your Profile and your earlier interviews (about $0.04)', run: () => {
+  return {label: 'Build prep kit', title: 'Claude Sonnet builds it from the job, your Profile and your earlier interviews', run: () => {
     openPrep({page_id: id, company: found.company || found.via, job: found.title, notion_url: found.notion_url, badge: ''});
     kitBuilding.add(id);
     document.dispatchEvent(new Event('focus-rendered'));
