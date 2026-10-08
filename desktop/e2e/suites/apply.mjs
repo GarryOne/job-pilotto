@@ -21,7 +21,7 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): every form step needs the applicant, the kits and the proxy's answers.
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
-  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
+  'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
 // The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).
@@ -41,11 +41,16 @@ const tailoredFrom = numbered => ({summary: 'Site Reliability Engineer who owns 
   changes: [{where: 'Summary', change: 'Leads with SLOs and incident reviews', why: 'The posting asks for both'}]});
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Two suites from this file (6 Oct 2026, the 7-minute budget: apply took ~7.4 min on a Mac): `apply` fills the forms, `applycv` (suites/applycv.mjs) runs the
-// tailored-CV and kitless-Apply steps, each on its own Notion page. The setup step and the final "Submit was never clicked" check run in both.
+// Parts of this file (6 Oct 2026, the 7-minute budget; the journeys split off on 8 Oct 2026): `apply` fills the forms; `applycv` (suites/applycv.mjs) runs the
+// tailored-CV and kitless-Apply steps AND the journeys across pages and tabs (docs/flows/applying.md: a posting that opens a new tab, two applications side by
+// side, a sign-up before the form, account + form on one page, a closed tab, a wrong kind), which is how CI runs them within its 5 macOS jobs; `applyflows`
+// (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.
+// The setup step and the final "Submit was never clicked" check run in all of them; each run seeds only the fixture jobs its steps use.
 const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
+const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a sign-up page before the form', 'the account and the application on one page',
+  'the form tab is closed', 'the AI gave a page the wrong kind', '"I submitted it"'];
 const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
-export const partOf = name => (SHARED_STEPS.some(head => name.startsWith(head)) ? 'both' : CV_STEPS.some(head => name.startsWith(head)) ? 'cv' : 'forms');
+export const partOf = name => (SHARED_STEPS.some(head => name.startsWith(head)) ? 'both' : CV_STEPS.some(head => name.startsWith(head)) ? 'cv' : FLOW_STEPS.some(head => name.startsWith(head)) ? 'flows' : 'forms');
 
 export const run = ctx => runApply(ctx, ['forms']);
 export async function runApply(ctx, parts) {
@@ -57,13 +62,15 @@ export async function runApply(ctx, parts) {
   await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
   const all = ctx.run;
   ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
-  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url, SCRIPTED.url, SIGNUP.url, ONEPAGE.url, MISLABELLED.url];
+  // The jobs this part seeds: the journeys use their own fixtures, the forms and the CV steps the form fixtures.
+  const fixtures = [...(parts.some(part => part !== 'flows') ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED] : [])];
+  const urls = fixtures.map(form => form.url);
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of [...Object.values(FORMS), CHAIN, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
+    for (const form of fixtures) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;

@@ -11,7 +11,7 @@ const before = flowDigest(read);
 console.log(`flows: ${MATRIX.length} scenarios, ${matrixUnits().length} unit file(s), ${matrixSteps().length} e2e step(s); flow files ${before}`);
 const unit = spawnSync(process.execPath, ['--test', ...matrixUnits()], {cwd: desktop, stdio: 'inherit'});
 if (unit.status !== 0) { console.error('flows: unit rows failed'); process.exit(1); }
-const e2e = spawnSync(process.execPath, ['run-all.mjs', '--only', 'apply'], {cwd: path.join(desktop, 'e2e'), stdio: 'inherit',
+const e2e = spawnSync(process.execPath, ['run-all.mjs', '--only', 'apply,applyflows'], {cwd: path.join(desktop, 'e2e'), stdio: 'inherit',
   env: {...process.env, E2E_STEPS: matrixSteps().join(',')}});
 if (e2e.status !== 0) { console.error('flows: e2e rows failed'); process.exit(1); }
 if (flowDigest(read) !== before) { console.error('flows: a flow file changed during the run: run it again'); process.exit(1); }

@@ -34,7 +34,7 @@
  {
   "id": "target-not-written",
   "suite": "focus",
-  "file": "desktop/lib/strategy.js",
+  "file": "desktop/lib/strategy-settings.js",
   "find": "    await publishSearchSettings(storage, {run, ensurePage, writePage});\n  } catch (error) {\n    storage.writeText('config/preferences.json', before);",
   "replace": "    void publishSearchSettings;\n  } catch (error) {\n    storage.writeText('config/preferences.json', before);",
   "what": "a changed daily target is kept on this Mac but never reaches Notion (silent data loss)"
@@ -74,7 +74,7 @@
  {
   "id": "local-run-skips-notion-page",
   "suite": "activity",
-  "file": "desktop/renderer/pages/activity.js",
+  "file": "desktop/renderer/pages/activity-render.js",
   "find": "(!r.log || !r.message || (kindOf(r) === 'mail' && !r.report?.length))",
   "replace": "!r.log",
   "what": "a run recorded on this Mac never reads its Notion page: Search analysis opens empty, Gmail check loses its header (5 Oct 2026)"

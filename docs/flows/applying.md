@@ -1,6 +1,6 @@
 # Applying flows: the scenario matrix
 
-> **Rule:** a change to any flow file runs the **whole** matrix, `cd desktop && npm run flows` (~4 min), not just its own row.
+> **Rule:** a change to any flow file runs the **whole** matrix, `cd desktop && npm run flows` (~4 min; the form scenarios in the `apply` suite and the journeys in `applyflows` run in parallel, each on its own Notion page and token), not just its own row.
 > The push is blocked until it passes on exactly that code (`tools/flows-gate.mjs`), or the commit says `Flows-unverified: <why>`.
 > Why: a fix for one flow (account creation) must never quietly break another (the application form). Owner, 8 Oct 2026.
 
