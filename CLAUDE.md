@@ -162,6 +162,18 @@ block missed `sessionGet` 800 lines below; an import changed upstream and a page
 state passed in, a header naming what it owns and the tests guarding it). Files already over it are in `tools/file-size-allowed.json` at their
 size and may only shrink; `tools/file-size.mjs` (push hook + `desktop/test/file-size.test.js`) fails a new big file or a listed one that grew.
 
+### Splitting a file safely (8 Oct 2026: main.js 2,781 → 1,197 lines, a failed start and three near-misses)
+- **Pure move, nothing else.** Same code, same names; a new file starts with a header: what it owns, which tests guard it.
+- **State:** a `let` that is reassigned stays ONE binding: pass a getter (`getWindow: () => window`) and, if the module sets it, a setter. Never
+  pass it by value (it freezes `null`). State only the moved code touches moves with it. Values `main.js` still needs from the module come back
+  as a return value, and the groups that use them are registered AFTER it (`prepareKitFor` was needed before it existed: the app did not start).
+- **Calls stay put:** `register…Handlers(` calls of earlier splits that sit inside a range you cut stay in `main.js`; imports `main.js` still needs
+  are restored from `git show HEAD:…`, never guessed. Ranges drift whenever imports above them change: recompute them from names, not numbers.
+- **Prove it runs:** tests that read `main.js`'s source read it through `test/main-source.js`; then START the app (`npm run shot -- sessions`),
+  because registration order and unset bindings only show at start-up. A flow file moved is a flow file: add it to `FLOW_FILES`, run `npm run flows`.
+- **Land fast:** `main.js` and the big pages are edited by several sessions a day; rebase right before the push and port what others changed in
+  the moved range (a session had split the contact handlers meanwhile: two files registering one channel).
+
 ## The extension first, Claude as the safety net (owner, 8 Oct 2026)
 The plain **Apply** button (the Chrome extension alone) is the product: easier, faster, simpler, and aimed at **non-technical users first**.
 Every step of an application (posting → Apply → account sign-up/sign-in → email confirmation → the form) is built for the extension to do
