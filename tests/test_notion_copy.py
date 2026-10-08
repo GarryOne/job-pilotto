@@ -151,3 +151,37 @@ class RenamedTitleTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RetryTests(unittest.TestCase):
+    """8 Oct 2026: the first live-test mirror stopped 44 rows in on one read timeout; a slow reply is retried like a 429."""
+
+    def test_a_timeout_is_retried_and_the_copy_goes_on(self):
+        from unittest import mock
+        calls = []
+
+        class Reply:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b'{"ok": true}'
+
+        def urlopen(request, timeout):
+            calls.append(request.full_url)
+            if len(calls) == 1:
+                raise TimeoutError('The read operation timed out')
+            return Reply()
+
+        notion = c.Notion('token')
+        with mock.patch.object(c.urllib.request, 'urlopen', urlopen), mock.patch.object(c.time, 'sleep', lambda s: None):
+            self.assertEqual(notion('GET', 'users/me'), {'ok': True})
+        self.assertEqual(len(calls), 2)
+
+    def test_a_connection_that_never_answers_still_fails_in_the_end(self):
+        from unittest import mock
+
+        def urlopen(request, timeout):
+            raise TimeoutError('The read operation timed out')
+
+        notion = c.Notion('token')
+        with mock.patch.object(c.urllib.request, 'urlopen', urlopen), mock.patch.object(c.time, 'sleep', lambda s: None):
+            self.assertRaises(TimeoutError, notion, 'GET', 'users/me')

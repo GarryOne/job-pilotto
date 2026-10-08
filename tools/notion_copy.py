@@ -80,6 +80,12 @@ class Notion:
                     time.sleep(float(error.headers.get('Retry-After') or 2 ** attempt))
                     continue
                 raise RuntimeError(f'{method} {path}: {error.code} {error.read().decode()[:300]}') from None
+            except (TimeoutError, urllib.error.URLError, ConnectionError) as error:   # a slow or dropped connection: one reply must not end a long copy
+                if attempt < 5:
+                    print(f'{method} {path}: {error!r}, retrying', file=sys.stderr)
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
 
     def pages(self, database_id):
         body, cursor = {'page_size': 100}, None
