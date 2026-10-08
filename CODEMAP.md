@@ -131,7 +131,16 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Desktop window: pages
 
 - `desktop/renderer/pages/actions.js` — Actions: every Telegram command.
-- `desktop/renderer/pages/activity.js` — Recent activity: the bar at the bottom of every screen and its panel.
+- `desktop/renderer/pages/activity-basics.js` — Recent activity: run names, phases, outcomes, the Gmail connection and the card chooser (cardFor).
+- `desktop/renderer/pages/activity-cards.js` — Recent activity: the insight, interview-review, kits and weekly cards.
+- `desktop/renderer/pages/activity-few-jobs.js` — Recent activity: the few-jobs help boxes beside the run card (coverage actions, Explain with AI).
+- `desktop/renderer/pages/activity-mail.js` — Recent activity: the Gmail check card: its rows, questions, folds and interview panels.
+- `desktop/renderer/pages/activity-panel.js` — Recent activity: the header filter, the open/close of the panel and the run announcements.
+- `desktop/renderer/pages/activity-render.js` — Recent activity: renderActivity, the Recent activity panel redraw, its panel height and its list state.
+- `desktop/renderer/pages/activity-results.js` — Recent activity: the result of a finished task shown once, and the kept status bar / kept Recent activity.
+- `desktop/renderer/pages/activity-run-card.js` — Recent activity: the run card (a run's message as counts and items), its skeleton and the job box.
+- `desktop/renderer/pages/activity-visits.js` — Recent activity: the site-reading (visits) card and the busy-button memory (presses) its buttons share.
+- `desktop/renderer/pages/activity.js` — Recent activity: the bar at the bottom of every screen and its panel. This file keeps init() (the start-up wiring) and re-exports the rest of the panel,
 - `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/calendar.js` — Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job

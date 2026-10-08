@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {barState, doneTitle, failedOutcome, failureHead, phaseStatus, runStatus, runWarned} from '../renderer/run-status.js';
+import {activitySource} from './activity-source.js';
 
 test('a finished run is Completed, With warnings or Failed, a running one Running, a waiting one Queued', () => {
   assert.deepEqual(runStatus({ok: true}, false).slice(0, 2), ['Completed', 'good']);
@@ -43,7 +44,7 @@ test('a failed run does not tick the step it stopped at, and its later steps sta
 
 test('the checklist marks the step a warned run stopped at with a warning, not a tick', async () => {
   const fs = await import('node:fs');
-  const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const source = activitySource();
   assert.match(source, /phaseStatus\(run, i, at\)/);
   assert.match(fs.readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8'), /\.activity-phases li\.warn::before/);
 });

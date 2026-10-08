@@ -1,8 +1,8 @@
 // Reopening Recent activity (or ⌘R) during a search keeps its Technical log: the app's copy re-seeds the window's (7 Oct 2026).
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import {test} from 'node:test';
 import {seeded} from '../renderer/live-log.js';
+import {activitySource} from './activity-source.js';
 
 test("the app's longer copy replaces the window's cleared list; the window's newer lines are kept otherwise", () => {
   const app = ['Searching job boards…', 'Checked: Manor AG', '⏳ Reading new jobs with AI: 3 of 26'];
@@ -13,6 +13,6 @@ test("the app's longer copy replaces the window's cleared list; the window's new
 });
 
 test('every fresh activity read re-seeds the live log while a task runs', () => {
-  const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const source = activitySource();
   assert.match(source, /if \(!running\) shared\.idleSeen = true;\n  else shared\.logLines = seeded\(running\.log, shared\.logLines\);/);
 });

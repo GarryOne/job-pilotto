@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import fs from 'node:fs';
+import {activitySource} from './activity-source.js';
 
 test('the open panel is kept with its run (or the running task), and a closed one is not brought back (owner, 8 Oct 2026)', async () => {
-  const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const source = activitySource();
   const panelMemory = new Function(`return ${/export const panelMemory = (.+);/.exec(source)[1]}`)();
   assert.equal(panelMemory(true, 1790622000000), '1790622000000');
   assert.equal(panelMemory(true, null), 'live', 'the running task, not a past run');

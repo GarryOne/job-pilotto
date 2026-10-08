@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {CHOICES, emailNoun, questionWhy} from '../renderer/question-words.js';
+import {activitySource} from './activity-source.js';
 
 const renderer = path.join(path.dirname(fileURLToPath(import.meta.url)), '../renderer');
 
@@ -31,6 +32,6 @@ test('why it is asked: what the email names, the same words on the card and in t
   assert.equal(emailNoun({subject: 'Re: your application'}), 'email');
   assert.equal(questionWhy('invitation', 'Kraken'), "The invitation names Kraken but doesn't specify the role.");
   assert.match(questionWhy('email', ''), /couldn't tell which job/);
-  const activity = fs.readFileSync(path.join(renderer, 'pages/activity.js'), 'utf8');
+  const activity = activitySource();
   assert.match(activity, /questionWhy\(noun, company\)/);
 });

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {adviceEvent} from '../renderer/coverage-actions.js';
+import {activitySource} from './activity-source.js';
 
 test('fixed kinds only, shown once per place a session, never the role word or place', () => {
   const sent = [];
@@ -18,7 +19,7 @@ test('fixed kinds only, shown once per place a session, never the role word or p
 
 test('every recommending card records shown and taken (a new card without it fails here)', () => {
   const strategy = readFileSync(new URL('../renderer/pages/strategy.js', import.meta.url), 'utf8');
-  const activity = readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const activity = activitySource();
   // Every Strategy suggestion is a row drawn by suggestionRow (records shown); each kind records taken (widen or its own call) and dismissed (⋯).
   assert.match(strategy, /function suggestionRow[\s\S]*?adviceEvent\('shown', kind/);
   assert.match(strategy, /const widen = [\s\S]*?adviceEvent\('taken', kind/);
@@ -64,7 +65,7 @@ test('the Few new jobs box: employer numbers with one recommendation, words as r
 });
 
 test('every button Recent activity redraws that waits on something keeps its busy and done state (one mechanism; a new one without it fails here)', () => {
-  const activity = readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const activity = activitySource();
   // Buttons made while drawing (a name, not a fixed $('…') element) whose click awaits something.
   const waiting = [...activity.matchAll(/\b(\w+)\.addEventListener\('click', async/g)].map(found => found[1]);
   const kept = new Set([...activity.matchAll(/(?:keepPress|keepButton)\((?:[^,()]|\([^()]*\))+, (\w+)\)/g)].map(found => found[1])

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {activitySource} from './activity-source.js';
 
 const renderer = path.join(path.dirname(fileURLToPath(import.meta.url)), '../renderer');
 const read = file => fs.readFileSync(path.join(renderer, file), 'utf8');
@@ -16,7 +17,7 @@ test('a new job is recorded as "<company> — new job", not the option label', (
 });
 
 test('one resolution line per answer, and an unrecorded answer is said as such', () => {
-  const js = read('pages/activity.js');
+  const js = activitySource();
   for (const words of ['Linked to ', 'Created a job for ', 'Marked as not job-related', 'which job it went to was not recorded']) assert.ok(js.includes(words), words);
   assert.doesNotMatch(js, /Not about a job, or the job was not recorded/);
   assert.equal((js.match(/job: '', unknown: true/g) || []).length, 2, 'both fallbacks mark the answer as unrecorded');

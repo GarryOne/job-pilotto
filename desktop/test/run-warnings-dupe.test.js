@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {groupWarnings, humanError, newDetails} from '../renderer/run-warnings.js';
+import {activitySource} from './activity-source.js';
 
 test('a rate-limit detail that only repeats the banner is not listed again', () => {
   const grouped = groupWarnings(['RateLimitError: Error code: 429']);
@@ -14,7 +14,7 @@ test('details that name jobs or other problems stay', () => {
 });
 
 test('the Recent activity card lists only new details', () => {
-  assert.match(readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8'), /newDetails\(/);
+  assert.match(activitySource(), /newDetails\(/);
 });
 
 test('a Notion 502 with its HTML error page is one plain sentence, with the words before it kept (#275)', () => {

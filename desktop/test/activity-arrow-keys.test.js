@@ -1,9 +1,9 @@
 // ↑/↓ in Recent activity open the neighbouring run (renderer/pages/activity.js), skipping runs that only wait.
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import {test} from 'node:test';
+import {activitySource} from './activity-source.js';
 
-const source = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+const source = activitySource();
 
 test('Recent activity handles ArrowUp/ArrowDown from the current row, not from the focus, and skips queued rows', () => {
   const block = source.slice(source.indexOf("document.addEventListener('keydown', event => {\n    if (event.key !== 'ArrowDown'"));

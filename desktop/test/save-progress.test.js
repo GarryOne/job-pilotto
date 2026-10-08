@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {progressWords, withSaveProgress} from '../renderer/save-progress.js';
 import {mainSource} from './main-source.js';
+import {activitySource} from './activity-source.js';
 
 test('progress in words: reading, then the share of blocks written', async () => {
   assert.equal(progressWords({stage: 'read'}), 'Reading your settings from Notion…');
@@ -24,7 +25,7 @@ test('every Search settings save in main.js reports progress, and every renderer
   const calls = [...main.matchAll(/strategy\.(loosen|addRoles|addPlaces|editLists|retune|setDailyTarget)\(([\s\S]*?)\);/g)];
   assert.ok(calls.length >= 6);
   for (const [, name, args] of calls) assert.match(args, /settingsDeps\(\)/, `strategy.${name} without settingsDeps (no progress told)`);
-  const pages = ['pages/strategy.js', 'pages/tune.js', 'pages/focus.js', 'pages/activity.js'].map(file => [file, readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8')]);
+  const pages = ['pages/strategy.js', 'pages/tune.js', 'pages/focus.js', 'pages/activity.js'].map(file => [file, file === 'pages/activity.js' ? activitySource() : readFileSync(new URL(`../renderer/${file}`, import.meta.url), 'utf8')]);
   for (const [file, source] of pages) {
     for (const call of source.matchAll(/pilot\.(editTargets|tuneApply|setDailyTarget)\(/g)) {
       const before = source.slice(Math.max(0, call.index - 200), call.index);

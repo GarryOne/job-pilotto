@@ -2,10 +2,8 @@
 // (the owner's fixes #6, #7, #10 and the log rules, 6 Oct 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
 import {failureHead, notConnectedHead, runStatus, waitedHead} from '../renderer/run-status.js';
+import {activitySource} from './activity-source.js';
 
 test('Gmail not connected: Not checked, a box that connects it', () => {
   const head = notConnectedHead({kind: 'mail', ok: true, off: true});
@@ -32,6 +30,6 @@ test('no reason recognised: stopped unexpectedly, Run again, View technical log'
 });
 
 test('the log opens by itself only while a run streams here', () => {
-  const js = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../renderer/pages/activity.js'), 'utf8');
+  const js = activitySource();
   assert.match(js, /\$\('activity-log'\)\.open = streamLocal;/);
 });

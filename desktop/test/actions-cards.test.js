@@ -8,10 +8,11 @@ import {mainSource} from './main-source.js';
 
 import * as strategy from '../lib/strategy.js';
 import {applyLabel, basisParts, proposalCounts, proposalTitle} from '../renderer/tune-text.js';
+import {activitySource} from './activity-source.js';
 
 const renderer = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'renderer');
 const html = fs.readFileSync(path.join(renderer, 'index.html'), 'utf8');
-const activity = fs.readFileSync(path.join(renderer, 'pages', 'activity.js'), 'utf8');
+const activity = activitySource();
 const main = mainSource();
 
 const grid = html.slice(html.indexOf('<div class="task-grid">'), html.indexOf('<section class="card runs-card">'));

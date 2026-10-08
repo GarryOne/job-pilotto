@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {activitySource} from './activity-source.js';
 
 const html = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'renderer', 'index.html'), 'utf8');
 
@@ -26,7 +27,7 @@ test('the ⌘K shortcut toggles on an open palette, not on a palette element', (
 // Settings sweep (6 Oct 2026: "Refresh jobs" and "Check for new jobs" were listed side by side and ran the same jobs check).
 test('a button that starts a task an Actions card offers is not listed twice in ⌘K', async () => {
   const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
-  const activity = fs.readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8');
+  const activity = activitySource();
   const buttons = JSON.parse(activity.match(/export const TASK_BUTTONS = (\[.*\]);/)[1].replace(/'/g, '"'));
   const carded = new Set([...html.matchAll(/class="[^"]*\baction\b[^"]*" data-command="(\w+)"/g)].map(match => match[1]));
   assert.ok(carded.has('run') && carded.has('mail'), 'the Actions cards were not found');

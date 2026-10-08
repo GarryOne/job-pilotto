@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {runWarningLines, runWarnings} from '../renderer/run-warnings.js';
+import {activitySource} from './activity-source.js';
 
 test('a GitHub run\'s warning is in its report, not its one-line log (the list and the card must agree)', () => {
   // A Notion row: Status Warnings, its Summary only the report's first line, its log one line pointing at its page.
@@ -46,7 +46,7 @@ test('a 429 from the AI service is said as "rate-limited", not "refused the call
   const {humanError, groupWarnings} = await import('../renderer/run-warnings.js');
   assert.equal(humanError('RateLimitError: Error code: 429'), 'the AI service is rate-limited right now');
   assert.deepEqual(groupWarnings(['Skipped job 5: Error code: 429']), ['Skipped 1 job (5): the AI service is rate-limited right now']);
-  assert.match(readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8'), /AI_BUSY\.test\(text\)/);
+  assert.match(activitySource(), /AI_BUSY\.test\(text\)/);
 });
 
 test('the API\'s own JSON never reaches the owner: it becomes the sentence it means', async () => {
