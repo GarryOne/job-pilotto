@@ -12,7 +12,7 @@ import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
-import {clearProposals, loadProposals} from './contact-proposals.js';
+import {clearProposals, contactDirty, loadProposals} from './contact-proposals.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
 export function profileTab(name) {
@@ -311,6 +311,7 @@ export async function init() {
     message('telegram-message', `Connected to @${result.username} ✓ Matches arrive there after each search.`, 'ok');
     loadSettings();
   });
+  $('contact-discard').addEventListener('click', () => { showContact(); clearProposals(); message('contact-message', ''); contactDirty(false); });
   $('contact-save').addEventListener('click', async () => {
     const field = name => document.querySelector(`[data-contact="${name}"]`);
     // Full name isn't shown: forms that ask for it get first + last.
@@ -321,6 +322,7 @@ export async function init() {
     $('contact-save').disabled = true;
     const result = await window.pilot.saveContact(contact);
     if (!result.ok) $('contact-save').disabled = false; else clearProposals();   // saved: what was proposed is yours now
+    if (result.ok) setTimeout(() => { if ($('contact-save').disabled) contactDirty(false); }, 2500);   // the bar says "Saved" a moment, then leaves
     message('contact-message', result.ok ? (shared.state.notion ? 'Saved in your Notion Profile ✓ The extension uses these from the next form it fills.'
       : 'Saved ✓ The extension uses these from the next form it fills.') : result.error, result.ok ? 'ok' : 'error');
   });

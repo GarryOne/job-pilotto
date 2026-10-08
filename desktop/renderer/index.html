@@ -905,7 +905,11 @@
               <label>GitHub<input data-contact="github" type="url" placeholder="https://github.com/…"></label>
               <label>Website<input data-contact="website" type="url" placeholder="https://…"></label>
             </div>
-            <div class="panel-foot"><p class="message" id="contact-message"></p><button class="primary" id="contact-save" disabled>Save changes</button></div>
+          </div>
+          <div class="save-bar" id="contact-savebar" role="region" aria-label="Unsaved changes to your details" hidden>
+            <div class="save-bar-words"><b>Unsaved changes to your details</b><span class="muted small">The extension fills forms with them once saved.</span></div>
+            <span class="message" id="contact-message"></span>
+            <button class="secondary" id="contact-discard">Discard changes</button><button class="primary" id="contact-save" disabled>Save changes</button>
           </div>
           <div class="setting info-bar" id="setting-profile-note" data-profile-panel="details"><i data-icon="info"></i>
             <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>

@@ -2265,12 +2265,12 @@ button.is-busy { cursor: progress; opacity: .7; }
 .strategy-page .improve-title { margin: 0; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
 .strategy-page .improve-panel .item-rows { margin: var(--sp-1) 0 0; border-top: 0; }
 .strategy-page .improve-panel .item-action { padding: 4px 12px; font-size: var(--fs-sm); white-space: nowrap; }
-/* The draft's save bar: sticks to the bottom of the page's scroll, above the status bar, whatever the tab. */
-.strategy-page .save-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4);
+/* The save bar (strategy draft, Your details): sticks to the bottom of the page's scroll, above the status bar, whatever the tab. */
+.save-bar { position: sticky; bottom: var(--sp-5); z-index: 5; display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4);
   padding: var(--sp-3) var(--sp-5); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
-.strategy-page .save-bar-words { display: grid; gap: 2px; margin-right: auto; }
-.strategy-page .save-bar .message { margin: 0; }
-.strategy-page .save-bar.is-nudged { animation: save-bar-nudge .5s var(--ease) 2; }
+.save-bar-words { display: grid; gap: 2px; margin-right: auto; }
+.save-bar .message { margin: 0; }
+.save-bar.is-nudged { animation: save-bar-nudge .5s var(--ease) 2; }
 @keyframes save-bar-nudge { 50% { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); } }
 .strategy-page .edited-badge { margin-left: var(--sp-1); }
 /* The target cards in two columns that stack on their own: no empty space under the shorter card of a row. */

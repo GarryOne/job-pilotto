@@ -4,9 +4,10 @@ import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {betaText, updateText} from '../update-text.js';
 import {shared} from './shared.js';
-import {$, aiReady, show} from './core.js';
+import {$, aiReady, message, show} from './core.js';
 import {extensionState} from '../service-status.js';
 import {openView, remembered} from './nav.js';
+import {contactDirty} from './contact-proposals.js';
 import {profileTab, showContact} from './profile.js';
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
@@ -49,7 +50,7 @@ function arrived(card) {
 // Settings → Profile: CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
 async function openProfile() {
   shared.state = await window.pilot.state();
-  $('contact-save').disabled = true;
+  contactDirty(false);
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
   showContact();
   profileTab('details');
@@ -336,7 +337,7 @@ export async function init() {
   $('ov-profile').addEventListener('click', () => settingsPage('profile'));
 
   // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
-  document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { $('contact-save').disabled = false; }));
+  document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { contactDirty(true); message('contact-message', ''); }));
   $('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
   // The job-site password is on Credentials too (and on Profile → Application assistant): the same two buttons.
   for (const [where, said] of [['credentials-shared', 'credentials-message']]) {
