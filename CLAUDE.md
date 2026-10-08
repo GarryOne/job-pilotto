@@ -149,6 +149,12 @@ button a person would look for (Add a job, Log activity…) is added with `butto
 input instead of running at once. Settings needs nothing: every page, section (by its heading), Connections card and button there is listed from the page itself
 (danger-zone buttons are focused, not pressed), checked by the settings suite's ⌘K step. A new long task that runs on this Mac is a tracked task (`pipeline.work` / `pipeline.task`), so the banner, Recent activity and the result follow it.
 
+## The extension first, Claude as the safety net (owner, 8 Oct 2026)
+The plain **Apply** button (the Chrome extension alone) is the product: easier, faster, simpler, and aimed at **non-technical users first**.
+Every step of an application (posting → Apply → account sign-up/sign-in → email confirmation → the form) is built for the extension to do
+end to end. **Apply with Claude** is the backup: offered (a button, never started by itself) when the extension can't finish a step, and
+chosen by technically advanced users. A new capability goes into the extension's flow first; "Claude can do it" is not a reason to skip it.
+
 ## Applying flows: change one, run them all (owner, 8 Oct 2026)
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:
 the one page rule (`extension/tab-pages.js` `pageRole`), every scenario, its code and its guard. Touching a flow file (`desktop/e2e/flows.mjs` `FLOW_FILES`)
