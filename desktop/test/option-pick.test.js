@@ -49,3 +49,27 @@ test('a menu the form showed other choices for is armed again with the one that 
   assert.deepEqual(queued, [['s1', 'Formule d\'appel', 'Monsieur']]);
   assert.equal(sent.length, 1);
 });
+
+test('a menu still empty after its re-arm is armed again with the remembered choice: every 10 s, at most 3 more times, no new AI call', async () => {
+  // The live twin, 8 Oct 2026: "+41" asked, "Suisse" chosen and armed, then the fill (still running) armed "+41" again when it ended.
+  const {menuRearm, GAP_MS, AGAIN} = await import('../lib/menu-rearm.js');
+  const files = {}, storage = {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }};
+  const queued = [], sent = [], timers = [];
+  const listen = menuRearm({storage, client: () => claude('Suisse', sent), queueFill: (...args) => queued.push(args), later: (fn, ms) => timers.push({fn, ms})});
+  const state = {id: 's1', pending: ['Indicatif de pays'], proposals: [{label: 'Indicatif de pays', value: '+41', key: '', options: ['Suisse', 'France']}]};
+  listen(state); listen(state);                   // the same state twice: one pick
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(queued.length, 1);
+  assert.equal(timers[0].ms, GAP_MS);
+  for (let i = 0; i < AGAIN + 3 && timers.length; i++) timers.shift().fn();   // the field stays empty: each check re-arms and schedules the next
+  assert.equal(queued.length, 1 + AGAIN);         // bounded
+  assert.ok(queued.every(([, , choice]) => choice === 'Suisse'));
+  assert.equal(sent.length, 1);                   // Claude asked once
+  const again = menuRearm({storage, client: () => claude('Suisse', sent), queueFill: (...args) => queued.push(args), later: (fn) => timers.push({fn})});
+  const before = queued.length;
+  again({...state, id: 's2'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  again({id: 's2', pending: [], proposals: state.proposals});   // picked meanwhile
+  timers.shift().fn();
+  assert.equal(queued.length, before + 1);        // no re-arm once filled
+});

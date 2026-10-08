@@ -5,18 +5,28 @@
 import {pickOption} from './option-pick.js';
 
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-export function menuRearm({storage, client, queueFill, log = () => {}}) {
-  const done = new Set();
+// The choice is remembered, and the menu armed with it again while the field stays empty: a fill still running re-arms the menu with its raw
+// answer when it ends and overwrote the choice (8 Oct 2026, the live twin: "+41" asked, "Suisse" chosen, then "+41" again: "pick it yourself").
+// Checked GAP_MS after each arming against the latest form state seen (listeners only hear changes, and an empty menu changes nothing);
+// at most AGAIN more times; never a new AI call.
+export const GAP_MS = 10 * 1000, AGAIN = 3;
+export function menuRearm({storage, client, queueFill, log = () => {}, later = (fn, ms) => setTimeout(fn, ms)}) {
+  const done = new Set(), latest = new Map();   // key; session id -> the last form state seen
+  const arm = (id, label, choice, times, why) => {
+    queueFill(id, label, choice);
+    log('fill', why, {id, field: String(label).slice(0, 60), times});
+    if (times > AGAIN) return;
+    later(() => { if ((latest.get(id)?.pending || []).includes(label)) arm(id, label, choice, times + 1, 'menu armed again: the field is still empty'); }, GAP_MS);
+  };
   return state => {
+    if (state?.id) latest.set(state.id, state);
     for (const proposal of state?.proposals || []) {
       if (!proposal.value || !proposal.options?.length || proposal.options.some(option => same(option, proposal.value))) continue;
       const key = `${state.id}|${proposal.label}|${proposal.value}|${proposal.options.join('|')}`;
       if (done.has(key)) continue;
       done.add(key);
       pickOption(storage, proposal, {client: client(), log}).then(({choice}) => {
-        if (!choice) return;
-        queueFill(state.id, proposal.label, choice);
-        log('fill', 'menu armed again with the choice that means the same', {id: state.id, field: String(proposal.label).slice(0, 60)});
+        if (choice) arm(state.id, proposal.label, choice, 1, 'menu armed again with the choice that means the same');
       });
     }
   };

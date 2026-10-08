@@ -5,9 +5,10 @@
 //   3. a fresh copy of the real app folder (APFS clone) without the real Notion token, Always on or Telegram, pointed at the mirror
 //   4. the app in twin mode (desktop/lib/twin.js) on its own port + a debugging port; its own visible Chromium with an extension copy on that port
 // Everything live-test lives in ~/Library/Application Support/Job Pilotto (live test)/: ids.env (the mirror's ids), notion-copy/ (sync map),
-// home/ (the twin's folder, replaced at each start), browser/ (its Chromium profile, kept: site sign-ins), twin.json (ports, for a script that drives the window). Ctrl-C stops both.
+// home/ (the twin's folder, replaced at each start), browser/ (only its site sign-ins: cookies, local storage), twin.json (ports, for a script that drives the window). Ctrl-C stops both.
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {copyExtension, freePort, launchBrowser, makeOpenShim} from './lib/extension.mjs';
 import {realFolder} from '../lib/twin.js';
@@ -65,10 +66,15 @@ async function main() {
   const app = spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'],
     env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port),
       PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool}});
-  // The kept profile keeps the extension's service-worker cache too: after an extension update it could keep running the previous
-  // background code (8 Oct 2026: a fix tested in the twin silently didn't run). Cleared at each start; sign-ins and cookies stay.
-  for (const cache of ['Service Worker', 'Code Cache']) fs.rmSync(path.join(LIVE, 'browser', 'Default', cache), {recursive: true, force: true});
-  const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile: path.join(LIVE, 'browser'), debugPort: browserCdp});   // kept: site sign-ins survive
+  // A fresh browser profile at each start, with only the site sign-ins carried over (cookies, local storage) and saved back at stop.
+  // A whole kept profile also kept the extension's worker state: once it ran stale background code, once (after clearing that) no worker
+  // at all (8 Oct 2026). Nothing of the extension survives a restart now.
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-twin-browser-'));
+  const SIGN_INS = ['Cookies', 'Cookies-journal', 'Local Storage'];
+  const carry = (from, to) => { for (const name of SIGN_INS) if (fs.existsSync(path.join(from, 'Default', name))) fs.cpSync(path.join(from, 'Default', name), path.join(to, 'Default', name), {recursive: true}); };
+  fs.mkdirSync(path.join(profile, 'Default'), {recursive: true});
+  carry(path.join(LIVE, 'browser'), profile);
+  const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile, debugPort: browserCdp});   // kept: site sign-ins survive
   fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, browser: `http://127.0.0.1:${browserCdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
   say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both.`);
   // Stopping always stops the app first (8 Oct 2026: a stop that awaited the browser first left the twin's app running on its ports),
@@ -80,6 +86,10 @@ async function main() {
     app.kill();
     fs.rmSync(path.join(LIVE, 'twin.json'), {force: true});
     await browser.close().catch(() => {});
+    fs.rmSync(path.join(LIVE, 'browser'), {recursive: true, force: true});   // the sign-ins kept for next time, nothing else
+    fs.mkdirSync(path.join(LIVE, 'browser', 'Default'), {recursive: true});
+    carry(profile, path.join(LIVE, 'browser'));
+    fs.rmSync(profile, {recursive: true, force: true});
     process.exit(0);
   };
   process.on('SIGINT', stop); process.on('SIGTERM', stop); process.on('SIGHUP', stop);
