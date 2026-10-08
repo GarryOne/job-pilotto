@@ -3,6 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
+import {FOLD_MS, foldInto, foldableUrl} from './same-tab.js';
 import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
 import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
@@ -180,6 +181,7 @@ async function stuck(job, host, why) {
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
+const applyPressed = new Map();   // tab id → when the extension pressed its Apply button
 const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
@@ -209,7 +211,10 @@ async function consider(tab, jobUrl) {
   let pressed = false, buttonsSeen = [];
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
-    const attempt = await pressApply(tab.id, await applyPhrases());
+    const phrases = await applyPhrases();
+    applyPressed.set(tab.id, Date.now());   // before the click: the site opens its new tab during it (same-tab.js)
+    const attempt = await pressApply(tab.id, phrases);
+    if (!attempt.pressed) applyPressed.delete(tab.id);
     const label = attempt.pressed;
     buttonsSeen = attempt.buttons;
     if (label) {
@@ -343,7 +348,33 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
 });
+// The new tab's address, once it has one (window.open starts on about:blank, then navigates).
+async function addressOf(tabId, ms = 5000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    const live = await chrome.tabs.get(tabId).catch(() => null);
+    const url = foldableUrl(live?.pendingUrl) || foldableUrl(live?.url);
+    if (!live || url || Date.now() > end) return url;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+}
+// Apply opened a new tab: its page loads in the posting's tab instead, and the new tab closes. Returns true when folded.
+async function foldNewTab(tab) {
+  const opener = foldInto(tab, applyPressed);
+  if (opener == null) return false;
+  const url = await addressOf(tab.id);
+  if (!url) { decide('panel', 'Apply opened a tab with no web address: followed, not folded', {}); return false; }
+  applyPressed.delete(opener);
+  const moved = await chrome.tabs.update(opener, {url, active: true}).catch(() => null);
+  if (!moved) return false;
+  await chrome.tabs.remove(tab.id).catch(() => {});
+  let host = '';
+  try { host = new URL(url).hostname; } catch { /* checked above */ }
+  decide('panel', 'Apply opened a new tab: loaded in the same tab instead', {host, within: FOLD_MS});
+  return true;
+}
 chrome.tabs.onCreated.addListener(async tab => {
+  if (await foldNewTab(tab)) return;   // the posting's tab goes on to the next page (onUpdated follows it, mark and all)
   if (!(await followOpener(tab))) return;
   let host = '';
   try { host = new URL(tab.pendingUrl || tab.url || '').hostname; } catch { /* the address is not ready yet */ }

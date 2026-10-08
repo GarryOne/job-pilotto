@@ -267,7 +267,8 @@ export async function runApply(ctx, parts) {
     unknownTab = tab;
   }, {needs: ctx.needs});
 
-  // Found by asking "can the extension follow a journey from one tab to another?" (3 Oct 2026): a posting whose Apply opens a NEW tab, whose page has only a
+  // Found by asking "can the extension follow a journey from one tab to another?" (3 Oct 2026): a posting whose Apply opens a NEW tab (since 8 Oct 2026
+  // loaded in the posting's own tab instead, extension/same-tab.js), whose page has only a
   // "To apply" link, and only then the form (jobs.ch -> an agency's own site). The extension must press Apply, follow the new tab as the same application, press
   // "To apply" in it, and fill the form it reaches; Submit untouched.
   await ctx.run('a posting whose Apply opens a new tab, then a "To apply" step, then the form: the journey is followed and the form filled', async () => {
@@ -286,6 +287,9 @@ export async function runApply(ctx, parts) {
     }
     if (!tab) await dumpExtension();
     if (!tab) throw new Error(`the journey never reached the form. Tabs open: ${seen.join(' | ')}. ${seen.some(url => url.startsWith(CHAIN.stepUrl)) ? 'The new tab opened but "To apply" was not followed.' : 'Apply did not open the second tab.'}`);
+    // One tab for the whole journey (owner, 8 Oct 2026): the page Apply opened in a new tab loads in the posting's own tab, and the new tab closes.
+    const journey = ctx.browser.context.pages().filter(item => [CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl].some(url => item.url().startsWith(url.split('#')[0])));
+    if (journey.length !== 1) throw new Error(`the journey was in ${journey.length} tabs, not one: ${journey.map(item => item.url().split('#')[0]).join(' | ')}`);
     let state = null;
     for (let waited = 0; waited < 90000; waited += 500) {
       state = await fillState(tab).catch(() => null);
