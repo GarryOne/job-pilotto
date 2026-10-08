@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import {ContractError, assertSession, sessionContracts, sessionIpc, validateSessionCall, validateSessionResult} from '../lib/session-contracts.js';
 import * as terminals from '../lib/terminals.js';
 import {conversation} from '../lib/transcript.js';
+import {mainSource} from './main-source.js';
 
 const session = {id: 's1', url: 'https://example.com/job', company: 'Example', title: 'Engineer', status: 'input', note: '', startedAt: ''};
 
@@ -13,7 +14,7 @@ test('all session channels exposed by preload are contracted and registered thro
   const main = fs.readFileSync(new URL('../lib/session-handlers.js', import.meta.url), 'utf8');
   const channels = [...preload.matchAll(/call\('(sessions\w*|session[A-Z]\w*)'\)/g)].map(match => match[1]);
   assert.deepEqual(channels.sort(), Object.keys(sessionContracts).sort());
-  assert.match(fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8'), /registerSessionHandlers\(\{ipcMain/);
+  assert.match(mainSource(), /registerSessionHandlers\(\{ipcMain/);
   for (const name of channels) assert.ok(main.includes(`checkedSessions.handle('${name}'`), name);
 });
 test('invalid IDs, dimensions, arrays, and extra arguments fail before a handler runs; errors contain no values', async () => {

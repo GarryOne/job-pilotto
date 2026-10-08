@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {notionLeftBehind} from '../lib/reset.js';
+import {mainSource} from './main-source.js';
 
 const folder = files => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-import-'));
@@ -32,7 +33,7 @@ test('the Notion dialog warns while the import note is there, and connecting cle
   assert.match(dialog, /show\(\$\('notion-connect-import'\), !!shared\.state\?\.settings\?\.importedNotion\)/);
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   assert.match(html, /<div class="alert tone-warn" id="notion-connect-import" hidden>[\s\S]+?Pick the workspace your backup used/);
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   assert.match(main, /if \(resetDone\?\.notionElsewhere\) storage\.saveSettings\(\{importedNotion:/);
   assert.match(main, /if \(storage\.settings\(\)\.importedNotion\) storage\.saveSettings\(\{importedNotion: null\}\);/);
 });

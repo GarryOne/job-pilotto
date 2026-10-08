@@ -2,6 +2,7 @@
 // preload.cjs exposes has its ipcMain.handle in main.js. A missing half shows up here, not as "No handler
 // registered" or "window.pilot.x is not a function" on the owner's screen.
 import assert from 'node:assert/strict';
+import {mainSource} from './main-source.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
@@ -12,7 +13,7 @@ const files = dir => fs.readdirSync(path.join(here, dir)).filter(name => name.en
 const preload = read('preload.cjs');
 const exposed = new Set([...preload.matchAll(/^\s*(\w+):/gm), ...preload.matchAll(/[,{]\s*(\w+):\s*(?:call\(|callback|\()/g)].map(m => m[1]));
 const actions = [...preload.matchAll(/call\('(\w+)'\)/g)].map(m => m[1]);
-const handled = new Set([...(read('main.js') + read('lib/session-handlers.js')).matchAll(/(?:(?:ipcMain|checkedSessions)\.(?:handle|on)|handleImportant)\('(\w+)'/g)].map(m => m[1]));
+const handled = new Set([...mainSource().matchAll(/(?:(?:ipcMain|checkedSessions)\.(?:handle|on)|handleImportant)\('(\w+)'/g)].map(m => m[1]));
 
 test('every window.pilot.* used by the window exists in preload.cjs', () => {
   const used = new Set();

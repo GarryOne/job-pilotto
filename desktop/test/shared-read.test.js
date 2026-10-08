@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sharedRead} from '../lib/shared-read.js';
+import {mainSource} from './main-source.js';
 
 const later = () => { let done; const promise = new Promise(resolve => { done = resolve; }); return {promise, done}; };
 
@@ -34,8 +35,7 @@ test('a failed read fails every caller that joined it, and the next one tries ag
 
 // The class: every window read that starts a Python run goes through sharedRead in main.js.
 test('every read handler of the window is shared', async () => {
-  const fs = await import('node:fs');
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   for (const name of ['jobs', 'calendarJobs', 'strategyData', 'ivSaved', 'calendarRecordings', 'focus']) {
     assert.match(main, new RegExp(`ipcMain\\.handle\\('${name}', sharedRead\\(`), `${name} is not a shared read`);
   }

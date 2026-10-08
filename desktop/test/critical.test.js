@@ -1,10 +1,10 @@
 // Work that quitting must not cut off half-way (lib/critical.js): the register, the quit dialog's words, and that every handler doing such work is
 // registered (6 Oct 2026: the app closed during an export without asking).
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import {test} from 'node:test';
 import * as critical from '../lib/critical.js';
 import * as quitDialog from '../lib/quit-dialog.js';
+import {mainSource} from './main-source.js';
 
 test('work is listed while it runs, once a label, and whenDone waits for the last one', async () => {
   let finish;
@@ -38,7 +38,7 @@ test('the quit dialog names the work and offers to wait for it', () => {
 test('every handler that archives, copies or moves data, or sets up a service, is registered as important', () => {
   // The class: an IPC handler whose body does one of these is a handleImportant(…), never a bare ipcMain.handle.
   const UNRECOVERABLE = /archiveWorkspace|dumpWorkspace|migrate\.run|reset\.(request|exportTo)|telegramCloud\.turn|github\.(connect|setup|enable|turnOff|create)|turnCloudOff\(|notion\.(build|connect)\w*\(/;
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   const blocks = main.split(/\n(?=\s*(?:ipcMain\.handle|handleImportant)\()/).slice(1);
   // A handler ends at its first "  });" (a one-line one on its own line): helpers written after it are not part of it.
   const own = block => { const lines = block.split('\n'); const end = /\}\);\s*$/.test(lines[0]) ? 0 : lines.findIndex(line => /^ {2}\}\);/.test(line)); return lines.slice(0, end + 1).join('\n'); };

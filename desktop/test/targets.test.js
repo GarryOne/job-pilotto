@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {clean, plan, VIEWS} from '../renderer/targets.js';
 import {notice} from '../lib/run-history.js';
+import {mainSource} from './main-source.js';
 
 test('a target keeps only the fixed keys, with known pages and sections', () => {
   assert.deepEqual(clean({view: 'jobs', job: ' abc123 '}), {view: 'jobs', job: 'abc123'});
@@ -57,7 +58,7 @@ test('a session target opens that session\'s card, and every application notific
   assert.equal(sessionOfJob('https://example.com/', list), '');
   // The class: a notification about filling a form, or a session needing you, carries its session (a window toast too).
   const fs = await import('node:fs');
-  const server = fs.readFileSync(new URL('../lib/server.js', import.meta.url), 'utf8'), main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../lib/server.js', import.meta.url), 'utf8'), main = mainSource();
   for (const title of ['Filling the application…', 'Form filled: a few things left for you']) assert.match(server.slice(server.indexOf(title), server.indexOf(title) + 400), /, target\)/, title);
   assert.match(main, /toWindow\('toast', \{title: `Needs your input · \$\{what\}`, body: text, target: targets\.clean\(\{view: 'sessions', session: session\.id\}\)\}\)/);
 });

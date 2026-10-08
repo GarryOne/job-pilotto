@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
+import {mainSource} from './main-source.js';
 
 class FakeNode { constructor() { this.children = []; this.style = {}; } append(...n) { this.children.push(...n); } setAttribute() {} addEventListener() {} }
 globalThis.Node ??= FakeNode;
@@ -69,7 +70,7 @@ test('a failed library read, or an unreadable insight, is written to app.log wit
 });
 
 test('a window error lands in app.log (type and message), not only in the telemetry queue', () => {
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   const handler = main.slice(main.indexOf("ipcMain.handle('telemetryRecord'"), main.indexOf("ipcMain.handle('telemetryShown'"));
   assert.match(handler, /appLog\('window'/);
 });

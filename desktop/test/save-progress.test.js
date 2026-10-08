@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {progressWords, withSaveProgress} from '../renderer/save-progress.js';
+import {mainSource} from './main-source.js';
 
 test('progress in words: reading, then the share of blocks written', async () => {
   assert.equal(progressWords({stage: 'read'}), 'Reading your settings from Notion…');
@@ -19,7 +20,7 @@ test('progress in words: reading, then the share of blocks written', async () =>
 });
 
 test('every Search settings save in main.js reports progress, and every renderer caller shows it', () => {
-  const main = readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   const calls = [...main.matchAll(/strategy\.(loosen|addRoles|addPlaces|editLists|retune|setDailyTarget)\(([\s\S]*?)\);/g)];
   assert.ok(calls.length >= 6);
   for (const [, name, args] of calls) assert.match(args, /settingsDeps\(\)/, `strategy.${name} without settingsDeps (no progress told)`);

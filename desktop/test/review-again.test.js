@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {BUSY, LABEL, START, againItem, doneMessage} from '../renderer/review-again.js';
+import {mainSource} from './main-source.js';
 
 test('a reviewed row gets "Review again" with its cost; a row not reviewed yet does not', () => {
   const run = () => 'ran';
@@ -63,7 +64,7 @@ test('the page wires it into the row menu through the same review IPC; demo mode
   // Which button asked is carried into the app's log, so a second dispatch is attributable.
   assert.match(page, /iv\.review\(pageId, why\)/);
   assert.match(page, /reviewRow\(result\.id, 'Save & review'\)/);
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   // Which button asked is carried into the app's log, so a second dispatch is attributable.
   assert.match(main, /caller = `Interview review \(\$\{why \|\| 'interviews page'\}\)`/);
   assert.match(main, /appLog\('dispatch', `refused \$\{caller\}/);

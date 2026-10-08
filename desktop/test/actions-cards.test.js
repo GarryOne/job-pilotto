@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
+import {mainSource} from './main-source.js';
 
 import * as strategy from '../lib/strategy.js';
 import {applyLabel, basisParts, proposalCounts, proposalTitle} from '../renderer/tune-text.js';
@@ -11,7 +12,7 @@ import {applyLabel, basisParts, proposalCounts, proposalTitle} from '../renderer
 const renderer = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'renderer');
 const html = fs.readFileSync(path.join(renderer, 'index.html'), 'utf8');
 const activity = fs.readFileSync(path.join(renderer, 'pages', 'activity.js'), 'utf8');
-const main = fs.readFileSync(path.join(renderer, '..', 'main.js'), 'utf8');
+const main = mainSource();
 
 const grid = html.slice(html.indexOf('<div class="task-grid">'), html.indexOf('<section class="card runs-card">'));
 const cards = grid.split('<div class="task-card">').slice(1);

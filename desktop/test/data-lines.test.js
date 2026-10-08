@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import * as pipeline from '../lib/pipeline.js';
+import {mainSource} from './main-source.js';
 
 test('JSON object lines are data; words and a brace in a sentence are not', () => {
   assert.ok(pipeline.isDataLine('{"ok": true, "name": "Indeed", "jobs": 98, "added": 18, "kind": "portal"}'));
@@ -28,6 +29,6 @@ test("a task's log and step leave the JSON out", async () => {
   });
   assert.deepEqual(seen.log, ['Visit: read 18 jobs on Indeed (indeed.com) from a page you opened; 18 new in this visit, 98 in all']);
   assert.match(seen.step, /^Visit: read 18 jobs/);
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = mainSource();
   assert.match(main, /const log = line => \{ if \(pipeline\.isDataLine\(line\)\) return;/, 'the window feed leaves it out too');
 });
