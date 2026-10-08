@@ -369,6 +369,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/added.py` — Jobs you add yourself get AI stage 1 facts and the stage 2 fit score, on their Applications row (no Job Matches row).
 - `src/ai/apply_batch.py` — Queue every ready application kit into the ChatGPT/Codex desktop app, one chat each.
 - `src/ai/apply_run.py` — Run one observable Codex browser fill and record its review handoff.
+- `src/ai/board_ideas.py` — Job boards for the user's countries and kinds of role, proposed by Claude (spec docs/superpowers/specs/2026-10-08-job-board-discovery.md;
 - `src/ai/budget.py` — Monthly AI budget: how much of this month's Anthropic spend limit is used, and what to do about it.
 - `src/ai/cost.py` — API prices and per-call cost, shared by the AI stages and the cronjob run report.
 - `src/ai/decide.py` — The engine's one way to let AI decide what content means, in any language, instead of keyword lists (owner, 8 Oct 2026: "Let the AI
