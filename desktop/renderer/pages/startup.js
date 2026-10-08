@@ -65,6 +65,9 @@ export async function init() {
   window.pilot.onOpenTarget(openTarget);   // a clicked system notification
 
   // Help improve Job Pilotto (opt-in anonymous form reports).
+  $('escalation').addEventListener('change', async () => {   // off until the owner turns it on (lib/escalate.js)
+    shared.state.settings = await window.pilot.saveSettings({escalation: $('escalation').checked ? 'on' : 'off'});
+  });
   $('account-automation').addEventListener('change', async () => {   // full: the extension also accepts an account's consent and presses its button; assist: the person does (lib/site-accounts.js)
     shared.state.settings = await window.pilot.saveSettings({accountAutomation: $('account-automation').checked ? 'full' : 'assist'});
   });

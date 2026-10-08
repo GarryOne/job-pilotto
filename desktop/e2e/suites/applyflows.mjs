@@ -11,6 +11,6 @@ export const minutes = 12;
 export const budgetMinutes = 10;   // a manual suite may ask for more than 7: its first run builds the workspace once with the wizard's path
 export const cadence = 'manual';   // never chosen by a push or a schedule (lib/plan.mjs); the scenario matrix names it
 export const browser = true;
-export const engine = 'api';   // the proxy answers the app's AI calls (the page kinds, the open question)
+export const engine = process.env.LIVE_ENGINE === 'cli' ? 'cli' : 'api';   // LIVE_ENGINE=cli: the app uses this Mac's Claude Code itself (its own flags and image support), not the proxy   // the proxy answers the app's AI calls (the page kinds, the open question)
 export const name = 'applyflows';
 export const run = ctx => runApply(ctx, process.env.LIVE ? ['live'] : ['flows']);   // LIVE=1: the live run on a real posting (npm run live), not the matrix

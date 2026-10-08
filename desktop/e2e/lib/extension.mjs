@@ -43,9 +43,9 @@ export function copyExtension(port, from = EXTENSION_DIR) {
     manifest.host_permissions = [...new Set([...(manifest.host_permissions || []), 'https://*/*'])];
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
     if (!process.env.LIVE_SUBMIT) {   // a live run stops BEFORE the account form's own button (creating a real account is the owner's go: LIVE_SUBMIT=1)
-      const step = path.join(dir, 'account-step.js'), text = fs.readFileSync(step, 'utf8'), press = "if (filled && move === 'fill-press') {";
+      const step = path.join(dir, 'account-step.js'), text = fs.readFileSync(step, 'utf8'), press = "if (move === 'fill-press' && !(await alreadyTried(tab, submitKey))) {";
       if (!text.includes(press)) throw new Error('extension/account-step.js no longer contains the press guard: update copyExtension() (a live run must not press the account button)');
-      fs.writeFileSync(step, text.replace(press, "if (false && filled && move === 'fill-press') {"));
+      fs.writeFileSync(step, text.replace(press, "if (move === 'fill-press') decide('fill', 'HELD by the live test: the consent and the account button are not pressed (LIVE_SUBMIT=1 lets them)', {host});\n  if (false && move === 'fill-press' && !(await alreadyTried(tab, submitKey))) {"));
     }
   }
   return dir;

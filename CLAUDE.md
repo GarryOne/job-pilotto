@@ -223,6 +223,7 @@ sites, run it live before and after a change, not only the matrix:
   (`e2e/lib/apply-live.mjs`). It presses Apply through the app's own API and prints a timeline (page kind, stage, fill state, the app's
   extension/review log lines). It presses nothing on the page: no account button, never Submit.
 - **Which one:** `npm run live` is the quick run (the e2e app and its test workspace, a real posting, no sync, about 3 minutes); `npm run twin` ([docs/live-test.md](docs/live-test.md)) is the owner's real state mirrored. Live first, the twin when the owner's own data matters.
+- **A held run says so** (`HELD by the live test` in the log, the start banner and the stall report: LIVE_SUBMIT=1 lets the consent and the account button through); before starting one, tell the owner what the window will and will not do. Poll short (see the global rule "Watching a run the owner can see").
 - **Use it for any flow** (apply, account, visit, mail): add a `runLive`-style step to the suite, same rules: read-only on the owner's data,
   test workspace for writes, nothing irreversible on a real site without the owner saying so.
 - **Report what it shows**: what worked, what did not, what the log cannot tell (then add the log line). The owner's own app window and

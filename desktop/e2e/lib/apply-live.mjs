@@ -1,4 +1,4 @@
-/* global window, document, location, Event */
+/* global window, document, location, Event, chrome */
 // The LIVE run of the apply flow (8 Oct 2026): the real extension in a visible Chrome, on a REAL posting from this Mac's job list (read-only), pressed
 // through the app's own Apply, watched for a while, and reported as a timeline. Nothing is pressed on the page: no account button, never Submit.
 // The app under test is the e2e one (its own profile and Notion test page, never the owner's data). Run: `npm run live` in desktop/ (LIVE_URL=<posting> to
@@ -38,7 +38,7 @@ export async function stallReport(tab, say) {
     }),
     buttons: [...document.querySelectorAll('button, input[type=submit], a')].filter(el => el.getClientRects().length).map(el => (el.innerText || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 30)).filter(Boolean).slice(0, 12),
     panel: document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.card')?.innerText?.replace(/\s+/g, ' ').slice(0, 260) || ''})).catch(error => ({error: String(error).slice(0, 80)}));
-  say(`  live STALL (12 s without a change): ${JSON.stringify(view)}`);
+  say(`  live STALL (12 s without a change; held by the test: ${process.env.LIVE_SUBMIT ? 'no' : 'YES, nothing is pressed'}): ${JSON.stringify(view)}`);
 }
 
 // LIVE_PERSON=1: the test plays the person for what the extension must leave to one (a choice it has no detail for): every empty required drop-down gets the option
@@ -62,6 +62,18 @@ export async function actAsPerson(tab, say) {
   // The consent and the account button are the extension's, by the setting settings.accountAutomation ('full' by default; LIVE_ASSIST=1 tests 'assist': the person's part is then yours).
 }
 
+// Asks the extension's worker for one closer look (extension/escalate.js) at this tab, as it would on an unclear account page: the picture, the app's answer, one action.
+export async function lookViaWorker(ctx, tab, say) {
+  await tab.bringToFront().catch(() => {});
+  const worker = await ctx.browser.serviceWorker();
+  const url = tab.url().split('#')[0];
+  const action = await worker.evaluate(async address => {
+    const tabs = await chrome.tabs.query({}), found = tabs.find(item => String(item.url).startsWith(address));
+    return globalThis.__jobPilottoCloserLook(found, 0, 'the live test asked for a closer look');   // set by extension/escalate.js
+  }, url).catch(error => `error: ${String(error).slice(0, 100)}`);
+  say(`  live look: the closer look decided ${JSON.stringify(action)}`);
+}
+
 export async function runLive(ctx, h) {
   const {page, posting, NOTION} = h;
   await ctx.run('a real posting, watched live: the page kinds, stages and fills as they happen (nothing is pressed on the page)', async () => {
@@ -73,11 +85,13 @@ export async function runLive(ctx, h) {
         // LIVE_HAVE_ACCOUNT=1: the app already has an account for LIVE_EMAIL on the account host (as a confirmed sign-up would have left it): the flow must go to sign-in, never sign-up.
       if (process.env.LIVE_HAVE_ACCOUNT) await page.evaluate(([host, email]) => window.pilot.saveSettings({siteAccounts: {[host]: {email: email.toLowerCase(), state: 'confirmed', at: new Date().toISOString()}}}),
         [process.env.LIVE_ACCOUNT_HOST || 'career2.successfactors.eu', process.env.LIVE_EMAIL || 'live@example.com']);
+      if (process.env.LIVE_ESCALATION) await page.evaluate(() => window.pilot.saveSettings({escalation: 'on'}));   // the closer look is opt-in: this run turns it on
+      console.log(`  live: this run ${process.env.LIVE_SUBMIT ? 'WILL press the consent and the account button on the real site' : 'is HELD: the extension will NOT accept the consent or press the account button (LIVE_SUBMIT=1 lets it)'}; watching ${seconds}s`);
       await page.click('.nav[data-view="jobs"]');
       await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: '', workMode: ''}), posting);
       console.log(`  live ${at()}: Apply pressed on ${posting.url}`);
       const sessionStage = async () => (await page.evaluate(() => window.pilot.sessions()).catch(() => [])).find(item => String(item.url || '').replace(/\/$/, '') === posting.url.replace(/\/$/, ''));
-      let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0;
+      let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0, looked = false, lastLine = '';
       while (Date.now() - started < seconds * 1000) {
         const tabs = ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url()));
         const states = await Promise.all(tabs.map(async tab => `${tab.url().split('#')[0].slice(0, 70)} [${(await fillState(tab).catch(() => null))?.state || '-'}]`));
@@ -86,12 +100,13 @@ export async function runLive(ctx, h) {
         if (now !== last) { console.log(`  live ${at()}: session ${session?.stage || '-'}/${session?.status || '-'}; ${states.join(' | ') || 'no tab'}`); last = now; changedAt = Date.now(); stalled = false; }
         // The app's own lines, as they arrive (what the extension decided and why).
         const all = appLogLines(ctx.profile);
-        for (const line of all.slice(seen.lines).filter(item => /\[(extension|review)\]/.test(item))) console.log(`      log ${line.slice(11, 230)}`);
+        for (const line of all.slice(seen.lines).filter(item => /\[(extension|review)\]/.test(item))) { const shown = line.slice(11, 230), same = shown.replace(/^\S+ /, ''); if (same !== lastLine) console.log(`      log ${shown}`); lastLine = same; }   // a repeated line is said once
         seen.lines = all.length;
         // A picture of every tab every 3 s (the newest is what a person sees now), named so they sort in time.
         if (frame++ % 2 === 0) for (const [index, tab] of tabs.entries()) await tab.screenshot({path: path.join(frames, `${String(frame).padStart(3, '0')}-tab${index}.png`)}).catch(() => {});
         if (!stalled && Date.now() - changedAt > 12000) {
           stalled = true; await stallReport(tabs.at(-1), console.log);
+          if (process.env.LIVE_LOOK && !looked) { looked = true; await lookViaWorker(ctx, tabs.at(-1), console.log); }   // LIVE_LOOK=1: one closer look at the first stall, as the extension would take it
           if (process.env.LIVE_PERSON && ++acts <= 5) { await actAsPerson(tabs.at(-1), console.log); changedAt = Date.now(); stalled = false; }   // the person acts again after each pause: a choice, then a consent
         }
         await pause(1500);

@@ -10,6 +10,7 @@ import {askKind, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {tabArmed} from './tab-pages.js';
 import {accountSketch, fillAccountBoxes, flagAccount, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
+import {closerLook, unsureTwice} from './escalate.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -41,7 +42,7 @@ export function resultAction(answer) {
 
 // One look at a time per tab (the panel asks every few seconds: a second look while the first still waits for the AI only repeats it), and an unchanged page is not judged
 // again: the AI's answer is kept for the sketch it was given, so it is asked again only when the page changed (a box filled, a consent accepted, an error shown).
-const looking = new Set(), judged = new Map(), lastSaid = new Map(), kinds = new Map();
+const looking = new Set(), judged = new Map(), lastSaid = new Map(), kinds = new Map(), unsureSeen = new Map();
 // The page kind of this tab's page, kept 20 s (the app remembers it too, but asking and logging it at every look is noise): a new address asks again.
 async function askKindOnce(tab) {
   const key = tab.url.split('#')[0], kept = kinds.get(tab.id);
@@ -131,6 +132,7 @@ async function accountStepOnce(tab, frameId) {
       const result = await run(tab, frameId, pressRegister, [move === 'register' ? kind.registerControl : kind.signinControl]);
       if (result === 'pressed') await markTried(tab, move);
       decide('fill', `${move} control: ${result}`, {host});
+      if (result === 'not-found') await closerLook(tab, frameId, `the ${move} control the AI named was not found`);   // opt-in (lib/escalate.js)
     }
     return {filled: 0};
   }
@@ -140,6 +142,7 @@ async function accountStepOnce(tab, frameId) {
   const submitKey = `submit-${step}`;   // one press per tab and STEP: a sign-up pressed here must not block the sign-in that follows in the same tab
   if (move === 'fill-press' && !(await alreadyTried(tab, submitKey))) {
     const ready = await judge(tab, frameId, 'ready', config);   // also when nothing new was filled: a page the person finished since is pressed
+    if (ready?.answer === 'unsure' && unsureTwice(unsureSeen, tab.id, JSON.stringify([ready.needs, step, answer.mode]))) await closerLook(tab, frameId, 'the AI was unsure twice about this page');   // opt-in (lib/escalate.js)
     if (!ready || ready.answer !== 'ready' || ready.botCheck) {
       const key = `accountConsent:${tab.id}`, presses = Number((await sessionGet(key))[key]) || 0;
       const accept = ready && !ready.botCheck && ready.answer === 'needs_person' && consentMove({automation: answer.automation, needsKind: ready.needsKind, needs: ready.needs, presses}) === 'accept';

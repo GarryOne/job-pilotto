@@ -1,0 +1,26 @@
+// What the closer look takes of a page: typed values hidden for the capture and shown again; the "unsure twice" rule (extension/page-picture.js, extension/escalate.js).
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {JSDOM} from 'jsdom';
+import {hideValues, showValues} from '../../extension/page-picture.js';
+import {unsureTwice} from '../../extension/escalate.js';
+
+test('values are hidden by one style and shown again by removing it; nothing else on the page changes', () => {
+  const dom = new JSDOM('<body><input id="e" value="ada@example.com"><p id="t">Label</p></body>');
+  Object.assign(globalThis, {document: dom.window.document});
+  assert.equal(hideValues(), true);
+  assert.equal(hideValues(), true);   // asked twice: still one style
+  const styles = [...document.querySelectorAll('#jobpilotto-hide-values')];
+  assert.equal(styles.length, 1);
+  assert.match(styles[0].textContent, /input[^}]*color: transparent !important/);
+  assert.equal(document.getElementById('e').value, 'ada@example.com');   // the value itself is untouched: only its paint
+  showValues();
+  assert.equal(document.querySelectorAll('#jobpilotto-hide-values').length, 0);
+});
+
+test('a closer look is wanted the second time a page state is unsure, once; a changed state starts again', () => {
+  const seen = new Map();
+  assert.deepEqual([unsureTwice(seen, 1, 'a'), unsureTwice(seen, 1, 'a'), unsureTwice(seen, 1, 'a')], [false, true, false]);
+  assert.deepEqual([unsureTwice(seen, 1, 'b'), unsureTwice(seen, 1, 'b')], [false, true]);
+  assert.equal(unsureTwice(seen, 2, 'a'), false);   // another tab
+});

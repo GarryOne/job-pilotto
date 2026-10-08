@@ -12,14 +12,14 @@ import {log as appLog} from './log.js';
 import * as pipeline from './pipeline.js';
 import {extensionToken, issueTicket, checkTicket, localEnv, latestExtension} from './server-env.js';
 import {me} from './server-contact.js';
-import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, pickChoice} from './server-pages.js';
+import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickChoice} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHosts, visitHandler, sitePasswordHandler, reviewHandler,
   accountPressedHandler, stuckHandler, takeOverHandler, tailorHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
-export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge} from './server-pages.js';
+export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation} from './server-pages.js';
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
   setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setAccountPressedHandler, setTakeOverHandler,
@@ -269,12 +269,12 @@ export function start(storage, onError = () => {}) {
         }
         return;
       }
-      if (req.url === '/extension/page-kind' || req.url === '/extension/pick-choice' || req.url === '/extension/account-judge') {
+      if (req.url === '/extension/page-kind' || req.url === '/extension/pick-choice' || req.url === '/extension/account-judge' || req.url === '/extension/escalate') {
         const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         if (req.headers.authorization !== `Bearer ${extensionToken(storage)}`) { res.writeHead(401, {'Content-Type': 'application/json', ...cors}); res.end(JSON.stringify({ok: false, kind: '', error: 'Wrong token'})); return; }
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
-        const answer = req.url === '/extension/pick-choice' ? await pickChoice(storage, payload) : req.url === '/extension/account-judge' ? await decideAccountJudge(storage, payload) : await decidePageKind(storage, payload);
+        const answer = req.url === '/extension/pick-choice' ? await pickChoice(storage, payload) : req.url === '/extension/account-judge' ? await decideAccountJudge(storage, payload) : req.url === '/extension/escalate' ? await decideEscalation(storage, payload) : await decidePageKind(storage, payload);
         res.writeHead(200, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(answer));
         return;

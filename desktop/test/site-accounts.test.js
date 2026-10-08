@@ -54,3 +54,10 @@ test('the account automation switch is in the window (Profile > Application assi
   assert.match(read('renderer/pages/settings.js'), /account-automation'\)\.checked = shared\.state\.settings\.accountAutomation !== 'assist'/);
   assert.match(read('main.js'), /accountAutomation: automationOf\(storage\.settings\(\)\)/);
 });
+
+test('the closer-look switch is in the window and off until turned on: saved as on or off, shown as on only when it says on', () => {
+  const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  assert.ok(read('renderer/index.html').includes('id="escalation"'));
+  assert.match(read('renderer/pages/startup.js'), /escalation: \$\('escalation'\)\.checked \? 'on' : 'off'/);
+  assert.match(read('renderer/pages/settings.js'), /\$\('escalation'\)\.checked = shared\.state\.settings\.escalation === 'on'/);
+});

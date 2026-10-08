@@ -26,7 +26,7 @@ export function accountSketch(raw = {}) {
   try { path = new URL(String(raw.url)).pathname.slice(0, 120); } catch { /* not a url */ }
   const list = (value, max, cap) => (Array.isArray(value) ? value : []).map(item => clean(item, max)).filter(Boolean).slice(0, cap);
   return {path, title: clean(raw.title, 160), headings: list(raw.headings, 100, 8),
-    controls: (Array.isArray(raw.controls) ? raw.controls : []).slice(0, 50).map(item => ({type: clean(item?.type, 20), label: clean(item?.label, 80), required: !!item?.required, state: ['filled', 'empty', 'checked', 'unchecked'].includes(item?.state) ? item.state : ''})).filter(item => item.type),
+    controls: (Array.isArray(raw.controls) ? raw.controls : []).slice(0, 50).map(item => ({type: clean(item?.type, 20), label: clean(item?.label, 80), required: !!item?.required, state: ['filled', 'empty', 'checked', 'unchecked'].includes(item?.state) ? item.state : '', at: /^\d{1,3},\d{1,3}$/.test(String(item?.at || '')) ? String(item.at) : ''})).filter(item => item.type),
     fromPath: clean(raw.fromPath, 120), buttons: list(raw.buttons, 60, 25), texts: list(raw.texts, 160, 30), frames: list(raw.frames, 60, 8)};
 }
 

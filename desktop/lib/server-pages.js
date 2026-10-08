@@ -5,6 +5,7 @@ import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeForm} from './form-judge.js';
+import {escalate} from './escalate.js';
 import {forgetPageKind, pageKind, pageKindCache} from './page-kind.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
@@ -91,4 +92,11 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
   const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage) : client, body?.sketch || {}, phase);
   appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {})});   // the page's own label for the control, never a value
   return answer.error ? {ok: true, answer: '', error: answer.error} : {ok: true, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', botCheck: answer.botCheck};
+}
+
+// The closer look (lib/escalate.js): a picture with typed values hidden, one fixed action back; opt-in, capped, account pages only. A feedback body remembers what worked.
+export async function decideEscalation(storage, body, {client} = {}) {
+  const answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage) : client});
+  if (!body?.feedback) appLog('extension', `closer look: ${answer.action}${answer.why ? ` (${answer.why})` : ''}`, {by: answer.by || '', ...(answer.control ? {control: answer.control.slice(0, 60)} : {})});
+  return answer;
 }
