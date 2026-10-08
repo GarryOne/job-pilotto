@@ -59,12 +59,13 @@ export function byKey(rows, now = new Date()) {
   return Object.values(keys).sort((a, b) => b.month - a.month);
 }
 
-export function page(rows, billed = [], keyRows = []) {
-  const s = summarize(rows, billed), keys = byKey(keyRows);
+export function page(rows, billed = [], keyRows = [], start = '', now = new Date()) {
+  const s = summarize(rows, billed, now), keys = byKey(keyRows, now);
+  const fresh = start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
   const groups = {};
   for (const job of s.jobs) { const group = (JOBS[job.job] || [])[1] || 'Other'; groups[group] = (groups[group] || 0) + job.usd; }
   const tiles = [
-    ['💸 Last 30 days', money(s.total), `${s.runs} runs reported`],
+    [fresh ? `💸 Since ${start}` : '💸 Last 30 days', money(s.total), `${s.runs} runs reported`],
     ['📅 Today', money(s.today), 'UTC'],
     ['📈 Per day', money(s.perDay), `average over ${s.span} day${s.span === 1 ? '' : 's'}`],
     ['🧾 Billed by Anthropic', billed.length ? money(s.billedTotal) : '–', billed.length ? `the jobs explain ${s.covered === null ? '–' : s.covered + '%'} of it` : 'no billing report yet (ANTHROPIC_ADMIN_KEY)'],
@@ -141,9 +142,13 @@ export async function spent(request, env) {
     {headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store'}});
 }
 
-async function read(env) {
+// The day measuring starts (wrangler.toml AI_COST_SINCE, YYYY-MM-DD): rows before it stay in the database but are not counted.
+// 9 Oct 2026: every product key was replaced by a new one in its own workspace, so the figures start fresh from then.
+export const since = env => (/^\d{4}-\d{2}-\d{2}$/.test(String(env?.AI_COST_SINCE || '')) ? String(env.AI_COST_SINCE) : '');
+
+export async function read(env) {
   try {
-    const from = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10);
+    const window = new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10), from = since(env) > window ? since(env) : window;
     const runs = (await env.STATS.prepare('SELECT job, run_id, day, at, usd, calls FROM ai_cost_runs WHERE day >= ?').bind(from).all()).results || [];
     const billed = (await env.STATS.prepare('SELECT day, usd FROM ai_cost_billed WHERE day >= ?').bind(from).all()).results || [];
     const keys = await env.STATS.prepare('SELECT day, key, usd FROM ai_cost_keys WHERE day >= ?').bind(from).all().then(r => r.results || []).catch(() => []);   // before migration 0036: none
@@ -157,5 +162,5 @@ export async function view(request, env) {
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   const {runs, billed, keys} = env.STATS ? await read(env) : {runs: [], billed: [], keys: []};
-  return new Response(page(runs, billed, keys), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(runs, billed, keys, since(env)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

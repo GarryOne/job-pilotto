@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {byKey, ingest, page, spent, summarize, view} from '../src/jobcost.js';
+import {byKey, ingest, page, read, since, spent, summarize, view} from '../src/jobcost.js';
 
 const now = new Date('2026-10-04T12:00:00Z');
 const rows = [
@@ -75,4 +75,17 @@ test('a day\'s reported spend for a job prefix, with the publishing key only', a
   const answer = await (await get('?day=2026-10-07&prefix=e2e-')).json();
   assert.deepEqual(answer, {day: '2026-10-07', prefix: 'e2e-', usd: 4.1235, runs: 17});
   assert.deepEqual(asked[0].args, ['2026-10-07', 'e2e-%']);
+});
+
+test('measuring starts at AI_COST_SINCE: older rows are not read, and the first tile says since when', async () => {
+  assert.equal(since({AI_COST_SINCE: '2026-10-09'}), '2026-10-09');
+  assert.equal(since({AI_COST_SINCE: 'soon'}), '', 'a malformed date is ignored');
+  assert.equal(since({}), '');
+  const bound = [];
+  const env = {AI_COST_SINCE: '2099-01-01', STATS: {prepare: () => ({bind: from => { bound.push(from); return {all: async () => ({results: []})}; }})}};
+  await read(env);
+  assert.deepEqual(bound, ['2099-01-01', '2099-01-01', '2099-01-01'], 'runs, billed and per-key rows all start there');
+  const now = new Date('2026-10-12T10:00:00Z');
+  assert.match(page([], [], [], '2026-10-09', now), /Since 2026-10-09/);
+  assert.match(page([], [], [], '2026-08-01', now), /Last 30 days/, 'a start older than 30 days changes nothing');
 });
