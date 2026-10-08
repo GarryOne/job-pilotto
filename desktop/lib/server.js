@@ -560,9 +560,14 @@ export function start(storage, onError = () => {}) {
         return;
       }
       if (req.url === '/extension/site-password') {
+        // Only this extension's origin may read the answer, never a page. Chrome checks CORS for the extension's worker too: without
+        // these headers every ask failed its preflight (8 Oct 2026) and no sign-in password was ever filled.
+        const cors = {'Access-Control-Allow-Origin': `chrome-extension://${EXTENSION_ID}`, 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type', Vary: 'Origin'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
-        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json'});   // no CORS: only the extension's own worker asks, never a page
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(ok ? await sitePasswordHandler(payload) : {error: 'Wrong token'}));
         return;
       }
