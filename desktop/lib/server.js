@@ -35,11 +35,16 @@ export const PORT = portFrom();
 export const EXTENSION_ID = 'gpffoneapcfceflfmfgedkcfbommgcfk';
 
 // Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.
-let tabs = new Set();
+// Kept per browser (the report's `browser`, else its run `boot`): a second browser with the extension adds its tabs, it never replaces this one's.
+// A run silent for 90 s has ended. 8 Oct 2026: a test browser's empty reports made the owner's open forms look closed.
+const tabRuns = new Map();   // browser (else boot) → {urls: Set, at}
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;
 export const extensionSeen = () => seen;
-export const openTabs = () => [...tabs];
+export const openTabs = (now = Date.now()) => {
+  for (const [boot, run] of tabRuns) if (now - run.at > 90 * 1000) tabRuns.delete(boot);
+  return [...new Set([...tabRuns.values()].flatMap(run => [...run.urls]))];
+};
 
 
 export function start(storage, onError = () => {}) {
@@ -112,7 +117,9 @@ export function start(storage, onError = () => {}) {
         if (ok) {
           try {
             const report = JSON.parse(body?.toString() || '{}');
-            tabs = new Set((report.urls || []).map(pageKey));
+            const run = String(report.browser || report.boot || report.worker || '');   // one entry per browser; an older extension: per run
+            if (!tabRuns.has(run) && tabRuns.size) appLog('extension', 'another browser run reports its tabs', {runs: tabRuns.size + 1, tabs: (report.urls || []).length});
+            tabRuns.set(run, {urls: new Set((report.urls || []).map(pageKey)), at: Date.now()});
             const at = Date.now(), version = report.version || '';
             // The first check-in since the app started, one after a silence, or a new version: "when did the extension
             // last reach the app?" is answerable from the log (the every-30-s ones in between are not written).
@@ -120,7 +127,7 @@ export function start(storage, onError = () => {}) {
               : at - seen.at > 90 * 1000 ? `after ${Math.round((at - seen.at) / 1000)} s of silence` : '';
             if (why) appLog('extension', `checked in: ${why}`, {version, tabs: (report.urls || []).length});
             seen = {at, version};
-            reread = tabsHandler({ids: report.ids, boot: report.boot, worker: report.worker, reading: report.reading, sessions: report.sessions}) || [];   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
+            reread = tabsHandler({ids: report.ids, boot: report.boot, browser: report.browser, worker: report.worker, reading: report.reading, sessions: report.sessions}) || [];   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
             void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}
         }

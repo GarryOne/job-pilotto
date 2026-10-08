@@ -156,8 +156,15 @@ export function delivered(id, ms = 7000) {
 // (the extension's `boot`, which changes only when Chrome starts: extension/tab-memory.js). A binding from an earlier run is a closed tab.
 const bound = new Map();  // session id → tab id
 const runOf = new Map();  // session id → the browser run its tab id belongs to ('' unknown: saved by an older app)
-let openIds = null, bootId = '';
-const sameRun = id => !runOf.get(id) || !bootId || runOf.get(id) === bootId;
+// Each browser's open tabs (`browser`: one Chrome profile, kept across its restarts; an older extension: its run `boot`), from its own
+// reports: two browsers with the extension (a second profile, a test Chrome paired by mistake) each say what THEY have open, and one never
+// closes the other's forms. A browser that restarts replaces its entry (a new run: the old tab ids mean nothing); one silent for RUN_MS is gone.
+// 8 Oct 2026: a test browser with no tabs reported every few seconds, and the owner's open Coop form flipped to "Form closed".
+export const RUN_MS = 90 * 1000;
+const runs = new Map();   // browser (else boot) → {boot, ids: Set | null, at}
+let bootId = '', clock = () => Date.now();
+const liveRuns = () => { const now = clock(); for (const [key, run] of runs) if (now - run.at > RUN_MS) runs.delete(key); return [...runs.values()]; };
+const sameRun = (id, boot = bootId) => !runOf.get(id) || !boot || runOf.get(id) === boot;
 function bind(id, tab, boot, by, host = '', keep = true) {
   if (bound.get(id) === tab && runOf.get(id) === boot) return;
   bindLog({id, tab, before: bound.get(id) ?? null, by, host, ...(runOf.has(id) && runOf.get(id) !== boot ? {newRun: true} : {})});
@@ -167,18 +174,28 @@ function bind(id, tab, boot, by, host = '', keep = true) {
 }
 // The extension's tab report (every 30 s): which tabs exist in which run, and the session each tab carries (`sessions`: tab id → session id).
 // A tab carrying a session is that session's tab, unless the session already follows a newer one.
-export function noteTabs({ids, boot, sessions} = {}, known = null) {
-  if (boot) bootId = String(boot);
-  openIds = Array.isArray(ids) ? new Set(ids.map(Number).filter(Number.isInteger)) : null;
+export function noteTabs({ids, boot, browser, sessions} = {}, known = null) {
+  const run = String(boot || '');
+  if (run) bootId = run;
+  const openIds = Array.isArray(ids) ? new Set(ids.map(Number).filter(Number.isInteger)) : null;
+  runs.set(String(browser || run), {boot: run, ids: openIds, at: clock()});
   for (const [tab, id] of Object.entries(sessions && typeof sessions === 'object' ? sessions : {})) {
     const tabId = Number(tab);
     if (!Number.isInteger(tabId) || !id || (known && !known.has(String(id))) || !openIds?.has(tabId)) continue;
-    if (bound.has(String(id)) && sameRun(String(id)) && bound.get(String(id)) > tabId) continue;   // it follows a newer tab
-    bind(String(id), tabId, bootId, 'tab report');
+    if (bound.has(String(id)) && sameRun(String(id), run) && bound.get(String(id)) > tabId) continue;   // it follows a newer tab
+    bind(String(id), tabId, run, 'tab report');
   }
 }
 // true / false: the session's tab is open / was closed. null: not known (no tab id seen yet, or no report).
-export const tabOpen = id => (!bound.has(id) || !openIds ? null : sameRun(id) && openIds.has(bound.get(id)));
+// Asked of the run the session's tab belongs to; a session from before runs were known asks every live run. No live run: not known.
+export const tabOpen = id => {
+  const live = liveRuns();
+  if (!bound.has(id) || !live.length) return null;
+  const tab = bound.get(id), own = runOf.get(id);
+  const asked = own ? live.filter(run => run.boot === own) : live;
+  if (asked.some(run => !run.ids)) return null;   // a report without tab ids says nothing
+  return asked.some(run => run.ids.has(tab));
+};
 // Open, closed or not known, per session: its own tab decides when the app knows it; otherwise the address only ever says open
 // (a form on another site than the posting matches no address, and was shown closed while it was open: owner, 8 Oct 2026).
 export function formStates(ids, byLook = new Set()) {
@@ -250,4 +267,5 @@ export function report(sessions, payload, now = Date.now()) {
 export function forget(id) { last.delete(id); bound.delete(id); runOf.delete(id); save(); }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
-export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); runOf.clear(); openIds = null; bootId = ''; last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; bindLog = () => {}; };  // tests
+export const _clock = fn => { clock = fn; };   // tests
+export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); runOf.clear(); runs.clear(); bootId = ''; clock = () => Date.now(); last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; bindLog = () => {}; };  // tests

@@ -4,7 +4,10 @@ import {CHAIN, MISLABELLED, ONEPAGE, SCRIPTED, SIGNUP} from './forms.mjs';
 import {CONTACT, pause} from './apply-fixtures.mjs';
 import {appLogText} from './app-log.mjs';
 import {cvProblems, fillProblems, submitProblems} from './applycheck.mjs';
-import {fillState, readForm} from './extension.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {fillState, launchBrowser, readForm} from './extension.mjs';
 
 export async function runJourneys(ctx, h) {
   const {cv, dumpExtension, fail, forms, page} = h;
@@ -175,6 +178,39 @@ export async function runJourneys(ctx, h) {
       const after = (await page.evaluate(() => window.pilot.sessions())).filter(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url);
       if (after.length !== 1 || after[0].id !== session.id) problems.push(`the reopened form is not the same session (${after.map(item => item.id).join(', ')} vs ${session.id})`);
     }
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  // A second browser with the extension (8 Oct 2026: a test Chrome paired to the owner's app reported no tabs every few seconds, and the owner's open
+  // Coop form flipped to "Form closed"). Each browser says what IT has open: a second one with no tabs never closes the first one's form.
+  await ctx.run('a second browser with the extension and no tabs: the form open in the first stays open', async () => {
+    for (const item of ctx.browser.context.pages()) if (item.url().startsWith(ONEPAGE.url)) await item.close();   // an earlier step's tab of the same job
+    await pause(2000);
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [ONEPAGE.url, {title: ONEPAGE.title, company: ONEPAGE.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(ONEPAGE.url)) || null; await pause(1000); }
+    if (!tab) throw new Error('the form never opened');
+    const session = (await page.evaluate(() => window.pilot.sessions())).find(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url);
+    if (!session) throw new Error('no session for the job');
+    const openNow = async () => { const forms = await page.evaluate(() => window.pilot.formsOpen()); return forms?.known && forms.ids.includes(session.id); };
+    let open = false;
+    for (let waited = 0; waited < 60000 && !open; waited += 1000) { open = await openNow(); await pause(1000); }
+    if (!open) throw new Error('the app never saw the form open in the first browser (nothing to protect: the row proves nothing)');
+    const before = appLogText(ctx.profile).length;
+    const spool = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-second-spool-'));   // its own: the app's `open` still goes to the first browser
+    const second = await launchBrowser({port: forms.port, spool, extensionDir: ctx.extensionDir});
+    const problems = [];
+    try {
+      await second.serviceWorker();
+      // Proof the second browser reached the app (its own report), then a minute of its empty reports: one every 30 s.
+      let reached = false;
+      for (let waited = 0; waited < 60000 && !reached; waited += 1000) { reached = /another browser run reports its tabs/.test(appLogText(ctx.profile).slice(before)); await pause(1000); }
+      if (!reached) problems.push('the second browser never reported its tabs to the app ("another browser run reports its tabs" missing): the row proves nothing');
+      for (let waited = 0; reached && waited < 65000; waited += 2000) {
+        if (!(await openNow())) { problems.push(`the form was shown closed after the second browser reported (${Math.round(waited / 1000)} s in)`); break; }
+        await pause(2000);
+      }
+    } finally { await second.close(); fs.rmSync(spool, {recursive: true, force: true}); }
     fail(problems);
   }, {needs: ctx.needs});
 

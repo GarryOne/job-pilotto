@@ -44,9 +44,9 @@ test('Chrome restarts: a new run, the old tab id means nothing, and the form is 
   assert.equal(startRun({kept, sawStartup: true, tabsNow: [{id: 812, url: 'https://career2.successfactors.eu/x'}]}).boot, '');
   assert.equal(startRun({kept, tabsNow: [{id: 812, url: 'https://www.google.com/'}]}).boot, '');   // no onStartup, but its tabs are gone
   assert.equal(startRun({kept: undefined}).boot, '');
-  review.noteTabs({ids: [812], boot: RUN});
+  review.noteTabs({ids: [812], boot: RUN, browser: 'chrome-a'});
   review.report([coop], form(812, RUN));
-  review.noteTabs({ids: [3, 812], boot: NEXT});             // tab 812 of the new run is some other page
+  review.noteTabs({ids: [3, 812], boot: NEXT, browser: 'chrome-a'});   // the same browser, a new run: tab 812 of it is some other page
   assert.equal(review.tabOpen('s1'), false);
   const answer = review.report([coop], form(3, NEXT));     // the form, restored by Chrome as tab 3: not "older" than 812
   assert.equal(answer.matched, 's1');
@@ -69,4 +69,33 @@ test('an address never makes a form look closed: no tab known and none that look
   assert.deepEqual(review.formStates(['s1', 's2', 's3'], new Set(['s3'])), {ids: ['s1', 's3'], unsure: ['s2']});
   review.noteTabs({ids: [], boot: RUN});
   assert.deepEqual(review.formStates(['s1', 's2'], new Set()), {ids: [], unsure: ['s2']});   // s1: its own tab closed
+});
+
+// Two browsers with the extension, each saying what IT has open (8 Oct 2026: a test Chrome paired to the owner's app reported no tabs
+// every few seconds, and the owner's open Coop form flipped to "Form closed"). As a matrix: who reports, and what the card says.
+test('a second browser never closes the first one\'s form; a browser gone quiet, or restarted, does', () => {
+  let now = 0;
+  review._clock(() => now);
+  const owner = ids => review.noteTabs({ids, boot: RUN, browser: 'owner'});
+  const tester = () => review.noteTabs({ids: [], boot: NEXT, browser: 'test'});
+  owner([812]);
+  review.report([coop], form(812, RUN));
+  const cases = [
+    ['the owner\'s browser has it', () => {}, true],
+    ['a test browser with no tabs reports after it', () => tester(), true],
+    ['and again, 60 s later (the owner\'s still within 90 s)', () => { now += 60 * 1000; tester(); }, true],
+    ['the owner\'s reports again: still open', () => { owner([812]); tester(); }, true],
+    ['the owner closes the tab', () => owner([5]), false],
+    ['the owner\'s tab is back (another report)', () => owner([5, 812]), true],
+    ['the owner\'s browser goes quiet past 90 s while the test one reports', () => { now += 91 * 1000; tester(); }, false],
+  ];
+  for (const [name, step, want] of cases) { step(); assert.equal(review.tabOpen('s1'), want, name); }
+  // An older extension (no browser id): each run is its own entry, gone after 90 s silent.
+  review._reset(); review.persist(file, ['s1']); now = 0; review._clock(() => now);
+  review.noteTabs({ids: [812], boot: RUN});
+  review.report([coop], form(812, RUN));
+  review.noteTabs({ids: [], boot: NEXT});
+  assert.equal(review.tabOpen('s1'), true, 'older extension: another run does not close it');
+  now += 91 * 1000; review.noteTabs({ids: [], boot: NEXT});
+  assert.equal(review.tabOpen('s1'), false, 'older extension: its run silent past 90 s');
 });

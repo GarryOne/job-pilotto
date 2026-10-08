@@ -17,6 +17,16 @@ import {reportedIds} from './tab-pages.js';
 import {sessionGet} from './tab-memory.js';
 import {settings} from './flow.js';
 
+// This browser (one Chrome profile), the same across its restarts, unlike `boot`: the app keeps each browser's tabs apart, so a second
+// profile or a test Chrome with this extension never makes this one's forms look closed (8 Oct 2026). A random id, nothing about you.
+let browserKept = null;
+const browserId = () => (browserKept ||= chrome.storage.local.get('browserId').then(async ({browserId: kept}) => {
+  if (kept) return String(kept);
+  const made = crypto.randomUUID();
+  await chrome.storage.local.set({browserId: made});
+  return made;
+}).catch(() => ''));
+
 export function createTabReport(ctx) {
   const {WORKER, armedLogged, bootId, fillsNow, jobOf, keepMemory, newer, reportCorrections, started} = ctx;
   // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
@@ -35,7 +45,7 @@ export function createTabReport(ctx) {
     const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds: [...armedIds, ...Object.values(reading)], existingIds: every.map(tab => tab.id)});
     for (const id of armedIds) reportCorrections(config, id);
     // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
-    const boot = await bootId();
+    const boot = await bootId(), browser = await browserId();
     // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
     try {
       // Which session each open tab belongs to, from the tabs' own memory: the app binds a session to its tab from this alone, so it never
@@ -43,7 +53,7 @@ export function createTabReport(ctx) {
       const alive = new Set(every.map(tab => tab.id));
       const sessions = Object.fromEntries(Object.entries(stored).filter(([key, id]) => /^session:\d+$/.test(key) && id && alive.has(Number(key.slice(8))))
         .map(([key, id]) => [key.slice(8), String(id)]));
-      const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, worker: WORKER, reading, sessions, version: chrome.runtime.getManifest().version})});
+      const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, browser, worker: WORKER, reading, sessions, version: chrome.runtime.getManifest().version})});
       connected(true);
       // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
       // tab is, under the mark it was opened with (desktop/lib/visits.js noteTabs; 7 Oct 2026: a reload left 3 of 5 sites "stopped answering").
