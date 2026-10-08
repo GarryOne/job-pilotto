@@ -1,7 +1,7 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
-import {isSubmitted} from '../session-state.js';
+import {isSubmitted, tabClosed} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
 import {KNOCKOUT} from '../knockout.js';
@@ -72,7 +72,7 @@ function doneRow(li, key, outcome) {
 export const formReady = item => !formGone(item) && !!reviewStates.get(item.id)?.ready;
 // The form's Chrome tab was closed: the extension is reporting in and no open tab is this session's form (it was
 // seen before, so a form never opened is not "closed"). Its cached count and "Ready to submit" are then stale.
-export const formGone = item => !!shared.formsOpen?.known && !shared.formsOpen.ids.includes(item.id) && !!reviewStates.get(item.id)?.total && !isSubmitted(item);
+export const formGone = item => tabClosed(item, shared.formsOpen, !!reviewStates.get(item.id)?.total);
 // What's left, said the way you act on it: "2 actions remaining". The split it counts (in the form, to check) is the
 // pill's tooltip — the rows themselves say which is which.
 export function updateNeedsCount() {

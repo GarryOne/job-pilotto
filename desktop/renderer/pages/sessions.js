@@ -15,7 +15,7 @@ import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
 // The state other pages show uses the form page's state too: ready to submit once the form says so.
-const closedForm = item => item.kind === 'form' && formGone(item);  // its Chrome tab was closed
+const closedForm = item => formGone(item);  // its Chrome tab was closed (a form or a Claude session's)
 const sessionStatus = item => (closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
@@ -249,10 +249,10 @@ const submittedButton = item => sessionButton('I submitted it', 'secondary', asy
 const answerHint = () => el('p', 'rich-p muted small', 'Press Answer, then type your reply in the log below, or use a quick reply there.');
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
-  const closed = !submitted && item.kind === 'form' && formGone(item);   // its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach)
-  const stuck = !submitted && item.kind === 'form' && !!item.stuck && !closed;   // the extension can't reach this form
+  // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
+  const gone = !submitted && formGone(item);
+  const stuck = !submitted && item.kind === 'form' && !!item.stuck && !gone;   // the extension can't reach this form
   const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
-  const gone = closed || (review && formGone(item));  // the form's Chrome tab was closed
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
@@ -280,6 +280,7 @@ export function renderNextStep(item) {
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
       ? 'The form is behind a sign-in or sign-up. Claude can create the account, read the confirmation email and fill the form; you still submit it.'
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Claude can find the form, follow the links and fill it; you still submit it.')]
+    : gone && asking ? [el('p', 'rich-p', 'Claude was working in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over); then Resume Claude carries on there.')]
     : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', item.kind === 'form' ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
@@ -364,9 +365,9 @@ export function renderNextStep(item) {
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
     actions.push(never);
   } else if (asking && !live) {
-    if (item.resumable) actions.push(resume('primary'));
+    if (item.resumable) actions.push(resume(gone ? 'secondary' : 'primary'));
     // Claude closed with the app, but the form may still be open in Chrome.
-    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
+    if (item.url && !gone) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
       await openForm(item, event.currentTarget);
     }, 'link'));
     actions.push(submittedButton(item));

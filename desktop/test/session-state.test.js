@@ -109,3 +109,16 @@ test('the stage says whether the session is creating the account or filling the 
   assert.equal(sessionStage({stage: 'form', outcome: 'submitted'}), null);
   assert.equal(sessionStage({}), null);
 });
+
+test('a session whose tab is gone is closed: a form seen before, a form session after its first minute, a Claude session no longer running', async () => {
+  const {tabClosed} = await import('../renderer/session-state.js');
+  const none = {known: true, ids: []}, now = Date.parse('2026-10-08T12:30:00Z'), old = '2026-10-08T10:08:00Z';
+  assert.equal(tabClosed({id: 'c1', kind: 'claude', live: false, status: 'input'}, none, false, now), true);   // Migros: sign-up page, no fields ever
+  assert.equal(tabClosed({id: 'c1', kind: 'claude', live: true, status: 'running'}, none, false, now), false);  // may not have opened its tab yet
+  assert.equal(tabClosed({id: 'f1', kind: 'form', stuck: 'no-form', startedAt: old}, none, false, now), true);  // Manor
+  assert.equal(tabClosed({id: 'f1', kind: 'form', startedAt: '2026-10-08T12:29:40Z'}, none, false, now), false);  // just opened by Apply
+  assert.equal(tabClosed({id: 'f1', kind: 'form', startedAt: old}, {known: true, ids: ['f1']}, false, now), false);
+  assert.equal(tabClosed({id: 'f1', kind: 'form', startedAt: old}, {known: false, ids: []}, true, now), false);   // the extension is not reporting
+  assert.equal(tabClosed({id: 'f1', kind: 'form', outcome: 'submitted', live: false}, none, true, now), false);
+  assert.equal(tabClosed({id: 'r1', kind: 'read', live: false}, none, false, now), false);
+});

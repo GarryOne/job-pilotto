@@ -66,3 +66,14 @@ export function sessionStage(item) {
   if (item.stage === 'form') return {step: 2, text: item.accountHost ? 'Step 2 of 2 · Filling the application form' : 'Filling the application form', tone: 'info'};
   return null;
 }
+
+// The session's form tab is gone: the extension reports in (`formsOpen.known`) and no open tab is this session's. A form it saw
+// before (`seen`: fields were reported) is closed; so is a form session's (Apply opened it; a minute for it to show up) and the
+// tab of a Claude session that is no longer running (a running one may not have opened its tab yet). Owner, 8 Oct 2026: after
+// closing every tab, a Claude session stuck on a sign-up page still showed its question as if the tab were there.
+export function tabClosed(item, formsOpen, seen = false, now = Date.now()) {
+  if (!item || !formsOpen?.known || formsOpen.ids.includes(item.id) || isSubmitted(item) || item.outcome) return false;
+  if (seen) return true;
+  if (item.kind === 'form') return now - (Date.parse(item.startedAt || '') || now) > 60 * 1000;
+  return item.kind === 'claude' && !isLive(item);
+}
