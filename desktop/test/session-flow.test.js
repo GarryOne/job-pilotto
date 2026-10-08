@@ -77,3 +77,12 @@ test('Claude\'s hand-over closes the form tab only when nothing was filled there
   assert.deepEqual(filled.closed, []);
   assert.ok(filled.logs.some(line => /form tab of f2 kept/.test(line)));
 });
+
+test('a late "account" report about the sign-up page the tab has left never moves the session back from the form', () => {
+  const s = setup({allowed: false, states: [{id: 'f1', url: 'https://career55.sapsf.eu/apply', total: 9, left: 9}]});
+  terminals.startForm({id: 'f1', url: URL1});
+  terminals.setStage('f1', 'form');
+  assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', page: 'https://career55.sapsf.eu/signup'}), 'stale-page');
+  assert.equal(terminals.get('f1').stage, 'form');
+  assert.equal(terminals.get('f1').stuck, '');
+});

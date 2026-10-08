@@ -24,6 +24,7 @@ import * as terminals from './terminals.js';
 import {log} from './log.js';
 import * as reports from './reports.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
+import {forgetPageKind, pageKind, pageKindCache} from './page-kind.js';
 
 export const DEFAULT_PORT = 47111;
 // The port is fixed because the extension has it built in (extension/flow.js). JOB_PILOTTO_PORT moves it for a test app that runs next to the user's
@@ -331,6 +332,23 @@ export async function judgeConfirmation(storage, body, {judge = judgePage, clien
   return {ok: !!result?.ok, confirmation: true, error: result?.ok ? '' : (result?.error || 'not marked'), message: result?.message || ''};
 }
 
+// What kind of page is this (lib/page-kind.js): the AI decides once per site and page shape, the answer is kept on this Mac. The extension
+// asks before it acts on a page of an application's journey, and goes by its structure rule when this has no kind. `decide` is injectable.
+let kindCache = null;
+export async function decidePageKind(storage, body, {decide = pageKind, client} = {}) {
+  kindCache ||= pageKindCache(storage.path('page-kinds.json'));
+  if (body?.forget) {   // the page contradicted its kept kind: dropped, asked again next visit
+    const dropped = forgetPageKind(kindCache, {url: body?.url, controls: body?.controls});
+    appLog('extension', `page kind forgotten: ${String(body.reason || 'contradicted by the page').slice(0, 80)}`, {shape: dropped || '(nothing kept)', was: String(body.kind || '').slice(0, 20)});
+    return {ok: true, forgotten: !!dropped};
+  }
+  const answer = await decide(client === undefined ? aiClient(storage) : client, {url: body?.url, title: body?.title, headings: body?.headings,
+    controls: body?.controls, buttons: body?.buttons}, kindCache);
+  appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
+    {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {})});
+  return answer.error ? {ok: true, kind: '', error: answer.error} : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence};
+}
+
 // Apply with Claude → extension hand-off (extension/hook.js). The launcher (tools/apply-batch-claude.sh) asks
 // for a ticket per job (POST /claude/ticket, from this computer, with a header web pages can't send without a
 // CORS preflight this server never grants); the Claude session hands it to the extension on the form page, and
@@ -613,6 +631,16 @@ export function start(storage, onError = () => {}) {
               `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`, target);
           }
         }
+        return;
+      }
+      if (req.url === '/extension/page-kind') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        if (req.headers.authorization !== `Bearer ${extensionToken(storage)}`) { res.writeHead(401, {'Content-Type': 'application/json', ...cors}); res.end(JSON.stringify({ok: false, kind: '', error: 'Wrong token'})); return; }
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        const answer = await decidePageKind(storage, payload);
+        res.writeHead(200, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(answer));
         return;
       }
       if (req.url === '/extension/confirmation') {

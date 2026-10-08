@@ -17,6 +17,13 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
       appLog('review', `stuck report from an older tab of ${carried.id}: ignored`, {host: event.host, tab: event.tab ?? null, why: event.why});
       return 'older-tab';
     }
+    // About a page the session's tab has left: its own tab has since reported a different page that is the application form.
+    const pathOf = url => { try { const parsed = new URL(String(url)); return `${parsed.host}${parsed.pathname}`.replace(/\/$/, ''); } catch { return ''; } };
+    const last = carried ? review.allStates().find(state => state.id === carried.id) : null;
+    if (last && event.page && !last.account && last.total > 0 && pathOf(last.url) && pathOf(last.url) !== pathOf(event.page)) {
+      appLog('review', `stuck report about a page ${carried.id}'s tab has left: ignored`, {host: event.host, why: event.why});
+      return 'stale-page';
+    }
     const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
     const match = carried ? (carried.kind === 'form' && !carried.outcome ? carried : null) : forms.find(session => apply.isFormOf(event.url, session.url));
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match, tab: event.tab ?? null, by: carried ? 'session' : 'job'});

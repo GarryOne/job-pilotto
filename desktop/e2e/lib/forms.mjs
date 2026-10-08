@@ -101,6 +101,13 @@ export const ONEPAGE = {
   kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '3', needs_review: false}],
 };
 ONEPAGE.url = `https://${ONEPAGE.host}${ONEPAGE.path}`;
+// An application form the stand-in AI calls a "posting" (a wrong kind, kept): the extension finds no Apply to press while the page has a
+// form's fields, so it drops that kind, fills the form, and the next visit asks again (self-correction, 8 Oct 2026).
+export const MISLABELLED = {
+  title: 'Support Engineer, Mislabelled', company: 'E2E Mislabelled Co', host: 'jobs.lever.co', path: '/e2e-mislabelled/4001008',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '4', needs_review: false}],
+};
+MISLABELLED.url = `https://${MISLABELLED.host}${MISLABELLED.path}`;
 // A form the TEST (playing the person) really submits: its Submit POSTs and the same address answers with the site's own "submitted" banner (like OK Job,
 // api.easytemp.ch), so the extension must see the Submit press, the page change, and send that page to the AI. Never reported to `fired`: it is the one
 // form allowed to be submitted, and only by the person (the test), never by the extension.
@@ -288,6 +295,7 @@ export async function startForms({vary = null} = {}) {
     hits.push(`${host}${url.pathname}`);
     if (req.method === 'POST' && url.pathname === '/__fired') { fired.push({kind: url.searchParams.get('kind'), form: url.searchParams.get('form')}); res.writeHead(204).end(); return; }
     const signup = url.pathname.replace(/(.)\/$/, '$1');
+    if (host === MISLABELLED.host && signup === MISLABELLED.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(page(MISLABELLED, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`)); return; }
     if (host === ONEPAGE.host && signup === ONEPAGE.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(ONEPAGE_HTML()); return; }
     if (host === SIGNUP.host && signup === SIGNUP.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.posting()); return; }
     if (host === SIGNUP.accountHost && signup === SIGNUP.accountPath) {

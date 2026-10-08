@@ -157,7 +157,7 @@ chosen by technically advanced users. A new capability goes into the extension's
 
 ## Applying flows: change one, run them all (owner, 8 Oct 2026)
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:
-the one page rule (`extension/tab-pages.js` `pageRole`), every scenario, its code and its guard. Touching a flow file (`desktop/e2e/flows.mjs` `FLOW_FILES`)
+the one page decision (the AI's kind, `desktop/lib/page-kind.js`; `extension/tab-pages.js` `pageRole` only without AI), every scenario, its code and its guard. Touching a flow file (`desktop/e2e/flows.mjs` `FLOW_FILES`)
 → `cd desktop && npm run flows` (whole matrix, ~4 min) before the push; the hook blocks it otherwise (`tools/flows-gate.mjs`, or `Flows-unverified: <why>`).
 A new scenario gets a row there and in `MATRIX`, with a step or test that fails first. Never add a second page classifier.
 

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNUP, ONEPAGE, realFieldId} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -21,7 +21,7 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): every form step needs the applicant, the kits and the proxy's answers.
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
-  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'cannot operate': [SETUP]};
+  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
 // The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).
@@ -57,13 +57,13 @@ export async function runApply(ctx, parts) {
   await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
   const all = ctx.run;
   ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
-  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url, SCRIPTED.url, SIGNUP.url, ONEPAGE.url];
+  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url, SCRIPTED.url, SIGNUP.url, ONEPAGE.url, MISLABELLED.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of [...Object.values(FORMS), CHAIN, SCRIPTED, SIGNUP, ONEPAGE]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
+    for (const form of [...Object.values(FORMS), CHAIN, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
@@ -72,6 +72,14 @@ export async function runApply(ctx, parts) {
       // The page after a Submit (lib/confirmation.js): the stand-in answers like a model that reads the words, so the suite proves the chain around it.
       const text = typeof content === 'string' ? content : (content || []).map(part => part.text || '').join('');
       if (/^URL path:/m.test(text) && /^Page:/m.test(text)) return JSON.stringify({confirmation: /successfully submitted|received your application/i.test(text) && !/must be completed|required/i.test(text)});
+      // What kind of page (lib/page-kind.js): the stand-in answers with each fixture's true kind, so every flow row runs on the AI's word, as in use.
+      if (/^Address path:/m.test(text) && /^Controls/m.test(text)) {
+        const where = /^Address path: (.*)$/m.exec(text)?.[1] || '';
+        const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form',
+          [SIGNUP.path]: 'posting', [SIGNUP.accountPath]: 'account', [SIGNUP.formPath]: 'form', [ONEPAGE.path]: 'account-form',
+          [MISLABELLED.path]: 'posting'};   // deliberately wrong: the self-correction row
+        return JSON.stringify({kind: kinds[where.replace(/\/$/, '')] || 'form', confidence: 0.95});
+      }
       const asked = /<form_fields>\n([\s\S]*?)\n<\/form_fields>/.exec(typeof content === 'string' ? content : (content || []).map(part => part.text || '').join(''));
       if (!asked) return null;
       const answers = JSON.parse(asked[1]).filter(item => item.field === 'why').map(item => ({field: item.field, value: OPEN_ANSWER, confidence: 'medium', note: 'inferred from the profile'}));
@@ -400,6 +408,8 @@ export async function runApply(ctx, parts) {
     let at = null;
     for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await sessionNow(); await pause(1000); }
     if (at?.stage !== 'form') problems.push(`the session is not at the form step (stage: ${at?.stage}, stuck: ${at?.stuck}): this page is the application`);
+    // The page's kind came from the AI (the stand-in), not the structure rule: the path every install takes when it has AI.
+    if (!/page kind: account-form/.test(appLogText(ctx.profile))) problems.push('the one-page form\'s kind never came from the AI ("page kind: account-form" missing in the app log)');
     fail(problems);
   }, {needs: ctx.needs});
 
@@ -431,6 +441,28 @@ export async function runApply(ctx, parts) {
       if ((await filled(again))?.state !== 'done') problems.push('the reopened form was not filled again');
       const after = (await page.evaluate(() => window.pilot.sessions())).filter(item => String(item.url || '').replace(/\/$/, '') === ONEPAGE.url);
       if (after.length !== 1 || after[0].id !== session.id) problems.push(`the reopened form is not the same session (${after.map(item => item.id).join(', ')} vs ${session.id})`);
+    }
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  // A wrong kind kept by the AI corrects itself (owner, 8 Oct 2026): the stand-in calls this application form a "posting". The extension finds no Apply to
+  // press while the page has a form's fields, drops the kind (logged), and fills the form from the kit this visit.
+  await ctx.run('the AI gave a page the wrong kind: the page contradicts it, the kind is dropped and the form is filled', async () => {
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [MISLABELLED.url, {title: MISLABELLED.title, company: MISLABELLED.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(MISLABELLED.url)) || null; await pause(1000); }
+    if (!tab) throw new Error('the mislabelled form never opened');
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (['done', 'error', 'no-form', 'account'].includes(state?.state)) break; await pause(500); }
+    const problems = [];
+    const log = appLogText(ctx.profile);
+    if (!/page kind: posting/.test(log)) problems.push('the stand-in\'s wrong kind was never given (no "page kind: posting"): the row proves nothing');
+    if (!/page kind corrected: a posting with no Apply but a form's fields/.test(log)) problems.push('the wrong kind was not corrected (no "page kind corrected" line)');
+    if (!/page kind forgotten/.test(log)) problems.push('the app never dropped the kept kind (no "page kind forgotten" line)');
+    if (state?.state !== 'done') problems.push(`the form was not filled after the correction (state: ${JSON.stringify(state)})`);
+    else {
+      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
+      if (value !== '4') problems.push(`Kubernetes years "${value}", its kit says 4`);
     }
     fail(problems);
   }, {needs: ctx.needs});

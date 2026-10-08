@@ -20,7 +20,15 @@
 
 ## The one decision every flow follows
 
-`extension/tab-pages.js` `pageRole()` says what a page is. Everything else reads that word; nothing classifies a page again.
+**What kind of page is this?** The AI decides (`desktop/lib/page-kind.js`), from a sketch of the page in its own language (headings, each
+control's type and label, the buttons): `form`, `account-form`, `account`, `posting` or `other`. No site words, no lists of labels or controls:
+it works on thousands of sites in any language (owner, 8 Oct 2026). The answer is kept per site and page shape (asked once; `page-kinds.json`
+on the Mac), logged as `page kind: <kind>` with who decided. Without AI, or when it is unsure, `extension/tab-pages.js` `pageRole()` decides
+from structure alone. Everything else reads the resulting role; nothing classifies a page again.
+
+**Self-correction:** a kept kind the page contradicts is dropped and asked again next visit, never repeated. A "form" with no fields to fill,
+or a "posting" with no Apply but an application form's fields, is decided by structure this visit (`page kind corrected` / `page kind
+forgotten` in the log).
 
 | Page | Means | Filled by the extension | Feeds learning / "submitted" | Session shows |
 |---|---|---|---|---|
@@ -32,6 +40,7 @@
 
 | Scenario | What happens | Code | Guard |
 |---|---|---|---|
+| What kind of page: the AI decides once per site and page shape, the structure rule only without AI | the extension sketches the page, the app asks once and keeps the answer | `page-kind.js` (+ forgetPageKind), `background.js` askKind/forgetKind, `server.js` /extension/page-kind | e2e: one page, wrong kind · `page-kind.test.js`, `extension-tab-pages.test.js` |
 | Direct application form (Greenhouse, Workday, Lever, multi-step) | filled from the kit, Submit untouched | `flow.js`, `background.js` consider/fill | e2e: Greenhouse-like, Workday-shaped, Lever-like, multi-step |
 | Posting → Apply link or form into a new tab → same tab, posted data kept | the link/form is pointed at this tab before the click | `background.js` pressApply | e2e: Apply opens a new tab · `extension-same-tab.test.js` |
 | Apply opens its form from the page's script: followed, posting closed | the new tab is the application; the posting closes only if it is the pressed tab, still on that page | `same-tab.js`, `tabs.js` closePosting | e2e: side by side · `extension-same-tab.test.js` |

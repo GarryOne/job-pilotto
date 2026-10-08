@@ -77,6 +77,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
 - `desktop/lib/orphans.js` — An engine run (`python -m src daily|check|scout|discover|feeds`) the app started and then lost: the app restarted, so the run's parent is now
 - `desktop/lib/outcomes.js` — "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
+- `desktop/lib/page-kind.js` — What kind of page is this, in an application's journey? The AI decides, from a sketch of the page in whatever language it is in
 - `desktop/lib/page-render.js` — Careers pages that only exist after their scripts run, rendered for the engine (src/sources/render.py) in the app's own Chromium, so the Mac
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.

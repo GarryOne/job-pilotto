@@ -88,6 +88,45 @@ function pageShape(tabId) {
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
+// A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
+// (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
+function pageSketchOf(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+    const shown = el => el.getClientRects().length > 0;
+    const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
+    const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
+    const controls = [...document.querySelectorAll('input, select, textarea')]
+      .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
+      .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
+      .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
+    const buttons = [...document.querySelectorAll('button, input[type=submit], [role=button], a')].filter(shown)
+      .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
+    return {title: document.title, headings: [...document.querySelectorAll('h1, h2, h3')].filter(shown).map(text).filter(Boolean).slice(0, 8),
+      controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20)};
+  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+}
+// The page's kind from the app (the AI's answer, kept per site and page shape), or null: then the structure rule decides alone.
+// The kept kind was wrong for this page: the app drops it (desktop/lib/page-kind.js forgetPageKind) and the next visit asks again.
+async function forgetKind(tab, kind, reason) {
+  const sketch = await pageSketchOf(tab.id);
+  decide('fill', `page kind corrected: ${reason}`, {was: kind?.kind || '', by: kind?.by || ''});
+  try {
+    const config = await settings();
+    if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
+    await api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({forget: true, reason, kind: kind?.kind || '', url: tab.url.split('#')[0], ...(sketch || {})})});
+  } catch { /* the app is closed: asked again once it is back */ }
+}
+async function askKind(tab) {
+  const sketch = await pageSketchOf(tab.id);
+  if (!sketch) return null;
+  try {
+    const config = await settings();
+    if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
+    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...sketch})}),
+      new Promise(resolve => setTimeout(() => resolve(null), 15000))]);
+    return answer?.role ? answer : null;
+  } catch { return null; }
+}
 // Claude reads this on <html data-jobpilotto-fill>. States: running, done, error, no-form, account.
 function writeState(tabId, value) {
   return chrome.scripting.executeScript({target: {tabId}, args: [JSON.stringify(value)],
@@ -160,9 +199,12 @@ async function formAfterPress(tabId, url, ms = 8000) {
   return null;
 }
 // The app is told the extension can't get to this form (its session offers "Apply with Claude"): why, and the site.
-async function stuck(job, host, why, tabId = null) {
+// `page`: the page this is about. A tab that has moved on (the account made, the form loaded) sends nothing: a late "account" moved a
+// session back from the form to the account step (8 Oct 2026, the matrix's sign-up row). The app checks it too (lib/session-flow.js).
+async function stuck(job, host, why, tabId = null, page = '') {
+  if (tabId != null && page && !(await onPage(tabId, page))) { decide('fill', 'the page moved on: no "can\'t reach" report for it', {host, why}); return; }
   const session = tabId == null ? '' : (await sessionGet(`session:${tabId}`))[`session:${tabId}`] || '';
-  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, tab: tabId, session})}); } catch { /* the app is closed */ }
+  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
 const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
@@ -187,7 +229,15 @@ async function consider(tab, jobUrl) {
     decide('fill', 'the page could not be read', {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
     return;
   }
-  let role = pageRole(counts, tab.url);
+  // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
+  // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
+  const ruled = pageRole(counts, tab.url), kind = await askKind(tab);
+  let role = kind?.role || ruled;
+  // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
+  const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
+  if (kind && role === 'form' && controls === 0) { await forgetKind(tab, kind, 'a form with no fields'); role = ruled; }
+  decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,
+    ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
   await noteRole(tab.id, tab.url, role);
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
@@ -210,10 +260,12 @@ async function consider(tab, jobUrl) {
       if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); }
     }
   }
+  // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
+  if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   if (role !== 'form') {
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
-    stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id);   // tier 3: the app offers Apply with Claude
+    stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url);   // tier 3: the app offers Apply with Claude
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }

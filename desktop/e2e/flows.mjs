@@ -8,11 +8,12 @@ export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
   'extension/tabs.js', 'extension/account.js', 'extension/log.js', 'extension/tab-memory.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
-  'desktop/lib/session-flow.js',
+  'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js',
 ];
 
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs (E2E_STEPS); `unit`: desktop/test files.
 export const MATRIX = [
+  {scenario: 'What kind of page: the AI decides once per site and page shape, the structure rule only without AI', e2e: ['one page', 'wrong kind'], unit: ['test/page-kind.test.js', 'test/extension-tab-pages.test.js']},
   {scenario: 'Direct application form (Greenhouse, Workday, Lever, multi-step)', e2e: ['Greenhouse-like form', 'Workday-shaped form', 'Lever-like form', 'multi-step form'], unit: ['test/extension-tab-pages.test.js']},
   {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Apply opens its form from the page\'s script: followed, posting closed', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
