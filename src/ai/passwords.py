@@ -28,12 +28,12 @@ ACCOUNT = 'job-pilotto'
 
 SHARED = 'job-pilotto.sites.password'
 
-# Short, plain words (at most 6 letters) that are easy to say and type on any layout: no y or z, which QWERTZ swaps.
+# Short, plain words (4-6 letters) that are easy to say and type on any layout: no y or z, which QWERTZ swaps.
 WORDS = ('amber apple arrow basil beach blue bread brick cedar chalk cloud coast comet coral cotton crane '
          'delta eagle ember fable falcon fern field flame flint frost garden giant ginger glass grape green harbor '
          'hazel island jade kite lemon light lilac lotus maple marble meadow melon mint moon north '
          'ocean olive orange orbit otter panda paper peach pearl pepper piano pilot pine planet plum polar pond prism '
-         'rain raven river robin rocket rose salt sand silver smile snow solar spark spring star stone storm sugar sun '
+         'rain raven river robin rocket rose salt sand silver smile snow solar spark spring star stone storm sugar '
          'tiger toast tulip velvet violet water whale wind winter wolf').split()
 
 
@@ -42,10 +42,11 @@ def service(host):
 
 
 def memorable():
-    """Two capitalised words and two digits, joined by hyphens: Maple-Rocket-42. At most 16 characters, with upper,
-    lower, digit and a symbol, which most sign-up rules ask for."""
+    """Two capitalised words and two digits, joined by hyphens: Maple-Rocket-42. 14-16 characters (12-14 without the
+    hyphens), with upper, lower, digit and a symbol, which most sign-up rules ask for."""
     first = secrets.choice(WORDS)
-    second = secrets.choice([word for word in WORDS if word != first])
+    # 10-12 letters in all: at least 12 characters even without its hyphens (Migros's SuccessFactors wants 12-18, no symbols), at most 16 with them.
+    second = secrets.choice([word for word in WORDS if word != first and 10 <= len(first) + len(word) <= 12])
     return f'{first.capitalize()}-{second.capitalize()}-{secrets.randbelow(90) + 10}'
 
 

@@ -137,7 +137,7 @@ async function cvInfo(url) {
   cvSeen.set(url, {at: Date.now(), info});
   return info;
 }
-function showBefore(item, left) {
+function showBefore(item, left, account = false) {
   const knockouts = left.filter(label => KNOCKOUT.test(label));
   const submitted = isSubmitted(item);
   show($('ss-before-knock'), !submitted && knockouts.length > 0);
@@ -147,7 +147,8 @@ function showBefore(item, left) {
   }
   const job = shared.allJobs.find(candidate => fullKey(candidate.url) === fullKey(item.url));
   show($('ss-before-cv'), false);
-  if (submitted || !item.url) return show($('ss-before'), !submitted && knockouts.length > 0);
+  // A sign-in or sign-up page is not the application: no CV goes there (owner, 8 Oct 2026).
+  if (submitted || !item.url || account) return show($('ss-before'), !submitted && knockouts.length > 0);
   cvInfo(item.url).then(info => {
     if (!info) return;
     show($('ss-before-cv'), true);
@@ -190,7 +191,7 @@ function showFormCard(item, state) {
   count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
-  showBefore(item, state.pending || state.missing || []);
+  showBefore(item, state.pending || state.missing || [], !!state.account);
   // An extension older than 0.8.12 sends no filled fields: then only what's left.
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
   const left = state.pending || state.missing || [];

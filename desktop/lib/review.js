@@ -148,6 +148,7 @@ export function report(sessions, payload, now = Date.now()) {
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
   state.ready = state.total > 0 && state.left === 0;
+  if (payload.account) state.account = true;   // a sign-in or sign-up page: the session shows no CV card
   // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
   // Fields already filled when the app first hears of the form have no time (it didn't see them being filled); a field
   // filled after a fill is over was filled by you. A restarted app keeps what it had (persist).

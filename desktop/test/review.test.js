@@ -217,3 +217,13 @@ test('a "show me this field" nobody took is cancelled, so the page does not act 
   assert.deepEqual(reply.commands, [{close: true}]);  // only the focus is dropped
   review._reset();
 });
+
+test('a sign-in or sign-up page is reported as one, so the session shows no CV card there', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({account: true}));
+  assert.equal(heard.at(-1).account, true);
+  review.report(sessions, form({account: false, left: 2}));   // the application form after the sign-up
+  assert.equal(heard.at(-1).account, undefined);
+});

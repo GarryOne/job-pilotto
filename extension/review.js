@@ -300,6 +300,7 @@
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     const needed = list.filter(f => f.required || f.ai);
     shown = needed.filter(f => !f.filled);
+    const account = !!document.querySelector('input[type=password]');
     const total = needed.length, left = shown.length, ready = total > 0 && left === 0;
     const done = total ? Math.round(100 * (total - left) / total) : 0;
     jp.classList.toggle('ready', ready);
@@ -310,7 +311,7 @@
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
     const over = filledOnce || ['done', 'input'].includes(session?.status);
-    if (!open) return {list, left, total, busy, over};
+    if (!open) return {list, left, total, busy, over, account};
     // job + Claude
     const title = job?.title || session?.title, company = job?.company || session?.company;
     $('.job').hidden = !title;
@@ -330,7 +331,8 @@
     // fill (not while Claude is filling this form: it would fight it)
     const claudeFilling = session?.live && session.status === 'running';
     // A tailored CV written after the form was filled still has to be attached: the button stays for that.
-    const canTailor = !!session && !!connection?.connected && !!connection.app && !!cv;
+    // A sign-in or sign-up page (a password box) is not the application: no CV goes there, so no "Tailor my CV" (owner, 8 Oct 2026).
+    const canTailor = !!session && !!connection?.connected && !!connection.app && !!cv && !account;
     const readyNow = canTailor && cv.tailored && asked;
     $('.fill-box').hidden = claudeFilling || (ready && !filling && !readyNow);  // nothing left to fill
     $('.fill').disabled = filling;
@@ -369,7 +371,7 @@
     foot.classList.toggle('on', !!connection?.connected);
     foot.textContent = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
       : connection ? (connection.why || 'Not connected: the form still fills from your settings') : 'Checking the connection…';
-    return {list, left, total, busy, over};
+    return {list, left, total, busy, over, account};
   }
 
   // ---- actions ----
@@ -493,7 +495,7 @@
         // What is filled, so the app can tick each field off as it happens (it keeps the time it first saw each one).
         // What is left, counted as the ring counts it: required, or an answer Claude wrote that is empty again.
         pending: state.list.filter(f => (f.required || f.ai) && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
-        busy: !!state.busy, over: !!state.over,
+        busy: !!state.busy, over: !!state.over, account: !!state.account,
         filled: state.list.filter(f => (f.required || f.ai) && f.filled).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)),
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});

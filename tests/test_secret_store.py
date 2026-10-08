@@ -151,6 +151,7 @@ class PasswordsTest(unittest.TestCase):
         for _ in range(500):
             password = passwords.memorable()
             self.assertLessEqual(len(password), 16)
+            self.assertGreaterEqual(len(password.replace('-', '')), 12)   # 12-18, no symbols (Migros)
             self.assertTrue(any(c.isupper() for c in password) and any(c.islower() for c in password))
             self.assertTrue(any(c.isdigit() for c in password) and '-' in password)
 
