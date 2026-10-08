@@ -209,7 +209,7 @@ export async function consider(tab, jobUrl) {
   // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
   // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
   const ruled = pageRole(counts, tab.url), kind = await askKind(tab);
-  let role = kind?.role || ruled;
+  let role = kind?.role || ruled, noted = '';   // noted: what the page is called to the app and the learning, when the fill below treats it as something else
   // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
   const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
   if (kind && role === 'form' && controls === 0) { await forgetKind(tab, kind, 'a form with no fields'); role = ruled; }
@@ -218,11 +218,11 @@ export async function consider(tab, jobUrl) {
   if (role === 'account' && kind?.accountStep) {
     const host0 = (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })();
     const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true})}).catch(() => null);
-    if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
+    if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; noted = 'account'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
   }
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
-  await noteRole(tab.id, tab.url, role);
+  await noteRole(tab.id, tab.url, noted || role);   // a sign-up page filled like a form is still an account page: no application learning, no "application form" stage (Migros, 8 Oct 2026)
   if (kind?.role === 'account' || ruled === 'account') accountStep(tab, 0).catch(() => {});   // event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }

@@ -57,6 +57,8 @@ const memoKey = tab => `accountForm:${tab.id}`;
 const triedKey = (tab, action) => `accountPress:${tab.id}:${action}`;
 const alreadyTried = async (tab, action) => !!(await sessionGet(triedKey(tab, action)))[triedKey(tab, action)];
 // The extension could not finish this account page: said ONCE per tab and reason to the app, which shows what the person must do and OFFERS Claude (never starts it).
+// What the person must do at a bot check: it is theirs to solve, and then the account button is theirs to press (a frame in the form stays after the check is solved, so the floor never learns it).
+export const botCheckNeed = named => (String(named || '').trim() ? `Solve the check, then press "${String(named).trim().slice(0, 40)}"` : 'Solve the check, then press the account button');
 const stepOf = new Map();   // tab id → the AI's step for the page being worked on (sign_in, sign_up, ...): said to the app so its card can word it
 async function giveUp(tab, host, reason, needs = '') {
   const key = `stuck-${reason}-${needs}`.slice(0, 120);
@@ -154,14 +156,15 @@ async function accountStepOnce(tab, frameId) {
         decide('fill', `consent accepted: ${await run(tab, frameId, pressRegister, [ready.needs])}`, {host, press: presses + 1});
       } else {
         decide('fill', `account button: not pressed (${ready ? (ready.botCheck ? 'a bot check' : ready.answer) : 'no AI'})`, {host, automation: answer.automation || ''});
-        if (ready && (ready.botCheck || ready.answer === 'needs_person')) await run(tab, frameId, flagAccount, [ready.botCheck ? '' : ready.needs || '']);
-        await giveUp(tab, host, !ready ? 'no AI answer' : ready.botCheck ? 'a bot check' : 'something only the person can give', ready?.botCheck ? '' : ready?.needs || '');
+        if (ready && (ready.botCheck || ready.answer === 'needs_person')) await run(tab, frameId, flagAccount, [ready.botCheck ? botCheckNeed(kind?.accountButton) : ready.needs || '']);
+        await giveUp(tab, host, !ready ? 'no AI answer' : ready.botCheck ? 'a bot check' : 'something only the person can give', ready?.botCheck ? botCheckNeed(kind?.accountButton) : ready?.needs || '');
       }
     } else {
       await run(tab, frameId, flagAccount, [null]);   // nothing is owed any more: the panel stops saying so
       await new Promise(resolve => setTimeout(resolve, 800));
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
       decide('fill', `account button: ${result || 'not run'}`, {host});
+      if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await run(tab, frameId, flagAccount, [need]); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
       if (result === 'pressed') {
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
         await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true}}).catch(() => {});

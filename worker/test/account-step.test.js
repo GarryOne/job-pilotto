@@ -52,3 +52,10 @@ test('a notice that an account exists: press its sign-in control when the accoun
   assert.equal(accountMove({step: 'choose', mode: 'sign-in', hasEmail: true, signinControl: ''}), 'leave');
   assert.equal(accountMove({step: 'choose', mode: 'sign-up', hasEmail: true, signinControl: 'Anmelden'}), 'leave');
 });
+
+import {botCheckNeed} from '../../extension/account-step.js';
+test('a bot check is the person\'s: the need says to solve it and then press the account button, by the page\'s own name when the AI gave one', () => {
+  assert.equal(botCheckNeed('Créer un compte'), 'Solve the check, then press "Créer un compte"');
+  assert.equal(botCheckNeed(''), 'Solve the check, then press the account button');
+  assert.ok(botCheckNeed('x'.repeat(200)).length < 80);   // the app keeps 80 characters of a need
+});

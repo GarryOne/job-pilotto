@@ -251,7 +251,7 @@ export function report(sessions, payload, now = Date.now()) {
   // filled after a fill is over was filled by you. A restarted app keeps what it had (persist).
   const seen = new Map((before?.filled || []).map(item => [item.label, item]));
   if (Array.isArray(payload.filled)) state.filled = payload.filled.slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
-    .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy ? 'you' : 'fill'});
+    .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy && !(Array.isArray(payload.ours) && payload.ours.includes(label)) ? 'you' : 'fill'});
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); for (const fn of stateListeners) { try { fn(state); } catch {} } }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);

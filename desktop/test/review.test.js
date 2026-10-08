@@ -300,3 +300,12 @@ test('the AI\'s "needs you" (extension/form-ready.js) vetoes "ready": every coun
   review.report(sessions, form({left: 0, total: 8, needs: 'x'.repeat(200)}));
   assert.equal(heard.at(-1).needs.length, 80);
 });
+
+test('a field the extension filled itself after the fill was over (the account step\'s passwords) is not "you"; a field the person filled still is', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({left: 3, filled: ['E-mail'], busy: true}), 1000);
+  review.report(sessions, form({left: 0, filled: ['E-mail', 'Mot de passe', 'Phone'], ours: ['Mot de passe'], over: true}), 5000);
+  assert.deepEqual(heard.at(-1).filled.map(field => [field.label, field.by]), [['E-mail', 'fill'], ['Mot de passe', 'fill'], ['Phone', 'you']]);
+});
