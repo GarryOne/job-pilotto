@@ -34,17 +34,16 @@ if ! git diff --quiet || ! git diff --cached --quiet; then echo "ship: uncommitt
 log="${SHIP_LOG:-${TMPDIR:-/tmp}/ship-${branch//\//-}.log}"
 if [ "$background" = 1 ]; then
   : > "$log"
-  SHIP_LOG="$log" nohup "$0" ${args[@]+"${args[@]}"} >> "$log" 2>&1 < /dev/null &
+  SHIP_LOG="$log" nohup "$0" ${args[@]+"${args[@]}"} > /dev/null 2>&1 < /dev/null &   # the child's own tee writes the log
   echo "ship: started in the background (pid $!). Log: $log"
   echo "ship: its last line says how it ended: 'ship: DONE <sha>' or 'ship: FAILED ...' (e.g. tail -3 $log)"
   exit 0
 fi
-# From here every line also goes to the log; the exit trap writes the closing marker once.
-if [ -z "${SHIP_LOGGING:-}" ]; then
-  export SHIP_LOGGING=1
-  exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
-  echo "ship: log: $log"
-fi
+# From here every line also goes to the log; the exit trap writes the closing marker once. SHIP_LOG is not passed on to the commands below
+# (the suites run a nested ship.sh of their own).
+unset SHIP_LOG
+exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
+echo "ship: log: $log"
 started=$SECONDS
 step() { echo "ship: [$((SECONDS - started))s] $*"; }
 trap 'code=$?; if [ "$code" -eq 0 ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (exit $code), log: $log"; fi' EXIT
