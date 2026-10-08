@@ -122,7 +122,7 @@ class PlaceFallbackTests(unittest.TestCase):
         with mock.patch.object(feeds, 'triage_places', sent.extend):
             feeds.place_open_jobs(db)
         self.assertEqual(sent, [{'location': 'Carouge', 'title': 'Vendeur'}], 'a job board job is placed like a feed job')
-        source = pathlib.Path(daily.__file__).read_text()
+        source = (pathlib.Path(daily.__file__).parent / 'daily_search.py').read_text()
         self.assertLess(source.index('feed_places.place_open_jobs(db)'), source.index('store.close_elsewhere('), 'placed, then cleaned up')
 
     def test_a_refresh_asks_about_your_places_first_then_the_most_shared(self):
@@ -233,7 +233,7 @@ class VagueScoringTests(unittest.TestCase):
         feeds.PLACED, feeds.READ = {'switzerland': 'out:vague', 'carouge': 'best'}, {}
         with mock.patch('src.digest.eligible_jobs', return_value=(jobs, [])):
             self.assertEqual([job['id'] for job in daily.to_score(None, set())], [2])
-        source = pathlib.Path(daily.__file__).read_text()
+        source = ''.join(path.read_text() for path in pathlib.Path(daily.__file__).parent.glob('daily*.py'))
         self.assertNotIn('score.queue(db, digest.eligible_jobs', source)
         self.assertNotIn('score.run(db, digest.eligible_jobs', source)
 

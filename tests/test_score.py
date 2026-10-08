@@ -353,5 +353,5 @@ class QueueTests(unittest.TestCase):
                 self.assertEqual([job['id'] for job in score.queue(db, candidates, self.PROFILE)], [candidates[2]['id']])
 
     def test_the_refresh_asks_only_through_queue(self):
-        source = (Path(daily.__file__)).read_text()
+        source = ''.join(path.read_text() for path in Path(daily.__file__).parent.glob('daily*.py'))
         self.assertNotIn('score.pending_jobs(', source, 'pending_jobs hashes with the profile it is given; use score.queue()')

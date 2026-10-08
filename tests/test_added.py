@@ -122,7 +122,7 @@ class AddedTests(unittest.TestCase):
 
 class DailyAddTests(unittest.TestCase):
     def test_a_linkedin_application_is_scored_from_the_details_you_paste_before_its_record_is_frozen(self):
-        from src import daily
+        from src import daily, daily_modes
         order, seen = [], {}
 
         def process(db, tracker, url, meta, stats=None):
@@ -140,7 +140,7 @@ class DailyAddTests(unittest.TestCase):
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.object(added, 'process', process), mock.patch.object(ledger, 'add_application', add_application), \
                 mock.patch.object(ledger, 'company_for', lambda t, u, m: m.get('company')), \
-                mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
+                mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             self.assertEqual(daily.main(), 0)
         self.assertEqual(order, ['ai', 'record'])
         self.assertEqual((seen['title'], seen['company'], seen['description']), ('Senior SRE', 'Acme', POSTING.strip()))
@@ -192,7 +192,7 @@ class AddApplicationColumnsTests(unittest.TestCase):
 
 class JobMatchesSyncTests(unittest.TestCase):
     def test_a_search_never_mirrors_a_job_you_added_into_job_matches(self):
-        from src import daily
+        from src import daily, daily_modes
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         db = store.connect(Path(tmp.name) / 'j.sqlite')

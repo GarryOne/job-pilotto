@@ -9,7 +9,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 import sys  # noqa: E402
 sys.path.insert(0, str(ROOT))
-from src import scout  # noqa: E402
+from src import scout, scout_candidates, scout_core  # noqa: E402
 from src.legacy_lists import SHIPPED_FEEDS, SHIPPED_SEED_NAMES  # noqa: E402
 
 
@@ -25,15 +25,15 @@ class PublicListsTest(unittest.TestCase):
         own = {'company': 'Boutique Photo SA', 'ats': 'recruitee', 'slug': 'boutiquephoto'}
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / 'sources.json').write_text(json.dumps([{'company': 'Old', 'ats': stripe[0], 'slug': stripe[1]}, own]))
-            with mock.patch.object(scout, 'CONFIG', Path(tmp)), mock.patch.object(scout, 'CENTRAL', False):
+            with mock.patch.object(scout_candidates, 'CONFIG', Path(tmp)), mock.patch.object(scout_core, 'CENTRAL', False):
                 self.assertEqual(scout.starter_list(), [own])
-            with mock.patch.object(scout, 'CONFIG', Path(tmp)), mock.patch.object(scout, 'CENTRAL', True):
+            with mock.patch.object(scout_candidates, 'CONFIG', Path(tmp)), mock.patch.object(scout_core, 'CENTRAL', True):
                 self.assertEqual(len(scout.starter_list()), 2, 'the central scout keeps its full list')
         old_name = next(iter(SHIPPED_SEED_NAMES))
         seeds = {'excluded': [], 'tier1_known': [], 'tier1': [old_name, 'Manor'], 'manual_watch': [], 'regional': {}}
-        with mock.patch.object(scout, 'CENTRAL', False):
+        with mock.patch.object(scout_core, 'CENTRAL', False):
             self.assertEqual([c['name'] for c in scout.seed_candidates(seeds)], ['Manor'])
-        with mock.patch.object(scout, 'CENTRAL', True):
+        with mock.patch.object(scout_core, 'CENTRAL', True):
             self.assertEqual(len(list(scout.seed_candidates(seeds))), 2)
 
 

@@ -19,8 +19,8 @@ SCRIPT = textwrap.dedent('''
     import sys, time
     from pathlib import Path
     from src.notion import cron_runs   # installs the SIGTERM handler, as every engine command does
-    from src import scout, store
-    scout.CENTRAL = True               # no central "no job site" list in a test
+    from src import scout, scout_core, store
+    scout_core.CENTRAL = True               # no central "no job site" list in a test
     db = store.connect(Path(sys.argv[1]))
     names = ['Fast1', 'Fast2', 'Slow1', 'Slow2']
     scout.harvest(db, {}, sources=[lambda: [dict(name=n, origin='AI idea', priority=90 - i) for i, n in enumerate(names)]])

@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import daily, digest
+from src import daily, daily_modes, digest
 from src import store as job_store
 
 
@@ -154,7 +154,7 @@ class PrepareTopMatchesTests(unittest.TestCase):
             return 'Auto-drafted 1 of 1 kit(s); 0 failed', [(candidates[0], {'url': 'https://notion.so/p'})]
         out = io.StringIO()
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.notion.Tracker, 'from_env', return_value=tracker), \
-                mock.patch.object(daily, 'for_job_matches', return_value=matches) as found, \
+                mock.patch.object(daily_modes, 'for_job_matches', return_value=matches) as found, \
                 mock.patch.object(daily.kit, 'auto_run', side_effect=auto_run), \
                 mock.patch.object(daily.cron_runs, 'log_run', side_effect=lambda tracker, run, failed=False: logged.append(dict(run)) or ''), \
                 mock.patch.object(daily.feeds, 'scan', side_effect=AssertionError('no crawl')), \

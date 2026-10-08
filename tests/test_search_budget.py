@@ -64,16 +64,18 @@ class NoShadowTests(unittest.TestCase):
         # logged "budget check skipped": the monthly AI spend was not checked. Nothing in daily.py may bind the name again.
         import ast
         import pathlib
-        tree = ast.parse(pathlib.Path('src/daily.py').read_text())
-        local = [node.lineno for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef) for node in ast.walk(fn)
-                 if isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name) == 'budget' for alias in node.names)]
-        self.assertEqual(local, [])
-        # The same for every module daily.py imports at the top (7 Oct 2026: a local "added" hid src.ai.added): no assignment rebinds one.
-        top = {(alias.asname or alias.name).split('.')[0] for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
-        main = next(fn for fn in tree.body if isinstance(fn, ast.FunctionDef) and fn.name == 'main')
-        rebound = sorted({target.id for node in ast.walk(main) if isinstance(node, ast.Assign) for target in node.targets
-                          if isinstance(target, ast.Name) and target.id in top})
-        self.assertEqual(rebound, [], f'these names are modules daily.py imports: {rebound}')
+        # daily.py was split (8 Oct 2026): main() into daily.py, daily_modes.py (one function per mode) and daily_search.py; all of them are checked.
+        for name in ('daily.py', 'daily_modes.py', 'daily_search.py', 'daily_helpers.py'):
+            tree = ast.parse(pathlib.Path('src', name).read_text())
+            local = [node.lineno for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef) for node in ast.walk(fn)
+                     if isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name) == 'budget' for alias in node.names)]
+            self.assertEqual(local, [], name)
+            # The same for every module daily.py imports at the top (7 Oct 2026: a local "added" hid src.ai.added): no assignment rebinds one.
+            top = {(alias.asname or alias.name).split('.')[0] for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
+            main = [fn for fn in tree.body if isinstance(fn, ast.FunctionDef) and (fn.name in ('main', 'search') or fn.name.endswith('_mode'))]
+            rebound = sorted({target.id for fn in main for node in ast.walk(fn) if isinstance(node, ast.Assign) for target in node.targets
+                              if isinstance(target, ast.Name) and target.id in top})
+            self.assertEqual(rebound, [], f'these names are modules {name} imports: {rebound}')
 
 
 class SizedBatchTests(unittest.TestCase):

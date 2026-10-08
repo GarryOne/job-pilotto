@@ -161,5 +161,5 @@ if __name__ == '__main__':
 class CleanupOrderTests(unittest.TestCase):
     def test_jobs_outside_your_places_close_after_every_import(self):
         # 7 Oct 2026: the job boards' report was imported after the cleanup and opened again a Lausanne job stored as "Switzerland".
-        source = Path('src/daily.py').read_text()
+        source = Path('src/daily_search.py').read_text()
         self.assertGreater(source.index('store.close_elsewhere('), source.index('store.import_company_report('))

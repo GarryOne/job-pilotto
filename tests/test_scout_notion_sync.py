@@ -5,7 +5,7 @@ import sqlite3
 import unittest
 from unittest import mock
 
-from src import scout
+from src import scout, scout_core
 
 
 class FakeTracker:
@@ -49,21 +49,21 @@ def checked_db():
 class SyncNotion(unittest.TestCase):
     def test_employers_checked_without_notion_are_written_once_connected(self):
         db, tracker = checked_db(), FakeTracker()
-        with mock.patch.object(scout, 'EMPLOYERS_DB', 'employers-1'):
+        with mock.patch.object(scout_core, 'EMPLOYERS_DB', 'employers-1'):
             self.assertEqual(scout.sync_notion(db, None), (0, 0))                 # still trying the app: nothing to write to
             self.assertEqual(scout.sync_notion(db, tracker), (4, 0))
             self.assertEqual(sorted(tracker.rows), ['Aldi Suisse', 'Breitling', 'Rolex'])   # Lidl was never checked; Fnac stays local; the duplicate never
             self.assertEqual(tracker.rows['Breitling']['Feed status'], {'select': {'name': 'Feed found'}})
             self.assertEqual(tracker.rows['Breitling']['ATS'], {'select': {'name': 'successfactors'}})
             self.assertEqual(scout.sync_notion(db, tracker), (0, 0))              # nothing twice
-        with mock.patch.object(scout, 'EMPLOYERS_DB', 'employers-2'):            # another workspace connected later gets them all
+        with mock.patch.object(scout_core, 'EMPLOYERS_DB', 'employers-2'):            # another workspace connected later gets them all
             other = FakeTracker()
             self.assertEqual(scout.sync_notion(db, other), (4, 0))
             self.assertIn('Breitling', other.rows)
 
     def test_a_failed_write_is_tried_again_next_time(self):
         db = checked_db()
-        with mock.patch.object(scout, 'EMPLOYERS_DB', 'employers-1'):
+        with mock.patch.object(scout_core, 'EMPLOYERS_DB', 'employers-1'):
             self.assertEqual(scout.sync_notion(db, FakeTracker(fail={'Rolex'})), (3, 1))
             again = FakeTracker()
             self.assertEqual(scout.sync_notion(db, again), (1, 0))

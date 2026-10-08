@@ -162,15 +162,16 @@ class ShareNowTests(unittest.TestCase):
         self.assertEqual(len(posts), 2, 'sharing off: nothing sent')
 
     def test_the_scout_sends_each_verified_employer_and_dead_end_as_it_records_it(self):
-        from src import scout, store as job_store
+        from src import scout, scout_probe, store as job_store
         sent = []
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
                 mock.patch.object(contribute, 'share_now', lambda feed=None, dead=None, **k: sent.append('feed' if feed else 'dead') or True):
             seeds = {'excluded': [], 'tier1_known': [], 'tier1': [], 'manual_watch': [], 'regional': {}, 'tech_only': False}
             names = [dict(name='Found Co', origin='AI idea 2026-10-06', priority=92, ats='lever', slug='found'), dict(name='Nothing Co', origin='AI idea 2026-10-06', priority=91, website='https://nothing.example')]
             probe = lambda system, slug: [{'title': 'Vendeur', 'location': 'Geneva', 'url': 'u', 'description': ''}] * 3 if slug == 'found' else None
+            fake_quality = lambda jobs: (80, {'preferred': 2, 'relevant': 3, 'jobs': len(jobs)})  # noqa: E731
             with mock.patch.object(scout.careers, 'discover', lambda url: None), \
-                    mock.patch.object(scout, 'quality', lambda jobs: (80, {'preferred': 2, 'relevant': 3, 'jobs': len(jobs)})):
+                    mock.patch.object(scout_probe, 'quality', fake_quality), mock.patch.object(scout, 'quality', fake_quality):   # run() and find_feed() each look it up in their own module
                 scout.run(db, 5, None, seeds, probe, harvest_sources=[lambda: names])
         self.assertEqual(sorted(sent), ['dead', 'feed'])
 
@@ -199,7 +200,7 @@ class EveryReadTests(unittest.TestCase):
         self.assertNotIn('photographe', json.dumps(body))
 
     def test_a_today_check_shares_too(self):
-        source = Path(__file__).resolve().parents[1] / 'src' / 'daily.py'
+        source = Path(__file__).resolve().parents[1] / 'src' / 'daily_search.py'
         self.assertIn("args.mode in ('scheduled', 'run', 'today'):\n                try:  # opt-in", source.read_text())
 
 

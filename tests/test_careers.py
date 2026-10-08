@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import scout  # noqa: E402
+from src import scout, scout_candidates  # noqa: E402
 from src.sources import ats, careers, render  # noqa: E402
 
 POSTING = {'@context': 'https://schema.org', '@type': 'JobPosting', 'title': 'Site Reliability Engineer', 'datePosted': '2026-10-01',
@@ -208,7 +208,7 @@ class CatalogTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             found = list(scout.wikidata_candidates(get=get, cache=Path(tmp) / 'w.json', countries=['Atlantis', 'Switzerland']))
         self.assertEqual(len(found), 250)
-        with mock.patch.object(scout, 'load_search_config', return_value={'locations': {'top_tier': ['Planet X']}}), \
+        with mock.patch.object(scout_candidates, 'load_search_config', return_value={'locations': {'top_tier': ['Planet X']}}), \
                 mock.patch('src.places.load', return_value={}):
             self.assertEqual(scout.search_countries(), ['Switzerland'])
 

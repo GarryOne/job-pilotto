@@ -462,13 +462,13 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(interviews.interview_title(placeholder, 'Recruiter screen', plain_app(Via='Huxley')), 'Huxley · Recruiter screen')
 
     def test_the_app_reviews_without_telegram(self):
-        from src import daily
+        from src import daily, daily_modes
         argv = ['daily', '--mode', 'interview', '--interview', 'iv-1']
         env = {k: v for k, v in daily.os.environ.items() if k not in ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')}
         with mock.patch.object(sys, 'argv', argv), mock.patch.dict(daily.os.environ, env, clear=True), \
                 mock.patch.object(daily.telegram, 'keychain_token', return_value=None), \
                 mock.patch.object(daily.notion.Tracker, 'from_env', return_value=FakeTracker([])), \
-                mock.patch.object(daily, 'log_ai_run'), \
+                mock.patch.object(daily_modes, 'log_ai_run'), \
                 mock.patch.object(daily.interviews, 'run', return_value='Interview analysed (x) https://n.test/1') as run, \
                 mock.patch('sys.stdout', io.StringIO()):
             self.assertEqual(daily.main(), 0)

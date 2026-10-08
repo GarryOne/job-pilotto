@@ -211,7 +211,7 @@ class AgreementTests(unittest.TestCase):
         import tempfile
         from types import SimpleNamespace
         from unittest import mock
-        from src import daily
+        from src import daily, daily_modes
         tracker = Inbox()
         proposal = self.propose(Writes(), 'unclear')
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as saved:
@@ -221,7 +221,7 @@ class AgreementTests(unittest.TestCase):
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
                 mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda: None)}), \
-                mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print'):
+                mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print'):
             self.assertEqual(daily.main(), 0)
         self.assertEqual(tracker.created[0]['Stage'], {'select': {'name': 'Screening'}})
 

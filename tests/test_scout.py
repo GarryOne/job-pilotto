@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.sources import ats
 from src import store as job_store
-from src import scout
+from src import scout, scout_candidates, scout_core
 
 SEEDS = {'excluded': ['Acme'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
          'tier1': ['Farco'], 'manual_watch': [{'name': 'Walledco', 'careers': 'https://walled.test/jobs'}],
@@ -57,7 +57,7 @@ class ScoutTests(unittest.TestCase):
         hn = {'hits': [{'title': 'Ask HN: Who is hiring? (October 2026)', 'objectID': '1'}]}
         get_hn = lambda url: hn if 'search_by_date' in url else {'children': [{'text': 'Acme | Engineer | Geneva'}]}
         readme = '- [Acme](https://acme.test/jobs) | Geneva | x'
-        with mock.patch.object(scout, 'LOCATION_WORDS', re.compile('.')), mock.patch.object(scout, 'ROLE_WORDS', re.compile('.')):
+        with mock.patch.object(scout_candidates, 'LOCATION_WORDS', re.compile('.')), mock.patch.object(scout_candidates, 'ROLE_WORDS', re.compile('.')):
             tech = {'seeds': list(scout.seed_candidates(SEEDS)), 'hacker news': list(scout.hacker_news_candidates(get=get_hn)),
                     'whiteboards': list(scout.whiteboards_candidates(get=lambda url: readme)),
                     'swissdevjobs': list(scout.swissdevjobs_candidates(get=lambda url: [{'company': 'Acme', 'companyWebsiteLink': 'acme.test'}]))}
@@ -140,7 +140,7 @@ class ScoutTests(unittest.TestCase):
     def test_names_left_out_for_other_installs_are_replaced(self):
         """7 Oct 2026: 52 of a batch of 92 were left out (no job site other installs could read) and the run checked 40: the next names fill in."""
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
-                mock.patch.object(scout, 'CENTRAL', False), \
+                mock.patch.object(scout_core, 'CENTRAL', False), \
                 mock.patch.object(scout.employer_index, 'central_nofeed', return_value={'dead0', 'dead1', 'dead2'}):
             names = [f'Dead{i}' for i in range(3)] + [f'Live{i}' for i in range(5)]
             scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=99 - i) for i, n in enumerate(names)]])
@@ -152,7 +152,7 @@ class ScoutTests(unittest.TestCase):
     def test_a_time_budget_ends_the_run_and_keeps_the_rest_for_later(self):
         """7 Oct 2026: 91 checks took over half an hour. With a budget, no check starts after it; the rest stay untried for the next run."""
         import time as clock
-        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout, 'CENTRAL', True):
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout_core, 'CENTRAL', True):
             names = [f'Co{i}' for i in range(10)]
             scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=99 - i) for i, n in enumerate(names)]])
             slow = lambda system, slug: clock.sleep(0.05) or []   # noqa: E731
@@ -166,7 +166,7 @@ class ScoutTests(unittest.TestCase):
 
     def test_one_employer_that_fails_does_not_end_the_run(self):
         """7 Oct 2026: a TypeError reading one site's job data ended the run at 90 of 91. Now that one counts as no readable job site."""
-        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout, 'CENTRAL', True):
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, mock.patch.object(scout_core, 'CENTRAL', True):
             scout.harvest(db, SEEDS, sources=[lambda: [dict(name=n, origin='AI idea', priority=90 - i) for i, n in enumerate(['Good', 'Broken'])]])
             def probe(system, slug):
                 if slug.startswith('broken'):
@@ -203,7 +203,7 @@ class ScoutTests(unittest.TestCase):
         seeds = {'excluded': [], 'tier1_known': [{'name': 'Bigco Labs', 'ats': 'lever', 'slug': 'bigco'}], 'tier1': [], 'manual_watch': [], 'regional': {}}
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / 'sources.json').write_text(json.dumps([{'company': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}]))
-            with mock.patch.object(scout, 'CONFIG', Path(tmp)), job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            with mock.patch.object(scout_candidates, 'CONFIG', Path(tmp)), job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 tracker = FakeTracker()
                 summary, results = scout.run(db, 10, tracker, seeds, fake_probe, harvest_sources=[lambda: scout.seed_candidates(seeds)])
                 self.assertEqual([o['status'] for _, o in results], ['duplicate'])
@@ -225,7 +225,7 @@ class ScoutTests(unittest.TestCase):
                 sources = {(s['ats'], s['slug']) for s in scout.active_sources(db)}
                 self.assertEqual(sources, {('lever', 'bigco'), ('greenhouse', 'farco')})
                 rows = {p['Company']['title'][0]['text']['content']: p for db_id, p in tracker.created
-                        if db_id == scout.EMPLOYERS_DB}
+                        if db_id == scout_core.EMPLOYERS_DB}
                 self.assertEqual(sorted(rows), ['Bigco', 'Farco', 'Smallco', 'Walledco'])  # 'Nofeed' skipped
                 self.assertTrue(rows['Bigco']['Active']['checkbox'])
                 self.assertEqual(rows['Bigco']['ATS'], {'select': {'name': 'lever'}})

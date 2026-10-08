@@ -551,7 +551,7 @@ class Neighbours(unittest.TestCase):
         self.assertIsNone(built['insight'])
 
     def test_a_review_run_updates_the_insights_and_counts_their_cost(self):
-        from src import daily
+        from src import daily, daily_modes
         from tests.test_interviews import FakeTracker
         argv = ['daily', '--mode', 'interview', '--interview', 'iv-1']
         env_ = {k: v for k, v in daily.os.environ.items() if k not in ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')}
@@ -562,7 +562,7 @@ class Neighbours(unittest.TestCase):
         with mock.patch.object(sys, 'argv', argv), mock.patch.dict(daily.os.environ, env_, clear=True), \
                 mock.patch.object(daily.telegram, 'keychain_token', return_value=None), \
                 mock.patch.object(daily.notion.Tracker, 'from_env', return_value=FakeTracker([])), \
-                mock.patch.object(daily, 'log_ai_run') as logged, \
+                mock.patch.object(daily_modes, 'log_ai_run') as logged, \
                 mock.patch.object(daily.interviews, 'run', return_value='Interview analysed (x) https://n.test/1'), \
                 mock.patch.object(daily.interview_insights, 'after_review', side_effect=after) as hook, \
                 mock.patch('sys.stdout', io.StringIO()):

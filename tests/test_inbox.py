@@ -148,7 +148,7 @@ class DailyAddTests(unittest.TestCase):
     def test_add_mode_without_a_job_link_logs_the_message_and_the_app_can_say_which_job(self):
         from types import SimpleNamespace
         from unittest import mock
-        from src import daily
+        from src import daily, daily_modes
         from tests.test_opportunity import EMAIL_PITCH
         tracker, seen = Inbox(), {}
 
@@ -159,7 +159,7 @@ class DailyAddTests(unittest.TestCase):
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.object(inbox, 'read', read), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
                 mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
-                mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
+                mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             self.assertEqual(daily.main(), 0)
         self.assertEqual(seen['text'], EMAIL_PITCH)
         self.assertEqual(tracker.created[0]['Stage'], {'select': {'name': 'Screening'}})
@@ -169,7 +169,7 @@ class DailyAddTests(unittest.TestCase):
         """daily --mode add for one reading; returns (the run it logged, its printed lines)."""
         from types import SimpleNamespace
         from unittest import mock
-        from src import daily
+        from src import daily, daily_modes
         logged = {}
         argv = ['daily', '--mode', 'add', '--log-run', '--note', 'A LinkedIn chat with the recruiter, long enough to read.', *extra]
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
@@ -177,7 +177,7 @@ class DailyAddTests(unittest.TestCase):
                 mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
                 mock.patch.object(daily.cron_runs, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
                 mock.patch.dict(daily.cron_runs._auto, {}), mock.patch.dict(daily.cron_runs._open, {}), \
-                mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
+                mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             daily.main()
         return logged.get('run') or {}, [str(c.args[0]) for c in printed.call_args_list if c.args]
 
@@ -217,7 +217,7 @@ class DailyAddTests(unittest.TestCase):
     def test_an_ai_run_prints_its_notion_row_for_the_apps_link(self):
         from types import SimpleNamespace
         from unittest import mock
-        from src import daily
+        from src import daily, daily_modes
         run = daily.new_cron_run('insight')
         with mock.patch.object(daily.cron_runs, 'log_run', lambda tracker, r, failed=False: 'https://notion.test/run-1'), \
                 mock.patch('builtins.print') as printed:
@@ -231,7 +231,7 @@ class DailyAddTests(unittest.TestCase):
         self.assertEqual(telegram.plain('score < 50'), 'score < 50')
 
     def test_the_log_gets_plain_text_not_telegram_html(self):
-        from src import daily
+        from src import daily, daily_modes
         self.assertEqual(daily.log_text("⚠️ That doesn&#x27;t look like <b>a job</b> &amp; so on"),
                          "⚠️ That doesn't look like a job & so on")
 

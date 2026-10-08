@@ -358,6 +358,10 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/contribute.py` — Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributio
 - `src/coverage.py` — How much of the market does the search catch? The funnel of one crawl, and the near misses.
 - `src/crash_reporting.py` — Crash reports from the engine to Sentry, without Sentry's SDK (see desktop/lib/sentry.js for why): only the exception type, a scrubbed
+- `src/daily_args.py` — The jobs check's command line: every option of `python -m src daily` (src/daily.py parses it and runs the mode).
+- `src/daily_helpers.py` — The jobs check's helpers (src/daily.py runs them): find a job by code, the apply/prepare messages, the switches, the run's saved counts
+- `src/daily_modes.py` — The jobs check's single-purpose modes, one function each (src/daily.py main() picks one): import, apply, prepare, kits, add (a pasted
+- `src/daily_search.py` — The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
 - `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), notion_posting() (a pure move out of desktop.py).
 - `src/desktop_status.py` — The desktop app's application status writes: set_status() and delete_job() with the Notion Stage first (a pure move out of desktop.py).
@@ -390,6 +394,11 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
 - `src/role_kinds.py` — Kinds of role (software, retail, logistics, …): what an employer or a job board mostly hires for, and what a search looks for.
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
+- `src/scout_candidates.py` — Source scout, harvest: where candidate employers come from (seed lists, Hacker News "Who is hiring?", hiring-without-whiteboards,
+- `src/scout_core.py` — Shared base of the source scout (src/scout.py and its scout_*.py pieces): paths, tuning numbers, the candidate table's SQL,
+- `src/scout_index.py` — Source scout, central index: the lists the central scout publishes to every install (feeds, boards, health, market coverage, unread
+- `src/scout_notion.py` — Source scout, Notion registry: the Notion "Employers & Sources" database. Which feeds are active (`active_sources`, `notion_feeds`),
+- `src/scout_probe.py` — Source scout, probing: which candidates are due (`next_batch`), whether a feed belongs to the company (`belongs_to`, `job_hosts`),
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
 - `src/service.py` — The Job Pilotto service as the engine sees it: a random local install id, the token the website gives that id, and the private
