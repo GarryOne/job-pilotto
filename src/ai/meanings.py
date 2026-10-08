@@ -35,3 +35,17 @@ def job_events(events, text_of):
                            'One calendar event. job_interview: a job interview, screening or call with an employer or recruiter about a job; '
                            'other: anything else.') or {}
     return [e for e in events if judged.get(key(e)) == 'job_interview']
+
+
+def labels(topic, texts, choices, task):
+    """The fixed-list ids these texts name (choices: id -> name): every id the meanings pack gives a text, else the model's one; 'none'
+    left out. Without AI: what the pack knows (the old lists), so nothing a Swiss or English user had is lost."""
+    texts = [str(t).strip() for t in texts if str(t or '').strip()]
+    if not texts:
+        return []
+    from . import meanings_pack
+    known = {t: meanings_pack.every(topic, t) for t in texts}   # every id the pack gives a text (the old lists + what the site learned)
+    rest = [t for t in texts if not known[t]]
+    named = '; '.join(f'{key} = {name}' for key, name in choices.items())
+    found = (decide.decide(topic, {t.lower(): t for t in rest}, (*choices, 'none'), f'{task} Ids: {named}; none = none of these.') or {}) if rest else {}
+    return sorted({a for answers in known.values() for a in answers if a in choices} | {a for a in found.values() if a != 'none'})

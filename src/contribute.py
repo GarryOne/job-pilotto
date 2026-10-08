@@ -123,33 +123,14 @@ def boards_read(report, feed_names):
     return list(out.values())
 
 # Fixed lists: the only tags that ever leave the machine.
-ROLES = {
-    'software': r'software|developer|programmer|backend|back-end|frontend|front-end|full.?stack|web\b',
-    'sre_devops': r'\bsre\b|site reliability|devops|platform|infrastructure|cloud|sysadmin|systems? (admin|engineer)|network',
-    'data': r'\bdata\b|analytics|business intelligence|\bbi\b|machine learning|\bml\b|\bai\b|scientist',
-    'security': r'security|infosec|appsec',
-    'mobile': r'mobile|\bios\b|android',
-    'qa': r'\bqa\b|quality assurance|test automation|\bsdet\b',
-    'management': r'engineering manager|head of|\bcto\b|tech(nical)? lead|director',
-}
+ROLES = {'software': 'software development (backend, frontend, full stack, web)', 'sre_devops': 'SRE, DevOps, platform, cloud, infrastructure, systems',
+         'data': 'data, analytics, BI, machine learning, AI', 'security': 'security', 'mobile': 'mobile (iOS, Android)', 'qa': 'QA, testing',
+         'management': 'engineering management, tech lead, CTO, director'}
 # And the kinds of role of every other trade (src/role_kinds.py KINDS), sent by name: the site accepts this same list (site/src/pool.js ROLES).
 TRADE_ROLES = ['sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades']
-REGIONS = {
-    'europe': r'europe|\beu\b|emea|switzerland|z[uü]rich|geneva|basel|germany|berlin|munich|hamburg|frankfurt|netherlands|amsterdam|'
-              r'rotterdam|united kingdom|\buk\b|england|london|manchester|edinburgh|ireland|dublin|france|paris|lyon|spain|madrid|'
-              r'barcelona|portugal|lisbon|porto|italy|milan|rome|sweden|stockholm|denmark|copenhagen|norway|oslo|finland|helsinki|'
-              r'poland|warsaw|krak[oó]w|czech|prague|austria|vienna|belgium|brussels|luxembourg|estonia|tallinn|latvia|riga|lithuania|'
-              r'vilnius|romania|bucharest|hungary|budapest|greece|athens|bulgaria|sofia|croatia|zagreb',
-    'north_america': r'united states|\busa?\b|new york|san francisco|seattle|austin|boston|chicago|los angeles|canada|toronto|vancouver|'
-                     r'montreal|north america',
-    'latin_america': r'latin america|\blatam\b|brazil|s[aã]o paulo|argentina|buenos aires|mexico|colombia|bogot[aá]|chile|santiago|peru',
-    'asia_pacific': r'\bapac\b|asia|india|bangalore|bengaluru|mumbai|hyderabad|pune|delhi|singapore|japan|tokyo|korea|seoul|china|'
-                    r'hong kong|taiwan|australia|sydney|melbourne|new zealand|auckland|indonesia|jakarta|philippines|thailand|vietnam|malaysia',
-    'middle_east_africa': r'middle east|\bmena\b|dubai|abu dhabi|united arab emirates|\buae\b|saudi|riyadh|qatar|doha|israel|tel aviv|'
-                          r'turkey|istanbul|egypt|cairo|africa|nigeria|lagos|kenya|nairobi|south africa|cape town|morocco',
-}
-_ROLES = {name: re.compile(rx, re.I) for name, rx in ROLES.items()}
-_REGIONS = {name: re.compile(rx, re.I) for name, rx in REGIONS.items()}
+REGIONS = {'europe': 'Europe (EU, EMEA, UK, Switzerland, ...)', 'north_america': 'North America', 'latin_america': 'Latin America',
+           'asia_pacific': 'Asia-Pacific', 'middle_east_africa': 'Middle East and Africa'}
+# Which of these a role or place word is, in any language, is decided by AI (src/ai/meanings.py labels); without AI: none (8 Oct 2026).
 
 
 def _plain(fragment):
@@ -157,15 +138,14 @@ def _plain(fragment):
     return re.sub(r'\\b|\\|[()?]|\.\*', ' ', fragment).strip()
 
 
-REMOTE = re.compile(r'remote|anywhere|worldwide|home.?office|t[ée]l[ée]travail', re.I)
-
-
 def regions_of(places):
-    """The fixed-list regions a feed hires in, from its places ('Zurich, Switzerland' -> europe; 'Remote - EMEA' -> europe, remote)."""
-    found = {name for name, rx in _REGIONS.items() if any(rx.search(place or '') for place in places)}
-    if any(REMOTE.search(place or '') for place in places):
-        found.add('remote')
-    return sorted(found)
+    """The fixed-list regions a feed hires in, from its places in any language ('Zürich, Switzerland' -> europe); 'remote' when a place is
+    only "remote" (or the feed flags it: the caller passes 'remote')."""
+    from .ai import meanings
+    places = [p for p in places if p]
+    found = set(meanings.labels('job-region', [p for p in places if p != 'remote'], {**REGIONS, 'remote': 'remote or anywhere, no region named'},
+                                'Where a job is, as its posting writes it. Answer its region.'))
+    return sorted(found | ({'remote'} if 'remote' in places else set()))
 
 
 def fine_tags(search=None):
@@ -183,12 +163,13 @@ def fine_tags(search=None):
 def tags(search=None):
     """(roles, regions) of this user's own search settings, as fixed-list names. No free text ever."""
     search = search or load_search_config(matching=False)   # their own words, not the crawl's added place words
-    roles = {name for name, rx in _ROLES.items() if any(rx.search(_plain(k)) for k in search.get('role_keywords', []))}
+    from .ai import meanings
+    roles = set(meanings.labels('pool-role', [_plain(k) for k in search.get('role_keywords', [])], ROLES, 'A role a job seeker looks for. Answer its tech area.'))
     # The other trades by the role kinds (src/role_kinds.py), so a shop or warehouse search is not just 'other' (6 Oct 2026). Fixed names.
     from .role_kinds import of_search
     roles |= (of_search(search) or set()) - {'software', 'other'}
     places = [_plain(p) for group in ('top_tier', 'country_wide', 'abroad') for p in search.get('locations', {}).get(group, [])]
-    regions = {name for name, rx in _REGIONS.items() if any(rx.search(p) for p in places)}
+    regions = set(meanings.labels('pool-region', places, REGIONS, 'A place a job seeker searches in. Answer its region.'))
     return sorted(roles) or ['other'], sorted(regions)
 
 

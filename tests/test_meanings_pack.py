@@ -48,6 +48,30 @@ class SameAsBeforeWithoutAI(NoAI):
         self.assertEqual(meanings_pack.first('place-country', 'Zurich, Switzerland'), 'ch')
 
 
+class PlacesSameAsBeforeWithoutAI(NoAI):
+    """The places step (8 Oct 2026): a Swiss and an English user get the countries, metros and regions they got before, AI off."""
+
+    def setUp(self):
+        super().setUp()
+        patch = mock.patch('src.places.load', return_value={})   # nothing worked out by the AI yet: a first run
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_pool_labels_and_indeed_country(self):
+        from src import contribute, pool_tags
+        self.assertEqual(pool_tags.places(['Genève', 'Lausanne']), (['ch'], ['ch-geneva', 'ch-lausanne']))
+        self.assertEqual(pool_tags.places(['London']), (['gb'], ['gb-london']))
+        self.assertEqual(pool_tags.families(['photographer']), ['photography'])
+        self.assertEqual(contribute.regions_of(['Zürich, Switzerland', 'Remote', 'San Francisco, CA']), ['europe', 'north_america', 'remote'])
+
+    def test_adzuna_and_jobsch(self):
+        from src.sources import aggregators, boards
+        search = {'locations': {'top_tier': ['Zürich', 'London'], 'country_wide': [], 'abroad': []}}
+        self.assertEqual(aggregators._countries(search), ['ch', 'gb'])
+        self.assertEqual(boards.swiss_place_word({'locations': {'top_tier': ['Basel']}}), 'Basel')
+        self.assertIsNone(boards.swiss_place_word({'locations': {'top_tier': ['London']}}))
+
+
 class SiteRows(NoAI):
     def write(self, body):
         (Path(self.tmp.name) / 'meanings.json').write_text(json.dumps(body))

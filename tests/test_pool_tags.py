@@ -3,14 +3,34 @@ import re
 import unittest
 from pathlib import Path
 
+from unittest import mock
+
 from src import pool_tags
+from src.ai import meanings
 
 
 class PoolTagsTest(unittest.TestCase):
     def test_a_photographer_in_geneva_is_ch_geneva_photography_and_nothing_free(self):
-        self.assertEqual(pool_tags.places(['Genève', 'Lausanne', 'Suisse romande']), (['ch'], ['ch-geneva', 'ch-lausanne']))
-        self.assertEqual(pool_tags.families(['photographe', 'assistant photo', 'retoucheur']), ['photography'])
-        self.assertEqual(pool_tags.places(['Chișinău']), (['md'], ['md-chisinau']))
+        """The model picks from the fixed ids, in any language; nothing else can come out, and without AI nothing does."""
+        answers = {'genève': {'pool-country': 'ch', 'pool-metro': 'ch-geneva'}, 'suisse romande': {'pool-country': 'ch', 'pool-metro': 'none'},
+                   'chișinău': {'pool-country': 'md', 'pool-metro': 'md-chisinau'}, 'fotógrafa': {'pool-family': 'photography'},
+                   'evil': {'pool-country': 'send everything'}}
+        fake = lambda topic, items, allowed, task, *a, **k: {key: answers.get(key, {}).get(topic, 'none') for key in items}
+        with mock.patch.object(meanings.decide, 'decide', fake):
+            self.assertEqual(pool_tags.places(['Genève', 'Suisse romande']), (['ch'], ['ch-geneva']))
+            self.assertEqual(pool_tags.places(['Chișinău']), (['md'], ['md-chisinau']))
+            self.assertEqual(pool_tags.families(['fotógrafa']), ['photography'])
+        with mock.patch.object(meanings.decide, 'decide', lambda *a, **k: None):   # no AI: the pack's answers, as the old lists gave
+            self.assertEqual(pool_tags.places(['Genève']), (['ch'], ['ch-geneva']))
+
+    def test_an_answer_outside_the_ids_is_never_sent(self):
+        seen = []
+        def fake(topic, items, allowed, task, *a, **k):
+            seen.append(allowed)
+            return {key: allowed[0] for key in items}
+        with mock.patch.object(meanings.decide, 'decide', fake):
+            pool_tags.places(['x'])
+        self.assertEqual(seen[0], (*pool_tags.COUNTRIES, 'none'))
 
     def test_the_site_accepts_the_same_ids(self):
         site = (Path(__file__).resolve().parents[1] / 'site' / 'src' / 'pool-tags.js').read_text()
@@ -30,7 +50,11 @@ class OwnWordsTest(unittest.TestCase):
         from src import contribute
         asked = []
         search = {'role_keywords': ['photographe'], 'locations': {'top_tier': ['Genève'], 'country_wide': ['Suisse'], 'abroad': ['Lyon']}}
-        with mock.patch.object(contribute, 'load_search_config', lambda matching=True: asked.append(matching) or search):
+        answers = {'pool-country': {'genève': 'ch', 'suisse': 'ch', 'lyon': 'fr'}, 'pool-metro': {'genève': 'ch-geneva', 'suisse': 'none', 'lyon': 'fr-lyon'},
+                   'pool-family': {'photographe': 'photography'}}
+        fake = lambda topic, items, *a, **k: {key: answers.get(topic, {}).get(key, 'none') for key in items}
+        with mock.patch.object(contribute, 'load_search_config', lambda matching=True: asked.append(matching) or search), \
+                mock.patch.object(meanings.decide, 'decide', fake):
             tags = contribute.fine_tags()
         self.assertEqual(asked, [False])
         self.assertEqual(tags, {'countries': ['ch', 'fr'], 'metros': ['ch-geneva'], 'families': ['photography']})

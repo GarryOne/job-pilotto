@@ -41,8 +41,7 @@ def places(config):
 
 
 # SerpApi's canonical names for the countries src/sources/aggregators.py can tell from the user's places.
-COUNTRY_NAMES = {'ch': 'Switzerland', 'de': 'Germany', 'gb': 'United Kingdom', 'nl': 'Netherlands', 'fr': 'France', 'at': 'Austria',
-                 'es': 'Spain', 'it': 'Italy', 'pl': 'Poland', 'be': 'Belgium'}
+from .aggregators import ADZUNA_COUNTRIES as COUNTRY_NAMES   # code -> English name
 
 
 def settings(search_config):
@@ -53,12 +52,19 @@ def within_places(config, search_config):
     """The Google Jobs block kept inside the user's own places (search.json `locations`). The setup AI drafts it separately and can miss:
     a French CV with no address got "France" and gl=fr for a search in Geneva (6 Oct 2026). Places in no country the user chose are
     dropped; with none left, each of the user's countries is searched in the drafted language. Places we can't place leave it as drafted."""
-    from .aggregators import ADZUNA_COUNTRIES, _countries
+    from ..ai import decide
+    from .aggregators import _countries
     countries = _countries(search_config)
     if not countries:
         return config
     name = lambda loc: loc if isinstance(loc, str) else str(loc.get('location', ''))
-    locations = [loc for loc in config['locations'] if any(re.search(ADZUNA_COUNTRIES[c], name(loc).lower()) for c in countries)]
+    # Which country each drafted place is in, in any language (AI, kept per place); without AI the block stays as drafted.
+    found = decide.decide('place-country', {name(loc).lower(): name(loc) for loc in config['locations']}, (*COUNTRY_NAMES, 'other'),
+                          'A place name. Answer the code of the country it is in: ' + '; '.join(f'{c} = {n}' for c, n in COUNTRY_NAMES.items()))
+    if found is None:   # no AI: Switzerland, the first market, from its fixed table (a drafted "France" for a Geneva search is left out)
+        from .. import regions
+        found = {name(loc).lower(): 'ch' for loc in config['locations'] if re.search(regions.SWITZERLAND, name(loc), re.I)}
+    locations = [loc for loc in config['locations'] if found.get(name(loc).lower()) in countries]
     if not locations and config['locations']:
         language = next((loc.get('language') for loc in config['locations'] if isinstance(loc, dict) and loc.get('language')), 'en')
         locations = [{'location': COUNTRY_NAMES[c], 'language': language} for c in countries]

@@ -134,7 +134,8 @@ class AggregatorTests(unittest.TestCase):
     def test_adzuna_asks_per_country_of_your_places(self):
         asked = []
         search = {'role_keywords': ['devops'], 'locations': {'top_tier': ['\\bz[uü]rich\\b'], 'country_wide': [], 'abroad': ['\\blondon\\b']}}
-        with mock.patch.dict('os.environ', {'ADZUNA_APP_ID': 'i', 'ADZUNA_APP_KEY': 'k'}):
+        known = {'london': {'kind': 'city', 'countries': ['United Kingdom']}}   # what the AI said (src/places.py); Zürich: the Swiss table
+        with mock.patch.dict('os.environ', {'ADZUNA_APP_ID': 'i', 'ADZUNA_APP_KEY': 'k'}), mock.patch('src.places.load', return_value=known):
             aggregators.adzuna(search, lambda url: asked.append(url) or {'results': []})
         self.assertEqual([u.split('/jobs/')[1].split('/')[0] for u in asked], ['ch', 'gb'])
 

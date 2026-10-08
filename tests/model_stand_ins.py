@@ -30,3 +30,9 @@ def booking():
 def screens():
     """Only "is it a recruiter screen" (what the stage move asks), the way the interview tests name their rounds."""
     _patch('round_kind', lambda round_: 'recruiter_screen' if re.search(r'screen|recruiter|talent|phone|intro', round_ or '', re.I) else 'other')
+
+
+def answers(table):
+    """A model that answers decide() from a table {topic: {item key: answer}}, 'none' for anything else: `with answers({...}):`."""
+    from src.ai import decide
+    return mock.patch.object(decide, 'decide', lambda topic, items, *a, **k: {key: table.get(topic, {}).get(key, 'none') for key in items})

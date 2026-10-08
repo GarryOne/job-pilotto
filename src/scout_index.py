@@ -11,7 +11,7 @@ import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from . import contribute, role_kinds
+from . import contribute, regions, role_kinds
 from .notion import cron_runs
 from .sources import ats, careers, feeds
 from .scout_core import TABLES, _get_text, clean_name, key_for, now
@@ -212,7 +212,7 @@ def health(db, entries, today, failed=()):
     return quiet, fresh
 
 
-SWISS = re.compile(r'switzerland|schweiz|suisse|svizzera|z[uü]rich|gen[eè]v|genf|basel|\bbern\b|lausanne|\bzug\b|lugano|luzern|lucerne|winterthur|st\.? ?gallen', re.I)
+SWISS = re.compile(regions.SWITZERLAND, re.I)   # Switzerland's fixed table (src/regions.py): the Swiss market's numbers, the same towns everywhere
 # Fixed words for the market coverage (engineering and IT, the central scout's own scope): the same words are asked of jobs.ch.
 MARKET_TERMS = ('devops', 'site reliability', 'platform engineer', 'cloud engineer', 'kubernetes', 'software engineer', 'data engineer',
                 'security engineer', 'system engineer', 'backend', 'frontend', 'machine learning')

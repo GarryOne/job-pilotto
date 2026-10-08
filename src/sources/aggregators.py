@@ -22,9 +22,11 @@ JOBSCH_PAGES = 5   # jobs.ch pages read at most per search and place (20 posting
 TIMEOUT = 30
 TABLE = 'CREATE TABLE IF NOT EXISTS aggregator_runs (source TEXT PRIMARY KEY, at TEXT NOT NULL)'
 # Search-place country words -> Adzuna's country codes (the countries it covers).
-ADZUNA_COUNTRIES = {'ch': r'switzerland|schweiz|suisse|z[uü]rich|gen[eè]v|basel|bern|lausanne|zug', 'de': r'germany|deutschland|berlin|munich|m[uü]nchen|hamburg|frankfurt',
-                    'gb': r'united kingdom|\buk\b|england|london|manchester|edinburgh', 'nl': r'netherlands|amsterdam|rotterdam|utrecht', 'fr': r'france|paris|lyon',
-                    'at': r'austria|vienna|wien', 'es': r'spain|madrid|barcelona', 'it': r'italy|milan|rome', 'pl': r'poland|warsaw|krak', 'be': r'belgium|brussels'}
+# Every country Adzuna serves (its API's endpoints), by the English name places.countries() answers (src/places.py: the AI says which
+# country each place word is in, in any language; 8 Oct 2026: a regex of ten countries' city names).
+ADZUNA_COUNTRIES = {'gb': 'United Kingdom', 'us': 'United States', 'at': 'Austria', 'au': 'Australia', 'be': 'Belgium', 'br': 'Brazil',
+                    'ca': 'Canada', 'ch': 'Switzerland', 'de': 'Germany', 'es': 'Spain', 'fr': 'France', 'in': 'India', 'it': 'Italy',
+                    'mx': 'Mexico', 'nl': 'Netherlands', 'nz': 'New Zealand', 'pl': 'Poland', 'sg': 'Singapore', 'za': 'South Africa'}
 
 
 def _get(url, data=None, headers=None):
@@ -82,9 +84,17 @@ def _queries(search):
 
 
 def _countries(search):
-    from ..notion.search_settings import terms
-    places = ' '.join(terms([p for group in (search.get('locations') or {}).values() for p in group])).lower()
-    return [code for code, rx in ADZUNA_COUNTRIES.items() if re.search(rx, places)][:4]
+    """The Adzuna countries of the user's places (at most four), from what places.countries() knows; [] before it knows any."""
+    from .. import places, regions
+    from ..notion.search_settings import readable
+    names = places.countries(search, limit=10)
+    words = [readable(str(p)) for group in (search.get('locations') or {}).values() for p in group]
+    if any(regions.region_of(w) or re.search(regions.SWITZERLAND, w, re.I) for w in words) and 'Switzerland' not in names:
+        names = ['Switzerland', *names]   # the first market from its fixed table, before (or without) the AI's answer
+    from ..ai import meanings_pack
+    codes = [code for name in names for code, country in ADZUNA_COUNTRIES.items() if country == name]
+    codes += [code for w in words for code in meanings_pack.every('place-country', w)]   # the pack: the old lists + what the site learned
+    return list(dict.fromkeys(c for c in codes if c in ADZUNA_COUNTRIES))[:4]
 
 
 def adzuna(search, get=_get):

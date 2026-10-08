@@ -24,7 +24,9 @@
    "ch-geneva",
    "ch-lausanne"
   ],
-  "regions": [],
+  "regions": [
+   "europe"
+  ],
   "roles": [
    "creative_media"
   ],
@@ -49,7 +51,9 @@
     "host": "nowhere-studio.example"
    }
   ],
-  "regions": [],
+  "regions": [
+   "europe"
+  ],
   "roles": [
    "creative_media"
   ],
@@ -127,7 +131,9 @@
     "host": "nowhere-studio.example"
    }
   ],
-  "regions": [],
+  "regions": [
+   "europe"
+  ],
   "roles": [
    "creative_media"
   ],
@@ -159,7 +165,9 @@
    "ch-geneva",
    "ch-lausanne"
   ],
-  "regions": [],
+  "regions": [
+   "europe"
+  ],
   "roles": [
    "creative_media"
   ],

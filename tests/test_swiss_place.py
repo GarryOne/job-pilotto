@@ -1,27 +1,38 @@
 import unittest
+from unittest import mock
 
 from src.sources import boards
 
+# What places.json holds once the AI worked the words out (src/places.py): each word's countries, in any language.
+KNOWN = {'zürich': {'kind': 'city', 'countries': ['Switzerland']}, 'genève': {'kind': 'city', 'countries': ['Switzerland']},
+         'são bernardo do campo': {'kind': 'city', 'countries': ['Brazil']}, 'sao paulo': {'kind': 'city', 'countries': ['Brazil']},
+         'brazil': {'kind': 'country', 'countries': ['Brazil']}, 'portugal': {'kind': 'country', 'countries': ['Portugal']}}
+
 
 class SwissPlaceTest(unittest.TestCase):
-    """The Swiss check reads place words; a Swiss name inside a longer word is not Swiss (6 Oct 2026: 'bern' matched São Bernardo, so a Brazilian user's
-    search was read as Swiss and jobs.ch and SwissDevJobs were crawled for them)."""
+    """A search is Swiss when the AI said one of its place words is in Switzerland, or a Swiss region word names it (6 Oct 2026: a regex
+    read 'bern' in São Bernardo, so a Brazilian user's search was read as Swiss; 8 Oct 2026: no regex of place names at all)."""
+
+    def setUp(self):
+        patch = mock.patch('src.places.load', return_value=KNOWN)
+        patch.start()
+        self.addCleanup(patch.stop)
 
     def test_swiss_places_are_swiss(self):
-        for place in ('Bern', 'Berne', 'Basel', 'Bâle', 'Zürich', 'Genève', 'Lugano', 'Switzerland', 'Zug'):
-            self.assertTrue(boards.SWISS_PLACE.search(place), place)
-
-    def test_a_swiss_name_inside_another_word_is_not(self):
-        for place in ('São Bernardo do Campo', 'Bernal', 'Dubale', 'Bernardino'):
-            self.assertFalse(boards.SWISS_PLACE.search(place), place)
+        for word in ('Zürich', 'Genève', 'Romandie'):
+            self.assertEqual(boards.swiss_place_word({'locations': {'top_tier': [word]}}), word)
 
     def test_a_brazilian_search_is_not_swiss(self):
         search = {'locations': {'top_tier': ['são bernardo do campo', 'sao paulo'], 'country_wide': ['brazil'], 'abroad': ['portugal']}}
         self.assertFalse(boards.swiss_places(search))
-        self.assertIsNone(boards.swiss_place_word(search))
 
-    def test_a_swiss_search_names_its_word(self):
-        self.assertEqual(boards.swiss_place_word({'locations': {'top_tier': ['Lugano']}}), 'Lugano')
+    def test_a_swiss_city_is_swiss_before_the_ai_worked_it_out(self):
+        """The first market works offline: Switzerland's fixed table (src/regions.py) knows its towns, so a Zurich or Basel search crawls
+        jobs.ch on its first run, with or without AI (8 Oct 2026, the owner: "will the app work the same for a Swiss candidate?")."""
+        with mock.patch('src.places.load', return_value={}):
+            for word in ('Basel', 'Zürich', 'Lugano', 'Zug'):
+                self.assertEqual(boards.swiss_place_word({'locations': {'top_tier': [word]}}), word)
+            self.assertIsNone(boards.swiss_place_word({'locations': {'top_tier': ['São Bernardo do Campo']}}))
 
 
 if __name__ == '__main__':

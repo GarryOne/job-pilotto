@@ -19,6 +19,7 @@ FEEDS = [{'company': 'Matched Co', 'ats': 'lever', 'slug': 'matched'}, {'company
 REPORT = {'sources': [{'company': 'Matched Co', 'ok': True, 'total': 9, 'matches': 2}, {'company': 'Quiet Co', 'ok': True, 'total': 5, 'matches': 0}]}
 
 
+from tests.model_stand_ins import answers  # noqa: E402 (the model's answers)
 class FakeTracker:
     def query_database(self, db, flt):
         return [{'properties': {'ATS': {'select': {'name': 'greenhouse'}}, 'Slug': {'rich_text': [{'plain_text': 'mine'}]},
@@ -27,14 +28,17 @@ class FakeTracker:
 
 class TagsTest(unittest.TestCase):
     def test_tags_come_from_fixed_lists_only(self):
-        roles, regions = contribute.tags(SEARCH)
+        with answers({'pool-role': {'site reliability': 'sre_devops', 'sre': 'sre_devops', 'platform engineer': 'sre_devops', 'security engineer': 'security'},
+                      'pool-region': {'zurich': 'europe', 'london': 'europe', 'switzerland': 'europe'}}):
+            roles, regions = contribute.tags(SEARCH)
         self.assertEqual(roles, ['security', 'sre_devops'])
         self.assertEqual(regions, ['europe'])
         for value in [*roles, *regions]:
             self.assertIn(value, {*contribute.ROLES, *contribute.REGIONS, 'other'})
 
     def test_unknown_profile_is_other_and_no_region(self):
-        self.assertEqual(contribute.tags({'role_keywords': ['florist'], 'locations': {}}), (['other'], []))
+        with answers({}):
+            self.assertEqual(contribute.tags({'role_keywords': ['florist'], 'locations': {}}), (['other'], []))
 
 
 class PayloadTest(unittest.TestCase):

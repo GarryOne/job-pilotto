@@ -301,8 +301,11 @@ class SliceTests(unittest.TestCase):
 
     def test_a_feeds_places_become_fixed_region_words(self):
         from src import contribute
-        self.assertEqual(contribute.regions_of(['Zürich, Switzerland', 'Remote - EMEA']), ['europe', 'remote'])
-        self.assertEqual(contribute.regions_of(['San Francisco, CA']), ['north_america'])
+        from tests.model_stand_ins import answers
+        with answers({'job-region': {'zürich, switzerland': 'europe', 'remote - emea': 'europe', 'san francisco, ca': 'north_america', 'anywhere': 'remote'}}):
+            self.assertEqual(contribute.regions_of(['Zürich, Switzerland', 'Remote - EMEA', 'remote']), ['europe', 'remote'])   # 'remote': the feed's flag
+            self.assertEqual(contribute.regions_of(['San Francisco, CA']), ['north_america'])
+            self.assertEqual(contribute.regions_of(['Anywhere']), ['remote'])
         self.assertEqual(contribute.regions_of([]), [])
 
     def test_an_install_asks_for_its_regions_only_and_downloads_again_when_they_change(self):

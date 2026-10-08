@@ -82,6 +82,12 @@ def main():
     sys.path.insert(0, str(REPO))
     from src import contribute, coverage, employer_index, role_kinds, scout, store
     from src.sources import feeds
+    # The model's answers for this fictional search (src/ai/decide.py decides labels in any language): no model is called.
+    from src.ai import decide
+    answers = {'pool-country': {'genève': 'ch', 'lausanne': 'ch', 'suisse': 'ch'}, 'pool-metro': {'genève': 'ch-geneva', 'lausanne': 'ch-lausanne'},
+               'pool-family': {'photographe': 'photography', 'photographer': 'photography', 'retoucheur': 'photography'},
+               'pool-region': {'genève': 'europe', 'lausanne': 'europe', 'suisse': 'europe'}, 'job-region': {'geneva, switzerland': 'europe'}}
+    decide.decide = lambda topic, items, *a, **k: {key: answers.get(topic, {}).get(key, 'none') for key in items}
 
     checks = []
 

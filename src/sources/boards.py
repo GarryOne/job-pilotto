@@ -26,19 +26,19 @@ ATS = {'greenhouse.io':'Greenhouse','lever.co':'Lever','ashbyhq.com':'Ashby','sm
 CITIES = {'zurich':['zürich','zurich','zuerich'], 'geneva':['genève','geneva','genf'], 'lausanne':['lausanne'], 'basel':['basel','bâle'], 'bern':['bern','berne'], 'zug':['zug'], 'winterthur':['winterthur'], 'lucerne':['luzern','lucerne'], 'st. gallen':['st. gallen','st.gallen'], 'lugano':['lugano']}
 
 
-SWISS_PLACE = re.compile(r'switzerland|swiss|schweiz|suisse|svizzera|z[uü]e?rich|gen[eè]v|\bbasel|\bb[aâ]le\b|\bbern(?:e)?\b|lausanne|\bzug\b|lugano|winterthur|luzern|lucerne|st\.? gallen', re.I)
 
 
 def swiss_place_word(config):
     """The place word that makes the places the user searches in (config/search.json locations) Swiss, or None. A place is read as written and as plain
     words: the drafted fragment \\bz[uü]rich\\b is the word Zürich (5 Oct 2026: tested as written it matched nothing, so a Zurich-only search was not seen as Swiss)."""
-    from .. import regions
+    from .. import places as places_, regions
     from ..notion.search_settings import terms
     places = config.get('locations') or {}
     for key in ('top_tier', 'country_wide', 'abroad'):
         fragments = places.get(key) or []
         for word in [*fragments, *terms(fragments)]:
-            if SWISS_PLACE.search(str(word)) or regions.region_of(word):
+            # Switzerland, the first market: its fixed table (offline, tested); any other spelling or language: the AI's places.
+            if regions.region_of(word) or re.search(regions.SWITZERLAND, str(word), re.I) or 'Switzerland' in places_.countries({'locations': {'top_tier': [str(word)]}}):
                 return str(word)   # which word made the search Swiss: the job boards line says it
     return None
 
