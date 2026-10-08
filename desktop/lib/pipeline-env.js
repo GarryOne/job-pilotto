@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {ROOT} from './root.js';
+import {isolatedFile} from './keychain.js';
 
 export const REPO = ROOT;
 const OVERRIDE = process.env.JOB_PILOTTO_MODEL_OVERRIDE;   // set only by the end-to-end journey (desktop/e2e): every step on one cheap model
@@ -58,7 +59,8 @@ export function pipelineEnv(storage, parent = process.env) {
     PYTHONUTF8: '1',  // files and pipes in UTF-8 on Windows too (its default is the ANSI code page)
     JOB_PILOTTO_NO_DOTENV: '1',
     ...(parent.JOB_PILOTTO_E2E ? {JOB_PILOTTO_E2E: '1'} : {}),
-    ...(parent.JOB_PILOTTO_TWIN ? {JOB_PILOTTO_TWIN: '1'} : {}),  // a live-test twin (lib/twin.js): the engine sees no Keychain either  // the end-to-end journey: the engine ignores this Mac's Keychain (src/secret_store.py)
+    ...(parent.JOB_PILOTTO_TWIN ? {JOB_PILOTTO_TWIN: '1'} : {}),
+    ...(isolatedFile(parent) ? {JOB_PILOTTO_ISOLATED_SECRETS: isolatedFile(parent)} : {}),   // their secrets: the run's own file, never the Keychain (lib/keychain.js)  // a live-test twin (lib/twin.js): the engine sees no Keychain either  // the end-to-end journey: the engine ignores this Mac's Keychain (src/secret_store.py)
     JOB_PILOTTO_SOURCE: 'Job Pilotto app',  // the Source of Applications rows the app creates
     JOB_PILOTTO_TZ: process.env.JOB_PILOTTO_TZ || Intl.DateTimeFormat().resolvedOptions().timeZone,  // the user's own time zone (dates, interview times)
     JOB_PILOTTO_CONFIG_DIR: storage.path('config'),

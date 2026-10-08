@@ -4,15 +4,14 @@
 // which opens an issue for the daily fixer. Never answers or personal data. Part of the technical reports:
 // on unless the user turned them off (Settings → Advanced, settings.telemetry); each site + field is reported once
 // (once more when a snapshot exists for a field reported before snapshots, so its issue gets one).
-import {execFileSync} from 'node:child_process';
+import {read as keychainRead} from './keychain.js';
 
 // The owner's app signs its reports (trusted → the daily fixer takes them); the token is in the app's secrets
 // or, on the owner's Mac, the Keychain item job-pilotto.report.token. Without one, reports wait in triage.
 export function reportToken(storage) {
   const saved = storage.secret('REPORT_TOKEN');
   if (saved || process.platform !== 'darwin') return saved;
-  try { return execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.report.token', '-w'], {encoding: 'utf8'}).trim(); }
-  catch { return ''; }
+  return keychainRead('job-pilotto.report.token') || '';   // a test run or a twin reads none of the owner's (lib/keychain.js)
 }
 
 export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://www.jobpilotto.workers.dev/report/fill-failure';

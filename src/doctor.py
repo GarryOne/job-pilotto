@@ -27,7 +27,7 @@ import shutil
 import subprocess
 import sys
 
-from . import features
+from . import features, secret_store
 from .ai import apply_batch
 from .ai.kit import ANSWERS_PAGE_ID
 from .notion import client as notion, cron_runs
@@ -58,9 +58,7 @@ def notion_token():
     if token:
         return token
     try:
-        found = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
-                                '-s', 'job-pilotto.notion.token', '-w'], capture_output=True, text=True, timeout=5)
-        return found.stdout.strip() or None
+        return secret_store.get('job-pilotto.notion.token')   # a test run or a twin: never the owner's (src/secret_store.py)
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -254,9 +252,7 @@ def _google_auth_age(now):
     """Days since the Google sign-in, from JOB_PILOTTO_GOOGLE_AUTH_AT (CI variable) or the Keychain."""
     value = os.getenv('JOB_PILOTTO_GOOGLE_AUTH_AT')
     if not value and sys.platform == 'darwin':
-        found = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
-                                '-s', 'job-pilotto.google.auth-at', '-w'], capture_output=True, text=True)
-        value = found.stdout.strip()
+        value = secret_store.get('job-pilotto.google.auth-at') or ''
     try:
         return (now - datetime.fromisoformat(value.replace('Z', '+00:00'))).total_seconds() / 86400
     except (AttributeError, ValueError):

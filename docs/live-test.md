@@ -15,6 +15,7 @@
 | AppleScript on Chrome / Terminal, Apply with Claude | yes | off |
 | Engine's Keychain (Telegram bot, Google sign-in) | yes | none (`src/secret_store.py` `isolated()`) |
 | Real websites, Keychain site passwords, AI | yes | yes (real AI spend: say the cost) |
+| Keychain writes (a new site password, a Google sign-in) | yes | never: the twin's own file `isolated-secrets.json` in its folder (`desktop/lib/keychain.js`, `src/secret_store.py`); it reads that file first, then the real site passwords only |
 
 ## Run it
 - `cd desktop && npm run twin` (or `--no-sync` to skip the sync). Ctrl-C stops the app and its browser.

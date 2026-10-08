@@ -127,6 +127,40 @@ class EndToEndIsolationTest(unittest.TestCase):
         budget_asked.assert_not_called()
         apply_asked.assert_not_called()
 
+    def test_writes_never_reach_the_keychain_and_go_to_the_runs_own_file(self):
+        """8 Oct 2026: reads were isolated but put() was not, so `passwords new` on an account page made a "new" job-site password and
+        overwrote the owner's real job-pilotto.sites.password (-U). A test run and a twin write to their own file only."""
+        import tempfile
+        for flag in ('JOB_PILOTTO_E2E', 'JOB_PILOTTO_TWIN'):
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as folder:
+                path = os.path.join(folder, 'isolated-secrets.json')
+                with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, \
+                        mock.patch.dict('os.environ', {flag: '1', 'JOB_PILOTTO_ISOLATED_SECRETS': path}), \
+                        mock.patch.object(passwords, 'copy'), mock.patch('sys.stdout'):
+                    self.assertEqual(passwords.main(['new', 'e2e.wd3.myworkdayjobs.com', '--email', 'e2e@example.com']), 0)
+                    shared = secret_store.get(passwords.SHARED, passwords.ACCOUNT)
+                    self.assertTrue(shared)   # made in the run's file and read back from it
+                    self.assertEqual(secret_store.get('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto'), shared)
+                    secret_store.delete('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto')
+                    self.assertIsNone(secret_store.get('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto'))
+                asked.assert_not_called()   # no `security` call at all: neither the read, the write nor the delete
+                with open(path, encoding='utf-8') as handle:
+                    self.assertIn(passwords.SHARED, handle.read())
+
+    def test_an_isolated_run_without_its_own_file_keeps_nothing(self):
+        with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, mock.patch.dict('os.environ', {'JOB_PILOTTO_E2E': '1'}):
+            os.environ.pop('JOB_PILOTTO_ISOLATED_SECRETS', None)
+            secret_store.put('job-pilotto.sites.password', 'Made-In-A-Test-42', 'job-pilotto')
+            self.assertIsNone(secret_store.get('job-pilotto.sites.password', 'job-pilotto'))
+        asked.assert_not_called()
+
+    def test_a_users_app_still_writes_the_keychain(self):
+        with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, mock.patch.dict('os.environ'):
+            for name in ('JOB_PILOTTO_E2E', 'JOB_PILOTTO_TWIN', 'JOB_PILOTTO_ISOLATED_SECRETS'):
+                os.environ.pop(name, None)
+            secret_store.put('job-pilotto.example.com.password', 'p', 'job-pilotto')
+        self.assertEqual(asked.call_args[0][0][:3], ['security', 'add-generic-password', '-U'])
+
 
 class PasswordsTest(unittest.TestCase):
     def test_generated_passwords_have_every_class_or_none_of_the_refused_symbols(self):

@@ -81,6 +81,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/job-actions-handlers.js` — The job actions' IPC (moved out of main.js, 8 Oct 2026): running a Telegram-style command from the app, adding a job or an applied one by hand, standard
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
 - `desktop/lib/jobs-handlers.js` — The jobs and runs IPC (moved out of main.js, 8 Oct 2026): the page's view of a run, the runs list and a run's detail, checking mail, the first search,
+- `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/leads-handlers.js` — The "log anything" IPC (moved out of main.js, 8 Oct 2026): the clipboard's image, proposing a lead from a pasted message or screenshot (the one AI

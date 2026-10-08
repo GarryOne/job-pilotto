@@ -1,7 +1,12 @@
 """This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
 Credential Manager (through `keyring`, bundled with the Windows app). Elsewhere (CI, Linux) there is none:
-reads return None and writes raise, so callers fall back to the environment."""
+reads return None and writes raise, so callers fall back to the environment.
+
+A test run (JOB_PILOTTO_E2E) or a live-test twin (JOB_PILOTTO_TWIN) never reads or writes the real store: what it saves goes to the
+run's own file (JOB_PILOTTO_ISOLATED_SECRETS, set by the app: desktop/lib/keychain.js), and reads see only that file. 8 Oct 2026: reads
+were isolated but writes were not, so a local e2e run made a "new" job-site password and overwrote the owner's real one."""
 import getpass
+import json
 import os
 import subprocess
 import sys
@@ -28,9 +33,28 @@ def isolated():
     return bool(os.getenv('JOB_PILOTTO_E2E') or os.getenv('JOB_PILOTTO_TWIN'))
 
 
+def _isolated_items():
+    path = os.getenv('JOB_PILOTTO_ISOLATED_SECRETS')
+    if not path:
+        return path, {}
+    try:
+        with open(path, encoding='utf-8') as handle:
+            return path, json.load(handle) or {}
+    except (OSError, ValueError):
+        return path, {}
+
+
+def _isolated_save(path, items):
+    if not path:
+        return  # an isolated run without its own file keeps nothing, and never the real store
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as handle:
+        json.dump(items, handle)
+
+
 def get(service, user=None):
     if isolated():
-        return None
+        return (_isolated_items()[1].get(service) or {}).get('value') or None
     user = account() if user is None else user
     if sys.platform == 'darwin':
         result = subprocess.run(['security', 'find-generic-password', '-a', user, '-s', service, '-w'],
@@ -43,6 +67,12 @@ def get(service, user=None):
 def put(service, value, user=None, label=None, comment=None):
     """comment: what the item is for, kept beside it (Keychain only; never a secret)."""
     user = account() if user is None else user
+    if isolated():
+        from datetime import datetime, timezone
+        path, items = _isolated_items()
+        items[service] = {'value': value, 'account': user, 'comment': comment or '', 'created': datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}
+        _isolated_save(path, items)
+        return
     if sys.platform == 'darwin':
         subprocess.run(['security', 'add-generic-password', '-U', '-a', user, '-s', service,
                         *(['-l', label] if label else []), *(['-j', comment] if comment else []), '-w', value], check=True)
@@ -55,6 +85,11 @@ def put(service, value, user=None, label=None, comment=None):
 
 def delete(service, user=None):
     user = account() if user is None else user
+    if isolated():
+        path, items = _isolated_items()
+        if items.pop(service, None) is not None:
+            _isolated_save(path, items)
+        return
     if sys.platform == 'darwin':
         subprocess.run(['security', 'delete-generic-password', '-a', user, '-s', service], capture_output=True)
         return

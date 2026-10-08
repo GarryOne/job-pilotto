@@ -2,6 +2,7 @@
 // with "email=… job=…" as its comment). The list comes from the Keychain's item attributes, never its secrets; a password is read
 // only when you press Show or Copy. Mac only: Windows' Credential Manager is read by the engine.
 import {execFileSync} from 'node:child_process';
+import * as keychain from './keychain.js';   // a test run or a twin never reaches the real Keychain the same way
 
 const ITEM = /^job-pilotto\.(.+)\.password$/;
 
@@ -22,16 +23,15 @@ export function parseDump(text) {
 }
 
 export function list(platform = process.platform, exec = execFileSync) {
-  if (platform !== 'darwin') return {ok: false, rows: [], error: 'Credentials are listed on a Mac only for now.'};
-  try { return {ok: true, rows: parseDump(exec('security', ['dump-keychain'], {encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore']}))}; }
-  catch { return {ok: false, rows: [], error: 'The Keychain could not be read.'}; }
+  if (platform !== 'darwin' && !keychain.isolated()) return {ok: false, rows: [], error: 'Credentials are listed on a Mac only for now.'};
+  const text = keychain.dump({exec, platform});
+  return text === null ? {ok: false, rows: [], error: 'The Keychain could not be read.'} : {ok: true, rows: parseDump(text)};
 }
 
 // One site's password, when you ask for it. host comes from the list: only a plain host name is read.
 export function reveal(host, platform = process.platform, exec = execFileSync) {
-  if (platform !== 'darwin' || !/^[a-z0-9.-]{1,253}$/i.test(String(host || ''))) return null;
-  try { return exec('security', ['find-generic-password', '-a', 'job-pilotto', '-s', `job-pilotto.${host}.password`, '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim() || null; }
-  catch { return null; }
+  if (!/^[a-z0-9.-]{1,253}$/i.test(String(host || ''))) return null;
+  return keychain.read(`job-pilotto.${host}.password`, {account: 'job-pilotto', exec, platform});
 }
 
 // The owner's choice (8 Oct 2026): the extension fills a sign-in or sign-up page's password boxes from the Keychain, as a
@@ -45,10 +45,7 @@ export function forExtension(host, {applying = false, read = reveal} = {}) {
 
 // The email recorded on one site's password item (its comment "email=… job=…", set when an account was made for it), or '' (no item, or none recorded). Attributes only, never the secret.
 export function emailOf(host, platform = process.platform, exec = execFileSync) {
-  if (platform !== 'darwin' || !/^[a-z0-9.-]{1,253}$/i.test(String(host || ''))) return '';
-  try {
-    const out = exec('security', ['find-generic-password', '-a', 'job-pilotto', '-s', `job-pilotto.${host}.password`], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']});
-    const note = (String(out).match(/"icmt"<blob>="([^"]*)"/) || [])[1] || '';
-    return (note.match(/(?:^|\s)email=(\S+)/) || [])[1] || '';
-  } catch { return ''; }
+  if (!/^[a-z0-9.-]{1,253}$/i.test(String(host || ''))) return '';
+  const note = keychain.comment(`job-pilotto.${host}.password`, {account: 'job-pilotto', exec, platform});
+  return (note.match(/(?:^|\s)email=(\S+)/) || [])[1] || '';
 }
