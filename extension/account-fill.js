@@ -63,7 +63,7 @@ export function accountSketch() {
 }
 
 // Says on the page what the person must do (the panel reads it): the label of the control that needs them, "1" when only that the site did not accept it, null to clear it.
-export function flagAccount(needs) { if (needs === null) document.documentElement.removeAttribute('data-jobpilotto-account-needs'); else document.documentElement.setAttribute('data-jobpilotto-account-needs', needs || '1'); }   // null: nothing is owed any more
+export function flagAccount(needs) { if (needs === null) document.documentElement.removeAttribute('data-jobpilotto-needs'); else document.documentElement.setAttribute('data-jobpilotto-needs', needs || '1'); }   // the panel reads it on account pages AND application forms   // null: nothing is owed any more
 
 // A control the AI named (the register link of a sign-in page, a consent link or accept button, a consent checkbox's label), pressed once. Nothing is filled first.
 export function pressRegister(named) {

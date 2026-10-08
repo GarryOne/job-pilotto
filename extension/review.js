@@ -315,12 +315,12 @@
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
     const needed = list.filter(f => f.required || f.ai);
     shown = needed.filter(f => !f.filled);
-    const total = needed.length, left = shown.length, ready = total > 0 && left === 0;
+    const total = needed.length, left = shown.length, ready = total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
     const done = total ? Math.round(100 * (total - left) / total) : 0;
-    jp.classList.toggle('ready', ready);
+    jp.classList.toggle('ready', ready && !needsYou);
     $('.ring').style.setProperty('--done', done);
-    $('.ring span').textContent = ready ? '✓' : total ? String(left) : '–';
-    const readyWords = account ? (document.documentElement.hasAttribute('data-jobpilotto-account-needs') ? 'Needs you: ' + (document.documentElement.getAttribute('data-jobpilotto-account-needs').replace(/^1$/, 'see what the site asks')) : 'Ready to create the account') : 'Ready to submit';   // a sign-up page is not the application; the account AI said the person must act (account-step.js)
+    $('.ring span').textContent = ready && !needsYou ? '✓' : total ? String(left) : '–';
+    const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? 'Ready to create the account' : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     $('.pill b').textContent = ready ? readyWords : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? 'Review, then create it' : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.

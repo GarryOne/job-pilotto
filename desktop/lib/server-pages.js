@@ -4,6 +4,7 @@ import * as terminals from './terminals.js';
 import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
+import {judgeForm} from './form-judge.js';
 import {forgetPageKind, pageKind, pageKindCache} from './page-kind.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
@@ -86,8 +87,8 @@ export async function pickChoice(storage, body, {client} = {}) {
 
 // The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
 export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
-  const phase = body?.phase === 'result' ? 'result' : 'ready';
-  const answer = await judge(client === undefined ? aiClient(storage) : client, body?.sketch || {}, phase);
+  const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';   // 'form': the application form's own readiness (lib/form-judge.js)
+  const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage) : client, body?.sketch || {}, phase);
   appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {})});   // the page's own label for the control, never a value
   return answer.error ? {ok: true, answer: '', error: answer.error} : {ok: true, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', botCheck: answer.botCheck};
 }

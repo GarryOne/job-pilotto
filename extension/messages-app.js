@@ -3,6 +3,7 @@
 // Guards: the credentials and review tests in desktop/test and the matrix (npm run flows).
 import {api} from './flow.js';
 import {accountStep} from './account-step.js';
+import {formReady} from './form-ready.js';
 import {roleOf} from './account.js';
 import {sessionGet} from './tab-memory.js';
 import {settings} from './flow.js';
@@ -18,6 +19,7 @@ export function createAppMessages(ctx) {
       return true;
     }
     if (message?.type === 'review' && sender.tab) {
+      formReady(sender.tab, sender.frameId, message.payload).catch(() => {});   // the AI may veto "Ready to submit" (form-ready.js); never blocks the report
       (async () => {
         const config = await settings();
         if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
