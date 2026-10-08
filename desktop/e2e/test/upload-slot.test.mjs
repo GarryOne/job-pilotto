@@ -1,99 +1,155 @@
-/* global window, document */
-// Upload slots that only create their file input when "+" is clicked (SuccessFactors, e.g. Coop: "Upload a CV" / "Add a document"):
-// the extension must open the CV slot, attach the CV, leave the cover-letter slot alone, and flag a missing CV as an open required row.
-// Runs on a fixture built like the real widget (a real Chrome, no network). JP_LIVE=1 also runs the same checks on the real Coop form.
+/* global window */
+// The upload operator (extension/page/upload.js) on the SHAPES of upload slots, not on sites: a native input, a hidden input behind a styled
+// label, a drop zone, a slot that creates its input when + is pressed (SuccessFactors / Coop), a page that swallows the input into a file
+// chip. Also: which file goes to which slot comes from the wording's meaning (service phrases, then the floor), an unknown wording is left
+// empty and reported, a recipe can name the trigger, and a missing CV is an open required row. A real Chrome, no network.
+// JP_LIVE=1 also runs the real Coop form (a sample of the click-to-reveal shape).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
 const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'fill'];
-const CV = {data: fs.readFileSync(new URL('../fixtures/cv.pdf', import.meta.url)).toString('base64'), name: 'cv.pdf', type: 'application/pdf'};
+const file = (name, label) => ({data: Buffer.from(`%PDF ${label}`).toString('base64'), name, type: 'application/pdf'});
+const CV = {...file('cv.pdf', 'cv'), coverLetterFile: file('letter.pdf', 'letter')};
+const CV_ONLY = file('cv.pdf', 'cv');
 
-// Two slots like the real ones: a label with a star, a box, a + button. A click on + opens a popup holding the one file input.
-const SLOT = (id, label) => `<div class="col"><div class="lab">${label}</div><div class="attachWrapper"><div class="attachmentLabel"><span>${label.replace(/^\* /, '').split(' and ')[0].replace(/,.*/, '') === 'Cover letter' ? 'Add a document' : 'Upload a CV'}</span></div>
-<span role="button" tabindex="0" class="addAttachments" id="${id}" onclick="openPopup('${id}')">+</span><div class="ok" hidden></div></div></div>`;
-const FIXTURE = `<body><h1>Application</h1>
-${SLOT('cvPlus', '* CV and diplomas/school transcripts')}${SLOT('docPlus', 'Cover letter, certificates, diplomas, etc.')}
-<label>Email: * <input id="email" type="email" required></label>
-<div id="popup" hidden>Select a source for your file <button type="button" id="fromDevice">From device</button></div>
-<script>
-  window.attached = {};
+// Shared fixture script: pressing a + creates the one file input in a popup (like the real widget); each slot records what it received.
+const REVEAL_JS = `<div id="popup" hidden>Select a source <button type="button">From device</button></div><script>
+  window.got = {};
   function openPopup(id) {
-    const popup = document.getElementById('popup');
-    popup.hidden = false;
-    popup.querySelector('input')?.remove();
-    const input = document.createElement('input');
-    input.type = 'file'; input.name = 'fileData' + id;
-    input.addEventListener('change', () => {
-      window.attached[id] = input.files[0]?.name;
-      document.getElementById(id).parentElement.querySelector('.ok').hidden = false;
-    });
+    const popup = document.getElementById('popup'); popup.hidden = false; popup.querySelector('input')?.remove();
+    const input = document.createElement('input'); input.type = 'file'; input.name = 'fileData' + id;
+    input.addEventListener('change', () => { window.got[id] = input.files[0]?.name; document.getElementById(id).closest('.field').querySelector('.ok').hidden = false; });
     popup.appendChild(input);
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('popup').hidden = true; });
-</script></body>`;
+</script>`;
+const REVEAL_SLOT = (id, title, decoy = '') => `<div class="field"><div class="lab">${title}</div><div class="attachWrapper"><div class="box">Add file</div>${decoy}
+  <span role="button" tabindex="0" class="addAttachments real-plus" id="${id}" onclick="openPopup('${id}')">+</span><div class="ok" hidden>done</div></div></div>`;
 
-const run = async (page, resume) => {
-  for (const file of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${file}.js`, import.meta.url), 'utf8')});
-  return page.evaluate(async cv => {
-    const row = () => window.__jobPilottoAuditVisibleFields().find(r => r.field === 'resume');
-    const before = row();
-    const result = await window.__jobPilottoExtensionFill([], {}, cv);
-    return {before, after: row(), resumeAttached: result.resumeAttached, todo: result.todo};
-  }, resume);
+const SHAPES = {
+  native: '<body><label>Resume/CV * <input type="file" id="r" onchange="window.got = {r: this.files[0].name}"></label><label>Email * <input id="e" type="email" required></label></body>',
+  hiddenInput: '<body><div class="up"><label class="btn" for="f">Upload your CV *</label><input type="file" id="f" style="display:none" onchange="window.got = {f: this.files[0].name}"></div><input id="e" required></body>',
+  dropzone: '<body><div class="dropzone"><p>Lebenslauf *</p><input type="file" id="d" style="opacity:0;position:absolute" onchange="window.got = {d: this.files[0].name}"></div><input id="e" required></body>',
+  chip: '<body><div class="up"><label>CV *</label><input type="file" id="c" onchange="const n = this.files[0].name; this.insertAdjacentHTML(\'afterend\', `<span>${n}</span>`); this.remove(); window.got = {c: n}"></div><input id="e" required></body>',
+  reveal: `<body>${REVEAL_SLOT('cvPlus', '* CV and diplomas/school transcripts')}${REVEAL_SLOT('docPlus', 'Cover letter, certificates, diplomas, etc.')}<input id="e" required>${REVEAL_JS}</body>`,
+  revealFrench: `<body>${REVEAL_SLOT('cvPlus', '* CV et diplômes')}${REVEAL_SLOT('docPlus', 'Lettre de motivation, certificats')}<input id="e" required>${REVEAL_JS}</body>`,
+  unknownWording: `<body>${REVEAL_SLOT('aPlus', '* Dossier principal')}${REVEAL_SLOT('bPlus', 'Pièces annexes')}<input id="e" required>${REVEAL_JS}</body>`,
+  // The first pressable in the widget is an info icon that opens nothing; the real + is found only through a recipe's trigger.
+  helpFirst: `<body>${REVEAL_SLOT('cvPlus', '* CV', '<span role="button" class="info" onclick="">i</span>')}<input id="e" required>${REVEAL_JS}</body>`,
 };
 
-const withPage = async (url, fn, html = null) => {
+const open = async (html, run) => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({locale: 'en-US'});
-    if (html) await page.setContent(html); else await url(page);
-    await fn(page);
+    await page.setContent(html);
+    for (const name of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${name}.js`, import.meta.url), 'utf8')});
+    await run(page);
   } finally { await browser.close(); }
 };
+// Runs the real fill; -> what the panel and the report would see.
+const fill = (page, resume, {aliases = [], recipes = {}} = {}) => page.evaluate(async ({resume, aliases, recipes}) => {
+  window.__jobPilottoAliases = aliases; window.__jobPilottoRecipes = recipes;
+  const rowsBefore = window.__jobPilottoAuditVisibleFields().filter(row => row.type === 'file');
+  const result = await window.__jobPilottoExtensionFill([], {}, resume);
+  return {rowsBefore, rowsAfter: window.__jobPilottoAuditVisibleFields().filter(row => row.type === 'file'), got: window.got || {}, resumeAttached: result.resumeAttached,
+    todo: result.todo, uploads: result.operated.filter(item => item.kind === 'upload'), unknown: result.unknownUploads};
+}, {resume, aliases, recipes});
 
-test('the CV goes into the CV slot that opens its file input on click, and not into the other document slot', async () => {
-  await withPage(null, async page => {
-    const out = await run(page, CV);
-    assert.equal(out.before.required, true, 'the CV slot is a required row before the fill');
-    assert.equal(out.before.filled, false);
-    assert.equal(out.resumeAttached, true);
-    const attached = await page.evaluate(() => window.attached);
-    assert.deepEqual(attached, {cvPlus: 'cv.pdf'});
-  }, FIXTURE);
-});
+for (const shape of ['native', 'hiddenInput', 'dropzone', 'chip']) {
+  test(`${shape}: the CV goes into the one upload slot, which was a required unfilled row before and filled after`, async () => {
+    await open(SHAPES[shape], async page => {
+      const out = await fill(page, CV_ONLY);
+      assert.equal(out.resumeAttached, true);
+      assert.deepEqual(Object.values(out.got), ['cv.pdf']);
+      assert.equal(out.rowsBefore.length, 1);
+      assert.equal(out.rowsBefore[0].required, true, 'the page marks it required');
+      assert.equal(out.rowsBefore[0].filled, false);
+      assert.equal(out.rowsAfter[0].filled, true);
+    });
+  });
+}
 
-test('without a CV in the app, the empty required CV slot is listed as something to do', async () => {
-  await withPage(null, async page => {
-    const out = await run(page, null);
+for (const shape of ['reveal', 'revealFrench']) {
+  test(`${shape}: a slot that creates its input when + is pressed takes the CV, and the cover-letter slot only the letter`, async () => {
+    await open(SHAPES[shape], async page => {
+      const out = await fill(page, CV);
+      assert.deepEqual(out.got, {cvPlus: 'cv.pdf', docPlus: 'letter.pdf'});
+      assert.deepEqual(out.rowsBefore.map(row => [row.field, row.required]), [['resume', true], ['cover_letter', false]]);
+      assert.deepEqual(out.uploads.map(item => item.ok), [true, true]);
+    });
+  });
+  test(`${shape}: no cover-letter file means the cover-letter slot stays untouched, never the CV`, async () => {
+    await open(SHAPES[shape], async page => {
+      const out = await fill(page, CV_ONLY);
+      assert.deepEqual(out.got, {cvPlus: 'cv.pdf'});
+    });
+  });
+}
+
+test('without a CV in the app the required slot is listed as to do and nothing is attached', async () => {
+  await open(SHAPES.reveal, async page => {
+    const out = await fill(page, null);
     assert.equal(out.resumeAttached, false);
-    assert.equal(out.after.filled, false);
+    assert.deepEqual(out.got, {});
     assert.ok(out.todo.includes('Upload your CV'), `todo: ${out.todo}`);
-    assert.deepEqual(await page.evaluate(() => window.attached), {});
-  }, FIXTURE);
+    assert.equal(out.rowsAfter.find(row => row.field === 'resume').filled, false);
+  });
 });
 
-test('a plain file input still takes the CV as before', async () => {
-  await withPage(null, async page => {
-    const out = await run(page, CV);
+test('a wording nobody knows is left empty and reported; a phrase from the service then gives it a meaning', async () => {
+  await open(SHAPES.unknownWording, async page => {
+    const out = await fill(page, CV);
+    assert.deepEqual(out.got, {}, 'never guessed with two slots');
+    assert.deepEqual(out.unknown, ['dossier principal', 'pièces annexes']);
+    assert.ok(out.uploads.length === 0, 'an untouched slot is not an operator failure');
+  });
+  await open(SHAPES.unknownWording, async page => {
+    const out = await fill(page, CV, {aliases: [{key: 'resume', phrase: 'dossier principal'}, {key: 'cover_letter', phrase: 'pièces annexes'}]});
+    assert.deepEqual(out.got, {aPlus: 'cv.pdf', bPlus: 'letter.pdf'});
+  });
+});
+
+test('a pressable that opens nothing is a reported miss with the slot\'s fingerprint, and a recipe naming the trigger fixes it', async () => {
+  let fp = '';
+  await open(SHAPES.helpFirst, async page => {
+    const out = await fill(page, CV_ONLY);
+    assert.equal(out.resumeAttached, false);
+    assert.equal(out.uploads.length, 1);
+    assert.equal(out.uploads[0].ok, false);
+    assert.equal(out.uploads[0].why, 'no file input appeared');
+    assert.match(out.uploads[0].fp, /^[a-z0-9]{6,16}$/);
+    ({fp} = out.uploads[0]);
+  });
+  await open(SHAPES.helpFirst, async page => {
+    const out = await fill(page, CV_ONLY, {recipes: {[fp]: {fingerprint: fp, version: 3, operator: 'upload', params: {trigger: '.real-plus'}}}});
     assert.equal(out.resumeAttached, true);
-    assert.equal(await page.evaluate(() => document.querySelector('input[type=file]').files[0]?.name), 'cv.pdf');
-  }, '<body><h2>Resume/CV *</h2><input type="file" id="resume"></body>');
+    assert.equal(out.uploads[0].recipe, 3, 'the report says which recipe version worked');
+  });
 });
 
-test('the real Coop form takes the CV (JP_LIVE=1)', {skip: !process.env.JP_LIVE}, async () => {
-  await withPage(async page => {
+test('a lone slot with a wording nobody knows takes the CV, as a lone file input always did', async () => {
+  await open('<body><label>Attachment <input type="file" id="x" onchange="window.got = {x: this.files[0].name}"></label></body>', async page => {
+    assert.deepEqual((await fill(page, CV_ONLY)).got, {x: 'cv.pdf'});
+  });
+});
+
+test('the real Coop form takes the CV and the cover letter (JP_LIVE=1)', {skip: !process.env.JP_LIVE}, async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({locale: 'en-US'});
     await page.goto('https://jobs.coop.ch/Coop/job/Nyon-Assistante-Assistant-du-commerce-de-d%C3%A9tail-AFP-Vaud/1405093533/?locale=en_US', {waitUntil: 'networkidle'});
     await page.getByRole('link', {name: /Apply|Postuler/i}).first().click();
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
-  }, async page => {
-    const out = await run(page, CV);
-    assert.equal(out.before.filled, false);
-    assert.equal(out.resumeAttached, true);
-    assert.equal(out.after.filled, true);
+    for (const name of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${name}.js`, import.meta.url), 'utf8')});
+    const out = await fill(page, CV);
+    assert.deepEqual(out.rowsBefore.map(row => [row.field, row.filled]), [['resume', false], ['cover_letter', false]]);
+    assert.deepEqual(out.uploads.map(item => item.ok), [true, true]);
+    assert.deepEqual(out.rowsAfter.map(row => row.filled), [true, true]);
     const shown = await page.$$eval('[id$=_attachSuccess]', els => els.filter(el => !el.classList.contains('displayNone')).length);
-    assert.equal(shown, 1, 'the site itself shows the CV slot as uploaded');
-  });
+    assert.equal(shown, 2, 'the site itself shows both slots as uploaded');
+  } finally { await browser.close(); }
 });

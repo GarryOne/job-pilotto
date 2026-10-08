@@ -43,7 +43,7 @@
     const text = clean(label).toLowerCase().replace(/\*+/g, '').replace(/\((optional|required|erforderlich|obligatoire)\)/g, '').replace(/^\s*\d+[.)]\s+/, '').replace(/[\s:;,.?!-]+$/g, '').trim();
     if (text.length < 3 || text.length > 100 || /@|https?:|www\./.test(text)) return null;
     for (const item of window.__jobPilottoAliases || []) {
-      if (item && item.key && item.phrase && (text === item.phrase || ` ${text} `.includes(` ${item.phrase} `))) return item;
+      if (item && item.key && !/^(resume|cover_letter)$/.test(item.key) && item.phrase && (text === item.phrase || ` ${text} `.includes(` ${item.phrase} `))) return item;
     }
     return null;
   };
@@ -241,12 +241,6 @@
     return box.checked === want;
   };
 
-  // Attaching a PDF (page/upload.js owns it, with the + button slots some forms draw instead of a file input).
-  const attachFile = (...args) => window.__jobPilottoUpload.attachFile(...args);
-  const attachResume = resume => attachFile(resume, /resume|\bcv\b|lebenslauf/i, true, /cover/i);
-  // The approved general cover letter as a file, only into an input that says Cover letter (never a lone input).
-  const attachCoverLetter = file => attachFile(file, /cover\s*letter|anschreiben/i, false);
-
   // Tick every visible terms/privacy/consent box and hand Submit to the user (the extension never submits).
   const tickConsents = () => {
     window.__jobPilottoHandOver?.();
@@ -430,8 +424,14 @@
       window.__jobPilottoOperatedQuestions = operated.map(result => result.question);
       window.__jobPilottoOperated = operated.map(({kind, fp, recipe, ok, why}) => ({kind, fp, recipe: recipe || 0, ok, why: why || ''}));
     }
-    const resumeAttached = resume?.data ? await attachResume(resume) : false;
-    const letterFileAttached = resume?.coverLetterFile ? await attachCoverLetter(resume.coverLetterFile) : false;
+    // The files (page/upload.js): each upload slot is operated by what it asks for; a miss is reported by fingerprint like any control's.
+    const uploads = await window.__jobPilottoUpload.fill({resume: resume?.data ? resume : null, coverLetter: resume?.coverLetterFile || null}).catch(() => []);
+    const resumeAttached = uploads.some(item => item.meaning === 'resume' && item.ok);
+    const letterFileAttached = uploads.some(item => item.meaning === 'cover_letter' && item.ok);
+    window.__jobPilottoOperated = [...(window.__jobPilottoOperated || []), ...uploads.filter(item => item.ok !== undefined)
+      .map(({fp, recipe, ok, why}) => ({kind: 'upload', fp, recipe: recipe || 0, ok, why: why || ''}))];
+    // Wordings nobody knew (no text of yours: the slot's own title), for the service to give a meaning once.
+    window.__jobPilottoUnknownUploads = uploads.filter(item => item.why === 'wording unknown' && item.label).map(item => item.label);
     if (letterFileAttached) filled += 1;
     if (coverLetter && await fillCoverLetter(coverLetter)) filled += 1;
     await sleep(300);
@@ -539,7 +539,7 @@
     });
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
       reason: resumeAttached ? '' : 'no CV in the app'});
-    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
+    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], unknownUploads: window.__jobPilottoUnknownUploads || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
     for (const item of answers) {
       const row = rowOf[item.field];
       if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;

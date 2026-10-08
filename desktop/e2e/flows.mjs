@@ -16,7 +16,7 @@ export const FLOW_FILES = [
 export const MATRIX = [
   {scenario: 'What kind of page: the AI decides once per site and page shape, the structure rule only without AI', e2e: ['one page', 'wrong kind'], unit: ['test/page-kind.test.js', 'test/extension-tab-pages.test.js']},
   {scenario: 'Direct application form (Greenhouse, Workday, Lever, multi-step)', e2e: ['Greenhouse-like form', 'Workday-shaped form', 'Lever-like form', 'multi-step form'], unit: ['test/extension-tab-pages.test.js']},
-  {scenario: 'CV slot that creates its file input only when + is clicked (SuccessFactors, Coop)', e2e: [], unit: ['e2e/test/upload-slot.test.mjs']},
+  {scenario: 'Upload slots of any shape (input, hidden input, drop zone, + that creates the input): CV and cover letter by meaning, a miss reported by fingerprint', e2e: [], unit: ['e2e/test/upload-slot.test.mjs']},
   {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Apply opens its form from the page\'s script: followed, posting closed', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Two applications side by side: one tab and its own kit each', e2e: ['side by side'], unit: ['test/review.test.js']},

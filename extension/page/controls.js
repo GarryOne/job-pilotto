@@ -137,6 +137,7 @@
     const found = new Set();
     for (const {el, kind} of kit ? kit.widgets(doc, visible) : []) if (OPERATOR_OF[kind]) found.add(fingerprintOf(el, kit));
     for (const input of doc.querySelectorAll('input')) if (looksLikeDate(input) && visible(input)) found.add(fingerprintOf(input, kit));
+    for (const fp of window.__jobPilottoUpload?.fingerprints?.(doc) || []) found.add(fp);   // upload slots (page/upload.js)
     found.delete('');
     return [...found].slice(0, 30);
   }

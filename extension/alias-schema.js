@@ -5,6 +5,14 @@
 // tests (the filler in page/fill.js keeps a plain-script copy of aliasKey, checked against this one by a test).
 // A phrase on a posting page's button that means "start applying" (tab-pages.js pickApplyButton): the second kind of meaning in this pack.
 export const BUTTON_KEYS = ['apply_button'];
+// The third kind: what an upload slot's wording means ("Upload a CV", "Charger un CV": resume; "Lettre de motivation": cover letter). Which file goes
+// into which slot is a meaning, so the pack carries the wording; FILE_FLOOR below is only the floor for the words everyone knows, used until the
+// pack has a phrase and never overruling one. A wording neither knows is left empty and reported, never guessed (CLAUDE.md "Meaning comes from AI").
+export const FILE_KEYS = ['resume', 'cover_letter'];
+export const FILE_FLOOR = {
+  resume: /\b(resume|r[ée]sum[ée]|cv|c\.v\.|curriculum|lebenslauf)\b/i,
+  cover_letter: /\b(cover\s*letter|motivation\s*letter|anschreiben|bewerbungsschreiben|lettre\s+de\s+motivation|lettera\s+di\s+(presentazione|motivazione)|carta\s+de\s+presentaci[oó]n|carta\s+de\s+apresenta[cç][aã]o)\b/i,
+};
 export const KEYS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'linkedin', 'github', 'website', 'location', 'street', 'postal_code', 'place_of_origin', 'birth_date'];
 // A wrong meaning for these would put personal data where it does not belong, so they are never rolled out without the owner's approval.
 export const SENSITIVE = ['phone', 'street', 'postal_code', 'place_of_origin', 'birth_date'];
@@ -27,7 +35,7 @@ const fail = error => ({ok: false, error});
 // -> {ok: true, alias: {key, phrase}} or {ok: false, error}.
 export function validateAlias(input) {
   if (!input || typeof input !== 'object') return fail('not an object');
-  if (!KEYS.includes(input.key) && !BUTTON_KEYS.includes(input.key)) return fail('unknown field');
+  if (!KEYS.includes(input.key) && !BUTTON_KEYS.includes(input.key) && !FILE_KEYS.includes(input.key)) return fail('unknown field');
   const phrase = cleanLabel(input.phrase);
   if (!phrase || phrase.length > 60) return fail('bad phrase');
   if (!/^[\p{L}\p{M}0-9 '’/&()-]+$/u.test(phrase)) return fail('bad characters');
@@ -35,6 +43,10 @@ export function validateAlias(input) {
   if (BUTTON_KEYS.includes(input.key)) {
     if (phrase.length > 40 || phrase.split(' ').length > 5) return fail('too long for a button');
     if (NOT_APPLY.test(phrase)) return fail('not a start-applying button');
+    return {ok: true, alias: {key: input.key, phrase}};
+  }
+  if (FILE_KEYS.includes(input.key)) {
+    if (phrase.length > 40 || phrase.split(' ').length > 6) return fail('too long for an upload label');
     return {ok: true, alias: {key: input.key, phrase}};
   }
   if (FORBIDDEN.test(phrase)) return fail('not a profile question');
@@ -72,4 +84,18 @@ export function buttonPhrase(text, aliases) {
   const clean = cleanLabel(text);
   if (!clean) return '';
   return (Array.isArray(aliases) ? aliases : []).find(item => item && item.key === 'apply_button' && item.phrase === clean)?.phrase || '';
+}
+
+// Which file an upload slot's wording asks for: 'resume', 'cover_letter' or '' (unknown, or both named: never guessed). The pack's phrases decide
+// first (the whole wording, or on word boundaries in it), then the floor. aliases: [{key, phrase}].
+// extension/page/upload.js keeps a plain-script copy of this function and the floor; a test keeps them agreeing.
+export function fileKind(label, aliases) {
+  const text = cleanLabel(label) || String(label ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  for (const item of Array.isArray(aliases) ? aliases : []) {
+    if (!item || !FILE_KEYS.includes(item.key) || !item.phrase) continue;
+    if (text === item.phrase || ` ${text} `.includes(` ${item.phrase} `)) return item.key;
+  }
+  const found = FILE_KEYS.filter(key => FILE_FLOOR[key].test(text));
+  return found.length === 1 ? found[0] : '';
 }

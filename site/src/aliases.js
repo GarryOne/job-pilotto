@@ -1,12 +1,12 @@
 // Label meanings served to installs (format extension/alias-schema.js; plan in Notion "Knowledge as data: build plan").
 //   GET  /api/packs/aliases   an install with a token: the aliases running for it (canary share by install bucket, then everyone).
-//   GET  /api/aliases         the owner: all of them (?status=candidate), the questions still without a meaning (?targets=1) and the button
+//   GET  /api/aliases         the owner: all of them (?status=candidate), the questions still without a meaning (?targets=1), the upload titles (?targets=uploads) and the button
 //                             texts of pages where no Apply button was recognised (?targets=buttons).
 //   PUT  /api/aliases         the owner (the private proposer): add or change aliases, or record {reviewed: [{label}]} wordings that mean nothing. Sensitive fields (birth date, address ...)
 //                             only go live when the owner passes approved: true.
 // evaluateAliases (daily) grows a canary that works and halts one that fails, like the recipes' canary, sensitive fields too (owner, 8 Oct 2026).
 import {MIN_PEOPLE, hints} from './intelligence.js';
-import {BUTTON_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias} from '../../extension/alias-schema.js';
+import {BUTTON_KEYS, FILE_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, fileKind, validateAlias} from '../../extension/alias-schema.js';
 import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, digestOf, flag} from './guard.js';
 import {benchmarks, report} from './knowledge.js';
@@ -124,13 +124,21 @@ export async function aliases(request, env, now = new Date()) {
         .map(row => ({label: row.label, n: row.filled, kind: 'fix', corrected: row.corrected, current: aliasKey(row.label, known) || ''}));
       return json({ok: true, targets: found, keys: KEYS, sensitive: SENSITIVE});
     }
+    if (mode === 'uploads') {
+      // Titles of upload slots that no meaning placed (several installs left them empty): which file does the slot ask for? (keys resume, cover_letter)
+      const known = all.map(row => ({key: row.key, phrase: row.phrase}));
+      const since = day(new Date(now.getTime() - REVIEW_DAYS * 86400000));
+      const reviewed = new Set(((await env.STATS.prepare('SELECT label FROM label_reviews WHERE day >= ?').bind(since).all().catch(() => ({results: []}))).results || []).map(row => row.label));
+      const rows = (await report(env.STATS, 30, now, 400)).questions.filter(row => row.kind === 'upload' && !reviewed.has(row.label) && !fileKind(row.label, known));
+      return json({ok: true, targets: rows.slice(0, 50), keys: FILE_KEYS, sensitive: SENSITIVE});
+    }
     if (mode === '1' || mode === 'buttons') {
       // Wordings several installs report that no alias places yet and that were not looked at lately: questions, or button texts of pages where no Apply button was found.
       const known = all.map(row => ({key: row.key, phrase: row.phrase}));
       const since = day(new Date(now.getTime() - REVIEW_DAYS * 86400000));
       const reviewed = new Set(((await env.STATS.prepare('SELECT label FROM label_reviews WHERE day >= ?').bind(since).all().catch(() => ({results: []}))).results || []).map(row => row.label));
       const wanted = mode === 'buttons';
-      const rows = (await report(env.STATS, 30, now, 400)).questions.filter(row => (row.kind === 'button') === wanted && !reviewed.has(row.label)
+      const rows = (await report(env.STATS, 30, now, 400)).questions.filter(row => row.kind !== 'upload' && (row.kind === 'button') === wanted && !reviewed.has(row.label)
         && (wanted ? !known.some(item => item.key === 'apply_button' && item.phrase === row.label) : !aliasKey(row.label, known)));
       return json({ok: true, targets: rows.slice(0, 50), keys: wanted ? BUTTON_KEYS : KEYS, sensitive: SENSITIVE});
     }

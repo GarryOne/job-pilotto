@@ -1,7 +1,7 @@
 // The alias format: what a label meaning may be, and how a question's wording is matched to it.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias, validateBundle} from '../../extension/alias-schema.js';
+import {FILE_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, fileKind, validateAlias, validateBundle} from '../../extension/alias-schema.js';
 
 test('an alias points one phrase at one profile field; anything else is refused', () => {
   assert.deepEqual(validateAlias({key: 'place_of_origin', phrase: 'Place of Heimat *'}), {ok: true, alias: {key: 'place_of_origin', phrase: 'place of heimat'}});
@@ -32,4 +32,21 @@ test('the wording matches the whole phrase or stands on word boundaries, first a
 test('a generated field id is not a question wording', () => {
   for (const id of ['radio-999', 'menu-940', 'question_12', 'field 7']) assert.equal(cleanLabel(id), '', id);
   assert.equal(cleanLabel('Why do you want to work here?'), 'why do you want to work here');
+});
+
+test('what an upload slot asks for: the service phrases first, then the floor; unknown or both is never guessed', () => {
+  assert.deepEqual(FILE_KEYS, ['resume', 'cover_letter']);
+  assert.deepEqual(validateAlias({key: 'resume', phrase: 'Charger un CV *'}), {ok: true, alias: {key: 'resume', phrase: 'charger un cv'}});
+  assert.equal(validateAlias({key: 'cover_letter', phrase: 'x '.repeat(30)}).ok, false);
+  assert.equal(validateAlias({key: 'resume', phrase: 'file 2026'}).ok, false);
+  const floor = (text, aliases = []) => fileKind(text, aliases);
+  assert.equal(floor('* CV and diplomas/school transcripts'), 'resume');
+  assert.equal(floor('Lebenslauf hochladen'), 'resume');
+  assert.equal(floor('Cover letter, certificates, diplomas, etc.'), 'cover_letter');
+  assert.equal(floor('Lettre de motivation, certificats'), 'cover_letter');
+  assert.equal(floor('Add a document'), '');
+  assert.equal(floor('CV / cover letter'), '', 'both named: not guessed');
+  assert.equal(floor('Dossier principal', [{key: 'resume', phrase: 'dossier principal'}]), 'resume', 'a phrase from the service gives an unknown wording its meaning');
+  assert.equal(floor('Cover letter', [{key: 'resume', phrase: 'cover letter'}]), 'resume', 'the service decides before the floor');
+  assert.equal(aliasKey('Charger un CV', [{key: 'resume', phrase: 'charger un cv'}]), '', 'an upload meaning never places a profile question');
 });

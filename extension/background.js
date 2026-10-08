@@ -269,7 +269,7 @@ function prefetch(config, url) {
 // How the generic operators fared on this form (kind, fingerprint, worked or not, why): the app turns the failures into
 // reports that help everyone. No questions, no answers.
 // `trace` carries only the rows no answer matched (the form's own wording: the app cleans it and drops what could be personal).
-function reportControls(config, tab, operated, trace, card = null) {
+function reportControls(config, tab, operated, trace, card = null, uploads = []) {
   // Every fill counts for the board it was on, even when the operators had nothing to do there.
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
   let host = '';
@@ -285,7 +285,9 @@ function reportControls(config, tab, operated, trace, card = null) {
   const filled = (Array.isArray(trace) ? trace : []).filter(row => row && row.outcome === 'filled' && row.source && row.type !== 'file').slice(0, 30).map(row => String(row.label || '').slice(0, 100));
   // How many required questions the form had (the CV and consents aside): the denominator of the per-board rates.
   const required = (Array.isArray(trace) ? trace : []).filter(row => row && row.required && row.type !== 'file' && !/^legal/.test(String(row.reason || ''))).length;
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled, required,
+  // The titles of upload slots whose wording no meaning knew (the slot was left empty): the service gives each a meaning once (alias keys resume, cover_letter).
+  const uploadTitles = (Array.isArray(uploads) ? uploads : []).slice(0, 5).map(label => String(label || '').slice(0, 60));
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled, required, uploads: uploadTitles,
     ...(card ? {card} : {})})}).catch(() => {});
 }
 // Labels of filled fields the person later changed by hand (page/fill.js watchCorrection): sent once, then forgotten.
@@ -337,7 +339,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});
-    reportControls(config, tab, result?.operated, result?.trace, result?.card);
+    reportControls(config, tab, result?.operated, result?.trace, result?.card, result?.unknownUploads);
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
     // Claude could not answer the form's own questions (not answering, a limit, no key): the fill went on without them and the panel said

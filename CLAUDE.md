@@ -35,6 +35,11 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   `src/ai/meanings.py`. Rule placement: high-volume items (titles, links) take the rule's yes for free and send the rest to AI;
   few high-stakes items (form questions, buttons, emails) are decided by AI, the rule answers only without AI and stays a safety floor.
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
+- **A form bug is fixed in the self-improving mechanism, for every install** (owner, 8 Oct 2026): a field, control or upload slot a form leaves
+  unfilled is never fixed "for that website". Say first which part of the mechanism it improves (operator, fingerprint, meaning in the alias pack,
+  recipe, noticing the miss); test the SHAPE with a fixture (the real site only as one live sample); a variant still unhandled must be reported
+  with its fingerprint so a recipe or meaning can be added as data, and listed for the person, never skipped silently. Notion: "Self-improving
+  form filling: design & plan". Example: upload slots (`extension/page/upload.js`, `desktop/e2e/test/upload-slot.test.mjs`).
 - Never auto-apply to jobs: the application kit drafts, the owner submits. LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit (owner, 7 Oct 2026): read through the user's own visit (the extension's "Read the jobs on this page", started by their click, in their tab) or when a page answers plainly; never log in automatically, never get past a login wall or a bot check (401/403/429 or a check is a no); elsewhere public APIs and job feeds.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 

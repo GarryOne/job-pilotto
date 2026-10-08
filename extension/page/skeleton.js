@@ -70,8 +70,44 @@
     ['custom-select', 'button[aria-haspopup=listbox], div[role=combobox], button[role=combobox]'],
     ['rich-text', '[contenteditable=true], div[role=textbox]'],
   ];
+  // Upload slots, found by structure: a native file input (visible, or hidden behind a styled label), or a pressable control that sits in a part
+  // of the page whose class or id names uploading or attaching (the + of SuccessFactors, which creates its file input only when pressed). A slot
+  // is its "field": the widest ancestor that holds this one slot and no other form control, so the title above the widget is part of it.
+  // -> [{el: the field, input: a native file input or null, trigger: the pressable that opens one or null}]. Structure only: no wording.
+  const REVEAL = /attach|upload|dropzone|dropbox/i;
+  const POPUP = '[role=dialog], [class*=popup], [class*=callout], [id^=jobpilotto], #jobpilotto-review-host';
+  function uploadSlots(root, shown = () => true) {
+    const starts = [];
+    for (const input of root.querySelectorAll('input[type=file]')) if (!input.closest(POPUP)) starts.push({input, trigger: null, start: input});
+    // Pressables are grouped by the part of the page that names uploading (their parent if its class or id does, else themselves), so a widget with
+    // several pressables (an info icon beside the +) is one slot, not several.
+    const named = new Map();
+    const names = el => REVEAL.test(`${String(el.className?.baseVal ?? el.className ?? '')} ${el.id || ''}`);
+    for (const el of root.querySelectorAll('[role=button], button')) {
+      if (el.type === 'submit' || el.closest(POPUP) || !shown(el)) continue;
+      const group = el.parentElement && names(el.parentElement) ? el.parentElement : names(el) ? el : null;
+      if (group && !named.has(group)) named.set(group, el);
+    }
+    for (const [group, trigger] of named) starts.push({input: null, trigger, start: group});
+    const slots = [];
+    const others = 'input:not([type=file]):not([type=hidden]):not([type=submit]):not([type=button]), select, textarea';
+    for (const item of starts) {
+      let field = item.start;
+      for (let i = 0; i < 6; i++) {
+        const parent = field.parentElement;
+        // Stop before an ancestor that also holds another slot's control, or any other form control.
+        if (!parent || parent.querySelector(others) || starts.some(other => parent.contains(other.start) && !field.contains(other.start))) break;
+        field = parent;
+      }
+      const have = slots.find(slot => slot.el === field);
+      if (have) { have.input ||= item.input; have.trigger ||= item.trigger; continue; }
+      if (shown(field) || item.trigger) slots.push({el: field, input: item.input, trigger: item.trigger});
+    }
+    return slots;
+  }
   function widgets(root, shown = () => true) {
     const found = [];
+    for (const slot of uploadSlots(root, shown)) found.push({el: slot.el, kind: 'upload'});
     for (const [kind, selector] of WIDGETS) {
       for (const el of root.querySelectorAll(selector)) if (shown(el)) found.push({el, kind});
     }
@@ -86,6 +122,6 @@
     return found;
   }
 
-  const api = {skeleton, canonical, fingerprint, classWords, widgets};
+  const api = {skeleton, canonical, fingerprint, classWords, widgets, uploadSlots};
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else window.__jobPilottoSkeleton = api;
 })();

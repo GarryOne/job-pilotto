@@ -3,7 +3,7 @@
 // as an option, which attribute says "selected", which date shape a field takes. One source of truth, imported by the site
 // (what it accepts and serves), the app (what it passes on) and the extension (what it applies). Anything outside these
 // limits is refused, whoever sent it. A recipe can never name a submit control or run script.
-export const OPERATORS = ['toggle', 'select', 'date'];
+export const OPERATORS = ['toggle', 'select', 'date', 'upload'];
 export const ON_ATTRS = ['aria-pressed', 'aria-checked', 'aria-selected', 'data-state', 'data-selected'];
 export const DATE_ORDERS = ['mdy', 'dmy', 'ymd'];
 export const DATE_SEPS = ['/', '.', '-'];
@@ -27,8 +27,9 @@ export function validateRecipe(input) {
     if (given.option !== undefined) { if (!isSelector(given.option)) return fail('bad option selector'); params.option = given.option; }
     if (given.onAttr !== undefined) { if (!ON_ATTRS.includes(given.onAttr)) return fail('bad onAttr'); params.onAttr = given.onAttr; }
     if (given.onValue !== undefined) { if (!/^[\w-]{1,16}$/.test(String(given.onValue))) return fail('bad onValue'); params.onValue = String(given.onValue); }
-  } else if (input.operator === 'select') {
-    for (const name of ['trigger', 'option']) {
+  } else if (input.operator === 'select' || input.operator === 'upload') {
+    // upload: `trigger` is what opens the slot's file input (a + button), found inside the slot; `option` is unused.
+    for (const name of input.operator === 'upload' ? ['trigger'] : ['trigger', 'option']) {
       if (given[name] !== undefined) { if (!isSelector(given[name])) return fail(`bad ${name} selector`); params[name] = given[name]; }
     }
   } else {

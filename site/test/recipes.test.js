@@ -264,3 +264,12 @@ test('a verified recipe that starts failing in real use is rolled back; a health
   assert.deepEqual(actions.map(a => [a.recipe, a.action]), [['badfp0001 v1', 'rolled back']]);
   assert.deepEqual(e.STATS.db.prepare('SELECT fingerprint, status FROM recipes ORDER BY fingerprint').all().map(r => [r.fingerprint, r.status]), [['badfp0001', 'disabled'], ['goodfp0001', 'verified']]);
 });
+
+test('an upload recipe names only the trigger that opens the slot, as a safe selector', () => {
+  const ok = validateRecipe({fingerprint: 'abc123xyz', version: 1, operator: 'upload', params: {trigger: '.addAttachments, [role=button]'}});
+  assert.equal(ok.ok, true);
+  assert.deepEqual(ok.recipe.params, {trigger: '.addAttachments, [role=button]'});
+  assert.equal(validateRecipe({fingerprint: 'abc123xyz', version: 1, operator: 'upload', params: {trigger: 'button[type=submit]'}}).ok, false, 'never a submit control');
+  assert.equal(validateRecipe({fingerprint: 'abc123xyz', version: 1, operator: 'upload', params: {trigger: '<script>'}}).ok, false);
+  assert.equal(validateRecipe({fingerprint: 'abc123xyz', version: 1, operator: 'upload', params: {option: '.x'}}).recipe.params.option, undefined, 'only the trigger is kept');
+});

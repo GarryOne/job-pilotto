@@ -105,6 +105,7 @@ export function registerExtServerHandlers(ctx) {
     const board = controlEvents.boardName(payload.host);
     if (Array.isArray(payload.trace)) recipeReporter.fill(board, payload.required);   // one more form on this board (only a fill report carries the trace; a flow or alias event is not a fill)
     recipeReporter.question((Array.isArray(payload.buttons) ? payload.buttons : []).map(label => ({label, kind: 'button'})), board);   // button texts of a page with no Apply button we knew
+    recipeReporter.question((Array.isArray(payload.uploads) ? payload.uploads : []).map(label => ({label, kind: 'upload'})), board);   // titles of upload slots no meaning knew
     recipeReporter.alias(payload.aliasUse);   // which label meanings from the service placed a question, and whether the field took it
     recipeReporter.fillQuality(payload.filled, payload.corrections);   // which answers were filled, and which the person changed by hand (labels only)
     recipeReporter.question(unplaced(payload.trace), board);   // the form's own wording for questions no answer matched
