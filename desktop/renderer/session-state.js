@@ -95,3 +95,12 @@ export function checkingTabs(item, formsOpen, sinceStart) {
   if (!item || formsOpen?.known || sinceStart > CHECK_MS || isSubmitted(item) || item.outcome) return false;
   return item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item));
 }
+
+// The session's Chrome tab as the card shows it: host and path (no query, no www), cut in the middle of the path when long;
+// the full address is its tooltip. '' when no tab has reported for the session.
+export function tabAddress(url, limit = 70) {
+  let parsed;
+  try { parsed = new URL(url); } catch { return ''; }
+  const text = (parsed.hostname.replace(/^www\./, '') + decodeURIComponent(parsed.pathname)).replace(/\/$/, '');
+  return text.length <= limit ? text : `${text.slice(0, limit - 21)}…${text.slice(-20)}`;
+}

@@ -184,9 +184,6 @@ function showFormCard(item, state) {
   card.hidden = !state?.total || formGone(item);
   if (card.hidden) return;
   const done = state.total - state.left;
-  let host = '';
-  try { host = state.url ? new URL(state.url).hostname.replace(/^www\./, '') : ''; } catch {}
-  $('ss-form-where').textContent = host ? `Chrome · ${host}` : '';
   $('ss-form-pill').replaceChildren(isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
     : state.ready ? pill('Ready to submit', 'good', {dot: true})
     : pill(`${state.left} remaining`, 'warn', {title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists the rest)`}));
@@ -504,7 +501,7 @@ export async function init() {
   }).catch(() => {});
   window.pilot.onReview(state => {
     const before = reviewStates.get(state.id);
-    const changed = JSON.stringify(before?.missing || []) !== JSON.stringify(state.missing || []);
+    const changed = JSON.stringify(before?.missing || []) !== JSON.stringify(state.missing || []) || before?.url !== state.url;   // the header shows the tab's address
     reviewStates.set(state.id, state);
     const item = sessionList.find(entry => entry.id === state.id);
     // Ready to submit (or not any more): every pill that shows it, in the dock and the sessions list.

@@ -144,3 +144,13 @@ test('Applying in the menu counts every card in the list, whatever its state; th
   assert.deepEqual(applyingBadge([{level: 4}], level), {count: 1, tone: 'neutral'});
   assert.deepEqual(applyingBadge([], level), {count: '', tone: 'neutral'});
 });
+
+test("a session's Chrome tab on its card: host and path, no query or www, long paths cut in the middle", async () => {
+  const {tabAddress} = await import('../renderer/session-state.js');
+  assert.equal(tabAddress('https://www.apply.refline.ch/845721/0412/pub/1/index.html?lang=fr'), 'apply.refline.ch/845721/0412/pub/1/index.html');
+  assert.equal(tabAddress('https://jobs.coop.ch/'), 'jobs.coop.ch');
+  const long = tabAddress('https://jobs.coop.ch/Coop/job/Nyon-Assistante-Assistant-du-commerce-de-d%C3%A9tail-AFP-Vaud/1405093533/');
+  assert.ok(long.length <= 70 && long.startsWith('jobs.coop.ch/Coop/job/') && long.endsWith('AFP-Vaud/1405093533'), long);
+  assert.equal(tabAddress(''), '');
+  assert.equal(tabAddress(undefined), '');
+});

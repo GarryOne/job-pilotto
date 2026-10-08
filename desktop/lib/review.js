@@ -141,9 +141,14 @@ export function report(sessions, payload, now = Date.now()) {
     if (current !== undefined && tab < current) return {matched: null, session: null, watch: [], commands: []};  // an older tab: not this session's form
     bound.set(session.id, tab);
   }
+  // The session's tab, and when it first reported (Chrome gives no tab's creation time; its first report comes as its page
+  // loads): a different tab starts the clock again, a restarted app does not (owner, 8 Oct 2026: show each session's tab).
+  const before = last.get(session.id);
+  const tabId = Number.isInteger(tab) ? tab : before?.tab ?? null;
+  const tabAt = before?.tabAt && before.tab === tabId ? before.tabAt : now;
   const states = {};
   for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
-  const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
+  const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), tab: tabId, tabAt, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
@@ -152,7 +157,6 @@ export function report(sessions, payload, now = Date.now()) {
   // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
   // Fields already filled when the app first hears of the form have no time (it didn't see them being filled); a field
   // filled after a fill is over was filled by you. A restarted app keeps what it had (persist).
-  const before = last.get(session.id);
   const seen = new Map((before?.filled || []).map(item => [item.label, item]));
   if (Array.isArray(payload.filled)) state.filled = payload.filled.slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
     .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy ? 'you' : 'fill'});

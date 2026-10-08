@@ -227,3 +227,17 @@ test('a sign-in or sign-up page is reported as one, so the session shows no CV c
   review.report(sessions, form({account: false, left: 2}));   // the application form after the sign-up
   assert.equal(heard.at(-1).account, undefined);
 });
+
+test("each session's tab: its address and when it first reported; the same tab keeps its time, a newer tab starts again", () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({tab: 7}), 1000);
+  review.report(sessions, form({tab: 7, left: 2}), 5000);
+  review.report(sessions, form({tab: 9, url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890/confirmation?x=1'}), 9000);
+  assert.deepEqual(heard.map(state => [state.tab, state.tabAt, state.url]), [
+    [7, 1000, 'https://job-boards.greenhouse.io/anthropic/jobs/4567890'],
+    [7, 1000, 'https://job-boards.greenhouse.io/anthropic/jobs/4567890'],
+    [9, 9000, 'https://job-boards.greenhouse.io/anthropic/jobs/4567890/confirmation'],
+  ]);
+});

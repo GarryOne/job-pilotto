@@ -7,8 +7,8 @@ import {clockTime} from './activity.js';
 import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
-import {isSubmitted} from '../session-state.js';
-import {checkingTab, formGone, formReady} from './session-needs.js';
+import {isSubmitted, tabAddress} from '../session-state.js';
+import {checkingTab, formGone, formReady, reviewStates} from './session-needs.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
@@ -82,6 +82,18 @@ export function renderSessionPage() {
   const words = el('div', 'ss-job-words');
   const place = [...String(item.location || job.location || '').split(/\s*;\s*/), item.workMode || job.work_mode].filter(Boolean).join(' · ');
   words.append(el('b', '', `${sessionCompany(item)} · ${sessionTitle(item)}`), el('span', 'muted', place));
+  // Its Chrome tab: where it is now, when it opened, for how long (owner, 8 Oct 2026). Closed: the last address it had.
+  const tab = reviewStates.get(item.id), address = tabAddress(tab?.url);
+  if (address) {
+    const line = el('span', 'muted small ss-job-tab');
+    const link = Object.assign(el('a', 'link', address), {href: '#', title: tab.url});
+    link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(tab.url); });
+    const opened = tab.tabAt ? new Date(tab.tabAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
+    line.append(formGone(item) ? 'Chrome tab (closed): ' : 'Chrome tab: ', link);
+    if (opened) line.append(` · opened ${opened}`);
+    if (opened && !formGone(item)) line.append(ticking(el('span'), ' · open for ', new Date(tab.tabAt).toISOString()));
+    words.append(line);
+  }
   const view = Object.assign(el('a', 'link small', 'View job ↗'), {href: '#'});
   view.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(item.url); });
   head.append(sessionLogo(item), words, view);

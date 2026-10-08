@@ -1230,6 +1230,7 @@ main { min-width: 0; }
 .ss-job-card .logo { width: 34px; height: 34px; }
 .ss-job-words { display: flex; flex-direction: column; min-width: 0; }
 .ss-job-words b { font-size: var(--fs-base); }
+.ss-job-tab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* the session's Chrome tab: one line */
 .ss-job-card .link { margin-left: auto; align-self: flex-start; text-decoration: none; white-space: nowrap; }
 /* The next step: tinted by its tone, a 4 px edge, the state on the right. */
 .ss-next { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
@@ -1355,7 +1356,6 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 #ss-form-summary::after { content: '▸'; display: inline-block; margin-left: var(--sp-1); font-size: var(--fs-xs); color: var(--muted); transition: transform .15s; }
 .ss-form-more[open] #ss-form-summary::after { transform: rotate(90deg); }
 .ss-form-more > summary:hover { color: var(--ink); }
-.ss-form-where { margin-left: auto; color: var(--muted); font-size: var(--fs-sm); font-weight: 400; white-space: nowrap; }
 .ss-form-fields { list-style: none; padding: var(--sp-2) 0 0; margin: var(--sp-2) 0 0; border-top: 1px solid var(--line);
   display: grid; gap: 5px; max-height: 280px; overflow: auto; font-size: var(--fs-md); }
 .ss-form-fields li { display: grid; grid-template-columns: 40px 14px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline; }

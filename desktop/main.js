@@ -1547,7 +1547,9 @@ function handlers() {
     if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); } else toWindow('toast', {title: 'Claude could not start', body: result?.error || 'Try again from the Applying page.'});
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
-  ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8')) : review.allStates()));
+  // Demo: each form's tab opened 12 minutes ago, so the card's "open for" reads the same in every screenshot.
+  ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8'))
+    .map(state => ({tabAt: Date.now() - 12 * 60 * 1000, ...state})) : review.allStates()));
   ipcMain.handle('reviewWatch', (_, id, items) => {
     appLog('review', `watch ${id}: ${(items || []).length} field(s)`, {labels: (items || []).map(item => String(item.label).slice(0, 60))});
     return review.setWatch(String(id), items);
