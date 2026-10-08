@@ -63,6 +63,9 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 ## The change loop (Superpowers plugin dropped 30 Sep 2026: its process cost more tokens than it saved)
 - Worktrees: `tools/worktree.sh <topic>` (`.claude/worktrees/`).
 - Finish: `tools/ship.sh` (rebase on `origin/main`, the hook's tests, push with retry, update the main checkout; no local merge, no PR unless asked), then Notion. **Pick a change tier first and say it** (AGENTS.md "Change tiers"): most changes are Tier 0/1 (~1–5 min); stop when the tier is met.
+- **Pick the test method that can show the thing** (AGENTS.md "Which test for which question"): unit for logic, `shot` for a screen, a fixture for a
+  control's shape, `real-extension` for the extension alone, `flows` for a flow file, the twin (`npm run twin`) only for what needs the owner's real
+  state or real sites. Every live finding ends in a test that fails without the fix.
 - **Commit subject: one line, at most 72 characters** (GitHub cuts the list at about that, 2 Oct 2026: subjects of 150+ characters
   with version numbers and reasons made the history unreadable). Imperative, what changed: `Extension: drop "Use on this tab"`.
   No version number, no reasons, no "because…" in the subject; those go in the body (blank line, then wrapped text).
