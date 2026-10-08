@@ -444,8 +444,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
 - `src/service.py` — The Job Pilotto service as the engine sees it: a random local install id, the token the website gives that id, and the private
 - `src/sources/aggregators.py` — Job aggregators with public APIs: more jobs straight away, and every employer they name becomes a scout candidate (via the jobs table).
+- `src/sources/ats_jobsch.py` — jobs.ch feed: one employer's postings read from the board's public search (schema.org data and the page's own app data).
+- `src/sources/ats_sites.py` — Company-site and search-driven job feeds: Workday, SuccessFactors, Umantis, Amazon, Netflix, and the Strategy terms they search with.
 - `src/sources/ats.py` — Public job feeds of common applicant-tracking systems, normalised to one shape.
 - `src/sources/boards.py` — Discover employers from the job boards (TechTree: Europe, any place; jobs.ch and SwissDevJobs: only when the user's places
+- `src/sources/careers_explore.py` — Finding where a company's jobs are: guessed careers addresses, the careers links of a page explored one level deeper, and what each
+- `src/sources/careers_parse.py` — Reading a careers page as text: the address <-> feed slug, links, which links look like a job list, and the jobs a page publishes itself
 - `src/sources/careers.py` — A company's own careers page, for employers with no job-system feed (Greenhouse, Lever, ...).
 - `src/sources/describe.py` — Descriptions for jobs that arrived without one.
 - `src/sources/feeds.py` — Small, dependency-free job watcher. Python 3.10+."""
@@ -456,6 +460,10 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/page_recipes.py` — Recipes: how to read one careers page without AI, learned from the one time AI read it.
 - `src/sources/readers.py` — A fingerprint of the code that reads job sites: when it changes, verdicts made by the older code are looked at again.
 - `src/sources/render.py` — Pages that only exist after JavaScript runs, read with a headless browser. Optional: needs `pip install playwright` and
+- `src/sources/visits_jobpages.py` — Finding each employer's job list for a visit: the pool's and the web search's job pages, the choice of the best address for your country,
+- `src/sources/visits_portals.py` — The portals and employers offered for a visit: search pages for LinkedIn, Indeed, Glassdoor and levels.fyi built from the user's own role
+- `src/sources/visits_read.py` — Reading the jobs of a page a person opened and sent: its own job data, the cards the extension saw, or the careers reader; kept per
+- `src/sources/visits_recipes.py` — The reading recipes of visited sites: a layout learned with Claude (or served by the pool and checked again), how many visits in a row it
 - `src/sources/visits.py` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
 - `src/sources/web_search.py` — A web search for a company's own job site ("<company> jobs"), as a person would do it, for employers the scout cannot reach by name or website
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
