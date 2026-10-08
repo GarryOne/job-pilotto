@@ -253,38 +253,40 @@ CONFIRM_WORDS = re.compile(r'verif|confirm|activat|validat|register|token|code|o
 
 
 def _ai_code(text):
-    """The sign-up code among the code-like tokens of an email whose words the rule did not know ("Ihr Bestätigungscode", "認証コード"):
-    AI picks one of the email's own tokens, so it can never invent a code. '' without AI."""
+    """The sign-up code among the email's code-like tokens, in any language ("Ihr Bestätigungscode", "認証コード"): AI picks one of the
+    email's own tokens, so it can never invent a code. '' when none is a code, None without AI."""
     candidates = list(dict.fromkeys(CODE.findall(text)))[:10]
     if not candidates:
         return ''
     from ..ai import decide
     lines = {c: next((line for line in text.splitlines() if c in line), c)[:200] for c in candidates}
     found = decide.decide('signup-code', {c: f'{c}  (in: {lines[c]})' for c in candidates}, ('code', 'other'),
-                          'A token from a sign-up email. code: the verification or confirmation code to type; other: an order number, a date, a reference.') or {}
-    return next((c for c in candidates if found.get(c) == 'code'), '')
+                          'A token from a sign-up email. code: the verification or confirmation code to type; other: an order number, a date, a reference.')
+    return None if found is None else next((c for c in candidates if found.get(c) == 'code'), '')
 
 
 def _ai_links(links):
-    """The links that confirm or activate the new account, among an email's links whose address names none of CONFIRM_WORDS. [] without AI."""
+    """The links that confirm or activate the new account, among an email's own links, in any language; None without AI."""
     links = [link.rstrip('.,;') for link in links][:15]
     if not links:
         return []
     from ..ai import decide
     found = decide.decide('signup-link', {link: link for link in links}, ('confirms_signup', 'other'),
                           'A link from an email a site sent after sign-up. confirms_signup: opening it verifies the email or activates the account; '
-                          'other: anything else (privacy, unsubscribe, help, the home page).') or {}
-    return [link for link in links if found.get(link) == 'confirms_signup']
+                          'other: anything else (privacy, unsubscribe, help, the home page).')
+    return None if found is None else [link for link in links if found.get(link) == 'confirms_signup']
 
 
 def confirmation(email):
     """The verification code and confirm links in one email: only what finishing a sign-up needs."""
     text = f"{email['subject']}\n{email['body']}"
-    near = (CODE.search(m.group(0)) for m in re.finditer(r'(?i)(code|pin|otp|password)[^\n]{0,60}', text))
-    code = next((c for c in near if c), None) or CODE.search(email['subject'])
-    code = code.group(0) if code else _ai_code(text)
     found = [link.rstrip('.,;') for link in CONFIRM_LINK.findall(email['body'])]
-    links = [link for link in found if CONFIRM_WORDS.search(link)] or _ai_links(found)   # free first row; in any other language, AI
+    code, links = _ai_code(text), _ai_links(found)   # AI decides, in any language
+    if code is None:   # no AI: the English words, so a sign-up in progress is not left stuck (the only fallback kept here)
+        near = (CODE.search(m.group(0)) for m in re.finditer(r'(?i)(code|pin|otp|password)[^\n]{0,60}', text))
+        code = next((c.group(0) for c in near if c), '') or (lambda m: m.group(0) if m else '')(CODE.search(email['subject']))
+    if links is None:
+        links = [link for link in found if CONFIRM_WORDS.search(link)]
     return {'from': email['from'], 'subject': email['subject'], 'date': email['date'],
             'code': code or '', 'links': list(dict.fromkeys(links))[:3]}
 

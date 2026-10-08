@@ -59,7 +59,8 @@ class UsersTests(unittest.TestCase):
         with mock.patch.object(decide, 'decide', lambda topic, items, *a, **k: {key: answers.get(key, 'other') for key in items}):
             found = google.confirmation(email)
         self.assertEqual((found['code'], found['links']), ('4K7Q2Z', ['https://site.jp/kakunin?t=1']))
-        with mock.patch.object(decide, 'decide', lambda *a, **k: None):   # no AI: nothing guessed
+        with mock.patch.object(decide, 'decide', lambda *a, **k: None):   # no AI: the English words only, so a sign-up isn't stuck
+            self.assertEqual(google.confirmation({**email, 'body': 'Your code: 4K7Q2Z'})['code'], '4K7Q2Z')
             self.assertEqual(google.confirmation(email)['code'], '')
 
     def test_interview_rounds_in_any_language_and_the_rule_without_ai(self):
@@ -67,17 +68,16 @@ class UsersTests(unittest.TestCase):
         with mock.patch.object(decide, 'one', lambda topic, key, text, *a, **k: 'recruiter_screen' if 'RH' in text else 'technical'):
             self.assertEqual(interviews.held_stage('Interview scheduled', 'Entretien RH'), 'Screening')
             self.assertEqual(interviews.held_stage('Interview scheduled', 'Fachgespräch'), 'Interviewing')
-        with mock.patch.object(decide, 'one', lambda *a, **k: None):
+        with mock.patch.object(decide, 'one', lambda *a, **k: None):   # no AI: not known, never an English guess
             from src.ai import meanings
-            self.assertEqual(meanings.round_kind('Recruiter screen'), 'recruiter_screen')
+            self.assertEqual(meanings.round_kind('Recruiter screen'), 'other')
 
     def test_a_booking_reply_in_any_language(self):
         from src import focus
         with mock.patch.object(decide, 'one', lambda *a, **k: 'asks_to_book'):
             self.assertTrue(focus.meanings.asks_to_book('Pediu para escolher um horário na agenda'))
-        with mock.patch.object(decide, 'one', lambda *a, **k: None):
-            self.assertTrue(focus.meanings.asks_to_book('Please book a slot'))
-            self.assertFalse(focus.meanings.asks_to_book('Pediu para escolher um horário'))   # the rule alone knows English only
+        with mock.patch.object(decide, 'one', lambda *a, **k: None):   # no AI: not known
+            self.assertFalse(focus.meanings.asks_to_book('Please book a slot'))
 
 
 if __name__ == '__main__':

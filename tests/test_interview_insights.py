@@ -9,7 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interview_insights as ii
-from src.ai import insights, interviews
+from src.ai import insights, interviews; from tests.model_stand_ins import rounds as setUpModule  # noqa: E702,F401 (the model's answer)
 
 NOW = datetime(2026, 9, 30, 12, 0, tzinfo=timezone.utc)
 

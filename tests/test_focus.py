@@ -6,8 +6,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import focus
 from tests import zone
+from tests.model_stand_ins import booking  # the model's answer (src/ai/meanings.py)
 
-setUpModule, tearDownModule = zone.pinned()
+_pin, tearDownModule = zone.pinned()
+setUpModule = lambda: (_pin(), booking())  # noqa: E731
 
 NOW = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)  # Monday 17:00 in Zurich
 
@@ -30,6 +32,7 @@ def event(page_id, kind, at, note='', source_id='', source=''):
     return {'properties': {'Kind': {'type': 'select', 'select': {'name': kind}}, 'At': {'type': 'date', 'date': {'start': at}},
                            'Note': text(note), 'Source ID': text(source_id), 'Source': {'type': 'select', 'select': {'name': source} if source else None},
                            'Application': {'type': 'relation', 'relation': [{'id': page_id}]}}}
+
 
 
 class FocusTests(unittest.TestCase):

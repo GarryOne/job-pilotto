@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.ai import interviews
+from src.ai import interviews; from tests.model_stand_ins import screens as setUpModule  # noqa: E702,F401 (the model's answer)
 from src.notion import ledger
 from src.notion.ledger import plain
 

@@ -309,7 +309,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
 - `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
-- `src/ai/meanings.py` — What content means, decided by AI in any language, each with the rule that answers only without AI (CLAUDE.md "Meaning comes from AI,
+- `src/ai/meanings.py` — What content means, decided by AI in any language (CLAUDE.md "Meaning comes from AI, never from keyword lists"; the shared mechanism is
 - `src/ai/models.py` — The model of the small AI steps (title, page and place checks, triage, search picks, stage 1 facts, mail), as data.
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
 - `src/ai/page_reader.py` — Claude reads a careers page that has no machine-readable jobs and lists the jobs on it.
