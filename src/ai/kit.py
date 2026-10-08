@@ -51,13 +51,15 @@ SCHEMA = {
             'type': 'array',
             'items': {
                 'type': 'object', 'additionalProperties': False,
-                'required': ['field', 'question', 'answer', 'needs_review'],
+                'required': ['field', 'question', 'answer', 'needs_review', 'category'],
                 'properties': {
                     'field': {'type': 'string', 'description': 'Form field name as given, or "" if not from a form'},
                     'question': {'type': 'string'},
                     'answer': {'type': 'string', 'description': 'For select fields: one option label, verbatim'},
                     'needs_review': {'type': 'boolean',
                                      'description': 'True when the answer rests on a guess or a ❓ field'},
+                    'category': {'type': 'string', 'enum': ['knockout', 'legal', 'demographic', 'contact', 'normal'],
+                                 'description': 'What kind of question, in any language (the extension never fills a legal one)'},
                 },
             },
         },
@@ -101,6 +103,10 @@ option and set needs_review.
 the candidate speaks it well (a French posting gets French for a French speaker); otherwise in English, which the candidate can read \
 and defend in an interview. A language the standard answers name for applications wins over both. Keep option values of select \
 fields exactly as listed. If the posting asks for a language the profile doesn't show, add it to check_before_sending.
+- category of each answer, in whatever language the form is: knockout = the employer can reject on it alone (work authorisation, \
+visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, \
+certification or acknowledgement (the extension never ticks these: the candidate does); demographic = gender, ethnicity, disability, \
+veteran or similar voluntary questions; contact = name, email, phone, address; normal = anything else.
 - With no form given, answer the questions this posting's application most likely asks \
 (why this company, why this role, relevant experience), field "".
 - Where the standard answer is marked ❓ or missing, write your best short draft and set \

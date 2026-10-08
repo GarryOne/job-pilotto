@@ -89,7 +89,7 @@
       const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
-      entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai');
+      entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai'); entry.category ||= el.dataset.jobpilottoCategory || '';   // the AI's reading, any language (page/categories.js)
       entry.filled ||= filled;
       groups.set(key, entry);
     }
@@ -355,13 +355,13 @@
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
     $('.left').hidden = !left || busy || !over;
-    const ranked = [...shown].sort((a, b) => KNOCKOUT.test(b.label) - KNOCKOUT.test(a.label));
-    const knockouts = ranked.filter(field => KNOCKOUT.test(field.label)).length;
+    const knockout = field => KNOCKOUT.test(field.label) || field.category === 'knockout', ranked = [...shown].sort((a, b) => knockout(b) - knockout(a));   // or the AI, any language
+    const knockouts = ranked.filter(knockout).length;
     $('.knock').hidden = !knockouts;
     $('.knock').textContent = 'Some of these can trigger automatic rejection if the employer has set a knockout rule (work permit, sponsorship, location, office days); others are only flagged for review. Answer them truthfully: they can decide more than the CV.';
     $('.list').replaceChildren(...ranked.slice(0, 30).map(field => {
       const row = Object.assign(document.createElement('button'), {className: 'item'});
-      row.append(Object.assign(document.createElement('i'), {textContent: KNOCKOUT.test(field.label) ? '⛔' : AGREE.test(field.label) ? '⚖️' : '○'}),
+      row.append(Object.assign(document.createElement('i'), {textContent: knockout(field) ? '⛔' : AGREE.test(field.label) || field.category === 'legal' ? '⚖️' : '○'}),
         Object.assign(document.createElement('span'), {textContent: field.label.slice(0, 120) || 'A required field'}),
         Object.assign(document.createElement('span'), {className: 'go', textContent: '›'}));
       row.onclick = () => flash(field.el);

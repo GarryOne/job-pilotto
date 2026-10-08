@@ -124,12 +124,13 @@ const ANSWER_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['field', 'value', 'confidence', 'note'],
+        required: ['field', 'value', 'confidence', 'note', 'category'],
         properties: {
           field: { type: 'string' },
           value: { type: 'string' },
           confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
           note: { type: 'string' },
+          category: { type: 'string', enum: ['knockout', 'legal', 'demographic', 'contact', 'normal'] },
         },
       },
     },
@@ -145,6 +146,7 @@ For each form field you are given its id, label, type, whether it is required, a
 - combobox: its options are often not listed (the menu is closed); give the option wording the form most likely uses ("Yes", "No", a country or city name). When options are listed, copy one exactly.
 - checkbox: "checked" or "unchecked".
 Leave out a field (no answer) when the profile and standard answers don't give you the fact: never invent employers, dates, numbers, links or personal details. Leave out legal consents and acknowledgements. Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one.
+category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; normal = anything else.
 confidence: high when the answer is stated in the profile or standard answers, medium when you inferred it, low when the applicant should check it. note: a few words on why, for medium and low.
 
 Eligibility: set eligible to false only when the posting clearly rules the applicant out (a work location, residence or authorization the profile says they can't meet, or a required language they don't speak), and say why in eligibility_note. Otherwise eligible is true and eligibility_note is empty.`;
@@ -293,8 +295,8 @@ function summary(row) {
 // Only what filling a form needs: never the job analysis or the JSON's other internals.
 function kitForForm(kit) {
   return {
-    answers: (kit.answers || []).filter((a) => a.field).map(({ field, question, answer, needs_review }) =>
-      ({ field, question, answer, needs_review: !!needs_review })),
+    answers: (kit.answers || []).filter((a) => a.field).map(({ field, question, answer, needs_review, category }) =>
+      ({ field, question, answer, needs_review: !!needs_review, category: category || '' })),
     cover_letter: kit.cover_letter || '',
     check_before_sending: kit.check_before_sending || [],
   };

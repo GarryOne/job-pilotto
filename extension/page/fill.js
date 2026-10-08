@@ -354,6 +354,7 @@
         filled: false, legal: LEGAL.test(group.question)});
     }
     const rowOf = Object.fromEntries(form.map(row => [row.field, row]));
+    window.__jobPilottoMarkCategories?.(answers, rowOf);   // the AI's reading, any language: legal never filled (page/categories.js)
     // Kit answers name fields as the job board does (question_123[]); a checkbox group is matched by its question.
     for (const item of answers) {
       if (rowOf[item.field] || !item.question) continue;
@@ -362,8 +363,7 @@
     }
     const contact = window.__jobPilottoProfileEntries(form, profile || {});
     const contactFields = new Set(contact.map(entry => entry.field));
-    const todo = [], review = [], armed = [];
-    document.querySelectorAll('.job-pilotto-badge').forEach(badge => badge.remove());
+    const todo = [], review = [], armed = []; document.querySelectorAll('.job-pilotto-badge').forEach(badge => badge.remove());
     let filled = 0;
     const plain = [];
     for (const item of answers) {
