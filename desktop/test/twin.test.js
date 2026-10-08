@@ -80,7 +80,7 @@ test('a twin\'s Claude sessions drive the twin\'s own browser through Playwright
   assert.ok(config.mcpServers.playwright.args.includes('--init-script') && fs.existsSync(config.mcpServers.playwright.args[config.mcpServers.playwright.args.indexOf('--init-script') + 1]));   // the submit guard
   const secrets = config.mcpServers.playwright.args[config.mcpServers.playwright.args.indexOf('--secrets') + 1];
   assert.equal(fs.readFileSync(secrets, 'utf8'), 'SITE_PASSWORD_1="pw-1"\n');   // masked in what the session reads; once, no blanks
-  assert.equal(fs.statSync(secrets).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(secrets).mode & 0o777, 0o600);   // Windows has no Unix file modes (it reports 0o666)
   assert.throws(() => browserFlags(dir, twin), /without its own browser/);
   assert.match(twinNote({...twin, JOB_PILOTTO_TWIN_BROWSER_CDP: 'x'}), /^LIVE TEST.*overrides every claude-in-chrome step.*Never press Submit/s);
   assert.equal(twinNote({}), '');
