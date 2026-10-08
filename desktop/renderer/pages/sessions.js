@@ -10,13 +10,13 @@ import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
 // The state other pages show uses the form page's state too: ready to submit once the form says so.
 const closedForm = item => formGone(item);  // its Chrome tab was closed (a form or a Claude session's)
-const sessionStatus = item => (closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
+const sessionStatus = item => (checkingTab(item) ? ['Checking…', 'neutral'] : closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
@@ -247,7 +247,19 @@ const submittedButton = item => sessionButton('I submitted it', 'secondary', asy
 }, 'check');
 // Where to answer: the button opens the reply box in the log below (a quick reply there sends one tap of text).
 const answerHint = () => el('p', 'rich-p muted small', 'Press Answer, then type your reply in the log below, or use a quick reply there.');
+// While the app checks Chrome for the session's tab: a loading card (the existing .skeleton lines), nothing from the last state.
+function renderChecking() {
+  $('ss-decision').className = 'ss-next tone-neutral';
+  $('ss-next-title').textContent = 'Checking Chrome for this application\u2026';
+  $('ss-next-state').textContent = '';
+  $('ss-stage').replaceChildren();
+  $('ss-form-state').replaceChildren();
+  $('ss-question').replaceChildren(el('span', 'skeleton w-80'), el('span', 'skeleton w-60'));
+  $('ss-actions').replaceChildren(el('span', 'skeleton button'), el('span', 'skeleton button small'));
+  for (const id of ['ss-form-card', 'ss-needs-card', 'ss-happened-card', 'ss-full-toggle', 'ss-full']) show($(id), false);
+}
 export function renderNextStep(item) {
+  if (checkingTab(item)) { renderChecking(); return; }
   const submitted = isSubmitted(item);
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
   const gone = !submitted && formGone(item);
@@ -404,7 +416,7 @@ export function renderNextStep(item) {
   const sorted = sortChecks(checks), mine = sortChecks(forYou, {forYou: true});
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
   const empty = gone ? [] : emptyFields(item, needs);   // a closed tab has no empty fields to open
-  show($('ss-needs-card'), needs.length + empty.length > 0 && !(gone && item.kind === 'form'));
+  show($('ss-needs-card'), needs.length + empty.length > 0 && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
   $('ss-needs-title').textContent = 'Needs your attention';
   $('ss-needs-sub').textContent = review ? 'Claude filled most of the form, but a few items need your review.'
     : 'Claude flagged these while it worked.';

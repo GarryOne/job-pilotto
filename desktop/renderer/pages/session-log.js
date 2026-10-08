@@ -8,7 +8,7 @@ import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {isSubmitted} from '../session-state.js';
-import {formGone, formReady} from './session-needs.js';
+import {checkingTab, formGone, formReady} from './session-needs.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
@@ -34,7 +34,7 @@ function clearHeader() {
   $('ss-more').replaceChildren();
 }
 // A form session whose Chrome tab was closed is not "Form open" any more (the tab report says so within seconds).
-const stateOf = item => (formGone(item) ? ['Form closed', 'neutral'] : sessionState(item));
+const stateOf = item => (checkingTab(item) ? ['Checking…', 'neutral'] : formGone(item) ? ['Form closed', 'neutral'] : sessionState(item));
 export function renderSessionPage() {
   // The session shown is the open one; after a reload (⌘R) the one open before it, else the first. It becomes the
   // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).

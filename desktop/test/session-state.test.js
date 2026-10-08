@@ -122,3 +122,14 @@ test('a session whose tab is gone is closed: a form seen before, a form session 
   assert.equal(tabClosed({id: 'f1', kind: 'form', outcome: 'submitted', live: false}, none, true, now), false);
   assert.equal(tabClosed({id: 'r1', kind: 'read', live: false}, none, false, now), false);
 });
+
+test('just after the app starts, a session waiting on its Chrome tab is "checking" until the extension reports in', async () => {
+  const {checkingTabs, CHECK_MS} = await import('../renderer/session-state.js');
+  const claude = {id: 'c1', kind: 'claude', live: false, status: 'input'}, form = {id: 'f1', kind: 'form'};
+  assert.equal(checkingTabs(claude, null, 500), true);                        // nothing heard yet
+  assert.equal(checkingTabs(form, {known: false, ids: []}, 500), true);       // the extension has not reported in
+  assert.equal(checkingTabs(form, {known: true, ids: []}, 500), false);       // known: closed or open, the card says which
+  assert.equal(checkingTabs(form, null, CHECK_MS + 1), false);                // no answer in time: the last state again
+  assert.equal(checkingTabs({...claude, live: true, status: 'running'}, null, 500), false);
+  assert.equal(checkingTabs({...form, outcome: 'submitted', live: false}, null, 500), false);
+});

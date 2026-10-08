@@ -75,5 +75,14 @@ export function tabClosed(item, formsOpen, seen = false, now = Date.now()) {
   if (!item || !formsOpen?.known || formsOpen.ids.includes(item.id) || isSubmitted(item) || item.outcome) return false;
   if (seen) return true;
   if (item.kind === 'form') return now - (Date.parse(item.startedAt || '') || now) > 60 * 1000;
-  return item.kind === 'claude' && !isLive(item);
+  return (item.kind || 'claude') === 'claude' && !isLive(item);
+}
+
+// The first look at Chrome after the app starts (or ⌘R): until the extension reports in, or CHECK_MS pass, nobody knows whether
+// a session's tab is still there, so its card shows that it is checking instead of the last state it had (owner, 8 Oct 2026:
+// for 2 s the old question and "Can't reach form" showed, then "The form tab was closed" replaced them).
+export const CHECK_MS = 15 * 1000;
+export function checkingTabs(item, formsOpen, sinceStart) {
+  if (!item || formsOpen?.known || sinceStart > CHECK_MS || isSubmitted(item) || item.outcome) return false;
+  return item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item));
 }

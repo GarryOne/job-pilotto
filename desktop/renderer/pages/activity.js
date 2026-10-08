@@ -29,6 +29,8 @@ import {whichJob} from './reassign.js';
 import {openPrep, prepRunning} from './prep.js';
 import {readableLog} from '../human-log.js';
 import {renderSessionPage} from './session-log.js';
+import {renderDock} from './sessions.js';
+import {CHECK_MS} from '../session-state.js';
 import {renderActionsPage} from './runs-page.js';
 import {toastMessage} from './startup.js';
 import {renderDraft, showDraftIntro} from './strategy-review.js';
@@ -1893,6 +1895,9 @@ export async function init() {
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
   window.addEventListener('focus-updated', () => { if (!$('activity-panel').hidden && lastActivity) renderActivity(lastActivity); });
   window.pilot.runs().then(renderActivity).catch(() => {});  // at once, not after the first 2 s tick
+  // Which session tabs are open, at once too: until it is known the session cards say they are checking (CHECK_MS at most).
+  window.pilot.formsOpen().then(forms => { shared.formsOpen = forms; renderSessionPage(); renderDock(); }).catch(() => {});
+  setTimeout(() => { renderSessionPage(); renderDock(); }, CHECK_MS + 100);
   setInterval(async () => {
     if ($('app').hidden) return;
     const runsNow = await window.pilot.runs();
