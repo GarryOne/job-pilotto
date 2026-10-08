@@ -53,3 +53,20 @@ test('every way the card is fed shows proposals: Claude\'s message (askRow) and 
   assert.match(needs, /export function askRow[\s\S]*?input\.value = saved \|\| need\.suggested/);
   assert.match(needs, /export function emptyRow\(label, item\) \{\n  const proposal = proposalFor\(item, label\); if \(proposal\) return proposedRow/);
 });
+
+test('Enter in an answer box presses its button, for every row with one (Use, Fill it in, Send to Claude)', () => {
+  const sources = ['session-needs.js', 'need-proposal.js'].map(name => fs.readFileSync(new URL(`../renderer/pages/${name}`, import.meta.url), 'utf8')).join('\n');
+  const buttons = [...sources.matchAll(/const (\w+) = smallButton\('(Use|Fill it in|Send to Claude)'/g)];
+  assert.equal(buttons.length, 3);
+  for (const [, name, text] of buttons) assert.match(sources, new RegExp(`submitOnEnter\\(input, ${name}\\)`), `${text}: Enter does nothing`);
+  // The page module needs a DOM to import: the helper is run from its own source.
+  const helper = sources.match(/export (function submitOnEnter[\s\S]*?\n\})/)[1];
+  const submitOnEnter = new Function(`${helper}; return submitOnEnter;`)();
+  const listeners = {}, input = {addEventListener: (type, run) => { listeners[type] = run; }};
+  let clicks = 0; const button = {disabled: false, isConnected: true, click: () => clicks++};
+  submitOnEnter(input, button);
+  const press = (key, extra = {}) => listeners.keydown({key, preventDefault() {}, ...extra});
+  press('Enter'); press('a'); press('Enter', {isComposing: true});
+  button.disabled = true; press('Enter');
+  assert.equal(clicks, 1);
+});

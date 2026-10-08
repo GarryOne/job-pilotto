@@ -6,7 +6,7 @@
 // test/need-proposal.test.js.
 import {el} from '../components.js';
 import {renderSessionPage} from './session-log.js';
-import {badge, reviewStates, showInForm, smallButton, titleLine} from './session-needs.js';
+import {badge, reviewStates, showInForm, smallButton, submitOnEnter, titleLine} from './session-needs.js';
 import {onChoices, pickProposal} from '../proposal-pick.js';
 
 // What the row needs besides the form's report, asked once per window and kept: your details, the CV's proposals, and which detail a
@@ -94,6 +94,7 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
     setTimeout(() => { if ((reviewStates.get(item.id)?.pending || []).includes(label)) { navigator.clipboard?.writeText(value).catch(() => {}); renderSessionPage(); } }, TAKES_MS);
     renderSessionPage();
   });
+  submitOnEnter(input, use);
   actions.append(use);
   return li;
 }

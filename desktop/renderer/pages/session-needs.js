@@ -107,6 +107,14 @@ export function smallButton(text, kind, run, title = '') {
   button.addEventListener('click', run);
   return button;
 }
+// Enter in a row's answer box presses its button (Use, Fill it in, Send to Claude), unless the button is off or an IME is composing.
+export function submitOnEnter(input, button) {
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || event.isComposing || button.disabled || !button.isConnected) return;
+    event.preventDefault();
+    button.click();
+  });
+}
 // ---- In step with the form page (the extension's ring, extension/review.js; lib/review.js) ----
 export const reviewStates = new Map();  // session id → {left, total, ready, states: {watch id: ticked}}
 const syncedDone = new Set(keptRows.synced || []);    // rows ticked off because the form said so (untick there: back here)
@@ -309,9 +317,11 @@ export function needRow(need, item) {
       };
       const before = [...actions.childNodes];
       const back = () => { li.classList.remove('is-asking'); actions.replaceChildren(...before); };
-      input.addEventListener('keydown', event => { if (event.key === 'Enter') send(); if (event.key === 'Escape') back(); });
+      const sendButton = smallButton('Send to Claude', 'primary', send, offline(item));
+      submitOnEnter(input, sendButton);
+      input.addEventListener('keydown', event => { if (event.key === 'Escape') back(); });
       li.classList.add('is-asking');   // the answer box takes its own line under the text, not a corner of the row
-      actions.replaceChildren(input, smallButton('Send to Claude', 'primary', send, offline(item)), smallButton('Cancel', 'secondary', back));
+      actions.replaceChildren(input, sendButton, smallButton('Cancel', 'secondary', back));
       input.focus();
     };
     select.addEventListener('change', () => {
@@ -386,6 +396,7 @@ export function askRow(need, item) {
   }, offline(item));
   const line = el('div', 'ss-ask-line');
   const actions = el('span', 'ss-need-actions');
+  submitOnEnter(input, fill);
   actions.append(fill);
   line.append(input, actions, box);
   body.append(line);
