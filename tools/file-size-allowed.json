@@ -1,9 +1,6 @@
 {
- "desktop/e2e/lib/triage.mjs": 547,
  "desktop/e2e/suites/apply.mjs": 647,
- "desktop/e2e/test/triage.test.mjs": 589,
  "desktop/main.js": 1197,
- "desktop/test/app.test.js": 732,
  "extension/background.js": 933,
  "extension/page/fill.js": 571,
  "extension/review.js": 663,
@@ -14,6 +11,5 @@
  "src/ai/mail.py": 1193,
  "tests/test_interview_insights.py": 628,
  "tests/test_interviews.py": 838,
- "tests/test_mail.py": 862,
- "worker/src/index.js": 541
+ "tests/test_mail.py": 862
 }

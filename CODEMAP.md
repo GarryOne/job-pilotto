@@ -476,6 +476,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Telegram bot (worker)
 
 - `worker/src/extension.js` — Endpoints for the Job Pilotto Chrome extension (extension/ in the repo).
+- `worker/src/format.js` — Telegram message text for the worker: HTML escaping and the run / applications / saved-jobs listings.
 - `worker/src/index.js` — Telegram webhook for @sre_job_pilotto_bot.
 - `worker/src/report.js` — Fill-failure reports from the Job Pilotto app: form STRUCTURE only (site, field labels, types, options, why a
 - `worker/src/scheduler.js` — On-time starts for the pipeline's schedules (5 Oct 2026). GitHub's own scheduler is best-effort: the nightly build started six hours late two days running and the
