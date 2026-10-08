@@ -20,12 +20,12 @@ test('a confirmed account of this email is signed in to; recording one host keep
 
 import {DEFAULT_AUTOMATION, automationOf} from '../lib/site-accounts.js';
 
-test('the account automation setting: full or assist, anything else is the default (full for now: the owner chose it; flip DEFAULT_AUTOMATION before it ships)', () => {
+test('the account automation setting: full or assist, anything else is the default (assist)', () => {
   assert.equal(automationOf({accountAutomation: 'assist'}), 'assist');
   assert.equal(automationOf({accountAutomation: 'full'}), 'full');
   assert.equal(automationOf({accountAutomation: 'nonsense'}), DEFAULT_AUTOMATION);
   assert.equal(automationOf(undefined), DEFAULT_AUTOMATION);
-  assert.equal(DEFAULT_AUTOMATION, 'full');
+  assert.equal(DEFAULT_AUTOMATION, 'assist');   // 9 Oct 2026: assist is what a new install gets
 });
 
 import {withAccounts} from '../lib/site-accounts.js';

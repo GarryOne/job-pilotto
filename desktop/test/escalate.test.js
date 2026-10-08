@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import {CAPS, escalate} from '../lib/escalate.js';
 
 const sketch = {url: 'https://karriere.example/career', title: 'Anmelden', headings: [], controls: [{type: 'text', label: 'E-Mail', required: true, state: 'empty', at: '50,30'}], buttons: ['Anmelden', 'Noch kein Profil? Hier registrieren'], texts: [], frames: []};
-const storageOf = (settings = {escalation: 'on'}) => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-esc-')); return {settings: () => settings, path: name => path.join(dir, name)}; };
+const storageOf = (settings = {escalation: 'on', accountAutomation: 'full'}) => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-esc-')); return {settings: () => settings, path: name => path.join(dir, name)}; };
 const fake = (answer, seen = []) => ({messages: {create: async body => { seen.push(body); return {content: [{type: 'text', text: JSON.stringify(answer)}], stop_reason: 'end_turn'}; }}});
 const ask = (extra = {}) => ({url: 'https://karriere.example/career?token=SECRET', kind: 'account', sketch, image: Buffer.from('jpeg-bytes').toString('base64'), reason: 'unsure twice', ...extra});
 
@@ -31,6 +31,8 @@ test('a click on a control the page lists goes through; a made-up control become
 test('assist means the person clicks; no picture, a huge picture or no AI is "none"', async () => {
   const assist = await escalate(storageOf({escalation: 'on', accountAutomation: 'assist'}), ask(), {client: fake({action: 'click', control: 'Anmelden', why: 'x', confidence: 0.9})});
   assert.equal(assist.action, 'ask_person');
+  const unset = await escalate(storageOf({escalation: 'on'}), ask(), {client: fake({action: 'click', control: 'Anmelden', why: 'x', confidence: 0.9})});
+  assert.equal(unset.action, 'ask_person');   // nothing saved = the default = assist (9 Oct 2026): the person clicks
   assert.equal((await escalate(storageOf(), ask({image: ''}), {client: fake({})})).why, 'no picture');
   assert.equal((await escalate(storageOf(), ask({image: 'A'.repeat(1_000_000)}), {client: fake({})})).why, 'no picture');
   assert.equal((await escalate(storageOf(), ask(), {client: null})).why, 'no AI');

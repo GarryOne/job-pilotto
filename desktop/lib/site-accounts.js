@@ -20,8 +20,8 @@ export function record(accounts, host, email, state = 'pending', now = Date.now(
 
 // How far the extension goes on a sign-up page (owner, 8 Oct 2026): 'full' = it also accepts the account's consent (a checkbox, or a link and the dialog's accept button, as the
 // AI names them) and presses the account button; 'assist' = it fills, and leaves the consent and the button to the person. Only the ACCOUNT's steps, never an application's Submit.
-// The owner chose full for now; a Settings switch comes later (settings.accountAutomation). Flip DEFAULT_AUTOMATION here before it ships to anyone else.
-export const DEFAULT_AUTOMATION = 'full';
+// Settings → Automation has the switch (settings.accountAutomation). The default is assist (9 Oct 2026, before the app went to others): the extension fills, the person accepts the consent and presses the account button. The owner's own app is set to full in Settings.
+export const DEFAULT_AUTOMATION = 'assist';
 export const automationOf = settings => (settings?.accountAutomation === 'assist' ? 'assist' : settings?.accountAutomation === 'full' ? 'full' : DEFAULT_AUTOMATION);
 
 // Settings → Credentials (lib/credentials.js lists the Keychain's password items, which know a host and sometimes an email): the account we made on a host, from settings.siteAccounts, fills

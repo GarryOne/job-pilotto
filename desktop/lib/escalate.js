@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import {accountSketch, listed} from './account-judge.js';
 import {pageShape} from './page-kind.js';
+import {automationOf} from './site-accounts.js';
 
 export const MODEL = 'claude-opus-5-5';
 export const CAPS = {perShape: 2, perDay: 10};
@@ -55,7 +56,7 @@ export async function escalate(storage, body, {client, now = Date.now()} = {}) {
     if (!ACTIONS.includes(found?.action)) return {ok: true, action: 'none', why: 'not an action'};
     const control = found.action === 'click' ? listed(found.control, sketch) : '';
     if (found.action === 'click' && !control) return {ok: true, action: 'ask_person', why: 'the control is not on the page'};   // a control the page does not list is never pressed
-    if (found.action === 'click' && settings.accountAutomation === 'assist') return {ok: true, action: 'ask_person', why: 'assist: the person clicks'};
+    if (found.action === 'click' && automationOf(settings) === 'assist') return {ok: true, action: 'ask_person', why: 'assist: the person clicks'};
     return {ok: true, action: found.action, control, by: 'ai', why: String(found.why || '').replace(/\s+/g, ' ').slice(0, 120)};
   } catch (error) { return {ok: true, action: 'none', why: String(error?.message || 'AI failed').replace(/\s+/g, ' ').slice(0, 120)}; }
 }
