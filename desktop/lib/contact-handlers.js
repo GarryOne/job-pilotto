@@ -3,6 +3,8 @@
 import * as contactDetails from './contact.js';
 import * as fromCv from './contact-from-cv.js';
 import {keysFor} from './contact-keys.js';
+import * as sharedMeanings from './aliases.js';
+import {proposalReporter} from './server-hooks.js';
 import {pickOption} from './option-pick.js';
 import {menuRearm} from './menu-rearm.js';
 import * as review from './review.js';
@@ -31,7 +33,8 @@ export function registerContactHandlers({ipcMain, storage, DEMO, connected, need
     } catch (error) { return {ok: false, error: `Notion: ${error.message}`}; }
   });
   // Which contact detail each form label asks for (Claude reads labels it hasn't seen; kept per label).
-  ipcMain.handle('contactKeysFor', (_, labels) => (DEMO ? {} : keysFor(storage, Array.isArray(labels) ? labels.map(String) : [], {client: aiClient(storage), log})));
+  ipcMain.handle('contactKeysFor', async (_, labels) => (DEMO ? {} : keysFor(storage, Array.isArray(labels) ? labels.map(String) : [],
+    {client: aiClient(storage), log, aliases: await sharedMeanings.lookup(storage).catch(() => []), propose: items => proposalReporter(items)})));
   // The form's own choice for an answer, when the field is a menu (lib/option-pick.js).
   ipcMain.handle('formChoiceFor', (_, ask) => (DEMO ? {choice: '', how: 'none'} : pickOption(storage, ask || {}, {client: aiClient(storage), log})));
   // {again}: read the CV anew (the button); otherwise what was proposed for this CV, or one Claude call when it was never read for this.

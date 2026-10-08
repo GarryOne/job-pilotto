@@ -2,8 +2,12 @@
 // → salutation), decided by Claude from the label alone, in any language, once per label and kept (contact-label-keys.json). The
 // extension's own label list knows a few words per detail; the session page's rows ask here for the labels it doesn't know
 // (owner, 8 Oct 2026: meaning comes from AI, never from keyword lists). Claude sees form labels only, never your details or CV.
+// Learning is shared (owner, 8 Oct 2026: "reuse learning from one installation to another"): the order is this Mac's cache, then the
+// shared label meanings (the alias pack, lib/aliases.js), then Claude; each answer Claude gives goes back as a proposal (the wording and
+// the field name only, never a value: lib/learn.js proposalsOf's channel), so the next install needs no call.
 // Guarded by test/contact-keys.test.js.
 import {LABELS} from './contact.js';
+import {aliasKey, cleanLabel} from '../shared/alias-schema.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const FILE = 'contact-label-keys.json';
@@ -19,8 +23,9 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['items']
 const readKept = storage => { try { return JSON.parse(storage.readText(FILE) || '{}') || {}; } catch { return {}; } };
 
 // labels → {label: key|''} for every label: kept answers at once, one Claude call for the rest (when there is AI).
-export async function keysFor(storage, labels, {client, log = () => {}} = {}) {
+export async function keysFor(storage, labels, {client, log = () => {}, aliases = [], propose = () => {}} = {}) {
   const kept = readKept(storage), wanted = [...new Set((labels || []).map(norm).filter(Boolean))].slice(0, 40);
+  for (const label of wanted) if (!(label in kept) && aliasKey(label, aliases)) kept[label] = aliasKey(label, aliases);   // another install's answer
   const unknown = wanted.filter(label => !(label in kept));
   if (unknown.length && client) {
     const started = Date.now();
@@ -34,6 +39,7 @@ export async function keysFor(storage, labels, {client, log = () => {}} = {}) {
         if (key) kept[label] = KEYS.includes(key) ? key : '';
       }
       storage.writeText(FILE, JSON.stringify(kept));
+      propose(unknown.filter(label => kept[label]).map(label => ({key: kept[label], phrase: cleanLabel(label)})).filter(item => item.phrase));
       log('profile', `form labels read as contact details: ${unknown.filter(label => kept[label]).length} of ${unknown.length}`,
         {keys: unknown.map(label => kept[label] || 'none'), ms: Date.now() - started});
     } catch (error) { log('profile', `form labels not read: ${String(error?.message || error).slice(0, 160)}`, {labels: unknown.length}); }

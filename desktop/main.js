@@ -901,7 +901,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   const shared = (what, sent) => sharedLog.add(storage, what, sent);
   server.setSharedLogger(shared);
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints, {onSent: shared}));
-  server.setAliasesHandler(() => aliasLibrary.lookup(storage, {onSent: shared}));
+  server.setAliasesHandler(() => aliasLibrary.forExtension(storage, {onSent: shared}));   // shared meanings + this Mac's (lib/contact-keys.js)
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with
   // Sites only you can open (lib/visits.js): the extension sends each page the person asked it to read; the hosts light its icon.
   let visitHosts = ['linkedin.com', 'indeed.', 'glassdoor.', 'levels.fyi'];

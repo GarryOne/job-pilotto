@@ -1,7 +1,7 @@
 // The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
 // extension asks the app, the app asks the site (with the same install token as the recipes), remembers the answer for a few hours and
 // passes on only what the shared schema accepts. Off with the Technical reports switch: nothing is asked, the built-in patterns work alone.
-import {validateBundle} from '../shared/alias-schema.js';
+import {cleanLabel, validateBundle} from '../shared/alias-schema.js';
 import {installId} from './app-feedback.js';
 import * as benchmarks from './benchmarks.js';
 import {log} from './log.js';
@@ -37,6 +37,16 @@ export const cleanHints = list => (Array.isArray(list) ? list : []).filter(item 
   .slice(0, 3).map(item => ({reason: item.reason, share: Math.round(Number(item.share) * 100) / 100}));
 const enabled = storage => storage.settings().telemetry !== false;
 
+// What the extension fills by: the shared meanings, then what Claude decided on this Mac (lib/contact-keys.js) for wordings the pack
+// doesn't have yet, so this Mac's next form fills them at once while they wait to be shared. Same schema check as the pack's.
+export async function forExtension(storage, options = {}) {
+  const shared = await lookup(storage, options);
+  let local = {};
+  try { local = JSON.parse(storage.readText('contact-label-keys.json') || '{}') || {}; } catch {}
+  const mine = validateBundle(Object.entries(local).filter(([, key]) => key).map(([phrase, key]) => ({key, phrase: cleanLabel(phrase)})))
+    .map(({key, phrase}) => ({key, phrase})).filter(item => !shared.some(other => other.phrase === item.phrase));
+  return [...shared, ...mine];
+}
 // -> [{key, phrase}] for this install. Never throws: no meanings is a normal answer.
 export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, now = Date.now(), onSent = null} = {}) {
   if (!enabled(storage)) return [];
