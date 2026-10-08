@@ -18,7 +18,7 @@ test('a confirmed account of this email is signed in to; recording one host keep
   assert.equal(JSON.stringify(Object.keys(both)), '["a.example","b.example"]');
 });
 
-import {DEFAULT_AUTOMATION, automationOf} from '../lib/site-accounts.js';
+import {DEFAULT_AUTOMATION, automationOf, forWindow} from '../lib/site-accounts.js';
 
 test('the account automation setting: full or assist, anything else is the default (assist)', () => {
   assert.equal(automationOf({accountAutomation: 'assist'}), 'assist');
@@ -52,7 +52,7 @@ test('the account automation switch is in the window (Profile > Application assi
   assert.ok(read('renderer/index.html').includes('id="account-automation"'));
   assert.match(read('renderer/pages/startup.js'), /accountAutomation: \$\('account-automation'\)\.checked \? 'full' : 'assist'/);
   assert.match(read('renderer/pages/settings.js'), /account-automation'\)\.checked = shared\.state\.settings\.accountAutomation !== 'assist'/);
-  assert.match(read('main.js'), /accountAutomation: automationOf\(storage\.settings\(\)\)/);
+  assert.match(read('main.js'), /settings: forWindow\(storage\.settings\(\)\)/);
 });
 
 test('the closer-look switch is in the window and off until turned on: saved as on or off, shown as on only when it says on', () => {
@@ -66,4 +66,17 @@ test('a password just made for a sign-up under way is not an account: the next p
   const creating = record({}, 'auth.jobs.ch', 'me@example.com', 'creating');
   assert.equal(modeOf(creating, 'auth.jobs.ch', 'me@example.com', 'me@example.com'), 'sign-up');   // the item already holds the email
   assert.equal(modeOf(record(creating, 'auth.jobs.ch', 'me@example.com', 'confirmed'), 'auth.jobs.ch', 'me@example.com', 'me@example.com'), 'sign-in');   // the press overwrote it
+});
+
+test('every settings answer to the window is the effective one: an unset account automation draws as assist, in every handler (9 Oct 2026: the switch showed ON after saving another setting)', () => {
+  assert.equal(forWindow({}).accountAutomation, 'assist');
+  assert.equal(forWindow({accountAutomation: 'full'}).accountAutomation, 'full');
+  assert.equal(forWindow({escalation: 'on'}).escalation, 'on');   // the rest is kept
+  // the class: a handler that hands the window the settings (or a saveSettings result) goes through forWindow
+  const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  for (const file of ['main.js', 'lib/setup-handlers.js', 'lib/focus-handlers.js']) {
+    const source = read(file);
+    assert.doesNotMatch(source, /return storage\.settings\(\);|return saved;|return storage\.saveSettings\(/, `${file} returns raw settings to the window`);
+    assert.match(source, /forWindow\(/, `${file} uses forWindow`);
+  }
 });

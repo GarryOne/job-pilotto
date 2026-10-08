@@ -2,6 +2,7 @@
 // page's list, the daily target and audience, interview prep, describing a job, reassigning an email, focus history, outcomes and the rejection
 // review. main.js passes in the services they share. Guards: the focus, targets and status tests in desktop/test.
 import * as notionGate from './notion-gate.js';
+import {forWindow} from './site-accounts.js';
 import * as pipeline from './pipeline.js';
 import * as server from './server.js';
 import * as strategy from './strategy.js';
@@ -18,7 +19,7 @@ export function registerFocusHandlers(ctx) {
     const allowed = {};
     if ('autoSearch' in patch) allowed.autoSearch = !!patch.autoSearch;
     if ('openAtLogin' in patch) { allowed.openAtLogin = !!patch.openAtLogin; app.setLoginItemSettings({openAtLogin: allowed.openAtLogin}); }
-    return storage.saveSettings(allowed);
+    return forWindow(storage.saveSettings(allowed));
   });
   // Every Applied decision lands in the log, whoever made it: the two buttons here, the extension's own report
   // (server.js), and a mistaken one's undo (notSubmitted below). "Who decided this, and why?" is answerable from

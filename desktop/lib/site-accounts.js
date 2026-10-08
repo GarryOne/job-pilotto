@@ -22,6 +22,8 @@ export function record(accounts, host, email, state = 'pending', now = Date.now(
 // AI names them) and presses the account button; 'assist' = it fills, and leaves the consent and the button to the person. Only the ACCOUNT's steps, never an application's Submit.
 // Settings → Automation has the switch (settings.accountAutomation). The default is assist (9 Oct 2026, before the app went to others): the extension fills, the person accepts the consent and presses the account button. The owner's own app is set to full in Settings.
 export const DEFAULT_AUTOMATION = 'assist';
+// The settings as the window draws them: the account automation resolved to what the extension will do, whatever was never saved (every settings answer to the window goes through this, so a switch never shows ON for a setting that behaves as assist).
+export const forWindow = settings => ({...settings, accountAutomation: automationOf(settings)});
 export const automationOf = settings => (settings?.accountAutomation === 'assist' ? 'assist' : settings?.accountAutomation === 'full' ? 'full' : DEFAULT_AUTOMATION);
 
 // Settings → Credentials (lib/credentials.js lists the Keychain's password items, which know a host and sometimes an email): the account we made on a host, from settings.siteAccounts, fills

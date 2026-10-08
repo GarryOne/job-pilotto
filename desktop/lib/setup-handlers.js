@@ -7,6 +7,7 @@ import * as cvChange from './cv-change.js';
 import * as cvlib from './cv.js';
 import * as notionGate from './notion-gate.js';
 import * as notionOAuth from './notion-oauth.js';
+import {forWindow} from './site-accounts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {cleanSecret} from './secrets.js';
@@ -44,7 +45,7 @@ export function registerSetupHandlers(ctx) {
     const before = storage.settings();
     const saved = storage.saveSettings(patch);
     trackSetup(patch, before);
-    return saved;
+    return forWindow(saved);   // the same shape as the window's state: the account switch must not flip to ON for an unset (assist) setting
   });
   ipcMain.handle('saveSecret', (_, name, pasted) => {
     const {value, error} = cleanSecret(pasted);
@@ -62,10 +63,10 @@ export function registerSetupHandlers(ctx) {
     if (!claudeCode.ENGINES.includes(choice)) throw new Error(`Unknown AI engine: ${choice}`);
     storage.saveSettings({aiEngine: choice, ...(choice === 'cli' ? {claudeCodeNotice: true} : {}),
       ...('fallback' in options ? {aiFallback: !!options.fallback} : {})});
-    return storage.settings();
+    return forWindow(storage.settings());
   });
-  ipcMain.handle('setAiFallback', (_, on) => { storage.saveSettings({aiFallback: !!on}); return storage.settings(); });
-  ipcMain.handle('dismissEngineOffer', () => { storage.saveSettings({aiEngineOffered: true}); return storage.settings(); });
+  ipcMain.handle('setAiFallback', (_, on) => { storage.saveSettings({aiFallback: !!on}); return forWindow(storage.settings()); });
+  ipcMain.handle('dismissEngineOffer', () => { storage.saveSettings({aiEngineOffered: true}); return forWindow(storage.settings()); });
   // The free AI credit for invited testers (lib/ai-trial.js).
   ipcMain.handle('startTrialCredit', () => aiTrial.start(storage, licenseState));
   ipcMain.handle('trialCredit', () => aiTrial.credit(storage));

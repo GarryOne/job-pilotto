@@ -2,7 +2,7 @@
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {recordIpc} from './lib/e2e-ipc.js';
 import {isTwin, twinRefusal} from './lib/twin.js';
-import {automationOf} from './lib/site-accounts.js';
+import {forWindow} from './lib/site-accounts.js';
 import * as devMarker from './lib/dev-marker.js';
 import {hideWindows} from './lib/e2e-hidden.js';
 import Anthropic from '@anthropic-ai/sdk';
@@ -163,7 +163,7 @@ function handlers() {
   };
   ipcMain.handle('state', () => ({
     about,
-    settings: {...storage.settings(), accountAutomation: automationOf(storage.settings())},   // the window shows the effective choice, whatever was never saved
+    settings: forWindow(storage.settings()),   // the window shows the effective choice, whatever was never saved
     secrets: storage.secretsPresent(),
     hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!(storage.settings().setupDone && (storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID || storage.readText('profile.md'))),
     folder: storage.dir,
