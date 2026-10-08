@@ -89,3 +89,23 @@ test('a required question nothing read is listed; answering it yourself is repor
   assert.deepEqual(JSON.parse(JSON.stringify(learning?.byYou)), [{ label: 'How many players at most?', kind: 'unread', unread: true }]);
   assert.ok(!JSON.stringify(learning).includes('"6"'), 'never the answer');
 });
+
+// A type-to-search picklist that keeps its choice in a hidden input its label points to (SuccessFactors; seen on Coop's form in the live-test twin,
+// 8 Oct 2026: a chosen "Monsieur", hidden value 688, stayed "left for you" and in the app's Needs your attention). The shape, not the site.
+const PICKLIST = (code, typed = 'Monsieur') => `<label for="tor__anrede">Opening formula *</label>
+  <div class="field"><div id="picklist_anrede"><span><div class="fd-input-group--control"><input type="text" role="combobox" aria-required="true" aria-label="Opening formula" value="${typed}"></div></span></div>
+  <input type="hidden" id="tor__anrede" value="${code}"></div>`;
+
+test('a picklist whose labelled hidden input holds the choice is filled', { skip: !JSDOM }, async () => {
+  assert.equal((await panel(FORM(PICKLIST('688')))).before.pill, 'Ready to submit');
+});
+
+test('text typed into the picklist without a choice is still one left', { skip: !JSDOM }, async () => {
+  assert.equal((await panel(FORM(PICKLIST('', 'Mons')))).before.pill, '1 left');
+});
+
+test('an empty combobox is not filled by a neighbouring field\'s hidden value', { skip: !JSDOM }, async () => {
+  const neighbours = `<div class="row"><label for="tor__other">Country *</label><input type="hidden" id="tor__other" value="41"><select id="country"><option>CH</option></select>
+    <div class="fd-input-group--control"><input type="text" role="combobox" aria-required="true" aria-label="Opening formula" value=""></div></div>`;
+  assert.equal((await panel(FORM(neighbours))).before.pill, '1 left');
+});

@@ -95,8 +95,8 @@
     el.closest('[role=radiogroup], [role=group]')?.querySelector('label, legend, span')?.textContent || '');
   const isCombo = el => el.getAttribute('role') === 'combobox';
   const comboControl = el => el.closest('[class*=control]') || el;
-  const comboValue = el => (el.closest('[class*=select__container]') || el.closest('[class*=container]'))
-    ?.querySelector('[class*=single-value], [class*=multi-value]');
+  const comboValue = el => (el.closest('[class*=select__container]') || el.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]') ||   // react-select's chip,
+    (() => { for (let b = el.parentElement, i = 0; b && i < 4 && b.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; b = b.parentElement, i++) { const h = [...b.querySelectorAll('input[type=hidden][id]')].find(x => x.value && document.querySelector(`label[for="${CSS.escape(x.id)}"]`)); if (h) return h; } return null; })();   // else a labelled hidden input holding it (review.js comboFilled)
 
   // Searchable dropdowns (react-select on Greenhouse) only open for real user input: scripted clicks
   // and keys are ignored (checked on a live form, 27 Sep 2026). So the extension never opens them;

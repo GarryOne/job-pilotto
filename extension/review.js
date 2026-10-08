@@ -52,11 +52,11 @@
   const required = el => el.required || el.getAttribute('aria-required') === 'true' ||
     /\*\s*$/.test(String(el.labels?.[0]?.textContent || '').trim()) ||
     (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset'))));
-  // A custom dropdown (react-select) shows its answer in a sibling of the input, not inside the input's own container:
-  // look in the control around it (input < input-container < value-container < control).
+  // A custom dropdown keeps its answer beside the input (react-select: a value chip in the control around it) or in a hidden input a <label for> points
+  // to, in the same field's area (SuccessFactors' picklist; 8 Oct 2026: a chosen "Monsieur" stayed "left for you"). Up 4 boxes, never into another field's.
   const comboFilled = el => {
-    for (let box = el.parentElement, i = 0; box && i < 4; box = box.parentElement, i++)
-      if (box.querySelector('[class*=single-value], [class*=multi-value]')) return true;
+    for (let box = el.parentElement, i = 0; box && i < 4 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++)
+      if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
     return false;
   };
   // Some sites empty the file input once a file is attached and show its name instead, in a chip next to or around the input.
