@@ -36,8 +36,8 @@ test('a field left empty is marked with the answer the form did not take, or the
 
 test('propose.js is loaded with the page scripts, before fill.js, as the extension injects them', () => {
   const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
-  assert.match(flow, /'page\/propose\.js', 'page\/upload\.js', 'page\/fill\.js'\];/);
-  assert.ok(PAGE_SCRIPTS.indexOf('extension/page/propose.js') === PAGE_SCRIPTS.indexOf('extension/page/fill.js') - 2);
+  assert.match(flow, /'page\/propose\.js', 'page\/upload\.js', 'page\/categories\.js', 'page\/fill\.js'\];/);
+  assert.ok(PAGE_SCRIPTS.indexOf('extension/page/propose.js') === PAGE_SCRIPTS.indexOf('extension/page/fill.js') - 3);
   const panel = fs.readFileSync(new URL('../../extension/review.js', import.meta.url), 'utf8');
   assert.match(panel, /proposals: state\.list\.filter/);
   assert.match(panel, /if \(command\.fill\) \{ send\(\{type: 'panelFillOne', \.\.\.command\.fill\}\)/);

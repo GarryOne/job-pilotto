@@ -64,7 +64,7 @@ test('kit for a job page: only what filling the form needs', async () => {
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.deepEqual(data.job, { title: 'Staff SRE', company: 'Anthropic', stage: 'Kit ready', url: JOB, notion_url: 'https://www.notion.so/page1' });
-  assert.deepEqual(data.kit.answers, [{ field: 'question_1', question: 'Why us?', answer: 'Because', needs_review: false }]);
+  assert.deepEqual(data.kit.answers, [{ field: 'question_1', question: 'Why us?', answer: 'Because', needs_review: false, category: '' }]);
   assert.equal(data.kit.cover_letter, 'Dear team');
   assert.equal(JSON.stringify(data).includes('not for the extension'), false);
 });
