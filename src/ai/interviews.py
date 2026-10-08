@@ -40,7 +40,7 @@ from .. import tgcard
 from ..telegram import api_base as telegram_api_base
 from ..notion.titles import named  # noqa: F401 — the one placeholder rule (job titles too)
 from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
-from . import cost, transcribe
+from . import cost, meanings, transcribe
 
 # Opus for reviews and the insights built on them (owner, 30 Sep 2026): rare, judgment-heavy calls on noisy transcripts.
 # Opus thinks by default (it can't be switched off), so its answers get room: MAX_TOKENS. A request it declines is answered
@@ -443,7 +443,7 @@ def changes_summary(merged, stage=None):
     return '; '.join(parts)
 
 
-SCREEN = re.compile(r'screen|recruiter|talent|phone|intro', re.I)
+
 
 
 def held_stage(stage, round_=''):
@@ -453,7 +453,7 @@ def held_stage(stage, round_=''):
     Interviewing."""
     if stage in CLOSED or stage == 'Interviewing':
         return None
-    if SCREEN.search(round_ or ''):
+    if meanings.round_kind(round_) == 'recruiter_screen':
         return None if stage == 'Screening' else 'Screening'
     return 'Interviewing'
 
@@ -482,7 +482,7 @@ def advance(tracker, app, *, now=None, round_='', next_step='', changes=None, no
     if stage in CLOSED:
         return None
     target = held_stage(stage, round_)
-    kind = target or ('Screening' if SCREEN.search(round_ or '') else 'Interviewing')  # what was held
+    kind = target or ('Screening' if meanings.round_kind(round_) == 'recruiter_screen' else 'Interviewing')  # what was held
     if not any(plain(e['properties'].get('Kind')) == kind for e in _events_of(tracker, app)):
         add_event(tracker, app, kind, source, note=note)
     update = dict(changes or {})

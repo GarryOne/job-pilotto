@@ -31,6 +31,9 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - **Meaning comes from AI, never from keyword lists** (owner, 8 Oct 2026: "AI should interpret mails"): emails, pages, buttons and form
   questions arrive in any language. Fetch by structure, let AI decide with a fixed answer the code knows, keep it per item; a word list
   (even one AI wrote) may only be a free shortcut in front of the AI, never the filter. Example: `src/ai/mail_triage.py`.
+  One mechanism: engine `src/ai/decide.py` (fixed answers, kept per item in `decisions`); each decision with its no-AI rule lives in
+  `src/ai/meanings.py`. Rule placement: high-volume items (titles, links) take the rule's yes for free and send the rest to AI;
+  few high-stakes items (form questions, buttons, emails) are decided by AI, the rule answers only without AI and stays a safety floor.
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
 - Never auto-apply to jobs: the application kit drafts, the owner submits. LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit (owner, 7 Oct 2026): read through the user's own visit (the extension's "Read the jobs on this page", started by their click, in their tab) or when a page answers plainly; never log in automatically, never get past a login wall or a bot check (401/403/429 or a check is a no); elsewhere public APIs and job feeds.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.

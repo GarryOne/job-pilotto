@@ -26,7 +26,7 @@ import urllib.error
 from ..notion import client as notion, titles
 from ..notion.ledger import plain
 from . import engine
-from . import budget, cost, interviews
+from . import budget, cost, interviews, meanings
 
 CATEGORY = 'Interview patterns'
 BASIS = 'Interviews'
@@ -50,15 +50,8 @@ def model():
 
 
 def round_type(round_):
-    """Recruiter screen, Technical, Hiring manager or Other, from the review's Round ("Technical screen" is technical)."""
-    text = round_ or ''
-    if re.search(r'\b(technical|tech|system design|coding|live coding|pair(ing)?|take[- ]home|architecture|design|whiteboard)\b', text, re.I):
-        return 'Technical'
-    if re.search(r'\b(hiring manager|hm|manager|behaviou?ral|culture|values|final|director|vp|cto)\b', text, re.I):
-        return 'Hiring manager'
-    if interviews.SCREEN.search(text):
-        return 'Recruiter screen'
-    return 'Other'
+    """Recruiter screen, Technical, Hiring manager or Other, from the review's Round in any language (interviews.round_kind)."""
+    return {'recruiter_screen': 'Recruiter screen', 'technical': 'Technical', 'hiring_manager': 'Hiring manager'}.get(meanings.round_kind(round_), 'Other')
 
 
 # ---------- input: the reviewed rows, and a fingerprint of them ----------

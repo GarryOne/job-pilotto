@@ -35,6 +35,7 @@ import sys
 from zoneinfo import ZoneInfo
 
 from . import telegram, tgcard, tz
+from .ai import meanings
 from . import feedback
 from .features import disabled
 from .notion import client as notion, titles
@@ -49,7 +50,6 @@ REPLIED = 'Replied'
 ENDED = {'Rejected', 'Withdrawn', 'No response', 'Closed', 'Dismissed'}
 # Events that come from the other side and wait for an answer; anything later (your reply, a booking) settles them.
 NEEDS_ANSWER = {REPLY, 'Recruiter lead', 'Offer'}
-BOOKING = re.compile(r'\b(book|slot|schedul|calendly|cal\.com|availability|available|pick a time|time that works)', re.I)
 WAITING_DAYS, QUIET_DAYS, SOON_HOURS, STALE_DAYS = 7, 3, 48, 30
 FOLLOW_UP_HOURS = 24  # your message unanswered this long: Focus recommends a follow-up
 # Messages, for "who wrote last": yours (a reply you sent or logged, Done in Focus) and theirs. Stage moves and
@@ -435,7 +435,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             if last['kind'] == 'Offer':
                 items.append(_item(1, 'offer', '🎉', f'Answer the offer: {label}', f'Offer {when}. {last["note"][:140]}', row,
                                    link, 'Open email' if link else '', done=True))
-            elif BOOKING.search(last['note']):
+            elif meanings.asks_to_book(last['note']):
                 # The call is already on the calendar (Next interview): "Book the call" is done. Prepare stays.
                 # A later "please confirm this time" is not a booking note, so that reply still shows beside Prepare.
                 if not (upcoming and upcoming > now):

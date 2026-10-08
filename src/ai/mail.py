@@ -39,7 +39,7 @@ from ..notion.funnel import PREPARED_STAGES
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
-from . import cost, engine, mail_triage, opportunity
+from . import cost, engine, mail_triage, meanings, opportunity
 from .. import feedback as employer_feedback
 from .models import SMALL_MODEL
 
@@ -73,7 +73,6 @@ RANK = {stage: i for i, stage in enumerate((opportunity.LEAD_STAGE, 'Applied', '
                                             'Interview scheduled', 'Interviewing', 'Offer'))}
 TERMINAL = {'Rejected', 'Withdrawn', 'Offer'}
 BATCH = 8
-INTERVIEWISH = re.compile(r'interview|screening|recruit|hiring|technical|intro(duction)? call|call with|onsite|panel', re.I)
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['results'],
@@ -962,13 +961,14 @@ def calendar_pass(tracker, google, client, model, apps, index, state, stats, now
     now = now or datetime.now(timezone.utc)
     events = [e for e in google.events(now - timedelta(days=1), now + timedelta(days=21))
               if e.get('status') != 'cancelled' and (e.get('start') or {}).get('dateTime')]
-    matched, unmatched = [], []
+    matched, maybe = [], []
     for event in events:
         rows = [r for r in apps if _matches(r, _event_text(event))]
         if len(rows) == 1:
             matched.append((event, rows[0]))
-        elif INTERVIEWISH.search(event.get('summary', '')):
-            unmatched.append(event)
+        else:
+            maybe.append(event)
+    unmatched = meanings.job_events(maybe, _event_text)   # interviews in any language (AI), the English rule first for free
     if unmatched:
         items = [{'from': (e.get('organizer') or {}).get('email', ''), 'subject': e.get('summary', ''),
                   'date': e['start']['dateTime'], 'body': _event_text(e)} for e in unmatched]

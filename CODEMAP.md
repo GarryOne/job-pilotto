@@ -293,6 +293,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/apply_run.py` — Run one observable Codex browser fill and record its review handoff.
 - `src/ai/budget.py` — Monthly AI budget: how much of this month's Anthropic spend limit is used, and what to do about it.
 - `src/ai/cost.py` — API prices and per-call cost, shared by the AI stages and the cronjob run report.
+- `src/ai/decide.py` — The engine's one way to let AI decide what content means, in any language, instead of keyword lists (owner, 8 Oct 2026: "Let the AI
 - `src/ai/engine.py` — The AI engine every AI step calls through: the Anthropic API (the user's key) or the user's own Claude Code.
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
 - `src/ai/few_jobs.py` — 'Explain with AI' on a jobs check that found few new jobs: Claude reads the search's coverage counts and says why, and what to do first.
@@ -305,6 +306,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
 - `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
+- `src/ai/meanings.py` — What content means, decided by AI in any language, each with the rule that answers only without AI (CLAUDE.md "Meaning comes from AI,
 - `src/ai/models.py` — The model of the small AI steps (title, page and place checks, triage, search picks, stage 1 facts, mail), as data.
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
 - `src/ai/page_reader.py` — Claude reads a careers page that has no machine-readable jobs and lists the jobs on it.

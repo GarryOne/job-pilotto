@@ -2,7 +2,7 @@
 // no job text, and the license holder is a short digest. This is the evidence the pass price and the credit budget rest on.
 import {digestOf} from './guard.js';
 
-export const ACTIONS = ['enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import', 'scout'];
+export const ACTIONS = ['enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import', 'scout', 'decide'];
 const day = date => date.toISOString().slice(0, 10);
 
 // One successful call. `usd` is the call's cost from its own token usage (trial.js costUsd). Never throws into the relay.
