@@ -6,7 +6,7 @@
 // breaks before the scripts have moved to the new key. Every ?key= login, good or bad, is logged (admin_logins): when, where
 // from (country, device), never the key. Anyone without access gets the same 404 as a page that does not exist.
 // Roles: the super admin (the owner: STATS_KEY or the scripts' key) and admins (invited). The super admin makes a personal invite
-// link on /admin/access (a name and an expiry). Opened once, it gives that person a session of their own (v2: signed with their
+// link on /admin/access (a name and an expiry). Opened, it gives that person a session of their own (v2: signed with their
 // id); every request checks they are still invited and not expired, so Remove takes effect at once. An admin reads every admin
 // page; only the super admin manages access (invites, expiry, removal) and calls the APIs.
 import {device} from './stats.js';
@@ -76,7 +76,7 @@ export async function viewer(request, env, now = Date.now()) {
   return {role: 'admin', id: person.id, name: person.name};
 }
 
-// The owner invites someone: a person row and a single-use link (only its hash is stored). -> {id, link}
+// The owner invites someone: a person row and a link that works until the access expires or is removed (only its hash is stored). -> {id, link}
 export async function invite(env, name, days, origin, now = Date.now()) {
   const id = randomToken(12), token = randomToken(32);
   const span = GUEST_DAYS.includes(Number(days)) ? Number(days) : 30;
@@ -97,16 +97,17 @@ export async function people(db) {
   try { return (await db.prepare('SELECT id, name, created_at, expires_at, revoked_at, invite_used_at, last_seen FROM admin_people ORDER BY created_at DESC LIMIT 50').all()).results || []; }
   catch { return []; }
 }
-// GET /admin/join?t=…: an invite opened once. A used, revoked, expired or unknown link is the usual 404.
+// GET /admin/join?t=…: an invite link, reusable until it expires or is removed (owner, 8 Oct 2026: link-preview scanners spent every
+// single-use link before the person clicked). A revoked, expired or unknown link is the usual 404.
 export async function join(request, env, now = Date.now()) {
   const url = new URL(request.url), token = url.searchParams.get('t') || '';
   if (!env.STATS || !env.STATS_KEY || !/^[\w-]{40,}$/.test(token)) return new Response('Not found', {status: 404});
   const person = await env.STATS.prepare('SELECT id, name, expires_at, revoked_at, invite_used_at FROM admin_people WHERE invite_hash = ?').bind(await sha256(token)).first().catch(() => null);
-  if (!person || person.revoked_at || person.invite_used_at || Date.parse(person.expires_at) < now) {
-    await logLogin(request, env, false, now, person ? `${person.name} (invite no longer valid)` : 'unknown invite link');
+  if (!person || person.revoked_at || Date.parse(person.expires_at) < now) {
+    await logLogin(request, env, false, now, person ? `${person.name} (invite revoked or expired)` : 'unknown invite link');
     return new Response('Not found', {status: 404});
   }
-  await env.STATS.prepare('UPDATE admin_people SET invite_used_at = ?, last_seen = ? WHERE id = ? AND invite_used_at IS NULL').bind(new Date(now).toISOString(), new Date(now).toISOString(), person.id).run();
+  await env.STATS.prepare('UPDATE admin_people SET invite_used_at = COALESCE(invite_used_at, ?), last_seen = ? WHERE id = ?').bind(new Date(now).toISOString(), new Date(now).toISOString(), person.id).run();
   await logLogin(request, env, true, now, person.name);
   // The cookie lasts as long as the longest access (90 days); the expiry the super admin sets, read on every request, decides.
   const expires = Math.floor((now + Math.max(...GUEST_DAYS) * 86400000) / 1000);

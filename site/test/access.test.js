@@ -1,4 +1,4 @@
-// Invite links (src/access.js, src/auth.js): the super admin invites someone on /admin/access; the link works once and gives that
+// Invite links (src/access.js, src/auth.js): the super admin invites someone on /admin/access; the link gives that
 // person the admin role: every admin page, nothing to manage, no API. Expiry and removal take effect on the next request.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
@@ -37,7 +37,7 @@ test('only the super admin sees and uses /admin/access', async () => {
   assert.equal((await post(e, {action: 'invite', name: 'X', days: '7'}, {...SUPER, Origin: 'https://evil.example'})).status, 404);   // another site's form
 });
 
-test('an invite link works once and gives the admin role: every page, the menu without Access, no access page, no API', async () => {
+test('an invite link gives the admin role: every page, the menu without Access, no access page, no API', async () => {
   const e = env();
   const {page, path} = await invited(e, 'Ana');
   assert.match(page, /Invite for Ana/);
@@ -54,9 +54,10 @@ test('an invite link works once and gives the admin role: every page, the menu w
   assert.equal((await get(e, '/admin/access', {Cookie: session})).status, 404);
   assert.equal((await post(e, {action: 'invite', name: 'Eve', days: '90'}, {Cookie: session})).status, 404);
   assert.equal((await get(e, '/api/lab', {Cookie: session})).status, 404);   // APIs stay the super admin's
-  assert.equal((await get(e, path)).status, 404);   // used once
+  assert.equal((await get(e, path)).status, 302);   // reusable: a link preview must not spend it
+  assert.equal((await get(e, path + 'x')).status, 404);   // an unknown link
   const logins = e.STATS.db.prepare('SELECT ok, person FROM admin_logins ORDER BY at').all().map(r => [r.ok, r.person]);
-  assert.deepEqual(logins, [[1, 'Ana'], [0, 'Ana (invite no longer valid)']]);
+  assert.deepEqual(logins, [[1, 'Ana'], [1, 'Ana'], [0, 'unknown invite link']]);
 });
 
 test('removing someone or letting their access expire ends it at the next request; the super admin can set a new expiry', async () => {

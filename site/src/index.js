@@ -92,7 +92,7 @@ export default {
     if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
     if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
     if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
-    if (pathname === '/admin/join') return join(request, env);   // an invite link, opened once
+    if (pathname === '/admin/join') return join(request, env);   // an invite link
     if (pathname === '/admin/form-filling/digest.json' || pathname === '/admin/form-filling/digest.md') return digestView(request, env);
     if (admin) {
       const who = await viewer(request, env);

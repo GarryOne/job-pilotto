@@ -1,4 +1,4 @@
-// /admin/access: the super admin's page to share the admin pages. Invite someone (a name and how long), copy their single-use link
+// /admin/access: the super admin's page to share the admin pages. Invite someone (a name and how long), copy their link
 // (shown once: only its hash is kept), set a new expiry, or remove them; and every login, good or bad. Admins and anyone else get
 // the usual 404: nobody but the super admin sees or changes access. Changes are POSTs from this page only (same origin, and the
 // session cookie is SameSite=Strict).
@@ -37,7 +37,7 @@ button.primary{background:#f5b54a;color:#0b0d10;border-color:#f5b54a;font-weight
 .link{display:flex;gap:8px;margin-top:10px}.link input{flex:1;min-width:0;font-family:ui-monospace,monospace}.created{border-color:#3fb68b}
 </style></head><body><main>
 <header><h1>🔐 Access</h1><span class="muted">only you see this page · admins see every other page and change nothing</span></header>
-${created ? `<section class="card created"><h2>Invite for ${esc(created.name)}</h2><small class="muted">Send this link to them. It works once, for ${created.days} days, and is shown only now: it is not stored.</small>
+${created ? `<section class="card created"><h2>Invite for ${esc(created.name)}</h2><small class="muted">Send this link to them. It works for ${created.days} days, or until you remove them, and is shown only now: it is not stored.</small>
 <div class="link"><input id="invite" type="text" readonly value="${esc(created.link)}" aria-label="Invite link"><button class="primary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite').value);this.textContent='Copied'">Copy</button></div></section>` : ''}
 <section class="card"><h2>Invite someone</h2><small class="muted">They get the admin role: every admin page, read only. You can change the expiry or remove them at any time.</small>
 <form method="post" class="invite" style="margin-top:10px"><input type="hidden" name="action" value="invite"><input type="text" name="name" placeholder="Their name" required maxlength="60" aria-label="Name">
