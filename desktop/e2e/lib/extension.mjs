@@ -83,13 +83,19 @@ export async function launchBrowser({port, spool, extensionDir, real = false, pr
   const opened = [], pages = {}, requested = new Set();   // requested: every host name the browser asked for (a test proves no employer site was contacted)
   context.on('request', request => { try { const url = new URL(request.url()); if (/^https?:$/.test(url.protocol)) requested.add(url.hostname); } catch { /* not a URL */ } });
   let stopped = false;
+  // One window, one tab to start: the extension opens its settings page when installed (background.js onInstalled), and every test
+  // browser is a fresh install, so a settings tab sat beside each test (owner, 8 Oct 2026: "I want to avoid having 2 tabs all the times").
+  // That tab is made blank, and the first page a test opens reuses the blank tab instead of adding one.
+  const blank = page => /^(about:blank|chrome:\/\/new-?tab|chrome-search:)/.test(page.url());
+  const quietSettings = page => { if (page.url().endsWith('/options.html')) page.goto('about:blank').catch(() => {}); };
   const watcher = (async () => {
     while (!stopped) {
+      for (const page of context.pages()) quietSettings(page);   // checked on every tick: the install opens it whenever the worker starts
       for (const file of fs.readdirSync(spool).filter(name => name.endsWith('.url'))) {
         const url = fs.readFileSync(path.join(spool, file), 'utf8').trim();
         fs.rmSync(path.join(spool, file));
         if (!/^https:\/\//.test(url)) continue;   // the app asked `open` for something else: nothing to do here
-        const tab = await context.newPage();
+        const tab = context.pages().find(page => blank(page) && !Object.values(pages).includes(page)) || await context.newPage();
         pages[url.split('#')[0]] = tab;
         opened.push(url);   // after the tab exists: a caller that sees the URL finds its tab
         tab.goto(url).catch(() => {});
