@@ -54,6 +54,7 @@ async function openProfile() {
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
   $('account-automation').checked = shared.state.settings.accountAutomation !== 'assist';
   $('escalation').checked = shared.state.settings.escalation === 'on';
+  $('application-next').checked = shared.state.settings.applicationNext === 'full';
   showContact();
   profileTab('details');
 }

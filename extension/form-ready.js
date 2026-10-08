@@ -5,6 +5,7 @@
 import {api, settings} from './flow.js';
 import {decide} from './log.js';
 import {accountSketch, flagAccount} from './account-fill.js';
+import {pressNext} from './next-step.js';
 
 const looking = new Set(), judged = new Map();
 // The structure says the form is ready: every counted required field is filled, on an application page (not an account page).
@@ -28,5 +29,6 @@ export async function formReady(tab, frameId, payload) {
     let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
     decide('panel', `application form ready?: ${answer.answer}`, {host, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {})});
     await run(tab, frameId, flagAccount, [answer.answer === 'needs_person' ? answer.needs || '' : null]);
+    await pressNext(tab, frameId, answer, sig);   // a multi-step form's next step, when the person turned it on (next-step.js)
   } finally { looking.delete(tab.id); }
 }

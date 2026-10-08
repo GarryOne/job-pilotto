@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 // The code the flows run on. A file added for a flow goes here too (tools/flows-gate.mjs checks it is listed when it is a flow file).
 export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
-  'extension/tabs.js', 'extension/account.js', 'extension/account-step.js', 'extension/form-ready.js', 'extension/escalate.js', 'extension/account-fill.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
+  'extension/tabs.js', 'extension/account.js', 'extension/account-step.js', 'extension/form-ready.js', 'extension/next-step.js', 'extension/escalate.js', 'extension/account-fill.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
   'extension/messages-learning.js', 'extension/messages-panel.js', 'extension/messages-app.js', 'extension/submit-watch.js', 'extension/tab-report.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/ext-server-handlers.js',
@@ -31,6 +31,7 @@ export const MATRIX = [
   {scenario: 'Form tab closed → the app sees it → Reopen fills it again', e2e: ['tab is closed'], unit: ['test/form-tab-closed.test.js', 'test/session-state.test.js']},
   {scenario: 'A second browser with the extension (another profile, a test Chrome): each browser\'s tabs kept apart, its report never closes another\'s form', e2e: ['second browser'], unit: ['test/tab-identity.test.js']},
   {scenario: 'Open in Chrome: the session\'s own tab by its id; two sessions on one form address never take each other\'s tab', e2e: [], unit: ['test/form-tab.test.js']},
+  {scenario: 'Multi-step application: the next step is pressed when the person turned it on, never a control that submits', e2e: [], unit: ['test/form-judge.test.js']},
   {scenario: 'The person submits → Applied, session leaves the list', e2e: ['person submits a form'], unit: []},
   {scenario: 'Claude takes over an account page; the unfilled tab closes', e2e: [], unit: ['test/apply-form-session.test.js', 'test/session-flow.test.js']},
   {scenario: 'Start-up "Checking…", then "Chrome isn\'t reporting"', e2e: [], unit: ['test/session-state.test.js']},

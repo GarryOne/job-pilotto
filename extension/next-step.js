@@ -1,0 +1,32 @@
+// The next step of a multi-step application (owner, 8 Oct 2026: approved, "assist" by default). When the form judge (form-ready.js) says THIS page state is
+// ready and names the control that goes on to the next step (desktop/lib/form-judge.js: a middle step, one of the page's own buttons), and the person turned
+// it on (Settings → "Go to the next step of an application for me": applicationNext 'full'), the extension presses it: once per page state per tab, kept in
+// session storage so a reload or a restarted worker never presses twice. Hard floor, by structure: never a control that submits a form, never one that reads
+// like Submit, never the last step. Logged with the control's own wording, never a value. Guarded by worker/test/next-step.test.js.
+import {decide} from './log.js';
+
+// In the page: find the named control among the visible buttons and links and press it, unless it would submit. Exported for the tests.
+export function pressInPage(text) {
+  const norm = value => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const wanted = norm(text);
+  const el = wanted && [...document.querySelectorAll('button, a, [role=button], input[type=button]')]
+    .find(item => item.getClientRects().length > 0 && norm(item.textContent || item.value) === wanted);
+  if (!el) return {pressed: false, why: 'not on the page'};
+  if ((el.tagName === 'INPUT' && el.type === 'submit') || (el.tagName === 'BUTTON' && el.type === 'submit' && el.form)) return {pressed: false, why: 'it submits a form'};
+  if (/(^|\b)(submit|send application|apply now|complete application|finish application)(\b|$)/i.test(el.textContent || el.value || '')) return {pressed: false, why: 'it reads like Submit'};
+  el.click();
+  return {pressed: true};
+}
+
+export async function pressNext(tab, frameId, answer, sig) {
+  if (answer?.answer !== 'ready' || answer.step !== 'middle' || !answer.nextControl || answer.nextMode !== 'full') return false;
+  const key = `next:${tab.id}`;
+  const done = (await chrome.storage.session.get(key).catch(() => ({})))[key] || [];
+  if (done.includes(sig)) return false;   // this page state was pressed on already
+  await chrome.storage.session.set({[key]: [...done, sig].slice(-20)}).catch(() => {});
+  const result = await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, world: 'MAIN', func: pressInPage, args: [answer.nextControl]})
+    .then(rows => rows?.[0]?.result || {pressed: false, why: 'no answer from the page'}).catch(error => ({pressed: false, why: String(error?.message || error).slice(0, 80)}));
+  let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
+  decide('fill', result.pressed ? 'next step: pressed' : `next step: not pressed (${result.why})`, {host, control: String(answer.nextControl).slice(0, 40)});
+  return result.pressed;
+}

@@ -68,6 +68,9 @@ export async function init() {
   $('escalation').addEventListener('change', async () => {   // off until the owner turns it on (lib/escalate.js)
     shared.state.settings = await window.pilot.saveSettings({escalation: $('escalation').checked ? 'on' : 'off'});
   });
+  $('application-next').addEventListener('change', async () => {   // full: the extension presses a multi-step form's Next when the step is complete; assist (default): the person does
+    shared.state.settings = await window.pilot.saveSettings({applicationNext: $('application-next').checked ? 'full' : 'assist'});
+  });
   $('account-automation').addEventListener('change', async () => {   // full: the extension also accepts an account's consent and presses its button; assist: the person does (lib/site-accounts.js)
     shared.state.settings = await window.pilot.saveSettings({accountAutomation: $('account-automation').checked ? 'full' : 'assist'});
   });

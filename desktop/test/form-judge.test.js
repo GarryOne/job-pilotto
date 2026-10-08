@@ -31,3 +31,21 @@ test('the route answers phase "form" with the form judge, never the account one'
   assert.deepEqual([answer.ok, answer.answer, answer.needs], [true, 'needs_person', 'Envoyer']);
   assert.ok(JSON.stringify(calls[0]).includes('JOB APPLICATION form'));
 });
+
+// Multi-step forms (owner, 8 Oct 2026: approved): the AI names the control that goes on to the next step, for this page state only.
+const steps = {...page, buttons: ['Retour', 'Continuer', 'Envoyer']};
+test('a middle step keeps the next control the page lists; a final step, an invented control or a field label never', async () => {
+  const ask = answer => judgeForm(fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9, ...answer}), steps);
+  assert.deepEqual(await ask({step: 'middle', next_control: 'continuer'}).then(a => [a.step, a.nextControl]), ['middle', 'Continuer']);   // the page's own wording
+  assert.equal((await ask({step: 'final', next_control: 'Envoyer'})).nextControl, '');
+  assert.equal((await ask({step: 'middle', next_control: 'Next step'})).nextControl, '');       // not on the page
+  assert.equal((await ask({step: 'middle', next_control: 'Prénom'})).nextControl, '');          // a field, not a button
+  assert.equal((await ask({step: 'maybe', next_control: 'Continuer'})).step, 'unsure');
+});
+
+test('the route says the person\'s choice: assist unless Settings turned it on', async () => {
+  const client = fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9, step: 'middle', next_control: 'Continuer'});
+  const off = await decideAccountJudge({settings: () => ({})}, {phase: 'form', sketch: steps}, {client});
+  const on = await decideAccountJudge({settings: () => ({applicationNext: 'full'})}, {phase: 'form', sketch: steps}, {client});
+  assert.deepEqual([off.nextControl, off.step, off.nextMode, on.nextMode], ['Continuer', 'middle', 'assist', 'full']);
+});
