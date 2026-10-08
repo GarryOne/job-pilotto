@@ -55,13 +55,18 @@ async function main() {
   fs.writeFileSync(path.join(HOME, 'settings.json'), JSON.stringify(settings, null, 2));
   say(`folder: a fresh copy of the real one at ${HOME} (no real Notion token, Always on or Telegram)`);
   // 4. The app and its own browser.
-  const port = await freePort(), cdp = await freePort(), shim = makeOpenShim(), extensionDir = copyExtension(port);
+  const port = await freePort(), cdp = await freePort(), browserCdp = await freePort(), shim = makeOpenShim(), extensionDir = copyExtension(port);
+  // The owner's Chrome has the extension's "all sites" access granted (optional_host_permissions, one click there); the twin's copy has it
+  // built in, so it reads any employer site as the owner's does (8 Oct 2026: on jobs.coop.ch the twin's extension saw no tab at all).
+  const manifest = JSON.parse(fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8'));
+  manifest.host_permissions = [...new Set([...(manifest.host_permissions || []), ...(manifest.optional_host_permissions || [])])];
+  fs.writeFileSync(path.join(extensionDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('JOB_PILOTTO_')));
   const app = spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'],
     env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port),
       PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool}});
-  const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile: path.join(LIVE, 'browser')});   // kept: site sign-ins survive
-  fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
+  const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile: path.join(LIVE, 'browser'), debugPort: browserCdp});   // kept: site sign-ins survive
+  fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, browser: `http://127.0.0.1:${browserCdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
   say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both.`);
   // Stopping always stops the app first (8 Oct 2026: a stop that awaited the browser first left the twin's app running on its ports),
   // and an exit by any path kills it as a last resort.

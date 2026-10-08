@@ -61,13 +61,14 @@ export const browserChannel = (env = process.env) => (env.E2E_BROWSER === 'msedg
 // -> {context, opened: [url], serviceWorker(), page(url), close()}. Every URL the app opens is opened here, in a new tab.
 // `real`: a live-test twin's window (e2e/twin.mjs): real sites (no fixture host mapping), always visible.
 // `profile`: a browser profile kept between runs (the twin's: site sign-ins and cookies survive); else a fresh temp one.
-export async function launchBrowser({port, spool, extensionDir, real = false, profile: kept = ''}) {
+// `debugPort`: the browser's own debugging port (the twin's: its tabs can be seen and driven from outside, like its app window).
+export async function launchBrowser({port, spool, extensionDir, real = false, profile: kept = '', debugPort = 0}) {
   if (kept) fs.mkdirSync(kept, {recursive: true});
   const profile = kept || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
   const context = await chromium.launchPersistentContext(profile, {
     ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions'],
     args: [...(process.env.E2E_HEADED || real ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
-      ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check'],
+      ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check', ...(debugPort ? [`--remote-debugging-port=${debugPort}`] : [])],
   });
   const opened = [], pages = {}, requested = new Set();   // requested: every host name the browser asked for (a test proves no employer site was contacted)
   context.on('request', request => { try { const url = new URL(request.url()); if (/^https?:$/.test(url.protocol)) requested.add(url.hostname); } catch { /* not a URL */ } });
