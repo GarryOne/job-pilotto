@@ -186,6 +186,12 @@ test('Windows wording: the PC, File Explorer, Ctrl, its own encryption; the Mac 
   assert.equal(osText("Keys are encrypted with your Mac's Keychain and never leave this Mac.", 'win32'),
     "Keys are encrypted with Windows' built-in encryption and never leave this PC.");
   assert.equal(osText('Runs on GitHub, even when your Mac is off.', 'win32'), 'Runs on GitHub, even when your PC is off.');
+  // Forms the swap used to miss: a capital "This", the curly apostrophe, and the bare Keychain word (the PC's store is the Credential Manager).
+  assert.equal(osText("This Mac's version is saved in Profile.", 'win32'), "This PC's version is saved in Profile.");
+  assert.equal(osText('Credentials are stored in your Mac’s Keychain and never leave this Mac.', 'win32'), "Credentials are stored in Windows' built-in encryption and never leave this PC.");
+  assert.equal(osText("The passwords stay in this Mac's Keychain, encrypted.", 'win32'), 'The passwords stay in Windows Credential Manager, encrypted.');
+  assert.equal(osText('Keys: encrypted in Keychain. (password saved in your Keychain)', 'win32'), 'Keys: encrypted in Windows Credential Manager. (password saved in your Windows Credential Manager)');
+  assert.equal(osText("This Mac's version", 'darwin'), "This Mac's version");
   assert.equal(osText('Show in Finder', 'win32'), 'Show in File Explorer');
   assert.equal(osText('Recordings in Finder', 'win32'), 'Recordings in File Explorer');
   assert.equal(osText('(⌘-click: in a window)', 'win32'), '(Ctrl-click: in a window)');
