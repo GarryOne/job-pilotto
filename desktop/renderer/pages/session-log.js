@@ -89,9 +89,11 @@ export function renderSessionPage() {
     const link = Object.assign(el('a', 'link', address), {href: '#', title: tab.url});
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(tab.url); });
     const opened = tab.tabAt ? new Date(tab.tabAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
-    line.append(formGone(item) ? 'Chrome tab (closed): ' : 'Chrome tab: ', link);
+    // Unknown while Chrome is checked or silent: its last address, never "open for" a tab nobody can see (owner, 8 Oct 2026).
+    const unknown = checkingTab(item) || silentChrome(item);
+    line.append(formGone(item) ? 'Chrome tab (closed): ' : unknown ? 'Chrome tab (last seen): ' : 'Chrome tab: ', link);
     if (opened) line.append(` · opened ${opened}`);
-    if (opened && !formGone(item)) line.append(ticking(el('span'), ' · open for ', new Date(tab.tabAt).toISOString()));
+    if (opened && !formGone(item) && !unknown) line.append(ticking(el('span'), ' · open for ', new Date(tab.tabAt).toISOString()));
     words.append(line);
   }
   const view = Object.assign(el('a', 'link small', 'View job ↗'), {href: '#'});
