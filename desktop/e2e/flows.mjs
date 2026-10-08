@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
   'extension/tabs.js', 'extension/account.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
+  'extension/messages-learning.js', 'extension/messages-panel.js', 'extension/messages-app.js', 'extension/submit-watch.js', 'extension/tab-report.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/ext-server-handlers.js',
 ];

@@ -12,7 +12,9 @@
 | `extension/tabs.js` + `same-tab.js` | which tabs are one application: inherit, follow, close the posting |
 | `extension/account.js` | each tab's page type, the account guards every learner asks |
 | `extension/fill-flow.js` | the fill flow: the page's kind, posting → Apply → form → fill, "can't reach" reports |
-| `extension/background.js` | the worker: tabs and pages the app opened, fills, submit watching, messages |
+| `extension/background.js` | the worker: tabs and pages the app opened, fills, the page's messages (dispatcher) |
+| `extension/messages-learning.js`, `messages-panel.js`, `messages-app.js` | the page's messages by group: what it learned, the panel's, the site password and the review relay |
+| `extension/submit-watch.js`, `tab-report.js` | did the person submit; telling the app which tabs are open |
 | `extension/review.js` | the page's panel: progress, what you typed, the submit press |
 | `extension/log.js`, `tab-memory.js`, `flow.js` | shared: the decision log, the tabs' memory, the app/Worker calls |
 | `desktop/lib/apply-handlers.js`, `browser-handlers.js`, `kit-handlers.js`, `ext-server-handlers.js` | the app's IPC for the application flow: Apply and Apply with Claude, the form page's review state, showing a form tab, the kit a job needs, and what the local server asks of the app when the extension calls (moved out of main.js) |

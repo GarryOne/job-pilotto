@@ -1,16 +1,18 @@
 // The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
 // opens, Apply with Claude's hand-off, the ring's messages to the app, and the connection check. The result of a
 // fill shows in a panel on the page and in the icon badge.
-import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, settings} from './flow.js';
-import {ensureAlarm} from './report-alarm.js';
+import {NO_APP, api, fillTab, settings} from './flow.js';
 import {decide, pushDecisions} from './log.js';
-import {accountSkip, onAccountPage, roleOf} from './account.js';
+import {createLearningMessages} from './messages-learning.js';
+import {createSubmitWatch} from './submit-watch.js';
+import {createTabReport} from './tab-report.js';
+import {createPanelMessages} from './messages-panel.js';
+import {createAppMessages} from './messages-app.js';
 import {closePosting, followOpener} from './tabs.js';
-import {consider, fillKey, initFillFlow} from './fill-flow.js';
-import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
-import {TIPS} from './tips-pool.js';
+import {consider, initFillFlow} from './fill-flow.js';
+import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
-import {startsOwnJob, confirmationOf, missedConfirmation, pageFingerprint, pageKey, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
+import {startsOwnJob, pageKey, sameSite, navigationKind, neverForm, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -392,242 +394,11 @@ chrome.runtime.onInstalled.addListener(retireEverywhere);
 chrome.runtime.onStartup.addListener(retireEverywhere);
 retireEverywhere();
 
+// The page's messages are answered by groups (messages-learning.js, messages-panel.js, messages-app.js), registered at the end of this file: each
+// answers the messages it owns, and returns undefined for any other, so the next group looks.
+const messageHandlers = [];
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  // "Read the jobs on this page", from the popup after the person's click (visit.js): runs here so it goes on when the popup closes.
-  if (message?.type === 'visitRead') {
-    const tabId = Number(message.tabId);
-    if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
-    readSite(tabId, {filter: !!message.filter}).then(state => reply({ok: true, ...state}), error => reply({ok: false, error: error.message}));
-    return true;
-  }
-  // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
-  if (message?.type === 'armTab') {
-    const tabId = Number(message.tabId);
-    if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
-    arm(tabId, 'review').then(() => reply({ok: true}), () => reply({ok: false}));
-    return true;
-  }
-  // Controls the panel could not read (their structure, never their text): kept on this Mac for learning how to operate them.
-  if (message?.type === 'misses' && sender.tab && Array.isArray(message.items)) {
-    (async () => {
-      const config = await settings();
-      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
-      let host = '';
-      try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
-      return api(config, '/extension/misses', {method: 'POST', body: JSON.stringify({host, items: message.items.slice(0, 10)})});
-    })().then(reply, () => reply({ok: false}));
-    return true;
-  }
-  // What you answered yourself in the form, sent at the Submit press: the app keeps it so no form asks again.
-  if (message?.type === 'learned' && sender.tab && Array.isArray(message.items)) {
-    (async () => {
-      if (await onAccountPage(sender.tab, message.account, message.url)) { accountSkip(sender.tab, 'answers typed there are not learned'); return {ok: false, account: true}; }
-      const config = await settings();
-      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
-      let host = '';
-      try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
-      const items = message.items.slice(0, 40).map(item => ({label: String(item?.label || '').slice(0, 120), value: String(item?.value || '').slice(0, 300),
-        kind: item?.kind === 'option' ? 'option' : 'text'})).filter(item => item.label && item.value);
-      return api(config, '/extension/learned', {method: 'POST', body: JSON.stringify({host, job: await jobOf(sender.tab), items})});
-    })().then(reply, () => reply({ok: false}));
-    return true;
-  }
-  if (message?.type === 'focusResult' && sender.tab) {
-    (async () => {
-      const config = await settings();
-      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
-      return api(config, '/extension/focus', {method: 'POST', body: JSON.stringify({
-        url: sender.tab.url, title: sender.tab.title || '', found: !!message.found, job: await jobOf(sender.tab)})});
-    })().then(reply, () => reply({ok: false}));
-    return true;
-  }
-  if (message?.type === 'panelStepNow' && sender.tab) {
-    const text = stepNow.get(sender.tab.id) || '';
-    if (text) stepBox(sender.tab.id, '');
-    reply({text});
-    return false;
-  }
-  if (message?.type === 'panelAllowed' && sender.tab) {
-    const key = `armed:${sender.tab.id}`;
-    sessionGet(key).then(stored => {
-      const ok = tabArmed({url: sender.tab.url, armed: stored[key]});
-      if (!ok) {
-        let host = '';
-        try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
-        if (!panelRefused.has(host)) {
-          panelRefused.add(host);
-          decide('panel', 'page was not opened by the app: panel not shown', {host});
-        }
-      }
-      reply({ok});
-    }, () => reply({ok: false}));
-    return true;
-  }
-  // At Submit, what the fill missed (review.js noteMissed): labels and kinds only, counted per board by the app.
-  if (message?.type === 'formLearning' && sender.tab) {
-    const labels = list => (Array.isArray(list) ? list : []).slice(0, 30);
-    const byYou = labels(message.byYou).map(item => ({label: String(item?.label || '').slice(0, 120), kind: String(item?.kind || '').slice(0, 20), unread: !!item?.unread}));
-    const invalid = labels(message.invalid).map(label => String(label || '').slice(0, 120));
-    const fillId = /^[\w-]{8,40}$/.test(String(message.fillId || '')) ? message.fillId : '';
-    // What the fill missed teaches the form-filling data (recipes, the board's misses): never from a sign-in or sign-up page.
-    onAccountPage(sender.tab, message.account, message.url).then(account => {
-      if (account) { accountSkip(sender.tab, 'its fields are not counted as fill misses'); return; }
-      reportFlow(sender.tab, null, {...(byYou.length ? {byYou} : {}), ...(invalid.length ? {invalid} : {}), ...(fillId ? {fillId, submitted: !!message.submitted} : {})});
-    });
-    reply({ok: true});
-    return false;
-  }
-  if (message?.type === 'submitted' && sender.tab?.id != null) {
-    const tabId = sender.tab.id;
-    const url = pageKey(message.url || sender.tab.url || '');
-    const at = Date.now();
-    const fingerprint = pageFingerprint(message.snapshot || {});
-    const where = submissionOutcome({at, from: url, to: url, before: fingerprint, after: fingerprint});
-    // "Create account" or "Sign in" is not the application being sent: its "thanks for registering" must never mark it Applied.
-    onAccountPage(sender.tab, message.account, message.url).then(account => {
-      if (account) { decide('submitted', 'account page: a sign-in or sign-up press, not an application submit', {host: where.host, path: where.path}); return; }
-      chrome.storage.session.set({[`submit:${tabId}`]: {at, url, fingerprint, calls: 0}}).then(() => watchSubmission(tabId)).catch(() => {});
-      decide('submitted', 'submit pressed', {host: where.host, path: where.path});
-    });
-    reply({ok: true});
-    return false;
-  }
-  if (message?.type === 'fillAnyway' && sender.tab) {
-    fillOpenedTab(sender.tab, sender.tab.url.replace(`#${FILL_MARK}`, ''), true);
-    reply({ok: true});
-    return false;
-  }
-  if (message?.type === 'claudeFill' && sender.tab) {
-    handOff(sender.tab, String(message.job || ''), String(message.ticket || ''));
-    reply({ok: true});
-    return false;
-  }
-  // The panel (review.js). App first: its job, its session and the state of the form, shared both ways. Without the
-  // app (not open, or your own Worker) the panel still shows the form's progress and fills through your Worker.
-  if (message?.type === 'panelJob' && sender.tab) {
-    (async () => {
-      const config = await settings();
-      const app = !config.workerUrl || config.workerUrl.startsWith('http://127.0.0.1');
-      try {
-        const data = await prefetch(config, String(message.url || sender.tab.url).split('#')[0]).kit;  // the contact details come along
-        return {connected: true, app, job: data.job || null, answers: data.kit?.answers?.length || 0, coverLetter: data.kit?.cover_letter || ''};
-      } catch (error) {
-        // The app answered (an error is still an answer): connected, and say what failed; only no answer is "not connected".
-        return {connected: !!error.status, app, job: null, answers: 0, coverLetter: '', retry: !!error.status && error.status !== 404,
-          why: !error.status ? (app ? NO_APP : error.message) : error.status === 404 ? '' : `Connected, but this job couldn't be loaded (${error.message || error.status}): trying again`};
-      }
-    })().then(reply, () => reply({connected: false}));
-    return true;
-  }
-  if (message?.type === 'panelFill' && sender.tab) {
-    const url = String(message.url || sender.tab.url).split('#')[0];
-    started.add(sender.tab.id);
-    forgetAI(sender.tab).then(() => fillOpenedTab(sender.tab, url, !!message.force, {fast: true})).then(result => reply({
-      ok: !result?.error, error: result?.error || '', ineligible: !!result?.ineligible, note: result?.note || '',
-      filled: result?.filled || 0, todo: (result?.todo || []).slice(0, 20), coverLetter: result?.coverLetter || '',
-      sharedNote: sharedFixNote(sharedFixes(result?.operated))}));
-    return true;
-  }
-  // The app asked to see this form: its tab and window come forward (the extension knows the tab; no Mac scripting).
-  if (message?.type === 'panelShowTab' && sender.tab) {
-    chrome.tabs.update(sender.tab.id, {active: true})
-      .then(() => chrome.windows.update(sender.tab.windowId, {focused: true}))
-      .then(() => reply({ok: true}), () => reply({ok: false}));
-    return true;
-  }
-  // The application was cancelled in the app: this form's tab closes.
-  if (message?.type === 'panelCloseTab' && sender.tab) {
-    chrome.tabs.remove(sender.tab.id).then(() => reply({ok: true}), () => reply({ok: false}));
-    return true;
-  }
-  // "Take over with Claude": the person asks the app to start its Claude session for this application, from this page. The job is the
-  // posting that led here (jobOf), the page is where Claude picks up.
-  if (message?.type === 'panelTakeOver' && sender.tab) {
-    (async () => {
-      const job = String(await jobOf(sender.tab)).split('#')[0];
-      const host = (() => { try { return new URL(sender.tab.url).hostname; } catch { return ''; } })();
-      decide('panel', 'asked Claude to take over', {host});
-      const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'take-over', url: job, page: sender.tab.url.split('#')[0], host})});
-      reply({ok: !!data?.ok});
-    })().catch(() => reply({ok: false}));
-    return true;
-  }
-  // The form panel's tip line: one tip from the same pool as the app's Application sessions page, the least recently shown, for this application system and, when
-  // one fits, the topic the form is at (knockout questions, tailoring, the CV).
-  if (message?.type === 'panelTip') {
-    (async () => {
-      const host = String(message.host || ''), ats = /greenhouse\.io$/.test(host) ? 'greenhouse' : /lever\.co$/.test(host) ? 'lever' : /ashbyhq\.com$/.test(host) ? 'ashby'
-        : /myworkdayjobs\.com$|workday\.com$/.test(host) ? 'workday' : /smartrecruiters\.com$/.test(host) ? 'smartrecruiters' : '';
-      const {tipsSeen = []} = await chrome.storage.local.get('tipsSeen');
-      const fits = TIPS.filter(tip => !tip.for && (!tip.ats || tip.ats === ats));   // a tip with an IT example is for the app, which knows the candidate
-      const topical = fits.filter(tip => tip.category === message.prefer);
-      const pool = topical.length ? topical : fits;
-      const next = [...pool].sort((a, b) => tipsSeen.indexOf(a.id) - tipsSeen.indexOf(b.id) || (Math.random() - 0.5))[0];   // never shown first, then the oldest
-      if (!next) return reply({ok: false});
-      await chrome.storage.local.set({tipsSeen: [...tipsSeen.filter(id => id !== next.id), next.id].slice(-60)});
-      reply({ok: true, text: next.text, evidence: next.evidence});
-    })().catch(() => reply({ok: false}));
-    return true;
-  }
-  // "Tailor my CV for this job": the person asks the app to write a CV from this job's posting; the form is filled again afterwards.
-  if (message?.type === 'panelTailor' && sender.tab) {
-    (async () => {
-      const job = String(await jobOf(sender.tab)).split('#')[0];
-      decide('panel', 'asked the app to tailor the CV', {});
-      const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'tailor-cv', url: job, page: sender.tab.url.split('#')[0]})});
-      reply({ok: !!data?.ok});
-    })().catch(() => reply({ok: false}));
-    return true;
-  }
-  if (message?.type === 'panelOpenApp') {
-    settings().then(config => api(config, '/extension/open', {method: 'POST', body: JSON.stringify({session: message.session})}))
-      .then(data => reply({ok: !!data.ok}), () => reply({ok: false}));
-    return true;
-  }
-  // The form page's ring (review.js): what's left there, to the app's session page; back: what to watch and show.
-  // A sign-in or sign-up page in a tab the app opened: its empty password boxes are filled from the Keychain (owner, 8 Oct 2026),
-  // as a browser's password manager would. The site is Chrome's own tab address, not the page's word; the value goes into the
-  // boxes only, never back to the page's scripts or the panel.
-  if (message?.type === 'sitePassword' && sender.tab) {
-    (async () => {
-      const key = `armed:${sender.tab.id}`;
-      const stored = await sessionGet(key);
-      if (!tabArmed({url: sender.tab.url, armed: stored[key]})) return {filled: 0};
-      const host = new URL(sender.tab.url).hostname;
-      const config = await settings();
-      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {filled: 0};   // your own Worker: no Keychain
-      const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host})});
-      if (!answer?.ok || !answer.password) return {filled: 0};
-      const [result] = await chrome.scripting.executeScript({target: {tabId: sender.tab.id, frameIds: [sender.frameId ?? 0]}, args: [answer.password], func: password => {
-        let filled = 0;
-        for (const box of document.querySelectorAll('input[type=password]')) {
-          if (box.disabled || box.readOnly || box.value || !box.getClientRects().length) continue;
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(box, password);   // React/Vue see the change too
-          box.dispatchEvent(new Event('input', {bubbles: true}));
-          box.dispatchEvent(new Event('change', {bubbles: true}));
-          box.setAttribute('data-jobpilotto-filled', '1');
-          filled++;
-        }
-        return filled;
-      }});
-      decide('fill', 'password filled from the Keychain', {host, boxes: result?.result || 0});
-      return {filled: result?.result || 0};
-    })().then(reply, () => reply({filled: 0}));
-    return true;
-  }
-  if (message?.type === 'review' && sender.tab) {
-    (async () => {
-      const config = await settings();
-      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
-      // The session this tab belongs to travels with it (next pages, tabs it opens): the app uses it instead of guessing.
-      const key = `session:${sender.tab.id}`, carried = (await sessionGet(key))[key] || '';
-      const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, boot: await bootId(), job: await jobOf(sender.tab), session: carried,
-        role: await roleOf(sender.tab.id, sender.tab.url)})});   // the page type by the one rule (an account page never counts as the form's progress)
-      if (answer?.matched && answer.matched !== carried) await chrome.storage.session.set({[key]: answer.matched});
-      return answer;
-    })().then(reply, () => reply({matched: null}));
-    return true;  // the reply comes later
-  }
+  for (const handle of messageHandlers) { const answer = handle(message, sender, reply); if (answer !== undefined) return answer; }
   return false;
 });
 
@@ -699,235 +470,20 @@ chrome.storage.onChanged.addListener((_, area) => {
   clearTimeout(keepTimer);
   keepTimer = setTimeout(() => keepMemory().catch(() => {}), 500);
 });
-// Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
-async function reportTabs() {
-  const config = await settings();
-  if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;  // your own Worker: no app here
-  const open = await chrome.tabs.query({url: JOB_SITES});
-  const urls = open.map(tab => tab.url);
-  const stored = await sessionGet(null).catch(() => ({}));
-  const armedIds = Object.keys(stored).filter(key => key.startsWith('armed:') && stored[key]).map(key => Number(key.slice(6))).filter(Number.isInteger);
-  const every = await chrome.tabs.query({});
-  // Read sites: the tabs reading a site, by ticket, so the app sees each one open and notices one you closed (as for a form tab).
-  const kept = Object.fromEntries(Object.keys(stored).filter(key => key.startsWith('read:')).map(key => [Number(key.slice(5)), stored[key]]));
-  const {reading, mark} = readTabs(every, kept);
-  if (Object.keys(mark).length) await chrome.storage.session.set(Object.fromEntries(Object.entries(mark).map(([id, ticket]) => [`read:${id}`, ticket]))).catch(() => {});
-  const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds: [...armedIds, ...Object.values(reading)], existingIds: every.map(tab => tab.id)});
-  for (const id of armedIds) reportCorrections(config, id);
-  // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
-  const boot = await bootId();
-  // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
-  try {
-    // Which session each open tab belongs to, from the tabs' own memory: the app binds a session to its tab from this alone, so it never
-    // has to guess by address (a restarted app, a form on another site than the posting).
-    const alive = new Set(every.map(tab => tab.id));
-    const sessions = Object.fromEntries(Object.entries(stored).filter(([key, id]) => /^session:\d+$/.test(key) && id && alive.has(Number(key.slice(8))))
-      .map(([key, id]) => [key.slice(8), String(id)]));
-    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, worker: WORKER, reading, sessions, version: chrome.runtime.getManifest().version})});
-    connected(true);
-    // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
-    // tab is, under the mark it was opened with (desktop/lib/visits.js noteTabs; 7 Oct 2026: a reload left 3 of 5 sites "stopped answering").
-    for (const {tab, ticket, mark} of Array.isArray(answer?.reread) ? answer.reread : []) {
-      const open = await chrome.tabs.get(Number(tab)).catch(() => null);
-      if (open?.url && /^https?:/.test(open.url) && /^jp-(read(-filter)?|posting)$/.test(String(mark)) && /^[a-z0-9]{4,16}$/.test(String(ticket))) {
-        autoRead(open.id, `${open.url.split('#')[0]}#${mark}-${ticket}`);
-      }
-    }
-    // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
-    // that can't update (a store install) doesn't reload over and over.
-    // Never while a form is being filled (fillsNow) or a site is being read: a reload ends every reading at once (7 Oct 2026: an update landed mid-run and a site died); the next
-    // report after the last one ends does it.
-    if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version) && !readingNow() && !fillsNow.size) {
-      const {reloadedFor} = await chrome.storage.local.get('reloadedFor');
-      if (reloadedFor !== answer.latest) {
-        await chrome.storage.local.set({reloadedFor: answer.latest});
-        await keepMemory().catch(() => {});   // the newest copy of the tabs' memory: the tabs outlive the reload (extension/tab-memory.js)
-        await decide('worker', `reloading for version ${answer.latest}`);
-        chrome.runtime.reload();
-      }
-    }
-  } catch (error) {
-    connected(false, error.status ? NOT_CONNECTED : NO_APP);
-  }
-}
+createTabReport({WORKER, armedLogged, bootId, fillsNow, jobOf, keepMemory, newer, reportCorrections, started});   // tab-report.js
 export function newer(a, b) {
   const [x, y] = [a, b].map(v => String(v || '0').split('.').map(Number));
   for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
   return false;
 }
-function connected(ok, why = '') {
-  chrome.action.setBadgeText({text: ok ? '' : '!'}).catch(() => {});
-  chrome.action.setTitle({title: ok ? 'Job Pilotto' : `Job Pilotto: ${why}`}).catch(() => {});
-}
-// A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
-// ever carried over to whatever opens next (tab-pages.js).
-chrome.tabs.onRemoved.addListener(async tabId => {
-  reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
-  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `session:${tabId}`, `role:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
-  for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
-  // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
-  // matched it and the new tab was treated as already filled.
-  for (const key of [...started]) {
-    if (key === tabId || (typeof key === 'string' && key.startsWith(`${tabId} `))) started.delete(key);
-  }
-  reportTabs();
-});
-chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });
-chrome.runtime.onStartup.addListener(reportTabs);
-// Also every 30 s, so an app started after the tabs were opened still learns about them. Only if it isn't there
-// already: creating an alarm that exists resets it, and this worker wakes far more often than every 30 s.
-ensureAlarm({get: name => chrome.alarms.get(name), create: (name, info) => chrome.alarms.create(name, info)});
-// Every 30 s: an armed page that finished loading and that nothing looked at (its load event came while the worker was starting, or before the tab was armed)
-// is looked at now. A page that has a fill state, or that `consider` already took, is left alone.
-async function considerMissed() {
-  const stored = await sessionGet(null).catch(() => ({}));
-  for (const key of Object.keys(stored).filter(name => name.startsWith('armed:') && stored[name])) {
-    const tab = await chrome.tabs.get(Number(key.slice(6))).catch(() => null);
-    if (!tab || tab.status !== 'complete' || !/^https:/.test(tab.url || '') || neverForm(tab.url) || started.has(tab.id) || started.has(fillKey(tab.id, tab.url))) continue;
-    const [row] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: () => document.documentElement?.dataset.jobpilottoFill || ''}).catch(() => []);
-    if (!row || row.result) continue;   // unreadable, or it already has a state
-    let host = '';
-    try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-    decide('fill', 'a loaded page nobody had looked at: looking now', {host});
-    await consider(tab, await jobOf(tab));
-  }
-}
-chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') { reportTabs(); considerMissed(); } });
-reportTabs();
 
-// Submitted? The submit press starts a short watch. A redirect or a change on the same page (a confirmation
-// message where the form was) is then read by the app. The address alone is not a submission, and a press
-// that leaves the page unchanged is not one either.
-const loggedMiss = new Set();
-const watching = new Map(); // tab id -> the submit press (its timestamp) this watch belongs to
-const ASK_LIMIT = 2;
-function logOnce(tabId, text, fields) {
-  const key = `${tabId}:${text}:${fields.host || ''}/${fields.path || ''}/${fields.id || ''}`;
-  if (loggedMiss.has(key)) return;
-  loggedMiss.add(key);
-  decide('submitted?', text, fields);
-}
-async function readLandedPage(tabId) {
-  const [frame] = await chrome.scripting.executeScript({target: {tabId}, func: () => {
-    const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
-    const headings = [...document.querySelectorAll('h1, h2')].map(el => clean(el.innerText)).filter(Boolean).slice(0, 6);
-    const inputs = [...document.querySelectorAll('input, textarea, select')].filter(el => el.type !== 'hidden' && el.getClientRects().length).length;
-    return {title: clean(document.title).slice(0, 180), headings, text: clean(document.body?.innerText).slice(0, 1500), inputs};
-  }}).catch(() => []);
-  return frame?.result || null;
-}
-async function askAboutOutcome(tabId, tab, reading, gate, pressAt) {
-  const jobKey = `job:${tabId}`;
-  const {[jobKey]: job} = await sessionGet(jobKey);
-  if (!job) {
-    logOnce(tabId, 'submit, then the page changed, no job stored on this tab: not marked', {host: gate.host, path: gate.path});
-    return {done: true};
-  }
-  decide('submitted?', `submit, then the page changed (${gate.why}): asking whether it confirms`, {host: gate.host, path: gate.path});
-  try {
-    const config = await settings();
-    const verdict = await api(config, '/extension/confirmation', {method: 'POST', body: JSON.stringify({
-      job, page: pageKey(tab.url), title: reading?.title || '', headings: reading?.headings || [], text: reading?.text || '', inputs: reading?.inputs || 0,
-    })});
-    if (!verdict.confirmation) {
-      decide('submitted?', verdict.error ? `page not read (${verdict.error}): not marked` : 'page is not a confirmation: not marked', {host: gate.host, path: gate.path});
-      return {done: false};
-    }
-    if (!verdict.ok) {
-      decide('submitted', `the app refused it: ${verdict.error || 'not marked'}`, {host: gate.host, path: gate.path});
-      return {done: true};
-    }
-    await chrome.storage.session.set({[`judged:${tabId}`]: pressAt});
-    await chrome.storage.session.remove(`submit:${tabId}`);
-    decide('submitted', 'marked Applied', {host: gate.host, path: gate.path});
-    await note(tabId, '✈️ Submitted: marked Applied in Job Pilotto and Notion.', pageKey(tab.url));
-    return {done: true};
-  } catch (error) {
-    decide('submitted', `could not reach the app: ${error.message}`, {host: gate.host, path: gate.path});
-    await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Open Job Pilotto to mark it Applied.`, pageKey(tab.url));
-    return {done: true};
-  }
-}
-// One watch per tab. Samples the page until it changes and settles, or the wait runs out. A second sample
-// is allowed when the first read was a loading state rather than the outcome.
-async function watchSubmission(tabId) {
-  const key = `submit:${tabId}`;
-  let {[key]: submit, [`judged:${tabId}`]: judged} = await sessionGet([key, `judged:${tabId}`]);
-  if (!submit?.at || judged === submit.at || submit.closed) return;
-  if (watching.get(tabId) === submit.at) return;
-  const pressAt = submit.at;
-  watching.set(tabId, pressAt);
-  try {
-    const armedKey = `armed:${tabId}`;
-    let last = submit.fingerprint;
-    let stableSince = Date.now();
-    let calls = submit.calls || 0;
-    const deadline = pressAt + SUBMIT_WAIT_MS;
-    // Sleep only until the deadline, then take that sample. A sample a few milliseconds later would be
-    // "too old" and would skip both the read and the "page unchanged" line.
-    while (calls < ASK_LIMIT && Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, Math.min(1000, deadline - Date.now())));
-      const fresh = await sessionGet([key, `judged:${tabId}`]);
-      submit = fresh[key];
-      if (submit?.at !== pressAt || fresh[`judged:${tabId}`] === pressAt) return; // a newer press, or already marked
-      const tab = await chrome.tabs.get(tabId).catch(() => null);
-      if (!tab?.url || !/^https:/.test(tab.url)) return;
-      const {[armedKey]: armed} = await sessionGet(armedKey);
-      if (!tabArmed({url: tab.url, armed})) return;
-      const reading = await readLandedPage(tabId);
-      const after = pageFingerprint(reading || {});
-      if (after !== last) { last = after; stableSince = Date.now(); }
-      const now = Math.min(Date.now(), deadline);
-      const gate = submissionOutcome({
-        at: pressAt, now, from: submit.url, to: tab.url, before: submit.fingerprint, after, stableFor: now - stableSince,
-      });
-      if (gate.why === 'unchanged') {
-        await chrome.storage.session.set({[key]: {...submit, closed: true}});
-        logOnce(tabId, 'submit, page unchanged: not marked', {host: gate.host, path: gate.path});
-        return;
-      }
-      // A blank document mid-navigation is not the outcome. Wait for content, unless this is the last sample.
-      const blank = !reading || (!reading.title && !reading.text && !(reading.headings || []).length);
-      if (!gate.ask || (blank && now < deadline)) continue;
-      calls += 1;
-      submit = {...submit, fingerprint: after, calls, ...(calls >= ASK_LIMIT ? {closed: true} : {})};
-      await chrome.storage.session.set({[key]: submit});
-      const result = await askAboutOutcome(tabId, tab, reading, gate, pressAt);
-      if (result.done) {
-        const latest = await sessionGet(key);
-        if (latest[key]?.at === pressAt) await chrome.storage.session.set({[key]: {...latest[key], closed: true}});
-        return;
-      }
-      stableSince = Date.now();
-    }
-  } finally {
-    if (watching.get(tabId) === pressAt) watching.delete(tabId);
-  }
-}
-async function onTabSettled(tabId, tab) {
-  if (!tab?.url || !/^https:/.test(tab.url)) return;
-  const armedKey = `armed:${tabId}`;
-  const stored = await sessionGet([`job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, armedKey]);
-  if (!tabArmed({url: tab.url, armed: stored[armedKey]})) return;
-  const submit = stored[`submit:${tabId}`];
-  if (submit?.at && !submit.closed && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < SUBMIT_WAIT_MS) {
-    watchSubmission(tabId);
-    return;
-  }
-  const job = stored[`job:${tabId}`];
-  // The watch gave up on a page that did not change in time, then the site's confirmation page arrived: read it now.
-  const page = confirmationOf(tab.url);
-  if (page && submit?.at && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < LATE_CONFIRMATION_MS && forJob(tab.url, job)) {
-    const gate = {host: page.host, path: page.path, why: 'late confirmation'};
-    const result = await askAboutOutcome(tabId, tab, await readLandedPage(tabId), gate, submit.at);
-    if (result.done) await chrome.storage.session.set({[`submit:${tabId}`]: {...submit, closed: true}});
-    return;
-  }
-  const miss = missedConfirmation({url: tab.url, job});
-  if (miss) logOnce(tabId, miss.text, miss.fields);
-  else if (!submit?.at && job && confirmationOf(tab.url)) logOnce(tabId, 'no submit press before this page: not marked', {host: confirmationOf(tab.url).host, path: confirmationOf(tab.url).path});
-}
+const {watchSubmission, onTabSettled} = createSubmitWatch({note});   // submit-watch.js
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'complete') onTabSettled(tabId, tab); });
 
 // The fill flow (fill-flow.js) gets what lives on with this worker: the tabs a fill started on, the fill, its report, onPage.
 initFillFlow({started, fillOpenedTab, reportFlow, onPage});
+
+// Message groups: registered here, after everything they use exists, in the order the messages were answered before.
+messageHandlers.push(createLearningMessages({FILL_MARK, arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission}));   // messages-learning.js
+messageHandlers.push(createPanelMessages({fillOpenedTab, jobOf, prefetch, started}));   // messages-panel.js
+messageHandlers.push(createAppMessages({bootId, jobOf}));   // messages-app.js

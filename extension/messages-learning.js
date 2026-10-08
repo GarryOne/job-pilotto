@@ -1,0 +1,131 @@
+// The extension worker's messages about what the page learned (moved out of background.js, 8 Oct 2026): reading a job list, arming a tab, the fill's misses and the
+// answers typed, the panel's focus result and allowed state, what the fill missed at Submit, the press of Submit and Fill anyway. An account page teaches nothing
+// (account.js). Each returns a function that answers the messages it owns and returns undefined for any other. A FLOW FILE (docs/flows/applying.md). Guards:
+// the learned-answers, submit and account tests in desktop/test and the matrix (npm run flows).
+import {accountSkip} from './account.js';
+import {api} from './flow.js';
+import {decide} from './log.js';
+import {onAccountPage} from './account.js';
+import {pageFingerprint} from './tab-pages.js';
+import {pageKey} from './tab-pages.js';
+import {readSite} from './visit.js';
+import {sessionGet} from './tab-memory.js';
+import {settings} from './flow.js';
+import {submissionOutcome} from './tab-pages.js';
+import {tabArmed} from './tab-pages.js';
+
+export function createLearningMessages(ctx) {
+  const {FILL_MARK, arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission} = ctx;
+  return function messages_learning(message, sender, reply) {
+    // "Read the jobs on this page", from the popup after the person's click (visit.js): runs here so it goes on when the popup closes.
+    if (message?.type === 'visitRead') {
+      const tabId = Number(message.tabId);
+      if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
+      readSite(tabId, {filter: !!message.filter}).then(state => reply({ok: true, ...state}), error => reply({ok: false, error: error.message}));
+      return true;
+    }
+    // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
+    if (message?.type === 'armTab') {
+      const tabId = Number(message.tabId);
+      if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
+      arm(tabId, 'review').then(() => reply({ok: true}), () => reply({ok: false}));
+      return true;
+    }
+    // Controls the panel could not read (their structure, never their text): kept on this Mac for learning how to operate them.
+    if (message?.type === 'misses' && sender.tab && Array.isArray(message.items)) {
+      (async () => {
+        const config = await settings();
+        if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
+        let host = '';
+        try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
+        return api(config, '/extension/misses', {method: 'POST', body: JSON.stringify({host, items: message.items.slice(0, 10)})});
+      })().then(reply, () => reply({ok: false}));
+      return true;
+    }
+    // What you answered yourself in the form, sent at the Submit press: the app keeps it so no form asks again.
+    if (message?.type === 'learned' && sender.tab && Array.isArray(message.items)) {
+      (async () => {
+        if (await onAccountPage(sender.tab, message.account, message.url)) { accountSkip(sender.tab, 'answers typed there are not learned'); return {ok: false, account: true}; }
+        const config = await settings();
+        if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
+        let host = '';
+        try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
+        const items = message.items.slice(0, 40).map(item => ({label: String(item?.label || '').slice(0, 120), value: String(item?.value || '').slice(0, 300),
+          kind: item?.kind === 'option' ? 'option' : 'text'})).filter(item => item.label && item.value);
+        return api(config, '/extension/learned', {method: 'POST', body: JSON.stringify({host, job: await jobOf(sender.tab), items})});
+      })().then(reply, () => reply({ok: false}));
+      return true;
+    }
+    if (message?.type === 'focusResult' && sender.tab) {
+      (async () => {
+        const config = await settings();
+        if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
+        return api(config, '/extension/focus', {method: 'POST', body: JSON.stringify({
+          url: sender.tab.url, title: sender.tab.title || '', found: !!message.found, job: await jobOf(sender.tab)})});
+      })().then(reply, () => reply({ok: false}));
+      return true;
+    }
+    if (message?.type === 'panelStepNow' && sender.tab) {
+      const text = stepNow.get(sender.tab.id) || '';
+      if (text) stepBox(sender.tab.id, '');
+      reply({text});
+      return false;
+    }
+    if (message?.type === 'panelAllowed' && sender.tab) {
+      const key = `armed:${sender.tab.id}`;
+      sessionGet(key).then(stored => {
+        const ok = tabArmed({url: sender.tab.url, armed: stored[key]});
+        if (!ok) {
+          let host = '';
+          try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
+          if (!panelRefused.has(host)) {
+            panelRefused.add(host);
+            decide('panel', 'page was not opened by the app: panel not shown', {host});
+          }
+        }
+        reply({ok});
+      }, () => reply({ok: false}));
+      return true;
+    }
+    // At Submit, what the fill missed (review.js noteMissed): labels and kinds only, counted per board by the app.
+    if (message?.type === 'formLearning' && sender.tab) {
+      const labels = list => (Array.isArray(list) ? list : []).slice(0, 30);
+      const byYou = labels(message.byYou).map(item => ({label: String(item?.label || '').slice(0, 120), kind: String(item?.kind || '').slice(0, 20), unread: !!item?.unread}));
+      const invalid = labels(message.invalid).map(label => String(label || '').slice(0, 120));
+      const fillId = /^[\w-]{8,40}$/.test(String(message.fillId || '')) ? message.fillId : '';
+      // What the fill missed teaches the form-filling data (recipes, the board's misses): never from a sign-in or sign-up page.
+      onAccountPage(sender.tab, message.account, message.url).then(account => {
+        if (account) { accountSkip(sender.tab, 'its fields are not counted as fill misses'); return; }
+        reportFlow(sender.tab, null, {...(byYou.length ? {byYou} : {}), ...(invalid.length ? {invalid} : {}), ...(fillId ? {fillId, submitted: !!message.submitted} : {})});
+      });
+      reply({ok: true});
+      return false;
+    }
+    if (message?.type === 'submitted' && sender.tab?.id != null) {
+      const tabId = sender.tab.id;
+      const url = pageKey(message.url || sender.tab.url || '');
+      const at = Date.now();
+      const fingerprint = pageFingerprint(message.snapshot || {});
+      const where = submissionOutcome({at, from: url, to: url, before: fingerprint, after: fingerprint});
+      // "Create account" or "Sign in" is not the application being sent: its "thanks for registering" must never mark it Applied.
+      onAccountPage(sender.tab, message.account, message.url).then(account => {
+        if (account) { decide('submitted', 'account page: a sign-in or sign-up press, not an application submit', {host: where.host, path: where.path}); return; }
+        chrome.storage.session.set({[`submit:${tabId}`]: {at, url, fingerprint, calls: 0}}).then(() => watchSubmission(tabId)).catch(() => {});
+        decide('submitted', 'submit pressed', {host: where.host, path: where.path});
+      });
+      reply({ok: true});
+      return false;
+    }
+    if (message?.type === 'fillAnyway' && sender.tab) {
+      fillOpenedTab(sender.tab, sender.tab.url.replace(`#${FILL_MARK}`, ''), true);
+      reply({ok: true});
+      return false;
+    }
+    if (message?.type === 'claudeFill' && sender.tab) {
+      handOff(sender.tab, String(message.job || ''), String(message.ticket || ''));
+      reply({ok: true});
+      return false;
+    }
+    return undefined;   // not one of this group's messages: the next group looks
+  };
+}

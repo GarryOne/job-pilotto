@@ -107,7 +107,7 @@ test('a tip for IT is shown to a technical candidate only; with no audience know
 
 test('the extension never shows a tip marked for IT: it cannot know the candidate', async () => {
   const {readFileSync} = await import('node:fs');
-  const source = readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../extension/messages-panel.js', import.meta.url), 'utf8');
   assert.match(source, /TIPS\.filter\(tip => !tip\.for && /);
 });
 

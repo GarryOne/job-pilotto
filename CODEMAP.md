@@ -344,14 +344,19 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
 - `extension/log.js` — The extension's decision log (moved out of background.js, 8 Oct 2026): every part that decides something (fill, tabs, account pages)
+- `extension/messages-app.js` — The extension worker's messages from the page: the site password for a sign-in page and the form review relay to the app (moved out of background.js, 8 Oct 2026).
+- `extension/messages-learning.js` — The extension worker's messages about what the page learned (moved out of background.js, 8 Oct 2026): reading a job list, arming a tab, the fill's misses and the
+- `extension/messages-panel.js` — The extension worker's messages from the page's panel (moved out of background.js, 8 Oct 2026): the job it shows, Fill, bringing the tab forward or closing it, taking over with
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app
 - `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 - `extension/same-tab.js` — One tab per application (owner, 8 Oct 2026: Manor's Apply opened the sign-in in a second tab, and the app lost track of which
+- `extension/submit-watch.js` — Did the person submit? (moved out of background.js, 8 Oct 2026): the submit press starts a short watch; a redirect or a change on the same page is read by the app, which decides
 - `extension/tab-memory.js` — The extension's memory of its tabs (which session and job each tab is, which the app opened, the sites being read) lives in
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
+- `extension/tab-report.js` — Telling the app which tabs are open (moved out of background.js, 8 Oct 2026): the report of open job and form tabs (the app's "Opened in Chrome" and "form closed"), every 30 s
 - `extension/tabs.js` — Which tabs belong to which application (docs/flows/applying.md, owner 8 Oct 2026): a tab opened by an application's tab is the same
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `extension/visit-page.js` — What the extension runs INSIDE a page it reads (chrome.scripting.executeScript { func }): each function is self-contained (it is serialised
