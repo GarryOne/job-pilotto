@@ -52,6 +52,7 @@ async function openProfile() {
   shared.state = await window.pilot.state();
   contactDirty(false);
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
+  $('account-automation').checked = shared.state.settings.accountAutomation !== 'assist';
   showContact();
   profileTab('details');
 }

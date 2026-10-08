@@ -65,6 +65,9 @@ export async function init() {
   window.pilot.onOpenTarget(openTarget);   // a clicked system notification
 
   // Help improve Job Pilotto (opt-in anonymous form reports).
+  $('account-automation').addEventListener('change', async () => {   // full: the extension also accepts an account's consent and presses its button; assist: the person does (lib/site-accounts.js)
+    shared.state.settings = await window.pilot.saveSettings({accountAutomation: $('account-automation').checked ? 'full' : 'assist'});
+  });
   $('claude-consent').addEventListener('change', async () => {
     shared.state.settings = await window.pilot.saveSettings({claudeConsent: $('claude-consent').checked ? new Date().toISOString() : null});
   });
