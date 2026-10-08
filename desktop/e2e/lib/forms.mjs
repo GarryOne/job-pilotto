@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
+import {CONTACT} from './apply-fixtures.mjs';
 
 export const HOSTS = ['boards.greenhouse.io', 'jobs.lever.co', 'e2e.recruitee.com', 'e2e.wd3.myworkdayjobs.com'];
 const LEVER_ID = '5e2e5e2e-0000-4000-8000-00000000a001';
@@ -94,6 +95,18 @@ export const SIGNUP = {
 SIGNUP.url = `https://${SIGNUP.host}${SIGNUP.path}`;
 SIGNUP.accountUrl = `https://${SIGNUP.accountHost}${SIGNUP.accountPath}`;
 SIGNUP.formUrl = `https://${SIGNUP.accountHost}${SIGNUP.formPath}`;
+// A sign-in page in front of the form where we HAVE an account (8 Oct 2026, SuccessFactors sites with a saved password): the run's own password store holds this
+// host's password with the applicant's email, so the app says "sign-in". The extension fills the email (the normal fill) and the password (account-step.js), presses
+// "Sign in" once on the AI's "ready", and the form behind it is filled from the kit. SIGNIN_REFUSED is the same page where the site says the password is wrong: pressed once,
+// never again, and the person is told (Claude offered). The password is a test value made for this run; `signinPosts` counts the presses the site received.
+export const SIGNIN_PASSWORD = `Fictional-Signin-${Math.random().toString(36).slice(2, 10)}`;
+const signinFixture = (title, company, path, accountPath) => {
+  const fixture = {title, company, host: 'jobs.lever.co', path, accountHost: 'e2e.recruitee.com', accountPath, formPath: `${accountPath}-application`,
+    kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '4', needs_review: false}]};
+  return Object.assign(fixture, {url: `https://${fixture.host}${path}`, accountUrl: `https://${fixture.accountHost}${accountPath}`, formUrl: `https://${fixture.accountHost}${fixture.formPath}`});
+};
+export const SIGNIN = signinFixture('Site Reliability Engineer, Sign-in First', 'E2E Sign-in Bank', '/e2e-signin/4001008', '/e2e/signin');
+export const SIGNIN_REFUSED = signinFixture('Platform Engineer, Sign-in Refused', 'E2E Sign-in Insurer', '/e2e-signin/4001009', '/e2e/signin-refused');
 // The account and the application on ONE page (8 Oct 2026, Coop on SuccessFactors): an "Upload a CV" button with its file input hidden,
 // email twice, a password twice, names and more. It is the application (filled, counted, the form step); its passwords stay account fields.
 export const ONEPAGE = {
@@ -186,6 +199,11 @@ ${script}
 </script></body></html>`;
 
 const ONEPAGE_HTML = () => page(ONEPAGE, `<p>Are you already registered? <a href="#login">Log in here.</a></p><form id="application_form"><div class="field"><button type="button" id="upload_cv" onclick="document.getElementById('cv_file').click()">Upload a CV</button><input id="cv_file" name="cv_file" type="file" style="display:none"></div>${field('email', 'Email', {type: 'email', required: true})}${field('email_again', 'Please re-enter your email address', {type: 'email', required: true})}<div class="field"><label for="password">Choose a password *</label><input id="password" name="password" type="password" required></div><div class="field"><label for="password_again">Confirm password *</label><input id="password_again" name="password_again" type="password" required></div>${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('city', 'City', {required: true})}${field('phone', 'Phone', {type: 'tel', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`);
+const SIGNIN_PAGES = {
+  posting: fixture => page(fixture, `<p>Join our platform team.</p><a id="apply_link" href="${fixture.accountUrl}" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a>`),
+  account: (fixture, error = '', email = '') => page(fixture, `<h2>Sign in to apply</h2>${error ? `<p id="signin_error" role="alert" style="color:#b00">${esc(error)}</p>` : ''}<form id="signin_form" method="post" action="${fixture.accountPath}">${field('signin_email', 'Email Address', {type: 'email', required: true, extra: email ? `value="${esc(email)}"` : ''})}<div class="field"><label for="signin_password">Password *</label><input id="signin_password" name="signin_password" type="password" required></div><button type="submit" id="signin_button">Sign in</button></form><p><a id="create_account" href="${fixture.accountPath}/new">Create an account</a></p>`, '', {realSubmit: true}),
+  form: fixture => page(fixture, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`),
+};
 const SIGNUP_PAGES = {
   posting: () => page(SIGNUP, `<p>Join our store team.</p><a id="apply_link" href="${SIGNUP.accountUrl}" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a>`),
   account: () => page(SIGNUP, `<h2>Create an account</h2><form id="signup_form" method="post" action="${SIGNUP.accountPath}">${field('signup_email', 'Email Address', {type: 'email', required: true})}${field('signup_username', 'Username', {required: true})}<div class="field"><label for="signup_password">Password *</label><input id="signup_password" name="signup_password" type="password" required></div><div class="field"><label><input id="robot" type="checkbox" required> I'm not a robot</label></div><button type="submit" id="create_account">Create account</button></form>`, '', {realSubmit: true}),
@@ -289,6 +307,7 @@ export async function startForms({vary = null} = {}) {
   const fired = [];
   const posts = [];   // the real Submit of FORMS.submitter (done by the test as the person)
   const hits = [];
+  const signinPosts = [];   // each press of a sign-in fixture's button the site received: which page, and whether the email and the password were the right ones
   const server = https.createServer({key: fs.readFileSync(path.join(dir, 'key.pem')), cert: fs.readFileSync(path.join(dir, 'cert.pem'))}, (req, res) => {
     const url = new URL(req.url, 'https://x');
     const host = String(req.headers.host || '').split(':')[0];
@@ -301,6 +320,23 @@ export async function startForms({vary = null} = {}) {
     if (host === SIGNUP.accountHost && signup === SIGNUP.accountPath) {
       if (req.method === 'POST') { req.resume(); req.on('end', () => res.writeHead(303, {location: SIGNUP.formPath}).end()); return; }   // the account is made: on to the form
       res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.account()); return;
+    }
+    for (const fixture of [SIGNIN, SIGNIN_REFUSED]) {
+      const html = body => { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(body); };
+      if (host === fixture.host && signup === fixture.path) { html(SIGNIN_PAGES.posting(fixture)); return; }
+      if (host === fixture.accountHost && signup === fixture.formPath) { html(SIGNIN_PAGES.form(fixture)); return; }
+      if (host !== fixture.accountHost || signup !== fixture.accountPath) continue;
+      if (req.method !== 'POST') { html(SIGNIN_PAGES.account(fixture)); return; }
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        const sent = new URLSearchParams(body);
+        const right = fixture === SIGNIN && sent.get('signin_password') === SIGNIN_PASSWORD && sent.get('signin_email') === CONTACT.email;
+        signinPosts.push({path: fixture.accountPath, right, email: sent.get('signin_email') === CONTACT.email, password: sent.get('signin_password') === SIGNIN_PASSWORD});   // never the values
+        if (right) res.writeHead(303, {location: fixture.formPath}).end();
+        else html(SIGNIN_PAGES.account(fixture, 'The email or password is wrong. Please try again.', sent.get('signin_email') || ''));   // like real sites: the email stays, the password box is empty again
+      });
+      return;
     }
     if (host === SIGNUP.accountHost && signup === SIGNUP.formPath) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.form()); return; }
     if (req.method === 'POST' && host === FORMS.submitter.host && url.pathname === FORMS.submitter.path) {
@@ -332,7 +368,7 @@ export async function startForms({vary = null} = {}) {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
-  return {port, fired, posts, hits, variation, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => (PAGES[name] || realPage)(FORMS[name])};
+  return {port, fired, posts, hits, signinPosts, variation, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => (PAGES[name] || realPage)(FORMS[name])};
 }
 
 // Chromium flags that send the job-site host names to the fixture server and make every other name unresolvable (no employer is ever contacted).

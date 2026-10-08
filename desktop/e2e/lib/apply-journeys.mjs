@@ -1,6 +1,6 @@
 /* global document, window */
 // The apply suite's journey steps (moved out of suites/apply.mjs, 8 Oct 2026): a posting that opens a tab, side-by-side applications, sign-up, one page, a closed form tab, a wrong page kind. Guards the flows in docs/flows/applying.md.
-import {CHAIN, MISLABELLED, ONEPAGE, SCRIPTED, SIGNUP} from './forms.mjs';
+import {CHAIN, MISLABELLED, ONEPAGE, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
 import {CONTACT, pause} from './apply-fixtures.mjs';
 import {appLogText} from './app-log.mjs';
 import {cvProblems, fillProblems, submitProblems} from './applycheck.mjs';
@@ -120,6 +120,73 @@ export async function runJourneys(ctx, h) {
     if (!/account page: answers typed there are not learned/.test(log)) problems.push('the answers typed on the sign-up page were not kept out of the learned answers (no "not learned" line in the app log)');
     if (!/account page: a sign-in or sign-up press, not an application submit/.test(log)) problems.push('"Create account" was not told apart from submitting the application');
     if (/learned.*Username|Username.*learned/i.test(log)) problems.push('"Username" from the sign-up page reached the learned answers');
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  // A sign-in page before the form where we have an account (8 Oct 2026: a saved site password + "email=" on its item = sign-in). The run's own password store
+  // (never the Keychain: lib/keychain.js) holds the fixture host's test password with the applicant's email. The extension fills the email and the password, presses
+  // "Sign in" once on the account AI's "ready", and the form behind it is filled from the kit; Settings → Credentials lists the host with the email. Then the same
+  // page where the site refuses: pressed once, never again, and the person is told (Claude offered, never started).
+  const seedSitePassword = host => {
+    const file = path.join(ctx.profile, 'isolated-secrets.json');
+    let items = {}; try { items = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { /* the first item */ }
+    items[`job-pilotto.${host}.password`] = {value: SIGNIN_PASSWORD, account: 'job-pilotto', comment: `email=${CONTACT.email}`, created: new Date().toISOString()};
+    fs.writeFileSync(file, JSON.stringify(items, null, 2), {mode: 0o600});
+  };
+  const openAccount = async fixture => {
+    seedSitePassword(fixture.accountHost);
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [fixture.url, {title: fixture.title, company: fixture.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(fixture.accountUrl)) || null; await pause(1000); }
+    if (!tab) { await dumpExtension(); throw new Error(`the sign-in page was never reached. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`); }
+    return tab;
+  };
+  const sessionOf = async fixture => (await page.evaluate(() => window.pilot.sessions())).find(item => String(item.url || '').replace(/\/$/, '') === fixture.url) || null;
+  const pressesOf = fixture => forms.signinPosts.filter(post => post.path === fixture.accountPath);
+
+  await ctx.run('a sign-in page before the form: your email and saved password are filled, "Sign in" is pressed once, and the form behind it is filled', async () => {
+    const tab = await openAccount(SIGNIN);
+    const problems = [];
+    for (let waited = 0; waited < 60000 && !pressesOf(SIGNIN).length; waited += 500) await pause(500);
+    const presses = pressesOf(SIGNIN);
+    if (!presses.length) problems.push(`"Sign in" was never pressed (email box "${await tab.locator('#signin_email').inputValue().catch(() => '?')}" is ${await tab.locator('#signin_email').inputValue().catch(() => '') === CONTACT.email ? 'filled' : 'not filled'}, password box ${await tab.locator('#signin_password').inputValue().then(value => (value ? 'filled' : 'empty')).catch(() => '?')})`);
+    else if (!presses[0].email || !presses[0].password) problems.push(`"Sign in" was pressed with the wrong ${!presses[0].email ? 'email' : 'password'} (the saved one for this site was not used)`);
+    let state = null;
+    for (let waited = 0; waited < 60000 && presses.length; waited += 500) { if (tab.url().startsWith(SIGNIN.formUrl)) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; } await pause(500); }
+    if (presses.length && state?.state !== 'done') problems.push(`the form after signing in was not filled (at ${tab.url()}, state ${JSON.stringify(state)})`);
+    else if (presses.length) {
+      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
+      if (value !== '4') problems.push(`the form after signing in has Kubernetes years "${value}", its kit says 4`);
+    }
+    if (pressesOf(SIGNIN).length > 1) problems.push(`"Sign in" was pressed ${pressesOf(SIGNIN).length} times (once per tab is the floor)`);
+    let at = null;
+    for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await sessionOf(SIGNIN); await pause(1000); }
+    if (at?.stage !== 'form') problems.push(`after signing in the session did not move to the form step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
+    const log = appLogText(ctx.profile);
+    for (const [line, why] of [[/sign_in page: filled with your details/, 'the sign-in page was not filled with your details'], [/site password given for a sign-in page/, 'the app did not give the saved password as a sign-in'],
+      [/account button: pressed/, 'no "account button: pressed" decision in the app log'], [/account result: created/, 'the account AI\'s word after the press ("created") is not in the app log']]) if (!line.test(log)) problems.push(why);
+    const rows = await page.evaluate(() => window.pilot.credentials());
+    const row = (rows?.rows || []).find(item => item.host === SIGNIN.accountHost);
+    if (!row) problems.push(`Settings → Credentials does not list ${SIGNIN.accountHost} (${rows?.ok ? `${rows.rows.length} row(s)` : rows?.error})`);
+    else if (row.email !== CONTACT.email) problems.push(`Settings → Credentials lists ${SIGNIN.accountHost} with email "${row.email}", expected the applicant's`);
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  await ctx.run('a sign-in page before the form that refuses the password: "Sign in" is pressed once, never again, and you are told (Claude offered)', async () => {
+    const tab = await openAccount(SIGNIN_REFUSED);
+    const problems = [];
+    for (let waited = 0; waited < 60000 && !pressesOf(SIGNIN_REFUSED).length; waited += 500) await pause(500);
+    if (!pressesOf(SIGNIN_REFUSED).length) problems.push('"Sign in" was never pressed on the refusing page');
+    let at = null;
+    for (let waited = 0; waited < 30000 && at?.stuck !== 'account'; waited += 1000) { at = await sessionOf(SIGNIN_REFUSED); await pause(1000); }
+    await pause(12000);   // several more looks of the extension (it looks every few seconds): a second press would show here
+    const presses = pressesOf(SIGNIN_REFUSED).length;
+    if (presses > 1) problems.push(`after the site refused, "Sign in" was pressed again (${presses} presses): a refused sign-in is never retried`);
+    if (tab.url().startsWith(SIGNIN_REFUSED.formUrl)) problems.push('the refusing page somehow led to the form');
+    if (at?.stuck !== 'account') problems.push(`the session does not say the account step needs you (stage: ${at?.stage}, stuck: ${at?.stuck})`);
+    const log = appLogText(ctx.profile);
+    if (!/account result: refused/.test(log)) problems.push('the account AI\'s "refused" is not in the app log');
+    if (!/account page: the extension could not finish it: Claude is offered/.test(log)) problems.push('Claude was not offered after the refused sign-in');
     fail(problems);
   }, {needs: ctx.needs});
 

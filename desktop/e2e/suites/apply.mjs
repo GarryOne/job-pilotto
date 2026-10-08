@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -24,7 +24,7 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): every form step needs the applicant, the kits and the proxy's answers.
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
-  'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'second browser': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
+  'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'sign-in page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'second browser': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
 
@@ -34,7 +34,7 @@ export const name = 'apply';
 // (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.
 // The setup step and the final "Submit was never clicked" check run in all of them; each run seeds only the fixture jobs its steps use.
 const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
-const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a sign-up page before the form', 'the account and the application on one page',
+const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a sign-up page before the form', 'a sign-in page before the form', 'the account and the application on one page',
   'the form tab is closed', 'a second browser with the extension', 'the AI gave a page the wrong kind', '"I submitted it"'];
 const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
 const LIVE_STEPS = ['a real posting, watched live'];
@@ -52,7 +52,7 @@ export async function runApply(ctx, parts) {
   const live = parts.includes('live') ? livePosting() : null;   // the live run: one real posting, read from this Mac's job list; the fixture checks do not apply to it
   ctx.run = (name, fn, options) => ((partOf(name) === 'both' && !(live && name.startsWith('through all of it'))) || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
   // The jobs this part seeds: the journeys use their own fixtures, the forms and the CV steps the form fixtures.
-  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, SIGNUP, ONEPAGE, MISLABELLED] : [])];
+  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, SIGNUP, SIGNIN, SIGNIN_REFUSED, ONEPAGE, MISLABELLED] : [])];
   const urls = fixtures.map(form => form.url);
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
@@ -68,13 +68,22 @@ export async function runApply(ctx, parts) {
       // The page after a Submit (lib/confirmation.js): the stand-in answers like a model that reads the words, so the suite proves the chain around it.
       const text = typeof content === 'string' ? content : (content || []).map(part => part.text || '').join('');
       if (/^URL path:/m.test(text) && /^Page:/m.test(text)) return JSON.stringify({confirmation: /successfully submitted|received your application/i.test(text) && !/must be completed|required/i.test(text)});
+      // The account AI (lib/account-judge.js; its sketch also has "Address path:" and "Controls", so it is matched first). On the sign-in fixtures the stand-in reads the
+      // page like a model: "ready" once no required box is empty, "refused" when the page says the password is wrong, else "created". Elsewhere it is unsure (nothing pressed).
+      if (/^Phase: (ready|result)$/m.test(text)) {
+        const phase = /^Phase: (\w+)$/m.exec(text)[1], where = (/^Address path: (.*)$/m.exec(text)?.[1] || '').replace(/\/$/, '');
+        const ours = [SIGNIN, SIGNIN_REFUSED].some(fixture => [fixture.accountPath, fixture.formPath].includes(where));
+        const answer = !ours ? 'unsure' : phase === 'ready' ? (/· required · empty/.test(text) ? 'needs_person' : 'ready') : /password is wrong/i.test(text) ? 'refused' : 'created';
+        return JSON.stringify({answer, needs: answer === 'refused' ? 'Sign in' : '', needs_kind: answer === 'refused' ? 'other' : '', bot_check: false, confidence: 0.9});
+      }
       // What kind of page (lib/page-kind.js): the stand-in answers with each fixture's true kind, so every flow row runs on the AI's word, as in use.
       if (/^Address path:/m.test(text) && /^Controls/m.test(text)) {
         const where = /^Address path: (.*)$/m.exec(text)?.[1] || '';
         const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form',
           [SIGNUP.path]: 'posting', [SIGNUP.accountPath]: 'account', [SIGNUP.formPath]: 'form', [ONEPAGE.path]: 'account-form',
-          [MISLABELLED.path]: 'posting'};   // deliberately wrong: the self-correction row
+          [MISLABELLED.path]: 'posting', [SIGNIN.path]: 'posting', [SIGNIN.formPath]: 'form', [SIGNIN_REFUSED.path]: 'posting'};   // MISLABELLED: deliberately wrong, the self-correction row
         if (live) return realKind(body);   // a real site: a real model answers (this Mac's Claude Code, lib/model.mjs), the way the app's own AI would
+        if ([SIGNIN.accountPath, SIGNIN_REFUSED.accountPath].includes(where.replace(/\/$/, ''))) return JSON.stringify({kind: 'account', confidence: 0.95, apply_button: '', account_step: 'sign_in', register_control: 'Create an account', signin_control: '', account_button: 'Sign in'});
         return JSON.stringify({kind: kinds[where.replace(/\/$/, '')] || 'form', confidence: 0.95});
       }
       const asked = /<form_fields>\n([\s\S]*?)\n<\/form_fields>/.exec(typeof content === 'string' ? content : (content || []).map(part => part.text || '').join(''));
