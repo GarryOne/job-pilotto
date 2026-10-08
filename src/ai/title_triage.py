@@ -13,7 +13,7 @@ import threading
 
 from ..paths import DATA
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 BATCH = 30   # ~30 s a batch through Claude Code (100 took ~2 min): a 3-minute search can stop between them
 MAX_NEW = 600       # titles asked about in one run at most (a first run on a big list is spread over the next ones)
 STORE = DATA / 'title_triage.json'
@@ -77,7 +77,7 @@ def decide(titles, search, client=None):
                 late[0] += len(batch)
             return
         listed = '\n'.join(f'{n}. {title}' for n, title in enumerate(batch, 1))
-        response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': SYSTEM}],
+        response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': SYSTEM}],
                                           messages=[{'role': 'user', 'content': f'The search (JSON): {json.dumps(words, ensure_ascii=False)}\nThe titles:\n{listed}'}],
                                           output_config=engine.structured(SCHEMA, MODEL, 'low'))
         cost.side(MODEL, response.usage)

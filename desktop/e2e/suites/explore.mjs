@@ -18,10 +18,10 @@ export const cadence = 'manual';   // never chosen by a schedule or a push (lib/
 export const minutes = 20;
 export const watches = ['desktop/e2e/lib/explore.mjs'];
 
-const MODEL = process.env.E2E_EXPLORER_MODEL || 'claude-haiku-4-5';
+const MODEL = process.env.E2E_EXPLORER_MODEL || 'claude-haiku-5-5';
 const MAX_USD = Number(process.env.E2E_EXPLORER_USD) || 0.5;
 const MAX_STEPS = Number(process.env.E2E_EXPLORER_STEPS) || 40;
-const PRICED = PRICES[MODEL] ? MODEL : 'claude-haiku-4-5';   // Haiku: cheap, no thinking blocks to carry between turns (Sonnet 5.5 needs its thinking config and signed blocks kept intact)
+const PRICED = PRICES[MODEL] ? MODEL : 'claude-haiku-5-5';   // Haiku: cheap; its thinking blocks go back unchanged (lib/explore.mjs appends each reply whole)
 
 export async function run(ctx) {
   ctx.findings = [];

@@ -34,7 +34,7 @@ FEATURES = (
     Feature('pool_layouts', 'Page layouts other installs learned (at least 3 agree), used before asking Claude to learn a site', (), 'free',
             'on by default; JOB_PILOTTO_DISABLE=pool_layouts learns every site here'),
     Feature('enrich', 'AI stage 1: facts from each posting', (AI, 'JOB_PILOTTO_ENRICH_MODEL'),
-            'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_ENRICH_MODEL=claude-haiku-4-5'),
+            'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_ENRICH_MODEL=claude-haiku-5-5'),
     Feature('score', 'AI stage 2: fit score against your Profile',
             (AI, 'JOB_PILOTTO_SCORE_MODEL', ('NOTION_TOKEN', 'JOB_PILOTTO_PROFILE_FILE')),
             'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_SCORE_MODEL=claude-sonnet-5-5 (Profile from Notion or a local file)'),

@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from . import ats, feeds
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 MAX_EMAILS = 20
 MAX_JOBS = 40
 DAYS = 3

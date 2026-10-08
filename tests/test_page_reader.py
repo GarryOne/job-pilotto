@@ -60,7 +60,7 @@ class ReaderTests(unittest.TestCase):
         client = FakeClient()
         page_reader.read('https://acme.ch/k', PAGE, client, self.db)
         call = client.calls[0]
-        self.assertEqual(call['model'], 'claude-haiku-4-5')
+        self.assertEqual(call['model'], 'claude-haiku-5-5')
         self.assertIn('untrusted', call['system'][0]['text'])
         self.assertIn('Site Reliability Engineer (100%) -> https://acme.ch/jobs/sre-zh', call['messages'][0]['content'])
         self.assertEqual(call['output_config']['format']['schema']['required'], ['jobs'])

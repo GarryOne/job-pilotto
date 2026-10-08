@@ -14,7 +14,7 @@ import time
 
 from ..paths import DATA
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 BATCH = 30   # one line of reasoning per location: 30 a call (7 Oct 2026: 60 at once misfiled Swiss towns)
 VERSION = 3   # 3: nearest place and distance per location, visa asked apart (7 Oct 2026); a new version asks again
 STORE = DATA / 'place_triage.json'
@@ -131,7 +131,7 @@ def decide(locations, search, client=None):
     rights = words.get('work_rights') or []
     if countries and rights:
         try:
-            response = client.messages.create(model=MODEL, max_tokens=400, system=[{'type': 'text', 'text': VISA_SYSTEM}],
+            response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': VISA_SYSTEM}],
                                               messages=[{'role': 'user', 'content': f'Their work rights: {json.dumps(rights, ensure_ascii=False)}\n'
                                                                                     f'Countries: {json.dumps(sorted(set(countries.values())), ensure_ascii=False)}'}],
                                               output_config=engine.structured(VISA_SCHEMA, MODEL, 'low'))
@@ -186,7 +186,7 @@ def vague(locations, search, client=None):
         if budget.over('place_vague'):
             return
         listed = '\n'.join(f'{n}. {location}' for n, location in enumerate(batch, 1))
-        response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': VAGUE_SYSTEM}],
+        response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': VAGUE_SYSTEM}],
                                           messages=[{'role': 'user', 'content': f'The job locations:\n{listed}'}],
                                           output_config=engine.structured(VAGUE_SCHEMA, MODEL, 'low'))
         cost.side(MODEL, response.usage)

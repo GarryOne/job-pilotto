@@ -20,7 +20,7 @@ from .. import coverage
 from ..sources import ats, careers
 
 IDEAS_MODEL = 'claude-sonnet-5-5'
-READ_MODEL = 'claude-haiku-4-5'
+READ_MODEL = 'claude-haiku-5-5'
 IDEA_PRIORITY = 92        # probed before the fixed lists (SwissDevJobs 88, Hacker News 85): each run tries new ground first (6 Oct 2026)
 LIST_PRIORITY = 90
 MAX_COMPANIES = 30

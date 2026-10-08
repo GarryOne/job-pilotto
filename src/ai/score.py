@@ -18,14 +18,14 @@ import threading
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
-from . import cost, hints
+from . import cost, engine, hints
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_SCORE_MODEL', 'claude-sonnet-5-5')
 # How hard the scorer thinks (medium by default; Haiku has no such setting and ignores it).
 EFFORT = os.getenv('JOB_PILOTTO_SCORE_EFFORT', 'medium')
-# A cheaper first pass (e.g. claude-haiku-4-5): every pending job gets it, and only jobs whose first-pass score reaches
+# A cheaper first pass (e.g. claude-haiku-5-5): every pending job gets it, and only jobs whose first-pass score reaches
 # ESCALATE_MIN are scored again by the main model. Off when empty. MEASURED 2 Oct 2026 (tools/score_eval.py, 60 jobs): Haiku agrees
 # poorly with Sonnet (rank correlation 0.70, scores 14 points high) and the cascade costs 123-152% of Sonnet alone, so leave it OFF.
 # Sonnet at effort "low" agreed as well as Sonnet agrees with its own re-run (0.92 vs 0.89) and was 19% cheaper per job.
@@ -229,10 +229,8 @@ def score_one(client, model, job, profile, effort=None):
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
             f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}")}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
+        output_config=engine.structured(SCHEMA, model, effort or EFFORT),
     )
-    if not model.startswith('claude-haiku'):
-        params['output_config']['effort'] = effort or EFFORT
     response = client.messages.create(**params)
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')

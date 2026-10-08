@@ -4,7 +4,7 @@
 Each run (3 times a day by default, and 5 minutes after an application is marked Applied):
 
 1. **Gmail**: searches recent mail from applicant-tracking systems, recruiter platforms and booking
-   tools, plus mail naming a tracked company or role. Claude Haiku 4.5 classifies each new email
+   tools, plus mail naming a tracked company or role. Claude Haiku 5.5 classifies each new email
    (confirmation, reply, interview scheduled, rejection, offer, or not about an application) and
    matches it to an application. A recruiter pitching a new role ("Recruiter outreach") becomes a tracked
    recruiter lead (src/ai/opportunity.py: Applications row at Stage Recruiter lead, the message in its page,
@@ -39,10 +39,10 @@ from ..notion.funnel import PREPARED_STAGES
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
-from . import cost, opportunity
+from . import cost, engine, opportunity
 from .. import feedback as employer_feedback
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-5-5')
 TZ = tz.local_zone()
 STATE_FILE = DATA / 'mail-state.json'
 # Senders that only write about applications: ATSs, recruiter platforms, schedulers.
@@ -226,7 +226,7 @@ def classify(client, model, apps, items, stats=None):
             system=[{'type': 'text', 'text': SYSTEM + '\n\nApplications:\n' + (listing(apps) or '(none)'),
                      'cache_control': {'type': 'ephemeral'}}],
             messages=[{'role': 'user', 'content': text}],
-            output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
+            output_config=engine.structured(SCHEMA, model, 'low'),
         )
         cost.add(stats, model, response.usage)
         for result in json.loads(next(b.text for b in response.content if b.type == 'text'))['results']:

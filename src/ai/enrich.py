@@ -16,11 +16,11 @@ from pathlib import Path
 
 from .. import store
 from ..paths import JOBS_DB
-from . import cost
+from . import cost, engine
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 2
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_ENRICH_MODEL', 'claude-haiku-4-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_ENRICH_MODEL', 'claude-haiku-5-5')
 
 ENRICHMENT_TABLE = """
 CREATE TABLE IF NOT EXISTS enrichments (
@@ -150,11 +150,8 @@ def extract(client, model, job):
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n\n"
             f"Posting:\n{job['description']}")}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
+        output_config=engine.structured(SCHEMA, model, 'low'),   # extraction is routine; low effort keeps thinking short
     )
-    if not model.startswith('claude-haiku'):
-        # Extraction is routine; low effort keeps thinking short. Haiku 4.5 has no effort setting.
-        params['output_config']['effort'] = 'low'
     response = client.messages.create(**params)
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')

@@ -5,8 +5,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import * as claudeCode from './claude-code.js';
 
-export const MODEL = 'claude-haiku-4-5';
-const PRICE = {input: 1, output: 5}; // USD per million tokens, same haiku price as form learning
+export const MODEL = 'claude-haiku-5-5';
+const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, same haiku price as form learning
 
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['confirmation'], properties: {
   confirmation: {type: 'boolean', description: 'True only when this page is the site acknowledging that the application was submitted.'},
@@ -49,7 +49,8 @@ export async function judgePage(client, raw) {
   if (!page.title && !page.text && !page.headings.length) return {confirmation: false, error: 'empty page', host: page.host, path: page.path, inputs: page.inputs};
   try {
     const response = await client.messages.create({
-      model: MODEL, max_tokens: 64, system: INSTRUCTIONS,
+      // 1000, low effort: Haiku 5.5 may think first, and its thinking counts here (at 64 it would be cut off).
+      model: MODEL, max_tokens: 1000, system: INSTRUCTIONS,
       messages: [{role: 'user', content: [
         `URL path: ${page.path || '(none)'}`,
         `Title: ${page.title || '(none)'}`,
@@ -57,7 +58,7 @@ export async function judgePage(client, raw) {
         `Visible fields: ${page.inputs}`,
         `Page:\n${page.text || '(empty)'}`,
       ].join('\n')}],
-      output_config: {format: {type: 'json_schema', schema: SCHEMA}},
+      output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
     });
     if (response.stop_reason === 'max_tokens') return {confirmation: false, error: 'cut off', host: page.host, path: page.path, inputs: page.inputs};
     const text = response.content?.find(block => block.type === 'text')?.text || '';

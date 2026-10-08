@@ -21,7 +21,7 @@ export const cadence = 'nightly';
 export const sameOnEveryOs = true;
 export const watches = ['src/ai/score.py', 'src/ai/enrich.py', 'src/ai/hints.py', 'desktop/lib/pipeline.js', 'desktop/e2e/fixtures/golden/'];
 // This suite measures what a user gets, so the app under test runs on the shipped model (about $0.3 a run); the other suites run on Haiku. For a cheap run:
-// E2E_APP_MODEL=claude-haiku-4-5 (Haiku scores the same job up to 10 points apart between two scorings, Sonnet within 6).
+// E2E_APP_MODEL=claude-haiku-4-5 (Haiku 4.5 scored the same job up to 10 points apart between two scorings, Sonnet within 6).
 export const env = {JOB_PILOTTO_MODEL_OVERRIDE: process.env.E2E_APP_MODEL || 'claude-sonnet-5-5'};
 // A persona's Profile is a file the engine reads instead of the test page's Profile (test-only: desktop/lib/pipeline.js JOB_PILOTTO_E2E_PROFILE_FILE).
 if (process.env.E2E_QUALITY_PERSONA) env.JOB_PILOTTO_E2E_PROFILE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', `golden-${process.env.E2E_QUALITY_PERSONA}`, 'profile.md');

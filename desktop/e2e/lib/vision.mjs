@@ -92,7 +92,7 @@ export function buildRequest({view, pngBase64, rules = '', facts = null, model =
 }
 
 // USD per million tokens (Claude API, 25 Sep 2026); cache writes cost 1.25x input, cache reads 0.1x. An unknown model has no price: its cost is not guessed.
-export const PRICES = {'claude-sonnet-5-5': {input: 2, output: 10}, 'claude-haiku-4-5': {input: 1, output: 5}, 'claude-opus-5-5': {input: 4, output: 20}};
+export const PRICES = {'claude-sonnet-5-5': {input: 2, output: 10}, 'claude-haiku-5-5': {input: 0.1, output: 0.5}, 'claude-haiku-4-5': {input: 1, output: 5}, 'claude-opus-5-5': {input: 4, output: 20}};
 // -> the call's cost in USD from the API's own usage figures, or null when the model's price is not known.
 // batch: the Message Batches API bills half of every token.
 export function usageCost(model, usage = {}, {batch = false} = {}) {

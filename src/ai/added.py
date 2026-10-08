@@ -5,7 +5,7 @@ A job applied to elsewhere (/add, the app's "Applied elsewhere"), a recruiter's 
 message or screenshot never went through the crawl, so it had no seniority, work mode, technologies, languages,
 salary facts or fit score. Here it's written to the job cache like a found job (source "Added by you"), then:
 
-1. stage 1 (src/ai/enrich.py, Haiku 4.5): facts from its description (or the recruiter's message);
+1. stage 1 (src/ai/enrich.py, Haiku 5.5): facts from its description (or the recruiter's message);
 2. stage 2 (src/ai/score.py, Sonnet 5): fit score, tier, reason, strengths, gaps against your Profile;
 3. on its Applications row the columns a found job's application gets (Fit score, Tier, Seniority, Work mode,
    Recruiter, Salary if empty).

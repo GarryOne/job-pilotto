@@ -7,7 +7,7 @@ import json
 
 from . import engine
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['why', 'first_steps'],
           'properties': {'why': {'type': 'string', 'description': 'Two or three plain sentences: why this search finds few new jobs'},
                          'first_steps': {'type': 'array', 'maxItems': 3, 'items': {'type': 'string'},
@@ -34,7 +34,7 @@ def facts(verdict, search):
 
 def explain(verdict, search, client=None):
     client = client or engine.client(action='few_jobs')
-    response = client.messages.create(model=MODEL, max_tokens=800, system=[{'type': 'text', 'text': SYSTEM}],
+    response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': SYSTEM}],
                                       messages=[{'role': 'user', 'content': 'The numbers of the last search (JSON):\n' + json.dumps(facts(verdict, search), ensure_ascii=False)}],
                                       output_config=engine.structured(SCHEMA, MODEL, 'low'))
     from . import cost

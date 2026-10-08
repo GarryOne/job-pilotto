@@ -7,7 +7,8 @@ PRICES = {
     'claude-opus-5-5': (4.00, 20.00, 0.20),  # interview reviews and insights (checked 2026-09-30)
     'claude-sonnet-5-5': (2.00, 10.00, 0.20),  # the model the app runs (checked 2026-10-02)
     'claude-sonnet-5': (2.00, 10.00, 0.20),    # runs logged before the switch to 5.5
-    'claude-haiku-4-5': (1.00, 5.00, 0.10),
+    'claude-haiku-5-5': (0.10, 0.50, 0.01),    # the small AI steps (8 Oct 2026); above 100k input tokens a call costs 5x, none come close
+    'claude-haiku-4-5': (1.00, 5.00, 0.10),    # runs logged before the switch to 5.5
 }
 
 

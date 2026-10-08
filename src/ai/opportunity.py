@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
 
-A recruiter's message has no job posting to crawl, so Claude Haiku 4.5 reads the message itself: role, employer
+A recruiter's message has no job posting to crawl, so Claude Haiku 5.5 reads the message itself: role, employer
 (or the hidden client, e.g. "logistics software, Series A"), salary, work mode, contract, the recruiter and their
 agency. That becomes an Applications row at Stage "Recruiter lead" (or "Screening" when you're already talking)
 with Channel Agency/Direct, Via = the agency, Contact = the recruiter, and the original message in the page body,
@@ -29,9 +29,9 @@ from ..notion import client as notion
 from ..notion import origin as origin_rule
 from ..notion import titles
 from ..notion.ledger import _block, _text, add_event, plain
-from . import cost
+from . import cost, engine
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-5-5')
 LEAD_STAGE = 'Recruiter lead'
 HEADING = '🤝 Recruiter message'
 MIN_TEXT = 40  # shorter than this isn't a recruiter's message (e.g. a date after /add)
@@ -81,7 +81,7 @@ def extract(client, model, text, sender='', stats=None):
     content = (f'From: {sender}\n\n' if sender else '') + text[:8000]
     response = client.messages.create(
         model=model, max_tokens=1000, system=SYSTEM, messages=[{'role': 'user', 'content': content}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
+        output_config=engine.structured(SCHEMA, model, 'low'),
     )
     cost.add(stats, model, response.usage)
     return json.loads(next(b.text for b in response.content if b.type == 'text'))

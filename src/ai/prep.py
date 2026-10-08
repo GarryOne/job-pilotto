@@ -242,7 +242,7 @@ def follow_up_text(earlier, events):
     return '\n\n'.join(parts)
 
 
-READ_MODEL = os.getenv('JOB_PILOTTO_INBOX_MODEL', 'claude-haiku-4-5')
+READ_MODEL = os.getenv('JOB_PILOTTO_INBOX_MODEL', 'claude-haiku-5-5')
 MAX_SHOTS = 5
 
 
@@ -294,7 +294,9 @@ def role_from_screenshots(tracker, row, client, stats=None):
                     'everything they say about the role itself: company or client, responsibilities, stack, team, '
                     'requirements, location, work mode, contract, pay, interview process. Plain text, no commentary; '
                     'nothing if they say nothing about the role.'})
-    response = client.messages.create(model=READ_MODEL, max_tokens=2000, messages=[{'role': 'user', 'content': content}])
+    effort = engine.effort_for(READ_MODEL, None)   # only Haiku 5.5 sets one (low); other models keep their default
+    response = client.messages.create(model=READ_MODEL, max_tokens=2000, messages=[{'role': 'user', 'content': content}],
+                                      **({'output_config': {'effort': effort}} if effort else {}))
     cost.add(stats, READ_MODEL, response.usage)
     return next((b.text for b in response.content if b.type == 'text'), '').strip()
 

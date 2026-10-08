@@ -10,7 +10,7 @@ import json
 
 from . import engine
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 MAX_STEPS = 8
 MAX_CONTROLS = 60   # a short list answers in seconds (150 LinkedIn controls took 130 s, 7 Oct 2026)
 ACTIONS = ('click', 'select', 'type')
@@ -56,7 +56,7 @@ def plan(page, search, preferences=None, client=None):
         return {'steps': [], 'why': 'This page shows no filters to set.'}
     client = client or engine.client(action='visit_filters')
     ask = {'address': str(page.get('url') or '')[:300], 'title': str(page.get('title') or '')[:200], 'controls': controls, 'search': facts(search, preferences)}
-    response = client.messages.create(model=MODEL, max_tokens=900, system=[{'type': 'text', 'text': SYSTEM}],
+    response = client.messages.create(model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': SYSTEM}],
                                       messages=[{'role': 'user', 'content': 'The site, its filter controls and the search (JSON):\n' + json.dumps(ask, ensure_ascii=False)}],
                                       output_config=engine.structured(SCHEMA, MODEL, 'low'))
     from . import cost

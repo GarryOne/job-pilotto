@@ -16,7 +16,7 @@ terminal, with a Chrome extension that fills the forms. Website:
 
 <p align="center">
   <img src="docs/images/architecture.png" width="100%"
-       alt="Job Pilotto architecture. 1 Discover: job sources (jobs.ch, TechTree, 29 employer feeds, optional Google Jobs; a daily scout finds new feeds) feed a crawler on GitHub Actions every 4 hours, with seen postings kept in SQLite. 2 Process and rank: Claude Haiku 4.5 extracts job facts, Claude Sonnet 5 scores fit against your profile and drafts an application kit for your best matches. 3 Deliver and act: a Telegram digest with buttons, your private Notion workspace, and an optional application assistant on your Mac that fills the form in Chrome; you review and click Submit, never automated. A Cloudflare Worker turns Telegram buttons into GitHub Actions runs and Notion updates. 4 Learn: the application record frozen at Submit, read-only Gmail and Calendar (confirmations, replies, rejections, interview prep), interview reviews from transcripts, and a daily insight plus weekly report that loop back to Telegram.">
+       alt="Job Pilotto architecture. 1 Discover: job sources (jobs.ch, TechTree, 29 employer feeds, optional Google Jobs; a daily scout finds new feeds) feed a crawler on GitHub Actions every 4 hours, with seen postings kept in SQLite. 2 Process and rank: Claude Haiku 5.5 extracts job facts, Claude Sonnet 5 scores fit against your profile and drafts an application kit for your best matches. 3 Deliver and act: a Telegram digest with buttons, your private Notion workspace, and an optional application assistant on your Mac that fills the form in Chrome; you review and click Submit, never automated. A Cloudflare Worker turns Telegram buttons into GitHub Actions runs and Notion updates. 4 Learn: the application record frozen at Submit, read-only Gmail and Calendar (confirmations, replies, rejections, interview prep), interview reviews from transcripts, and a daily insight plus weekly report that loop back to Telegram.">
 </p>
 
 <sub>Discover → rank with Claude → deliver to Telegram and Notion → you submit → learn from every reply.
@@ -171,7 +171,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
   are hidden; applied and dismissed jobs never come back; jobs gone for 7 days are closed.
 
 ### 🧠 AI that reads every posting
-- 🔬 **Stage 1 — facts** (Claude Haiku 4.5): languages, seniority, work mode, salary, recruiter vs
+- 🔬 **Stage 1 — facts** (Claude Haiku 5.5): languages, seniority, work mode, salary, recruiter vs
   employer, visa sponsorship — each with a quote from the posting as evidence.
 - 🎯 **Stage 2 — fit score** (Claude Sonnet 5): 0–100 against your Notion Profile, a tier (A/B/C)
   and a one-line reason. Edit your Profile and every open job is re-scored.
@@ -200,7 +200,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 - 📥 **Log box: inbound and recruiter opportunities from a message or screenshots.** A recruiter's pitch, a
   reply, an interview time, a rejection from LinkedIn, Gmail or WhatsApp: in the app, Jobs → **+ Log job activity**
   (paste the text, or up to **5 screenshots** of a chat, read together), or send it to the bot (a screenshot, a
-  forward, or `/add` its text). Claude Haiku 4.5 reads it with the list of your jobs and **updates the job it's about,
+  forward, or `/add` its text). Claude Haiku 5.5 reads it with the list of your jobs and **updates the job it's about,
   or adds it**: a new pitch becomes a **Recruiter lead** (Screening if you already said yes). It fills what the job
   was missing (company, title, salary, location), keeps what the chat says about the role as the job's
   **🧾 Job description**, scores the fit, and sets **Reached via** to where you talked first. Each step shows while it
@@ -437,7 +437,7 @@ doesn't.
 - 📧 **Gmail and Calendar, read-only** (`src/ai/mail.py`, workflow `mail.yml`): 3 times a day (07:00,
   12:00, 18:00 Zurich; edit the cron to change it), 5 minutes after an application is marked Applied,
   and on `/mail`. Recent mail from applicant-tracking systems, recruiter platforms and schedulers (or
-  naming a tracked company) is classified by Claude Haiku 4.5 (about USD 0.002 per email) and matched
+  naming a tracked company) is classified by Claude Haiku 5.5 (about USD 0.0003 per email) and matched
   to its application: confirmations, replies, interview invites, rejections and offers become dated
   📈 Application Events (never twice: each keeps its Gmail message id), Stage moves forward and Next
   interview is filled. A recruiter pitching a new role (their email, or LinkedIn's "new message" email) becomes a
@@ -718,7 +718,7 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `NOTION_CRON_RUNS_DB` | your ⏰ Cronjob Runs database ID (optional — without access the run just logs a warning) |
 | `NOTION_EVENTS_DB` | your 📈 Application Events database ID (outcome history: Applied, Screening, Rejected, ...; written by the ✅/`/applied` buttons, `mark-applied` and the scheduled sync) |
 | `NOTION_AGENT_RUNS_DB` | your 🤖 Agent Runs database ID (optional — form-filling runs are still recorded locally without it) |
-| `JOB_PILOTTO_ENRICH_MODEL` | e.g. `claude-haiku-4-5` — turns on AI stage 1 |
+| `JOB_PILOTTO_ENRICH_MODEL` | e.g. `claude-haiku-5-5` — turns on AI stage 1 |
 | `JOB_PILOTTO_SCORE_MODEL` | e.g. `claude-sonnet-5-5` — turns on AI stage 2 |
 | `JOB_PILOTTO_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5-5` if unset) |
 | `JOB_PILOTTO_AUTO_KIT_MAX` | auto-draft kits for up to N best new matches per crawl (0/unset = off) |
@@ -727,7 +727,7 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `NOTION_INSIGHTS_DB` | your 💡 Insights database ID |
 | `NOTION_INTERVIEWS_DB` | your 🎤 Interviews database ID |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | GitHub secrets for Gmail + Calendar (read-only), set by `python3 -m src.sources.google auth --github`; locally in the Keychain (`job-pilotto.google.*`) |
-| `JOB_PILOTTO_MAIL_MODEL` | model that classifies job emails (repository variable; default `claude-haiku-4-5`) |
+| `JOB_PILOTTO_MAIL_MODEL` | model that classifies job emails (repository variable; default `claude-haiku-5-5`) |
 | `JOB_PILOTTO_TZ` | your time zone for reminders (default `Europe/Zurich`) |
 | `JOB_PILOTTO_AI_ENGINE` | `api` (default; GitHub) or `cli` (your own Claude Code; set by the app on your Mac from your choice) |
 | `JOB_PILOTTO_AI_FALLBACK` | `api`: when Claude Code hits your plan's limit, that run goes on with your API key (the app's opt-in tick) |

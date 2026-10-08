@@ -12,7 +12,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 MAX_WORDS = 12          # place words asked about in one call
 MAX_NAMES = 80          # names kept per word
 EXPAND_KINDS = ('country', 'region', 'state')

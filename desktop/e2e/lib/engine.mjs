@@ -15,7 +15,7 @@ export const appKey = (key, env = process.env) => isCi(env) ? key : DUMMY_KEY;
 
 // The app's models under test. CI forces every step onto one cheap model (Haiku) to save credit; a Mac has no per-token cost, so the app uses its own production models
 // (Haiku for the first pass, Sonnet for scoring and strategy): closer to what ships (owner, 5 Oct 2026).
-export const appModelEnv = (env = process.env) => isCi(env) ? {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5'} : {};
+export const appModelEnv = (env = process.env) => isCi(env) ? {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-5-5'} : {};
 
 // 'api' or 'cli'. CI: the API key, as it ships to users. A Mac: Claude Code, always. A suite may pin 'api' (its steps are answered by the proxy), which on a Mac runs with the
 // placeholder key. E2E_AI_ENGINE=cli forces Claude Code in CI too; E2E_AI_ENGINE=api is refused on a Mac.

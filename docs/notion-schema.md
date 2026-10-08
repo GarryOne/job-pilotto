@@ -241,7 +241,7 @@ interviews show together, rewritten after each review; the app's Interviews page
 Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`, modes `scheduled`,
 `run`, `today`, only when sending), written by `src/notion/cron_runs.py` at the end of
 `daily.main()`. The page body holds the mini-report and per-stage token/cost lines. Costs come from
-`src/ai/cost.py` (Haiku 4.5 $1/$5, Sonnet 5 $2/$10 per million tokens; cache read 0.1x, write 1.25x).
+`src/ai/cost.py` (Haiku 5.5 $0.10/$0.50, Sonnet 5 $2/$10 per million tokens; cache read 0.1x, write 1.25x).
 
 | Property | Type | Notes |
 |---|---|---|

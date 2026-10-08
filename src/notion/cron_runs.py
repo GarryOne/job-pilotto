@@ -336,7 +336,7 @@ def run_page(run, final=True):
         if info:
             done = f": {info.get('done', 0)} of {info.get('pending', 0)}" if info.get('pending') else ''  # no "0 of 0"
             # The step's name when it has a queue (or the job's own name), else what it read: "Read job emails with
-            # claude-haiku-4-5", never "Emails with claude-haiku-4-5" (1 Oct 2026).
+            # claude-haiku-5-5", never "Emails with claude-haiku-5-5" (1 Oct 2026).
             queued = info.get('pending')
             heading = label if queued else (run.get('name') or STEP_NAME.get(run['mode']) or ONE_OFF.get(run['mode'], label))
             children.append(_para(

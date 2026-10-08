@@ -40,7 +40,7 @@ def _load():
         return {}
 
 
-COUNT_MODEL = 'claude-haiku-4-5'
+COUNT_MODEL = 'claude-haiku-5-5'
 COUNT_TITLES = 600
 COUNT_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['roles'], 'properties': {'roles': {'type': 'array', 'items': {
     'type': 'object', 'additionalProperties': False, 'required': ['n', 'titles'],

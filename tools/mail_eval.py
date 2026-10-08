@@ -7,7 +7,7 @@ application. A model gives a different answer now and then, so the run passes on
 a `strict` case wrong: a rejection, an offer or an invitation missed, or a security code, receipt or vendor alert taken for an application.
 
   python3 tools/mail_eval.py            # needs an Anthropic key in the environment (engine.client); about a cent a run
-  python3 tools/mail_eval.py --model claude-haiku-4-5
+  python3 tools/mail_eval.py --model claude-haiku-5-5
 """
 import argparse
 import json

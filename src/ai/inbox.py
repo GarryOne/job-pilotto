@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 
-Claude Haiku 4.5 reads the text or the image once, together with the list of jobs Notion already knows (tracked
+Claude Haiku 5.5 reads the text or the image once, together with the list of jobs Notion already knows (tracked
 applications first, then open Job Matches), and says what it is and which job it's about:
 
 - **a job already tracked** in Applications -> its event (reply, interview time, rejection, offer…) and Stage moved

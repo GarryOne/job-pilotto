@@ -12,7 +12,7 @@ import json
 from . import engine
 from .visit_filters import facts
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 SECOND_MODEL = 'claude-sonnet-5-5'   # once, when the fast model finds no way and does not say the page needs the person
 MAX_STEPS = 2
 MAX_WAYS = 80
@@ -55,7 +55,7 @@ def plan(page, search, preferences=None, client=None, model=MODEL):
     client = client or engine.client(action='visit_unblock' if model == MODEL else 'visit_unblock_second')
     ask = {'address': str(page.get('url') or '')[:300], 'title': str(page.get('title') or '')[:200], 'text': str(page.get('text') or '')[:800],
            'ways': ways, 'search': facts(search, preferences)}
-    response = client.messages.create(model=model, max_tokens=600, system=[{'type': 'text', 'text': SYSTEM}],
+    response = client.messages.create(model=model, max_tokens=1500, system=[{'type': 'text', 'text': SYSTEM}],
                                       messages=[{'role': 'user', 'content': 'The page, its ways on and the search (JSON):\n' + json.dumps(ask, ensure_ascii=False)}],
                                       output_config=engine.structured(SCHEMA, model, 'low'))
     from . import cost

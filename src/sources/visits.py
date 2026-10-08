@@ -178,7 +178,7 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
     return sorted(kept, key=lambda item: (item['kind'] != 'employer', item['last_read'] or ''))[:MAX_LIST]
 
 
-RELEVANT_MODEL = 'claude-haiku-4-5'
+RELEVANT_MODEL = 'claude-haiku-5-5'
 RELEVANT_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['keep'], 'properties': {'keep': {
     'type': 'array', 'items': {'type': 'integer'}, 'description': 'Numbers of the sites likely to have jobs of their kinds in their places'}}}
 RELEVANT_SYSTEM = """You get a job seeker's roles and places, and numbered sites to read jobs from (an employer's name and address, or a job \
@@ -206,7 +206,7 @@ def relevant(items, search, client=None):
                 return items
             client = client or engine.client(action='visit_relevant')
             listed = '\n'.join(f"{n}. {i['name']} ({i['url']}) [{i['kind']}]" for n, i in enumerate(items, 1))
-            response = client.messages.create(model=RELEVANT_MODEL, max_tokens=600, system=[{'type': 'text', 'text': RELEVANT_SYSTEM}],
+            response = client.messages.create(model=RELEVANT_MODEL, max_tokens=1500, system=[{'type': 'text', 'text': RELEVANT_SYSTEM}],
                                               messages=[{'role': 'user', 'content': f'Their roles: {json.dumps(roles, ensure_ascii=False)}\nTheir places: '
                                                                                     f'{json.dumps(places, ensure_ascii=False)}\nThe sites:\n{listed}'}],
                                               output_config=engine.structured(RELEVANT_SCHEMA, RELEVANT_MODEL, 'low'))

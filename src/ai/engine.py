@@ -94,11 +94,19 @@ def without_limits(schema):
     return schema
 
 
+def effort_for(model, effort='medium'):
+    """The effort a call sends, or None to send none. Haiku 4.5 rejects the setting with a 400. Haiku 5.5 thinks by default
+    (Haiku 4.5 never did), and the thinking counts towards a call's small max_tokens: it always runs at low (8 Oct 2026)."""
+    if model.startswith('claude-haiku-4'):
+        return None
+    return 'low' if model.startswith('claude-haiku') else effort
+
+
 def structured(schema, model, effort='medium'):
-    """The `output_config` of a schema-constrained call: the JSON schema, and the effort setting for the models that have one (Haiku 4.5 rejects it with a 400)."""
+    """The `output_config` of a schema-constrained call: the JSON schema, and the effort setting (effort_for)."""
     config = {'format': {'type': 'json_schema', 'schema': without_limits(schema)}}
-    if not model.startswith('claude-haiku'):
-        config['effort'] = effort
+    if effort_for(model, effort):
+        config['effort'] = effort_for(model, effort)
     return config
 
 
@@ -151,8 +159,8 @@ def cli_env(parent=None):
 
 
 def call_env(args, parent=None):
-    """cli_env for one call. Haiku answers without extended thinking, as through the API, where the engine never asks a Haiku call to think
-    (it has no effort setting). Claude Code turns thinking on by default: on 7 Oct 2026 sorting 100 job titles spent 8,656 of 9,110 output
+    """cli_env for one call. Haiku answers without extended thinking: through the API the engine keeps Haiku's thinking short too
+    (effort_for: low). Claude Code turns thinking on by default: on 7 Oct 2026 sorting 100 job titles spent 8,656 of 9,110 output
     tokens thinking and took 84 s; without it 8 s, with comparable answers (a later step scores each job)."""
     env = cli_env(parent)
     if '--model' in args and args[args.index('--model') + 1] == 'haiku':

@@ -7,8 +7,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {KEYS} from '../shared/alias-schema.js';
 
-export const MODEL = 'claude-haiku-4-5';
-const PRICE = {input: 1, output: 5};  // USD per million tokens
+export const MODEL = 'claude-haiku-5-5';
+const PRICE = {input: 0.1, output: 0.5};  // USD per million tokens
 export const PAGE_TITLE = '🧠 Form knowledge';
 const MAX_NOTES = 300;
 
@@ -99,7 +99,7 @@ export async function learn({run, profile = '', answers = '', contact = {}, know
       `<known_notes>\n${asText(known).slice(0, 6000)}\n</known_notes>`,
       `<profile>\n${profile.slice(0, 12000)}\n</profile>\n<standard_answers>\n${answers.slice(0, 12000)}\n</standard_answers>`,
     ].join('\n\n')}],
-    output_config: {format: {type: 'json_schema', schema: SCHEMA}},
+    output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},   // Haiku 5.5 thinks by default: low keeps it short
   });
   const text = response.content.find(block => block.type === 'text')?.text || '{"notes":[]}';
   const usage = response.usage || {};

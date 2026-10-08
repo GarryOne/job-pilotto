@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from . import cost, engine
 from ..sources import ats, careers
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 MAX_TEXT = 14000
 MAX_LINKS = 150
 MAX_JOBS = 60
@@ -159,7 +159,7 @@ def choose_links(site, markup, client=None, db=None):
             client = client or engine.client(action='scout')
             _reads['n'] += 1
             response = client.messages.create(
-                model=MODEL, max_tokens=500, system=[{'type': 'text', 'text': CHOOSE_SYSTEM}],
+                model=MODEL, max_tokens=1500, system=[{'type': 'text', 'text': CHOOSE_SYSTEM}],
                 messages=[{'role': 'user', 'content': f'Home page: {site}\n\n{listing}'}], output_config=engine.structured(CHOOSE_SCHEMA, MODEL, 'low'))
             cost.side(MODEL, response.usage)
             if response.stop_reason != 'end_turn':

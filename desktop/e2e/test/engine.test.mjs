@@ -39,6 +39,6 @@ test('the placeholder key is shaped like a key and is never a real one', () => {
 });
 
 test('CI forces the cheap model; a Mac lets the app use its own production models', () => {
-  assert.deepEqual(appModelEnv({CI: 'true'}), {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5'});
+  assert.deepEqual(appModelEnv({CI: 'true'}), {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-5-5'});
   assert.deepEqual(appModelEnv({}), {});
 });

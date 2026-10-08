@@ -148,7 +148,7 @@ jobs:
       # AI cost: as e2e.yml. A Windows run follows a Mac run that already asked live, so it always replays what it has seen (its own cache: paths differ).
       E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
       E2E_AI_REPLAY: '1'
-      E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-4-5' }}
+      E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-5-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
       E2E_RUN_KIND: ${{ inputs.tag && 'gate' || '' }}   # how an issue names the run (lib/replay.mjs), as e2e.yml
     steps:

@@ -105,7 +105,7 @@
   <text x="497" y="339" class="sans card-title">Extract job facts</text>
   <text x="497" y="367" class="sans body">Role · location · languages · seniority</text>
   <rect x="704" y="316" width="97" height="26" rx="13" fill="#EEF2FF"/>
-  <text x="752" y="334" text-anchor="middle" class="sans tag">HAIKU 4.5</text>
+  <text x="752" y="334" text-anchor="middle" class="sans tag">HAIKU 5.5</text>
   <line x1="458" y1="377" x2="458" y2="426" stroke="#C7D2FE" stroke-width="3.5"/>
 
   <circle cx="458" cy="454" r="23" fill="#4F46E5"/>

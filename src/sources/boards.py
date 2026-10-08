@@ -284,7 +284,7 @@ def jobsch_places(search):
     return found + ([None] if whole or not found else [])
 
 
-QUERIES_MODEL = 'claude-haiku-4-5'
+QUERIES_MODEL = 'claude-haiku-5-5'
 QUERIES_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['queries'], 'properties': {'queries': {
     'type': 'array', 'maxItems': 8, 'items': {'type': 'string', 'description': 'One or two words a job board search box understands'}}}}
 QUERIES_SYSTEM = """You turn a job seeker's roles into searches for a job board's keyword box. You get their roles (in any language) and \
@@ -314,7 +314,7 @@ def board_queries(search, client=None):
         if not engine.ready():
             return []
         client = client or engine.client(action='board_queries')
-        response = client.messages.create(model=QUERIES_MODEL, max_tokens=400, system=[{'type': 'text', 'text': QUERIES_SYSTEM}],
+        response = client.messages.create(model=QUERIES_MODEL, max_tokens=1500, system=[{'type': 'text', 'text': QUERIES_SYSTEM}],
                                           messages=[{'role': 'user', 'content': json.dumps({'roles': roles, 'places': [p for p in jobsch_places(search) if p]}, ensure_ascii=False)}],
                                           output_config=engine.structured(QUERIES_SCHEMA, QUERIES_MODEL, 'low'))
         cost.side(QUERIES_MODEL, response.usage)

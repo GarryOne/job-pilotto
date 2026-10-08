@@ -59,7 +59,7 @@ test('a Notion row is flattened to plain values', () => {
 
 test('the judge: a request without temperature, a verdict only in the fixed shape, and a rejection or silence is never a pass', () => {
   const request = buildRequest({person: 'an SRE in Zurich', items: [{name: 'A'}]});
-  assert.equal(request.model, process.env.E2E_JUDGE_MODEL || 'claude-haiku-4-5', 'Haiku unless a suite asks (7 Oct 2026, "$30 a week")');
+  assert.equal(request.model, process.env.E2E_JUDGE_MODEL || 'claude-haiku-5-5', 'Haiku unless a suite asks (7 Oct 2026, "$30 a week")');
   assert.ok(!('temperature' in request));
   assert.match(request.messages[0].content, /SRE in Zurich[\s\S]*"name": "A"/);
   const verdicts = parseVerdicts('ok: ' + JSON.stringify({items: [{name: 'A', makes_sense: true, reason: 'fits'}, {name: 'B', makes_sense: 'yes'}, {makes_sense: false}, null, {name: 'C', makes_sense: false, reason: 'sales roles in Berlin'}]}));

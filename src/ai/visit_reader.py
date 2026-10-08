@@ -10,7 +10,7 @@ import json
 
 from . import engine
 
-MODEL = 'claude-haiku-4-5'
+MODEL = 'claude-haiku-5-5'
 # The second try when the first model finds nothing (owner, 7 Oct 2026: "Sonnet as a 2nd try"): one page, only on a failure, logged.
 SECOND_MODEL = 'claude-sonnet-5-5'
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['group', 'title', 'company', 'place', 'link', 'next', 'why'],
@@ -38,7 +38,7 @@ def understand(outline, client=None, model=MODEL):
     ask = {'address': str(outline.get('url') or '')[:300], 'title': str(outline.get('title') or '')[:200],
            'groups': [{'id': key, 'count': group.get('count'), 'samples': (group.get('samples') or [])[:3]} for key, group in groups.items()],
            'paging_controls': [str(item.get('label'))[:30] for item in (outline.get('pager') or [])[:25] if isinstance(item, dict)]}
-    response = client.messages.create(model=model, max_tokens=600, system=[{'type': 'text', 'text': SYSTEM}],
+    response = client.messages.create(model=model, max_tokens=1500, system=[{'type': 'text', 'text': SYSTEM}],
                                       messages=[{'role': 'user', 'content': 'The page outline (JSON):\n' + json.dumps(ask, ensure_ascii=False)[:30000]}],
                                       output_config=engine.structured(SCHEMA, model, 'low'))
     from . import cost
