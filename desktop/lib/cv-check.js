@@ -31,9 +31,23 @@ const HEADINGS = {
   education: /^(education|studies|academic background|education and training)$/i,
   skills: /^(skills|technical skills|key skills|core skills|technologies)$/i,
 };
-const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
+// Month names in the languages CVs are written in, from the system's own date library (Intl), long and short, never a hand-written list
+// (8 Oct 2026: "janv. 2024" and "März 2022" read as no dates at all). The English pattern of before stays in it: the same matches as before.
+const LOCALES = ['en', 'de', 'fr', 'it', 'es', 'pt', 'nl', 'pl', 'sv', 'da', 'nb', 'fi', 'cs', 'sk', 'ro', 'hu', 'el', 'tr', 'hr', 'sl', 'lt', 'lv', 'et',
+  'ca', 'ru', 'uk', 'bg', 'sr', 'ga', 'is'];
+const monthNames = () => {
+  const names = new Set();
+  for (const locale of LOCALES) for (const month of ['long', 'short']) {
+    try {
+      const format = new Intl.DateTimeFormat(locale, {month});
+      for (let m = 0; m < 12; m++) names.add(format.format(new Date(Date.UTC(2024, m, 15))).toLowerCase().replace(/\.$/, ''));
+    } catch { /* a locale this system lacks */ }
+  }
+  return [...names].filter(name => /^\p{L}[\p{L}\p{M}]+$/u.test(name)).sort((a, b) => b.length - a.length).map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+};
+const MONTH = `(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*|${monthNames().join('|')})\\.?`;
 const DATE_STYLES = {
-  'Month YYYY': new RegExp(`\\b${MONTH}\\s+(?:19|20)\\d{2}\\b`, 'gi'),
+  'Month YYYY': new RegExp(`(?<!\\p{L})${MONTH}\\s+(?:19|20)\\d{2}\\b`, 'giu'),
   'MM/YYYY': /\b(?:0?[1-9]|1[0-2])\/(?:19|20)\d{2}\b/g,
   'YYYY only': /\b(?:19|20)\d{2}\s*[–-]\s*(?:(?:19|20)\d{2}|present|now|current)\b/gi,
 };

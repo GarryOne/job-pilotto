@@ -104,3 +104,11 @@ test('a keyword the CV already states is never listed as missing', async () => {
   const result = await review({}, '', 'Ada Tester\nRan Kubernetes on AWS.', {client: fake});
   assert.deepEqual(result.missing_keywords, ['Prometheus', 'SLO']);
 });
+
+test('dates read in the CV\'s own language, month names from the system (8 Oct 2026: "janv. 2024" read as no dates)', () => {
+  const lines = text => [page(text.split('\n').map((str, i) => word(str, 20, 30 + i * 15, 300)))];
+  for (const range of ['janv. 2024 – aujourd\'hui', 'März 2022 – heute', 'wrzesień 2020 – obecnie', 'сентябрь 2019 – 2021', 'Mar 2024 – Present']) {
+    const dates = analyse(lines(`Ada Tester\n${range}`)).checks.find(c => c.id === 'dates');
+    assert.equal(dates.status, 'pass', `${range}: ${dates.detail}`);
+  }
+});
