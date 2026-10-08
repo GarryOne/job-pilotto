@@ -83,7 +83,7 @@ test('a late "account" report about the sign-up page the tab has left never move
 });
 
 test('an account page left to the person says which kind it is: a sign-in is worded as one, in the list and on the card', async () => {
-  const {sessionStage, sessionState} = await import('../renderer/session-state.js');
+  const {sessionStage} = await import('../renderer/session-state.js');
   const s = setup();
   terminals.startForm({id: 'f1', url: URL1});
   s.flow.stuck({url: URL1, host: 'auth.jobs.ch', why: 'account', needs: 'Log in', accountStep: 'sign_in', session: 'f1'});
