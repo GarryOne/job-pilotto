@@ -107,3 +107,11 @@ export function sortChecks(checks, {forYou = false} = {}) {
   }
   return {needs, filled};
 }
+
+// Claude's **bold** marks, which a row shows as plain words.
+export const unbold = text => String(text || '').replace(/\*\*/g, '');
+// An item that is a reply to Claude, not something in the form: "Reply **ok**, and I'll click Create an account…" → 'ok', else ''.
+export function replyOf(text) {
+  const match = unbold(text).match(/^\s*(?:reply|answer|say|type)\s+["“']?([\w-]{1,20})["”']?(?=[\s,.;:]|$)/i);
+  return match ? match[1] : '';
+}

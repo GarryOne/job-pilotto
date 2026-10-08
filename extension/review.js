@@ -92,6 +92,13 @@
       entry.filled ||= filled;
       groups.set(key, entry);
     }
+    // A robot check (reCAPTCHA, hCaptcha, Turnstile) lives in a frame the form's inputs don't include: its answer is the hidden
+    // response box those widgets keep in the page. Ticked by you, never by us; until then the form is not ready (8 Oct 2026, Migros).
+    for (const box of document.querySelectorAll('textarea[name$="captcha-response"], input[name="cf-turnstile-response"]')) {
+      const frame = box.parentElement?.querySelector('iframe') || box.closest('div')?.querySelector('iframe');
+      if (!frame || !visible(frame)) continue;
+      groups.set(box, {el: frame, label: 'Confirm you are not a robot', required: true, filled: !!String(box.value || '').trim(), ai: false, byUs: false});
+    }
     for (const entry of groups.values()) {  // a CV some sites show only as a file name once attached
       if (!entry.filled && entry.el.type === 'file') entry.filled = showsFileName(entry.el);
     }
@@ -306,8 +313,9 @@
     jp.classList.toggle('ready', ready);
     $('.ring').style.setProperty('--done', done);
     $('.ring span').textContent = ready ? '✓' : total ? String(left) : '–';
-    $('.pill b').textContent = ready ? 'Ready to submit' : total ? `${left} left` : 'Job Pilotto';
-    $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? 'Review, then submit' : 'required fields';
+    const readyWords = account ? 'Ready to create the account' : 'Ready to submit';   // a sign-up page is not the application
+    $('.pill b').textContent = ready ? readyWords : total ? `${left} left` : 'Job Pilotto';
+    $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? 'Review, then create it' : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
     const over = filledOnce || ['done', 'input'].includes(session?.status);
@@ -325,7 +333,7 @@
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
-    $('.progress-line b').textContent = ready ? 'Ready to submit' : total ? `${total - left} of ${total}` : 'No required fields';
+    $('.progress-line b').textContent = ready ? readyWords : total ? `${total - left} of ${total}` : 'No required fields';
     $('.progress-line span').textContent = ready ? 'every required field is filled' : total ? 'required fields filled' : '';
     $('.bar i').style.width = `${ready ? 100 : done}%`;
     // fill (not while Claude is filling this form: it would fight it)

@@ -10,7 +10,7 @@ import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, openForm, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -420,6 +420,7 @@ export function renderNextStep(item) {
   applyFormStates(item);
   showFormState(item);
   updateNeedsCount();
+  showSendBar(item);   // answers not sent yet stay with their send button when the page redraws
   // The live field list ("In the form") says what was filled, field by field: Claude's "Filled:" summary only without it.
   const listed = !!reviewStates.get(item.id)?.filled?.length;
   const happened = [

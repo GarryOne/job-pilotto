@@ -1,6 +1,6 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
-import {splitLabel} from '../session-message.js';
+import {replyOf, splitLabel, unbold} from '../session-message.js';
 import {isSubmitted} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
@@ -50,7 +50,8 @@ function rowWords(need) {
   if (need.kind === 'ask') return {title: need.question || firstLine(need.text || '', 80), desc: need.why || ''};
   const {label, text} = splitLabel(need.text || '');
   const title = need.label || label || firstLine(text, 80);
-  return {title, desc: (need.label || label) ? text : text.slice(title.length).trim()};
+  const desc = (need.label || label) ? text : text.slice(title.length).trim();
+  return {title: unbold(title), desc: unbold(desc)};   // Claude's **bold** marks are not words to show (8 Oct 2026)
 }
 // A title keeps to one line (the row is a summary): the whole question on hover.
 function titleLine(text) {
@@ -303,6 +304,34 @@ async function showInForm(item, label, button) {
   else if (result?.went !== 'tab') toastMessage('Form tab not found', 'No open Chrome tab matches this job. Find the tab Claude used, then click here again.');
   else toastMessage('Scroll to it yourself this time', `The form tab is open, but the extension could not attach to it. Look for "${label}" in the form.`);
 }
+// Answers wait here until you send them all at once (owner, 8 Oct 2026: one answer sent at once made Claude reply, and its new
+// message redrew the list, so the other questions vanished before you could answer them). Each answer names its question.
+const batch = new Map();   // session id → Map(row key → {line, last})
+function queue(item, key, line, {last = false} = {}) {
+  if (!batch.has(item.id)) batch.set(item.id, new Map());
+  batch.get(item.id).set(key, {line, last});
+  setTimeout(() => showSendBar(item));   // after the row is marked done, so the count of open ones is right
+}
+// One message for Claude: the answers, numbered, each with its question; a reply it asked for ("ok") last.
+export function batchMessage(entries) {
+  const answers = entries.filter(entry => !entry.last).map(entry => entry.line);
+  const replies = entries.filter(entry => entry.last).map(entry => entry.line);
+  return [answers.length ? `My answers to your list, put them in the form: ${answers.map((line, at) => `${at + 1}) ${line}`).join('; ')}.` : '', ...replies]
+    .filter(Boolean).join(' Then: ');
+}
+export function showSendBar(item) {
+  const bar = $('ss-needs-send');
+  if (!bar) return;
+  const waiting = [...(batch.get(item?.id)?.values() || [])];
+  show(bar, waiting.length > 0 && shared.openSessionId === item?.id);
+  if (!waiting.length) return;
+  const open = document.querySelectorAll('#ss-needs > .ss-need:not(.is-done)').length;
+  $('ss-needs-send-text').textContent = `${waiting.length} answer${waiting.length === 1 ? '' : 's'} ready${open ? ` · ${open} still open` : ''}`;
+  const button = $('ss-needs-send-btn');
+  button.textContent = waiting.length === 1 ? 'Send it to Claude' : `Send all ${waiting.length} to Claude`;
+  button.disabled = !!offline(item);
+  button.onclick = () => { say(batchMessage(waiting)); batch.delete(item.id); show(bar, false); };
+}
 export function needRow(need, item) {
   const key = `${item.id}|${need.text}`, li = el('li', `ss-need is-${need.kind}`);
   li.dataset.key = key;
@@ -311,7 +340,15 @@ export function needRow(need, item) {
   body.append(titleLine(title));
   if (desc) body.append(el('span', 'ss-need-desc small', desc));
   const actions = el('div', 'ss-need-actions');
-  const name = need.label || 'this';
+  // What an answer is about: the field's label, else the item itself. "this" alone told Claude nothing (8 Oct 2026: "Change this in the form: Yes").
+  const name = need.label ? unbold(need.label) : `"${title}"`;
+  const reply = need.kind !== 'agree' && replyOf(title);
+  if (reply) {   // "Reply ok, and I'll click Create an account": one button that sends it, not a field to review
+    actions.append(smallButton(`Reply "${reply}"`, 'primary', () => { queue(item, key, reply, {last: true}); doneRow(li, key, `To send: ${reply}`); }, offline(item)));
+    li.append(badge(), body, actions);
+    if (handled.has(key)) doneRow(li, key, handled.get(key));
+    return li;
+  }
   if (need.kind === 'agree') {
     // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
     actions.append(smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
@@ -340,8 +377,8 @@ export function needRow(need, item) {
       input.placeholder = `What should ${name} be?`;
       const send = () => {
         if (!input.value.trim()) return;
-        say(`Change ${name} in the form: ${input.value.trim()}`);
-        doneRow(li, key, `Asked Claude: ${input.value.trim()}`);
+        queue(item, key, `${name}: ${input.value.trim()}`);
+        doneRow(li, key, `To send: ${input.value.trim()}`);
       };
       const before = [...actions.childNodes];
       const back = () => { li.classList.remove('is-asking'); actions.replaceChildren(...before); };
@@ -355,10 +392,8 @@ export function needRow(need, item) {
       if (!chosen || chosen.kind === 'change') { ask(); return; }
       // A recommendation that isn't "keep it as it is" is an instruction for Claude, not just an acknowledgement.
       const change = chosen.kind === 'proposed' && !!need.recommended && !KEEP.test(need.recommended);
-      if (chosen.kind === 'saved') say(`Fill "${name}" in the form with: ${chosen.value}`);
-      else if (change) say(`${name}: ${chosen.value}. Change it in the form, then tell me.`);
-      doneRow(li, key, chosen.kind === 'saved' ? `Asked Claude to fill: ${chosen.value}`
-        : change ? `Asked Claude: ${chosen.value}` : 'Checked');
+      if (chosen.kind === 'saved' || change) queue(item, key, `${name}: ${chosen.value}`);
+      doneRow(li, key, chosen.kind === 'saved' || change ? `To send: ${chosen.value}` : 'Checked');
     });
     if (offline(item)) { select.disabled = true; select.title = offline(item); }
     chip.append(select);
@@ -413,13 +448,13 @@ export function askRow(need, item) {
   const fill = smallButton('Fill it in', 'primary', () => {
     const value = input.value.trim();
     if (!value) { note.textContent = 'Write an answer first'; input.focus(); return; }
-    say(`Fill "${need.question}" in the form with: ${value}`);
-    handled.set(key, `Asked Claude to fill: ${value}`);
+    queue(item, key, `"${need.question}": ${value}`);
+    handled.set(key, `To send: ${value}`);
     keep();
     li.classList.add('is-done');
     const number = li.querySelector('.ss-need-num');
     if (number) number.textContent = '✓';
-    fill.replaceWith(el('span', 'small ss-need-outcome', `✓ Asked Claude to fill: ${value}`));
+    fill.replaceWith(el('span', 'small ss-need-outcome', `✓ To send: ${value}`));
     updateNeedsCount();
   }, offline(item));
   const line = el('div', 'ss-ask-line');

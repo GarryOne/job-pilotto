@@ -1,6 +1,6 @@
 // Session page: opening a session and its log.
 import {el, moreButton, pill} from '../components.js';
-import {latestStep} from '../session-message.js';
+import {latestStep, readSessionMessage} from '../session-message.js';
 import {passWheel, wheelLines} from '../wheel.js';
 import {shared} from './shared.js';
 import {clockTime} from './activity.js';
@@ -88,7 +88,10 @@ export function renderSessionPage() {
   $('ss-job').replaceChildren(head);
   renderNextStep(item);
   const review = sessionReview(item, formReady(item));
-  const [logLabel, logTone] = isSubmitted(item) ? [label, tone] : item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
+  const [logLabel, logTone] = isSubmitted(item) ? [label, tone] : item.status === 'running' ? ['Working', 'info']
+    // Claude stopped on a list for you ("Needs you: tick the robot box, reply ok") in a live window: it waits, it has not completed (8 Oct 2026).
+    : review && isLive(item) && readSessionMessage(item.question || '').needs.length ? ['Waiting for you', 'warn']
+    : review ? ['Completed', 'good']
     : item.status === 'input' && !isLive(item) ? ['Closed with the app', 'neutral']
     : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];
   const livePill = pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true});

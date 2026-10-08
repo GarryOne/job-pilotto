@@ -128,3 +128,12 @@ test('repo vocabulary is developer talk in anything Claude says to the applicant
     'My earlier guess was that `test_watch` read your edited `config/search.json`.']) assert.equal(isDevTalk(line), true, line);
   for (const line of ['Any relatives working at N26? (required)', 'The N26 form is filled. Review it and click Submit.']) assert.equal(isDevTalk(line), false, line);
 });
+
+test('a Needs-you item that is a reply to Claude is recognised; bold marks are not words', async () => {
+  const {replyOf, unbold} = await import('../renderer/session-message.js');
+  assert.equal(replyOf('Reply **ok**, and I\'ll click Create an account and go on to the application form.'), 'ok');
+  assert.equal(replyOf('Reply "yes" when done'), 'yes');
+  assert.equal(replyOf('Tick **"Je ne suis pas un robot"** in Chrome.'), '');
+  assert.equal(replyOf('Replying to recruiters is faster'), '');
+  assert.equal(unbold('Tick **"Je ne suis pas un robot"** in Chrome.'), 'Tick "Je ne suis pas un robot" in Chrome.');
+});
