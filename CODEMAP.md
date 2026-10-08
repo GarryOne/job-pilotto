@@ -84,6 +84,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/notion-workspace.js` — Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto
 - `desktop/lib/notion-write.js` — Notion, writing pages: Markdown to blocks, rewriting a page in place (patch plan, delete passes, leftover sweep), appending answers,
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
+- `desktop/lib/option-pick.js` — The form's own choice for an answer ("Monsieur" in a Madam/Sir menu → "Sir"), for a session page row whose field is a menu. The same
 - `desktop/lib/orphans.js` — An engine run (`python -m src daily|check|scout|discover|feeds`) the app started and then lost: the app restarted, so the run's parent is now
 - `desktop/lib/outcomes.js` — "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
 - `desktop/lib/page-kind.js` — What kind of page is this, in an application's journey? The AI decides, from a sketch of the page in whatever language it is in

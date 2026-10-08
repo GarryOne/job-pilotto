@@ -28,7 +28,7 @@ test('the form\'s report keeps the proposals (cleaned) and "Use" reaches the for
       {label: 'x', key: 'not-a-detail'}, {label: '', value: 'y'}]};
   review.report(sessions, page);
   assert.deepEqual(review.allStates().find(state => state.id === "s1").proposals,
-    [{label: 'Formule d\'appel', value: 'Monsieur', key: ''}, {label: 'Numéro de téléphone', value: '', key: 'phone'}]);
+    [{label: 'Formule d\'appel', value: 'Monsieur', key: '', options: []}, {label: 'Numéro de téléphone', value: '', key: 'phone', options: []}]);
   review.queueFill('s1', 'Rue et numéro', 'Rue du Lac 1');
   assert.deepEqual(review.report(sessions, page).commands, [{fill: {label: 'Rue et numéro', value: 'Rue du Lac 1'}}]);
   assert.deepEqual(review.report(sessions, page).commands, []);   // once

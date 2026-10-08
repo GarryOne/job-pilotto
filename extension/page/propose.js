@@ -15,10 +15,21 @@
   window.__jobPilottoMarkProposal = (row, answer, key) => {
     const el = elOf(row.field);
     if (!el || row.filled || row.legal) return;
+    if (row.options?.length) el.dataset.jobpilottoOptions = JSON.stringify(row.options.slice(0, 60));   // a select's choices: the app proposes one of them
     if (answer?.value) el.dataset.jobpilottoSuggested = String(answer.value).split(' || ')[0].slice(0, 200);
     else if (key) el.dataset.jobpilottoWants = key;
   };
 
+  // A menu opened by your click had no choice matching the answer (fill.js armCombo): the text typed to filter it goes, so the box
+  // is not left holding a word the form doesn't offer ("Monsieur" in a Madam/Sir menu, 8 Oct 2026); the choices it showed are kept for
+  // the app, which proposes the one that means the same.
+  window.__jobPilottoMenuMissed = (el, shown = []) => {
+    if (el?.tagName === 'INPUT') {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '');
+      el.dispatchEvent(new Event('input', {bubbles: true}));
+    }
+    if (el && shown.length) el.dataset.jobpilottoOptions = JSON.stringify(shown.slice(0, 60));
+  };
   // One field by its label, through the extension's fill (the worker calls this for "Use" in the app: extension/fill-flow.js). → {ok}
   window.__jobPilottoFillOne = async (label, value) => {
     try {

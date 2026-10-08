@@ -186,7 +186,7 @@
         let option = matchOption(answer);
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
-          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {}
+          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60);   // the menu's own choices, as it opened
           // Long menus (countries, cities) show only their first entries: type the answer to filter,
           // which the menu accepts once your click has opened it.
           // Search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
@@ -195,7 +195,7 @@
           for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
         }
         if (option) { option.click(); done(); }
-        else badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`;
+        else { badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; window.__jobPilottoMenuMissed?.(el, shown); }   // page/propose.js: no text left in the box; its choices go to the app
       }, 120);
     };
     control.addEventListener('mousedown', onOpen, true);
@@ -549,7 +549,7 @@
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
-      if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.(row, answer, (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
+      if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer, (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};

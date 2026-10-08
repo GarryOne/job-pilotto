@@ -3,6 +3,7 @@
 import * as contactDetails from './contact.js';
 import * as fromCv from './contact-from-cv.js';
 import {keysFor} from './contact-keys.js';
+import {pickOption} from './option-pick.js';
 import {aiClient} from './confirmation.js';
 import {hashOf} from './cv-check.js';
 
@@ -28,6 +29,8 @@ export function registerContactHandlers({ipcMain, storage, DEMO, connected, need
   });
   // Which contact detail each form label asks for (Claude reads labels it hasn't seen; kept per label).
   ipcMain.handle('contactKeysFor', (_, labels) => (DEMO ? {} : keysFor(storage, Array.isArray(labels) ? labels.map(String) : [], {client: aiClient(storage), log})));
+  // The form's own choice for an answer, when the field is a menu (lib/option-pick.js).
+  ipcMain.handle('formChoiceFor', (_, ask) => (DEMO ? {choice: '', how: 'none'} : pickOption(storage, ask || {}, {client: aiClient(storage), log})));
   // {again}: read the CV anew (the button); otherwise what was proposed for this CV, or one Claude call when it was never read for this.
   ipcMain.handle('contactProposals', async (_, {again = false} = {}) => {
     if (DEMO) return {proposals: DEMO_PROPOSALS, fresh: false};

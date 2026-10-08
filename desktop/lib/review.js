@@ -218,7 +218,9 @@ export function report(sessions, payload, now = Date.now()) {
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
   // What the fill proposed for a field it left (a value), or the contact detail it asks for (a key): the session page's rows offer it.
   if (Array.isArray(payload.proposals)) state.proposals = payload.proposals.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120),
-    value: String(item?.value || '').slice(0, 200), key: CONTACT_KEYS.includes(item?.key) ? item.key : ''})).filter(item => item.label && (item.value || item.key));
+    value: String(item?.value || '').slice(0, 200), key: CONTACT_KEYS.includes(item?.key) ? item.key : '',
+    options: (Array.isArray(item?.options) ? item.options : []).slice(0, 60).map(option => String(option).slice(0, 80)).filter(Boolean)}))
+    .filter(item => item.label && (item.value || item.key));
   // A sign-in or sign-up page (the extension's page rule, or the panel saw a password box): its fields are the account's, never the
   // application's progress: no "ready to submit", no Form completion, no empty-field rows (the session page reads `account`).
   if (payload.role ? payload.role === 'account' : payload.account) state.account = true;   // the rule's word wins: a combined page (CV + password) is the form

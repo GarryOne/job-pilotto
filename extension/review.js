@@ -88,7 +88,7 @@
         : ['checkbox', 'radio'].includes(el.type) ? el.checked : !!String(el.value || '').trim();
       const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
       entry.required ||= required(el);
-      entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.wants ||= el.dataset.jobpilottoWants || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
+      entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
       entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai');
       entry.filled ||= filled;
       groups.set(key, entry);
@@ -511,7 +511,7 @@
         // What is filled, so the app can tick each field off as it happens (it keeps the time it first saw each one).
         // What is left, counted as the ring counts it: required, or an answer Claude wrote that is empty again.
         pending: state.list.filter(f => (f.required || f.ai) && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
-        busy: !!state.busy, over: !!state.over, account: !!state.account, proposals: state.list.filter(f => (f.required || f.ai) && !f.filled && (f.suggested || f.wants)).slice(0, 30).map(f => ({label: String(f.label || '').slice(0, 120), value: String(f.suggested || '').slice(0, 200), key: f.wants || ''})),
+        busy: !!state.busy, over: !!state.over, account: !!state.account, proposals: state.list.filter(f => (f.required || f.ai) && !f.filled && (f.suggested || f.wants)).slice(0, 30).map(f => ({label: String(f.label || '').slice(0, 120), value: String(f.suggested || '').slice(0, 200), key: f.wants || '', options: (() => { try { return JSON.parse(f.options || '[]').slice(0, 60).map(o => String(o).slice(0, 80)); } catch { return []; } })()})),
         filled: state.list.filter(f => (f.required || f.ai) && f.filled).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)),
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});

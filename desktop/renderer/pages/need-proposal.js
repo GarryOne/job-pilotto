@@ -7,7 +7,7 @@
 import {el} from '../components.js';
 import {renderSessionPage} from './session-log.js';
 import {badge, reviewStates, showInForm, smallButton, titleLine} from './session-needs.js';
-import {pickProposal} from '../proposal-pick.js';
+import {onChoices, pickProposal} from '../proposal-pick.js';
 
 // What the row needs besides the form's report, asked once per window and kept: your details, the CV's proposals, and which detail a
 // label asks for (Claude reads the labels the extension doesn't know: lib/contact-keys.js).
@@ -38,8 +38,17 @@ export function proposalFor(item, label) {
   const proposals = reviewStates.get(item.id)?.proposals || [];
   const reported = proposals.find(proposal => proposal.label === label);
   if (!reported?.value && !reported?.key) askKey(label);
-  return pickProposal({proposals, label, key: keyOf.get(label) || '', contact, cv: fromCv});
+  const proposal = pickProposal({proposals, label, key: keyOf.get(label) || '', contact, cv: fromCv});
+  if (!proposal?.options?.length || !proposal.value) return proposal;
+  const ask = `${proposal.value}|${proposal.options.join('|')}`;
+  if (!choices.has(ask) && !proposal.options.some(option => option.toLowerCase() === proposal.value.toLowerCase())) {
+    choices.set(ask, undefined);   // asked once per window; the answer redraws the row
+    window.pilot.formChoiceFor({label, value: proposal.value, options: proposal.options})
+      .then(found => { choices.set(ask, found?.choice || ''); renderSessionPage(); }).catch(() => choices.set(ask, ''));
+  }
+  return onChoices(proposal, choices.get(ask));
 }
+const choices = new Map();   // `${answer}|${choices}` -> the form's choice that means the same ('' none, undefined asking)
 
 // What "Use" did, per session and field, so a redraw (the page redraws often) keeps saying it. A field the form did not take after a few
 // seconds (a menu that needs your click) gets its answer copied and an Open in form.
@@ -50,9 +59,10 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
   const li = el('li', 'ss-need is-ask'), body = el('div', 'ss-need-body'), actions = el('span', 'ss-need-actions'), line = el('div', 'ss-ask-line');   // askRow's layout
   li.dataset.empty = label;
   const key = `${item.id}|${label}`, tried = used.get(key);
-  const input = el('input', 'ss-ask-input');
-  input.type = 'text';
-  input.placeholder = 'Your answer';
+  // A menu: the form's own choices, the one that means the same picked (proposal-pick.js onChoices); otherwise a text box.
+  const input = proposal.options?.length ? el('select', 'ss-ask-input') : el('input', 'ss-ask-input');
+  if (proposal.options?.length) input.append(el('option', '', proposal.waiting ? 'Finding the matching choice…' : ''), ...proposal.options.map(option => el('option', '', option)));
+  else { input.type = 'text'; input.placeholder = 'Your answer'; }
   input.value = tried?.value || proposal.value;
   const note = el('span', 'ss-need-desc small', proposal.from);
   line.append(input, actions);
@@ -76,7 +86,8 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
     const filled = await window.pilot.sessionFillField(item.id, label, value).catch(error => ({ok: false, error: error.message}));
     if (!filled?.ok) { use.disabled = input.disabled = false; note.textContent = filled?.error || 'Couldn\'t reach the form'; return; }
     // Kept for every later form: a contact detail in Your details, any other answer in your Answers (Notion).
-    const already = proposal.key && String(contact?.[proposal.key] || '') === value;   // your saved detail, unchanged: nothing to write
+    // Your saved detail, unchanged (or only put in this form's words, "Monsieur" as "Sir"): nothing to write.
+    const already = proposal.key && [value, proposal.original].includes(String(contact?.[proposal.key] || '')) && (value === proposal.value);   // your saved detail, unchanged: nothing to write
     const kept = already ? {ok: true} : await (proposal.key ? window.pilot.saveContactField(proposal.key, value) : window.pilot.rememberAnswer(label, value)).catch(() => ({ok: false}));
     if (proposal.key && kept?.ok) contact = {...contact, [proposal.key]: value};
     used.set(key, {at: Date.now(), value, kept: !!kept?.ok});
