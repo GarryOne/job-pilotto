@@ -74,6 +74,8 @@ def pool_facts():
             out.setdefault(fact['kind'], {})[fact['host']] = fact.get('url')
         elif isinstance(fact, dict) and fact.get('kind') == 'layout' and isinstance(fact.get('host'), str):
             out.setdefault('layout', {})[fact['host']] = fact.get('recipe')
+        elif isinstance(fact, dict) and fact.get('kind') == 'board' and isinstance(fact.get('host'), str) and isinstance(fact.get('recipe'), dict):
+            out.setdefault('board', {})[fact['host']] = {'url': fact.get('url'), 'countries': fact['recipe'].get('countries') or []}
     return out
 
 

@@ -52,5 +52,14 @@ class FoundBoardsTests(unittest.TestCase):
         self.assertEqual(board_ideas.load()['boards']['empregos.example']['state'], 'dead')
 
 
+    def test_a_board_that_only_a_browser_reads_is_offered_as_a_visit(self):
+        from src.sources import visits_portals
+        def refuse(url):
+            raise urllib.error.HTTPError(url, 429, 'Too many', None, None)
+        found_boards.read(SEARCH, [BOARD], fetch=refuse)
+        offered = [p for p in visits_portals.portals(SEARCH) if p['key'].startswith('board:')]
+        self.assertEqual([(p['name'], p['url']) for p in offered], [('Empregos', 'https://empregos.example/procura?q=developer&local=Lisboa')])   # the first role word, as LinkedIn and Indeed
+
+
 if __name__ == '__main__':
     unittest.main()

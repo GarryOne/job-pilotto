@@ -237,6 +237,16 @@ def site_facts(limit=300):
             if (host.lower().removeprefix('www.'), 'layout') not in seen and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', host.lower().removeprefix('www.')):
                 seen.add((host.lower().removeprefix('www.'), 'layout'))
                 out.append({'host': host.lower().removeprefix('www.'), 'kind': 'layout', 'recipe': layout})
+    # Job boards found for this install's countries that read jobs (src/sources/found_boards.py): the search template (never the filled search,
+    # which holds the user's own words) and the countries it serves, as the pool's fixed ids.
+    from . import pool_tags
+    from .ai import board_ideas
+    ids = {name: code for code, name in pool_tags.COUNTRIES.items()}
+    for host, board in (board_ideas.load().get('boards') or {}).items():
+        countries = sorted({ids[c] for c in board.get('countries') or [] if c in ids})
+        if board.get('state') == 'ok' and countries and (host, 'board') not in seen and re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,}', host):
+            seen.add((host, 'board'))
+            out.append({'host': host, 'kind': 'board', 'url': board.get('search_url'), 'board': {'countries': countries}})
     for url in (data.get('jobpage_bad') or {}):
         add(visits.host_of(url), 'dead', str(url).split('#')[0].split('?')[0])
     return out[:limit]

@@ -209,3 +209,19 @@ test('a learned page layout: checked, counted when identical, served at 3 instal
   assert.deepEqual(served.map(fact => [fact.host, fact.recipe, fact.installs]), [['careers.richemont.com', layout, 3]]);
   assert.deepEqual((await agreedSites({...env, POOL_LAYOUTS: 'off'})).filter(fact => fact.kind === 'layout'), [], 'the kill switch');
 });
+
+test('a job board an install read jobs on: its template and countries only; served for its countries once 3 installs agree', async () => {
+  const {agreedSites} = await import('../src/employers.js');
+  const env = setup();
+  const template = 'https://www.net-empregos.com/pesquisa?chaves={role}&zona={place}';
+  for (const install of ['install-a', 'install-b', 'install-c']) {
+    const sites = [{host: 'net-empregos.com', kind: 'board', url: template, board: {countries: ['pt', 'zz', 'pt']}},
+      {host: 'other.example', kind: 'board', url: 'https://elsewhere.example/?q={role}', board: {countries: ['pt']}},   // not its own host
+      {host: 'odd.example', kind: 'board', url: 'https://odd.example/?q={role}&t={token}', board: {countries: ['pt']}},   // another placeholder
+      {host: 'none.example', kind: 'board', url: 'https://none.example/?q={role}', board: {countries: ['zz']}}];           // no known country
+    const answer = await (await post(env, {...body(install, []), v: 2, sites})).json();
+    assert.equal(answer.sites, 1);
+  }
+  const boards = (await agreedSites(env)).filter(fact => fact.kind === 'board');
+  assert.deepEqual(boards.map(fact => [fact.host, fact.url, fact.recipe, fact.installs]), [['net-empregos.com', template, {countries: ['pt']}, 3]]);
+});

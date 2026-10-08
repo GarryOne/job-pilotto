@@ -10,6 +10,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import board_ideas  # noqa: E402
+from src.sources import visits  # noqa: E402,F401 (visits_jobpages is imported through visits)
 
 LISBON = {'role_keywords': ['developer'], 'locations': {'top_tier': ['Lisboa'], 'country_wide': [], 'abroad': []}}
 ANSWER = {'boards': [
@@ -57,6 +58,24 @@ class BoardIdeasTests(unittest.TestCase):
             self.assertEqual(board_ideas.ideas(LISBON), [])
         with mock.patch('src.places.load', return_value={}):
             self.assertEqual(board_ideas.ideas({'role_keywords': ['x'], 'locations': {'top_tier': ['Nowhere']}}, FakeClient()), [])
+
+
+    def test_a_board_other_installs_share_reaches_a_new_install_of_that_country_even_without_ai(self):
+        facts = {'board': {'emprego.example': {'url': 'https://emprego.example/busca?q={role}', 'countries': ['pt']},
+                           'banned.example': {'url': 'https://elsewhere.example/?q={role}', 'countries': ['pt']},   # not on its own host
+                           'swiss.example': {'url': 'https://swiss.example/?q={role}', 'countries': ['ch']}}}
+        with mock.patch('src.sources.visits_jobpages.pool_facts', return_value=facts), mock.patch('src.ai.engine.ready', return_value=False):
+            self.assertEqual([b['host'] for b in board_ideas.ideas(LISBON)], ['emprego.example'])
+
+    def test_a_board_that_read_jobs_is_shared_as_its_template_and_countries_only(self):
+        from src import contribute
+        board_ideas.save({'boards': {'net-empregos.com': {'name': 'Net-Empregos', 'state': 'ok', 'countries': ['Portugal'],
+                                                          'search_url': 'https://www.net-empregos.com/pesquisa?chaves={role}&zona={place}'},
+                                     'quiet.example': {'state': 'empty', 'countries': ['Portugal'], 'search_url': 'https://quiet.example/?q={role}'}}})
+        with mock.patch('src.sources.visits._load', return_value={}):
+            boards = [f for f in contribute.site_facts() if f['kind'] == 'board']
+        self.assertEqual(boards, [{'host': 'net-empregos.com', 'kind': 'board', 'url': 'https://www.net-empregos.com/pesquisa?chaves={role}&zona={place}',
+                                   'board': {'countries': ['pt']}}])
 
 
 if __name__ == '__main__':

@@ -63,6 +63,14 @@ def portals(search=None, kinds=None):
             continue
         url = portal['url'].format(role=urllib.parse.quote(roles[0]), place=urllib.parse.quote(places[0] if places else ''), indeed=indeed)
         out.append({'key': key, 'name': portal['name'], 'url': url, 'note': portal['note']})
+    # Job boards found for your countries that refuse automated reading (src/sources/found_boards.py 'browser'): your own visit reads them.
+    from ..ai import board_ideas
+    for host, board in sorted((board_ideas.load().get('boards') or {}).items()):
+        if board.get('state') != 'browser' or '{role}' not in str(board.get('search_url')):
+            continue
+        url = board['search_url'].replace('{role}', urllib.parse.quote(roles[0])).replace('{place}', urllib.parse.quote(places[0] if places else ''))
+        out.append({'key': f'board:{host}', 'name': board.get('name') or host, 'url': url,
+                    'note': 'A job board of your country that only a browser reads: open it, then click the Job Pilotto icon'})
     return out
 
 

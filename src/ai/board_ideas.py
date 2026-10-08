@@ -87,13 +87,14 @@ def ideas(search, client=None):
     place_words = [w for w in places.words_of(search)][:10]
     key = hashlib.sha256(json.dumps([countries, sorted(roles), kinds], ensure_ascii=False).encode()).hexdigest()[:12]
     data = load()
+    shared = served(countries)
     if key in (data.get('ideas') or {}):
-        return data['ideas'][key]
+        return _merge(data['ideas'][key], shared)
     try:
         from . import cost, engine
         if client is None:
             if not engine.ready():
-                return []
+                return shared   # no AI: the boards other installs found for these countries
             client = engine.client(action='scout')
         response = client.messages.create(
             model=MODEL, max_tokens=4000, system=[{'type': 'text', 'text': SYSTEM}],
@@ -106,9 +107,29 @@ def ideas(search, client=None):
         answer = json.loads(next(block.text for block in response.content if block.type == 'text')).get('boards') or []
     except Exception as error:  # noqa: BLE001 — the fixed boards and the shared ones still run
         print(f'Job boards: none proposed this time ({type(error).__name__}); the known boards still run', flush=True)
-        return []
+        return shared
     found = list({b['host']: b for b in (valid(item) for item in answer) if b}.values())[:MAX_BOARDS]
     data.setdefault('ideas', {})[key] = found
     save(data)
     print(f"Job boards proposed for {', '.join(countries)}: {', '.join(b['name'] for b in found) or 'none'}", flush=True)
-    return found
+    return _merge(found, shared)
+
+
+def served(countries):
+    """The boards the central pool serves for these countries (3+ installs read jobs there: src/contribute.py site_facts, kind 'board'),
+    checked like Claude's proposals; work without AI too."""
+    from .. import pool_tags
+    from ..sources.visits_jobpages import pool_facts
+    ids = {name: code for code, name in pool_tags.COUNTRIES.items()}
+    wanted = {ids[c] for c in countries if c in ids}
+    out = []
+    for host, fact in (pool_facts().get('board') or {}).items():
+        if wanted & set(fact.get('countries') or []):
+            board = valid({'name': host, 'search_url': fact.get('url'), 'countries': [pool_tags.COUNTRIES.get(c, c) for c in fact['countries']]})
+            if board and board['host'] == host:
+                out.append(board)
+    return out
+
+
+def _merge(own, shared):
+    return list({b['host']: b for b in [*shared, *own]}.values())[:MAX_BOARDS * 2]
