@@ -12,6 +12,7 @@
     "pretest": "node scripts/stage.mjs",
     "test": "npm run lint && node --test test/*.test.js",
     "flows": "node e2e/flows-run.mjs",
+    "twin": "node scripts/stage.mjs && node e2e/twin.mjs",
     "test:scenarios": "node scripts/stage.mjs && node --test test/app-scenarios.test.js",
     "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never",
     "screenshots": "node scripts/stage.mjs && node scripts/screenshots.mjs",

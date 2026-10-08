@@ -2,6 +2,7 @@
 // tab and switches Chrome to it (Mac, through Chrome's scripting; macOS asks once to let Job Pilotto control
 // Chrome). Without Chrome, the permission, or a matching tab, the posting opens instead.
 import {execFile} from 'node:child_process';
+import {isTwin} from './twin.js';
 
 // Hosts of application forms (applicant tracking systems): a tab there naming the company is the form.
 export const ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|workable\.com|recruitee\.com|personio\.|teamtailor\.com|bamboohr\.com|jobvite\.com|icims\.com|join\.com|rippling\.com/i;
@@ -89,8 +90,8 @@ export function pickTab(tabs, target) {
   return best;
 }
 
-const jxa = script => new Promise((resolve, reject) =>
-  execFile('osascript', ['-l', 'JavaScript', '-e', script], {timeout: 8000}, (error, stdout) => (error ? reject(error) : resolve(stdout.trim()))));
+const jxa = script => new Promise((resolve, reject) => (isTwin() ? reject(new Error('a twin never drives the owner\'s Chrome')) :   // lib/twin.js
+  execFile('osascript', ['-l', 'JavaScript', '-e', script], {timeout: 8000}, (error, stdout) => (error ? reject(error) : resolve(stdout.trim())))));
 
 const LIST = `const chrome = Application('Google Chrome');
 JSON.stringify(chrome.running() ? chrome.windows().flatMap(w => w.tabs().map((t, i) => ({win: w.id(), index: i + 1, id: String(t.id()), url: t.url(), title: t.title()}))) : null)`;

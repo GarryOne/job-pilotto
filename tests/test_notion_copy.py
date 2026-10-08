@@ -1,7 +1,9 @@
 import json
 import sys
 import tempfile
+import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'tools'))
@@ -185,3 +187,41 @@ class RetryTests(unittest.TestCase):
         notion = c.Notion('token')
         with mock.patch.object(c.urllib.request, 'urlopen', urlopen), mock.patch.object(c.time, 'sleep', lambda s: None):
             self.assertRaises(TimeoutError, notion, 'GET', 'users/me')
+
+
+class IncrementalTests(unittest.TestCase):
+    """8 Oct 2026, the live-test mirror synced at each twin start: only what changed in the source is written."""
+
+    def test_only_changed_rows_are_written_and_deleted_ones_leave_the_mirror(self):
+        src = Workspace({'apps': APPS, 'events': EVENTS})
+        rows = [src.add_row('apps', {'Job': {'type': 'title', 'title': rich(name)}}, body=[f'{name} notes']) for name in ('A', 'B', 'C')]
+        for row in rows:
+            row['last_edited_time'] = '2026-10-08T10:00:00.000Z'
+        dst = Workspace({'apps2': APPS, 'events2': EVENTS})
+        writes = []
+        real_call = dst.__call__
+        dst_call = lambda method, path, body=None: (writes.append((method, path)) if method != 'GET' else None, real_call(method, path, body))[1]
+        ids = ({'NOTION_APPLICATIONS_DB': 'apps', 'NOTION_EVENTS_DB': 'events'}, {'NOTION_APPLICATIONS_DB': 'apps2', 'NOTION_EVENTS_DB': 'events2'})
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(c.time, 'gmtime', lambda *a: time.strptime('2026-10-08T12:00:00', '%Y-%m-%dT%H:%M:%S')):
+            state = Path(tmp) / 'map.json'
+            proxy = type('Proxy', (), {'__call__': lambda self, *a, **k: dst_call(*a, **k), 'pages': lambda self, db: dst.pages(db),
+                                       'children': lambda self, b: dst.children(b)})()
+            self.assertEqual(c.copy(src, proxy, *ids, state, log=lambda *_: None)['NOTION_APPLICATIONS_DB copied'], 3)
+            writes.clear()
+            # Nothing changed: no write at all.
+            report = c.copy(src, proxy, *ids, state, log=lambda *_: None)
+            self.assertEqual((report.get('NOTION_APPLICATIONS_DB unchanged'), writes), (3, []))
+            # One row edited (fields and body), one deleted in the source.
+            rows[1]['last_edited_time'] = '2026-10-08T12:30:00.000Z'
+            rows[1]['properties']['Job']['title'] = rich('B, edited')
+            src.bodies[rows[1]['id']] = [{'id': 'x', 'type': 'paragraph', 'paragraph': {'rich_text': rich('new notes')}, 'has_children': False}]
+            src.archived.add(rows[2]['id'])
+            report = c.copy(src, proxy, *ids, state, log=lambda *_: None)
+            self.assertEqual((report['NOTION_APPLICATIONS_DB updated'], report['NOTION_APPLICATIONS_DB unchanged'], report['removed']), (1, 1, 1))
+            mapping = json.loads(state.read_text())
+            edited = mapping[rows[1]['id']]
+            self.assertEqual(next(p for p in dst.pages('apps2') if p['id'] == edited)['properties']['Job']['title'][0]['text']['content'], 'B, edited')
+            self.assertEqual(dst.bodies[edited][-1]['paragraph']['rich_text'][0]['text']['content'], 'new notes')
+            self.assertEqual(len(dst.pages('apps2')), 2)              # C left the mirror (trashed there)
+            self.assertNotIn(rows[2]['id'], mapping)
+            self.assertTrue(all(path.startswith(('pages/', 'blocks/')) for _, path in writes))

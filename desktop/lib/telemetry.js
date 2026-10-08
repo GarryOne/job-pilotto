@@ -12,6 +12,7 @@ import os from 'node:os';
 // JOB_PILOTTO_TELEMETRY=0 to mean "off", the app read any non-empty value as "on", and eight test profiles showed up as installs.
 export function reportingOff(env = process.env, {packaged = false} = {}) {
   if (env.JOB_PILOTTO_E2E) return 'the end-to-end journey';
+  if (env.JOB_PILOTTO_TWIN) return 'a live-test twin';
   if (env.JOB_PILOTTO_SMOKE || env.JOB_PILOTTO_PTY_SMOKE) return 'a smoke test';
   if (env.CI || env.GITHUB_ACTIONS) return 'CI';
   if (!packaged && !sourceRunReports(env)) return 'a development build';

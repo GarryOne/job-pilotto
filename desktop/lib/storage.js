@@ -5,6 +5,7 @@
 //   profile.md, answers.md, cv.pdf, data/jobs.sqlite
 import fs from 'node:fs';
 import path from 'node:path';
+import {twinSecret} from './twin.js';
 
 export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY', 'EXTENSION_TOKEN', 'GITHUB_TOKEN', 'REPORT_TOKEN', 'CLOUDFLARE_API_TOKEN'];
 
@@ -39,6 +40,8 @@ export function createStorage(dir, crypto) {
       unreadable.delete(name);
     },
     secret(name) {
+      const twin = twinSecret(name);   // a twin's Notion token comes from its environment, never the cloned folder (lib/twin.js)
+      if (twin !== null) return twin;
       const sealed = readJson('secrets.json', {})[name];
       return sealed ? open(name, sealed) : '';
     },

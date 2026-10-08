@@ -166,6 +166,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/telemetry.js` — Technical reports (on by default; Settings → Advanced turns them off): crashes, failed runs, form issues and a
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
+- `desktop/lib/twin.js` — Twin mode (JOB_PILOTTO_TWIN=1): a second copy of the app for live tests on the owner's real state (owner, 8 Oct 2026), started by
 - `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
 - `desktop/lib/visits-handlers.js` — The job-site visits' IPC (moved out of main.js, 8 Oct 2026): opening a site or its tab, visiting again, Read with Claude, hiding and dismissing

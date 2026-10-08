@@ -19,6 +19,7 @@ import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {mergeTabs, openFormTab, withOpenForm} from './form-tab.js';
 import {sharedCheck} from './shared-check.js';
+import {isTwin} from './twin.js';
 
 export function registerApplyHandlers(ctx) {
   const {DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, shell, startClaude, storage, toWindow, track} = ctx;
@@ -55,7 +56,7 @@ export function registerApplyHandlers(ctx) {
     const key = String(id), name = String(label || '');
     // On a Mac the form tab is found and brought forward first, through Chrome's own tab list: at once, whatever the page is
     // doing (a background tab's timers are slow). One attempt: it worked, or it says no tab is this job's form.
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && !isTwin()) {   // a twin finds its tab through its own extension (lib/twin.js)
       // The page this session's own reports came from, and the pages other sessions' came from (never taken for this one).
       const states = review.allStates();
       // By tab id first: two sessions on one form site (SuccessFactors' /careers) report the same address.

@@ -292,6 +292,20 @@ def replace_body(notion, page_id, source_id, source):
 
 def copy(src, dst, src_ids, dst_ids, state_file, replace=False, dry_run=False, log=print):
     state = json.loads(state_file.read_text()) if state_file.exists() else {}
+    # Incremental (8 Oct 2026, the live-test mirror synced at each twin start): each source row's last_edited_time at its last copy. A row whose
+    # time is unchanged is skipped; Notion's times have minute precision, so rows stamped within 2 minutes of the previous sync are checked again.
+    stamps_file = state_file.with_name(state_file.stem + '.edited.json')
+    stamps = json.loads(stamps_file.read_text()) if stamps_file.exists() else {}
+    started = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())
+    previous = stamps.get('_synced_at', '')
+    fence = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.mktime(time.strptime(previous, '%Y-%m-%dT%H:%M:%S.000Z')) - time.timezone - 120)) if previous else ''
+    unchanged = lambda page: (bool(page.get('last_edited_time')) and stamps.get(page['id']) == page['last_edited_time']
+                              and (not fence or page['last_edited_time'] < fence))
+
+    def keep():
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(json.dumps(state, indent=1))
+        stamps_file.write_text(json.dumps(stamps, indent=1))
     report = {}
     envs = [env for env in SCHEMA['databases'] if src_ids.get(env) and dst_ids.get(env)]
     rows = {env: list(src.pages(src_ids[env])) for env in envs}
@@ -306,13 +320,18 @@ def copy(src, dst, src_ids, dst_ids, state_file, replace=False, dry_run=False, l
                     dst('PATCH', f"pages/{page['id']}", {'archived': True})
                     report[f'{env} trashed'] = report.get(f'{env} trashed', 0) + 1
     # Pass 1: rows with their fields and page body.
+    changed = set()
     for env in envs:
         for page in rows[env]:
+            if state.get(page['id']) and unchanged(page):
+                report[f'{env} unchanged'] = report.get(f'{env} unchanged', 0) + 1
+                continue
             props = {name: v for name, p in page['properties'].items()
                      if name in target_types[env] and (v := value(p, target_types[env][name])) is not None}
             made = state.get(page['id'])
             if made:
                 dst('PATCH', f'pages/{made}', {'properties': props})
+                replace_body(dst, made, page['id'], src)   # its body may have changed too
                 report[f'{env} updated'] = report.get(f'{env} updated', 0) + 1
             else:
                 icon = page.get('icon') if (page.get('icon') or {}).get('type') == 'emoji' else None
@@ -320,14 +339,26 @@ def copy(src, dst, src_ids, dst_ids, state_file, replace=False, dry_run=False, l
                                              **({'icon': icon} if icon else {})})['id']
                 state[page['id']] = made
                 append(dst, made, page_blocks(src, page['id']))
-                state_file.parent.mkdir(parents=True, exist_ok=True)
-                state_file.write_text(json.dumps(state, indent=1))  # after each row: an interrupted copy resumes
                 report[f'{env} copied'] = report.get(f'{env} copied', 0) + 1
+            changed.add(page['id'])
+            if page.get('last_edited_time'):
+                stamps[page['id']] = page['last_edited_time']
+            keep()  # after each row: an interrupted copy resumes
         log(f'{env}: {len(rows[env])} rows')
-    # Pass 2: links between rows (one side of each two-way pair; Notion fills the other).
+    # Rows gone from the source (deleted or trashed there): trashed in the target too. Only rows this map copied.
+    seen = {page['id'] for env in envs for page in rows[env]}
+    for source_id, made in list(state.items()):
+        if source_id not in seen:
+            dst('PATCH', f'pages/{made}', {'archived': True})
+            del state[source_id]
+            stamps.pop(source_id, None)
+            report['removed'] = report.get('removed', 0) + 1
+    # Pass 2: links between rows (one side of each two-way pair; Notion fills the other), for the rows this run wrote.
     for env in envs:
         pairs = {name: c for name, c in SCHEMA['databases'][env]['columns'].items() if c['type'] == 'relation'}
         for page in rows[env]:
+            if page['id'] not in changed:
+                continue
             links = {}
             for name, column in pairs.items():
                 prop = page['properties'].get(name)
@@ -341,10 +372,15 @@ def copy(src, dst, src_ids, dst_ids, state_file, replace=False, dry_run=False, l
                 dst('PATCH', f"pages/{state[page['id']]}", {'properties': links})
     # Pages: Profile, Standard answers, Form knowledge (replaced when the source has them).
     for env in ('NOTION_PROFILE_PAGE_ID', 'NOTION_ANSWERS_PAGE_ID', 'NOTION_KNOWLEDGE_PAGE'):
-        if src_ids.get(env) and dst_ids.get(env) and (replace or not list(dst.children(dst_ids[env]))):
+        if not (src_ids.get(env) and dst_ids.get(env)):
+            continue
+        edited = src('GET', f'pages/{src_ids[env]}').get('last_edited_time', '')
+        if replace or not list(dst.children(dst_ids[env])) or stamps.get(env) != edited or (fence and edited >= fence):
             replace_body(dst, dst_ids[env], src_ids[env], src)
             report[f'{env} page'] = 'replaced'
-    state_file.write_text(json.dumps(state, indent=1))
+            stamps[env] = edited
+    stamps['_synced_at'] = started
+    keep()
     return report
 
 
@@ -373,6 +409,7 @@ def main(argv=None):
     copying.add_argument('--from', dest='source', required=True)
     copying.add_argument('--from-ids', dest='source_ids', help='a .env file naming the source databases and pages (else found by title)')
     copying.add_argument('--to', dest='target', required=True)
+    copying.add_argument('--state', help='where the source -> target page map is kept (default data/notion-copy/): the live-test twin keeps one for every checkout')
     copying.add_argument('--to-ids', dest='target_ids', help='the same for the target, e.g. the Desktop App\'s settings.json')
     copying.add_argument('--replace', action='store_true')
     copying.add_argument('--dry-run', action='store_true')
@@ -393,7 +430,7 @@ def main(argv=None):
         if src_ids.get('NOTION_APPLICATIONS_DB') == dst_ids.get('NOTION_APPLICATIONS_DB'):
             raise SystemExit('Source and target are the same workspace: pass --from-ids / --to-ids')
         key = hashlib.sha1(f"{src_ids.get('NOTION_APPLICATIONS_DB')}>{dst_ids.get('NOTION_APPLICATIONS_DB')}".encode()).hexdigest()[:12]
-        print(json.dumps(copy(src, dst, src_ids, dst_ids, STATE / f'{key}.json', args.replace, args.dry_run), indent=1))
+        print(json.dumps(copy(src, dst, src_ids, dst_ids, (Path(args.state).expanduser() if args.state else STATE) / f'{key}.json', args.replace, args.dry_run), indent=1))
     else:
         dst = Notion(keychain(args.token))
         page = (ids_from_env_file(args.ids) if args.ids else find_ids(dst)).get('NOTION_SEARCH_SETTINGS_PAGE')

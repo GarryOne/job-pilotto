@@ -23,8 +23,9 @@ def _keyring():
 
 
 def isolated():
-    """True in the end-to-end journey (the app sets JOB_PILOTTO_E2E): it runs on the owner's own Mac, whose store holds their real Google sign-in and Telegram bot, so it sees none."""
-    return bool(os.getenv('JOB_PILOTTO_E2E'))
+    """True in the end-to-end journey (the app sets JOB_PILOTTO_E2E) and in a live-test twin (JOB_PILOTTO_TWIN, desktop/lib/twin.js): both run on
+    the owner's own Mac, whose store holds their real Google sign-in and Telegram bot, so they see none."""
+    return bool(os.getenv('JOB_PILOTTO_E2E') or os.getenv('JOB_PILOTTO_TWIN'))
 
 
 def get(service, user=None):

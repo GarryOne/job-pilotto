@@ -16,6 +16,7 @@ import crypto from 'node:crypto';
 import * as pipeline from './pipeline.js';
 import {PORT} from './server.js';
 import * as terminals from './terminals.js';
+import {isTwin} from './twin.js';
 
 // What a session gets from the app on top of the user's own environment: Notion, Telegram and the app's
 // folders. Never ANTHROPIC_API_KEY: Claude Code runs on the user's own Claude login, not their API key.
@@ -131,6 +132,7 @@ function openWindows(options, run) {
 // Start one session per job URL. Resolves with the number started.
 export async function launch(storage, urls, {claude, platform = process.platform, run = spawn, pipelineRun = pipeline.run,
   gap = GAP_MS, open = () => {}} = {}) {
+  if (isTwin()) throw new Error('Apply with Claude is off in a live-test twin: Claude would drive your own Chrome.');   // lib/twin.js
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);
@@ -159,6 +161,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
 // tools/notify.sh report its state (JOB_PILOTTO_SESSION names it). Resolves with the sessions started.
 export async function launchInApp(storage, urls, {claude, platform = process.platform, pipelineRun = pipeline.run,
   gap = GAP_MS, term = terminals, port = PORT, details = {}, open = () => {}} = {}) {
+  if (isTwin()) throw new Error('Apply with Claude is off in a live-test twin: Claude would drive your own Chrome.');   // lib/twin.js
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);

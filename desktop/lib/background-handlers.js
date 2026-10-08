@@ -20,6 +20,7 @@ import {watchOrphans} from './orphans.js';
 import {watchSleep} from './awake.js';
 
 import {runState} from './run-state.js';
+import {isTwin} from './twin.js';
 
 export function registerBackgroundHandlers(ctx) {
   const {DEMO, announceRuns, app, backupNow, checkForUpdate, cloud, focusReminder, log, notify, powerMonitor, restartTelegram, resumeQueue, skipUntilNotion, storage, syncCv, toWindow} = ctx;
@@ -138,7 +139,7 @@ export function registerBackgroundHandlers(ctx) {
     watchSleep(powerMonitor, appLog);   // the run watchdogs leave out the time this Mac sleeps (lib/awake.js)
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts; every finished run: announceRuns (every 5 s).
-    startSchedule(storage, {
+    if (!isTwin()) startSchedule(storage, {   // a twin runs nothing on a schedule (lib/twin.js)
       // Their notifications come from announceRuns, like every run's (wherever it ran).
       search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
       mail: () => (notionGate.connected(storage) ? pipeline.checkMail(storage, log, 'schedule') : skipUntilNotion('mail')),

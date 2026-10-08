@@ -59,12 +59,15 @@ export function makeOpenShim() {
 export const browserChannel = (env = process.env) => (env.E2E_BROWSER === 'msedge' ? {channel: 'msedge'} : {});
 
 // -> {context, opened: [url], serviceWorker(), page(url), close()}. Every URL the app opens is opened here, in a new tab.
-export async function launchBrowser({port, spool, extensionDir}) {
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
+// `real`: a live-test twin's window (e2e/twin.mjs): real sites (no fixture host mapping), always visible.
+// `profile`: a browser profile kept between runs (the twin's: site sign-ins and cookies survive); else a fresh temp one.
+export async function launchBrowser({port, spool, extensionDir, real = false, profile: kept = ''}) {
+  if (kept) fs.mkdirSync(kept, {recursive: true});
+  const profile = kept || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
   const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions'],
-    args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
-      `--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors', '--no-first-run', '--no-default-browser-check'],
+    ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions'],
+    args: [...(process.env.E2E_HEADED || real ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
+      ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check'],
   });
   const opened = [], pages = {}, requested = new Set();   // requested: every host name the browser asked for (a test proves no employer site was contacted)
   context.on('request', request => { try { const url = new URL(request.url()); if (/^https?:$/.test(url.protocol)) requested.add(url.hostname); } catch { /* not a URL */ } });

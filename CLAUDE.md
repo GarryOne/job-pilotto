@@ -46,6 +46,12 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   off and assert it in the script. Extension in a browser: always `desktop/e2e/lib/extension.mjs` (`copyExtension` + `freePort`, then check the storage
   points at that port); never a hand-rolled launcher. A real third-party site only with fake applicant data and the fixture CV. After a run, check the
   live app's `logs/app.log` has no lines from it. Global rule: `~/.claude/CLAUDE.md` "Tests and automation never touch live apps".
+- **The one sanctioned exception: a live-test twin** (owner, 8 Oct 2026: "test on my current state, on my live websites… while avoiding mutating my
+  actual Notion state"). To validate a fix on the owner's real state and real sites, run `cd desktop && npm run twin` ([docs/live-test.md](docs/live-test.md)):
+  a second app in twin mode (`desktop/lib/twin.js`) on a fresh clone of the real folder, its own window, port and Chromium, Notion replaced by the one-way
+  mirror "🧪 Job Pilotto – Live Test" (synced at start; its token is checked to get 404 on every real database). Never the owner's app window, Chrome
+  windows, Telegram or real Notion; never Submit; never read a password field. A new outward path in the app (a sender, a schedule, AppleScript) gets its
+  twin guard in the same change (`desktop/test/twin.test.js` lists them).
 - **A form bug is fixed in the self-improving mechanism, for every install** (owner, 8 Oct 2026): a field, control or upload slot a form leaves
   unfilled is never fixed "for that website". Say first which part of the mechanism it improves (operator, fingerprint, meaning in the alias pack,
   recipe, noticing the miss); test the SHAPE with a fixture (the real site only as one live sample); a variant still unhandled must be reported

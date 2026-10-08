@@ -1,6 +1,7 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {recordIpc} from './lib/e2e-ipc.js';
+import {isTwin, twinRefusal} from './lib/twin.js';
 import {hideWindows} from './lib/e2e-hidden.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
@@ -124,6 +125,7 @@ let polling = null;
 
 function restartTelegram() {
   polling?.stop();
+  if (isTwin()) { polling = null; return; }   // a twin never polls the owner's bot (lib/twin.js)
   polling = telegram.startPolling(storage, log, undefined, dispatchNote);
 }
 
@@ -263,6 +265,8 @@ for (const stream of [process.stdout, process.stderr]) stream?.on?.('error', () 
 // A separate data folder for tests and demos (JOB_PILOTTO_USER_DATA), so they never touch the real one.
 if (DEMO_FOLDER) app.setPath('userData', DEMO_FOLDER);
 else if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
+// A live-test twin (lib/twin.js) on the real folder, or without the mirror's Notion token, stops here, before anything opens it.
+if (twinRefusal()) { console.error(`Job Pilotto twin refused: ${twinRefusal()}`); app.exit(3); }
 
 // A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
 // opens it; the app then starts like the first time (the setup wizard).
