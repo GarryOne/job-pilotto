@@ -30,11 +30,16 @@ async function decisions() {
 async function decide(kind, text, fields = {}) {
   const entry = {at: new Date().toISOString(), kind: String(kind).slice(0, 24), text: String(text).slice(0, 300),
     fields: {...fields, version: chrome.runtime.getManifest().version}, sent: false};
-  await chrome.storage.local.set({[LOG_KEY]: [...await decisions(), entry].slice(-LOG_KEEP)}).catch(() => {});
+  await inTurn(async () => chrome.storage.local.set({[LOG_KEY]: [...await decisions(), entry].slice(-LOG_KEEP)}).catch(() => {}));
   pushDecisions();
   return entry;
 }
-async function pushDecisions() {
+// One at a time: two lines written at once read the same list (one was lost), and two pushes at once sent the same unsent
+// lines twice or three times (8 Oct 2026: "closed the posting tab" logged 3x for one tab).
+let logTurn = Promise.resolve();
+const inTurn = work => (logTurn = logTurn.then(work, work));
+function pushDecisions() { return inTurn(pushNow); }
+async function pushNow() {
   const kept = await decisions();
   const unsent = kept.filter(entry => !entry.sent);
   if (!unsent.length) return;
@@ -188,8 +193,9 @@ async function formAfterPress(tabId, url, ms = 8000) {
   return null;
 }
 // The app is told the extension can't get to this form (its session offers "Apply with Claude"): why, and the site.
-async function stuck(job, host, why) {
-  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why})}); } catch { /* the app is closed */ }
+async function stuck(job, host, why, tabId = null) {
+  const session = tabId == null ? '' : (await chrome.storage.session.get(`session:${tabId}`))[`session:${tabId}`] || '';
+  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, tab: tabId, session})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
 const applyPressed = new Map();   // tab id → {at, url}: when and on which page the extension pressed its Apply button
@@ -240,7 +246,7 @@ async function consider(tab, jobUrl) {
   if (role !== 'form') {
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
-    stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form');   // tier 3: the app offers Apply with Claude
+    stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id);   // tier 3: the app offers Apply with Claude
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }
@@ -259,9 +265,10 @@ async function jobOf(tab) {
 async function followOpener(tab) {
   if (tab.openerTabId == null) return false;
   const opener = tab.openerTabId;
-  const stored = await chrome.storage.session.get([`armed:${opener}`, `from:${opener}`, `job:${opener}`]);
+  const stored = await chrome.storage.session.get([`armed:${opener}`, `from:${opener}`, `job:${opener}`, `session:${opener}`]);
   if (!stored[`armed:${opener}`]) return false;
   const next = {[`armed:${tab.id}`]: true};
+  if (stored[`session:${opener}`]) next[`session:${tab.id}`] = stored[`session:${opener}`];   // the same application: the newest tab is its tab now
   if (stored[`from:${opener}`]) next[`from:${tab.id}`] = stored[`from:${opener}`];
   if (stored[`job:${opener}`]) next[`job:${tab.id}`] = stored[`job:${opener}`];
   await chrome.storage.session.set(next);
@@ -810,7 +817,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     (async () => {
       const config = await settings();
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
-      return api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, job: await jobOf(sender.tab)})});
+      // The session this tab belongs to travels with it (next pages, tabs it opens): the app uses it instead of guessing.
+      const key = `session:${sender.tab.id}`, carried = (await chrome.storage.session.get(key))[key] || '';
+      const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, job: await jobOf(sender.tab), session: carried})});
+      if (answer?.matched && answer.matched !== carried) await chrome.storage.session.set({[key]: answer.matched});
+      return answer;
     })().then(reply, () => reply({matched: null}));
     return true;  // the reply comes later
   }
@@ -920,7 +931,7 @@ function connected(ok, why = '') {
 // ever carried over to whatever opens next (tab-pages.js).
 chrome.tabs.onRemoved.addListener(async tabId => {
   reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
-  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
+  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `session:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
   for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
   // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
   // matched it and the new tab was treated as already filled.

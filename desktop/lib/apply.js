@@ -84,6 +84,16 @@ export function accountTakeOver(sessions, form) {
     ? 'claude-open' : 'start';
 }
 
+// Claude takes a job over in its own tab (claude-in-chrome acts only in its own tab group, so it can't use the extension's tab):
+// the job's form session tab closes when nothing was filled in it (a sign-in page, a posting the extension couldn't get past),
+// so the application keeps one tab (owner, 8 Oct 2026: Coop's sign-in tab stayed open beside Claude's). A tab with filled
+// answers is never closed. `filled(id)`: how many fields the form's reports saw filled.
+export function formTabsAtHandOver(sessions, url, filled = () => 0) {
+  const job = String(url || '').split('#')[0];
+  return sessions.filter(session => session.kind === 'form' && !session.outcome && String(session.url || '').split('#')[0] === job)
+    .map(session => ({id: session.id, close: !(filled(session.id) > 0), why: filled(session.id) > 0 ? 'answers filled there' : 'nothing filled'}));
+}
+
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
 export function openOne(url, open = spawn) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};

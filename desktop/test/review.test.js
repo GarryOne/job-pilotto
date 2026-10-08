@@ -241,3 +241,37 @@ test("each session's tab: its address and when it first reported; the same tab k
     [9, 9000, 'https://job-boards.greenhouse.io/anthropic/jobs/4567890/confirmation'],
   ]);
 });
+
+// A session follows its newest tab, and a tab carries its session (8 Oct 2026: Migros's sign-in tab showed on Manor's card).
+test('a tab carrying its session is that session\'s; one carrying a session that is gone is never guessed onto another', () => {
+  review._reset();
+  const binds = [];
+  review.onBind(entry => binds.push(entry));
+  const manor = {id: 'm2', url: 'https://www.jobs.ch/en/vacancies/detail/manor/', company: 'Manor AG', status: 'running', startedAt: '2026-10-08T12:29:00Z'};
+  const migros = {id: 'g2', url: 'https://jobs.migros.ch/fr/job/subito/', company: 'Migros', status: 'running', startedAt: '2026-10-08T12:29:30Z'};
+  const signIn = {url: 'https://career2.successfactors.eu/career?login#jobpilotto-fill', title: 'Career Opportunities: Sign In', total: 3, left: 3};
+  // Migros's old tab still carries its session from before "Start again" (g1, gone) and its job was never stored: no guess, not Manor's.
+  assert.equal(review.report([manor, migros], {...signIn, tab: 40, session: 'g1'}).matched, null);
+  // The same page carrying nothing would have been guessed onto the one session no tab is bound to: that guess still exists only for
+  // a tab that never belonged to a session.
+  assert.equal(review.report([manor], {...signIn, tab: 41}).matched, 'm2');
+  review._reset();
+  // Carried: it is that session's, whatever the page looks like.
+  assert.equal(review.report([manor, migros], {...signIn, tab: 40, session: 'g2'}).matched, 'g2');
+});
+
+test('a session follows its newest tab: an older tab of it goes quiet and is told the application moved', () => {
+  review._reset();
+  const binds = [];
+  review.onBind(entry => binds.push(entry));
+  const manor = {id: 'm2', url: 'https://www.jobs.ch/en/vacancies/detail/manor/', company: 'Manor AG', status: 'running'};
+  const page = (url, tab, extra = {}) => ({url, title: 'Manor', tab, session: 'm2', total: 0, left: 0, ...extra});
+  assert.equal(review.report([manor], page('https://live.solique.ch/manor/job/1#jobpilotto-fill', 50)).matched, 'm2');
+  assert.equal(review.report([manor], page('https://career55.sapsf.eu/careers#jobpilotto-fill', 52, {total: 3, left: 3})).matched, 'm2');   // Apply's new tab
+  const older = review.report([manor], page('https://live.solique.ch/manor/job/1#jobpilotto-fill', 50, {total: 9, left: 9}));
+  assert.deepEqual([older.matched, older.moved], [null, true]);
+  assert.equal(review.olderTab('m2', 50), true);
+  assert.equal(review.olderTab('m2', 52), false);
+  assert.deepEqual(review.allStates().map(state => [state.id, state.total]), [['m2', 3]]);   // the older tab's "9 left" never reached the card
+  assert.deepEqual(binds.map(({tab, before, by}) => [tab, before, by]), [[50, null, 'session'], [52, 50, 'session']]);
+});

@@ -73,6 +73,16 @@ export const CHAIN = {
 CHAIN.url = `https://${CHAIN.host}${CHAIN.path}`;
 CHAIN.stepUrl = `https://${CHAIN.stepHost}${CHAIN.stepPath}`;
 CHAIN.formUrl = `https://${CHAIN.stepHost}${CHAIN.formPath}`;
+// A posting whose Apply opens the form from its OWN SCRIPT (window.open), so nothing can be pointed at the same tab: the extension follows
+// the new tab as the same application and closes the posting (extension/same-tab.js). Its kit answers 9 where CHAIN's answers 7, so a
+// form filled from the other job's kit (two applications side by side, 8 Oct 2026: Migros's form on Manor's card) shows at once.
+export const SCRIPTED = {
+  title: 'Platform Engineer, Scripted Apply', company: 'E2E Scripted Careers', host: 'jobs.lever.co', path: '/e2e-scripted/4001006',
+  formHost: 'e2e.wd3.myworkdayjobs.com', formPath: '/e2e/scripted-form',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '9', needs_review: false}],
+};
+SCRIPTED.url = `https://${SCRIPTED.host}${SCRIPTED.path}`;
+SCRIPTED.formUrl = `https://${SCRIPTED.formHost}${SCRIPTED.formPath}`;
 // A form the TEST (playing the person) really submits: its Submit POSTs and the same address answers with the site's own "submitted" banner (like OK Job,
 // api.easytemp.ch), so the extension must see the Submit press, the page change, and send that page to the AI. Never reported to `fired`: it is the one
 // form allowed to be submitted, and only by the person (the test), never by the extension.
@@ -150,6 +160,10 @@ ${realSubmit ? '' : "document.addEventListener('submit', event => { event.preven
 ${script}
 </script></body></html>`;
 
+const SCRIPTED_PAGES = {
+  posting: () => page(SCRIPTED, `<p>Join the platform team.</p><button id="apply_now" type="button" onclick="window.open('${SCRIPTED.formUrl}', '_blank')" style="padding:12px 28px;background:#222;color:#fff;font-size:18px;border:0">Apply now</button>`, '', {realSubmit: true}),
+  form: () => page(SCRIPTED, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`),
+};
 const CHAIN_PAGES = {
   posting: () => page(CHAIN, `<p>Join the team. <a id="apply_link" href="${CHAIN.stepUrl}" target="_blank" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a></p>`),
   // "To apply" submits a form into a NEW tab (8 Oct 2026): the form page answers only to that POST, so a journey that loads the address again (a GET) lands
@@ -261,6 +275,9 @@ export async function startForms({vary = null} = {}) {
     }
     const chain = host === CHAIN.host && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.path ? 'posting' : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.stepPath ? 'step'
       : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.formPath ? 'form' : '';
+    const scripted = host === SCRIPTED.host && url.pathname.replace(/(.)\/$/, '$1') === SCRIPTED.path ? 'posting'
+      : host === SCRIPTED.formHost && url.pathname.replace(/(.)\/$/, '$1') === SCRIPTED.formPath ? 'form' : '';
+    if (scripted) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SCRIPTED_PAGES[scripted]()); return; }
     if (chain === 'form') {   // only the step's POST opens the form
       let body = '';
       req.on('data', chunk => { body += chunk; });

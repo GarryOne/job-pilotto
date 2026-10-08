@@ -15,7 +15,7 @@ import * as claudeSession from './lib/claude-session.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import * as critical from './lib/critical.js';
 import * as pageRender from './lib/page-render.js';
-import {registerSessionHandlers} from './lib/session-handlers.js';
+import {closeSessionTab, registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
 import * as cvLook from './lib/cv-look.js';
 import * as cvCheck from './lib/cv-check.js';
@@ -63,7 +63,7 @@ import * as pendingLicense from './lib/pending-license.js';
 import * as installSource from './lib/install-source.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
-import {mergeTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
+import {closeFormTab, mergeTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
 import * as backgroundChrome from './lib/background-chrome.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
@@ -2242,8 +2242,24 @@ const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
 // user agrees once, knowing what that means; the answer is kept in settings.
 // Apply with Claude for one job: the job row's button, the page's "Take over" and an account page the extension reached.
 const startClaude = async (url, details = null) => allowanceBlock() || (await claudeConsent())
-  ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) track('apply_started', {how: 'claude'}); terminals.dropForm(String(url).split('#')[0]); return result; })
+  ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => {
+    if (result?.ok) { track('apply_started', {how: 'claude'}); handOverForms(url); } else terminals.dropForm(String(url).split('#')[0]);
+    return result;
+  })
   : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'};
+// Claude took the job: each of its form sessions' tabs closes when nothing was filled there (apply.formTabsAtHandOver), then the
+// form sessions go. The close is asked of the page before the session goes (its panel answers only to a session that exists).
+async function handOverForms(url) {
+  const states = review.allStates();
+  const filled = id => { const state = states.find(item => item.id === id); return state ? Math.max(0, (state.total || 0) - (state.left || 0)) : 0; };
+  for (const entry of apply.formTabsAtHandOver(terminals.list(), url, filled)) {
+    const session = terminals.get(entry.id);
+    let closed = false;
+    if (entry.close && session) { review.queueClose(entry.id); closed = !!(await closeSessionTab({review, closeTab: closeFormTab}, session).catch(() => false)); }
+    appLog('review', `hand-over to Claude: form tab of ${entry.id} ${entry.close ? (closed ? 'closed' : 'not found') : 'kept'}`, {why: entry.why});
+  }
+  terminals.dropForm(String(url).split('#')[0]);
+}
 async function claudeConsent() {
   if (storage.settings().claudeConsent) return true;
   const {response} = await dialog.showMessageBox(window, {type: 'warning', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1,
@@ -2544,12 +2560,19 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   });
   const takingOver = new Set();   // form sessions whose Claude is starting: a second account report meanwhile starts no second one
   server.setStuckHandler(event => {   // tier 3: the extension can't reach a form: that job's form session offers Apply with Claude
+    // The tab's own session first (it carries it: lib/review.js pick); only a tab carrying none is matched by its job.
+    const carried = event.session ? terminals.get(String(event.session)) : null;
+    if (carried && review.olderTab(carried.id, event.tab)) {   // a page the session left (the posting behind its sign-in tab)
+      appLog('review', `stuck report from an older tab of ${carried.id}: ignored`, {host: event.host, tab: event.tab ?? null, why: event.why});
+      return;
+    }
     const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
-    const match = forms.find(session => apply.isFormOf(event.url, session.url));
-    appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match});
+    const match = carried ? (carried.kind === 'form' && !carried.outcome ? carried : null) : forms.find(session => apply.isFormOf(event.url, session.url));
+    appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match, tab: event.tab ?? null, by: carried ? 'session' : 'job'});
     const why = event.why === 'account' ? 'account' : 'no-form';
     // A Claude session on the same job at a sign-in page: its card says it is at the account step.
-    if (why === 'account') for (const other of terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url))) terminals.setStage(other.id, 'account', event.host);
+    const claudes = carried ? (carried.kind === 'claude' ? [carried] : []) : terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url));
+    if (why === 'account') for (const other of claudes) terminals.setStage(other.id, 'account', event.host);
     if (!match) return;
     if (!terminals.noteStuck(match.id, why, event.host) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
     if (why !== 'account') return;
@@ -2566,6 +2589,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       else appLog('extension', 'account page: Claude could not start', {host: event.host, error: String(result?.error || '').slice(0, 160)});
     }).finally(() => takingOver.delete(match.id));
   });
+  review.onBind(({id, tab, before, by, host}) => appLog('review', `tab ${tab} is session ${id}'s now`, {before, by, host}));   // which tab a session follows, and why
   review.setReporter(state => {
     if (state.total > 0) { terminals.clearStuck(state.id); if (terminals.setStage(state.id, 'form')) appLog('review', `stage ${state.id}: the application form`, {fields: state.total}); }
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});

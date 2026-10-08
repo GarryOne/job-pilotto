@@ -140,3 +140,11 @@ test('the stage follows the tab: account with its site, then the form; the accou
   assert.equal(terminals.setStage('f1', 'form'), false);
   assert.deepEqual([terminals.get('f1').stage, terminals.get('f1').accountHost], ['form', 'career55.sapsf.eu']);
 });
+
+test('Claude taking a job over closes its form tab only when nothing was filled there', async () => {
+  const {formTabsAtHandOver} = await import('../lib/apply.js');
+  const sessions = [{id: 'f1', kind: 'form', url: URL1, outcome: ''}, {id: 'f2', kind: 'form', url: URL1, outcome: 'submitted'},
+    {id: 'c1', kind: 'claude', url: URL1, outcome: ''}, {id: 'f3', kind: 'form', url: 'https://other.example/job', outcome: ''}];
+  assert.deepEqual(formTabsAtHandOver(sessions, `${URL1}#jobpilotto-fill`), [{id: 'f1', close: true, why: 'nothing filled'}]);   // Coop's sign-in tab
+  assert.deepEqual(formTabsAtHandOver(sessions, URL1, id => (id === 'f1' ? 4 : 0)), [{id: 'f1', close: false, why: 'answers filled there'}]);
+});

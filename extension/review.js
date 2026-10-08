@@ -295,7 +295,7 @@
   </div>`;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
-  let open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  let moved = false, open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -333,7 +333,8 @@
     $('.job-title').textContent = title || '';
     $('.job-meta').replaceChildren(...[company && Object.assign(document.createElement('span'), {textContent: company}),
       job?.stage && Object.assign(document.createElement('span'), {className: `tag ${/applied/i.test(job.stage) ? 'good' : ''}`, textContent: job.stage})].filter(Boolean));
-    const claude = session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
+    const claude = moved ? 'This application moved to another tab: continue there.'   // an older tab of the session: it no longer reports
+      : session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
       : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
       : session?.live && session.status === 'input' ? 'Claude is waiting for you in Job Pilotto.'
       : session?.status === 'done' ? 'Claude filled this form. Review it, then submit it yourself.' : '';
@@ -514,6 +515,7 @@
         filled: state.list.filter(f => (f.required || f.ai) && f.filled).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)),
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});
+      moved = !!reply?.moved;
       session = reply?.session || null;
       cv = reply?.cv || null;
       const before = JSON.stringify(watch);

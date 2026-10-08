@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, REAL_FORMS, realFieldId} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf, tailoredFiles} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -21,7 +21,7 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): every form step needs the applicant, the kits and the proxy's answers.
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
-  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'cannot operate': [SETUP]};
+  'submits a form': [SETUP], 'I submitted it': [SETUP, 'submits a form'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
 // The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).
@@ -57,13 +57,13 @@ export async function runApply(ctx, parts) {
   await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
   const all = ctx.run;
   ctx.run = (name, fn, options) => (partOf(name) === 'both' || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
-  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url];
+  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url, SCRIPTED.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of [...Object.values(FORMS), CHAIN]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
+    for (const form of [...Object.values(FORMS), CHAIN, SCRIPTED]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
@@ -309,6 +309,36 @@ export async function runApply(ctx, parts) {
     // The panel offers "Take over with Claude" on this tab (the person's click starts a Claude session: not pressed here, a test must never launch one).
     const offered = await tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden && /take over with claude/i.test(button.textContent); });
     if (!offered) throw new Error('the panel does not offer "Take over with Claude" on an armed form tab');
+  }, {needs: ctx.needs});
+
+  // Two applications side by side (8 Oct 2026: Coop and Manor started seconds apart; Migros's sign-in page showed on Manor's card). SCRIPTED's Apply opens its
+  // form from the page's own script (nothing to point at the same tab: the new tab is followed, the posting closes); CHAIN's goes link → posted form. Started
+  // 2 s apart, each ends in one tab, filled from its OWN kit (9 vs 7: a form credited to the other job shows the wrong number).
+  await ctx.run('two applications side by side, one whose Apply opens its form from script: each keeps one tab and its own kit', async () => {
+    for (const item of ctx.browser.context.pages()) if ([CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl, SCRIPTED.url, SCRIPTED.formUrl].some(url => item.url().startsWith(url))) await item.close();   // an earlier step's tabs
+    // Apply's own call (the row's button, which on a job already applying in an earlier step only opens its session): both start here.
+    const apply = job => page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [job.url, {title: job.title, company: job.company}]);
+    await apply(SCRIPTED);
+    await pause(2000);
+    await apply(CHAIN);
+    const find = url => ctx.browser.context.pages().find(item => item.url().startsWith(url)) || null;
+    let scripted = null, chain = null;
+    for (let waited = 0; waited < 90000 && !(scripted && chain); waited += 1000) { scripted = find(SCRIPTED.formUrl); chain = find(CHAIN.formUrl); await pause(1000); }
+    const seen = () => ctx.browser.context.pages().map(item => item.url().split('#')[0]).join(' | ');
+    if (!scripted || !chain) { await dumpExtension(); throw new Error(`not both forms were reached (scripted: ${!!scripted}, chain: ${!!chain}). Tabs open: ${seen()}`); }
+    const tabsOf = urls => ctx.browser.context.pages().filter(item => urls.some(url => item.url().startsWith(url))).length;
+    for (let waited = 0; waited < 10000 && tabsOf([SCRIPTED.url, SCRIPTED.formUrl]) > 1; waited += 500) await pause(500);   // the posting closes once its new tab is followed
+    const problems = [];
+    if (tabsOf([SCRIPTED.url, SCRIPTED.formUrl]) !== 1) problems.push(`the scripted application is in ${tabsOf([SCRIPTED.url, SCRIPTED.formUrl])} tabs, not one: ${seen()}`);
+    if (tabsOf([CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl]) !== 1) problems.push(`the chain application is in ${tabsOf([CHAIN.url, CHAIN.stepUrl, CHAIN.formUrl])} tabs, not one: ${seen()}`);
+    for (const [tab, job, answer] of [[scripted, SCRIPTED, '9'], [chain, CHAIN, '7']]) {
+      let state = null;
+      for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
+      if (state?.state !== 'done') { problems.push(`${job.company}: its form was reached but not filled (state: ${JSON.stringify(state)})`); continue; }
+      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? "");
+      if (value !== answer) problems.push(`${job.company}: Kubernetes years "${value}", its own kit says ${answer}${value === (answer === '9' ? '7' : '9') ? ' (the other job\'s kit)' : ''}`);
+    }
+    fail(problems);
   }, {needs: ctx.needs});
 
   const sessionsOf = url => page.evaluate(target => window.pilot.sessions().then(list => list.filter(item => String(item.url || '').replace(/\/$/, '') === target.replace(/\/$/, '')).map(item => `${item.kind}:${item.id}`)), url);
