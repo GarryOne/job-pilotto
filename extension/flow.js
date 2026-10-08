@@ -127,7 +127,7 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 // me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
 // The page scripts a fill needs, in order (also loaded for one field's "Use" from the app: fill-flow.js).
 export const PAGE_FILES = ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js',
-  'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/fill.js'];
+  'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/dial-codes.js', 'page/fill.js'];
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];

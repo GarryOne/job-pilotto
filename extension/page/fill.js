@@ -22,8 +22,8 @@
     ['birth_date', /date\s*of\s*birth|birth\s*date|birthday|geburtsdatum|date de naissance/i],
   ];
   const TEXT_TYPES = ['text', 'email', 'tel', 'url', 'number', 'textarea'];
-  // Phone widgets with a separate country menu: the country comes from the number's prefix.
-  const DIAL = {'+1': 'United States', '+30': 'Greece', '+31': 'Netherlands', '+32': 'Belgium', '+33': 'France', '+34': 'Spain',
+  // Phone widgets with a separate country menu: the country comes from the number's prefix (every code: page/dial-codes.js).
+  const DIAL = {...(window.__jobPilottoDial || {}), '+1': 'United States', '+30': 'Greece', '+31': 'Netherlands', '+32': 'Belgium', '+33': 'France', '+34': 'Spain',
     '+36': 'Hungary', '+39': 'Italy', '+40': 'Romania', '+41': 'Switzerland', '+43': 'Austria', '+44': 'United Kingdom',
     '+45': 'Denmark', '+46': 'Sweden', '+47': 'Norway', '+48': 'Poland', '+49': 'Germany', '+351': 'Portugal', '+353': 'Ireland',
     '+358': 'Finland', '+373': 'Moldova', '+380': 'Ukraine', '+420': 'Czech Republic', '+421': 'Slovakia', '+972': 'Israel',
@@ -394,7 +394,7 @@
     const DECLINE = "I don't wish to answer || I do not wish to answer || Decline to self-identify || Decline to self identify || " +
       "Prefer not to say || Decline to answer || I do not want to answer || Choose not to disclose || I choose not to disclose || Not specified";
     for (const row of form) {
-      if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field) || !DEMOGRAPHIC.test(row.label || '')) continue;
+      if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field) || !(row.demographic || DEMOGRAPHIC.test(row.label || ''))) continue;
       if (armCombo(row.field, DECLINE)) { armed.push(row.label); answers.push({field: row.field, value: 'Decline to self-identify', source: 'standard answer (demographics)'}); answered.add(row.field); }
     }
     const dial = dialOf(profile?.phone);
