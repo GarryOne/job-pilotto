@@ -25,12 +25,36 @@ export function osText(text, platform) {
 // equivalent at all (its folder dialog has no Go to Folder), so the PC gets its own instruction.
 export const pick = (mac, windows, platform) => (platform === 'win32' ? windows : mac);
 
-// Every text node and tooltip under root, once at start (dynamic messages call osText themselves).
-export function localize(root, platform) {
-  if (platform !== 'win32') return;
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) node.nodeValue = osText(node.nodeValue, platform);
-  for (const el of root.querySelectorAll('[title], [placeholder], [aria-label]')) {
-    for (const name of ['title', 'placeholder', 'aria-label']) if (el.hasAttribute(name)) el.setAttribute(name, osText(el.getAttribute(name), platform));
+const ATTRS = ['title', 'placeholder', 'aria-label'];
+
+// Every text node and tooltip at or under node (a text node, an element, the body).
+function swapTree(node, platform) {
+  if (node.nodeType === 3) {
+    const text = osText(node.nodeValue, platform);
+    if (text !== node.nodeValue) node.nodeValue = text;   // only on a change: the observer below sees its own edits
+    return;
   }
+  if (node.nodeType !== 1) return;
+  const walker = node.ownerDocument.createTreeWalker(node, 4 /* NodeFilter.SHOW_TEXT */);
+  for (let text = walker.nextNode(); text; text = walker.nextNode()) swapTree(text, platform);
+  for (const el of [node, ...node.querySelectorAll('[title], [placeholder], [aria-label]')]) {
+    for (const name of ATTRS) if (el.hasAttribute?.(name)) {
+      const value = osText(el.getAttribute(name), platform);
+      if (value !== el.getAttribute(name)) el.setAttribute(name, value);
+    }
+  }
+}
+
+// Once at start, then for good: a card drawn later (Claude Code status, a run result, a message from the main process) is swapped
+// the moment it appears, so no dynamic string needs its own osText call (owner's friend on Windows saw "Not installed on this Mac").
+export function localize(root, platform, Observer = globalThis.MutationObserver) {
+  if (platform !== 'win32') return;
+  swapTree(root, platform);
+  if (!Observer) return;
+  new Observer(records => {
+    for (const record of records) {
+      if (record.type === 'childList') for (const added of record.addedNodes) swapTree(added, platform);
+      else swapTree(record.target, platform);   // characterData (a text node) or attributes (an element: swapTree reads only the watched ones)
+    }
+  }).observe(root, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS});
 }

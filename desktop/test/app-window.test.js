@@ -246,3 +246,21 @@ test('the window is one module per page, and every import between them resolves'
   const pages = readdirSync(new URL('../renderer/pages/', import.meta.url)).filter(file => file.endsWith('.js'));
   assert.ok(pages.length > 10 && pages.includes('shared.js'));
 });
+
+test('Windows wording keeps watching: text drawn after start (a status card, a run result) is swapped too, the Mac is left alone', async () => {
+  const {localize} = await import('../renderer/os.js');
+  const empty = {nodeType: 1, ownerDocument: {createTreeWalker: () => ({nextNode: () => null})}, querySelectorAll: () => []};
+  const watch = platform => {
+    let callback = null;
+    localize(empty, platform, class { constructor(fn) { callback = fn; } observe() {} });
+    return callback;
+  };
+  const text = value => ({nodeType: 3, nodeValue: value});
+  const late = [text('Not installed on this Mac'), text('Claude Code is not installed on this Mac. Install it, then Verify.')];
+  watch('win32')([{type: 'childList', addedNodes: late}]);
+  assert.deepEqual(late.map(node => node.nodeValue), ['Not installed on this PC', 'Claude Code is not installed on this PC. Install it, then Verify.']);
+  const edited = text('Runs while your Mac is on');   // a text node changed in place
+  watch('win32')([{type: 'characterData', target: edited}]);
+  assert.equal(edited.nodeValue, 'Runs while your PC is on');
+  assert.equal(watch('darwin'), null);   // on the Mac nothing is watched or changed
+});
