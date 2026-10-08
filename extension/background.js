@@ -8,7 +8,7 @@ import {createSubmitWatch} from './submit-watch.js';
 import {createTabReport} from './tab-report.js';
 import {createPanelMessages} from './messages-panel.js';
 import {createAppMessages} from './messages-app.js';
-import {closePosting, followOpener} from './tabs.js';
+import {closePosting, followOpener, noteSource} from './tabs.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
@@ -171,6 +171,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
 });
+chrome.webNavigation.onCreatedNavigationTarget.addListener(noteSource);   // which tab's page really created a new tab (tabs.js openerOf)
 chrome.tabs.onCreated.addListener(async tab => {
   if (!(await followOpener(tab))) return;
   let host = '';

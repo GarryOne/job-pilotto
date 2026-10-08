@@ -12,3 +12,8 @@ export function postingToClose(tab, pressed, postingUrl, now = Date.now(), key =
   if (!press || now - press.at > FOLD_MS) return null;
   return key(postingUrl) === key(press.url) ? opener : null;
 }
+
+// The tab that really created `tab`: the one webNavigation names as its source (the page that called window.open or opened the link), else
+// Chrome's openerTabId. That one is the tab in FRONT when a page in the background opens a tab (8 Oct 2026, e2e, two applications side by
+// side: the scripted posting's form got the other job's kit, and the posting never closed). `sources`: tab id -> source tab id.
+export const realOpener = (tab, sources) => sources.get(tab?.id) ?? tab?.openerTabId ?? null;

@@ -238,6 +238,7 @@ later; flip the default before it ships to others). It covers the ACCOUNT's step
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:
 the one page decision (the AI's kind, `desktop/lib/page-kind.js`; `extension/tab-pages.js` `pageRole` only without AI), every scenario, its code and its guard. Touching the decision core (`FLOW_CORE` in `desktop/e2e/flows.mjs`: which page is what, which tab is whose)
 → `cd desktop && npm run flows` (whole matrix, ~5 min) before the push; the hook blocks it otherwise (`tools/flows-gate.mjs`, or `Flows-unverified: <why>`).
+Only `npm run flows` records the pass the gate reads: a direct `node suite.mjs applyflows` run (handy to chase one step with `E2E_STEPS='the app has an applicant,<journey>,<step>'`, which needs the setup step and a browser-launching journey before it) does not count; run the real one last, in the background, with a narrow Monitor (9 Oct 2026).
 Other flow files: their area's suites plus the best-fit method (AGENTS.md "Which test for which question"); the matrix before a release and on demand.
 A new scenario gets a row there and in `MATRIX`, with a step or test that fails first. Never add a second page classifier.
 
