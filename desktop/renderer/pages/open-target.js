@@ -4,6 +4,7 @@ import {shared} from './shared.js';
 import {$} from './core.js';
 import {lastActivity, openActivity, renderActivity} from './activity.js';
 import {openView} from './nav.js';
+import {openSession} from './session-log.js';
 import {settingsPage} from './settings.js';
 
 const FLASH_MS = 2200;
@@ -30,5 +31,6 @@ export function openTarget(target) {
     else if (kind === 'view') openView(value);
     else if (kind === 'section') settingsPage(value);
     else if (kind === 'job') focusJob(value);
+    else if (kind === 'session') openSession(value);
   }
 }

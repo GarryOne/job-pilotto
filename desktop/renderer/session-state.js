@@ -24,7 +24,7 @@ export const sessionState = (item, formReady = false) => (item?.outcome === 'sub
   : item.kind === 'form' && item.stuck ? [item.stuck === 'account' ? 'Needs an account' : 'Can\'t reach form', 'warn']
   // Claude at work on a sign-in or sign-up page: it is creating the account, not filling the application (owner, 8 Oct 2026: "Applying").
   : item.kind !== 'form' && item.status === 'running' && item.stage === 'account' ? ['Creating account', 'info']
-  : item.kind === 'form' && !formReady && sessionReview(item, formReady) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
+  : (item.kind === 'form' || item.inChrome) && !formReady && sessionReview(item, formReady) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
   : sessionReview(item, formReady) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
     : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // The dock's two pills and its card order, from the same state the sessions list shows: a form whose Chrome tab was closed

@@ -288,6 +288,12 @@ export function staleExtension(version, latest) {
     + '(chrome://extensions → ↻ on Job Pilotto); from then on it updates itself.';
 }
 export const openTabs = () => [...tabs];
+// The session of the job a fill is on: the newest open one on that address (its posting, or a form of it).
+export function sessionOfJob(url, list = terminals.list()) {
+  const key = pageKey(url);
+  const open = list.filter(session => !session.outcome && session.kind !== 'read' && (pageKey(session.url) === key || isFormOf(url, session.url)));
+  return open.sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)))[0]?.id || '';
+}
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
 // One line per confirmation-shaped address per run of the app. A tab report arrives every 30 s.
@@ -597,10 +603,12 @@ export function start(storage, onError = () => {}) {
           if (event.type === 'take-over') takeOverHandler({...event, job});
           if (event.type === 'tailor-cv') tailorHandler({...event, job});
           if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
-          if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`, {view: 'sessions'});
+          // A click opens this application's session (the newest one open on this job), not just the list.
+          const target = {view: 'sessions', ...(sessionOfJob(event.url) ? {session: sessionOfJob(event.url)} : {})};
+          if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`, target);
           if (event.type === 'fill-done') {
             notify(event.left ? 'Form filled: a few things left for you' : 'Form filled ✓',
-              `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`, {view: 'sessions'});
+              `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`, target);
           }
         }
         return;

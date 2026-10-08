@@ -320,3 +320,23 @@ test('a Read with Claude session never needs you, is closed once Claude is done,
   const sessions = fs.readFileSync(new URL('../renderer/pages/sessions.js', import.meta.url), 'utf8');
   assert.match(sessions, /const stillOpen = items => \(items \|\| \[\]\)\.filter\(item => !isSubmitted\(item\) && item\.kind !== 'read'\)/, 'Applying\'s one list leaves reads out');
 });
+
+// Owner, 8 Oct 2026: the Coop session read "Ended" (the app had closed under Claude) while its form was open and being filled in Chrome.
+test('a stopped Claude session whose form tab reports is "Form open in Chrome", kept across a restart; one with an outcome is left alone', () => {
+  terminals._reset();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-inchrome-')), file = path.join(dir, 'sessions.json');
+  const startedAt = new Date().toISOString();
+  const record = (id, extra = {}) => ({id, kind: 'claude', url: `https://jobs.coop.ch/${id}/`, title: 'Assistant', company: 'Coop Suisse', claudeId: 'c-1',
+    status: 'running', note: 'Working…', startedAt, output: '', events: [], ...extra});
+  fs.writeFileSync(file, JSON.stringify([record('a094'), record('done1', {outcome: 'submitted', status: 'done'})]));
+  terminals.persist(file);
+  terminals.restore();
+  assert.equal(terminals.get('a094').status, 'ended');                       // the app closed under it
+  assert.equal(terminals.formInChrome('a094'), true);
+  assert.deepEqual(['status', 'inChrome', 'resumable', 'note'].map(key => terminals.get('a094')[key]), ['done', true, true, 'Form open in Chrome']);
+  assert.equal(terminals.formInChrome('a094'), false);                       // once
+  assert.equal(terminals.formInChrome('done1'), false);                      // submitted: nothing to reopen
+  terminals.saveNow();                                                      // what the app does as it quits
+  terminals._reset(); terminals.persist(file); terminals.restore();
+  assert.deepEqual([terminals.get('a094').status, terminals.get('a094').inChrome], ['done', true]);
+});

@@ -294,7 +294,7 @@ export function renderNextStep(item) {
   const state = $('ss-next-state');
   state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
     : stuck ? '· nothing filled yet'
-    : review ? (item.kind === 'form' ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
+    : review ? (item.kind === 'form' || item.inChrome ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   const stage = sessionStage(item);
   $('ss-stage').replaceChildren(...(stage ? [pill(stage.text, stage.tone, {dot: true})] : []));
@@ -307,7 +307,7 @@ export function renderNextStep(item) {
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Claude can find the form, follow the links and fill it; you still submit it.')]
     : gone && asking ? [el('p', 'rich-p', 'Claude was working in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over); then Resume Claude carries on there.')]
     : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
-    : review ? [el('p', 'rich-p', item.kind === 'form' ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
+    : review ? [el('p', 'rich-p', item.kind === 'form' || item.inChrome ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
       // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
       ? [...(said.length ? [el('p', 'rich-p', said[0].replace(/\*\*/g, ''))] : []), el('p', 'rich-p', el('b', '', 'What Claude needs from you:')),

@@ -42,3 +42,22 @@ test('every finished background task notification opens its own result', () => {
   assert.deepEqual(notice({id: 6, ok: true, new: 0}).target, {run: 6});   // a Jobs check with no kind
   assert.equal(notice({id: 7, kind: 'mail', ok: true}), null, 'a Gmail check that recorded nothing says nothing');
 });
+
+// Owner, 8 Oct 2026: "Filling the application…" opened the Applying list, not the session it was about.
+test('a session target opens that session\'s card, and every application notification names its session', async () => {
+  assert.deepEqual(clean({view: 'sessions', session: 'a094bc8f'}), {view: 'sessions', session: 'a094bc8f'});
+  assert.equal(clean({view: 'sessions', session: '../x'}).session, undefined);
+  assert.deepEqual(plan({view: 'sessions', session: 'a094bc8f'}), ['view:sessions', 'session:a094bc8f']);
+  const {sessionOfJob} = await import('../lib/server.js');
+  const list = [{id: 'old', url: 'https://jobs.coop.ch/job/1/', startedAt: '2026-10-08T10:00:00Z'},
+    {id: 'new', url: 'https://jobs.coop.ch/job/1', startedAt: '2026-10-08T13:09:00Z'},
+    {id: 'sent', url: 'https://jobs.coop.ch/job/1', startedAt: '2026-10-08T14:00:00Z', outcome: 'submitted'},
+    {id: 'other', url: 'https://jobs.migros.ch/job/2', startedAt: '2026-10-08T14:00:00Z'}];
+  assert.equal(sessionOfJob('https://jobs.coop.ch/job/1#jobpilotto-fill', list), 'new');
+  assert.equal(sessionOfJob('https://example.com/', list), '');
+  // The class: a notification about filling a form, or a session needing you, carries its session (a window toast too).
+  const fs = await import('node:fs');
+  const server = fs.readFileSync(new URL('../lib/server.js', import.meta.url), 'utf8'), main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  for (const title of ['Filling the application…', 'Form filled: a few things left for you']) assert.match(server.slice(server.indexOf(title), server.indexOf(title) + 400), /, target\)/, title);
+  assert.match(main, /toWindow\('toast', \{title: `Needs your input · \$\{what\}`, body: text, target: targets\.clean\(\{view: 'sessions', session: session\.id\}\)\}\)/);
+});

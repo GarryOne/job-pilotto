@@ -82,6 +82,18 @@ export function usePty(loader) { loadPty = loader; }
 export function onChange(fn) { listener = fn; }
 // The window shows this session (a session that replaces another: shown before the old one goes, so the page never falls to another).
 export const show = id => listener('open', {id});
+// The session's form is open in Chrome (its tab reported): a Claude session that stopped (the app closed, Claude exited) is not over,
+// the form is there to fill and check (owner, 8 Oct 2026: "Ended" while the extension was filling it). It reads as the Apply button's
+// session from then on ("Form open", then "Review the filled application"); Resume Claude still takes it back. → true when it changed.
+export function formInChrome(id, now = Date.now()) {
+  const session = sessions.get(id);
+  if (!session || isLive(session) || !['ended', 'failed'].includes(session.status) || session.outcome) return false;
+  Object.assign(session, {status: 'done', note: 'Form open in Chrome', inChrome: true, needsYouSince: new Date(now).toISOString()});
+  mark(session, 'form open in Chrome');
+  listener('update', publicView(session));
+  save();
+  return true;
+}
 
 export async function available() {
   try { await loadPty(); return true; } catch { return false; }
@@ -95,7 +107,7 @@ const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: 
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  stuck: s.stuck || '', stage: s.stage || '', accountHost: s.accountHost || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
@@ -229,7 +241,7 @@ export async function resume(id, launch) {
   session.endedAt = null;
   session.exitCode = null;
   session.restored = false;
-  if (session.status === 'ended' || session.status === 'failed') Object.assign(session, {status: 'running', note: 'Resuming…', needsYouSince: null});
+  if (session.status === 'ended' || session.status === 'failed' || session.inChrome) Object.assign(session, {status: 'running', note: 'Resuming…', needsYouSince: null, inChrome: false});
   mark(session, session.status === 'running' ? 'running' : `resumed (${session.status})`);
   listener('update', publicView(session));
   save();
@@ -239,7 +251,7 @@ export async function resume(id, launch) {
 // ---- Saving and restoring (sessions.json in the data folder; a cache of runtime state, never the only copy of
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
-const saved = s => ({id: s.id, kind: s.kind || 'claude', stuck: s.stuck || '', url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
+const saved = s => ({id: s.id, kind: s.kind || 'claude', stuck: s.stuck || '', inChrome: !!s.inChrome, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
   claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
   decidedAt: s.decidedAt || null, runPage: s.runPage || '', conversationSaved: s.conversationSaved || 0, status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,

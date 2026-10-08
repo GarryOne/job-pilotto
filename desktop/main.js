@@ -2462,7 +2462,13 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok});   // which site, never the password
     return answer;
   });
-  server.setReviewHandler(payload => { const report = review.report(terminals.list(), payload); return report.session ? {...report, cv: cvOf(report.session.url)} : report; });
+  // A page of a session's form reported: its tab is open, so a stopped Claude session is not "Ended" (terminals.formInChrome).
+  const formSeen = id => { if (id && terminals.formInChrome(id)) appLog('sessions', 'form open in Chrome: the session is active again', {id}); };
+  server.setReviewHandler(payload => {
+    const report = review.report(terminals.list(), payload);
+    if (report.matched && report.session) formSeen(report.matched);
+    return report.session ? {...report, cv: cvOf(report.session.url)} : report;
+  });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   recipeReporterRef = recipeReporter;
   server.setProposalReporter(items => recipeReporter.proposal(items));
@@ -2539,7 +2545,12 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     }
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
-  server.setTabsHandler(report => { review.noteTabs(report, new Set(terminals.list().map(session => session.id))); return visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
+  server.setTabsHandler(report => {
+    const sessions = terminals.list();
+    review.noteTabs(report, new Set(sessions.map(session => session.id)));
+    for (const session of sessions) if (review.tabOpen(session.id) === true) formSeen(session.id);   // a restarted app: its form is still open
+    return visits.noteTabs(report);
+  });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {
@@ -2756,7 +2767,7 @@ function sessionNeedsYou(session) {
     note.on('click', () => { window?.show(); window?.focus(); toWindow('session', 'open', {id: session.id}); });
     note.show();
   }
-  toWindow('toast', {title: `Needs your input · ${what}`, body: text});
+  toWindow('toast', {title: `Needs your input · ${what}`, body: text, target: targets.clean({view: 'sessions', session: session.id})});   // a click opens its card
   // Not on Telegram: a session waiting for you is answered in the app, and the pings added noise (1 Oct 2026).
 }
 // Quitting decisions read current services, so they remain testable without global mocks.

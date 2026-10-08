@@ -5,6 +5,7 @@
 //   {run: 123}                          a finished task's result: Recent activity with that run selected
 //   {activity: true}                    Recent activity, as it is
 //   {view: 'jobs', job: 'abc123'}       a job's row on a page (its code, else its address), scrolled to and flashed
+//   {view: 'sessions', session: 'a094bc8f'}   an application session's card, selected (owner, 8 Oct 2026: "Filling the application…" opened the list only)
 export const VIEWS = ['actions', 'calendar', 'focus', 'interviews', 'jobs', 'sessions', 'settings', 'strategy'];
 export const SECTIONS = ['overview', 'profile', 'connections', 'automation', 'data', 'license', 'advanced', 'appearance'];
 
@@ -17,6 +18,7 @@ export function clean(target) {
   if (Number.isFinite(Number(target.run)) && target.run !== null && target.run !== '') out.run = Number(target.run);
   if (target.activity === true) out.activity = true;
   if (typeof target.job === 'string' && target.job.trim()) out.job = target.job.trim().slice(0, 300);
+  if (typeof target.session === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(target.session)) out.session = target.session;
   return Object.keys(out).length ? out : null;
 }
 
@@ -25,5 +27,5 @@ export function plan(target) {
   const t = clean(target);
   if (!t) return [];
   return [...(t.run !== undefined ? [`run:${t.run}`] : t.activity ? ['activity'] : []), ...(t.view ? [`view:${t.view}`] : []),
-    ...(t.section ? [`section:${t.section}`] : []), ...(t.job ? [`job:${t.job}`] : [])];
+    ...(t.section ? [`section:${t.section}`] : []), ...(t.job ? [`job:${t.job}`] : []), ...(t.session ? [`session:${t.session}`] : [])];
 }

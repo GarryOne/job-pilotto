@@ -172,3 +172,9 @@ test('Claude working on a sign-in or sign-up page says "Creating account", not "
   assert.notDeepEqual(sessionState({kind: 'claude', status: 'running', stage: 'form', live: true}), ['Creating account', 'info']);
   assert.deepEqual(sessionState({kind: 'form', stuck: 'account', status: 'done'}), ['Needs an account', 'warn']);
 });
+
+test('a stopped Claude session whose form is open in Chrome reads "Form open", like the Apply button\'s session', async () => {
+  const {sessionState} = await import('../renderer/session-state.js');
+  assert.deepEqual(sessionState({id: 'c1', kind: 'claude', status: 'done', inChrome: true, live: false}), ['Form open', 'info']);
+  assert.equal(sessionState({id: 'c1', kind: 'claude', status: 'ended', live: false})[0], 'Ended');
+});
