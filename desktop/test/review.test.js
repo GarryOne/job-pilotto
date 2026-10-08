@@ -166,7 +166,7 @@ test('a session\'s form is its newest tab: an older tab for the same job answers
   review.noteTabs({ids: [10], boot: 'run1'});                            // the new tab was closed, the old one is still there
   assert.equal(review.tabOpen('s1'), false);
   review.noteTabs({ids: [3], boot: 'run2'});                             // Chrome restarted: tabs were numbered again
-  assert.equal(review.tabOpen('s1'), null);
+  assert.equal(review.tabOpen('s1'), false);                             // its tab was in the old run: closed (tab-identity.test.js)
   assert.equal(review.report(sessions, form({tab: 3})).matched, 's1');
   assert.equal(review.tabOpen('s1'), true);
 });

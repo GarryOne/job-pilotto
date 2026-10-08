@@ -21,7 +21,13 @@ let keptFile = '';             // the last states, on disk: a restarted app show
 export function persist(file, sessionIds = null) {
   keptFile = file;
   try {
-    for (const state of JSON.parse(fs.readFileSync(file, 'utf8'))) if (state?.id && (!sessionIds || sessionIds.includes(state.id))) last.set(state.id, state);
+    for (const state of JSON.parse(fs.readFileSync(file, 'utf8'))) {
+      if (!state?.id || (sessionIds && !sessionIds.includes(state.id))) continue;
+      last.set(state.id, state);
+      // Its tab, as the last report saw it: a restarted app knows it at once, and the next tab report says open or closed (owner, 8 Oct 2026:
+      // after a restart the open Coop form showed "Form closed", the app had only the address to go by).
+      if (Number.isInteger(state.tab)) { bound.set(state.id, state.tab); runOf.set(state.id, String(state.boot || '')); }
+    }
   } catch {}
 }
 function save() {
@@ -71,7 +77,7 @@ function freeSession(sessions, page, tab) {
   const host = hostOf(page.url);
   if (!host || ATS.test(host)) return null;
   const free = sessions.filter(session => ['running', 'input'].includes(session.status)
-    && (!bound.has(session.id) || (Number.isInteger(tab) && bound.get(session.id) === tab)));
+    && (!bound.has(session.id) || !sameRun(session.id) || (Number.isInteger(tab) && bound.get(session.id) === tab)));
   return free.length === 1 ? free[0] : null;
 }
 
@@ -138,30 +144,60 @@ export function delivered(id, ms = 7000) {
 
 // Which Chrome tab is each session's form: the newest tab that reports for it (tab ids only grow within a browser run),
 // so an older tab left from an earlier session of the same job neither answers for it nor hides that its form was closed.
+// A tab id means something only in its browser run (Chrome numbers tabs again when it starts), so each binding keeps its run's id
+// (the extension's `boot`, which changes only when Chrome starts: extension/tab-memory.js). A binding from an earlier run is a closed tab.
 const bound = new Map();  // session id → tab id
+const runOf = new Map();  // session id → the browser run its tab id belongs to ('' unknown: saved by an older app)
 let openIds = null, bootId = '';
-export function noteTabs({ids, boot} = {}) {
-  if (boot && boot !== bootId) { bootId = String(boot); bound.clear(); }  // Chrome restarted: its tabs were numbered again
+const sameRun = id => !runOf.get(id) || !bootId || runOf.get(id) === bootId;
+function bind(id, tab, boot, by, host = '', keep = true) {
+  if (bound.get(id) === tab && runOf.get(id) === boot) return;
+  bindLog({id, tab, before: bound.get(id) ?? null, by, host, ...(runOf.has(id) && runOf.get(id) !== boot ? {newRun: true} : {})});
+  bound.set(id, tab); runOf.set(id, boot);
+  const state = keep && last.get(id);   // a page's report saves its own state; a tab report keeps the new tab here
+  if (state && (state.tab !== tab || state.boot !== boot)) { last.set(id, {...state, tab, boot, tabAt: state.tab === tab ? state.tabAt : Date.now()}); save(); }
+}
+// The extension's tab report (every 30 s): which tabs exist in which run, and the session each tab carries (`sessions`: tab id → session id).
+// A tab carrying a session is that session's tab, unless the session already follows a newer one.
+export function noteTabs({ids, boot, sessions} = {}, known = null) {
+  if (boot) bootId = String(boot);
   openIds = Array.isArray(ids) ? new Set(ids.map(Number).filter(Number.isInteger)) : null;
+  for (const [tab, id] of Object.entries(sessions && typeof sessions === 'object' ? sessions : {})) {
+    const tabId = Number(tab);
+    if (!Number.isInteger(tabId) || !id || (known && !known.has(String(id))) || !openIds?.has(tabId)) continue;
+    if (bound.has(String(id)) && sameRun(String(id)) && bound.get(String(id)) > tabId) continue;   // it follows a newer tab
+    bind(String(id), tabId, bootId, 'tab report');
+  }
 }
 // true / false: the session's tab is open / was closed. null: not known (no tab id seen yet, or no report).
-export const tabOpen = id => (!bound.has(id) || !openIds ? null : openIds.has(bound.get(id)));
+export const tabOpen = id => (!bound.has(id) || !openIds ? null : sameRun(id) && openIds.has(bound.get(id)));
+// Open, closed or not known, per session: its own tab decides when the app knows it; otherwise the address only ever says open
+// (a form on another site than the posting matches no address, and was shown closed while it was open: owner, 8 Oct 2026).
+export function formStates(ids, byLook = new Set()) {
+  const open = [], unsure = [];
+  for (const id of ids) {
+    const own = tabOpen(id);
+    if (own === true || (own === null && byLook.has(id))) open.push(id);
+    else if (own === null) unsure.push(id);
+  }
+  return {ids: open, unsure};
+}
 // The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
 // Is `tab` older than the tab the session follows now? Its reports (progress, "no form") describe a page the session left.
-export const olderTab = (id, tab) => Number.isInteger(Number(tab)) && bound.has(id) && Number(tab) < bound.get(id);
+export const olderTab = (id, tab, boot = bootId) => Number.isInteger(Number(tab)) && bound.has(id) && (!boot || !runOf.get(id) || runOf.get(id) === String(boot)) && Number(tab) < bound.get(id);
 let bindLog = () => {};
 // Told each time a session takes a tab as its own: which, the one before, and how it was decided (see pick).
 export function onBind(fn) { bindLog = fn; }
 const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
 export function report(sessions, payload, now = Date.now()) {
   const page = {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || ''), session: String(payload?.session || '')};
-  const tab = Number(payload?.tab);
+  const tab = Number(payload?.tab), boot = String(payload?.boot || bootId || '');   // the run that tab id belongs to
   const {session, by} = pick(sessions, page, tab);
   if (!session) return {matched: null, session: null, watch: [], commands: []};
   if (Number.isInteger(tab)) {
     // A session follows its newest tab (tab ids only grow within a browser run): an older tab of it goes quiet and is told so.
-    if (olderTab(session.id, tab)) return {matched: null, moved: true, session: null, watch: [], commands: []};
-    if (bound.get(session.id) !== tab) { bindLog({id: session.id, tab, before: bound.get(session.id) ?? null, by, host: hostOf(page.url)}); bound.set(session.id, tab); }
+    if (olderTab(session.id, tab, boot)) return {matched: null, moved: true, session: null, watch: [], commands: []};
+    bind(session.id, tab, boot, by, hostOf(page.url), false);
   }
   // The session's tab, and when it first reported (Chrome gives no tab's creation time; its first report comes as its page
   // loads): a different tab starts the clock again, a restarted app does not (owner, 8 Oct 2026: show each session's tab).
@@ -170,7 +206,7 @@ export function report(sessions, payload, now = Date.now()) {
   const tabAt = before?.tabAt && before.tab === tabId ? before.tabAt : now;
   const states = {};
   for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
-  const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), tab: tabId, tabAt, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
+  const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), tab: tabId, boot: Number.isInteger(tab) ? boot : before?.boot || '', tabAt, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
@@ -196,7 +232,7 @@ export function report(sessions, payload, now = Date.now()) {
 }
 // The form's tab is gone and the page can't report (the extension can't reach the app): its cached "18 of 18, ready"
 // describes a form that no longer exists. Forget it, here and on disk.
-export function forget(id) { last.delete(id); bound.delete(id); save(); }
+export function forget(id) { last.delete(id); bound.delete(id); runOf.delete(id); save(); }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
-export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); openIds = null; bootId = ''; last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; bindLog = () => {}; };  // tests
+export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); runOf.clear(); openIds = null; bootId = ''; last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; bindLog = () => {}; };  // tests

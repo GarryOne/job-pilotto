@@ -1684,12 +1684,12 @@ function handlers() {
   ipcMain.handle('formsOpen', () => {
     const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
     if (!known) return {known, ids: []};
-    // A session whose own tab we know is open while that tab exists; for the others, any tab that looks like its form.
+    // A session whose own tab we know is open while that tab exists; for the others, a tab that looks like its form says open, nothing says closed.
     const sessions = terminals.list(), byLook = withOpenForm(sessions, mergeTabs(server.openTabs(), []));
-    const ids = sessions.map(session => session.id).filter(id => { const own = review.tabOpen(id); return own === null ? byLook.has(id) : own; });
-    const line = ids.join(',') || 'none';
+    const {ids, unsure} = review.formStates(sessions.map(session => session.id), byLook);
+    const line = `${ids.join(',') || 'none'}${unsure.length ? ` (not known: ${unsure.join(',')})` : ''}`;
     if (line !== lastFormsOpen) { lastFormsOpen = line; appLog('review', `forms open in Chrome: ${line}`, {sessions: sessions.length}); }   // who is open, when it changed
-    return {known, ids};
+    return {known, ids, unsure};
   });
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
@@ -2546,7 +2546,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     }
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
-  server.setTabsHandler(report => { review.noteTabs(report); return visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
+  server.setTabsHandler(report => { review.noteTabs(report, new Set(terminals.list().map(session => session.id))); return visits.noteTabs(report); });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {

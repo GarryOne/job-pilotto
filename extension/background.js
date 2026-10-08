@@ -6,7 +6,7 @@ import {ensureAlarm} from './report-alarm.js';
 import {FOLD_MS, postingToClose} from './same-tab.js';
 import {autoRead, markListed, readSite, readingNow, siteUnreachable, startWaiting} from './visit.js';
 import {TIPS} from './tips-pool.js';
-import {packCarry, unpackCarry} from './carry.js';
+import {MEMORY_KEY, snapshot, startRun} from './tab-memory.js';
 import {isAccountPage, startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, readTabs, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -92,11 +92,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
   // `from` is the job this tab was opened for. A mark the extension carried onto the next page (markPage) does not change it:
   // the posting that led to an agency's form stays the job, whichever site the form is on.
-  const carried = (await chrome.storage.session.get(`carried:${tabId}`))[`carried:${tabId}`];
+  const carried = (await sessionGet(`carried:${tabId}`))[`carried:${tabId}`];
   // A page the app opened starts its own job: nothing a tab that happened to open it handed over (followOpener) stays. The same page
   // loading again (a form's own result after Submit) is not a new start: its job must stay, or the confirmation has no job to mark.
   if (carried !== tab.url) {
-    const prior = (await chrome.storage.session.get(`from:${tabId}`))[`from:${tabId}`];
+    const prior = (await sessionGet(`from:${tabId}`))[`from:${tabId}`];
     if (!startsOwnJob(prior, tab.url)) { /* same page again: keep its job */ } else {
       // Nor the session a tab that happened to be active handed it (8 Oct 2026, e2e: the app's new tab for one job reported as another job's).
       await chrome.storage.session.remove([`job:${tabId}`, `session:${tabId}`]);
@@ -197,7 +197,7 @@ async function formAfterPress(tabId, url, ms = 8000) {
 }
 // The app is told the extension can't get to this form (its session offers "Apply with Claude"): why, and the site.
 async function stuck(job, host, why, tabId = null) {
-  const session = tabId == null ? '' : (await chrome.storage.session.get(`session:${tabId}`))[`session:${tabId}`] || '';
+  const session = tabId == null ? '' : (await sessionGet(`session:${tabId}`))[`session:${tabId}`] || '';
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, tab: tabId, session})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
@@ -265,25 +265,25 @@ async function consider(tab, jobUrl) {
 // flows go by: a sign-in or sign-up page feeds nothing on the application side (no learned answers, no fill misses, no "submitted").
 async function noteRole(tabId, url, role) { await chrome.storage.session.set({[`role:${tabId}`]: {role, page: pageKey(url)}}).catch(() => {}); }
 async function roleOf(tabId, url) {
-  const stored = (await chrome.storage.session.get(`role:${tabId}`).catch(() => ({})))[`role:${tabId}`];
+  const stored = (await sessionGet(`role:${tabId}`).catch(() => ({})))[`role:${tabId}`];
   return stored && stored.page === pageKey(url) ? stored.role : '';
 }
 // A sign-in or sign-up page: the rule said so for this page, or the panel sees a password box on it now (a page that became one).
 async function onAccountPage(tab, panelSaw = false, url = '') {
-  const stored = (await chrome.storage.session.get(`role:${tab.id}`).catch(() => ({})))[`role:${tab.id}`];
+  const stored = (await sessionGet(`role:${tab.id}`).catch(() => ({})))[`role:${tab.id}`];
   return isAccountPage(stored, pageKey(url || tab.url), panelSaw, pageKey);
 }
 const accountSkip = (tab, what) => { let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ } decide('panel', `account page: ${what}`, {host}); };
 
 async function jobOf(tab) {
-  const stored = await chrome.storage.session.get([`from:${tab.id}`, `job:${tab.id}`]);
+  const stored = await sessionGet([`from:${tab.id}`, `job:${tab.id}`]);
   return stored[`job:${tab.id}`] || stored[`from:${tab.id}`] || pageKey(tab.url);
 }
 // A tab opened by an armed tab (Apply in a new tab) is the same session. A tab the user opened is not.
 async function followOpener(tab) {
   if (tab.openerTabId == null) return false;
   const opener = tab.openerTabId;
-  const stored = await chrome.storage.session.get([`armed:${opener}`, `from:${opener}`, `job:${opener}`, `session:${opener}`]);
+  const stored = await sessionGet([`armed:${opener}`, `from:${opener}`, `job:${opener}`, `session:${opener}`]);
   if (!stored[`armed:${opener}`]) return false;
   const next = {[`armed:${tab.id}`]: true};
   if (stored[`session:${opener}`]) next[`session:${tab.id}`] = stored[`session:${opener}`];   // the same application: the newest tab is its tab now
@@ -329,7 +329,7 @@ if (chrome.webNavigation) {
     if (/#jp-read(-filter)?(-[a-z0-9]{4,16})?$|#jp-posting-[a-z0-9]{4,16}$/.test(details.url)) { autoRead(details.tabId, details.url); return; }   // a tab the app opened to read (Actions)
     // A site that redirected and dropped the mark (iwc.com to iwc.com/ch-en, 7 Oct 2026: the tab sat there unread): the mark it was opened with.
     const key = `readmark:${details.tabId}`;
-    chrome.storage.session.get(key).then(kept => {
+    sessionGet(key).then(kept => {
       if (kept[key]) autoRead(details.tabId, `${details.url.split('#')[0]}${kept[key]}`);
       else if (details.complete) markListed(details.tabId, details.url);
     }).catch(() => { if (details.complete) markListed(details.tabId, details.url); });
@@ -341,7 +341,7 @@ if (chrome.webNavigation) {
     if (details.frameId !== 0) return;
     if (/#jp-read(-filter)?-[a-z0-9]{4,16}$/.test(details.url)) { siteUnreachable(details.tabId, details.url, details.error); return; }
     const key = `readmark:${details.tabId}`;
-    chrome.storage.session.get(key).then(kept => { if (kept[key]) siteUnreachable(details.tabId, `${details.url.split('#')[0]}${kept[key]}`, details.error); }).catch(() => {});
+    sessionGet(key).then(kept => { if (kept[key]) siteUnreachable(details.tabId, `${details.url.split('#')[0]}${kept[key]}`, details.error); }).catch(() => {});
   });
   // The mark of a tab the app opened to read, kept for the tab: its next pages may have lost it (a redirect).
   chrome.webNavigation.onBeforeNavigate.addListener(details => {
@@ -357,7 +357,7 @@ if (chrome.webNavigation) {
   chrome.webNavigation.onCommitted.addListener(async details => {
     if (details.frameId !== 0) return;
     const key = `armed:${details.tabId}`;
-    if (!(await chrome.storage.session.get(key))[key] || String(details.url).includes(`#${FILL_MARK}`)) return;
+    if (!(await sessionGet(key))[key] || String(details.url).includes(`#${FILL_MARK}`)) return;
     let host = '';
     try { host = new URL(details.url).hostname; } catch { /* not a url */ }
     if (navigationKind(details) === 'by-hand') {
@@ -373,13 +373,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   const key = `armed:${tabId}`;
   // Notion is where the kit lives, never a form: an armed tab sent there is let go (no panel, no fill) until the app arms it again.
   if (neverForm(tab.url)) {
-    if ((await chrome.storage.session.get(key))[key]) {
+    if ((await sessionGet(key))[key]) {
       await chrome.storage.session.remove([key, `from:${tabId}`, `job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
       decide('panel', 'tab left for Notion: no longer armed', {host: new URL(tab.url).hostname});
     }
     return;
   }
-  if (!(await chrome.storage.session.get(key))[key]) return;
+  if (!(await sessionGet(key))[key]) return;
   await markPage(tabId, tab.url);
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
@@ -680,7 +680,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   }
   if (message?.type === 'panelAllowed' && sender.tab) {
     const key = `armed:${sender.tab.id}`;
-    chrome.storage.session.get(key).then(stored => {
+    sessionGet(key).then(stored => {
       const ok = tabArmed({url: sender.tab.url, armed: stored[key]});
       if (!ok) {
         let host = '';
@@ -822,7 +822,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message?.type === 'sitePassword' && sender.tab) {
     (async () => {
       const key = `armed:${sender.tab.id}`;
-      const stored = await chrome.storage.session.get(key);
+      const stored = await sessionGet(key);
       if (!tabArmed({url: sender.tab.url, armed: stored[key]})) return {filled: 0};
       const host = new URL(sender.tab.url).hostname;
       const config = await settings();
@@ -851,8 +851,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const config = await settings();
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
       // The session this tab belongs to travels with it (next pages, tabs it opens): the app uses it instead of guessing.
-      const key = `session:${sender.tab.id}`, carried = (await chrome.storage.session.get(key))[key] || '';
-      const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, job: await jobOf(sender.tab), session: carried,
+      const key = `session:${sender.tab.id}`, carried = (await sessionGet(key))[key] || '';
+      const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, boot: await bootId(), job: await jobOf(sender.tab), session: carried,
         role: await roleOf(sender.tab.id, sender.tab.url)})});   // the page type by the one rule (an account page never counts as the form's progress)
       if (answer?.matched && answer.matched !== carried) await chrome.storage.session.set({[key]: answer.matched});
       return answer;
@@ -868,12 +868,12 @@ chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install')
 // After a reload: put the panel back on tabs the app opened, and take it off every other page (Calendly, a job
 // site you were reading). The old script's listeners die with the reload; the pill they drew does not.
 async function settleOpenTabs() {
-  await carriedBack;   // the armed: marks of the worker before an update reload
+  await memoryReady;   // the armed: marks of the worker before a reload
   const tabs = await chrome.tabs.query({}).catch(() => []);
   for (const tab of tabs) {
     if (tab.id == null || !/^https:/.test(tab.url || '')) continue;
     const key = `armed:${tab.id}`;
-    const armed = tabArmed({url: tab.url, armed: (await chrome.storage.session.get(key).catch(() => ({})))[key]});
+    const armed = tabArmed({url: tab.url, armed: (await sessionGet(key).catch(() => ({})))[key]});
     if (armed) { await arm(tab.id, 'still open'); continue; }
     const frames = await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, func: () => {
       let removed = 0;
@@ -896,35 +896,47 @@ chrome.runtime.onStartup.addListener(settleOpenTabs);
 // This worker's own id: Chrome may stop the worker and start a new one, and every reading in progress dies with the old one; the app hands
 // those tabs back when the id changes.
 const WORKER = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-// This browser run's id (kept in session storage: a new one after a reload by hand or a Chrome restart; carried over the extension's own update reload), made once per worker: several
-// reports at a worker's start each made their own before (7 Oct 2026, 22:05:39: three ids in half a second, the app took each for a restart).
-// What the worker before an update reload knew about its tabs (extension/carry.js), back in session storage before anything reads it.
-const carriedBack = (async () => {
-  const {carry} = await chrome.storage.local.get('carry').catch(() => ({}));
-  if (!carry) return;
-  await chrome.storage.local.remove('carry').catch(() => {});
-  const items = unpackCarry(carry);
-  if (items) await chrome.storage.session.set(items).catch(() => {});
-  decide('worker', items ? 'tab memory carried over the reload' : 'tab memory from a reload too old: dropped', {keys: Object.keys(carry.items || {}).length, ms: Date.now() - Number(carry.at)});
-})().catch(() => {});
-let bootReady = null;
-const bootId = () => (bootReady ||= (async () => {
-  await carriedBack;
-  const {boot: kept} = await chrome.storage.session.get('boot').catch(() => ({}));
-  const boot = kept || String(Date.now());
-  if (!kept) await chrome.storage.session.set({boot}).catch(() => {});
-  // Why this worker started is otherwise unknowable from the app's log: a new browser run (reload, update, Chrome start) or the same one
-  // with its worker started again by Chrome (idle, or after a crash).
-  decide('worker', kept ? 'worker started again in the same browser run' : 'worker started in a new browser run (reload, update or Chrome start)', {worker: WORKER});
+// This browser run's id, and the tabs' memory (extension/tab-memory.js), settled once per worker before anything reads them: several reports
+// at a worker's start each made their own id before (7 Oct 2026, 22:05:39: three ids in half a second, the app took each for a restart).
+// A worker that finds the run's id in session storage is the same run (Chrome stopped and started the worker). Empty: the extension was
+// reloaded (its memory is put back, the id kept) or Chrome started (a new id: tab ids start again). onStartup says which.
+let sawStartup = false;
+chrome.runtime.onStartup.addListener(() => { sawStartup = true; });
+const memoryReady = (async () => {
+  const {boot: running} = await chrome.storage.session.get('boot').catch(() => ({}));
+  if (running) { decide('worker', 'worker started again in the same browser run', {worker: WORKER}); return running; }
+  await new Promise(resolve => setTimeout(resolve, 300));   // a Chrome start announces itself (onStartup) as the worker begins
+  const {[MEMORY_KEY]: kept} = await chrome.storage.local.get(MEMORY_KEY).catch(() => ({}));
+  const run = startRun({kept, sawStartup, tabsNow: await chrome.tabs.query({}).catch(() => [])});
+  const boot = run.boot || String(Date.now());
+  await chrome.storage.session.set({...(run.restore || {}), boot}).catch(() => {});
+  // Why this worker started is otherwise unknowable from the app's log.
+  decide('worker', run.boot ? 'worker started in the same browser run: tab memory put back' : 'worker started in a new browser run',
+    {worker: WORKER, why: run.why, keys: Object.keys(run.restore || {}).length});
   return boot;
-})());
+})();
+const bootId = () => memoryReady;
+// Every read of the tabs' memory waits until it is put back (a reload's first messages come at once).
+function sessionGet(keys) { return memoryReady.then(() => chrome.storage.session.get(keys)); }
+// The live copy: written shortly after session storage changes, and right before the extension's own update reload.
+async function keepMemory() {
+  await memoryReady;
+  const items = await chrome.storage.session.get(null);
+  if (items.boot) await chrome.storage.local.set({[MEMORY_KEY]: snapshot(items, await chrome.tabs.query({}))});
+}
+let keepTimer = null;
+chrome.storage.onChanged.addListener((_, area) => {
+  if (area !== 'session') return;
+  clearTimeout(keepTimer);
+  keepTimer = setTimeout(() => keepMemory().catch(() => {}), 500);
+});
 // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
 async function reportTabs() {
   const config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;  // your own Worker: no app here
   const open = await chrome.tabs.query({url: JOB_SITES});
   const urls = open.map(tab => tab.url);
-  const stored = await chrome.storage.session.get(null).catch(() => ({}));
+  const stored = await sessionGet(null).catch(() => ({}));
   const armedIds = Object.keys(stored).filter(key => key.startsWith('armed:') && stored[key]).map(key => Number(key.slice(6))).filter(Number.isInteger);
   const every = await chrome.tabs.query({});
   // Read sites: the tabs reading a site, by ticket, so the app sees each one open and notices one you closed (as for a form tab).
@@ -937,7 +949,12 @@ async function reportTabs() {
   const boot = await bootId();
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
-    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, worker: WORKER, reading, version: chrome.runtime.getManifest().version})});
+    // Which session each open tab belongs to, from the tabs' own memory: the app binds a session to its tab from this alone, so it never
+    // has to guess by address (a restarted app, a form on another site than the posting).
+    const alive = new Set(every.map(tab => tab.id));
+    const sessions = Object.fromEntries(Object.entries(stored).filter(([key, id]) => /^session:\d+$/.test(key) && id && alive.has(Number(key.slice(8))))
+      .map(([key, id]) => [key.slice(8), String(id)]));
+    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, worker: WORKER, reading, sessions, version: chrome.runtime.getManifest().version})});
     connected(true);
     // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
     // tab is, under the mark it was opened with (desktop/lib/visits.js noteTabs; 7 Oct 2026: a reload left 3 of 5 sites "stopped answering").
@@ -955,8 +972,7 @@ async function reportTabs() {
       const {reloadedFor} = await chrome.storage.local.get('reloadedFor');
       if (reloadedFor !== answer.latest) {
         await chrome.storage.local.set({reloadedFor: answer.latest});
-        // Its tabs' memory goes with it (extension/carry.js): the tabs outlive the reload, and their sessions must too.
-        await chrome.storage.local.set({carry: packCarry(await chrome.storage.session.get(null).catch(() => ({})))}).catch(() => {});
+        await keepMemory().catch(() => {});   // the newest copy of the tabs' memory: the tabs outlive the reload (extension/tab-memory.js)
         await decide('worker', `reloading for version ${answer.latest}`);
         chrome.runtime.reload();
       }
@@ -995,7 +1011,7 @@ ensureAlarm({get: name => chrome.alarms.get(name), create: (name, info) => chrom
 // Every 30 s: an armed page that finished loading and that nothing looked at (its load event came while the worker was starting, or before the tab was armed)
 // is looked at now. A page that has a fill state, or that `consider` already took, is left alone.
 async function considerMissed() {
-  const stored = await chrome.storage.session.get(null).catch(() => ({}));
+  const stored = await sessionGet(null).catch(() => ({}));
   for (const key of Object.keys(stored).filter(name => name.startsWith('armed:') && stored[name])) {
     const tab = await chrome.tabs.get(Number(key.slice(6))).catch(() => null);
     if (!tab || tab.status !== 'complete' || !/^https:/.test(tab.url || '') || neverForm(tab.url) || started.has(tab.id) || started.has(fillKey(tab.id, tab.url))) continue;
@@ -1033,7 +1049,7 @@ async function readLandedPage(tabId) {
 }
 async function askAboutOutcome(tabId, tab, reading, gate, pressAt) {
   const jobKey = `job:${tabId}`;
-  const {[jobKey]: job} = await chrome.storage.session.get(jobKey);
+  const {[jobKey]: job} = await sessionGet(jobKey);
   if (!job) {
     logOnce(tabId, 'submit, then the page changed, no job stored on this tab: not marked', {host: gate.host, path: gate.path});
     return {done: true};
@@ -1067,7 +1083,7 @@ async function askAboutOutcome(tabId, tab, reading, gate, pressAt) {
 // is allowed when the first read was a loading state rather than the outcome.
 async function watchSubmission(tabId) {
   const key = `submit:${tabId}`;
-  let {[key]: submit, [`judged:${tabId}`]: judged} = await chrome.storage.session.get([key, `judged:${tabId}`]);
+  let {[key]: submit, [`judged:${tabId}`]: judged} = await sessionGet([key, `judged:${tabId}`]);
   if (!submit?.at || judged === submit.at || submit.closed) return;
   if (watching.get(tabId) === submit.at) return;
   const pressAt = submit.at;
@@ -1082,12 +1098,12 @@ async function watchSubmission(tabId) {
     // "too old" and would skip both the read and the "page unchanged" line.
     while (calls < ASK_LIMIT && Date.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, Math.min(1000, deadline - Date.now())));
-      const fresh = await chrome.storage.session.get([key, `judged:${tabId}`]);
+      const fresh = await sessionGet([key, `judged:${tabId}`]);
       submit = fresh[key];
       if (submit?.at !== pressAt || fresh[`judged:${tabId}`] === pressAt) return; // a newer press, or already marked
       const tab = await chrome.tabs.get(tabId).catch(() => null);
       if (!tab?.url || !/^https:/.test(tab.url)) return;
-      const {[armedKey]: armed} = await chrome.storage.session.get(armedKey);
+      const {[armedKey]: armed} = await sessionGet(armedKey);
       if (!tabArmed({url: tab.url, armed})) return;
       const reading = await readLandedPage(tabId);
       const after = pageFingerprint(reading || {});
@@ -1109,7 +1125,7 @@ async function watchSubmission(tabId) {
       await chrome.storage.session.set({[key]: submit});
       const result = await askAboutOutcome(tabId, tab, reading, gate, pressAt);
       if (result.done) {
-        const latest = await chrome.storage.session.get(key);
+        const latest = await sessionGet(key);
         if (latest[key]?.at === pressAt) await chrome.storage.session.set({[key]: {...latest[key], closed: true}});
         return;
       }
@@ -1122,7 +1138,7 @@ async function watchSubmission(tabId) {
 async function onTabSettled(tabId, tab) {
   if (!tab?.url || !/^https:/.test(tab.url)) return;
   const armedKey = `armed:${tabId}`;
-  const stored = await chrome.storage.session.get([`job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, armedKey]);
+  const stored = await sessionGet([`job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, armedKey]);
   if (!tabArmed({url: tab.url, armed: stored[armedKey]})) return;
   const submit = stored[`submit:${tabId}`];
   if (submit?.at && !submit.closed && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < SUBMIT_WAIT_MS) {

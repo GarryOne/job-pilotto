@@ -466,7 +466,7 @@ export function start(storage, onError = () => {}) {
               : at - seen.at > 90 * 1000 ? `after ${Math.round((at - seen.at) / 1000)} s of silence` : '';
             if (why) appLog('extension', `checked in: ${why}`, {version, tabs: (report.urls || []).length});
             seen = {at, version};
-            reread = tabsHandler({ids: report.ids, boot: report.boot, worker: report.worker, reading: report.reading}) || [];   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
+            reread = tabsHandler({ids: report.ids, boot: report.boot, worker: report.worker, reading: report.reading, sessions: report.sessions}) || [];   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
             void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}
         }

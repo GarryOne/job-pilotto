@@ -84,6 +84,7 @@ export function sessionStage(item) {
 // closing every tab, a Claude session stuck on a sign-up page still showed its question as if the tab were there.
 export function tabClosed(item, formsOpen, seen = false, now = Date.now()) {
   if (!item || !formsOpen?.known || formsOpen.ids.includes(item.id) || isSubmitted(item) || item.outcome) return false;
+  if (formsOpen.unsure?.includes(item.id)) return false;   // no tab known for it and none that looks like it: not known, never "closed"
   if (seen) return true;
   if (item.kind === 'form') return now - (Date.parse(item.startedAt || '') || now) > 60 * 1000;
   return (item.kind || 'claude') === 'claude' && !isLive(item);

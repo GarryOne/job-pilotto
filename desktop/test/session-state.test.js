@@ -121,6 +121,7 @@ test('a session whose tab is gone is closed: a form seen before, a form session 
   assert.equal(tabClosed({id: 'f1', kind: 'form', startedAt: old}, {known: false, ids: []}, true, now), false);   // the extension is not reporting
   assert.equal(tabClosed({id: 'f1', kind: 'form', outcome: 'submitted', live: false}, none, true, now), false);
   assert.equal(tabClosed({id: 'r1', kind: 'read', live: false}, none, false, now), false);
+  assert.equal(tabClosed({id: 'c1', kind: 'claude', live: false, status: 'ended'}, {known: true, ids: [], unsure: ['c1']}, true, now), false);   // no tab known: never "closed"
 });
 
 test('just after the app starts, a session waiting on its Chrome tab is "checking" until the extension reports in', async () => {

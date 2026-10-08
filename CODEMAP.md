@@ -261,7 +261,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
-- `extension/carry.js` — What this extension knows about its tabs lives in chrome.storage.session: which session each tab belongs to (`session:`),
 - `extension/fill-card.js` — One anonymous record per fill (a "fill card"), for learning how well the form filling does and why: counts and fixed words only,
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
@@ -271,6 +270,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 - `extension/same-tab.js` — One tab per application (owner, 8 Oct 2026: Manor's Apply opened the sign-in in a second tab, and the app lost track of which
+- `extension/tab-memory.js` — The extension's memory of its tabs (which session and job each tab is, which the app opened, the sites being read) lives in
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
 - `extension/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
 - `extension/visit.js` — "Read the jobs on this page" (owner, 7 Oct 2026): for a site the Job Pilotto app cannot read by itself (it refuses automated visitors, or a
