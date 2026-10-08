@@ -61,10 +61,13 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   const restartAs = async (old, how) => {
     if (how === 'claude' && !(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Allow it in Settings.'};
     terminals.setOutcome(old.id, 'restarted');
-    terminals.remove(old.id);
-    appLog('sessions', `started again by the user: ${how}`, {id: old.id, kind: old.kind});
-    if (how === 'claude') return apply.claudeOne(storage, old.url, undefined, undefined, undefined, details(old));
-    return DEMO ? apply.openOne(old.url) : apply.applyOne(storage, old.url, details(old));
+    // The new session first, then the old one goes: removed first, the page fell to another session for a moment (owner, 8 Oct 2026).
+    const started = how === 'claude' ? await apply.claudeOne(storage, old.url, undefined, undefined, undefined, details(old))
+      : DEMO ? apply.openOne(old.url) : await apply.applyOne(storage, old.url, details(old));
+    appLog('sessions', `started again by the user: ${how}`, {id: old.id, kind: old.kind, ok: !!started?.ok, next: started?.session?.id || ''});
+    if (started?.session?.id) terminals.show(started.session.id);
+    if (started?.ok) terminals.remove(old.id); else terminals.setOutcome(old.id, '');
+    return started;
   };
   checkedSessions.handle('sessionRestart', async (_, id) => {
     const old = terminals.get(String(id));
@@ -76,26 +79,16 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     return restartAs(old, response === 1 ? 'claude' : 'chrome');
   });
   // The session's form tab was closed (a button looked for it and Chrome has none): the form opens again in a new tab with
-  // the fill mark, so the extension's panel follows it. When the page holds state from the closed tab (`stale`: answers,
-  // form progress, Claude's question, the stuck flag), you are asked first whether to start the application again.
+  // the fill mark, so the extension's panel follows it. What the page held from the closed tab (`stale`: answers, form
+  // progress, the stuck flag) is cleared.
   checkedSessions.handle('sessionReopen', async (_, id, stale) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
-    let reset = false;
-    if (stale) {
-      appLog('review', `tab gone ${old.id}: asked whether to start again`, {kind: old.kind});
-      const claude = old.kind !== 'form';
-      const {message, detail, buttons} = quitDialog.tabClosed(old.company, claude);
-      const keep = buttons.indexOf('Keep and reopen'), cancel = buttons.length - 1;
-      const {response} = await dialog.showMessageBox(getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined,
-        {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: keep, cancelId: cancel, message, detail});
-      if (response === cancel) { appLog('review', `tab gone ${old.id}: cancelled, nothing opened`); return {ok: false, cancelled: true}; }
-      reset = response < keep;
-      appLog('review', `tab gone ${old.id}: start again ${reset ? 'yes' : 'no'}`, {kind: old.kind});
-      // A Claude session starts again as Start again does, in Chrome or with Claude as chosen; the new session opens the tab itself.
-      if (reset && claude) return {...(await restartAs(old, response === 1 ? 'claude' : 'chrome')), reset};
-    } else appLog('review', `tab gone ${old.id}: nothing to clear, reopening`, {kind: old.kind});
+    // No question (owner, 8 Oct 2026): the card already says Reopen fills the form again from your kit, so what the page held
+    // from the closed tab is cleared and the form opens in a new tab. Claude is never started here; Start again is for that.
+    const reset = !!stale;
     if (reset) { review.forget(old.id); terminals.clearStuck(old.id); }
+    appLog('review', `tab gone ${old.id}: ${reset ? 'cleared the closed tab\'s state, reopening' : 'nothing to clear, reopening'}`, {kind: old.kind});
     const opened = apply.openOne(old.url);
     appLog('review', `tab gone ${old.id}: ${opened.ok ? 'reopened the form with the fill mark' : 'could not reopen'}`, {reset, error: opened.error || ''});
     return opened.ok ? {ok: true, reset} : {ok: false, error: opened.error};

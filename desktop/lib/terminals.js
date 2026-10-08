@@ -80,6 +80,8 @@ let loadPty = () => import('@lydell/node-pty').then(module => module.default || 
 export function usePty(loader) { loadPty = loader; }
 // The app's window is told about every change: onChange(event, payload).
 export function onChange(fn) { listener = fn; }
+// The window shows this session (a session that replaces another: shown before the old one goes, so the page never falls to another).
+export const show = id => listener('open', {id});
 
 export async function available() {
   try { await loadPty(); return true; } catch { return false; }

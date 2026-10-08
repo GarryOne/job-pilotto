@@ -17,21 +17,6 @@ export function cancel(company) {
   };
 }
 
-// "Start again from scratch" on a session: what happens, asked once before it does.
-// The session's form tab was closed in Chrome, so what this page shows (your answers, the form's progress, what Claude was
-// waiting for) belongs to a tab that is gone. Start again clears it; Keep and reopen only opens the form again.
-export function tabClosed(company, claude) {
-  return {
-    message: `The ${company ? `${company} form` : 'form'} tab was closed. Start this application again?`,
-    detail: (claude
-      ? 'Start again: this session closes and what it asked you and the form progress are cleared. A new session starts on ' +
-        'the same job, in Chrome (the extension fills the form from your kit) or with Claude, as you choose. '
-      : 'Start again: the answers you gave here and the form progress are cleared, and the form opens in a new Chrome tab, filled from your kit. ')
-      + 'Keep and reopen: everything stays and the form opens again in a new Chrome tab.',
-    buttons: claude ? ['Start again in Chrome', 'Start again with Claude', 'Keep and reopen', 'Cancel'] : ['Start again', 'Keep and reopen', 'Cancel'],
-  };
-}
-
 // Start again never starts Claude by itself: Chrome (the extension fills the form) is the first choice, Claude the second.
 export function restart(company) {
   return {

@@ -291,12 +291,10 @@ export async function openForm(item, button) {
 const rowsOf = id => [...handled.keys(), ...syncedDone].filter(key => key.startsWith(`${id}|`));
 export const staleState = item => !!(rowsOf(item.id).length || reviewStates.get(item.id)?.total || item.stuck || (item.kind !== 'form' && item.question));
 // Every button that looks for the form's Chrome tab ends here when the tab is gone (Open in Chrome, Open filled form, Reopen
-// form, Review in form, Open in form, Open the form): the form opens again in a new tab with the fill mark, after asking
-// whether to start the application again when the page holds the closed tab's state (owner, 8 Oct 2026: the toast told you
-// to open it yourself, and the old rows stayed).
+// form, Review in form, Open in form, Open the form): the form opens again in a new tab with the fill mark, and what the page
+// held from the closed tab is cleared. No question (owner, 8 Oct 2026): the card already says it fills again from your kit.
 export async function reopenClosedTab(item, button) {
   const result = await window.pilot.sessionReopen(item.id, staleState(item));   // not 'Looking for the form tab…' under the question
-  if (result?.cancelled) return result;
   if (result?.ok === false) { toastMessage('Could not open the form', result.error || 'Try again.'); return result; }
   if (result?.reset) {
     for (const key of rowsOf(item.id)) { handled.delete(key); syncedDone.delete(key); }
@@ -304,11 +302,9 @@ export async function reopenClosedTab(item, button) {
     reviewStates.delete(item.id);
     batch.delete(item.id);
   }
-  toastMessage(result?.reset ? 'Started again' : 'The form tab was closed', result?.session
-    ? 'A new Claude session starts on this job and opens the form in Chrome.'
-    : result?.reset ? 'Opened the form in a new Chrome tab; the extension fills it from your kit.' : 'Opened the form again in a new Chrome tab.');
+  toastMessage('Form reopened', 'Opened the form in a new Chrome tab; the extension fills it from your kit.');
   await refreshSessions();
-  if (result?.session?.id) openSession(result.session.id); else renderSessionPage();
+  renderSessionPage();
   return result;
 }
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
