@@ -7,7 +7,6 @@
 const hostOf = url => { try { return new URL(String(url)).hostname; } catch { return ''; } };
 
 export function createSessionFlow({terminals, review, apply, appLog, toWindow = () => {}, startClaude, claudeAllowed, closeTab}) {
-  const takingOver = new Set();   // form sessions whose Claude is starting: a second account report meanwhile starts no second one
 
   // The extension can't reach a form ('no-form': nothing it may press; 'account': a sign-in or sign-up). The tab's own session first (it
   // carries it: lib/review.js pick); only a tab carrying none is matched by its job. Returns what was decided, for the tests.
@@ -32,21 +31,12 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     const claudes = carried ? (carried.kind === 'claude' ? [carried] : []) : terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url));
     if (why === 'account') for (const other of claudes) terminals.setStage(other.id, 'account', event.host);
     if (!match) return 'no-session';
-    if (!terminals.noteStuck(match.id, why, event.host) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
+    if (!terminals.noteStuck(match.id, why, event.host, event.needs) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
     if (why !== 'account') return 'noted';
-    // A sign-in or sign-up in front of the form (owner, 8 Oct 2026): Claude takes the job over at once when Apply with Claude
-    // is allowed: it signs in or creates the account with the job-site password and confirms it from Gmail. Never a dialog here.
-    const decision = takingOver.has(match.id) ? 'claude-open' : apply.accountTakeOver(terminals.list(), terminals.get(match.id));
-    if (decision !== 'start') { appLog('extension', `account page: no hand-over (${decision})`, {host: event.host, id: match.id}); return decision; }
-    if (!claudeAllowed()) { appLog('extension', 'account page: left for the user, Apply with Claude not allowed', {host: event.host}); return 'not-allowed'; }
-    appLog('extension', 'account page: Claude takes over', {host: event.host, id: match.id, decidedBy: 'extension stuck: account'});
-    takingOver.add(match.id);
-    Promise.resolve(startClaude(match.url, {title: match.title, company: match.company, location: match.location, workMode: match.workMode})).then(result => {
-      if (result?.session?.id) terminals.setStage(result.session.id, 'account', event.host);   // it starts where the form session stopped
-      if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); }
-      else appLog('extension', 'account page: Claude could not start', {host: event.host, error: String(result?.error || '').slice(0, 160)});
-    }).finally(() => takingOver.delete(match.id));
-    return 'hand-over';
+    // Claude is OFFERED, never started by itself (owner, 8 Oct 2026: extension first; "Take over with Claude" is the person's button, takeOverHandler). The extension reports
+    // an account page only when it could not finish it (its account AI was unsure, a bot check, something only the person can give): the session says what is needed.
+    appLog('extension', 'account page: the extension could not finish it: Claude is offered', {host: event.host, id: match.id, ...(event.needs ? {needs: String(event.needs).slice(0, 60)} : {})});
+    return 'offered';
   }
 
   // A form report (lib/review.js): the step the session is at, from the same page rule. An account page keeps it at the account

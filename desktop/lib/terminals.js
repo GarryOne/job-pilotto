@@ -107,7 +107,7 @@ const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: 
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', accountNeeds: s.accountNeeds || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
@@ -196,12 +196,22 @@ export function startForm({id, url, title = '', company = '', location = '', wor
 // → true when it changed, false when nothing did. 'account' is the furthest point of the chain (posting → Apply → sign-in): a
 // later 'no-form' from a tab earlier in it (the posting the Apply button left behind) never takes it back (owner, 8 Oct 2026:
 // Manor's sign-in page was reported, then its posting tabs said "no form" and the card lost the account step).
-export function noteStuck(id, why, host = '') {
+export function noteStuck(id, why, host = '', needs = '') {
   const session = sessions.get(id);
-  if (!session || session.kind !== 'form' || session.outcome || session.stuck === why || session.stuck === 'account') return false;
+  if (!session || session.kind !== 'form' || session.outcome) return false;
+  const label = String(needs || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const note = why === 'account' ? (label ? `Needs you: ${label}` : 'This site needs an account') : 'The extension can\'t reach the form';
+  if (session.stuck === why) {   // reported again: only a new need changes anything
+    if (!label || session.note === note) return false;
+    session.note = note; session.accountNeeds = label;
+    listener('update', publicView(session)); save();
+    return true;
+  }
+  if (session.stuck === 'account') return false;
   session.stuck = why;
   if (why === 'account') Object.assign(session, {stage: 'account', accountHost: host || session.accountHost || ''});
-  session.note = why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form';
+  session.note = note;
+  if (why === 'account') session.accountNeeds = label;
   listener('update', publicView(session));
   save();
   return true;
@@ -229,7 +239,7 @@ export function setAccount(id, state) {
 export function clearStuck(id) {
   const session = sessions.get(id);
   if (!session?.stuck) return;
-  Object.assign(session, {stuck: '', note: 'Form open in Chrome'});
+  Object.assign(session, {stuck: '', accountNeeds: '', note: 'Form open in Chrome'});
   listener('update', publicView(session));
   save();
 }

@@ -19,22 +19,17 @@ function setup({allowed = true, older = () => false, states = [], startClaude} =
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-test('a sign-in page on a form session hands the job to Claude once, and its Claude starts at the account step', async () => {
-  const s = setup();
+test('an account page the extension could not finish: Claude is OFFERED, never started, and the session says what the person must give', async () => {
+  const s = setup({allowed: true});
   terminals.startForm({id: 'f1', url: URL1, company: 'Manor AG'});
-  assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1'}), 'hand-over');
-  assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1'}), 'claude-open');   // reported again while it starts
+  assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Land/Region des Wohnorts'}), 'offered');
+  assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Land/Region des Wohnorts'}), 'offered');   // reported again: the same, nothing started
   await settle();
-  assert.deepEqual(s.started, [URL1]);
-  assert.deepEqual([terminals.get('f1').stuck, terminals.get('f1').stage], ['account', 'account']);
-  assert.ok(s.logs.includes('extension: account page: Claude takes over'));
-});
-
-test('without Apply with Claude allowed the account page is left to the person, and says so', () => {
-  const s = setup({allowed: false});
-  terminals.startForm({id: 'f1', url: URL1});
-  assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', session: 'f1'}), 'not-allowed');
-  assert.deepEqual(s.started, []);
+  assert.deepEqual(s.started, [], 'Claude is a button the person presses, never started by itself');
+  const session = terminals.get('f1');
+  assert.deepEqual([session.stuck, session.stage, session.accountNeeds, session.note], ['account', 'account', 'Land/Region des Wohnorts', 'Needs you: Land/Region des Wohnorts']);
+  s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Datenschutzerklärung'});   // a new need replaces the old one
+  assert.equal(terminals.get('f1').note, 'Needs you: Datenschutzerklärung');
 });
 
 test('the posting behind the sign-in says "no form" afterwards: an older tab is ignored, and the account step stays either way', () => {

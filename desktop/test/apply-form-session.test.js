@@ -122,15 +122,6 @@ test('the job-site password is read from the Keychain on a Mac only, and a missi
   assert.equal(sitePassword.read('win32', () => 'x'), null);
 });
 
-test('an account page hands the job to Claude on any report, unless a Claude session is already on it', async () => {
-  const {accountTakeOver} = await import('../lib/apply.js');
-  const form = {id: 'f1', kind: 'form', url: URL1, stuck: 'account', outcome: ''};
-  assert.equal(accountTakeOver([form], form), 'start');   // marked before a restart: still handed over (Manor, 8 Oct 2026)
-  assert.equal(accountTakeOver([form, {kind: 'claude', url: `${URL1}#jobpilotto-fill`, status: 'input', outcome: ''}], form), 'claude-open');
-  assert.equal(accountTakeOver([form, {kind: 'claude', url: URL1, status: 'done', outcome: 'cancelled'}], form), 'start');
-  assert.equal(accountTakeOver([form], {...form, stuck: 'no-form'}), 'not-account');
-});
-
 test('the stage follows the tab: account with its site, then the form; the account site is kept', () => {
   terminals._reset();
   terminals.startForm({id: 'f1', url: URL1});

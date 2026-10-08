@@ -6,7 +6,7 @@
 // Scenarios owned: "Sign-up page before the form", "Sign-in page where we have no account". Guards: worker/test/account-step.test.js, account-fill.test.js, npm run live.
 import {api, settings} from './flow.js';
 import {decide} from './log.js';
-import {askKind} from './fill-flow.js';
+import {askKind, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {tabArmed} from './tab-pages.js';
 import {accountSketch, fillAccountBoxes, flagAccount, pressAccountButton, pressRegister} from './account-fill.js';
@@ -47,6 +47,14 @@ const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({t
 const memoKey = tab => `accountForm:${tab.id}`;
 const triedKey = (tab, action) => `accountPress:${tab.id}:${action}`;
 const alreadyTried = async (tab, action) => !!(await sessionGet(triedKey(tab, action)))[triedKey(tab, action)];
+// The extension could not finish this account page: said ONCE per tab and reason to the app, which shows what the person must do and OFFERS Claude (never starts it).
+async function giveUp(tab, host, reason, needs = '') {
+  const key = `stuck-${reason}-${needs}`.slice(0, 120);
+  if (await alreadyTried(tab, key)) return;
+  await markTried(tab, key);
+  decide('fill', `account step: could not finish (${reason}): Claude is offered`, {host});
+  await stuck(tab.url.split('#')[0], host, 'account', tab.id, tab.url, needs);
+}
 const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, action)]: Date.now()}).catch(() => {});
 
 // The account AI on what the page shows now. null when there is no AI, no answer, or the page cannot be read: then nothing is pressed or claimed.
@@ -77,7 +85,7 @@ async function outcomeOnce(tab, frameId, memo) {
   const result = await judge(tab, frameId, 'result', config, memo.path || '');
   const action = resultAction(result?.answer);
   decide('fill', `account result: ${result?.answer || 'no AI'}`, {host, action});
-  if (action === 'flag') { await run(tab, frameId, flagAccount, [result.needs || '']); return; }   // the form stays: the person finishes it, and the memo stays for the next look
+  if (action === 'flag') { await run(tab, frameId, flagAccount, [result.needs || '']); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
   if (action === 'none') return;
   await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
   const session = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
@@ -101,7 +109,10 @@ async function accountStepOnce(tab, frameId) {
   if (!answer?.ok || !answer.password) return {filled: 0};
   const move = accountMove({step, mode: answer.mode, hasEmail: !!answer.email, registerControl: kind?.registerControl, signinControl: kind?.signinControl});
   decide('fill', `account page: ${move}`, {host, step, mode: answer.mode || ''});
-  if (move === 'leave') return {filled: 0};
+  if (move === 'leave') {
+    if (answer.mode !== 'confirm' && step) await giveUp(tab, host, 'no way forward on this page');   // 'confirm' waits for its mail; anything else the extension cannot continue
+    return {filled: 0};
+  }
   if (move === 'register' || move === 'switch') {   // the page's own way to the other form: to create an account (no account of ours here), or to sign in (we have one)
     if (!(await alreadyTried(tab, move))) {
       const result = await run(tab, frameId, pressRegister, [move === 'register' ? kind.registerControl : kind.signinControl]);
@@ -125,6 +136,7 @@ async function accountStepOnce(tab, frameId) {
       } else {
         decide('fill', `account button: not pressed (${ready ? (ready.botCheck ? 'a bot check' : ready.answer) : 'no AI'})`, {host, automation: answer.automation || ''});
         if (ready && (ready.botCheck || ready.answer === 'needs_person')) await run(tab, frameId, flagAccount, [ready.botCheck ? '' : ready.needs || '']);
+        await giveUp(tab, host, !ready ? 'no AI answer' : ready.botCheck ? 'a bot check' : 'something only the person can give', ready?.botCheck ? '' : ready?.needs || '');
       }
     } else {
       await run(tab, frameId, flagAccount, [null]);   // nothing is owed any more: the panel stops saying so
