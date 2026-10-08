@@ -1,7 +1,9 @@
 # Applying flows: the scenario matrix
 
-> **Rule:** a change to any flow file runs the **whole** matrix, `cd desktop && npm run flows` (~4 min; the form scenarios in the `apply` suite and the journeys in `applyflows` run in parallel, each on its own Notion page and token), not just its own row.
-> The push is blocked until it passes on exactly that code (`tools/flows-gate.mjs`), or the commit says `Flows-unverified: <why>`.
+> **Rule:** a change to the flows' **decision core** (`FLOW_CORE` in `desktop/e2e/flows.mjs`: which page is what, which tab is whose) runs the **whole** matrix,
+> `cd desktop && npm run flows` (~5 min). The push is blocked until it passes on exactly that code (`tools/flows-gate.mjs`), or the commit says `Flows-unverified: <why>`.
+> Any other flow file (the panel, handlers, form-tab, messages): its area's suites plus the best-fit method (AGENTS.md "Which test for which question"), no matrix.
+> The matrix as a regular check: before a release, and on demand (owner, 8 Oct 2026: it ran on nearly every push).
 > Why: a fix for one flow (account creation) must never quietly break another (the application form). Owner, 8 Oct 2026.
 
 **Flow files** (the list is `FLOW_FILES` in `desktop/e2e/flows.mjs`), one concern each:

@@ -12,6 +12,12 @@ export const FLOW_FILES = [
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/ext-server-handlers.js',
 ];
 
+// The flows' decision core: which page is what and which tab belongs to which application. A change here can break another flow, so
+// the push gate asks for the whole matrix (tools/flows-gate.mjs). Any other flow file is checked with the best-fit method (owner, 8 Oct
+// 2026: "let's not run it so often… the best fit one for every case"; AGENTS.md "Which test for which question").
+export const FLOW_CORE = ['extension/tab-pages.js', 'extension/tabs.js', 'extension/same-tab.js', 'extension/account.js', 'extension/fill-flow.js',
+  'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/review.js'];
+
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs or lib/apply-*.mjs (E2E_STEPS); `unit`: desktop/test files.
 export const MATRIX = [
   {scenario: 'What kind of page: the AI decides once per site and page shape, the structure rule only without AI', e2e: ['one page', 'wrong kind'], unit: ['test/page-kind.test.js', 'test/extension-tab-pages.test.js']},

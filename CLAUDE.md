@@ -37,7 +37,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - **Universal first (owner, 8 Oct 2026): any website, any form, any language.** Avoid hard-coding; rely on AI decisions with fixed answers (global rules: "Universal first"). Account pages are the example: the page-kind AI names the step (sign in / sign up), the register control and the submit control; code keeps only structure and safety floors.
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
 - **Validate a form fix on the real extension** (owner, 8 Oct 2026: "for better validating"): unit and shape tests do not load the extension, so after
-  a fix to form filling (`extension/page/*`, `fill-flow.js`, flows) also run `cd desktop && npm run real-extension` (headless Chrome, the real extension and
+  a fix to form filling (`extension/page/*`, `fill-flow.js`, flows) also run `cd desktop/e2e && npm run real-extension` (headless Chrome, the real extension and
   panel, a real Coop form, isolated: `desktop/e2e/lib/real-extension.mjs`). Prove the test with a positive control: `REAL_EXTENSION_DIR=<the build from
   before the fix>` must fail it. A new case gets its own test there on a real site that shows it, always through `startRealExtension` (never a hand-rolled
   launcher: it cuts off the live app, profile, CV, Keychain and AI, and asserts it). Say in the reply what it showed.
@@ -223,8 +223,9 @@ sites, run it live before and after a change, not only the matrix:
 
 ## Applying flows: change one, run them all (owner, 8 Oct 2026)
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:
-the one page decision (the AI's kind, `desktop/lib/page-kind.js`; `extension/tab-pages.js` `pageRole` only without AI), every scenario, its code and its guard. Touching a flow file (`desktop/e2e/flows.mjs` `FLOW_FILES`)
-→ `cd desktop && npm run flows` (whole matrix, ~4 min) before the push; the hook blocks it otherwise (`tools/flows-gate.mjs`, or `Flows-unverified: <why>`).
+the one page decision (the AI's kind, `desktop/lib/page-kind.js`; `extension/tab-pages.js` `pageRole` only without AI), every scenario, its code and its guard. Touching the decision core (`FLOW_CORE` in `desktop/e2e/flows.mjs`: which page is what, which tab is whose)
+→ `cd desktop && npm run flows` (whole matrix, ~5 min) before the push; the hook blocks it otherwise (`tools/flows-gate.mjs`, or `Flows-unverified: <why>`).
+Other flow files: their area's suites plus the best-fit method (AGENTS.md "Which test for which question"); the matrix before a release and on demand.
 A new scenario gets a row there and in `MATRIX`, with a step or test that fails first. Never add a second page classifier.
 
 ## Facts that are easy to get wrong

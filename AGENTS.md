@@ -162,8 +162,8 @@ The tier says how much to check; this says **how**. Pick the cheapest method tha
 | Does this logic/parser/decision give the right answer? | unit test (`desktop/test`, `tests/`), a failing one first | seconds |
 | Does this screen/state look right? | `npm run shot -- <page> --js "<force it>"` | ~5 s |
 | Does a page script handle this control's **shape**? | fixture shape test (`e2e/test/upload-slot.test.mjs` style) | seconds |
-| Does the real extension work on a real site, without the app's flow? | `npm run real-extension` (isolated Chromium, stand-in app); a case is added there | ~1 min |
-| Does a change to a flow file break another flow? | `npm run flows` (the matrix; the push gate asks for it) | ~5 min |
+| Does the real extension work on a real site, without the app's flow? | `cd desktop/e2e && npm run real-extension` (isolated Chromium, stand-in app); a case is added there | ~1 min |
+| Does a change to the flows' **decision core** break another flow? | `npm run flows` (the matrix; the push gate asks for it only for `FLOW_CORE`) | ~5 min |
 | Does a new producer feed an existing screen with all its features? | parity test (one test, every producer) | seconds |
 | Does the whole journey still work on fixtures? | the area's e2e step (`E2E_STEPS=…`), when the change breaks it or at Tier 2 | minutes |
 | **Does it work on the owner's real state and real sites?** | **the twin** (`npm run twin`, [docs/live-test.md](docs/live-test.md)) | minutes, real AI |
@@ -174,7 +174,7 @@ The tier says how much to check; this says **how**. Pick the cheapest method tha
 - a fix touches the apply flow end to end, and the owner wants to watch it work, or a fixture pass still leaves the question open.
 
 **Not the twin**: copy, CSS, a label, pure logic a unit test proves, anything a `shot` shows, a page-script shape a fixture shows.
-**Extension only** (no app flow needed): `npm run real-extension`, or a fresh browser window with an extension copy (`e2e/lib/extension.mjs`).
+**Extension only** (no app flow needed): `cd desktop/e2e && npm run real-extension`, or a fresh browser window with an extension copy (`e2e/lib/extension.mjs`).
 Never make the owner's own Chrome fill: its extension is paired with the live app (read-only DOM checks there are fine, never a password field).
 
 **Every live finding ends in a fixture or unit test** that fails without the fix: the twin finds bugs, the suites keep them fixed.
