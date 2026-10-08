@@ -32,7 +32,7 @@ export const neverForm = url => {
 // guess. candidates: [{index, text, tag, area, visible, disabled, href}] read in the page. The text must be an apply phrase
 // on its own (a button, not a sentence), and never sign-in, "Easy Apply", "Apply with LinkedIn", a mail link or Submit.
 // → the candidate, or null. Tested in desktop/test/extension-tab-pages.test.js.
-const APPLY_PHRASE = /^(to apply|apply( now| here| online| today)?( for (this|the) (job|role|position|opening))?|apply to this (job|role|position)|i['\u2019]?m interested|start (your |the )?application|jetzt bewerben|online bewerben|bewerben|zur bewerbung|bewerbung starten|postuler( maintenant| en ligne)?|candidater|postuler [a\u00e0] (ce|cette) (poste|offre)|candidati( ora)?|invia candidatura|inscribirme|aplicar( ahora)?)[\s!.\u2192>\u203a]*$/i;
+const APPLY_PHRASE = /^(to apply|apply( now| here| online| today)?( for (this|the) (job|role|position|opening))?|apply to this (job|role|position)|i['\u2019]?m interested|start (your |the )?application|jetzt bewerben|online bewerben|bewerben|zur bewerbung|bewerbung starten|postuler( maintenant| en ligne)?|candidater|postuler [a\u00e0] (ce|cette) (poste|offre)|candidati( ora)?|invia candidatura|inscribirme|aplicar( ahora)?)[\s\p{P}\p{S}]*$/iu;   // any trailing marks: "Postuler »" (Coop, 8 Oct 2026), "Apply →", "Apply ❯"
 const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|save|share|alert|easy apply|apply with |already applied|follow|subscribe/i;
 export function pickApplyButton(candidates = [], phrases = []) {
   let best = null, bestScore = -1;
@@ -56,9 +56,13 @@ export const kitStance = ({kitAnswers = [], hasKit = false, matched = 0} = {}) =
 
 // What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
 // creates the account, and the extension never types it. Several fields, a textarea or a file input is the
-// application form. Anything smaller is a page Claude still has to click through (Apply, Next).
-export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0} = {}) {
+// application form; so is a sign-in address (url). Anything smaller is a page Claude still has to click through (Apply, Next).
+// A sign-in address is an account page too, before its password box shows: jobs.ch's Apply leads to auth.jobs.ch/u/login/identifier,
+// which asks for the email first (8 Oct 2026: it was called "no form").
+const SIGN_IN_PATH = /\/(login|log-in|signin|sign-in|sign_in|authwall|uas\/login|oauth2?\/authorize|authorize)\b/i;
+export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0} = {}, url = '') {
   if ((Number(passwords) || 0) > 0) return 'account';
+  try { if (SIGN_IN_PATH.test(new URL(String(url)).pathname)) return 'account'; } catch { /* not a url */ }
   if ((Number(files) || 0) > 0 || (Number(textareas) || 0) > 0 || (Number(fields) || 0) >= 3) return 'form';
   return 'no-form';
 }

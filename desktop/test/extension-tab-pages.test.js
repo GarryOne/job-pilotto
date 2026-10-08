@@ -24,6 +24,12 @@ test('a later page is a form, an account page, or neither', () => {
   assert.equal(pageRole({fields: 12}), 'form');
   assert.equal(pageRole({fields: 1, files: 1}), 'form');
   assert.equal(pageRole({textareas: 1}), 'form');
+  // A sign-in address is an account page before its password box shows (jobs.ch's Apply → auth.jobs.ch, email first).
+  assert.equal(pageRole({fields: 1}, 'https://auth.jobs.ch/u/login/identifier?state=x'), 'account');
+  assert.equal(pageRole({fields: 1}, 'https://acme.com/signin'), 'account');
+  assert.equal(pageRole({fields: 1}, 'https://www.jobs.ch/en/vacancies/detail/84b8/'), 'no-form');
+  assert.equal(pageRole({fields: 1}, 'https://acme.com/blog/how-to-login-faster'), 'no-form');
+  assert.equal(pageRole({fields: 1}, 'not a url'), 'no-form');
 });
 
 test('a submit is asked about once the page changes, with or without a redirect', () => {
@@ -156,6 +162,8 @@ test('the Apply button in front of a form is picked by rule: an apply phrase on 
   assert.equal(pick([b('Share'), b('Apply for this Job')]), 'Apply for this Job');
   assert.equal(pick([b('Jetzt bewerben')]), 'Jetzt bewerben');
   assert.equal(pick([b('Postuler')]), 'Postuler');
+  assert.equal(pick([b('Postuler »', {tag: 'a', href: '/talentcommunity/apply/1/'})]), 'Postuler »');   // jobs.coop.ch, 8 Oct 2026
+  assert.equal(pick([b('Apply ❯')]), 'Apply ❯');
   assert.equal(pick([b('To apply', {tag: 'a', href: '/bewerbung/'})]), 'To apply');   // consultandpepper.com: the agency's own step before its form
   assert.equal(pick([b('Apply with LinkedIn'), b('Easy Apply'), b('Sign in to apply')]), undefined);
   assert.equal(pick([b('Apply now', {visible: false}), b('Apply now', {disabled: true})]), undefined);

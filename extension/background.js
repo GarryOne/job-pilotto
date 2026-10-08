@@ -171,7 +171,7 @@ async function formAfterPress(tabId, url, ms = 8000) {
     if (!live) return null;
     if (pageKey(live.url) !== pageKey(url)) return 'navigated';
     const counts = await pageShape(tabId);
-    if (counts && pageRole(counts) === 'form') return counts;
+    if (counts && pageRole(counts, live.url) === 'form') return counts;
   }
   return null;
 }
@@ -202,7 +202,7 @@ async function consider(tab, jobUrl) {
     decide('fill', 'the page could not be read', {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
     return;
   }
-  let role = pageRole(counts);
+  let role = pageRole(counts, tab.url);
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
