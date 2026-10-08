@@ -107,7 +107,7 @@ const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: 
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', accountNeeds: s.accountNeeds || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', accountStep: s.accountStep || '', accountNeeds: s.accountNeeds || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
@@ -196,10 +196,12 @@ export function startForm({id, url, title = '', company = '', location = '', wor
 // → true when it changed, false when nothing did. 'account' is the furthest point of the chain (posting → Apply → sign-in): a
 // later 'no-form' from a tab earlier in it (the posting the Apply button left behind) never takes it back (owner, 8 Oct 2026:
 // Manor's sign-in page was reported, then its posting tabs said "no form" and the card lost the account step).
-export function noteStuck(id, why, host = '', needs = '') {
+export function noteStuck(id, why, host = '', needs = '', accountStep = '') {
   const session = sessions.get(id);
   if (!session || session.kind !== 'form' || session.outcome) return false;
   const label = String(needs || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const step = ['sign_in', 'sign_up'].includes(accountStep) ? accountStep : '';   // the AI's page type, from the extension: only these two change the wording
+  if (why === 'account' && step && session.accountStep !== step) { session.accountStep = step; listener('update', publicView(session)); save(); }
   const note = why === 'account' ? (label ? `Needs you: ${label}` : 'This site needs an account') : 'The extension can\'t reach the form';
   if (session.stuck === why) {   // reported again: only a new need changes anything
     if (!label || session.note === note) return false;

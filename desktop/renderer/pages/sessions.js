@@ -225,7 +225,7 @@ export function renderNextStep(item) {
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
-    : stuck ? (item.stuck === 'account' ? 'This site needs an account' : 'The extension can\'t reach this form')
+    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : 'The extension can\'t reach this form')
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
     : asking ? ask || 'Claude needs your answer'

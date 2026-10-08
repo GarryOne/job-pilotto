@@ -57,12 +57,13 @@ const memoKey = tab => `accountForm:${tab.id}`;
 const triedKey = (tab, action) => `accountPress:${tab.id}:${action}`;
 const alreadyTried = async (tab, action) => !!(await sessionGet(triedKey(tab, action)))[triedKey(tab, action)];
 // The extension could not finish this account page: said ONCE per tab and reason to the app, which shows what the person must do and OFFERS Claude (never starts it).
+const stepOf = new Map();   // tab id → the AI's step for the page being worked on (sign_in, sign_up, ...): said to the app so its card can word it
 async function giveUp(tab, host, reason, needs = '') {
   const key = `stuck-${reason}-${needs}`.slice(0, 120);
   if (await alreadyTried(tab, key)) return;
   await markTried(tab, key);
   decide('fill', `account step: could not finish (${reason}): Claude is offered`, {host});
-  await stuck(tab.url.split('#')[0], host, 'account', tab.id, tab.url, needs);
+  await stuck(tab.url.split('#')[0], host, 'account', tab.id, tab.url, needs, stepOf.get(tab.id) || '');
 }
 const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, action)]: Date.now()}).catch(() => {});
 
@@ -118,6 +119,7 @@ async function accountStepOnce(tab, frameId) {
   const kind = await askKindOnce(tab);
   const step = kind?.kind === 'account' ? kind.accountStep || '' : '';
   await run(tab, frameId, markAccountStep, [step]);
+  stepOf.set(tab.id, step);
   if (work && !step && !work.empty) return {filled: 0};   // no step the AI knows: the password only, and every box already has one
   const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host})});
   if (!answer?.ok || !answer.password) return {filled: 0};

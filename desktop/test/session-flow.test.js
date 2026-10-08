@@ -81,3 +81,18 @@ test('a late "account" report about the sign-up page the tab has left never move
   assert.equal(terminals.get('f1').stage, 'form');
   assert.equal(terminals.get('f1').stuck, '');
 });
+
+test('an account page left to the person says which kind it is: a sign-in is worded as one, in the list and on the card', async () => {
+  const {sessionStage, sessionState} = await import('../renderer/session-state.js');
+  const s = setup();
+  terminals.startForm({id: 'f1', url: URL1});
+  s.flow.stuck({url: URL1, host: 'auth.jobs.ch', why: 'account', needs: 'Log in', accountStep: 'sign_in', session: 'f1'});
+  const view = terminals.get('f1');
+  assert.equal(view.accountStep, 'sign_in');
+  assert.equal(sessionStage(view).text, 'Step 1 of 2 · Sign in on auth.jobs.ch');
+  assert.equal(sessionStage({...view, accountStep: 'sign_up'}).text, 'Step 1 of 2 · Creating your account on auth.jobs.ch');
+  assert.equal(sessionStage({...view, accountStep: ''}).text.startsWith('Step 1 of 2 · Creating your account'), true);   // no step known: as before
+  terminals.startForm({id: 'f2', url: 'https://example.org/jobs/2'});
+  s.flow.stuck({url: 'https://example.org/jobs/2', host: 'x.example', why: 'account', accountStep: 'junk', session: 'f2'});
+  assert.equal(terminals.get('f2').accountStep || '', '');   // only the two known steps are kept
+});

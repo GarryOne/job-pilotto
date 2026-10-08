@@ -31,7 +31,7 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     const claudes = carried ? (carried.kind === 'claude' ? [carried] : []) : terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url));
     if (why === 'account') for (const other of claudes) terminals.setStage(other.id, 'account', event.host);
     if (!match) return 'no-session';
-    if (!terminals.noteStuck(match.id, why, event.host, event.needs) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
+    if (!terminals.noteStuck(match.id, why, event.host, event.needs, event.accountStep) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
     if (why !== 'account') return 'noted';
     // Claude is OFFERED, never started by itself (owner, 8 Oct 2026: extension first; "Take over with Claude" is the person's button, takeOverHandler). The extension reports
     // an account page only when it could not finish it (its account AI was unsure, a bot check, something only the person can give): the session says what is needed.

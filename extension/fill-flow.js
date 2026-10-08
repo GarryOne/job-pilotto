@@ -176,10 +176,10 @@ async function formAfterPress(tabId, url, ms = 8000) {
 // The app is told the extension can't get to this form (its session offers "Apply with Claude"): why, and the site.
 // `page`: the page this is about. A tab that has moved on (the account made, the form loaded) sends nothing: a late "account" moved a
 // session back from the form to the account step (8 Oct 2026, the matrix's sign-up row). The app checks it too (lib/session-flow.js).
-export async function stuck(job, host, why, tabId = null, page = '', needs = '') {
+export async function stuck(job, host, why, tabId = null, page = '', needs = '', accountStep = '') {
   if (tabId != null && page && !(await onPage(tabId, page))) { decide('fill', 'the page moved on: no "can\'t reach" report for it', {host, why}); return; }
   const session = tabId == null ? '' : (await sessionGet(`session:${tabId}`))[`session:${tabId}`] || '';
-  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
+  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
 export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
