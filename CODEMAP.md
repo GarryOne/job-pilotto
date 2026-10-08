@@ -31,6 +31,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
 - `desktop/lib/confirmation.js` — A submit press, then a change: a redirect, or new content on the same page. This file turns that page into
+- `desktop/lib/contact-from-cv.js` — "Your details from your CV": Claude reads the CV once per CV file and proposes a value for each empty contact field it states
+- `desktop/lib/contact-handlers.js` — Settings → Profile → Your details over IPC: read and save the 📇 Contact details (lib/contact.js), and the values Claude proposes
 - `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
 - `desktop/lib/control-events.js` — How the form reader and the generic operators fared, as reports for the product (docs: Notion "Self-improving form filling").
 - `desktop/lib/cover-letter.js` — The user's general cover letter (Settings → Profile → Cover letter): drafted once by the AI from the CV, the Profile and
@@ -134,6 +136,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/calendar.js` — Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
 - `desktop/renderer/pages/connections.js` — Settings → connections: Apply with Claude, the extension, how often, Always on.
+- `desktop/renderer/pages/contact-proposals.js` — "Your details from your CV" in the window: the values Claude proposed from the CV (lib/contact-from-cv.js) go into the empty boxes of
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
 - `desktop/renderer/pages/cv-change.js` — A replaced CV and what follows it.
 - `desktop/renderer/pages/data.js` — Your data: export, import, backup, reset.

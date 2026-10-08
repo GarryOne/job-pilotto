@@ -879,11 +879,12 @@
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">
             <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
-              <div class="panel-actions"><span class="synced is-on">Saved in Notion</span><button class="link" id="open-profile-details">Open profile in Notion</button></div></div>
-            <p class="muted panel-lead">Your personal details for application forms.</p>
+              <div class="panel-actions"><span class="synced is-on">Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details">Open profile in Notion</button></div></div>
+            <p class="muted panel-lead">Your personal details for application forms. Empty ones are filled in from your CV for you to check.</p>
             <div class="form-grid cols-2">
               <label>First name<input data-contact="first_name" type="text"></label>
               <label>Last name<input data-contact="last_name" type="text"></label>
+              <label>Salutation<input data-contact="salutation" type="text" placeholder="e.g. Mr, Ms, Madame"></label>
               <label>Email<input data-contact="email" type="email"></label>
               <label>Phone<input data-contact="phone" type="tel"></label>
               <label class="span-all">Location<input data-contact="location" type="text" placeholder="e.g. your town or city"></label>

@@ -9,6 +9,7 @@ import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {isSubmitted, tabAddress} from '../session-state.js';
 import {checkingTab, formGone, formReady, reviewStates, silentChrome} from './session-needs.js';
+import {nudgeMissingDetails} from './contact-proposals.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
@@ -240,6 +241,7 @@ export async function init() {
       return;
     }
     if (event === 'open') { openSession(payload.id); return; }
+    if (event === 'update' && (payload?.kind === 'form' || payload?.inChrome)) nudgeMissingDetails();   // a form is being filled: details it will ask for
     refreshSessions().then(() => { if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs(); });
   });
   if (!sessionList.length) renderSessionPage();  // nothing remembered: the spinner, not an empty workspace

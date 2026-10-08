@@ -12,6 +12,7 @@ import {goStep} from './wizard.js';
 import {showEngineSettings} from './ai-engine.js';
 import {humanError, isSpendingLimit} from '../run-warnings.js';
 import {cvStateText} from '../cv-state.js';
+import {clearProposals, loadProposals} from './contact-proposals.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
 export function profileTab(name) {
@@ -246,6 +247,7 @@ export function showContact() {
     document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
     fitDetailsToCandidate(contact);
     showLinks();
+    loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
   }).catch(error => message('contact-message', `Couldn't read them from Notion: ${error.message}`, 'error'));
   $('contact-cv').textContent = shared.state.settings.cvName || 'None yet';
 }
@@ -255,6 +257,7 @@ export async function init() {
   initLetter();
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
+  $('contact-from-cv').addEventListener('click', () => loadProposals({again: true}));
   $('answers-review').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));
   $('links-edit').addEventListener('click', () => {
     const editing = $('links-form').hidden;
@@ -317,7 +320,7 @@ export async function init() {
       .map(input => [input.dataset.contact, input.value.trim()]).filter(([, value]) => value));
     $('contact-save').disabled = true;
     const result = await window.pilot.saveContact(contact);
-    if (!result.ok) $('contact-save').disabled = false;
+    if (!result.ok) $('contact-save').disabled = false; else clearProposals();   // saved: what was proposed is yours now
     message('contact-message', result.ok ? (shared.state.notion ? 'Saved in your Notion Profile ✓ The extension uses these from the next form it fills.'
       : 'Saved ✓ The extension uses these from the next form it fills.') : result.error, result.ok ? 'ok' : 'error');
   });

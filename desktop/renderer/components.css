@@ -257,6 +257,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .form-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .form-grid .span-all { grid-column: 1 / -1; }
 .form-grid label { display: flex; flex-direction: column; gap: var(--sp-1); font-weight: 600; font-size: var(--fs-md); }
+.form-grid label > .ui-pill { align-self: flex-start; }   /* a note under a box ("From your CV"): its own width, not the column's */
 .form-grid input { font-weight: 400; }
 
 /* A switch with a title and hint, and an optional link on the right. */

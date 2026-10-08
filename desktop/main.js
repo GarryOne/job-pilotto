@@ -19,6 +19,7 @@ import {closeSessionTab, registerSessionHandlers} from './lib/session-handlers.j
 import {registerInterviewHandlers} from './lib/interview-handlers.js';
 import {registerAppMetaHandlers} from './lib/app-meta-handlers.js';
 import {registerCvAndLettersHandlers} from './lib/cv-handlers.js';
+import {registerContactHandlers} from './lib/contact-handlers.js';
 import {createSessionFlow} from './lib/session-flow.js';
 import * as cvlib from './lib/cv.js';
 import * as cvLook from './lib/cv-look.js';
@@ -616,9 +617,8 @@ function handlers() {
     trackSetup(patch, before);
     return saved;
   });
-  ipcMain.handle('contact', () => (DEMO || !notionGate.connected(storage) ? {} : contactDetails.read(storage)));
-  ipcMain.handle('saveContact', (_, contact) => needsNotion('profile') || contactDetails.save(storage, contact).then(saved => { server.contactSaved(storage, saved || contact); return {ok: true}; })
-    .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
+  registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.connected(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
+    contactSaved: saved => server.contactSaved(storage, saved)});
   ipcMain.handle('saveSecret', (_, name, pasted) => {
     const {value, error} = cleanSecret(pasted);
     if (error) throw new Error(error);
