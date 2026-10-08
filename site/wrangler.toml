@@ -19,8 +19,8 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # Notion URL for optional template) hold https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c,
 # so Notion's consent page offers "Use a template provided by the developer" and the token carries duplicated_template_id.
 [vars]
-# /admin/ai-cost counts from this day (site/src/jobcost.js): every product key was replaced on 8 Oct 2026, measuring starts fresh.
-AI_COST_SINCE = "2026-10-09"
+# /admin/ai-cost counts from this day (site/src/jobcost.js): every product key was replaced on 8 Oct 2026 (~13:15 UTC), measuring starts that day.
+AI_COST_SINCE = "2026-10-08"
 GITHUB_REPO = "GarryOne/job-pilotto"
 # The free AI credit for invited testers (src/trial.js; secret ANTHROPIC_TRIAL_KEY): per license key and per month.
 TRIAL_PER_KEY_USD = "1"

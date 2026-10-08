@@ -143,7 +143,7 @@ export async function spent(request, env) {
 }
 
 // The day measuring starts (wrangler.toml AI_COST_SINCE, YYYY-MM-DD): rows before it stay in the database but are not counted.
-// 9 Oct 2026: every product key was replaced by a new one in its own workspace, so the figures start fresh from then.
+// 8 Oct 2026: every product key was replaced by a new one in its own workspace, so the figures start fresh from that day.
 export const since = env => (/^\d{4}-\d{2}-\d{2}$/.test(String(env?.AI_COST_SINCE || '')) ? String(env.AI_COST_SINCE) : '');
 
 export async function read(env) {
