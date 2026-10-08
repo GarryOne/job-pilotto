@@ -181,6 +181,10 @@ export function cliClient(binary, {spawnFn = spawn, run = execFile, timeout = TI
       if (native) args.push('--json-schema', JSON.stringify(schema));
       if (config.effort && flags.has('--effort')) args.push('--effort', config.effort);
       for (const flag of ['--no-session-persistence', '--strict-mcp-config', '--safe-mode']) if (flags.has(flag)) args.push(flag);
+      // Leaner by default (measured 8 Oct 2026, a one-word call on Haiku): the user's skills, slash commands and settings are not loaded into a call that needs none of them:
+      // 7,473 -> 651 tokens of context and about 0.4 s less per call; every page-kind, form and mail decision pays this on every call, and the tokens count on the plan.
+      if (flags.has('--disable-slash-commands')) args.push('--disable-slash-commands');
+      if (flags.has('--setting-sources')) args.push('--setting-sources', '');
       const ask = async text => {
         const answer = await runJson(binary, args, text, {cwd, timeout, spawnFn});
         if (answer.error) throw Object.assign(new Error(answer.error.text), {kind: answer.error.kind});

@@ -340,3 +340,14 @@ test('a stopped Claude session whose form tab reports is "Form open in Chrome", 
   terminals._reset(); terminals.persist(file); terminals.restore();
   assert.deepEqual([terminals.get('a094').status, terminals.get('a094').inChrome], ['done', true]);
 });
+
+test('setAccount keeps the account state of a session and says it only when it changed', async () => {
+  const terminals = await import('../lib/terminals.js');
+  const seen = [];
+  terminals.setListener?.((kind, view) => seen.push([kind, view.accountState]));
+  const session = terminals.startForm({id: 'acct1', url: 'https://jobs.example.ch/a/1', title: 'T', company: 'C'});
+  assert.equal(terminals.setAccount(session.id, 'confirm'), true);
+  assert.equal(terminals.setAccount(session.id, 'confirm'), false);
+  assert.equal(terminals.list().find(item => item.id === session.id).accountState, 'confirm');
+  assert.equal(terminals.setAccount('nothing', 'created'), false);
+});

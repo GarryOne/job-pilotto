@@ -119,3 +119,18 @@ test('an account page in any language: the AI names the step, the register contr
   const posting = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: '', account_step: 'sign_in', register_control: 'Anmelden', account_button: 'Anmelden'}), {...signIn, url: 'https://x.example/job/1'}, cacheIn());
   assert.deepEqual([posting.accountStep, posting.registerControl, posting.accountButton], ['', '', '']);
 });
+
+test('a sign-up page: the AI also names the control that leads to signing in; a sign-in page has none; a control the page does not show is dropped', async () => {
+  const signUp = {url: 'https://karriere.example/join', title: 'Konto anlegen', headings: ['Konto anlegen'], controls: [{type: 'email', label: 'E-Mail', required: true}, {type: 'password', label: 'Kennwort', required: true}],
+    buttons: ['Konto anlegen', 'Bereits registriert? Melde dich hier an.']};
+  const got = await pageKind(fake({kind: 'account', confidence: 0.95, account_step: 'sign_up', register_control: 'Konto anlegen', signin_control: 'Bereits registriert? Melde dich hier an.', account_button: 'Konto anlegen'}), signUp, cacheIn());
+  assert.deepEqual([got.accountStep, got.registerControl, got.signinControl], ['sign_up', '', 'Bereits registriert? Melde dich hier an.']);
+  const made = await pageKind(fake({kind: 'account', confidence: 0.95, account_step: 'sign_up', signin_control: 'Log in somewhere else', register_control: '', account_button: ''}), {...signUp, url: 'https://other.example/join'}, cacheIn());
+  assert.equal(made.signinControl, '');
+});
+
+test('a notice page that an account exists: the AI says choose and names the sign-in control, not the reset', async () => {
+  const notice = {url: 'https://karriere.example/career', title: 'Konto', headings: [], controls: [], buttons: ['Anmelden', 'E-Mail über Kennwortrücksetzung senden']};
+  const got = await pageKind(fake({kind: 'account', confidence: 0.9, account_step: 'choose', register_control: '', signin_control: 'Anmelden', account_button: ''}), notice, cacheIn());
+  assert.deepEqual([got.kind, got.accountStep, got.signinControl], ['account', 'choose', 'Anmelden']);
+});

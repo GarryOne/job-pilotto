@@ -188,3 +188,12 @@ test('a hand-over in any language is "ready for review" by its fixed status line
   assert.ok(!JSON.stringify(readSessionMessage(french)).includes('ready-for-review'));
   assert.equal(sessionReview({status: 'input', question: 'Status: ready-for-review\nQuelle adresse dois-je utiliser ?'}), false, 'a question to you still wins');
 });
+
+test('the account made for an application shows on its session: "Confirm your email" while a mail is awaited, "Account created" once it is usable', async () => {
+  const {sessionStage, sessionState} = await import('../renderer/session-state.js');
+  assert.deepEqual(sessionState({kind: 'form', status: 'done', accountState: 'confirm'}), ['Confirm your email', 'info']);
+  assert.equal(sessionStage({stage: 'account', accountState: 'confirm', accountHost: 'jobs.example.ch'}).text.startsWith('Step 1 of 2 · Creating your account'), true);   // still on the account page
+  assert.equal(sessionStage({stage: 'form', accountState: 'confirm', accountHost: 'jobs.example.ch'}).text, 'Step 1 of 2 · Confirm your email on jobs.example.ch');
+  assert.equal(sessionStage({stage: 'form', accountState: 'created', accountHost: 'jobs.example.ch'}).text, 'Step 2 of 2 · Account created · Filling the application form');
+  assert.equal(sessionStage({stage: 'form'}).text, 'Filling the application form');
+});

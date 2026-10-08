@@ -42,6 +42,13 @@ class ConfirmationTests(unittest.TestCase):
         self.assertEqual(naps, [10, 10])
         self.assertIn('from:careers.example.org', fake.queries[0])
 
+    def test_searches_by_the_address_the_account_was_made_with(self):
+        fake = FakeGoogle([[email('Confirm', 'Activate: https://careers.example.org/verify?token=abc123')]])
+        found = google.wait_for_confirmation(fake, wait=0, to='me+site@example.com', sleep=lambda _: None)
+        self.assertEqual(found['links'], ['https://careers.example.org/verify?token=abc123'])
+        self.assertIn('to:me+site@example.com', fake.queries[0])
+        self.assertNotIn('from:', fake.queries[0])
+
     def test_nothing_arrives(self):
         self.assertIsNone(google.wait_for_confirmation(FakeGoogle([]), wait=20, every=10, sleep=lambda _: None))
 

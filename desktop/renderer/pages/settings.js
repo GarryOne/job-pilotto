@@ -379,7 +379,7 @@ async function openCredentials() {
   table.replaceChildren(table.firstElementChild, ...rows.map(row => {
     const line = el('div', 'task-row');
     const who = el('span');
-    const details = [row.email || 'email not recorded', when(row.created), row.job ? (() => { try { return new URL(row.job).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '']
+    const details = [row.email || 'email not recorded', when(row.accountAt || row.created), ({confirmed: 'Account ready', pending: 'Waiting for the confirmation'})[row.state] || '', row.job ? (() => { try { return new URL(row.job).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '']
       .filter(Boolean).join(' · ');
     who.append(el('b', '', row.host), el('small', '', details));
     const secret = el('b', '', '••••••••');

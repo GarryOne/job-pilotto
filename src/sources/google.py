@@ -291,10 +291,11 @@ def confirmation(email):
             'code': code or '', 'links': list(dict.fromkeys(links))[:3]}
 
 
-def wait_for_confirmation(google, sender='', minutes=15, wait=180, every=10, sleep=time.sleep):
+def wait_for_confirmation(google, sender='', minutes=15, wait=180, every=10, sleep=time.sleep, to=''):
     """Newest email from the last `minutes` (from `sender`, a domain or address, if given) that has a
     code or a confirm link; polls for up to `wait` seconds while the site sends it. None if none came."""
-    query = f'newer_than:1d{f" from:{sender}" if sender else ""}'
+    # `to`: the address the account was made with (a plus alias reaches only this site's mail): the exact way to find its confirmation.
+    query = f'newer_than:1d{f" from:{sender}" if sender else ""}{f" to:{to}" if to else ""}'
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     for attempt in range(max(1, wait // every + 1)):
         for message_id in google.search(query, limit=10):
@@ -436,6 +437,7 @@ def main(argv=None):
     sub.add_parser('disconnect', help='revoke the sign-in at Google and forget it on this computer (one JSON line)')
     verify = sub.add_parser('verify', help="wait for a sign-up's confirmation email; print its code and confirm link")
     verify.add_argument('--from', dest='sender', default='', help="sender domain or address, e.g. the employer's careers host")
+    verify.add_argument('--to', default='', help='the address the account was made with (the mail was sent to it)')
     verify.add_argument('--minutes', type=int, default=15, help='only emails from the last N minutes (default 15)')
     verify.add_argument('--wait', type=int, default=180, help='keep checking for up to N seconds (default 180)')
     args = parser.parse_args(argv)
@@ -454,7 +456,7 @@ def main(argv=None):
         if not google:
             print('Gmail is not connected (python -m src.sources.google auth).', file=sys.stderr)
             return 2
-        found = wait_for_confirmation(google, args.sender, args.minutes, args.wait)
+        found = wait_for_confirmation(google, args.sender, args.minutes, args.wait, to=args.to)
         print(json.dumps(found or {'error': 'no confirmation email yet'}))
         return 0 if found else 1
     if args.command == 'setup':

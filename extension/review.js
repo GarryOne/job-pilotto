@@ -306,7 +306,7 @@
     const account = !!document.querySelector('input[type=password]');
     // An empty password box is filled from the Keychain (asked again now and then; the value never comes to this panel). Asked BEFORE the
     // field count below: a sign-in page has two boxes (Coop's SuccessFactors, live run 8 Oct 2026), too few for a panel.
-    if (account && Date.now() - askedPassword > 6000 && [...document.querySelectorAll('input[type=password]')].some(box => !box.value && box.getClientRects().length)) {
+    if (account && Date.now() - askedPassword > 2000 && [...document.querySelectorAll('input[type=password]')].some(box => (!box.value || (box.hasAttribute('data-jobpilotto-filled') && !document.documentElement.hasAttribute('data-jobpilotto-account-pressed'))) && box.getClientRects().length)) {
       askedPassword = Date.now();
       send({type: 'sitePassword'}).catch(() => {});
     }
@@ -320,7 +320,7 @@
     jp.classList.toggle('ready', ready);
     $('.ring').style.setProperty('--done', done);
     $('.ring span').textContent = ready ? '✓' : total ? String(left) : '–';
-    const readyWords = account ? 'Ready to create the account' : 'Ready to submit';   // a sign-up page is not the application
+    const readyWords = account ? (document.documentElement.hasAttribute('data-jobpilotto-account-needs') ? 'Needs you: ' + (document.documentElement.getAttribute('data-jobpilotto-account-needs').replace(/^1$/, 'see what the site asks')) : 'Ready to create the account') : 'Ready to submit';   // a sign-up page is not the application; the account AI said the person must act (account-step.js)
     $('.pill b').textContent = ready ? readyWords : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? 'Review, then create it' : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.

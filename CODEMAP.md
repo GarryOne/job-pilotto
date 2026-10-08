@@ -12,6 +12,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Desktop app: main-process modules
 
+- `desktop/lib/account-confirm.js` — After the extension pressed a sign-up page's button (owner, 8 Oct 2026): find the confirmation mail the site sent to the address the account was made with
+- `desktop/lib/account-judge.js` — Two judgments on a sign-up or sign-in page that the AI makes, in any language, with answers the code knows (owner, 8 Oct 2026: it must work on thousands of sites;
 - `desktop/lib/ai-trial.js` — The free AI credit for invited testers ($1, lib site/src/trial.js on the website): instead of their own Anthropic
 - `desktop/lib/aliases.js` — The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
 - `desktop/lib/analytics-config.js` — Where crash reports and usage events go (config/analytics.json, overridden by env). Everything empty = nothing is sent. The DSN and the
@@ -151,6 +153,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/shared-log.js` — What the app sent to the Job Pilotto service, kept on this Mac so "See what's sent" shows it: the last 20 requests, exactly as they left
 - `desktop/lib/shared-read.js` — A read asked again while the same read runs joins it instead of starting another Python run (7 Oct 2026: ~10 job-list
 - `desktop/lib/shots.js` — Small copies of pasted screenshots: what goes to Notion is a narrow JPEG, not the full-size file (Claude reads the original).
+- `desktop/lib/site-accounts.js` — Which sites hold an account made for which email (owner, 8 Oct 2026): kept in settings.siteAccounts as {host: {email, state, at}}, never a password.
 - `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
 - `desktop/lib/strategy-draft-handlers.js` — The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
@@ -337,7 +340,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Chrome extension
 
 - `extension/account-fill.js` — What the extension types into a sign-in or sign-up page and presses (owner, 8 Oct 2026): the one site password into its password boxes, then the
-- `extension/account-step.js` — What the extension does on a sign-in or sign-up page in a tab the app opened (owner, 8 Oct 2026; the extension first, docs/flows/applying.md):
+- `extension/account-step.js` — What the extension does on a sign-in or sign-up page in a tab the app opened (owner, 8 Oct 2026; the extension first, docs/flows/applying.md). The AI decides the
 - `extension/account.js` — Account pages (sign-in, sign-up) kept apart from the application form (docs/flows/applying.md, owner 8 Oct 2026): each tab's page
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).
@@ -549,6 +552,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/fixture-from-fills.py` — Real forms for the apply suite, from the extension's fill log: the forms it failed on for a real person, rebuilt as fixtures.
 - `tools/flows-gate.mjs` — Pre-push check (tools/pre-push-check.sh): a push that changes the flows' decision core (desktop/e2e/flows.mjs FLOW_CORE) must have passed
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
+- `tools/hardcoded-page-words.mjs` — A ratchet against hard-coded page knowledge (owner, 8 Oct 2026: "universal: any website, any form, any language; AI decides, not regex or lists"). It counts, per file in
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
 - `tools/meanings_parity.py` — Before an "AI instead of keyword lists" change ships: the owner's real search and data, AI off, on a baseline commit and on this tree;
 - `tools/meanings_seed.py` — Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read

@@ -35,6 +35,13 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   `src/ai/meanings.py`. Rule placement: high-volume items (titles, links) take the rule's yes for free and send the rest to AI;
   few high-stakes items (form questions, buttons, emails) are decided by AI, the rule answers only without AI and stays a safety floor.
 - **Universal first (owner, 8 Oct 2026): any website, any form, any language.** Avoid hard-coding; rely on AI decisions with fixed answers (global rules: "Universal first"). Account pages are the example: the page-kind AI names the step (sign in / sign up), the register control and the submit control; code keeps only structure and safety floors.
+- **Judgments about a page are the AI's, even when no word is matched** (owner, 8 Oct 2026, after "is the form ready?" was HTML `required`, "did it work?" was "the form is
+  gone", and bot checks were a list of vendors: all three failed on the first real site). Structure may only **find** a control (type, position, attribute) and enforce a
+  **safety floor** (one press per tab, never a consent, no AI = nothing pressed). Whether a page is ready, what became of an action, what a message means, whether something is a
+  bot check, which step of a journey this is, is **decided by AI with a fixed answer the code validates** (examples: `desktop/lib/page-kind.js`, `account-judge.js`). A floor may only
+  AND with the AI's answer, never decide alone. **Before writing code that decides anything about a page, say in one line which of its decisions are AI, which are structure
+  (finding only) and which are floors; if one is a heuristic (HTML flags, "the element disappeared", a list of vendors, words, regex), make it an AI field instead.** The test: would
+  it still work on a site, language and widget I have never seen? Guard: `tools/hardcoded-page-words.mjs` (ratchet: no new vendor list or natural-language regex in extension/ or desktop/lib/).
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
 - **Validate a form fix on the real extension** (owner, 8 Oct 2026: "for better validating"): unit and shape tests do not load the extension, so after
   a fix to form filling (`extension/page/*`, `fill-flow.js`, flows) also run `cd desktop/e2e && npm run real-extension` (headless Chrome, the real extension and
@@ -220,6 +227,11 @@ sites, run it live before and after a change, not only the matrix:
   test workspace for writes, nothing irreversible on a real site without the owner saying so.
 - **Report what it shows**: what worked, what did not, what the log cannot tell (then add the log line). The owner's own app window and
   Chrome tabs I cannot drive; the harness's I can.
+
+## Account automation: full or assist (owner, 8 Oct 2026)
+`settings.accountAutomation` (`desktop/lib/site-accounts.js`, `DEFAULT_AUTOMATION`): **full** = on an account page the extension also accepts the account's consent (a checkbox, or the privacy link and its dialog's accept button, as
+the account AI names them: `needs_kind: consent`, at most 3 presses per tab) and presses the account button; **assist** = it fills and leaves the consent and the button to the person. The owner chose `full` for now (a Settings switch comes
+later; flip the default before it ships to others). It covers the ACCOUNT's steps only: an application's Submit, a choice, a code and a bot check are never automated.
 
 ## Applying flows: change one, run them all (owner, 8 Oct 2026)
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:

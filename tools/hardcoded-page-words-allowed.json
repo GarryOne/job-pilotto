@@ -1,0 +1,21 @@
+{
+ "extension/alias-schema.js": 2,
+ "extension/review.js": 4,
+ "extension/tab-pages.js": 3,
+ "extension/visit-page.js": 5,
+ "extension/visit.js": 1,
+ "extension/page/fill.js": 5,
+ "extension/page/skeleton.js": 1,
+ "extension/page/snapshot.js": 2,
+ "extension/page/upload.js": 1,
+ "desktop/lib/apply.js": 1,
+ "desktop/lib/claude-session.js": 3,
+ "desktop/lib/crash-line.js": 1,
+ "desktop/lib/cv-check.js": 1,
+ "desktop/lib/form-tab.js": 1,
+ "desktop/lib/orphans.js": 1,
+ "desktop/lib/questions.js": 1,
+ "desktop/lib/request-log.js": 1,
+ "desktop/lib/strategy.js": 2,
+ "desktop/lib/telemetry-handlers.js": 1
+}

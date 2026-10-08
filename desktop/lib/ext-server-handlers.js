@@ -3,6 +3,7 @@
 // passes in the services they share. A FLOW FILE (docs/flows/applying.md). Guards: the server, review, credentials and visits tests in desktop/test and
 // the matrix (npm run flows).
 import * as aliasLibrary from './aliases.js';
+import * as applyLib from './apply.js';
 import * as contactDetails from './contact.js';
 import * as controlEvents from './control-events.js';
 import * as credentials from './credentials.js';
@@ -18,6 +19,8 @@ import * as terminals from './terminals.js';
 import * as visits from './visits.js';
 import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './question-labels.js';
 import {log as appLog} from './log.js';
+import {confirmAccount} from './account-confirm.js';
+import {automationOf, modeOf, record} from './site-accounts.js';
 
 export function registerExtServerHandlers(ctx) {
   const {DEMO, app, createWindow, cvOf, flow, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry, toWindow, getWindow, setRecipeReporter} = ctx;
@@ -32,7 +35,7 @@ export function registerExtServerHandlers(ctx) {
     let answer = credentials.forExtension(host, {applying});
     let made = false;
     const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
-    const mode = email && storage.settings().siteAccounts?.[String(host).toLowerCase()] === email.toLowerCase() ? 'sign-in' : 'sign-up';
+    const mode = modeOf(storage.settings().siteAccounts, host, email, credentials.emailOf(host));   // our record, else the email on the Credentials item
     if (peek) return {ok: true, mode, email};   // the extension only asks which step this site is for this email (no password is made or read)
     if (!answer.ok) {
       const {code} = await pipeline.run(storage, ['src.ai.passwords', 'new', host, '--no-copy', ...(email ? ['--email', email] : [])]);
@@ -41,7 +44,20 @@ export function registerExtServerHandlers(ctx) {
     }
     appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok});   // which site, never the password
     // sign-in only where THIS email has an account on this site (recorded when a sign-up was confirmed); anywhere else the extension signs up.
-    return answer.ok && email ? {...answer, email, mode} : answer;   // the email goes into the account's email box, as the password goes into its password boxes
+    return answer.ok && email ? {...answer, email, mode, automation: automationOf(storage.settings())} : answer;   // the email goes into the account's email box, as the password goes into its password boxes
+  });
+  // The extension pressed a sign-up page's button: this email has an account on this host now, unconfirmed until its mail's link is opened (never the address in a log).
+  server.setAccountPressedHandler(async ({host, state, session} = {}) => {
+    const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
+    if (!host || !email) { appLog('extension', 'account made but not recorded', {host: String(host || '').slice(0, 120), email: !!email}); return; }
+    // confirmed: usable at once (signed in, or the site moved on); exists: it was there before, the sign-in is tried; pending: a confirmation mail (or a code) is awaited.
+    const usable = state === 'confirmed' || state === 'exists';
+    storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, usable ? 'confirmed' : 'pending')});
+    if (session) terminals.setAccount(session, state === 'confirmed' ? 'created' : state === 'exists' ? 'exists' : 'confirm');   // the session card says so
+    appLog('extension', usable ? `account ${state === 'exists' ? 'already exists: the sign-in is tried' : 'created: usable at once'}` : 'account created: waiting for the confirmation', {host: String(host).slice(0, 120)});
+    // A mail to confirm: looked for in the background (Gmail, read-only; the AI picks the link or code): its link opens in the extension's Chrome.
+    if (!usable && !DEMO) confirmAccount({host, email, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link),
+      mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed')}); if (session) terminals.setAccount(session, 'created'); }}).catch(error => appLog('extension', 'account confirmation failed', {error: String(error?.message || error).slice(0, 120)}));
   });
   // A page of a session's form reported: its tab is open, so a stopped Claude session is not "Ended" (terminals.formInChrome).
   const formSeen = id => { if (id && terminals.formInChrome(id)) appLog('sessions', 'form open in Chrome: the session is active again', {id}); };

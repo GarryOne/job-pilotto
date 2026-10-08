@@ -18,3 +18,37 @@ test('without the AI\'s word or without an email: the password only, nothing is 
   assert.equal(accountMove({step: '', mode: 'sign-up', hasEmail: true}), 'fill');
   assert.equal(accountMove({step: 'sign_up', mode: 'sign-up', hasEmail: false}), 'fill');
 });
+
+test('an account was just made for this email: nothing is pressed again, whatever the page says', () => {
+  assert.equal(accountMove({step: 'sign_in', mode: 'confirm', hasEmail: true, registerControl: 'Register'}), 'leave');
+  assert.equal(accountMove({step: 'sign_up', mode: 'confirm', hasEmail: true}), 'leave');
+});
+
+import {resultAction} from '../../extension/account-step.js';
+
+test('what the account AI\'s word after the press means: a usable account is confirmed, one awaiting a mail or code is pending, an existing one is tried, a refusal is said on the page, doubt claims nothing', () => {
+  assert.deepEqual(['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure', undefined, ''].map(resultAction), ['confirmed', 'pending', 'pending', 'exists', 'flag', 'none', 'none', 'none']);
+});
+
+import {consentMove} from '../../extension/account-step.js';
+
+test('the account\'s consent is accepted by the extension only on "full", only when the AI calls it a consent and names a control, and at most three times; a choice, a code or a field is always the person\'s', () => {
+  const ask = over => consentMove({automation: 'full', needsKind: 'consent', needs: 'Akzeptieren', presses: 0, ...over});
+  assert.equal(ask({}), 'accept');
+  assert.equal(ask({automation: 'assist'}), 'person');
+  assert.equal(ask({automation: undefined}), 'person');
+  for (const needsKind of ['choice', 'code', 'field', 'other', '']) assert.equal(ask({needsKind}), 'person');
+  assert.equal(ask({needs: ''}), 'person');
+  assert.equal(ask({presses: 3}), 'person');
+});
+
+test('a sign-up page where we already have an account: go to the sign-in the AI named, else leave it', () => {
+  assert.equal(accountMove({step: 'sign_up', mode: 'sign-in', hasEmail: true, signinControl: 'Melde dich hier an.'}), 'switch');
+  assert.equal(accountMove({step: 'sign_up', mode: 'sign-in', hasEmail: true, signinControl: ''}), 'leave');
+});
+
+test('a notice that an account exists: press its sign-in control when the account is ours, else leave it (never the password reset)', () => {
+  assert.equal(accountMove({step: 'choose', mode: 'sign-in', hasEmail: true, signinControl: 'Anmelden'}), 'switch');
+  assert.equal(accountMove({step: 'choose', mode: 'sign-in', hasEmail: true, signinControl: ''}), 'leave');
+  assert.equal(accountMove({step: 'choose', mode: 'sign-up', hasEmail: true, signinControl: 'Anmelden'}), 'leave');
+});

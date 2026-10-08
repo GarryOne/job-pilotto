@@ -19,6 +19,7 @@ import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {mergeTabs, openFormTab, withOpenForm} from './form-tab.js';
 import {sharedCheck} from './shared-check.js';
+import {withAccounts} from './site-accounts.js';
 import {isTwin} from './twin.js';
 
 export function registerApplyHandlers(ctx) {
@@ -131,7 +132,7 @@ export function registerApplyHandlers(ctx) {
     return {ok: true, copied: true, password: action === 'show' ? sitePassword.read() : null};
   });
   // Settings → Credentials: the sites' accounts from the Keychain (attributes only), and one password when you press Show or Copy.
-  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z'}]} : credentials.list()));
+  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z', state: 'confirmed'}]} : (list => ({...list, rows: withAccounts(list.rows, storage.settings().siteAccounts)}))(credentials.list())));
   ipcMain.handle('credentialReveal', (_, host, why) => {
     const password = DEMO ? 'Maple-Rocket-42' : credentials.reveal(host);
     appLog('apply', `credential ${why === 'copy' ? 'copied' : 'shown'}`, {host: String(host || '').slice(0, 120), found: !!password});   // which site, never the password

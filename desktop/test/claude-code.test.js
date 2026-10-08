@@ -33,7 +33,7 @@ function fakeClaude(mode) {
 const fs = require('fs');
 const args = process.argv.slice(2);
 if (args[0] === '--version') { console.log('2.1.7 (Claude Code)'); process.exit(0); }
-if (args[0] === '--help') { console.log('--output-format --model --tools --allowedTools --permission-mode --json-schema --no-session-persistence'); process.exit(0); }
+if (args[0] === '--help') { console.log('--output-format --model --tools --allowedTools --permission-mode --json-schema --no-session-persistence --disable-slash-commands --setting-sources'); process.exit(0); }
 let input = '';
 process.stdin.on('data', d => { input += d; });
 process.stdin.on('end', () => {
@@ -128,6 +128,9 @@ test('the app\'s own calls on Claude Code: a PDF becomes a file only Read may op
     assert.equal(call.args[call.args.indexOf('--permission-mode') + 1], 'dontAsk');
     assert.equal(call.args[call.args.indexOf('--model') + 1], 'sonnet');
     assert.ok(call.args.includes('--json-schema'));
+    // lean by default: no skills, slash commands or user settings loaded into a call that needs none (7,473 -> 651 tokens of context, about 0.4 s)
+    assert.ok(call.args.includes('--disable-slash-commands'));
+    assert.equal(call.args[call.args.indexOf('--setting-sources') + 1], '');
     assert.match(call.input, /\.\/document-1\.pdf/);
     assert.ok(!call.args.includes('--dangerously-skip-permissions'));
     assert.ok(!fs.existsSync(call.cwd));

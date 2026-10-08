@@ -17,11 +17,12 @@ export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
 export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', posting: 'no-form', other: 'no-form'};
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'account_step', 'register_control', 'account_button'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'account_step', 'register_control', 'signin_control', 'account_button'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
-  account_step: {type: 'string', enum: ['sign_in', 'sign_up', ''], description: 'For an account page: sign_in = logs in to an EXISTING account; sign_up = creates a new account; else ""'},
+  account_step: {type: 'string', enum: ['sign_in', 'sign_up', 'choose', ''], description: 'For an account page: sign_in = logs in to an EXISTING account; sign_up = creates a new account; choose = a notice with no form of its own that offers to sign in to the existing account (and maybe to reset its password); else ""'},
   register_control: {type: 'string', description: 'For a sign_in page: the exact text of the listed control that leads to creating a new account, else ""'},
+  signin_control: {type: 'string', description: 'For a sign_up or choose page: the exact text of the listed control that leads to signing in to an existing account, else ""'},
   account_button: {type: 'string', description: 'For an account page: the exact text of the listed button that submits this sign-in or sign-up form, else ""'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
 }};
@@ -39,8 +40,8 @@ apply_button: for a posting, the exact text, copied from the Buttons list, of th
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
 there is none or for any other kind.
 For an account page only: account_step is sign_in when the form logs in to an existing account (it asks for an email or username and a password, nothing more), sign_up when it creates
-a new account (it chooses and confirms a password, or asks for more details), "" for any other kind. register_control: on a sign_in page, the exact text, copied from the Buttons list,
-of the one control that leads to creating a new account, in whatever language, else "". account_button: on an account page, the exact text, copied from the Buttons list, of the one
+a new account (it chooses and confirms a password, or asks for more details), choose when the page only tells that an account already exists and offers to sign in or to reset the password (no form), "" for any other kind. register_control: on a sign_in page, the exact text, copied from the Buttons list,
+of the one control that leads to creating a new account, in whatever language, else "". signin_control: on a sign_up or choose page, the exact text, copied from the Buttons list, of the one control that leads to signing in to the existing account (never the password-reset control), else "". account_button: on an account page, the exact text, copied from the Buttons list, of the one
 button that submits this sign-in or sign-up form (never "forgot password", a social sign-in, or a language switch), else "".`;
 
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -111,7 +112,7 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
   const shape = kindKey(raw);
   if (!shape) return {error: 'no address'};
   const kept = cache?.get(shape);
-  if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || ''};
+  if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
   if (!page.controls.length && !page.buttons.length && !page.headings.length) return {error: 'empty page', shape};
@@ -140,12 +141,13 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
     if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd};
     const applyButton = answer.kind === 'posting' ? applyButtonOf(answer.apply_button, page.buttons) : '';
     const onAccount = answer.kind === 'account';   // the account step is asked of the AI for an account page only; the code never reads its words
-    const accountStep = onAccount && ['sign_in', 'sign_up'].includes(answer.account_step) ? answer.account_step : '';
+    const accountStep = onAccount && ['sign_in', 'sign_up', 'choose'].includes(answer.account_step) ? answer.account_step : '';
     const registerControl = accountStep === 'sign_in' ? listedControl(answer.register_control, page.buttons) : '';
+    const signinControl = ['sign_up', 'choose'].includes(accountStep) ? listedControl(answer.signin_control, page.buttons) : '';
     const accountButton = onAccount ? listedControl(answer.account_button, page.buttons) : '';
     cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
-      ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(accountButton ? {accountButton} : {})});
-    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, accountStep, registerControl, accountButton};
+      ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
+    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, accountStep, registerControl, signinControl, accountButton};
   } catch (error) {
     return {error: clean(error?.message || 'AI failed', 120), shape};
   }

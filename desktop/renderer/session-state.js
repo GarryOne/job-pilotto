@@ -24,6 +24,7 @@ export const sessionReview = (item, formReady = false) => item.status === 'done'
 // formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
 // A session whose application was submitted is finished, whatever its process did: "Submitted", never "Applying".
 export const sessionState = (item, formReady = false) => (item?.outcome === 'submitted' && !isLive(item) ? SESSION_STATE.submitted
+  : item.kind === 'form' && item.accountState === 'confirm' ? ['Confirm your email', 'info']   // the account is made and awaits its confirmation mail
   : item.kind === 'form' && item.stuck ? [item.stuck === 'account' ? 'Needs an account' : 'Can\'t reach form', 'warn']
   // Claude at work on a sign-in or sign-up page: it is creating the account, not filling the application (owner, 8 Oct 2026: "Applying").
   : item.kind !== 'form' && item.status === 'running' && item.stage === 'account' ? ['Creating account', 'info']
@@ -77,7 +78,8 @@ export function sessionStage(item) {
   if (!item || item.outcome === 'submitted') return null;
   const site = item.accountHost ? ` on ${item.accountHost.replace(/^www\./, '')}` : '';
   if (item.stage === 'account' || item.stuck === 'account') return {step: 1, text: `Step 1 of 2 · Creating your account${site}`, tone: 'info'};
-  if (item.stage === 'form') return {step: 2, text: item.accountHost ? 'Step 2 of 2 · Filling the application form' : 'Filling the application form', tone: 'info'};
+  if (item.accountState === 'confirm') return {step: 1, text: `Step 1 of 2 · Confirm your email${site}`, tone: 'info'};
+  if (item.stage === 'form') return {step: 2, text: item.accountHost || item.accountState ? `Step 2 of 2 · ${item.accountState === 'created' ? 'Account created · ' : ''}Filling the application form` : 'Filling the application form', tone: 'info'};
   return null;
 }
 

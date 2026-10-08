@@ -42,3 +42,13 @@ export function forExtension(host, {applying = false, read = reveal} = {}) {
   const password = read(host);
   return password ? {ok: true, password} : {ok: false};
 }
+
+// The email recorded on one site's password item (its comment "email=… job=…", set when an account was made for it), or '' (no item, or none recorded). Attributes only, never the secret.
+export function emailOf(host, platform = process.platform, exec = execFileSync) {
+  if (platform !== 'darwin' || !/^[a-z0-9.-]{1,253}$/i.test(String(host || ''))) return '';
+  try {
+    const out = exec('security', ['find-generic-password', '-a', 'job-pilotto', '-s', `job-pilotto.${host}.password`], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']});
+    const note = (String(out).match(/"icmt"<blob>="([^"]*)"/) || [])[1] || '';
+    return (note.match(/(?:^|\s)email=(\S+)/) || [])[1] || '';
+  } catch { return ''; }
+}

@@ -45,10 +45,10 @@ test('a sign-in form with nothing left for the person: its one button is pressed
   assert.equal(pressAccountButton(), 'already-pressed');
 });
 
-test('not pressed: a required box or consent still empty, a bot check, two buttons, or nothing filled by us', () => {
+test('not pressed: a required box or consent still empty, a frame in the form (a bot check, whoever makes it), two buttons, or nothing filled by us', () => {
   const form = inner => `<form><input type="password" value="x">${inner}</form>`;
   assert.equal(press(form('<input type="checkbox" required><button>Go</button>')).reason, 'needs-you');
-  assert.equal(press(form('<div class="g-recaptcha"></div><button>Go</button>')).reason, 'bot-check');
+  assert.equal(press(form('<iframe src="https://anything.example/widget"></iframe><button>Go</button>')).reason, 'bot-check');
   assert.equal(press(form('<button>Go</button><button>Other</button>')).reason, 'several-buttons');
   assert.equal(press(form('')).reason, 'no-button');
   const none = new JSDOM('<form><input type="password"><button>Go</button></form>').window;

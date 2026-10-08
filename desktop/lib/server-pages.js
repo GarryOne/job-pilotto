@@ -3,6 +3,7 @@
 import * as terminals from './terminals.js';
 import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
+import {judgeAccount} from './account-judge.js';
 import {forgetPageKind, pageKind, pageKindCache} from './page-kind.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
@@ -67,7 +68,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   if (answer.by === 'ai' && answer.applyButton) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);
   return answer.error ? {ok: true, kind: '', error: answer.error}
     : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '',
-      accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', accountButton: answer.accountButton || ''};
+      accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', signinControl: answer.signinControl || '', accountButton: answer.accountButton || ''};
 }
 
 
@@ -81,4 +82,12 @@ export async function pickChoice(storage, body, {client} = {}) {
   const found = await pickOption(storage, {label, value, options}, {client: client === undefined ? aiClient(storage) : client});
   appLog('extension', `button by meaning: ${found.choice ? 'picked' : 'none'}`, {meaning: value.slice(0, 40), how: found.how, buttons: options.length});
   return {ok: true, choice: options.includes(found.choice) ? found.choice : ''};
+}
+
+// The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
+export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
+  const phase = body?.phase === 'result' ? 'result' : 'ready';
+  const answer = await judge(client === undefined ? aiClient(storage) : client, body?.sketch || {}, phase);
+  appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {})});   // the page's own label for the control, never a value
+  return answer.error ? {ok: true, answer: '', error: answer.error} : {ok: true, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', botCheck: answer.botCheck};
 }

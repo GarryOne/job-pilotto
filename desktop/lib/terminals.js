@@ -107,7 +107,7 @@ const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: 
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', stage: s.stage || '', inChrome: !!s.inChrome, accountHost: s.accountHost || '', accountState: s.accountState || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
@@ -213,6 +213,15 @@ export function setStage(id, stage, host = '') {
   if (!session || session.outcome || (session.stage === stage && (!host || session.accountHost === host))) return false;
   session.stage = stage;
   if (stage === 'account' && host) session.accountHost = host;
+  listener('update', publicView(session));
+  save();
+  return true;
+}
+// The account made for this application (account-step.js): 'created' (usable), 'confirm' (a confirmation is awaited), 'exists' (it was there already). Shown on the session.
+export function setAccount(id, state) {
+  const session = sessions.get(id);
+  if (!session || session.outcome || session.accountState === state) return false;
+  session.accountState = state;
   listener('update', publicView(session));
   save();
   return true;

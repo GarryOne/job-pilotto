@@ -53,6 +53,8 @@ export function setJoinHandler(fn) { joinHandler = fn; }
 export let focusHandler = () => ({ok: false});
 export function setFocusHandler(fn) { focusHandler = fn; }
 // The panel's "Open in Job Pilotto": the app comes forward on that session's page.
+export let accountPressedHandler = () => {};  // the extension pressed an account page's button (sign-up): the app records it and waits for the confirmation mail
+export function setAccountPressedHandler(fn) { accountPressedHandler = fn; }
 export let stuckHandler = () => {};  // the extension can't get to a form (no form / needs an account): the app's session offers Apply with Claude
 export function setStuckHandler(fn) { stuckHandler = fn; }
 export let takeOverHandler = () => {};  // the panel's "Take over with Claude": the person asks for Claude on this application (set by main.js)

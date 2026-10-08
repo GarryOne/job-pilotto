@@ -47,3 +47,13 @@ test('the extension gets a site password only while applying, for a plain site h
   assert.deepEqual(forExtension('a.com"; rm', {applying: true, read: () => 'x'}), {ok: false});
   assert.deepEqual(forExtension('auth.jobs.ch', {applying: true, read}), {ok: false});                 // none yet: the app makes it
 });
+
+test('emailOf reads the email recorded on one site\'s item (attributes only) and nothing else', async () => {
+  const {emailOf} = await import('../lib/credentials.js');
+  const fake = out => () => out;
+  assert.equal(emailOf('career2.successfactors.eu', 'darwin', fake('    "icmt"<blob>="email=me@example.com job=https://jobs.example/x"\n')), 'me@example.com');
+  assert.equal(emailOf('career2.successfactors.eu', 'darwin', fake('    "icmt"<blob>=<NULL>\n')), '');
+  assert.equal(emailOf('bad host!', 'darwin', fake('x')), '');
+  assert.equal(emailOf('a.example', 'win32', fake('x')), '');
+  assert.equal(emailOf('a.example', 'darwin', () => { throw new Error('no item'); }), '');
+});

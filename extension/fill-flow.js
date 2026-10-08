@@ -6,6 +6,7 @@
 import {PAGE_FILES, api, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
+import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {sessionGet} from './tab-memory.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
@@ -86,7 +87,7 @@ export async function askKind(tab) {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
     const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...sketch})}),
-      new Promise(resolve => setTimeout(() => resolve(null), 15000))]);
+      new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
     return answer?.role ? answer : null;
   } catch { return null; }
 }
@@ -192,6 +193,8 @@ export async function consider(tab, jobUrl) {
     decide('fill', 'the page could not be read', {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
     return;
   }
+  // A sign-up form was open in this tab (we filled it) and the page changed: what became of it is the account AI's word (account-step.js accountOutcome).
+  await accountOutcome(tab);
   // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
   // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
   const ruled = pageRole(counts, tab.url), kind = await askKind(tab);
@@ -209,6 +212,7 @@ export async function consider(tab, jobUrl) {
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
   await noteRole(tab.id, tab.url, role);
+  if (kind?.role === 'account' || ruled === 'account') accountStep(tab, 0).catch(() => {});   // event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
