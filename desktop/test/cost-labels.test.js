@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));   // not .pathname: on Windows that is /D:/… (CI red, 9 Oct 2026)
 const walk = dir => readdirSync(join(root, dir), {withFileTypes: true}).flatMap(entry => entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]);
 
 test('no fixed ¢ price in the window or the app: buttons, hints and tooltips say "a few cents"', () => {
