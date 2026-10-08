@@ -161,6 +161,7 @@ class PasswordsTest(unittest.TestCase):
             self.assertEqual(passwords.main(['new', 'd.com', '--length', '10']), 0)  # shorter than ours: a random one of its own
         shared = store.items[('job-pilotto.sites.password', 'job-pilotto')]
         self.assertRegex(shared, r'^[A-Z][a-x]{2,5}-[A-Z][a-x]{2,5}-[1-9][0-9]$')   # Maple-Rocket-42: no y/z (QWERTZ)
+        self.assertEqual([w for w in __import__('src.ai.passwords', fromlist=['WORDS']).WORDS if set(w) & set('yz')], [], 'no y/z in any word (8 Oct 2026: "Hazel" failed one run in ~60)')
         self.assertEqual(store.items[('job-pilotto.careers.a.com.password', 'job-pilotto')], shared)
         self.assertEqual(store.items[('job-pilotto.auth.b.ch.password', 'job-pilotto')], shared)
         self.assertEqual(store.items[('job-pilotto.c.com.password', 'job-pilotto')], shared.replace('-', ''))

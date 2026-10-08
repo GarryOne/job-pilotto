@@ -33,7 +33,7 @@ SHARED = 'job-pilotto.sites.password'
 # Short, plain words (4-6 letters) that are easy to say and type on any layout: no y or z, which QWERTZ swaps.
 WORDS = ('amber apple arrow basil beach blue bread brick cedar chalk cloud coast comet coral cotton crane '
          'delta eagle ember fable falcon fern field flame flint frost garden giant ginger glass grape green harbor '
-         'hazel island jade kite lemon light lilac lotus maple marble meadow melon mint moon north '
+         'island jade kite lemon light lilac lotus maple marble meadow melon mint moon north '
          'ocean olive orange orbit otter panda paper peach pearl pepper piano pilot pine planet plum polar pond prism '
          'rain raven river robin rocket rose salt sand silver smile snow solar spark spring star stone storm sugar '
          'tiger toast tulip velvet violet water whale wind winter wolf').split()
