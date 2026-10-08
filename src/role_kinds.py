@@ -6,34 +6,33 @@ software companies, and matched 0 of 18,641 postings). Fixed words only: the sam
 """
 import re
 
-from .coverage import _TECH_STEMS, _TECH_WORDS
-
-# Order matters: the first kind whose words a title has is its kind ("Retail data analyst" is software, "Store manager" retail).
+# Order matters for the seed: tech first, then each kind ("Retail data analyst" is software, "Store manager" retail).
 KINDS = ('software', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare', 'creative_media', 'finance_admin', 'education', 'trades', 'other')
-_WORDS = {
-    # Selling to companies, apart from selling in a shop (7 Oct 2026: Datadog's account executives made it 43% "retail", so tech companies
-    # passed a store seller's employer filter). Before sales_retail: "Sales Manager" is B2B, "Sales Associate" a shop.
-    'sales_b2b': r'account (manager|executive|director|lead)|business develop|bizdev|customer success|sales (engineer|manager|director|development|representative|executive|operations|ops|lead|enablement)|\bsdr\b|\bbdr\b|partnership|solutions? (engineer|consultant|architect)|pre-?sales|key account|inside sales|field sales|enterprise sales|revenue (operations|manager)|commercial (manager|director|lead)',
-    'sales_retail': r'sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|client advis|sales advis|magasin(?!ier)|filial|g[eé]rante?|detailhandel|cashier|caissi|kassier|merchandis|commercial|conseill[eè]re? de vente|customer service|service client',
-    'logistics': r'logisti|warehouse|entrep[oô]t|lager|magasinier|picker|pr[eé]parateur|driver|chauffeur|fahrer|courier|livreu|supply chain|shipping|forklift|cariste|dispatch|stock',
-    'hospitality': r'chef|cook|cuisin|koch|waiter|serveu|kellner|barista|bartender|hotel|h[oô]tel|reception|housekeep|restaurant|kitchen|catering|gastro',
-    'healthcare': r'nurse|infirmi|pflege|doctor|m[eé]decin|arzt|pharmac|therap|care assistant|aide.soignant|medical|m[eé]dical|clinic|dental|midwife|hebamme|caregiver',
-    'creative_media': r'photograph|fotograf|video|film|camera|designer|graphi|illustrat|art director|creative|cr[eé]ati|content|copywriter|journalist|editor|r[eé]dacteur|retouch|social media|marketing|brand',
-    'finance_admin': r'account(ant|ing)|comptab|buchhalt|finance|financ|controller|audit|tax|payroll|admin|assistant|secr[eé]tar|office|hr |human resources|ressources humaines|recruit|legal|juriste|lawyer|compliance|procurement|achat',
-    'education': r'teacher|enseignant|lehrer|tutor|professor|lecturer|educat|[eé]ducat|trainer|formateur|school|[eé]cole',
-    'trades': r'technician|technicien|techniker|mechanic|m[eé]canicien|electrician|[eé]lectricien|elektriker|plumber|welder|carpenter|menuisier|construction|b[aâ]timent|operator|op[eé]rateur|maintenance|installer|machinist|assembl',
-}
-_PATTERNS = {kind: re.compile(rf'(?<![a-z])({words})', re.I) for kind, words in _WORDS.items()}
+# Which kind a title or a role word is, in any language: the meanings pack (the old word lists of this file and coverage.py as seed, plus what
+# the site learned) and, for any other wording, the AI (src/ai/decide.py); 'other' when neither knows, as an unmatched title was before.
+TASK = ('A job title, or a role a job seeker looks for, in any language. Answer its kind of work: software = software, IT, data, devops, '
+        'security engineering; sales_b2b = selling to companies, account management, business development; sales_retail = shop and store '
+        'sales; logistics = warehouse, driving, delivery, supply chain; hospitality = kitchen, restaurant, hotel, bar; healthcare = nursing, '
+        'medical, pharmacy, care; creative_media = photo, video, design, content, journalism; finance_admin = accounting, finance, office, HR, '
+        'admin; education = teaching, training, childcare; trades = technicians, mechanics, electricians, construction; other = anything else.')
+
+
+def kinds_of(texts, topic='role-kind'):
+    """{text: kind} for these titles or role words, asked together; 'other' for what nothing knows. job-title-kind: titles from public
+    postings (the site may learn them); role-kind: the user's own words (they never leave the machine)."""
+    from .ai import decide
+    texts = list(dict.fromkeys(str(t or '').strip() for t in texts if str(t or '').strip()))
+    found = decide.decide(topic, {t.lower(): t for t in texts}, KINDS, TASK) or {}
+    return {t: found.get(t.lower(), 'other') for t in texts}
+
+
 MIN_TITLES = 5        # fewer titles say little about an employer: no mix published
 MIN_SHARE = 0.05      # smaller shares are noise and left out of the mix
 
 
-def kind_of(text):
+def kind_of(text, topic='role-kind'):
     """The kind of one job title or search phrase, or 'other'."""
-    text = str(text or '')
-    if _TECH_WORDS.search(text) or any(stem in text.lower() for stem in _TECH_STEMS):
-        return 'software'
-    return next((kind for kind, pattern in _PATTERNS.items() if pattern.search(text)), 'other')
+    return kinds_of([text], topic).get(str(text or '').strip(), 'other')
 
 
 def mix(titles):
@@ -41,9 +40,9 @@ def mix(titles):
     titles = [t for t in titles if t]
     if len(titles) < MIN_TITLES:
         return None
-    counts = {}
+    counts, kinds = {}, kinds_of(titles, 'job-title-kind')
     for title in titles:
-        kind = kind_of(title)
+        kind = kinds.get(str(title).strip(), 'other')
         counts[kind] = counts.get(kind, 0) + 1
     return {kind: round(n / len(titles), 2) for kind, n in sorted(counts.items(), key=lambda kv: -kv[1]) if n / len(titles) >= MIN_SHARE}
 
@@ -64,7 +63,7 @@ def of_search(search):
     words = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', first(word)) for word in (search or {}).get('role_keywords') or []][:30]
     if not words:
         return None
-    kinds = {kind_of(word) for word in words} - {'other'}
+    kinds = set(kinds_of(words).values()) - {'other'}
     return kinds or None   # only words we cannot place: as unknown
 
 

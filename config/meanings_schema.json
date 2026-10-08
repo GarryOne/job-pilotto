@@ -226,5 +226,44 @@
    "other"
   ],
   "share": false
+ },
+ "role-kind": {
+  "answers": [
+   "software",
+   "sales_b2b",
+   "sales_retail",
+   "logistics",
+   "hospitality",
+   "healthcare",
+   "creative_media",
+   "finance_admin",
+   "education",
+   "trades",
+   "other"
+  ],
+  "share": false
+ },
+ "job-title-kind": {
+  "answers": [
+   "software",
+   "sales_b2b",
+   "sales_retail",
+   "logistics",
+   "hospitality",
+   "healthcare",
+   "creative_media",
+   "finance_admin",
+   "education",
+   "trades",
+   "other"
+  ],
+  "share": true
+ },
+ "title-level": {
+  "answers": [
+   "senior",
+   "entry"
+  ],
+  "share": false
  }
 }

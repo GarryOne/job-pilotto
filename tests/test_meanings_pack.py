@@ -72,6 +72,23 @@ class PlacesSameAsBeforeWithoutAI(NoAI):
         self.assertIsNone(boards.swiss_place_word({'locations': {'top_tier': ['London']}}))
 
 
+class RoleKindsSameAsBeforeWithoutAI(NoAI):
+    """Step 3 (8 Oct 2026): the kinds of role that decide which employers a search reads, as the old word lists gave them, AI off."""
+
+    def test_titles_and_role_words(self):
+        from src import coverage, role_kinds
+        for title, kind in (('Site Reliability Engineer', 'software'), ('Softwareentwickler', 'software'), ('Store Manager', 'sales_retail'),
+                            ('Account Executive', 'sales_b2b'), ('Magasinier', 'logistics'), ('Kellner', 'hospitality'),
+                            ('Infirmière', 'healthcare'), ('Photographer', 'creative_media'), ('Buchhalter', 'finance_admin'),
+                            ('Lehrer', 'education'), ('Elektriker', 'trades'), ('Florist', 'other')):
+            self.assertEqual(role_kinds.kind_of(title, 'job-title-kind'), kind, title)
+        self.assertEqual(role_kinds.of_search({'role_keywords': ['\\bsre\\b', 'devops']}), {'software'})
+        self.assertEqual(role_kinds.of_search({'role_keywords': ['vendeu(r|se)', 'magasinier']}), {'sales_retail', 'logistics'})
+        self.assertTrue(coverage.looks_technical(['site reliability']))
+        self.assertFalse(coverage.looks_technical(['photographe']))
+        self.assertEqual(role_kinds.mix(['DevOps Engineer'] * 4 + ['Store Manager']), {'software': 0.8, 'sales_retail': 0.2})
+
+
 class SiteRows(NoAI):
     def write(self, body):
         (Path(self.tmp.name) / 'meanings.json').write_text(json.dumps(body))
@@ -103,7 +120,7 @@ class Learning(NoAI):
 
     def test_only_public_page_topics_may_ever_be_shared(self):
         """A topic may share only when its wording comes from a public page; a user's own words leave the machine as fixed ids only."""
-        public = {'job-region'}   # add a topic here only if its wording is a posting's, a form's or a button's, never the user's
+        public = {'job-region', 'job-title-kind'}   # add a topic here only if its wording is a posting's, a form's or a button's, never the user's
         self.assertEqual({t for t, spec in meanings_pack.schema().items() if spec.get('share')}, public)
 
 

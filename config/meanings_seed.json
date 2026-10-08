@@ -912,6 +912,336 @@
    "pattern": "remote|anywhere|worldwide|home.?office|t[ée]l[ée]travail",
    "answer": "remote",
    "source": "contribute.py REMOTE"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bsenior\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bsr\\b\\.?",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\blead\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bprincipal\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bhead of\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bdirector\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bvp\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "vice president",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bchief\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bstaff (?:engineer|software|developer|data|scientist|sre|designer|architect|analyst)",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bleiter(?:in)?\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bleitung\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bteamleiter",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bresponsable\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bdirecteur\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bdirettore\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bcapo\\b",
+   "answer": "senior",
+   "source": "levels.py SENIOR"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bjunior\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bjr\\b\\.?",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bintern(?:ship)?\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\btrainee\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bgraduate\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bentry[- ]level\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bapprentice(?:ship)?\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bpraktik\\w*",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bwerkstudent\\w*",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\blehrling\\w*",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\blernende\\w*",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bazubi\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bausbildung\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\bstagiaire\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\balternance\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "title-level",
+   "pattern": "\\btirocinio\\b",
+   "answer": "entry",
+   "source": "levels.py ENTRY"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(software|developer|devops|sre|site reliability|cloud|backend|back-end|frontend|front-end|full.?stack|data|analytics|machine learning|ml|infrastructure|platform|sysadmin|sysop|systems?|syst[eè]mes?|programmer|sdet|qa|security|network|database|kubernetes|it|entwickler|informatiker|d[eé]veloppeur|sviluppatore|desarrollador|ontwikkelaar|programista|sistemista)(?![a-z])",
+   "answer": "software",
+   "source": "coverage.py _TECH_WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(software|entwickler|informatik|devops|kubernetes|programmier|sysadmin|systemadmin)",
+   "answer": "software",
+   "source": "coverage.py _TECH_STEMS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(account (manager|executive|director|lead)|business develop|bizdev|customer success|sales (engineer|manager|director|development|representative|executive|operations|ops|lead|enablement)|\\bsdr\\b|\\bbdr\\b|partnership|solutions? (engineer|consultant|architect)|pre-?sales|key account|inside sales|field sales|enterprise sales|revenue (operations|manager)|commercial (manager|director|lead))",
+   "answer": "sales_b2b",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|client advis|sales advis|magasin(?!ier)|filial|g[eé]rante?|detailhandel|cashier|caissi|kassier|merchandis|commercial|conseill[eè]re? de vente|customer service|service client)",
+   "answer": "sales_retail",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(logisti|warehouse|entrep[oô]t|lager|magasinier|picker|pr[eé]parateur|driver|chauffeur|fahrer|courier|livreu|supply chain|shipping|forklift|cariste|dispatch|stock)",
+   "answer": "logistics",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(chef|cook|cuisin|koch|waiter|serveu|kellner|barista|bartender|hotel|h[oô]tel|reception|housekeep|restaurant|kitchen|catering|gastro)",
+   "answer": "hospitality",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(nurse|infirmi|pflege|doctor|m[eé]decin|arzt|pharmac|therap|care assistant|aide.soignant|medical|m[eé]dical|clinic|dental|midwife|hebamme|caregiver)",
+   "answer": "healthcare",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(photograph|fotograf|video|film|camera|designer|graphi|illustrat|art director|creative|cr[eé]ati|content|copywriter|journalist|editor|r[eé]dacteur|retouch|social media|marketing|brand)",
+   "answer": "creative_media",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(account(ant|ing)|comptab|buchhalt|finance|financ|controller|audit|tax|payroll|admin|assistant|secr[eé]tar|office|hr |human resources|ressources humaines|recruit|legal|juriste|lawyer|compliance|procurement|achat)",
+   "answer": "finance_admin",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(teacher|enseignant|lehrer|tutor|professor|lecturer|educat|[eé]ducat|trainer|formateur|school|[eé]cole)",
+   "answer": "education",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "job-title-kind",
+   "pattern": "(?<![a-z])(technician|technicien|techniker|mechanic|m[eé]canicien|electrician|[eé]lectricien|elektriker|plumber|welder|carpenter|menuisier|construction|b[aâ]timent|operator|op[eé]rateur|maintenance|installer|machinist|assembl)",
+   "answer": "trades",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(software|developer|devops|sre|site reliability|cloud|backend|back-end|frontend|front-end|full.?stack|data|analytics|machine learning|ml|infrastructure|platform|sysadmin|sysop|systems?|syst[eè]mes?|programmer|sdet|qa|security|network|database|kubernetes|it|entwickler|informatiker|d[eé]veloppeur|sviluppatore|desarrollador|ontwikkelaar|programista|sistemista)(?![a-z])",
+   "answer": "software",
+   "source": "coverage.py _TECH_WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(software|entwickler|informatik|devops|kubernetes|programmier|sysadmin|systemadmin)",
+   "answer": "software",
+   "source": "coverage.py _TECH_STEMS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(account (manager|executive|director|lead)|business develop|bizdev|customer success|sales (engineer|manager|director|development|representative|executive|operations|ops|lead|enablement)|\\bsdr\\b|\\bbdr\\b|partnership|solutions? (engineer|consultant|architect)|pre-?sales|key account|inside sales|field sales|enterprise sales|revenue (operations|manager)|commercial (manager|director|lead))",
+   "answer": "sales_b2b",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(sales|vente|vendeu[rs]e?|verk[aä]uf|retail|store|shop|boutique|client advis|sales advis|magasin(?!ier)|filial|g[eé]rante?|detailhandel|cashier|caissi|kassier|merchandis|commercial|conseill[eè]re? de vente|customer service|service client)",
+   "answer": "sales_retail",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(logisti|warehouse|entrep[oô]t|lager|magasinier|picker|pr[eé]parateur|driver|chauffeur|fahrer|courier|livreu|supply chain|shipping|forklift|cariste|dispatch|stock)",
+   "answer": "logistics",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(chef|cook|cuisin|koch|waiter|serveu|kellner|barista|bartender|hotel|h[oô]tel|reception|housekeep|restaurant|kitchen|catering|gastro)",
+   "answer": "hospitality",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(nurse|infirmi|pflege|doctor|m[eé]decin|arzt|pharmac|therap|care assistant|aide.soignant|medical|m[eé]dical|clinic|dental|midwife|hebamme|caregiver)",
+   "answer": "healthcare",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(photograph|fotograf|video|film|camera|designer|graphi|illustrat|art director|creative|cr[eé]ati|content|copywriter|journalist|editor|r[eé]dacteur|retouch|social media|marketing|brand)",
+   "answer": "creative_media",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(account(ant|ing)|comptab|buchhalt|finance|financ|controller|audit|tax|payroll|admin|assistant|secr[eé]tar|office|hr |human resources|ressources humaines|recruit|legal|juriste|lawyer|compliance|procurement|achat)",
+   "answer": "finance_admin",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(teacher|enseignant|lehrer|tutor|professor|lecturer|educat|[eé]ducat|trainer|formateur|school|[eé]cole)",
+   "answer": "education",
+   "source": "role_kinds.py _WORDS"
+  },
+  {
+   "topic": "role-kind",
+   "pattern": "(?<![a-z])(technician|technicien|techniker|mechanic|m[eé]canicien|electrician|[eé]lectricien|elektriker|plumber|welder|carpenter|menuisier|construction|b[aâ]timent|operator|op[eé]rateur|maintenance|installer|machinist|assembl)",
+   "answer": "trades",
+   "source": "role_kinds.py _WORDS"
   }
  ]
 }

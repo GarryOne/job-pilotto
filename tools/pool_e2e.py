@@ -87,7 +87,9 @@ def main():
     answers = {'pool-country': {'genève': 'ch', 'lausanne': 'ch', 'suisse': 'ch'}, 'pool-metro': {'genève': 'ch-geneva', 'lausanne': 'ch-lausanne'},
                'pool-family': {'photographe': 'photography', 'photographer': 'photography', 'retoucheur': 'photography'},
                'pool-region': {'genève': 'europe', 'lausanne': 'europe', 'suisse': 'europe'}, 'job-region': {'geneva, switzerland': 'europe'}}
-    decide.decide = lambda topic, items, *a, **k: {key: answers.get(topic, {}).get(key, 'none') for key in items}
+    from src.ai import meanings_pack   # as decide() does: the stand-in after the meanings pack, unknown left out
+    decide.decide = lambda topic, items, *a, **k: {key: answer for key, text in items.items()
+                                                   if (answer := answers.get(topic, {}).get(key) or meanings_pack.first(topic, text))}
 
     checks = []
 

@@ -86,6 +86,11 @@ def tables():
     return _cache['tables']
 
 
+def patterns(topic, answer):
+    """The pattern texts of one answer (seed + site rows, without those switched off), for code that skips by pattern before any AI."""
+    return [rx.pattern for rx, found in tables()[0].get(topic, []) if found == answer]
+
+
 def every(topic, text):
     """Every answer the pack gives this text ('many' topics): exact wordings first, then all matching patterns; [] when it knows nothing."""
     patterns, exact = tables()

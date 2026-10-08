@@ -6,19 +6,20 @@ languages. An unknown level is ignored, never an error: the search then behaves 
 """
 import re
 
-# Titles that plainly name a senior or managing role (English, German, French, Italian).
-SENIOR = (r'\bsenior\b', r'\bsr\b\.?', r'\blead\b', r'\bprincipal\b', r'\bhead of\b', r'\bdirector\b', r'\bvp\b', r'vice president', r'\bchief\b',
-          r'\bstaff (?:engineer|software|developer|data|scientist|sre|designer|architect|analyst)', r'\bleiter(?:in)?\b', r'\bleitung\b', r'\bteamleiter',
-          r'\bresponsable\b', r'\bdirecteur\b', r'\bdirettore\b', r'\bcapo\b')
-# Titles that plainly name an entry-level or training role.
-ENTRY = (r'\bjunior\b', r'\bjr\b\.?', r'\bintern(?:ship)?\b', r'\btrainee\b', r'\bgraduate\b', r'\bentry[- ]level\b', r'\bapprentice(?:ship)?\b',
-         r'\bpraktik\w*', r'\bwerkstudent\w*', r'\blehrling\w*', r'\blernende\w*', r'\bazubi\b', r'\bausbildung\b', r'\bstagiaire\b', r'\balternance\b', r'\btirocinio\b')
+# Titles that plainly name a senior or entry-level role: rows of the meanings pack (topic title-level; the seed is the list this file had,
+# English, German, French, Italian), so the site can add other languages. A free first row: AI scoring judges every title it lets through.
+def _named(answer):
+    from .ai import meanings_pack
+    return tuple(meanings_pack.patterns('title-level', answer))
+
+
+SENIOR, ENTRY = 'senior', 'entry'
 
 LEVELS = {
-    'junior': {'words': ('junior', 'entry', 'entry level', 'graduate', 'beginner', 'einsteiger', 'debutant'), 'skips': SENIOR},
-    'mid': {'words': ('mid', 'mid level', 'medior', 'intermediate', 'middle'), 'skips': SENIOR + ENTRY},
-    'senior': {'words': ('senior', 'experienced', 'erfahren'), 'skips': ENTRY},
-    'lead': {'words': ('lead', 'staff', 'principal', 'staff principal', 'staff/principal', 'manager', 'head'), 'skips': ENTRY},
+    'junior': {'words': ('junior', 'entry', 'entry level', 'graduate', 'beginner', 'einsteiger', 'debutant'), 'skips': (SENIOR,)},
+    'mid': {'words': ('mid', 'mid level', 'medior', 'intermediate', 'middle'), 'skips': (SENIOR, ENTRY)},
+    'senior': {'words': ('senior', 'experienced', 'erfahren'), 'skips': (ENTRY,)},
+    'lead': {'words': ('lead', 'staff', 'principal', 'staff principal', 'staff/principal', 'manager', 'head'), 'skips': (ENTRY,)},
 }
 _BY_WORD = {word: name for name, level in LEVELS.items() for word in (name, *level['words'])}
 
@@ -33,4 +34,4 @@ def level_of(setting):
 def title_skips(setting):
     """The title fragments to add to the skipped titles for this level setting, or []."""
     name = level_of(setting)
-    return list(LEVELS[name]['skips']) if name else []
+    return [pattern for skip in LEVELS[name]['skips'] for pattern in _named(skip)] if name else []

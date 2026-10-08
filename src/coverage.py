@@ -151,20 +151,12 @@ def load(path=FILE):
         return None
 
 
-# Words that mark a role keyword as IT/engineering work. VOCAB only knows engineering roles, so it is offered to searches that look technical.
-_TECH_WORDS = re.compile(
-    r'(?<![a-z])(software|developer|devops|sre|site reliability|cloud|backend|back-end|frontend|front-end|full.?stack|data|analytics|machine learning|'
-    r'ml|infrastructure|platform|sysadmin|sysop|systems?|syst[eè]mes?|programmer|sdet|qa|security|network|database|kubernetes|it|entwickler|informatiker|'
-    r'd[eé]veloppeur|sviluppatore|desarrollador|ontwikkelaar|programista|sistemista)(?![a-z])', re.I)
-# Compound words (German "Softwareentwickler", "Systemadministrator") have no word boundary to match on: these stems count anywhere.
-_TECH_STEMS = ('software', 'entwickler', 'informatik', 'devops', 'kubernetes', 'programmier', 'sysadmin', 'systemadmin')
-
-
 def looks_technical(keywords):
     """True when any role keyword names IT/engineering work (regex fragments like "\\bsre\\b" are read as their words).
     An empty list is unknown, not non-technical."""
     words = [re.sub(r'\\[bwsd]|[\\^$()|?*+\[\]{}.]', ' ', str(word)) for word in keywords]
-    return not words or any(_TECH_WORDS.search(word) or any(stem in word.lower() for stem in _TECH_STEMS) for word in words)
+    from .role_kinds import kinds_of   # the meanings pack (these words were its seed) and the AI, in any language
+    return not words or 'software' in kinds_of(words).values()
 
 
 def technical_search(search):

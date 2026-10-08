@@ -33,6 +33,11 @@ def screens():
 
 
 def answers(table):
-    """A model that answers decide() from a table {topic: {item key: answer}}, 'none' for anything else: `with answers({...}):`."""
+    """A model that answers decide() from a table {topic: {item key: answer}}, then the meanings pack, as decide() does: `with answers({...}):`."""
     from src.ai import decide
-    return mock.patch.object(decide, 'decide', lambda topic, items, *a, **k: {key: table.get(topic, {}).get(key, 'none') for key in items})
+    from src.ai import meanings_pack
+
+    def model(topic, items, *a, **k):   # like decide(): the table stands in for the model, after the meanings pack; unknown: left out
+        found = {key: table.get(topic, {}).get(key) or meanings_pack.first(topic, text) for key, text in items.items()}
+        return {key: answer for key, answer in found.items() if answer}
+    return mock.patch.object(decide, 'decide', model)
