@@ -2,6 +2,7 @@
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {recordIpc} from './lib/e2e-ipc.js';
 import {isTwin, twinRefusal} from './lib/twin.js';
+import * as devMarker from './lib/dev-marker.js';
 import {hideWindows} from './lib/e2e-hidden.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
@@ -115,7 +116,7 @@ github.setEngineRef(app.isPackaged ? `desktop-v${app.getVersion()}` : 'main');
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build
 // (scripts/stage.mjs --app); without it this is a development copy (npm start).
 const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();
-const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null, dev: !app.isPackaged && !DEMO,
+const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null, dev: !app.isPackaged && !DEMO, mark: devMarker.mark(),
   label: DEMO ? app.getVersion() : buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
 let storage;
 let window;
@@ -360,7 +361,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   buildMenu();
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
-  if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge('DEV'); }  // from source: never mistaken for the installed app
+  if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge(devMarker.mark()); }  // from source: never mistaken for the installed app
   logTo(path.join(app.getPath('userData'), 'logs'), electronLog);
   if (resetDone) appLog('data', resetDone.failed ? `reset or import not applied: ${resetDone.failed}` : `applied at start: ${resetDone.imported ? 'import' : resetDone.deleted ? 'reset (deleted)' : 'reset'}`, {backup: resetDone.backup || '', waitedMs: resetDone.waited || 0});   // waitedMs: Windows still held the folder after the old app quit
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line

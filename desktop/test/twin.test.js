@@ -58,3 +58,12 @@ test('every path out of a twin is guarded: Telegram, schedules, AppleScript on C
   assert.deepEqual(callers, ['claude-session.js', 'form-tab.js']);
   assert.equal((read('lib/claude-session.js').match(/if \(isTwin\(\)\) throw/g) || []).length, 2);
 });
+
+test('in a twin, "no page answered" is "no tab": the card then reopens the form in the twin\'s browser', async () => {
+  const {openFormTab} = await import('../lib/form-tab.js');
+  const saved = {...process.env};
+  try {
+    process.env.JOB_PILOTTO_TWIN = '1';
+    assert.equal(await openFormTab({url: 'https://jobs.coop.ch/x', company: 'Coop'}, async () => { throw new Error('opened a URL'); }), 'none');
+  } finally { process.env = saved; }
+});

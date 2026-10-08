@@ -159,6 +159,7 @@ export const markedUrl = url => (/^https?:/.test(url || '') && !String(url).incl
 // runs would add a second, empty copy of the form next to the filled one.
 // `confident`: act only on a sure match (an armed tab, or the job's ID or address in it); otherwise do nothing and say 'none'.
 export async function openFormTab({url, company}, openExternal, {confident = false, own = '', claimed = [], ownTab = '', claimedTabs = []} = {}) {
+  if (isTwin()) return 'none';   // a twin never drives Chrome: no page answered means no tab, so the card reopens the form in the twin's browser
   if (process.platform !== 'darwin') { await openExternal(url); return 'posting'; }
   try {
     const tabs = JSON.parse(await jxa(LIST));
