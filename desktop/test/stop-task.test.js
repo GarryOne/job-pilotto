@@ -45,6 +45,6 @@ test("the app's own work (Tailor CVs, Find jobs using your browser) can be stopp
 
 // Owner, 7 Oct 2026: "for all the tasks". Every way the Mac starts a task is tracked() with Stop on; none may turn it off again.
 test('no task the Mac runs turns Stop off', () => {
-  const source = fs.readFileSync(new URL('../lib/pipeline.js', import.meta.url), 'utf8');
+  const source = ['pipeline', 'pipeline-queue', 'pipeline-tasks', 'pipeline-run'].map(name => fs.readFileSync(new URL(`../lib/${name}.js`, import.meta.url), 'utf8')).join('\n');
   assert.doesNotMatch(source, /stoppable:\s*false/);
 });

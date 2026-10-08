@@ -12,7 +12,7 @@ test('the lock wait and the heartbeat are status lines; ordinary progress is not
 });
 
 test('the window and the app both keep only the newest of a row of status lines, and a heartbeat is never the step', () => {
-  const pipeline = fs.readFileSync(new URL('../lib/pipeline.js', import.meta.url), 'utf8');
+  const pipeline = fs.readFileSync(new URL('../lib/pipeline-queue.js', import.meta.url), 'utf8');
   assert.match(pipeline, /STATUS_LINE\.test\(line\) && STATUS_LINE\.test\(log\.at\(-1\) \|\| ''\)\) log\.pop\(\)/);
   assert.match(pipeline, /!line\.startsWith\('⏳ Still running'\) && isProgressStep\(line\)/);
   const window = fs.readFileSync(new URL('../renderer/pages/jobs.js', import.meta.url), 'utf8');

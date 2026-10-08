@@ -86,6 +86,13 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/page-kind.js` — What kind of page is this, in an application's journey? The AI decides, from a sketch of the page in whatever language it is in
 - `desktop/lib/page-render.js` — Careers pages that only exist after their scripts run, rendered for the engine (src/sources/render.py) in the app's own Chromium, so the Mac
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
+- `desktop/lib/pipeline-args.js` — Owns: the command lines the app gives the engine: dailyArgs (the workflow's own command), mailArgs, visitsArgs, syncMatchesArgs,
+- `desktop/lib/pipeline-commands.js` — Owns: the one-shot engine commands the app awaits for an answer: job list, calendar, import/add/lead, posting, Focus, interview prep,
+- `desktop/lib/pipeline-env.js` — Owns: where the engine lives (REPO, python()), the model names (MODELS), the first-run config copy, and the environment a pipeline
+- `desktop/lib/pipeline-lines.js` — Owns: reading the engine's output lines and the task catalog: TASKS and taskName, isDataLine, isProgressStep, STATUS_LINE,
+- `desktop/lib/pipeline-queue.js` — Owns: the run queue and its state: serial() (one crawl at a time), tracked() (one task from queued to its history row), Stop (stopTask),
+- `desktop/lib/pipeline-run.js` — Owns: run(), the one place a Python engine command is spawned: its output lines, the silence watchdog (LIMITS), the result file,
+- `desktop/lib/pipeline-tasks.js` — Owns: the tracked tasks the Mac starts: refresh (Find jobs), syncMatches, checkMail, scout, work, task, scoreVisits, mailResult.
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
 - `desktop/lib/pool-share.js` — "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): opt-out, on by default for every install
 - `desktop/lib/question-labels.js` — The wording of a form question the filler could not answer, cleaned for the product's learning (Notion: "Knowledge as data: build plan").
@@ -352,6 +359,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/coverage.py` — How much of the market does the search catch? The funnel of one crawl, and the near misses.
 - `src/crash_reporting.py` — Crash reports from the engine to Sentry, without Sentry's SDK (see desktop/lib/sentry.js for why): only the exception type, a scrubbed
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
+- `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), notion_posting() (a pure move out of desktop.py).
+- `src/desktop_status.py` — The desktop app's application status writes: set_status() and delete_job() with the Notion Stage first (a pure move out of desktop.py).
+- `src/desktop_strategy.py` — The Strategy page's data (strategy()), the Calendar's jobs and the sites-to-visit list (a pure move out of desktop.py).
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""
 - `src/doctor.py` — Readiness check: is everything set up, and what is the one thing to do next?
