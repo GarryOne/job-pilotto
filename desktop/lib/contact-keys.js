@@ -8,6 +8,7 @@
 // Guarded by test/contact-keys.test.js.
 import {LABELS} from './contact.js';
 import {aliasKey, cleanLabel} from '../shared/alias-schema.js';
+import {inFlight} from './in-flight.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const FILE = 'contact-label-keys.json';
@@ -23,7 +24,13 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['items']
 const readKept = storage => { try { return JSON.parse(storage.readText(FILE) || '{}') || {}; } catch { return {}; } };
 
 // labels → {label: key|''} for every label: kept answers at once, one Claude call for the rest (when there is AI).
-export async function keysFor(storage, labels, {client, log = () => {}, aliases = [], propose = () => {}} = {}) {
+const once = inFlight();
+export function keysFor(storage, labels, options = {}) {   // the same labels asked twice at once (two pages, two windows): one call
+  const key = [...new Set((labels || []).map(norm).filter(Boolean))].sort().join('\n');
+  // The paid call is shared; each caller then reads its own wording from the answers it saved (keys are by the caller's labels).
+  return once(key, () => keysForNow(storage, labels, options)).then(() => keysForNow(storage, labels, {...options, client: null}));
+}
+async function keysForNow(storage, labels, {client, log = () => {}, aliases = [], propose = () => {}} = {}) {
   const kept = readKept(storage), wanted = [...new Set((labels || []).map(norm).filter(Boolean))].slice(0, 40);
   for (const label of wanted) if (!(label in kept) && aliasKey(label, aliases)) kept[label] = aliasKey(label, aliases);   // another install's answer
   const unknown = wanted.filter(label => !(label in kept));

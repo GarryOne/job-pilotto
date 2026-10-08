@@ -5,6 +5,7 @@
 // Guarded by test/contact-from-cv.test.js.
 import fs from 'node:fs';
 import {LABELS} from './contact.js';
+import {inFlight} from './in-flight.js';
 
 export const MODEL = 'claude-haiku-5-5';
 export const FILE = 'cv/contact-proposals.json';
@@ -61,7 +62,11 @@ export async function propose(client, cvPdf, wanted) {
 
 // The proposals for the CV there is now: kept ones, or one call when this CV was never read for them (once per CV file, a failure
 // included, so opening Profile never pays twice; `again` asks anew). → {proposals, cv, fresh, error?}
-export async function forCv(storage, {contact, client, cvHash, again = false, log = () => {}, read = fs.readFileSync} = {}) {
+const once = inFlight();
+export function forCv(storage, options = {}) {   // the same CV asked twice at once (the session page and Profile at start): one call
+  return options.again || !options.cvHash ? forCvNow(storage, options) : once(options.cvHash, () => forCvNow(storage, options));
+}
+async function forCvNow(storage, {contact, client, cvHash, again = false, log = () => {}, read = fs.readFileSync} = {}) {
   let saved = null;
   try { saved = JSON.parse(storage.readText(FILE) || 'null'); } catch {}
   if (!cvHash) return {proposals: [], cv: ''};
