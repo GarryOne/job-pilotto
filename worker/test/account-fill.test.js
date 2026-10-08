@@ -64,3 +64,21 @@ test('the cheap look before anything is asked of the app: how many password boxe
   assert.deepEqual(look('<input type="password" value="x" data-jobpilotto-filled="1">'), {boxes: 1, empty: 0, pending: true});   // ours, its button not pressed yet
   assert.deepEqual(look('<p>An account already exists</p>'), {boxes: 0, empty: 0, pending: false});   // a notice page has none: still looked at
 });
+
+import {pressRegister} from '../../extension/account-fill.js';
+
+function pressNamed(html, named) {
+  const {window} = new JSDOM(`<body>${html}</body>`);
+  window.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+  Object.assign(globalThis, {document: window.document});
+  const clicked = [];
+  window.document.querySelectorAll('a, button').forEach(el => el.addEventListener('click', event => { event.preventDefault(); clicked.push(el.id); }));
+  return {result: pressRegister(named), clicked};
+}
+
+test('a control named a little long or short is pressed when it is the only near match; several near ones are not guessed', () => {
+  assert.deepEqual(pressNamed('<a id="a">Mein Profil</a><a id="b">Hilfe</a>', 'Anmelden / Mein Profil'), {result: 'pressed', clicked: ['a']});
+  assert.deepEqual(pressNamed('<a id="a">Anmelden</a><a id="b">Anmelden mit Google</a>', 'Anmelden'), {result: 'pressed', clicked: ['a']});   // the exact one wins
+  assert.deepEqual(pressNamed('<a id="a">Mein Profil</a><a id="b">Mein Profil neu</a>', 'Profil'), {result: 'several', clicked: []});
+  assert.deepEqual(pressNamed('<a id="a">Hilfe</a>', 'Anmelden'), {result: 'not-found', clicked: []});
+});

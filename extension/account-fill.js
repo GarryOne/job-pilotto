@@ -70,8 +70,11 @@ export function flagAccount(needs) { if (needs === null) document.documentElemen
 export function pressRegister(named) {
   const wanted = String(named || '').replace(/\s+/g, ' ').trim().toLowerCase();
   if (!wanted) return 'not-named';
-  const text = el => String(el.innerText || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const found = [...document.querySelectorAll('a, button, input[type=submit], input[type=button], [role=button], label')].filter(el => el.getClientRects().length && !el.disabled && text(el) === wanted);   // a label toggles its checkbox
+  const text = el => String((el.innerText ?? el.textContent) || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const all = [...document.querySelectorAll('a, button, input[type=submit], input[type=button], [role=button], label')].filter(el => el.getClientRects().length && !el.disabled && text(el));   // a label toggles its checkbox
+  // The named text is the exact text of one control; else the one control whose text holds it or is held by it (the AI may name a control a little short or long), never a guess between several.
+  const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
+  const found = exact.length ? exact : near;
   if (found.length !== 1) return found.length ? 'several' : 'not-found';
   found[0].click();
   return 'pressed';
