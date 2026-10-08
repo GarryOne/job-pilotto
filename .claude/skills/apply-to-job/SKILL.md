@@ -198,7 +198,10 @@ in that file next time — keep evolving it.
    that tab to `<job url>#jobpilotto-fill`. The app opens no tab (claude-in-chrome sees only its own tab group); never open another.
    Greenhouse: the form is on the job page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the
    description. A job board's page (jobs.ch, TechTree) or a careers page with only an Apply button: see
-   "Reaching the form". If Apply opens a new tab, that tab is the same session: use it.
+   "Reaching the form". **One tab per application** (owner, 8 Oct 2026; docs/flows/applying.md): before you click a link
+   or button that would open a new tab (`target="_blank"`), prefer navigating this tab to its address. When a click opens a new tab
+   anyway, continue in the new one (the extension follows it as the same session) and close the tab you came from in your group
+   (`tabs_close_mcp`), unless the new one is a sign-in pop-up window, which closes by itself.
 3. **Extension first (Apply with Claude)**: your tab carries `#jobpilotto-fill`, and the
    extension follows later pages in that tab and a tab that tab opens. When the page has
    `<html data-jobpilotto-hook>`, read `data-jobpilotto-fill` and act on its `state`: `running` wait;
