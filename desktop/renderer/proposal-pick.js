@@ -28,3 +28,24 @@ function proposalOf({proposals = [], label, key = '', contact = {}, cv = []} = {
   if (mine) return {value: mine.value, key: wants, from: mine.sure ? 'From your CV' : 'From your CV: check it'};
   return {value: '', key: wants, from: `Your ${NAMES[wants] || 'detail'}: type it once, every form gets it`};
 }
+
+// Which detail each label asks for, asked of Claude once per label (lib/contact-keys.js), the labels of one redraw in one call.
+// A label stays "asked" until its answer comes: a redraw while Claude reads it must not pay for it again (8 Oct 2026, the live-test
+// twin: "Localité" was sent twice, 0.1 s apart). ask(labels) -> Promise<{label: key}>; onAnswer() redraws.
+export function keyAsker(ask, onAnswer = () => {}, delay = 200) {
+  const keyOf = new Map(), queued = new Set(), waiting = new Set();
+  let timer = null;
+  const request = label => {
+    if (keyOf.has(label) || queued.has(label) || waiting.has(label) || /^\d+ more fields?$/.test(label)) return;
+    queued.add(label);
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const labels = [...queued];
+      queued.clear();
+      for (const one of labels) waiting.add(one);
+      const settle = keys => { for (const one of labels) { keyOf.set(one, keys?.[one] || ''); waiting.delete(one); } onAnswer(); };
+      Promise.resolve().then(() => ask(labels)).then(settle, () => settle({}));
+    }, delay);
+  };
+  return {request, key: label => keyOf.get(label) || '', known: label => keyOf.has(label)};
+}

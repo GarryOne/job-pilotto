@@ -70,3 +70,21 @@ test('Enter in an answer box presses its button, for every row with one (Use, Fi
   button.disabled = true; press('Enter');
   assert.equal(clicks, 1);
 });
+
+test('a label is asked of Claude once, even when the page redraws while Claude is still answering (live twin, 8 Oct 2026: asked twice)', async () => {
+  const {keyAsker} = await import('../renderer/proposal-pick.js');
+  const sent = [];
+  let answer;
+  const asker = keyAsker(labels => { sent.push(labels); return new Promise(resolve => { answer = resolve; }); }, () => {}, 5);
+  asker.request('Localité');
+  await new Promise(resolve => setTimeout(resolve, 20));    // the batch went out; Claude is reading it
+  asker.request('Localité'); asker.request('Localité');      // redraws meanwhile
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(sent, [['Localité']]);
+  answer({Localité: 'location'});
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(asker.key('Localité'), 'location');
+  asker.request('Localité');                                  // known now: never asked again
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(sent.length, 1);
+});

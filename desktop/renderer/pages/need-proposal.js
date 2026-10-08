@@ -7,29 +7,17 @@
 import {el} from '../components.js';
 import {renderSessionPage} from './session-log.js';
 import {badge, reviewStates, showInForm, smallButton, submitOnEnter, titleLine} from './session-needs.js';
-import {onChoices, pickProposal} from '../proposal-pick.js';
+import {keyAsker, onChoices, pickProposal} from '../proposal-pick.js';
 
 // What the row needs besides the form's report, asked once per window and kept: your details, the CV's proposals, and which detail a
 // label asks for (Claude reads the labels the extension doesn't know: lib/contact-keys.js).
 let contact = null, fromCv = null;
-const keyOf = new Map(), asking = new Set();
-let askTimer = null;
+const keys = keyAsker(labels => window.pilot.contactKeysFor(labels), () => renderSessionPage());   // proposal-pick.js: once per label, never twice in flight
 function load() {
   if (contact) return;
   contact = {}; fromCv = [];
   window.pilot.contact().then(found => { contact = found || {}; renderSessionPage(); }).catch(() => {});
   window.pilot.contactProposals({}).then(result => { fromCv = result?.proposals || []; if (fromCv.length) renderSessionPage(); }).catch(() => {});
-}
-function askKey(label) {
-  if (keyOf.has(label) || asking.has(label) || /^\d+ more fields?$/.test(label)) return;
-  asking.add(label);
-  clearTimeout(askTimer);
-  askTimer = setTimeout(() => {   // the labels of one redraw, in one call
-    const labels = [...asking];
-    asking.clear();
-    window.pilot.contactKeysFor(labels).then(keys => { for (const label of labels) keyOf.set(label, keys?.[label] || ''); renderSessionPage(); })
-      .catch(() => { for (const label of labels) keyOf.set(label, ''); });
-  }, 200);
 }
 
 // → {value, key, from} or null (proposal-pick.js decides).
@@ -37,8 +25,8 @@ export function proposalFor(item, label) {
   load();
   const proposals = reviewStates.get(item.id)?.proposals || [];
   const reported = proposals.find(proposal => proposal.label === label);
-  if (!reported?.value && !reported?.key) askKey(label);
-  const proposal = pickProposal({proposals, label, key: keyOf.get(label) || '', contact, cv: fromCv});
+  if (!reported?.value && !reported?.key) keys.request(label);
+  const proposal = pickProposal({proposals, label, key: keys.key(label), contact, cv: fromCv});
   if (!proposal?.options?.length || !proposal.value) return proposal;
   const ask = `${proposal.value}|${proposal.options.join('|')}`;
   if (!choices.has(ask) && !proposal.options.some(option => option.toLowerCase() === proposal.value.toLowerCase())) {
