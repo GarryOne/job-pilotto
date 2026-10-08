@@ -35,6 +35,12 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
   `src/ai/meanings.py`. Rule placement: high-volume items (titles, links) take the rule's yes for free and send the rest to AI;
   few high-stakes items (form questions, buttons, emails) are decided by AI, the rule answers only without AI and stays a safety floor.
 - **Reading websites is universal** (owner, 8 Oct 2026: "we'll have thousands of them"): no fix for one website, no growing regex or word lists; where a rule would need special cases, let AI choose from what the page offers and keep its answer per site. Detail: AGENTS.md "Reading websites".
+- **Tests and automation never touch the owner's live app, accounts or real data** (8 Oct 2026: a headless browser with the real extension, launched
+  without the harness's port rewrite, paired with the live app on 127.0.0.1:47111 and used the real profile, the Keychain password, the real CV and AI
+  budget on an employer's site). Before running product code, list what it reaches (ports, apps, Keychain, tokens, real profile/CV, paid APIs), cut each
+  off and assert it in the script. Extension in a browser: always `desktop/e2e/lib/extension.mjs` (`copyExtension` + `freePort`, then check the storage
+  points at that port); never a hand-rolled launcher. A real third-party site only with fake applicant data and the fixture CV. After a run, check the
+  live app's `logs/app.log` has no lines from it. Global rule: `~/.claude/CLAUDE.md` "Tests and automation never touch live apps".
 - **A form bug is fixed in the self-improving mechanism, for every install** (owner, 8 Oct 2026): a field, control or upload slot a form leaves
   unfilled is never fixed "for that website". Say first which part of the mechanism it improves (operator, fingerprint, meaning in the alias pack,
   recipe, noticing the miss); test the SHAPE with a fixture (the real site only as one live sample); a variant still unhandled must be reported
