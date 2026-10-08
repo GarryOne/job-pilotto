@@ -90,6 +90,30 @@ class HasKitTests(unittest.TestCase):
         self.assertEqual(self.run_main(tracker, 'https://www.jobs.ch/en/vacancies/detail/x/')[0], 1)
 
 
+class MarkApplyingTests(unittest.TestCase):
+    """--mark-applying (fire-and-forget from the app when a session starts) marks a tracked job; an untracked URL is said, not a KeyError."""
+
+    def run_main(self, tracker, url):
+        from unittest import mock
+        out = io.StringIO()
+        with mock.patch.object(apply_batch.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(sys, 'argv', ['apply_batch', '--mark-applying', url]), redirect_stdout(out):
+            return apply_batch.main(), out.getvalue()
+
+    def test_tracked_job_is_marked(self):
+        tracker = FakeTracker([(ROW, KIT)])
+        tracker.find = lambda url: ROW
+        self.assertEqual(self.run_main(tracker, KIT['url'])[0], 0)
+        self.assertEqual(tracker.marked, [(KIT['url'], 'Applying')])
+
+    def test_untracked_url_is_left_alone(self):
+        tracker = FakeTracker([])
+        tracker.find = lambda url: None
+        code, text = self.run_main(tracker, 'https://boards.greenhouse.io/e2e/jobs/4001001')
+        self.assertEqual((code, tracker.marked), (0, []))
+        self.assertIn('not on the tracker', text)
+
+
 if __name__ == '__main__':
     unittest.main()
 

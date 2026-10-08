@@ -249,6 +249,9 @@ def main():
         return 0
 
     if args.mark_applying:
+        if not tracker.find(args.mark_applying):  # a bare URL has no title to make a row from: say so, never a traceback
+            print(f'{args.mark_applying}: not on the tracker, left as it is')
+            return 0
         _, outcome = tracker.mark({'url': args.mark_applying}, 'Applying')
         print(f'{args.mark_applying}: {outcome}')
         return 0
