@@ -75,17 +75,18 @@ Rules:
 - Use only facts from the profile, the standard answers and the posting. Never invent \
 experience, numbers, employers, certifications or links.
 - Cover letter: follow the style in the standard answers; by default 130-170 words, two short \
-paragraphs of uneven length (not three symmetric ones), English, plain and slightly terse, first \
+paragraphs of uneven length (not three symmetric ones), in the posting's language (see Language below), \
+plain and slightly terse, first \
 person, occasional short sentence or fragment. It is personal, not a CV summary: the CV is attached \
 and already lists projects and numbers, so don't repeat them. First paragraph: who the candidate is \
-and how he works, in a sentence or two, at the level of the role. Second paragraph: why this \
+and how they work, in a sentence or two, at the level of the role. Second paragraph: why this \
 company/role (one concrete detail from the posting) and any honest gap, then stop — no closing \
 "I look forward to..." paragraph. No \
 clichés ("I am writing to express", "passionate", "team player", "wear many hats", "perfect fit"), \
 no greeting line; sign off with just the name, no "Best regards" formality. Avoid rigid, uniform \
 paragraph structure and generic phrasing — these are the biggest tells that a letter is AI-drafted.
 - Voice: write in the candidate's own voice as described in the standard answers' cover letter
-style (direct, personal, openly says what excites him, plain words, short sentences), and match
+style (direct, personal, openly says what excites them, plain words, short sentences), and match
 its example answer. Never polished marketing or AI-sounding phrasing.
 - Pick achievements per question and per role, not the same headline everywhere. The
 observability/monitoring migration belongs only where monitoring, observability, platform work
@@ -96,6 +97,10 @@ fields answer with exactly one of the listed options. Work authorisation and spo
 on the job's country: use the standard answers for that country. Demographic questions: use the \
 standard answer (default: decline). Consent/acknowledge questions: answer with the acknowledging \
 option and set needs_review.
+- Language: write the cover letter and the free-text answers in the language the posting is written \
+in (a French posting gets French, a German one German, an English one English), unless the standard \
+answers name a language for applications, which wins. Keep option values of select fields exactly as listed. \
+If the posting asks for a language the profile doesn't show, add it to check_before_sending.
 - With no form given, answer the questions this posting's application most likely asks \
 (why this company, why this role, relevant experience), field "".
 - Where the standard answer is marked ❓ or missing, write your best short draft and set \

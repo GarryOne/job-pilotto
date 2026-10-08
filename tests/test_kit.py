@@ -211,9 +211,6 @@ class EffortTests(unittest.TestCase):
         self.assertIsNone(self.effort_for('claude-haiku-4-5'))
         self.assertEqual(self.effort_for('claude-sonnet-5-5'), 'medium')
 
-if __name__ == '__main__':
-    unittest.main()
-
 
 class EligibilityTests(unittest.TestCase):
     def test_the_kit_carries_the_eligibility_verdict_into_next_step_telegram_and_notion(self):
@@ -225,3 +222,19 @@ class EligibilityTests(unittest.TestCase):
         job = {'title': 'SRE', 'company': 'Acme', 'url': 'https://x.test/1'}
         self.assertIn('Not eligible', kit_module.telegram_messages(job, kit, [])[0])
         self.assertIn('eligible', kit_module.SCHEMA['required'])
+
+
+class KitLanguageTest(unittest.TestCase):
+    """8 Oct 2026: the cover letter was forced into English, even for a French posting."""
+
+    def test_writes_in_the_postings_language(self):
+        self.assertIn("in the posting's language", kit.SYSTEM)
+        self.assertNotIn('English, plain', kit.SYSTEM)
+
+    def test_candidate_is_not_assumed_to_be_a_man(self):
+        for word in (' he works', ' excites him'):
+            self.assertNotIn(word, kit.SYSTEM)
+
+
+if __name__ == '__main__':
+    unittest.main()

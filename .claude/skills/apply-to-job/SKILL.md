@@ -286,7 +286,10 @@ in that file next time — keep evolving it.
      - ⚖️ **<agreement / legal box>**: tick it yourself.
      - 👀 **<judgement call>**: e.g. an answer that discloses a gap, the role's travel. **Recommended:** <one action>
    - **Run record:** …
+   Status: ready-for-review
    ```
+   Write the message in the language the owner uses with you; the last line `Status: ready-for-review` stays
+   exactly so, in English, in every language: the app reads it to show "Ready for review" and hides it.
    - **Every ❓ gets a `Suggested:` answer** — the most plausible one from the CV, Profile, Application
      Answers and the form's own options (e.g. a degree result on the country's scale, "Top 20%"), marked
      "(guess)" when it's inferred. It is only a suggestion: the field stays empty in the form. The owner

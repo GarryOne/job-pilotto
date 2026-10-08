@@ -17,11 +17,13 @@ export function splitLabel(text) {
   return match ? {label: match[1].trim(), text: match[2].trim()} : {label: '', text: String(text).trim()};
 }
 
+// The hand-over's last line (apply-to-job skill, step 8), fixed and never translated: Claude may write the rest in any language.
+export const READY_LINE = /^status:\s*ready-for-review\.?$/i;
 export function readSessionMessage(message) {
   const sections = [], intro = [];
   let audit = '', heading = false;  // heading: the last section is a "**Label:**" line, so bullets under it are its items
   for (const raw of String(message || '').split(/\n/)) {
-    if (!raw.trim()) continue;
+    if (!raw.trim() || READY_LINE.test(raw.trim())) continue;   // the status line is for the app, not the reader
     const bullet = raw.match(/^(\s*)(?:[-*•]|\d+[.)])\s+(.*)$/);
     if (bullet && (bullet[1].length >= 2 || heading) && sections.length) { sections[sections.length - 1].items.push(bullet[2].trim()); continue; }
     if (bullet) { sections.push({...splitLabel(bullet[2]), items: []}); continue; }

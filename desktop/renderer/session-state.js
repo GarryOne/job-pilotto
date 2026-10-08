@@ -1,6 +1,6 @@
 // A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's
 // last message. No window needed: tested in desktop/test/session-state.test.js.
-import {readSessionMessage} from './session-message.js';
+import {READY_LINE, readSessionMessage} from './session-message.js';
 
 export const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
   ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad'], submit: ['Ready to submit', 'good'], submitted: ['Submitted', 'good']};
@@ -9,7 +9,10 @@ export const isLive = item => item.live ?? !item.endedAt;
 // The application was submitted and Claude is no longer in it. The badge, the step and the log all read this.
 export const isSubmitted = item => item?.outcome === 'submitted' && !isLive(item);
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
-export const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself|ready for you to review|nothing was submitted/i;
+const ENGLISH_REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself|ready for you to review|nothing was submitted/i;
+// The skill's fixed last line says it in any language (8 Oct 2026: a session answering in French never turned "Ready for review");
+// the English words stay for older sessions and a Claude that left the line out.
+export const REVIEW_WORDS = {test: text => String(text || '').split(/\n/).some(line => READY_LINE.test(line.trim())) || ENGLISH_REVIEW_WORDS.test(text || '')};
 // Claude asks you something when one of its own sentences (outside its report's lists) ends with "?"; a listed form
 // question ("Any relatives working at Acme?") is not Claude asking.
 export const asksYou = item => (item.question ? readSessionMessage(item.question).intro.some(line => /\?\**\s*$/.test(line)) : /\?\s*$/.test(item.brief || ''));

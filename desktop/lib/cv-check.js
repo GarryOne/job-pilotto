@@ -41,6 +41,35 @@ const ODD_BULLETS = /[★☆◆◇✔✓➤►▶■□❖✦☑]/g;
 
 const check = (id, label, status, detail, fix = '', penalty = 0) => ({id, label, status, detail, fix, penalty: status === 'pass' ? 0 : penalty});
 
+// The English headings a parser surely knows, or, once the content review ran, the heading the AI saw playing that role in
+// any language (8 Oct 2026: a French "Expérience professionnelle" failed as "no Experience heading"). An AI heading counts
+// only when it is a line of the CV: it can name what is there, never invent it.
+const ROLE_LABEL = {experience: 'Experience', education: 'Education', skills: 'Skills'};
+function headingChecks(lines, sections = {}) {
+  const line = name => lines.find(text => HEADINGS[name].test(text.trim()))
+    || (sections?.[name] && lines.find(text => text.trim().toLowerCase() === sections[name].trim().toLowerCase()));
+  const found = name => line(name) && !HEADINGS[name].test(line(name).trim()) ? `"${line(name).trim().slice(0, 40)}" is your ${ROLE_LABEL[name]} heading.` : '';
+  const anyLanguage = ' In another language, run the content review: it reads headings in any language.';
+  return [
+    line('experience') ? check('experience', 'An "Experience" heading', 'pass', found('experience') || 'Parsers use it to find your jobs.')
+      : check('experience', 'An "Experience" heading', 'fail', 'No heading a parser recognises for your jobs (Experience, Work experience, Employment).' + anyLanguage, 'Give your jobs a section heading such as "Experience" (or the usual word in your CV\'s language).', 20),
+    line('education') ? check('education', 'An "Education" heading', 'pass', found('education') || 'Found.')
+      : check('education', 'An "Education" heading', 'warn', 'No Education heading. Some systems leave the education field empty without one.' + anyLanguage, 'Add an Education section, even a short one.', 5),
+    line('skills') ? check('skills', 'A "Skills" heading', 'pass', found('skills') || 'Found.')
+      : check('skills', 'A "Skills" heading', 'warn', 'No Skills heading: skills inside job descriptions are found less reliably.' + anyLanguage, 'Add a Skills section with your main tools.', 5),
+  ];
+}
+const scored = (checks, rest) => {
+  const score = Math.max(0, 100 - checks.reduce((sum, item) => sum + item.penalty, 0));
+  return {...rest, score, verdict: score >= 90 ? 'Easy for a parser' : score >= 75 ? 'Mostly readable' : 'Risky: a parser may lose parts', checks};
+};
+// The parser check again with the headings the content review found (ai.sections): same checks, the heading ones re-judged.
+export function withSections(ats, sections) {
+  if (!ats || !sections) return ats;
+  const redone = headingChecks(ats.text.split('\n'), sections);
+  return scored(ats.checks.map(item => redone.find(next => next.id === item.id) || item), ats);
+}
+
 // pages: what cv/pdf-probe.html's scan() returns. -> {score, verdict, checks, text}
 export function analyse(pages) {
   const lines = linesOf(pages), text = lines.join('\n');
@@ -71,13 +100,7 @@ export function analyse(pages) {
     : check('phone', 'Phone number as text', 'warn', 'No phone number in the text.', 'Add a phone number as plain text near the top.', 5));
 
   // 4. Standard section headings.
-  const has = name => lines.some(line => HEADINGS[name].test(line.trim()));
-  checks.push(has('experience') ? check('experience', 'An "Experience" heading', 'pass', 'Parsers use it to find your jobs.')
-    : check('experience', 'An "Experience" heading', 'fail', 'No heading a parser recognises for your jobs (Experience, Work experience, Employment).', 'Name the section "Experience" or "Work experience".', 20));
-  checks.push(has('education') ? check('education', 'An "Education" heading', 'pass', 'Found.')
-    : check('education', 'An "Education" heading', 'warn', 'No Education heading. Some systems leave the education field empty without one.', 'Add an Education section, even a short one.', 5));
-  checks.push(has('skills') ? check('skills', 'A "Skills" heading', 'pass', 'Found.')
-    : check('skills', 'A "Skills" heading', 'warn', 'No Skills heading: skills inside job descriptions are found less reliably.', 'Add a Skills section with your main tools.', 5));
+  checks.push(...headingChecks(lines));
 
   // 5. Dates in one readable style.
   let rest = text;   // each date counts once, in the first style that matches it ("Mar 2024 – Present" is not also "2024 – Present")
@@ -112,19 +135,19 @@ export function analyse(pages) {
   checks.push(top && top.split(/\s+/).length <= 5 && !/[@\d]/.test(top) ? check('name', 'Starts with your name', 'pass', `"${top.slice(0, 40)}" comes first.`)
     : check('name', 'Starts with your name', 'warn', 'The first thing a parser reads is not a name.', 'Put your name alone on the first line.', 5));
 
-  const score = Math.max(0, 100 - checks.reduce((sum, item) => sum + item.penalty, 0));
-  return {score, verdict: score >= 90 ? 'Easy for a parser' : score >= 75 ? 'Mostly readable' : 'Risky: a parser may lose parts', checks, text: lines.join('\n'), pages: n};
+  return scored(checks, {text: lines.join('\n'), pages: n});
 }
 
 // ---------- the content review (one Claude call) ----------
 const string = {type: 'string'};
-export const SCHEMA = {type: 'object', additionalProperties: false, required: ['score', 'components', 'strengths', 'fixes', 'missing_keywords'], properties: {
+export const SCHEMA = {type: 'object', additionalProperties: false, required: ['score', 'components', 'strengths', 'fixes', 'missing_keywords', 'sections'], properties: {
   score: {type: 'integer'},
   components: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['name', 'score', 'note'], properties: {name: string, score: {type: 'integer'}, note: string}}},
   strengths: {type: 'array', items: string},
   fixes: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['where', 'issue', 'suggestion', 'impact'], properties: {
     where: string, issue: string, suggestion: string, impact: {type: 'string', enum: ['high', 'medium', 'low']}}}},
-  missing_keywords: {type: 'array', items: string}}};
+  missing_keywords: {type: 'array', items: string},
+  sections: {type: 'object', additionalProperties: false, required: ['experience', 'education', 'skills'], properties: {experience: string, education: string, skills: string}}}};
 
 const INSTRUCTIONS = `You review a CV the way a recruiter and a hiring system's keyword search meet it. The CV text is given in the order a parser reads it.
 Score 0-100 overall and for four components: "Keywords for your target roles" (are the tools, methods and titles the target roles ask for stated plainly,
@@ -135,7 +158,9 @@ strengths: 2-4 short points. fixes: at most 8, most valuable first; where = the 
 suggestion = a concrete change. impact high/medium/low.
 Hard rules: use only what the CV says. Never suggest adding a tool, number, employer or responsibility the CV does not state; where a keyword is missing,
 say "add it only if it is true". missing_keywords: up to 10 terms the target roles typically ask for that the CV never states. The target roles come from the
-Profile excerpt when there is one, else from the CV itself. Keep every sentence short and plain.`;
+Profile excerpt when there is one, else from the CV itself. Keep every sentence short and plain.
+sections: for experience, education and skills, the heading line that starts that section, copied exactly as the CV writes it
+in whatever language ("Expérience professionnelle", "Formação"); "" when the CV has no such heading.`;
 
 const plain = value => String(value || '').toLowerCase().replace(/[^\p{L}\p{N}+#.]+/gu, ' ').replace(/\s+/g, ' ').trim();
 export const stated = (text, term) => { const p = plain(term); return p.length >= 2 && ` ${plain(text)} `.includes(` ${p} `); };

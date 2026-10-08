@@ -178,3 +178,13 @@ test('a stopped Claude session whose form is open in Chrome reads "Form open", l
   assert.deepEqual(sessionState({id: 'c1', kind: 'claude', status: 'done', inChrome: true, live: false}), ['Form open', 'info']);
   assert.equal(sessionState({id: 'c1', kind: 'claude', status: 'ended', live: false})[0], 'Ended');
 });
+
+test('a hand-over in any language is "ready for review" by its fixed status line, which the card hides (8 Oct 2026)', async () => {
+  const {readSessionMessage} = await import('../renderer/session-message.js');
+  const french = 'Le formulaire est rempli dans l\'onglet ouvert ; rien n\'a été envoyé.\n- **Rempli :** 14 champs.\nStatus: ready-for-review';
+  assert.equal(sessionReview({status: 'input', question: french}), true);
+  assert.deepEqual(sessionState({status: 'input', question: french}), ['Ready for review', 'warn']);
+  assert.equal(sessionReview({status: 'input', question: french.replace(/\nStatus.*$/, '')}), false, 'without the line, French words are not read');
+  assert.ok(!JSON.stringify(readSessionMessage(french)).includes('ready-for-review'));
+  assert.equal(sessionReview({status: 'input', question: 'Status: ready-for-review\nQuelle adresse dois-je utiliser ?'}), false, 'a question to you still wins');
+});

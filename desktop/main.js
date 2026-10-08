@@ -1948,7 +1948,7 @@ function handlers() {
     let probe;
     try {
       probe = await cvLook.probeWindow(BrowserWindow, storage.path('cv.pdf'));
-      const result = cvCheck.analyse(await probe.scan());
+      const result = cvCheck.withSections(cvCheck.analyse(await probe.scan()), cvCheck.saved(storage)?.ai?.sections);   // headings the review found in any language
       appLog('cv', 'parser check', {score: result.score, pages: result.pages, issues: result.checks.filter(c => c.status !== 'pass').map(c => c.id)});
       return {ok: true, ...cvCheck.save(storage, {ats: result})};
     } catch (error) { return {ok: false, error: `The CV could not be read: ${error.message}`}; } finally { probe?.close(); }
@@ -1962,7 +1962,7 @@ function handlers() {
       const {profile} = await strategy.profileTexts(storage).catch(() => ({profile: ''}));
       const result = await cvCheck.review(storage, key, ats.text, {client: ai, profile});
       appLog('cv', 'content review', {score: result.score, fixes: result.fixes.length, usd: result.usd});
-      return {ok: true, ...cvCheck.save(storage, {ai: result})};
+      return {ok: true, ...cvCheck.save(storage, {ai: result, ats: cvCheck.withSections(ats, result.sections)})};
     } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('cvStatus', () => ({base: !!cvlib.baseCv(storage), custom: fs.existsSync(path.join(cvlib.dir(storage), 'style.css')) || cvlib.baseCv(storage)?.look === 'rich'}));

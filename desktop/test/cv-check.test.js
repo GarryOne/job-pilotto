@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {analyse, hashOf, linesOf, review, save, saved, stated} from '../lib/cv-check.js';
+import {analyse, hashOf, linesOf, review, save, saved, stated, withSections} from '../lib/cv-check.js';
 
 const word = (str, x, y, w = 60, h = 9) => ({str, x, y, w, h});
 const page = (text, images = [], n = 1) => ({n, width: 595, height: 842, images, text});
@@ -55,7 +55,7 @@ test('the content review is clamped, trimmed and priced', async () => {
   const fake = {messages: {create: async request => {
     assert.match(request.messages[0].content, /<cv>[\s\S]*Ada Tester/);
     return {stop_reason: 'end_turn', usage: {input_tokens: 2000, output_tokens: 500}, content: [{type: 'text', text: JSON.stringify({
-      score: 140, components: [{name: 'Evidence', score: -5, note: 'numbers'}], strengths: ['a'], missing_keywords: Array.from({length: 14}, (_, i) => `k${i}`),
+      score: 140, sections: {experience: 'Experience', education: '', skills: ''}, components: [{name: 'Evidence', score: -5, note: 'numbers'}], strengths: ['a'], missing_keywords: Array.from({length: 14}, (_, i) => `k${i}`),
       fixes: Array.from({length: 11}, (_, i) => ({where: 'Experience', issue: `i${i}`, suggestion: 's', impact: 'high'}))})}]};
   }}};
   const result = await review({}, '', 'Ada Tester\nExperience', {client: fake});
@@ -64,6 +64,22 @@ test('the content review is clamped, trimmed and priced', async () => {
   assert.equal(result.fixes.length, 8);
   assert.equal(result.missing_keywords.length, 10);
   assert.equal(result.usd, 0.01);
+});
+
+test('headings in any language count once the content review names them (8 Oct 2026: "Expérience" failed)', () => {
+  const pages = good();
+  for (const item of pages[0].text) item.str = {Experience: 'Expérience professionnelle', Education: 'Formation', Skills: 'Compétences'}[item.str] || item.str;
+  const before = analyse(pages), byId = result => Object.fromEntries(result.checks.map(c => [c.id, c]));
+  assert.equal(byId(before).experience.status, 'fail');
+  assert.equal(before.score, 70);
+  const after = withSections(before, {experience: 'Expérience professionnelle', education: 'formation', skills: 'Langues'});   // "Langues" is not a line of this CV
+  assert.equal(byId(after).experience.status, 'pass');
+  assert.match(byId(after).experience.detail, /Expérience professionnelle/);
+  assert.equal(byId(after).education.status, 'pass');
+  assert.equal(byId(after).skills.status, 'warn', 'an AI heading that is not in the CV does not count');
+  assert.equal(after.score, 95);
+  assert.match(after.verdict, /Easy/);
+  assert.equal(withSections(before, undefined), before);
 });
 
 test('the result belongs to one PDF: another CV starts clean', () => {
