@@ -345,6 +345,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Chrome extension
 
+- `extension/account-act.js` — The closer look's two hands besides a click (extension/escalate.js; spec docs/superpowers/specs/2026-10-08-ai-escalation.md), injected into the page.
 - `extension/account-fill.js` — What the extension types into a sign-in or sign-up page and presses (owner, 8 Oct 2026): the one site password into its password boxes, then the
 - `extension/account-step.js` — What the extension does on a sign-in or sign-up page in a tab the app opened (owner, 8 Oct 2026; the extension first, docs/flows/applying.md). The AI decides the
 - `extension/account.js` — Account pages (sign-in, sign-up) kept apart from the application form (docs/flows/applying.md, owner 8 Oct 2026): each tab's page

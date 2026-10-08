@@ -1,6 +1,8 @@
 // Which page the extension is on: the open session of a job, the confirmation-page check that marks an application Applied, and the AI's
 // "what kind of page is this". Re-exported by server.js. Guarded by desktop/test/confirmation.test.js, page-kind.test.js and targets.test.js.
 import * as terminals from './terminals.js';
+import * as contactDetails from './contact.js';
+import * as notionGate from './notion-gate.js';
 import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
@@ -96,8 +98,13 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
 }
 
 // The closer look (lib/escalate.js): a picture with typed values hidden, one fixed action back; opt-in, capped, account pages only. A feedback body remembers what worked.
-export async function decideEscalation(storage, body, {client} = {}) {
-  const answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage) : client});
-  if (!body?.feedback) appLog('extension', `closer look: ${answer.action}${answer.why ? ` (${answer.why})` : ''}`, {by: answer.by || '', ...(answer.control ? {control: answer.control.slice(0, 60)} : {})});
+export async function decideEscalation(storage, body, {client, contact} = {}) {
+  let answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage) : client});
+  if (answer.action === 'fill') {   // the value comes from the person's own contact details, here, and goes only to the extension: never to the model, never to the log
+    const details = await Promise.resolve(contact ? contact() : notionGate.connected(storage) ? contactDetails.read(storage) : {}).catch(() => ({})) || {};
+    const value = String(details[answer.detail] || (answer.detail === 'full_name' ? [details.first_name, details.last_name].filter(Boolean).join(' ') : '') || '').trim();
+    answer = value ? {...answer, value} : {ok: true, action: 'ask_person', why: 'that detail is not saved in Your details'};
+  }
+  if (!body?.feedback) appLog('extension', `closer look: ${answer.action}${answer.why ? ` (${answer.why})` : ''}`, {by: answer.by || '', ...(answer.control ? {control: answer.control.slice(0, 60)} : {}), ...(answer.detail ? {detail: answer.detail} : {}), ...(answer.option ? {option: answer.option.slice(0, 40)} : {})});   // which detail, never its value
   return answer;
 }

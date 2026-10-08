@@ -54,3 +54,44 @@ test('a click that moved the page on is remembered per page shape and answered n
   await escalate(storage, {url: 'https://other.example/x', feedback: {action: 'click', control: 'Anmelden', worked: false}});   // a click that did nothing is not kept
   assert.equal((await escalate(storage, ask({url: 'https://other.example/x'}), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1})})).by, 'ai');
 });
+
+// fill and choose (9 Oct 2026): the closer look's two hands besides a click, with the same floors.
+const FORM = {...sketch, controls: [
+  {type: 'text', label: 'E-Mail', required: true, state: 'empty', at: '50,30'},
+  {type: 'password', label: 'Passwort', required: true, state: 'empty', at: '50,40'},
+  {type: 'text', label: 'Vorname', required: true, state: 'filled', at: '50,50'},
+  {type: 'select-one', label: 'Land', required: true, state: 'empty', at: '50,60', options: ['Bitte wählen', 'Schweiz', 'Deutschland']}]};
+const looking = (answer, settings, seen) => escalate(storageOf(settings), ask({sketch: FORM}), {client: fake({control: '', detail: '', option: '', why: 'x', confidence: 0.9, ...answer}, seen)});
+
+test('fill: only an empty text box the page lists, with a detail from the fixed list; never a password or a filled box', async () => {
+  const good = await looking({action: 'fill', control: 'e-mail', detail: 'email'});
+  assert.deepEqual([good.action, good.control, good.detail], ['fill', 'E-Mail', 'email']);
+  assert.equal(good.value, undefined);   // the app adds the value later, from the person's details, never here
+  for (const bad of [{control: 'Passwort', detail: 'email'}, {control: 'Vorname', detail: 'first_name'}, {control: 'Geheimes Feld', detail: 'email'}, {control: 'E-Mail', detail: 'password'}, {control: 'Land', detail: 'email'}]) {
+    assert.equal((await looking({action: 'fill', ...bad})).action, 'ask_person', JSON.stringify(bad));
+  }
+});
+
+test('choose: only a listed dropdown and one of its own options, in the page\'s own spelling', async () => {
+  const good = await looking({action: 'choose', control: 'LAND', option: 'schweiz'});
+  assert.deepEqual([good.action, good.control, good.option], ['choose', 'Land', 'Schweiz']);
+  for (const bad of [{control: 'Land', option: 'Atlantis'}, {control: 'E-Mail', option: 'Schweiz'}, {control: 'Land', option: ''}]) {
+    assert.equal((await looking({action: 'choose', ...bad})).action, 'ask_person', JSON.stringify(bad));
+  }
+});
+
+test('assist: the person fills and chooses too; the model is shown the dropdown\'s options and never a value', async () => {
+  const seen = [];
+  assert.equal((await looking({action: 'fill', control: 'E-Mail', detail: 'email'}, {escalation: 'on', accountAutomation: 'assist'}, seen)).why, 'assist: the person fills it');
+  assert.equal((await looking({action: 'choose', control: 'Land', option: 'Schweiz'}, {escalation: 'on', accountAutomation: 'assist'})).why, 'assist: the person chooses');
+  assert.ok(JSON.stringify(seen[0]).includes('options: Bitte wählen | Schweiz | Deutschland'));
+});
+
+test('a fill that worked is remembered with its detail and replayed only while the box is still empty', async () => {
+  const storage = storageOf();
+  await escalate(storage, {url: 'https://karriere.example/career', feedback: {action: 'fill', control: 'E-Mail', detail: 'email', worked: true}});
+  const again = await escalate(storage, ask({sketch: FORM}), {client: null});
+  assert.deepEqual([again.action, again.control, again.detail, again.by], ['fill', 'E-Mail', 'email', 'remembered']);
+  const filled = {...FORM, controls: FORM.controls.map(item => (item.label === 'E-Mail' ? {...item, state: 'filled'} : item))};
+  assert.equal((await escalate(storage, ask({sketch: filled}), {client: null})).why, 'no AI');   // not empty any more: not replayed, back to asking
+});

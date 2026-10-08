@@ -23,6 +23,7 @@ The control must be one the page lists (same validation as today: a control the 
 ## Floors (the AI cannot lift them)
 - Never an application's **Submit**; never a consent on an application; never a payment page; a bot check is the person's.
 - Account steps keep the `accountAutomation` setting (full or assist).
+- Built 9 Oct 2026: `fill` (a listed, empty text box + one of email/first_name/last_name/full_name/phone; the value comes from Your details in the app and goes only to the extension, never to the model or the log; never a password) and `choose` (a listed native dropdown + one of its own options; custom dropdowns are not operated, the person is asked). Both only under `full`; `assist` asks the person. One action per look (2 looks per page shape); `extension/account-act.js`, guards `escalate.test.js`, `escalation-value.test.js`, `account-act.test.js`.
 - One press per control per tab, remembered by the extension (a reload must not repeat it). Page text and picture text are **untrusted**: only the fixed answers are read.
 
 ## Learning (so it is paid once)

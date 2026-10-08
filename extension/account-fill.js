@@ -50,6 +50,7 @@ export function accountSketch() {
     type: el.type, label: clean(el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || el.name || '', 80),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)(el.getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control
+    ...(el.tagName === 'SELECT' ? {options: [...el.options].map(item => clean(item.text, 40)).filter(Boolean).slice(0, 40)} : {}),
     state: el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'checked' : 'unchecked') : (String(el.value || '').trim() ? 'filled' : 'empty')}));
   const buttons = [...new Set([...document.querySelectorAll('button, input[type=submit], input[type=button], [role=button], a')].filter(shown).map(el => clean(el.innerText || el.value || el.getAttribute('aria-label'), 60)).filter(Boolean))];
   const seen = new Set(), texts = [];

@@ -6,6 +6,7 @@ import {decide} from './log.js';
 import {accountSketch} from './account-fill.js';
 import {hideValues, showValues} from './page-picture.js';
 import {pressRegister} from './account-fill.js';
+import {chooseOption, fillControl} from './account-act.js';
 
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 export const UNSURE_BEFORE_LOOKING = 2;
@@ -44,7 +45,7 @@ async function picture(tab, frameId) {
   } catch (error) { decide('fill', 'closer look: no picture', {why: String(error?.message || error).slice(0, 120)}); return null; } finally { await run(tab, frameId, showValues); }
 }
 
-// -> 'none' | 'click' | 'wait' | 'ask_person' (what was done or decided). reason: why we ask (for the log and the model).
+// -> 'none' | 'click' | 'fill' | 'choose' | 'wait' | 'ask_person' (what was done or decided). reason: why we ask (for the log and the model).
 export async function closerLook(tab, frameId, reason) {
   const config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return 'none';
@@ -64,6 +65,12 @@ export async function closerLook(tab, frameId, reason) {
       const worked = !!after && JSON.stringify([after.controls.map(item => item.label), after.buttons]) !== JSON.stringify([sketch.controls.map(item => item.label), sketch.buttons]);
       api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {action: 'click', control: answer.control, worked}})}).catch(() => {});
     }
+  }
+  // fill: the app resolved the value from the person's contact details (never logged, never sent to the model); choose: one of the dropdown's own options. Both only when the app allowed them (full).
+  if ((action === 'fill' && answer.control && answer.value) || (action === 'choose' && answer.control && answer.option)) {
+    const result = action === 'fill' ? await run(tab, frameId, fillControl, [answer.control, answer.value]) : await run(tab, frameId, chooseOption, [answer.control, answer.option]);
+    decide('fill', `closer look: ${action} (${result})`, {detail: answer.detail || '', ...(action === 'choose' ? {option: String(answer.option).slice(0, 40)} : {})});
+    if (result === 'filled' || result === 'chosen') api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {action, control: answer.control, detail: answer.detail, option: answer.option, worked: true}})}).catch(() => {});
   }
   return action;
 }
