@@ -22,8 +22,9 @@ async function cvInfo(url) {
   cvSeen.set(url, {at: Date.now(), info});
   return info;
 }
-function showBefore(item, left, account = false) {
-  const knockouts = left.filter(label => KNOCKOUT.test(label));
+// A knockout: the English words, or the AI that read the form in any language (extension/page/categories.js -> the panel's `knockouts`).
+function showBefore(item, left, account = false, aiKnockouts = []) {
+  const knockouts = left.filter(label => KNOCKOUT.test(label) || aiKnockouts.includes(label));
   const submitted = isSubmitted(item);
   show($('ss-before-knock'), !submitted && knockouts.length > 0);
   if (knockouts.length) {
@@ -54,7 +55,7 @@ function showBefore(item, left, account = false) {
       button.textContent = result.ok ? 'Tailored ✓' : 'Retry';
       button.disabled = !!result.ok;
       cvSeen.delete(item.url);
-      if (result.ok) showBefore(item, left);
+      if (result.ok) showBefore(item, left, account, aiKnockouts);
     };
     show($('ss-before'), true);
   });
@@ -73,7 +74,7 @@ export function showFormCard(item, state) {
   count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
-  showBefore(item, state.pending || state.missing || [], !!state.account);
+  showBefore(item, state.pending || state.missing || [], !!state.account, state.knockouts || []);
   // An extension older than 0.8.12 sends no filled fields: then only what's left.
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
   const left = state.pending || state.missing || [];

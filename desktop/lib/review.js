@@ -218,6 +218,8 @@ export function report(sessions, payload, now = Date.now()) {
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
+  // The questions the AI read as knockouts, in any language (extension/page/categories.js): the session card lists them before you submit.
+  if (Array.isArray(payload.knockouts)) state.knockouts = payload.knockouts.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
   // What the fill proposed for a field it left (a value), or the contact detail it asks for (a key): the session page's rows offer it.
   if (Array.isArray(payload.proposals)) state.proposals = payload.proposals.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120),
     value: String(item?.value || '').slice(0, 200), key: CONTACT_KEYS.includes(item?.key) ? item.key : '',

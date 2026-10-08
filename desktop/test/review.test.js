@@ -147,6 +147,8 @@ test('what is left comes as the ring counts it, and an older extension sends no 
   review.setReporter(state => heard.push(state));
   review.report(sessions, form({left: 1, missing: [], pending: ['Additional Information'], filled: ['Email']}), 1000);
   assert.deepEqual(heard.at(-1).pending, ['Additional Information']);  // an emptied answer Claude wrote, not required
+  review.report(sessions, form({left: 1, missing: [], pending: ['Precisa de visto?'], knockouts: ['Precisa de visto?', 42]}), 1500);
+  assert.deepEqual(heard.at(-1).knockouts, ['Precisa de visto?', '42']);   // the AI's knockouts, any language, for the session card
   review._reset();
   review.setReporter(state => heard.push(state));
   review.report(sessions, form({left: 1, missing: []}), 2000);  // 0.8.11: no "filled", no "pending"
