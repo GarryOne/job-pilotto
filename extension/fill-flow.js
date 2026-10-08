@@ -208,7 +208,8 @@ export async function consider(tab, jobUrl) {
   let pressed = false, buttonsSeen = [];
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
-    const phrases = await applyPhrases();
+    // The shared phrases, and the button the page-kind AI named on this page (any language; already checked against the page and the schema).
+    const phrases = [...await applyPhrases(), ...(kind?.applyButton ? [{key: 'apply_button', phrase: kind.applyButton}] : [])];
     applyPressed.set(tab.id, {at: Date.now(), url: tab.url});   // before the click: the site opens its new tab during it (same-tab.js)
     const attempt = await pressApply(tab.id, phrases);
     if (!attempt.pressed) applyPressed.delete(tab.id);

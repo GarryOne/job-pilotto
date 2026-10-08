@@ -275,3 +275,11 @@ test('a page with both the account and the application (CV upload + password, Co
   // The rule's word wins over the panel's "there is a password box" (which a combined page has too).
   assert.equal(isAccountPage({role: 'form', page: coop}, coop, true), false);
 });
+
+test('a Portuguese Apply button the page-kind AI named is pressed with the same checks as the built-in words', async () => {
+  const {pickApplyButton} = await import('../../extension/tab-pages.js');
+  const buttons = [{index: 0, text: 'Partilhar', tag: 'button', area: 900, visible: true}, {index: 1, text: 'Candidatar-me', tag: 'button', area: 1200, visible: true},
+    {index: 2, text: 'Candidatar-me', tag: 'a', area: 1200, visible: true, href: 'mailto:rh@emprego.example'}];
+  assert.equal(pickApplyButton(buttons, []), null, 'no built-in word knows it');
+  assert.equal(pickApplyButton(buttons, [{key: 'apply_button', phrase: 'candidatar-me'}])?.index, 1, 'the AI\'s phrase; never the mail link');
+});

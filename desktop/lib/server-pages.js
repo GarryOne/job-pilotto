@@ -6,6 +6,7 @@ import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {forgetPageKind, pageKind, pageKindCache} from './page-kind.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
+import {proposalReporter} from './server-hooks.js';
 
 // The session of the job a fill is on: the newest open one on that address (its posting, or a form of it).
 export function sessionOfJob(url, list = terminals.list()) {
@@ -62,5 +63,8 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     controls: body?.controls, buttons: body?.buttons}, kindCache);
   appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
     {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {})});
-  return answer.error ? {ok: true, kind: '', error: answer.error} : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence};
+  // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
+  if (answer.by === 'ai' && answer.applyButton) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);
+  return answer.error ? {ok: true, kind: '', error: answer.error}
+    : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || ''};
 }

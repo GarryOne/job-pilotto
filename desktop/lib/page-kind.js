@@ -8,6 +8,7 @@
 //   posting       a job posting or a step that leads on to the application (press its Apply)
 //   other         none of these (an error, a list of jobs, a cookie wall)
 import fs from 'node:fs';
+import {validateAlias} from '../shared/alias-schema.js';
 
 export const MODEL = 'claude-haiku-5-5';
 const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, the haiku price confirmation.js and form learning use
@@ -16,8 +17,9 @@ export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
 export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', posting: 'no-form', other: 'no-form'};
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button'], properties: {
   kind: {type: 'string', enum: KINDS},
+  apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
 }};
 
@@ -29,7 +31,10 @@ Answer one kind:
 - account: only signing in or creating an account (email, password, username, confirmations, a robot check), before the application.
 - posting: a job description or a step that leads on to the application (an Apply button or link, a "continue to apply" page).
 - other: anything else (an error, a list of jobs, a cookie or consent wall, a page that needs nothing from the candidate).
-Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.`;
+Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.
+apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
+language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
+there is none or for any other kind.`;
 
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // The page's shape for the cache: its host and its path with the parts that differ per job (numbers, ids, long tokens) blanked,
@@ -79,11 +84,20 @@ export function pageKindCache(file) {
 
 // The kind of one page: remembered for its shape, else asked. Returns {kind, role, confidence, by: 'remembered' | 'ai', usd?} or
 // {error} (no AI, a failure, an answer outside the kinds, a low confidence): the caller then goes by its structure rule.
+// The Apply button the AI named, kept only when it is one of the page's own buttons and a start-applying phrase the shared schema accepts (never
+// sign in, submit, Easy Apply…: extension/alias-schema.js validateAlias), so it can never name something the page does not show.
+export function applyButtonOf(text, buttons = []) {
+  const wanted = clean(text, 40);
+  if (!wanted || !buttons.some(button => clean(button, 40).toLowerCase() === wanted.toLowerCase())) return '';
+  const checked = validateAlias({key: 'apply_button', phrase: wanted});
+  return checked.ok ? checked.alias.phrase : '';
+}
+
 export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
   const shape = kindKey(raw);
   if (!shape) return {error: 'no address'};
   const kept = cache?.get(shape);
-  if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape};
+  if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
   if (!page.controls.length && !page.buttons.length && !page.headings.length) return {error: 'empty page', shape};
@@ -110,8 +124,9 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
     const confidence = Math.max(0, Math.min(1, Number(answer?.confidence) || 0));
     if (!KINDS.includes(answer?.kind)) return {error: 'not a kind', shape, usd};
     if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd};
-    cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString()});
-    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd};
+    const applyButton = answer.kind === 'posting' ? applyButtonOf(answer.apply_button, page.buttons) : '';
+    cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {})});
+    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton};
   } catch (error) {
     return {error: clean(error?.message || 'AI failed', 120), shape};
   }

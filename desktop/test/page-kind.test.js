@@ -78,3 +78,18 @@ test('self-correction: a kept kind the page contradicted is dropped, and the nex
   assert.deepEqual([again.kind, again.by, calls.length], ['form', 'ai', 2]);
   assert.equal(forgetPageKind(cache, {url: 'https://nothing.example/x'}), '');               // nothing kept: nothing dropped
 });
+
+test('a posting in any language: the AI names its Apply button among the page\'s own buttons, kept with the kind; never one it does not show', async () => {
+  const {applyButtonOf} = await import('../lib/page-kind.js');
+  const posting = {url: 'https://emprego.example/oferta/123', title: 'Programador Python', headings: ['Programador Python'], controls: [],
+    buttons: ['Partilhar', 'Guardar', 'Candidatar-me', 'Iniciar sessão']};
+  const cache = cacheIn(), calls = [];
+  const answer = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Candidatar-me'}, calls), posting, cache);
+  assert.equal(answer.applyButton, 'candidatar-me');
+  assert.equal((await pageKind(fake({}), posting, cache)).applyButton, 'candidatar-me');   // remembered with the kind: no second call
+  assert.equal(calls.length, 1);
+  assert.equal(applyButtonOf('Apply on our new site', posting.buttons), '', 'not a button of this page');
+  assert.equal(applyButtonOf('Iniciar sessão', ['Iniciar sessão']), 'iniciar sessão');   // a sign-in in Portuguese: the schema's floor knows English words only…
+  assert.equal(applyButtonOf('Sign in', ['Sign in']), '', '…and never accepts the English ones');
+  assert.equal(applyButtonOf('Submit', ['Submit']), '');
+});
