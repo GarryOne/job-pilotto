@@ -301,6 +301,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
+- `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
 - `src/ai/models.py` — The model of the small AI steps (title, page and place checks, triage, search picks, stage 1 facts, mail), as data.
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
