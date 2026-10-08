@@ -179,6 +179,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
 - `desktop/lib/visits-handlers.js` — The job-site visits' IPC (moved out of main.js, 8 Oct 2026): opening a site or its tab, visiting again, Read with Claude, hiding and dismissing
 - `desktop/lib/visits.js` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors and portals with no API (LinkedIn,
+- `desktop/lib/win-path.js` — The PATH Windows has stored for this user and machine (the registry), not the one this app was started with.
 - `desktop/lib/window-log.js` — What happened to the main window, in logs/app.log (area `window`): how long it took to load, a load that failed, the
 
 ## Desktop window: pages

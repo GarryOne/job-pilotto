@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as pipeline from './pipeline.js';
+import {registryPathDirs} from './win-path.js';
 import * as session from './claude-session.js';
 import * as terminals from './terminals.js';
 import {browserCommand, browserOf} from './browser-launch.js';
@@ -128,14 +129,18 @@ export function extensionBrowser(find = extensionInstall.installed) {
 
 // Where the Claude Code installer and Homebrew put `claude`: an app opened from the Finder has no shell PATH.
 // On Windows: claude.exe (native installer, ~/.local/bin) or claude.cmd (npm, %APPDATA%\npm).
-export function claudeBinary(env = process.env, exists = fs.existsSync, platform = process.platform) {
+export function claudeSearchDirs(env = process.env, platform = process.platform, registry = registryPathDirs) {
   const p = platform === 'win32' ? path.win32 : path.posix;
   const home = env.USERPROFILE && platform === 'win32' ? env.USERPROFILE : os.homedir();
-  const dirs = [...String(env.PATH || '').split(platform === 'win32' ? ';' : ':').filter(Boolean), p.join(home, '.local', 'bin'),
-    p.join(home, '.claude', 'local'), ...(platform === 'win32' ? [env.APPDATA && p.join(env.APPDATA, 'npm')].filter(Boolean)
-      : ['/opt/homebrew/bin', '/usr/local/bin'])];
+  // The registry's PATH too (lib/win-path.js): a Claude Code installed after this app started is on it, not on process.env.PATH.
+  return [...String(env.PATH || '').split(platform === 'win32' ? ';' : ':').filter(Boolean), ...(env === process.env ? registry({env, platform}) : []),
+    p.join(home, '.local', 'bin'), p.join(home, '.claude', 'local'),
+    ...(platform === 'win32' ? [env.APPDATA && p.join(env.APPDATA, 'npm')].filter(Boolean) : ['/opt/homebrew/bin', '/usr/local/bin'])];
+}
+export function claudeBinary(env = process.env, exists = fs.existsSync, platform = process.platform, registry = registryPathDirs) {
+  const p = platform === 'win32' ? path.win32 : path.posix;
   const names = platform === 'win32' ? ['claude.exe', 'claude.cmd'] : ['claude'];
-  return dirs.flatMap(dir => names.map(name => p.join(dir, name))).find(file => exists(file)) || '';
+  return claudeSearchDirs(env, platform, registry).flatMap(dir => names.map(name => p.join(dir, name))).find(file => exists(file)) || '';
 }
 
 // Git for Windows: Claude Code on Windows runs its commands in its bash. Where the installer puts it, or

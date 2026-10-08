@@ -98,6 +98,13 @@ export function runJson(binary, args, prompt, {cwd, timeout = TIMEOUT_MS, spawnF
 
 const freshFolder = () => fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-claude-'));
 
+// Windows: the Claude Desktop app is a chat app and does not include Claude Code (the `claude` command); what installs it is told here.
+const hint = (platform = process.platform) => platform === 'win32'
+  ? ' The Claude Desktop app does not include Claude Code: in a Command Prompt run  winget install Anthropic.ClaudeCode  (answer Y to the terms), then restart Job Pilotto and press Verify.' : '';
+// Where it looked, so a miss can be told from a stale PATH or an unusual install (a few folders; shown only in the user's own window).
+async function looked() {
+  try { const dirs = (await import('./apply.js')).claudeSearchDirs(); return ` Looked in: ${[...new Set(dirs)].slice(0, 8).join(', ')}.`; } catch { return ''; }
+}
 // Installed? Signed in? One tiny call (the haiku model, one word, no tools), on the user's own plan. The result is
 // kept on this Mac (settings.claudeCode) for the status block and for jobs: the path, the version, when, ok.
 export async function verify(storage, {binary = claudeBinary, run = execFile, spawnFn = spawn, now = () => new Date()} = {}) {
@@ -105,7 +112,7 @@ export async function verify(storage, {binary = claudeBinary, run = execFile, sp
   let result;
   if (!found.installed) {
     result = {...found, authenticated: false, error: found.path ? 'Claude Code did not start (claude --version failed).'
-      : 'Claude Code is not installed on this Mac. Install it from claude.com/claude-code, sign in, then Verify.'};
+      : `Claude Code is not installed on this Mac. Install it from claude.com/claude-code, sign in, then Verify.${hint()}${await looked()}`};
   } else {
     const cwd = freshFolder();
     try {
