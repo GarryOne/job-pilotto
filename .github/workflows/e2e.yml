@@ -100,6 +100,10 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
+      # A few of them open a headless Chromium (test/upload-slot.test.mjs: each upload-slot shape on a fixture page, 8 Oct 2026).
+      - name: A headless browser for the tests' own tests
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium --only-shell
       - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         working-directory: desktop/e2e
         run: npm test
