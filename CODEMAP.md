@@ -16,14 +16,19 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/aliases.js` — The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
 - `desktop/lib/analytics-config.js` — Where crash reports and usage events go (config/analytics.json, overridden by env). Everything empty = nothing is sent. The DSN and the
 - `desktop/lib/analytics.js` — Product analytics (PostHog, EU cloud) without PostHog's SDK: which steps people take and where they stop (setup, first search, kit,
+- `desktop/lib/app-allowance.js` — The free allowance, the health line and visit scoring (moved out of main.js, 8 Oct 2026): where the user stands (the license state), the guard before new work starts,
 - `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/app-meta-handlers.js` — The app's own state over IPC (moved out of main.js, 8 Oct 2026): the license, technical reports (telemetry, tester logs), sharing
+- `desktop/lib/app-notify.js` — The app's notifications and Recent activity (moved out of main.js, 8 Oct 2026): a notification (macOS, or a toast in the window when macOS won't show it), the run list
+- `desktop/lib/app-reminders.js` — The app's reminders and what needs the user (moved out of main.js, 8 Oct 2026): the Focus reminders at 11:00, 15:00 and 19:00, resuming the queue after a start,
+- `desktop/lib/app-updates.js` — The app's updates and menu (moved out of main.js, 8 Oct 2026): the check for a newer release, installing it, the application menu with Check for Updates, the beta and tester
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
 - `desktop/lib/apply-handlers.js` — The application flow's IPC (moved out of main.js, 8 Oct 2026): Apply and Apply with Claude, the form page's review state, watch and focus, showing a
 - `desktop/lib/apply.js` — "Apply to N jobs": pick the N best open jobs and start applying.
 - `desktop/lib/awake.js` — The time this computer has been awake: Date.now() minus the time it slept. Watchdogs measure with it, so a Mac asleep with its lid
 - `desktop/lib/background-chrome.js` — A Chrome an automation left behind is not just clutter: macOS keeps ONE Apple Event connection per application, and
+- `desktop/lib/background-handlers.js` — The app's background jobs at start-up (moved out of main.js, 8 Oct 2026): the one-time move of user data left on this Mac to Notion, the update check, the
 - `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
 - `desktop/lib/benchmarks.js` — What applications typically get on a job board, from the website's counts of how people's applications went (site/src/knowledge.js benchmarks).
 - `desktop/lib/browser-handlers.js` — The browser and extension setup IPC (moved out of main.js, 8 Oct 2026): showing a job's form tab, reloading it, opening Notion and folders,
@@ -47,6 +52,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cv-check.js` — CV check: how well a hiring system can read the CV the person uploaded, before any tailoring.
 - `desktop/lib/cv-handlers.js` — The CV and cover-letter IPC (moved out of main.js, 8 Oct 2026): the CV match on a job, which CV a job uses, the base CV's status and
 - `desktop/lib/cv-look.js` — Keeps the look of the person's own CV PDF: where its photo, contact icons, employer logos, bottom banner and page breaks sit, cut out of
+- `desktop/lib/cv-windows.js` — The CV's windows (moved out of main.js, 8 Oct 2026): a tailored CV printed to PDF by Chromium in a hidden window, the probe that keeps the CV PDF's look, and the review window
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),
 - `desktop/lib/demo.js` — "Look around first": the app restarts on a fresh copy of the fictional demo data (demo/) and back to the user's
 - `desktop/lib/dev-marker.js` — Running from source (npm start / electron .) must never look like the installed app: a "DEV" badge on the Dock
@@ -54,6 +60,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/e2e-ipc.js` — E2E only: wraps ipcMain.handle so every call the window makes to the app is logged (channel, start, duration, failed), newest MAX kept. The journey reads the log to tell a
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log, one file per day (see below). The app's own log says a run
+- `desktop/lib/ext-server-handlers.js` — The extension server's wiring (moved out of main.js's start-up, 8 Oct 2026): what the local server asks of the app when the Chrome extension calls it: the site
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
 - `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
@@ -79,6 +86,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/log-days.js` — The app's logs, one file per day for KEEP_DAYS days: today's is always <name>.log (app.log, engine.log), so every
 - `desktop/lib/log-view.js` — Settings → Logs: reads the app's log files for the window a page at a time, so a big log never reaches it whole:
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log for today, app-YYYY-MM-DD.log for each of the last 30
+- `desktop/lib/main-window.js` — The app's windows (moved out of main.js, 8 Oct 2026): the main window (its size, theme background, the page it loads, what it does when closed or when its page
 - `desktop/lib/match-check.js` — CV match: one CV against one job posting, the way a recruiter's search and a hiring system's match grade meet them.
 - `desktop/lib/menu-rearm.js` — A menu the fill could not answer from its choices ("Sir" asked, "Madame"/"Monsieur" shown; or Chrome's page translation showing
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
@@ -120,6 +128,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/root.js` — Where the pipeline, config, tools and extension live: the repo when developing, the app's
 - `desktop/lib/run-history.js` — Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
 - `desktop/lib/run-result.js` — The engine's result file (src/run_result.py): one object per run, instead of the last stdout line.
+- `desktop/lib/run-state.js` — What the run list shares between main.js's activity() and the start-up background jobs (lib/background-handlers.js): the run history last read from
 - `desktop/lib/schedule.js` — Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 - `desktop/lib/search-tuning-handlers.js` — The search settings' IPC (moved out of main.js, 8 Oct 2026): how well the search covers the roles and places, ideas, loosening and adding
@@ -153,6 +162,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
+- `desktop/lib/telemetry-handlers.js` — The app's reports at start-up (moved out of main.js's start, 8 Oct 2026): technical reports, crash reports (Sentry) and usage events (PostHog): only an installed
 - `desktop/lib/telemetry.js` — Technical reports (on by default; Settings → Advanced turns them off): crashes, failed runs, form issues and a
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's

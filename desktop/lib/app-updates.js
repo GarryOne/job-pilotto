@@ -1,0 +1,76 @@
+// The app's updates and menu (moved out of main.js, 8 Oct 2026): the check for a newer release, installing it, the application menu with Check for Updates, the beta and tester
+// switches, and the setup-funnel tracking. The update offer and when it was last checked stay inside; main.js reaches them through accessors.
+// Guards: the updater, app-menu, setup-funnel and beta tests in desktop/test.
+import * as appMenu from './app-menu.js';
+import * as setupFunnel from './setup-funnel.js';
+import * as updater from './updater.js';
+import {log as appLog, logFile} from './log.js';
+
+export function createAppUpdates(ctx) {
+  const {Menu, app, dialog, getStorage, getTelemetry, toWindow, track, getWindow} = ctx;
+  const storage = {settings: () => getStorage().settings(), saveSettings: patch => getStorage().saveSettings(patch)};   // storage is made after this runs: every use goes through the getter
+  let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
+  let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
+
+  // Running from source (npm start): never offer or install an update. It would quit the dev app and open the
+  // downloaded one in its place. From source, updating is `git pull` + restart.
+  const FROM_SOURCE = !app.isPackaged;
+  const betaOn = () => storage.settings().betaChannel === true;   // opt-in, off by default (Settings → Diagnostics → Beta)
+  // A tester: the person switched the beta on (versions are plain X.Y.Z since 0.5: the channel says how proven a build is).
+  const testerOn = betaOn;
+  // The tester's run-log switch. Saved as `alphaLogs` before 0.5: that choice still counts until the switch is touched.
+  const testerLogsOn = () => { const s = storage.settings(); return (s.testerLogs ?? s.alphaLogs) === true; };
+  async function checkForUpdate(asked = false) {
+    // From source there is nothing to update, except under the e2e's fake release server (JOB_PILOTTO_E2E_UPDATES_URL): the update flow is tested on the real check.
+    if (FROM_SOURCE && !(process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_E2E_UPDATES_URL)) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
+    try {
+      updateOffer = await updater.check(app.getVersion(), {channel: betaOn() ? 'beta' : 'stable'});
+      updateCheckedAt = new Date().toISOString();
+      if (updateOffer) { appLog('update', `available: ${updateOffer.version}`); toWindow('update', updateOffer); }
+      return {ok: true, offer: updateOffer, current: app.getVersion()};
+    } catch (error) {
+      return {ok: false, text: `Couldn't check for updates: ${error.message}`, current: app.getVersion()};
+    }
+  }
+  function buildMenu() {
+    Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin',
+      checkForUpdates: checkForUpdatesNow,
+      sendFeedback: () => { if (getWindow() && !getWindow().isDestroyed()) { getWindow().show(); toWindow('openFeedback'); } },
+      find: what => toWindow('find', what)})));
+  }
+
+  // Setup funnel (lib/setup-funnel.js): the furthest step each install reached, sent at once so a quit mid-setup still counts.
+  function trackSetup(patch, before) {
+    const event = setupFunnel.track(patch, before);
+    if (!event) return;
+    if (event.step !== 'done') storage.saveSettings({setupFurthest: event.step});
+    if (getTelemetry()) { getTelemetry().record('setup', event); getTelemetry().flush(); }
+    track('setup_step', {step: event.step, minutes: event.minutes});
+  }
+
+  async function installUpdate() {
+    if (FROM_SOURCE) return {ok: false, text: 'Running from source (npm start): update with git pull, then restart.'};
+    if (!updateOffer) return {ok: false, text: 'No update to install.'};
+    try {
+      appLog('update', `install ${updateOffer.version} over ${app.getVersion()}: started`);
+      await updater.install(updateOffer, {exe: app.getPath('exe'), logFile: logFile(),
+        onStep: text => { appLog('update', `install ${updateOffer.version}: ${text}`); toWindow('updateStep', text); },
+        quit: () => { appLog('update', `install ${updateOffer.version}: quitting so the new version can be put in place`); app.quit(); }});  // the quit dialog still asks if a job runs; the swap waits for the app to close
+      return {ok: true};
+    } catch (error) {
+      appLog('update', `install failed: ${error.message}`);
+      return {ok: false, text: error.message, url: updateOffer.url};
+    }
+  }
+  // Menu → Check for Updates…: always answers (up to date, an update to install, or why it couldn't check).
+  async function checkForUpdatesNow() {
+    const shown = appMenu.answer(await checkForUpdate(true), app.getVersion());
+    const parent = getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined;
+    const {response} = await dialog.showMessageBox(parent, {type: shown.type, message: shown.message, detail: shown.detail,
+      buttons: shown.buttons, defaultId: 0, cancelId: shown.buttons.length - 1});
+    if (!shown.install || response !== 0) return;
+    const result = await installUpdate();
+    if (!result.ok) dialog.showMessageBox(parent, {type: 'warning', message: 'The update didn\'t install', detail: result.text, buttons: ['OK']});
+  }
+  return {getUpdateOffer: () => updateOffer, setUpdateOffer: value => { updateOffer = value; }, getUpdateCheckedAt: () => updateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, checkForUpdatesNow};
+}

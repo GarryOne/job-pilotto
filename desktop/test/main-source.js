@@ -6,6 +6,6 @@ import path from 'node:path';
 const desktop = path.resolve(import.meta.dirname, '..');
 export function mainSource() {
   const lib = path.join(desktop, 'lib');
-  const parts = fs.readdirSync(lib).filter(name => /-handlers\.js$|^session-flow\.js$/.test(name)).sort().map(name => fs.readFileSync(path.join(lib, name), 'utf8'));
+  const parts = fs.readdirSync(lib).filter(name => /-handlers\.js$|^session-flow\.js$|^app-[\w-]+\.js$|^(main-window|cv-windows)\.js$/.test(name)).sort().map(name => fs.readFileSync(path.join(lib, name), 'utf8'));
   return [fs.readFileSync(path.join(desktop, 'main.js'), 'utf8'), ...parts].join('\n');
 }
