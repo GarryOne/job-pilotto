@@ -5,6 +5,9 @@ import vm from 'node:vm';
 
 const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
+// background.js and the files split out of it (messages-*.js, submit-watch.js, tab-report.js) are one background for these checks.
+const readBackground = () => ['background', 'messages-app', 'messages-learning', 'messages-panel', 'submit-watch', 'tab-report'].map(name => read(`extension/${name}.js`)).join('\n');
+
 test('extension page helpers are the same as the tools/ originals (run extension/sync.sh)', () => {
   for (const name of ['browser-submit-guard.js', 'browser-form-fastpath.js']) {
     assert.equal(read(`extension/page/${name}`), read(`tools/${name}`), name);
@@ -67,7 +70,7 @@ test('Apply with Claude hand-off: hook only on a tab the app opened, ticket chec
   const hook = read('extension/hook.js');
   assert.match(hook, /addEventListener\('jobpilotto:fill'/);
   assert.match(hook, /typeof request\?\.ticket !== 'string'/);
-  const background = read('extension/background.js');
+  const background = readBackground();
   const handOff = background.slice(background.indexOf('async function handOff'), background.indexOf('// Older builds registered'));
   assert.ok(handOff.indexOf("'/extension/ticket'") > 0 && handOff.indexOf("'/extension/ticket'") < handOff.indexOf('fillOpenedTab('),
     'the ticket is checked before any fill');
@@ -101,7 +104,7 @@ test('the panel (review.js) is read only: it never types, ticks, clicks or submi
 });
 
 test('an out-of-date extension in Chrome loads the new copy by itself, and only rejoins tabs the app opened', () => {
-  const background = read('extension/background.js');
+  const background = readBackground();
   const newer = new Function(`${background.match(/export function newer[\s\S]*?\n}\n/)[0].replace('export ', '')}; return newer;`)();
   assert.equal(newer('0.7.1', '0.6.8'), true);
   assert.equal(newer('0.7.1', '0.7.1'), false);
@@ -116,7 +119,7 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and only 
 });
 
 test('a kit fill starts at once: kit and contact details prefetched, no fixed wait from the panel, quick dropdowns', () => {
-  const background = read('extension/background.js');
+  const background = readBackground();
   assert.match(background, /const data = await prefetch\(config, /);  // the panel's first look fetches both
   assert.match(background, /fillOpenedTab\(sender\.tab, url, !!message\.force, \{fast: true\}\)/);
   assert.match(background, /if \(!fast\) await new Promise/);
@@ -134,7 +137,7 @@ test('a CV tailored after the first fill replaces the one the extension attached
   const review = read('extension/review.js');
   assert.match(review, /panelTailor/);                                          // the panel offers a CV tailored to the job
   assert.match(review, /ready && !filling && !readyNow/);                       // and the Fill button stays to attach it
-  assert.match(read('extension/background.js'), /type: 'tailor-cv'/);
+  assert.match(readBackground(), /type: 'tailor-cv'/);
 });
 
 test('the form panel marks the questions a hiring system can reject on, first', () => {
@@ -154,6 +157,6 @@ test('the app and the form panel mark the same knockout questions', () => {
 
 test('the form panel\'s tip line draws from the same pool as the app (run extension/sync.sh after changing it)', () => {
   assert.equal(read('extension/tips-pool.js'), read('desktop/renderer/tips-pool.js'));
-  assert.match(read('extension/background.js'), /message\?\.type === 'panelTip'/);
+  assert.match(readBackground(), /message\?\.type === 'panelTip'/);
   assert.match(read('extension/review.js'), /type: 'panelTip'/);
 });
