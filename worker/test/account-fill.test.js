@@ -82,3 +82,14 @@ test('a control named a little long or short is pressed when it is the only near
   assert.deepEqual(pressNamed('<a id="a">Mein Profil</a><a id="b">Mein Profil neu</a>', 'Profil'), {result: 'several', clicked: []});
   assert.deepEqual(pressNamed('<a id="a">Hilfe</a>', 'Anmelden'), {result: 'not-found', clicked: []});
 });
+
+import {markAccountStep} from '../../extension/account-fill.js';
+
+test('the AI\'s page step is left on the page for the panel, and removed when there is none', () => {
+  const {window} = new JSDOM('<body></body>');
+  Object.assign(globalThis, {document: window.document});
+  markAccountStep('sign_in');
+  assert.equal(window.document.documentElement.getAttribute('data-jobpilotto-account-step'), 'sign_in');
+  markAccountStep('');
+  assert.equal(window.document.documentElement.hasAttribute('data-jobpilotto-account-step'), false);
+});

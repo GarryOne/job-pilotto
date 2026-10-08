@@ -9,7 +9,7 @@ import {decide} from './log.js';
 import {askKind, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {tabArmed} from './tab-pages.js';
-import {accountSketch, fillAccountBoxes, flagAccount, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
+import {accountSketch, fillAccountBoxes, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
 import {closerLook, unsureTwice} from './escalate.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
@@ -117,6 +117,7 @@ async function accountStepOnce(tab, frameId) {
   if (work && work.boxes > 0 && !work.empty && !work.pending) return {filled: 0};   // every password box has its value and no press waits (a page with no password box, e.g. an "account exists" notice, is still looked at)
   const kind = await askKindOnce(tab);
   const step = kind?.kind === 'account' ? kind.accountStep || '' : '';
+  await run(tab, frameId, markAccountStep, [step]);
   if (work && !step && !work.empty) return {filled: 0};   // no step the AI knows: the password only, and every box already has one
   const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host})});
   if (!answer?.ok || !answer.password) return {filled: 0};

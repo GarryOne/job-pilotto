@@ -320,9 +320,9 @@
     jp.classList.toggle('ready', ready && !needsYou);
     $('.ring').style.setProperty('--done', done);
     $('.ring span').textContent = ready && !needsYou ? '✓' : total ? String(left) : '–';
-    const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? 'Ready to create the account' : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
+    const readyWords = needsYou ? `Needs you: ${needsYou.replace(/^1$/, 'see what the page asks')}` : account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Ready to create the account' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Ready to sign in' : 'Ready to continue') : 'Ready to submit';   // the AI's veto (account-step.js, form-ready.js): a consent link or a widget the count cannot see
     $('.pill b').textContent = ready ? readyWords : total ? `${left} left` : 'Job Pilotto';
-    $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? 'Review, then create it' : 'Review, then submit') : 'required fields';
+    $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? (account ? (document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_up' ? 'Review, then create it' : document.documentElement.getAttribute('data-jobpilotto-account-step') === 'sign_in' ? 'Review, then sign in' : 'Review, then continue') : 'Review, then submit') : 'required fields';
     // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
     const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
     const over = filledOnce || ['done', 'input'].includes(session?.status);
