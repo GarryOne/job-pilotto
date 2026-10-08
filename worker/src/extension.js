@@ -153,6 +153,7 @@ Eligibility: set eligible to false only when the posting clearly rules the appli
 export const TEST_MODE = 'TEST MODE: this is a test of the form filling, not a real application. Answer EVERY field; where the profile or standard answers do not say, invent a plausible dummy value (for select fields pick the most plausible listed option). Never leave a field empty, set confidence to low for invented values, and set eligible to true.';
 
 export async function answerForm(env, { url, fields, page_text, test = false }, client = null) {
+  const startedAt = Date.now();
   const row = await findRow(env, url).catch(() => null);
   const kit = row ? await readKit(env, row.id).catch(() => null) : null;
   // The desktop app passes the local Profile and standard answers; the Worker reads them from Notion.
@@ -194,10 +195,17 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output
     + (usage.cache_read_input_tokens || 0) * PRICE.cacheRead + (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite) / 1e6;
   const known = new Set(fields.map((f) => f.field));
+  const raw = Array.isArray(result.answers) ? result.answers : [];
+  // What this call did, in counts and field ids (never an answer or the profile's text): with 0 answers it tells "nothing to go on"
+  // (an empty profile) from "answered, but under other ids" from "answered nothing" (8 Oct 2026: Coop, 11 fields sent, 0 back, no trace).
+  await env.onAnswer?.({ fields: fields.length, returned: raw.length, kept: raw.filter((a) => known.has(a.field) && a.value !== '').length,
+    unknownIds: raw.filter((a) => !known.has(a.field)).map((a) => String(a.field).slice(0, 60)).slice(0, 10),
+    empty: raw.filter((a) => known.has(a.field) && a.value === '').length, profileChars: String(profile || '').length,
+    answersChars: String(standard || '').length, kit: !!kit, stop: response.stop_reason || '', ms: Date.now() - startedAt });
   return {
     job: row ? summary(row) : null,
     eligible: result.eligible, eligibility_note: result.eligibility_note,
-    answers: result.answers.filter((a) => known.has(a.field) && a.value !== ''),
+    answers: raw.filter((a) => known.has(a.field) && a.value !== ''),
     cover_letter: kit?.cover_letter || '',
     usd: Math.round(usd * 10000) / 10000,
   };

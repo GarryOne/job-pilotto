@@ -128,6 +128,8 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
         appLog('extension', `${entry?.kind || 'note'}: ${entry?.text || ''}`, entry?.fields || {});
       }
     },
+    // Each Claude answer for a form's questions (worker/src/extension.js answerForm): counts and field ids only.
+    onAnswer: trace => appLog('fill', `Claude answered ${trace.kept} of ${trace.fields} question(s)`, trace),
     onRun: async run => {
       // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});

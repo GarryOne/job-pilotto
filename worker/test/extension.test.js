@@ -154,9 +154,15 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
         { field: 'q2', value: '', confidence: 'low', note: '' }] }) }],
     };
   } } };
-  const result = await answerForm({ ...env, NOTION_PROFILE_PAGE_ID: 'prof', NOTION_ANSWERS_PAGE_ID: 'ans' },
+  const traces = [];
+  const result = await answerForm({ ...env, NOTION_PROFILE_PAGE_ID: 'prof', NOTION_ANSWERS_PAGE_ID: 'ans', onAnswer: (trace) => traces.push(trace) },
     { url: JOB, fields: [{ field: 'q1', label: 'Notice period', type: 'text' }, { field: 'q2', label: 'Other', type: 'text' }], page_text: 'About the role' }, client);
   assert.deepEqual(result.answers.map((a) => a.field), ['q1']);
+  // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
+  const { ms, ...trace } = traces[0];
+  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn' });
+  assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
+  assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
   assert.equal(result.eligible, true);
   assert.equal(result.cover_letter, 'Dear team');
   assert.equal(result.usd, 0.004);
