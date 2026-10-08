@@ -55,3 +55,12 @@ test('not pressed: a required box or consent still empty, a frame in the form (a
   Object.assign(globalThis, {document: none.document});
   assert.equal(pressAccountButton(), 'not-filled');
 });
+
+import {passwordWork} from '../../extension/account-fill.js';
+
+test('the cheap look before anything is asked of the app: how many password boxes, how many empty, whether a press of ours is still waiting', () => {
+  const look = html => { const dom = new JSDOM(`<body>${html}</body>`); dom.window.HTMLElement.prototype.getClientRects = function () { return [{}]; }; Object.assign(globalThis, {document: dom.window.document}); return passwordWork(); };
+  assert.deepEqual(look('<input type="password"><input type="password" value="x">'), {boxes: 2, empty: 1, pending: false});
+  assert.deepEqual(look('<input type="password" value="x" data-jobpilotto-filled="1">'), {boxes: 1, empty: 0, pending: true});   // ours, its button not pressed yet
+  assert.deepEqual(look('<p>An account already exists</p>'), {boxes: 0, empty: 0, pending: false});   // a notice page has none: still looked at
+});

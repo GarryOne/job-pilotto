@@ -9,7 +9,7 @@ import {decide} from './log.js';
 import {askKind, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {tabArmed} from './tab-pages.js';
-import {accountSketch, fillAccountBoxes, flagAccount, pressAccountButton, pressRegister} from './account-fill.js';
+import {accountSketch, fillAccountBoxes, flagAccount, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -41,7 +41,15 @@ export function resultAction(answer) {
 
 // One look at a time per tab (the panel asks every few seconds: a second look while the first still waits for the AI only repeats it), and an unchanged page is not judged
 // again: the AI's answer is kept for the sketch it was given, so it is asked again only when the page changed (a box filled, a consent accepted, an error shown).
-const looking = new Set(), judged = new Map();
+const looking = new Set(), judged = new Map(), lastSaid = new Map(), kinds = new Map();
+// The page kind of this tab's page, kept 20 s (the app remembers it too, but asking and logging it at every look is noise): a new address asks again.
+async function askKindOnce(tab) {
+  const key = tab.url.split('#')[0], kept = kinds.get(tab.id);
+  if (kept && kept.key === key && Date.now() - kept.at < 20000) return kept.kind;
+  const kind = await askKind(tab);
+  kinds.set(tab.id, {key, at: Date.now(), kind});
+  return kind;
+}
 const signature = sketch => JSON.stringify([sketch.controls, sketch.buttons, sketch.texts, sketch.frames]);
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 const memoKey = tab => `accountForm:${tab.id}`;
@@ -103,12 +111,17 @@ async function accountStepOnce(tab, frameId) {
   if (!tabArmed({url: tab.url, armed: (await sessionGet(armedKey))[armedKey]})) return {filled: 0};
   const host = new URL(tab.url).hostname, config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {filled: 0};   // your own Worker: no Keychain
-  const kind = await askKind(tab);
+  // Cheap first, in the page: nothing to fill and no press waiting means nothing to ask the app (an account + application page was looked at every 2 s for nothing, 8 Oct 2026).
+  const work = await run(tab, frameId, passwordWork);
+  if (work && work.boxes > 0 && !work.empty && !work.pending) return {filled: 0};   // every password box has its value and no press waits (a page with no password box, e.g. an "account exists" notice, is still looked at)
+  const kind = await askKindOnce(tab);
   const step = kind?.kind === 'account' ? kind.accountStep || '' : '';
+  if (work && !step && !work.empty) return {filled: 0};   // no step the AI knows: the password only, and every box already has one
   const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host})});
   if (!answer?.ok || !answer.password) return {filled: 0};
   const move = accountMove({step, mode: answer.mode, hasEmail: !!answer.email, registerControl: kind?.registerControl, signinControl: kind?.signinControl});
-  decide('fill', `account page: ${move}`, {host, step, mode: answer.mode || ''});
+  const said = `${move} ${step} ${answer.mode}`;
+  if (lastSaid.get(tab.id) !== said) { lastSaid.set(tab.id, said); decide('fill', `account page: ${move}`, {host, step, mode: answer.mode || ''}); }   // said when it changes, not at every look
   if (move === 'leave') {
     if (answer.mode !== 'confirm' && step) await giveUp(tab, host, 'no way forward on this page');   // 'confirm' waits for its mail; anything else the extension cannot continue
     return {filled: 0};
@@ -123,7 +136,7 @@ async function accountStepOnce(tab, frameId) {
   }
   const filled = await run(tab, frameId, fillAccountBoxes, [answer.password]) || 0;
   if (step === 'sign_up' && answer.mode === 'sign-up') await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120)}}).catch(() => {});   // a sign-up form is open in this tab
-  decide('fill', 'password filled from the Keychain', {host, boxes: filled});
+  if (filled) decide('fill', 'password filled from the Keychain', {host, boxes: filled});
   const submitKey = `submit-${step}`;   // one press per tab and STEP: a sign-up pressed here must not block the sign-in that follows in the same tab
   if (move === 'fill-press' && !(await alreadyTried(tab, submitKey))) {
     const ready = await judge(tab, frameId, 'ready', config);   // also when nothing new was filled: a page the person finished since is pressed

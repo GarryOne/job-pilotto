@@ -75,3 +75,10 @@ export function pressRegister(named) {
   found[0].click();
   return 'pressed';
 }
+
+// What is left to do on this page's password boxes, cheaply, before anything is asked of the app (the panel calls every 2 s): `boxes` visible, `empty` still to fill; `pending` = a box we
+// filled whose account button the AI-judged flow has not pressed yet. Injected into the page.
+export function passwordWork() {
+  const boxes = [...document.querySelectorAll('input[type=password]')].filter(box => box.getClientRects().length && !box.disabled && !box.readOnly);
+  return {boxes: boxes.length, empty: boxes.filter(box => !box.value).length, pending: boxes.some(box => box.hasAttribute('data-jobpilotto-filled')) && !document.documentElement.hasAttribute('data-jobpilotto-account-pressed')};
+}
