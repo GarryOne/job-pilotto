@@ -409,6 +409,13 @@ export function renderNextStep(item) {
     actions.push(resume('primary'));
     actions.push(submittedButton(item));
   }
+  // Every state with a job keeps a way to its form (owner, 8 Oct 2026: an ended session showed only Resume Claude).
+  const toForm = /^(Open in Chrome|Reopen form|Open filled form)$/;
+  if (item.url && !submitted && !actions.some(button => toForm.test(button.textContent))) {
+    actions.splice(1, 0, sessionButton('Open in Chrome', actions.length ? 'secondary' : 'primary', async event => {
+      await openForm(item, event.currentTarget);
+    }, 'link'));
+  }
   $('ss-actions').replaceChildren(...actions);
   // Two sections under the step: what Claude needs from you (answer, agree, confirm), then what happened
   // (what it filled, the problems it hit, its audit). Its other report sections join what happened.
