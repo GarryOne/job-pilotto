@@ -60,6 +60,7 @@ function pageShape(tabId) {
       files: controls.filter(el => el.type === 'file').length,
       anyFiles: document.querySelectorAll('input[type=file]').length,   // an upload behind a button ("Upload a CV"): its input is hidden
       textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
+      nodes: document.getElementsByTagName('*').length,   // still growing: a page that renders its form after the load
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
@@ -109,12 +110,21 @@ function writeState(tabId, value) {
 }
 // The posting before its form: a page with no form and one "Apply" button (chosen by rule: tab-pages.js pickApplyButton).
 const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
+// A page with no form control of any kind (fill-flow consider waits for it to stop growing before its kind is asked).
+export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas;
 function applyCandidates(tabId) {
   return chrome.scripting.executeScript({target: {tabId}, func: selector => [...document.querySelectorAll(selector)].map((el, index) => {
     const box = el.getBoundingClientRect(), style = getComputedStyle(el);
     return {index, tag: el.tagName.toLowerCase(), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
       area: Math.round(box.width * box.height), visible: el.getClientRects().length > 0 && style.visibility !== 'hidden',
-      disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true', href: el.getAttribute('href') || ''};
+      disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true', href: el.getAttribute('href') || '',
+      // Hard floor, by structure (any language): a control that submits a form, or that the site's own code names its submit/save button, is never
+      // a posting's Apply (9 Oct 2026, live: a SuccessFactors form still loading, 0 inputs, read as a posting; its "Postuler" was SPAN#..._submitBtn.rcmSaveButton).
+      submits: (() => {
+        const own = node => `${node.id || ''} ${node.getAttribute('name') || ''} ${typeof node.className === 'string' ? node.className : ''}`;
+        for (let node = el, depth = 0; node && depth < 3; node = node.parentElement, depth++) if (/submit|save/i.test(own(node))) return true;
+        return (el.type === 'submit' && !!el.form) || (el.tagName === 'INPUT' && el.type === 'submit');
+      })()};
   }), args: [PAGE_BUTTONS]}).then(rows => rows?.[0]?.result || []).catch(() => []);
 }
 // The start-applying phrases the service has learned (extension/alias-schema.js, key apply_button), asked of the app which asks the site and
@@ -198,6 +208,16 @@ export async function consider(tab, jobUrl) {
   for (let again = 0; !counts && again < 4; again++) {
     await new Promise(resolve => setTimeout(resolve, 1000));
     counts = await pageShape(tab.id);
+  }
+  // No control at all while the page is still growing (a form rendered by script after its load, "Chargement en cours…"): read it again
+  // before anyone judges it, or a loading form is called a posting and its Submit pressed as Apply (9 Oct 2026, SuccessFactors). A static page: one extra second.
+  for (let wait = 0; counts && emptyShape(counts) && wait < 4; wait++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const next = await pageShape(tab.id);
+    if (!next) break;
+    const growing = next.nodes !== counts.nodes;
+    counts = next;
+    if (!growing) break;
   }
   if (!counts) {
     started.delete(key);
