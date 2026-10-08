@@ -400,6 +400,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/commit-subject.py` — The subject a `git commit` command line would write, when it is given inline (-m "...", or -m "$(cat <<'EOF' ...)"); else nothing.
 - `tools/e2e_gate.py` — The end-to-end gate of tools/release-stable.sh: may this build be promoted, judging by the e2e runs GitHub lists (newest first)?
 - `tools/e2e-issue-links.mjs` — Pre-push check (tools/pre-push-check.sh): a push that changes an e2e suite names its open failed-step issues (desktop/e2e/lib/issue-links.mjs).
+- `tools/file-size.mjs` — No source file over 500 lines (owner, 8 Oct 2026): a big file is read in parts, so its far-away shared state and imports get missed,
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/fixture-from-fills.py` — Real forms for the apply suite, from the extension's fill log: the forms it failed on for a real person, rebuilt as fixtures.

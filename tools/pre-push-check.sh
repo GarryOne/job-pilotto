@@ -131,6 +131,11 @@ if command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -
   unseen="$(cd "$repo" && node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
 fi
 
+# No source file over 500 lines; files already over it may only shrink (tools/file-size.mjs; owner, 8 Oct 2026). Any push, any area.
+if command -v node >/dev/null && [ -f "$repo/tools/file-size.mjs" ]; then
+  sizes="$(cd "$repo" && node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
+$sizes" >&2; exit 2; }
+fi
 # A push that changes Applying flow code (desktop/e2e/flows.mjs FLOW_FILES) passed the whole scenario matrix on that exact code, or says why
 # not (tools/flows-gate.mjs; owner, 8 Oct 2026: a fix for account creation must never quietly break the application form). No node: skipped.
 if command -v node >/dev/null && [ -f "$repo/tools/flows-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then

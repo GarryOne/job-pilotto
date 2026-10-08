@@ -149,6 +149,13 @@ button a person would look for (Add a job, Log activity…) is added with `butto
 input instead of running at once. Settings needs nothing: every page, section (by its heading), Connections card and button there is listed from the page itself
 (danger-zone buttons are focused, not pressed), checked by the settings suite's ⌘K step. A new long task that runs on this Mac is a tracked task (`pipeline.work` / `pipeline.task`), so the banner, Recent activity and the result follow it.
 
+## Files: one concern each, never over 500 lines (owner, 8 Oct 2026)
+A big file is read in parts, so an edit misses shared state and imports far away, and sessions editing it at once collide (8 Oct: a moved
+block missed `sessionGet` 800 lines below; an import changed upstream and a page went blank). **No source file (.js, .mjs, .cjs, .py) over
+500 lines.** About to cross it? Move a concern into its own file first (the pattern: `lib/session-flow.js`, `extension/fill-flow.js`: shared
+state passed in, a header naming what it owns and the tests guarding it). Files already over it are in `tools/file-size-allowed.json` at their
+size and may only shrink; `tools/file-size.mjs` (push hook + `desktop/test/file-size.test.js`) fails a new big file or a listed one that grew.
+
 ## The extension first, Claude as the safety net (owner, 8 Oct 2026)
 The plain **Apply** button (the Chrome extension alone) is the product: easier, faster, simpler, and aimed at **non-technical users first**.
 Every step of an application (posting → Apply → account sign-up/sign-in → email confirmation → the form) is built for the extension to do
