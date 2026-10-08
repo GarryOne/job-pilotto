@@ -34,6 +34,14 @@ The core crawl and printed digest need no accounts. Everything else turns on whe
 
 `desktop/lib/github.js` is the "Always on" path. The user creates `<user>/job-pilotto-private` from a public starter. That repo's workflows (`templates/github-actions/`, scheduled every 4 hours for jobs, optional scout, mail three times a day) call the reusable workflows in this repo: `daily.yml`, `scout.yml`, `mail.yml`. Those workflows have no schedule of their own, so the public repo never runs on anyone's data.
 
+**What lives on the user's side, and how it stays in step** (8 Oct 2026). At every app start: the repo's workflow files are rewritten,
+pinned to the app's own release (`desktop-v<version>`); our retired ones (first line `# Job Pilotto`) are deleted, the user's own kept;
+secrets and variables (models included) are sent again when their fingerprint changed (`github.js` `updateRepo`); the Telegram Worker is
+redeployed when its code or settings changed (`telegram-cloud.js` `refresh`). Model IDs are data: `JOB_PILOTTO_SMALL_MODEL` and the stage
+variables (`src/ai/models.py`), so a new model needs no engine release. Not synced: a secret removed on the Mac stays in the repo
+(a failed Keychain read must never wipe Always on), except the explicit sign-outs (`removeRepoSecrets`). A repo whose app is never opened
+keeps its last release: old engine tags must keep working against our site's API.
+
 What stays on the Mac: recording, transcription, Apply with Claude, form filling, and Google sign-in.
 
 ## Where the code sits

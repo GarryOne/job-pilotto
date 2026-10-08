@@ -12,8 +12,9 @@ import time
 import threading
 
 from ..paths import DATA
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 BATCH = 30   # ~30 s a batch through Claude Code (100 took ~2 min): a 3-minute search can stop between them
 MAX_NEW = 600       # titles asked about in one run at most (a first run on a big list is spread over the next ones)
 STORE = DATA / 'title_triage.json'

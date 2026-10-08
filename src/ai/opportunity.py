@@ -30,8 +30,9 @@ from ..notion import origin as origin_rule
 from ..notion import titles
 from ..notion.ledger import _block, _text, add_event, plain
 from . import cost, engine
+from .models import SMALL_MODEL
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-5-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL') or SMALL_MODEL
 LEAD_STAGE = 'Recruiter lead'
 HEADING = '🤝 Recruiter message'
 MIN_TEXT = 40  # shorter than this isn't a recruiter's message (e.g. a date after /add)

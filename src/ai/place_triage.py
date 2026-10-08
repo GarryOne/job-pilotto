@@ -13,8 +13,9 @@ import threading
 import time
 
 from ..paths import DATA
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 BATCH = 30   # one line of reasoning per location: 30 a call (7 Oct 2026: 60 at once misfiled Swiss towns)
 VERSION = 3   # 3: nearest place and distance per location, visa asked apart (7 Oct 2026); a new version asks again
 STORE = DATA / 'place_triage.json'

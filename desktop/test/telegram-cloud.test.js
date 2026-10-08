@@ -90,3 +90,26 @@ test('turning it off removes the webhook and the Worker and forgets the token', 
   assert.equal(storage.secret('CLOUDFLARE_API_TOKEN'), '');
   assert.equal(storage.settings().telegramCloud, null);
 });
+
+test('at start the Worker is redeployed only when its code or settings changed, never twice for the same', async () => {
+  const storage = ready();
+  const telegram = async () => ({ok: true});
+  const first = fakeCloudflare();
+  await tgCloud.turnOn(storage, 'cf_token', {fetcher: first.fetcher, telegram, bundle: () => 'bot v1'});
+  const same = fakeCloudflare();
+  assert.equal(await tgCloud.refresh(storage, {fetcher: same.fetcher, telegram, bundle: () => 'bot v1'}), null);
+  assert.equal(same.calls.length, 0, 'same code and settings: no Cloudflare call');
+  const newer = fakeCloudflare();
+  assert.equal((await tgCloud.refresh(storage, {fetcher: newer.fetcher, telegram, bundle: () => 'bot v2'})).ok, true);
+  assert.ok(newer.calls.some(call => call.method === 'PUT' && call.url.endsWith('/workers/scripts/job-pilotto-bot')), 'the new code is uploaded');
+  assert.equal(await tgCloud.refresh(storage, {fetcher: fakeCloudflare().fetcher, telegram, bundle: () => 'bot v2'}), null, 'remembered after the redeploy');
+  storage.saveSettings({notionIds: {NOTION_APPLICATIONS_DB: 'db2'}});   // a setting the Worker carries changed
+  assert.equal((await tgCloud.refresh(storage, {fetcher: fakeCloudflare().fetcher, telegram, bundle: () => 'bot v2'})).ok, true);
+});
+
+test('no refresh when the buttons are off, or the bundle was never staged', async () => {
+  const storage = ready();
+  assert.equal(await tgCloud.refresh(storage, {fetcher: fakeCloudflare().fetcher, bundle: () => 'x'}), null);
+  await tgCloud.turnOn(storage, 'cf_token', {fetcher: fakeCloudflare().fetcher, telegram: async () => ({ok: true}), bundle: () => 'bot v1'});
+  assert.equal(await tgCloud.refresh(storage, {fetcher: fakeCloudflare().fetcher, bundle: () => { throw new Error('ENOENT'); }}), null);
+});

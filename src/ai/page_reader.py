@@ -16,8 +16,9 @@ from datetime import datetime, timezone
 
 from . import cost, engine
 from ..sources import ats, careers
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 MAX_TEXT = 14000
 MAX_LINKS = 150
 MAX_JOBS = 60

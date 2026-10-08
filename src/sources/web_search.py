@@ -10,6 +10,7 @@ import urllib.request
 
 from ..features import disabled
 from . import careers
+from ..ai.models import SMALL_MODEL
 
 BRAVE_URL = 'https://api.search.brave.com/res/v1/web/search'
 SERP_URL = 'https://serpapi.com/search.json'
@@ -60,7 +61,7 @@ def _claude_search(company, language, site=''):
     client = engine.client(action='scout')
     if getattr(client, '_api', None) is not None:   # Claude Code hit its plan limit and the API took over: its web search is billed, so not used
         return []
-    model = 'claude-haiku-5-5'
+    model = SMALL_MODEL
     words = JOB_WORDS.get(language, '')
     response = client.messages.create(model=model, max_tokens=1000, system=[{'type': 'text', 'text': CLAUDE_SYSTEM}],
                                       messages=[{'role': 'user', 'content': f'Company: {company}' + (f' (its website: {site})' if site else '') + f'. Search: "{company} jobs {words}".'}],
@@ -102,7 +103,7 @@ def job_sites(company, language='', get=_get, site='', client=None):
     return only_job_lists(company, site, [url for url in dict.fromkeys(u for u in urls if isinstance(u, str) and u.startswith('https://') and careers.own_site(u))][:RESULTS], client)
 
 
-PICK_MODEL = 'claude-haiku-5-5'
+PICK_MODEL = SMALL_MODEL
 PICK_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['keep'], 'properties': {'keep': {
     'type': 'array', 'items': {'type': 'integer'}, 'description': "Numbers of the addresses that are this company's list of open jobs, best first"}}}
 PICK_SYSTEM = """You get a company (its name and website) and numbered web addresses a search returned. Answer the numbers of the addresses that \

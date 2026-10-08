@@ -6,8 +6,9 @@ which job sources are not in use). Never the CV, the profile or a job's text. It
 import json
 
 from . import engine
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['why', 'first_steps'],
           'properties': {'why': {'type': 'string', 'description': 'Two or three plain sentences: why this search finds few new jobs'},
                          'first_steps': {'type': 'array', 'maxItems': 3, 'items': {'type': 'string'},

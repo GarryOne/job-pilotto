@@ -16,8 +16,9 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from . import ats, feeds
+from ..ai.models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 MAX_EMAILS = 20
 MAX_JOBS = 40
 DAYS = 3

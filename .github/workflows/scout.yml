@@ -28,6 +28,8 @@ permissions:
 # Optional features can be switched off without deleting their secrets (src/features.py),
 # e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
+  # The model of the small AI steps (title and page checks, triage, search picks), as the app sets it in this repo (desktop/lib/github.js).
+  JOB_PILOTTO_SMALL_MODEL: ${{ vars.JOB_PILOTTO_SMALL_MODEL }}
   # Help the pool grow, as the app sets it in this repo (desktop/lib/pool-share.js): an Always on run shares like the app (6 Oct 2026: it never did).
   JOB_PILOTTO_SHARE_EMPLOYERS: ${{ vars.JOB_PILOTTO_SHARE_EMPLOYERS }}
   JOB_PILOTTO_INSTALL_ID: ${{ vars.JOB_PILOTTO_INSTALL_ID }}

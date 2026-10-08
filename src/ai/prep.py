@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from ..notion import client as notion, ledger
 from ..notion.ledger import _block, plain
 from . import cost, engine, mail
+from .models import SMALL_MODEL
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_PREP_MODEL', 'claude-sonnet-5-5')
 HEADING = '🎤 Interview prep'
@@ -242,7 +243,7 @@ def follow_up_text(earlier, events):
     return '\n\n'.join(parts)
 
 
-READ_MODEL = os.getenv('JOB_PILOTTO_INBOX_MODEL', 'claude-haiku-5-5')
+READ_MODEL = os.getenv('JOB_PILOTTO_INBOX_MODEL') or SMALL_MODEL
 MAX_SHOTS = 5
 
 

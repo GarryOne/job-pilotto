@@ -77,13 +77,32 @@ export async function turnOn(storage, token, {fetcher, telegram = telegramApi, b
     await telegram(storage.secret('TELEGRAM_BOT_TOKEN'), 'setWebhook', {url: `${url}/telegram`, secret_token: webhookSecret,
       allowed_updates: ['message', 'callback_query']});
     storage.setSecret('CLOUDFLARE_API_TOKEN', token);
-    storage.saveSettings({telegramCloud: {url, account: account.id, at: new Date().toISOString()}});
+    storage.saveSettings({telegramCloud: {url, account: account.id, at: new Date().toISOString(), deployed: fingerprint(storage, bundle())}});
     return {ok: true, url};
   } catch (error) {
     const hint = error.status === 403 || error.codes?.includes(10000)
       ? ' The token needs "Workers Scripts: Edit" and "Account Settings: Read": create it with the link above.' : '';
     return {ok: false, error: `${error.message}.${hint}`};
   }
+}
+
+// What the deployed Worker should be: its code and its settings (models, Notion IDs, keys), without the webhook secret, which
+// changes at each deploy. A SHA-256, kept on this Mac only.
+export function fingerprint(storage, code) {
+  const settings = bindings(storage, '').filter(binding => binding.name !== 'WEBHOOK_SECRET');
+  return crypto.createHash('sha256').update(code).update(JSON.stringify(settings)).digest('hex');
+}
+
+// At each app start: the Worker in the user's Cloudflare account is redeployed when this app ships other bot code or its settings
+// changed (8 Oct 2026: before, it kept the code and models of the day it was turned on, forever). -> null when nothing was to do,
+// else turnOn's result.
+export async function refresh(storage, {fetcher, telegram = telegramApi, bundle = () => fs.readFileSync(BUNDLE, 'utf8')} = {}) {
+  const deployed = storage.settings().telegramCloud;
+  if (!deployed || missing(storage) || !storage.secret('CLOUDFLARE_API_TOKEN')) return null;
+  let code;
+  try { code = bundle(); } catch { return null; }   // a source checkout that never staged the bundle: nothing to compare
+  if (deployed.deployed === fingerprint(storage, code)) return null;
+  return turnOn(storage, '', {fetcher, telegram, bundle: () => code});
 }
 
 // Back to the app answering Telegram itself: webhook off, Worker deleted, token forgotten.

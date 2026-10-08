@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 
 from ..paths import DATA, REPORTS, keyword_regex, load_search_config
 from .feeds import wanted_title
+from ..ai.models import SMALL_MODEL
 _SEARCH = load_search_config()
 ROLE = keyword_regex(_SEARCH['board_discovery_keywords'])
 CAREER = re.compile(r'career|karriere|carrière|carriere|stellen|vacanc|recruit|join.?us|offene.?jobs|work.with.us|/jobs(?:/|$)', re.I)
@@ -284,7 +285,7 @@ def jobsch_places(search):
     return found + ([None] if whole or not found else [])
 
 
-QUERIES_MODEL = 'claude-haiku-5-5'
+QUERIES_MODEL = SMALL_MODEL
 QUERIES_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['queries'], 'properties': {'queries': {
     'type': 'array', 'maxItems': 8, 'items': {'type': 'string', 'description': 'One or two words a job board search box understands'}}}}
 QUERIES_SYSTEM = """You turn a job seeker's roles into searches for a job board's keyword box. You get their roles (in any language) and \

@@ -2664,8 +2664,13 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       for (const row of closed) appLog('run', 'closed the row of a run the app stopped', {kind: row.kind, started: row.startedAt, decidedBy: 'orphan watchdog'});
     }});   // an engine run left behind by a restart, stuck: stop it (lib/orphans.js)
     setTimeout(remind, 15000);
-    if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
-      error => log(`GitHub repo not updated: ${error.message}`));
+    // The user's side kept in step with this app (lib/github.js updateRepo, lib/telegram-cloud.js refresh): names only, never a value.
+    if (cloud()) github.updateRepo(storage).then(changed => {
+      if (changed.length) { log(`Updated in your GitHub repo: ${changed.join(', ')}`); appLog('cloud', 'repo brought in step with this app', {changed: changed.length, what: changed.join(', '), decidedBy: 'app start'}); }
+    }, error => { log(`GitHub repo not updated: ${error.message}`); appLog('cloud', 'repo not updated', {error: error.message}); })
+      .then(() => telegramCloud.refresh(storage))
+      .then(result => result && appLog('cloud', result.ok ? 'Telegram Worker redeployed: other code or settings' : 'Telegram Worker not redeployed', {error: result.error, decidedBy: 'app start'}),
+        error => appLog('cloud', 'Telegram Worker not redeployed', {error: error.message}));
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };
     backupIfDue();
     setInterval(backupIfDue, 6 * 3600 * 1000);

@@ -22,8 +22,9 @@ import {awakeNow} from './awake.js';
 
 export const REPO = ROOT;
 const OVERRIDE = process.env.JOB_PILOTTO_MODEL_OVERRIDE;   // set only by the end-to-end journey (desktop/e2e): every step on one cheap model
-export const MODELS = OVERRIDE ? {enrich: OVERRIDE, score: OVERRIDE, kit: OVERRIDE, insight: OVERRIDE}
-  : {enrich: 'claude-haiku-5-5', score: 'claude-sonnet-5-5', kit: 'claude-sonnet-5-5', insight: 'claude-sonnet-5-5'};
+// small: the engine's small AI steps (src/ai/models.py), sent as data so a newer model needs no engine release.
+export const MODELS = OVERRIDE ? {enrich: OVERRIDE, score: OVERRIDE, kit: OVERRIDE, insight: OVERRIDE, small: OVERRIDE}
+  : {enrich: 'claude-haiku-5-5', score: 'claude-sonnet-5-5', kit: 'claude-sonnet-5-5', insight: 'claude-sonnet-5-5', small: 'claude-haiku-5-5'};
 const DEFAULT_CONFIG = ['search.json', 'preferences.json', 'sources.json', 'scout_seeds.json'];
 
 // The packaged app's own Python (with the anthropic package), else the repo's virtualenv, else python3.
@@ -107,6 +108,7 @@ export function pipelineEnv(storage, parent = process.env) {
     env.JOB_PILOTTO_KIT_MODEL = MODELS.kit;
     env.JOB_PILOTTO_INSIGHT_MODEL = MODELS.insight;
     env.JOB_PILOTTO_MAIL_MODEL = MODELS.enrich;
+    env.JOB_PILOTTO_SMALL_MODEL = MODELS.small;
   }
   // The end-to-end journey: every other AI step the engine has (interview review, prep, rejection review) on the same cheap model, so a step added to
   // the journey later can never quietly run on Opus or Sonnet.

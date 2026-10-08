@@ -9,8 +9,9 @@ What Claude sees: the outline (a few sample blocks of a public job list, capped)
 import json
 
 from . import engine
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 # The second try when the first model finds nothing (owner, 7 Oct 2026: "Sonnet as a 2nd try"): one page, only on a failure, logged.
 SECOND_MODEL = 'claude-sonnet-5-5'
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['group', 'title', 'company', 'place', 'link', 'next', 'why'],

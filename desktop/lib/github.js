@@ -40,7 +40,7 @@ const pinned = yaml => (engineRef === 'main' ? yaml
   : yaml.replace(/(GarryOne\/job-pilotto\/\.github\/workflows\/[\w.-]+\.yml)@main/g, `$1@${engineRef}`).replace(/code_ref: main\b/g, `code_ref: ${engineRef}`));
 const MODEL_VARIABLES = {
   JOB_PILOTTO_ENRICH_MODEL: 'enrich', JOB_PILOTTO_SCORE_MODEL: 'score', JOB_PILOTTO_KIT_MODEL: 'kit',
-  JOB_PILOTTO_INSIGHT_MODEL: 'insight', JOB_PILOTTO_MAIL_MODEL: 'enrich',
+  JOB_PILOTTO_INSIGHT_MODEL: 'insight', JOB_PILOTTO_MAIL_MODEL: 'enrich', JOB_PILOTTO_SMALL_MODEL: 'small',
 };
 const CONFIG_FILES = ['search.json', 'preferences.json'];
 
@@ -127,6 +127,7 @@ export async function putFile(api, repo, file, content, message) {
 }
 
 export async function setSecrets(api, repo, secrets) {
+  if (!Object.keys(secrets).length) return;
   await sodium.ready;
   const {key, key_id} = await api('GET', `/repos/${repo}/actions/secrets/public-key`);
   const publicKey = sodium.from_base64(key, sodium.base64_variants.ORIGINAL);
@@ -220,7 +221,8 @@ export async function connect(storage, token, {fetcher, onStep = () => {}, repo:
   await setVariables(api, repo, variables);
   await removeVariables(api, repo, removed);
   await setWorkflows(api, repo, true);  // turned off earlier: GitHub kept the files but stopped their schedules
-  storage.saveSettings({cloud: {repo, login, since: storage.settings().cloud?.since || new Date().toISOString(), updatedAt: new Date().toISOString()}});
+  storage.saveSettings({cloud: {repo, login, since: storage.settings().cloud?.since || new Date().toISOString(), updatedAt: new Date().toISOString(),
+    synced: fingerprint({secrets, variables, removed})}});
   return {repo, created, existing, secrets: Object.keys(secrets), variables: Object.keys(variables)};
 }
 
@@ -300,21 +302,53 @@ export function runLink(run, jobs = []) {
     status: job?.status || run?.status || '', conclusion: run?.conclusion || ''};
 }
 
-// The repo's workflow files and search settings, brought up to date (at start: new inputs reach existing repos).
-export async function updateRepo(storage, {fetcher} = {}) {
-  const {repo} = storage.settings().cloud || {};
-  if (!repo || !storage.secret('GITHUB_TOKEN')) return [];
-  const api = client(storage.secret('GITHUB_TOKEN'), fetcher);
-  const changed = [];
-  for (const [file, content] of Object.entries(payload(storage).files)) {
-    if (await putFile(api, repo, file, content, `Job Pilotto: ${file}`)) changed.push(file);
+// A fingerprint of what the repo should hold besides its files (secrets, variables, variables to remove): GitHub never shows
+// a secret back, so this tells "already sent" from "changed since". A SHA-256 of high-entropy keys, kept on this Mac only.
+export function fingerprint({secrets, variables, removed}) {
+  const sorted = object => Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
+  return createHash('sha256').update(JSON.stringify([sorted(secrets), sorted(variables), [...removed].sort()])).digest('hex');
+}
+
+// Our workflow files that this app no longer ships (a template removed or renamed): their first line is ours, and the user's own
+// workflows are left alone. -> [{path, sha}]
+export async function retiredWorkflows(api, repo, files) {
+  let listed;
+  try { listed = await api('GET', `/repos/${repo}/contents/.github/workflows`); }
+  catch (error) { if (error.status === 404) return []; throw error; }
+  const retired = [];
+  for (const entry of Array.isArray(listed) ? listed : []) {   // a folder lists; anything else has nothing to retire
+    if (entry.type !== 'file' || !/\.ya?ml$/.test(entry.name) || files[entry.path]) continue;
+    const current = await api('GET', `/repos/${repo}/contents/${entry.path}`);
+    if (Buffer.from(current.content || '', 'base64').toString().startsWith('# Job Pilotto')) retired.push({path: entry.path, sha: current.sha});
   }
-  // Keys added since Always on was turned on (e.g. Google connected later) reach the repo too.
-  const extra = Object.fromEntries(Object.entries(extraSecrets() || {}).filter(([, value]) => value));
-  if (Object.keys(extra).length) { await setSecrets(api, repo, extra); changed.push(...Object.keys(extra).map(name => `secret ${name}`)); }
-  // The opt-in "Help the pool grow" follows the switch (variables set when on, removed when off).
-  const share = poolShare.variables(storage);
-  if (share) await setVariables(api, repo, share); else await removeVariables(api, repo, poolShare.NAMES);
+  return retired;
+}
+
+// The whole repo in step with this app, at every start and after a key or setting changes: the workflow files (pinned to this
+// app's release), retired ones deleted, and the secrets and variables (models included) sent again whenever they changed.
+// Before 8 Oct 2026 secrets and variables were sent only when Always on was turned on, so a new default model never reached a repo.
+// -> what changed, by name only (never a value).
+export async function updateRepo(storage, {fetcher} = {}) {
+  const cloud = storage.settings().cloud || {};
+  if (!cloud.repo || !storage.secret('GITHUB_TOKEN')) return [];
+  const api = client(storage.secret('GITHUB_TOKEN'), fetcher);
+  const {files, secrets, variables, removed} = payload(storage);
+  const changed = [];
+  for (const [file, content] of Object.entries(files)) {
+    if (await putFile(api, cloud.repo, file, content, `Job Pilotto: ${file}`)) changed.push(file);
+  }
+  for (const {path: file, sha} of await retiredWorkflows(api, cloud.repo, files)) {
+    await api('DELETE', `/repos/${cloud.repo}/contents/${file}`, {message: `Job Pilotto: ${file} is no longer used`, sha});
+    changed.push(`removed ${file}`);
+  }
+  const digest = fingerprint({secrets, variables, removed});
+  if (digest !== cloud.synced) {
+    await setSecrets(api, cloud.repo, secrets);
+    await setVariables(api, cloud.repo, variables);
+    await removeVariables(api, cloud.repo, removed);
+    storage.saveSettings({cloud: {...storage.settings().cloud, synced: digest, updatedAt: new Date().toISOString()}});
+    changed.push(...Object.keys(secrets).map(name => `secret ${name}`), ...Object.keys(variables).map(name => `variable ${name}`));
+  }
   return changed;
 }
 

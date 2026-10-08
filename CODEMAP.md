@@ -294,6 +294,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
+- `src/ai/models.py` — The model of the small AI steps (title, page and place checks, triage, search picks, stage 1 facts, mail), as data.
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
 - `src/ai/page_reader.py` — Claude reads a careers page that has no machine-readable jobs and lists the jobs on it.
 - `src/ai/passwords.py` — Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.

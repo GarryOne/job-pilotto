@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timezone
 
 from ..paths import DATA, keyword_regex
+from .models import SMALL_MODEL
 
 MODEL = 'claude-sonnet-5-5'
 MAX_IDEAS = 8
@@ -40,7 +41,7 @@ def _load():
         return {}
 
 
-COUNT_MODEL = 'claude-haiku-5-5'
+COUNT_MODEL = SMALL_MODEL
 COUNT_TITLES = 600
 COUNT_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['roles'], 'properties': {'roles': {'type': 'array', 'items': {
     'type': 'object', 'additionalProperties': False, 'required': ['n', 'titles'],

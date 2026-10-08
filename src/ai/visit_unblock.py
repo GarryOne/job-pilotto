@@ -11,8 +11,9 @@ import json
 
 from . import engine
 from .visit_filters import facts
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 SECOND_MODEL = 'claude-sonnet-5-5'   # once, when the fast model finds no way and does not say the page needs the person
 MAX_STEPS = 2
 MAX_WAYS = 80

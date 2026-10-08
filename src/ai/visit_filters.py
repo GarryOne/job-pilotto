@@ -9,8 +9,9 @@ most MAX_STEPS steps on those controls only; the extension refuses anything else
 import json
 
 from . import engine
+from .models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 MAX_STEPS = 8
 MAX_CONTROLS = 60   # a short list answers in seconds (150 LinkedIn controls took 130 s, 7 Oct 2026)
 ACTIONS = ('click', 'select', 'type')

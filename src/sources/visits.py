@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 from ..paths import DATA, load_search_config
 from . import ats, careers
+from ..ai.models import SMALL_MODEL
 
 STORE = DATA / 'visits.json'
 STALE_DAYS = 7          # a page read longer ago is offered for a visit again (its jobs come and go)
@@ -178,7 +179,7 @@ def visit_list(search=None, kinds=None, now=None, picks=None):
     return sorted(kept, key=lambda item: (item['kind'] != 'employer', item['last_read'] or ''))[:MAX_LIST]
 
 
-RELEVANT_MODEL = 'claude-haiku-5-5'
+RELEVANT_MODEL = SMALL_MODEL
 RELEVANT_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['keep'], 'properties': {'keep': {
     'type': 'array', 'items': {'type': 'integer'}, 'description': 'Numbers of the sites likely to have jobs of their kinds in their places'}}}
 RELEVANT_SYSTEM = """You get a job seeker's roles and places, and numbered sites to read jobs from (an employer's name and address, or a job \

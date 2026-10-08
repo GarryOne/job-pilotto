@@ -17,10 +17,11 @@ from pathlib import Path
 from .. import store
 from ..paths import JOBS_DB
 from . import cost, engine
+from .models import SMALL_MODEL
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 2
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_ENRICH_MODEL', 'claude-haiku-5-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_ENRICH_MODEL') or SMALL_MODEL
 
 ENRICHMENT_TABLE = """
 CREATE TABLE IF NOT EXISTS enrichments (

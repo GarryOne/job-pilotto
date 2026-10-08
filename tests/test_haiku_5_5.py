@@ -20,10 +20,10 @@ class EffortGate(unittest.TestCase):
 
 
 class EveryHaikuCall(unittest.TestCase):
-    """The class, not the case: any engine file that names Haiku 5.5."""
+    """The class, not the case: any engine file that calls the small model (src/ai/models.py) or names Haiku 5.5."""
 
     def files(self):
-        found = [p for p in (ROOT / 'src').rglob('*.py') if 'claude-haiku-5-5' in p.read_text()]
+        found = [p for p in (ROOT / 'src').rglob('*.py') if p.name != 'models.py' and ('SMALL_MODEL' in p.read_text() or 'claude-haiku-5-5' in p.read_text())]
         self.assertGreater(len(found), 10)   # the scan itself found the Haiku callers
         return found
 
@@ -36,6 +36,19 @@ class EveryHaikuCall(unittest.TestCase):
         for path in self.files():
             self.assertNotIn("startswith('claude-haiku')", path.read_text(), f'{path.relative_to(ROOT)}: use engine.effort_for')
             self.assertNotRegex(path.read_text(), r"output_config=\{'format'", f'{path.relative_to(ROOT)}: use engine.structured')
+
+
+class SmallModelIsData(unittest.TestCase):
+    def test_the_variable_the_app_sets_picks_the_model_and_no_step_hard_codes_one(self):
+        import subprocess, sys
+        run = lambda env: subprocess.run([sys.executable, '-c', 'from src.ai import models, title_triage; print(models.SMALL_MODEL, title_triage.MODEL)'],
+                                         cwd=ROOT, env=env, capture_output=True, text=True, check=True).stdout.split()
+        import os
+        self.assertEqual(run({**os.environ, 'JOB_PILOTTO_SMALL_MODEL': 'claude-haiku-9'}), ['claude-haiku-9', 'claude-haiku-9'])
+        self.assertEqual(run({k: v for k, v in os.environ.items() if k != 'JOB_PILOTTO_SMALL_MODEL'}), ['claude-haiku-5-5', 'claude-haiku-5-5'])
+        for path in (ROOT / 'src').rglob('*.py'):
+            if path.name not in ('models.py', 'cost.py', 'features.py'):
+                self.assertNotRegex(path.read_text(), r"(?m)= '?claude-haiku-[0-9-]+'$", f'{path.relative_to(ROOT)}: use models.SMALL_MODEL')
 
 
 if __name__ == '__main__':

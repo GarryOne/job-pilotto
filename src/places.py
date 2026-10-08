@@ -11,8 +11,9 @@ import json
 import re
 import unicodedata
 from datetime import datetime, timezone
+from .ai.models import SMALL_MODEL
 
-MODEL = 'claude-haiku-5-5'
+MODEL = SMALL_MODEL
 MAX_WORDS = 12          # place words asked about in one call
 MAX_NAMES = 80          # names kept per word
 EXPAND_KINDS = ('country', 'region', 'state')
