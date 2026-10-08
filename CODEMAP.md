@@ -406,14 +406,21 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/employer_index.py` — The central employer index: feeds found and verified by one scout for everyone, downloaded by every install.
 - `src/features.py` — Optional features: what each one needs, what it costs, and one switch to turn any of them off.
 - `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
+- `src/focus_items.py` — Focus, part 1: the constants (time zone, targets, who-wrote-last sets) and the small helpers every Focus item is
+- `src/focus_state.py` — Focus, part 2: reading the application's history into a state: the app's own bookkeeping events, the interview
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
 - `src/import_url.py` — One job link, put through the same path as a job a search found.
 - `src/legacy_lists.py` — The starter feeds and seed names the app shipped before 6 Oct 2026, when every install copied them into its own config folder. They now
 - `src/levels.py` — The level a person is looking for ("junior", "mid", "senior", "lead") as title words to skip, before any AI is spent on a posting.
 - `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
+- `src/notion/cron_report.py` — What a ⏰ Cronjob Runs row says: the run's title and subject, cost lines, mail lines, the report and the page
 - `src/notion/cron_runs.py` — Notion "⏰ Cronjob Runs": one row per scheduled pipeline run, with its cost and a mini-report.
 - `src/notion/dedupe.py` — One Job Matches row per job: find rows that are the same job (same URL, ignoring tracking parameters, a
 - `src/notion/funnel.py` — Application funnel: how many applications reached each step, the conversion between steps,
+- `src/notion/ledger_blocks.py` — Notion property and block helpers of the application ledger: reading a property as a plain value, rich text,
+- `src/notion/ledger_events_util.py` — Pure helpers for the ledger's event rows: event times as comparable datetimes, impossible interview times,
+- `src/notion/ledger_intake.py` — Adding an application by hand: reading "applied on or before 23 Sep" and reading a job page's metadata
+- `src/notion/ledger_record.py` — The application record's pieces: matching the Applications row, reading the agent run and CV version, choosing
 - `src/notion/ledger.py` — The application ledger: what was sent for each application, and what happened afterwards.
 - `src/notion/matches.py` — Mirror AI-scored jobs into the Notion database "Job Matches — AI Scored".
 - `src/notion/origin.py` — Outbound or inbound: did you go after this opportunity, or did it find you? The Applications row's own Origin column

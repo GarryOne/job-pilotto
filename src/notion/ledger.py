@@ -38,10 +38,18 @@ from . import origin as origin_rule
 from ..ai import kit as kit_module
 from .. import tz
 from ..sources import ats
+# The pieces (see each file's docstring); every name stays importable from this module.
+from .ledger_blocks import (plain, _text, _chunks, _block, _rich, _typed, md_blocks, _key, _day)  # noqa: F401
+from .ledger_record import (RECORD_HEADING, RECORD_VERSION, RECRUITER_PLATFORMS, ATS_NAMES, AGENTS, SELECTS,  # noqa: F401
+                            run_from_notion, cv_version, match_for, answers_for, channel_for, build,
+                            _fitted_json, record_blocks)
+from .ledger_events_util import (WATCHER_SOURCES, PAST_INTERVIEW_DAYS, FUTURE_INTERVIEW_DAYS,  # noqa: F401
+                                 SAME_OCCURRENCE_HOURS, plausible_interview, _link_ids, event_interview_at,
+                                 _same_occurrence, moment)
+from .ledger_intake import (MONTHS, NUMBER_WORDS, WALLED, _relative, parse_applied, walled, _visible_text,  # noqa: F401
+                            page_meta)
 
 EVENTS_DATABASE_ID = os.getenv('NOTION_EVENTS_DB', '')
-RECORD_HEADING = '🗂 Application record'
-RECORD_VERSION = 1
 NO_RESPONSE_DAYS = 30
 APP_SUPPORT = Path.home() / 'Library' / 'Application Support' / 'JobPilotto'
 SNAPSHOT_DIR = Path(os.getenv('JOB_PILOTTO_FORM_SNAPSHOT_DIR', str(APP_SUPPORT / 'form-snapshots')))
@@ -57,108 +65,8 @@ EVENT_KINDS = OUTCOME_STAGES + (REPLY,)
 # Still waiting for a human reply: the no-response rule applies only to these.
 WAITING_STAGES = ('Applied', 'Confirmation received')
 CHANNELS = ('Direct', 'Recruiter platform', 'Agency', 'Referral')
-# Job sites where a recruiter platform, not the employer, runs the process (Company = real employer, Via = platform).
-RECRUITER_PLATFORMS = {'techtree.dev': 'TechTree'}
-ATS_NAMES = {'greenhouse': 'Greenhouse', 'ashby': 'Ashby', 'lever': 'Lever', 'workable': 'Workable'}
-AGENTS = {'claude': 'Claude', 'codex': 'Codex', 'chatgpt': 'ChatGPT', 'manual': 'Manual'}
-SELECTS = {'Seniority': {'Junior', 'Mid', 'Senior', 'Staff/Principal', 'Lead/Manager'},
-           'Work mode': {'On-site', 'Hybrid', 'Remote'}, 'Tier': {'A', 'B', 'C'}}
 
 
-def plain(prop):
-    """A Notion property value as a plain Python value."""
-    if not prop:
-        return None
-    kind = prop.get('type') or next((k for k in ('title', 'rich_text', 'select', 'multi_select', 'number',
-                                                 'checkbox', 'url', 'date') if k in prop), None)
-    value = prop.get(kind)
-    if kind in ('title', 'rich_text'):
-        return ''.join(t.get('plain_text', '') for t in value or [])
-    if kind == 'select':
-        return (value or {}).get('name')
-    if kind == 'multi_select':
-        return [item['name'] for item in value or []]
-    if kind == 'date':
-        return (value or {}).get('start')
-    return value
-
-
-def _text(value):
-    return {'rich_text': [{'text': {'content': str(value)[:2000]}}] if value else []}
-
-
-def _chunks(content, size=1900):
-    return [content[i:i + size] for i in range(0, len(content), size)] or ['']
-
-
-def _block(kind, content, bold=False):
-    return {'object': 'block', 'type': kind,
-            kind: {'rich_text': [{'type': 'text', 'text': {'content': c}, 'annotations': {'bold': bold}}
-                                 for c in _chunks(content)[:100]]}}
-
-
-def _rich(text):
-    """Inline Markdown (**bold**, *italic*, `code`) as Notion rich text."""
-    parts, runs = re.split(r'(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`)', text or ''), []
-    for part in parts:
-        if not part:
-            continue
-        bold, italic, code = part.startswith('**'), part.startswith('*') and not part.startswith('**'), part.startswith('`')
-        content = part.strip('*`') if (bold or italic or code) else part
-        for chunk in _chunks(content):
-            runs.append({'type': 'text', 'text': {'content': chunk}, 'annotations': {'bold': bold, 'italic': italic, 'code': code}})
-    return runs[:100] or [{'type': 'text', 'text': {'content': ''}}]
-
-
-def _typed(kind, text):
-    return {'object': 'block', 'type': kind, kind: {'rich_text': _rich(text)}}
-
-
-def md_blocks(text, limit=90):
-    """Markdown as Notion blocks: headings, bulleted and numbered lists, bold/italic inline, paragraphs. AI answers
-    come as Markdown; written as plain paragraphs they showed "# Role Details" and "**Position:**" on the page."""
-    blocks, paragraph = [], []
-
-    def flush():
-        if paragraph:
-            blocks.append(_typed('paragraph', ' '.join(paragraph)))
-            paragraph.clear()
-    for line in (text or '').splitlines():
-        stripped = line.strip()
-        heading = re.match(r'^(#{1,6})\s+(.*)$', stripped)
-        bullet = re.match(r'^[-*•]\s+(.*)$', stripped)
-        number = re.match(r'^\d+[.)]\s+(.*)$', stripped)
-        if not stripped or re.fullmatch(r'[-*_]{3,}', stripped):
-            flush()
-        elif heading:
-            flush()
-            blocks.append(_typed('heading_3', heading.group(2).strip('*')))
-        elif bullet or number:
-            flush()
-            kind = 'bulleted_list_item' if bullet else 'numbered_list_item'
-            blocks.append(_typed(kind, (bullet or number).group(1)))
-        elif label := re.fullmatch(r'\*\*([^*]+?):?\*\*:?', stripped):  # "**Tech Stack:**" alone: the list below's heading
-            flush()
-            blocks.append(_typed('heading_3', label.group(1)))
-        elif re.match(r'^\*\*[^*]+:\*\*|^\*\*[^*]+\*\*:', stripped):  # "**Position:** Principal SRE": a fact, one bullet each
-            flush()
-            blocks.append(_typed('bulleted_list_item', stripped))
-        else:
-            paragraph.append(stripped)
-            flush()  # one line, one paragraph: AI answers break lines on purpose
-    flush()
-    return blocks[:limit]
-
-
-def _key(text):
-    return re.sub(r'[^a-z0-9]+', ' ', (text or '').lower()).strip()
-
-
-def _day(value):
-    try:
-        return date.fromisoformat((value or '')[:10])
-    except ValueError:
-        return None
 
 
 def form_snapshot(url, directory=None):
@@ -180,163 +88,6 @@ def run_state(url, directory=None):
         return None
 
 
-def run_from_notion(tracker, row):
-    """The latest 🤖 Agent Runs row linked to this application, as a run state ({'agent', 'minutes'}),
-    for applications filled by an agent whose local run file isn't on this machine (or CI)."""
-    latest = None
-    for link in (row['properties'].get('Agent runs') or {}).get('relation', []):
-        props = {name: plain(prop) for name, prop in tracker._request('GET', f"pages/{link['id']}")['properties'].items()}
-        if latest is None or (props.get('Started') or '') > (latest.get('Started') or ''):
-            latest = props
-    if not latest or not latest.get('Agent'):
-        return None
-    return {'agent': latest['Agent'].lower(), 'minutes': latest.get('Minutes'), 'status': latest.get('Status')}
-
-
-def cv_version(path):
-    """File name plus a short content hash, so a changed CV shows up as a new version."""
-    try:
-        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()[:10]
-    except OSError:
-        return ''
-    return f'{Path(path).name} · {digest}'
-
-
-def match_for(tracker, url, row=None):
-    """The job's Job Matches row (AI stage 1 facts and stage 2 scores) as plain values, or {}. A job you added has
-    no Job Matches row (src/ai/added.py): its Applications row's fit columns stand in for it when row is given."""
-    rows = tracker.query_database(notion.MATCHES_DATABASE_ID, {'property': 'Job URL', 'url': {'equals': url}})
-    if rows:
-        return {name: plain(prop) for name, prop in rows[0]['properties'].items()}
-    props = (row or {}).get('properties') or {}
-    own = {'Score': plain(props.get('Fit score')), **{name: plain(props.get(name)) for name in (*SELECTS, 'Salary')}}
-    if plain(props.get('Recruiter')):
-        own['Recruiter'] = True
-    return {name: value for name, value in own.items() if value not in (None, '')}
-
-
-def answers_for(kit, form):
-    """Questions with the answer sent. With a form snapshot, each field's value plus the kit's draft
-    for the same question (so edits to drafts can be studied); otherwise the kit drafts alone."""
-    drafts = {_key(a['question']): a for a in (kit or {}).get('answers', [])}
-    if form:
-        rows = []
-        for field in form['fields']:
-            draft = drafts.get(_key(field.get('label')))
-            rows.append({'question': field.get('label', ''), 'answer': field.get('value', ''),
-                         'type': field.get('type', ''), 'required': bool(field.get('required')),
-                         'draft': draft['answer'] if draft else None})
-        return rows, 'Form'
-    if kit and kit.get('answers'):
-        return [{'question': a['question'], 'answer': a['answer'], 'draft': a['answer'],
-                 'needs_review': a.get('needs_review', False)} for a in kit['answers']], 'Kit draft'
-    return [], 'None'
-
-
-def channel_for(url, match=None):
-    """(Channel, Via) guessed from the job URL and the Job Matches recruiter flag."""
-    host = re.sub(r'^www\.', '', (re.match(r'https?://([^/]+)', url or '') or [None, ''])[1].lower())
-    for domain, name in RECRUITER_PLATFORMS.items():
-        if host == domain or host.endswith('.' + domain):
-            return 'Recruiter platform', name
-    if (match or {}).get('Recruiter'):
-        return 'Agency', ''
-    return 'Direct', ''
-
-
-def build(url, row, kit, match, posting, form, run, cv, now):
-    """(Applications properties, record dict) for one application. Pure: no I/O."""
-    props = row['properties']
-    answers, captured = answers_for(kit, form)
-    found = ats.detect(url)
-    posted, applied = _day(plain(props.get('Posted'))), _day(plain(props.get('Applied on'))) or now.date()
-    agent = AGENTS.get(((run or {}).get('agent') or '').lower())
-    kit = kit or {}
-    variant = kit.get('variant') or (f"v{kit['version']}" if kit.get('version') else '')
-    cover = kit.get('cover_letter', '')
-    if form and not any(re.search(r'cover', a['question'], re.I) and a['answer'] for a in answers):
-        cover = form.get('cover_letter', cover)
-    properties = {
-        'Recorded': {'date': {'start': now.isoformat(timespec='seconds')}},
-        'ATS': {'select': {'name': ATS_NAMES.get(found[0], 'Other') if found else 'Other'}},
-        'Cover letter': {'checkbox': bool(cover)},
-        'Questions': {'number': len(answers)},
-        'Answers captured': {'select': {'name': captured}},
-        'CV version': _text(cv),
-        'Kit variant': _text(variant),
-    }
-    if match.get('Score') is not None:
-        properties['Fit score'] = {'number': match['Score']}
-    for name in SELECTS:
-        if match.get(name) in SELECTS[name]:
-            properties[name] = {'select': {'name': match[name]}}
-    if match.get('Recruiter') is not None:
-        properties['Recruiter'] = {'checkbox': bool(match['Recruiter'])}
-    if posted:
-        properties['Days to apply'] = {'number': max((applied - posted).days, 0)}
-    if agent:
-        properties['Agent'] = {'select': {'name': agent}}
-    if not plain(props.get('Channel')):  # never overwrite what the owner set
-        channel, via = channel_for(url, match)
-        properties['Channel'] = {'select': {'name': channel}}
-        if via and not plain(props.get('Via')):
-            properties['Via'] = _text(via)
-    record = {
-        'version': RECORD_VERSION, 'recorded_at': now.isoformat(timespec='seconds'), 'url': url,
-        'job': {'title': plain(props.get('Job')), 'company': plain(props.get('Company')),
-                'location': plain(props.get('Location')), 'posted': plain(props.get('Posted')),
-                'applied_on': applied.isoformat(), 'ats': found[0] if found else None,
-                'description': (posting or {}).get('description', '')},
-        'match': match, 'answers_captured': captured, 'answers': answers, 'cover_letter': cover,
-        'kit': {k: kit.get(k) for k in ('version', 'model', 'variant', 'highlights', 'check_before_sending')}
-               if kit else None,
-        'variant': variant,
-        'run': {k: run.get(k) for k in ('agent', 'minutes', 'field_count', 'status')} if run else None,
-        'cv': cv,
-    }
-    return properties, record
-
-
-def _fitted_json(record, limit=100 * 1900):
-    """The record as JSON small enough for one code block (100 rich-text items of 1,900 chars).
-    Long texts are shortened, never cut mid-JSON: first the description, then each answer."""
-    payload = json.dumps(record, ensure_ascii=False)
-    for keep in (20_000, 5_000, 0):
-        if len(payload) <= limit:
-            break
-        record = dict(record, job=dict(record['job'], description=record['job']['description'][:keep]))
-        payload = json.dumps(record, ensure_ascii=False)
-    for keep in (2_000, 500, 100):
-        if len(payload) <= limit:
-            break
-        record = dict(record, answers=[dict(a, answer=(a['answer'] or '')[:keep], draft=(a.get('draft') or '')[:keep])
-                                       for a in record['answers']])
-        payload = json.dumps(record, ensure_ascii=False)
-    return payload
-
-
-def record_blocks(record):
-    """The page-body section: readable summary first, then the full JSON for analysis."""
-    job, children = record['job'], []
-    note = {'Form': 'Answers read from the form just before Submit.',
-            'Kit draft': 'Answers are the kit drafts; edits made in the form before Submit are unknown.',
-            'None': 'No answers were captured.'}[record['answers_captured']]
-    children.append(_block('paragraph', f"Frozen {record['recorded_at']} for {job['title']} — {job['company']}. {note}"))
-    if record['answers']:
-        children.append(_block('heading_3', '🧾 Questions and answers'))
-        for item in record['answers'][:40]:
-            edited = item.get('draft') is not None and item['draft'] != item['answer']
-            children.append(_block('paragraph', item['question'] + (' ✏️ edited from draft' if edited else ''), bold=True))
-            children.append(_block('paragraph', item['answer'] or '—'))
-    if record['cover_letter']:
-        children.append(_block('heading_3', '✉️ Cover letter sent'))
-        children += [_block('paragraph', p) for p in record['cover_letter'].split('\n\n') if p.strip()][:10]
-    children.append(_block('heading_3', 'Machine-readable record'))
-    children.append({'object': 'block', 'type': 'code', 'code': {'language': 'json', 'rich_text': [
-        {'type': 'text', 'text': {'content': c}} for c in _chunks(_fitted_json(record))]}})
-    heading = _block('heading_2', RECORD_HEADING)
-    heading['heading_2'].update(is_toggleable=True, children=children)
-    return heading
 
 
 def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=DEFAULT_CV,
@@ -364,52 +115,12 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
     return row, 'recorded'
 
 
-# The stage watcher's guesses (ledger.sync): a real item (an email, an invite) that matches one adopts it and gives it
-# its own Source and note (src/ai/mail.py record).
-WATCHER_SOURCES = ('Notion edit', 'Backfill')
-
-# An interview time read from a message can be impossible: "Sep 26" in a chat pasted on 21 Sep 2026 once became
-# 26 Sep 2024. Nobody logs a call weeks gone as newly scheduled, nor one over a year ahead: such a time is never stored
-# (the event is written without it; the app's log asks "When is the call?").
-PAST_INTERVIEW_DAYS = 30
-FUTURE_INTERVIEW_DAYS = 365
-
-
-def plausible_interview(interview_at, said_at=None):
-    """interview_at when it can be right for a message sent or logged at said_at (default: now), else '' (with a
-    warning on stderr). A time that can't be read is '' too."""
-    from datetime import timedelta
-    if not interview_at:
-        return ''
-    floor = datetime.min.replace(tzinfo=timezone.utc)
-    when = moment(str(interview_at))
-    if when == floor:
-        return ''
-    said = moment(str(said_at or ''))
-    said = datetime.now(timezone.utc) if said == floor else said
-    if when < said - timedelta(days=PAST_INTERVIEW_DAYS) or when > said + timedelta(days=FUTURE_INTERVIEW_DAYS):
-        print(f'Interview time {str(interview_at)[:16]} not saved: impossible for a message of {said:%Y-%m-%d}',
-              file=sys.stderr)
-        return ''
-    return interview_at
 
 
 # Stage kinds are once per application (one Screening, one Rejected, ...); "Interview scheduled" repeats only for
 # another interview date/time. Every other kind (replies, cancellations, feedback asks) repeats, but never for the
 # same Source ID (a Gmail message id).
 
-
-def _link_ids(event):
-    return {link['id'].replace('-', '') for link in (event['properties'].get('Application') or {}).get('relation', [])}
-
-
-def event_interview_at(event):
-    """The interview time an event's Changes column records (JSON written by src/ai/mail.py), or ''."""
-    text = plain((event['properties'] or {}).get('Changes')) or ''
-    try:
-        return str(json.loads(text).get('interview_at') or '') if text.startswith('{') else ''
-    except (ValueError, AttributeError):
-        return ''
 
 
 def events_of(tracker, page):
@@ -422,24 +133,6 @@ def events_of(tracker, page):
     return [e for e in events if key in _link_ids(e)]
 
 
-# How close two same-kind events have to be to be one occurrence: a duplicate report of the same thing (the same
-# email from two sources, a watcher and the app, a hand-logged twin), never a genuinely later one. Without a bound,
-# an application's *second* "Confirmation received" — or a re-rejection weeks later — was swallowed forever
-# (1 Oct 2026: Canonical's confirmation vanished into the rejected row's month-old event).
-SAME_OCCURRENCE_HOURS = 24
-
-
-def _same_occurrence(event, when, hours=SAME_OCCURRENCE_HOURS):
-    """True when an existing event is the same occurrence as one at `when`. An event with no readable time counts as
-    the same (the old behaviour), rather than creating a twin on every read."""
-    recorded = plain(event['properties'].get('At')) or ''
-    if not recorded:
-        return True
-    try:
-        datetime.fromisoformat(recorded.replace('Z', '+00:00'))
-    except ValueError:
-        return True
-    return abs((moment(recorded) - when).total_seconds()) <= hours * 3600
 
 
 def existing_event(tracker, page, kind, *, source_id='', interview_at='', at=None):
@@ -544,19 +237,6 @@ def set_stage(tracker, url, stage, source='CLI', note=''):
     return f'{url}: {stage}'
 
 
-def moment(value):
-    """An event time as a comparable UTC datetime. A date without a time counts as midnight in the
-    owner's time zone (JOB_PILOTTO_TZ), so "2026-09-26" sorts before a 01:26 email that day even
-    when Notion returns the email in UTC ("2026-09-25T23:26Z"). Unparseable -> the earliest time."""
-    from zoneinfo import ZoneInfo
-    value = (value or '').replace('Z', '+00:00')
-    try:
-        parsed = datetime.fromisoformat(value)
-    except ValueError:
-        return datetime.min.replace(tzinfo=timezone.utc)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=tz.local_zone())
-    return parsed.astimezone(timezone.utc)
 
 
 def archive_events(tracker, page, kind):
@@ -655,124 +335,6 @@ def close_gone(tracker, open_urls=None, dry_run=False):
     return f'Taken-down postings: {len(rows)} saved/kit-ready job(s), {len(closed)} closed.', closed
 
 
-MONTHS = {m: i for i, m in enumerate(
-    ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'), 1)}
-
-
-NUMBER_WORDS = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
-                'eight': 8, 'nine': 9, 'ten': 10, 'a couple of': 2, 'couple of': 2, 'a few': 3, 'few': 3}
-
-
-def _relative(text, today):
-    """A date from "today", "yesterday", "two days ago", "3 weeks ago", "last week" (a week ago), else None."""
-    from datetime import timedelta
-    if re.search(r'\btoday\b', text):
-        return today
-    if re.search(r'\byesterday\b', text):
-        return today - timedelta(days=1)
-    if re.search(r'\blast week\b', text):
-        return today - timedelta(days=7)
-    words = '|'.join(sorted(map(re.escape, NUMBER_WORDS), key=len, reverse=True))
-    if m := re.search(rf'\b(\d+|{words})\s+(day|week|month)s?\s+ago\b', text):
-        count = int(m[1]) if m[1].isdigit() else NUMBER_WORDS[m[1]]
-        return today - timedelta(days=count * {'day': 1, 'week': 7, 'month': 30}[m[2]])
-    return None
-
-
-def parse_applied(text, today=None):
-    """(date or None, approximate) from "2026-09-23", "23 Sep", "23.09", "on or before 23 Sep", "~23/9", or
-    "today", "yesterday", "two days ago", "3 weeks ago", "last week" (weeks and months ago count as approximate).
-    A year-less date in the future is taken as last year's."""
-    today = today or date.today()
-    text = (text or '').strip().lower()
-    if not text:
-        return None, False
-    approx = bool(re.search(r'before|approx|around|about|~|<=|≤|ca\.?\b|week|month|few|couple', text))
-    if (relative := _relative(text, today)) is not None:
-        return relative, approx
-    found = None
-    if m := re.search(r'(\d{4})-(\d{1,2})-(\d{1,2})', text):
-        found = (int(m[1]), int(m[2]), int(m[3]))
-    elif m := re.search(r'(\d{1,2})\s*(?:\.|/|\s)\s*([a-z]{3})[a-z]*\.?(?:\s+(\d{4}))?', text):
-        if m[2] in MONTHS:
-            found = (int(m[3]) if m[3] else None, MONTHS[m[2]], int(m[1]))
-    elif m := re.search(r'([a-z]{3})[a-z]*\s+(\d{1,2})(?:,?\s+(\d{4}))?', text):
-        if m[1] in MONTHS:
-            found = (int(m[3]) if m[3] else None, MONTHS[m[1]], int(m[2]))
-    elif m := re.search(r'(\d{1,2})[./](\d{1,2})(?:[./](\d{4}))?', text):
-        found = (int(m[3]) if m[3] else None, int(m[2]), int(m[1]))
-    if not found:
-        raise ValueError(f'Could not read a date from "{text}". Try 2026-09-23, 23 Sep, "two days ago" or "on or before 23 Sep".')
-    year, month, day = found
-    value = date(year or today.year, month, day)
-    if year is None and value > today:
-        value = date(today.year - 1, month, day)
-    return value, approx
-
-
-# Sites that often show a sign-in page instead of the posting. Read like any page since 7 Oct 2026 (owner: "let's remove this restriction";
-# a LinkedIn job page often answers a plain visit with its JobPosting data); when the text is missing, the user pastes it or reads it with the
-# extension. Never logged into, never past a block.
-WALLED = ('linkedin.com', 'glassdoor.', 'indeed.', 'levels.fyi', 'reddit.com')
-
-
-def walled(url):
-    host = (re.match(r'https?://([^/]+)', url or '') or [None, ''])[1].lower()
-    return any(site in host for site in WALLED)
-
-
-def _visible_text(page):
-    """The words on a page, when it has no feed and no schema.org JobPosting. Same tag stripping as the board
-    crawl (sources/boards.py text); scripts and styles are dropped first so they are not read as the posting."""
-    from ..sources.boards import text
-    cleaned = re.sub(r'<(script|style|noscript)\b[^>]*>.*?</\1>', ' ', page or '', flags=re.I | re.S)
-    return text(cleaned)[:ats.DESCRIPTION_LIMIT]
-
-
-def page_meta(url, opener=urllib.request.urlopen):
-    """Title, company, location, posting date and description of a job page.
-
-    The board feed when the link is one a Jobs check reads (ats.posting), else the page's schema.org
-    JobPosting, else the words on the page. The same facts and fit score then read that text. A sign-in page (LinkedIn, Glassdoor…)
-    gives little or nothing: the caller asks for the text then."""
-    meta = dict(ats.posting(url) or {})
-    try:
-        request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Job Pilotto)'})
-        with opener(request, timeout=20) as response:
-            page = response.read().decode('utf-8', errors='replace')
-    except Exception:  # noqa: BLE001 — a page we can't read still gets tracked with what we have
-        return {k: v for k, v in meta.items() if v}
-    found_posting = False
-    for block in re.findall(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', page, re.S):
-        try:
-            data = _json.loads(block)
-        except ValueError:
-            continue
-        for item in data if isinstance(data, list) else data.get('@graph', [data]):
-            if isinstance(item, dict) and item.get('@type') == 'JobPosting':
-                place = item.get('jobLocation') or {}
-                place = place[0] if isinstance(place, list) and place else place
-                address = place.get('address') if isinstance(place, dict) else None
-                if isinstance(address, dict):
-                    address = ', '.join(v for v in (address.get('addressLocality') or address.get('addressRegion'), address.get('addressCountry'))
-                                        if isinstance(v, str) and v)
-                meta.setdefault('title', item.get('title'))
-                meta.setdefault('company', (item.get('hiringOrganization') or {}).get('name'))
-                meta.setdefault('location', address)
-                meta.setdefault('date_posted', item.get('datePosted'))
-                meta.setdefault('description', re.sub(r'<[^>]+>', ' ', html.unescape(item.get('description') or '')))
-                found_posting = True
-                break
-        if found_posting:
-            break
-    if not meta.get('title') and (m := re.search(r'<title>(.*?)</title>', page, re.S)):
-        meta['title'] = html.unescape(m[1]).strip()
-    # A posting that is only written on the page, with the form beside it, still has its text.
-    if len((meta.get('description') or '').strip()) < 80:
-        visible = _visible_text(page)
-        if len(visible) >= 80:
-            meta['description'] = visible
-    return {k: v for k, v in meta.items() if v}
 
 
 def company_for(tracker, url, meta):
