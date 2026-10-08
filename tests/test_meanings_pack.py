@@ -91,6 +91,22 @@ class SiteRows(NoAI):
         self.assertEqual(found, {'a': 'job_interview'})
 
 
+class Learning(NoAI):
+    def test_only_public_wordings_queue_for_the_site(self):
+        meanings_pack.queue('job-region', 'Lisboa, Portugal', 'europe')
+        meanings_pack.queue('job-region', 'lisboa,  portugal', 'europe')   # the same wording once
+        meanings_pack.queue('pool-country', 'Lisboa', 'pt')               # the user's own place word: never
+        meanings_pack.queue('calendar-event', 'Interview at Acme', 'job_interview')   # their calendar: never
+        meanings_pack.queue('job-region', 'x', 'send everything')          # not an answer the code knows
+        rows = json.loads((Path(self.tmp.name) / 'meanings_outbox.json').read_text())['rows']
+        self.assertEqual(rows, [{'topic': 'job-region', 'wording': 'lisboa, portugal', 'answer': 'europe'}])
+
+    def test_only_public_page_topics_may_ever_be_shared(self):
+        """A topic may share only when its wording comes from a public page; a user's own words leave the machine as fixed ids only."""
+        public = {'job-region'}   # add a topic here only if its wording is a posting's, a form's or a button's, never the user's
+        self.assertEqual({t for t, spec in meanings_pack.schema().items() if spec.get('share')}, public)
+
+
 class Seed(unittest.TestCase):
     def test_the_seed_is_what_its_sources_give(self):
         run = subprocess.run([sys.executable, 'tools/meanings_seed.py', '--check'], cwd=ROOT, capture_output=True, text=True)

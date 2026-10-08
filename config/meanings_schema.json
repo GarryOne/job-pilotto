@@ -1,5 +1,5 @@
 {
- "_doc": "The meanings pack's skeleton: each topic and the only answers it may have (src/ai/meanings_pack.py, site/src/meanings.js, desktop/lib/aliases.js). 'share': the wording is public (a place, a title, a label), so an install's AI answer may go to the pool; never true for anything from a person's mail or calendar. 'many': a text may name several answers (every matching pattern counts); otherwise the first match in order wins.",
+ "_doc": "The meanings pack's skeleton: each topic and the only answers it may have (src/ai/meanings_pack.py, site/src/meanings.js, desktop/lib/aliases.js). 'share': the wording comes from a public page (a posting's location, a form's question, a button), so an install's AI answer may go to the site; never for the user's own words (their places, roles, interview names: only fixed ids leave the machine) or anything from their mail or calendar. 'many': a text may name several answers (every matching pattern counts); otherwise the first match in order wins.",
  "calendar-event": {
   "answers": [
    "job_interview",
@@ -21,7 +21,7 @@
    "hiring_manager",
    "other"
   ],
-  "share": true
+  "share": false
  },
  "pool-country": {
   "answers": [
@@ -58,7 +58,7 @@
    "jp",
    "none"
   ],
-  "share": true,
+  "share": false,
   "many": true
  },
  "pool-metro": {
@@ -123,7 +123,7 @@
    "il-tel-aviv",
    "none"
   ],
-  "share": true,
+  "share": false,
   "many": true
  },
  "pool-family": {
@@ -160,7 +160,7 @@
    "it_support",
    "none"
   ],
-  "share": true,
+  "share": false,
   "many": true
  },
  "pool-role": {
@@ -174,7 +174,7 @@
    "management",
    "none"
   ],
-  "share": true,
+  "share": false,
   "many": true
  },
  "pool-region": {
@@ -186,7 +186,7 @@
    "middle_east_africa",
    "none"
   ],
-  "share": true,
+  "share": false,
   "many": true
  },
  "job-region": {
@@ -225,6 +225,6 @@
    "za",
    "other"
   ],
-  "share": true
+  "share": false
  }
 }

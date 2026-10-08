@@ -114,3 +114,18 @@ test('the meanings pack reaches the engine in its shape only (the engine checks 
   assert.deepEqual(pack, {rows: [{topic: 'pool-country', kind: 'exact', wording: 'lisboa', answer: 'pt', ord: 3}], off: [['asks-to-book', 'pattern', '\\bbook\\b']]});
   assert.deepEqual(cleanMeanings(undefined), {rows: [], off: []});
 });
+
+test('what the AI learned about public wordings goes to the site once, with the pack request', async () => {
+  const storage = tempStorage(), posted = [];
+  const fetcher = async (url, init = {}) => {
+    const p = new URL(url).pathname;
+    if (init.method === 'POST' && p === '/api/packs/aliases') posted.push(JSON.parse(init.body));
+    const reply = (code, body) => ({ok: code < 400, status: code, json: async () => body});
+    return p === '/api/install-token' ? reply(200, {token: 'tok1'}) : reply(200, {aliases: [], meanings: {rows: [], off: []}});
+  };
+  storage.writeText('data/meanings_outbox.json', JSON.stringify({rows: [{topic: 'job-region', wording: 'lisboa, portugal', answer: 'europe'}]}));
+  await lookup(storage, {fetcher, base: 'https://site.test'});
+  assert.deepEqual(posted, [{meanings: [{topic: 'job-region', wording: 'lisboa, portugal', answer: 'europe'}]}]);
+  assert.deepEqual(JSON.parse(storage.readText('data/meanings_outbox.json')).rows, []);
+  assert.deepEqual(JSON.parse(storage.readText('data/meanings.json')).rows, []);
+});

@@ -99,3 +99,27 @@ def first(topic, text):
     """The pack's answer for this text: an exact wording, else the first matching pattern in order; None when it knows nothing."""
     found = every(topic, text)
     return found[0] if found else None
+
+
+MAX_OUTBOX = 500
+
+
+def _outbox():
+    from ..paths import DATA
+    return DATA / 'meanings_outbox.json'
+
+
+def queue(topic, wording, answer):
+    """Keep the model's answer for a public wording (a topic whose schema says share) for the site; the app sends it with the pack request
+    (desktop/lib/aliases.js) when the user's technical reports are on. A user's own words and anything from mail never get here."""
+    if not schema().get(topic, {}).get('share') or not valid({'topic': topic, 'kind': 'exact', 'wording': wording, 'answer': answer}):
+        return
+    file = _outbox()
+    try:
+        rows = json.loads(file.read_text()).get('rows') or []
+    except (OSError, ValueError):
+        rows = []
+    row = {'topic': topic, 'wording': _norm(wording), 'answer': answer}
+    if row not in rows:
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(json.dumps({'rows': (rows + [row])[-MAX_OUTBOX:]}, ensure_ascii=False))

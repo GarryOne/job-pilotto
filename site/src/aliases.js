@@ -11,7 +11,7 @@ import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, digestOf, flag} from './guard.js';
 import {benchmarks, report} from './knowledge.js';
 import {isOwner} from './stats.js';
-import {packMeanings} from './meanings.js';
+import {packMeanings, vote as voteMeanings} from './meanings.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];
@@ -22,11 +22,20 @@ const json = (body, status = 200) => Response.json(body, {status, headers: {'Cac
 
 // GET /api/packs/aliases
 export async function pack(request, env, now = new Date()) {
-  if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
+  if (!['GET', 'POST'].includes(request.method)) return new Response('Method not allowed', {status: 405});
   if (!env.STATS) return json({ok: false, error: 'not configured'}, 503);
   const install = request.headers.get('X-Install-Id') || '';
   const access = await authorize(env, install, (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), 'recipes');
   if (!access.ok) return json({ok: false, error: 'unauthorized'}, 401);
+  if (request.method === 'POST') {   // what this install's AI said public wordings mean (site/src/meanings.js vote), once a day at most
+    if (env.WAITLIST) {
+      const key = `meanings-post:${install}:${day(now)}`;
+      if (await env.WAITLIST.get(key)) return json({ok: false, error: 'limit reached for today'}, 429);
+      await env.WAITLIST.put(key, '1', {expirationTtl: 2 * 86400});
+    }
+    const body = await request.json().catch(() => ({}));
+    return json({ok: true, kept: await voteMeanings(env.STATS, await digestOf(install), body.meanings, now)});
+  }
   if (env.WAITLIST) {
     const key = `aliases-get:${install}:${day(now)}`;
     const used = Number(await env.WAITLIST.get(key)) || 0;

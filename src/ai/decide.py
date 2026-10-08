@@ -100,6 +100,7 @@ def decide(topic, items, answers, instructions, client=None, db=None):
                 index, answer = result.get('index', -1), result.get('answer')
                 if 0 <= index < len(chunk) and answer in answers:
                     out[chunk[index]] = answer
+                    meanings_pack.queue(topic, items[chunk[index]], answer)   # public wordings only: the site learns them (k>=3 installs)
                     db.execute('INSERT OR REPLACE INTO decisions (topic, key, answer, at) VALUES (?, ?, ?, ?)', (topic, chunk[index], answer, stamp))
             db.commit()
         return out if out else None
