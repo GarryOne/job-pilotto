@@ -9,7 +9,7 @@
 | Folder | `~/Library/Application Support/Job Pilotto` | `…/Job Pilotto (live test)/home`: a fresh clone at each start |
 | Notion | "Job Pilotto - mac - Photographer" | "🧪 Job Pilotto – Live Test" (one-way mirror, synced at each start) |
 | Token | Keychain `job-pilotto.notion.token-desktop-real` | Keychain `job-pilotto.notion.token-live-test` (404 on every real database: checked at start) |
-| Browser | the owner's Chrome | its own visible Chromium window (profile kept), extension copy on the twin's port |
+| Browser | the owner's Chrome | its own visible Chromium window, one tab, fresh profile with the sign-ins carried over, extension copy on the twin's port |
 | Port | 47111 | a free one (`twin.json`) |
 | Telegram, schedules, Always on, telemetry | on | off (`desktop/lib/twin.js`) |
 | AppleScript on Chrome / Terminal, Apply with Claude | yes | off |
@@ -18,10 +18,24 @@
 
 ## Run it
 - `cd desktop && npm run twin` (or `--no-sync` to skip the sync). Ctrl-C stops the app and its browser.
-- Drive it from `~/Library/Application Support/Job Pilotto (live test)/twin.json` (Playwright `connectOverCDP`):
-  `cdp` is the twin app's window (call `window.pilot.*`), `browser` is its Chromium (read a tab, click a control; never Submit).
-- Its browser profile is kept in `…/Job Pilotto (live test)/browser/` (site sign-ins survive); its extension copy has "all sites" access built in,
-  as granted once in the owner's Chrome.
+- **Drive it with `npm run twin:drive -- <command>`** (in `desktop/`; `desktop/e2e/twin-drive.mjs`). Every click and keystroke is outlined in
+  orange with a "Claude: …" caption first, so the owner watching sees what is pressed; a form's Submit is refused in any language.
+
+  | Command | Does |
+  |---|---|
+  | `inspect <session>` | the app's view (left, pending, proposals) + the page's own state per pending field (never a password) |
+  | `reopen <session>` | the card's "Open in Chrome" path (the form reopened with the fill mark when its tab is gone) |
+  | `click <tab> <selector> [why]` | a real click in the twin's browser (`tab`: part of its address) |
+  | `type <row title> <text>` | types into a Needs your attention row and presses Enter |
+  | `app "<js>"` / `page <tab> "<js>"` | reads state from the app window / a tab |
+  | `shot app\|<tab> <file.png>` | a screenshot |
+  | `arrange` | both windows to the front, the browser on the right half |
+- **Watch in short steps** (global rule "Watching a live run"): after `reopen`, the extension's first line ("page kind", "filling") must come within
+  ~20 s; then read the log every ~5 s and decide: progressing, done, or stuck (stop and look).
+- **The browser starts with one tab** (the extension's install page is blanked and reused) and a **fresh profile each start**: only site sign-ins
+  (cookies, local storage) are carried over from `…/Job Pilotto (live test)/browser/` and saved back at stop. Its extension copy has "all sites"
+  access built in, as granted once in the owner's Chrome.
+- **After each fill** the twin's log has one `fill: fields: N filled, M left` line: every field's outcome, source and reason, as the page holds it at the end.
 - Its log: `…/Job Pilotto (live test)/home/logs/app.log`. The owner's `app.log` must show none of its lines.
 
 ## Rules
