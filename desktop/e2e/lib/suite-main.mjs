@@ -14,6 +14,8 @@ export async function runSuite(name, report = null) {
   let ctx, code = 0;
   try {
     // Start-up and close-down are one step each in the report, so its top level is the suite's own steps, not Playwright's calls.
+    const {keychainChanges, snapshot} = await import('./keychain-guard.mjs');
+    const keychainBefore = snapshot();   // the owner's real Keychain, names and dates only (lib/keychain-guard.mjs); null on CI
     const open = () => openContext(name, {engine: suite.engine, fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser, light: !!suite.light, notionProxy: !!suite.notionProxy, telegram: !!suite.telegram, google: !!suite.google, budgetMinutes: suite.budgetMinutes || 0, stepNeeds: suite.stepNeeds || {}, releases: !!suite.releases, notionStandIn: !!suite.notionStandIn || process.env.E2E_NOTION_STANDIN === '1', notionTokenOf: suite.notionTokenOf || '', notion: suite.notion !== false, keepGoing: !!suite.keepGoing, variesPlace: !!suite.variesPlace, report});
     ctx = await (report ? report.step('Start the app and its test services', open) : open());
     if (ctx.skipAll) {
@@ -21,7 +23,12 @@ export async function runSuite(name, report = null) {
       console.log(message);
       return {code: skipExitCode(), skipped: message};
     }
+    const runAlways = ctx.run;   // a suite may wrap ctx.run with its own filter (suites/apply.mjs parts): the Keychain check runs whatever the suite picked
     await suite.run(ctx);
+    if (keychainBefore) await runAlways('nothing in this Mac\'s real Keychain changed (a test run keeps its secrets in its own file)', async () => {
+      const changes = keychainChanges(keychainBefore, snapshot() || new Map());
+      if (changes.length) throw new Error(`the real Keychain changed during the run: ${changes.join('; ')}. A test reached it (desktop/lib/keychain.js isolation), or something else on this Mac saved a secret meanwhile: check, then re-run`);
+    }, {critical: true});   // critical: an E2E_STEPS filter never skips it
     if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app
   } catch (error) {
     if (!ctx?.runner.results.some(result => result.status === 'failed')) console.log(`✗ the ${name} suite stopped: ${error.message}`);
