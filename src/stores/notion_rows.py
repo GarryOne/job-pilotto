@@ -13,6 +13,7 @@ from .notion_blocks import plain_text
 #   'relation1'  one linked page id ('' when none)
 #   'created'    a settable date column holding the record's created_at; a row without it falls back to created_time
 #   'json:<key>' one key of a JSON object kept in a text column (several fields may share the column)
+#   'jsonrest:<key>,…'  the rest of that JSON object as a dict: every key but the listed ones (their json:<key> fields')
 APPLICATION_COLUMNS = (
     ('url', 'Job URL', 'url'), ('title', 'Job', 'title'), ('company', 'Company', 'rich_text'),
     ('location', 'Location', 'rich_text'), ('work_mode', 'Work mode', 'select'), ('stage', 'Stage', 'select'),
@@ -38,7 +39,11 @@ EVENT_COLUMNS = (
     ('app_id', 'Application', 'relation1'), ('kind', 'Kind', 'select'), ('at', 'At', 'date'),
     ('source', 'Source', 'select'), ('note', 'Note', 'rich_text'), ('source_id', 'Source ID', 'rich_text'),
     # The interview time sits in the Changes JSON, as src/notion/ledger.py has always written it.
-    ('interview_at', 'Changes', 'json:interview_at'), ('created_at', 'Created', 'created'),
+    # What the item moved and which email it was ({fields, from, subject, feedback}) shares that JSON (src/ai/mail_record.py).
+    ('changes', 'Changes', 'jsonrest:interview_at'), ('interview_at', 'Changes', 'json:interview_at'),
+    # A question on no job ("Which job?"): Focus asks it, src/ai/reassign.py applies the answer.
+    ('needs_you', 'Needs you', 'checkbox'), ('suggested_job', 'Suggested job', 'url'),
+    ('created_at', 'Created', 'created'),
 )
 TEXT_LIMIT = 2000  # Notion's limit per rich-text part; a property's text is stored as written (no Markdown marks)
 
@@ -61,6 +66,9 @@ def read(prop, kind):
     prop = prop or {}
     if kind.startswith('json:'):
         return _json_of(prop).get(kind[5:], '') or ''
+    if kind.startswith('jsonrest:'):
+        claimed = set(kind[9:].split(','))
+        return {key: value for key, value in _json_of(prop).items() if key not in claimed} or ''
     if kind in ('title', 'rich_text'):
         return plain_text(prop.get(kind))
     if kind == 'select':
@@ -123,9 +131,14 @@ def to_properties(values, columns, current=None):
     for field, column, kind in columns:
         if field not in values:
             continue
-        if kind.startswith('json:'):
+        if kind.startswith('json:') or kind.startswith('jsonrest:'):
             data = merged.setdefault(column, _json_of((current or {}).get(column)))
-            if values[field]:
+            if kind.startswith('jsonrest:'):
+                claimed = set(kind[9:].split(','))
+                for key in [key for key in data if key not in claimed]:
+                    del data[key]
+                data.update(values[field] or {})
+            elif values[field]:
                 data[kind[5:]] = values[field]
             else:
                 data.pop(kind[5:], None)

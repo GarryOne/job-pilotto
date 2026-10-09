@@ -234,6 +234,9 @@ class Events(_Table):
             return same[0]
         return self._new({**_known(self.fields, fields), 'app_id': app_id, 'kind': kind, 'at': at})
 
+    def update(self, event_id, fields):
+        return self._update(event_id, fields)
+
     def archive(self, app_id, kind):
         with self.db:
             return self.db.execute('UPDATE events SET archived = 1 WHERE archived = 0 AND app_id = ? AND kind = ?',

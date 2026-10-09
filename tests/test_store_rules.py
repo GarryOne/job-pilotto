@@ -16,6 +16,32 @@ class RulesCase:
     def setUp(self):
         self.s = self.make()
 
+    def test_an_event_is_not_written_twice(self):
+        app = self.s.applications.create({**JOB, 'applied_on': '2026-09-20'}, 'Applied')
+        applied, existing = rules.add_event(self.s, app, 'Applied', 'Gmail')
+        self.assertEqual((applied['at'], existing), ('2026-09-20', False))
+        mail, _ = rules.add_event(self.s, app, 'Rejected', 'Gmail', at='2026-10-01T09:00:00+00:00', source_id='m1')
+        self.assertEqual(rules.add_event(self.s, app, 'Rejected', 'Gmail', at='2026-10-03T09:00:00+00:00', source_id='m1'),
+                         (mail, True), 'the same message, even days later')
+        self.assertTrue(rules.add_event(self.s, app, 'Rejected', 'Telegram', at='2026-10-01T18:00:00+00:00')[1],
+                        'the same outcome logged again the same day')
+        self.assertFalse(rules.add_event(self.s, app, 'Rejected', 'Telegram', at='2026-10-05T09:00:00+00:00')[1],
+                         'a later occurrence is a new event')
+
+    def test_an_interview_is_known_by_its_time_and_an_impossible_one_is_not_kept(self):
+        app = self.s.applications.create(JOB, 'Interview scheduled')
+        first, _ = rules.add_event(self.s, app, 'Interview scheduled', 'Gmail', at='2026-10-01T09:00:00+00:00',
+                                   interview_at='2026-10-08T10:00:00+00:00')
+        self.assertEqual(first['changes'], {'fields': {}})
+        self.assertTrue(rules.add_event(self.s, app, 'Interview scheduled', 'Calendar', at='2026-10-06T09:00:00+00:00',
+                                        interview_at='2026-10-08T12:00:00+02:00')[1], 'the same interview, days later')
+        self.assertFalse(rules.add_event(self.s, app, 'Interview scheduled', 'Gmail', at='2026-10-06T09:00:00+00:00',
+                                         interview_at='2026-10-15T10:00:00+00:00')[1], 'another interview')
+        with mock.patch('sys.stderr'):
+            odd, _ = rules.add_event(self.s, app, 'Screening', 'Gmail', at='2026-10-06T09:00:00+00:00',
+                                     interview_at='2024-09-26T10:00:00+00:00')
+        self.assertEqual(odd['interview_at'], '', 'a misread year is never stored')
+
     def test_a_soft_stage_never_overwrites_a_real_one(self):
         row, outcome = rules.mark(self.s, JOB, 'Saved')
         self.assertEqual((outcome, row['stage']), (base.CREATED, 'Saved'))

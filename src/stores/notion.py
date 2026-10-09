@@ -272,8 +272,13 @@ class Events(_Database):
         found = [self._record(page) for page in self._query(filter_)]
         return sorted(found, key=lambda event: event['created_at'])
 
-    def _title(self, app_id, kind):
-        """'Kind · Company' and the job's URL, from the job's row (as src/notion/ledger.py has always titled them)."""
+    def _title(self, app_id, kind, values=None):
+        """'Kind · Company' and the job's URL, from the job's row (as src/notion/ledger.py has always titled them). A question on
+        no job is '❓ Which job? · <the email's subject>' (as src/ai/mail_lines.py has always titled it)."""
+        values = values or {}
+        if not app_id and values.get('needs_you'):
+            subject = str((values.get('changes') or {}).get('subject') or '')[:120]
+            return {'Event': {'title': [{'type': 'text', 'text': {'content': f'❓ Which job? · {subject}'[:200]}}]}}
         try:
             props = self.tracker._request('GET', f'pages/{app_id}')['properties'] if app_id else {}
         except Exception:  # noqa: BLE001 (an event of a job in another store: no title to borrow)
@@ -288,12 +293,15 @@ class Events(_Database):
         if same:
             return same[0]
         values = self._new_values({**_known(self.fields, fields), 'app_id': app_id, 'kind': kind, 'at': at})
-        return self._create(values, self._title(app_id, kind))
+        return self._create(values, self._title(app_id, kind, values))
+
+    def update(self, event_id, fields):
+        return self._update(event_id, fields)
 
     def put(self, record):
         values = _known(self.fields, dict(record))
         return self._create(self._new_values({k: v for k, v in values.items() if k != 'id'}),
-                            self._title(values.get('app_id'), values.get('kind')))
+                            self._title(values.get('app_id'), values.get('kind'), values))
 
     def archive(self, app_id, kind):
         found = self.list(app_id=app_id, kind=kind)

@@ -31,7 +31,11 @@ APPLICATION_FIELDS = ('id', 'url', 'title', 'company', 'location', 'work_mode', 
                       'ats', 'posted', 'recorded', 'tier', 'seniority', 'days_to_apply', 'cover_letter', 'questions',
                       'answers_captured', 'cv_version', 'kit_variant', 'agent', 'channel', 'date_approximate', 'reached_via',
                       'recruiter', 'kit_cost', 'fill_minutes', 'interview_prep', 'confirmation_email')
-EVENT_FIELDS = ('id', 'app_id', 'kind', 'at', 'source', 'note', 'source_id', 'interview_at', 'created_at')
+EVENT_FIELDS = ('id', 'app_id', 'kind', 'at', 'source', 'note', 'source_id', 'interview_at', 'changes', 'needs_you',
+                'suggested_job', 'created_at')
+# An event's `changes` (a dict) says what the item moved and where it came from: {'fields': {name: [before, after]},
+# 'from', 'subject', 'feedback'} (src/ai/mail_record.py writes it). `needs_you` + `suggested_job` (a job URL) mark a
+# question on no job (app_id ''): "Which job is this email about?", answered in Focus (src/ai/reassign.py).
 MATCH_FIELDS = ('url', 'title', 'company', 'location', 'work_mode', 'fit', 'reason', 'fit_detail', 'status',
                 'first_seen')
 INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'input', 'round', 'overall', 'questions', 'weak_answers', 'topics',
@@ -152,6 +156,8 @@ class Events(Protocol):
     def add(self, app_id: str, kind: str, at: str, **fields) -> dict: ...
     # Idempotent: with a non-empty source_id (a mail id, a Telegram tap), an event of that app with that
     # source_id is returned as it is instead of a second one.
+    # app_id '' is an event on no job yet: a question (needs_you) the person answers by naming the job.
+    def update(self, event_id: str, fields: dict) -> dict: ...
     def archive(self, app_id: str, kind: str) -> int: ...  # archived events leave list()
     def put(self, record: dict) -> dict: ...
 

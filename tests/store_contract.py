@@ -130,6 +130,28 @@ class StoreContract:
         self.assertEqual(one['id'], two['id'])
         self.assertEqual(len(self.s.events.list(source_id='mail-1')), 1)
 
+    def test_an_event_is_updated_and_keeps_what_it_moved_beside_its_interview_time(self):
+        app = self.s.applications.create(JOB, 'Applied')
+        event = self.s.events.add(app['id'], 'Interview scheduled', '2026-10-02', source='Notion edit',
+                                  interview_at='2026-10-08T10:00:00+02:00')
+        moved = {'fields': {'stage': ['Applied', 'Interview scheduled']}, 'from': 'Ana <ana@acme.test>', 'subject': 'Our call'}
+        updated = self.s.events.update(event['id'], {'source_id': 'mail-2', 'source': 'Gmail', 'changes': moved})
+        self.assertRecord(updated, base.EVENT_FIELDS)
+        again = self.s.events.list(source_id='mail-2')[0]
+        self.assertEqual((again['id'], again['source'], again['changes'], again['interview_at']),
+                         (event['id'], 'Gmail', moved, '2026-10-08T10:00:00+02:00'))
+        with self.assertRaises(KeyError):
+            self.s.events.update(event['id'], {'not_a_field': 1})
+
+    def test_a_question_is_an_event_on_no_job_with_the_job_it_would_pick(self):
+        self.s.applications.create(JOB, 'Applied')
+        asked = self.s.events.add('', 'Rejected', '2026-10-03T09:00:00+00:00', source='Gmail', source_id='mail-3', needs_you=True,
+                                  suggested_job=JOB['url'], changes={'fields': {}, 'subject': 'Your application'})
+        found = self.s.events.list(source_id='mail-3')[0]
+        self.assertEqual((found['id'], found['app_id'], bool(found['needs_you']), found['suggested_job']),
+                         (asked['id'], '', True, JOB['url']))
+        self.assertEqual(found['changes']['subject'], 'Your application')
+
     # Matches
 
     def test_a_match_is_upserted_by_url_and_its_status_set(self):

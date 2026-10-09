@@ -64,3 +64,61 @@ def revert_unsubmitted(stores, url):
     if current['stage'] != 'Applied':
         return base.UNCHANGED, current
     return UPDATED, stores.applications.update(current['id'], {'stage': 'Applying', 'applied_on': ''})
+
+
+def _same_occurrence(event, when):
+    """An event at `when` repeats this one: within SAME_OCCURRENCE_HOURS, or this one has no readable time."""
+    from datetime import datetime
+    from ..notion.ledger_events_util import SAME_OCCURRENCE_HOURS, moment
+    recorded = event['at'] or ''
+    try:
+        datetime.fromisoformat(recorded.replace('Z', '+00:00'))
+    except ValueError:
+        return True
+    return abs((moment(recorded) - when).total_seconds()) <= SAME_OCCURRENCE_HOURS * 3600
+
+
+def existing_event(stores, app, kind, *, source_id='', interview_at='', at=None):
+    """The event this one would repeat, or None when it is genuinely new: the same message (source_id) on any job; else
+    an outcome of the same kind, the same interview (by its time, whenever the message came), or within a day."""
+    from ..notion.ledger import OUTCOME_STAGES  # local: the ledger module is heavy and imports the Notion client
+    from ..notion.ledger_events_util import moment
+    if source_id:
+        same = stores.events.list(source_id=source_id)
+        mine = [event for event in same if event['app_id'] == app['id']]
+        if mine or same:
+            return (mine or same)[0]
+    if kind not in OUTCOME_STAGES:
+        return None
+    same = [event for event in stores.events.list(app_id=app['id'], kind=kind)]
+    if not same:
+        return None
+    if kind == 'Interview scheduled' and interview_at:
+        known = [event['interview_at'] for event in same]
+        if any(known) and not any(k and moment(k) == moment(interview_at) for k in known):
+            return None  # another interview
+    elif at:
+        same = [event for event in same if _same_occurrence(event, moment(at))]
+        if not same:
+            return None
+    return same[0]
+
+
+def add_event(stores, app, kind, source, *, at=None, note='', source_id='', interview_at='', changes=None):
+    """One outcome event of a job (`app`: its record), unless it repeats one already there (existing_event): then that
+    one, not a second. Returns (event, existing). An Applied with no time takes the job's applied_on; an impossible
+    interview time is never stored (plausible_interview). What src/notion/ledger.py add_event did for Notion alone."""
+    from datetime import datetime, timezone
+    from ..notion.ledger_events_util import plausible_interview
+    interview_at = plausible_interview(interview_at, at)
+    if not at and kind == 'Applied':
+        at = app.get('applied_on') or ''
+    at = at or datetime.now(timezone.utc).isoformat(timespec='seconds')
+    found = existing_event(stores, app, kind, source_id=source_id, interview_at=interview_at, at=at)
+    if found:
+        return found, True
+    if interview_at and changes is None:
+        changes = {'fields': {}}  # the Changes JSON an interview's event has always had beside its time
+    fields = {k: v for k, v in (('note', note), ('source_id', source_id), ('interview_at', interview_at),
+                                ('changes', changes)) if v}
+    return stores.events.add(app['id'], kind, at, source=source, **fields), False

@@ -85,6 +85,13 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
                 have = getattr(getattr(self.s, entity), name)
                 self.assertEqual(list(inspect.signature(have).parameters), want, f'{entity}.{name}')
 
+    def test_a_question_on_no_job_is_titled_with_the_emails_subject(self):
+        asked = self.s.events.add('', 'Rejected', '2026-10-03', source='Gmail', source_id='m9', needs_you=True,
+                                  changes={'fields': {}, 'subject': 'Your application at Acme'})
+        page = self.tracker._request('GET', f"pages/{asked['id']}")
+        self.assertEqual(page['properties']['Event']['title'][0]['plain_text'], '❓ Which job? · Your application at Acme')
+        self.assertTrue(page['properties']['Needs you']['checkbox'])
+
     def test_put_keeps_a_copied_records_fields_and_dates_under_a_new_id(self):
         if notion.PENDING:
             app = self.s.applications.put({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE', 'stage': 'Applied',
@@ -151,6 +158,17 @@ class NotionRecordsTests(unittest.TestCase):
             'Changes': {'type': 'rich_text', 'rich_text': [{'plain_text': '{"fields": {}, "interview_at": "2026-10-08T10:00"}'}]}}},
             notion_rows.EVENT_COLUMNS, base.EVENT_FIELDS)
         self.assertEqual(event['interview_at'], '2026-10-08T10:00')
+
+    def test_what_an_event_moved_and_its_interview_time_share_the_changes_json_as_mail_wrote_it(self):
+        from src.stores import notion_rows
+        current = {'Changes': {'rich_text': [{'plain_text': '{"fields": {}, "interview_at": "2026-10-08T10:00"}'}]}}
+        props = notion_rows.to_properties({'changes': {'fields': {'Stage': ['Applied', 'Screening']}, 'subject': 'Hi'}},
+                                          notion_rows.EVENT_COLUMNS, current)
+        written = json.loads(''.join(part['text']['content'] for part in props['Changes']['rich_text']))
+        self.assertEqual(written, {'fields': {'Stage': ['Applied', 'Screening']}, 'interview_at': '2026-10-08T10:00', 'subject': 'Hi'})
+        both = notion_rows.to_properties({'changes': {'fields': {}}, 'interview_at': '2026-10-09T09:00'}, notion_rows.EVENT_COLUMNS)
+        self.assertEqual(both['Changes']['rich_text'][0]['text']['content'], '{"fields": {}, "interview_at": "2026-10-09T09:00"}',
+                         'an interview event writes the Changes JSON src/notion/ledger.py always wrote')
 
 
 if __name__ == '__main__':

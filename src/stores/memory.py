@@ -133,6 +133,9 @@ class Events(_Table):
         self.rows[row['id']] = row
         return dict(row)
 
+    def update(self, event_id, fields):
+        return self._update(event_id, fields)
+
     def archive(self, app_id, kind):
         gone = [r['id'] for r in self.list(app_id=app_id, kind=kind)]
         for row_id in gone:
