@@ -57,6 +57,17 @@ export async function judgeConfirmation(storage, body, {judge = judgePage, clien
 // What kind of page is this (lib/page-kind.js): the AI decides once per site and page shape, the answer is kept on this Mac. The extension
 // asks before it acts on a page of an application's journey, and goes by its structure rule when this has no kind. `decide` is injectable.
 let kindCache = null;
+// A remembered answer (no AI call) is said once per page shape every 10 minutes: a page that waits for the person is asked every ~20 s, and the same line
+// filled the log (twin, 9 Oct 2026: 50 lines in 20 min). An AI answer, an error or a different kind is always said.
+export const KIND_SAID_MS = 10 * 60 * 1000;
+const kindSaid = new Map();   // shape -> {kind, at}
+export function kindWorthSaying(answer, said = kindSaid, now = Date.now()) {
+  if (answer?.by !== 'remembered' || !answer.shape) return true;
+  const last = said.get(answer.shape);
+  if (last && last.kind === answer.kind && now - last.at < KIND_SAID_MS) return false;
+  said.set(answer.shape, {kind: answer.kind, at: now});
+  return true;
+}
 export async function decidePageKind(storage, body, {decide = pageKind, client} = {}) {
   kindCache ||= pageKindCache(storage.path('page-kinds.json'));
   if (body?.forget) {   // the page contradicted its kept kind: dropped, asked again next visit
@@ -66,7 +77,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   }
   const answer = await decide(client === undefined ? aiClient(storage) : client, {url: body?.url, title: body?.title, headings: body?.headings,
     controls: body?.controls, buttons: body?.buttons}, kindCache);
-  appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
+  if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
     {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {})});
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
   if (answer.by === 'ai' && answer.applyButton) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);

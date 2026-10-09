@@ -134,3 +134,15 @@ test('a notice page that an account exists: the AI says choose and names the sig
   const got = await pageKind(fake({kind: 'account', confidence: 0.9, account_step: 'choose', register_control: '', signin_control: 'Anmelden', account_button: ''}), notice, cacheIn());
   assert.deepEqual([got.kind, got.accountStep, got.signinControl], ['account', 'choose', 'Anmelden']);
 });
+
+test('a remembered page kind is logged once per page shape every 10 minutes; an AI answer, a new kind or another shape always', async () => {
+  const {kindWorthSaying, KIND_SAID_MS} = await import('../lib/server-pages.js');
+  const said = new Map(), at = 1_000_000;
+  const kept = {by: 'remembered', shape: 'jobs.example/careers|p1-2', kind: 'account'};
+  assert.equal(kindWorthSaying(kept, said, at), true);                         // first time: said
+  assert.equal(kindWorthSaying(kept, said, at + 22_000), false);               // the page asked again 22 s later: quiet
+  assert.equal(kindWorthSaying({...kept, kind: 'form'}, said, at + 30_000), true);   // the kind changed: said
+  assert.equal(kindWorthSaying({...kept, shape: 'other|p1'}, said, at + 30_000), true);
+  assert.equal(kindWorthSaying({...kept, by: 'ai'}, said, at + 31_000), true);  // an AI answer (it may have cost): always
+  assert.equal(kindWorthSaying({...kept, kind: 'form'}, said, at + 30_000 + KIND_SAID_MS + 1), true);   // after 10 minutes: said again
+});
