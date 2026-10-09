@@ -102,6 +102,7 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     const text = el('div');
     text.append(el('strong', '', `Use your own ${CLI[familyOf(id)].name}?`), el('p', '', id === 'codex' ? TEXT.codexNotice : TEXT.notice));
     const yes = el('button', 'primary', `Use ${CLI[familyOf(id)].name}`), no = el('button', 'ghost', 'Cancel');
+    yes.dataset.notice = 'yes';   // the e2e steps press it by this, whichever CLI it names
     yes.addEventListener('click', () => { notice = null; resolve(true); });
     no.addEventListener('click', () => { notice = null; render(); resolve(false); });
     notice.append(icon('info'), text, no, yes);

@@ -22,7 +22,7 @@ export async function runWizard(ctx) {
     // A Mac: no key is ever typed (lib/engine.mjs). The app asks once whether to use Claude Code, then checks it, and the step continues.
     await ctx.run('Claude Code is chosen (confirmed once, then checked) and the AI step continues', async () => {
       await page.locator('[data-choice="cli"]').click();
-      await page.getByRole('button', {name: 'Use Claude Code CLI'}).click({timeout: 5000}).catch(() => {});   // the notice shows only the first time
+      await page.locator('[data-notice="yes"]').click({timeout: 5000}).catch(() => {});   // the notice shows only the first time
       await page.waitForFunction(() => !document.getElementById('ai-save')?.disabled, null, {timeout: 90000});
       await page.click('#ai-save');
       await ctx.expectStep('cv');
