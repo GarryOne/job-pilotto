@@ -102,6 +102,19 @@ test('a canary that works grows and finally becomes verified; one that fails is 
   assert.deepEqual((await controlStats(e.STATS, 7, now)).map(r => r.fingerprint).sort(), ['1d2pcapx18', 'bad0001', 'new0001']);
 });
 
+// 9 Oct 2026: the form lab that tried candidates first was retired; a candidate starts at 5% by itself, the judge then grows or halts it.
+test('a valid candidate starts at the first canary step; a broken one, or one whose control already runs a recipe, waits', async () => {
+  const e = env();
+  await put(e, {recipe: recipe({fingerprint: 'cand0001'}), status: 'candidate'});
+  await put(e, {recipe: recipe({fingerprint: 'busy0001'}), status: 'verified', rollout: 100});
+  await put(e, {recipe: recipe({fingerprint: 'busy0001', version: 2}), status: 'candidate'});
+  e.STATS.db.prepare("INSERT INTO recipes (fingerprint, version, status, rollout, body, source, note, created_at, updated_at) VALUES ('broke001', 1, 'candidate', 0, 'not json', 'proposer', '', 'x', 'x')").run();
+  const actions = await evaluateCanary(e.STATS, now);
+  assert.deepEqual(actions.map(a => [a.recipe, a.action]), [['cand0001 v1', 'started at 5%']]);
+  const status = (fp, v = 1) => ({...e.STATS.db.prepare('SELECT status, rollout FROM recipes WHERE fingerprint = ? AND version = ?').get(fp, v)});
+  assert.deepEqual([status('cand0001'), status('busy0001', 2), status('broke001')], [{status: 'canary', rollout: 5}, {status: 'candidate', rollout: 0}, {status: 'candidate', rollout: 0}]);
+});
+
 test('an app gets a token, then recipes only for the fingerprints it presents, at its own canary share', async () => {
   const e = {...env(), WAITLIST: kvStore()};
   await put(e, {recipe: recipe(), status: 'verified'});

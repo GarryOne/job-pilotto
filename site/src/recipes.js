@@ -240,8 +240,19 @@ export async function targets(request, env, now = new Date(), limit = 20, days =
 // A recipe that works is given more installs (5% → 25% → 100%, verified at the end); one that fails is stopped. Only its own
 // attempts since it last changed count. Returns what it did, for the log.
 export async function evaluateCanary(db, now = new Date()) {
-  const running = (await db.prepare("SELECT fingerprint, version, rollout, updated_at FROM recipes WHERE status = 'canary'").all()).results || [];
   const actions = [];
+  // A candidate starts at the first step by itself (owner, 9 Oct 2026: the form lab that tried candidates first was retired). It must still
+  // pass the shape check; the judging below then grows or halts it on real use. A candidate whose fingerprint already runs a recipe waits.
+  for (const candidate of (await db.prepare("SELECT fingerprint, version, body FROM recipes WHERE status = 'candidate'").all()).results || []) {
+    const busy = await db.prepare("SELECT 1 AS n FROM recipes WHERE fingerprint = ? AND status IN ('canary', 'verified')").bind(candidate.fingerprint).first();
+    let checked = {ok: false};
+    try { checked = validateRecipe(JSON.parse(candidate.body)); } catch { /* not JSON: stays a candidate */ }
+    if (busy || !checked.ok) continue;
+    await db.prepare("UPDATE recipes SET status = 'canary', rollout = ?, note = ?, updated_at = ? WHERE fingerprint = ? AND version = ?")
+      .bind(STEPS[0], 'auto: candidate started', now.toISOString(), candidate.fingerprint, candidate.version).run();
+    actions.push({recipe: `${candidate.fingerprint} v${candidate.version}`, action: `started at ${STEPS[0]}%`});
+  }
+  const running = (await db.prepare("SELECT fingerprint, version, rollout, updated_at FROM recipes WHERE status = 'canary'").all()).results || [];
   for (const recipe of running) {
     const since = recipe.updated_at.slice(0, 10);
     const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM control_outcomes WHERE fingerprint = ? AND recipe = ? AND day >= ?')
