@@ -1,4 +1,5 @@
-"""The Notion client waits and retries on 429 (busy) and 502/503/504 (briefly down), then gives up."""
+"""The Notion client waits and retries on 429 (busy) and 502/503/504 (briefly down), then gives up. Cloudflare's 520/522/524 only when
+sending again can't make a second copy: a new page after looking it up by its Job URL (src/notion/retry.py)."""
 import io
 import json
 import unittest
@@ -63,6 +64,50 @@ class NotionRetryTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as caught:
             Tracker('t', 'db', opener=opener, sleep=lambda _s: None)._request('POST', 'pages', {'properties': {}})
         self.assertIn('Run id is not a property that exists', str(caught.exception))
+
+
+
+JOB = {'parent': {'database_id': 'db1'}, 'properties': {'Job URL': {'url': 'https://jobs.test/a'}, 'Job': {'title': []}}}
+
+
+class EdgeErrorTest(unittest.TestCase):
+    """A 520 once, then Notion answers: what was sent, in order (9 Oct 2026: a 520 on POST pages stopped a Move to Notion)."""
+    def run_with(self, method, path, body, answers):
+        sent, waits = [], []
+        def opener(request, timeout):
+            sent.append((request.get_method(), request.full_url.split('/v1/', 1)[1]))
+            reply = answers.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            return Answer(json.dumps(reply).encode())
+        result = Tracker('t', 'db', opener=opener, sleep=waits.append)._request(method, path, body)
+        return result, sent, waits
+
+    def test_reads_queries_and_property_updates_are_sent_again(self):
+        for method, path in (('GET', 'pages/p'), ('POST', 'databases/db1/query'), ('POST', 'search'), ('PATCH', 'pages/p')):
+            with self.subTest(method=method, path=path):
+                result, sent, waits = self.run_with(method, path, {}, [http_error(520), {'ok': True}])
+                self.assertEqual((result, len(sent), waits), ({'ok': True}, 2, [0.5]))
+
+    def test_appended_blocks_fail_at_once(self):
+        with self.assertRaises(urllib.error.HTTPError):
+            self.run_with('PATCH', 'blocks/p/children', {'children': []}, [http_error(522), {'ok': True}])
+
+    def test_a_new_page_notion_made_anyway_is_returned_not_made_twice(self):
+        made = {'id': 'page-1', 'object': 'page'}
+        result, sent, _ = self.run_with('POST', 'pages', JOB, [http_error(520), {'results': [made], 'has_more': False}])
+        self.assertEqual(result, made)
+        self.assertEqual(sent, [('POST', 'pages'), ('POST', 'databases/db1/query')])   # one create, then the lookup: no second create
+
+    def test_a_new_page_notion_did_not_make_is_made_once(self):
+        result, sent, _ = self.run_with('POST', 'pages', JOB, [http_error(524), {'results': [], 'has_more': False}, {'id': 'page-2'}])
+        self.assertEqual(result, {'id': 'page-2'})
+        self.assertEqual(sent, [('POST', 'pages'), ('POST', 'databases/db1/query'), ('POST', 'pages')])
+
+    def test_a_new_page_with_no_job_url_is_not_sent_again(self):
+        body = {'parent': {'database_id': 'db1'}, 'properties': {'Name': {'title': []}}}
+        with self.assertRaises(urllib.error.HTTPError):
+            self.run_with('POST', 'pages', body, [http_error(520), {'id': 'twice'}])
 
 
 if __name__ == '__main__':

@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
-from . import origin, titles
+from . import origin, retry, titles
 
 
 def api_base():
@@ -141,7 +141,9 @@ class Tracker:
                     return result
             except urllib.error.HTTPError as error:
                 _log_request(method, path, error.code, started, attempt)
-                if error.code not in self.RETRY_STATUS or attempt == self.RETRIES:
+                edge = error.code in retry.CLOUDFLARE   # src/notion/retry.py: sent again only when that can't make a second copy
+                if (error.code not in self.RETRY_STATUS and not (edge and (retry.safe_again(method, path) or (method, path) == ('POST', 'pages')))) \
+                        or attempt == self.RETRIES:
                     # urllib's own text is only "HTTP Error 400: Bad Request". Notion's reason
                     # ("Run id is not a property that exists.") is the body, and callers that drop a
                     # missing column read it from the exception.
@@ -157,6 +159,12 @@ class Tracker:
                 if error.code == 429 and self._paced():
                     pace.calm_until(self.token, time.time() * 1000 + wait * 1000)  # everyone waits it out
                 self.sleep(wait)
+                if edge and method == 'POST' and path == 'pages':
+                    made = retry.made_already(self, body)
+                    if made is None:
+                        raise
+                    if made:
+                        return made
 
     def _query(self, filter_=None, database_id=None):
         body, pages = {'page_size': 100}, []
