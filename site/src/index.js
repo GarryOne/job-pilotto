@@ -80,7 +80,17 @@ export async function dispatch(env, inputs, workflow, fetcher = fetch) {
   if (response.status !== 204) throw new Error(`GitHub dispatch failed: ${response.status}`);
 }
 
-export const LEARNING_CRON = '15 * * * *';   // wrangler.toml [triggers]
+// The learning judges (canary recipes, aliases, meanings) run daily with the cron, and also when fill data arrives, at most once an hour per
+// worker instance (in memory: no KV write). 9 Oct 2026: a second, hourly cron broke the deploy (the account's cron triggers are all used).
+export const JUDGE_EVERY_MS = 60 * 60 * 1000;
+let judgedAt = 0;
+export function judgeSoon(env, ctx, now = Date.now()) {
+  if (!env.STATS || now - judgedAt < JUDGE_EVERY_MS) return false;
+  judgedAt = now;
+  ctx?.waitUntil?.(judgeLearning(env.STATS).catch(error => console.error(`learning judges: ${error.message}`)));
+  return true;
+}
+export const _resetJudge = () => { judgedAt = 0; };   // tests
 export async function judgeLearning(db, now = new Date()) {
   const [recipes, meanings, aliases] = await Promise.all([recipeLibrary.evaluateCanary(db, now), evaluateMeanings(db, now), evaluateAliases(db, now)]);
   const actions = {recipes, meanings, aliases};
@@ -124,7 +134,7 @@ export default {
     if (pathname === '/api/aliases') return aliases(request, env);
     if (pathname === '/api/playbook') return playbook(request, env);
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
-    if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
+    if (pathname === '/api/controls') { judgeSoon(env, ctx); return recipeLibrary.controls(request, env); }   // fill data in: the judges may act on it
     if (pathname === '/api/triage') return triageQueue.triage(request, env);
     if (pathname === '/api/contribute') return pool.contribute(request, env);
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
@@ -143,9 +153,6 @@ export default {
   },
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
-    // Hourly (owner, 9 Oct 2026: learning should move within a loop, not once a day): only the learning judges. A canary grows or halts on
-    // real use as soon as the evidence is there; everything else stays daily.
-    if (event?.cron === LEARNING_CRON) { if (env.STATS) ctx.waitUntil(judgeLearning(env.STATS).catch(error => console.error(`learning judges: ${error.message}`))); return; }
     // The day's totals first (kept for good), then the 90-day purge of raw rows.
     ctx.waitUntil(pool.rollup(env).catch(error => console.error(`pool rollup: ${error.message}`)).then(() => pool.purge(env)).catch(error => console.error(`pool purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })

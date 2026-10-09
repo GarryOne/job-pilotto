@@ -47,4 +47,4 @@ migrations_dir = "migrations"
 # Daily at 05:30 UTC: app reports (src/telemetry.js) older than 90 days are dropped, and the top problems of the last
 # day are queued (D1 triage_queue) for the private repo's triage to pull (one issue per problem).
 [triggers]
-crons = ["30 5 * * *", "15 * * * *"]   # daily: everything below; hourly: only the learning judges (canary recipes, aliases, meanings)
+crons = ["30 5 * * *"]   # daily. The learning judges also run when fill data arrives (src/index.js judgeSoon): the account has no cron triggers left

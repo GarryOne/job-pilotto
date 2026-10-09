@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {bucketOf} from '../../extension/recipe-schema.js';
 import {betaOf, reaches, staged} from '../src/canary-reach.js';
-import {LEARNING_CRON, judgeLearning} from '../src/index.js';
+import {JUDGE_EVERY_MS, _resetJudge, judgeLearning, judgeSoon} from '../src/index.js';
 
 const outside = Array.from({length: 200}, (_, i) => `install-${i}`).find(id => bucketOf(id) >= 5);   // an install outside a 5% canary
 
@@ -28,11 +28,17 @@ test('switch off (the default): a canary reaches every install; disabled and can
   assert.equal(betaOf(new Request('https://x/')), false);
 });
 
-test('the hourly trigger runs only the learning judges', async () => {
+test('the learning judges run when fill data arrives, at most once an hour; they judge recipes, aliases and meanings', async () => {
   const calls = [];
   const db = {prepare: sql => ({bind: () => ({all: async () => { calls.push(sql); return {results: []}; }, first: async () => null, run: async () => ({})}),
     all: async () => { calls.push(sql); return {results: []}; }})};
-  assert.equal(LEARNING_CRON, '15 * * * *');
   assert.deepEqual(await judgeLearning(db), {recipes: [], meanings: [], aliases: []});
   assert.ok(calls.some(sql => /FROM recipes/.test(sql)) && calls.some(sql => /FROM aliases/.test(sql)) && calls.some(sql => /FROM meanings/.test(sql)));
+  _resetJudge();
+  const waited = [], ctx = {waitUntil: p => waited.push(p)};
+  assert.equal(judgeSoon({STATS: db}, ctx, Date.UTC(2026, 9, 9)), true);
+  assert.equal(judgeSoon({STATS: db}, ctx, Date.UTC(2026, 9, 9) + JUDGE_EVERY_MS - 1), false);   // within the hour: not again
+  assert.equal(judgeSoon({STATS: db}, ctx, Date.UTC(2026, 9, 9) + JUDGE_EVERY_MS), true);
+  assert.equal(waited.length, 2);
+  await Promise.all(waited);
 });
