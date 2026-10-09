@@ -38,7 +38,7 @@ export function markdownBlocks(text) {
   return blocks;
 }
 
-// Replace a page's content with the Markdown (its old blocks go to Notion's trash, recoverable).
+// Replace a page's content with the Markdown (its old text blocks go to Notion's trash, recoverable; KEPT blocks stay).
 // Replace a page's content: delete its blocks, then append the new ones. onProgress(done, total) counts
 // both. A block that's already gone (e.g. removed by an earlier, interrupted save) is skipped.
 // One rewrite of a page at a time. Two at once both read the same old blocks, both delete them and both append, so the page ends up with
@@ -68,6 +68,13 @@ export const rewriteTuning = {waitMs: 1500};   // between delete passes (a test 
 // What a block says, to tell an unchanged block from a changed one: its type and its text with bold and code. A block that can't be compared that
 // way (a table, one with children, one the listing gave no content for) never matches, so it is always replaced.
 const COMPARABLE = ['paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item'];
+// Blocks that are not the page's text (the Profile's 📎 CV file, a child page such as ⚙️ Search settings, a linked database): Markdown cannot say
+// them, so a rewrite never deletes them (deleting a child page's block archives the page itself) and the new text goes in around them.
+// The same list as src/stores/notion_texts.py KEPT (desktop/test/notion-write-kept.test.js checks they agree).
+export const KEPT = ['child_page', 'child_database', 'link_to_page', 'file', 'pdf', 'image', 'video', 'audio', 'embed', 'bookmark',
+  'synced_block', 'column_list', 'table_of_contents', 'breadcrumb'];
+export const isKept = block => KEPT.includes(block?.type);
+const textOnly = blocks => blocks.filter(block => !isKept(block));
 export function blockSignature(block) {
   const body = block?.[block?.type];
   if (!COMPARABLE.includes(block?.type) || block.has_children || !Array.isArray(body?.rich_text)) return null;
@@ -76,7 +83,7 @@ export function blockSignature(block) {
 // Only what changed (owner, 7 Oct 2026: one place removed from ⚙️ Search settings took 71 s, its 107 blocks deleted and written again one by
 // one): the blocks the page and the new content share, in order (their longest common run), stay; the others are deleted, and each run of new
 // blocks goes in after the kept (or just inserted) block before it. null when a new block would come before every kept one (Notion inserts only
-// after a block): the page is rewritten whole.
+// after a block): the page is rewritten whole. A kept block (KEPT) stays where it is and anchors the new blocks after it.
 export function patchPlan(old, blocks) {
   const was = old.map(blockSignature), now = blocks.map(blockSignature);
   const same = (i, j) => was[i] !== null && was[i] === now[j];
@@ -85,7 +92,8 @@ export function patchPlan(old, blocks) {
   const remove = [], inserts = [];
   let i = 0, j = 0, after = null, run = null;
   while (i < was.length || j < now.length) {
-    if (i < was.length && j < now.length && same(i, j)) { after = old[i].id; run = null; i++; j++; }
+    if (i < was.length && isKept(old[i])) { after = old[i].id; run = null; i++; }
+    else if (i < was.length && j < now.length && same(i, j)) { after = old[i].id; run = null; i++; j++; }
     else if (j < now.length && (i >= was.length || lcs[i][j + 1] >= lcs[i + 1][j])) {
       if (!after) return null;
       if (!run) inserts.push(run = {after, blocks: []});
@@ -113,7 +121,7 @@ async function patchPage(token, pageId, blocks, old, fetcher, onProgress) {
     }
   }
   // Trusted only when the page now reads exactly as the new content (Notion's list can lag, a delete can not stick): else the whole rewrite.
-  const read = await listBlocks(token, pageId, fetcher), now = read.map(blockSignature);
+  const read = textOnly(await listBlocks(token, pageId, fetcher)), now = read.map(blockSignature);
   const at = now.length === blocks.length ? now.findIndex((signature, k) => signature === null || signature !== blockSignature(blocks[k])) : Math.min(now.length, blocks.length);
   if (at < 0) return true;
   // Where it differed, never what it says: the first block that did not read back, its type each way, and the counts (the Windows \r of 7 Oct 2026 took a CI run to find).
@@ -132,7 +140,7 @@ async function writePageNow(token, pageId, markdown, fetcher, onProgress = () =>
     if (patchPlan(before, blocks)) log('notion', 'page patch did not read back as written: rewritten whole', {page: String(pageId).slice(0, 8)});
   }
   const batches = Math.ceil(blocks.length / 100);
-  let old = patchPlan(before, blocks) ? await listBlocks(token, pageId, fetcher) : before;   // a patch tried and failed changed the page: read it again
+  let old = textOnly(patchPlan(before, blocks) ? await listBlocks(token, pageId, fetcher) : before);   // a patch tried and failed changed the page: read it again
   const total = old.length + batches;
   let done = 0;
   for (let pass = 1; old.length; pass++) {
@@ -144,7 +152,7 @@ async function writePageNow(token, pageId, markdown, fetcher, onProgress = () =>
       }
       onProgress(Math.min(++done, total - batches), total);
     }
-    old = await listBlocks(token, pageId, fetcher);
+    old = textOnly(await listBlocks(token, pageId, fetcher));
     if (old.length && pass >= DELETE_PASSES) {
       // A block can stay in a page's list after it is gone (Notion's list lags, and a deleted block answers "archived"): only a block that
       // is still alive means the page was not emptied.
@@ -170,7 +178,7 @@ async function writePageNow(token, pageId, markdown, fetcher, onProgress = () =>
 async function sweepLeftovers(token, pageId, added, fetcher) {
   if (!added.size) return;
   for (let round = 0; round < 4; round++) {
-    const stale = (await listChildren(token, pageId, fetcher)).filter(block => !added.has(block.id));
+    const stale = (await listChildren(token, pageId, fetcher)).filter(block => !added.has(block.id) && !isKept(block));
     if (!stale.length) return;
     for (const block of stale) {
       try { await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher); }
