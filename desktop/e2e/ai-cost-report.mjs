@@ -1,6 +1,6 @@
 // Every scheduled AI job tells the owner's page https://www.jobpilotto.workers.dev/ai-cost what it spent (site/src/aicost.js). Never fails a job:
 // a missing key, an unreadable record or an unreachable site only prints a line.
-//   node ai-cost-report.mjs --job <id> (--execution <claude-code-action output> | --file <{usd, calls}> | --usd <n> [--calls <n>]) [--suffix <matrix key>]
+//   node ai-cost-report.mjs --job <id> (--execution <claude-code-action output> | --file <{usd, calls}> | --usd <n> [--calls <n>]) [--suffix <matrix key>] [--provider anthropic|openai]
 //   node ai-cost-report.mjs --billed [--days 7]     what Anthropic itself billed per day (Admin API, ANTHROPIC_ADMIN_KEY), to see what the jobs miss;
 //                                                    with AI_COST_KEYS=<name,name> also what each of those API keys cost per day (sent by NAME only)
 // Env: AI_COST_PUBLISH_KEY; GITHUB_RUN_ID / GITHUB_RUN_ATTEMPT / GITHUB_REPOSITORY (set by Actions).
@@ -19,9 +19,9 @@ export function spent({execution, file, usd, calls}) {
   return null;
 }
 
-export function runRow({job, suffix = '', env = process.env, now = new Date(), usd, calls}) {
+export function runRow({job, suffix = '', env = process.env, now = new Date(), usd, calls, provider = ''}) {
   const id = `${env.GITHUB_RUN_ID || `local-${now.getTime()}`}${suffix ? `-${suffix}` : ''}`.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 64);
-  return {job, run_id: id, at: now.toISOString(), usd: Math.round(usd * 1e6) / 1e6, calls, repo: env.GITHUB_REPOSITORY || ''};
+  return {job, run_id: id, at: now.toISOString(), usd: Math.round(usd * 1e6) / 1e6, calls, repo: env.GITHUB_REPOSITORY || '', ...(provider === 'openai' ? {provider} : {})};   // /ai-cost: none = Anthropic
 }
 
 // The Admin API's cost report: one bucket per day, amounts as decimal strings in cents (USD).
@@ -129,7 +129,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     } else {
       const job = at('--job'), figures = spent({execution: read('--execution'), file: read('--file'), usd: at('--usd'), calls: at('--calls')});
       if (!job || !figures) console.log(`AI cost not reported (${job || 'no --job'}): no figure to report.`);
-      else { const row = runRow({job, suffix: at('--suffix'), ...figures}); await put({runs: [row]}); console.log(`AI cost reported: ${job} $${row.usd.toFixed(3)} (${row.calls} call(s)), run ${row.run_id}.`); }
+      else { const row = runRow({job, suffix: at('--suffix'), provider: at('--provider'), ...figures}); await put({runs: [row]}); console.log(`AI cost reported: ${job} $${row.usd.toFixed(3)} (${row.calls} call(s)), run ${row.run_id}.`); }
     }
   } catch (error) { console.log(`AI cost not reported: ${error.message}`); }
 }

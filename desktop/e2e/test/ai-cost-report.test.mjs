@@ -31,3 +31,11 @@ test('the Anthropic cost report: cents per day, summed over its lines, following
   assert.match(urls[0], /starting_at=2026-09-27/);
   assert.match(urls[1], /page=p2/);
 });
+
+test('a run reports its provider only when it is OpenAI (none: Anthropic on /ai-cost)', async () => {
+  const {runRow} = await import('../ai-cost-report.mjs');
+  const now = new Date('2026-10-09T10:00:00Z'), env = {GITHUB_RUN_ID: '42'};
+  assert.equal(runRow({job: 'e2e-app', suffix: 'jobs-openai', usd: 0.1, calls: 2, provider: 'openai', env, now}).provider, 'openai');
+  assert.equal('provider' in runRow({job: 'e2e-app', suffix: 'jobs', usd: 0.1, calls: 2, provider: 'anthropic', env, now}), false);
+  assert.equal(runRow({job: 'e2e-app', suffix: 'jobs-openai', usd: 0.1, calls: 2, provider: 'openai', env, now}).run_id, '42-jobs-openai');
+});

@@ -12,6 +12,8 @@ export function apply(settings, env = process.env) {
   else delete env.ANTHROPIC_BASE_URL;
   // The end-to-end journey (desktop/e2e) sends the app's own AI calls through its test proxy, as lib/pipeline.js does for the engine.
   if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = env.JOB_PILOTTO_E2E_AI_BASE_URL;
+  // The same for the OpenAI SDK (it follows OPENAI_BASE_URL): the e2e meters and replays the app's OpenAI calls too. Never set for a user.
+  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_OPENAI_BASE_URL) env.OPENAI_BASE_URL = env.JOB_PILOTTO_E2E_OPENAI_BASE_URL;
 }
 
 // Turn the credit on with the app's license key. -> {ok, error?}

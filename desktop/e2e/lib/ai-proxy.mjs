@@ -18,7 +18,8 @@ export function failureFor(mode) {
   return failure ? {status: failure.status, body: JSON.stringify({type: 'error', error: {type: failure.type, message: failure.message}})} : null;
 }
 
-export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic.com'} = {}) {
+// kind / metered: the tally a paid call goes to and which API path is a model call (Anthropic: /messages; OpenAI: /responses, kind 'app-openai').
+export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic.com', kind = 'app', metered = /\/messages(\?|$)/} = {}) {
   const stats = {calls: 0, delayMs, mode: 'pass', canned: 0, armed: 0, failed: 0};   // armed / failed: the runner's check that a step's fault fired (lib/faults.mjs)
   let canned = null;   // (request body as an object) -> the text a model would answer, or null to pass the call through to Anthropic
   const server = http.createServer(async (req, res) => {
@@ -44,7 +45,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     const body = Buffer.concat(chunks), key = requestKey(req.url, body), kept = recall(key);
     if (!kept) keepMiss(key, req.url, body);   // what changed since a run replay could answer (lib/ai-meter.mjs keepMiss)
     if (kept) {
-      countReplay('app', usageOf(kept.body.toString('utf8'), kept.contentType));
+      countReplay(kind, usageOf(kept.body.toString('utf8'), kept.contentType));
       res.writeHead(kept.status, {'content-type': kept.contentType, 'content-length': kept.body.length});
       res.end(kept.body);
       return;
@@ -54,7 +55,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
       const answer = await fetch(`${target}${req.url}`, {method: req.method, headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : body});
       const answered = Buffer.from(await answer.arrayBuffer()), contentType = answer.headers.get('content-type') || 'application/json';
       if (!answer.ok) countError(answer.status, answered.toString('utf8'));   // Anthropic's own answer: which limit, which error (lib/ai-meter.mjs)
-      if (answer.ok && /\/messages(\?|$)/.test(req.url)) { count('app', usageOf(answered.toString('utf8'), contentType)); keep(key, {status: answer.status, contentType, body: answered}); }
+      if (answer.ok && metered.test(req.url)) { count(kind, usageOf(answered.toString('utf8'), contentType)); keep(key, {status: answer.status, contentType, body: answered}); }
       res.writeHead(answer.status, {'content-type': contentType, 'content-length': answered.length});
       res.end(answered);
     } catch (error) {

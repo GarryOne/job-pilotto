@@ -92,7 +92,9 @@ export function buildRequest({view, pngBase64, rules = '', facts = null, model =
 }
 
 // USD per million tokens (Claude API, 25 Sep 2026); cache writes cost 1.25x input, cache reads 0.1x. An unknown model has no price: its cost is not guessed.
-export const PRICES = {'claude-sonnet-5-5': {input: 2, output: 10}, 'claude-haiku-5-5': {input: 0.1, output: 0.5}, 'claude-haiku-4-5': {input: 1, output: 5}, 'claude-opus-5-5': {input: 4, output: 20}};
+export const PRICES = {'claude-sonnet-5-5': {input: 2, output: 10}, 'claude-haiku-5-5': {input: 0.1, output: 0.5}, 'claude-haiku-4-5': {input: 1, output: 5}, 'claude-opus-5-5': {input: 4, output: 20},
+  // The OpenAI family (the app's own table: desktop/lib/ai/models.js OPENAI_PRICES, held equal by test/ai-meter.test.mjs); cachedInput is OpenAI's own cached price.
+  'gpt-6-luna': {input: 0.10, cachedInput: 0.01, output: 0.50}, 'gpt-6.1-sol': {input: 2.00, cachedInput: 0.10, output: 10.00}};
 // -> the call's cost in USD from the API's own usage figures, or null when the model's price is not known.
 // batch: the Message Batches API bills half of every token.
 export function usageCost(model, usage = {}, {batch = false} = {}) {
@@ -100,7 +102,7 @@ export function usageCost(model, usage = {}, {batch = false} = {}) {
   if (!price) return null;
   const n = key => Number(usage[key]) || 0;
   return (batch ? 0.5 : 1) * (n('input_tokens') * price.input + n('cache_creation_input_tokens') * price.input * 1.25
-    + n('cache_read_input_tokens') * price.input * 0.1 + n('output_tokens') * price.output) / 1e6;
+    + n('cache_read_input_tokens') * (price.cachedInput ?? price.input * 0.1) + n('output_tokens') * price.output) / 1e6;
 }
 
 // Only a finding about the app being WRONG can block a journey: a wrong status, a dead control, an error shown. How something looks or reads is medium at most, whatever the model

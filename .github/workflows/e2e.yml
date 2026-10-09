@@ -255,11 +255,13 @@ jobs:
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: |
-          for kind in app judges; do
+          for kind in app app-openai judges; do   # app-openai: the app under test on an OpenAI engine (odd runs), shown under OpenAI on /ai-cost
             for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}"; do
               file="$dir/ai-usage-$kind.json"; [ -f "$file" ] || continue
               tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
-              node desktop/e2e/ai-cost-report.mjs --job "e2e-$kind" --suffix "${{ matrix.suite }}$tag" --file "$file"
+              job="e2e-$kind"; provider=anthropic
+              if [ "$kind" = app-openai ]; then job=e2e-app; provider=openai; tag="$tag-openai"; fi
+              node desktop/e2e/ai-cost-report.mjs --job "$job" --suffix "${{ matrix.suite }}$tag" --file "$file" --provider "$provider"
             done
           done
       - name: Keep the AI answers for the next run

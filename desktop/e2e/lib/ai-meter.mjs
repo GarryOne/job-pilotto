@@ -10,9 +10,9 @@ import path from 'node:path';
 import {usageCost} from './vision.mjs';
 
 const blank = () => ({calls: 0, usd: 0, unpriced: 0, replayed: 0, saved: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0});
-let tally = {app: blank(), judges: blank()}, errors = {};
+let tally = {app: blank(), 'app-openai': blank(), judges: blank()}, errors = {};   // app-openai: the app under test on an OpenAI engine (reported with provider openai)
 export const usage = () => tally;
-export const resetUsage = () => { tally = {app: blank(), judges: blank()}; errors = {}; };
+export const resetUsage = () => { tally = {app: blank(), 'app-openai': blank(), judges: blank()}; errors = {}; };
 
 // A call Anthropic refused: its status and the API's own error type and message (never the request), counted per distinct answer. 7 Oct 2026: the app
 // said only "AI limit reached" for both a spend limit and an empty credit balance, and nothing showed which one the e2e key had hit.
@@ -29,12 +29,22 @@ export const priceName = model => String(model || '').replace(/-\d{8}$/, '');
 const cost = (model, used) => usageCost(priceName(model), used);
 
 // {model, usage} out of a Messages answer: a JSON body, or a stream (message_start carries the model and input, message_delta the final output count).
+// OpenAI's Responses usage in the Messages shape the prices read: input without the cached part, the cached part as cache reads.
+const fromOpenAi = (model, used) => ({model, usage: {input_tokens: Math.max(0, (used.input_tokens || 0) - (used.input_tokens_details?.cached_tokens || 0)),
+  output_tokens: used.output_tokens || 0, cache_read_input_tokens: used.input_tokens_details?.cached_tokens || 0}});
 export function usageOf(text, contentType = '') {
-  if (!/event-stream/.test(contentType)) { try { const data = JSON.parse(text); return data?.usage ? {model: data.model, usage: data.usage} : null; } catch { return null; } }
+  if (!/event-stream/.test(contentType)) {
+    try {
+      const data = JSON.parse(text);
+      if (data?.object === 'response' && data.usage) return fromOpenAi(data.model, data.usage);   // an OpenAI Responses answer
+      return data?.usage ? {model: data.model, usage: data.usage} : null;
+    } catch { return null; }
+  }
   let model = '', used = null;
   for (const line of String(text).split('\n')) {
     if (!line.startsWith('data:')) continue;
     let event; try { event = JSON.parse(line.slice(5)); } catch { continue; }
+    if (event.type === 'response.completed' && event.response?.usage) return fromOpenAi(event.response.model, event.response.usage);   // an OpenAI stream's last event
     if (event.type === 'message_start') { model = event.message?.model || ''; used = {...event.message?.usage}; }
     if (event.type === 'message_delta' && event.usage) used = {...used, ...Object.fromEntries(Object.entries(event.usage).filter(([, n]) => n != null))};
   }

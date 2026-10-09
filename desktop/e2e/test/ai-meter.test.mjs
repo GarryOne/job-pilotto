@@ -148,3 +148,25 @@ test('a kept answer is replayed for 3 days, then asked live again; an undated on
   fs.writeFileSync(path.join(dir, 'old.json'), JSON.stringify({status: 200, contentType: 'application/json', body: Buffer.from('{}').toString('base64')}));
   assert.equal(recall('old', env), null, 'an answer kept before the rule (no date) is asked again once');
 });
+
+test('OpenAI runs are metered too: usage plain and streamed, its own cached price, the app-openai tally, one price table with the app', async () => {
+  const {PRICES, usageCost} = await import('../lib/vision.mjs');
+  const {OPENAI_PRICES} = await import('../../lib/ai/models.js');
+  for (const [model, price] of Object.entries(OPENAI_PRICES)) assert.deepEqual(PRICES[model], price, model);
+  const answer = {object: 'response', model: 'gpt-6-luna', usage: {input_tokens: 1000, input_tokens_details: {cached_tokens: 400}, output_tokens: 100}};
+  assert.deepEqual(usageOf(JSON.stringify(answer)), {model: 'gpt-6-luna', usage: {input_tokens: 600, output_tokens: 100, cache_read_input_tokens: 400}});
+  const stream = ['data: {"type":"response.output_text.delta","delta":"x"}', `data: ${JSON.stringify({type: 'response.completed', response: answer})}`].join('\n');
+  assert.deepEqual(usageOf(stream, 'text/event-stream').usage.cache_read_input_tokens, 400);
+  assert.equal(usageCost('gpt-6-luna', {input_tokens: 1e6, cache_read_input_tokens: 1e6, output_tokens: 1e6}), 0.10 + 0.01 + 0.50, 'cached at OpenAI\'s own price');
+  resetUsage();
+  const server = http.createServer((req, res) => { req.resume(); req.on('end', () => { res.writeHead(200, {'content-type': 'application/json'}); res.end(JSON.stringify(answer)); }); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const proxy = await startAiProxy({target: `http://127.0.0.1:${server.address().port}`, kind: 'app-openai', metered: /\/responses(\?|$)/});
+  try {
+    const reply = await fetch(`${proxy.url}/v1/responses`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({model: 'gpt-6-luna', input: 'hi'})});
+    assert.equal(reply.status, 200);
+    assert.equal(usage()['app-openai'].calls, 1);
+    assert.equal(usage().app.calls, 0, 'never counted as Claude');
+    assert.ok(usage()['app-openai'].usd > 0);
+  } finally { await proxy.close(); server.close(); resetUsage(); }
+});

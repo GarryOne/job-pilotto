@@ -87,6 +87,7 @@ export function pipelineEnv(storage, parent = process.env) {
   if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;
   // The end-to-end journey (desktop/e2e) sends the engine's AI calls through its own slow proxy to reproduce a slow AI; never set for a user.
   if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = parent.JOB_PILOTTO_E2E_AI_BASE_URL;
+  if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_OPENAI_BASE_URL) env.OPENAI_BASE_URL = parent.JOB_PILOTTO_E2E_OPENAI_BASE_URL;   // the Python OpenAI SDK too
   // The end-to-end journey's stand-ins for Notion, Telegram and Google (desktop/e2e/lib/*-proxy|fake.mjs), and the fake Google sign-in that goes with its fake Gmail.
   // Only in a test run: the engine's env is a whitelist, so without this the engine's own calls went straight to the real services (5 Oct 2026).
   if (parent.JOB_PILOTTO_E2E) {
