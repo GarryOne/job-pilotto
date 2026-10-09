@@ -388,17 +388,18 @@ def write_kit(stores, app_id, kit_md, earlier_day=''):
     stores.applications.set_section(app_id, HEADING, kit_md)
 
 
-def logged_build(stores, record, tracker=None, client=None, now=None):
+def logged_build(stores, record, client=None, now=None):
     """build(), recorded as a run like every AI job (⏰ Cronjob Runs): its row opens as Running when it starts (Recent
     activity shows it while it works, tagged "By you") and is completed with its result, AI cost and duration, or as
     Failed with the error, so nothing only lives in the dialog. It counts toward the month's AI budget."""
-    from ..notion import cron_runs
-    run = cron_runs.new_run('prep')
+    from .. import run_log
+    from ..notion import cron_runs   # the report's words only (job_subject); the run is logged in the store (run_log)
+    run = run_log.new_run('prep')
     run['subject'] = cron_runs.job_subject(company=record.get('company') or '', role=record.get('title') or '', via=record.get('via') or '')
     run['application'] = record['id']  # the run links to the job it was for
     run['headline'] = f"{record.get('company') or record.get('via') or ''} · {role_of(record)}"[:200]
     started = datetime.now(timezone.utc)
-    cron_runs.begin(tracker, run)
+    run_log.begin(stores, run)
     try:
         result = build(stores, record, client=client, stats=run.setdefault('interview', {}), now=now)
     except Exception as error:  # noqa: BLE001 — recorded as failed, then shown in the dialog
@@ -406,7 +407,7 @@ def logged_build(stores, record, tracker=None, client=None, now=None):
     run['headline'] = f"{run['headline']}: {result.get('text', '')}"[:300]
     run['seconds'] = int((datetime.now(timezone.utc) - started).total_seconds())
     try:
-        cron_runs.log_run(tracker, run, failed=not result.get('ok') and not result.get('needs_description'))
+        run_log.log_run(stores, run, failed=not result.get('ok') and not result.get('needs_description'))
     except Exception as error:  # noqa: BLE001 — the kit matters more than its log line
         print(f'Warning: run not recorded: {type(error).__name__}: {error}', file=sys.stderr)
     return result
@@ -421,7 +422,7 @@ def main(argv=None):
     about.add_argument('--text', default='')
     about.add_argument('--url', default='')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()   # None with the data on this Mac; the run's log row is Notion's for now
+    tracker = notion.Tracker.from_env()   # None with the data on this Mac
     try:
         stores = open_stores(tracker=tracker)
         record = stores.applications.by_id(args.page_id)
@@ -431,7 +432,7 @@ def main(argv=None):
             result = describe(stores, record, args.text, args.url)
         else:
             print('⏳ Reading the job and your Profile', file=sys.stderr, flush=True)
-            result = logged_build(stores, record, tracker)
+            result = logged_build(stores, record)
     except Exception as error:  # noqa: BLE001 — the app shows the reason
         result = {'ok': False, 'text': f'{type(error).__name__}: {error}'[:300]}
     print(json.dumps(result, ensure_ascii=False))

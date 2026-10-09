@@ -228,8 +228,8 @@ class LoggedRunTests(unittest.TestCase):
     def test_a_kit_is_recorded_as_a_run_with_its_ai_cost(self):
         stores, record = job(description=ROLE)
         logged = []
-        with stats(), mock.patch('src.notion.cron_runs.begin', lambda t, run: None), \
-                mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append((run, failed))):
+        with stats(), mock.patch('src.run_log.begin', lambda s, run: None), \
+                mock.patch('src.run_log.log_run', lambda s, run, failed=False: logged.append((run, failed))):
             result = prep.logged_build(stores, record, client=Client(), now=NOW)
         self.assertTrue(result['ok'])
         run, failed = logged[0]
@@ -243,8 +243,8 @@ class LoggedRunTests(unittest.TestCase):
 
         def broken(*a, **k):
             raise RuntimeError('the store refused the page')
-        with mock.patch('src.notion.cron_runs.begin', lambda t, run: opened.append(run['mode'])), \
-                mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append((run, failed))), \
+        with mock.patch('src.run_log.begin', lambda s, run: opened.append(run['mode'])), \
+                mock.patch('src.run_log.log_run', lambda s, run, failed=False: logged.append((run, failed))), \
                 mock.patch.object(prep, 'build', broken):
             result = prep.logged_build(stores, record, client=Client(), now=NOW)
         self.assertEqual(opened, ['prep'])  # Recent activity shows it while it runs
