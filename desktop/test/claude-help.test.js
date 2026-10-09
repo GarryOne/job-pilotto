@@ -9,12 +9,14 @@ import {fileURLToPath} from 'node:url';
 
 const RENDERER = new URL('../renderer/', import.meta.url);
 const files = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => entry.isDirectory() ? files(path.join(dir, entry.name)) : entry.name.endsWith('.js') ? [path.join(dir, entry.name)] : []);
-const ENTRY = /['"`](▶ )?(Resume Claude|Apply with Claude|Tell Claude…)['"`]/;
+const ENTRY = /['"`](▶ )?(Resume Claude|Apply with Claude|Tell Claude…|Change with Claude…)['"`]|`Reply "\$\{/;   // buttons, a menu's option, a reply to Claude
 
 test('every renderer file that draws a Claude entry point asks the one switch', () => {
   const drawing = files(fileURLToPath(RENDERER)).filter(file => ENTRY.test(fs.readFileSync(file, 'utf8')));
   assert.ok(drawing.length >= 3, `found ${drawing.length} files`);
-  for (const file of drawing) assert.match(fs.readFileSync(file, 'utf8'), /claudeHelp\(\)/, `${path.basename(file)} draws a Claude button without claudeHelp()`);
+  // Asks the switch itself, or is told by its caller through an explicit `claude` flag (answer-options.js: session-needs.js passes claudeHelp()).
+  for (const file of drawing) assert.match(fs.readFileSync(file, 'utf8'), /claudeHelp\(\)|if \(claude\) /, `${path.basename(file)} draws a Claude button without claudeHelp()`);
+  assert.match(fs.readFileSync(new URL('pages/session-needs.js', RENDERER), 'utf8'), /answerOptions\(need, knownAnswers, \{claude: claudeHelp\(\)\}\)/);
   const sessions = fs.readFileSync(new URL('pages/sessions.js', RENDERER), 'utf8');
   assert.equal((sessions.match(/actions\.push\(resume\(\)\)/g) || []).length, 1);   // only inside pushResume, which asks the switch
   assert.match(sessions, /const pushResume = \(\) => \{ if \(claudeHelp\(\)\) actions\.push\(resume\(\)\); \};/);

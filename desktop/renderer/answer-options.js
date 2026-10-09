@@ -13,7 +13,7 @@ export const askedQuestion = need => String(need?.question || need?.label || '')
 // → [{value, label, kind}], kind 'proposed' | 'saved' | 'change'. `saved` is your Answers as Notion holds them
 // ({question, answer}): an answer is offered only for the same question (renderer/labels.js), never a guess, and a
 // line still waiting for an answer (Notion keeps it as "❓…") is not an answer.
-export function answerOptions(need, saved = []) {
+export function answerOptions(need, saved = [], {claude = true} = {}) {
   const options = [], answer = proposedAnswer(need), asked = askedQuestion(need);
   if (answer) options.push({value: answer, label: answer, kind: 'proposed'});
   if (asked) {
@@ -23,6 +23,6 @@ export function answerOptions(need, saved = []) {
       if (sameQuestion(entry.question, asked)) options.push({value, label: value, kind: 'saved'});
     }
   }
-  options.push({value: '', label: 'Change with Claude…', kind: 'change'});
+  if (claude) options.push({value: '', label: 'Change with Claude…', kind: 'change'});   // the caller passes claudeHelp() (claude-help.js)
   return options;
 }

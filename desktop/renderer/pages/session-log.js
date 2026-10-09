@@ -14,6 +14,7 @@ import {nudgeMissingDetails} from './contact-proposals.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
+import {renderSteps, terminalShown, toggleTechnicalLog} from './session-steps.js';
 import {toastMessage} from './startup.js';
 import {syncTips} from '../tips.js';
 
@@ -82,7 +83,8 @@ export function renderSessionPage() {
   cancel.addEventListener('click', () => busy(cancel, 'Cancelling…', () => cancelSession(item)));
   if (item.kind === 'form') cancel.title = 'The form tab closes and the job goes back to Kit ready';
   $('ss-more').replaceChildren(...(isSubmitted(item) ? [] : item.kind === 'form' ? [cancel] : [again, cancel]), moreButton(sessionMenu(item), 'More'));
-  show($('ss-log'), item.kind !== 'form');   // no terminal behind a form session: the form in Chrome is the whole story
+  show($('ss-log'), terminalShown(item));   // the terminal only for a Claude conversation with Claude help on, or when asked (session-steps.js)
+  renderSteps(item);   // no terminal behind a form session: the form in Chrome is the whole story
   const job = sessionJob(item);
   const head = el('div', 'ss-job-card');
   const words = el('div', 'ss-job-words');
@@ -226,6 +228,7 @@ export function say(text) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
+  $('ss-steps-log').addEventListener('click', () => { const item = sessionList.find(entry => entry.id === shared.openSessionId); if (item) { toggleTechnicalLog(item); renderSessionPage(); } });
   window.addEventListener('claude-help', () => { if (shared.openSessionId) renderSessionPage(); });   // Settings' Claude switch: the session's buttons follow it at once
   $('ss-offline-resume').addEventListener('click', () => { const item = sessionList.find(entry => entry.id === shared.openSessionId); if (item) resumeSession(item); });
   $('ss-copy').addEventListener('click', async () => {

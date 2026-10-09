@@ -1,6 +1,7 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
+import {renderSteps} from './session-steps.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
 import {checkingTabs, chromeSilent, tabClosed} from '../session-state.js';
 import {icon} from '../icons.js';
@@ -279,7 +280,7 @@ export function needRow(need, item) {
   // What an answer is about: the field's label, else the item itself. "this" alone told Claude nothing (8 Oct 2026: "Change this in the form: Yes").
   const name = need.label ? unbold(need.label) : `"${title}"`;
   const reply = need.kind !== 'agree' && replyOf(title);
-  if (reply) {   // "Reply ok, and I'll click Create an account": one button that sends it, not a field to review
+  if (reply && claudeHelp()) {   // "Reply ok, and I'll click Create an account" (a reply to Claude: only with Claude help on, claude-help.js): one button that sends it, not a field to review
     actions.append(smallButton(`Reply "${reply}"`, 'primary', () => { queue(item, key, reply, {last: true}); doneRow(li, key, `To send: ${reply}`); }, offline(item)));
     li.append(badge(), body, actions);
     if (handled.has(key)) doneRow(li, key, handled.get(key));
@@ -294,11 +295,11 @@ export function needRow(need, item) {
     // A judgement call: Claude's proposed answer is chosen; the list holds the other answers you saved for the same
     // question, and the last entry asks Claude for a different one instead.
     loadAnswers();
-    const choices = answerOptions(need, knownAnswers);
+    const choices = answerOptions(need, knownAnswers, {claude: claudeHelp()});   // "Change with Claude…" only with Claude help on
     const chip = el('span', 'ss-answer');
     // Only "Change with Claude…" to pick (Claude proposed nothing, and none is saved): a lone dropdown under the label
     // "Proposed answer" proposes nothing, so the row gets one plain button instead.
-    const onlyChange = choices.length === 1;
+    const onlyChange = choices.length === 1 && choices[0].kind === 'change';
     chip.append(el('span', 'ss-answer-label', 'Proposed answer'));
     const select = el('select', 'ss-answer-select');
     select.title = 'Claude\'s answer, or one of the answers you saved for this question';
@@ -335,7 +336,8 @@ export function needRow(need, item) {
     });
     if (offline(item)) { select.disabled = true; select.title = offline(item); }
     chip.append(select);
-    actions.append(onlyChange && claudeHelp() ? smallButton('Tell Claude…', 'secondary', ask, offline(item)) : chip, smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
+    if (choices.length) actions.append(onlyChange ? smallButton('Tell Claude…', 'secondary', ask, offline(item)) : chip);   // nothing to pick (Claude help off, nothing saved): Review in form alone
+    actions.append(smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
   }
   li.append(badge(), body, actions);
   if (handled.has(key)) doneRow(li, key, handled.get(key));
@@ -440,6 +442,7 @@ export async function init() {
     if (item && shared.openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) {
       applyFormStates(item);
       showFormState(item);  // filled fields arrive while the session is still running
+      renderSteps(item);    // and its "What happened" steps follow them (session-steps.js)
     }
   });
   document.querySelector('.sd-head').addEventListener('click', event => {

@@ -239,6 +239,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/session-form-card.js` — Session page, "Form completion" card and "Before you submit" box (knockout questions, which CV goes in).
 - `desktop/renderer/pages/session-log.js` — Session page: opening a session and its log.
 - `desktop/renderer/pages/session-needs.js` — Session page: what Claude needs from you, and the form page in step.
+- `desktop/renderer/pages/session-steps.js` — "What happened" on the session page (owner, 9 Oct 2026: "not sure we want the Claude terminal visible all the time … it confuses non-technical users"): the
 - `desktop/renderer/pages/sessions.js` — Application sessions: the dock, the list, the next step.
 - `desktop/renderer/pages/settings.js` — Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
 - `desktop/renderer/pages/shared.js` — State more than one page changes (an imported binding is read-only, so it lives on one object).
@@ -317,6 +318,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/service-status.js` — The Chrome extension's state, decided once here so the card, its pill and the "finish connecting" alert can never
 - `desktop/renderer/session-message.js` — Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only
 - `desktop/renderer/session-state.js` — A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's
+- `desktop/renderer/session-steps-list.js` — The steps of a session in plain words ("What happened", pages/session-steps.js draws them). No imports and no window: test/session-steps.test.js feeds it sessions and
 - `desktop/renderer/sessions-cache.js` — The last known session list, so the Applying page paints it at once instead of a spinner — or, before this, the
 - `desktop/renderer/sidebar-rail.js` — The sidebar as an icon rail: automatically in a narrow window (under 1180 px, where there is no room for labels), or when the person
 - `desktop/renderer/stop-task.js` — Stop on a running task (owner, 7 Oct 2026: a search ran for an hour with no way to stop it): the Actions banner and Recent activity's
