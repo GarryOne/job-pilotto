@@ -1,14 +1,12 @@
 """jobs.ch feed: one employer's postings read from the board's public search (schema.org data and the page's own app data).
 
-Split out of ats.py (pure move; import it through ats, never first). ats.py imports and re-exports every name here; `_get` is looked up on the `ats` module at call time
+Split out of ats.py (pure move; ats.py re-exports it). ats.py imports and re-exports every name here; `_get` is looked up on the `ats` module at call time
 so tests that patch `ats._get` keep working. Guarded by tests/test_places_strict.py and test_visits.py.
 """
 import json
 import re
 import urllib.parse
 
-from . import ats
-from .ats import _job   # defined before ats imports this file
 
 
 JOBSCH_PAGES = 15       # 20 postings a page on jobs.ch: up to 300 jobs of one employer
@@ -107,3 +105,6 @@ def jobsch(slug):
             break
     return out
 
+
+from . import ats  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)
+from .ats import _job  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)

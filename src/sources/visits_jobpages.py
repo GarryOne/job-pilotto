@@ -1,7 +1,7 @@
 """Finding each employer's job list for a visit: the pool's and the web search's job pages, the choice of the best address for your country,
 and the job page of a home page that is not one.
 
-Split out of visits.py (pure move; import it through visits, never first). The store stays in visits.py and is looked up there at call time.
+Split out of visits.py (pure move; visits.py re-exports it). The store stays in visits.py and is looked up there at call time.
 Guarded by tests/test_visits.py and test_visit_unblock.py.
 """
 import json
@@ -10,7 +10,6 @@ import urllib.parse
 from datetime import timedelta
 
 from . import careers
-from . import visits
 from ..ai import meanings_pack
 
 
@@ -160,3 +159,5 @@ def job_page(url, markup):
         print(f'Visit: the job list of {visits.host_of(url)} is {page}')
     return page
 
+
+from . import visits  # noqa: E402  (at the end: visits imports this file back, so importing this file first works too)

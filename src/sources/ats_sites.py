@@ -1,6 +1,6 @@
 """Company-site and search-driven job feeds: Workday, SuccessFactors, Umantis, Amazon, Netflix, and the Strategy terms they search with.
 
-Split out of ats.py (pure move; import it through ats, never first). ats.py imports and re-exports every name here; it still owns `_get`/`_json`, which these
+Split out of ats.py (pure move; ats.py re-exports it). ats.py imports and re-exports every name here; it still owns `_get`/`_json`, which these
 functions look up on the `ats` module at call time so tests that patch `ats._get` / `ats.workday_terms` keep working.
 Guarded by tests/test_ats.py, test_discover.py and test_visit_ats_feed.py.
 """
@@ -13,8 +13,6 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-from . import ats
-from .ats import _fixture, _job, plain, USER_AGENT, TIMEOUT   # defined before ats imports this file
 
 
 WORKDAY_PAGES = 2       # 20 jobs a page per search term: Workday sites list thousands, so each of the user's terms is searched
@@ -182,3 +180,6 @@ def netflix(slug='netflix'):
                              plain(j.get('job_description')), 'remote' in locations.lower()))
     return jobs
 
+
+from . import ats  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)
+from .ats import _fixture, _job, plain, USER_AGENT, TIMEOUT  # noqa: E402  (at the end: ats imports this file back, so importing this file first works too)

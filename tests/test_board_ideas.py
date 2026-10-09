@@ -10,7 +10,6 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import board_ideas  # noqa: E402
-from src.sources import visits  # noqa: E402,F401 (visits_jobpages is imported through visits)
 
 LISBON = {'role_keywords': ['developer'], 'locations': {'top_tier': ['Lisboa'], 'country_wide': [], 'abroad': []}}
 ANSWER = {'boards': [

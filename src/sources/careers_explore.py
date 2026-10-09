@@ -1,7 +1,7 @@
 """Finding where a company's jobs are: guessed careers addresses, the careers links of a page explored one level deeper, and what each
 page offers (a job system, a SuccessFactors site, or jobs of its own).
 
-Split out of careers.py (pure move; import it through careers, never first). careers.py imports and re-exports every name here and keeps
+Split out of careers.py (pure move; careers.py re-exports it). careers.py imports and re-exports every name here and keeps
 `discover`, the module state (READER, CHOOSER, RENDER, REFUSALS) and the fetchers; names that tests patch on `careers`
 (careers_links, _asked, READER ...) are looked up on that module at call time. Guarded by tests/test_careers.py and test_discover.py.
 """
@@ -9,7 +9,6 @@ import re
 import urllib.parse
 
 from . import ats
-from . import careers
 from .careers_parse import (CAREER_WORDS, JOB_ID, NO_JOBS, NOT_JOBS, STRONG_WORDS, encode, job_links, jsonld_jobs, registrable)
 
 
@@ -159,3 +158,5 @@ def _explore(start, home, fetch_page, show=None, links=None, limit=8):
             return None
     return None
 
+
+from . import careers  # noqa: E402  (at the end: careers imports this file back, so importing this file first works too)

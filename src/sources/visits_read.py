@@ -1,7 +1,7 @@
 """Reading the jobs of a page a person opened and sent: its own job data, the cards the extension saw, or the careers reader; kept per
 page and paging session, with the count of jobs that fit the search.
 
-Split out of visits.py (pure move; import it through visits, never first). The store (STORE, LOCK, _load, _save, _now) stays in visits.py
+Split out of visits.py (pure move; visits.py re-exports it). The store (STORE, LOCK, _load, _save, _now) stays in visits.py
 and is looked up there at call time, so tests that patch `visits.STORE` / `visits._now` keep working. Guarded by tests/test_visits.py,
 test_visit_reader.py and test_visit_filters.py.
 """
@@ -10,7 +10,6 @@ import re
 import urllib.parse
 
 from . import ats, careers
-from . import visits
 from .visits_portals import PORTALS
 
 
@@ -158,3 +157,6 @@ def session_result(session):
     jobs = [job for page in pages for job in page.get('jobs') or []]
     return {'name': ', '.join(page.get('name') or '' for page in pages)[:160], 'jobs': len(jobs), 'fits': len(fitting(jobs)),
             'feeds': [data['sessions'][name] for name in names], 'sites': len(pages)}
+
+
+from . import visits  # noqa: E402  (at the end: visits imports this file back, so importing this file first works too)

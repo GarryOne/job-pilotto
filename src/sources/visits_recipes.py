@@ -1,12 +1,11 @@
 """The reading recipes of visited sites: a layout learned with Claude (or served by the pool and checked again), how many visits in a row it
 found nothing, and when it is forgotten.
 
-Split out of visits.py (pure move; import it through visits, never first). The store stays in visits.py and is looked up there at call time.
+Split out of visits.py (pure move; visits.py re-exports it). The store stays in visits.py and is looked up there at call time.
 Guarded by tests/test_visits.py and test_visit_reader.py.
 """
 import re
 
-from . import visits
 
 
 LAYOUT_LINE = range(-1, 31)
@@ -87,3 +86,5 @@ def forget_recipe(url):
             visits._save(data)
             print(f'Visit: the recipe for {visits.host_of(url)} found no jobs; it is learned again')
 
+
+from . import visits  # noqa: E402  (at the end: visits imports this file back, so importing this file first works too)
