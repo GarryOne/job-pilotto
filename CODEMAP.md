@@ -556,6 +556,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/copy.py` — Move the user's data from one store to another ("Move my data to Notion"): every entity, through the interface.
 - `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
 - `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)
+- `src/stores/notion_insights.py` — 💡 Insights in Notion as the store's insights (base.Insights): one database row per insight, plain dicts out.
+- `src/stores/notion_interviews.py` — 🎤 Interviews in Notion as the store's interviews (base.Interviews): one database row per interview, plain dicts out.
 - `src/stores/notion_rows.py` — Notion rows ↔ store records: which column holds each field, and plain values ↔ Notion property values.
 - `src/stores/notion.py` — The notion store: the user's data in their Notion workspace (today's databases and pages), behind src/stores/base.py.
 - `src/stores/sqlite.py` — The SQLite store: the user's data on this Mac, the default adapter when Notion isn't chosen.
