@@ -72,14 +72,19 @@ function pageSketchOf(tabId) {
     const shown = el => el.getClientRects().length > 0;
     const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
     const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
-    const controls = [...document.querySelectorAll('input, select, textarea')]
+    // Also inside open shadow roots: a page built of web components (SmartRecruiters, 9 Oct 2026) otherwise reads as empty.
+    const all = selector => { const found = []; const walk = root => { found.push(...root.querySelectorAll(selector)); for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot); }; walk(document); return found; };
+    const controls = all('input, select, textarea')
       .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
       .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
-    const buttons = [...document.querySelectorAll('button, input[type=submit], [role=button], a')].filter(shown)
+    const buttons = all('button, input[type=submit], [role=button], a').filter(shown)
       .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
-    return {title: document.title, headings: [...document.querySelectorAll('h1, h2, h3')].filter(shown).map(text).filter(Boolean).slice(0, 8),
-      controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20)};
+    // The hosts of visible frames (a check drawn in a frame): the AI decides what they are (desktop/lib/page-kind.js bot_check).
+    const frames = [...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; })
+      .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean);
+    return {title: document.title, headings: all('h1, h2, h3').filter(shown).map(text).filter(Boolean).slice(0, 8),
+      controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20), frames: [...new Set(frames)].slice(0, 5)};
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
 // The page's kind from the app (the AI's answer, kept per site and page shape), or null: then the structure rule decides alone.
@@ -114,6 +119,7 @@ function writeState(tabId, value) {
 // The posting before its form: a page with no form and one "Apply" button (chosen by rule: tab-pages.js pickApplyButton).
 const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
 // A page with no form control of any kind (fill-flow consider waits for it to stop growing before its kind is asked).
+export const BOT_CHECK_NEED = 'Solve the robot check in this tab; the form fills after it';   // said in the session (desktop/lib/terminals.js noteStuck)
 export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas;
 function applyCandidates(tabId) {
   return chrome.scripting.executeScript({target: {tabId}, func: selector => [...document.querySelectorAll(selector)].map((el, index) => {
@@ -204,10 +210,10 @@ export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // again; once it has fields the panel is put back (a page that replaced its document lost it) and the page is judged again (a new shape for
 // the page-kind AI), then filled. Once per tab and page. Guard: desktop/test/extension-look-again.test.js.
 const lookedAgain = new Set();
-async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms)), looks = 10) {
   const key = fillKey(tab.id, tab.url);
   if (lookedAgain.has(key)) return false;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < looks; i++) {
     await wait(2000);
     const live = await chrome.tabs.get(tab.id).catch(() => null);
     if (!live || pageKey(live.url) !== pageKey(tab.url)) return false;   // moved on: the next page decides for itself
@@ -313,10 +319,13 @@ export async function consider(tab, jobUrl) {
   if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   if (role !== 'form') {
     await progress(tab.id, '');   // no fill here: the panel's "Starting…" ends now, not after its 20 s (owner, 9 Oct 2026: it spun on a sign-in page left to them)
-    if (role === 'no-form' && counts && emptyShape(counts)) watchForFields(tab, jobUrl).catch(() => {});   // judged while still empty: look again if fields come
+    // A check that the visitor is human in front of the page (the page-kind AI's bot_check): the person solves it in this tab; the form is watched for two
+    // minutes and filled once it shows (SmartRecruiters, 9 Oct 2026: the check was read as an empty page, "no form", and nobody was told).
+    const botCheck = role === 'no-form' && kind?.botCheck === true;
+    if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
-    decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
-    if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url);   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
+    decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : 'no form on this page', {host, role});
+    if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url, botCheck ? BOT_CHECK_NEED : '');   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }

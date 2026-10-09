@@ -205,7 +205,7 @@ export function noteStuck(id, why, host = '', needs = '', accountStep = '') {
   const label = String(needs || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const step = ['sign_in', 'sign_up'].includes(accountStep) ? accountStep : '';   // the AI's page type, from the extension: only these two change the wording
   if (why === 'account' && step && session.accountStep !== step) { session.accountStep = step; listener('update', publicView(session)); save(); }
-  const note = why === 'account' ? (label ? `Needs you: ${label}` : 'This site needs an account') : 'The extension can\'t reach the form';
+  const note = label ? `Needs you: ${label}` : why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form';   // a need (a bot check in front of the form) is said on any page
   if (session.stuck === why) {   // reported again: only a new need changes anything
     if (!label || session.note === note) return false;
     session.note = note; session.accountNeeds = label;
