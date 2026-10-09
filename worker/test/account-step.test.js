@@ -1,7 +1,7 @@
 // The decision on a sign-in or sign-up page (extension/account-step.js accountMove): from the AI's account step and the app's mode only, never from words.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {accountMove} from '../../extension/account-step.js';
+import {accountMove, formOutline} from '../../extension/account-step.js';
 
 test('a sign-in page where this email has no account: never sign in; follow the register control the AI named, else leave it to the person', () => {
   assert.equal(accountMove({step: 'sign_in', mode: 'sign-up', hasEmail: true, registerControl: 'Hier registrieren'}), 'register');
@@ -58,4 +58,13 @@ test('a bot check is the person\'s: the need says to solve it and then press the
   assert.equal(botCheckNeed('Créer un compte'), 'Solve the check, then press "Créer un compte"');
   assert.equal(botCheckNeed(''), 'Solve the check, then press the account button');
   assert.ok(botCheckNeed('x'.repeat(200)).length < 80);   // the app keeps 80 characters of a need
+});
+
+test('the form outline at the press: types and labels only, so a refusal (values and states changed) is the same form, the next page is not', () => {
+  const form = {controls: [{type: 'email', label: 'E-Mail', state: 'filled'}, {type: 'password', label: 'Passwort', state: 'filled'}]};
+  const refused = {controls: [{type: 'email', label: 'E-Mail', state: 'filled'}, {type: 'password', label: 'Passwort', state: 'empty'}]};
+  const next = {controls: [{type: 'text', label: 'Vorname', state: 'empty'}, {type: 'file', label: 'Lebenslauf', state: 'empty'}]};
+  assert.equal(formOutline(refused), formOutline(form));
+  assert.notEqual(formOutline(next), formOutline(form));
+  assert.equal(formOutline(null), '');
 });

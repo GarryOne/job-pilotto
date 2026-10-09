@@ -52,6 +52,9 @@ async function askKindOnce(tab) {
   return kind;
 }
 const signature = sketch => JSON.stringify([sketch.controls, sketch.buttons, sketch.texts, sketch.frames]);
+// The form's outline (its controls' types and labels, never their values or states): kept at the press, so the result look can say whether the SAME form is back.
+// Many sites keep one address for every step (SuccessFactors: /career?career_ns=…), so the address alone told the AI a successful sign-in was the form again (9 Oct 2026, account eval).
+export const formOutline = sketch => (sketch?.controls || []).map(item => `${item.type}:${item.label}`).join('|').slice(0, 1500);
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 const memoKey = tab => `accountForm:${tab.id}`;
 const triedKey = (tab, action) => `accountPress:${tab.id}:${action}`;
@@ -70,10 +73,11 @@ async function giveUp(tab, host, reason, needs = '') {
 const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, action)]: Date.now()}).catch(() => {});
 
 // The account AI on what the page shows now. null when there is no AI, no answer, or the page cannot be read: then nothing is pressed or claimed.
-async function judge(tab, frameId, phase, config, fromPath = '') {
+async function judge(tab, frameId, phase, config, fromPath = '', formBefore = '') {
   const sketch = await run(tab, frameId, accountSketch);
   if (!sketch) return null;
   if (fromPath) sketch.fromPath = fromPath;   // where the sign-up form was: the AI sees whether the page moved on
+  if (formBefore) sketch.sameForm = formOutline(sketch) === formBefore ? 'yes' : 'no';   // a fact of structure; what it means is the AI's word
   const key = `${tab.id} ${phase}`, sig = signature(sketch);
   if (judged.get(key)?.sig === sig) return judged.get(key).answer;   // the page is as it was: the same answer, no new call
   const answer = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase, sketch})}).catch(() => null);
@@ -94,7 +98,7 @@ export async function accountOutcome(tab, frameId = 0) {
 }
 async function outcomeOnce(tab, frameId, memo) {
   const config = await settings(), host = memo.host;
-  const result = await judge(tab, frameId, 'result', config, memo.path || '');
+  const result = await judge(tab, frameId, 'result', config, memo.path || '', memo.form || '');
   const action = resultAction(result?.answer);
   decide('fill', `account result: ${result?.answer || 'no AI'}`, {host, action});
   if (action === 'flag') { await run(tab, frameId, flagAccount, [result.needs || '']); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
@@ -161,13 +165,14 @@ async function accountStepOnce(tab, frameId) {
       }
     } else {
       await run(tab, frameId, flagAccount, [null]);   // nothing is owed any more: the panel stops saying so
+      const form = formOutline(await run(tab, frameId, accountSketch));   // the form as it is pressed
       await new Promise(resolve => setTimeout(resolve, 800));
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
       decide('fill', `account button: ${result || 'not run'}`, {host});
       if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await run(tab, frameId, flagAccount, [need]); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
       if (result === 'pressed') {
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
-        await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true}}).catch(() => {});
+        await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form}}).catch(() => {});
         await new Promise(resolve => setTimeout(resolve, 4000));
         await accountOutcome(await chrome.tabs.get(tab.id).catch(() => tab));
       }

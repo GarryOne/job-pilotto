@@ -39,3 +39,16 @@ test('after the press the AI tells a usable account from one that awaits a confi
   assert.ok(JSON.stringify(seen[0]).includes('Address path before the press: /career'));
   assert.equal((await judgeAccount(fake({answer: 'created', needs: '', needs_kind: '', bot_check: false, confidence: 0.9}), page, 'result')).answer, 'created');
 });
+
+// One address for every step (SuccessFactors /career?career_ns=…, 9 Oct 2026 account eval): after a successful sign-in the AI saw the same path and said "refused".
+// The extension now says whether the form's controls are the same as at the press; the AI sees it as a line, and only yes/no gets through.
+test('after the press the AI is told whether the SAME form is back, not only the address', async () => {
+  const seen = [];
+  await judgeAccount(fake({answer: 'created', needs: '', needs_kind: '', bot_check: false, confidence: 0.9}, seen), {...page, fromPath: '/career', sameForm: 'no'}, 'result');
+  assert.ok(JSON.stringify(seen[0]).includes('Same form as before the press (the same controls): no'));
+  assert.match(seen[0].system, /same address alone never means the same form/);
+  assert.equal(accountSketch({...page, sameForm: 'perhaps'}).sameForm, '');
+  const quiet = [];
+  await judgeAccount(fake({answer: 'created', needs: '', needs_kind: '', bot_check: false, confidence: 0.9}, quiet), page, 'result');
+  assert.ok(!JSON.stringify(quiet[0]).includes('Same form'), 'no line when the extension did not compare');
+});
