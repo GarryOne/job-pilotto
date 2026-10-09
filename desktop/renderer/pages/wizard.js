@@ -9,26 +9,25 @@ import {canContinue} from '../ai-engine-view.js';
 
 // The AI step's engine chooser (pages/ai-engine.js): mounted the first time the step opens. Nothing is pre-selected;
 // Continue once the user picked one that can run (Claude Code verified, or an API key saved or typed).
-let chooser = null, licensed = false;
+let chooser = null;
 const aiDone = () => !!shared.state.secrets.ANTHROPIC_API_KEY || shared.state.settings.aiEngine === 'cli';
 function aiStep() {
   const picked = chooser?.picked();
   show($('ai-key-part'), picked === 'api');
   show($('ai-trial'), picked === 'trial');   // the third card: the founder key field
   const keyTyped = !!$(picked === 'trial' ? 'ai-trial-key' : 'anthropic-key').value.trim();
-  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, keyTyped, status: chooser?.status(), licensed});
+  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, keyTyped, status: chooser?.status()});
   $('ai-save').textContent = picked === 'trial' ? 'Use the free credit' : picked === 'api' && keyTyped ? 'Check and save' : 'Continue';
 }
 
 // The third card, $1 of free AI (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
 async function useTrial() {
   const pasted = $('ai-trial-key').value.trim();
+  if (!pasted) { message('ai-trial-message', 'Paste the founder key from your invite (JP1.…).', 'error'); return; }
   $('ai-save').disabled = true;
   message('ai-trial-message', 'Checking the key…');
-  if (pasted) {
-    const set = await window.pilot.licenseSet(pasted).catch(error => ({ok: false, error: error.message}));
-    if (set && set.ok === false) { $('ai-save').disabled = false; message('ai-trial-message', set.error || 'That key was not accepted.', 'error'); return; }
-  }
+  const set = await window.pilot.licenseSet(pasted).catch(error => ({ok: false, error: error.message}));
+  if (set && set.ok === false) { $('ai-save').disabled = false; message('ai-trial-message', set.error || 'That key was not accepted.', 'error'); return; }
   const result = await window.pilot.startTrialCredit();
   $('ai-save').disabled = false;
   if (!result.ok) { message('ai-trial-message', result.error, 'error'); return; }
@@ -52,10 +51,7 @@ export function goStep(name) {
   }
   if (name === 'extras') import('./settings.js').then(settings => settings.showExtrasStatus());  // Connected / Manage, as in Settings
   if (name === 'ai') {
-    if (!chooser) {
-      chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
-      window.pilot.license().then(state => { licensed = !!state?.licensed; aiStep(); }, () => {});   // a founder key already in: no need to paste it
-    }
+    if (!chooser) chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
     aiStep();
   }
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));

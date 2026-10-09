@@ -45,9 +45,9 @@ export function cliStatus(status = null) {
 }
 
 // Wizard: Continue once a card is picked and it can run (Claude Code verified; the API card with a key saved or typed;
-// the free credit with a founder key typed, or one already in the app).
-export function canContinue({picked, hasKey = false, keyTyped = false, status = null, licensed = false}) {
-  if (picked === 'trial') return !!(keyTyped || licensed);
+// the free credit with the founder key typed: always asked, even when a license is already in the app (owner, 9 Oct 2026)).
+export function canContinue({picked, hasKey = false, keyTyped = false, status = null}) {
+  if (picked === 'trial') return keyTyped;
   if (picked === 'cli') return cliStatus(status).usable;
   if (picked === 'api') return !!(hasKey || keyTyped);
   return false;
