@@ -219,7 +219,7 @@ def prepare_kit(db, code, stores, client=None, model=kit.DEFAULT_MODEL, opener=N
     except Exception as error:  # An unreadable form still gets a kit, with likely questions.
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
-    profile, answers = stores.texts.get('profile'), kit.standard_answers(stores)
+    profile, answers = stores.texts.plain('profile'), kit.standard_answers(stores)   # as the AI reads it (Notion: the page text)
     if client is None:
         from .ai import engine
         client = engine.client(action='kit')

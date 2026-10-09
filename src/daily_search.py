@@ -1,7 +1,6 @@
 """The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 ledger, build the digest, send it to Telegram, save and log the run. `search(args, stores)` returns the exit code. The data is the
-active store's (src/stores: open once, passed down); `notion` is Notion's client only while the store is Notion (store_access.notion_of),
-for the steps not on the store yet (each marked BRIDGE), so this Mac's store never gets a copy in Notion.
+active store's (src/stores: open once, passed down), on every store; this Mac's store never gets a copy in Notion.
 Tests: tests/test_daily.py, tests/test_refresh_batch.py, tests/test_search_budget.py, tests/test_places_strict.py, tests/test_place_triage.py,
 tests/test_contribute.py, tests/test_watch.py, tests/test_score.py.
 """
@@ -14,7 +13,7 @@ from . import contribute, coverage, digest, doctor, employer_index, features, le
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
-from .store_access import notion_of, open_run
+from .store_access import open_run
 from .sources import describe, feeds, google_jobs
 from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
                             profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
@@ -22,8 +21,6 @@ from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_in
 
 def search(args, stores=None):
     stores = stores or open_run()
-    # BRIDGE(mac-67): remove when url_stages and profile_source ask the store alone (082d079)
-    notion = notion_of(stores)
     run = new_cron_run(args.mode)
     spend = None
     if args.mode in ('scheduled', 'run', 'today'):
@@ -40,13 +37,13 @@ def search(args, stores=None):
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
     stages = None   # job URL -> Stage: also what the pool's outcome counts read (src/contribute.py outcomes)
     try:
-        stages = url_stages(stores, notion)
+        stages = url_stages(stores)
         hidden = frozenset(u for u, st in stages.items() if st not in notion_client.VISIBLE_STAGES)
         saved = frozenset(u for u, st in stages.items() if st == 'Saved')
         dismissed = frozenset(u for u, st in stages.items() if st == 'Dismissed')
     except Exception as error:  # A Notion outage shouldn't block the digest.
         print(f'Warning: could not read your applications: {error}')
-        run['warnings'].append(f'{"Notion applications" if notion else "Applications"} unreadable: {error}')
+        run['warnings'].append(f'{"Notion applications" if stores.name == "notion" else "Applications"} unreadable: {error}')
     sources = starter_sources()
     report, imported = {'jobs': [], 'sources': []}, []
     with store.connect(args.db) as db:
@@ -140,7 +137,7 @@ def search(args, stores=None):
         # A refresh with a time budget takes one batch end to end (owner, 7 Oct 2026: "a batch should handle it from start to finish"): the new
         # jobs it can read and score in its time, best places first; the rest waits for the next refresh and is not listed until scored.
         batch, batch_started = None, None
-        read_profile = profile_source(stores, notion) if args.score_max else None
+        read_profile = profile_source(stores) if args.score_max else None
         if time_budget_on() and args.score_max and read_profile:
             try:
                 from . import time_budget

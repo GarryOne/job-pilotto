@@ -323,6 +323,9 @@ class Texts:
             raise KeyError(name)
         self.texts[name] = markdown
 
+    def plain(self, name):
+        return self.get(name)
+
 
 def open_store(env=None):
     return base.Stores(name='memory', applications=Applications(), events=Events(), matches=Matches(),

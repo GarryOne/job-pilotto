@@ -270,7 +270,7 @@ def auto_run(db, candidates, stores, model, max_jobs, min_score, client=None, op
         return '0 kit(s) auto-drafted', []
     if client is None:
         client = engine.client(action='kit')
-    profile, answers = stores.texts.get('profile'), standard_answers(stores)
+    profile, answers = stores.texts.plain('profile'), standard_answers(stores)
     drafted_jobs, failures = [], 0
     for number, job in enumerate(pending, 1):
         print(f"Kits: drafting {number} of {len(pending)}: {job['title']}")

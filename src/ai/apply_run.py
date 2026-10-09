@@ -375,7 +375,7 @@ def main(argv=None):
         print(f'# Job: {args.context} (board: {board})')
         print('\n## Kit (JSON)\n' + (json.dumps(kit, ensure_ascii=False, indent=1) if kit else
               'No kit on this job yet: draft one first (tools/prepare-top.sh or 📝 Prepare).'))
-        print('\n## Profile — CV and Preferences\n' + stores.texts.get('profile'))
+        print('\n## Profile — CV and Preferences\n' + stores.texts.plain('profile'))
         print('\n## Application Answers\n' + stores.texts.get('answers'))
         items = apply_record.learnings(stores, board)
         print(f'\n## Learnings from earlier runs on {board}')

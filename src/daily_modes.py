@@ -12,7 +12,7 @@ from . import import_url, store, telegram
 from .ai import added, cost, inbox, insights, interview_insights, interviews, kit
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
-from .store_access import notion_of, open_run, profile_source, url_stages
+from .store_access import notion_of, notion_ready, open_run, profile_source, url_stages
 from . import ledger_store
 from .stores import open_stores
 from .daily_helpers import log_store_job
@@ -22,37 +22,35 @@ from .daily_helpers import log_store_job
 def _run_store(stores, message):
     """The run's store (opened here when the caller passed none), or SystemExit(message) when the data is in Notion but Notion can't be
     used: Notion chosen without a token (the store can't open), or a Notion store the engine got no client for (Tracker.from_env:
-    JOB_PILOTTO_DISABLE=notion). Exactly the old `not tracker and chosen() == 'notion'`; this Mac's store runs without Notion.
-    notion_of is only asked here, its client is handed to nothing."""
+    JOB_PILOTTO_DISABLE=notion). Exactly the old `not tracker and chosen() == 'notion'`; this Mac's store runs without Notion."""
     if stores is None:
         try:
             stores = open_run()
         except LookupError:
             raise SystemExit(message) from None
-    if stores.name == 'notion' and notion_of(stores) is None:
+    if stores.name == 'notion' and not notion_ready(stores):
         raise SystemExit(message)
     return stores
 
 
-def _gate(tracker, stores, message, on_store):
-    """Who may run a mode: Notion readable (the tracker), or another store when the mode works on it (on_store). A Notion store that
-    can't be read keeps today's message; another store gets "only with Notion for now" for a mode not moved yet."""
-    if tracker:
+def _gate(stores, message, on_store):
+    """Who may run a mode: a Notion store the engine can read (store_access.notion_ready), or another store when the mode works on it
+    (on_store). A Notion store it can't read keeps today's message; another store gets "only with Notion for now" for a mode not moved yet."""
+    if stores is not None and stores.name == 'notion' and notion_ready(stores):
         return
     if stores is None or stores.name == 'notion' or not on_store:
         raise SystemExit(message if stores is None or stores.name == 'notion' else
                          message.split(' requires')[0] + ' works only with Notion for now (your data is on this Mac)')
 
 def import_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate and the Profile reader (profile_source) ask the store alone
     # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
     if not args.job:
         raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
-    _gate(tracker, stores, '--mode import requires --job <URL> and NOTION_TOKEN', on_store=True)
+    _gate(stores, '--mode import requires --job <URL> and NOTION_TOKEN', on_store=True)
     run = new_cron_run('import')
     try:
         with store.connect(args.db) as db:
-            outcome = import_url.run(db, _job_arg(args.job), stores=stores, read_profile=profile_source(stores, tracker), stats=run)
+            outcome = import_url.run(db, _job_arg(args.job), stores=stores, read_profile=profile_source(stores), stats=run)
         reply = outcome['line']
         if outcome.get('row') and outcome.get('created'):
             log_store_job(stores, run, outcome['row'], True)
@@ -69,10 +67,9 @@ def import_mode(args, stores=None):
 
 
 def apply_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone
     if not args.job:
         raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
-    _gate(tracker, stores, '--mode apply requires --job and NOTION_TOKEN', on_store=True)
+    _gate(stores, '--mode apply requires --job and NOTION_TOKEN', on_store=True)
     with store.connect(args.db) as db:
         reply = apply_message(db, _job_arg(args.job), stores, args.action)
     print(reply)
@@ -83,10 +80,9 @@ def apply_mode(args, stores=None):
 
 
 def prepare_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone
     if not args.job:
         raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
-    _gate(tracker, stores, '--mode prepare requires --job and NOTION_TOKEN', on_store=True)
+    _gate(stores, '--mode prepare requires --job and NOTION_TOKEN', on_store=True)
     run = new_cron_run('prepare')
     run['kits'] = {}
     drafted = []
@@ -101,13 +97,12 @@ def prepare_mode(args, stores=None):
 
 
 def kits_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when url_stages and _gate read the store alone
     # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
     # scores already stored. No crawl, no scoring: the same step a search runs after scoring (auto-kit), on demand.
-    _gate(tracker, stores, '--mode kits requires NOTION_TOKEN', on_store=True)
+    _gate(stores, '--mode kits requires NOTION_TOKEN', on_store=True)
     run = new_cron_run('kits')
     run['kits'] = {}
-    stages = url_stages(stores, tracker)
+    stages = url_stages(stores)
     hidden = frozenset(u for u, st in stages.items() if st not in notion.VISIBLE_STAGES)
     kitted = frozenset(u for u, st in stages.items() if st == 'Kit ready')
     with store.connect(args.db) as db:
@@ -129,10 +124,10 @@ def kits_mode(args, stores=None):
 
 
 def add_message_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone and the run's "Job logged" line reads the job through it
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when the run's "Job logged" line reads the job through the store (D7 parity)
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
-    _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=True)
+    _gate(stores, '--mode add requires NOTION_TOKEN', on_store=True)
     # The inbox, its AI stages (added.hook) and the job it logs take the caller's store alone (src/ai/inbox.py).
     run = new_cron_run('add')
     run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
@@ -191,9 +186,8 @@ def add_message_mode(args, stores=None):
 
 
 def add_link_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone
     # /add <job URL> [date]: track an application made outside Job Pilotto.
-    _gate(tracker, stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=True)
+    _gate(stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=True)
     run = new_cron_run('add')
     found = {}  # the job it created or updated (ledger.add_application fills it)
     try:

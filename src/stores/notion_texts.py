@@ -37,6 +37,11 @@ class NotionTexts:
         text = [block for block in self._blocks(page_id) if block['type'] not in KEPT]
         return to_markdown(text, children=self._children)
 
+    def plain(self, name):
+        """The page as Tracker.page_text reads it (headings, paragraphs, lists, table rows): what scoring and kits have always read."""
+        page_id = self._page(name)
+        return self.tracker.page_text(page_id) if page_id else ''
+
     def set(self, name, markdown):
         page_id = self._page(name)
         if not page_id:

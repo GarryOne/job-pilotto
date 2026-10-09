@@ -14,21 +14,18 @@ def run_stores(tracker):
     return stores, (tracker if stores.name == 'notion' else None)
 
 
-def url_stages(stores, notion):
-    """Job URL (as stored) -> Stage of every application. Notion: the tracker's own read, unchanged; any other store: its records."""
-    if notion:
-        return notion.url_stages()
-    return {record['url'].strip(): record['stage'] for record in stores.applications.list() if record.get('url')}
+def url_stages(stores):
+    """Job URL (as stored) -> Stage of every application, None for a row with no stage (as Tracker.url_stages read Notion: one query
+    of the Applications database there too)."""
+    return {record['url'].strip(): record['stage'] or None for record in stores.applications.list() if record.get('url')}
 
 
-def profile_source(stores, notion):
-    """What reads the Profile for scoring, or None when there is none: this Mac's profile.md, else the Notion page (read when used,
-    as before), else the store's Profile text."""
+def profile_source(stores):
+    """What reads the Profile for scoring, or None when there is none: this Mac's profile.md, else the store's Profile as the AI reads
+    it (texts.plain: on Notion the page text the engine always scored against, so no job is scored again)."""
     if local_profile():
         return local_profile
-    if notion:
-        return notion.page_text
-    text = stores.texts.get('profile') or ''
+    text = stores.texts.plain('profile') or ''
     return (lambda: text) if text.strip() else None
 
 
@@ -51,3 +48,9 @@ def notion_of(stores):
     a tracker before. Every use carries a bridge marker naming its lane, and goes when that lane lands."""
     tracker = getattr(getattr(stores, 'applications', None), 'tracker', None) if stores is not None and stores.name == 'notion' else None
     return tracker if any(tracker is mine for mine in _ENGINE) else None
+
+
+def notion_ready(stores):
+    """Whether the run's store is Notion and the engine could read it: Tracker.from_env gave its client (a token, Notion not switched
+    off), as the modes' "requires NOTION_TOKEN" has always asked."""
+    return notion_of(stores) is not None

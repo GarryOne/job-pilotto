@@ -66,7 +66,7 @@ def run(db, url, *, stores, read_profile=None, client=None, stats=None, now=None
     facts = enrich.load(db).get(job_id)
     profile = None
     if job_id not in fits:
-        profile = score.scoring_profile((read_profile or (lambda: local_profile() or stores.texts.get('profile')))() or '')
+        profile = score.scoring_profile((read_profile or (lambda: local_profile() or stores.texts.plain('profile')))() or '')
         if not (profile or '').strip():
             raise ValueError('Add your profile first. The fit score is read against it.')
     if client is None and (job_id not in fits or not facts):

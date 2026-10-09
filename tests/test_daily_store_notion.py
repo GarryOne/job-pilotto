@@ -93,6 +93,27 @@ def before(db, url, tracker, action):
 
 
 @unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class StagesOnNotionTests(unittest.TestCase):
+    """The application stages the search and the modes hide jobs by (store_access.url_stages): on Notion the same answer as
+    Tracker.url_stages gave, a row with no stage and a URL with spaces around it included."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+
+    def test_the_same_stages_as_the_trackers_read(self):
+        from src.store_access import url_stages
+        s = self.make()
+        self.tracker.database_id = self.env['NOTION_APPLICATIONS_DB']
+        s.applications.create({'url': 'https://x.test/applied', 'title': 'A', 'company': 'Acme'}, 'Applied')
+        s.applications.create({'url': 'https://x.test/saved', 'title': 'B', 'company': 'Acme'}, 'Saved')
+        self.tracker.create_page(self.env['NOTION_APPLICATIONS_DB'], {'Job': {'title': [{'text': {'content': 'C'}}]},
+                                                                      'Job URL': {'url': ' https://x.test/no-stage '}})
+        want = self.tracker.url_stages()
+        self.assertEqual(want['https://x.test/no-stage'], None)
+        self.assertEqual(url_stages(s), want)
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
 class TelegramButtonOnNotionTests(unittest.TestCase):
     """A Telegram button (✅ Applied, ⭐, ❌) on Notion writes the pages it wrote through the tracker (D7): the same rows, columns,
     event and frozen record, once as before (the reference) and once through the store, each on a fresh workspace."""

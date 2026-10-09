@@ -139,13 +139,15 @@ class KitOnNotionTests(unittest.TestCase):
         tracker, env, stores = self.drafted()
         self.assertEqual(self.listed_state(tracker, env, stores, stores.applications.get(URL)['kit_inputs']), 'current')
 
-    def test_a_kit_recorded_before_the_stores_still_lists_as_current(self):
-        """A kit drafted before the store adapters recorded the Profile as Tracker.page_text read it: on Notion it stays current
-        (Notion users see no change, D7); a changed Profile still shows, and the old digest is never accepted off Notion."""
+    def test_a_kit_on_notion_reads_the_profile_as_before_the_stores(self):
+        """Kits draft from the Profile as Tracker.page_text reads it (texts.plain), so a kit drafted through the store records the very
+        digest a kit drafted before the store adapters did, and both list as current (D7); a changed Profile still shows, and the Markdown
+        reading is never what a Notion kit recorded."""
         tracker, env, stores = self.drafted()
         answers = kit.standard_answers(stores)
         before, today = provenance.kit_inputs(tracker.page_text(), answers), provenance.kit_inputs(stores.texts.get('profile'), answers)
-        self.assertNotEqual(before, stores.applications.get(URL)['kit_inputs'], 'the two readings differ, or this test proves nothing')
+        self.assertNotEqual(before, today, 'the two readings differ, or this test proves nothing')
+        self.assertEqual(stores.applications.get(URL)['kit_inputs'], before)
         self.assertEqual(self.listed_state(tracker, env, stores, before), 'current')
         stores.texts.set('profile', 'A new Profile.')
         tracker.__dict__.pop('_page_texts', None)

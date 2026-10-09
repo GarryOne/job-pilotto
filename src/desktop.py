@@ -114,9 +114,8 @@ def main(argv=None):
             try:
                 profile = local_profile()
                 if not profile:   # the active store's Profile (Notion's page as before)
-                    from .notion.client import Tracker
-                    from .store_access import profile_source, run_stores
-                    read = profile_source(*run_stores(Tracker.from_env()))
+                    from .store_access import open_run, profile_source
+                    read = profile_source(open_run())
                     profile = read() if read else ''
                 found = role_ideas.ideas(profile or '', load_search_config(), (coverage.load() or {}).get('missed_titles') or [], asked.get('set_aside') or [])
             except Exception as error:  # noqa: BLE001 — no ideas this time, said; the box shows the market's words as before
@@ -294,7 +293,7 @@ def main(argv=None):
                 return 0
             from . import tune
             from .paths import load_search_config
-            print(json.dumps(tune.run(db, notion, load_search_config(), stages=url_stages(stores, notion)), ensure_ascii=False))
+            print(json.dumps(tune.run(db, notion, load_search_config(), stages=url_stages(stores)), ensure_ascii=False))
             return 0
         if args.command == 'strategy':
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
@@ -322,7 +321,7 @@ def main(argv=None):
                     # the Profile differently from the store's text, so every Notion kit showed "drafted with earlier inputs" (D7).
                     stores = stores or open_stores(tracker=notion)
                     answers = kit.standard_answers(stores)
-                    current = provenance.kit_inputs(stores.texts.get('profile'), answers)
+                    current = provenance.kit_inputs(stores.texts.plain('profile'), answers)   # as kits read it (texts.plain)
                     if notion:  # a kit drafted before the store adapters recorded Tracker.page_text's reading: still current
                         before = provenance.kit_inputs(notion.page_text(), answers)
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"

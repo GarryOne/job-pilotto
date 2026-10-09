@@ -70,7 +70,7 @@ def process(db, url, job, *, stores, row=None, client=None, stats=None, now=None
     enrich.save(db, item, enrich.DEFAULT_MODEL, facts)
     cost.add(stats.setdefault('enrich', {}) if stats is not None else None, enrich.DEFAULT_MODEL, usage)
     item['ai'] = facts
-    profile = score.scoring_profile(local_profile() or stores.texts.get('profile'))  # contact/links edits don't re-score
+    profile = score.scoring_profile(local_profile() or stores.texts.plain('profile'))  # as the search scores (Notion: the page text)
     fit, usage = score.score_one(client, score.DEFAULT_MODEL, item, profile)
     score.save(db, item, score.DEFAULT_MODEL, fit, profile)
     cost.add(stats.setdefault('score', {}) if stats is not None else None, score.DEFAULT_MODEL, usage)

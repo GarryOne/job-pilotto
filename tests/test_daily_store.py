@@ -131,11 +131,11 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
 
     def test_the_profile_for_scoring_comes_from_the_store_without_notion(self):
         with mock.patch.object(store_access, 'local_profile', return_value=''):
-            self.assertIsNone(daily_helpers.profile_source(self.stores, None))           # nothing to score with: the warning says so
+            self.assertIsNone(daily_helpers.profile_source(self.stores))           # nothing to score with: the warning says so
             self.stores.texts.set('profile', '# Me\nSRE in Zurich')
-            self.assertIn('SRE in Zurich', daily_helpers.profile_source(self.stores, None)())
-            notion = mock.Mock(page_text=lambda: 'from Notion')
-            self.assertEqual(daily_helpers.profile_source(self.stores, notion)(), 'from Notion')   # Notion users: as before
+            self.assertIn('SRE in Zurich', daily_helpers.profile_source(self.stores)())
+            with mock.patch.object(self.stores.texts, 'plain', lambda name: 'as the page reads'):
+                self.assertEqual(daily_helpers.profile_source(self.stores)(), 'as the page reads')   # texts.plain: Notion's page text
 
 
 
@@ -147,13 +147,14 @@ class ModesOnTheStoreTests(unittest.TestCase):
         from src import daily_modes
         sqlite_like = dataclasses.replace(memory.open_store(), name='sqlite')
         notion_like = dataclasses.replace(memory.open_store(), name='notion')
-        daily_modes._gate(object(), None, 'x requires NOTION_TOKEN', on_store=False)          # Notion readable: every mode
-        daily_modes._gate(None, sqlite_like, 'x requires NOTION_TOKEN', on_store=True)         # moved: runs on this Mac's store
+        with mock.patch.object(daily_modes, 'notion_ready', lambda stores: True):
+            daily_modes._gate(notion_like, 'x requires NOTION_TOKEN', on_store=False)          # Notion readable: every mode
+        daily_modes._gate(sqlite_like, 'x requires NOTION_TOKEN', on_store=True)               # moved: runs on this Mac's store
         with self.assertRaisesRegex(SystemExit, '^--mode add works only with Notion for now'):
-            daily_modes._gate(None, sqlite_like, '--mode add requires NOTION_TOKEN', on_store=False)
-        for unreadable in (None, notion_like):                                                # as before
+            daily_modes._gate(sqlite_like, '--mode add requires NOTION_TOKEN', on_store=False)
+        for unreadable in (None, notion_like):                                                # as before (no engine client)
             with self.assertRaisesRegex(SystemExit, '^--mode kits requires NOTION_TOKEN$'):
-                daily_modes._gate(None, unreadable, '--mode kits requires NOTION_TOKEN', on_store=True)
+                daily_modes._gate(unreadable, '--mode kits requires NOTION_TOKEN', on_store=True)
 
     def test_an_applied_tap_marks_the_job_in_this_macs_store_with_its_event(self):
         stores = memory.open_store()

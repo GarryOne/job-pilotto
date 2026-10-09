@@ -391,6 +391,16 @@ class StoreContract:
         with self.assertRaises(KeyError):
             self.s.texts.get('search_settings')
 
+    def test_plain_text_is_the_text_as_its_page_reads(self):
+        """What the AI reads (scoring, kits): the same words, as the page shows them (Notion: Tracker.page_text)."""
+        self.assertEqual(self.s.texts.plain('profile'), '')
+        self.s.texts.set('profile', '# Igor\n\nSRE in Zurich')
+        plain = self.s.texts.plain('profile')
+        self.assertIn('Igor', plain)
+        self.assertIn('SRE in Zurich', plain)
+        with self.assertRaises(KeyError):
+            self.s.texts.plain('search_settings')
+
     def test_the_adapter_names_itself_and_its_capabilities(self):
         self.assertTrue(self.s.name)
         self.assertLessEqual(set(self.s.caps), {base.LINKS, base.CLOUD, base.FILES})

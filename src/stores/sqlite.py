@@ -462,6 +462,9 @@ class Texts:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(markdown, encoding='utf-8')
 
+    def plain(self, name):
+        return self.get(name)
+
 
 def root(env):
     """The data folder: JOB_PILOTTO_DATA_DIR (the app's, a test's temp folder) when set, else the engine's data/."""

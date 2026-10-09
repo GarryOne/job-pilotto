@@ -266,6 +266,8 @@ class CronRuns(Protocol):
 class Texts(Protocol):
     def get(self, name: str) -> str: ...
     def set(self, name: str, markdown: str) -> None: ...
+    def plain(self, name: str) -> str: ...  # what the AI reads: the text as its page shows it (Notion: Tracker.page_text, as the
+    # engine always read the Profile for scoring and kits; elsewhere the text itself), so a Notion user's AI input never changes
 
 
 @dataclass

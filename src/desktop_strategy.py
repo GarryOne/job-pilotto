@@ -111,7 +111,7 @@ def strategy(db, tracker=None, stores=None):
         rows = _quietly(latest_insight)
         if stores.name != 'notion':   # this Mac's store: its applications and its Profile
             from .store_access import url_stages as stages_of
-            for stage in (_quietly(lambda: stages_of(stores, None)) or {}).values():
+            for stage in (_quietly(lambda: stages_of(stores)) or {}).values():
                 stages[stage] = stages.get(stage, 0) + 1
             profile = _quietly(lambda: stores.texts.get('profile')) or None
     if rows:
