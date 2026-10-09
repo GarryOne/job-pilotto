@@ -23,6 +23,16 @@ APPLICATION_COLUMNS = (
     ('rejection_lesson', 'Rejection lesson', 'rich_text'), ('feedback_status', 'Feedback status', 'select'),
     ('employer_feedback', 'Employer feedback', 'rich_text'), ('salary', 'Salary', 'rich_text'),
     ('contract', 'Contract', 'select'), ('call_facts', 'Call facts', 'rich_text'), ('created_at', 'Created', 'created'),
+    # The frozen record (src/notion/ledger_record.py) and what the engine stamps on a job.
+    ('ats', 'ATS', 'select'), ('posted', 'Posted', 'date'), ('recorded', 'Recorded', 'date'), ('tier', 'Tier', 'select'),
+    ('seniority', 'Seniority', 'select'), ('days_to_apply', 'Days to apply', 'number'),
+    ('cover_letter', 'Cover letter', 'checkbox'), ('questions', 'Questions', 'number'),
+    ('answers_captured', 'Answers captured', 'select'), ('cv_version', 'CV version', 'rich_text'),
+    ('kit_variant', 'Kit variant', 'rich_text'), ('agent', 'Agent', 'select'), ('channel', 'Channel', 'select'),
+    ('date_approximate', 'Date approximate', 'checkbox'), ('reached_via', 'Reached via', 'select'),
+    ('recruiter', 'Recruiter', 'checkbox'), ('kit_cost', 'Kit cost (USD)', 'number'),
+    ('fill_minutes', 'Form fill time (min)', 'number'), ('interview_prep', 'Interview prep', 'date'),
+    ('confirmation_email', 'Confirmation email', 'checkbox'),
 )
 EVENT_COLUMNS = (
     ('app_id', 'Application', 'relation1'), ('kind', 'Kind', 'select'), ('at', 'At', 'date'),

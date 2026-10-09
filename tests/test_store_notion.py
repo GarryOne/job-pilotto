@@ -103,6 +103,23 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         kinds = [block['type'] for block in self.tracker._children(app['id']) if not block.get('archived')]
         self.assertEqual(kinds, ['heading_2', 'paragraph', 'heading_2', 'paragraph'], 'the page keeps its shape')
 
+    def test_every_application_field_has_its_own_column_in_the_schema(self):
+        """A field without a column would be lost on Notion: each maps to a Job Tracker column the schema has."""
+        from src.stores import notion_rows
+        mapped = {field: column for field, column, _ in notion_rows.APPLICATION_COLUMNS}
+        self.assertEqual(set(mapped) | {'id'}, set(base.APPLICATION_FIELDS))
+        self.assertEqual(len(set(mapped.values())), len(mapped), 'one column per field')
+        have = SCHEMA['databases']['NOTION_APPLICATIONS_DB']['columns']
+        self.assertEqual([c for c in mapped.values() if c not in have], [])
+
+    def test_the_frozen_records_fields_are_written_and_read_back(self):
+        app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Applied')
+        stamp = {'ats': 'Greenhouse', 'posted': '2026-09-20', 'tier': 'A', 'days_to_apply': 3, 'cover_letter': True,
+                 'kit_cost': 0.42, 'cv_version': 'cv.pdf · 1a2b', 'date_approximate': True, 'interview_prep': '2026-10-08T09:00'}
+        row = self.s.applications.update(app['id'], stamp)
+        self.assertEqual({k: row[k] for k in stamp}, stamp)
+        self.assertEqual({k: self.s.applications.get(app['url'] if 'url' in app else row['url'])[k] for k in stamp}, stamp)
+
 
 class NotionRecordsTests(unittest.TestCase):
     """Today's rows, as the engine wrote them before the stores, read as records."""
