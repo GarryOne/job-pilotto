@@ -17,6 +17,7 @@ export const SITE = 'https://www.jobpilotto.workers.dev';
 const CACHE = 'recipes-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 const FLUSH_MS = 5 * 60 * 1000;
+const QUEUE = 'data/learning-queue.json';   // the waiting batch, so a restart loses nothing
 const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
 const tag = list => { const first = Array.isArray(list) ? String(list[0] || '') : String(list || ''); return /^[a-z_]{2,20}$/.test(first) ? first : ''; };
 export const DISMISS_REASONS = ['seniority', 'location', 'tech', 'company', 'role', 'other'];
@@ -87,7 +88,20 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout, onSent = null} = {}) {
   let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), proposalUses = new Map(), unfilled = new Map(), answers = new Map(), intel = emptyIntel(), timer = null, requiredBy = new Map(), cards = [], submits = new Map();
-  const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
+  // The waiting batch is kept on disk too (data/learning-queue.json), so a restart (an update, the twin's refresh) before the 5-minute send loses
+  // nothing (9 Oct 2026: a twin fill's record vanished when the app restarted 44 s after it). Counts and fixed words only, as sent.
+  const MAPS = {outcomes: () => outcomes, fills: () => fills, questions: () => questions, flows: () => flows, aliasUse: () => aliasUse, applications: () => applications,
+    proposals: () => proposals, proposalUses: () => proposalUses, unfilled: () => unfilled, answers: () => answers, requiredBy: () => requiredBy, submits: () => submits};
+  const save = () => { try { storage.writeText(QUEUE, JSON.stringify({...Object.fromEntries(Object.entries(MAPS).map(([name, get]) => [name, [...get()]])), samples, cards})); } catch { /* best effort */ } };
+  const schedule = () => { save(); if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
+  try {
+    const kept = JSON.parse(storage.readText(QUEUE) || 'null');
+    if (kept && enabled(storage)) {
+      ({outcomes, fills, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, requiredBy, submits} = Object.fromEntries(Object.keys(MAPS).map(name => [name, new Map(Array.isArray(kept[name]) ? kept[name] : [])])));
+      samples = Array.isArray(kept.samples) ? kept.samples : []; cards = Array.isArray(kept.cards) ? kept.cards : [];
+      if ([...Object.values(MAPS)].some(get => get().size) || samples.length || cards.length) schedule();
+    }
+  } catch { /* an unreadable queue starts empty */ }
   return {
     // items [{fp, ok, recipe}] from the operators.
     outcome(items) {
@@ -310,6 +324,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
+      save();   // what is left (anything added during the send)
       onSent?.('shared counts → /api/controls', body);
       return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.proposalUses.length + body.unfilled.length + body.answers.length + body.cards.length + body.submits.length + (body.intel ? 1 : 0)};
     } catch (error) {
@@ -333,6 +348,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       mergeAnswers(answers, taken.answers);
       for (const [key, entry] of taken.unfilled) unfilled.set(key, {...entry, n: entry.n + (unfilled.get(key)?.n || 0)});
       for (const [key, entry] of taken.aliasUse) { const again = aliasUse.get(key) || {phrase: key, ok: 0, failed: 0}; again.ok += entry.ok; again.failed += entry.failed; aliasUse.set(key, again); }
+      save();   // put back above: kept on disk for the next try
       return {sent: 0};
     }
   }

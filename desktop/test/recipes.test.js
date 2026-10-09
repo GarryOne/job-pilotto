@@ -313,3 +313,22 @@ test('a beta install asks for recipes with X-Beta: 1; any other install without 
     assert.equal(seen[0]['X-Beta'], beta ? '1' : undefined, String(beta));
   }
 });
+
+// 9 Oct 2026: the twin restarted 44 s after a fill, before the 5-minute send, and that fill's record never reached the site.
+test('a waiting batch survives a restart: a new reporter on the same folder sends it', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const fetcher = async (url, init = {}) => { if (init.body) sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; };
+  const before = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({})});
+  before.card('ashby', {id: 'fill-0003-abc', required: 4, filled: 3, causes: {no_data: 1}});
+  before.proposalUse({board: 'ashby', source: 'fill_guess', act: 'shown', v: '0.9.1'});
+  // The app restarts here: nothing was sent.
+  const timers = [];
+  const after = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: fn => { timers.push(fn); return {}; }});
+  assert.equal(timers.length, 1);   // a send is scheduled for what was waiting
+  await after.flush();
+  assert.deepEqual([sent[0].cards.map(card => card.id), sent[0].proposalUses.length], [['fill-0003-abc'], 1]);
+  const again = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: fn => { timers.push(fn); return {}; }});
+  assert.equal(timers.length, 1);   // sent: nothing waits any more
+  assert.deepEqual(await again.flush(), {sent: 0});
+});

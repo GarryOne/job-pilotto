@@ -39,7 +39,8 @@ test('the batched counts and a fill report are copied to the log after the servi
   again.proposal([{key: 'email', phrase: 'courriel'}]);
   await again.flush();
   assert.equal(seen[0][0], 'shared counts → /api/controls');
-  assert.deepEqual([seen[0][1].exposure, seen[0][1].proposals], [[{board: 'ashby', n: 1}], [{key: 'email', phrase: 'courriel'}]]);
+  // n: 2: the refused batch was kept on disk and the next reporter (a restart) sends it with the new fill (lib/recipes.js, 9 Oct 2026).
+  assert.deepEqual([seen[0][1].exposure, seen[0][1].proposals], [[{board: 'ashby', n: 2}], [{key: 'email', phrase: 'courriel'}]]);
   const run = {url: 'https://jobs.ashbyhq.com/x/1', trace: [{label: 'Country', outcome: 'left', reason: 'dropdown clicked, but no option matched'}], debug: {version: '0.8.81', form: [{label: 'Country', type: 'select', options: ['CH']}]}};
   const reports = [];
   await send(s, run, ok, (what, body) => reports.push([what, body]));
