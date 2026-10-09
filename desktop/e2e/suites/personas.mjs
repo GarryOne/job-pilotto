@@ -134,7 +134,9 @@ export async function run(ctx) {
       if (!listed) throw new Error('"E2E Gamma" was not listed in the store\'s employers (Employers & Sources) within 4 minutes');
       const output = engine(ctx, 'import subprocess, sys; print(subprocess.run([sys.executable, "-m", "src", "discover"], capture_output=True, text=True).stdout)');
       // TechTree lists all of Europe and is searched for any place; jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c).
-      const boards = (output.match(/^Job boards: (.*)$/m) || [])[1] || '';
+      // The boards searched, without the engine's explanation in brackets ("none (for these roles and places: SwissDevJobs and TechTree list developer jobs,
+      // jobs.ch Swiss ones)", src/sources/boards.py since e2d7df8): a board named only to say why it was skipped was not searched.
+      const boards = ((output.match(/^Job boards: (.*)$/m) || [])[1] || '').replace(/\([^)]*\)/g, '').trim();
       if (/jobs\.ch|SwissDevJobs/i.test(boards)) throw new Error(`the Swiss job boards were searched for a user with no Swiss place: ${boards}`);
       if (!/discovery is skipped/i.test(output) && !/TechTree/.test(boards)) throw new Error(`neither a skipped discovery nor the TechTree search: ${output.slice(0, 200)}`);
     }, {needs: ctx.needs});
