@@ -8,9 +8,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECK = r'''
-import importlib, pathlib, sys, traceback
+import importlib, pathlib, subprocess, sys, traceback
 failed = []
-for path in sorted(pathlib.Path('src').rglob('*.py')):
+# The modules git tracks, not every file on disk: another test may plant a temporary module in src/ while this runs in a parallel shard
+# (9 Oct 2026: test_affected_tests' src/zz_orphan_... turned main red, run 37930166345).
+tracked = subprocess.run(['git', 'ls-files', 'src'], capture_output=True, text=True).stdout.split()
+for path in sorted(pathlib.Path(name) for name in tracked if name.endswith('.py')):
     name = '.'.join(path.with_suffix('').parts)
     if name.endswith('__main__') or name.endswith('_main_'):
         continue
