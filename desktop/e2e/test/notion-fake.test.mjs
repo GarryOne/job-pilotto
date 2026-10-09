@@ -76,7 +76,7 @@ test('an uploaded file keeps its bytes and reads back as a hosted file block', a
     const upload = fake.handle('POST', 'file_uploads', {filename: 'cv.pdf', content_type: 'application/pdf'}, new URLSearchParams()).body;
     const boundary = 'b0undary', body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="cv.pdf"\r\nContent-Type: application/pdf\r\n\r\n`),
       Buffer.from([0x25, 0x50, 0x44, 0x46, 0x0d, 0x0a, 0xff]), Buffer.from(`\r\n--${boundary}--\r\n`)]);
-    const sent = await fetch(`${fake.url}/v1/file_uploads/${upload.id}/send`, {method: 'POST', headers: {'content-type': `multipart/form-data; boundary=${boundary}`}, body});
+    const sent = await fetch(`${fake.url}/v1/file_uploads/${upload.id}/send`, {method: 'POST', headers: {authorization: `Bearer ${fake.token}`, 'content-type': `multipart/form-data; boundary=${boundary}`}, body});
     assert.equal((await sent.json()).status, 'uploaded');
     call(fake, 'PATCH', `blocks/${page.id}/children`, {children: [{type: 'file', file: {type: 'file_upload', file_upload: {id: upload.id}}}]});
     const [block] = call(fake, 'GET', `blocks/${page.id}/children`).body.results;
@@ -110,9 +110,9 @@ test('a second install of the app connects to the workspace the first one built 
   const fetcher = (url, options) => { if (!String(url).startsWith(fake.url)) throw new Error(`the test reached ${url}`); return fetch(url, options); };
   try {
     const {connectWorkspace} = await import('../../lib/notion-workspace.js');
-    const first = await connectWorkspace('stand-in', {sleep: async () => {}, fetcher});
+    const first = await connectWorkspace(fake.token, {sleep: async () => {}, fetcher});
     assert.ok(first.ok && first.built?.length, 'the first install builds the workspace');
-    const second = await connectWorkspace('stand-in', {sleep: async () => {}, fetcher});
+    const second = await connectWorkspace(fake.token, {sleep: async () => {}, fetcher});
     assert.deepEqual({ok: second.ok, missing: second.missing, problems: second.problems}, {ok: true, missing: [], problems: []});
     assert.deepEqual(second.ids, first.ids);
   } finally {
@@ -151,4 +151,14 @@ test('a change to any block in a page changes the page\'s last_edited_time, as i
   assert.ok(edited() > before, 'deleting a block two levels down'); before = edited(); await tick();
   call(fake, 'PATCH', `blocks/${heading.id}`, {heading_3: {rich_text: text('Kit 2')}});
   assert.ok(edited() > before, 'editing a block');
+});
+
+test('the stand-in has its own token, shaped like Notion\'s, and answers any other one with Notion\'s 401', async () => {
+  const {startNotionFake} = await import('../lib/notion-fake.mjs');
+  const fake = await startNotionFake();
+  try {
+    assert.match(fake.token, /^ntn_e2e_[0-9a-f]{36}$/);
+    const ask = token => fetch(`${fake.url}/v1/users/me`, {headers: {authorization: `Bearer ${token}`}}).then(response => response.status);
+    assert.deepEqual([await ask(fake.token), await ask('stand-in')], [200, 401]);
+  } finally { await fake.close(); }
 });

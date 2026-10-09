@@ -278,21 +278,29 @@ function fileOf(raw) {
   return {data: raw.subarray(start + 4, end), content_type: type};
 }
 
+// Its own token per run, shaped like Notion's: a leak check that looks for the token in the logs (quality, activity) works as on real Notion, and a request
+// with any other token gets Notion's 401. Files are served without one (Notion's file links are plain signed URLs).
 export async function startNotionFake() {
   const fake = createNotionFake();
+  const token = `ntn_e2e_${crypto.randomBytes(18).toString('hex')}`;
   const server = http.createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const raw = Buffer.concat(chunks), multipart = String(req.headers['content-type'] || '').startsWith('multipart/');
     const url = new URL(req.url, 'http://fake');
     const path = url.pathname.replace(/^\/(v1\/)?/, '');
     let body = {}; try { body = raw.length && !multipart ? JSON.parse(raw.toString()) : {}; } catch { body = {}; }
+    if (!path.startsWith('files/') && req.headers.authorization !== `Bearer ${token}`) {
+      res.writeHead(401, {'content-type': 'application/json'});
+      res.end(JSON.stringify({object: 'error', status: 401, code: 'unauthorized', message: 'API token is invalid.'}));
+      return;
+    }
     const {status, body: out, type} = fake.handle(req.method, path, body, url.searchParams, multipart ? raw : undefined);
     res.writeHead(status, {'content-type': type || 'application/json'});
     res.end(type ? out : JSON.stringify(out));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   fake.setBase(`http://127.0.0.1:${server.address().port}`);
-  return {...fake, url: `http://127.0.0.1:${server.address().port}`, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
+  return {...fake, token, url: `http://127.0.0.1:${server.address().port}`, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }
 
 // The workspace built once in a fresh stand-in, by the app's own code (desktop/lib/notion-workspace.js), as the real test page already holds it: a suite then
@@ -304,7 +312,7 @@ export async function buildStandIn(standIn) {
     if (!local.startsWith(standIn.url)) throw new Error(`the stand-in's build reached ${url}`);
     return fetch(local, options);
   };
-  const built = await connectWorkspace('stand-in', {sleep: async () => {}, fetcher});
+  const built = await connectWorkspace(standIn.token, {sleep: async () => {}, fetcher});
   if (!built.ok) throw new Error(`the stand-in's workspace was not built: ${built.error || JSON.stringify({missing: built.missing, problems: built.problems})}`);
   return built.ids;
 }

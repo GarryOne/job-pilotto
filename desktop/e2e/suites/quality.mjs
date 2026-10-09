@@ -13,6 +13,7 @@ import {failures, judge} from '../lib/factjudge.mjs';
 import {databaseRows, emptyDatabase, profileText, rewriteLines} from '../lib/notion.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {quiet} from '../lib/activity-steps.mjs';
 
 export const name = 'quality';
 // About $0.3 a run on Sonnet 5.5: the nightly release gate, and a push that touches what it judges (scoring and enrichment prompts, the model ids, its own fixtures), not the three-a-day schedule.
@@ -44,6 +45,8 @@ export async function run(ctx) {
   let rows = [], appJobs = [];
   ctx.findings = [];
   await ensureSetUp(ctx);
+  // Set up through the wizard (the stand-in: standInFromWizard; or an empty test page), the app starts its first search: the Jobs checks below wait for it to end.
+  if (!ctx.built) await ctx.run('the first search after the setup has ended', () => quiet(ctx, {forMs: 3000, maxMs: 300000}), {needs: ctx.needs, critical: true});
 
   const check = async label => {   // one Jobs check; ends when the task is no longer running
     await page.click('.nav[data-view="jobs"]');

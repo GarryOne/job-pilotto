@@ -47,7 +47,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   if (standIn) useNotionAt(standIn.url);
   const engine = pickEngine({suiteEngine});
   // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
-  const key = light ? KEY() : testKey(process.env, engine), token = light ? '' : standIn ? 'stand-in' : notionToken(notionTokenOf || suite);
+  const key = light ? KEY() : testKey(process.env, engine), token = light ? '' : standIn ? standIn.token : notionToken(notionTokenOf || suite);
   if (!light) console.log(`  AI family under test: ${familyOf(engine) === 'openai' ? 'OpenAI' : 'Claude'} (engine ${engine}${isCi() ? `, CI run ${process.env.GITHUB_RUN_NUMBER || '?'}: odd runs OpenAI, even runs Claude` : ''})`);
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, report, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
