@@ -102,7 +102,19 @@ export async function run(ctx) {
         locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})}, null, 2));
     }, {needs: ctx.needs});
 
-    await ctx.run('a Jobs check on the golden postings finishes and scores them', async () => { await check('first Jobs check'); await read2(); if (!rows.length) {
+    await ctx.run('a Jobs check on the golden postings finishes and scores them', async () => {
+      // A refresh stops its AI steps at 3 minutes and leaves the rest for the next one (desktop/lib/pipeline-args.js SEARCH_BUDGET_S): scoring first, the facts with the
+      // time left. A plan engine answers one job at a time (Codex: 15-20 s each, 9 Oct 2026), so its first refresh scores and reads nothing more; refresh again, as a
+      // person's next refresh would, until nothing is left (at most 4), so this suite measures what the AI read, not how fast it was.
+      const engineLog = path.join(ctx.profile, 'logs', 'engine.log'), size = () => (fs.existsSync(engineLog) ? fs.statSync(engineLog).size : 0);
+      for (let round = 1; round <= 4; round++) {
+        const from = size();
+        await check(round === 1 ? 'first Jobs check' : `Jobs check ${round} (the rest of the first one)`);
+        const written = fs.existsSync(engineLog) ? fs.readFileSync(engineLog, 'utf8').slice(from) : '';
+        if (!/left for the next one|wait for the next refresh/.test(written)) break;
+        console.log(`  refresh ${round} ran out of time with jobs left (engine ${ctx.engine}): refreshing again`);
+      }
+      await read2(); if (!rows.length) {
         const config = path.join(ctx.profile, 'config');
         throw new Error(`no Job Matches row was in Notion a minute after the check (app's Notion: ${JSON.stringify(await page.evaluate(() => { const n = window.__jp?.shared?.state?.notion; return n && typeof n === 'object' ? Object.fromEntries(Object.entries(n).filter(([, v]) => typeof v === 'string' && /[0-9a-f]{8}-/.test(v)).map(([k, v]) => [k, v.slice(0, 13)])) : String(n); }))}; profile config: ${fs.existsSync(config) ? fs.readdirSync(config).join(', ') : 'none'}; sources.json: ${fs.existsSync(path.join(config, 'sources.json')) ? fs.readFileSync(path.join(config, 'sources.json'), 'utf8').replace(/\s+/g, ' ') : 'missing'}; feed folder: ${fs.readdirSync(ctx.feeds).join(', ')}; search.json: ${fs.readFileSync(path.join(config, 'search.json'), 'utf8').replace(/\s+/g, ' ').slice(0, 700)})`);
       } }, {needs: ctx.needs});
