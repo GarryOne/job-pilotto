@@ -60,7 +60,7 @@ _FIELD = {column: field for field, column in _COLUMN.items()}
 def _field(row, name):
     """A job record's field as text ('' when empty): rows are store records (src/stores/base.py APPLICATION_FIELDS)."""
     if 'properties' in row:
-        # BRIDGE(mac-4a prep, mail reassign): remove when the move of prep.py and reassign.py to job records lands
+        # BRIDGE(mac-cd inbox): remove when inbox.py passing job records lands
         return plain(row['properties'].get(_COLUMN.get(name, name))) or ''
     value = row.get(_FIELD.get(name, name))
     return '' if value is None else str(value)
@@ -70,7 +70,7 @@ def _role(row):
     """The row's role: its Job title without " · Acme" / " · via Huxley" (src/notion/titles.py), for matching by role
     words and for lines that name the employer or agency themselves."""
     if 'properties' in row:
-        # BRIDGE(mac-4a prep, mail reassign): remove when the move of prep.py and reassign.py to job records lands
+        # BRIDGE(mac-cd inbox): remove when inbox.py passing job records lands
         return titles.row_role(row)
     return titles.role_of(row.get('title') or '', row.get('company') or '', row.get('via') or '')
 
