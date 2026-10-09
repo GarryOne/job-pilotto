@@ -24,7 +24,7 @@ from .paths import JOBS_DB
 
 # The pieces live in desktop_jobs.py, desktop_status.py and desktop_strategy.py; their names stay reachable here (src.desktop.jobs, ...),
 # and the tests patch the shared modules (digest, score, store) through this one.
-from .desktop_jobs import (GONE, MIN_POSTING, NO_POSTING, NOT_ELIGIBLE, NOT_YET, _deleted_urls, _fit_detail, _kit, jobs, notion_posting, posting,  # noqa: F401
+from .desktop_jobs import (GONE, MIN_POSTING, NO_POSTING, NOT_ELIGIBLE, NOT_YET, _deleted_urls, _fit_detail, _kit, jobs, store_posting, posting,  # noqa: F401
                            stage_status)
 from .desktop_status import NOTION_STAGES, InProcess, _mark, _matches_rows, delete_job, set_status  # noqa: F401
 from .desktop_strategy import (COMPONENTS, GOAL_ROWS, _goals, _quietly, _readable, _section, _visits, calendar_jobs,  # noqa: F401
@@ -71,13 +71,12 @@ def main(argv=None):
     with store.connect(JOBS_DB) as db:
         if args.command == 'posting':
             found = posting(db, args.code)
-            if not found['ok']:  # not in the crawl: a job kept only in Notion
+            if not found['ok']:  # not in the crawl: a job kept only in the store (Notion, or this Mac's)
                 try:
-                    from .notion.client import Tracker
-                    tracker = Tracker.from_env()
-                    found = notion_posting(tracker, args.code) if tracker else found
-                except Exception as error:  # noqa: BLE001 — the first answer ("job not found") stays when Notion can't be read
-                    print(f'Notion posting not read: {type(error).__name__}: {error}', file=sys.stderr)
+                    from .stores import open_stores
+                    found = store_posting(open_stores(), args.code)
+                except Exception as error:  # noqa: BLE001 — the first answer ("job not found") stays when the store can't be read
+                    print(f'Store posting not read: {type(error).__name__}: {error}', file=sys.stderr)
             print(json.dumps(found, ensure_ascii=False))
             return 0
         if args.command == 'explain-coverage':

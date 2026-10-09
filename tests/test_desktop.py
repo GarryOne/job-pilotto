@@ -89,30 +89,23 @@ class DesktopTests(unittest.TestCase):
         row = stores.applications.get('https://x.test/found')
         self.assertEqual((row['title'], row['company'], row['location'], row['stage']), ('Platform Engineer', 'Gamma', 'Bern', 'Saved'))
 
-    def test_a_job_kept_only_in_notion_tailors_from_the_description_on_its_page(self):
+    def test_a_job_kept_only_in_the_store_tailors_from_its_description(self):
+        from unittest import mock
         url = 'https://www.linkedin.com/messaging/#jp-abc'
         code = desktop.job_code(url)
-
-        class Tracker:
-            def __init__(self, page):
-                self.page = page
-
-            def notion_jobs(self):
-                return [{'url': url, 'title': 'Principal SRE', 'company': '', 'via': 'Kestrel Agency', 'location': 'Remote, Europe'}]
-
-            def find(self, wanted):
-                return {'id': 'p1', 'properties': {'Job URL': {'url': wanted}}} if wanted == url else None
-
-            def page_text(self, page_id):
-                return self.page
+        stores = memory.open_store()
+        record = stores.applications.create({'url': url, 'title': 'Principal SRE', 'via': 'Kestrel Agency', 'location': 'Remote, Europe'}, 'Recruiter lead')
         long = '# 🧾 Job description\n' + 'Lead the reliability of a Kubernetes platform on AWS, own SLOs and on-call, mentor four engineers. ' * 3
-        found = desktop.notion_posting(Tracker(long), code)
+        with mock.patch('src.ai.prep.role_text', return_value=long) as role_text:
+            found = desktop.store_posting(stores, code)
+        role_text.assert_called_once_with(stores, record)
         self.assertEqual((found['ok'], found['title'], found['company']), (True, 'Principal SRE', 'Kestrel Agency'))
         self.assertIn('Kubernetes', found['description'])
         # a page with only a greeting says what is missing, instead of "job not found"
-        empty = desktop.notion_posting(Tracker('# 📥 Logged\nHi, are you open to talk?'), code)
+        with mock.patch('src.ai.prep.role_text', return_value='# 📥 Logged\nHi, are you open to talk?'):
+            empty = desktop.store_posting(stores, code)
         self.assertEqual((empty['ok'], empty['error']), (False, desktop.NO_POSTING))
-        self.assertEqual(desktop.notion_posting(Tracker(long), 'nope'), {'ok': False, 'error': 'job not found'})
+        self.assertEqual(desktop.store_posting(stores, 'nope'), {'ok': False, 'error': 'job not found'})
 
     def test_a_status_the_store_rejects_changes_nothing(self):
         stores = memory.open_store()
