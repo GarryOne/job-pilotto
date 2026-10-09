@@ -72,11 +72,9 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   checkedSessions.handle('sessionRestart', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
-    const {message, detail, buttons} = quitDialog.restart(old.company);
-    const {response} = await dialog.showMessageBox(getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined,
-      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 2, message, detail});
-    if (response === 2) return {ok: false, cancelled: true};
-    return restartAs(old, response === 1 ? 'claude' : 'chrome');
+    // Always in Chrome, no question (owner, 9 Oct 2026: "start with Chrome always; Claude should be only a safety net"): the extension fills the
+    // form; where it can't finish, the card and the panel offer Claude as they already do.
+    return restartAs(old, 'chrome');
   });
   // The session's form tab was closed (a button looked for it and Chrome has none): the form opens again in a new tab with
   // the fill mark, so the extension's panel follows it. What the page held from the closed tab (`stale`: answers, form

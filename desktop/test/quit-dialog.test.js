@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {test} from 'node:test';
-import {cancel, restart, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
+import {cancel, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
 
 const label = session => session.company;
 const sessions = names => names.map(company => ({company}));
@@ -37,16 +38,17 @@ test('removing a session whose job is still Applying asks whether it was submitt
   assert.deepEqual(dialog.buttons, ['Yes, I submitted it', 'No, not submitted', 'Cancel']);
 });
 
-test('start again from scratch: asked once, says what closes, what starts and that the form tab stays', () => {
-  const dialog = restart('Canonical');
-  assert.equal(dialog.message, 'Start the Canonical application again from scratch?');
-  assert.match(dialog.detail, /This session stops and is closed.*A new session then starts on the same job: in Chrome.*or with Claude.*close it first for an empty form/s);
-  assert.deepEqual(dialog.buttons, ['Start in Chrome', 'Start with Claude', 'Cancel']);
-});
 
 test('cancel: asked once, says the form tab closes (what was filled is lost) and the job goes back to Kit ready', () => {
   const dialog = cancel('Canonical');
   assert.equal(dialog.message, 'Cancel the Canonical application?');
   assert.match(dialog.detail, /the form tab closes in Chrome \(what was filled there is lost\), and the job goes back to Kit ready/);
   assert.deepEqual(dialog.buttons, ['Cancel application', 'Keep it']);
+});
+
+test('Start again asks nothing: it restarts in Chrome, Claude stays the safety net (owner, 9 Oct 2026)', () => {
+  const source = fs.readFileSync(new URL('../lib/session-handlers.js', import.meta.url), 'utf8');
+  const handler = source.slice(source.indexOf("checkedSessions.handle('sessionRestart'"), source.indexOf('});', source.indexOf("checkedSessions.handle('sessionRestart'")));
+  assert.doesNotMatch(handler, /showMessageBox/);
+  assert.match(handler, /restartAs\(old, 'chrome'\)/);
 });

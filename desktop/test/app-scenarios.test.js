@@ -251,24 +251,13 @@ test('journey: closing a review-ready session needs an explicit submission decis
 
 // Start again never starts Claude by itself (owner, 8 Oct 2026): it asks Chrome or Claude, Chrome first; Cancel starts nothing.
 // The new session is shown before the old one goes, so the page never falls to another session in between.
-test('journey: Start again asks Chrome or Claude, Chrome first, shows the new session first, and only Claude starts Claude', async t => {
-  for (const [choice, expected] of [[0, `apply in Chrome ${URL}`], [1, `apply with Claude ${URL}`]]) {
-    const s = scenario(t), id = await s.start();
-    s.choices.push(choice);
-    assert.equal((await s.pilot.sessionRestart(id)).ok, true);
-    const {buttons, defaultId} = s.dialogs[0];
-    assert.deepEqual(buttons, ['Start in Chrome', 'Start with Claude', 'Cancel']);
-    assert.equal(defaultId, 0);
-    assert.deepEqual(s.commands.filter(c => c.startsWith('apply ')), [expected]);
-    assert.equal(s.processes.length, 1, 'no Claude started by the app itself');
-    const order = s.events.map(([event, payload]) => event === 'open' ? `open ${payload.id}` : payload?.removed ? `removed ${payload.id}` : '').filter(Boolean);
-    assert.deepEqual(order, ['open new1', `removed ${id}`]);
-    assert.equal(await s.view(id), undefined, 'the old session is closed');
-    terminals._reset();
-  }
+test('journey: Start again asks nothing, restarts in Chrome, shows the new session first, and never starts Claude (owner, 9 Oct 2026)', async t => {
   const s = scenario(t), id = await s.start();
-  s.choices.push(2);
-  assert.equal((await s.pilot.sessionRestart(id)).cancelled, true);
-  assert.deepEqual(s.commands.filter(c => c.startsWith('apply ')), []);
-  assert.ok(await s.view(id), 'cancel keeps the session');
+  assert.equal((await s.pilot.sessionRestart(id)).ok, true);
+  assert.equal(s.dialogs.length, 0, 'no question: Chrome always, Claude is the safety net');
+  assert.deepEqual(s.commands.filter(c => c.startsWith('apply ')), [`apply in Chrome ${URL}`]);
+  assert.equal(s.processes.length, 1, 'no Claude started by the app itself');
+  const order = s.events.map(([event, payload]) => event === 'open' ? `open ${payload.id}` : payload?.removed ? `removed ${payload.id}` : '').filter(Boolean);
+  assert.deepEqual(order, ['open new1', `removed ${id}`]);
+  assert.equal(await s.view(id), undefined, 'the old session is closed');
 });

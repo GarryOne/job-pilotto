@@ -17,16 +17,6 @@ export function cancel(company) {
   };
 }
 
-// Start again never starts Claude by itself: Chrome (the extension fills the form) is the first choice, Claude the second.
-export function restart(company) {
-  return {
-    message: `Start the ${company ? `${company} application` : 'application'} again from scratch?`,
-    detail: 'This session stops and is closed (its statistics are kept in Notion). A new session then starts on the same job: ' +
-      'in Chrome, where the extension fills the form from your kit, or with Claude. ' +
-      'The form tab stays open in Chrome: close it first for an empty form.',
-    buttons: ['Start in Chrome', 'Start with Claude', 'Cancel'],
-  };
-}
 
 // The words of the "you're quitting while something works" dialogs (native macOS/Windows dialogs: a title, a few
 // lines, buttons). Short, one line per thing that would stop, and what happens to it.
