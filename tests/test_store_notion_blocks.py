@@ -95,6 +95,16 @@ class CodecTests(unittest.TestCase):
         self.assertEqual(nb.to_markdown([toggle], children=lambda block_id: [child] if block_id == 't1' else []),
                          '## ▸ Kit\n  Dear Acme')
 
+    def test_a_table_round_trips_with_or_without_a_header_row(self):
+        """A Profile's experience table: Notion's table and table_row blocks, read back as the same Markdown."""
+        from src.stores.notion_blocks import to_blocks, to_markdown
+        for md in ('| Role | Company |\n| --- | --- |\n| SRE | Acme \\| AG |\n| Lead | Beta |', '| a | b |\n| c | d |',
+                   '# Experience\n\n| Role |\n| --- |\n| SRE |\n\nAfter the table', 'A line with a | inside\n\n\\| one starting with it'):
+            self.assertEqual(to_markdown(to_blocks(md)), md)
+        table = to_blocks('| Role | Company |\n| --- | --- |\n| SRE |')[0]
+        self.assertEqual((table['type'], table['table']['table_width'], table['table']['has_column_header']), ('table', 2, True))
+        self.assertEqual([len(row['table_row']['cells']) for row in table['table']['children']], [2, 2], 'short rows are padded')
+
     def test_todays_interview_page_comes_back_as_the_same_blocks(self):
         merged = {'filled': [], 'differs': [], 'changes': {}}
         page = interviews_blocks.page_blocks(RESULT, SPOKEN + '\n' + 'y' * 5000, merged)

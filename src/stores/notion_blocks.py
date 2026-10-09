@@ -3,7 +3,8 @@ become the blocks a Notion page shows, and back.
 
 The one codec of the Notion adapter (src/stores/notion*.py import it; never a second one). Covered:
   paragraphs, `#`/`##`/`###` headings, `- ` and `1. ` lists, ``` code (with a language), `> ` quotes,
-  **bold**, *italic*, `code` and [links](url) inside text, and children: any block's children follow it indented by
+  **bold**, *italic*, `code` and [links](url) inside text, `| a | b |` tables (a `| --- |` line after the first row
+  when it is a header row; a Profile's experience table), and children: any block's children follow it indented by
   two spaces. A toggleable heading is written `## ▸ Title` with its body indented below it.
 A character that would start one of these is escaped with a backslash, so text read from Notion comes back as written.
 Rich text is cut into parts of at most 1900 characters (Notion allows 2000), 100 parts a block; a longer paragraph
@@ -107,7 +108,7 @@ def plain_text(parts):
 
 def _guard(line):
     """A line of text that Markdown would read as a heading, list, quote, fence or toggle gets a backslash."""
-    if re.match(r'(#{1,3} |[-*] |> |```|▸ |---$|\s)', line):
+    if re.match(r'(#{1,3} |[-*] |> |```|▸ |---$|\||\s)', line):
         return '\\' + line
     return re.sub(r'^(\d+)\. ', r'\1\\. ', line)
 
@@ -147,6 +148,13 @@ def to_markdown(blocks, children=None):
             lines = [f'> {line}' for line in text.split('\n')]
         elif kind == 'divider':
             lines = ['---']
+        elif kind == 'table':
+            lines = _table_lines(_kids(block, children), body.get('has_column_header'))
+            if out:
+                out.append('\n\n')
+            out.append('\n'.join(lines))
+            previous = kind
+            continue
         elif 'rich_text' in body:  # paragraphs, and what has no Markdown of its own (callout, to-do): its text
             lines = _lines(text)
         else:
@@ -161,7 +169,33 @@ def to_markdown(blocks, children=None):
     return ''.join(out)
 
 
+def _table_lines(rows, header):
+    cells = [[markdown_text(cell).replace('|', '\\|') for cell in (row.get('table_row') or {}).get('cells') or []] for row in rows]
+    lines = ['| ' + ' | '.join(row) + ' |' for row in cells]
+    if header and lines:
+        lines.insert(1, '| ' + ' | '.join('---' for _ in cells[0]) + ' |')
+    return lines
+
+
 # ---------- Markdown → blocks ----------
+
+SEPARATOR = re.compile(r'\|(\s*:?-{3,}:?\s*\|)+\s*$')
+
+
+def _cells(line):
+    inner = line.strip()[1:]
+    inner = inner[:-1] if inner.endswith('|') and not inner.endswith('\\|') else inner
+    return [cell.strip() for cell in re.split(r'(?<!\\)\|', inner)]
+
+
+def _table(lines):
+    header = len(lines) > 1 and bool(SEPARATOR.match(lines[1].strip()))
+    rows = [_cells(line) for index, line in enumerate(lines) if not (header and index == 1)]
+    width = max(len(row) for row in rows)
+    return [{'object': 'block', 'type': 'table', 'table': {
+        'table_width': width, 'has_column_header': header, 'has_row_header': False,
+        'children': [{'object': 'block', 'type': 'table_row', 'table_row': {
+            'cells': [rich_text(cell) for cell in row + [''] * (width - len(row))]}} for row in rows]}}]
 
 def _block(kind, text, **extra):
     parts = rich_text(text)
@@ -179,7 +213,7 @@ def _code(lines, language):
 
 
 def _starts_block(line):
-    return bool(re.match(r'(#{1,3} |- |\d+\. |> |```|---$)', line))
+    return bool(re.match(r'(#{1,3} |- |\d+\. |> |```|---$|\|)', line))
 
 
 def to_blocks(markdown):
@@ -203,6 +237,11 @@ def to_blocks(markdown):
             kind = {1: 'heading_1', 2: 'heading_2', 3: 'heading_3'}[len(heading.group(1))]
             made = _block(kind, heading.group(3), **({'is_toggleable': True} if heading.group(2) else {}))
             i += 1
+        elif line.startswith('|'):
+            start = i
+            while i < len(lines) and lines[i].startswith('|'):
+                i += 1
+            made = _table(lines[start:i])
         elif line == '---':
             made, i = [{'object': 'block', 'type': 'divider', 'divider': {}}], i + 1
         elif line.startswith('> '):
