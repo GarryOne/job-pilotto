@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from src.ai import inbox_notion, kit, opportunity, prep, rejection
 from src.notion import ledger_record
+from src.stores import base, memory
 from src.stores.notion_blocks import to_markdown
 
 out = {}
@@ -40,16 +41,10 @@ out[opportunity.HEADING] = to_markdown(opportunity.message_blocks(
     'Hi Alex, a role at Example Cloud.\n\nCould we talk on Tuesday?\n\nJoin: https://meet.example.com/abc\n\nUnsubscribe here'))
 
 
-class Pages:   # the job's page, as inbox_notion._keep appends to it
-    def __init__(self):
-        self.blocks = []
-
-    def append_blocks(self, _page, blocks):
-        self.blocks += blocks
-        return {'results': [{'id': 'b1'}]}
-
-
-page = Pages()
-inbox_notion._keep(page, {'id': 'app-1'}, 'Hi Alex,\n\nCould we talk on Tuesday at 10:00?', None, 'Recruiter asked for a call', '2026-10-03T09:00:00Z')
-out['📥 Logged messages'] = to_markdown(page.blocks)
+# A logged entry as every store hands it back (base.LOGGED: '### 📥 <day> · <summary>' and the message), written by the log's own
+# _keep through a store (on Notion the same entry is the page's fold, read back in this shape: src/stores/notion.py sections()).
+stores = memory.open_store()
+app = stores.applications.create({'url': job['url'], 'title': job['title'], 'company': job['company']}, 'Applied')
+inbox_notion._keep(stores, app, 'Hi Alex,\n\nCould we talk on Tuesday at 10:00?', None, 'Recruiter asked for a call', '2026-10-03T09:00:00Z')
+out[base.LOGGED] = stores.applications.section(app['id'], base.LOGGED)
 print(json.dumps(out, ensure_ascii=False, indent=1))

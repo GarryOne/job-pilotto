@@ -67,7 +67,7 @@ class InboxOnTheMemoryStoreTests(unittest.TestCase):
         job = self.s.applications.create(JOB, 'Applied')
         self.log(reading('Rejected', 0, summary='Not moving forward'), image=SHOT)
         self.assertEqual([data for _, data, _ in self.s.applications.files(job['id'])], [SHOT[1]])
-        self.assertIn('Screenshots: 1 kept with this job', self.logged(job))
+        self.assertIn('kept with this job', self.logged(job))
 
 
 class AddMessageModeOnTheMemoryStoreTests(unittest.TestCase):

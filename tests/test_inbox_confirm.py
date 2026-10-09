@@ -4,9 +4,10 @@ import unittest
 from datetime import datetime, timezone
 
 from src.ai import inbox
+from src.stores import memory
 from tests.test_inbox import Inbox, SHOT, job, reading, row
-from tests.mail_fakes import FakeTracker, rec, stores_for
-from tests.test_inbox_gaps import EventsTracker, gmail_lead
+from tests.mail_fakes import stores_for
+from tests.test_inbox_gaps import gmail_lead, now_of
 from tests.test_opportunity import Client
 
 NOW = datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc)
@@ -96,13 +97,12 @@ class ConfirmedTests(unittest.TestCase):
         # The Gmail check tracked the job on 29 Sep. Claude read the LinkedIn chat as starting 30 Sep (later: no
         # change); you say it began 21 Sep: that's earlier, so Source and Reached via follow LinkedIn.
         proposal = {'item': {'platform': 'LinkedIn', 'first_contact': '2026-09-30T09:00:00Z', 'seen': SEEN}, 'kind': 'Reply received'}
-        stores = stores_for(FakeTracker([gmail_lead()]))   # the job, no events: its creation is its first contact
-        self.assertEqual(inbox._fill_gaps(stores, rec(stores, gmail_lead()), proposal['item']), [])
+        stores = memory.open_store()
+        self.assertEqual(inbox._fill_gaps(stores, gmail_lead(stores), proposal['item']), [])
         confirmed = inbox.confirm(proposal, started='2026-09-21')
-        tracker = FakeTracker([gmail_lead()])
-        stores = stores_for(tracker)
-        self.assertEqual(inbox._fill_gaps(stores, rec(stores, gmail_lead()), confirmed['item']), ['first contact on LinkedIn'])
-        self.assertEqual(tracker.updates[0][1]['Source'], {'select': {'name': 'LinkedIn'}})
+        stores = memory.open_store()
+        self.assertEqual(inbox._fill_gaps(stores, gmail_lead(stores), confirmed['item']), ['first contact on LinkedIn'])
+        self.assertEqual(now_of(stores)['source'], 'LinkedIn')
 
     def test_the_year_you_pick_dates_the_message_and_a_guessed_call_time_is_dropped(self):
         item = chat(kind='Reply received', when='2024-09-23T10:00:00+00:00', interview_at='2024-09-26T15:00:00+02:00',

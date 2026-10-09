@@ -48,13 +48,14 @@ test('the prep kit: its header line and every section, in order', () => {
   assert.deepEqual(words(prep.at(-1)), ['30 min: the DNS story', '20 min: Go basics']);
 });
 
-test('messages: the recruiter\'s message with its Full message folded, a logged entry folded under its date', () => {
+test('messages: the recruiter\'s message with its Full message folded, a logged entry under its own dated heading', () => {
   const messages = pageParts({sections}).groups.messages;
   const recruiter = messages.find(group => group.title === SECTIONS.recruiter);
   const full = recruiter.lines.find(line => line.fold !== undefined);
   assert.equal(full.fold, '📧 Full message');
   assert.ok(full.lines.some(line => /meet\.example\.com/.test(line.text)));
-  const logged = messages.flatMap(group => group.lines).find(line => /^📥 03 Oct 2026/.test(line.fold || ''));
+  // A logged entry is '### 📥 <day> · <summary>' in base.LOGGED on every store (src/stores append_entry): a group of its own, its quotes.
+  const logged = messages.find(group => /^📥 03 Oct 2026/.test(group.title || ''));
   assert.deepEqual(logged.lines.map(line => [line.text, line.quote]), [['Hi Alex,', true], ['Could we talk on Tuesday at 10:00?', true]]);
 });
 

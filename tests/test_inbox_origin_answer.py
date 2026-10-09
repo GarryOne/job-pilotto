@@ -7,7 +7,6 @@ from src.ai import inbox
 from tests.test_inbox import SHOT, job, row
 from tests.mail_fakes import stores_for
 from tests.test_inbox_confirm import NOW, Writes, chat
-from tests.test_inbox_gaps import EventsTracker
 from tests.test_opportunity import Client
 
 URL = 'https://x.test/zephyr'
