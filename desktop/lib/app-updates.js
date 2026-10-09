@@ -93,7 +93,8 @@ export function createAppUpdates(ctx) {
       appLog('update', `install ${updateOffer.version} over ${app.getVersion()}: started`);
       await updater.install(updateOffer, {exe: app.getPath('exe'), logFile: logFile(),
         onStep: text => { appLog('update', `install ${updateOffer.version}: ${text}`); toWindow('updateStep', text); },
-        quit: () => { appLog('update', `install ${updateOffer.version}: quitting so the new version can be put in place`); app.quit(); }});  // the quit dialog still asks if a job runs; the swap waits for the app to close
+        quit: () => { appLog('update', `install ${updateOffer.version}: quitting so the new version can be put in place`); app.quit(); },
+        explain: async update => { await dialog.showMessageBox(parentWindow(), updater.windowsExplanation(update)); }});  // the quit dialog still asks if a job runs; the swap waits for the app to close
       return {ok: true};
     } catch (error) {
       appLog('update', `install failed: ${error.message}`);

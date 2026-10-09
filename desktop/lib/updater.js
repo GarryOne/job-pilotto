@@ -138,14 +138,22 @@ export function macSwapScript(pid, oldApp, newApp, logFile = '') {
 }
 
 // The Windows update: the downloaded installer itself, started before the app quits, the way electron-updater does it. --updated
-// makes it wait for this app to close (and end it if it lingers), /S installs quietly with no wizard, --force-run opens the
-// new version when done (electron-builder's NSIS templates). No script: a PowerShell file in %TEMP% never ran on a managed PC
-// (Group Policy and AppLocker outrank -ExecutionPolicy Bypass), so the app closed and nothing came back (9 Oct 2026).
-export const WINDOWS_INSTALLER_ARGS = ['--updated', '/S', '--force-run'];
+// makes it wait for this app to close (and end it if it lingers) without asking, --force-run opens the new version when done
+// (electron-builder's NSIS templates). No script: a PowerShell file in %TEMP% never ran on a managed PC (Group Policy and AppLocker
+// outrank -ExecutionPolicy Bypass), so the app closed and nothing came back (9 Oct 2026). And not silent (no /S, no hidden window):
+// the person saw the app close and nothing for a minute, and could not tell an update from a crash (owner, 9 Oct 2026: "the user
+// doesn't understand what's happening"). The one-click installer asks nothing; it only shows its progress bar.
+export const WINDOWS_INSTALLER_ARGS = ['--updated', '--force-run'];
 
 // Downloads and installs `update`; calls quit() when the app should close. onStep(text) for progress.
+// What a Windows person reads before the app closes for an update (lib/app-updates.js shows it as a dialog).
+export const windowsExplanation = update => ({type: 'info', buttons: ['Install now'], defaultId: 0, title: 'Job Pilotto update',
+  message: `Installing Job Pilotto ${update.version}`,
+  detail: 'Job Pilotto closes now. A small installer window shows the progress (about a minute), then Job Pilotto opens again by itself. Your data stays as it is.'});
+// explain(update): Windows only, awaited after the download and before the installer starts: says what happens next (the app
+// closes, the installer shows its progress, the app opens again), so the closing window is never a surprise.
 export async function install(update, {exe, pid = process.pid, quit, onStep = () => {}, logFile = '', fetcher = globalThis.fetch,
-  platform = process.platform, spawn: run = spawn}) {
+  platform = process.platform, spawn: run = spawn, explain = async () => {}}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-update-'));
   onStep('Downloading…');
   const response = await fetcher(update.download);
@@ -153,8 +161,10 @@ export async function install(update, {exe, pid = process.pid, quit, onStep = ()
   const file = path.join(dir, platform === 'win32' ? 'Job-Pilotto-Setup.exe' : 'update.zip');
   fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
   if (platform === 'win32') {
+    onStep('Ready to install…');
+    await explain(update);
     onStep('Installing and restarting…');
-    const child = run(file, WINDOWS_INSTALLER_ARGS, {detached: true, stdio: 'ignore', windowsHide: true});
+    const child = run(file, WINDOWS_INSTALLER_ARGS, {detached: true, stdio: 'ignore'});   // its window shown: the progress is the feedback
     await new Promise((resolve, reject) => {   // a blocked installer (antivirus, AppLocker) says so here, and the app stays open
       child.once('error', error => reject(new Error(`The installer couldn't start: ${error.message}`)));
       child.once('spawn', resolve);

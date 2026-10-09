@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {asset, check, install, macSwapScript, newer, resetLimit, stableRelease} from '../lib/updater.js';
+import {asset, check, install, macSwapScript, newer, resetLimit, stableRelease, windowsExplanation} from '../lib/updater.js';
 
 test('versions compare as releases do: numbers, then a release beats its pre-releases', () => {
   assert.ok(newer('0.4.0-alpha.41', '0.4.0-alpha.39'));
@@ -51,13 +51,38 @@ test('installing on Windows starts the installer itself, quiet, updating and reo
   const run = calls[0];
   assert.match(run.file, /Job-Pilotto-Setup\.exe$/, 'the downloaded installer runs, no script in between');
   assert.ok(fs.existsSync(run.file));
-  // --updated: it waits for this app to close, then ends it if it lingers; /S: no wizard; --force-run: it opens the new version.
-  assert.deepEqual(run.args, ['--updated', '/S', '--force-run']);
+  // --updated: it waits for this app to close, then ends it if it lingers; --force-run: it opens the new version. Not /S, and its
+  // window not hidden: the person sees the installer's progress instead of a closed app and nothing (owner, 9 Oct 2026).
+  assert.deepEqual(run.args, ['--updated', '--force-run']);
+  assert.ok(!run.args.includes('/S'));
+  assert.ok(!run.options.windowsHide, 'the installer window is shown');
   assert.equal(run.options.detached, true, 'it outlives the app it is about to close');
   assert.ok(!calls.some(call => call.file === 'powershell.exe'));
   assert.equal(calls.at(-1), 'quit', 'the app quits only once the installer has started');
   assert.ok(calls.indexOf('unref') < calls.indexOf('quit'));
-  assert.deepEqual(steps, ['Downloading…', 'Installing and restarting…']);
+  assert.deepEqual(steps, ['Downloading…', 'Ready to install…', 'Installing and restarting…']);
+});
+
+test('on Windows the person is told what happens before the app closes, and nothing starts until they have read it', async () => {
+  const calls = [];
+  let release;
+  const explained = new Promise(resolve => { release = resolve; });
+  const done = install({version: '0.6.24', download: 'https://dl/exe'}, {
+    platform: 'win32', exe: 'C:\\Programs\\Job Pilotto\\Job Pilotto.exe',
+    fetcher: async () => ({ok: true, arrayBuffer: async () => new ArrayBuffer(4)}),
+    spawn: (file, args, options) => { calls.push('installer'); return fakeChild(calls, 'spawn'); },
+    quit: () => calls.push('quit'),
+    explain: async update => { calls.push(`explain ${update.version}`); await explained; },
+  });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(calls, ['explain 0.6.24'], 'the installer waits for the explanation');
+  release();
+  await done;
+  assert.deepEqual(calls.filter(call => call !== 'unref'), ['explain 0.6.24', 'installer', 'quit']);
+  const words = windowsExplanation({version: '0.6.24'});
+  assert.match(words.message, /0\.6\.24/);
+  assert.match(words.detail, /closes now.*installer window shows the progress.*opens again by itself/s);
+  assert.deepEqual(words.buttons, ['Install now']);
 });
 
 test('a Windows installer that cannot start leaves the app open and says why', async () => {
