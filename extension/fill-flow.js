@@ -264,7 +264,7 @@ export async function consider(tab, jobUrl) {
   // the person's details go in by the normal fill (the label meanings, any language); the passwords and the account button are account-step.js.
   if (role === 'account' && kind?.accountStep) {
     const host0 = (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })();
-    const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true})}).catch(() => null);
+    const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || ''})}).catch(() => null);
     if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; noted = 'account'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
   }
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,

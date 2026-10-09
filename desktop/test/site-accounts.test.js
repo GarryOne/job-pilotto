@@ -80,3 +80,42 @@ test('every settings answer to the window is the effective one: an unset account
     assert.match(source, /forWindow\(/, `${file} uses forWindow`);
   }
 });
+
+test('a saved password for the host means sign in first, once: no email recorded, or this email; another email is not ours; a refused sign-in then means sign-up (owner, 9 Oct 2026)', () => {
+  assert.equal(modeOf({}, 'career2.successfactors.eu', 'me@example.com', '', true), 'sign-in');   // an item with no email recorded
+  assert.equal(modeOf({}, 'career2.successfactors.eu', 'me@example.com', 'me@example.com', true), 'sign-in');
+  assert.equal(modeOf({}, 'career2.successfactors.eu', 'me@example.com', 'else@example.com', true), 'sign-up');
+  assert.equal(modeOf({}, 'career2.successfactors.eu', 'me@example.com', '', false), 'sign-up');   // no item at all
+  assert.equal(modeOf({}, 'career2.successfactors.eu', '', '', true), 'sign-up');   // no email of ours to sign in with
+  const refused = record({}, 'career2.successfactors.eu', 'me@example.com', 'refused');
+  assert.equal(modeOf(refused, 'career2.successfactors.eu', 'me@example.com', '', true), 'sign-up');   // the item does not prove an account here (one host serves several employers)
+  assert.equal(modeOf(record(refused, 'career2.successfactors.eu', 'me@example.com', 'confirmed'), 'career2.successfactors.eu', 'me@example.com', '', true), 'sign-in');   // a sign-up that worked
+});
+
+test('the app records a refused sign-in as state refused, without a confirmation to wait for', () => {
+  const source = fs.readFileSync(new URL('../lib/ext-server-handlers.js', import.meta.url), 'utf8');
+  assert.match(source, /state === 'refused'[\s\S]{0,200}record\(storage\.settings\(\)\.siteAccounts, host, email, 'refused', Date\.now\(\), /);
+  assert.match(source, /modeOf\(storage\.settings\(\)\.siteAccounts, host, email, credentials\.emailOf\(host\), !!answer\.ok, company\)/);
+});
+
+test('one host, several employers: each employer keeps its own state, and a new employer on a host with a saved password signs in first (SuccessFactors: Coop, Migros)', () => {
+  let accounts = record({}, 'career2.successfactors.eu', 'me@example.com', 'confirmed', 0, 'Coop Suisse');
+  assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', true, 'Coop Suisse'), 'sign-in');
+  assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', true, 'Migros'), 'sign-in');   // unseen employer: the saved password means try a sign-in first
+  assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', false, 'Migros'), 'sign-up');   // no item at all
+  accounts = record(accounts, 'career2.successfactors.eu', 'me@example.com', 'refused', 1, 'Migros');   // its sign-in was refused
+  assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', true, 'Migros'), 'sign-up');
+  assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', true, 'Coop Suisse'), 'sign-in');   // Coop is not flipped by Migros
+  accounts = record(accounts, 'career2.successfactors.eu', 'me@example.com', 'confirmed', 2, 'Migros');
+  assert.deepEqual(Object.keys(accounts['career2.successfactors.eu'].employers), ['Coop Suisse', 'Migros']);
+  assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', true, 'Migros'), 'sign-in');
+  assert.equal(modeOf(record({}, 'a.example', 'me@example.com', 'pending'), 'a.example', 'me@example.com', '', true, 'Anyone'), 'confirm');   // an old record without employers: the host's state
+});
+
+test('Credentials rows say which employers an account was used for, and cap them at six', () => {
+  let accounts = {};
+  for (const name of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) accounts = record(accounts, 'career2.successfactors.eu', 'me@example.com', 'confirmed', 0, name);
+  const rows = withAccounts([{host: 'career2.successfactors.eu', email: ''}], accounts);
+  assert.deepEqual(rows[0].employers.map(item => item.name), ['B', 'C', 'D', 'E', 'F', 'G']);
+  assert.equal(rows[0].email, 'me@example.com');
+});

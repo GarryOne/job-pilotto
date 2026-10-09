@@ -4,18 +4,32 @@
 // one is pending (nothing is pressed: the app waits for the mail), else 'sign-up' ('creating': the password was just made for a sign-up under way, no account yet). Guard: test/site-accounts.test.js.
 const key = host => String(host || '').trim().toLowerCase();
 
-// itemEmail: the email recorded on this host's password item in Settings → Credentials (an account made earlier, e.g. by Apply with Claude): the same address means we have an account.
-export function modeOf(accounts, host, email, itemEmail = '') {
-  const kept = accounts?.[key(host)];
-  if (!kept && email && itemEmail && itemEmail.toLowerCase() === String(email).toLowerCase()) return 'sign-in';
-  if (!kept || !email || String(kept.email || '').toLowerCase() !== String(email).toLowerCase()) return 'sign-up';
-  if (kept.state === 'creating') return 'sign-up';   // the app made this host's password for the sign-up now under way: not an account yet (Manor, 8 Oct 2026: the next page flipped to sign-in)
-  return kept.state === 'confirmed' ? 'sign-in' : 'confirm';
+// itemEmail: the email recorded on this host's password item in Settings → Credentials (an account made earlier, e.g. by Apply with Claude): the same address means we may have an account. hasItem: the host has an item at all (owner, 9 Oct 2026: "it should be in Settings → Credentials, otherwise create an account"): sign in first.
+export function modeOf(accounts, host, email, itemEmail = '', hasItem = false, company = '') {
+  const kept = accounts?.[key(host)], mine = String(email || '').toLowerCase(), name = employerName(company);
+  if (!mine) return 'sign-up';   // no email of ours to sign in with
+  const sameEmail = !!kept && String(kept.email || '').toLowerCase() === mine;
+  // One host can serve several employers (SuccessFactors: Coop, Migros), each with its own account: the employer's own state when we have one for it, else the host's.
+  const state = sameEmail ? (name && kept.employers ? kept.employers[name] : kept.state) : null;
+  if (state) {
+    if (state === 'creating' || state === 'refused') return 'sign-up';   // 'creating': the password was just made for a sign-up under way; 'refused': a sign-in with this email was refused here, so there is no account yet
+    return state === 'confirmed' ? 'sign-in' : 'confirm';
+  }
+  if (kept && !sameEmail) return 'sign-up';   // a record for another email
+  // No record of ours (for this employer): a Credentials item for this host may mean an account. The same email, or no email recorded: sign in FIRST (once; a refusal says 'refused' and the extension signs up). Another email: not ours.
+  if (itemEmail) return itemEmail.toLowerCase() === mine ? 'sign-in' : 'sign-up';
+  return hasItem ? 'sign-in' : 'sign-up';
 }
 
 // A new settings.siteAccounts with this host's account recorded (state 'pending' unless given); the other hosts are untouched.
-export function record(accounts, host, email, state = 'pending', now = Date.now()) {
-  return {...(accounts || {}), [key(host)]: {email: String(email || '').toLowerCase(), state, at: new Date(now).toISOString()}};
+// employer: the job's company, so one host that serves several employers keeps one state each (employers: {name: state}, the six latest).
+export const employerName = company => String(company || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+export function record(accounts, host, email, state = 'pending', now = Date.now(), employer = '') {
+  const before = accounts?.[key(host)], mail = String(email || '').toLowerCase(), name = employerName(employer);
+  const employers = Object.fromEntries(Object.entries(before && String(before.email || '').toLowerCase() === mail ? before.employers || {} : {}).filter(([kept]) => kept !== name));
+  if (name) employers[name] = state;
+  const latest = Object.entries(employers).slice(-6);
+  return {...(accounts || {}), [key(host)]: {email: mail, state, at: new Date(now).toISOString(), ...(latest.length ? {employers: Object.fromEntries(latest)} : {})}};
 }
 
 // How far the extension goes on a sign-up page (owner, 8 Oct 2026): 'full' = it also accepts the account's consent (a checkbox, or a link and the dialog's accept button, as the
@@ -28,14 +42,16 @@ export const automationOf = settings => (settings?.accountAutomation === 'assist
 
 // Settings → Credentials (lib/credentials.js lists the Keychain's password items, which know a host and sometimes an email): the account we made on a host, from settings.siteAccounts, fills
 // the email the item lacks and says where it stands. An account in the record whose host has no password item is listed too (its password was removed: Show finds none).
+// The employers an account was used for, for the Credentials row: [{name, state}], the latest last.
+const employersOf = kept => Object.entries(kept?.employers || {}).map(([name, state]) => ({name, state}));
 export function withAccounts(rows, accounts) {
   const known = new Set();
   const merged = (rows || []).map(row => {
     const kept = accounts?.[key(row.host)];
     if (!kept) return row;
     known.add(key(row.host));
-    return {...row, email: row.email || kept.email, state: kept.state, accountAt: kept.at, ...(row.email && kept.email && row.email.toLowerCase() !== kept.email ? {email: kept.email} : {})};
+    return {...row, email: row.email || kept.email, state: kept.state, accountAt: kept.at, employers: employersOf(kept), ...(row.email && kept.email && row.email.toLowerCase() !== kept.email ? {email: kept.email} : {})};
   });
-  for (const [host, kept] of Object.entries(accounts || {})) if (!known.has(host)) merged.push({host, email: kept.email, job: '', created: kept.at, state: kept.state, accountAt: kept.at});
+  for (const [host, kept] of Object.entries(accounts || {})) if (!known.has(host)) merged.push({host, email: kept.email, job: '', created: kept.at, state: kept.state, accountAt: kept.at, employers: employersOf(kept)});
   return merged;
 }

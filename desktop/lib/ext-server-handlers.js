@@ -28,7 +28,8 @@ export function registerExtServerHandlers(ctx) {
   const {DEMO, app, createWindow, cvOf, flow, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry, toWindow, getWindow, setRecipeReporter} = ctx;
   // A site with no account item yet gets the one job-site password (made the first time), kept under its own name so Settings →
   // Credentials lists it with the profile's email (owner, 8 Oct 2026: the whole flow by itself, one password reused everywhere).
-  server.setSitePasswordHandler(async ({host, peek} = {}) => {
+  server.setSitePasswordHandler(async ({host, peek, session: sessionId} = {}) => {
+    const company = String(terminals.record(String(sessionId || ''))?.company || '');   // the job's company: one host can serve several employers, each with its own account
     const applying = terminals.list().some(session => !session.outcome && !session.endedAt);
     if (DEMO || !applying || !credentials.forExtension(host, {applying, read: () => 'x'}).ok) {
       appLog('extension', 'site password refused', {host: String(host || '').slice(0, 120), applying});
@@ -37,14 +38,14 @@ export function registerExtServerHandlers(ctx) {
     let answer = credentials.forExtension(host, {applying});
     let made = false;
     const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
-    const mode = modeOf(storage.settings().siteAccounts, host, email, credentials.emailOf(host));   // our record, else the email on the Credentials item
+    const mode = modeOf(storage.settings().siteAccounts, host, email, credentials.emailOf(host), !!answer.ok, company);   // our record, else the Credentials item (its email, or just that it exists): sign in first
     if (peek) return {ok: true, mode, email};   // the extension only asks which step this site is for this email (no password is made or read)
     if (!answer.ok) {
       const {code} = await pipeline.run(storage, ['src.ai.passwords', 'new', host, '--no-copy', ...(email ? ['--email', email] : [])]);
       made = code === 0;
       answer = credentials.forExtension(host, {applying});
       // The password item now carries this email, which the next page would read as "an account made earlier": say the sign-up is only under way.
-      if (made && email && !storage.settings().siteAccounts?.[String(host).trim().toLowerCase()]) storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'creating')});
+      if (made && email && !storage.settings().siteAccounts?.[String(host).trim().toLowerCase()]) storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'creating', Date.now(), company)});
     }
     appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok});   // which site, never the password
     // sign-in only where THIS email has an account on this site (recorded when a sign-up was confirmed); anywhere else the extension signs up.
@@ -54,14 +55,19 @@ export function registerExtServerHandlers(ctx) {
   server.setAccountPressedHandler(async ({host, state, session} = {}) => {
     const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
     if (!host || !email) { appLog('extension', 'account made but not recorded', {host: String(host || '').slice(0, 120), email: !!email}); return; }
+    if (state === 'refused') {   // a sign-in with this email was refused here (the account judge, any language): no account yet; the next look signs up (under full)
+      storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'refused', Date.now(), terminals.record(String(session || ''))?.company || '')});
+      appLog('extension', 'sign-in refused: no account for this email on this site, sign-up next', {host: String(host).slice(0, 120)});
+      return;
+    }
     // confirmed: usable at once (signed in, or the site moved on); exists: it was there before, the sign-in is tried; pending: a confirmation mail (or a code) is awaited.
     const usable = state === 'confirmed' || state === 'exists';
-    storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, usable ? 'confirmed' : 'pending')});
+    storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, usable ? 'confirmed' : 'pending', Date.now(), terminals.record(String(session || ''))?.company || '')});
     if (session) terminals.setAccount(session, state === 'confirmed' ? 'created' : state === 'exists' ? 'exists' : 'confirm');   // the session card says so
     appLog('extension', usable ? `account ${state === 'exists' ? 'already exists: the sign-in is tried' : 'created: usable at once'}` : 'account created: waiting for the confirmation', {host: String(host).slice(0, 120)});
     // A mail to confirm: looked for in the background (Gmail, read-only; the AI picks the link or code): its link opens in the extension's Chrome.
     if (!usable && !DEMO) confirmAccount({host, email, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link),
-      mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed')}); if (session) terminals.setAccount(session, 'created'); }}).catch(error => appLog('extension', 'account confirmation failed', {error: String(error?.message || error).slice(0, 120)}));
+      mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed', Date.now(), terminals.record(String(session || ''))?.company || '')}); if (session) terminals.setAccount(session, 'created'); }}).catch(error => appLog('extension', 'account confirmation failed', {error: String(error?.message || error).slice(0, 120)}));
   });
   // A page of a session's form reported: its tab is open, so a stopped Claude session is not "Ended" (terminals.formInChrome).
   const formSeen = id => { if (id && terminals.formInChrome(id)) appLog('sessions', 'form open in Chrome: the session is active again', {id}); };

@@ -43,6 +43,21 @@ export function resultAction(answer) {
 // One look at a time per tab (the panel asks every few seconds: a second look while the first still waits for the AI only repeats it), and an unchanged page is not judged
 // again: the AI's answer is kept for the sketch it was given, so it is asked again only when the page changed (a box filled, a consent accepted, an error shown).
 const looking = new Set(), judged = new Map(), lastSaid = new Map(), kinds = new Map(), unsureSeen = new Map();
+// The hint on the page ("Needs you: …") belongs to the form it was flagged on. Many sites keep one address while the page changes under it (SuccessFactors: sign-up → sign-in), so the hint is
+// cleared when the form's outline is no longer the flagged one (twin, 9 Oct 2026: "Solve the check" stayed on a sign-in page).
+const lastOutline = new Map(), flaggedOn = new Map();
+async function flag(tab, frameId, needs) {
+  await run(tab, frameId, flagAccount, [needs]);
+  if (needs === null) flaggedOn.delete(tab.id); else flaggedOn.set(tab.id, lastOutline.get(tab.id) || '');
+}
+// A decision said once per tab and kind while it stays the same (the panel looks again every 2 s: the same line over and over helps nobody).
+const saidBefore = new Map();
+function sayOnce(tab, kind, text, fields) {
+  const mine = saidBefore.get(tab.id) || saidBefore.set(tab.id, new Map()).get(tab.id);
+  if (mine.get(kind) === text) return;
+  mine.set(kind, text);
+  decide('fill', text, fields);
+}
 // The page kind of this tab's page, kept 20 s (the app remembers it too, but asking and logging it at every look is noise): a new address asks again.
 async function askKindOnce(tab) {
   const key = tab.url.split('#')[0], kept = kinds.get(tab.id);
@@ -76,6 +91,9 @@ const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, ac
 async function judge(tab, frameId, phase, config, fromPath = '', formBefore = '') {
   const sketch = await run(tab, frameId, accountSketch);
   if (!sketch) return null;
+  const outline = formOutline(sketch);
+  lastOutline.set(tab.id, outline);
+  if (flaggedOn.has(tab.id) && flaggedOn.get(tab.id) !== outline) await flag(tab, frameId, null);   // another form now: its hint is not this page's
   if (fromPath) sketch.fromPath = fromPath;   // where the sign-up form was: the AI sees whether the page moved on
   if (formBefore) sketch.sameForm = formOutline(sketch) === formBefore ? 'yes' : 'no';   // a fact of structure; what it means is the AI's word
   const key = `${tab.id} ${phase}`, sig = signature(sketch);
@@ -101,7 +119,14 @@ async function outcomeOnce(tab, frameId, memo) {
   const result = await judge(tab, frameId, 'result', config, memo.path || '', memo.form || '');
   const action = resultAction(result?.answer);
   decide('fill', `account result: ${result?.answer || 'no AI'}`, {host, action});
-  if (action === 'flag') { await run(tab, frameId, flagAccount, [result.needs || '']); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
+  if (action === 'flag' && memo.signin) {   // a sign-in the site refused (any language: the account AI's word): no account for this email here. Said to the app, which answers sign-up the next look (once per tab: a rejected sign-in is never retried)
+    await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
+    const refusedFor = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
+    decide('fill', 'sign-in refused: sign-up next', {host});
+    api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: tab.url.split('#')[0], state: 'refused', session: refusedFor})}).catch(() => {});
+    return;
+  }
+  if (action === 'flag') { await flag(tab, frameId, result.needs || ''); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
   if (action === 'none') return;
   await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
   const session = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
@@ -127,7 +152,8 @@ async function accountStepOnce(tab, frameId) {
   await run(tab, frameId, markAccountStep, [step]);
   stepOf.set(tab.id, step);
   if (work && !step && !work.empty) return {filled: 0};   // no step the AI knows: the password only, and every box already has one
-  const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host})});
+  const sessionId = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
+  const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host, session: sessionId})});
   if (!answer?.ok || !answer.password) return {filled: 0};
   const move = accountMove({step, mode: answer.mode, hasEmail: !!answer.email, registerControl: kind?.registerControl, signinControl: kind?.signinControl});
   const said = `${move} ${step} ${answer.mode}`;
@@ -140,13 +166,13 @@ async function accountStepOnce(tab, frameId) {
     if (!(await alreadyTried(tab, move))) {
       const result = await run(tab, frameId, pressRegister, [move === 'register' ? kind.registerControl : kind.signinControl]);
       if (result === 'pressed') await markTried(tab, move);
-      decide('fill', `${move} control: ${result}`, {host});
+      sayOnce(tab, 'control', `${move} control: ${result}`, {host});
       if (result === 'not-found') await closerLook(tab, frameId, `the ${move} control the AI named was not found`);   // opt-in (lib/escalate.js)
     }
     return {filled: 0};
   }
   const filled = await run(tab, frameId, fillAccountBoxes, [answer.password]) || 0;
-  if (step === 'sign_up' && answer.mode === 'sign-up') await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120)}}).catch(() => {});   // a sign-up form is open in this tab
+  if ((step === 'sign_up' && answer.mode === 'sign-up') || (step === 'sign_in' && answer.mode === 'sign-in')) await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), signin: step === 'sign_in'}}).catch(() => {});   // a sign-up (or a sign-in we expect to work) form is open in this tab: what becomes of it is the account AI's word
   if (filled) decide('fill', 'password filled from the Keychain', {host, boxes: filled});
   const submitKey = `submit-${step}`;   // one press per tab and STEP: a sign-up pressed here must not block the sign-in that follows in the same tab
   if (move === 'fill-press' && !(await alreadyTried(tab, submitKey))) {
@@ -159,20 +185,20 @@ async function accountStepOnce(tab, frameId) {
         await chrome.storage.session.set({[key]: presses + 1}).catch(() => {});
         decide('fill', `consent accepted: ${await run(tab, frameId, pressRegister, [ready.needs])}`, {host, press: presses + 1});
       } else {
-        decide('fill', `account button: not pressed (${ready ? (ready.botCheck ? 'a bot check' : ready.answer) : 'no AI'})`, {host, automation: answer.automation || ''});
-        if (ready && (ready.botCheck || ready.answer === 'needs_person')) await run(tab, frameId, flagAccount, [ready.botCheck ? botCheckNeed(kind?.accountButton) : ready.needs || '']);
+        sayOnce(tab, 'button', `account button: not pressed (${ready ? (ready.botCheck ? 'a bot check' : ready.answer) : 'no AI'})`, {host, automation: answer.automation || ''});
+        if (ready && (ready.botCheck || ready.answer === 'needs_person')) await flag(tab, frameId, ready.botCheck ? botCheckNeed(kind?.accountButton) : ready.needs || '');
         await giveUp(tab, host, !ready ? 'no AI answer' : ready.botCheck ? 'a bot check' : 'something only the person can give', ready?.botCheck ? botCheckNeed(kind?.accountButton) : ready?.needs || '');
       }
     } else {
-      await run(tab, frameId, flagAccount, [null]);   // nothing is owed any more: the panel stops saying so
+      await flag(tab, frameId, null);   // nothing is owed any more: the panel stops saying so
       const form = formOutline(await run(tab, frameId, accountSketch));   // the form as it is pressed
       await new Promise(resolve => setTimeout(resolve, 800));
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
-      decide('fill', `account button: ${result || 'not run'}`, {host});
-      if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await run(tab, frameId, flagAccount, [need]); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
+      sayOnce(tab, 'button', `account button: ${result || 'not run'}`, {host});
+      if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await flag(tab, frameId, need); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
       if (result === 'pressed') {
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
-        await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form}}).catch(() => {});
+        await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form, signin: step === 'sign_in'}}).catch(() => {});
         await new Promise(resolve => setTimeout(resolve, 4000));
         await accountOutcome(await chrome.tabs.get(tab.id).catch(() => tab));
       }
