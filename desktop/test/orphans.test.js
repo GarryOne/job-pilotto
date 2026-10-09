@@ -27,11 +27,19 @@ test('quiet for the limit, or running too long, is stopped; one that still uses 
   assert.match(stale([{pid: 2, elapsed: 50 * 60, cpu: 5}], new Map(), 0)[0].why, /running 50 min/);
 });
 
-test('the watchdog stops a stuck orphan with SIGTERM and says so in the log', {skip: process.platform === 'win32' && 'the watchdog is Mac/Linux only'}, async () => {
+// Each test waits for what it checks (the SIGTERM, the row closed), not a fixed time: a 50 ms wait failed on a loaded machine (9 Oct 2026).
+// A watchdog that never acts fails on the test's timeout.
+test('the watchdog stops a stuck orphan with SIGTERM and says so in the log', {skip: process.platform === 'win32' && 'the watchdog is Mac/Linux only', timeout: 10000}, async () => {
   const sent = [], logged = [];
   const limits = {quietMs: 0, totalMs: ORPHAN.totalMs, killAfterMs: 10};
-  const stop = watchOrphans((...args) => logged.push(args), {every: 1e9, limits, platform: 'darwin', list: async () => PS, kill: (pid, signal) => { sent.push([pid, signal]); if (signal === 0) throw new Error('gone'); }});
-  await new Promise(resolve => setTimeout(resolve, 50));
+  let termed;
+  const term = new Promise(resolve => { termed = resolve; });
+  const stop = watchOrphans((...args) => logged.push(args), {every: 1e9, limits, platform: 'darwin', list: async () => PS, kill: (pid, signal) => {
+    sent.push([pid, signal]);
+    if (signal === 'SIGTERM') termed();
+    if (signal === 0) throw new Error('gone');
+  }});
+  await term;
   stop();
   assert.deepEqual(sent.slice(0, 1), [[40107, 'SIGTERM']]);
   assert.equal(logged[0][0], 'run');
@@ -39,10 +47,15 @@ test('the watchdog stops a stuck orphan with SIGTERM and says so in the log', {s
   assert.equal(JSON.stringify(logged[0][2]).includes('--send'), false, 'no command line in the log');
 });
 
-test('a stopped orphan has its Notion row closed afterwards (a killed run cannot close its own)', async () => {
+test('a stopped orphan has its Notion row closed afterwards (a killed run cannot close its own)', {timeout: 10000}, async () => {
   const stopped = [], limits = {quietMs: 0, totalMs: ORPHAN.totalMs, killAfterMs: 20};
-  const stop = watchOrphans(() => {}, {every: 1e9, limits, platform: 'darwin', list: async () => PS, kill: (pid, signal) => { if (signal === 0) throw new Error('gone'); }, onStopped: async run => { stopped.push(run.pid); }});
-  await new Promise(resolve => setTimeout(resolve, 120));
+  let closed;
+  const rowClosed = new Promise(resolve => { closed = resolve; });
+  const stop = watchOrphans(() => {}, {every: 1e9, limits, platform: 'darwin', list: async () => PS, kill: (pid, signal) => { if (signal === 0) throw new Error('gone'); },
+    onStopped: async run => { stopped.push(run.pid); closed(); }});
+  const awake = setInterval(() => {}, 1000);   // the watchdog's timers are unref'd (they never hold the app open): this holds the test open
+  await rowClosed;
+  clearInterval(awake);
   stop();
   assert.deepEqual(stopped, [40107]);
 });
