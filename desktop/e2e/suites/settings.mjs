@@ -28,36 +28,40 @@ export async function run(ctx) {
     }
   }, {needs: ctx.needs});
   await ctx.run('the AI engine panel is coherent with each engine chosen (a key is saved in both)', async () => {
-    // This step goes from the API key to Claude Code and back. A Mac is seeded on Claude Code (lib/seed.mjs): start from the API key, as CI does.
-    if (ctx.engine === 'cli') {
-      await page.evaluate(async () => { await window.pilot.setAiEngine('api'); await window.pilot.saveSettings({claudeCodeNotice: false}); });   // the seed accepted the one-time notice
+    // The family under test's pair (lib/engine.mjs): Claude Code and the Anthropic key, or Codex and the OpenAI key (9 Oct 2026: the first OpenAI run looked for
+    // Claude Code in a panel that showed OpenAI's cards). This step goes from the API key to the family's CLI and back. A Mac is seeded on the CLI (lib/seed.mjs): start from the key, as CI does.
+    const openai = ctx.family === 'openai';
+    const pair = openai ? {cli: 'codex', api: 'openai', name: 'Codex', notice: 'codexNotice', status: 'codexStatus'} : {cli: 'cli', api: 'api', name: 'Claude Code', notice: 'claudeCodeNotice', status: 'claudeCodeStatus'};
+    if (['cli', 'codex'].includes(ctx.engine)) {
+      await page.evaluate(async ({api, notice}) => { await window.pilot.setAiEngine(api); await window.pilot.saveSettings({[notice]: false}); }, pair);   // the seed accepted the one-time notice
       await page.reload();
       await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     }
     await page.click('[data-settings-go="connections"]');
-    // The engine panel opens from its service row's Manage button (the "AI" row: "Claude or OpenAI: …"), as it does for a person.
+    // The engine panel opens from its service row's Manage button (the "AI" row: "Claude or OpenAI: …"), as it does for a person; it shows the chosen engine's family.
     await page.locator('#conn-on .service-card, #conn-off .service-card').filter({hasText: 'Claude or OpenAI'}).first().getByRole('button').click();
-    await page.locator('#ai-engine-settings [data-choice="cli"]').waitFor({state: 'visible', timeout: 15000});
-    // Choosing Claude Code asks first (a notice whose confirm button carries data-notice="yes"); the engine only switches on the confirm. Then back to the API key, which switches at once.
-    // A CI runner has no Claude Code (6 Oct 2026, the first real CI run of this suite): there the app must refuse the switch and say why; on a Mac with it, switch.
-    const installed = (await page.evaluate(() => window.pilot.claudeCodeStatus()))?.installed;
-    await page.locator('#ai-engine-settings [data-choice="cli"]').click();
+    const card = id => `#ai-engine-settings [data-choice="${id}"]`;
+    await page.locator(card(pair.cli)).waitFor({state: 'visible', timeout: 15000});
+    // Choosing the CLI asks first (a notice whose confirm button carries data-notice="yes"); the engine only switches on the confirm. Then back to the API key, which switches at once.
+    // A CI runner has no Claude Code or Codex (6 Oct 2026, the first real CI run of this suite): there the app must refuse the switch and say why; on a Mac with it, switch.
+    const installed = (await page.evaluate(status => window.pilot[status](), pair.status))?.installed;
+    await page.locator(card(pair.cli)).click();
     if (!installed) {
       await page.locator('[data-notice="yes"]').click().catch(() => {});   // the confirm may not be offered at all without it
-      await page.waitForFunction(() => /not installed/i.test(document.getElementById('ai-engine-settings')?.textContent || ''), null, {timeout: 15000})
-        .catch(() => { throw new Error('without Claude Code the panel does not say it is not installed'); });
-      if (await page.evaluate(() => document.querySelector('#ai-engine-settings [data-choice="cli"]')?.getAttribute('aria-checked')) === 'true') throw new Error('the app switched to Claude Code although it is not installed');
-      await snap(ctx, 'settings-engine-cli-missing', {view: 'settings', situation: 'Claude Code CLI chosen on a computer where it is not installed: the API key stays the engine'});
+      await page.waitForFunction(() => /not installed|not found/i.test(document.getElementById('ai-engine-settings')?.textContent || ''), null, {timeout: 15000})
+        .catch(() => { throw new Error(`without ${pair.name} the panel does not say it is not installed`); });
+      if (await page.evaluate(selector => document.querySelector(selector)?.getAttribute('aria-checked'), card(pair.cli)) === 'true') throw new Error(`the app switched to ${pair.name} although it is not installed`);
+      await snap(ctx, `settings-engine-${pair.cli}-missing`, {view: 'settings', situation: `${pair.name} chosen on a computer where it is not installed: the API key stays the engine`});
       return;
     }
     await page.locator('[data-notice="yes"]').click();
-    await page.waitForFunction(() => document.querySelector('#ai-engine-settings [data-choice="cli"]')?.getAttribute('aria-checked') === 'true', null, {timeout: 15000});
+    await page.waitForFunction(selector => document.querySelector(selector)?.getAttribute('aria-checked') === 'true', card(pair.cli), {timeout: 15000});
     await page.waitForTimeout(800);
-    await snap(ctx, 'settings-engine-cli-chosen', {view: 'settings', situation: 'Claude Code CLI is the chosen engine, and an Anthropic API key is saved'});
-    await page.locator('#ai-engine-settings [data-choice="api"]').click();
-    await page.waitForFunction(() => document.querySelector('#ai-engine-settings [data-choice="api"]')?.getAttribute('aria-checked') === 'true', null, {timeout: 15000});
+    await snap(ctx, `settings-engine-${pair.cli}-chosen`, {view: 'settings', situation: `${pair.name} is the chosen engine, and an ${openai ? 'OpenAI' : 'Anthropic'} API key is saved`});
+    await page.locator(card(pair.api)).click();
+    await page.waitForFunction(selector => document.querySelector(selector)?.getAttribute('aria-checked') === 'true', card(pair.api), {timeout: 15000});
     await page.waitForTimeout(800);
-    await snap(ctx, 'settings-engine-api-chosen', {view: 'settings', situation: 'The Anthropic API key is the chosen engine'});
+    await snap(ctx, `settings-engine-${pair.api}-chosen`, {view: 'settings', situation: `The ${openai ? 'OpenAI' : 'Anthropic'} API key is the chosen engine`});
   }, {needs: ctx.needs});
   await ctx.run('the CV check reads real PDFs: a plain CV passes, each known problem is found, a picture of a CV fails', async () => {
     const target = path.join(ctx.profile, 'cv.pdf'), original = fs.existsSync(target) ? fs.readFileSync(target) : null;

@@ -58,7 +58,7 @@ export async function run(ctx) {
   };
   const usage = {calls: 0, usd: 0, input: 0, output: 0};
   const ask = async messages => {
-    const answer = await modelFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': ctx.key, 'anthropic-version': '2023-06-01'},
+    const answer = await modelFetch('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'content-type': 'application/json', 'x-api-key': ctx.judgeKey, 'anthropic-version': '2023-06-01'},
       body: JSON.stringify({model: MODEL, max_tokens: 1024, system: SYSTEM, tools: tools(VIEWS), messages})});
     const body = await answer.json();
     if (!answer.ok) throw new Error(`${answer.status} ${body?.error?.message || ''}`);

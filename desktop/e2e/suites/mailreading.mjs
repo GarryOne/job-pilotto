@@ -4,6 +4,7 @@
 import {execFile} from 'node:child_process';
 import path from 'node:path';
 import {startAiProxy} from '../lib/ai-proxy.mjs';
+import {familyOf, testKey} from '../lib/engine.mjs';
 import {python, pythonEnv} from '../lib/python.mjs';
 
 export const name = 'mailreading';
@@ -22,7 +23,9 @@ export async function run(ctx) {
     try {
     report = await new Promise(resolve => execFile(python(), [path.join(repo, 'tools', 'mail_eval.py')], {
       cwd: repo, timeout: 4 * 60 * 1000, maxBuffer: 4 << 20,
-      env: pythonEnv({ANTHROPIC_API_KEY: ctx.key, JOB_PILOTTO_AI_ENGINE: ctx.engine, ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})}),
+      // The product's mail prompt runs on the app's family: an OpenAI turn reads the emails with the OpenAI test key (lib/engine.mjs), never Claude's key under an OpenAI engine.
+      env: pythonEnv({JOB_PILOTTO_AI_ENGINE: ctx.engine, ...(familyOf(ctx.engine) === 'openai' ? {OPENAI_API_KEY: testKey(process.env, ctx.engine)} : {ANTHROPIC_API_KEY: ctx.key}),
+        ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})}),
     }, (error, stdout, stderr) => resolve({code: error ? (error.code ?? 1) : 0, out: String(stdout), err: String(stderr)})));
     } finally { await proxy?.close(); }
     console.log(report.out.split('\n').filter(line => /^(ok|MISS)|right/.test(line)).map(line => `  ${line}`).join('\n'));

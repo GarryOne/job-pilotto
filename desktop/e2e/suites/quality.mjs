@@ -207,7 +207,7 @@ export async function run(ctx) {
           const produced = [p.Reason, p.Strengths && `Strengths: ${p.Strengths}`, p.Gaps && `Gaps: ${p.Gaps}`];
           const facts = Object.fromEntries(['Seniority', 'Work mode', 'Languages', 'Salary', 'Role family', 'Technologies', 'Recruiter'].map(column => [column, p[column]]));
           // The employer is on every posting the app read (fixtures/golden/sources.json): without it the judge called the company's own name invented (Windows run 37150232804, job 3008).
-          const verdict = await judge({key: ctx.key, posting: {...item, company: item.company || read('sources.json')[0].company}, profile, produced, facts});
+          const verdict = await judge({key: ctx.judgeKey, posting: {...item, company: item.company || read('sources.json')[0].company}, profile, produced, facts});
           verdicts.push({id: item.id, title: item.title, produced, verdict});
           const bad = failures(verdict);
           if (bad.length) problems.push(`"${item.title}" ${bad.join(' and ')}: ${verdict.why} [text: ${produced.filter(Boolean).join(' / ')}]`);
@@ -234,7 +234,7 @@ export async function run(ctx) {
       const TERMS = persona?.cvMatch?.terms ?? ['kubernetes', 'terraform', 'aws', 'datadog', 'opentelemetry', 'slos'];
       let expected = 0, got = 0, corrected = 0;
       for (const item of postings.filter(entry => entry.fit === 'high').slice(0, 3)) {
-        const result = await check({}, ctx.key, {job: item, cv, client: modelClient({key: ctx.key})});   // through lib/model.mjs either way: Claude Code on a Mac, the API in CI (counted for /ai-cost)
+        const result = await check({}, ctx.key, {job: item, cv, client: modelClient({key: ctx.judgeKey})});   // through lib/model.mjs either way: Claude Code on a Mac, the API in CI (counted for /ai-cost)
         corrected += result.corrected;
         for (const term of TERMS.filter(candidateTerm => text.includes(candidateTerm) && item.description.toLowerCase().includes(candidateTerm))) {
           expected++;

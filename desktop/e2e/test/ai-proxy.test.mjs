@@ -2,7 +2,10 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
-import {FAILURES, failureFor, startAiProxy} from '../lib/ai-proxy.mjs';
+import OpenAI from 'openai';
+import {AiLimit, AiUnavailable} from '../../lib/ai/contract.js';
+import {OpenAiApi} from '../../lib/ai/openai-api.js';
+import {FAILURES, OPENAI_FAILURES, asAnthropic, failureFor, startAiProxy} from '../lib/ai-proxy.mjs';
 
 const post = url => fetch(`${url}/v1/messages`, {method: 'POST', body: '{}', headers: {'content-type': 'application/json'}});
 
@@ -64,4 +67,61 @@ test('a refusal asks for an almost immediate retry, so the SDK does not back off
       assert.equal(answer.headers.get('retry-after-ms'), '10', mode);
     }
   } finally { await proxy.close(); }
+});
+
+// ---- An OpenAI turn (9 Oct 2026: the first OpenAI CI run let every stand-in through to the real model and no fault ever fired) ----
+// The real adapter and SDK (desktop/lib/ai/openai-api.js) against the OpenAI proxy that follows the suite's proxy: the shapes are proven by the code that reads them.
+
+async function openaiTurn() {
+  let reached = 0;
+  const target = http.createServer((req, res) => { reached++; res.writeHead(500); res.end('{}'); });   // the "real" OpenAI: never to be reached here
+  await new Promise(resolve => target.listen(0, '127.0.0.1', resolve));
+  const suite = await startAiProxy({target: `http://127.0.0.1:${target.address().port}`});
+  const openai = await startAiProxy({target: `http://127.0.0.1:${target.address().port}`, kind: 'app-openai', metered: /\/responses(\?|$)/, shape: 'openai', follow: suite});
+  const engine = new OpenAiApi({sdk: new OpenAI({apiKey: 'sk-test', baseURL: `${openai.url}/v1`, maxRetries: 0})});
+  return {suite, openai, engine, reached: () => reached, close: async () => { await openai.close(); await suite.close(); await new Promise(resolve => target.close(resolve)); }};
+}
+const ask = (engine, text, more = {}) => engine.complete({model: 'fast', system: 'You pick a menu choice.', messages: [{role: 'user', parts: [text]}], maxTokens: 100, ...more});
+
+test("an OpenAI turn's calls are answered by the suite's stand-in, which reads them as Messages bodies", async () => {
+  const turn = await openaiTurn();
+  const seen = [];
+  turn.suite.setCanned(body => { seen.push(body); return typeof body.messages[0].content === 'string' && body.messages[0].content.startsWith('{"question"') ? JSON.stringify({choice: 'Suisse'}) : null; });
+  try {
+    const answer = await ask(turn.engine, JSON.stringify({question: 'Indicatif', answer: '+41', choices: ['France', 'Suisse']}), {schema: {type: 'object', properties: {choice: {type: 'string'}}, required: ['choice']}});
+    assert.deepEqual(JSON.parse(answer.content[0].text), {choice: 'Suisse'});
+    assert.equal(seen[0].system, 'You pick a menu choice.');
+    assert.equal(turn.suite.stats.canned, 1);   // counted where the suite looks
+    assert.equal(turn.reached(), 0);
+    // Streamed (the strategy draft's progress bar): the same answer through the SDK's event stream.
+    const deltas = [];
+    const streamed = await turn.engine.messages.stream({model: 'fast', max_tokens: 100, messages: [{role: 'user', content: JSON.stringify({question: 'Indicatif', answer: '+41', choices: ['Suisse']})}]})
+      .on('text', delta => deltas.push(delta)).finalMessage();
+    assert.equal(streamed.content[0].text, '{"choice":"Suisse"}');
+    assert.deepEqual(deltas, ['{"choice":"Suisse"}']);
+  } finally { await turn.close(); }
+});
+
+test("a fault the suite sets fires on an OpenAI turn, in OpenAI's own error shape, and is counted on the suite's proxy", async () => {
+  const turn = await openaiTurn();
+  try {
+    turn.suite.setMode('no-credit');
+    await assert.rejects(ask(turn.engine, 'hello'), error => error instanceof AiLimit);   // insufficient_quota: the spending limit, final
+    turn.suite.setMode('invalid-key');
+    await assert.rejects(ask(turn.engine, 'hello'), error => error instanceof AiLimit);
+    turn.suite.setMode('rate-limit');
+    await assert.rejects(ask(turn.engine, 'hello'), error => error instanceof AiUnavailable);
+    turn.suite.setMode('server-error');
+    await assert.rejects(ask(turn.engine, 'hello'), error => error instanceof AiUnavailable);
+    assert.equal(turn.suite.stats.failed, 4);
+    assert.equal(turn.reached(), 0);
+    assert.deepEqual(Object.keys(OPENAI_FAILURES).sort(), Object.keys(FAILURES).sort());   // a new Anthropic fault needs its OpenAI twin
+  } finally { await turn.close(); }
+});
+
+test('a Responses body reads as a Messages body: files are documents, one text part is a string', () => {
+  const body = asAnthropic({model: 'gpt', instructions: 'sys', input: [{role: 'user', content: [{type: 'input_file', file_data: 'x'}, {type: 'input_text', text: 'read it'}]}, {role: 'user', content: [{type: 'input_text', text: '<cv>'}]}]});
+  assert.equal(body.system, 'sys');
+  assert.deepEqual(body.messages[0].content, [{type: 'document'}, {type: 'text', text: 'read it'}]);
+  assert.equal(body.messages[1].content, '<cv>');
 });

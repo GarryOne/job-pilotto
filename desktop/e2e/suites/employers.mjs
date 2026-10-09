@@ -213,7 +213,7 @@ export async function run(ctx) {
     const added = state.rows.filter(row => row.Active === true);
     const items = added.map(row => ({name: row.Company, board: row.ATS, quality: row.Quality, cities: row.Cities, why: row.Notes, relevantRoles: row['Relevant roles'], inPreferredPlaces: row['In preferred places']}));
     if (items.length !== 2) throw new Error(`expected two added employers to judge, found ${items.length}`);
-    const verdicts = await judge({key: ctx.key, person: `${PERSON} ${QUALITY_NOTE}`, items});
+    const verdicts = await judge({key: ctx.judgeKey, person: `${PERSON} ${QUALITY_NOTE}`, items});
     console.log(`  judge: ${verdicts.map(item => `${item.name}: ${item.makes_sense ? 'yes' : 'NO'} (${item.reason})`).join(' | ')}`);
     const problems = judgeProblems(items.map(item => item.name), verdicts);
     if (problems.length) throw new Error(problems.join('; '));
@@ -234,7 +234,7 @@ export async function run(ctx) {
     if (ctx.audience === 'non-it') {
       // Does the app speak to THIS candidate? Everything the pages show, every tip the bars can show, judged against who the candidate is (lib/fit.mjs): no word list, any profession.
       const pages = await collect(ctx.page, ['focus', 'jobs', 'interviews', 'strategy', 'actions', 'settings']);
-      const verdict = await fitJudge({key: ctx.key, candidate: persona.person, pages});
+      const verdict = await fitJudge({key: ctx.judgeKey, candidate: persona.person, pages});
       console.log(`  fit judge: ${pages.length} pages read, ${verdict.issues.length} line(s) written for another kind of candidate${verdict.unverified ? `, ${verdict.unverified} quote(s) not on the page dropped` : ''}`);
       if (verdict.unreadable) throw new Error('the fit judge gave a reply that cannot be read: that is not a pass');
       ctx.findings.push(...fitFindings(verdict.issues));

@@ -46,8 +46,11 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, report, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
-  if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
-  const ctx = {suite, key, token, runner, standIn, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
+  // The test's own judges and evals (lib/judge.mjs, fit.mjs, model.mjs, the explore agent) are Claude whatever the app runs on, so both families are judged
+  // by one model: always the Anthropic test key, never the app's (9 Oct 2026: the first OpenAI run sent the OpenAI key to Anthropic, 401).
+  const judgeKey = KEY();
+  if (light) return {suite, key, judgeKey, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
+  const ctx = {suite, key, judgeKey, token, runner, standIn, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
     engine, family: familyOf(engine), appKey: appKey(key), needsKey: isCi() ? [{name: keySecret(engine), value: key}] : [],   // CI only: on a Mac nothing needs a key
     needs: [...(['api', 'openai'].includes(engine) && isCi() ? [{name: keySecret(engine), value: key}] : []),
       // A suite with no Notion part (`export const notion = false`, the update flow) needs no Notion token and gets no page.
@@ -60,8 +63,9 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
   ctx.proxy = await startAiProxy({delayMs: 0});
-  // The OpenAI engine's calls (the app's and the engine's SDK follow OPENAI_BASE_URL in a test run): metered as app-openai, replayed like Claude's; no faults.
-  ctx.openaiProxy = ctx.family === 'openai' ? await startAiProxy({target: 'https://api.openai.com', kind: 'app-openai', metered: /\/responses(\?|$)/}) : null;
+  // The OpenAI engine's calls (the app's and the engine's SDK follow OPENAI_BASE_URL in a test run): metered as app-openai, replayed like Claude's, and they obey
+  // ctx.proxy's controls: a suite's stand-ins (setCanned), faults (setMode) and delay apply on an OpenAI turn too, in OpenAI's own shapes (lib/ai-proxy.mjs).
+  ctx.openaiProxy = ctx.family === 'openai' ? await startAiProxy({target: 'https://api.openai.com', kind: 'app-openai', metered: /\/responses(\?|$)/, shape: 'openai', follow: ctx.proxy}) : null;
   // A suite that breaks Notion on purpose (`export const notionProxy = true`) gets the Notion stand-in between the app and Notion (lib/notion-proxy.mjs).
   if (notionProxy) ctx.notion = await startNotionProxy();
   // A suite that reads what Telegram would receive (`export const telegram = true`) gets the fake Bot API (lib/telegram-fake.mjs); nothing reaches Telegram.
