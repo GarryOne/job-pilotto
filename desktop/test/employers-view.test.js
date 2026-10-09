@@ -31,7 +31,7 @@ test('stats, feed statuses, tones and names', () => {
 test('research links are http(s) only; detail lines skip empty values', () => {
   assert.deepEqual(researchLinks(rows[2]), [['Glassdoor', 'https://glassdoor.example/q']]);
   assert.deepEqual(detailLines({notes: '3 open', in_preferred_places: false, verification: ''}), [['Notes', '3 open'], ['In your preferred places', 'no']]);
-  assert.equal(day('2026-10-08', Date.parse('2026-10-09')), new Date('2026-10-08T12:00:00').toLocaleDateString([], {day: 'numeric', month: 'short'}));
+  assert.equal(day('2026-10-08', Date.parse('2026-10-09')), '8 Oct');   // the screens' one format (renderer/date.js)
   assert.match(day('2025-03-01', Date.parse('2026-10-09')), /2025/);
   assert.equal(day(''), '');
 });

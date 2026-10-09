@@ -2,6 +2,7 @@
 // every store (the data on this Mac too). Pure: the tabs a job has, and each tab's parts as text (never HTML). Drawn by
 // pages/job-panel.js; guarded by test/job-page-view.test.js. The sections are the engine's own headings (src/ai/kit.py KIT_HEADING,
 // prep.py HEADING, rejection.py HEADING, notion/ledger_record.py RECORD_HEADING, inbox_notion.py DESCRIPTION_HEADING, opportunity.py HEADING).
+import {shortDay} from './date.js';
 export const SECTIONS = {
   kit: '📝 Application kit', prep: '🎤 Interview prep', review: '🔎 Why it was rejected', record: '🗂 Application record',
   description: '🧾 Job description', recruiter: '🤝 Recruiter message',
@@ -83,10 +84,7 @@ export function kitParts(kit, markdown) {
   };
 }
 
-const day = at => {
-  const date = new Date(at);
-  return Number.isNaN(date.getTime()) ? String(at || '').slice(0, 10) : date.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
-};
+const day = at => shortDay(at) || String(at || '').slice(0, 10);   // the screens' one format (date.js)
 
 // events.list(app_id) → the timeline, newest first: {when, kind, note}.
 export function historyItems(events = []) {

@@ -1,5 +1,6 @@
 // Employers & Sources, without a window (pages/employers.js draws it): the filter, a feed status's tone, the stats line, an employer's
 // research links and detail lines. Field names: src/stores/base.py EMPLOYER_FIELDS. Guarded by test/employers-view.test.js.
+import {shortDay} from './date.js';
 
 // Feed status (the 🏢 Employers & Sources select) → tone: found good, nothing open info, weak warn, watched by hand bad, no feed neutral.
 export const FEED_TONES = {'Feed found': 'good', 'No open jobs': 'info', 'Low relevance': 'warn', 'Manual watch': 'bad', 'No public feed': 'neutral'};
@@ -51,9 +52,5 @@ export function detailLines(row) {
     .filter(([, value]) => value !== undefined && value !== null && value !== '');
 }
 
-export function day(iso, now = Date.now()) {
-  const at = Date.parse(String(iso || '').length === 10 ? `${iso}T12:00:00` : iso);
-  if (!Number.isFinite(at)) return '';
-  const thisYear = new Date(at).getFullYear() === new Date(now).getFullYear();   // "8 Oct" this year, "8 Oct 2025" before
-  return new Date(at).toLocaleDateString([], {day: 'numeric', month: 'short', ...(thisYear ? {} : {year: 'numeric'})});
-}
+// The date a row was checked, in the screens' one format (date.js).
+export const day = (iso, now = Date.now()) => shortDay(iso, now);

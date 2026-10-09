@@ -293,6 +293,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/coverage-actions.js` — What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards
 - `desktop/renderer/coverage-card.js` — The Strategy page's "your search may be too narrow" card (src/coverage.py says it; desktop/lib/strategy.js addRoles acts on it).
 - `desktop/renderer/cv-state.js` — The one-glance caption beside "Current CV": ready, not read yet, or the read failed (then the error below says it, not a promise).
+- `desktop/renderer/date.js` — One date format for the screens: "8 Oct", and "8 Oct 2025" only when it isn't this year (owner, 9 Oct 2026). A date alone
 - `desktop/renderer/employers-view.js` — Employers & Sources, without a window (pages/employers.js draws it): the filter, a feed status's tone, the stats line, an employer's
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,

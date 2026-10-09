@@ -1,6 +1,7 @@
 // Reports (pages/reports.js), pure: the weekly reports in full, the insight history with its feedback, and the funnel's table, from the
 // store's 💡 Insights records and Focus's funnel. The bodies are the engine's Markdown (src/ai/insights_text.weekly_blocks,
 // src/ai/learning.publish), read as groups by job-page-view.js groupsOf (one reader). Guarded by test/reports-view.test.js.
+import {shortDay} from './date.js';
 import {groupsOf, plain} from './job-page-view.js';
 
 export const WEEKLY = 'Weekly report';            // src/ai/insights.py WEEKLY
@@ -70,7 +71,4 @@ export function improveLines(funnel = {}) {
   return funnel?.improve ? [`Improve ${funnel.improve.step}: ${funnel.improve.advice}`] : [];
 }
 
-export const dayLabel = day => {
-  const date = new Date(`${String(day).slice(0, 10)}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? String(day || '') : date.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'});
-};
+export const dayLabel = day => shortDay(String(day || '').slice(0, 10)) || String(day || '');   // the screens' one format (date.js)
