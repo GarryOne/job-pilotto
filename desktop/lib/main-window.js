@@ -8,6 +8,8 @@ import path from 'node:path';
 import {log as appLog} from './log.js';
 import {watchWindow} from './window-log.js';
 
+// The narrowest window: about half of a 14-inch MacBook's screen (1352–1512 px), so Job Pilotto and Chrome fit side by side (owner, 9 Oct 2026).
+export const MIN_WIDTH = 640;
 export function createMainWindow(ctx) {
   const {BrowserWindow, DEMO, HIDDEN, app, here, nativeTheme, shell, getWindow, setWindow} = ctx;
   const win = {get window() { return getWindow(); }, set window(value) { setWindow(value); }};   // main.js owns the window: read and set through it
@@ -45,7 +47,7 @@ export function createMainWindow(ctx) {
   function createWindow() {
     const windowTitle = devMarker.title(!app.isPackaged && !DEMO, app.isPackaged ? '' : devMarker.branch(here));
     win.window = new BrowserWindow({
-      width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: windowTitle, show: !process.env.JOB_PILOTTO_SMOKE && !HIDDEN,
+      width: Number(process.env.JOB_PILOTTO_SHOT_WIDTH) || 1280, height: 820, minWidth: Math.min(MIN_WIDTH, Number(process.env.JOB_PILOTTO_SHOT_WIDTH) || MIN_WIDTH), minHeight: 640, title: windowTitle, show: !process.env.JOB_PILOTTO_SMOKE && !HIDDEN,
       backgroundColor: windowBackground(),
       webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: !HIDDEN},   // hidden e2e window: still animates, so Playwright's clicks don't wait
     });

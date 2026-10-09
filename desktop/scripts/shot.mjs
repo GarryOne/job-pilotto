@@ -8,6 +8,7 @@
 //   --eval <expr>      write this expression's value as JSON (window.__jp has the state; __jp.terminal() the log)
 //   --no-picture       only the --eval result, no screenshot
 //   --output <file>    a recorded terminal output to show as the session's log (e.g. a real session's)
+//   --width <px>       the window's width, to check a narrow layout (default 1280; the window's minimum is lib/main-window.js MIN_WIDTH)
 //   --out <file.png>   where the picture goes (default: $TMPDIR/job-pilotto-shot.png)
 // The full reference set is npm run ui-shots (only after big UI changes, or when asked).
 import {spawnSync} from 'node:child_process';
@@ -21,7 +22,7 @@ const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
 const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
-const VALUED = ['select', 'session', 'js', 'eval', 'output', 'out'];
+const VALUED = ['select', 'session', 'js', 'eval', 'output', 'out', 'width'];
 const page = args.find((arg, i) => !arg.startsWith('--') && !VALUED.includes(args[i - 1]?.slice(2))) || 'focus';
 
 const wait = ms => `await new Promise(r => setTimeout(r, ${ms}));`;
@@ -40,6 +41,7 @@ for (const file of fs.readdirSync(path.join(desktop, 'demo'))) if (file !== 'job
 const out = path.resolve(option('out') || path.join(os.tmpdir(), 'job-pilotto-shot.png'));
 fs.rmSync(`${out}.json`, {force: true});
 const env = {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: out, JOB_PILOTTO_SMOKE_JS: script(steps.join('\n'))};
+if (option('width')) env.JOB_PILOTTO_SHOT_WIDTH = option('width');
 if (flag('reload')) env.JOB_PILOTTO_SMOKE_RELOAD_JS = script(flag('log') ? expandLog : wait(500));
 if (option('select')) env.JOB_PILOTTO_SMOKE_SELECTOR = option('select');
 if (option('eval')) env.JOB_PILOTTO_SMOKE_EVAL = option('eval');
