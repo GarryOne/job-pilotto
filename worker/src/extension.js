@@ -297,7 +297,21 @@ export function runRecord(run, job = {}) {
     fields: {job: job.title || '', company: job.company || '', agent: 'Extension', status, started: run.started, ended: run.ended, minutes,
       field_count: Number(run.fields) || 0, unfilled_required: Number(run.unfilled) || 0, tokens_total: 0,
       billed_to: BILLED.includes(run.billed_to) ? run.billed_to : run.usd ? 'Anthropic API credits' : 'Unknown',   // an older extension sends no billed_to
-      reason: `${run.kit ? 'Filled from the kit' : 'The AI answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`}};
+      reason: `${run.kit ? 'Filled from the kit' : 'The AI answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`,
+      data: runData(run)}};
+}
+
+// The page body's table, "Left for you" and step timings as the record's `fields.data` (spec "Agent run shapes"), so the store on this Mac
+// keeps what Notion's page shows (desktop renderer/pages/form-fills.js). Labels, sources and our own reasons only: never an answer value.
+const cut = (value, n = 200) => String(value ?? '').slice(0, n);
+export function runData(run) {
+  return {
+    fields: (run.trace || []).slice(0, 90).map((f) => ({label: cut(f.label), required: !!f.required, source: cut(f.source, 60),
+      outcome: f.outcome === 'filled' ? 'filled' : 'left', confidence: f.low ? 'low' : '', reason: cut([f.reason, f.low && `check: ${f.low}`].filter(Boolean).join(' · '))})),
+    left_for_you: (run.todo || []).slice(0, 30).map((item) => cut(item)),
+    attachments: [],
+    steps: (run.debug?.steps || []).slice(0, 60).map(({step, ms}) => ({step: cut(step, 60), ms: Math.max(0, Math.round(Number(ms) || 0))})),
+  };
 }
 
 export async function logRun(env, run) {
