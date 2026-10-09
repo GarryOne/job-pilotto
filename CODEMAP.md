@@ -46,7 +46,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/contact-from-cv.js` — "Your details from your CV": Claude reads the CV once per CV file and proposes a value for each empty contact field it states
 - `desktop/lib/contact-handlers.js` — Settings → Profile → Your details over IPC: read and save the 📇 Contact details (lib/contact.js), and the values Claude proposes
 - `desktop/lib/contact-keys.js` — Which contact detail a form field asks for ("Rue et numéro" → street, "Numéro postal d'acheminement" → postal_code, "Formule d'appel"
-- `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
+- `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms: the "📇 Contact details" section of your
 - `desktop/lib/control-events.js` — How the form reader and the generic operators fared, as reports for the product (docs: Notion "Self-improving form filling").
 - `desktop/lib/cover-letter.js` — The user's general cover letter (Settings → Profile → Cover letter): drafted once by the AI from the CV, the Profile and
 - `desktop/lib/crash-line.js` — A line of a crash: the traceback's first line, or the exception line (KeyboardInterrupt, BrokenPipeError: …). Never a run's step, wherever the

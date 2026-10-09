@@ -1,7 +1,7 @@
-// Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
-// the "📇 Contact details" section of your Notion Profile page, the source of truth ("- Email: you@x.com");
-// edit them there or in Settings → Your details. Notion is required.
-import * as notion from './notion.js';
+// Your contact details (name, email, phone, city, links), used to fill forms: the "📇 Contact details" section of your
+// Profile in the active store (lib/store: Notion's Profile page, or profile.md on this Mac), the source of truth
+// ("- Email: you@x.com"); edit them there or in Settings → Your details.
+import {openStore} from './store/index.js';
 
 export const HEADING = '📇 Contact details';
 export const LABELS = {first_name: 'First name', last_name: 'Last name', full_name: 'Full name', email: 'Email', phone: 'Phone',
@@ -10,14 +10,10 @@ const KEY_BY_LABEL = Object.fromEntries(Object.entries(LABELS).map(([key, label]
 export const markdown = contact => `## ${HEADING}\n` + Object.entries(LABELS)
   .filter(([key]) => contact[key]).map(([key, label]) => `- ${label}: ${contact[key]}`).join('\n');
 
-const target = storage => {
-  const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  if (!token || !page) throw new Error('Connect Notion first: your contact details live in your Profile page.');
-  return {token, page};
-};
+const profile = (storage, fetcher) => openStore(storage, {fetcher}).page('profile');
 // The section: its heading block and the "Label: value" lines under it (until the next heading).
-async function section(t, fetcher) {
-  const blocks = await notion.textBlocks(t.token, t.page, fetcher);
+async function section(page) {
+  const blocks = await page.blocks();
   const start = blocks.findIndex(b => b.type.startsWith('heading') && b.text.includes('Contact details'));
   if (start < 0) return {heading: null, lines: []};
   const end = blocks.findIndex((b, i) => i > start && b.type.startsWith('heading'));
@@ -29,10 +25,10 @@ const under = (blocks, title) => blocks.filter((b, i) => !b.type.startsWith('hea
   title.test(blocks.slice(0, i).reverse().find(h => h.type.startsWith('heading'))?.text.trim() || ''));
 
 export async function read(storage, fetcher) {
-  const t = target(storage);
-  const {heading, lines} = await section(t, fetcher);
+  const page = profile(storage, fetcher);
+  const {heading, lines} = await section(page);
   // Profiles written before the app kept them as "Contact" (Name: …) and "Links" (LinkedIn: …): read those too.
-  const blocks = heading ? [] : await notion.textBlocks(t.token, t.page, fetcher);
+  const blocks = heading ? [] : await page.blocks();
   const contact = {};
   for (const line of heading ? lines : under(blocks, /^(📇\s*)?(contact|links)$/i)) {
     const [label, ...rest] = line.text.split(':');
@@ -49,13 +45,13 @@ export async function read(storage, fetcher) {
 
 export async function save(storage, contact, fetcher) {
   const clean = Object.fromEntries(Object.entries(contact || {}).filter(([key, value]) => LABELS[key] && value));
-  const t = target(storage);
-  let {heading, lines} = await section(t, fetcher);
-  for (const line of lines) {
-    if (KEY_BY_LABEL[line.text.split(':')[0].trim().toLowerCase()]) await notion.deleteBlock(t.token, line.id, fetcher);
+  const page = profile(storage, fetcher);
+  const {heading, lines} = await section(page);
+  for (const line of [...lines].reverse()) {
+    if (KEY_BY_LABEL[line.text.split(':')[0].trim().toLowerCase()]) await page.remove(line);
   }
-  const headingId = heading?.id || await notion.appendHeading(t.token, t.page, HEADING, fetcher);
-  await notion.insertBulletsAfter(t.token, t.page, headingId,
-    Object.entries(LABELS).filter(([key]) => clean[key]).map(([key, label]) => `${label}: ${clean[key]}`), fetcher);
+  const headingId = heading?.id || await page.appendHeading(HEADING);
+  const fresh = Object.entries(LABELS).filter(([key]) => clean[key]).map(([key, label]) => `${label}: ${clean[key]}`);
+  if (fresh.length) await page.insertAfter(headingId, fresh);
   return clean;
 }

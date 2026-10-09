@@ -1,0 +1,91 @@
+// The desktop store contract: every adapter gives the same pages (lib/store/index.js). One scenario, run on each adapter: this Mac's
+// Markdown files and Notion (through test/fake-notion.js). An adapter is done when it passes. Python's twin: tests/store_contract.py.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {test} from 'node:test';
+import {createStorage} from '../lib/storage.js';
+import * as store from '../lib/store/index.js';
+import * as md from '../lib/store/markdown-page.js';
+import {fakeNotion} from './fake-notion.js';
+
+const plainCrypto = {encrypt: value => value, decrypt: value => value};
+function storageWith(settings, secrets = {}) {
+  const storage = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-store-')), plainCrypto);
+  storage.saveSettings(settings);
+  for (const [name, value] of Object.entries(secrets)) storage.setSecret(name, value);
+  return storage;
+}
+
+const ADAPTERS = {
+  sqlite: () => ({store: store.openStore(storageWith({store: 'sqlite'}))}),
+  notion: () => {
+    const page = fakeNotion();
+    const storage = storageWith({store: 'notion', notionIds: {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers'}}, {NOTION_TOKEN: 'secret'});
+    return {store: store.openStore(storage, {fetcher: page.fetcher})};
+  },
+};
+
+for (const [name, make] of Object.entries(ADAPTERS)) {
+  test(`${name}: a page is read and edited block by block`, async () => {
+    const {store: opened} = make();
+    assert.equal(opened.name, name);
+    const page = opened.page('profile');
+    assert.deepEqual(await page.blocks(), []);
+    const heading = await page.appendHeading('📇 Contact details');
+    await page.insertAfter(heading, ['Email: a@b.c', 'Phone: 1']);
+    await page.append(['Notice period: ❓']);
+    let blocks = await page.blocks();
+    assert.deepEqual(blocks.map(b => [b.type, b.text]), [['heading_2', '📇 Contact details'], ['bulleted_list_item', 'Email: a@b.c'],
+      ['bulleted_list_item', 'Phone: 1'], ['bulleted_list_item', 'Notice period: ❓']]);
+    await page.setText(blocks[3], 'Notice period: 3 months');
+    blocks = await page.blocks();
+    await page.remove(blocks.find(b => b.text.startsWith('Phone')));
+    assert.deepEqual((await page.blocks()).map(b => b.text), ['📇 Contact details', 'Email: a@b.c', 'Notice period: 3 months']);
+    assert.match(await page.text(), /Email: a@b\.c\nNotice period: 3 months/);
+    assert.deepEqual((await page.outline()).map(item => item.text), ['📇 Contact details', 'Email: a@b.c', 'Notice period: 3 months']);
+  });
+
+  test(`${name}: capabilities, never a name, say what the store can do`, () => {
+    const {store: opened} = make();
+    assert.ok(opened.caps instanceof Set);
+    assert.equal(opened.caps.has(store.LINKS), name === 'notion');
+    assert.equal(opened.caps.has(store.CLOUD), name === 'notion');
+    assert.equal(opened.link('abc') === null, !opened.caps.has(store.LINKS));
+  });
+}
+
+test('sqlite: tables keep their rows, and a cell edit keeps the others', async () => {
+  const opened = store.openStore(storageWith({store: 'sqlite'}));
+  const page = opened.page('answers');
+  await page.write('## Work\n\n| Question | Answer |\n|---|---|\n| Notice period | ❓ to confirm |\n| Salary | 100k |\n\n- Visa: ❓ (asked by Acme)\n');
+  const [heading, table, line] = await page.outline();
+  assert.equal(heading.type, 'heading_2');
+  assert.equal(table.type, 'table');
+  assert.equal(table.header, true);
+  assert.deepEqual(table.rows.map(row => row.cells), [['Question', 'Answer'], ['Notice period', '❓ to confirm'], ['Salary', '100k']]);
+  assert.equal(line.text, 'Visa: ❓ (asked by Acme)');
+  await page.setCell(table.rows[1], 1, '3 months');
+  assert.deepEqual((await page.outline())[1].rows[1].cells, ['Notice period', '3 months']);
+  assert.match(await page.text(), /Notice period \| 3 months/);
+});
+
+test('sqlite: an edit to a line that changed since it was read throws, never touches another line', async () => {
+  const text = '- a\n- b\n';
+  const [first] = md.blocks(text);
+  assert.throws(() => md.setText('- x\n- b\n', first, 'c'), /changed since it was read/);
+  assert.equal(md.setText(text, first, 'c'), '- c\n- b\n');
+});
+
+test('the store: a chosen store wins; else Notion as before (connected, or trying: asks to connect)', async () => {
+  const connected = {notionIds: {NOTION_PROFILE_PAGE_ID: 'p'}};
+  assert.equal(store.chosen(storageWith({})), 'notion');
+  await assert.rejects(store.openStore(storageWith({})).page('answers').blocks(), /Connect Notion first/);
+  assert.equal(store.trying(storageWith({})), true);
+  assert.equal(store.chosen(storageWith(connected, {NOTION_TOKEN: 't'})), 'notion');
+  assert.equal(store.trying(storageWith(connected, {NOTION_TOKEN: 't'})), false);
+  assert.equal(store.chosen(storageWith({...connected, store: 'sqlite'}, {NOTION_TOKEN: 't'})), 'sqlite');
+  assert.equal(store.trying(storageWith({store: 'sqlite'})), false);
+  assert.throws(() => store.openStore(storageWith({store: 'postgres'})), /No store called "postgres"/);
+});
