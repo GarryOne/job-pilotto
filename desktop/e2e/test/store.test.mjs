@@ -34,7 +34,7 @@ test('CI alternates the store on bit 1, so all four family x store pairs come ro
 
 test('only the sqlite store is written into a fresh profile; the Notion store is the app\'s default', () => {
   assert.deepEqual(storeSettings('sqlite'), {store: 'sqlite'});
-  assert.deepEqual(storeSettings('standin'), {});
+  assert.deepEqual(storeSettings('standin'), {store: 'notion'}, 'a Notion run says so: the app would give an empty profile this Mac');
 });
 
 test('every suite that pins a store names a known one, and only notion-real uses the real workspace', async () => {

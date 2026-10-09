@@ -6,9 +6,16 @@ its URL (normalised by `url_key`). Records carry the keys listed in the *_FIELDS
 or None, never an absent key.
 """
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Optional, Protocol
 
 from ..notion.dedupe import normalize_url
+
+
+def local_today() -> str:
+    """The person's calendar day (ISO), for a date they live by such as Applied on: this computer's date, as the Notion tracker's
+    mark has always used (src/notion/client.py). A UTC clock gave yesterday's date to an application made after midnight in Zurich."""
+    return date.today().isoformat()
 
 # Kinds of text the user writes and the app reads whole (each Markdown): the Profile, the standard answers and
 # form knowledge. ⚙️ Search settings are not a text: their home stays config/search.json + preferences.json on
@@ -169,7 +176,7 @@ class Applications(Protocol):
     def stages(self) -> dict: ...  # {url_key: stage}, the hot path: no full records
     def set_stage(self, job: dict, stage: str, today=None) -> tuple: ...
     # → (record, CREATED | CHANGED | UNCHANGED). Creates the row from `job` (needs 'url') when missing; writes
-    # nothing when the stage is already `stage`; stamps applied_on (today, ISO date) on the first 'Applied'.
+    # nothing when the stage is already `stage`; stamps applied_on (today, local_today()) on the first 'Applied'.
     def update(self, app_id: str, fields: dict) -> dict: ...
     def delete(self, app_id: str) -> None: ...  # with its sections and files
     # Named Markdown sections of a job's page: the kit, prep, rejection review, the frozen record.

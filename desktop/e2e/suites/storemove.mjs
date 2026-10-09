@@ -11,7 +11,7 @@ import {launch} from '../lib/app.mjs';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
 import {NOTION_PROFILE, TEXTS, answerImport, answerSave, copyProcess, fileBlocks, journalOf, pageText, rowsIn, sameScreens, screens, seedStore,
-  afterFirstSearch, logLines, searches, settingsOf, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
+  afterFirstSearch, logLines, searches, settingsOf, pressMove, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
 
 export const name = 'storemove';
 export const store = 'sqlite';
@@ -34,12 +34,7 @@ async function connect(page, token) {
   if (!result?.ok) throw new Error(`Notion did not connect: ${result?.error || JSON.stringify(result)}`);
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-}
-async function pressMove(page, {timeout = 180000} = {}) {
-  await yourData(page);
-  await page.click('#store-move');
-  await page.waitForFunction(() => { const text = document.getElementById('store-message')?.textContent || ''; return /Moved to Notion ✓|stopped before the end|Not moved/.test(text); }, null, {timeout});
-  return storeMessage(page);
+  return result;
 }
 function noLocalCopies(profile, archive) {
   const left = ['data/tracker.sqlite', 'data/files', 'profile.md', 'answers.md', 'knowledge.md'].filter(name => fs.existsSync(path.join(profile, name)));
@@ -85,11 +80,15 @@ export async function run(ctx) {
     profileId = ids.NOTION_PROFILE_PAGE_ID;
     writeProfile(ctx.standIn, profileId, NOTION_PROFILE);
     const mark = searches(ctx.profile);
-    await connect(page, ctx.token);
+    const result = await connect(page, ctx.token);
     // The screens the move must keep are the store's once the search the connect starts has ended (lib/storemove-steps.mjs afterFirstSearch).
     afterConnect = await afterFirstSearch(ctx.profile, mark, before, () => ctx.data('matches', 'list'));
     const settings = settingsOf(ctx.profile);
     if (settings.store !== 'sqlite') throw new Error(`connecting changed the store to ${settings.store}`);
+    // With data here the connect says so and points to the move (lib/store-handlers.js startOnNotionIfEmpty: only an empty store switches).
+    if (result.startedOnNotion || !result.stayedOnMac) throw new Error(`the connect answered startedOnNotion ${result.startedOnNotion}, stayedOnMac ${result.stayedOnMac}`);
+    await yourData(page);
+    if (!await page.locator('#store-move').isVisible()) throw new Error('"Move my data to Notion" is not offered after connecting with data on this Mac');
     const gone = Object.keys(TEXTS).filter(name => !fs.existsSync(path.join(ctx.profile, `${name}.md`)));
     if (gone.length) throw new Error(`connecting Notion took ${gone.join(', ')} off this Mac while its data is still here (store sqlite)`);
   });

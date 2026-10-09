@@ -179,7 +179,7 @@ class Applications(_Table):
         found = self.get(job.get('url'))
         if found and found['stage'] == stage:
             return found, base.UNCHANGED
-        stamp = {'applied_on': today or _now()[:10]} if stage == 'Applied' and not (found or {}).get('applied_on') else {}
+        stamp = {'applied_on': today or base.local_today()} if stage == 'Applied' and not (found or {}).get('applied_on') else {}
         if found:
             return self._update(found['id'], {'stage': stage, **stamp}), base.CHANGED
         return self.create({**job, **stamp}, stage), base.CREATED

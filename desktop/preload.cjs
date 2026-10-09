@@ -8,8 +8,8 @@ const {contextBridge, ipcRenderer} = require('electron');
 let need = null;
 const call = name => (...args) => ipcRenderer.invoke(name, ...args).then(result => {
   if (result && result.needsNotion) { need = {name, args, reason: result.reason}; window.dispatchEvent(new Event('pilot-needs-notion')); }
-  // The data is on this Mac and the action runs off it (Always on): the window says so and opens Settings → Your data.
-  if (result && result.needsMove) window.dispatchEvent(new CustomEvent('pilot-needs-move', {detail: {reason: result.reason, text: result.text}}));
+  // The data is on this Mac and the action runs off it (Always on): the window offers the move (Connect and move), then runs the same action again.
+  if (result && result.needsMove) { need = {name, args, reason: result.reason}; window.dispatchEvent(new CustomEvent('pilot-needs-move', {detail: {reason: result.reason, text: result.text}})); }
   return result;
 }, error => {
   if (/No handler registered/.test(String(error?.message))) window.dispatchEvent(new Event('pilot-outdated'));

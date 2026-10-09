@@ -1,4 +1,4 @@
-/* global document, window */
+/* global window */
 // The one suite on REAL Notion (P7 step 5, spec docs/superpowers/specs/2026-10-09-store-adapters.md): what the in-memory stand-in cannot prove. An app on
 // this Mac's store with real-shaped data (lib/store_seed.py) connects a real test workspace, moves its data there, and the records, the kit, the application
 // record, the interview and the file read back from Notion's own pages; the screens show the same. Nightly release gate only.
@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {call, clearRoot, pageBlocks} from '../lib/notion.mjs';
-import {COMPANIES, sameScreens, screens, seedStore, settingsOf, storeMessage, yourData} from '../lib/storemove-steps.mjs';
+import {COMPANIES, sameScreens, screens, seedStore, settingsOf, pressMove} from '../lib/storemove-steps.mjs';
 
 export const name = 'notion-real';
 export const store = 'notion';
@@ -41,12 +41,6 @@ async function allBlocks(token, id, depth = 3) {
   const blocks = await pageBlocks(token, id);
   const inner = depth > 0 ? await Promise.all(blocks.filter(block => block.has_children).map(block => allBlocks(token, block.id, depth - 1))) : [];
   return [...blocks, ...inner.flat()];
-}
-async function pressMove(page) {
-  await yourData(page);
-  await page.click('#store-move');
-  await page.waitForFunction(() => /Moved to Notion ✓|stopped before the end|Not moved/.test(document.getElementById('store-message')?.textContent || ''), null, {timeout: 600000});
-  return storeMessage(page);
 }
 // How many engine searches (src daily) the app started and ended so far, from its own log.
 function searches(profile) {
@@ -110,10 +104,10 @@ export async function run(ctx) {
       before = {...before, jobs: before.jobs.filter(company => !hidden.includes(company))};
       // Real Notion has bad moments (9 Oct 2026: a 520 on POST pages after 14 s). The move then stops with nothing changed and goes on where it stopped when
       // pressed again: that is what a person does, once. A second stop fails the step.
-      let said = await pressMove(ctx.page);
+      let said = await pressMove(ctx.page, {timeout: 600000});
       if (/stopped before the end/.test(said)) {
         console.log(`  the move stopped once ("${said}"); pressing Move again, as a person would: it goes on where it stopped`);
-        said = await pressMove(ctx.page);
+        said = await pressMove(ctx.page, {timeout: 600000});
       }
       if (!/Moved to Notion ✓/.test(said) || /already had/.test(said)) throw new Error(`the move says "${said}"`);
       if (settingsOf(ctx.profile).store !== 'notion') throw new Error(`the store is ${settingsOf(ctx.profile).store} after the move`);

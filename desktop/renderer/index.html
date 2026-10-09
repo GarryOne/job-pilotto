@@ -226,7 +226,7 @@
       </header>
       <div class="service-grid is-rows extras">
         <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="layers"></i></span>
-          <span class="service-text"><b>Notion</b><span class="muted small">Track applications, kits and interviews in your own free Notion workspace. Needed to save jobs, apply, and for Always on, Telegram and Gmail.</span>
+          <span class="service-text"><b>Notion</b><span class="muted small">Keep your applications, kits and interviews in your own free Notion workspace instead of this Mac. Needed for Always on (runs while this Mac is off).</span>
             <ul class="ui-benefits is-compact" id="extras-notion-benefits"></ul></span>
           <button class="secondary" id="extras-notion" data-goto-settings="notion" data-connect="Connect with Notion">Connect with Notion</button></div>
         <div id="extras-extension" class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="puzzle"></i></span>
@@ -1700,6 +1700,9 @@
     <p class="ui-gate-reason" id="notion-connect-reason" hidden></p>
     <div class="alert tone-warn" id="notion-connect-import" hidden><i data-icon="alert"></i>
       <div><strong>Pick the workspace your backup used</strong><p>Your Profile and job tracking are in the Notion workspace this backup used. On Notion's screen, choose that workspace and your existing Job Pilotto page. Don't create a new copy: a new workspace starts with an empty Profile.</p></div></div>
+    <!-- Data on this Mac (renderer/notion-connect-rules.js connectMode): connecting is moving, said before the press. -->
+    <div class="alert" id="notion-connect-move" hidden><i data-icon="info"></i>
+      <div data-about-notion><strong>Your data moves to Notion</strong><p>Your jobs, applications, interviews and answers on this Mac move into your Notion, once and one way. From then on Job Pilotto reads and saves them there; this Mac keeps an archived copy. If it stops halfway, nothing changes and the next try goes on where it stopped.</p></div></div>
     <ul class="ui-benefits" id="notion-connect-benefits"></ul>
     <p class="muted small" id="notion-connect-note"></p>
     <p class="message" id="notion-connect-message"></p>

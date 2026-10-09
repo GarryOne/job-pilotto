@@ -21,8 +21,9 @@ export function pickStore({env = process.env, suiteStore = ''} = {}) {
   return (Number(env.GITHUB_RUN_NUMBER || 0) >> 1) & 1 ? 'standin' : 'sqlite';
 }
 
-// The settings a fresh profile starts with for that store: only 'sqlite' is written; the Notion store is the app's default (no store chosen).
-export const storeSettings = store => (store === 'sqlite' ? {store: 'sqlite'} : {});
+// The settings a fresh profile starts with for that store, always written: with the store choice on, a profile with none is given one at
+// start (lib/store-handlers.js settleStore: this Mac unless Notion is already connected), so a Notion run must say so.
+export const storeSettings = store => ({store: store === 'sqlite' ? 'sqlite' : 'notion'});
 
 // Where Notion's requests end for a store (the fault proxy's far side, lib/notion-proxy.mjs): the stand-in when there is one, real Notion only for the real
 // workspace (or a suite with no store: notion = false), and a dead local port on this Mac's store, so a stray request fails instead of leaving the computer.
