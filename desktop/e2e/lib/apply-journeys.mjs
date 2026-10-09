@@ -184,6 +184,9 @@ export async function runJourneys(ctx, h) {
     let at = null;
     for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await sessionOf(SIGNIN); await pause(1000); }
     if (at?.stage !== 'form') problems.push(`after signing in the session did not move to the form step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
+    // The extension's decisions reach the app log in batches: the account AI's word after the press can land after the form was filled
+    // (local e2e, 9 Oct 2026: "created" judged at 22.246 s, the log read 0.1 s later). Wait up to 10 s for the last expected line, then read.
+    for (let waited = 0; waited < 10000 && !/account result: created/.test(appLogText(ctx.profile)); waited += 500) await pause(500);
     const log = appLogText(ctx.profile);
     // Either path may fill the email first (beta 9 Oct 2026: the account step, 864b279, pressed ~1 s after the load, before the fill's line): the site's own
     // record above (`presses[0].email`) is the proof the right email arrived; this line only says which part of the extension did it.
