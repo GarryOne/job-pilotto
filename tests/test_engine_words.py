@@ -15,7 +15,8 @@ KEPT = re.compile(r"\bClaude(?= Code| plan| subscription| usage window| in Chrom
 # Files about the Claude-only features (Apply/Read with Claude sessions and their agent names), the Claude Code engine's own texts, and the
 # registry that defines the word itself.
 CLAUDE_ONLY = {'src/ai/apply_batch.py', 'src/ai/apply_run.py', 'src/ai/providers/claude_code.py', 'src/ai/providers/__init__.py',
-               'src/notion/ledger_record.py', 'src/notion/runs.py'}
+               'src/notion/ledger_record.py', 'src/notion/runs.py',
+               'src/stores/notion_conversation.py'}  # Apply with Claude's conversation: its speaker label is Claude
 
 
 def docstrings(tree):
