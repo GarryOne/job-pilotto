@@ -21,7 +21,7 @@ import {registerAppMetaHandlers} from './lib/app-meta-handlers.js';
 import {registerInterviewHandlers} from './lib/interview-handlers.js';
 import {registerCvAndLettersHandlers} from './lib/cv-handlers.js';
 import {registerContactHandlers} from './lib/contact-handlers.js';
-import {registerStoreHandlers, settleStore, storeState} from './lib/store-handlers.js';
+import {registerStoreHandlers, settleStore, startOnNotionIfEmpty, storeState} from './lib/store-handlers.js';
 import {registerJobPageHandlers} from './lib/job-page-handlers.js';
 import {registerTextHandlers} from './lib/text-handlers.js';
 import {registerReportsHandlers} from './lib/reports-handlers.js';
@@ -216,7 +216,7 @@ function handlers() {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       const send = progress => toWindow('notionProgress', {...progress, titles});
       const result = await notionWorkspace.connectWorkspace(token, {templateRoot, onProgress: send});
-      let kept = null;
+      let kept = null, startedOnNotion = false;
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
@@ -226,6 +226,8 @@ function handlers() {
         const hadLocal = !!(storage.readText('profile.md').trim() || storage.readText('answers.md').trim());
         storage.saveSettings(migrate.connectSettings(storage.settings(), {hadLocal, fresh: !!(result.built?.length || templateRoot)}));
         if (!DEMO) {
+          // This Mac's store with nothing in it yet: the data lives in Notion from now on (before the move below, so the texts go there).
+          startedOnNotion = await startOnNotionIfEmpty(storage, {log: appLog}).catch(error => { log(`Store not switched to Notion: ${error.message}`); return false; });
           if (hadLocal) send({moving: true});
           const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now
           kept = storage.settings().notionKeptFolder || null;
@@ -242,7 +244,7 @@ function handlers() {
           if (hadLocal || moved.length) { if (!cloud()) pipeline.syncMatches(storage, log).catch(error => log(`Job Matches not synced: ${error.message}`)); }
         }
       }
-      return {...result, titles, kept};
+      return {...result, titles, kept, startedOnNotion, stayedOnMac: !!result.ok && storage.settings().store === 'sqlite'};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }

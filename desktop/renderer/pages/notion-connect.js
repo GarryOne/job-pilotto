@@ -65,10 +65,14 @@ async function connect() {
   }
   shared.state = await window.pilot.state();
   finish('connected');
+  // Where the data lives now (lib/store-handlers.js startOnNotionIfEmpty): nothing on this Mac yet → Notion from now on; data here → it stays
+  // until "Move my data to Notion" (Settings → Data & backup).
+  const where = result.startedOnNotion ? ' Your jobs and applications live in Notion from now on.'
+    : result.stayedOnMac ? ' Your data is still on this Mac: Settings → Data & backup → Move my data to Notion.' : '';
   message('notion-connect-message', result.kept
-    ? `Connected ✓ Your Notion already had a Profile, so it was kept. This Mac's version is saved in ${result.kept}.`
-    : 'Connected ✓', 'ok');
-  setTimeout(() => { $('notion-connect-dialog').close(); box.then?.(); }, result.kept ? 4000 : 900);
+    ? `Connected ✓ Your Notion already had a Profile, so it was kept. This Mac's version is saved in ${result.kept}.${where}`
+    : `Connected ✓${where}`, 'ok');
+  setTimeout(() => { $('notion-connect-dialog').close(); box.then?.(); }, result.kept || where ? 4000 : 900);
 }
 
 // Open one of the user's Notion pages (a key of state.notion), or the connect prompt when Notion isn't connected.

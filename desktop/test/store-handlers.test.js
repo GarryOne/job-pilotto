@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {createStorage} from '../lib/storage.js';
-import {registerStoreHandlers, settleStore, STORE_CHOICE, storeState} from '../lib/store-handlers.js';
+import {DATA_ENTITIES, registerStoreHandlers, settleStore, startOnNotionIfEmpty, STORE_CHOICE, storeState} from '../lib/store-handlers.js';
 
 const make = (settings = {}, token = '') => {
   const storage = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-sh-')), {encrypt: v => v, decrypt: v => v});
@@ -82,4 +82,23 @@ test('at start, an install with no store gets its home once: Notion when connect
   const off = make();
   assert.equal(settleStore(off, {choice: false}), null);
   assert.equal(off.settings().store, undefined, 'with the choice off, nothing is written (the old app)');
+});
+
+test('"Start using Notion": Notion connected while this Mac\'s store is empty switches it; with data it stays for the move', async () => {
+  // The store's contents decide, read through the engine (a fake here): one list per entity that holds the person's data.
+  const contents = rows => async (_, entity, method) => { assert.equal(method, 'list'); return rows[entity] || []; };
+  const asked = [];
+  const empty = make({store: 'sqlite'}, 't'), logged = [];
+  const call = async (storage, entity, method) => { asked.push(entity); return contents({})(storage, entity, method); };
+  assert.equal(await startOnNotionIfEmpty(empty, {call, log: (...line) => logged.push(line)}), true);
+  assert.equal(empty.settings().store, 'notion');
+  assert.deepEqual(asked, DATA_ENTITIES, 'every entity with data is looked at');
+  assert.deepEqual(logged[0].slice(0, 2), ['store', 'chosen']);
+  for (const entity of DATA_ENTITIES) {
+    const full = make({store: 'sqlite'}, 't');
+    assert.equal(await startOnNotionIfEmpty(full, {call: contents({[entity]: [{id: 'x'}]})}), false, `one ${entity} row keeps the store`);
+    assert.equal(full.settings().store, 'sqlite');
+  }
+  const onNotion = make({store: 'notion'}, 't');
+  assert.equal(await startOnNotionIfEmpty(onNotion, {call: () => { throw new Error('not asked'); }}), false, 'only this Mac\'s store switches');
 });

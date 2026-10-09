@@ -3,9 +3,12 @@ src/stores the engine talks to Notion only where this list says why. Each entry 
 and each is reachable only while the active store is Notion, or is a check of Notion itself. A new one fails here: put it behind
 the store (src/stores), or add it with its reason. An entry that is gone fails too, so the list only shrinks.
 Spec: docs/superpowers/specs/2026-10-09-store-adapters.md (release gate)."""
+import os
 import re
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 BEHIND = ('src/notion/', 'src/stores/')
@@ -72,6 +75,45 @@ class StoreReadinessTest(unittest.TestCase):
         self.assertTrue(KINDS['request'].search("tracker._request('GET', 'users/me')"))
         self.assertFalse(KINDS['client'].search('stores = open_stores()'))
 
+
+
+class OnlyOnTheNotionStoreTest(unittest.TestCase):
+    """Each ALLOWED path, on this Mac's store with a Notion client at hand (a person with Notion connected but their data here):
+    no Notion client survives, so none of the requests behind it is reached."""
+
+    def setUp(self):
+        folder = tempfile.mkdtemp()
+        self.env = mock.patch.dict(os.environ, {'JOB_PILOTTO_STORE': 'sqlite', 'JOB_PILOTTO_DATA_DIR': folder, 'JOB_PILOTTO_FOLLOW_APP': '0'})
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.tracker = mock.Mock(name='a Notion client')   # any request on it would be recorded
+
+    def test_daily_and_desktop_runs_drop_the_client(self):
+        # src/daily.py and src/desktop.py: run_stores; daily_modes / daily_helpers get the tracker it returns.
+        from src.store_access import run_stores
+        stores, tracker = run_stores(self.tracker)
+        self.assertEqual((stores.name, tracker), ('sqlite', None))
+
+    def test_the_scout_and_the_inbox_open_the_chosen_store(self):
+        from src.scout import employer_store
+        from src.stores import open_stores
+        self.assertEqual(employer_store(self.tracker).name, 'sqlite')        # src/scout.py
+        self.assertEqual(open_stores(tracker=self.tracker).name, 'sqlite')   # src/ai/inbox.py, src/desktop.py (unapply)
+        self.assertEqual(self.tracker.mock_calls, [])
+
+    def test_the_ledger_fallback_is_only_the_notion_stores(self):
+        # src/ledger_store.py: Job Matches rows and Agent Runs read from Notion only when the store cannot serve them; this Mac's can.
+        from src import ledger_store
+        from src.stores import open_stores
+        stores = open_stores()
+        self.assertIsNone(ledger_store._tracker(stores))
+        self.assertEqual((stores.matches.list(), stores.agent_runs.list()), ([], []))
+
+    def test_the_doctor_pings_notion_only_with_a_token(self):
+        # src/doctor.py: a check of Notion itself; without a token it says the data stays on this Mac.
+        from src import doctor
+        check = doctor.check_notion(None)
+        self.assertIn('stays on this Mac', check[3] if isinstance(check, tuple) else str(check))
 
 if __name__ == '__main__':
     unittest.main()

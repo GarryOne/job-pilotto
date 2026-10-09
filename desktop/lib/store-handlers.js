@@ -2,6 +2,7 @@
 // "Move my data to Notion" (spec P4, lib/store-move.js). The window reads capabilities and a label, never an
 // adapter's name. Guarded by test/store-handlers.test.js.
 import * as notionGate from './notion-gate.js';
+import * as engine from './store/engine.js';
 import * as store from './store/index.js';
 import {moveToNotion} from './store-move.js';
 
@@ -16,7 +17,7 @@ export function settleStore(storage, {choice = STORE_CHOICE, log = () => {}} = {
   if (!choice || storage.settings().store) return null;
   const home = notionGate.connected(storage) ? 'notion' : 'sqlite';
   storage.saveSettings({store: home});
-  log('store', 'chosen', {store: home, from: home === 'notion' ? 'Notion already connected' : 'new install', decidedBy: 'first start'});
+  log('store', 'chosen', {store: home, from: home === 'notion' ? 'Notion already connected' : 'new install', decidedBy: 'first start'});   // about Notion
   return home;
 }
 
@@ -24,6 +25,23 @@ export function settleStore(storage, {choice = STORE_CHOICE, log = () => {}} = {
 export function storeState(storage, {choice = STORE_CHOICE} = {}) {
   const opened = store.openStore(storage);
   return {label: opened.label, caps: [...opened.caps], trying: store.trying(storage), notionConnected: notionGate.connected(storage), choice};
+}
+
+// "Start using Notion" (spec D3, owner 9 Oct 2026): Notion connected while this Mac's store is still empty switches the store to Notion at once,
+// with nothing to move; with data, the store stays and "Move my data to Notion" is the way. Empty is read from the store's contents, never
+// from a flag: no job (a kit lives on its job), event, interview or agent run. The texts the setup wrote (profile, answers, form knowledge)
+// and the search's matches are not counted: the connect itself carries them to Notion (lib/migrate.js, pipeline.syncMatches).
+export const DATA_ENTITIES = ['applications', 'events', 'interviews', 'agent_runs'];
+export async function hasData(storage, {call = engine.call} = {}) {
+  for (const entity of DATA_ENTITIES) if ((await call(storage, entity, 'list')).length) return true;
+  return false;
+}
+export async function startOnNotionIfEmpty(storage, {call = engine.call, log = () => {}} = {}) {
+  if (storage.settings().store !== 'sqlite') return false;
+  if (await hasData(storage, {call})) return false;
+  storage.saveSettings({store: 'notion'});
+  log('store', 'chosen', {store: 'notion', from: 'this Mac, still empty', decidedBy: 'Notion connected'});   // about Notion
+  return true;
 }
 
 export function registerStoreHandlers({ipcMain, storage, DEMO, log, choice = STORE_CHOICE, toWindow = () => {}, move = moveToNotion}) {
