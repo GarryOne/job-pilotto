@@ -25,6 +25,16 @@ export function accountMove({step, mode, hasEmail, registerControl, signinContro
 // What to do when the account AI says the person must give something and the setting is 'full': accept a consent the AI named (the link, then the dialog's accept button, or a
 // checkbox's label), at most three presses per tab; a choice, a code or a field is always the person's. 'assist' leaves everything to the person.
 export const MAX_CONSENT_PRESSES = 3;
+// What a press the floor refused means (account-fill.js pressAccountButton's reason codes): 'pressed', 'bot' (the person solves it, then presses), 'person'
+// (an empty required control, no box of ours, no single button: the page goes to the person with that reason) or 'quiet' (already pressed in this tab).
+// applycv e2e, 9 Oct 2026: the AI said ready, the floor found a required box empty, and nothing handed the page to the person.
+export const PRESS_REASONS = {'needs-you': 'a required box is still empty', 'not-filled': 'nothing on this page was filled by us', 'no-button': 'no account button was found', 'several-buttons': 'several buttons could be the account button'};
+export function pressMove(result) {
+  if (result === 'pressed') return 'pressed';
+  if (result === 'bot-check') return 'bot';
+  if (result === 'already-pressed') return 'quiet';
+  return 'person';
+}
 export function consentMove({automation, needsKind, needs, presses = 0}) {
   return automation === 'full' && needsKind === 'consent' && !!needs && presses < MAX_CONSENT_PRESSES ? 'accept' : 'person';
 }
@@ -205,6 +215,7 @@ async function accountStepOnce(tab, frameId) {
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
       sayOnce(tab, 'button', `account button: ${result || 'not run'}`, {host});
       if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await flag(tab, frameId, need); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
+      else if (pressMove(result) === 'person') { await flag(tab, frameId, kind?.accountButton || ''); await giveUp(tab, host, PRESS_REASONS[result] || 'the account button was not pressed', kind?.accountButton || ''); }   // the floor refused: the page is the person's, with why
       if (result === 'pressed') {
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
         await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form, signin: step === 'sign_in'}}).catch(() => {});

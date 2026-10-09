@@ -104,3 +104,23 @@ test('every account step banner is cleared when the step ends, pressed or not', 
   assert.ok(said > 0 && waiting > said && cleared > waiting, 'cleared after both banners');
   assert.ok(cleared < source.indexOf('return {filled};'), 'within the step, before it returns');
 });
+
+// applycv e2e, 9 Oct 2026: the AI said "ready" (its look came after the fill), the press floor found the robot box empty ("needs-you"),
+// and nothing handed the sign-up page to the person: no stuck flag, no Take over.
+test('a press the floor refuses hands the page to the person; only a press already made stays quiet', async () => {
+  const {pressMove, PRESS_REASONS} = await import('../../extension/account-step.js');
+  assert.equal(pressMove('pressed'), 'pressed');
+  assert.equal(pressMove('bot-check'), 'bot');
+  assert.equal(pressMove('already-pressed'), 'quiet');
+  for (const code of ['needs-you', 'not-filled', 'no-button', 'several-buttons', undefined, 'anything new']) assert.equal(pressMove(code), 'person', String(code));
+  const fs = await import('node:fs');
+  const fill = fs.readFileSync(new URL('../../extension/account-fill.js', import.meta.url), 'utf8');
+  const press = fill.slice(fill.indexOf('export function pressAccountButton'), fill.indexOf('\n}\n', fill.indexOf('export function pressAccountButton')));
+  const codes = [...new Set([...press.matchAll(/return [^;]*/g)].flatMap(m => [...m[0].matchAll(/'([a-z]+(?:-[a-z]+)*)'/g)].map(x => x[1])))];
+  assert.ok(codes.includes('needs-you') && codes.includes('no-button'), `read the press's codes: ${codes}`);
+  for (const code of codes.filter(code => !['pressed', 'bot-check', 'already-pressed'].includes(code))) {
+    assert.ok(PRESS_REASONS[code], `pressAccountButton's "${code}" has a reason the person is told`);
+  }
+  const step = fs.readFileSync(new URL('../../extension/account-step.js', import.meta.url), 'utf8');
+  assert.match(step, /else if \(pressMove\(result\) === 'person'\) \{ await flag\(tab, frameId, [^;]+\); await giveUp\(tab, host, PRESS_REASONS\[result\]/);
+});
