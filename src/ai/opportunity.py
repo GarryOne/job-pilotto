@@ -223,10 +223,6 @@ def track(stores, lead, text, *, source, event_source, talking=False, at=None, g
           extra_markdown=''):
     """The job's record, its message section and the events. Returns (record, one-line summary); record is None when the
     message is already tracked. extra_markdown: what goes under the message (what to check, the screenshots' link)."""
-    if not hasattr(stores, 'applications'):
-        # BRIDGE(mac-71 reassign): remove when reassign.py passing the store lands
-        return _track_for_tracker(stores, lead, text, source=source, event_source=event_source, talking=talking, at=at,
-                                  gmail_id=gmail_id, note=note, seed=seed, url=url, extra_markdown=extra_markdown)
     if gmail_id and lead.get('platform') not in ('LinkedIn',):
         lead = {**lead, 'platform': 'Email'}  # found in Gmail: an email (LinkedIn's notification emails stay LinkedIn)
     url = url or lead_url(lead, text, gmail_id, seed)
@@ -253,17 +249,6 @@ def track(stores, lead, text, *, source, event_source, talking=False, at=None, g
         rules.add_event(stores, record, 'Screening', event_source, note='Already talking to the recruiter when tracked')
     facts = ' · '.join(p for p in (lead.get('salary'), lead.get('location') or lead.get('work_mode')) if p)
     return record, f"Tracked recruiter lead: {label(lead)}{f' · {facts}' if facts else ''} ({stage})"
-
-
-def _track_for_tracker(tracker, lead, text, **options):
-    """track() for a caller that still holds a Notion client: the same, on the Notion store over it, answered as the
-    Notion row it expects."""
-    # BRIDGE(mac-71 reassign): remove when reassign.py passing the store lands
-    stores = open_stores(tracker=tracker)
-    record, line = track(stores, lead, text, **options)
-    if record is None:
-        return None, line
-    return {'id': record['id'], 'url': stores.link(record['id']), **tracker._request('GET', f"pages/{record['id']}")}, line
 
 
 def add_from_text(stores, text, *, client=None, model=DEFAULT_MODEL, source='Manual', event_source='CLI',

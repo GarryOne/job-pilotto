@@ -1,7 +1,9 @@
 """Your answer about an email: "Is this about …?" (src/ai/reassign.py)."""
 import json
+import tempfile
 import unittest
 from datetime import datetime, timezone
+from unittest import mock
 
 from src import focus
 from src.ai import reassign
@@ -31,7 +33,9 @@ def event(event_id, kind, application=None, changes=None, suggested=''):
         'Changes': text(json.dumps(changes or {}))}}
 
 
-from src.stores import memory  # noqa: E402
+from src.notion import ledger  # noqa: E402
+from src.stores import memory, open_stores, sqlite  # noqa: E402
+from tests.mail_fakes import FakeTracker  # noqa: E402
 
 HUX = {'url': 'https://x.test/hux', 'title': 'Principal SRE', 'company': '', 'via': 'Huxley'}
 
@@ -72,6 +76,39 @@ class MoveTests(unittest.TestCase):
         self.assertTrue(reassign.move(stores, question['id'], reassign.NONE, now=NOW)['ok'])
         event = stores.events.get(question['id'])
         self.assertEqual((event['app_id'], bool(event['needs_you'])), ('', False))
+
+
+class NewJobTests(unittest.TestCase):
+    """"A new job": the job is made from the email on the active store (opportunity.track) on this Mac's and on Notion."""
+
+    def check_new_job(self, stores):
+        question = asked(stores)
+        result = reassign.move(stores, question['id'], reassign.NEW, now=NOW)
+        self.assertTrue(result['ok'], result)
+        job = stores.applications.get('https://mail.google.com/mail/u/0/#all/h1')   # the email is its Job URL
+        self.assertEqual((job['title'], job['contact']), ('Connect Igor / Jaya - SRE', 'Jaya · jaya@huxley.test'))
+        self.assertEqual(job['next_interview'], '2026-09-30T08:30:00+02:00')
+        event = stores.events.get(question['id'])
+        self.assertEqual((event['app_id'], bool(event['needs_you'])), (job['id'], False))
+        self.assertTrue([e for e in stores.events.list(app_id=job['id']) if e['note'].startswith('From an email you placed')])
+        # Asked again (another question from the same email): the same job, not a second one.
+        again = asked(stores)
+        self.assertTrue(reassign.move(stores, again['id'], reassign.NEW, now=NOW)['ok'])
+        self.assertEqual(stores.events.get(again['id'])['app_id'], job['id'])
+        return job
+
+    def test_a_new_job_on_this_macs_store(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.check_new_job(sqlite.open_store({'JOB_PILOTTO_DATA_DIR': folder}))
+
+    def test_a_new_job_on_notion(self):
+        tracker = FakeTracker([])
+        with mock.patch.object(ledger, 'EVENTS_DATABASE_ID', 'events-db'):
+            stores = open_stores(env={'NOTION_EVENTS_DB': 'events-db'}, tracker=tracker)   # the Notion store, whatever the environment says
+            self.assertEqual(stores.name, 'notion')
+            job = self.check_new_job(stores)
+        self.assertEqual(len(tracker.apps), 1)
+        self.assertIn('Connect Igor / Jaya - SRE', tracker.written_under(job['id']))   # the message section on the page
 
 
 class FocusQuestionTests(unittest.TestCase):

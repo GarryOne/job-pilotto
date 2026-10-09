@@ -26,16 +26,11 @@ def _new_job(stores, event, changes):
     lead = {'title': subject[:120], 'company': '', 'recruiter_company': mail._sender_org(sender),
             'recruiter_name': '' if linkedin else mail.person_name(name), 'recruiter_email': '' if linkedin else address.strip(),
             'platform': 'LinkedIn' if linkedin else 'Email', 'in_house': False}
-    source_id = event['source_id']
-    # BRIDGE(mail opportunity): remove when opportunity.track takes the stores (mac-20): track(stores, …) -> (record | None, summary)
-    tracker = getattr(stores.applications, 'tracker', None)
-    if tracker is None:
-        return None
-    row, _ = opportunity.track(tracker, lead, f"Subject: {subject}\n\n{event['note']}", source='Gmail',
-                               event_source='Job Pilotto app', gmail_id=source_id, at=event['at'] or None,
-                               note=f'From an email you placed: "{subject[:120]}"')
-    url = ((row or {}).get('properties', {}).get('Job URL') or {}).get('url') or opportunity.lead_url(lead, '', source_id)
-    return stores.applications.get(url)
+    url = opportunity.lead_url(lead, '', event['source_id'])
+    record, _ = opportunity.track(stores, lead, f"Subject: {subject}\n\n{event['note']}", source='Gmail',
+                                  event_source='Job Pilotto app', gmail_id=event['source_id'], at=event['at'] or None, url=url,
+                                  note=f'From an email you placed: "{subject[:120]}"')
+    return record or stores.applications.get(url) or opportunity.same_pitch(stores, lead)   # already tracked: that job
 
 
 def move(stores, event_id, target, now=None):
