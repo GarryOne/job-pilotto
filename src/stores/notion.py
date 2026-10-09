@@ -15,6 +15,7 @@ from . import base
 from . import notion_rows as rows
 from .notion_insights import NotionInsights
 from .notion_interviews import NotionInterviews
+from .notion_cron_runs import NotionCronRuns
 from .notion_matches import NotionMatches
 from .notion_texts import NotionTexts
 
@@ -311,7 +312,7 @@ class _NotYet:
         raise NotImplementedError(f'the notion store has no {self.entity} yet')
 
 
-PENDING = ('employers', 'agent_runs', 'cron_runs')
+PENDING = ('employers', 'agent_runs')
 
 
 class NotionStores(base.Stores):
@@ -335,5 +336,6 @@ def open_store(env=None, tracker=None):
                         matches=NotionMatches(tracker, ids['matches']),
                         interviews=NotionInterviews(tracker, ids['interviews']),
                         insights=NotionInsights(tracker, ids['insights']), texts=NotionTexts(tracker, env),
+                        cron_runs=NotionCronRuns(tracker, ids['cron_runs']),
                         **{entity: _NotYet(entity) for entity in PENDING},
                         caps=frozenset({base.LINKS, base.CLOUD, base.FILES}))

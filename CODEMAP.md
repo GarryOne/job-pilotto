@@ -562,6 +562,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/copy.py` — Move the user's data from one store to another ("Move my data to Notion"): every entity, through the interface.
 - `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
 - `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)
+- `src/stores/notion_cron_runs.py` — The notion store's CronRuns: ⏱️ Search runs rows as store records, the one run history wherever a run happened.
 - `src/stores/notion_insights.py` — 💡 Insights in Notion as the store's insights (base.Insights): one database row per insight, plain dicts out.
 - `src/stores/notion_interviews.py` — 🎤 Interviews in Notion as the store's interviews (base.Interviews): one database row per interview, plain dicts out.
 - `src/stores/notion_matches.py` — The notion store's Matches: 🎯 Job Matches rows as store records, one per job (found by its URL, src/stores/base.url_key).

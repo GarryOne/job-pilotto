@@ -1218,6 +1218,18 @@
         "Updates": {
           "type": "number",
           "format": "number"
+        },
+        "Kind": {
+          "type": "select"
+        },
+        "Where": {
+          "type": "select"
+        },
+        "Progress": {
+          "type": "rich_text"
+        },
+        "Finished": {
+          "type": "date"
         }
       },
       "retired": [

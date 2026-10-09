@@ -284,6 +284,10 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Application | Relation | To Job Tracker (two-way, shows there as "Runs"): the one job a run was about; empty for runs about many jobs (search, Gmail check, insights) |
 | Updates | Number |  |
 | Billed to | Select | How the run's AI was paid: `Claude subscription` (the user's own Claude Code on the Mac, $0 API), `Anthropic API credits` (API key), `Both` (plan limit hit, fell back to the key); empty when no AI ran |
+| Kind | Select | What ran (search, mail, kit…), as the store names it; an older row has none and its Mode is used. src/stores/notion_cron_runs.py |
+| Where | Select | Where it ran (mac, github); an older row has none and Run URL / Trigger tell. |
+| Progress | Text | The run's progress lines (the last 40), one per line; Summary shows the latest with ⏳ while it runs. |
+| Finished | Date | When the run ended, with time. |
 
 Views: **Latest runs** (newest first), **AI cost per day** (column chart).
 
