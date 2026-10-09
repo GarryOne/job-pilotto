@@ -89,3 +89,23 @@ test('measuring starts at AI_COST_SINCE: older rows are not read, and the first 
   assert.match(page([], [], [], '2026-10-09', now), /Since 2026-10-09/);
   assert.match(page([], [], [], '2026-08-01', now), /Last 30 days/, 'a start older than 30 days changes nothing');
 });
+
+test('Claude and OpenAI separately and together: a run says its provider (none: Anthropic), the page shows both rows and the total', async () => {
+  const mixed = [...rows.slice(0, 3), {job: 'e2e-app', run_id: '9', day: '2026-10-04', at: '2026-10-04T09:00:00Z', usd: 0.2, calls: 5, provider: 'openai'}];
+  const s = summarize(mixed, [], now);
+  const of = id => s.providers.find(p => p.id === id);
+  assert.equal(Math.round(of('anthropic').usd * 100), 60);
+  assert.equal(Math.round(of('openai').usd * 100), 20);
+  assert.equal(Math.round(of('openai').today * 100), 20);
+  assert.equal(Math.round((of('anthropic').usd + of('openai').usd) * 100), Math.round(s.total * 100), 'the two add up to the total');
+  const html = page(mixed, [], [], '', now);
+  assert.match(html, /By provider/);
+  assert.match(html, /Claude \(Anthropic\)<\/td><td class="n">\$0\.30<\/td><td class="n">\$0\.60<\/td><td class="n">75%/);
+  assert.match(html, /OpenAI<\/td><td class="n">\$0\.20<\/td><td class="n">\$0\.20<\/td><td class="n">25%/);
+  const stored = [];
+  const env = {AI_COST_PUBLISH_KEY: 'k', STATS: {prepare: sql => ({bind: (...args) => ({sql, args})}), batch: async list => { stored.push(...list); }}};
+  const put = body => ingest(new Request('https://x.dev/ai-cost/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify(body)}), env);
+  assert.equal((await put({runs: [{job: 'e2e-app', run_id: '1', at: '2026-10-04T01:00:00Z', usd: 0.1, provider: 'gemini'}]})).status, 400);
+  assert.equal((await put({runs: [{job: 'e2e-app', run_id: '1', at: '2026-10-04T01:00:00Z', usd: 0.1, provider: 'openai'}, {job: 'ui-fix', run_id: '2', at: '2026-10-04T01:00:00Z', usd: 0.1}]})).status, 200);
+  assert.deepEqual(stored.map(row => row.args.at(-1)), ['openai', 'anthropic']);
+});
