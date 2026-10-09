@@ -1,5 +1,6 @@
 """The memory adapter passes the store contract, and open_stores picks adapters by the documented rule."""
 import unittest
+from unittest import mock
 
 from src import stores
 from src.stores import memory
@@ -16,6 +17,13 @@ class OpenStoresTests(unittest.TestCase):
         self.assertEqual(stores.chosen({'JOB_PILOTTO_STORE': 'memory', 'NOTION_TOKEN': 't'}), 'memory')
         self.assertEqual(stores.chosen({'NOTION_TOKEN': 't'}), 'notion')
         self.assertEqual(stores.chosen({}), 'sqlite')
+
+    def test_a_tracker_held_by_the_caller_means_notion_with_that_client(self):
+        held = object()
+        with mock.patch('src.stores.notion.open_store', return_value='notion-with-held') as notion:
+            self.assertEqual(stores.open_stores({}, tracker=held), 'notion-with-held')
+        notion.assert_called_once_with({}, tracker=held)
+        self.assertEqual(stores.open_stores({'JOB_PILOTTO_STORE': 'memory'}, tracker=held).name, 'memory')
 
     def test_open_stores_gives_the_chosen_adapter_and_refuses_an_unknown_one(self):
         self.assertEqual(stores.open_stores({'JOB_PILOTTO_STORE': 'memory'}).name, 'memory')
