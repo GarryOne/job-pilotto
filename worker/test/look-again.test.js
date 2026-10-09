@@ -8,9 +8,9 @@ const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta
 
 test('the page shape counts visible frames, and a frame that appears later makes the page be judged again', () => {
   assert.match(flow, /frames: \[\.\.\.document\.querySelectorAll\('iframe'\)\]\.filter\(el => \{ const box = el\.getBoundingClientRect\(\); return box\.width > 40 && box\.height > 40; \}\)\.length/);
-  assert.match(flow, /const hadFrames = seenFrames === null \? !!\(await pageShape\(tab\.id\)\)\?\.frames : seenFrames > 0;/);
-  assert.match(flow, /watchForFields\(tab, jobUrl, undefined, botCheck \? 60 : 10, counts\?\.frames \?\? 0\)/, 'the baseline is what the judgment saw');
-  assert.match(flow, /const framed = !!shape\?\.frames && !hadFrames;/);
+  assert.match(flow, /const hadHosts = seenHosts === null \? \(await pageShape\(tab\.id\)\)\?\.frameHosts \|\| \[\] : seenHosts/);
+  assert.match(flow, /watchForFields\(tab, jobUrl, undefined, botCheck \? 60 : 10, counts\?\.frameHosts \|\| \[\]\)/, 'the baseline is what the judgment saw');
+  assert.match(flow, /const framed = \(shape\?\.frameHosts \|\| \[\]\)\.some\(host => !hadHosts\.includes\(host\)\);/, 'a frame whose host shows up later is new');
   assert.match(flow, /if \(!shape \|\| \(shape\.fields \+ shape\.textareas \+ shape\.files < 2 && !framed\)\) continue;/);
   const watch = flow.slice(flow.indexOf('async function watchForFields'), flow.indexOf('export async function consider'));
   assert.ok(watch.indexOf('const framed') < watch.indexOf('await consider(live, jobUrl)'), 'judged again after the frame');
