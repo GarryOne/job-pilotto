@@ -2,9 +2,12 @@
 
 How the desktop reaches the active store without a second copy of any adapter (desktop/lib/store/*): the store is
 the one `open_stores()` picks from the environment (JOB_PILOTTO_STORE). Only data methods: the move (`put`) and
-bytes (`attach`, `files`) are refused. Exit 2 on a refused or unknown call, 1 when the method raised (its error as
-{"error": ...}). Guarded by tests/test_store_cli.py.
+writing bytes (`attach`) are refused. `applications files` reads a job's files as base64 ({name, content_type, size,
+data}); a file over FILE_CAP (or past TOTAL_CAP for the job) comes with data null and too_large true, so a screen can
+say it is there. Exit 2 on a refused or unknown call, 1 when the method raised (its error as {"error": ...}).
+Guarded by tests/test_store_cli.py.
 """
+import base64
 import json
 import sys
 
@@ -12,7 +15,21 @@ from . import base, open_stores
 
 ENTITIES = ('applications', 'events', 'matches', 'interviews', 'insights', 'employers', 'agent_runs', 'cron_runs',
             'texts')
-REFUSED = {'put', 'attach', 'files'}
+REFUSED = {'put', 'attach'}
+FILE_CAP = 8 * 1024 * 1024     # one file, before base64
+TOTAL_CAP = 24 * 1024 * 1024   # one job's files together
+
+
+def encoded_files(files):
+    """[(name, bytes, content_type)] → JSON-able dicts, the bytes as base64 while they fit the caps."""
+    found, total = [], 0
+    for name, data, content_type in files:
+        size = len(data)
+        fits = size <= FILE_CAP and total + size <= TOTAL_CAP
+        total += size if fits else 0
+        found.append({'name': name, 'content_type': content_type or 'application/octet-stream', 'size': size,
+                      'data': base64.b64encode(data).decode('ascii') if fits else None, 'too_large': not fits})
+    return found
 
 
 def call(stores, entity, method, kwargs):
@@ -22,6 +39,8 @@ def call(stores, entity, method, kwargs):
     if not hasattr(protocol, method):
         raise PermissionError(f'not callable: {entity}.{method}')
     result = getattr(getattr(stores, entity), method)(**kwargs)
+    if (entity, method) == ('applications', 'files'):
+        return encoded_files(result)
     return list(result) if isinstance(result, tuple) else result
 
 
