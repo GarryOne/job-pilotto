@@ -282,10 +282,13 @@ class Matches:
             ('SELECT data FROM matches WHERE status = ? ORDER BY seq', (status,))
         return [base.record(self.fields, json.loads(r['data'])) for r in self.db.execute(sql, args)]
 
+    def get(self, url):
+        return self._one(base.url_key(url))
+
     def upsert(self, job):
         key = base.url_key(job['url'])
         row = self._one(key) or base.record(self.fields, {'first_seen': _now()})
-        row.update(_known(self.fields, job))
+        row.update(_known(self.fields, {k: v for k, v in job.items() if k != 'last_update'}), last_update=_now())
         return self._write(key, row)
 
     def set_status(self, url, status):
@@ -293,7 +296,7 @@ class Matches:
         row = self._one(key)
         if row is None:
             raise KeyError(url)
-        self._write(key, {**row, 'status': status})
+        self._write(key, {**row, 'status': status, 'last_update': _now()})
 
     def remove(self, url):
         with self.db:

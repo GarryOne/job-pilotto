@@ -20,6 +20,12 @@ def scored(url, score):
                     'components': {'role_fit': 30, 'location': 20, 'compensation': 10, 'growth': 10, 'risk': 10}}}
 
 
+AI = {'seniority': {'value': 'senior'}, 'work_mode': {'value': 'hybrid'}, 'english_is_enough': {'value': 'yes'},
+      'languages': [{'language': 'German', 'level': 'nice_to_have'}, {'language': 'Spanish', 'level': 'nice_to_have'}],
+      'salary': {'stated': True, 'text': 'CHF 140-160k'}, 'employer_type': {'value': 'recruiter'},
+      'technologies': ['Kubernetes', 'Terraform'], 'role_family': 'SRE'}
+
+
 class StoreContract:
     def make(self):
         raise NotImplementedError
@@ -214,6 +220,8 @@ class StoreContract:
         self.assertRecord(row, base.MATCH_FIELDS)
         self.s.matches.upsert({**JOB, 'url': JOB['url'] + '/', 'fit': 85})
         self.assertEqual([(m['fit'], m['status']) for m in self.s.matches.list()], [(85, 'New')])
+        self.assertEqual(self.s.matches.get(JOB['url'] + '/')['fit'], 85)   # by its key, whatever the slash
+        self.assertIsNone(self.s.matches.get('https://jobs.example/never-found'))
         self.s.matches.set_status(JOB['url'], 'Dismissed')
         self.assertEqual(len(self.s.matches.list(status='Dismissed')), 1)
         self.s.matches.remove(JOB['url'])
@@ -236,6 +244,22 @@ class StoreContract:
         self.s.matches.sync(db, [c], open_urls={c['url']}, dismissed_urls={a['url']})
         self.assertEqual({m['url'].rstrip('/'): m['status'] for m in self.s.matches.list()},
                          {a['url']: 'Dismissed', b['url']: 'Not seen', c['url']: 'Open'})
+
+    def test_a_matchs_scoring_facts_are_kept_as_the_job_matches_columns_hold_them(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        job = {**scored('https://jobs.example/facts', 81), 'ai': AI}
+        self.s.matches.sync(db, [job])
+        [row] = self.s.matches.list()
+        self.assertRecord(row, base.MATCH_FIELDS)
+        self.assertEqual({k: row[k] for k in ('tier', 'confidence', 'seniority', 'languages', 'salary', 'recruiter', 'technologies',
+                                             'role_family', 'scoring_method', 'work_mode')},
+                         {'tier': 'Strong', 'confidence': 'High', 'seniority': 'Senior', 'languages': ['English', 'German +'],
+                          'salary': 'CHF 140-160k', 'recruiter': True, 'technologies': 'Kubernetes; Terraform', 'role_family': 'SRE',
+                          'scoring_method': 'Current', 'work_mode': 'Hybrid'})
+        self.assertEqual(len(row['code']), 8)
+        self.assertTrue(row['scored'] and row['last_update'])
 
     # Interviews, insights, employers
 

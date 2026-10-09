@@ -10,7 +10,7 @@ export const SECTIONS = {
 const isMessages = name => name === SECTIONS.recruiter || /^📥/.test(name);
 
 // [key, label] in the mockup's order; a tab shows only when the job has its content.
-export const TABS = [['kit', 'Kit'], ['prep', 'Prep'], ['review', 'Review'], ['record', 'Record'], ['messages', 'Messages'],
+export const TABS = [['kit', 'Kit'], ['match', 'Match'], ['prep', 'Prep'], ['review', 'Review'], ['record', 'Record'], ['messages', 'Messages'],
   ['description', 'Description'], ['history', 'History']];
 
 // A line of the store's Markdown as plain words: links keep their label, marks and escapes go (notion_blocks.py writes them).
@@ -95,12 +95,30 @@ export function historyItems(events = []) {
     .map(event => ({when: day(event.at || event.created_at), kind: String(event.kind), note: plain(event.note || '')}));
 }
 
-// The page's tabs and their content: {tabs: [[key, label]], kit, groups: {prep, review, record, messages, description}, history}.
-export function pageParts({sections = {}, kit = null, events = [], files = []} = {}) {
+// The search's facts about the job (its 🎯 Job Matches row on every store, src/stores/matches_sync.py facts): what a Notion user reads in
+// those columns. Strengths and gaps are on the row's fit ring (jobs-fit.js), not repeated here. [] when the job has no match.
+export function matchGroups(match = null) {
+  if (!match) return [];
+  const score = [match.fit != null && match.fit !== '' ? `🎯 ${match.fit}` : '', match.tier, match.confidence && `confidence ${match.confidence}`]
+    .filter(Boolean).join(' · ');
+  const scored = match.scored ? `Scored ${day(match.scored)}${match.scoring_method === 'Previous' ? ' (from your earlier Profile)' : ''}` : '';
+  const languages = (Array.isArray(match.languages) ? match.languages : []).map(name => name.replace(/ \+$/, ' (a plus)')).join(', ');
+  const facts = [['Seniority', match.seniority], ['Role family', match.role_family], ['Work mode', match.work_mode], ['Languages', languages],
+    ['Technologies', match.technologies], ['Salary', match.salary]].filter(([, value]) => value).map(([label, value]) => `${label} · ${value}`);
+  if (match.recruiter === true) facts.push('Posted by a recruiter');
+  const groups = [];
+  if (score || scored) groups.push({title: 'Fit', lines: [score, scored].filter(Boolean)});
+  if (facts.length) groups.push({title: 'About the job', lines: facts});
+  return groups;
+}
+
+// The page's tabs and their content: {tabs: [[key, label]], kit, groups: {match, prep, review, record, messages, description}, history}.
+export function pageParts({sections = {}, kit = null, events = [], files = [], match = null} = {}) {
   const named = Object.entries(sections || {});
   const messages = named.filter(([name]) => isMessages(name))
     .flatMap(([name, markdown]) => groupsOf(markdown, plain(name)));
   const groups = {
+    match: matchGroups(match),
     prep: groupsOf(sections[SECTIONS.prep]), review: groupsOf(sections[SECTIONS.review]),   // the tab names them: no heading of their own
     record: groupsOf(sections[SECTIONS.record]), messages,
     // The posting as saved on the job, else as frozen in its application record (its job snapshot, src/notion/ledger_record.py).

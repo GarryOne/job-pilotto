@@ -166,15 +166,19 @@ class Matches:
     def list(self, status=None):
         return [dict(r) for r in self.rows.values() if status is None or r['status'] == status]
 
+    def get(self, url):
+        row = self.rows.get(base.url_key(url))
+        return dict(row) if row else None
+
     def upsert(self, job):
         key = base.url_key(job['url'])
         row = self.rows.get(key) or base.record(base.MATCH_FIELDS, {'first_seen': _now()})
-        row.update(_known(base.MATCH_FIELDS, job))
+        row.update(_known(base.MATCH_FIELDS, {k: v for k, v in job.items() if k != 'last_update'}), last_update=_now())
         self.rows[key] = row
         return dict(row)
 
     def set_status(self, url, status):
-        self.rows[base.url_key(url)]['status'] = status
+        self.rows[base.url_key(url)].update(status=status, last_update=_now())
 
     def remove(self, url):
         self.rows.pop(base.url_key(url), None)

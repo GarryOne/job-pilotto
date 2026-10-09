@@ -40,7 +40,12 @@ EVENT_FIELDS = ('id', 'app_id', 'kind', 'at', 'source', 'note', 'source_id', 'in
 # 'from', 'subject', 'feedback'} (src/ai/mail_record.py writes it). `needs_you` + `suggested_job` (a job URL) mark a
 # question on no job (app_id ''): "Which job is this email about?", answered in Focus (src/ai/reassign.py).
 MATCH_FIELDS = ('url', 'title', 'company', 'location', 'work_mode', 'fit', 'reason', 'fit_detail', 'status',
-                'first_seen')
+                'first_seen',
+                # Every other 🎯 Job Matches column, with the column's own value (src/notion/matches.py properties writes them): what a
+                # Notion user reads there, and what the application record freezes (src/notion/ledger_record.match_for).
+                'tier', 'confidence', 'code', 'scored', 'scoring_method', 'seniority', 'languages', 'salary', 'recruiter',
+                'technologies', 'role_family',
+                'last_update')   # read-only: when the row last changed (Notion's Last update; the other stores stamp each write)
 INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'input', 'round', 'overall', 'questions', 'weak_answers', 'topics',
                     'weak_topics', 'next_step', 'cost', 'model', 'transcript', 'review', 'created_at')
 INSIGHT_FIELDS = ('id', 'day', 'category', 'title', 'body', 'fields', 'created_at')
@@ -196,6 +201,7 @@ class Events(Protocol):
 class Matches(Protocol):
     """What a search found and scored (🎯 Job Matches)."""
     def list(self, status=None) -> list: ...
+    def get(self, url: str) -> Optional[dict]: ...   # by base.url_key; None when the search never had it
     def upsert(self, job: dict) -> dict: ...
     def set_status(self, url: str, status: str) -> None: ...
     def remove(self, url: str) -> None: ...

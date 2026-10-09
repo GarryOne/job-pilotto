@@ -11,7 +11,11 @@ from . import notion_rows as rows
 
 COLUMNS = (('url', 'Job URL', 'url'), ('title', 'Job', 'title'), ('company', 'Company', 'rich_text'),
            ('location', 'Location', 'rich_text'), ('work_mode', 'Work mode', 'select'), ('fit', 'Score', 'number'),
-           ('reason', 'Reason', 'rich_text'), ('status', 'Status', 'select'), ('first_seen', 'First seen', 'date'))
+           ('reason', 'Reason', 'rich_text'), ('status', 'Status', 'select'), ('first_seen', 'First seen', 'date'),
+           ('tier', 'Tier', 'select'), ('confidence', 'Confidence', 'select'), ('code', 'Code', 'rich_text'), ('scored', 'Scored', 'date'),
+           ('scoring_method', 'Scoring method', 'select'), ('seniority', 'Seniority', 'select'), ('languages', 'Languages', 'multi_select'),
+           ('salary', 'Salary', 'rich_text'), ('recruiter', 'Recruiter', 'checkbox'), ('technologies', 'Technologies', 'rich_text'),
+           ('role_family', 'Role family', 'select'))
 # fit_detail: {'strengths', 'gaps', 'parts': {part: number}}, each in its own column (as notion_jobs reads them).
 PARTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensation', 'Compensation fit'),
          ('growth', 'Growth'), ('risk', 'Risk'))
@@ -39,8 +43,9 @@ class NotionMatches:
         self.tracker, self.database_id = tracker, database_id
 
     def _record(self, page):
-        found = rows.to_record(page, COLUMNS, [f for f in self.fields if f != 'fit_detail'])
+        found = rows.to_record(page, COLUMNS, [f for f in self.fields if f not in ('fit_detail', 'last_update')])
         found['first_seen'] = found['first_seen'] or page.get('created_time', '')
+        found['last_update'] = page.get('last_edited_time', '')   # Notion's own Last update: read, never written
         return {**base.record(self.fields, found), 'fit_detail': _detail_of(page.get('properties') or {})}
 
     def _pages(self, filter_=None):
@@ -56,12 +61,16 @@ class NotionMatches:
         unknown = set(values) - set(self.fields)
         if unknown:
             raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
-        props = rows.to_properties({k: v for k, v in values.items() if k != 'fit_detail'}, COLUMNS)
+        props = rows.to_properties({k: v for k, v in values.items() if k not in ('fit_detail', 'last_update')}, COLUMNS)
         return {**props, **(_detail_props(values['fit_detail']) if 'fit_detail' in values else {})}
 
     def list(self, status=None):
         filter_ = {'property': 'Status', 'select': {'equals': status}} if status is not None else None
         return sorted((self._record(page) for page in self._pages(filter_)), key=lambda match: match['first_seen'])
+
+    def get(self, url):
+        page = self._find(url)
+        return self._record(page) if page else None
 
     def upsert(self, job):
         page = self._find(job['url'])

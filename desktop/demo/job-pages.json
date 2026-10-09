@@ -62,6 +62,24 @@
     "tooLarge": false,
     "url": "data:application/pdf;base64,JVBERi0="
    }
-  ]
+  ],
+  "match": {
+   "url": "https://example.com/jobs/1",
+   "fit": 82,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-08",
+   "scoring_method": "Current",
+   "seniority": "Senior",
+   "role_family": "SRE",
+   "work_mode": "Hybrid",
+   "languages": [
+    "English",
+    "German +"
+   ],
+   "technologies": "Kubernetes; Terraform; Go",
+   "salary": "CHF 130–150k",
+   "recruiter": false
+  }
  }
 }

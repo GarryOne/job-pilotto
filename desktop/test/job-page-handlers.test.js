@@ -6,10 +6,11 @@ import {fileURLToPath} from 'node:url';
 import {fileBytes, jobPage, registerJobPageHandlers} from '../lib/job-page-handlers.js';
 
 const kitMarkdown = 'Drafted.\n\n### Machine-readable kit\n\n```json\n{"cover_letter": "Dear team", "answers": []}\n```';
-function fakeStore(app) {
+function fakeStore(app, match = null) {
   const calls = [];
   const call = async (_storage, entity, method, kwargs) => {
     calls.push(`${entity}.${method}`);
+    if (entity === 'matches' && method === 'get') return match;
     if (method === 'get') return app;
     if (method === 'sections') return {'📝 Application kit': kitMarkdown};
     if (entity === 'events') return [{kind: 'Applied', at: '2026-10-01'}];
@@ -20,9 +21,10 @@ function fakeStore(app) {
 }
 
 test('a tracked job: its sections, its kit as JSON and its events, by its app id', async () => {
-  const {call, calls} = fakeStore({id: 'a1', stage: 'Applied'});
+  const {call, calls} = fakeStore({id: 'a1', stage: 'Applied'}, {url: 'https://x/1', fit: 82, tier: 'Strong'});
   const page = await jobPage({}, 'https://x/1', {call, links: true});
-  assert.deepEqual(calls.sort(), ['applications.files', 'applications.get', 'applications.sections', 'events.list']);
+  assert.deepEqual(calls.sort(), ['applications.files', 'applications.get', 'applications.sections', 'events.list', 'matches.get']);
+  assert.equal(page.match.tier, 'Strong', 'the search\'s facts, for the Match tab');
   assert.deepEqual(page.files.map(file => [file.name, file.url]), [['chat.png', 'data:image/png;base64,AAAA']], 'the screenshots, for Messages');
   assert.equal(page.kit.cover_letter, 'Dear team');
   assert.equal(page.events.length, 1);
@@ -31,8 +33,8 @@ test('a tracked job: its sections, its kit as JSON and its events, by its app id
 
 test('a job nobody acted on: no application, nothing else read', async () => {
   const {call, calls} = fakeStore(null);
-  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, sections: {}, kit: null, events: [], files: [], links: false});
-  assert.deepEqual(calls, ['applications.get']);
+  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, match: null, sections: {}, kit: null, events: [], files: [], links: false});
+  assert.deepEqual(calls.sort(), ['applications.get', 'matches.get']);
 });
 
 test('the IPC: demo mode reads the fictional fixture; a store error is an answer, logged', async () => {

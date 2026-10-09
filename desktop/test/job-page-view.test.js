@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {SECTIONS, TABS, allAnswers, headerFacts, kitParts, pageParts, plain, readablePart} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, headerFacts, kitParts, matchGroups, pageParts, plain, readablePart} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -11,7 +11,22 @@ test('a tab shows only when the job has its content, in the mockup order', () =>
   assert.deepEqual(pageParts({sections: {[SECTIONS.prep]: '### Ask them\n\n- On-call?'}}).tabs, [['prep', 'Prep']]);
   assert.deepEqual(pageParts({sections: {[SECTIONS.record]: '```json\n{}\n```'}}).tabs, [], 'only machine-readable JSON: nothing to read');
   const all = Object.fromEntries(Object.values(SECTIONS).map(name => [name, '- something']));
-  assert.deepEqual(pageParts({sections: all, events: [{kind: 'Applied', at: '2026-10-01'}]}).tabs.map(([key]) => key), TABS.map(([key]) => key));
+  assert.deepEqual(pageParts({sections: all, events: [{kind: 'Applied', at: '2026-10-01'}], match: {fit: 80, tier: 'Strong'}}).tabs.map(([key]) => key),
+    TABS.map(([key]) => key));
+});
+
+// The search's facts (src/stores/matches_sync.py facts, the Job Matches columns), on every store: what a Notion user reads in those columns.
+test('Match: the fit line and the job\'s facts, only those it has; none for a job added by hand', () => {
+  assert.deepEqual(matchGroups(null), []);
+  const groups = matchGroups({fit: 82, tier: 'Strong', confidence: 'High', scored: '2026-10-09', scoring_method: 'Previous', seniority: 'Senior',
+    role_family: 'SRE', work_mode: 'Hybrid', languages: ['English', 'German +'], technologies: 'Kubernetes; Terraform', salary: 'CHF 140-160k',
+    recruiter: true});
+  assert.deepEqual(groups.map(group => group.title), ['Fit', 'About the job']);
+  assert.deepEqual(groups[0].lines, ['🎯 82 · Strong · confidence High', 'Scored 9 Oct 2026 (from your earlier Profile)']);
+  assert.deepEqual(groups[1].lines, ['Seniority · Senior', 'Role family · SRE', 'Work mode · Hybrid', 'Languages · English, German (a plus)',
+    'Technologies · Kubernetes; Terraform', 'Salary · CHF 140-160k', 'Posted by a recruiter']);
+  assert.deepEqual(matchGroups({fit: 60, tier: '', languages: '', recruiter: false}).map(group => group.lines), [['🎯 60']], 'only what it has');
+  assert.deepEqual(pageParts({match: {fit: 70}}).tabs, [['match', 'Match']], 'a match nobody acted on still has its page');
 });
 
 test('the kit: from its JSON when it has one (copyable answers), else its text', () => {
