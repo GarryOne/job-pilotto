@@ -99,3 +99,27 @@ test('a second browser never closes the first one\'s form; a browser gone quiet,
   now += 91 * 1000; review.noteTabs({ids: [], boot: NEXT});
   assert.equal(review.tabOpen('s1'), false, 'older extension: its run silent past 90 s');
 });
+
+// 9 Oct 2026 (twin log 12:37:19): the app reopened Nahrin's jobs.ch form while Coop's tab was in front; the new tab inherited Coop's session
+// from its opener for 10 ms, a tab report in between moved Coop onto it, and Coop's open form looked closed once that tab closed.
+test('a tab that carried a session for one report only gives it back when the next report shows it carries another', () => {
+  const known = new Set(['coop', 'nahrin']);
+  const moves = []; review.onBind(move => moves.push(move));
+  review.noteTabs({ids: [255], boot: RUN, sessions: {255: 'coop'}}, known);
+  review.noteTabs({ids: [255, 256], boot: RUN, sessions: {255: 'coop', 256: 'coop'}}, known);   // the inherited session, for a moment
+  assert.equal(moves.at(-1).tab, 256);
+  review.noteTabs({ids: [255, 256], boot: RUN, sessions: {255: 'coop'}}, known);                // the fill mark dropped it
+  assert.deepEqual([moves.at(-1).id, moves.at(-1).tab, moves.at(-1).by], ['coop', 255, 'tab report: its tab carries another session now']);
+  review.noteTabs({ids: [255], boot: RUN, sessions: {255: 'coop'}}, known);                     // the jobs.ch tab closes: Coop's form is still open
+  assert.equal(review.tabOpen('coop'), true);
+  review.noteTabs({ids: [255, 257], boot: RUN, sessions: {255: 'coop', 257: 'nahrin'}}, known);
+  assert.equal(review.tabOpen('nahrin'), true);
+  assert.equal(review.tabOpen('coop'), true);
+});
+
+test('a session bound by its page keeps its tab even when the tab report carries nothing for it (an older extension, a form page)', () => {
+  review.report([coop], form(812, RUN));
+  review.noteTabs({ids: [700, 812], boot: RUN, sessions: {700: 's1'}}, new Set(['s1']));   // an older tab of it: never pulls it back
+  assert.equal(review.olderTab('s1', 700, RUN), true);
+  assert.equal(review.tabOpen('s1'), true);
+});

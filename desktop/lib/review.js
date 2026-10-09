@@ -169,17 +169,30 @@ function bind(id, tab, boot, by, host = '', keep = true) {
   if (bound.get(id) === tab && runOf.get(id) === boot) return;
   bindLog({id, tab, before: bound.get(id) ?? null, by, host, ...(runOf.has(id) && runOf.get(id) !== boot ? {newRun: true} : {})});
   bound.set(id, tab); runOf.set(id, boot);
+  if (by.startsWith('tab report')) byReport.add(id); else byReport.delete(id);
   const state = keep && last.get(id);   // a page's report saves its own state; a tab report keeps the new tab here
   if (state && (state.tab !== tab || state.boot !== boot)) { last.set(id, {...state, tab, boot, tabAt: state.tab === tab ? state.tabAt : Date.now()}); save(); }
 }
 // The extension's tab report (every 30 s): which tabs exist in which run, and the session each tab carries (`sessions`: tab id → session id).
 // A tab carrying a session is that session's tab, unless the session already follows a newer one.
+// A binding a tab report made is only as good as the report: when a later one shows that tab open but carrying another session or none,
+// the session goes back to the newest open tab that still carries it. 9 Oct 2026: the app reopened a jobs.ch form while Coop's tab was in
+// front, the new tab inherited Coop's session from its opener for 10 ms (until the extension saw the fill mark), a report in between moved
+// Coop onto the jobs.ch tab, and Coop's form then looked closed when that tab closed.
+const byReport = new Set();   // sessions whose tab was last decided by a tab report
 export function noteTabs({ids, boot, browser, sessions} = {}, known = null) {
   const run = String(boot || '');
   if (run) bootId = run;
   const openIds = Array.isArray(ids) ? new Set(ids.map(Number).filter(Number.isInteger)) : null;
   runs.set(String(browser || run), {boot: run, ids: openIds, at: clock()});
-  for (const [tab, id] of Object.entries(sessions && typeof sessions === 'object' ? sessions : {})) {
+  const carried = sessions && typeof sessions === 'object' ? sessions : null;
+  for (const id of carried && openIds ? [...byReport] : []) {
+    const tab = bound.get(id);
+    if (!sameRun(id, run) || !openIds.has(tab) || String(carried[tab] || '') === id) continue;
+    const still = Object.entries(carried).filter(([other, owner]) => String(owner) === id && openIds.has(Number(other))).map(([other]) => Number(other));
+    if (still.length) bind(id, Math.max(...still), run, 'tab report: its tab carries another session now');
+  }
+  for (const [tab, id] of Object.entries(carried || {})) {
     const tabId = Number(tab);
     if (!Number.isInteger(tabId) || !id || (known && !known.has(String(id))) || !openIds?.has(tabId)) continue;
     if (bound.has(String(id)) && sameRun(String(id), run) && bound.get(String(id)) > tabId) continue;   // it follows a newer tab
@@ -268,4 +281,4 @@ export function forget(id) { last.delete(id); bound.delete(id); runOf.delete(id)
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
 export const _clock = fn => { clock = fn; };   // tests
-export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); runOf.clear(); runs.clear(); bootId = ''; clock = () => Date.now(); last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; bindLog = () => {}; };  // tests
+export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); byReport.clear(); runOf.clear(); runs.clear(); bootId = ''; clock = () => Date.now(); last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; bindLog = () => {}; };  // tests
