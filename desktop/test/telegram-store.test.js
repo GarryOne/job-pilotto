@@ -74,3 +74,27 @@ test('an outcome tap on this Mac: the stage, one Telegram event, and "Saved" wit
   assert.equal(writes[1][3], 'Telegram');
   assert.match(said.find(([method]) => method === 'answerCallbackQuery')[1].text, /^SRE: .*\. Saved\.$/);
 });
+
+test('an insight feedback tap on this Mac: kept on the insight, its other fields untouched', async () => {
+  const INSIGHT = '4c2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b';
+  const writes = [];
+  const call = async (_, entity, method, kwargs) => {
+    if (entity === 'insights' && method === 'list') return [{id: INSIGHT, fields: {basis: 'funnel'}}];
+    if (entity === 'insights' && method === 'update') { writes.push(kwargs); return {}; }
+    throw new Error(`unexpected ${entity}.${method}`);
+  };
+  const said = [];
+  globalThis.fetch = async (url, init) => {
+    if (!String(url).startsWith('https://api.telegram.org/botbot/')) return offline(url);
+    said.push(JSON.parse(init.body));
+    return {ok: true, json: async () => ({ok: true})};
+  };
+  try {
+    await handleUpdate({store: telegramStore({}, {call}), TELEGRAM_BOT_TOKEN: 'bot', OWNER_CHAT_ID: '1'}, {callback_query: {id: 'q',
+      data: `ins:u:${INSIGHT.replace(/-/g, '')}`, message: {chat: {id: 1}, message_id: 6, reply_markup: {inline_keyboard: []}}}});
+  } finally { globalThis.fetch = offline; }
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].insight_id, INSIGHT);
+  assert.equal(writes[0].fields.fields.basis, 'funnel');
+  assert.ok(writes[0].fields.fields.feedback);
+});

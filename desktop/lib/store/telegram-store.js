@@ -32,6 +32,12 @@ export function telegramStore(storage, {call = engine.call, now = () => new Date
       await store('events', 'add', {app_id: appId, kind: stage, at: now().toISOString(), source: 'Telegram'});
       return app?.title || 'Application';
     },
-    async insightFeedback() { throw new Error('Insight feedback is not kept on this Mac yet.'); },
+    // 👍/👎 under an insight: its `feedback` (src/stores INSIGHT_EXTRAS), read by the next insights. The button carries the id without dashes.
+    async insightFeedback(id, feedback) {
+      const bare = String(id).replace(/-/g, '');
+      const insight = (await store('insights', 'list', {})).find(each => String(each.id).replace(/-/g, '') === bare);
+      if (!insight) throw new Error('That insight is no longer kept.');
+      await store('insights', 'update', {insight_id: insight.id, fields: {fields: {...(insight.fields || {}), feedback}}});
+    },
   };
 }
