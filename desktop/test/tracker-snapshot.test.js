@@ -33,7 +33,7 @@ test('an export carries the records written to the WAL, not yet in the main file
   const file = path.join(base, 'export.tar.gz');
   reset.exportTo(dir, file);
   live.close();
-  const names = execFileSync(tar(), ['-tzf', file]).toString().split('\n');
+  const names = execFileSync(tar(), ['-tzf', file]).toString().split(/\r?\n/).map(name => name.trim());   // Windows tar ends lines with \r\n
   assert.ok(names.includes('data/tracker.snapshot.sqlite'));
   assert.ok(!names.some(name => /^data\/tracker\.sqlite/.test(name)), 'the live file and its WAL stay out');
   for (const name of ['profile.md', 'answers.md', 'knowledge.md']) assert.ok(names.includes(name), name);
