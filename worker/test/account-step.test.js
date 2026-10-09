@@ -83,3 +83,14 @@ test('the account\'s outcome and the page kind are asked together; the submit wa
   const watch = fs.readFileSync(new URL('../../extension/submit-watch.js', import.meta.url), 'utf8');
   assert.ok(watch.indexOf('accountOutcomePending(tabId)') > 0 && watch.indexOf('accountOutcomePending(tabId)') < watch.indexOf('asking whether it confirms'));
 });
+
+// jobs.ch live, 9 Oct 2026: a sign-up page filled with your details was judged 0.3 s before the fill typed the email: "Email address" missing, nothing pressed.
+test('an account page filled with your details is judged after that fill, others at once', async () => {
+  const fs = await import('node:fs');
+  const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+  const fill = flow.indexOf('await fillOpenedTab(live,'), later = flow.indexOf('if (accountAfterFill) accountStep(tab, 0)');
+  assert.match(flow, /accountAfterFill = accountPage && noted === 'account';/);
+  assert.match(flow, /if \(accountPage && !accountAfterFill\) accountStep\(tab, 0\)/);
+  assert.ok(fill > 0 && later > fill, 'the account step of a filled account page starts after the fill');
+  assert.equal(flow.match(/accountStep\(tab, 0\)/g).length, 2, 'one start before the fill, one after: never both for one page');
+});

@@ -283,7 +283,10 @@ export async function consider(tab, jobUrl) {
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
   await noteRole(tab.id, tab.url, noted || role);   // a sign-up page filled like a form is still an account page: no application learning, no "application form" stage (Migros, 8 Oct 2026)
-  if (kind?.role === 'account' || ruled === 'account') accountStep(tab, 0).catch(() => {});   // event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick
+  // Event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick. One filled with your details is looked at AFTER
+  // that fill: its "ready?" judgment must see the email in (jobs.ch, 9 Oct 2026: judged 0.3 s before the fill typed it, "Email address" missing, nothing pressed).
+  const accountPage = kind?.role === 'account' || ruled === 'account', accountAfterFill = accountPage && noted === 'account';
+  if (accountPage && !accountAfterFill) accountStep(tab, 0).catch(() => {});
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
@@ -323,4 +326,5 @@ export async function consider(tab, jobUrl) {
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
   reportFlow(tab, {role: 'form', ok: !result?.error});
+  if (accountAfterFill) accountStep(tab, 0).catch(() => {});   // the account page, now with your details in (above)
 }
