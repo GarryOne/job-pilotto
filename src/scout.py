@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import contribute, employer_index, scout_core, store, telegram, tgcard
+from . import contribute, employer_index, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
@@ -377,11 +377,11 @@ def main():
         print('Source scout is off (JOB_PILOTTO_DISABLE includes scout).')
         return 0
     tracker = notion.Tracker.from_env()
-    logged = tracker and (args.send or args.log_run)
-    if logged:
-        cron_runs.auto_begin(tracker)  # the scout's ⏱️ Search runs row opens when it starts
-    log = cron_runs.new_run('scout')
     stores = employer_store(tracker)
+    logged = args.send or args.log_run   # on any store: the row is in the run history wherever the data is
+    if logged:
+        run_log.auto_begin(stores)  # the scout's run row opens when it starts
+    log = run_log.new_run('scout')
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, stores, budget=args.budget)
         if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
@@ -422,7 +422,7 @@ def main():
     else:
         telegram.to_app(message)  # no Telegram: the desktop app shows the summary
     if logged:
-        cron_runs.log_run(tracker, log)
+        run_log.log_run(stores, log)
 
 
 if __name__ == '__main__':

@@ -323,7 +323,7 @@ def _update(stores, tracker, *, client, model_, stats, now, force, budget_status
     if row and not force and (row.get('fields') or {}).get('input_hash') == digest and (_row_data(row).get('v') or 1) >= DATA_VERSION:
         return {'status': 'unchanged', 'text': f'Interview insights: up to date ({len(rows)} reviewed, nothing changed)', 'usd': 0.0}
     try:
-        info = (budget_status or budget.status)(tracker)
+        info = (budget_status or budget.status)(stores)
     except Exception as error:  # noqa: BLE001 - a budget read that fails never blocks it
         print(f'Warning: budget check skipped: {type(error).__name__}: {error}')
         info = {'level': 'ok'}

@@ -100,6 +100,30 @@ class StoreRunTests(Quiet):
         self.assertEqual(row['status'], 'Failed')
 
 
+class CallerTests(Quiet):
+    def test_the_scout_logs_its_run_on_this_macs_store(self):
+        import os
+        import sys
+        from src import scout
+        folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder, True)
+        env = {'JOB_PILOTTO_STORE': 'sqlite', 'JOB_PILOTTO_DATA_DIR': str(folder)}
+        from src import store
+        with store.connect(folder / 'jobs.sqlite') as db:  # the scout's tables, as an install that ran it has them
+            db.executescript(scout.TABLES)
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, env), mock.patch.object(sys, 'argv', ['scout', '--log-run', '--db', str(folder / 'jobs.sqlite')]), \
+                mock.patch.object(scout.notion.Tracker, 'from_env', return_value=None), \
+                mock.patch.object(scout, 'run', return_value=({}, [])), mock.patch.object(scout, 'telegram_summary', return_value='No new feeds'), \
+                mock.patch.object(scout.contribute, 'maybe_send'), mock.patch.object(scout, 'active_sources', return_value=[]), \
+                mock.patch.object(scout.telegram, 'to_app'), redirect_stdout(out):
+            os.environ.pop('NOTION_TOKEN', None)
+            scout.main()
+        [row] = sqlite.open_store(env).cron_runs.list()
+        self.assertEqual((row['kind'], row['status'] != 'Running'), ('scout', True))
+        self.assertIn(f"Cronjob run logged: {base.ref('cron_runs', row['id'])}", out.getvalue())
+
+
 class OneLogTests(Quiet):
     def test_a_process_logs_through_run_log_or_cron_runs_never_both(self):
         stores, run = memory.open_store(), sample_run()
