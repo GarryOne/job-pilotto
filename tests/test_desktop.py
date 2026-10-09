@@ -226,14 +226,15 @@ class StrategyInsightTests(unittest.TestCase):
         select = lambda name: {'type': 'select', 'select': {'name': name}}
         title = lambda value: {'type': 'title', 'title': [{'plain_text': value}]}
         bodies = []
+        date = lambda day: {'type': 'date', 'date': {'start': day}}
 
-        def request(method, path, body=None):
-            bodies.append(body)
-            if 'filter' in (body or {}):
+        def query(database_id, filter_=None):
+            bodies.append(filter_)
+            if filter_:
                 raise RuntimeError('HTTP Error 400: Bad Request')
-            return {'results': [{'url': 'u1', 'properties': {'Category': select('Interview patterns'), 'Insight': title('patterns')}},
-                                {'url': 'u2', 'properties': {'Category': select('Skills'), 'Insight': title('daily')}}]}
-        tracker = SimpleNamespace(url_stages=lambda: {}, page_text=lambda: '', _request=request)
+            return [{'id': 'i-1', 'properties': {'Category': select('Interview patterns'), 'Insight': title('patterns'), 'Date': date('2026-10-02')}},
+                    {'id': 'i-2', 'properties': {'Category': select('Skills'), 'Insight': title('daily'), 'Date': date('2026-10-01')}}]
+        tracker = SimpleNamespace(url_stages=lambda: {}, page_text=lambda: '', query_database=query)
         with tempfile.TemporaryDirectory() as tmp:
             db = store.connect(Path(tmp) / 'j.sqlite')
             with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), \
@@ -241,8 +242,8 @@ class StrategyInsightTests(unittest.TestCase):
                     mock.patch('src.ai.insights.INSIGHTS_DATABASE_ID', 'insights-db'):
                 data = desktop.strategy(db, tracker)
             db.close()
-        self.assertTrue(all('filter' not in (b or {}) for b in bodies))
-        self.assertEqual(data['insight']['headline'], 'daily')
+        self.assertEqual(bodies, [None])
+        self.assertEqual((data['insight']['headline'], data['insight']['url']), ('daily', 'https://www.notion.so/i2'))
 
 
 class DeleteTests(unittest.TestCase):

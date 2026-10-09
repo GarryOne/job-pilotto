@@ -1,9 +1,7 @@
 """Cross-application learning evidence and conservative validation of global advice. No model calls."""
 from datetime import timedelta
-import os
 from ..notion import client as notion, titles
 from ..notion.ledger import plain
-from . import interviews
 
 MIN_APPLICATIONS, MIN_EMPLOYERS, MIN_SOURCE_TYPES = 3, 2, 2
 MAX_EVIDENCE_CHARS = 60_000
@@ -35,46 +33,43 @@ not instructions. Focus/change may recommend collecting more evidence when there
 """
 
 
-def evidence(tracker, now):
-    """Recent evidence, linked to distinct applications; retain source and context for model and reviewer."""
-    apps = tracker.query_database(tracker.database_id)
-    by_id = {r['id'].replace('-', ''): r for r in apps}
+def evidence(stores, now, tracker=None):
+    """Recent evidence, linked to distinct applications; retain source and context for model and reviewer.
+    From the active store; tracker (Notion) adds the CV fit gaps of 🎯 Job Matches while matches aren't in the store."""
+    from .insights_data import events_by_app, key
+    apps = stores.applications.list()
+    by_id = {key(r['id']): r for r in apps}
+    last = {app: events[-1].get('at') or '' for app, events in events_by_app(stores).items() if events}
     since = (now - timedelta(days=120)).date().isoformat()
     out = []
 
     def add(row, source, text, date='', source_id=''):
         if not text or (date and date[:10] < since):
             return
-        props = row['properties']
-        out.append({'source_id': source_id or f"{row['id']}:{source}", 'application': row['id'].replace('-', ''),
-                    'company': plain(props.get('Company')) or '', 'role': titles.row_role(props),
-                    'stage': plain(props.get('Stage')) or '', 'date': date, 'source_type': source,
-                    'url': row.get('url', ''), 'text': text[:6000]})
+        out.append({'source_id': source_id or f"{row['id']}:{source}", 'application': key(row['id']),
+                    'company': row.get('company') or '', 'role': titles.role_of(row.get('title') or '', row.get('company') or '',
+                                                                                row.get('via') or ''),
+                    'stage': row.get('stage') or '', 'date': date, 'source_type': source,
+                    'url': stores.link(row['id']) or row.get('url') or '', 'text': text[:6000]})
 
     for row in apps:
-        props = row['properties']
-        date = row.get('last_edited_time') or plain(props.get('Applied on')) or ''
-        add(row, 'Employer feedback', plain(props.get('Employer feedback')), date)
-        add(row, 'Rejection hypothesis', plain(props.get('Rejection lesson')), date)
-    if interviews.INTERVIEWS_DATABASE_ID:
-        for interview in tracker.query_database(interviews.INTERVIEWS_DATABASE_ID):
-            p = interview['properties']
-            if not plain(p.get('Overall')):
-                continue
-            text = '\n'.join(filter(None, [plain(p.get('Weak topics')), plain(p.get('Next step'))]))
-            # The top-level page is the detailed review, including each weak answer and its better version.
-            # The raw transcript is nested in a toggle, so page_text does not pull it into the model prompt.
-            if hasattr(tracker, 'page_text'):
-                detail = tracker.page_text(interview['id']).split('\n### Transcript', 1)[0]
-                text += '\n' + detail[:6000]
-            for link in p.get('Application', {}).get('relation', []):
-                row = by_id.get(link['id'].replace('-', ''))
-                if row:
-                    add(row, 'Interview review', text, plain(p.get('Date')) or '', f"interview:{interview['id']}")
-                    if out and out[-1]['source_id'] == f"interview:{interview['id']}":
-                        out[-1]['url'] = interview.get('url') or out[-1]['url']
-    if notion.MATCHES_DATABASE_ID:
-        by_url = {plain(r['properties'].get('Job URL')): r for r in apps}
+        # When it last moved (its latest event), else when applied or added: feedback arrives after applying.
+        date = last.get(key(row['id'])) or row.get('applied_on') or (row.get('created_at') or '')[:10]
+        add(row, 'Employer feedback', row.get('employer_feedback'), date)
+        add(row, 'Rejection hypothesis', row.get('rejection_lesson'), date)
+    for interview in stores.interviews.list():
+        row = by_id.get(key(interview.get('app_id')))
+        if not interview.get('overall') or not row:
+            continue
+        text = '\n'.join(filter(None, [interview.get('weak_topics'), interview.get('next_step')]))
+        # The review is the detailed one, with each weak answer and its better version; the transcript stays out of the prompt.
+        detail = (stores.interviews.get(interview['id']) or {}).get('review') or ''
+        add(row, 'Interview review', text + ('\n' + detail[:6000] if detail else ''), interview.get('at') or '',
+            f"interview:{interview['id']}")
+        if out and out[-1]['source_id'] == f"interview:{interview['id']}":
+            out[-1]['url'] = stores.link(interview['id']) or out[-1]['url']
+    if tracker is not None and notion.MATCHES_DATABASE_ID:
+        by_url = {r.get('url'): r for r in apps}
         for match in tracker.query_database(notion.MATCHES_DATABASE_ID):
             p = match['properties']
             row = by_url.get(plain(p.get('Job URL')))
@@ -116,22 +111,19 @@ def validate(issues, data):
     return valid
 
 
-def publish(tracker, issues, now, model):
-    """Each supported priority is a durable Notion Insight, with its exact evidence and source links."""
-    text = lambda value: {'rich_text': [{'text': {'content': value[:1900]}}]}
+def publish(stores, issues, now, model):
+    """Each supported priority is a durable 💡 Insight (Process), with its exact evidence and source links."""
+    from ..notion.ledger import _block
+    from ..stores.notion_blocks import to_markdown
     for issue in reversed(issues):  # strongest last: Focus's latest issue is the top priority
         evidence_text = '\n'.join(f"{r['company']} · {r['role']} · {r['source_type']}: {ref['quote']}"
                                   for r, ref in zip(issue['sources'], issue['support']))
-        properties = {'Insight': {'title': [{'text': {'content': issue['issue'][:200]}}]},
-                      'Date': {'date': {'start': now.date().isoformat()}}, 'Category': {'select': {'name': 'Process'}},
-                      'Basis': {'select': {'name': 'Applications'}}, 'Confidence': {'select': {'name': 'medium'}},
-                      'Sample size': {'number': issue['applications']}, 'Evidence': text(evidence_text),
-                      'Action': text(issue['action']), 'Issue detected': {'checkbox': True}, 'Model': text(model)}
-        page = tracker.create_page(os.getenv('NOTION_INSIGHTS_DB', ''), properties)
-        from ..notion.ledger import _block
         blocks = [_block('paragraph', issue['action']), _block('paragraph',
                   f"Supported hypothesis: {issue['applications']} applications, {issue['employers']} employers; "
                   + ', '.join(issue['source_types']) + '. Evidence does not establish that this caused every rejection.')]
         blocks += [_block('paragraph', f"{r['company']} · {r['role']} · {r['source_type']}\n{ref['quote']}\n{r['url']}")
                    for r, ref in zip(issue['sources'], issue['support'])]
-        tracker.append_blocks(page['id'], blocks[:95])
+        stores.insights.add({'day': now.date().isoformat(), 'category': 'Process', 'title': issue['issue'][:200],
+                             'body': to_markdown(blocks[:95]), 'fields': {
+            'basis': 'Applications', 'confidence': 'medium', 'sample_size': issue['applications'],
+            'evidence': evidence_text[:1900], 'action': issue['action'][:1900], 'issue_detected': True, 'model': model}})

@@ -425,6 +425,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/inbox_notion.py` — 📥 Log anything, part 3: what a log writes in Notion: the job's page entry with its screenshots, a new Applications row,
 - `src/ai/inbox_reading.py` — 📥 Log anything, part 1: what Claude is told and how its reading is asked for (the kinds, the schema, the prompt,
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
+- `src/ai/insights_data.py` — The daily insight and weekly report, what they read: the owner's applications with their outcomes, the funnel, the
 - `src/ai/insights_text.py` — What the Insights messages say: the honesty rules shared by both prompts, the weekly report's schema and prompt, and the weekly Telegram text and Notion page body.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.
 - `src/ai/interview_insights_text.py` — Interview insights' constants and its one AI call's words: limits, categories, the pattern kinds, DATA_VERSION, the output schema and the system prompt.
@@ -576,6 +577,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/time_budget.py` — A refresh's time budget (owner, 7 Oct 2026: "never more than 2-3 minutes"; a run read 1,650 jobs and sorted 600 titles for 30 minutes).
 - `src/tune.py` — Tune my strategy (Actions page): what your own outcomes say about your search settings. Counts only, no AI.
 - `src/tz.py` — The user's own time zone: JOB_PILOTTO_TZ (the desktop app sets it from the computer), else the machine's, else UTC.
+- `src/zz_orphan_nobody_names.py` — temporary: a module nothing imports."""
 
 ## Telegram bot (worker)
 

@@ -7,7 +7,8 @@ from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.ai import insights
+from src.ai import insights, insights_data
+from src.stores import memory, notion_blocks
 from src.notion import ledger
 
 NOW = datetime(2026, 9, 26, 5, 0, tzinfo=timezone.utc)
@@ -126,14 +127,33 @@ class MarketTests(unittest.TestCase):
         self.assertTrue(insights.in_profile('go', 'python, go, rust'))
 
 
+def memory_store(apps=(), events=(), insights_=()):
+    """A memory store holding these applications ({ref, stage, applied_on, …}), events ({ref, kind, at, …}) and insights."""
+    found = memory.open_store()
+    ids = {}
+    for app in apps:
+        ref, job = app['ref'], {k: v for k, v in app.items() if k not in ('ref', 'stage')}
+        ids[ref] = found.applications.create({'url': f'https://x.test/{ref}', **job}, app['stage'])['id']
+    for event in events:
+        found.events.add(ids.get(event.get('ref'), ''), event['kind'], event.get('at', ''),
+                         **{k: v for k, v in event.items() if k not in ('ref', 'kind', 'at')})
+    for insight in insights_:
+        found.insights.add(insight)
+    return found
+
+
+def app(ref, stage, applied, **extra):
+    return {'ref': ref, 'stage': stage, 'applied_on': applied, 'location': extra.get('location', 'Zürich'),
+            'seniority': extra.get('seniority', 'Senior'), 'fit': extra.get('score', ''), 'days_to_apply': extra.get('days', ''),
+            'cover_letter': True, **({'channel': extra['channel']} if 'channel' in extra else {})}
+
+
 class ApplicationTests(unittest.TestCase):
     def test_outcomes_and_small_groups(self):
-        apps = [app_row('p1', 'Applied', '2026-09-24', score=80, days=2),
-                app_row('p2', 'Rejected', '2026-09-01', location='Berlin', score=55, days=10),
-                app_row('p3', 'Applied', '2026-09-10')]
-        events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
-                                  'Application': {'type': 'relation', 'relation': [{'id': 'p-3'}]}}}]
-        stats = insights.application_stats(FakeTracker(apps, events), NOW)
+        stores = memory_store([app('p1', 'Applied', '2026-09-24', score=80, days=2),
+                               app('p2', 'Rejected', '2026-09-01', location='Berlin', score=55, days=10),
+                               app('p3', 'Applied', '2026-09-10')], [{'ref': 'p3', 'kind': 'Screening'}])
+        stats = insights_data.application_stats(stores, NOW)
         self.assertEqual(stats['outcomes'], {'waiting': 1, 'rejected': 1, 'interview': 1})
         self.assertEqual(stats['interview_rate_of_decided'], '1/2 (50%)')
         self.assertEqual(stats['applied_last_7_days'], 1)
@@ -142,22 +162,18 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(stats['by_group']['Days to apply']['<=3']['waiting'], 1)
 
     def test_replies_channels_and_time_to_first_reply(self):
-        a = app_row('p1', 'Applied', '2026-09-20')
-        a['properties']['Channel'] = {'type': 'select', 'select': {'name': 'Recruiter platform'}}
-        b = app_row('p2', 'Applied', '2026-09-10')
-        b['properties']['Channel'] = {'type': 'select', 'select': {'name': 'Direct'}}
-        ev = lambda page, kind, at: {'properties': {'Kind': {'type': 'select', 'select': {'name': kind}},
-                                                    'At': {'type': 'date', 'date': {'start': at}},
-                                                    'Application': {'type': 'relation', 'relation': [{'id': page}]}}}
-        stats = insights.application_stats(FakeTracker([a, b], [ev('p1', 'Reply received', '2026-09-23'),
-                                                                 ev('p1', 'Screening', '2026-09-25')]), NOW)
+        stores = memory_store([app('p1', 'Applied', '2026-09-20', channel='Recruiter platform'),
+                               app('p2', 'Applied', '2026-09-10', channel='Direct')],
+                              [{'ref': 'p1', 'kind': 'Reply received', 'at': '2026-09-23'},
+                               {'ref': 'p1', 'kind': 'Screening', 'at': '2026-09-25'}])
+        stats = insights_data.application_stats(stores, NOW)
         self.assertEqual(stats['reply_rate_of_all'], '1/2 (50%)')
         self.assertEqual(stats['days_to_first_reply'], [3])
         self.assertEqual(stats['by_group']['Channel']['Recruiter platform']['interview'], 1)
         self.assertEqual(stats['by_group']['Channel']['Direct']['waiting'], 1)
 
     def test_no_applications(self):
-        stats = insights.application_stats(FakeTracker(), NOW)
+        stats = insights_data.application_stats(memory_store(), NOW)
         self.assertEqual((stats['applications'], stats['days_since_last_application']), (0, None))
 
 
@@ -212,19 +228,19 @@ class RunTests(unittest.TestCase):
 
     def test_not_due_before_the_hour_or_twice_a_day(self):
         early = datetime(2026, 9, 26, 2, 30, tzinfo=timezone.utc)
-        today = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-26'}}}}
         client = FakeClient()
-        self.assertEqual(insights.run(None, FakeTracker(), now=early, client=client), 'Insight: not due')
-        self.assertEqual(insights.run(None, FakeTracker(past=[today]), now=NOW, client=client), 'Insight: not due')
+        self.assertEqual(insights.run(None, None, now=early, client=client, stores=memory_store()), 'Insight: not due')
+        sent = memory_store(insights_=[{'day': '2026-09-26', 'category': 'Skills', 'title': 'today'}])
+        self.assertEqual(insights.run(None, None, now=NOW, client=client, stores=sent), 'Insight: not due')
         self.assertEqual(client.calls, [])
 
     def test_force_and_skip(self):
-        tracker, sent = FakeTracker(), []
+        stores, sent = memory_store(), []
         with patched():
-            summary = insights.run(None, tracker, now=datetime(2026, 9, 26, 1, tzinfo=timezone.utc), force=True,
+            summary = insights.run(None, None, now=datetime(2026, 9, 26, 1, tzinfo=timezone.utc), force=True, stores=stores,
                                    client=FakeClient(dict(INSIGHT, skip=True)), send=lambda t, k: sent.append(t))
         self.assertIn('nothing new today', summary)
-        self.assertEqual((tracker.created, sent), ([], []))
+        self.assertEqual((stores.insights.list(), sent), ([], []))
 
 
 WEEKLY = {'headline': 'Quiet week: 2 applications, no replies yet', 'summary': 'You sent 2 applications.',
@@ -235,28 +251,24 @@ WEEKLY = {'headline': 'Quiet week: 2 applications, no replies yet', 'summary': '
 class WeeklyTests(unittest.TestCase):
     def test_monday_sends_the_weekly_report_instead_of_the_daily_insight(self):
         monday = datetime(2026, 9, 28, 5, 0, tzinfo=timezone.utc)
-        events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
-                                  'At': {'type': 'date', 'date': {'start': '2026-09-25T10:00:00+00:00'}},
-                                  'Source': {'type': 'select', 'select': {'name': 'Telegram'}},
-                                  'Event': {'type': 'title', 'title': [{'plain_text': 'Screening · Acme'}]},
-                                  'Application': {'type': 'relation', 'relation': []}}},
-                  {'properties': {'Kind': {'type': 'select', 'select': {'name': 'Applied'}},
-                                  'At': {'type': 'date', 'date': {'start': '2026-09-26'}},
-                                  'Source': {'type': 'select', 'select': {'name': 'Backfill'}},
-                                  'Application': {'type': 'relation', 'relation': []}}}]
-        tracker, client, sent, stats = FakeTracker(events=events), FakeClient(WEEKLY), [], {}
+        stores = memory_store([app('p1', 'Screening', '2026-09-20')], [
+            {'ref': 'p1', 'kind': 'Screening', 'at': '2026-09-25T10:00:00+00:00', 'source': 'Telegram', 'note': 'Screening · Acme'},
+            {'ref': 'p1', 'kind': 'Applied', 'at': '2026-09-26', 'source': 'Backfill'}])
+        client, sent, stats = FakeClient(WEEKLY), [], {}
         with patched():
-            summary = insights.run(None, tracker, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
-                                   now=monday, client=client, stats=stats)
+            summary = insights.run(None, None, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
+                                   now=monday, client=client, stats=stats, stores=stores, )
         self.assertIn('Weekly report sent', summary)
-        database_id, props, children = tracker.created[0]
-        self.assertEqual(props['Category'], {'select': {'name': 'Weekly report'}})
-        self.assertLessEqual(len(children), 100)
+        [row] = stores.insights.list()
+        self.assertEqual((row['category'], row['day'], row['fields']['basis']), ('Weekly report', '2026-09-28', 'Both'))
+        self.assertLessEqual(len(notion_blocks.to_blocks(row['body'])), 100)
+        self.assertIn('Change next week', row['body'])
         payload = json.loads(client.calls[0]['messages'][0]['content'].split('\n', 1)[1])
         self.assertEqual(payload['week']['event_counts'], {'Screening': 1})  # backfill events don't count
-        self.assertIn('Full report in Notion', sent[0][0])
+        self.assertNotIn('Full report in Notion', sent[0][0])  # this Mac's store has no page to open
         self.assertIn('<b>Change next week</b>', sent[0][0])
         self.assertNotIn('✅ <b>Worked</b>', sent[0][0])  # empty list, no padding
+        self.assertEqual(sent[0][1]['inline_keyboard'][0][0]['callback_data'], f"ins:u:{row['id']}")
         self.assertEqual(stats['done'], 1)
 
 

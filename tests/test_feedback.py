@@ -157,15 +157,14 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(result['notion_url'], insight['url'])
 
     def test_supported_advice_is_saved_to_notion_with_traceable_evidence(self):
-        tracker = mock.Mock()
-        tracker.create_page.return_value = {'id': 'priority'}
+        from src.stores import memory
+        stores = memory.open_store()
         issues = learning.validate([self.issue], {'evidence': self.sources})
-        learning.publish(tracker, issues, NOW, 'existing-insight-model')
-        props = tracker.create_page.call_args.args[1]
-        self.assertTrue(props['Issue detected']['checkbox'])
-        self.assertEqual(props['Sample size']['number'], 3)
-        blocks = tracker.append_blocks.call_args.args[1]
-        self.assertIn('https://notion.test/app1', str(blocks))
-        tracker.reset_mock()
-        learning.publish(tracker, learning.validate([self.issue], {'evidence': self.sources[:1]}), NOW, 'model')
-        tracker.create_page.assert_not_called()
+        learning.publish(stores, issues, NOW, 'existing-insight-model')
+        [row] = stores.insights.list()
+        self.assertTrue(row['fields']['issue_detected'])
+        self.assertEqual((row['fields']['sample_size'], row['fields']['model']), (3, 'existing-insight-model'))
+        self.assertIn('https://notion.test/app1', row['body'])
+        stores = memory.open_store()
+        learning.publish(stores, learning.validate([self.issue], {'evidence': self.sources[:1]}), NOW, 'model')
+        self.assertEqual(stores.insights.list(), [])

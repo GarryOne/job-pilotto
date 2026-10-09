@@ -75,7 +75,7 @@ class AnsweredModelTests(unittest.TestCase):
     def test_every_page_that_names_its_model_in_notion_names_the_answering_one(self):
         # The class (9 Oct 2026): each place that writes a model name a person reads in Notion. A new one goes in this list with its cost.answered.
         writers = {
-            'src/ai/insights.py': r"model = cost\.answered\(model, response\.usage\)[\s\S]*'Model': text\(model\)[\s\S]*model = cost\.answered\(model, usage\)",
+            'src/ai/insights.py': r"model = cost\.answered\(model, response\.usage\)[\s\S]*'model': model\}[\s\S]*model = cost\.answered\(model, usage\)[\s\S]*record\(insight, now\.date\(\), model, usd\)",
             'src/ai/interviews.py': r"properties\(result, app, now\.date\(\), cost\.answered\(model, usage\)",
             'src/ai/interview_insights.py': r"properties\(stored, items, digest, cost\.answered\(model_, usage\)",
             'src/ai/rejection.py': r"write\(tracker, row, result, cost\.answered\(model, usage\)\)",

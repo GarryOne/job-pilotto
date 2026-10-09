@@ -102,11 +102,13 @@ class Ticks(unittest.TestCase):
 
 class Neighbours(unittest.TestCase):
     def test_the_daily_insight_is_not_blocked_by_the_interview_patterns_row(self):
-        row = lambda category: {'properties': {'Category': select(category)}}
-        tracker = SimpleNamespace(query_database=lambda db, f=None: [row('Interview patterns')])
-        self.assertFalse(insights.sent_today(tracker, date(2026, 9, 30)))
-        tracker = SimpleNamespace(query_database=lambda db, f=None: [row('Interview patterns'), row('Skills')])
-        self.assertTrue(insights.sent_today(tracker, date(2026, 9, 30)))
+        from src.ai import insights_data
+        from src.stores import memory
+        stores = memory.open_store()
+        stores.insights.add({'day': '2026-09-30', 'category': 'Interview patterns', 'title': 'patterns'})
+        self.assertFalse(insights_data.sent_today(stores, date(2026, 9, 30)))
+        stores.insights.add({'day': '2026-09-30', 'category': 'Skills', 'title': 'daily'})
+        self.assertTrue(insights_data.sent_today(stores, date(2026, 9, 30)))
 
     def test_focus_does_not_show_it_as_the_page_insight(self):
         from src import focus

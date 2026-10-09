@@ -91,30 +91,26 @@ def strategy(db, tracker=None):
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
     stages = {}
     insight, compensation, goals, profile = None, '', {}, None
-    if tracker:
-        from .ai.insights import INSIGHTS_DATABASE_ID
-        from .notion.client import together
+    from .stores import open_stores
 
-        def latest_insight():
-            if not INSIGHTS_DATABASE_ID:
-                return []
-            rows = tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
-                                    {'page_size': 5, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]})['results']
-            # The Interviews page's own row is not a strategy insight. Skipped here, not in a Notion filter: a filter on
-            # an option the workspace doesn't have yet (before the schema repair) is refused with a 400.
-            from .notion.ledger import plain
-            return [r for r in rows if plain((r.get('properties') or {}).get('Category')) != 'Interview patterns'][:1]
+    def latest_insight():
+        """The newest insight in the active store, not the Interviews page's own row (Interview patterns)."""
+        found = open_stores(tracker=tracker)
+        rows = [r for r in found.insights.list(limit=5) if r['category'] != 'Interview patterns'][:1]
+        return [{**rows[0], 'url': found.link(rows[0]['id']) or ''}] if rows else []
+    if tracker:
+        from .notion.client import together
         quiet = lambda call: lambda: _quietly(call)  # a failed read leaves its part empty; the rest still shows
         url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
         for stage in (url_stages or {}).values():
             stages[stage] = stages.get(stage, 0) + 1
         goals = _goals(profile)
         compensation = goals.get('minimum_salary') or _section(profile or '', 'compensation') or _section(profile or '', 'salary')
-        if rows:
-            from .notion.ledger import plain
-            props = rows[0]['properties']
-            insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
-                       'url': rows[0].get('url', '')}
+    else:
+        rows = _quietly(latest_insight)
+    if rows:
+        insight = {'headline': rows[0]['title'] or '', 'action': (rows[0]['fields'] or {}).get('action') or '',
+                   'url': rows[0]['url']}
     from .paths import local_profile
     # Trying (no Notion): the Profile is on this Mac. Also when Notion gave no Profile and the app passed a local one (only in Trying or the demo,
     # whose Notion is fictional: desktop/lib/pipeline.js), so the demo's goals show.
