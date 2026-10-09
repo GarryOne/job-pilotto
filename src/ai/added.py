@@ -41,11 +41,11 @@ def description_of(item, text=''):
     return '\n'.join(f'{name}: {value}' for name, value in parts if value)
 
 
-def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=None, stores=None):
+def process(db, url, job, *, stores, row=None, client=None, stats=None, now=None):
     """Stage 1 + stage 2 for one job you added. job: title, company, location, description (optional: work_mode,
     date_posted). row: its Applications page, whose fit columns are filled. With no row yet (/add scores the job before
     its row exists), the columns are left in job['application_columns'] for ledger.add_application to write (and as store
-    fields in job['application_fields']). With a row, the job is filled through the active store (stores=, else open_stores).
+    fields in job['application_fields']). With a row, the job is filled through the active store (stores).
     Returns a short line ("fit 82/100, tier A"), or None when skipped (AI off, no text, already scored)."""
     if not (features.enabled('enrich') and features.enabled('score')):
         return None
@@ -70,7 +70,6 @@ def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=Non
     enrich.save(db, item, enrich.DEFAULT_MODEL, facts)
     cost.add(stats.setdefault('enrich', {}) if stats is not None else None, enrich.DEFAULT_MODEL, usage)
     item['ai'] = facts
-    stores = stores or open_stores(tracker=tracker)
     profile = score.scoring_profile(local_profile() or stores.texts.get('profile'))  # contact/links edits don't re-score
     fit, usage = score.score_one(client, score.DEFAULT_MODEL, item, profile)
     score.save(db, item, score.DEFAULT_MODEL, fit, profile)
@@ -132,7 +131,7 @@ def hook(tracker, db_path, stats=None, stores=None):
     def on_new(url, job, row=None):
         try:
             with store.connect(db_path) as db:
-                return process(db, tracker, url, job, row=row, stats=stats, stores=stores)
+                return process(db, url, job, row=row, stats=stats, stores=stores or open_stores(tracker=tracker))
         except Exception as error:  # noqa: BLE001
             print(f'Warning: AI stages skipped for {url}: {type(error).__name__}: {error}')
             return None

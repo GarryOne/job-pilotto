@@ -178,10 +178,9 @@ def add_message_mode(args, stores=None):
 
 
 def add_link_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-88, mac-4a): remove when ledger.company_for/add_application and added.process take the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when ledger.company_for/add_application take the store alone (the match record and matches.get, mac-70)
     # /add <job URL> [date]: track an application made outside Job Pilotto.
     _gate(tracker, stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=True)
-    on_store = {} if tracker else {'stores': stores}   # Notion: through the tracker as before; another store: src/ledger_store.py
     run = new_cron_run('add')
     found = {}  # the job it created or updated (ledger.add_application fills it)
     try:
@@ -196,7 +195,7 @@ def add_link_mode(args, stores=None):
             # record carries them too. AI trouble never blocks tracking it.
             fit = None
             try:
-                fit = added.process(db, tracker, args.job, meta, stats=run, **on_store)
+                fit = added.process(db, args.job, meta, stats=run, stores=stores)
             except Exception as error:  # noqa: BLE001
                 print(f'Warning: AI stages skipped: {type(error).__name__}: {error}')
             add = (lambda **kw: ledger.add_application(tracker, args.job, **kw)) if tracker else \

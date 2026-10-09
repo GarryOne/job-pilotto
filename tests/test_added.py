@@ -70,7 +70,7 @@ class AddedTests(unittest.TestCase):
             stores = memory.open_store()
             stores.texts.set('profile', 'Profile: SRE in Zurich')
         with mock.patch.dict('os.environ', env, clear=False), mock.patch.object(added, 'local_profile', lambda: None):
-            line = added.process(self.db, tracker, 'https://x.test/job/1',
+            line = added.process(self.db, 'https://x.test/job/1',
                                  job or {'title': 'Senior DevOps Engineer', 'company': 'Acme', 'description': POSTING},
                                  row=row, client=client, stats=stats, stores=stores)
         return line, stats
@@ -130,7 +130,7 @@ class DailyAddTests(unittest.TestCase):
         from src import daily, daily_modes
         order, seen = [], {}
 
-        def process(db, tracker, url, meta, stats=None):
+        def process(db, url, meta, stats=None, stores=None):
             order.append('ai'); seen.update(meta)
             return 'fit 81/100, tier A'
 
