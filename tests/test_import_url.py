@@ -162,5 +162,39 @@ class ImportUrlTests(unittest.TestCase):
         self.assertEqual(shown[0]['status'], 'unreviewed')
 
 
+class ImportUrlOnThisMacsStoreTests(unittest.TestCase):
+    """The same link, without Notion: an Open match in this Mac's store (src/stores), the Profile from the store."""
+    setUp, tearDown = ImportUrlTests.setUp, ImportUrlTests.tearDown
+
+    def run_on_store(self, stores, client, url=URL, profile=''):
+        with mock.patch.dict('os.environ', AI_ON, clear=False), \
+                mock.patch.object(import_url.ledger, 'page_meta', lambda _url: dict(META)), \
+                mock.patch.object(import_url, 'local_profile', lambda: profile):
+            return import_url.run(self.db, None, url, client=client, stats={}, stores=stores)
+
+    def test_a_link_becomes_an_open_match_in_the_store_scored_against_its_profile(self):
+        from src.stores import memory
+        stores = memory.open_store()
+        stores.texts.set('profile', 'Profile: SRE in Zurich')
+        outcome = self.run_on_store(stores, Client(FACTS, FIT))
+        self.assertTrue(outcome['created'], outcome)
+        self.assertIn('fit 81/100, tier A', outcome['line'])
+        self.assertEqual([(m['url'], m['status'], m['fit']) for m in stores.matches.list()], [(URL, 'Open', 81)])
+        self.assertEqual(stores.applications.list(), [])            # not an application
+        self.assertFalse(self.run_on_store(stores, Client(FACTS, FIT))['created'])
+        self.assertEqual(len(stores.matches.list()), 1)
+
+    def test_a_link_already_among_your_applications_is_said_so(self):
+        from src.stores import memory
+        stores = memory.open_store()
+        stores.applications.set_stage({'url': URL, 'title': 'SRE', 'company': 'Acme'}, 'Applied')
+        outcome = self.run_on_store(stores, Client(FACTS, FIT))
+        self.assertEqual(outcome['line'], 'Already in your applications (Applied): SRE')
+
+    def test_without_a_profile_it_asks_for_one(self):
+        from src.stores import memory
+        with self.assertRaisesRegex(ValueError, 'Add your profile first'):
+            self.run_on_store(memory.open_store(), Client(FACTS, FIT))
+
 if __name__ == '__main__':
     unittest.main()

@@ -30,11 +30,11 @@ def import_mode(args, tracker, stores=None):
     # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
     if not args.job:
         raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
-    _gate(tracker, stores, '--mode import requires --job <URL> and NOTION_TOKEN', on_store=False)   # src/import_url.py: Notion only yet
+    _gate(tracker, stores, '--mode import requires --job <URL> and NOTION_TOKEN', on_store=True)
     run = new_cron_run('import')
     try:
         with store.connect(args.db) as db:
-            outcome = import_url.run(db, tracker, _job_arg(args.job), stats=run)
+            outcome = import_url.run(db, tracker, _job_arg(args.job), stats=run, **({} if tracker else {'stores': stores}))
         reply = outcome['line']
         if outcome.get('row') and outcome.get('created'):
             cron_runs.log_job(run, outcome['row'], True)
