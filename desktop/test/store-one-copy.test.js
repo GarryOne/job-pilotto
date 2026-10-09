@@ -43,3 +43,17 @@ test('session stats and conversations go to this Mac\'s store, never to the Noti
   assert.match(main, /sessionRuns\.optionsFor\(storage,/);          // main.js asks the store, never builds a Notion call itself
   assert.match(main, /sessionRuns\.saveConversation\(storage, session, talk\)/);
 });
+
+test('the extension reads the Profile, answers and form knowledge from this Mac, and gets no Notion token', async () => {
+  const {localEnv} = await import('../lib/server-env.js');
+  const storage = onThisMacWithNotionLeft();
+  storage.writeText('profile.md', '## Summary\n- SRE, 8 years\n');
+  storage.writeText('answers.md', '- Notice period: 3 months\n');
+  storage.writeText('knowledge.md', '- [acme.com · answer] Pronouns: Same as before → "they/them"\n');
+  const env = localEnv(storage, undefined, {find: async () => null});
+  assert.equal(env.NOTION_TOKEN, '');
+  assert.equal(env.NOTION_PROFILE_PAGE_ID, '');
+  assert.match(await env.PROFILE_TEXT, /SRE, 8 years/);
+  assert.match(await env.ANSWERS_TEXT, /Notice period: 3 months/);
+  assert.match(await env.KNOWLEDGE_TEXT, /Pronouns/);
+});

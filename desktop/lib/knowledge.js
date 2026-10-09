@@ -32,3 +32,8 @@ export async function add(storage, fresh, fetcher) {
   }
   if (append.length) await page.append(append);
 }
+
+// A note dropped from the page (it kept a field empty: lib/server-env.js judgeNotes).
+export const remove = (storage, note, fetcher) => knowledgePage(storage, fetcher).remove(note.block);
+// Several notes, last line first (on this Mac a note's id is its line, so an earlier removal would move the later ones).
+export const lastFirst = notes => [...notes].sort((a, b) => String(b.note?.block?.id ?? b.block?.id).localeCompare(String(a.note?.block?.id ?? a.block?.id), undefined, {numeric: true}));

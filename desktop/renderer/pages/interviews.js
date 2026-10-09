@@ -8,6 +8,7 @@ import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
 import {afterLoad} from '../interview-library.js';
 import {humanError} from '../run-warnings.js';
+import {byStore, storeName} from '../store-words.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
@@ -99,14 +100,14 @@ async function saveToNotion(andReview) {
   await saveOpenDraft();
   const id = ivOpen;
   for (const button of ['iv-save', 'iv-save-review']) $(button).disabled = true;
-  message('iv-message', 'Saving to Notion…');
+  message('iv-message', `Saving to ${storeName()}…`);
   try {
     const result = await iv.save(id);
     if (!result.ok) { message('iv-message', result.error, 'error'); return; }
     ivOpen = null;
     show($('iv-editor'), false);
     renderDrafts(await iv.drafts());
-    message('iv-message', 'Saved to Notion 🎤 Interviews.', 'ok');
+    message('iv-message', `${savedTo()}.`, 'ok');
     await readAgain();
     if (andReview) reviewRow(result.id, 'Save & review');
   } finally {
@@ -121,25 +122,25 @@ const OUTCOME = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative'}
 const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
 // While the library loads from Notion (like the Jobs list): a spinner in the empty table the first time;
 // afterwards the rows stay and the subtitle says it's refreshing.
-const IV_SAVED_TO = 'Saved to Notion 🎤 Interviews';
+const savedTo = () => byStore('Saved to Notion 🎤 Interviews', 'Saved in Job Pilotto');
 // Loading: the last good list at once (lib/view-cache.js, "saved 3 min ago · updating…"); with nothing saved yet,
 // skeleton rows in the table (the boxes are there, shimmering) until Notion answers.
 async function showSavedLoading() {
   show($('iv-empty'), false);
-  if (ivSavedRows.length) { $('iv-lib-stats').textContent = 'Refreshing from Notion…'; return shownAt; }
+  if (ivSavedRows.length) { $('iv-lib-stats').textContent = `Refreshing from ${storeName()}…`; return shownAt; }
   const saved = await window.pilot.cached('interviews').catch(() => null);
   if (saved?.result?.interviews?.length && !ivSavedRows.length) {
     ivSavedRows = saved.result.interviews;
     ivInsight = saved.result.insight || null;
     insightFresh = false;  // from this Mac's cache: the card says it's the saved copy
     renderAll();
-    $('iv-lib-stats').textContent = `${IV_SAVED_TO} · saved ${agoText(saved.at)}, updating…`;
+    $('iv-lib-stats').textContent = `${savedTo()} · saved ${agoText(saved.at)}, updating…`;
     return saved.at;
   }
   $('iv-saved').replaceChildren(...skeletonRows());
   $('iv-insight').replaceChildren(...insightSkeleton());
   show($('iv-insight'));
-  $('iv-lib-stats').textContent = 'Loading from Notion…';
+  $('iv-lib-stats').textContent = `Loading from ${storeName()}…`;
   return null;
 }
 // One read at a time: coming back to the page while one runs waits for it (they piled up: each a Python run and a
@@ -164,7 +165,7 @@ async function loadSavedOnce() {
   libraryLog('answer', {ok: !!result?.ok, rows: Array.isArray(result?.interviews) ? result.interviews.length : -1,
     needsNotion: !!result?.needsNotion, ms: Date.now() - started});
   const next = afterLoad(result, {rows: ivSavedRows, at: shownAt});
-  $('iv-lib-stats').textContent = next.ok ? IV_SAVED_TO : next.stats || IV_SAVED_TO;
+  $('iv-lib-stats').textContent = next.ok ? savedTo() : next.stats || savedTo();
   if (!next.ok) {
     // The rows on screen (the last good copy) stay; without any, the table says why instead of staying empty.
     if (next.rows.length) { message('iv-message', next.error, 'error'); renderAll(); return; }
@@ -230,7 +231,7 @@ async function tickStep(step, done) {
   const mark = value => { const item = steps.find(s => s.text === step.text); if (item) item.done = value; };
   mark(done);
   const result = await iv.insightStep(step.text, done).catch(error => ({ok: false, error: String(error?.message || error)}));
-  if (!result.ok) { mark(!done); message('iv-message', `Not saved: ${result.error || 'Notion refused it'}`, 'error'); }
+  if (!result.ok) { mark(!done); message('iv-message', `Not saved: ${result.error || `${storeName()} refused it`}`, 'error'); }
   renderInsight();
 }
 // An interview named in the insights: its row in the library, scrolled to and lit up briefly.
@@ -267,7 +268,7 @@ function renderSaved() {
     return (!text || words.includes(text)) && (!outcome || (outcome === 'none' ? !row.overall : row.overall === outcome));
   });
   show($('iv-empty'), rows.length === 0);
-  $('iv-empty').textContent = ivSavedRows.length ? 'No interview matches this filter.' : 'No interviews in Notion yet.';
+  $('iv-empty').textContent = ivSavedRows.length ? 'No interview matches this filter.' : byStore('No interviews in Notion yet.', 'No saved interviews yet.');
   $('iv-saved').replaceChildren(...rows.map(row => {
     const tr = document.createElement('tr');
     tr.dataset.id = row.id;
@@ -295,7 +296,7 @@ function renderSaved() {
       open.addEventListener('click', event => window.pilot.openNotion(cellJob.notion, event.metaKey));
       jobLines.append(open);
     } else {
-      const link = Object.assign(el('button', 'link small', 'Link a job'), {type: 'button', title: 'Choose the job this interview belongs to (updates Notion)'});
+      const link = Object.assign(el('button', 'link small', 'Link a job'), {type: 'button', title: `Choose the job this interview belongs to (updates ${storeName()})`});
       jobLines.append(el('span', 'muted', cellJob.name), el('div', '', ''));
       jobLines.lastChild.append(link);
       link.addEventListener('click', () => openPicker());
@@ -309,15 +310,15 @@ function renderSaved() {
     const picker = el('div', 'iv-picker');
     picker.hidden = true;
     const select = document.createElement('select');
-    jobOptions(select, job?.url || '', row.application?.[0] && !job ? 'Linked in Notion (job not in this list)' : 'No job linked');
+    jobOptions(select, job?.url || '', row.application?.[0] && !job ? byStore('Linked in Notion (job not in this list)', 'Linked (job not in this list)') : 'No job linked');
     if (row.application?.[0] && !job) select.value = '';
     const pasted = Object.assign(document.createElement('input'), {type: 'url', placeholder: 'https://… then Enter', hidden: true});
     const relink = async url => {
       select.disabled = pasted.disabled = true;
-      message('iv-message', 'Linking in Notion…');
+      message('iv-message', `Linking in ${storeName()}…`);
       const done = await iv.link(row.id, url);
       select.disabled = pasted.disabled = false;
-      message('iv-message', done.ok ? `"${row.title}" is now ${url ? 'linked to that job' : 'not linked to a job'} in Notion.` : done.error, done.ok ? 'ok' : 'error');
+      message('iv-message', done.ok ? `"${row.title}" is now ${url ? 'linked to that job' : 'not linked to a job'} in ${storeName()}.` : done.error, done.ok ? 'ok' : 'error');
       if (done.ok) {
         if (url && !jobList().some(j => j.url === url && j.notion_url)) {  // just added to Applications
           try { const fresh = (await window.pilot.jobs()).jobs; if (Array.isArray(fresh)) shared.allJobs = fresh; } catch {}
@@ -346,29 +347,31 @@ function renderSaved() {
     let main;
     if (row.overall) {
       main = el('button', 'secondary iv-main', 'Open review');
-      main.title = 'The review and transcript, in Notion';
+      main.title = byStore('The review and transcript, in Notion', 'The review and transcript');
       main.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
     } else {
       main = Object.assign(el('button', 'secondary iv-main', reviewing.has(row.id) ? 'Reviewing…' : 'Review'), {disabled: reviewing.has(row.id),
-        title: ai('{AI:big} reviews it question by question; the review is added to the Notion page')});
+        title: ai(byStore('{AI:big} reviews it question by question; the review is added to the Notion page', '{AI:big} reviews it question by question; the review is saved with it'))});
       main.addEventListener('click', () => reviewRow(row.id));
     }
     const menu = [
-      {label: '↗ Open interview in Notion', run: event => window.pilot.openNotion(row.url, event.metaKey)},
+      ...(row.url ? [{label: '↗ Open interview in Notion', run: event => window.pilot.openNotion(row.url, event.metaKey)}] : []),
       ...(cellJob.notion ? [{label: '↗ Open job in Notion', run: event => window.pilot.openNotion(cellJob.notion, event.metaKey)}] : []),
-      {label: cellJob.kind === 'none' ? 'Link a job…' : 'Change job…', run: () => openPicker(), title: 'Link this interview to another job (updates Notion)'},
+      {label: cellJob.kind === 'none' ? 'Link a job…' : 'Change job…', run: () => openPicker(), title: `Link this interview to another job (updates ${storeName()})`},
       ...(row.overall ? [{again: true, run: () => reviewAgainRow(row.id)}] : []),  // built when the menu opens (busy or not)
       '-',
-      {label: 'Delete', danger: true, title: osText("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac"), run: async () => {
-        if (!confirm(osText(`Delete "${row.title}"? It goes to Notion's trash (30 days) and its recording is removed from this Mac.`))) return;
+      {label: 'Delete', danger: true, title: osText(byStore("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac", 'Deletes the interview and its recording on this Mac')), run: async () => {
+        if (!confirm(osText(byStore(`Delete "${row.title}"? It goes to Notion's trash (30 days) and its recording is removed from this Mac.`,
+          `Delete "${row.title}" and its recording on this Mac?`)))) return;
         const done = await iv.remove(row.id);
-        message('iv-message', done.ok ? osText(`Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`)
+        message('iv-message', done.ok ? osText(byStore(`Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`,
+          `Deleted "${row.title}"${done.removed ? ' and its recording' : ''}.`))
           : done.error, done.ok ? 'ok' : 'error');
         readAgain();
       }},
     ];
     actions.append(main, moreButton(() => menu.map(item => (item.again ? reviewAgain.againItem(row, reviewingAgain.has(row.id), item.run) : item)),
-      'More: open in Notion, change job, review again, delete'));
+      byStore('More: open in Notion, change job, review again, delete', 'More: change job, review again, delete')));
     cell(actions);
     return tr;
   }));
@@ -383,7 +386,7 @@ async function reviewRow(pageId, why = 'Review') {
   const result = await iv.review(pageId, why);
   if (result.ok && result.cloud) pendingReviews.add(pageId);  // GitHub reviews it: keep "Reviewing…" until it lands
   else reviewing.delete(pageId);
-  message('iv-message', result.ok ? (result.already ? result.summary : `${result.summary}. The review is on the Notion page.`) : humanError(result.error), result.ok ? 'ok' : 'error');
+  message('iv-message', result.ok ? (result.already ? result.summary : `${result.summary}. ${byStore('The review is on the Notion page.', 'The review is saved with it.')}`) : humanError(result.error), result.ok ? 'ok' : 'error');
   readAgain();
 }
 

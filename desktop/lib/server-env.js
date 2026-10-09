@@ -7,6 +7,8 @@ import * as claudeCode from './claude-code.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';
+import * as notionGate from './notion-gate.js';
+import {openStore} from './store/index.js';
 import * as questions from './questions.js';
 import * as terminals from './terminals.js';
 import * as strategy from './strategy.js';
@@ -67,17 +69,20 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     const key = jobKey(url);
     return jobs.find(job => job.url === url || (key && job.url.includes(key)));
   });
-  const notionToken = storage.secret('NOTION_TOKEN');
-  const ids = settings.notionIds || {};
+  // Notion only when it is the store (lib/store): with the data on this Mac nothing reaches a Notion still connected.
+  const notionTexts = notionGate.notionInUse(storage);
+  const notionToken = notionTexts ? storage.secret('NOTION_TOKEN') : '';
+  const ids = notionTexts ? settings.notionIds || {} : {};
   // extension.js calls Notion through the app's paced, retrying call(), and reads the Profile, standard answers and
-  // 🧠 Form knowledge from the kept pages (lib/notion.js): only when a request needs them (getters), not on every poll.
-  const kept = id => (id ? notion.pageText(notionToken, id) : Promise.resolve(''));
+  // 🧠 Form knowledge from the kept pages (lib/notion.js), or this Mac's files: only when a request needs them (getters), not on every poll.
+  const text = name => openStore(storage).page(name).text();
+  const kept = (name, id) => (!notionTexts ? text(name) : id ? notion.pageText(notionToken, id) : Promise.resolve(''));
   return {
     notionCall: (route, method = 'GET', body) => notion.call(notionToken, method, route, body),
-    get PROFILE_TEXT() { return kept(ids.NOTION_PROFILE_PAGE_ID); },
-    get ANSWERS_TEXT() { return kept(ids.NOTION_ANSWERS_PAGE_ID); },
+    get PROFILE_TEXT() { return kept('profile', ids.NOTION_PROFILE_PAGE_ID); },
+    get ANSWERS_TEXT() { return kept('answers', ids.NOTION_ANSWERS_PAGE_ID); },
     get SEARCH_TEXT() { return Promise.resolve(storage.readText('config/search.json') || ''); },   // the strategy's search settings: what the user is aiming for
-    get KNOWLEDGE_TEXT() { return kept(ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
+    get KNOWLEDGE_TEXT() { return kept('knowledge', ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
     // The user's own Claude Code answers the form when they chose it (Settings → AI); the API key otherwise.
@@ -102,8 +107,9 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // button's own end, without pressing anything.
       submitted(job.url);
       appliedHook({how: 'extension'});
-      notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`, {view: 'jobs', job: job.code || job.url});
-      return {ok: true, message: 'Marked Applied in your Notion.'};
+      const where = notionGate.notionInUse(storage) ? 'in your Notion' : 'in Job Pilotto';
+      notify('Marked Applied ✓', `${jobName(job)}. Saved ${where}.`, {view: 'jobs', job: job.code || job.url});
+      return {ok: true, message: `Marked Applied ${where}.`};
     },
     NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || '',
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
@@ -147,7 +153,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
 // After a fill that left fields: learn reusable notes from its record (one small Claude call), keep them for
 // the extension and mirror them to the user's 🧠 Form knowledge page in Notion (kits read that page).
 async function learnFromRun(storage, run, job) {
-  if (!storage.secret('NOTION_TOKEN')) return;  // the notes live in Notion
+  if (!notionGate.tracking(storage)) return;  // the notes live in the store (Notion, or this Mac): none while trying
   const known = await judgeNotes(storage, run, await knowledge.notes(storage));
   const apiKey = storage.secret('ANTHROPIC_API_KEY'), client = claudeCode.client(storage);  // Claude Code when the user chose it
   if (!apiKey && !client) return;
@@ -163,7 +169,7 @@ async function learnFromRun(storage, run, job) {
   if (!notes.length) return;
   await knowledge.add(storage, notes);
   proposalReporter(learn.proposalsOf(notes));  // label wording + profile field only, counted by the site (3+ people) before it is even a candidate
-  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} saved in your Notion → Form knowledge (${job?.company || 'this form'}, $${usd.toFixed(3)}). Only you can see them.`);
+  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} saved in ${notionGate.notionInUse(storage) ? 'your Notion → Form knowledge' : 'your form knowledge'} (${job?.company || 'this form'}, $${usd.toFixed(3)}). Only you can see them.`);
 }
 
 // A note that has left its field empty three fills in a row is not working: drop it from the Notion page and let the field be studied again.
@@ -172,10 +178,10 @@ async function judgeNotes(storage, run, known) {
   const verdict = learn.judge(run, known, storage.settings().formKnowledgeStats || {});
   if (verdict.changed) storage.saveSettings({formKnowledgeStats: verdict.stats});
   if (!verdict.drop.length) return known;
-  const token = storage.secret('NOTION_TOKEN'), studied = {...(storage.settings().formKnowledgeStudied || {})};
+  const studied = {...(storage.settings().formKnowledgeStudied || {})};
   const gone = new Set();
-  for (const {note, misses, site} of verdict.drop) {
-    try { await notion.deleteBlock(token, note.block.id); } catch (error) { appLog('knowledge', `could not drop a note: ${error.message}`, {site, field: note.field}); continue; }
+  for (const {note, misses, site} of knowledge.lastFirst(verdict.drop)) {
+    try { await knowledge.remove(storage, note); } catch (error) { appLog('knowledge', `could not drop a note: ${error.message}`, {site, field: note.field}); continue; }
     gone.add(note);
     studied[site] = (studied[site] || []).filter(key => key !== learn.labelKey(note.field));
     appLog('knowledge', `dropped a note: its field stayed empty ${misses} fills in a row`, {site, scope: note.scope, field: note.field, kind: note.kind});
