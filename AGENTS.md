@@ -113,7 +113,8 @@ them from colliding in one checkout:
 
 - Make every code change in its own git worktree on its own branch, never directly in the main
   checkout: `tools/worktree.sh <topic>` (a worktree in `.claude/worktrees/<topic>` from `origin/main`, with the main
-  checkout's `node_modules` linked in, so the tests run at once; `node_modules` is git-ignored: leave the links alone).
+  checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
+  Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
 - Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks once (the suites of the
   areas you touched), push with a retry when another session pushed in between, update the main checkout, remove the worktree.
   `--full` for Tier 2, `--fix` for the fix/revert of a red main, `--keep` to keep the worktree.
