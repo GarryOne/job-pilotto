@@ -1734,6 +1734,18 @@
     </div>
   </form>
 </dialog>
+<!-- Interviews → Open review with the data on this Mac (renderer/interview-review-view.js): the review the Notion page would show. -->
+<dialog id="review-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mic"></i></span>
+      <h2 id="review-title">Interview review</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p class="dialog-lead muted" id="review-facts"></p>
+    <div id="review-body"></div>
+    <div class="dialog-foot"><button class="ghost" value="cancel" formnovalidate>Close</button></div>
+  </form>
+</dialog>
 <!-- The free allowance is over (pages/license.js): new work pauses, everything else keeps working. -->
 <!-- Re-score the older scores (Strategy → Improve your search): the cost, said before anything is spent. -->
 <dialog id="rescore-dialog" class="panel-dialog">

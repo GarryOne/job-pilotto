@@ -3,6 +3,7 @@
 // services it shares (registerInterviewHandlers). Guards: interviews tests in desktop/test and the interviews e2e suite.
 import fs from 'node:fs';
 import path from 'node:path';
+import * as storeEngine from './store/engine.js';
 
 export function registerInterviewHandlers(ctx) {
   const {appLog, calltap, cloud, DEMO, dialog, dispatchCloud, handleImportant, here, interviews, ipcMain, needsNotion, notify, reminders, sharedRead, shell, storage, toWindow, viewCache, getWindow} = ctx;
@@ -108,6 +109,11 @@ export function registerInterviewHandlers(ctx) {
     });
   });
   ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
+  // Interviews → Open review with no page to open (the data on this Mac): the interview's record from the store, for the app's own view.
+  ipcMain.handle('ivRecord', async (_, id) => {
+    if (DEMO) return null;
+    try { return await storeEngine.call(storage, 'interviews', 'get', {interview_id: String(id)}); } catch (error) { return {error: error.message}; }
+  });
   ipcMain.handle('ivRecordings', () => {
     fs.mkdirSync(storage.path('recordings'), {recursive: true});
     return shell.openPath(storage.path('recordings'));

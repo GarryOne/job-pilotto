@@ -9,6 +9,7 @@ import {insightCard, insightSkeleton, insightView} from '../interview-insight.js
 import {afterLoad} from '../interview-library.js';
 import {humanError} from '../run-warnings.js';
 import {byStore, storeName} from '../store-words.js';
+import {showReview} from '../interview-review-view.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
@@ -96,6 +97,12 @@ function saveOpenDraft() {
     ...($('iv-ready').hidden ? {} : {text: $('iv-text').value})});
 }
 
+// No page to open (the data on this Mac): the review in the app (renderer/interview-review-view.js).
+async function openReview(id) {
+  const record = await window.pilot.ivRecord(id);
+  if (!record || record.error) { message('iv-message', `Review not read: ${record?.error || 'not found'}`, 'error'); return; }
+  showReview(record, {$, el});
+}
 async function saveToNotion(andReview) {
   await saveOpenDraft();
   const id = ivOpen;
@@ -348,7 +355,7 @@ function renderSaved() {
     if (row.overall) {
       main = el('button', 'secondary iv-main', 'Open review');
       main.title = byStore('The review and transcript, in Notion', 'The review and transcript');
-      main.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
+      main.addEventListener('click', event => (row.url ? window.pilot.openNotion(row.url, event.metaKey) : openReview(row.id)));
     } else {
       main = Object.assign(el('button', 'secondary iv-main', reviewing.has(row.id) ? 'Reviewing…' : 'Review'), {disabled: reviewing.has(row.id),
         title: ai(byStore('{AI:big} reviews it question by question; the review is added to the Notion page', '{AI:big} reviews it question by question; the review is saved with it'))});

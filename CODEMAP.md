@@ -293,6 +293,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/intel.js` — What a job's fit score and what became of it look like to the product, as counts (src/intelligence.js on the site): the score bands, the states,
 - `desktop/renderer/interview-insight.js` — Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 - `desktop/renderer/interview-library.js` — Interviews → the library's read from Notion (src/ai/interviews.py list, through lib/interviews.js): what the page
+- `desktop/renderer/interview-review-view.js` — An interview's review in the app (Interviews → Open review), for a store with no page to open (the data on this Mac): the same content as
 - `desktop/renderer/interview-review.js` — An interview review's message as the parts the owner reads. src/ai/interviews.py writes it as:
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
