@@ -20,6 +20,13 @@ if (!titles.length) process.exit(0);
 const artifacts = path.join(root, 'desktop/e2e/artifacts');
 const replays = fs.existsSync(artifacts) ? fs.readdirSync(artifacts).map(suite => path.join(artifacts, suite, 'replay.json')).filter(file => fs.existsSync(file))
   .map(file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }) : [];
+// seen-passing.json: every step a suite ever passed in this checkout (lib/artifacts.mjs writeReplay); replay.json is only the suite's last run.
+const seen = fs.existsSync(artifacts) ? fs.readdirSync(artifacts).flatMap(suite => {
+  try { return Object.keys(JSON.parse(fs.readFileSync(path.join(artifacts, suite, 'seen-passing.json'), 'utf8'))); } catch { return []; }
+}) : [];
 const messages = git('log', '--format=%B%x00', `${base}..HEAD`).split('\0');
-const missing = unproven(titles, {replays, messages});
-if (missing.length) { console.log(unprovenMessage(missing)); process.exit(1); }
+const missing = unproven(titles, {replays, seen, messages});
+if (missing.length) {
+  const looked = fs.existsSync(artifacts) ? `${artifacts} (${replays.length} replay.json, ${seen.length} steps seen passing)` : `${artifacts} (no such folder: no suite has run in this checkout)`;
+  console.log(unprovenMessage(missing, looked)); process.exit(1);
+}

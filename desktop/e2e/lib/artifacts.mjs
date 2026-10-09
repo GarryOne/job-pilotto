@@ -25,6 +25,14 @@ export async function writeReplay(ctx, suite, env = process.env) {
   const replay = buildReplay({suite, env, vary: seedFile ? {seed: fromSeed.seed, fixed: fromSeed.mode === 'fixed'} : vary, place: ctx.place || null, window, theme, trail: ctx.runner?.results || [], path: ctx.replayPath || null, detail: seedFile?.detail || ''});
   fs.mkdirSync(ctx.ARTIFACTS, {recursive: true});
   fs.writeFileSync(path.join(ctx.ARTIFACTS, 'replay.json'), JSON.stringify(replay, null, 2));
+  // seen-passing.json: every step this suite ever passed here; replay.json holds only the last run, so a later filtered run would erase the proof the push hook asks for.
+  try {
+    const {mergeSeen} = await import('./new-steps.mjs');
+    const file = path.join(ctx.ARTIFACTS, 'seen-passing.json');
+    let old = {};
+    try { old = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { old = {}; }
+    fs.writeFileSync(file, JSON.stringify(mergeSeen(old, replay.trail), null, 2));
+  } catch (error) { console.log(`  (seen-passing.json not written: ${error.message})`); }
   return replay;
 }
 

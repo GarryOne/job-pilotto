@@ -104,3 +104,13 @@ test('a gate inside a scheduled release run is named a release gate, not a three
   assert.equal(replay.runType, 'release gate (fixed path)');
   assert.equal(buildReplay({suite: 'jobs', env: {GITHUB_EVENT_NAME: 'schedule', E2E_RUN_KIND: ''}}).runType, 'scheduled run (three a day, a new path each time)');
 });
+
+test('writeReplay keeps a seen-passing.json that grows across runs, so a later filtered run does not erase an earlier pass', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'replay-seen-'));
+  const run = results => writeReplay({ARTIFACTS: dir, runner: {results}, page: {evaluate: async () => { throw new Error('closed'); }}}, 'apply', {});
+  await run([{name: 'the first new step, long enough to count', status: 'passed'}, {name: 'a step that failed in run one', status: 'failed'}]);
+  await run([{name: 'the second step, passed only in the later run', status: 'passed'}]);
+  const seen = JSON.parse(fs.readFileSync(path.join(dir, 'seen-passing.json'), 'utf8'));
+  assert.deepEqual(Object.keys(seen).sort(), ['the first new step, long enough to count', 'the second step, passed only in the later run']);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'replay.json'), 'utf8')).trail.length, 1, 'replay.json is only the last run; the ledger is the memory');
+});

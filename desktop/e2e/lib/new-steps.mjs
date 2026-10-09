@@ -23,16 +23,27 @@ export function addedTitles(diff, baseSource = '') {
   return [...new Set(added)].filter(title => !before.has(title));
 }
 
-// replays: [{trail: [{name, status}]}]. messages: the pushed commits' messages. -> the titles still unproven.
-export function unproven(titles, {replays = [], messages = []} = {}) {
+// replays: [{trail: [{name, status}]}] (each suite's last run). seen: step names that passed in ANY earlier run of a suite (artifacts/<suite>/seen-passing.json,
+// below): a later run of other steps rewrites replay.json and used to erase the proof (10 Oct 2026). messages: the pushed commits' messages. -> the titles still unproven.
+export function unproven(titles, {replays = [], seen = [], messages = []} = {}) {
   if (messages.some(message => /^E2E-(passed|unverified):[ \t]*\S/im.test(message))) return [];
-  const passed = replays.flatMap(replay => (replay?.trail || []).filter(step => step.status === 'passed').map(step => step.name));
+  const passed = [...replays.flatMap(replay => (replay?.trail || []).filter(step => step.status === 'passed').map(step => step.name)), ...seen];
   return titles.filter(title => !passed.some(name => name.startsWith(title.slice(0, CLIP))));
 }
 
-export function unprovenMessage(titles) {
+// The ledger a suite run adds to: the old names plus the steps this trail passed. It only grows (a failing or filtered run never removes a proof).
+export function mergeSeen(old = {}, trail = [], at = new Date().toISOString()) {
+  const next = {...old};
+  for (const step of trail) if (step?.status === 'passed' && step.name && !next[step.name.slice(0, CLIP)]) next[step.name.slice(0, CLIP)] = at;
+  return next;
+}
+
+// looked: where the gate searched (shown, so "it ran but is not recorded" can be told from "it ran somewhere else").
+export function unprovenMessage(titles, looked = '') {
   return [`a new e2e step has not been seen passing (${titles.length}):`, ...titles.map(title => `  - ${title}`),
-    'Run it once (E2E_STEPS="<step>,<its prerequisites>" node run-all.mjs --only <suite>), or, for a suite that only runs in CI',
-    '(gh workflow run e2e.yml --ref <branch> -f suite=<suite>), add "E2E-passed: <run url>" to the commit message.',
+    'Run it once, either way counts: `cd desktop/e2e && E2E_STEPS="<step>,<its prerequisites>" node suite.mjs <suite>` or `... node run-all.mjs --only <suite>`.',
+    'A passing run is recorded in desktop/e2e/artifacts/<suite>/ of THIS checkout (replay.json + seen-passing.json); a run in another worktree does not count here.',
+    ...(looked ? [`Looked in: ${looked}`] : []),
+    'For a suite that only runs in CI (gh workflow run e2e.yml --ref <branch> -f suite=<suite>), add "E2E-passed: <run url>" to the commit message.',
     'Cannot run it at all? "E2E-unverified: <why>". And check in the step that its own setup took effect (the stub was called, the seed is there).'].join('\n');
 }

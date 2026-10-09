@@ -1,6 +1,8 @@
 """tools/ship.sh, the one-command landing of a worktree (6 Oct 2026): run on a throwaway origin with a stub push hook, so each step is checked in
 seconds: rebase over a moved main, the hook's refusal, the main checkout update (and its skip on overlapping edits), and the worktree cleanup."""
 import os
+import re
+import signal
 import shutil
 import subprocess
 import tempfile
@@ -137,6 +139,52 @@ class ShipTest(unittest.TestCase):
                 break
             time.sleep(0.5)
         self.assertTrue(log.read_text().splitlines()[-1].startswith('ship: DONE '), log.read_text())
+        self.assertIn('Slow hook', git(self.origin, 'log', '--format=%s', 'main'))
+
+
+    def start_background(self, hook_seconds):
+        """A background run whose push checks take hook_seconds; returns (log, run pid) as the caller sees them."""
+        self.change(self.tree, 'tools/pre-push-check.sh', f'#!/bin/sh\ncat > /dev/null\nsleep {hook_seconds}\n', 'Slow hook')
+        log = self.tmp / 'ship-bg.log'
+        out = subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), '--background'], cwd=self.tree, capture_output=True, text=True, timeout=60,
+                             env={**os.environ, 'SHIP_LOG': str(log)}).stdout
+        pid = int(re.search(r'\(pid (\d+)\)', out).group(1))
+        for _ in range(40):                                   # until the checks are running
+            if log.exists() and 'running the push checks' in log.read_text():
+                break
+            time.sleep(0.25)
+        return log, pid
+
+    def wait_for_marker(self, log):
+        for _ in range(60):
+            if re.search(r'^ship: (DONE|FAILED)', log.read_text(), re.M):
+                break
+            time.sleep(0.5)
+        return log.read_text()
+
+    def test_a_background_run_killed_during_the_checks_ends_failed_and_pushes_nothing(self):
+        # 10 Oct 2026: a killed run logged "ship: DONE nothing to push" with its commit unpushed.
+        log, pid = self.start_background(30)
+        os.kill(pid, signal.SIGTERM)
+        text = self.wait_for_marker(log)
+        self.assertIn('ship: stopped by signal TERM', text)
+        self.assertTrue(text.splitlines()[-1].startswith('ship: FAILED (exit 143)'), text)
+        self.assertNotIn('ship: DONE', text)
+        self.assertNotIn('Slow hook', git(self.origin, 'log', '--format=%s', 'main'))
+
+    def test_a_background_run_survives_a_kill_of_its_callers_process_group(self):
+        # The run has its own session: the caller's group kill (a tool call ending) must not reach it.
+        self.change(self.tree, 'tools/pre-push-check.sh', '#!/bin/sh\ncat > /dev/null\nsleep 4\n', 'Slow hook')
+        log = self.tmp / 'ship-group.log'
+        caller = subprocess.Popen(['bash', '-c', f'SHIP_LOG={log} bash {self.tree}/tools/ship.sh --background >/dev/null; sleep 60'], cwd=self.tree, start_new_session=True)
+        for _ in range(40):
+            if log.exists() and 'running the push checks' in log.read_text():
+                break
+            time.sleep(0.25)
+        os.killpg(caller.pid, signal.SIGTERM)
+        caller.wait(timeout=10)
+        text = self.wait_for_marker(log)
+        self.assertTrue(text.splitlines()[-1].startswith('ship: DONE '), text)
         self.assertIn('Slow hook', git(self.origin, 'log', '--format=%s', 'main'))
 
 

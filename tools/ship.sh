@@ -34,7 +34,13 @@ if ! git diff --quiet || ! git diff --cached --quiet; then echo "ship: uncommitt
 log="${SHIP_LOG:-${TMPDIR:-/tmp}/ship-${branch//\//-}.log}"
 if [ "$background" = 1 ]; then
   : > "$log"
-  SHIP_LOG="$log" nohup "$0" ${args[@]+"${args[@]}"} > /dev/null 2>&1 < /dev/null &   # the child's own tee writes the log
+  # Its own session (setsid; macOS has no such command, python's os.setsid does the same): the caller's process-group kill or hangup when its
+  # call ends (a tool timeout, a closed terminal) must not reach the run. nohup alone only ignores SIGHUP (10 Oct 2026: a killed run logged DONE).
+  if command -v setsid >/dev/null; then
+    SHIP_LOG="$log" setsid "$0" ${args[@]+"${args[@]}"} > /dev/null 2>&1 < /dev/null &   # the child's own tee writes the log
+  else
+    SHIP_LOG="$log" python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$0" ${args[@]+"${args[@]}"} > /dev/null 2>&1 < /dev/null &
+  fi
   echo "ship: started in the background (pid $!). Log: $log"
   echo "ship: its last line says how it ended: 'ship: DONE <sha>' or 'ship: FAILED ...' (e.g. tail -3 $log)"
   exit 0
@@ -46,7 +52,16 @@ exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS
 step() { echo "ship: [$((SECONDS - started))s] $*"; }
-trap 'code=$?; if [ "$code" -eq 0 ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (exit $code), log: $log"; fi' EXIT
+# DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
+# and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
+# "DONE nothing to push" with its commit unpushed).
+finished=""; check_pid=""
+killtree() { local child; for child in $(pgrep -P "$1" 2>/dev/null); do killtree "$child"; done; kill "$1" 2>/dev/null; return 0; }   # the checks start suites of their own
+on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && killtree "$check_pid"; exit $((128 + $2)); }
+trap 'on_signal TERM 15' TERM
+trap 'on_signal INT 2' INT
+trap 'on_signal HUP 1' HUP
+trap 'code=$?; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
 rebase() {
   git fetch -q origin
@@ -59,7 +74,7 @@ rebase() {
 
 step "rebasing $branch onto origin/main"
 rebase
-[ "$(git rev-list --count origin/main..HEAD)" -gt 0 ] || { echo "ship: nothing to push, $branch has no commits beyond origin/main"; exit 0; }
+[ "$(git rev-list --count origin/main..HEAD)" -gt 0 ] || { echo "ship: nothing to push, $branch has no commits beyond origin/main"; finished=1; exit 0; }
 
 # The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here, once, as it would see the push.
 payload="$(jq -n --arg command "${flags}git push origin $branch:main" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
@@ -117,6 +132,7 @@ else
   echo "ship: the main checkout is on another branch, not updated" >&2
 fi
 
+finished=1
 if [ "$keep" = 0 ]; then
   cd "$main"
   case "$here" in "$main"/.claude/worktrees/*) tools/worktree.sh --done "${here##*/}" ;; esac
