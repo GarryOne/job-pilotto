@@ -6,7 +6,7 @@ import path from 'node:path';
 import {log} from './log.js';
 import * as sharedPace from './notion-pace.js';
 import * as requestLog from './request-log.js';
-import {REPO} from './pipeline.js';
+import {ROOT as REPO} from './root.js';   // the repo's folder only: pipeline.js would bring the engine runner and the AI client (see schema.js)
 
 // The end-to-end tests put a Notion stand-in in between that can fail on purpose (desktop/e2e/lib/notion-proxy.mjs); honoured only in a test run.
 const API = process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_E2E_NOTION_BASE_URL ? `${process.env.JOB_PILOTTO_E2E_NOTION_BASE_URL.replace(/\/$/, '')}/v1/` : 'https://api.notion.com/v1/';
