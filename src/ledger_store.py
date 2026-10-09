@@ -60,6 +60,7 @@ def match_of(stores, url, app):
         return {k: v for k, v in {'Score': found['fit'], 'Work mode': found['work_mode'], 'Job': found['title'],
                                    'Company': found['company'], 'Location': found['location']}.items()
                 if v not in (None, '')}
+    app = app or {}   # company_for asks before there is an application
     own = {'Score': app.get('fit'), 'Seniority': app.get('seniority'), 'Work mode': app.get('work_mode'),
            'Tier': app.get('tier'), 'Salary': app.get('salary')}
     if app.get('recruiter'):

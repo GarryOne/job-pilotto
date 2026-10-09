@@ -119,6 +119,16 @@ class AddApplicationTests(unittest.TestCase):
         self.assertEqual(ledger_store.add_application(stores, URL, meta={'title': 'SRE'}), 'Already tracked at Screening: SRE')
 
 
+class CompanyForTests(unittest.TestCase):
+    def test_the_employer_without_a_match_or_a_named_company(self):
+        """/add <job URL> for a page that names no company (a sign-in wall) and a job never scored: the board's slug, else nothing;
+        never a crash (the Notion path's match_for has always taken a missing row)."""
+        stores = memory.open_store()
+        self.assertEqual(ledger_store.company_for(stores, 'https://boards.greenhouse.io/acme-corp/jobs/1', {}), 'Acme Corp')
+        self.assertEqual(ledger_store.company_for(stores, 'https://x.test/1', {}), '')
+        self.assertEqual(ledger_store.company_for(stores, 'https://x.test/1', {'company': 'Named'}), 'Named')
+
+
 class ScheduledTests(unittest.TestCase):
     def test_sync_logs_a_hand_set_stage_and_moves_silent_ones_to_no_response(self):
         stores, app = stores_with('Screening')
