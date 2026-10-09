@@ -38,7 +38,7 @@ function onFillOne(message, sender, reply) {
     // on, as during the fill; it used to wait for your click every time (owner, 8 Oct 2026: "why are we always stopped at this field?").
     if (!result.ok && result.armed && (await settings()).clickDropdowns !== false) {
       const combos = await clickCombos(tabId).catch(() => []);
-      const same = text => String(text || '').replace(/[\s*:]+$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const same = text => String(text || '').replace(/^[\s*]+|[\s*:]+$/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
       const mine = combos.find(combo => combo.picked && same(combo.label) === same(label));
       if (mine) result = {...result, ok: mine.matched !== false, armed: false, picked: true, matched: mine.matched};
     }

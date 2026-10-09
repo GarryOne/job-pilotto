@@ -174,7 +174,7 @@ export function emptyRow(label, item) {
   const proposal = proposalFor(item, label); if (proposal) return markKnockout(proposedRow(item, label, proposal), item, label);   // its answer, back (need-proposal.js)
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
-  const more = /^\d+ more fields?$/.test(label), name = label.replace(/\s*\*\s*$/, '');
+  const more = /^\d+ more fields?$/.test(label), name = label.replace(/^\s*\*\s*|\s*\*\s*$/g, '');
   body.append(titleLine(name), el('span', 'ss-need-desc small', more
     ? `Still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
     : 'This section is still empty in the form.'));

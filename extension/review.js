@@ -24,7 +24,7 @@
   // office attendance, a required licence or language). Marked first, because a wrong or rushed answer here decides more than anything else on the form.
   const KNOCKOUT = /authori[sz]ed to work|authori[sz]ation|right to work|legally (eligible|entitled)|sponsor|visa|work permit|citizen|relocat|willing(ness)? to (work|commute|come|travel)|on-?site|in[- ]office|office (days|attendance)|days (a|per) week|reside|currently located|security clearance|licen[sc]e/i;
   const AGREE = /agree|consent|acknowledg|terms|privacy|policy|arbitrat|certif|attest|pledge/i;
-  const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\s*\*\s*$/, '').trim();
+  const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/^\s*\*\s*|\s*\*\s*$/g, '').trim();
   const norm = text => clean(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
 

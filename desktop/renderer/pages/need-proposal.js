@@ -54,7 +54,7 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
   input.value = tried?.value || proposal.value;
   const note = el('span', 'ss-need-desc small', proposal.from);
   line.append(input, actions);
-  body.append(titleLine(label.replace(/\s*\*\s*$/, '')), note, line);
+  body.append(titleLine(label.replace(/^\s*\*\s*|\s*\*\s*$/g, '')), note, line);
   li.append(badge(), body);
   if (tried && now - tried.at >= TAKES_MS) {   // still empty in the form after Use
     note.textContent = 'The form didn\'t take it: the answer is copied, paste or pick it there';

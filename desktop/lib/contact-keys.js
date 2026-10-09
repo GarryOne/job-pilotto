@@ -13,7 +13,7 @@ import {inFlight} from './in-flight.js';
 export const MODEL = 'claude-haiku-5-5';
 export const FILE = 'contact-label-keys.json';
 const KEYS = Object.keys(LABELS).filter(key => key !== 'full_name');
-const norm = label => String(label || '').replace(/\s+/g, ' ').replace(/[\s*:]+$/, '').trim().toLowerCase().slice(0, 120);
+const norm = label => String(label || '').replace(/\s+/g, ' ').replace(/^[\s*]+|[\s*:]+$/g, '').trim().toLowerCase().slice(0, 120);   // a required star before or after the words
 
 const INSTRUCTIONS = `For each label of a job application form field, say which of the applicant's contact details it asks for, or "none".
 Details: ${KEYS.map(key => `${key} (${LABELS[key]})`).join(', ')}. location is the town or city. salutation is how to address them (Mr/Ms, Monsieur/Madame).
