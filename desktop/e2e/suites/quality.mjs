@@ -10,7 +10,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
-import {rewriteTextLines, textOf} from '../lib/seed-texts.mjs';
+import {plainTextOf, rewriteTextLines} from '../lib/seed-texts.mjs';
 import {MATCHES, matchRowsOf, notKeptNote} from '../lib/quality-rows.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
@@ -223,7 +223,7 @@ export async function run(ctx) {
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
       const {byId} = matchRows(truth, rows);
       // The candidate as the app knows them: the CV text plus the Profile page the scoring read (figures such as a salary minimum may come from there).
-      const profile = `${candidate}\n\nTHE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await textOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
+      const profile = `${candidate}\n\nTHE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await plainTextOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {

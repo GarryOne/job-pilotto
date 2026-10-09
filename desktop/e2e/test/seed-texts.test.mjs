@@ -7,7 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
 import {storeCall} from '../lib/store-call.mjs';
-import {rewriteTextLines, storeText, textOf} from '../lib/seed-texts.mjs';
+import {plainTextOf, rewriteTextLines, storeText, textOf} from '../lib/seed-texts.mjs';
 
 const PROFILE = '# Profile\n\n## Compensation\n\nTarget: CHF 180,000 (estimate)\n- Minimum acceptable: CHF 150,000\n';
 const profileWith = settings => {
@@ -25,6 +25,7 @@ async function check(ctx) {
   assert.match(text, /Minimum acceptable: CHF 150,000/, 'the other lines stay');
   assert.equal(await rewriteTextLines(ctx, 'profile', /Minimum acceptable:/, 'Minimum acceptable: CHF 140,000'), 1);
   assert.match(await textOf(ctx, 'profile'), /^- Minimum acceptable: CHF 140,000$/m, 'a bullet stays a bullet');
+  assert.match(await plainTextOf(ctx, 'profile'), /CHF 140,000/, 'the AI\'s text (texts.plain, or the Markdown until it lands)');
   await ctx.data('employers', 'add', {employer: {name: 'E2E Gamma'}});
   const all = await storeText(ctx);
   assert.match(all, /E2E Gamma/);
