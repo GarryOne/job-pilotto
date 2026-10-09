@@ -42,20 +42,57 @@ export async function trial(request, env, fetcher = fetch, now = new Date()) {
     ? 'Your free AI credit ($1) is used up. Add your own Anthropic key in Settings → Anthropic to continue.'
     : 'The free AI credit is paused for this month. Add your own Anthropic key in Settings → Anthropic to continue.');
   const body = await request.text();
-  if (/"stream"\s*:\s*true/.test(body)) return error(400, 'Streaming is not available with the free credit.', 'invalid_request_error');
   const headers = {'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_TRIAL_KEY,
     'anthropic-version': request.headers.get('anthropic-version') || '2023-06-01'};
   if (request.headers.get('anthropic-beta')) headers['anthropic-beta'] = request.headers.get('anthropic-beta');
   const response = await fetcher(`${ANTHROPIC}/v1/messages`, {method: 'POST', headers, body});
+  const charge = (model, usage) => spend(env, license.id, state, request.headers.get('x-jp-action'), model, usage, now);
+  // A streamed answer (the strategy draft's progress bar) passes through as it arrives; its cost comes from the stream's own usage events.
+  if (response.ok && response.body && /^text\/event-stream/.test(response.headers.get('content-type') || '')) {
+    return new Response(response.body.pipeThrough(metered(charge)), {status: response.status,
+      headers: {'content-type': 'text/event-stream', 'cache-control': 'no-cache'}});
+  }
   const text = await response.text();
   if (response.ok) {
     let data = {};
     try { data = JSON.parse(text); } catch {}
-    const spent = Math.ceil(costUsd(data.model, data.usage) * 100 * 100) / 100;  // cents, rounded up to 1/100 cent
-    // What each AI step costs us (src/aicost.js): counts and money per step, the license holder only as a digest.
-    await recordCost(env, license.id, request.headers.get('x-jp-action'), data.model, data.usage, costUsd(data.model, data.usage), now);
-    await Promise.all([env.WAITLIST.put(`trial:key:${license.id}`, String(state.used + spent)),
-      env.WAITLIST.put(`trial:month:${month(now)}`, String(state.total + spent), {expirationTtl: 60 * 86400})]);
+    await charge(data.model, data.usage);
   }
   return new Response(text, {status: response.status, headers: {'content-type': 'application/json'}});
+}
+
+// Counts one answered call against the license's credit and the month's cap.
+async function spend(env, id, state, action, model, usage, now) {
+  const usd = costUsd(model, usage), spent = Math.ceil(usd * 100 * 100) / 100;  // cents, rounded up to 1/100 cent
+  // What each AI step costs us (src/aicost.js): counts and money per step, the license holder only as a digest.
+  await recordCost(env, id, action, model, usage, usd, now);
+  await Promise.all([env.WAITLIST.put(`trial:key:${id}`, String(state.used + spent)),
+    env.WAITLIST.put(`trial:month:${month(now)}`, String(state.total + spent), {expirationTtl: 60 * 86400})]);
+}
+
+// Passes server-sent events through unchanged while reading the model and token usage from message_start and message_delta;
+// charges once the stream ends. A stream cut before any usage is still charged for what message_start reported.
+export function metered(charge) {
+  const decoder = new TextDecoder();
+  let buffer = '', model, usage = {};
+  const read = line => {
+    if (!line.startsWith('data:')) return;
+    let event;
+    try { event = JSON.parse(line.slice(5)); } catch { return; }
+    if (event.type === 'message_start') { model = event.message?.model; usage = {...event.message?.usage}; }
+    if (event.type === 'message_delta' && event.usage) usage = {...usage, ...Object.fromEntries(Object.entries(event.usage).filter(([, v]) => v != null))};
+  };
+  return new TransformStream({
+    transform(chunk, controller) {
+      controller.enqueue(chunk);
+      buffer += decoder.decode(chunk, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      lines.forEach(read);
+    },
+    async flush() {
+      read(buffer + decoder.decode());
+      if (model || Object.keys(usage).length) await charge(model, usage);
+    },
+  });
 }

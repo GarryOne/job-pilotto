@@ -43,7 +43,7 @@ test('no key, a forged key or an expired key: 401, nothing forwarded', async () 
   assert.equal(seen.length, 0);
 });
 
-test('$1 used up, or the monthly cap reached: 402 with what to do; streaming is refused', async () => {
+test('$1 used up, or the monthly cap reached: 402 with what to do', async () => {
   const key = await licenseKey({id: 'bbbb2222', name: 'Bo', kind: 'friend'});
   const spent = env(); spent.WAITLIST.m.set('trial:key:bbbb2222', '100');
   const r1 = await call(spent, key, undefined, anthropic());
@@ -51,7 +51,28 @@ test('$1 used up, or the monthly cap reached: 402 with what to do; streaming is 
   assert.match((await r1.json()).error.message, /own Anthropic key/);
   const capped = env(); capped.WAITLIST.m.set(`trial:month:${new Date().toISOString().slice(0, 7)}`, '2000');
   assert.equal((await call(capped, key, undefined, anthropic())).status, 402);
-  assert.equal((await call(env(), key, {model: 'claude-haiku-4-5', stream: true, messages: []}, anthropic())).status, 400);
+});
+
+// A streamed answer (the strategy draft) passes through event by event and is charged from its message_start + message_delta usage.
+test('a streamed answer passes through unchanged and its cost is counted', async () => {
+  const e = env();
+  const key = await licenseKey({id: 'cccc3333', name: 'Cy', kind: 'friend'});
+  const events = [
+    {type: 'message_start', message: {model: 'claude-sonnet-5-5', usage: {input_tokens: 10000, output_tokens: 1}}},
+    {type: 'content_block_delta', index: 0, delta: {type: 'text_delta', text: '{"a":'}},
+    {type: 'message_delta', delta: {stop_reason: 'end_turn'}, usage: {output_tokens: 2000}},
+    {type: 'message_stop'},
+  ];
+  const sse = events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('');
+  const bytes = new TextEncoder().encode(sse);
+  const fetcher = async () => new Response(new ReadableStream({start(c) { for (let i = 0; i < bytes.length; i += 7) c.enqueue(bytes.slice(i, i + 7)); c.close(); }}),
+    {headers: {'content-type': 'text/event-stream; charset=utf-8'}});
+  const response = await call(e, key, {model: 'claude-sonnet-5-5', stream: true, max_tokens: 10, messages: []}, fetcher);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /event-stream/);
+  assert.equal(await response.text(), sse);
+  // 10k in at $2/M + 2k out at $10/M = $0.04 = 4 cents
+  assert.equal(Number(e.WAITLIST.m.get('trial:key:cccc3333')), 4);
 });
 
 test('cost: list prices; unknown models charged like the priciest', () => {
