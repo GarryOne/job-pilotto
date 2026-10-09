@@ -41,12 +41,16 @@ const choices = new Map();   // `${answer}|${choices}` -> the form's choice that
 // What "Use" did, per session and field, so a redraw (the page redraws often) keeps saying it. A field the form did not take after a few
 // seconds (a menu that needs your click) gets its answer copied and an Open in form.
 const used = new Map();   // `${id}|${label}` -> {at, kept}
+// Counted once per session and field (lib/proposal-use.js): shown when first drawn, then used or edited on Use. Fixed words only.
+const counted = new Set();
+const noteUse = (id, source, act) => { if (source) window.pilot.sessionProposalUse?.(id, source, act)?.catch?.(() => {}); };
 const TAKES_MS = 5000;
 
 export function proposedRow(item, label, proposal, now = Date.now()) {
   const li = el('li', 'ss-need is-ask'), body = el('div', 'ss-need-body'), actions = el('span', 'ss-need-actions'), line = el('div', 'ss-ask-line');   // askRow's layout
   li.dataset.empty = label;
   const key = `${item.id}|${label}`, tried = used.get(key);
+  if (!counted.has(key)) { counted.add(key); noteUse(item.id, proposal.source, 'shown'); }
   // A menu: the form's own choices, the one that means the same picked (proposal-pick.js onChoices); otherwise a text box.
   const input = proposal.options?.length ? el('select', 'ss-ask-input') : el('input', 'ss-ask-input');
   if (proposal.options?.length) input.append(el('option', '', proposal.waiting ? 'Finding the matching choice…' : ''), ...proposal.options.map(option => el('option', '', option)));
@@ -73,6 +77,7 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
     use.disabled = input.disabled = true;
     const filled = await window.pilot.sessionFillField(item.id, label, value).catch(error => ({ok: false, error: error.message}));
     if (!filled?.ok) { use.disabled = input.disabled = false; note.textContent = filled?.error || 'Couldn\'t reach the form'; return; }
+    noteUse(item.id, proposal.source, proposal.value && value === String(proposal.value).trim() ? 'used' : 'edited');
     // Kept for every later form: a contact detail in Your details, any other answer in your Answers (Notion).
     // Your saved detail, unchanged (or only put in this form's words, "Monsieur" as "Sir"): nothing to write.
     const already = proposal.key && [value, proposal.original].includes(String(contact?.[proposal.key] || '')) && (value === proposal.value);   // your saved detail, unchanged: nothing to write
@@ -86,4 +91,4 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
   actions.append(use);
   return li;
 }
-export const _used = used;   // tests
+export const _used = used, _counted = counted;   // tests

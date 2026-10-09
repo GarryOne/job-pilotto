@@ -9,6 +9,7 @@
 import {FAMILIES, familyLinks, familyParam} from './engines.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {digest, markdown} from './digest.js';
+import {proposalCard} from './proposal-digest.js';
 import {RESULT_STATES} from '../../desktop/lib/application-result.js';
 import {isOwner, esc, remember} from './stats.js';
 
@@ -202,6 +203,7 @@ ${tile('🕳️ Blind spots (real use)', haveUse ? num(blindNow) : '–', haveUs
 ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${data.recipes.canary.n} canary</span>`, `verified · ${data.recipes.candidate.n} candidates (${data.recipes.candidate.fresh} new this week) · ${data.recipes.disabled.n} retired`)}
 </div>
 ${resultsSection(data.results)}
+${proposalCard(data.learning?.proposals, esc)}
 ${learningSections(data.learning)}
 <section class="card"><h2>📖 The lab, per board</h2><small class="muted">The extension's own code on public application forms, daily, never submitted. Reading = required questions it read (what it would ask Claude); operating = widgets its operators set.</small>
 <div class="wrap"><table><tr><th>Board</th><th class="n">Reading</th><th></th><th class="n">Last week</th><th class="n">Operating</th><th></th><th class="n">Last week</th><th class="n">Runs</th></tr>

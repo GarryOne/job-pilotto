@@ -4,6 +4,8 @@
 // /admin/form-filling/digest.json|.md (any admin; the scripts' key too), read by the weekly LLM pass in the private repo
 // (digest/propose.mjs) that turns the top weaknesses into proposals. Design: Notion "The self-learning loop".
 
+import {proposalLines, proposalSection} from './proposal-digest.js';
+
 const DAY = 86400000;
 const dayOf = date => date.toISOString().slice(0, 10);
 const json = text => { try { return JSON.parse(text) || {}; } catch { return {}; } };
@@ -97,8 +99,9 @@ export async function digest(db, now = new Date()) {
       title: `No answer matched "${row.label}"`, now: {times: row.n}, evidence: {label: row.label, kind: row.kind, boards: json(row.boards)}});
   }
   weaknesses.sort((a, b) => b.impact - a.impact);
+  const proposals = proposalSection(await rows(db, 'SELECT * FROM proposal_use WHERE day >= ?', month), weekAgo, twoWeeks, byVersion);
   return {generated: now.toISOString(), period: {from: weekAgo, to: today, compare: twoWeeks}, thisWeek: summarize(thisWeek), lastWeek: summarize(lastWeek),
-    daily, versions, boards, weaknesses: weaknesses.slice(0, 25),
+    daily, versions, boards, proposals, weaknesses: weaknesses.slice(0, 25),
     notes: ['Counts and fixed words only; question wording is the forms\' own, kept once 3+ installs reported it.',
       'impact = forms affected x required questions lost (lab: pages x runs; widgets: failures; wording: times met).',
       'filledShare = required questions the fill answered / required questions; formsNeedingNothing = forms left complete with nothing answered by hand.']};
@@ -123,6 +126,7 @@ export function markdown(d) {
     ...d.boards.map(b => `| ${b.board} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
     '', '## Day by day', '', '| Day | Forms | Filled | Proposed | Missing | Needing nothing | Submitted |', '|---|---|---|---|---|---|---|',
     ...d.daily.map(x => `| ${x.day} | ${x.forms} | ${pct(x.filledShare)} | ${pct(x.proposedShare)} | ${pct(x.missingShare)} | ${pct(x.formsNeedingNothing)} | ${pct(x.submittedShare)} |`),
+    ...proposalLines(d.proposals),
     '', ...d.notes.map(n => `> ${n}`));
   return lines.join('\n');
 }

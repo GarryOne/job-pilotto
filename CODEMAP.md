@@ -124,6 +124,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/pipeline-tasks.js` — Owns: the tracked tasks the Mac starts: refresh (Find jobs), syncMatches, checkMail, scout, work, task, scoreVisits, mailResult.
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
 - `desktop/lib/pool-share.js` — "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): opt-out, on by default for every install
+- `desktop/lib/proposal-use.js` — What people do with a proposed answer on the session page ("Needs your attention"), counted so the product sees, per release and per
 - `desktop/lib/question-labels.js` — The wording of a form question the filler could not answer, cleaned for the product's learning (Notion: "Knowledge as data: build plan").
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?

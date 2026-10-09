@@ -255,7 +255,7 @@ function handlers() {
   registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
   const {prepareKitFor, tailorCv} = registerKitHandlers({allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
-    DEMO, apply, pipeline, review, server, notion, claudeConsent});
+    DEMO, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter: () => recipeReporterRef, version: app.getVersion()});
   registerAppMetaHandlers({DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,
     getLicense: () => license, getTelemetry: () => telemetry, getUpdateOffer, setUpdateOffer,
     getUpdateCheckedAt, getWindow: () => window, channels});   // lib/app-meta-handlers.js

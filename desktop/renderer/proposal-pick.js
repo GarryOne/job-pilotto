@@ -1,7 +1,8 @@
 // The proposed answer for a field the form still has empty (no DOM: the session page's row asks this, a test feeds it every source).
 // In order: what the fill proposed for that field (a value the form did not take); else, when the field asks for a contact detail
 // (the extension knew it, or Claude read the label: lib/contact-keys.js), your saved detail, then the CV's (or the Profile's) proposal; else an empty
-// box that keeps what you type for every form. null: nothing to propose (the row stays "Open in form").
+// box that keeps what you type for every form. null: nothing to propose (the row stays "Open in form"). `source` is one of
+// lib/proposal-use.js SOURCES: what the session page counts when the row is shown and used.
 const NAMES = {phone: 'phone', street: 'street', postal_code: 'postal code', location: 'town', birth_date: 'date of birth',
   place_of_origin: 'place of origin', salutation: 'salutation', first_name: 'first name', last_name: 'last name', email: 'email'};
 export function pickProposal(ask = {}) {
@@ -20,14 +21,14 @@ export function onChoices(proposal, choice) {
 }
 function proposalOf({proposals = [], label, key = '', contact = {}, cv = []} = {}) {
   const found = proposals.find(proposal => proposal.label === label);
-  if (found?.value) return {value: found.value, key: found.key || key || '', from: found.guess ? 'Your most likely answer, from your profile and this job: check it'
-    : 'Proposed by the fill: the form did not take it'};
+  if (found?.value) return {value: found.value, key: found.key || key || '', source: found.guess ? 'fill_guess' : 'fill_tried',
+    from: found.guess ? 'Your most likely answer, from your profile and this job: check it' : 'Proposed by the fill: the form did not take it'};
   const wants = found?.key || key;
   if (!wants) return null;
-  if (String(contact?.[wants] || '').trim()) return {value: contact[wants], key: wants, from: 'From your details'};
+  if (String(contact?.[wants] || '').trim()) return {value: contact[wants], key: wants, source: 'details', from: 'From your details'};
   const mine = cv.find(proposal => proposal.field === wants);
-  if (mine) return {value: mine.value, key: wants, from: mine.source === 'profile' ? 'From your profile: check it' : mine.sure ? 'From your CV' : 'From your CV: check it'};
-  return {value: '', key: wants, from: `Your ${NAMES[wants] || 'detail'}: type it once, every form gets it`};
+  if (mine) return {value: mine.value, key: wants, source: mine.source === 'profile' ? 'profile' : 'cv', from: mine.source === 'profile' ? 'From your profile: check it' : mine.sure ? 'From your CV' : 'From your CV: check it'};
+  return {value: '', key: wants, source: 'empty', from: `Your ${NAMES[wants] || 'detail'}: type it once, every form gets it`};
 }
 
 // Which detail each label asks for, asked of Claude once per label (lib/contact-keys.js), the labels of one redraw in one call.

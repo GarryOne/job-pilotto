@@ -54,6 +54,7 @@ export const sessionContracts = Object.freeze({
   sessionRestart: {args: [id], response: result},
   sessionReopen: {args: [id, boolean], response: result},
   sessionFillField: {args: [id, string, string], response: result},
+  sessionProposalUse: {args: [id, string, string], response: result},   // lib/proposal-use.js: what was done with a proposed answer (fixed words)
   sessionFinish: {args: [id], response: result},
   sessionsLeftOpen: {args: [array(id)], response: leftOpen},
 });

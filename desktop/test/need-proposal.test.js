@@ -10,19 +10,19 @@ import {keysFor} from '../lib/contact-keys.js';
 
 test('the proposed answer: what the fill proposed, else your detail, else the CV, else a box that keeps it; nothing known: no proposal', () => {
   const proposals = [{label: 'Formule d\'appel', value: 'Monsieur', key: ''}, {label: 'Numéro de téléphone', value: '', key: 'phone'}];
-  assert.deepEqual(pickProposal({proposals, label: 'Formule d\'appel'}), {value: 'Monsieur', key: '', from: 'Proposed by the fill: the form did not take it'});
+  assert.deepEqual(pickProposal({proposals, label: 'Formule d\'appel'}), {value: 'Monsieur', key: '', source: 'fill_tried', from: 'Proposed by the fill: the form did not take it'});
   // The AI's likely answer for you and this job (worker use: "propose"; kept through the app's review state): said to be one, to check.
   assert.equal(pickProposal({proposals: [{label: 'Disponible le week-end ?', value: 'Oui', key: '', guess: true}], label: 'Disponible le week-end ?'}).from,
     'Your most likely answer, from your profile and this job: check it');
   assert.equal(pickProposal({proposals, label: 'Numéro de téléphone', contact: {phone: '+41 79 1'}}).from, 'From your details');
   assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone', cv: [{field: 'phone', value: '+41 79 2', sure: false}]}),
-    {value: '+41 79 2', key: 'phone', from: 'From your CV: check it'});
-  assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone'}), {value: '', key: 'phone', from: 'Your phone: type it once, every form gets it'});
+    {value: '+41 79 2', key: 'phone', source: 'cv', from: 'From your CV: check it'});
+  assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone'}), {value: '', key: 'phone', source: 'empty', from: 'Your phone: type it once, every form gets it'});
   // A label only Claude could read (lib/contact-keys.js): its key comes from there.
   assert.equal(pickProposal({label: 'Rue et numéro', key: 'street', cv: [{field: 'street', value: 'Rue du Lac 1', sure: true}]}).value, 'Rue du Lac 1');
   // A town only the Profile states (9 Oct 2026: Coop's "Localité" had an empty box): proposed from there, always to check.
   assert.deepEqual(pickProposal({label: 'Localité', key: 'location', cv: [{field: 'location', value: 'Nyon', sure: false, source: 'profile'}]}),
-    {value: 'Nyon', key: 'location', from: 'From your profile: check it'});
+    {value: 'Nyon', key: 'location', source: 'profile', from: 'From your profile: check it'});
   assert.equal(pickProposal({label: 'Employment subscription'}), null);
 });
 

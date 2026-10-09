@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
 import {byVersion, digest, markdown} from '../src/digest.js';
+import {page, report} from '../src/formlearning.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -48,6 +49,27 @@ test('proposed answers are shown apart: filled / proposed / truly missing, and n
   assert.ok(!d.weaknesses.some(w => w.cause === 'proposed'));
   assert.ok(d.weaknesses.some(w => w.id === 'cause:ai_declined:ashby'));
   assert.ok(markdown(d).includes('proposed to confirm 30%') && markdown(d).includes('| 0.9.126 | 3 | 60% | 30% | 10% |'));
+});
+
+// 9 Oct 2026 (owner: "how are we improving from one iteration to another ... by leveraging data"): what people did with proposed answers.
+test('proposed answers: the app\'s counts arrive through /api/controls and the digest shows the share used, per source and release', async () => {
+  const e = {STATS: d1(), STATS_KEY: 'k', STATS_API_KEY: 'api', WAITLIST: {get: async () => null, put: async () => {}}};
+  const send = body => worker.fetch(new Request('https://w.dev/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body}), headers: {'Content-Type': 'application/json'}}), e, {});
+  const use = (source, act, n, v = '0.6.0') => ({board: 'h:c1c2a7e7e0', source, act, v, n});
+  await send({proposalUses: [use('fill_guess', 'shown', 4), use('fill_guess', 'used', 2), use('fill_guess', 'edited', 1), use('profile', 'shown', 1),
+    use('cv', 'used', 1, 'not a version!'), {board: 'h:c1c2a7e7e0', source: 'secret', act: 'shown', n: 1}]});
+  const stored = e.STATS.db.prepare('SELECT source, act, version, n FROM proposal_use ORDER BY source, act').all().map(r => [r.source, r.act, r.version, r.n]);
+  assert.deepEqual(stored, [['cv', 'used', '', 1], ['fill_guess', 'edited', '0.6.0', 1], ['fill_guess', 'shown', '0.6.0', 4], ['fill_guess', 'used', '0.6.0', 2], ['profile', 'shown', '0.6.0', 1]]);
+  const d = await digest(e.STATS, new Date());
+  assert.deepEqual([d.proposals.thisWeek.shown, d.proposals.thisWeek.used, d.proposals.thisWeek.edited], [5, 3, 1]);
+  const guess = d.proposals.bySource.find(s => s.source === 'fill_guess').now;
+  assert.deepEqual([guess.usedShare, guess.editedShare, guess.ignoredShare], [0.5, 0.25, 0.25]);
+  assert.deepEqual(d.proposals.byVersion.map(v => [v.version, v.shown]), [['0.6.0', 5]]);
+  const md = markdown(d);
+  assert.ok(md.includes('## Proposed answers') && md.includes('| fill_guess | 4 | 50% | 25% | 25% |'), md.slice(md.indexOf('## Proposed')));
+  const html = page(await report(e.STATS, new Date()), new URL('https://www.jobpilotto.workers.dev/admin/form-filling'));
+  assert.match(html, /🎯 Proposed answers: used as proposed/);
+  assert.match(html, /<td>fill_guess<\/td><td class="n">4<\/td><td class="n">50%<\/td>/);
 });
 
 test('fill records and their Submit arrive through /api/controls; the digest is for admins and the scripts\' key', async () => {

@@ -5,6 +5,7 @@ import {familyOfInstall} from './engines.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
 import {isOwner} from './stats.js';
+import {cleanUse} from '../../desktop/lib/proposal-use.js';
 
 export {cleanLabel};
 export const LEFT_REASONS = ['proposed', 'no_answer', 'not_taken', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];   // desktop/lib/question-labels.js
@@ -40,6 +41,13 @@ export async function store(env, body, install, now = new Date()) {
         .bind(label, kind, merge('[]', who, 5), merge('[]', board, 8), day(now), day(now)).run();
     }
     questions++;
+  }
+  // What people did with a proposed answer (desktop/lib/proposal-use.js): fixed words, counted per day, release and AI family.
+  for (const item of (Array.isArray(body?.proposalUses) ? body.proposalUses : []).slice(0, 40)) {
+    const use = cleanUse(item), n = Math.max(0, Math.min(500, Math.round(Number(item?.n)) || 0));
+    if (!use || !n) continue;
+    await env.STATS.prepare(`INSERT INTO proposal_use (day, board, source, act, version, ai_family, n) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (day, board, source, act, version, ai_family) DO UPDATE SET n = n + excluded.n`).bind(day(now), use.board, use.source, use.act, use.v, family, n).run();
   }
   for (const item of (Array.isArray(body?.flows) ? body.flows : []).slice(0, 20)) {
     const board = String(item?.board || ''), state = String(item?.state || '');

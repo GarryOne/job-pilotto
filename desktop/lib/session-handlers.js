@@ -14,8 +14,10 @@ export async function closeSessionTab({review, closeTab}, old) {
   return (await review.delivered(old.id, 6000)) || await closeTab({url: old.url, company: old.company});
 }
 
+import {cleanUse} from './proposal-use.js';
+import {boardName} from './control-events.js';
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
-  DEMO, apply, pipeline, review, server, notion, claudeConsent,
+  DEMO, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter = () => null, version = '',
   closeTab = closeFormTab, tabs = listTabs}) {
   const checkedSessions = sessionIpc(ipcMain, appLog);
   checkedSessions.handle('sessionCancel', async (_, id) => {
@@ -86,6 +88,17 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     if (!String(value).trim()) return {ok: false, error: 'Write an answer first.'};
     review.queueFill(String(id), label, value.trim());
     appLog('review', `fill one field asked from the session page`, {id, field: String(label).slice(0, 60)});
+    return {ok: true};
+  });
+  // What the person did with a proposed answer (lib/proposal-use.js): fixed words, counted by the form's board and this app's version.
+  checkedSessions.handle('sessionProposalUse', (_, id, source, act) => {
+    const state = review.allStates().find(item => item.id === String(id));
+    let host = '';
+    try { host = new URL(String(state?.url || terminals.get(String(id))?.url || '')).hostname; } catch { /* no address */ }
+    const use = cleanUse({board: boardName(host), source, act, v: version});
+    if (!use) return {ok: false};
+    if (act !== 'shown') appLog('review', `proposed answer ${act}`, {id, source, board: use.board});   // the decision, never the value
+    getRecipeReporter()?.proposalUse(use);
     return {ok: true};
   });
   checkedSessions.handle('sessionReopen', async (_, id, stale) => {
