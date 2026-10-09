@@ -1,4 +1,5 @@
 // What installs report about question wording and where applications stall (src/knowledge.js).
+import {useLaterFloors} from '../src/learning-floor.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -25,7 +26,8 @@ test('the site cleans a label again; personal-looking text is never stored', asy
   assert.deepEqual(e.STATS.db.prepare('SELECT label, kind, n FROM question_labels').all().map(r => ({...r})), [{label: 'heimatort', kind: 'text', n: 1}]);
 });
 
-test('a label counts installs by short digests, once each; the report shows only labels 3 or more installs reported', async () => {
+test('a label counts installs by short digests, once each; the report shows only labels 3 or more installs reported', async t => {
+  useLaterFloors(); t.after(() => useLaterFloors(false));   // the rule with a larger user base (src/learning-floor.js)
   const e = env();
   const ask = (install, label = 'Heimatort') => send(e, install, {questions: [{label, kind: 'text', board: 'lever'}]});
   await ask('install-aaaa-1111'); await ask('install-aaaa-1111'); await ask('install-bbbb-2222');
@@ -45,7 +47,8 @@ test('flow outcomes add up per day, board and state; unknown states and boards a
   assert.deepEqual((await report(e.STATS, 7, day(2))).flows.map(f => [f.board, f.state, f.n]), [['ashby', 'no-form', 5], ['ashby', 'filled', 1]]);
 });
 
-test('tidy deletes labels seen by fewer than 3 installs after 14 days, keeps the shared ones and drops old flow counts', async () => {
+test('tidy deletes labels seen by fewer than 3 installs after 14 days, keeps the shared ones and drops old flow counts', async t => {
+  useLaterFloors(); t.after(() => useLaterFloors(false));   // the rule with a larger user base (src/learning-floor.js)
   const e = env();
   for (const install of ['install-aaaa-1111', 'install-bbbb-2222', 'install-cccc-3333']) await send(e, install, {questions: [{label: 'Heimatort', kind: 'text', board: 'lever'}]}, day(1));
   await send(e, 'install-aaaa-1111', {questions: [{label: 'Odd question here', kind: 'text', board: 'lever'}], flows: [{board: 'ashby', state: 'filled', n: 1}]}, day(1));

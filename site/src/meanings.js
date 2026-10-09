@@ -2,6 +2,7 @@
 // The seed (the keyword lists the code used before; site/migrations/0039_meanings_seed.sql, tools/meanings_seed.py) also ships with the
 // app as its offline floor, so the pack sends only what the app lacks: learned rows running for this install, and seed rows switched off
 // here ('off'), which the app then leaves out. Topics and answers: config/meanings_schema.json, checked here and again in the engine.
+import {installsNeeded} from './learning-floor.js';   // 1 for now: src/learning-floor.js
 import {reaches} from './canary-reach.js';
 import SCHEMA from '../../config/meanings_schema.json' with {type: 'json'};
 
@@ -22,7 +23,7 @@ export async function packMeanings(db, install, reach = {}) {
 // Learning: an install's AI answers for public wordings (topics with share: true; never a user's own words or mail) arrive as votes, one
 // per install and wording. Daily, a wording that 3+ installs answered alike (2/3 of its votes or more) becomes a 5% canary row, grows to
 // 25% and 100% every 3 days while the votes still agree, and is switched off when they stop agreeing. The owner's kill switch: status.
-export const MIN_INSTALLS = 3, MIN_SHARE = 2 / 3, STEPS = [5, 25, 100], GROW_DAYS = 3, MAX_VOTES = 200;
+export const MIN_SHARE = 2 / 3, STEPS = [5, 25, 100], GROW_DAYS = 3, MAX_VOTES = 200;
 const SHARED = new Set(Object.entries(TOPICS).filter(([, spec]) => spec.share).map(([topic]) => topic));
 const plain = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -43,7 +44,7 @@ export async function evaluateMeanings(db, now = new Date()) {
   const tallies = (await db.prepare('SELECT topic, wording, answer, COUNT(*) AS n FROM meaning_votes GROUP BY topic, wording, answer').all()).results || [];
   const totals = {};
   for (const t of tallies) totals[`${t.topic}\u0000${t.wording}`] = (totals[`${t.topic}\u0000${t.wording}`] || 0) + t.n;
-  const agreed = t => t.n >= MIN_INSTALLS && t.n / totals[`${t.topic}\u0000${t.wording}`] >= MIN_SHARE;
+  const agreed = t => t.n >= installsNeeded('meaning') && t.n / totals[`${t.topic}\u0000${t.wording}`] >= MIN_SHARE;
   const rows = (await db.prepare("SELECT topic, wording, answer, status, rollout, updated_at FROM meanings WHERE kind = 'exact' AND source = 'learned'").all()).results || [];
   const known = Object.fromEntries(rows.map(r => [`${r.topic}\u0000${r.wording}`, r]));
   for (const t of tallies.filter(agreed)) {

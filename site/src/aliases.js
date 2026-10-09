@@ -5,6 +5,7 @@
 //   PUT  /api/aliases         the owner (the private proposer): add or change aliases, or record {reviewed: [{label}]} wordings that mean nothing. Sensitive fields (birth date, address ...)
 //                             only go live when the owner passes approved: true.
 // evaluateAliases (daily) grows a canary that works and halts one that fails, like the recipes' canary, sensitive fields too (owner, 8 Oct 2026).
+import {installsNeeded} from './learning-floor.js';   // 1 for now: src/learning-floor.js
 import {betaOf, reaches, staged} from './canary-reach.js';
 import {MIN_PEOPLE, hints} from './intelligence.js';
 import {BUTTON_KEYS, FILE_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, fileKind, validateAlias} from '../../extension/alias-schema.js';
@@ -18,7 +19,6 @@ const STEPS = [5, 25, 100];
 const REVIEW_DAYS = 30;
 const PER_INSTALL_PER_DAY = 24, MIN_FAIL_CHECK = 20, HALT_ABOVE = 0.25, MIN_PROMOTE = 50, PROMOTE_BELOW = 0.05;
 // How many different installs must propose the same meaning before it runs (owner, 8 Oct 2026): 2 for an ordinary field, 3 for a sensitive one.
-const MIN_INSTALLS = 2, MIN_INSTALLS_SENSITIVE = 3;
 // A meaning people keep correcting by hand is wrong, even when every field took its value (the fill outcome can't tell): halted at
 // CORRECTED_MIN corrections making up CORRECTED_ABOVE of the fills of the wordings it covers (intel_fixes: labels and counts only).
 const CORRECTED_MIN = 3, CORRECTED_ABOVE = 0.3;
@@ -199,7 +199,7 @@ export async function storeProposals(env, items, install, now = new Date()) {
     await env.STATS.prepare(`INSERT INTO alias_proposals (phrase, key, installs, last_day) VALUES (?, ?, ?, ?)
       ON CONFLICT (phrase, key) DO UPDATE SET installs = excluded.installs, last_day = excluded.last_day`).bind(phrase, key, JSON.stringify(installs), day(now)).run();
     stored++;
-    if (installs.length >= (SENSITIVE.includes(key) ? MIN_INSTALLS_SENSITIVE : MIN_INSTALLS)) {
+    if (installs.length >= installsNeeded(SENSITIVE.includes(key) ? 'aliasSensitive' : 'alias')) {
       const made = await env.STATS.prepare(`INSERT INTO aliases (phrase, key, status, rollout, source, note, created_at, updated_at) VALUES (?, ?, 'canary', ${STEPS[0]}, 'installs', ?, ?, ?)
         ON CONFLICT (phrase) DO NOTHING`).bind(phrase, key, `proposed by ${installs.length} installs`, now.toISOString(), now.toISOString()).run();
       if ((made.meta?.changes ?? made.changes) > 0) promoted++;

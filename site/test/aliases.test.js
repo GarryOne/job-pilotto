@@ -1,4 +1,5 @@
 // Label meanings served to installs (src/aliases.js): who may add them, who gets them, how the canary judges them.
+import {useLaterFloors} from '../src/learning-floor.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -56,7 +57,8 @@ test('an install can fetch the pack only so many times a day', async () => {
   assert.equal((await get()).status, 429);
 });
 
-test('targets: questions 3+ installs report that no alias placed yet', async () => {
+test('targets: questions 3+ installs report that no alias placed yet', async t => {
+  useLaterFloors(); t.after(() => useLaterFloors(false));   // the rule with a larger user base (src/learning-floor.js)
   const e = env();
   const send = (install, label) => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install, questions: [{label, kind: 'text', board: 'lever'}]})}), e, now);
   for (const install of ['install-aaaa-1111', 'install-bbbb-2222', 'install-cccc-3333']) { await send(install, 'Ort der Herkunft'); await send(install, 'Courriel professionnel'); }
@@ -109,7 +111,8 @@ test('changed-answer wordings become review targets only when enough people and 
   assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'rolled back']]);
 });
 
-test('a wording 2 different installs proposed starts as a 5% canary at once (a sensitive one at 3), and no sooner', async () => {
+test('a wording 2 different installs proposed starts as a 5% canary at once (a sensitive one at 3), and no sooner', async t => {
+  useLaterFloors(); t.after(() => useLaterFloors(false));   // the rule with a larger user base (src/learning-floor.js)
   const e = env();
   const item = {key: 'first_name', phrase: 'Preferred First Name'};
   await storeProposals(e, [item, item], 'install-a-0001', now);   // the same install twice counts once

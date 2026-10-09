@@ -1,6 +1,7 @@
 // What installs report so the product can learn what questions mean and where applications get stuck (Notion: "Knowledge as data:
 // build plan"). Stored as counts. A question's wording is kept only while several installs report it; the rest is deleted by tidy().
 //   POST /api/controls (src/recipes.js) hands {questions, flows} here.   GET /api/knowledge (owner): what the proposers work from.
+import {installsNeeded} from './learning-floor.js';   // 1 for now: src/learning-floor.js
 import {familyOf, familyOfInstall} from './engines.js';
 import {ANSWER_COUNTS, ANSWER_ENGINES, MS_BUCKETS} from '../../desktop/lib/answer-counts.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
@@ -14,7 +15,7 @@ import {RESULT_STATES} from '../../desktop/lib/application-result.js';
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply', ...RESULT_STATES];   // the last ones: how an application ended (desktop/lib/application-result.js)
 export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response'], DAY_BUCKETS = ['', '0-3', '4-7', '8-14', '15-30', '31+'];
 export const MS_COLUMNS = [...MS_BUCKETS.map(edge => `ms_${edge}`), 'ms_more'];   // form_answers' time buckets
-export const MIN_INSTALLS = 3, KEEP_SINGLE_DAYS = 14, KEEP_FLOW_DAYS = 180;
+export const KEEP_SINGLE_DAYS = 14, KEEP_FLOW_DAYS = 180;
 const BOARD = /^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/;
 const day = date => date.toISOString().slice(0, 10);
 
@@ -98,7 +99,7 @@ export async function tidy(db, now = new Date()) {
   for (const row of old) {
     let count = 0;
     try { count = JSON.parse(row.installs).length; } catch { /* unreadable: drop */ }
-    if (count < MIN_INSTALLS) { await db.prepare('DELETE FROM question_labels WHERE label = ?').bind(row.label).run(); dropped++; }
+    if (count < installsNeeded('question')) { await db.prepare('DELETE FROM question_labels WHERE label = ?').bind(row.label).run(); dropped++; }
   }
   await db.prepare('DELETE FROM application_outcomes WHERE day < ?').bind(day(new Date(now.getTime() - 365 * 86400000))).run().catch(() => {});
   await db.prepare('DELETE FROM form_answers WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_FLOW_DAYS * 86400000))).run().catch(() => {});
@@ -111,7 +112,7 @@ export async function tidy(db, now = new Date()) {
 export async function report(db, days = 7, now = new Date(), limit = 100) {
   const rows = (await db.prepare('SELECT label, kind, n, installs, boards, last_day FROM question_labels ORDER BY n DESC LIMIT 400').all()).results || [];
   const questions = rows.map(row => ({label: row.label, kind: row.kind, n: row.n, installs: (() => { try { return JSON.parse(row.installs).length; } catch { return 0; } })(),
-    boards: (() => { try { return JSON.parse(row.boards); } catch { return []; } })(), last: row.last_day})).filter(row => row.installs >= MIN_INSTALLS).slice(0, limit);
+    boards: (() => { try { return JSON.parse(row.boards); } catch { return []; } })(), last: row.last_day})).filter(row => row.installs >= installsNeeded('question')).slice(0, limit);
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const flows = (await db.prepare('SELECT board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ? GROUP BY board, state ORDER BY board, n DESC').bind(from).all()).results || [];
   const outcomes = (await db.prepare('SELECT board, outcome, SUM(n) AS n FROM application_outcomes WHERE day >= ? GROUP BY board, outcome ORDER BY board, n DESC').bind(from).all().catch(() => ({results: []}))).results || [];
