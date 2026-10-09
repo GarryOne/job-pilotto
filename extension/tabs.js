@@ -20,6 +20,12 @@ export const applyPressed = new Map();   // tab id → {at, url}: when and on wh
 // A tab opened by an armed tab (Apply in a new tab) is the same session. A tab the user opened is not.
 // The mark the app puts on a tab it opens for a job (background.js FILL_MARK; a test keeps the two equal).
 export const APP_TAB_MARK = 'jobpilotto-fill';
+// Tabs the fill mark handler (background.js) has claimed for the app's job, noted before its first await. A tab created before its
+// address is known passes the mark check below, and the mark handler's from: lands while followOpener reads the opener's keys: on
+// 9 Oct 2026 (e2e rerun-apply, found by mac-bc) the opener's session, job and from were then written over it, and the Lever form
+// for one job was filled with another job's kit. Checked again right before the write, with no await in between.
+const appTabs = new Set();
+export function claimAppTab(tabId) { appTabs.add(tabId); setTimeout(() => appTabs.delete(tabId), 60000).unref?.(); }
 export async function followOpener(tab) {
   // A tab the app opened for a job carries its mark from the start (url or pendingUrl): it is that job's, never the tab that happened to be in front.
   // The from: key below is set a moment later, too late: on 9 Oct 2026 Nahrin's jobs.ch tab, opened while Coop's tab was in front, inherited Coop's
@@ -34,6 +40,7 @@ export async function followOpener(tab) {
   if (stored[`session:${opener}`]) next[`session:${tab.id}`] = stored[`session:${opener}`];   // the same application: the newest tab is its tab now
   if (stored[`from:${opener}`]) next[`from:${tab.id}`] = stored[`from:${opener}`];
   if (stored[`job:${opener}`]) next[`job:${tab.id}`] = stored[`job:${opener}`];
+  if (appTabs.has(tab.id)) { decide('panel', 'a tab the app opened for a job: not its opener\'s', {tab: tab.id, opener}); return false; }
   await chrome.storage.session.set(next);
   return true;
 }
