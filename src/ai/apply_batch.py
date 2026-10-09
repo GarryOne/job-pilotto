@@ -28,10 +28,10 @@ import tempfile
 import time
 from pathlib import Path
 
-from .kit import KIT_HEADING
 from ..notion import client as notion
 from ..notion import ledger
 from ..sources import ats
+from ..stores import base, open_stores, rules
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SEND_SCRIPT = REPO_ROOT / 'tools' / 'send-to-chatgpt.sh'
@@ -49,38 +49,36 @@ Resume: attach {cv}
 If a field appears that isn't listed above, don't guess — ask me."""
 
 
-def _title(row):
-    return ''.join(t.get('plain_text', '') for t in row['properties']['Job'].get('title', []))
+def _kit(stores, record):
+    """A job's kit from its section (base.kit_from), or None."""
+    return base.kit_from(stores.applications.section(record['id'], base.KIT_SECTION) or '')
 
 
-def ready_jobs(tracker, max_jobs):
-    """(row, kit) pairs for Kit ready / Saved jobs that have a kit, newest-updated first."""
-    rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': 'Kit ready'}},
-        {'property': 'Stage', 'select': {'equals': 'Saved'}}]})
-    rows.sort(key=lambda r: r.get('last_edited_time', ''), reverse=True)
+def ready_jobs(stores, max_jobs):
+    """(record, kit) pairs for Kit ready / Saved jobs that have a kit, newest first."""
+    records = sorted(stores.applications.list(stages=['Kit ready', 'Saved']), key=lambda r: r.get('created_at') or '', reverse=True)
     pairs = []
-    for row in rows:
-        kit_data = tracker.read_kit(row['id'], KIT_HEADING)
+    for record in records:
+        kit_data = _kit(stores, record)
         if kit_data:
-            pairs.append((row, kit_data))
+            pairs.append((record, kit_data))
         if len(pairs) >= max_jobs:
             break
     return pairs
 
 
-def mark_closed(tracker, url):
-    """Stage -> Closed (the posting is gone) and a notification; returns the tracker outcome."""
-    _, outcome = tracker.mark({'url': url}, 'Closed')
+def mark_closed(stores, url):
+    """Stage -> Closed (the posting is gone) and a notification; returns the store's outcome."""
+    _, outcome = rules.mark(stores, {'url': url}, 'Closed')
     subprocess.run([str(NOTIFY_SCRIPT), url, 'Posting closed — marked Closed, skipped'], check=False)
     return outcome
 
 
-def still_open(tracker, url):
+def still_open(stores, url):
     """False (and the job is marked Closed) only when its board confirms the posting is gone;
     unsupported boards and outages count as open, so nothing is closed on a guess."""
     if ats.is_live(url) is False:
-        mark_closed(tracker, url)
+        mark_closed(stores, url)
         print(f'Skipped, posting closed: {url}', file=sys.stderr)
         return False
     return True
@@ -89,40 +87,27 @@ def still_open(tracker, url):
 KIT_STEP = '📝 Kit ready'  # the Next step a drafted kit writes (src/ai/kit.py)
 
 
-def _prop(row, name):
-    return ledger.plain(row['properties'].get(name)) or ''
-
-
-def unstarted_urls_by_score(tracker, max_jobs):
+def unstarted_urls_by_score(stores, max_jobs):
     """Job URLs with a kit (not yet Applying/Applied/...), ranked by AI fit score descending.
 
-    Fast: whether a job has a kit is on its row (Stage Kit ready, or Next step "📝 Kit ready" on a Saved job), so
-    no kit is opened here (the Claude session reads its own). The Applications rows and the Job Matches scores are
-    read at the same time, and the top candidates' postings are checked at the same time. Score comes from Job
-    Matches; jobs not scored yet sort last rather than being excluded."""
-    rows, match_rows = notion.together(
-        lambda: tracker.query_database(tracker.database_id, {'or': [
-            {'property': 'Stage', 'select': {'equals': 'Kit ready'}},
-            {'property': 'Stage', 'select': {'equals': 'Saved'}}]}),
-        lambda: tracker.query_database(notion.MATCHES_DATABASE_ID) if notion.MATCHES_DATABASE_ID else [])
-    url_score = {}
-    for row in match_rows:
-        url = row['properties'].get('Job URL', {}).get('url')
-        score = row['properties'].get('Score', {}).get('number')
-        if url is not None and score is not None:
-            url_score[url] = score
-    for row in rows:  # a job you added has no Job Matches row: its Applications fit score counts instead
-        own = row['properties'].get('Fit score', {}).get('number')
-        if _prop(row, 'Job URL') and own is not None:
-            url_score.setdefault(_prop(row, 'Job URL'), own)
-    candidates = [_prop(row, 'Job URL') for row in rows
-                  if _prop(row, 'Job URL') and (_prop(row, 'Stage') == 'Kit ready' or _prop(row, 'Next step').startswith(KIT_STEP))]
-    unstarted_urls_by_score.rows = {_prop(row, 'Job URL'): row for row in rows}  # for job_details() of the ones picked
+    Fast: whether a job has a kit is on its record (Stage Kit ready, or Next step "📝 Kit ready" on a Saved job), so
+    no kit is opened here (the Claude session reads its own). The applications and the matches' scores are read at
+    the same time, and the top candidates' postings are checked at the same time. Score comes from the matches; jobs
+    not scored yet sort last rather than being excluded."""
+    records, found = notion.together(lambda: stores.applications.list(stages=['Kit ready', 'Saved']),
+                                     lambda: stores.matches.list())
+    url_score = {match['url']: match['fit'] for match in found if match.get('url') and match.get('fit') not in (None, '')}
+    for record in records:  # a job you added has no match: its own fit score counts instead
+        if record.get('url') and record.get('fit') not in (None, ''):
+            url_score.setdefault(record['url'], record['fit'])
+    candidates = [record['url'] for record in records
+                  if record.get('url') and (record.get('stage') == 'Kit ready' or (record.get('next_step') or '').startswith(KIT_STEP))]
+    unstarted_urls_by_score.rows = {record['url']: record for record in records if record.get('url')}  # for job_details()
     candidates = sorted(dict.fromkeys(candidates), key=lambda url: url_score.get(url, -1), reverse=True)
     urls, batch = [], max(max_jobs * 2, 4)
     for start in range(0, len(candidates), batch):
         chunk = candidates[start:start + batch]
-        open_now = notion.together(*[lambda url=url: still_open(tracker, url) for url in chunk])
+        open_now = notion.together(*[lambda url=url: still_open(stores, url) for url in chunk])
         urls += [url for url, alive in zip(chunk, open_now) if alive]
         if len(urls) >= max_jobs:
             break
@@ -131,33 +116,29 @@ def unstarted_urls_by_score(tracker, max_jobs):
 
 def job_details(url):
     """What the app shows for a picked job (its session card, the notification): title, company, place."""
-    row = getattr(unstarted_urls_by_score, 'rows', {}).get(url)
-    if not row:
+    record = getattr(unstarted_urls_by_score, 'rows', {}).get(url)
+    if not record:
         return {'url': url}
-    return {'url': url, 'title': _prop(row, 'Job'), 'company': _prop(row, 'Company') or _prop(row, 'Via'),
-            'location': _prop(row, 'Location'), 'workMode': _prop(row, 'Work mode')}
+    return {'url': url, 'title': record.get('title') or '', 'company': record.get('company') or record.get('via') or '',
+            'location': record.get('location') or '', 'workMode': record.get('work_mode') or ''}
 
 
-def top_unprepared_urls(tracker, max_jobs):
-    """Highest-scored open Job Matches with no kit yet and not applied/dismissed — the jobs worth a
-    📝 Prepare run next. Scores come from the Job Matches database (synced by stage 2)."""
-    stages = tracker.url_stages()
-    rows = tracker.query_database(notion.MATCHES_DATABASE_ID)
+def top_unprepared_urls(stores, max_jobs):
+    """Highest-scored open matches with no kit yet and not applied/dismissed — the jobs worth a 📝 Prepare run next.
+    Scores come from the matches (synced by stage 2)."""
+    stages = stores.applications.stages()
     ranked = []
-    for row in rows:
-        props = row['properties']
-        url = (props.get('Job URL') or {}).get('url')
-        score = (props.get('Score') or {}).get('number')
-        status = ((props.get('Status') or {}).get('select') or {}).get('name')
-        if url and score is not None and status in (None, 'Open', 'Not seen') \
-                and stages.get(url) in (None, 'Saved', 'Kit ready'):
+    for match in stores.matches.list():
+        url, score = match.get('url'), match.get('fit')
+        if url and score not in (None, '') and (match.get('status') or None) in (None, 'Open', 'Not seen') \
+                and stages.get(base.url_key(url)) in (None, 'Saved', 'Kit ready'):
             ranked.append((score, url))
     urls = []
     for _, url in sorted(ranked, reverse=True):
-        row = tracker.find(url)
-        if row and tracker.read_kit(row['id'], KIT_HEADING):
+        record = stores.applications.get(url)
+        if record and _kit(stores, record):
             continue
-        if not still_open(tracker, url):
+        if not still_open(stores, url):
             continue
         urls.append(url)
         if len(urls) >= max_jobs:
@@ -165,18 +146,18 @@ def top_unprepared_urls(tracker, max_jobs):
     return urls
 
 
-def pairs_for_urls(tracker, urls):
-    """(row, kit) pairs for explicit job URLs, in the given order. Raises if a URL has no row or
+def pairs_for_urls(stores, urls):
+    """(record, kit) pairs for explicit job URLs, in the given order. Raises if a URL has no record or
     no kit yet — explicit URLs are a deliberate choice, so fail loud rather than silently skip."""
     pairs = []
     for url in urls:
-        row = tracker.find(url)
-        if not row:
+        record = stores.applications.get(url)
+        if not record:
             raise SystemExit(f'No Applications row for {url} — prepare a kit first (📝 Prepare).')
-        kit_data = tracker.read_kit(row['id'], KIT_HEADING)
+        kit_data = _kit(stores, record)
         if not kit_data:
             raise SystemExit(f'No kit drafted yet for {url} — prepare a kit first (📝 Prepare).')
-        pairs.append((row, kit_data))
+        pairs.append((record, kit_data))
     return pairs
 
 
@@ -233,45 +214,47 @@ def main():
     if args.file:
         args.urls = [line.strip() for line in Path(args.file).read_text().splitlines() if line.strip()]
 
-    tracker = notion.Tracker.from_env()
-    if not tracker:
-        raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+    tracker = notion.Tracker.from_env()   # None with the data on this Mac
+    stores = open_stores(tracker=tracker)
 
     if args.has_kit:
         try:
-            pairs_for_urls(tracker, [args.has_kit])
+            pairs_for_urls(stores, [args.has_kit])
         except SystemExit as missing:
             print(missing)
             return 1
         except Exception as error:  # can't tell: don't start a session that may have nothing to fill from
-            print(f"Couldn't check the kit in Notion ({type(error).__name__}: {str(error)[:120]}); not starting.")
+            print(f"Couldn't check the kit ({type(error).__name__}: {str(error)[:120]}); not starting.")
             return 1
         return 0
 
     if args.mark_applying:
-        if not tracker.find(args.mark_applying):  # a bare URL has no title to make a row from: say so, never a traceback
+        if not stores.applications.get(args.mark_applying):  # a bare URL has no title to make a row from: say so, never a traceback
             print(f'{args.mark_applying}: not on the tracker, left as it is')
             return 0
-        _, outcome = tracker.mark({'url': args.mark_applying}, 'Applying')
+        _, outcome = rules.mark(stores, {'url': args.mark_applying}, 'Applying')
         print(f'{args.mark_applying}: {outcome}')
         return 0
 
     if args.mark_closed:
-        print(f'{args.mark_closed}: {mark_closed(tracker, args.mark_closed)}')
+        print(f'{args.mark_closed}: {mark_closed(stores, args.mark_closed)}')
         return 0
 
     if args.mark_applied:
-        # Also logs an Applied event and freezes the application record (questions, answers sent).
+        # Also logs an Applied event and freezes the application record (questions, answers sent). The ledger is
+        # Notion's until it moves to the store (src/notion/ledger.py, mac-67's lane).
+        if not tracker or stores.name != 'notion':   # one copy: never into a Notion that is not the store
+            raise SystemExit('--mark-applied needs Notion until the ledger moves to the store; use the app\'s Applied')
         print(ledger.mark_applied(tracker, args.mark_applied, args.source))
         return 0
 
     if args.top_unprepared is not None:
-        for url in top_unprepared_urls(tracker, args.top_unprepared):
+        for url in top_unprepared_urls(stores, args.top_unprepared):
             print(url)
         return 0
 
     if args.next is not None:
-        for url in unstarted_urls_by_score(tracker, args.next):
+        for url in unstarted_urls_by_score(stores, args.next):
             # --details (the app): one JSON line per job with its title and company; else the plain URL (the scripts).
             print(json.dumps(job_details(url), ensure_ascii=False) if args.details else url)
         return 0
@@ -280,19 +263,19 @@ def main():
         raise SystemExit(f'{SEND_SCRIPT} not found')
 
     if args.urls:
-        pairs = pairs_for_urls(tracker, args.urls)
+        pairs = pairs_for_urls(stores, args.urls)
     else:
-        pairs = ready_jobs(tracker, args.max)
+        pairs = ready_jobs(stores, args.max)
         if not pairs:
             print('No job has a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
                   '`gh workflow run daily.yml -f mode=prepare -f job=<job URL>`.')
-            from .. import doctor  # lazy: the full checklist is only needed on this empty path
-            print(f'👉 Next step — {doctor.next_step(doctor.run_checks(tracker))}')
+            if tracker:   # the setup checklist reads Notion
+                from .. import doctor  # lazy: the full checklist is only needed on this empty path
+                print(f'👉 Next step — {doctor.next_step(doctor.run_checks(tracker))}')
             return 0
 
-    for row, kit_data in pairs:
-        title, company = _title(row), row['properties'].get('Company', {})
-        company = ''.join(t.get('plain_text', '') for t in company.get('rich_text', []))
+    for record, kit_data in pairs:
+        title, company = record.get('title') or '', record.get('company') or ''
         prompt = build_prompt(kit_data, args.cv)
         print(f"--- {title} — {company} ({kit_data['url']}) ---")
         if kit_data.get('check_before_sending'):
@@ -310,7 +293,7 @@ def main():
         # Mark it out of 'Kit ready'/'Saved' immediately so a second run (or the next auto-kit cycle) never
         # queues the same job into a second chat. Re-queue a job by setting its Stage back to
         # Kit ready in Notion if a paste-only chat was abandoned without sending.
-        tracker.mark({'url': kit_data['url']}, 'Applying')
+        rules.mark(stores, {'url': kit_data['url']}, 'Applying')
         if not args.paste_only:
             subprocess.run([str(NOTIFY_SCRIPT), kit_data['url'], 'Filling started (ChatGPT)'], check=False)
         # Marks it Applied once its confirmation page shows up in Chrome (3 h cap), detached.
@@ -321,11 +304,11 @@ def main():
     print(f"\nQueued {len(pairs)} chat(s) in the ChatGPT/Codex app. For each: review, attach the "
           "résumé if it didn't, click Submit yourself, then run:\n"
           "  gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied")
-    checks = [(row, kit_data) for row, kit_data in pairs if kit_data.get('check_before_sending')]
+    checks = [(record, kit_data) for record, kit_data in pairs if kit_data.get('check_before_sending')]
     if checks and not args.dry_run:
         print('\nThings to double-check before you submit, one job at a time:')
-        for row, kit_data in checks:
-            print(f"\n{_title(row)} ({kit_data['url']}):")
+        for record, kit_data in checks:
+            print(f"\n{record.get('title') or ''} ({kit_data['url']}):")
             for item in kit_data['check_before_sending']:
                 print(f'  • {item}')
     return 0
