@@ -14,8 +14,9 @@ import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 export const engine = 'api';   // the suite relies on the AI proxy answering "no credit", which needs the API engine (dummy key: nothing reaches Anthropic)
 export const minutes = 30;
 export const name = 'strategy';
-// The ⚙️ Search settings page round-trip: a Notion rendering of the settings (spec 2026-10-09-store-adapters.md §4), so it runs on Notion, the stand-in (P7).
-export const store = 'standin';
+// Either store (P7, owner 9 Oct 2026): on Notion (the stand-in) a change made on either side, the app or the ⚙️ Search settings page (a Notion rendering of the
+// settings, spec 2026-10-09-store-adapters.md §4), reaches the other and the next check; on this Mac's store there is no page, the person's settings are
+// config/search.json + preferences.json written by the app (saveStrategy), so the page's steps are the same edits made in the app, and the reconnect is Notion's only.
 const TITLE = '⚙️ Search settings';
 const ROLE = 'zebra wrangler', GIRAFFE = 'giraffe keeper', PLACE = 'lugano', SKIP = 'E2E Initech';
 // Free words (no fixture feed depends on them): a company added on the Notion page and a region accepted in the app. A seeded run picks one of each, so a word an
@@ -24,7 +25,7 @@ const EDITED = ['E2E Hooli', 'E2E Pied Piper', 'E2E Vandelay', 'E2E Globex'], RE
 
 // The start state of every section this suite's steps change (snapshot preseeding, lib/notion.mjs restoreSections). Roles: the persona's own, none of which a fixture
 // posting of this suite matches (so before any change the check keeps neither); places, level and companies empty; regions to skip: the real list, no test word.
-const START = {
+const START = {   // the page's sections; on this Mac's store the same values go into the config files (sqliteStart)
   'Roles to look for': ['data analyst', 'business intelligence', '"bi"', 'analytics engineer', 'reporting analyst'],
   'Your level': [],
   'Best places': [],
@@ -37,8 +38,22 @@ const START = {
   'Remote jobs: regions to skip': ['/\\busa?\\b/', 'united states', 'canada', 'apac', 'latam'],
 };
 
+// A section entry as the engine turns it into a regex fragment (src/notion/search_settings.py fragment_of; START has no accent or other special character):
+// plain = anywhere, "quoted" = whole word, /…/ = as written.
+const fragment = entry => (entry.length > 2 && entry.startsWith('/') && entry.endsWith('/') ? entry.slice(1, -1)
+  : entry.length > 2 && entry.startsWith('"') && entry.endsWith('"') ? `\\b${entry.slice(1, -1)}\\b` : entry);
+// START in the config files' shape (the same SECTIONS map as the engine's): what the page would have written into them.
+export function sqliteStart(search, preferences) {
+  const m = list => list.map(fragment);
+  return {search: {...search, role_keywords: m(START['Roles to look for']), level: START['Your level'], title_exclude_keywords: m(START['Job titles to skip']),
+    remote_excluded_regions: m(START['Remote jobs: regions to skip']),
+    locations: {...search.locations, top_tier: m(START['Best places']), country_wide: m(START['Anywhere in the country']), abroad: m(START['Places abroad'])}},
+  preferences: {...preferences, excluded_companies: START['Companies to skip']}};
+}
+
 export async function run(ctx) {
   const {page, token: NOTION} = ctx;
+  const onNotion = ctx.store !== 'sqlite';
   const edited = ctx.vary.fixed ? EDITED[0] : ctx.vary.pick(EDITED), region = ctx.vary.fixed ? REGIONS[0] : ctx.vary.pick(REGIONS);
   if (!ctx.vary.fixed) console.log(`  variation: seed ${ctx.vary.seed}; edited on the page "${edited}", region "${region}"`);
   await ensureSetUp(ctx);
@@ -59,7 +74,12 @@ export async function run(ctx) {
     if (!done?.ok) throw new Error(`Notion did not reconnect: ${done?.error}`);
   };
   const settingsPage = () => linkedPage(page);
-  const profileId = await page.evaluate(() => window.pilot.state()).then(s => s.settings.notionIds.NOTION_PROFILE_PAGE_ID);
+  const profileId = onNotion ? await page.evaluate(() => window.pilot.state()).then(s => s.settings.notionIds.NOTION_PROFILE_PAGE_ID) : '';
+  // This Mac's store: the strategy is changed where the person changes it, in the app (the Strategy page saves through saveStrategy, its parts only).
+  const saveInApp = async (search, preferences, parts) => {
+    const saved = await page.evaluate(([draft, chosen]) => window.pilot.saveStrategy(draft, chosen), [{profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search, preferences}, parts]);
+    if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
+  };
   // Read right after the app rewrote the page, Notion can list it without its headings for a while (7 Oct 2026: "Cannot read properties of undefined
   // (reading 'filter')" on 'Roles to look for', 14 s after a delete-and-append rewrite). Wait for the headings every step reads, then say which were missing.
   const HEADINGS = ['Roles to look for', 'Best places', 'Companies to skip'];
@@ -102,10 +122,16 @@ export async function run(ctx) {
 
   await ctx.run('this suite starts with no jobs, two small boards and no strategy change', async () => {
     await clearData(ctx, 'Job Matches — AI Scored');
-    const closed = await closeRunningRows(NOTION);   // start state: no run left "Running" by a killed earlier run
-    if (closed) console.log(`  closed ${closed} run row(s) an earlier, killed run had left "Running"`);
     fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources-strategy.json'), path.join(ctx.profile, 'config', 'sources.json'));
+    if (!onNotion) {   // a fresh profile: nothing is left from an earlier run; the start state is saved in the app
+      const start = sqliteStart(read('search.json'), read('preferences.json'));
+      await saveInApp(start.search, start.preferences, ['search', 'filters']);
+      if (!read('search.json').role_keywords.includes('data analyst')) throw new Error('the start state did not reach config/search.json');
+      return;
+    }
+    const closed = await closeRunningRows(NOTION);   // start state: no run left "Running" by a killed earlier run
+    if (closed) console.log(`  closed ${closed} run row(s) an earlier, killed run had left "Running"`);
     await reconnect(page);
     const pageId = await settingsPage();
     if (!pageId) throw new Error('the app has no ⚙️ Search settings page id after setup');
@@ -132,7 +158,7 @@ export async function run(ctx) {
     if (listed(jobs, 'zebra|giraffe')) throw new Error(`jobs for roles nobody asked for were kept: ${jobs.filter(j => /zebra|giraffe/i.test(j)).join('; ')}`);
   }, {needs: ctx.needs});
 
-  await ctx.run('a role and a place added in the app reach the Notion page and config/search.json', async () => {
+  await ctx.run(onNotion ? 'a role and a place added in the app reach the Notion page and config/search.json' : 'a role and a place added in the app reach config/search.json', async () => {
     const added = await page.evaluate(terms => window.pilot.addRoles(terms), [ROLE]);
     if (!added?.ok || !added.added.includes(ROLE)) throw new Error(`addRoles: ${JSON.stringify(added)}`);
     const search = read('search.json'), preferences = read('preferences.json');
@@ -140,8 +166,9 @@ export async function run(ctx) {
       profile_markdown: 'Placeholder, not saved (only the search part is accepted).', answers_markdown: 'Placeholder.', contact: {},
       search: {locations: {...search.locations, top_tier: [...search.locations.top_tier, PLACE]}}, preferences});
     if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
-    const file = read('search.json'), notion = await sections();
+    const file = read('search.json'), notion = onNotion ? await sections() : null;
     if (!has(file.role_keywords, ROLE) || !has(file.locations.top_tier, PLACE)) throw new Error(`config/search.json lacks the new role or place (roles: ${file.role_keywords.join(', ')}; places: ${file.locations.top_tier.join(', ')})`);
+    if (!notion) return;
     if (!has(notion['Roles to look for'], ROLE)) throw new Error(`the Notion page lacks the role (it lists: ${(notion['Roles to look for'] || []).join(', ')})`);
     if (!has(notion['Best places'], PLACE)) throw new Error(`the Notion page lacks the place (it lists: ${(notion['Best places'] || []).join(', ')})`);
   }, {needs: ctx.needs});
@@ -153,14 +180,16 @@ export async function run(ctx) {
     if (!listed(jobs, 'zebra', 'Staff')) throw new Error('the same role at the other board was not kept, although that company is not skipped yet');
   }, {needs: ctx.needs});
 
-  await ctx.run('a company to skip, set in the app, reaches Notion and config/preferences.json', async () => {
+  await ctx.run(onNotion ? 'a company to skip, set in the app, reaches Notion and config/preferences.json' : 'a company to skip, set in the app, reaches config/preferences.json', async () => {
     const search = read('search.json'), preferences = read('preferences.json');
     const saved = await page.evaluate(draft => window.pilot.saveStrategy(draft, ['filters']), {
       profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search,
       preferences: {...preferences, excluded_companies: [...(preferences.excluded_companies || []), SKIP]}});
     if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
-    const notion = await sections();
     if (!has(read('preferences.json').excluded_companies, SKIP)) throw new Error('config/preferences.json lacks the company');
+    if (!has(read('search.json').role_keywords, ROLE)) throw new Error('saving the companies lost the role added before (config/search.json)');
+    if (!onNotion) return;
+    const notion = await sections();
     if (!has(notion['Companies to skip'], SKIP)) throw new Error(`the Notion page lacks the company (it lists: ${(notion['Companies to skip'] || []).join(', ')})`);
     if (!has(notion['Roles to look for'], ROLE)) throw new Error('saving the companies lost the role added before');
   }, {needs: ctx.needs});
@@ -172,6 +201,33 @@ export async function run(ctx) {
     if (listed(jobs, 'Platform', 'Staff')) throw new Error('a new posting from the skipped company was kept');
     if (!listed(jobs, 'Data', 'Senior')) throw new Error('a new posting from a company that is not skipped was lost');
   }, {needs: ctx.needs});
+
+  if (!onNotion) {   // this Mac's store: the page's two edits made in the app instead; no page to reconnect to
+    await ctx.run('a role changed in the app is used by the next check, and a removed role stops matching', async () => {
+      const search = read('search.json');
+      await saveInApp({...search, role_keywords: [...search.role_keywords.filter(entry => !has([entry], ROLE)), GIRAFFE]}, read('preferences.json'), ['search']);
+      addPosting('zebra.json', 3006, 'Senior Zebra Wrangler, Cloud');
+      addPosting('zebra.json', 3007, 'Senior Giraffe Keeper, Cloud');
+      const jobs = await check();
+      const file = read('search.json');
+      if (!has(file.role_keywords, GIRAFFE) || has(file.role_keywords, ROLE)) throw new Error(`config/search.json did not take the change: ${file.role_keywords.join(', ')}`);
+      if (!listed(jobs, 'giraffe keeper, cloud')) throw new Error(`the role added in the app found nothing (listed: ${jobs.join('; ') || 'nothing'})`);
+      if (listed(jobs, 'zebra wrangler, cloud')) throw new Error('the role removed in the app still matches a new posting');
+    }, {needs: ctx.needs});
+    await ctx.run('a region word and a level set in the app decide which postings the next check keeps', async () => {
+      const search = read('search.json');
+      // "Ticino" is a region word (src/regions.py): a posting in Bellinzona has no "lugano" in it. "junior" skips the titles that plainly name a senior role.
+      await saveInApp({...search, level: ['junior'], locations: {...search.locations, top_tier: ['ticino']}}, read('preferences.json'), ['search']);
+      addPosting('zebra.json', 3008, 'Junior Giraffe Keeper, Nord', 'Bellinzona');
+      addPosting('zebra.json', 3009, 'Senior Giraffe Keeper, Nord', 'Bellinzona');
+      addPosting('zebra.json', 3010, 'Junior Giraffe Keeper, Sued', 'Zurich, Switzerland');
+      const jobs = await check();
+      if (!listed(jobs, 'junior giraffe keeper, nord')) throw new Error(`a posting in Bellinzona was not kept for the region "Ticino" (listed: ${jobs.join('; ') || 'nothing'})`);
+      if (listed(jobs, 'senior giraffe keeper, nord')) throw new Error('the level "junior" still kept a Senior title');
+      if (listed(jobs, 'giraffe keeper, sued')) throw new Error('a posting in Zurich was kept for the region "Ticino"');
+    }, {needs: ctx.needs});
+    return;
+  }
 
   await ctx.run('an edit made directly on the Notion page is used by the next check, and a removed role stops matching', async () => {
     const id = await settingsPage();

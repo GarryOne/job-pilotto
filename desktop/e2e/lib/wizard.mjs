@@ -90,6 +90,21 @@ export async function runWizard(ctx) {
     if (!state.hasProfile) throw new Error('the strategy was not kept on this Mac');
     if (!fs.existsSync(path.join(ctx.profile, 'profile.md'))) throw new Error('profile.md is not in the app folder');
   }, {needs: ctx.needs});
+  // This Mac's store (settings.store = 'sqlite' from launch, lib/store.mjs storeSettings): the app is never "trying", so no page carries the Notion prompt and
+  // there is nothing to connect; the gate and the connect below are the Notion store's journey (the stand-in).
+  if (ctx.store === 'sqlite') {
+    await ctx.run("on this Mac's store no page asks to connect Notion: Focus and Interviews open their own content", async () => {
+      await page.click('.nav[data-view="focus"]');
+      await page.locator('.view[data-view="focus"]:not([hidden])').waitFor({timeout: 15000});
+      await page.click('.nav[data-view="interviews"]');
+      await page.locator('.view[data-view="interviews"] #iv-add').waitFor({state: 'visible', timeout: 15000});
+      for (const view of ['focus', 'interviews']) {
+        if (await page.locator(`.view[data-view="${view}"] .ui-gate`).count()) throw new Error(`${view} shows the Notion prompt on this Mac's store`);
+      }
+      if (await page.locator('#notion-connect-dialog[open]').count()) throw new Error("the connect prompt opened on this Mac's store");
+    }, {needs: ctx.needs});
+    return;
+  }
   // Focus without Notion shows only Get started (396d94e); a page that still needs Notion (Interviews) carries the prompt.
   await ctx.run('Focus shows Get started without Notion; Interviews asks to connect Notion, lists the advantages, and Not now with a reason closes the prompt', async () => {
     await page.click('.nav[data-view="focus"]');
