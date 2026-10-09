@@ -74,5 +74,20 @@ class StoreJobsTests(unittest.TestCase):
             self.assertIsNone(listed({}), 'no store chosen: the list is the cache, as before')
 
 
+    def test_the_jobs_list_carries_each_applications_store_id(self):
+        """The window finds a job by it (an interview's job, a meeting's Dismiss): on SQLite a job has no Notion page and its list `id`
+        (the search cache's) is null, so page_id is the one key (renderer/jobs-view.js jobOfApplication)."""
+        import tempfile
+        from pathlib import Path
+        from src import store as job_store
+        stores = memory.open_store()
+        app = stores.applications.create({'url': 'https://jobs.test/added', 'title': 'SRE', 'company': 'Acme'}, 'Applied')
+        with tempfile.TemporaryDirectory() as tmp:
+            db = job_store.connect(Path(tmp) / 'jobs.sqlite')
+            listed = desktop.jobs(db, 50, notion_jobs=store_jobs(stores))['jobs']
+            db.close()
+        row = next(job for job in listed if job['url'] == 'https://jobs.test/added')
+        self.assertEqual((row['page_id'], row['notion_url']), (app['id'], ''))
+
 if __name__ == '__main__':
     unittest.main()

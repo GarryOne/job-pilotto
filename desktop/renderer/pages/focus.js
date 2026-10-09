@@ -395,8 +395,12 @@ function renderFunnel(funnel) {
   }), showInJobs));
   $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step.replace(/^\S+\s/, '')}. ${funnel.improve.advice}` : '';
   show($('funnel-improve'), !!funnel.improve);
-  $('focus-funnel-notion').dataset.url = funnel.notion_url || '';
-  show($('focus-funnel-notion'), !!funnel.notion_url);
+  // The full funnel: its Notion page when there is one (index.html's label), else Reports → Funnel here.
+  const full = $('focus-funnel-notion');
+  full.dataset.url = funnel.notion_url || '';
+  full.dataset.notionLabel ||= full.textContent;
+  full.textContent = funnel.notion_url ? full.dataset.notionLabel : 'Open in Reports';
+  show(full, true);
 }
 function editTarget() {
   show($('focus-target-row'));
@@ -433,6 +437,7 @@ export async function init() {
   $('focus-funnel-notion').addEventListener('click', event => {
     event.preventDefault();
     if (event.currentTarget.dataset.url) window.pilot.openNotion(event.currentTarget.dataset.url, event.metaKey);
+    else { openView('reports'); loadReports('funnel'); }
   });
   $('focus-edit-target').addEventListener('click', event => { event.preventDefault(); editTarget(); });
   $('focus-edit-reminders').addEventListener('click', event => {

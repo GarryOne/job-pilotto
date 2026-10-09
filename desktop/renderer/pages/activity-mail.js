@@ -296,7 +296,7 @@ function jobPrep(company, title) {
   // A ready kit opens where it is: its Notion page, else the job's page here on its Prep tab (never offered as a new build, $0.04).
   if (kitReady.has(id)) return {label: 'Open prep kit', run: event => (found.notion_url ? window.pilot.openNotion(found.notion_url, event?.metaKey) : (openView('jobs'), openJobPanel(found, 'prep')))};
   return {label: 'Build prep kit', title: ai('{AI:main} builds it from the job, your Profile and your earlier interviews'), run: () => {
-    openPrep({page_id: id, company: found.company || found.via, job: found.title, notion_url: found.notion_url, badge: ''});
+    openPrep({page_id: id, company: found.company || found.via, job: found.title, notion_url: found.notion_url, url: found.url, badge: ''});
     kitBuilding.add(id);
     document.dispatchEvent(new Event('focus-rendered'));
     prepRunning(id)?.then(result => {

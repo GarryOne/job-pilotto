@@ -7,7 +7,8 @@ import {test} from 'node:test';
 const read = file => fs.readFileSync(new URL(`../renderer/pages/${file}`, import.meta.url), 'utf8');
 
 test('Interviews find their job by the store\'s id too', () => {
-  assert.match(read('interview-lists.js'), /jobForPage = pageId => jobList\(\)\.find\(job => \(job\.page_id && plainId\(job\.page_id\) === plainId\(pageId\)\)/);
+  // The matching itself is pure and tested on a SQLite-shaped list: test/jobs-view-interview.test.js.
+  assert.match(read('interview-lists.js'), /jobForPage = pageId => jobOfApplication\(jobList\(\), pageId\)/);
 });
 
 test('In conversation opens the job\'s page; a mail card\'s job and a ready prep kit open it too', () => {
@@ -22,4 +23,14 @@ test('Focus: a ready prep kit and a reply/booking item open the job\'s page with
   assert.match(focus, /run === 'open' \? event => \(item\.notion_url \? openLink\(item\.notion_url, event\) : \(openView\('jobs'\), openJobPanel\(jobOf\(\), 'prep'\)\)\)/);
   assert.match(focus, /\(item\.notion_url \|\| item\.job_url\)\) \{\n    actions\.append\(focusButton\('Open'/);
   assert.match(focus, /primary\.run === 'open' \? event => \(item\.notion_url \? window\.pilot\.openNotion\(item\.notion_url, event\?\.metaKey\)\n      : \(openView\('jobs'\), openJobPanel\(/);
+});
+
+test('Focus\'s full funnel link opens Reports → Funnel without a Notion page; the prep dialog opens the kit on the job\'s page', () => {
+  const focus = read('focus.js');
+  assert.match(focus, /full\.textContent = funnel\.notion_url \? full\.dataset\.notionLabel : 'Open in Reports';\n  show\(full, true\);/);
+  assert.match(focus, /else \{ openView\('reports'\); loadReports\('funnel'\); \}/);
+  const prep = read('prep.js');
+  assert.match(prep, /show\(\$\('prep-open'\), !!\(current\.notion_url \|\| jobUrl\)\)/);
+  assert.match(prep, /openJobPanel\(\{url, title: current\.job, company: current\.company \|\| current\.via\}, 'prep'\)/);
+  assert.match(read('activity-mail.js'), /notion_url: found\.notion_url, url: found\.url, badge: ''/);
 });

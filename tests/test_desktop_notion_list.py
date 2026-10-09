@@ -113,7 +113,8 @@ class CalendarJobsTests(unittest.TestCase):
             result = desktop.calendar_jobs(NOTION, tracker)
         self.assertEqual(asked, [None])  # Job Matches (every job a search found) is not read
         self.assertEqual(result['jobs'], [{'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme', 'stage': 'Interviewing',
-                                           'notion_url': 'https://notion/p1', 'next_interview': '2026-10-08T10:00:00+02:00', 'status': 'applied'}])
+                                           'notion_url': 'https://notion/p1', 'next_interview': '2026-10-08T10:00:00+02:00', 'page_id': 'p1',
+                                           'status': 'applied'}])   # page_id: a meeting's Dismiss and its recording match by it
 
     def test_calendar_says_so_when_notion_is_not_connected_or_fails(self):
         self.assertEqual(desktop.calendar_jobs(NOTION, None)['jobs'], [])
@@ -127,7 +128,8 @@ class CalendarJobsTests(unittest.TestCase):
         row, _ = stores.applications.set_stage({'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme'}, 'Interviewing')
         stores.applications.update(row['id'], {'next_interview': '2026-10-08T10:00:00+02:00'})
         self.assertEqual(desktop.calendar_jobs(stores)['jobs'], [{'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme', 'stage': 'Interviewing',
-                                                                  'notion_url': '', 'next_interview': '2026-10-08T10:00:00+02:00', 'status': 'applied'}])
+                                                                  'notion_url': '', 'next_interview': '2026-10-08T10:00:00+02:00', 'page_id': row['id'],
+                                                                  'status': 'applied'}])   # no Notion page: the store's id
 
 
 if __name__ == '__main__':

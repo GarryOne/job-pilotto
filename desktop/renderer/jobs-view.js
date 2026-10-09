@@ -151,10 +151,17 @@ export const notionPageUrl = id => (id ? `https://www.notion.so/${String(id).rep
 
 // What the Job cell of an Interviews row shows and can do: the job in the list (opens in Jobs), a job that is
 // only linked in Notion (opens in Notion), or none ("Link a job").
-export function interviewJob(row, job) {
+// An interview's application id → its job in the list: by the store's id (page_id: every store; on SQLite it is the only one) or by the
+// Notion page in its URL. Pure, so a SQLite-shaped list is tested (test/jobs-view-interview.test.js).
+const plainId = id => String(id || '').replace(/-/g, '');
+export const jobOfApplication = (jobs, pageId) => (!pageId ? undefined : (jobs || []).find(job => (job.page_id && plainId(job.page_id) === plainId(pageId))
+  || (job.notion_url && plainId(job.notion_url).includes(plainId(pageId)))));
+
+// links: the store has pages to open (Notion). Without, a linked job not in the list is said plainly and has no page link.
+export function interviewJob(row, job, {links = true, linked = 'Linked in Notion', elsewhere = 'Linked to a job'} = {}) {   // about Notion
   const page = row.application?.[0] || '';
-  if (job) return {kind: 'job', name: job.company || job.title, role: job.company ? job.title : '', notion: job.notion_url || notionPageUrl(page)};
-  if (page) return {kind: 'notion', name: 'Linked in Notion', role: '', notion: notionPageUrl(page)};   // about Notion
+  if (job) return {kind: 'job', name: job.company || job.title, role: job.company ? job.title : '', notion: job.notion_url || (links ? notionPageUrl(page) : '')};
+  if (page) return {kind: links ? 'notion' : 'none', name: links ? linked : elsewhere, role: '', notion: links ? notionPageUrl(page) : ''};
   return {kind: 'none', name: 'No job linked', role: '', notion: ''};
 }
 

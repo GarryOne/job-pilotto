@@ -8,7 +8,7 @@ import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
 import {afterLoad} from '../interview-library.js';
 import {humanError} from '../run-warnings.js';
-import {byStore, storeName} from '../store-words.js';
+import {byStore, inNotion, storeName} from '../store-words.js';
 import {showReview} from '../interview-review-view.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
@@ -289,7 +289,7 @@ function renderSaved() {
     const badge = el('span', 'logo', logo.initials);
     badge.style.setProperty('--hue', logo.hue);
     const jobLines = el('div', '');
-    const cellJob = interviewJob(row, job);
+    const cellJob = interviewJob(row, job, {links: inNotion()});
     let openPicker = () => {};
     if (cellJob.kind === 'job') {
       // The job's name opens it in the Jobs view (only that job listed).

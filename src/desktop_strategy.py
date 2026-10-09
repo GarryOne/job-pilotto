@@ -180,11 +180,12 @@ def calendar_jobs(stores, tracker=None):
         return {'jobs': [], 'error': 'Notion is not connected.'}
     try:
         found = tracker.notion_jobs(matches=False) if tracker else \
-            [{**row, 'notion_url': stores.link(row['id']) or ''} for row in stores.applications.list()]
+            [{**row, 'notion_url': stores.link(row['id']) or '', 'page_id': row['id']} for row in stores.applications.list()]
     except Exception as error:  # noqa: BLE001 — shown on the page; the saved copy stays
         where = 'Notion' if tracker else 'Your job tracker'
         return {'jobs': [], 'error': f'{where} could not be read ({type(error).__name__}).'}
-    keep = ('url', 'title', 'company', 'stage', 'notion_url', 'next_interview')
+    # page_id: the job's id in its store (Notion: its page), what a meeting is dismissed by and a recording matched to (renderer/calendar.js page).
+    keep = ('url', 'title', 'company', 'stage', 'notion_url', 'next_interview', 'page_id')
     return {'jobs': [{**{key: job.get(key) or '' for key in keep}, 'status': stage_status(job.get('stage'))} for job in found]}
 
 
