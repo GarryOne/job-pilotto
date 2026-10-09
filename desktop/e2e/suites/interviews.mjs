@@ -17,6 +17,8 @@ const REVIEW_MS = 5 * 60 * 1000;
 
 export async function run(ctx) {
   const {page, app, proxy} = ctx;
+  // Where the library says it is kept (renderer/pages/interviews.js savedTo): Notion's database, or the app itself on this Mac's store.
+  const SAVED_TO = ctx.store === 'sqlite' ? 'Saved in Job Pilotto' : 'Saved to Notion 🎤 Interviews';
   ctx.findings = [];
   const {step, end} = independent(ctx);
   const today = new Date().toISOString().slice(0, 10);
@@ -35,7 +37,7 @@ export async function run(ctx) {
       throw new Error(`${error.message.split('\n')[0]}; expected ${expected} rows, the page shows ${JSON.stringify(seen)}`);
     });
     // The library paints its saved copy first and re-draws when Notion answers: act only once that is done, or a menu opened on the first draw is closed under the click.
-    await page.waitForFunction(() => document.getElementById('iv-lib-stats').textContent.trim() === 'Saved to Notion 🎤 Interviews', null, {timeout: 120000});
+    await page.waitForFunction(want => document.getElementById('iv-lib-stats').textContent.trim() === want, SAVED_TO, {timeout: 120000});
     await page.waitForTimeout(500);
   };
   // A re-draw of the table (a read finishing) closes an open ⋯ menu: open it again until the entry is there.
@@ -99,7 +101,7 @@ export async function run(ctx) {
     const job = async item => (await row(item.page).locator('td').nth(1).innerText()).replace(/\s+/g, ' ');
     if (!(await job(seed.ivPositive)).includes('E2E Acme')) throw new Error(`the Acme interview shows the job "${await job(seed.ivPositive)}"`);
     if (!(await job(seed.ivNegative)).includes('Link a job')) throw new Error(`an interview without a job does not offer "Link a job": "${await job(seed.ivNegative)}"`);
-    if (!(await page.locator('#iv-lib-stats').innerText()).includes('Notion')) throw new Error('the library does not say it is read from Notion');
+    if ((await page.locator('#iv-lib-stats').innerText()).trim() !== SAVED_TO) throw new Error(`the library does not say where it is kept: "${await page.locator('#iv-lib-stats').innerText()}", expected "${SAVED_TO}"`);
     await snap(ctx, 'interviews', {situation: 'The library with four dummy interviews: three reviewed (positive, neutral, negative) and one not reviewed'});
   });
 

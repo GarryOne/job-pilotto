@@ -131,6 +131,8 @@ export async function run(ctx) {
     if (await page.locator('#cal-today').isEnabled()) throw new Error('Today is still enabled while this month is shown');
   });
 
+  // On this Mac's store a job has no Notion page: a meeting opens the job's side panel in the app instead (owner via mac-e4, 9 Oct 2026; mac-27 f8f8d5e): the next step.
+  const notionPage = {name: 'a Notion page for the meeting\'s job (on this Mac\'s store the next step checks the job\'s side panel)', value: ctx.store !== 'sqlite'};
   await step('a meeting opens its job in Notion, from the grid and from the agenda', async () => {
     await openCalendar();
     await page.waitForFunction(() => document.querySelectorAll('#cal-grid .cal-chip').length >= 5, null, {timeout: 60000});
@@ -148,14 +150,36 @@ export async function run(ctx) {
     await cell(page, l3).locator('.cal-chip').first().click();   // the held recording: opens the job it belongs to
     await page.waitForTimeout(400);
     if (!(await external.urls()).some(url => url.includes(ids(seed.acme.id)))) throw new Error('the recording on the third day did not open its job');
-  });
+  }, {needs: [notionPage]});
+
+  // This Mac's store: no Notion page, so a meeting opens its job's side panel in the app (renderer/pages/calendar.js, mac-27 f8f8d5e), from the grid and the agenda.
+  const panelShows = async (who, title) => {
+    await page.waitForSelector('.view[data-view="jobs"]:not([hidden])', {timeout: 15000}).catch(() => { throw new Error(`clicking the ${who} meeting did not open the Jobs view`); });
+    await page.waitForFunction(want => (document.querySelector('#job-panel:not([hidden]) h2')?.textContent || '').includes(want), title, {timeout: 15000})
+      .catch(async () => { throw new Error(`the job panel after the ${who} meeting shows "${await page.locator('#job-panel h2').first().textContent().catch(() => '')}", expected "${title}"`); });
+  };
+  await step('on this Mac\'s store a meeting opens its job\'s side panel, from the grid and from the agenda', async () => {
+    await openCalendar();
+    await page.waitForFunction(() => document.querySelectorAll('#cal-grid .cal-chip').length >= 5, null, {timeout: 60000});
+    await external.clear();
+    await cell(page, l1).locator('.cal-chip').first().click();
+    await panelShows('Acme', seed.acme.title);
+    await openCalendar();
+    await page.locator('#cal-upcoming .cal-row, #cal-past .cal-row').filter({hasText: 'E2E Beta'}).first().click();
+    await panelShows('Beta', seed.beta.title);
+    if ((await external.urls()).length) throw new Error(`a meeting on this Mac's store opened ${JSON.stringify(await external.urls())} outside the app`);
+  }, {needs: [{name: 'this Mac\'s store (on Notion a meeting opens its Notion page: the step above)', value: ctx.store === 'sqlite'}]});
 
   await step('the same meetings fall on other days and hours in another time zone', async () => {
     const options = {env: {...ctx.appEnv, TZ: 'Pacific/Honolulu', JOB_PILOTTO_TZ: 'Pacific/Honolulu'}};
+    // The same data in another zone. Notion: a second app, connected to the same workspace. This Mac's store: the data is this profile's, so the same app
+    // starts again in Honolulu, and back in the test's zone afterwards.
+    const sameMac = ctx.store === 'sqlite';
+    if (sameMac) await ctx.relaunch({TZ: 'Pacific/Honolulu', JOB_PILOTTO_TZ: 'Pacific/Honolulu'});
     // A second Electron next to the first sometimes misses its first window on a busy machine: one more try, then fail loudly.
-    const other = await launch(options).catch(error => { console.log(`  second app did not open (${error.message.split('\n')[0]}): trying once more`); return launch(options); });
+    const other = sameMac ? {page: ctx.page, close: () => ctx.relaunch()} : await launch(options).catch(error => { console.log(`  second app did not open (${error.message.split('\n')[0]}): trying once more`); return launch(options); });
     try {
-      await fastSeed({...ctx, page: other.page, profile: other.profile});
+      if (!sameMac) await fastSeed({...ctx, page: other.page, profile: other.profile});
       const zone = await other.page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
       if (zone !== 'Pacific/Honolulu') throw new Error(`the second app runs in "${zone}"`);
       await other.page.click('.nav[data-view="calendar"]');
