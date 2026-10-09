@@ -107,5 +107,5 @@ test('a knockout question\'s row is marked in every row kind: proposed, empty an
   assert.match(needs, /return markKnockout\(li, item, need\.question\)/);
   const mark = src('../renderer/pages/need-knockout.js');
   assert.match(mark, /KNOCKOUT\.test\(label\) \|\| \(reviewStates\.get\(item\.id\)\?\.knockouts \|\| \[\]\)\.includes\(label\)/);   // the same test as "Before you submit"
-  assert.match(src('../renderer/style.css'), /\.ss-need\.is-knockout \{ border-left: 4px solid var\(--warn\)/);
+  assert.match(src('../renderer/style.css'), /\.ss-need\.is-knockout \{[^}]*border-left: 4px solid var\(--warn\)/);
 });

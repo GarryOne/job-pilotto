@@ -225,6 +225,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/logs.js` — Settings → Logs: the app's logs on this Mac, for the user (and whoever helps them) to see what happened. One day at a
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
+- `desktop/renderer/pages/need-knockout.js` — "Needs your attention": a question the employer can reject on by itself stands out in its row, whether it has a proposed answer, an
 - `desktop/renderer/pages/need-proposal.js` — "Needs your attention", a field the form still has empty, with its proposed answer back (owner, 8 Oct 2026: "we had this, it got
 - `desktop/renderer/pages/notion-connect.js` — Connecting Notion from anywhere in the window (Notion later: the app only tries until it is connected): the dialog with the
 - `desktop/renderer/pages/open-target.js` — A clicked notification or pop-up opens what it is about (lib/targets.js): the result of a finished task, a page, a section, a job's row.
