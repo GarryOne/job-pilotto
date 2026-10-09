@@ -50,9 +50,10 @@ export async function runJourneys(ctx, h) {
     // Floating labels: a filled field was left like a person leaves it (focus, then blur), so the site moved its label out of the way.
     const stuckLabels = await tab.evaluate(() => ['first_name', 'last_name', 'email', 'question_3001'].filter(id => !document.querySelector(`label[for=${id}]`)?.classList.contains('up')));
     if (stuckLabels.length) throw new Error(`filled, but the site never saw the field being left (its floating label stayed over the value): ${stuckLabels.join(', ')}`);
-    // The panel offers "Take over with Claude" on this tab (the person's click starts a Claude session: not pressed here, a test must never launch one).
-    const offered = await tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden && /take over with claude/i.test(button.textContent); });
-    if (!offered) throw new Error('the panel does not offer "Take over with Claude" on an armed form tab');
+    // "Take over with Claude" only with Claude help on and the extension stuck (extension 0.9.121; owner, 9 Oct 2026): this form was filled and Claude help is off
+    // (a new install's default), so the panel must not offer it. The on-and-stuck case: worker/test/extension-files.test.js and the twin (Migros, 9 Oct 2026).
+    const offered = await tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden; });
+    if (offered) throw new Error('the panel offers "Take over with Claude" on a filled form with Claude help off');
   }, {needs: ctx.needs});
 
   // Two applications side by side (8 Oct 2026: Coop and Manor started seconds apart; Migros's sign-in page showed on Manor's card). SCRIPTED's Apply opens its

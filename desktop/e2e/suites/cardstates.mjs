@@ -29,7 +29,8 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
     });
 
-    await ctx.run('Find jobs using your browser: its card counts the sites and jobs, and a stopped site offers Read with Claude and Open it myself', async () => {
+    // Read with Claude follows the one Claude switch (renderer/claude-help.js, off on a new install): off, a stopped site offers Open it myself only; on, Read with Claude too.
+    await ctx.run('Find jobs using your browser: its card counts the sites and jobs; a stopped site offers Open it myself, and Read with Claude only with Claude help on', async () => {
       const {page, select} = states;
       await select('visits--2-of-3-sites-read-1-stopped');
       const card = await text(page, '#activity-card');
@@ -38,7 +39,15 @@ export async function run(ctx) {
       if (await page.locator('#activity-card .item-rows > li').count() !== 3) problems.push('not one row per site');
       const stopped = page.locator('#activity-card .item-rows > li.is-failed');
       if (!/Rolex/.test(await stopped.innerText().catch(() => ''))) problems.push('Rolex is not the stopped row');
-      for (const label of ['Read with Claude', 'Open it myself']) if (!await stopped.getByRole('button', {name: label}).count()) problems.push(`no "${label}" on the stopped site`);
+      if (!await stopped.getByRole('button', {name: 'Open it myself'}).count()) problems.push('no "Open it myself" on the stopped site');
+      if (await stopped.getByRole('button', {name: 'Read with Claude'}).count()) problems.push('"Read with Claude" shows with Claude help off');
+      // Claude help on (this demo window only): the card drawn again offers Read with Claude beside Open it myself.
+      await page.evaluate(() => { window.__jp.shared.state.settings = {...window.__jp.shared.state.settings, claudeConsent: '2026-10-09T00:00:00Z'}; });
+      await select('tailor--3-of-5-partial');
+      await select('visits--2-of-3-sites-read-1-stopped');
+      const again = page.locator('#activity-card .item-rows > li.is-failed');
+      for (const label of ['Read with Claude', 'Open it myself']) if (!await again.getByRole('button', {name: label}).count()) problems.push(`Claude help on: no "${label}" on the stopped site`);
+      await page.evaluate(() => { window.__jp.shared.state.settings = {...window.__jp.shared.state.settings, claudeConsent: null}; });   // back to the default for the steps after
       if (problems.length) throw new Error(problems.join('; '));
     });
 
