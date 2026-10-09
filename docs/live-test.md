@@ -58,3 +58,23 @@
    `NOTION_*=<id>` lines in `~/Library/Application Support/Job Pilotto (live test)/ids.env`.
 4. `npm run twin` does the first full copy (about 10–20 min; later syncs only update).
 </details>
+
+## Working with the twin as an agent (owner, 9 Oct 2026: "instruct yourself how to work with the twin when doing updates in the code")
+The twin is for looking at the REAL app on a REAL site while you build. The loop, in order:
+1. **One twin, started once.** `pgrep -f e2e/twin.mjs` first (the Live Test folder and its Notion mirror are shared: a second twin collides; ask the peer who runs it). Start it from a worktree
+   of its own (`tools/worktree.sh twin-<topic>`, then `cd desktop && npm run twin` in the background, a Monitor on its log for `^twin: (running|refresh)`). Say in one line what its window will do
+   and what is held back (never Submit, no password values). It sits on a blank tab until the first press: that is the twin waiting, not a stall.
+2. **Never edit in the twin's worktree.** Edit in your own worktree, land with `tools/ship.sh`, then `npm run twin:drive -- refresh` (about 9 s). Do not stop and restart the twin to pick up a change:
+   that loses the browser's tabs, the signed-in sessions and the half-filled form. Read what refresh printed: `extension reloaded (x.y.z)` must show the new version; `NOT running` is a bug to report.
+   Restart the twin only when `e2e/twin.mjs` itself changed, or when the owner asks.
+3. **It shows main, not your branch.** Refresh fast-forwards to `origin/main`. An unpushed change is looked at with `npm run shot -- <page> --js ...` (one screen, 5 s) or `npm run real-extension`;
+   the twin is for the pushed one, on the real site.
+4. **Drive it visibly:** `npm run twin:drive -- press "<text>"`, never `window.pilot` calls behind the screen. The driver cannot click native macOS dialogs (the app's "still working, quit?" prompt):
+   refresh stops the app's whole process group itself. A bot check is solved by the owner by hand, never by us.
+5. **Wait with Monitor, not sleep:** `tail -n 0 -F "<Job Pilotto (live test)>/home/logs/app.log" | grep --line-buffered -E "<the lines that matter>"` (`[fill] Claude answered`, `opened collapsed`,
+   `stage .*: the application form`, `account judgment`). At each event say in one line what it shows and decide: progressing, done or stuck. First sign of life is expected within ~20 s.
+6. **Read the log before guessing:** timings are in `app.log` (`[extension]`, `[fill]`, `[review]`). A page that looks stale is first a missed redraw (leave the page and come back), then a bug.
+7. **After the run:** report what showed, with numbers. Leave the twin running if the owner is still looking; stop it (and remove its worktree) only when asked or when done for good.
+Pitfalls found on 9 Oct 2026: `chrome.runtime.reload()` leaves the extension disabled in Chrome 153 (use `refresh`); killing only the `node .bin/electron` shim leaves the real Electron on the ports; a
+`//` comment in the middle of a line can swallow the code after it (the knockouts key never reached the app).
+
