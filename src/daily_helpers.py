@@ -275,7 +275,13 @@ def log_store_job(stores, run, app, created):
     """cron_runs.log_job for a store's application record (no Notion page): the run's Application, its subject and the
     "Job logged: {…}" line the app links the run's result to that job by."""
     from .notion import cron_report
-    job = {'page_id': app['id'], 'url': stores.link(app['id']) or '', 'title': app.get('title') or '',
+    # The job's title as its page shows it, as cron_runs.log_job read it: an Inbound row's carries its employer or agency ("Principal SRE ·
+    # via Huxley", the notion adapter's _title), any other row's is its role.
+    from .notion import titles
+    title = app.get('title') or ''
+    if (app.get('origin') or '').lower() == 'inbound':
+        title = titles.job_title(title, app.get('company') or '', app.get('via') or '')
+    job = {'page_id': app['id'], 'url': stores.link(app['id']) or '', 'title': title,
            'job_url': app.get('url') or '', 'created': bool(created)}
     run['application'] = app['id']
     run['subject'] = cron_report.job_subject(company=app.get('company') or '', role=app.get('title') or '', via=app.get('via') or '')

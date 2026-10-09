@@ -137,6 +137,40 @@ class ProfileForTheAIOnNotionTests(unittest.TestCase):
 
 
 @unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class JobLoggedOnNotionTests(unittest.TestCase):
+    """The run's "Job logged" line and its link to the job (a logged message, src/daily_modes.py add_message_mode): log_store_job on the
+    store's record says what cron_runs.log_job said from the Notion page (D7), titles with a generated " · via Agency" / " · Company"."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+
+    def logged(self, fields):
+        import contextlib
+        import io
+        from src import daily_helpers
+        from src.notion import cron_runs
+        s = self.make()
+        app = s.applications.create({'url': 'https://x.test/lead', **fields}, 'Recruiter lead')
+        page = self.tracker._request('GET', f"pages/{app['id']}")
+        said = []
+        for log in (lambda run: cron_runs.log_job(run, page, True), lambda run: daily_helpers.log_store_job(s, run, app, True)):
+            run, out = {'mode': 'add'}, io.StringIO()
+            with contextlib.redirect_stdout(out):
+                log(run)
+            said.append((run, out.getvalue()))
+        return said
+
+    def test_the_same_line_subject_and_link(self):
+        for fields in ({'title': 'Principal SRE', 'via': 'Huxley', 'origin': 'Inbound'},       # a recruiter's lead: "· via Huxley"
+                       {'title': 'Platform Engineer', 'company': 'Acme', 'origin': 'Inbound'},
+                       {'title': 'SRE', 'company': 'Acme', 'via': 'Huxley', 'origin': 'Inbound'},
+                       {'title': 'Staff SRE', 'company': 'Acme', 'origin': 'Outbound'},      # a job you went after: the role alone
+                       {'title': 'Staff SRE'}):
+            old, new = self.logged(fields)
+            self.assertEqual(new, old, fields)
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
 class StagesOnNotionTests(unittest.TestCase):
     """The application stages the search and the modes hide jobs by (store_access.url_stages): on Notion the same answer as
     Tracker.url_stages gave, a row with no stage and a URL with spaces around it included."""

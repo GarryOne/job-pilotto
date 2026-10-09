@@ -194,7 +194,7 @@ class DailyAddTests(unittest.TestCase):
         self.assertTrue(run['application'])  # ⏱️ Search runs → Application: the job it created
         job = self._job_line(lines)
         self.assertEqual((job['page_id'], job['created']), (run['application'], True))
-        self.assertTrue(job['url'].startswith('https://notion.test/'))
+        self.assertEqual(job['url'], f"https://www.notion.so/{job['page_id'].replace('-', '')}")   # the store's link to the page
         self.assertEqual(job['job_url'], page['Job URL']['url'])
         self.assertTrue(job['title'])
         self.assertIn('Tracked recruiter lead', lines[-1])  # the reply stays the last line (the app reads it)
@@ -203,7 +203,7 @@ class DailyAddTests(unittest.TestCase):
         tracker = Inbox([row('p1', 'https://x.test/1', 'SRE', 'Grafana Labs')], [job('https://x.test/1', 'SRE', 'Grafana Labs', 'Applied')])
         run, lines = self._add_run(tracker, reading('Rejected', 0))
         self.assertEqual(run['application'], 'p1')
-        self.assertEqual(self._job_line(lines), {'page_id': 'p1', 'url': 'https://notion.test/p1', 'title': 'SRE',
+        self.assertEqual(self._job_line(lines), {'page_id': 'p1', 'url': 'https://www.notion.so/p1', 'title': 'SRE',
                                                  'job_url': 'https://x.test/1', 'created': False})
         self.assertIn('Updated: Grafana Labs — SRE → Rejected', lines[-1])
 

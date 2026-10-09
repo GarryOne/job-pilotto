@@ -1,6 +1,6 @@
 """The jobs check's single-purpose modes, one function each (src/daily.py main() picks one): import, apply, prepare, kits, add (a pasted
-message, or a job link), interview, insight/weekly. Each takes the parsed `args` and the run's store and returns the exit code; a step
-whose own lane hasn't moved onto the store yet gets Notion's client from it (store_access.notion_of, each marked BRIDGE).
+message, or a job link), interview, insight/weekly. Each takes the parsed `args` and the run's store and returns the exit code; every
+step reads and writes through the store (a Notion store only when the engine can read it: store_access.notion_ready).
 Tests: tests/test_inbox.py, tests/test_inbox_confirm.py, tests/test_added.py, tests/test_interviews.py, tests/test_interview_insights.py,
 tests/test_follow_up.py, tests/test_insights.py, tests/test_daily.py.
 """
@@ -12,7 +12,7 @@ from . import import_url, store, telegram
 from .ai import added, cost, inbox, insights, interview_insights, interviews, kit
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
-from .store_access import notion_of, notion_ready, open_run, profile_source, url_stages
+from .store_access import notion_ready, open_run, profile_source, url_stages
 from . import ledger_store
 from .stores import open_stores
 from .daily_helpers import log_store_job
@@ -124,7 +124,6 @@ def kits_mode(args, stores=None):
 
 
 def add_message_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when the run's "Job logged" line reads the job through the store (D7 parity)
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
     _gate(stores, '--mode add requires NOTION_TOKEN', on_store=True)
@@ -169,12 +168,9 @@ def add_message_mode(args, stores=None):
         reply = f'⚠️ {escape(str(error))}'
     failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
     if found.get('row') and not reply.startswith(('⚠️', 'ℹ️')):  # a job created or updated: the run links to it
-        # found['row'] is the job's record (src/ai/inbox.py). On Notion the run's "Job logged:" line stays the one it always was: the
-        # page's own title ("Principal SRE · via Huxley") and its page URL, read from the page; another store links its record.
-        if tracker:
-            cron_runs.log_job(run, tracker._request('GET', f"pages/{found['row']['id']}"), found['created'])
-        else:
-            log_store_job(stores, run, found['row'], found['created'])
+        # found['row'] is the job's record (src/ai/inbox.py): the run's "Job logged:" line names it as its page shows it ("Principal SRE ·
+        # via Huxley" for an Inbound row) and links it, on every store (tests/test_daily_store_notion.py JobLoggedOnNotionTests).
+        log_store_job(stores, run, found['row'], found['created'])
     run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
     # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
     if not (failed and not cron_runs.total_usd(run)):
