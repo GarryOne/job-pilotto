@@ -4,12 +4,13 @@ become the blocks a Notion page shows, and back.
 The one codec of the Notion adapter (src/stores/notion*.py import it; never a second one). Covered:
   paragraphs, `#`/`##`/`###` headings, `- ` and `1. ` lists, ``` code (with a language), `> ` quotes,
   **bold**, *italic*, `code` and [links](url) inside text, `| a | b |` tables (a `| --- |` line after the first row
-  when it is a header row; a Profile's experience table), and children: any block's children follow it indented by
+  when it is a header row; a Profile's experience table), `- [ ]` / `- [x]` to-dos, `> [!📝] text` callouts (the icon in
+  the brackets, `> [!] text` without one; any other `> ` is a quote; a rejection review uses both), and children: any block's children follow it indented by
   two spaces. A toggleable heading is written `## ▸ Title` with its body indented below it.
 A character that would start one of these is escaped with a backslash, so text read from Notion comes back as written.
 Rich text is cut into parts of at most 1900 characters (Notion allows 2000), 100 parts a block; a longer paragraph
 goes on in further blocks. Not kept: blank lines inside one paragraph (Markdown makes two paragraphs of them) and
-leading spaces on a paragraph's later lines. Other Notion blocks (callouts, to-dos) come back as their text.
+leading spaces on a paragraph's later lines. Other Notion blocks come back as their text.
 Guarded by tests/test_store_notion_blocks.py (round trips, and today's interview page blocks).
 """
 import re
@@ -17,7 +18,7 @@ import re
 PART = 1900      # characters per rich-text part
 PARTS = 100      # parts per block
 TOGGLE = '▸ '
-LISTS = ('bulleted_list_item', 'numbered_list_item')
+LISTS = ('bulleted_list_item', 'numbered_list_item', 'to_do')
 HEADINGS = {'heading_1': '#', 'heading_2': '##', 'heading_3': '###'}
 
 # ---------- inline: rich text ↔ Markdown ----------
@@ -113,6 +114,16 @@ def _guard(line):
     return re.sub(r'^(\d+)\. ', r'\1\\. ', line)
 
 
+def _list_group(kind):
+    """Items that read as one Markdown list: bullets and to-dos together, numbered items on their own."""
+    return {'bulleted_list_item': '-', 'to_do': '-', 'numbered_list_item': '1.'}.get(kind)
+
+
+def _unboxed(text):
+    """A list item's text that would read as a to-do box gets a backslash."""
+    return '\\' + text if re.match(r'\[[ x]\] ', text) else text
+
+
 def _lines(text):
     return [_guard(line) for line in text.split('\n')]
 
@@ -140,12 +151,20 @@ def to_markdown(blocks, children=None):
             lines = [f'```{language}', *plain_text(body.get('rich_text')).split('\n'), '```']
         elif kind == 'bulleted_list_item':
             first, *rest = _lines(text)
-            lines = [f'- {first}', *rest]
+            lines = [f'- {_unboxed(first)}', *rest]
+        elif kind == 'to_do':
+            first, *rest = _lines(text)
+            lines = [f"- [{'x' if body.get('checked') else ' '}] {first}", *rest]
+        elif kind == 'callout':
+            icon = (body.get('icon') or {}).get('emoji') or ''
+            first, *rest = text.split('\n')
+            lines = [f'> [!{icon}] {first}', *(f'> {line}' for line in rest)]
         elif kind == 'numbered_list_item':
             first, *rest = _lines(text)
             lines = [f'{number}. {first}', *rest]
         elif kind == 'quote':
-            lines = [f'> {line}' for line in text.split('\n')]
+            first, *rest = text.split('\n')
+            lines = [f"> {'\\' if first.startswith('[!') else ''}{first}", *(f'> {line}' for line in rest)]
         elif kind == 'divider':
             lines = ['---']
         elif kind == 'table':
@@ -163,7 +182,7 @@ def to_markdown(blocks, children=None):
         if inside:
             lines += ['  ' + line if line else '' for line in inside.split('\n')]
         if out:
-            out.append('\n' if kind in LISTS and previous == kind else '\n\n')
+            out.append('\n' if _list_group(kind) and _list_group(kind) == _list_group(previous) else '\n\n')
         out.append('\n'.join(lines))
         previous = kind
     return ''.join(out)
@@ -244,6 +263,14 @@ def to_blocks(markdown):
             made = _table(lines[start:i])
         elif line == '---':
             made, i = [{'object': 'block', 'type': 'divider', 'divider': {}}], i + 1
+        elif re.match(r'> \[!([^\]]*)\] ?', line):
+            icon = re.match(r'> \[!([^\]]*)\] ?', line)
+            said = [line[icon.end():]]
+            i += 1
+            while i < len(lines) and lines[i].startswith('> '):
+                said.append(lines[i][2:])
+                i += 1
+            made = _block('callout', '\n'.join(said), **({'icon': {'type': 'emoji', 'emoji': icon.group(1)}} if icon.group(1) else {}))
         elif line.startswith('> '):
             quoted = []
             while i < len(lines) and lines[i].startswith('> '):
@@ -251,13 +278,14 @@ def to_blocks(markdown):
                 i += 1
             made = _block('quote', '\n'.join(quoted))
         else:
-            kind, text = ('bulleted_list_item', line[2:]) if line.startswith('- ') else \
+            box = re.match(r'- \[([ x])\] ', line)
+            kind, text = ('to_do', line[box.end():]) if box else ('bulleted_list_item', line[2:]) if line.startswith('- ') else \
                 ('numbered_list_item', number.group(1)) if number else ('paragraph', line)
             text, i = [text], i + 1
             while i < len(lines) and lines[i].strip() and not lines[i].startswith('  ') and not _starts_block(lines[i]):
                 text.append(lines[i])
                 i += 1
-            made = _block(kind, '\n'.join(text))
+            made = _block(kind, '\n'.join(text), **({'checked': box.group(1) == 'x'} if box else {}))
         inside = []
         while i < len(lines) and (lines[i].startswith('  ') or (not lines[i].strip() and i + 1 < len(lines)
                                                                  and lines[i + 1].startswith('  '))):

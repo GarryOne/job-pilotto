@@ -105,6 +105,18 @@ class CodecTests(unittest.TestCase):
         self.assertEqual((table['type'], table['table']['table_width'], table['table']['has_column_header']), ('table', 2, True))
         self.assertEqual([len(row['table_row']['cells']) for row in table['table']['children']], [2, 2], 'short rows are padded')
 
+    def test_to_dos_and_callouts_round_trip_and_a_quote_stays_a_quote(self):
+        """A rejection review: a callout with its icon and a to-do list (9 Oct 2026, mac-4a)."""
+        from src.stores.notion_blocks import to_blocks, to_markdown
+        review = ('## 🔎 Why it was rejected\n\n> [!📝] They wanted more Go.\n> And on-call depth.\n\n### What to improve next time\n\n'
+                  '- [ ] Learn Go basics\n- [x] Rewrite the CV summary\n- A plain bullet')
+        for md in (review, '> [!] A callout without an icon', '> A quote\n> two lines', '> \\[!not a callout] quoted',
+                   '- \\[ ] a bullet that only looks like a box', '- [ ] parent\n  - child', '- a\n- b\n\n1. one\n2. two'):
+            self.assertEqual(to_markdown(to_blocks(md)), md)
+        callout, todo = to_blocks('> [!📝] x')[0], to_blocks('- [x] done')[0]
+        self.assertEqual((callout['type'], callout['callout']['icon']), ('callout', {'type': 'emoji', 'emoji': '📝'}))
+        self.assertEqual((todo['type'], todo['to_do']['checked']), ('to_do', True))
+
     def test_todays_interview_page_comes_back_as_the_same_blocks(self):
         merged = {'filled': [], 'differs': [], 'changes': {}}
         page = interviews_blocks.page_blocks(RESULT, SPOKEN + '\n' + 'y' * 5000, merged)
