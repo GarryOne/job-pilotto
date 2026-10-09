@@ -44,7 +44,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   const onNotion = usesNotion && store !== 'sqlite';
   // A suite on this Mac's store that also opts into the stand-in (`store = 'sqlite'` + `notionStandIn = true`: "Move my data to Notion") gets an empty one to move into.
   const standIn = store === 'standin' || (store === 'sqlite' && notionStandIn) ? await startNotionFake() : null;
-  if (standIn) useNotionAt(standIn.url);
+  // Off the real workspace nothing reaches Notion: the harness's own Notion calls go to the stand-in, or on this Mac's store to a dead local port (lib/store.mjs).
+  if (store && store !== 'notion') useNotionAt(notionFarSide({store, standIn: standIn?.url}));
   const engine = pickEngine({suiteEngine});
   // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
   const key = light ? KEY() : testKey(process.env, engine), token = light ? '' : standIn ? standIn.token : notionToken(notionTokenOf || suite);
@@ -99,10 +100,10 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     Object.assign(browserEnv, {PATH: `${ctx.shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: ctx.shim.spool, JOB_PILOTTO_PORT: String(ctx.appPort)});
     if (process.platform === 'win32') browserEnv.JOB_PILOTTO_E2E_OPENER = ctx.shim.script;   // no `open` on Windows (lib/apply.js chromeCommand)
   }
-  const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.openaiProxy ? {JOB_PILOTTO_E2E_OPENAI_BASE_URL: `${ctx.openaiProxy.url}/v1`} : {}), ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : ctx.standIn ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.standIn.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
+  const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.openaiProxy ? {JOB_PILOTTO_E2E_OPENAI_BASE_URL: `${ctx.openaiProxy.url}/v1`} : {}), ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : ctx.standIn ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.standIn.url} : store && store !== 'notion' ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: notionFarSide({store})} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.releases ? {JOB_PILOTTO_E2E_UPDATES_URL: ctx.releases.url} : {}), ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
   // P7: a run off the real workspace reaches no Notion but a local one (the stand-in, or the fault proxy in front of it). Fails the run before the app starts.
-  if (store && store !== 'notion' && env.JOB_PILOTTO_E2E_NOTION_BASE_URL && !/^http:\/\/127\.0\.0\.1[:/]/.test(env.JOB_PILOTTO_E2E_NOTION_BASE_URL)) throw new Error(`the ${store} store must not reach real Notion, and the app was given ${env.JOB_PILOTTO_E2E_NOTION_BASE_URL}`);
+  if (store && store !== 'notion' && !/^http:\/\/127\.0\.0\.1[:/]/.test(env.JOB_PILOTTO_E2E_NOTION_BASE_URL || '')) throw new Error(`the ${store} store must not reach real Notion, and the app was given ${env.JOB_PILOTTO_E2E_NOTION_BASE_URL || 'no Notion URL (the real one)'}`);
   // The environment the app was started with: a second app a step opens (another time zone, a fresh install) starts from it, so it talks to the same Notion
   // (real or the stand-in), AI proxy and fixtures (6 Oct 2026: calendar's second app had its own list and reached real Notion with the stand-in's token).
   ctx.appEnv = env;
