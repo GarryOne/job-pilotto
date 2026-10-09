@@ -102,8 +102,7 @@ export async function run(ctx) {
     await snap(ctx, 'interviews', {situation: 'The library with four dummy interviews: three reviewed (positive, neutral, negative) and one not reviewed'});
   });
 
-  // Its job by name. On this Mac's store the library cannot find the job yet (renderer/pages/interview-lists.js jobForPage matches notion_url only):
-  // a parity bug reported to mac-e4 on 9 Oct 2026, pending there until it is fixed.
+  // Its job by name, on every store (on this Mac's store the library finds the job by its store id: renderer/pages/interview-lists.js jobForPage, mac-27 8c65d67).
   await step('the library shows each interview\'s job by name (opening it in the Jobs list), and "Link a job" when there is none', async () => {
     await openInterviews(4);
     const job = async item => (await row(item.page).locator('td').nth(1).innerText()).replace(/\s+/g, ' ');
@@ -114,7 +113,7 @@ export async function run(ctx) {
     await page.waitForFunction(() => document.querySelector('.view[data-view="jobs"]:not([hidden])'), null, {timeout: 15000});
     const shown = await page.$$eval('.view[data-view="jobs"]:not([hidden]) .job-row', rowsOnScreen => rowsOnScreen.map(item => item.innerText));
     if (shown.length !== 1 || !/Acme/.test(shown[0])) throw new Error(`the Jobs list shows ${shown.length} job(s) after opening the Acme job, expected only that one`);
-  }, {needs: [{name: 'the library to find a job by its store id on this Mac\'s store (jobForPage matches notion_url only: parity bug, reported 9 Oct 2026)', value: ctx.store !== 'sqlite'}]});
+  });
 
   await step('the search box and the outcome filter narrow the library, and say so when nothing matches', async () => {
     await openInterviews(4);
