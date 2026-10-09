@@ -117,14 +117,15 @@ export async function runParts(ctx, parts) {
     // the row in Notion is as it was, and the list does not claim the job is saved. A silent loss here is a job the person thinks they kept (5 Oct 2026).
     await ctx.run('a Save that Notion refuses is never shown as saved: the person is told in words, and Notion and the list still agree', async () => {
       // Its own job first (9 Oct 2026: run as failuresnotion, nothing had opened the Jobs page, so the list was never loaded and the step never
-      // reached Save): one clean search, no fault, then the Jobs page, whose list must hold an E2E job before Notion is made to refuse.
-      setFeed(ctx, ['Senior Site Reliability Engineer, save seed']);
+      // reached Save; and under the applicant's own strategy, Zurich only, a "Zurich or Amsterdam" posting was placed outside their places and
+      // dropped): one clean search for a posting in Zurich, then the Jobs page, whose list must hold THAT job before Notion is made to refuse.
+      const [seed] = setFeed(ctx, ['Senior Site Reliability Engineer, save seed'], {location: 'Zurich, Switzerland'});
       await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
       await page.click('.nav[data-view="jobs"]');
-      const unsaved = () => page.evaluate(() => (window.__jp.shared.allJobs || []).find(item => /^E2E /.test(item.company || '') && item.url && item.status !== 'saved'));
+      const unsaved = () => page.evaluate(url => (window.__jp.shared.allJobs || []).find(item => item.url === url && item.status !== 'saved'), seed.absolute_url);
       let job = await unsaved();
       for (let waited = 0; !job && waited < 60000; waited += 2000) { await sleep(page, 2000); job = await unsaved(); }
-      if (!job) throw new Error('the seed did not take: a clean search ran, yet the Jobs list holds no E2E job to save');
+      if (!job) throw new Error(`the seed did not take: a clean search for "${seed.title}" (Zurich) ran, yet the Jobs list does not hold it (${seed.absolute_url})`);
       console.log(`  save seed: "${job.title}" (${job.company}) is in the list, status ${job.status}`);
       const statusIn = async () => (await notionRows(ctx.token, 'Job Matches — AI Scored')).find(row => String(row.properties?.['Job URL']?.url || '').replace(/\/$/, '') === job.url.replace(/\/$/, ''))?.properties?.Status?.select?.name || '';
       const before = await statusIn();
