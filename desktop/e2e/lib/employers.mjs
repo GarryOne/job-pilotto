@@ -15,18 +15,18 @@ export const EXPECTED = {
 const EMPTY = /^(undefined|null|nan|\[object object\])$/i;
 export const blank = value => value == null || (typeof value === 'string' && (!value.trim() || EMPTY.test(value.trim()))) || (typeof value === 'number' && Number.isNaN(value));
 
-// -> problems with one Employers & Sources row: which fields a row of this kind must carry, and none may be empty or say "undefined".
+// -> problems with one employer record (the store's, src/stores/base.py EMPLOYER_FIELDS; on Notion an Employers & Sources row): which fields a row of this kind must carry, and none may be empty or say "undefined".
 export function rowProblems(row, kind) {
   const need = {
-    found: ['Company', 'Feed status', 'ATS', 'Slug', 'Feed', 'Quality', 'Cities', 'Relevant roles', 'In preferred places', 'Notes', 'Origin', 'Tier', 'Checked', 'Added'],
-    low: ['Company', 'Feed status', 'ATS', 'Slug', 'Quality', 'Notes', 'Origin', 'Tier', 'Checked'],
-    none: ['Company', 'Feed status', 'Origin', 'Tier', 'Checked'],
-    manual: ['Company', 'Feed status', 'Careers', 'Origin', 'Tier', 'Checked'],
+    found: ['name', 'feed_status', 'ats', 'slug', 'feed', 'quality', 'cities', 'relevant_roles', 'in_preferred_places', 'notes', 'origin', 'tier', 'checked', 'added'],
+    low: ['name', 'feed_status', 'ats', 'slug', 'quality', 'notes', 'origin', 'tier', 'checked'],
+    none: ['name', 'feed_status', 'origin', 'tier', 'checked'],
+    manual: ['name', 'feed_status', 'careers_url', 'origin', 'tier', 'checked'],
   }[kind] || [];
-  const out = need.filter(field => blank(row[field])).map(field => `${row.Company || '(no name)'}: "${field}" is empty`);
-  for (const [field, value] of Object.entries(row)) if (typeof value === 'string' && /\bundefined\b|\bNaN\b|\[object Object\]/.test(value)) out.push(`${row.Company}: "${field}" says "${value}"`);
-  if (kind === 'found' && !(row.Quality >= 1 && row.Quality <= 100)) out.push(`${row.Company}: quality ${row.Quality} is outside 1 to 100`);
-  if (kind === 'found' && row['Relevant roles'] > 0 && !(row['In preferred places'] <= row['Relevant roles'])) out.push(`${row.Company}: more roles in preferred places (${row['In preferred places']}) than relevant roles (${row['Relevant roles']})`);
+  const out = need.filter(field => blank(row[field])).map(field => `${row.name || '(no name)'}: "${field}" is empty`);
+  for (const [field, value] of Object.entries(row)) if (typeof value === 'string' && /\bundefined\b|\bNaN\b|\[object Object\]/.test(value)) out.push(`${row.name}: "${field}" says "${value}"`);
+  if (kind === 'found' && !(row.quality >= 1 && row.quality <= 100)) out.push(`${row.name}: quality ${row.quality} is outside 1 to 100`);
+  if (kind === 'found' && row.relevant_roles > 0 && !(row.in_preferred_places <= row.relevant_roles)) out.push(`${row.name}: more roles in preferred places (${row.in_preferred_places}) than relevant roles (${row.relevant_roles})`);
   return out;
 }
 
@@ -37,11 +37,11 @@ export function parseRunLine(text) {
 }
 
 // -> ordered best first by quality, to compare with what a person would expect.
-export const byQuality = rows => [...rows].sort((a, b) => b.Quality - a.Quality).map(row => row.Company);
+export const byQuality = rows => [...rows].sort((a, b) => b.quality - a.quality).map(row => row.name);
 
 // -> company names that appear on more than one row (a second run must not write the same employer again).
 export function duplicates(rows) {
   const seen = new Map();
-  for (const row of rows) { const key = (row.Company || '').trim().toLowerCase(); seen.set(key, (seen.get(key) || 0) + 1); }
+  for (const row of rows) { const key = (row.name || '').trim().toLowerCase(); seen.set(key, (seen.get(key) || 0) + 1); }
   return [...seen].filter(([, count]) => count > 1).map(([name]) => name);
 }
