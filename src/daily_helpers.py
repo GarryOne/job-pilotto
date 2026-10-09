@@ -81,39 +81,21 @@ def find_job(db, code):
     return None
 
 
-def tracked_job(code, tracker, stores=None):
+def tracked_job(code, stores):
     """A job known to the store but absent from the crawl's SQLite (evicted cache, reset DB, or a
-    filter that no longer admits it): rebuilt from its Applications row, or else its Job Matches
-    row, with the posting text fetched live from its job board. Matches by URL or by 8-hex code.
-    None if the store has neither. Notion: read through the tracker, as before."""
+    filter that no longer admits it): rebuilt from its application record, or else its match, with
+    the posting text fetched live from its job board. Matches by URL or by 8-hex code (of the URL as
+    stored). None if the store has neither. Notion: the Job Tracker row, else the Job Matches row."""
     wanted = _url_key(code) if '/' in code else None
     matches = lambda u: (wanted and _url_key(u) == wanted) or notion.job_code(u) == code
-    if not tracker:
-        if stores is None:
-            return None
-        row = next((r for r in stores.applications.list() if matches(r['url'] or '')), None) or \
-            next((m for m in stores.matches.list() if matches(m['url'] or '')), None)
-        if not row:
-            return None
-        live = ats.posting(row['url']) or {}
-        return {'id': None, 'url': row['url'], 'title': live.get('title') or row['title'], 'company': row['company'],
-                'location': live.get('location') or row['location'], 'description': live.get('description', ''),
-                'work_mode': '', 'city': ''}
-    url = next((u for u in tracker.url_stages() if matches(u)), None)
-    row = tracker.find(url) if url else None
-    if not row:
-        row = next((r for r in tracker.query_database(notion.MATCHES_DATABASE_ID)
-                    if matches((r['properties'].get('Job URL') or {}).get('url') or '')), None)
-        url = (row['properties'].get('Job URL') or {}).get('url') if row else None
+    row = next((r for r in stores.applications.list() if matches(r['url'] or '')), None) or \
+        next((m for m in stores.matches.list() if matches(m['url'] or '')), None)
     if not row:
         return None
-    props = row['properties']
-    text = lambda name: ''.join(t.get('plain_text', '') for t in
-                                (props.get(name) or {}).get('title' if name == 'Job' else 'rich_text', []))
-    live = ats.posting(url) or {}
-    return {'id': None, 'url': url, 'title': live.get('title') or text('Job'),
-            'company': text('Company'), 'location': live.get('location') or text('Location'),
-            'description': live.get('description', ''), 'work_mode': '', 'city': ''}
+    live = ats.posting(row['url']) or {}
+    return {'id': None, 'url': row['url'], 'title': live.get('title') or row['title'], 'company': row['company'],
+            'location': live.get('location') or row['location'], 'description': live.get('description', ''),
+            'work_mode': '', 'city': ''}
 
 
 def to_score(db, hidden):
@@ -150,7 +132,8 @@ ACTIONS = {'applied': 'Applied', 'saved': 'Saved', 'dismissed': 'Dismissed'}
 def apply_message(db, code, tracker, action='applied', stores=None):
     """Record a Telegram button action for the job with this code in the active store; return the reply text. Notion: through the
     tracker, as before; another store: its stage rules and ledger (src/stores/rules.py, src/ledger_store.py)."""
-    job = find_job(db, code) or tracked_job(code, tracker, stores)
+    stores = stores or open_stores(tracker=tracker)
+    job = find_job(db, code) or tracked_job(code, stores)
     if not job:
         where = 'Notion' if tracker else 'the app'
         return f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed; add it in {where} manually."
@@ -233,7 +216,8 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     links to that row, shown on the job's page as Runs).
 
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
-    job = find_job(db, code) or tracked_job(code, tracker, stores)
+    stores = stores or open_stores(tracker=tracker)   # the active store: Notion through this tracker, or this Mac's
+    job = find_job(db, code) or tracked_job(code, stores)
     if not job:
         return [f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
     if job['id'] is not None:
@@ -243,7 +227,6 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     except Exception as error:  # An unreadable form still gets a kit, with likely questions.
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
-    stores = stores or open_stores(tracker=tracker)   # the active store: Notion through this tracker, or this Mac's
     profile, answers = stores.texts.get('profile'), kit.standard_answers(tracker, stores)
     if client is None:
         from .ai import engine

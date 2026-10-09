@@ -95,35 +95,34 @@ class KitReadyStageTests(unittest.TestCase):
 
 
 class TrackedJobFallbackTests(unittest.TestCase):
-    """A job tracked in Notion but missing from the crawl's SQLite must still be markable/preparable."""
-    def test_apply_falls_back_to_the_notion_row(self):
-        url = 'https://job-boards.greenhouse.io/acme/jobs/42'
-        page = row(url, 'Saved')
-        page['id'] = 'row-42'
-        page['properties']['Job'] = {'title': [{'plain_text': 'Staff SRE'}]}
-        page['properties']['Company'] = {'rich_text': [{'plain_text': 'Acme'}]}
-        tracker = FakeTracker([page])
+    """A job in the store but missing from the crawl's SQLite must still be markable/preparable (any store: tracked_job reads
+    the store; the Notion side of the same reads is in tests/test_daily_store_notion.py)."""
+    def setUp(self):
         from unittest import mock
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.ats, 'posting', return_value=None):
+        from src.stores import memory
+        self.stores = memory.open_store()
+        posting = mock.patch.object(daily.ats, 'posting', return_value=None)
+        posting.start()
+        self.addCleanup(posting.stop)
+
+    def test_apply_falls_back_to_the_application_record(self):
+        url = 'https://job-boards.greenhouse.io/acme/jobs/42'
+        self.stores.applications.create({'url': url, 'title': 'Staff SRE', 'company': 'Acme'}, 'Saved')
+        with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 self.assertIsNone(daily.find_job(db, url))
-                job = daily.tracked_job(url, tracker)
+                job = daily.tracked_job(url, self.stores)
                 self.assertEqual((job['title'], job['company'], job['id']), ('Staff SRE', 'Acme', None))
-                self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
-                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, tracker))
-                self.assertIsNone(daily.tracked_job('https://x.test/untracked', tracker))
+                self.assertEqual(daily.tracked_job(applications.job_code(url), self.stores)['url'], url)
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, None, stores=self.stores))
+                self.assertIsNone(daily.tracked_job('https://x.test/untracked', self.stores))
 
-    def test_falls_back_to_job_matches_when_the_applications_row_is_gone(self):
+    def test_falls_back_to_the_match_when_there_is_no_application(self):
         url = 'https://jobs.ashbyhq.com/acme/abc-123'
-        match = {'properties': {'Job URL': {'url': url}, 'Job': {'title': [{'plain_text': 'Platform SRE'}]},
-                                'Company': {'rich_text': [{'plain_text': 'Acme'}]}}}
-        tracker = FakeTracker()
-        from unittest import mock
-        with mock.patch.object(daily.ats, 'posting', return_value=None), \
-                mock.patch.object(FakeTracker, 'query_database', lambda self, db, f=None: [match]):
-            job = daily.tracked_job(url, tracker)
-            self.assertEqual((job['title'], job['company'], job['url']), ('Platform SRE', 'Acme', url))
-            self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
+        self.stores.matches.upsert({'url': url, 'title': 'Platform SRE', 'company': 'Acme', 'location': 'Zurich'})
+        job = daily.tracked_job(url, self.stores)
+        self.assertEqual((job['title'], job['company'], job['url']), ('Platform SRE', 'Acme', url))
+        self.assertEqual(daily.tracked_job(applications.job_code(url), self.stores)['url'], url)
 
 
 class DigestIntegrationTests(unittest.TestCase):
