@@ -577,7 +577,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/time_budget.py` — A refresh's time budget (owner, 7 Oct 2026: "never more than 2-3 minutes"; a run read 1,650 jobs and sorted 600 titles for 30 minutes).
 - `src/tune.py` — Tune my strategy (Actions page): what your own outcomes say about your search settings. Counts only, no AI.
 - `src/tz.py` — The user's own time zone: JOB_PILOTTO_TZ (the desktop app sets it from the computer), else the machine's, else UTC.
-- `src/zz_orphan_nobody_names.py` — temporary: a module nothing imports."""
 
 ## Telegram bot (worker)
 
