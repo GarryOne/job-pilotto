@@ -1,6 +1,6 @@
 ---
 name: twin-loop
-description: The live improvement loop for Job Pilotto's applying flow. Apply to real jobs in the twin, watch each step, find what failed, fix it universally, test, land, refresh, run again, until more forms reach "ready for your check". Use when the owner says "twin loop", "/twin-loop", "run the apply loop", or "make the active sessions perfect".
+description: The live improvement loop for Job Pilotto's applying flow. Apply to real jobs in the twin, watch each step, find what failed, fix it universally, test, land, refresh, run again, until more forms reach "ready for your check". It also measures the self-improving form-filling mechanism every round (does what it learns get used, does it help, where is it blind) and improves the mechanism itself. Use when the owner says "twin loop", "/twin-loop", "run the apply loop", or "make the active sessions perfect".
 ---
 
 # Twin loop: apply live, observe, fix, test, repeat
@@ -14,6 +14,7 @@ Every round should leave more forms closer to that point than the last one.
 - `/twin-loop jobs <n>`: also **n new jobs** from the owner's list (top fit, not yet applied, different sites/ATS than the sessions).
 - `/twin-loop <company or session id>`: just that one.
 - `/twin-loop rounds <n>`: stop after n fix rounds (default: keep going until nothing improves or the owner stops it).
+- `/twin-loop mechanism`: only the mechanism check below (fleet numbers, gaps, one fix), no live runs.
 
 ## Before the first round (once)
 1. Read `docs/live-test.md` ("Working with the twin as an agent"), `docs/flows/applying.md` (the scenario map), and the Notion page
@@ -45,6 +46,50 @@ For each target, one at a time (only one fill at a time, so the log lines stay r
 
    **Reached** is one of: posting, account, code/bot (the person's), form, or **ready** (filled, and every empty field has a suggested answer).
 5. **Pick the biggest blocker** across all targets. The earliest step comes first: a session that never reaches the form loses every field after it.
+
+## Measure the self-improving mechanism (every round)
+The loop fixes forms; the mechanism should make most of those fixes unnecessary by learning them. So every round also checks that the
+mechanism works, helps and is not blind. Design: Notion "Self-improving form filling: design & plan". Its parts:
+- **Notice the miss:** coverage, menu reasons, miss reports with a fingerprint.
+- **Learn it:** recipes by fingerprint, meanings in the alias pack, remembered page kinds, proposals.
+- **Serve it back:** the token-gated pack, and the canary at 5% for a new recipe.
+- **Measure it:** the digest.
+
+Twin fills count as real use since d8cbe63, so they feed it both ways.
+
+1. **The fleet numbers.** Fetch them with the key from the Keychain. **Never print the key**, nor any user text:
+
+   ```
+   K=$(security find-generic-password -s job-pilotto.site.api_key -w); curl -s -H "Authorization: Bearer $K" https://www.jobpilotto.workers.dev/admin/form-filling/digest.json
+   ```
+
+   Read these, and keep them in the scorecard's **Mechanism** table with the round they were read in, so a trend shows:
+   - `thisWeek`: `filledShare`, `proposedShare`, `formsNeedingNothing`, `unreadPer100`, `medianSeconds`, `forms`.
+   - The `versions` row of every version shipped in this loop: did it move the shares?
+   - The top 5 `weaknesses`: `cause`, `title`, `now` vs `before`.
+   - `proposals` (`bySource`, `byFamily`).
+2. **The live signals from this round's runs** (in `app.log` and the trace). Did the learned layer act? Count per run:
+   - page kind `by: remembered` vs `by: ai` (a shape learned once, reused for free);
+   - trace rows with an `alias` (a meaning from the pack placed the field);
+   - `operated` rows with `recipe > 0` (a recipe configured an operator);
+   - proposals shown, and used by the person (`inspect` shows `proposals`);
+   - misses reported with a fingerprint (menu reasons, unread questions, unknown uploads);
+   - did this fill's record reach the site? (`forms` in the digest went up after the run).
+3. **Judge it. Each check below is a yes or no, with its evidence:**
+   - **Learns:** a miss in round N became data (a recipe, a meaning, a remembered kind) by round N+1, without code.
+   - **Uses:** what was learned is applied on the next form with that shape.
+   - **Helps:** `filledShare`/`formsNeedingNothing` went up, and `missingShare`/`medianSeconds` went down, for the versions shipped.
+   - **Sees:** every left field has a reason the digest can group (not "unknown").
+4. **Gaps:** any "no" above, and any number that cannot move. Examples:
+   - a counter stuck at 0 while the thing happens live (on 9 Oct, `proposedShare` was 0 all week while proposals showed in the panel);
+   - `lastWeek` empty or `before: 0` everywhere, so no weakness can ever show progress;
+   - a weakness whose `area` names a part no data path can change (only code can).
+
+   Each gap is a fix to the **mechanism**, not to a form, under the same rules: a failing test first, one change, land, then confirm the number moves in the digest.
+   Keep the list in the scorecard (gap, evidence, status), and update the Notion design page's gaps section when one closes or a new one is found.
+5. **Choose the round's work by impact:** the biggest form blocker (below) OR the biggest mechanism gap. A gap that hides or stops learning
+   across all installs usually wins over one form. Say which you picked and why.
+6. **AI spend:** a mechanism change that makes the AI see more, or run more often, is said in one line with its cost. Ask before raising spend.
 
 ## Fixing (the rules that make it worth it)
 - **Read before guessing:** the timestamps in `app.log` usually give the cause outright (two steps racing, a floor refusing, a judge that saw the page too early).
@@ -78,13 +123,14 @@ For each target, one at a time (only one fill at a time, so the log lines stay r
 ## Reporting (after every round, and when stopped)
 - **The scorecard table** with a one-line delta per target (e.g. "Nahrin: account → code (Continue now pressed)").
 - **What was fixed:** commit, version, the shape it covers, and which other sites and users it helps.
+- **The mechanism:** its table with the trend since the loop started, the learns/uses/helps/sees verdict, gaps opened or closed.
 - **What is next, and what waits on the owner** (a bot check, a code, a decision).
 - **Run Log:** one Notion Run Log entry per session of the loop (signal only).
 - **Bugs:** the Notion Bug Tracker row for each user-visible bug fixed.
 
 ## Stop when
 - Every target is **ready** or waits on the person.
-- Or two rounds in a row improved nothing; then say what blocks it and ask.
+- Or two rounds in a row improved nothing (neither the forms nor the mechanism's numbers); then say what blocks it and ask.
 - Or the owner says stop.
 
 When stopping, tell the peers the twin is free, and leave it running (the owner may be looking).
