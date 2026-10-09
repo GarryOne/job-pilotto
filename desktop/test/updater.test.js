@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {asset, check, install, macSwapScript, newer, stableRelease} from '../lib/updater.js';
+import {asset, check, install, macSwapScript, newer, resetLimit, stableRelease} from '../lib/updater.js';
 
 test('versions compare as releases do: numbers, then a release beats its pre-releases', () => {
   assert.ok(newer('0.4.0-alpha.41', '0.4.0-alpha.39'));
@@ -139,4 +139,50 @@ test('a test-builds install is offered the newest build, approved or not; beta a
   // On Windows a test build takes the build's own installer, never the generic one a failed Windows build leaves behind.
   const noOwn = [release(54, {assets: [{name: 'Job-Pilotto-windows-x64.exe', browser_download_url: 'https://dl/generic.exe'}]}), release(52, {prerelease: false})];
   assert.equal((await check('0.4.0-alpha.50', {channel: 'test', fetcher: listOf(noOwn), platform: 'win32'})).version, '0.4.0-alpha.52');
+});
+
+// 9 Oct 2026: a friend's office network had used GitHub's 60 unsigned calls an hour: "Couldn't check for updates: GitHub answered 403".
+const LATEST = {tag_name: 'desktop-v0.6.19', name: '0.6.19', body: '', html_url: 'https://github.com/x', assets: [{name: 'Job-Pilotto-0.6.19-x64.exe', browser_download_url: 'https://dl/exe'}]};
+const headers = map => ({get: name => map[name.toLowerCase()] ?? null});
+
+test('the update check reads our website first and never calls GitHub when it answers', async () => {
+  resetLimit();
+  const urls = [];
+  const offer = await check('0.6.15', {platform: 'win32', fetcher: async url => { urls.push(url); return {ok: true, json: async () => LATEST}; }});
+  assert.equal(offer.version, '0.6.19');
+  assert.deepEqual(urls, ['https://www.jobpilotto.workers.dev/api/releases/latest']);
+});
+
+test('the site down: GitHub itself, then the same answer again costs a 304, not a call against the limit', async () => {
+  resetLimit();
+  const sent = [];
+  const fetcher = async (url, init) => {
+    if (!url.startsWith('https://api.github.com')) throw new Error('site unreachable');
+    sent.push(init.headers['If-None-Match'] || null);
+    return sent.length === 1 ? {ok: true, status: 200, headers: headers({etag: '"v1"'}), json: async () => LATEST} : {ok: false, status: 304, headers: headers({})};
+  };
+  assert.equal((await check('0.6.15', {platform: 'win32', fetcher})).version, '0.6.19');
+  assert.equal((await check('0.6.15', {platform: 'win32', fetcher})).version, '0.6.19', 'the kept answer');
+  assert.deepEqual(sent, [null, '"v1"']);
+});
+
+test('GitHub limiting this network says until when, and asks nothing more before then', async () => {
+  resetLimit();
+  const reset = Math.floor(Date.now() / 1000) + 1800;
+  let calls = 0;
+  const fetcher = async url => {
+    if (!url.startsWith('https://api.github.com')) return {ok: false, status: 502};
+    calls++;
+    return {ok: false, status: 403, headers: headers({'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(reset)})};
+  };
+  await assert.rejects(check('0.6.15', {platform: 'win32', fetcher}), /GitHub is limiting update checks from this network; trying again at \d/);
+  await assert.rejects(check('0.6.15', {platform: 'win32', fetcher}), /trying again at/);
+  assert.equal(calls, 1, 'no second GitHub call while limited');
+  resetLimit();
+});
+
+test('any other GitHub refusal still says its status', async () => {
+  resetLimit();
+  const fetcher = async url => (url.startsWith('https://api.github.com') ? {ok: false, status: 500, headers: headers({})} : {ok: false, status: 502});
+  await assert.rejects(check('0.6.15', {platform: 'win32', fetcher}), /GitHub answered 500/);
 });
