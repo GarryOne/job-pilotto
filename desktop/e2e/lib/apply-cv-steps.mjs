@@ -5,12 +5,12 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import {FORMS} from './forms.mjs';
 import {POSTING, pause} from './apply-fixtures.mjs';
-import {addKitJob, removeJobsByUrl, tailoredFiles} from './notion.mjs';
+import {addKitJob, removeJobsByUrl, tailoredFiles} from './seed-data.mjs';
 import {cvProblems} from './applycheck.mjs';
 import {fillState, readForm, readPanel} from './extension.mjs';
 
 export async function runCvSteps(ctx, h) {
-  const {NOTION, apply, cv, fail, page, panelOf, proxy} = h;
+  const {apply, cv, fail, page, panelOf, proxy} = h;
   await ctx.run('Tailor CV on a job writes a CV from its posting: the PDF on this Mac, the file on the job in Notion, and the extension attaches it, not the base CV', async () => {
     const form = FORMS.greenhouse;
     const code = crypto.createHash('sha1').update(form.url.trim()).digest('hex').slice(0, 8);
@@ -31,8 +31,8 @@ export async function runCvSteps(ctx, h) {
     const size = fs.statSync(tailoredPdf).size;
     if (size === cv.size) throw new Error('the tailored PDF is the size of the base CV: it was not written from the posting');
     let files = 0;
-    for (let i = 0; i < 10 && !files; i++) { files = await tailoredFiles(NOTION, form.url); if (!files) await pause(3000); }
-    if (!files) throw new Error('the tailored CV is not on the job\'s row in Notion (column "Tailored CV")');
+    for (let i = 0; i < 10 && !files; i++) { files = await tailoredFiles(ctx, form.url); if (!files) await pause(3000); }
+    if (!files) throw new Error(ctx.store === 'sqlite' ? 'the tailored CV is not among the job\'s files in this Mac\'s store (applications.attach)' : 'the tailored CV is not on the job\'s row in Notion (column "Tailored CV")');
     const {tab, state} = await apply(form, {viaApi: true});
     if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
     fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Greenhouse_Labs.pdf', size}));   // the tailored file's bytes, under its own name: the form shows which CV it got
@@ -74,9 +74,9 @@ export async function runCvSteps(ctx, h) {
   const tailoredAt = url => path.join(ctx.profile, 'cv', 'tailored', `${codeOf(url)}.pdf`);
     await ctx.run('Tailor CVs for top matches: asked for 2, it tailors the two best open jobs without a CV, in fit order, and leaves the third alone', async () => {
     // Rows an earlier run left behind, the kitless step's Saved job too: a Saved job is picked before any fit (beta 9 Oct 2026, the apply page: it took a slot).
-    await removeJobsByUrl(NOTION, [...topUrls, bareUrl]);
+    await removeJobsByUrl(ctx, [...topUrls, bareUrl]);
     const added = [];
-    for (const [index, fit] of [99, 98, 97].entries()) added.push((await addKitJob(NOTION, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
+    for (const [index, fit] of [99, 98, 97].entries()) added.push((await addKitJob(ctx, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
       kit: {answers: [], cover_letter: '', check_before_sending: []}, description: POSTING})).id.replace(/-/g, ''));
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
@@ -120,15 +120,15 @@ export async function runCvSteps(ctx, h) {
     await page.click('.nav[data-view="jobs"]');
     await page.waitForFunction(urls => { const jobs = window.__jp.shared.allJobs || []; return jobs.filter(job => urls.includes(job.url) && job.tailored).length === 2; }, topUrls, {timeout: 90000, polling: 2000})
       .catch(() => { throw new Error('the Jobs list does not show 📄 Tailored CV on the two jobs'); });
-    await removeJobsByUrl(NOTION, topUrls);
+    await removeJobsByUrl(ctx, topUrls);
   }, {needs: ctx.needs});
 
   // One Apply button (5 Oct 2026): pressed on a saved job with no kit, it drafts the kit first. Here the AI answers every call with a server error, so the draft cannot
   // be made: the button must say so ("Retry apply"), no form may open, and the job stays without a kit. The success path needs a form to read (not faked here).
   // (A board that does not exist is not enough: an unreadable form still gets a kit from the posting, src/ai/kit.py prepare_one; the gate of 6 Oct 2026 drafted one.)
   await ctx.run('Apply on a saved job without a kit: it prepares first, and when the kit cannot be drafted says Retry apply and opens nothing', async () => {
-    await removeJobsByUrl(NOTION, [bareUrl]);
-    await addKitJob(NOTION, {title: 'Bare Platform Engineer', company: 'E2E Bare', url: bareUrl, kit: null, fit: 60, stage: 'Saved', nextStep: '', description: POSTING});
+    await removeJobsByUrl(ctx, [bareUrl]);
+    await addKitJob(ctx, {title: 'Bare Platform Engineer', company: 'E2E Bare', url: bareUrl, kit: null, fit: 60, stage: 'Saved', nextStep: '', description: POSTING});
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await page.click('.nav[data-view="jobs"]');
@@ -148,6 +148,6 @@ export async function runCvSteps(ctx, h) {
     if (proxy.stats.calls === asked) throw new Error('the AI was never asked to draft the kit, so this step did not test a failed draft');
     if ((await rowText()) !== 'Retry apply') throw new Error(`the button never said Retry apply (it says "${await rowText()}")`);
     if (ctx.browser.opened.length !== opened) throw new Error('a form was opened for a job whose kit was never drafted');
-    await removeJobsByUrl(NOTION, [bareUrl]);
+    await removeJobsByUrl(ctx, [bareUrl]);
   }, {needs: ctx.needs});
 }

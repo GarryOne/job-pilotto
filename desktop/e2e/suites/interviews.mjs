@@ -4,10 +4,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {pickFile} from '../lib/app.mjs';
-import {TRANSCRIPT, addDays, interviewProps, newestFirst, trackerProps, transcriptBlocks} from '../lib/interview-data.mjs';
-import {createRow, pageBlocks, plainOf, rows} from '../lib/notion.mjs';
+import {TRANSCRIPT, addDays, newestFirst} from '../lib/interview-data.mjs';
+import {addInterview, addTrackedJob} from '../lib/seed-data.mjs';
 import {clearData} from '../lib/start-state.mjs';
-import {paragraph} from '../lib/notion.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {pickJob} from '../lib/picker.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -17,7 +16,7 @@ export const name = 'interviews';
 const REVIEW_MS = 5 * 60 * 1000;
 
 export async function run(ctx) {
-  const {page, app, token: NOTION, proxy} = ctx;
+  const {page, app, proxy} = ctx;
   ctx.findings = [];
   const {step, end} = independent(ctx);
   const today = new Date().toISOString().slice(0, 10);
@@ -49,39 +48,41 @@ export async function run(ctx) {
     }
     throw new Error(`the ⋯ menu of the row never showed "${label}"`);
   };
-  const notionRows = () => rows(NOTION, 'Interviews');
-  const byTitle = (list, title) => list.find(item => plainOf(item.properties.Interview) === title);
-  const reviewBlocks = async id => (await pageBlocks(NOTION, id)).filter(block => block.type === 'heading_3');
+  // The interviews as the store keeps them (any store): {id, title, overall, next_step, app_id, transcript, review}; transcript and review are whole Markdown (spec §4).
+  const notionRows = async () => (await ctx.data('interviews', 'list', {})) || [];
+  const interviewOf = id => ctx.data('interviews', 'get', {interview_id: id});
+  const byTitle = (list, title) => list.find(item => item.title === title);
+  const sameId = (a, b) => String(a || '').replace(/-/g, '') === String(b || '').replace(/-/g, '');
+  const headingsOf = markdown => String(markdown || '').split('\n').map(line => /^#{1,4}\s+(.+?)\s*$/.exec(line)?.[1]).filter(Boolean);
+  const reviewHeadings = async id => headingsOf((await interviewOf(id))?.review);
 
   await ensureSetUp(ctx);
   const external = await captureExternal(app);
   await answerConfirms(page);
 
   // Dummy rows, written once: three jobs in the tracker, four interviews (three reviewed with different outcomes and one not).
-  await ctx.run('this suite starts from its own dummy jobs and interviews in Notion', async () => {
+  await ctx.run('this suite starts from its own dummy jobs and interviews in the store', async () => {
     const cleared = [await clearData(ctx, 'Interviews'), await clearData(ctx, 'Job Tracker'), await clearData(ctx, 'Insights')];
     console.log(`  cleared ${cleared.join('/')} interview, job and insight row(s)`);
     for (const [key, role, company, n] of [['acme', 'Senior Site Reliability Engineer', 'E2E Acme', 9001], ['beta', 'Platform Engineer', 'E2E Beta', 9002], ['gamma', 'Senior Site Reliability Engineer', 'E2E Gamma', 9003]]) {
       const url = `https://boards.e2e.test/job/${n}`;
-      const created = await createRow(NOTION, 'Job Tracker', trackerProps({role, company, url}));
+      const created = await addTrackedJob(ctx, {role, company, url});
       seed[key] = {id: created.id, url, company, role};
     }
-    const review = text => [paragraph(text), {object: 'block', type: 'heading_3', heading_3: {rich_text: [{type: 'text', text: {content: 'Strengths'}}]}},
-      {object: 'block', type: 'bulleted_list_item', bulleted_list_item: {rich_text: [{type: 'text', text: {content: 'SEED strength: clear incident handling'}}]}},
-      {object: 'block', type: 'heading_3', heading_3: {rich_text: [{type: 'text', text: {content: 'Questions'}}]}},
-      {object: 'block', type: 'bulleted_list_item', bulleted_list_item: {rich_text: [{type: 'text', text: {content: '✅ [Incidents] How do you handle an unclear root cause? — rollback, then timeline'}}]}}];
-    const make = async (key, props, withReview) => {
-      const created = await createRow(NOTION, 'Interviews', props, [...(withReview ? review(`SEED summary ${key}`) : []), ...transcriptBlocks(TRANSCRIPT)]);
-      seed[key] = {...(seed[key] || {}), page: created.id, day: props.Date.date.start};
+    // The review as Markdown, as the app keeps it on every store (a summary, then Strengths and Questions): spec §4, transcript and review are whole Markdown.
+    const review = text => `${text}\n\n### Strengths\n\n- SEED strength: clear incident handling\n\n### Questions\n\n- ✅ [Incidents] How do you handle an unclear root cause? — rollback, then timeline\n`;
+    const make = async (key, fields, withReview) => {
+      const created = await addInterview(ctx, {...fields, transcript: TRANSCRIPT, ...(withReview ? {review: review(`SEED summary ${key}`)} : {})});
+      seed[key] = {...(seed[key] || {}), page: created.id, day: fields.day};
     };
-    await make('ivPositive', interviewProps({name: 'E2E Acme · Round 1', day: addDays(today, -10), round: 'Recruiter screen', overall: 'positive', nextStep: 'Technical interview', applicationId: seed.acme.id}), true);
-    await make('ivNeutral', interviewProps({name: 'E2E Beta · Round 2', day: addDays(today, -6), round: 'Technical', overall: 'neutral', nextStep: 'Wait for feedback', applicationId: seed.beta.id}), true);
-    await make('ivNegative', interviewProps({name: 'E2E Loose · Round 1', day: addDays(today, -3), round: 'Hiring manager', overall: 'negative'}), true);
-    await make('ivFresh', interviewProps({name: 'E2E Gamma · Not reviewed yet', day: addDays(today, -1), round: 'Call', applicationId: seed.gamma.id}), false);
+    await make('ivPositive', ({name: 'E2E Acme · Round 1', day: addDays(today, -10), round: 'Recruiter screen', overall: 'positive', nextStep: 'Technical interview', applicationId: seed.acme.id}), true);
+    await make('ivNeutral', ({name: 'E2E Beta · Round 2', day: addDays(today, -6), round: 'Technical', overall: 'neutral', nextStep: 'Wait for feedback', applicationId: seed.beta.id}), true);
+    await make('ivNegative', ({name: 'E2E Loose · Round 1', day: addDays(today, -3), round: 'Hiring manager', overall: 'negative'}), true);
+    await make('ivFresh', ({name: 'E2E Gamma · Not reviewed yet', day: addDays(today, -1), round: 'Call', applicationId: seed.gamma.id}), false);
   });
   await ctx.run('the app reads the new jobs, as it does when the Jobs page has loaded', async () => {
     const count = await page.evaluate(async () => { const read = await window.pilot.jobs(); window.__jp.shared.allJobs = read.jobs; return read.jobs.length; });
-    if (count < 3) throw new Error(`the app's job list has ${count} job(s) after three were added to Notion`);
+    if (count < 3) throw new Error(`the app's job list has ${count} job(s) after three were added to the store`);
   });
   if (!seed.ivFresh) throw new Error('the dummy rows were not written: the other steps cannot run');
 
@@ -170,8 +171,8 @@ export async function run(ctx) {
     await select.waitFor({state: 'visible'});
     await select.selectOption(seed.beta.url);
     await page.waitForFunction(() => /is now linked to that job/.test(document.getElementById('iv-message').textContent), null, {timeout: 120000});
-    let linked = (await notionRows()).find(item => item.id === seed.ivNegative.page).properties.Application.relation.map(item => item.id);
-    if (JSON.stringify(linked) !== JSON.stringify([seed.beta.id])) throw new Error(`Notion links the interview to ${JSON.stringify(linked)}, expected the Beta job ${seed.beta.id}`);
+    let linked = (await interviewOf(seed.ivNegative.page))?.app_id;
+    if (!sameId(linked, seed.beta.id)) throw new Error(`the store links the interview to ${JSON.stringify(linked)}, expected the Beta job ${seed.beta.id}`);
     // The re-drawn row shows the job as its link (the cell's innerText also holds the old picker's options, so it said "Beta" before the re-draw),
     // and its picker is hidden again: unlink as a person does, ⋯ → Change job…, again if a later re-draw hides it (Windows, 6 Oct 2026).
     await page.waitForFunction(id => /Beta/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] .lib-who button.link`)?.textContent || ''), seed.ivNegative.page, {timeout: 60000});
@@ -181,8 +182,8 @@ export async function run(ctx) {
       if (attempt === 4) throw new Error('the job picker never stayed open long enough to unlink');
     }
     await page.waitForFunction(() => /not linked to a job/.test(document.getElementById('iv-message').textContent), null, {timeout: 120000});
-    linked = (await notionRows()).find(item => item.id === seed.ivNegative.page).properties.Application.relation;
-    if (linked.length) throw new Error('Notion still links the interview to a job after it was unlinked');
+    linked = (await interviewOf(seed.ivNegative.page))?.app_id;
+    if (linked) throw new Error('the store still links the interview to a job after it was unlinked');
   });
 
   await step('a transcript that fails to review leaves one saved row, not reviewed, and a clear message', () => ctx.withApi(async () => {   // the proxy's refusal needs the API engine (dummy key)
@@ -208,12 +209,12 @@ export async function run(ctx) {
     if (!said || /Traceback|\{'type'|\{"type"|BadRequestError|Error code|undefined|\[object/.test(said)) throw new Error(`the failure message is not a clear sentence: "${said.slice(0, 200)}"`);
     const after = await notionRows();
     if (after.length !== before + 1) throw new Error(`Notion has ${after.length} interviews after the failed review, expected ${before + 1} (the saved transcript, once)`);
-    const saved = byTitle(after, 'recruiter-call-failing') || after.find(item => !seed.page && plainOf(item.properties.Interview).includes('failing'));
+    const saved = byTitle(after, 'recruiter-call-failing') || after.find(item => !seed.page && String(item.title || '').includes('failing'));
     if (!saved) throw new Error('the saved transcript is not in Notion');
-    if (saved.properties.Overall?.select) throw new Error('the interview has an outcome although its review failed');
-    const headings = (await reviewBlocks(saved.id)).map(block => block.text);
+    if ((await interviewOf(saved.id))?.overall) throw new Error('the interview has an outcome although its review failed');
+    const headings = await reviewHeadings(saved.id);
     if (headings.some(text => ['Strengths', 'Questions', 'Weak spots'].includes(text))) throw new Error(`a half-written review is on the Notion page: ${headings}`);
-    if (!(await pageBlocks(NOTION, saved.id)).some(block => /Terraform at scale/.test(block.text))) throw new Error('the saved row lost its transcript');
+    if (!/Terraform at scale/.test((await interviewOf(saved.id))?.transcript || '')) throw new Error('the saved row lost its transcript');
     seed.failed = {page: saved.id};
     await page.waitForFunction(id => /^Review$/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] .iv-main`)?.textContent.trim() || ''), saved.id, {timeout: 60000}).catch(() => {});
     const label = (await row(saved.id).locator('.iv-main').innerText()).trim();
@@ -237,22 +238,23 @@ export async function run(ctx) {
     if (!/The review is on the Notion page/.test(said)) throw new Error(`the review did not finish: "${said.slice(0, 240)}"`);
     const after = await notionRows();
     const added = after.filter(item => !before.some(old => old.id === item.id));
-    if (added.length !== 1) throw new Error(`${added.length} new interview rows in Notion after one import, expected 1`);
+    if (added.length !== 1) throw new Error(`${added.length} new interview rows in the store after one import, expected 1`);
     const saved = added[0];
     seed.imported = {page: saved.id};
-    const overall = saved.properties.Overall?.select?.name;
+    const overall = (await interviewOf(saved.id))?.overall;
     if (!['positive', 'neutral', 'negative'].includes(overall)) throw new Error(`the row has no outcome (Overall "${overall}")`);
-    if (JSON.stringify(saved.properties.Application.relation.map(item => item.id)) !== JSON.stringify([seed.gamma.id])) throw new Error('the interview is not linked to the Gamma job that was chosen');
-    if (!plainOf(saved.properties['Next step']).trim()) throw new Error('the review has no next step although the call names one');
-    const headings = (await reviewBlocks(saved.id)).map(block => block.text);
-    for (const wanted of ['Strengths', 'Questions']) if (!headings.includes(wanted)) throw new Error(`the Notion page has no "${wanted}" section: ${headings}`);
+    const reviewed = await interviewOf(saved.id);
+    if (!sameId(reviewed?.app_id, seed.gamma.id)) throw new Error('the interview is not linked to the Gamma job that was chosen');
+    if (!String(reviewed?.next_step || '').trim()) throw new Error('the review has no next step although the call names one');
+    const headings = await reviewHeadings(saved.id);
+    for (const wanted of ['Strengths', 'Questions']) if (!headings.includes(wanted)) throw new Error(`the review has no "${wanted}" section: ${headings}`);
     if (!headings.some(text => ['Weak spots', 'Practise before the next round'].includes(text))) throw new Error(`the review names no gap and no practice step: ${headings}`);
     console.log(`  reviewed: ${overall}; ${proxy.stats.calls - calls} AI call(s); sections: ${headings.join(', ')}`);
     await page.waitForFunction(id => /Positive|Neutral|Negative/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] td:nth-child(5)`)?.innerText || ''), saved.id, {timeout: 90000});
     // The insights card appears (reviewed interviews exist) and the review's own refresh wrote the "Interview patterns" row.
     await page.waitForFunction(() => !document.getElementById('iv-insight').hidden, null, {timeout: 60000});
-    const patterns = (await rows(NOTION, 'Insights')).filter(item => plainOf(item.properties.Category) === 'Interview patterns');
-    if (patterns.length !== 1) throw new Error(`${patterns.length} "Interview patterns" rows in Notion, expected exactly 1`);
+    const patterns = ((await ctx.data('insights', 'list', {category: 'Interview patterns'})) || []).filter(item => item.category === 'Interview patterns');
+    if (patterns.length !== 1) throw new Error(`${patterns.length} "Interview patterns" insights in the store, expected exactly 1`);
     await snap(ctx, 'interviews-reviewed', {situation: 'After importing a transcript and reviewing it: the library with the new outcome, and the Insights card'});
   });
 
@@ -268,7 +270,7 @@ export async function run(ctx) {
     await page.waitForTimeout(3000);
     if (proxy.stats.calls !== calls) throw new Error(`a second review started within the guard window: ${proxy.stats.calls - calls} AI call(s)`);
     if ((await notionRows()).length !== before.length) throw new Error('Review again added or removed an interview row');
-    const headings = (await reviewBlocks(seed.imported.page)).map(block => block.text);
+    const headings = await reviewHeadings(seed.imported.page);
     if (headings.filter(text => text === 'Questions').length !== 1) throw new Error(`the review is on the page ${headings.filter(text => text === 'Questions').length} times`);
     if (/was replaced/.test(said)) throw new Error(`the page claims "${said}" although no review ran`);
   });
@@ -284,13 +286,13 @@ export async function run(ctx) {
     if (ctx.engine === 'api' && proxy.stats.calls === calls) throw new Error('review again made no AI call');   // Claude Code does not go through the proxy; "was replaced" above proves a review ran
     const after = await notionRows();
     if (after.length !== before.length) throw new Error(`review again changed the number of rows: ${before.length} → ${after.length}`);
-    const blocks = await pageBlocks(NOTION, seed.ivPositive.page);
-    if (blocks.some(block => /SEED/.test(block.text))) throw new Error('the old (seeded) review text is still on the page');
+    const again = await interviewOf(seed.ivPositive.page);
+    if (/SEED/.test(again?.review || '')) throw new Error('the old (seeded) review text is still in the review');
     for (const heading of ['Strengths', 'Questions']) {
-      const count = blocks.filter(block => block.type === 'heading_3' && block.text === heading).length;
-      if (count !== 1) throw new Error(`"${heading}" is on the page ${count} times after review again`);
+      const count = headingsOf(again?.review).filter(text => text === heading).length;
+      if (count !== 1) throw new Error(`"${heading}" is in the review ${count} times after review again`);
     }
-    if (!blocks.some(block => /Terraform at scale/.test(block.text))) throw new Error('review again lost the transcript');
+    if (!/Terraform at scale/.test(again?.transcript || '')) throw new Error('review again lost the transcript');
   });
 
   await step('Refresh insights without a new review says it is up to date and spends nothing', async () => {

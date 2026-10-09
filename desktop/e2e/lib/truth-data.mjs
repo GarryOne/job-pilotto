@@ -4,16 +4,17 @@ const key = url => String(url || '').trim().replace(/\/$/, '');
 
 // A row scored under 50 may be left out of the list on purpose (it is not shown anyway), so only one at 50 or more must be there.
 // appJobs: [{url, title, fit}] from the app's list; rows: Notion Job Matches pages. -> [problem sentences], empty when they agree.
-export function compareJobs(appJobs, rows) {
-  const notion = new Map(rows.map(row => [key(row.properties?.['Job URL']?.url), row]));
+// appJobs: the Jobs list's scored jobs; matches: the store's Job Matches records (ctx.data('matches', 'list'): {url, title, fit, status}, on any store).
+export function compareJobs(appJobs, matches) {
+  const stored = new Map(matches.map(match => [key(match.url), match]));
   const problems = [];
   for (const job of appJobs) {
-    const row = notion.get(key(job.url));
-    if (!row) { problems.push(`"${job.title}" is in the Jobs list with a score but has no Job Matches row in Notion`); continue; }
-    const score = row.properties?.Score?.number;
-    if (score != null && Number(job.fit) !== Number(score)) problems.push(`"${job.title}" shows fit ${job.fit} but its Notion row says ${score}`);
+    const match = stored.get(key(job.url));
+    if (!match) { problems.push(`"${job.title}" is in the Jobs list with a score but has no Job Matches record in the store`); continue; }
+    const score = match.fit === '' || match.fit == null ? null : Number(match.fit);
+    if (score != null && Number(job.fit) !== score) problems.push(`"${job.title}" shows fit ${job.fit} but its Job Matches record says ${score}`);
   }
   const listed = new Set(appJobs.map(job => key(job.url)));
-  for (const [url, row] of notion) if (url && !listed.has(url) && row.properties?.Status?.select?.name !== 'Dismissed' && !(row.properties?.Score?.number < 50)) problems.push(`"${row.properties?.Job?.title?.[0]?.plain_text || url}" is a Job Matches row in Notion but is missing from the Jobs list`);
+  for (const [url, match] of stored) if (url && !listed.has(url) && match.status !== 'Dismissed' && !(Number(match.fit) < 50)) problems.push(`"${match.title || url}" is a Job Matches record in the store but is missing from the Jobs list`);
   return problems;
 }

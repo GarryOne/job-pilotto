@@ -2,8 +2,8 @@
 // Calendar: meetings from the Job Tracker ("Next interview") and from saved recordings, on dummy rows written through the Notion API, with the app running in a fixed time
 // zone (Asia/Tokyo, no daylight saving) and then in another (Pacific/Honolulu). Starts from a set-up install; resets only its own rows.
 import {launch} from '../lib/app.mjs';
-import {addDays, interviewProps, showsClock, trackerProps, weekDays} from '../lib/interview-data.mjs';
-import {createRow} from '../lib/notion.mjs';
+import {addDays, showsClock, weekDays} from '../lib/interview-data.mjs';
+import {addInterview, addTrackedJob} from '../lib/seed-data.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
@@ -18,7 +18,7 @@ const backToToday = async page => { if (await page.locator('#cal-today').isEnabl
 const monthTitle = day => new Date(`${day.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString('en-US', {month: 'long', year: 'numeric', timeZone: 'UTC'});
 
 export async function run(ctx) {
-  const {page, app, token: NOTION} = ctx;
+  const {page, app} = ctx;
   ctx.findings = [];
   const {step, end} = independent(ctx);
   const today = dayIn(new Date(), ZONE);
@@ -68,14 +68,11 @@ export async function run(ctx) {
     await snap(ctx, 'calendar-empty', {view: 'calendar', situation: 'A calendar with no meeting'});
   });
 
-  await ctx.run('this suite writes its dummy meetings to Notion', async () => {
-    for (const item of meetings) {
-      const created = await createRow(NOTION, 'Job Tracker', trackerProps({role: item.role, company: item.company, url: `https://boards.e2e.test/cal/${item.key}`, stage: item.stage, nextInterview: item.at}));
-      seed[item.key] = created;
-    }
+  await ctx.run('this suite writes its dummy meetings to the store', async () => {
+    for (const item of meetings) seed[item.key] = await addTrackedJob(ctx, {role: item.role, company: item.company, url: `https://boards.e2e.test/cal/${item.key}`, stage: item.stage, nextInterview: item.at});
     // A recording on the third day, linked to the Acme job (held), and an old one with no job (past).
-    await createRow(NOTION, 'Interviews', interviewProps({name: 'E2E Acme · Recruiter screen', day: l3, round: 'Recruiter screen', overall: 'positive', applicationId: seed.acme.id}));
-    await createRow(NOTION, 'Interviews', interviewProps({name: 'E2E Old call', day: oldDay, round: 'Call'}));
+    await addInterview(ctx, {name: 'E2E Acme · Recruiter screen', day: l3, round: 'Recruiter screen', overall: 'positive', applicationId: seed.acme.id});
+    await addInterview(ctx, {name: 'E2E Old call', day: oldDay, round: 'Call'});
   });
   if (!seed.epsilon) throw new Error('the dummy meetings were not written: the other steps cannot run');
 

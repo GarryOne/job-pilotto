@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {longestSilence, watch} from '../lib/activity.mjs';
 import {runsData} from '../lib/activity-steps.mjs';
-import {findPage, rows} from '../lib/notion.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {compareJobs} from '../lib/truth-data.mjs';
 import {finish, visit} from '../lib/layout.mjs';
@@ -14,7 +13,7 @@ import {varyFeeds} from '../lib/feeds.mjs';
 export const minutes = 30;
 export const name = 'jobs';
 export async function run(ctx) {
-  const {proxy, feeds, token: NOTION, ARTIFACTS} = ctx;
+  const {proxy, feeds, ARTIFACTS} = ctx;
   let {page} = ctx;
   ctx.findings = [];
   await ensureSetUp(ctx);
@@ -76,15 +75,15 @@ export async function run(ctx) {
       if (!(await has())) throw new Error(`the added match "${varied.match}" (in "${varied.place}") was not kept and scored; scored: ${(await scored()).map(job => job.title).join('; ')}`);
     }
   }, {needs: ctx.needs});
-  await ctx.run('every scored job in the Jobs list is its Notion row, with the same score, and none is missing', async () => {
+  await ctx.run('every scored job in the Jobs list is its Job Matches record, with the same score, and none is missing', async () => {
     // Screen against source: a list that drops, adds or rescored a job is a wrong result no screenshot shows (lib/truth-data.mjs).
     // After the refresh ends: the list shows a job the moment it is scored, and the refresh writes its Notion rows in groups and at its end (7 Oct 2026: the
     // step compared at "scored 5 of 6", before any row was written, and failed on Mac and Windows).
     for (let waited = 0; (await runsData(page)).running && waited < 240000; waited += 3000) await page.waitForTimeout(3000);
     if ((await runsData(page)).running) throw new Error('the refresh was still running 4 minutes after its first scored job');
     const app = await page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '') && job.fit != null && job.fit !== '').map(job => ({url: job.url, title: job.title, fit: job.fit})));
-    const notion = await rows(NOTION, 'Job Matches — AI Scored');   // emptied at the start of this suite: only this run's fixture jobs
-    const problems = compareJobs(app, notion);
+    const stored = await ctx.data('matches', 'list', {});   // only this run's fixture jobs: emptied at the start (Notion) or a fresh profile (this Mac's store)
+    const problems = compareJobs(app, stored);
     if (problems.length) throw new Error(problems.slice(0, 5).join('; '));
   }, {needs: ctx.needs});
   // One Apply button (5 Oct 2026): a scored job with no kit is applied to like any other (the kit is drafted when Apply is pressed), and Prepare is only in the ⋯ menu.
@@ -105,17 +104,17 @@ export async function run(ctx) {
     if (!items.some(text => /Prepare only/.test(text))) throw new Error(`the ⋯ menu of a job without a kit has no "Prepare only" (it lists: ${items.join(' | ')})`);
     await page.keyboard.press('Escape');
   }, {needs: ctx.needs});
-  await ctx.run('Find new employers probes the seed company and lists it in Notion', async () => {
+  await ctx.run('Find new employers probes the seed company and lists it in the store (Employers & Sources)', async () => {
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(ctx.profile, 'config', 'scout_seeds.json'));
     await page.click('.nav[data-view="actions"]');
     await page.click('[data-command="scout"]');
     const started = Date.now();
     let listed = null;
     while (!listed && Date.now() - started < 240000) {
-      listed = await findPage(NOTION, 'E2E Gamma').catch(() => null);
+      listed = ((await ctx.data('employers', 'list', {active: false}).catch(() => [])) || []).concat((await ctx.data('employers', 'list', {}).catch(() => [])) || []).find(employer => employer.name === 'E2E Gamma') || null;   // active or not
       if (!listed) await page.waitForTimeout(4000);
     }
-    if (!listed) throw new Error('"E2E Gamma" was not listed in Notion (Employers & Sources) within 4 minutes');
+    if (!listed) throw new Error('"E2E Gamma" was not listed in the store (Employers & Sources) within 4 minutes');
   }, {needs: ctx.needs});
   // Real answers, only slower: in CI through the AI proxy (8 s per call), on a Mac through Claude Code, which is slow by itself. Never a key on a Mac.
   await ctx.run('a slow Jobs check keeps showing that it is working, and ends cleanly', async () => {
