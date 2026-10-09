@@ -144,7 +144,7 @@ def build_fields(url, app, kit, match, posting, form, run, cv, now):
     record = {
         'version': RECORD_VERSION, 'recorded_at': now.isoformat(timespec='seconds'), 'url': url,
         'job': {'title': app.get('title'), 'company': app.get('company'),
-                'location': app.get('location'), 'posted': app.get('posted'),
+                'location': app.get('location'), 'posted': app.get('posted') or None,
                 'applied_on': applied.isoformat(), 'ats': found[0] if found else None,
                 'description': (posting or {}).get('description', '')},
         'match': match, 'answers_captured': captured, 'answers': answers, 'cover_letter': cover,

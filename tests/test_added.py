@@ -127,14 +127,14 @@ class AddedTests(unittest.TestCase):
 
 class DailyAddTests(unittest.TestCase):
     def test_a_linkedin_application_is_scored_from_the_details_you_paste_before_its_record_is_frozen(self):
-        from src import daily, daily_modes
+        from src import daily, daily_modes, ledger_store
         order, seen = [], {}
 
         def process(db, url, meta, stats=None, stores=None):
             order.append('ai'); seen.update(meta)
             return 'fit 81/100, tier A'
 
-        def add_application(tracker, url, **kwargs):
+        def add_application(stores, url, **kwargs):
             order.append('record')
             return 'Tracked: Senior SRE — Acme'
         tmp = tempfile.TemporaryDirectory()
@@ -143,8 +143,8 @@ class DailyAddTests(unittest.TestCase):
                 '--job-title', 'Senior SRE', '--job-company', 'Acme', '--job-text', POSTING, '--db', str(Path(tmp.name) / 'j.sqlite')]
         tracker = SimpleNamespace(query_database=lambda *a, **k: [])
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
-                mock.patch.object(added, 'process', process), mock.patch.object(ledger, 'add_application', add_application), \
-                mock.patch.object(ledger, 'company_for', lambda t, u, m: m.get('company')), \
+                mock.patch.object(added, 'process', process), mock.patch.object(ledger_store, 'add_application', add_application), \
+                mock.patch.object(ledger_store, 'company_for', lambda s, u, m: m.get('company')), \
                 mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             self.assertEqual(daily.main(), 0)
         self.assertEqual(order, ['ai', 'record'])

@@ -5,6 +5,7 @@ import re
 import tempfile
 import unittest
 import urllib.error
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -153,6 +154,86 @@ class TelegramButtonOnNotionTests(unittest.TestCase):
 
     def test_dismissed_then_saved(self):
         self.assertSame(['dismissed', 'saved'])
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class AddLinkOnNotionTests(unittest.TestCase):
+    """/add <job URL> [date] on Notion: the employer, the Applications row with its event and record, and the run's link to it, as
+    ledger.add_application and cron_runs.log_job wrote them through the tracker (D7), once as before and once through the store."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    URL = 'https://job-boards.greenhouse.io/acme-corp/jobs/77'
+
+    def setUp(self):
+        patch = mock.patch.object(daily.ats, '_board', mock.Mock(side_effect=urllib.error.URLError('offline')))
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def add(self, through_store, meta, matched=False, again=False):
+        import contextlib
+        import io
+        from src import daily_helpers, ledger_store
+        from src.notion import cron_runs
+        s = self.make()
+        self.tracker.database_id = self.env['NOTION_APPLICATIONS_DB']
+        out, runs = io.StringIO(), []
+        with mock.patch.object(ledger, 'EVENTS_DATABASE_ID', self.env['NOTION_EVENTS_DB']), \
+                mock.patch.object(notion, 'MATCHES_DATABASE_ID', self.env['NOTION_MATCHES_DB']), \
+                tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                contextlib.redirect_stdout(out):
+            if matched:
+                job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '77', 'title': 'Staff SRE', 'location': 'Zurich',
+                                                             'url': self.URL}]})
+                s.matches.sync(db, [dict(daily.find_job(db, self.URL), fit=FIT, ai=AI)], partial=True)
+            for _ in range(2 if again else 1):
+                given, found, run = dict(meta), {}, {'mode': 'add'}
+                if through_store:
+                    given['company'] = ledger_store.company_for(s, self.URL, given)
+                    line = ledger_store.add_application(s, self.URL, applied=date(2026, 10, 1), approx=False, source='Telegram',
+                                                        meta=given, found=found)
+                    daily_helpers.log_store_job(s, run, found['row'], found['created'])
+                else:
+                    given['company'] = ledger.company_for(self.tracker, self.URL, given)
+                    line = ledger.add_application(self.tracker, self.URL, applied=date(2026, 10, 1), approx=False, source='Telegram',
+                                                  meta=given, found=found)
+                    cron_runs.log_job(run, found['row'], found['created'])
+                runs.append((line, {k: v for k, v in run.items() if k != 'application'}, bool(run.get('application'))))
+        said = re.sub(r'[0-9a-f]{32}|[0-9a-f-]{36}', '<id>', out.getvalue())
+        return runs, said, workspace(self.tracker, self.env)
+
+    def assertSame(self, meta, **kwargs):
+        def known(result):
+            runs, said, text = result
+            data = json.loads(text)
+            for page in data['applications'] + data['events']:
+                page['properties']['Created'] = '<known>'
+            for event in data['events']:
+                event['properties']['At'] = '<known>'
+            for app in data['applications']:
+                for heading in app['blocks']:
+                    for block in heading['children']:
+                        if block['type'] == 'code':
+                            record = json.loads(''.join(part['plain_text'] for part in block['code']['rich_text']))
+                            (record.get('match') or {}).pop('Last update', None)
+                            block['code'] = record
+            return runs, said, data
+        old, new = known(self.add(False, meta, **kwargs)), known(self.add(True, meta, **kwargs))
+        self.assertEqual(new[0], old[0])   # the reply line, the run's subject, its link to the row
+        self.assertEqual(new[1], old[1])   # what it printed ("Job logged: {...}")
+        self.assertEqual(new[2], old[2])   # every page and block
+
+    def test_a_page_that_names_its_employer(self):
+        self.assertSame({'title': 'Staff SRE', 'company': 'Acme', 'description': 'Kubernetes at scale.'})
+
+    def test_no_company_named_the_match_has_it(self):
+        self.assertSame({'title': 'Staff SRE'}, matched=True)
+
+    def test_no_company_and_no_match_the_boards_slug(self):
+        self.assertSame({'title': 'Staff SRE'})
+
+    def test_added_twice(self):
+        self.assertSame({'title': 'Staff SRE', 'company': 'Acme'}, again=True)
 
 
 if __name__ == '__main__':
