@@ -7,6 +7,7 @@ import path from 'node:path';
 import {finish, sweep, visitNarrow} from '../lib/layout.mjs';
 import {WINDOW_SIZES, createVariation} from '../lib/variation.mjs';
 import {probePage} from '../lib/interact.mjs';
+import {goTo as goToPage} from '../lib/leave-prompt.mjs';
 import {ensureSetUp, seedCoverage} from '../lib/seed.mjs';
 import {settle} from '../lib/app.mjs';
 import {VIEWS} from '../lib/uicheck.mjs';
@@ -64,9 +65,10 @@ export async function run(ctx) {
     }, {needs: ctx.needs});
   }
   if (process.env.E2E_ONLY_STILL) return;   // a by-hand check of this one detector: skip the rest of the suite
+  const goTo = view => goToPage(page, view);   // answers Strategy's unsaved-edits prompt (lib/leave-prompt.mjs)
   for (const view of vary.shuffle(VIEWS)) {
     await ctx.run(`${view}: every safe control does something`, async () => {
-      await page.click(`.nav[data-view="${view}"]`);
+      await goTo(view);
       await settle(page);
       const {results, findings, skipped} = await probePage({page, view, ipc, scope: `.view[data-view="${view}"]`, arrange: vary.shuffle, reset: async () => { await page.click(`.nav[data-view="${view}"]`); await settle(page); },
         onFlag: async (_control, flagged) => { const shot = `probe-${view}-${++shots}`; await ctx.session.shot(`ui-${shot}`); for (const item of flagged) item.shot = shot; }});
@@ -79,7 +81,7 @@ export async function run(ctx) {
   }
   // Recall (lib/recall.mjs): known bugs planted into the page one at a time; each detector must catch its own. A miss is filed as a finding about the detector.
   await ctx.run('the detectors catch the bugs planted for them (recall)', async () => {
-    await page.click('.nav[data-view="focus"]');
+    await goTo('focus');
     await settle(page);
     const result = await measureRecall({page, view: 'focus', ipc});
     fs.writeFileSync(path.join(ARTIFACTS, 'recall.json'), JSON.stringify(result, null, 2));
