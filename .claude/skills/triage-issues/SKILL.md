@@ -97,7 +97,20 @@ Prefer, in order: teaching the existing judge (lessons, the prejudge prompt, a s
 detector's rule at its root, a new plant for an escape, a harness signature for a recurring test mistake (`lib/signatures.mjs` learns these
 on its own after 3 closures). Never a word list or a per-screen exception (CLAUDE.md "Universal first").
 
-## 5. Report to the owner
-- A short table: issue, verdict, severity, what happened (fixed in <sha> / closed: <cause> / parked: <why>).
-- The scorecard's headline (precision and its change) and the proposals, ranked by expected gain.
-- What was not done and why (a person's issue left for the owner, a fix too big for this session).
+## 5. The session report (always, at the end; owner, 9 Oct 2026)
+End every triage session with this report, in the reply (short table cells, explanations under the tables). Every number comes from this
+session's verdict files, commits and the scorecard, never from memory.
+
+1. **Verdict line:** `N issues triaged: V valid (F fixed, Q confirmed, still open) · P false positives · H test mistakes · S stale/duplicate · K parked for you`.
+2. **Valid issues:** | # | What was wrong | Severity (filed → judged) | Fixed in |  (a commit sha, or "open: <why>").
+3. **False positives:** | # | Detector | Why false (cause) |  plus one line on the pattern if a detector made the same mistake more than once.
+4. **Gaps found in the UI Finder:**
+   - detectors whose precision is low, and their main false-positive cause;
+   - severity it got wrong (over/under-rated, by detector);
+   - bugs it missed (escapes: found by a person, not the Finder; planted bugs not caught);
+   - data on /self-heal that was wrong or missing.
+5. **What we changed this session:** product fixes (sha → issue) and Finder/stats fixes (sha → which gap it closes).
+6. **Finder scorecard:** precision now, its change since the last scorecard, and the link to the scorecard comment.
+7. **Proposed next improvements**, ranked by expected gain (each: the change, the issues it would have caught or not filed, its test).
+   Built only once the owner says yes.
+8. **Not done, and why:** a person's issue left for the owner, a fix too big for the session, anything skipped.
