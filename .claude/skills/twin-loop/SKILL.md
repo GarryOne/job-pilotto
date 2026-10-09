@@ -9,6 +9,12 @@ The goal (owner, 9 Oct 2026): the extension takes every application **from the p
 on any site and in any language. Every field is either filled or has a suggested answer, and the owner checks and validates it.
 Every round should leave more forms closer to that point than the last one.
 
+**The expected outcome of the self-improving mechanism (owner, 9 Oct 2026): form filling gets better with every iteration WITHOUT changing
+the code, only through data** (the site's Cloudflare D1 database and the packs it serves). What one fill teaches (a wording's meaning, a widget's
+recipe, a page's kind, an answer the person used) becomes data, and the next fill of that shape, on any install, uses it. A code fix is the
+exception, for what no data can express (a new kind of operator, a reader blind spot); every code fix in this loop says why data could not do it.
+So the loop is judged on two things: forms closer to ready, and **the share of each round's improvement that came from data, not code**.
+
 ## How it is invoked
 - `/twin-loop`: the **active Applying sessions** (status `input` or `done`, last 3 days).
 - `/twin-loop jobs <n>`: also **n new jobs** from the owner's list (top fit, not yet applied, different sites/ATS than the sessions).
@@ -91,6 +97,9 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
      data above. A valid candidate starts at 5% canary by itself at the next judge (2b5eba9).
    - **Uses:** what was learned is applied on the next form with that shape.
    - **Helps:** `filledShare`/`formsNeedingNothing` went up, and `missingShare`/`medianSeconds` went down, for the versions shipped.
+   - **Without code:** the improvement on a target between two runs with **no code change in between** (same extension version, no landing) is the
+     mechanism's own: compare the two scorecard rows and name the data that made it (a recipe gone canary, a meaning, a remembered kind, a used answer).
+     Log each improvement as `data` or `code` in the scorecard's Mechanism table; the goal is a growing `data` share.
    - **Sees:** every left field has a reason the digest can group (not "unknown").
 4. **Gaps:** any "no" above, and any number that cannot move. Examples:
    - a counter stuck at 0 while the thing happens live. First check that the fills are reaching the site at all: on 9 Oct, `proposedShare` was 0 because
@@ -135,6 +144,7 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
 - When a target reaches one of these, mark it in the scorecard and continue with the others.
 
 ## Reporting (after every round, and when stopped)
+- **Data vs code:** how many of this round's improvements came from data (no code change) and how many from code, with each data one named.
 - **The scorecard table** with a one-line delta per target (e.g. "Nahrin: account → code (Continue now pressed)").
 - **What was fixed:** commit, version, the shape it covers, and which other sites and users it helps.
 - **The mechanism:** its table with the trend since the loop started, the learns/uses/helps/sees verdict, gaps opened or closed.
