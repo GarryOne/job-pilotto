@@ -7,6 +7,7 @@ import path from 'node:path';
 import * as notion from './notion.js';   // Notion-only: the move's Notion side (Move my data to Notion)
 import * as notionGate from './notion-gate.js';
 import * as pipelineRun from './pipeline-run.js';
+import * as schema from './schema.js';
 import * as strategy from './strategy-settings.js';
 import {ensureKnowledgePage} from './store/notion.js';
 
@@ -20,10 +21,14 @@ const stamp = now => now.toISOString().replace(/[-:]/g, '').replace('T', '-').sl
 
 // -> {ok, moved: {entity: count}, kept: [texts Notion already had], archive} | notionGate.needs('move') | {ok: false, error}
 export async function moveToNotion(storage, {run = pipelineRun.run, publish = strategy.publishSearchSettings, onProgress = () => {},
-  log = () => {}, now = new Date(), knowledgePage = ensureKnowledgePage} = {}) {
+  log = () => {}, now = new Date(), knowledgePage = ensureKnowledgePage, repair = schema.repair} = {}) {
   if (storage.settings().store !== 'sqlite') return {ok: false, error: 'Your data is not on this Mac: there is nothing to move.'};
   if (!notionGate.connected(storage)) return notionGate.needs('move');   // the window connects, then runs the move again
   log('store', 'move started', {to: 'notion'});
+  // The workspace's databases and columns first (config/notion_schema.json): on this Mac's store migrate.js runs nothing, so a workspace
+  // connected for the move is repaired here, as a Notion user's is at each start.
+  const fixed = await repair(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {});
+  if (fixed?.ids) storage.saveSettings({notionIds: fixed.ids});
   // The Knowledge page is made on its first write; the copy writes texts whole into existing pages, so it must be there first.
   if (storage.readText('knowledge.md').trim()) await knowledgePage(storage);
   const {code, stdout} = await run(storage, ['src.stores.copy', '--from', 'sqlite', '--to', 'notion'], line => {
