@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {longestSilence, watch} from '../lib/activity.mjs';
 import {runsData} from '../lib/activity-steps.mjs';
-import {emptyDatabase, findPage, rows} from '../lib/notion.mjs';
+import {findPage, rows} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {compareJobs} from '../lib/truth-data.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -17,7 +18,12 @@ export async function run(ctx) {
   let {page} = ctx;
   ctx.findings = [];
   await ensureSetUp(ctx);
-  await ctx.run("the app's next start links this workspace's Search settings page (so the check looks for this person's roles and places)", async () => {
+  // On this Mac's store the strategy is the app's own config (saved at setup, lib/seed.mjs): no page to link, the check reads the file.
+  if (ctx.store === 'sqlite') await ctx.run("the check looks for this person's roles and places (this Mac's config, no Search settings page)", async () => {
+    const search = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', 'search.json'), 'utf8'));
+    if (!(search.role_keywords || []).some(word => /site reliability/.test(word))) throw new Error(`config/search.json holds roles ${JSON.stringify(search.role_keywords)}, not the applicant's`);
+  }, {needs: ctx.needs});
+  else await ctx.run("the app's next start links this workspace's Search settings page (so the check looks for this person's roles and places)", async () => {
     // The fast seed connects Notion and marks setup done without a restart; the app links the existing Search settings page in its start-up migration (migrate.js), which is
     // what a real person's next start does. Without it the engine keeps the example config (a data analyst in Amsterdam), drops every fixture job and the check finds "0 new jobs"
     // (CI, 2 Oct 2026).
@@ -32,7 +38,7 @@ export async function run(ctx) {
     if (!linked) throw new Error("the app did not link this workspace's Search settings page within a minute of starting");
   }, {needs: ctx.needs});
   await ctx.run('this suite starts with no jobs and no runs in its Notion page', async () => {
-    const rows = [await emptyDatabase(NOTION, 'Job Matches — AI Scored'), await emptyDatabase(NOTION, 'Cronjob Runs')];
+    const rows = [await clearData(ctx, 'Job Matches — AI Scored'), await clearData(ctx, 'Cronjob Runs')];
     console.log(`  cleared ${rows[0]} job row(s) and ${rows[1]} run row(s)`);
     // The app listed last run's fixture jobs when it started; read the list again, or the next step sees them, passes at once and never waits for its check.
     await page.reload();

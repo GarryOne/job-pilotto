@@ -4,7 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {badSummary, leaks, sample} from './activity.mjs';
-import {emptyDatabase, runRows} from './notion.mjs';
+import {runRows} from './notion.mjs';
+import {clearData} from './start-state.mjs';
 import {snap} from './layout.mjs';
 import {ensureSetUp} from './seed.mjs';
 
@@ -182,11 +183,11 @@ export async function prepare(ctx) {
   ctx.findings = [];
   console.log(`  profile ${ctx.profile}, feeds ${ctx.feeds}`);
   await ctx.run('this suite starts with no run rows in its Notion page', async () => {
-    console.log(`  cleared ${await emptyDatabase(ctx.token, RUNS_DB)} run row(s)`);
+    console.log(`  cleared ${await clearData(ctx, RUNS_DB)} run row(s)`);
   }, {needs: ctx.needs, critical: true});
   // Every run seeds postings with new ids (setFeed), so each leaves Job Matches rows behind: 491 piled up by 6 Oct 2026 and a run spent 5 minutes marking them Not seen.
   await ctx.run('this suite starts with no job rows in its Notion Job Matches', async () => {
-    console.log(`  cleared ${await emptyDatabase(ctx.token, 'Job Matches — AI Scored')} job row(s)`);
+    console.log(`  cleared ${await clearData(ctx, 'Job Matches — AI Scored')} job row(s)`);
   }, {needs: ctx.needs});
   await ensureSetUp(ctx);
   fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});

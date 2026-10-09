@@ -3,7 +3,8 @@
 // zone (Asia/Tokyo, no daylight saving) and then in another (Pacific/Honolulu). Starts from a set-up install; resets only its own rows.
 import {launch} from '../lib/app.mjs';
 import {addDays, interviewProps, showsClock, trackerProps, weekDays} from '../lib/interview-data.mjs';
-import {createRow, emptyDatabase} from '../lib/notion.mjs';
+import {createRow} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 import {captureExternal, ids, independent} from '../lib/steps.mjs';
@@ -49,7 +50,7 @@ export async function run(ctx) {
   await ensureSetUp(ctx);
   const external = await captureExternal(app);
   await ctx.run('this suite starts with no jobs and no interviews in its Notion page', async () => {
-    console.log(`  cleared ${await emptyDatabase(NOTION, 'Job Tracker')} job row(s) and ${await emptyDatabase(NOTION, 'Interviews')} interview row(s)`);
+    console.log(`  cleared ${await clearData(ctx, 'Job Tracker')} job row(s) and ${await clearData(ctx, 'Interviews')} interview row(s)`);
   });
 
   await step('the app runs in the time zone the test asked for', async () => {

@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {DESKTOP} from '../lib/app.mjs';
-import {databaseText, emptyDatabase, findPage, pageText} from '../lib/notion.mjs';
+import {databaseText, findPage, pageText} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 15;
@@ -88,7 +89,7 @@ export async function run(ctx) {
     const label = `${profile.name}`;
     const read = {ui: '', digest: '', notion: ''};
     await ctx.run(`${label}: starts from nothing: no jobs, runs or employers in Notion, no cached jobs on the Mac, their feeds and CV in place`, async () => {
-      await emptyDatabase(NOTION, 'Job Matches — AI Scored'); await emptyDatabase(NOTION, 'Cronjob Runs'); await emptyDatabase(NOTION, 'Employers & Sources');
+      await clearData(ctx, 'Job Matches — AI Scored'); await clearData(ctx, 'Cronjob Runs'); await clearData(ctx, 'Employers & Sources');
       for (const file of fs.readdirSync(path.join(personaDir(key), 'feeds'))) fs.copyFileSync(path.join(personaDir(key), 'feeds', file), path.join(feeds, file));
       const data = path.join(ctx.profile, 'data');
       for (const file of fs.existsSync(data) ? fs.readdirSync(data) : []) if (/^jobs\.sqlite/.test(file)) fs.rmSync(path.join(data, file));

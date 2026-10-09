@@ -10,7 +10,8 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
-import {databaseRows, emptyDatabase, profileText, rewriteLines} from '../lib/notion.mjs';
+import {databaseRows, profileText, rewriteLines} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {quiet} from '../lib/activity-steps.mjs';
@@ -88,7 +89,7 @@ export async function run(ctx) {
   const soft = async step => { try { await step(); } catch (error) { late.push(error); } };
   try {
     await ctx.run('this suite starts with no jobs and no runs in its Notion page', async () => {
-      await emptyDatabase(NOTION, MATCHES); await emptyDatabase(NOTION, 'Cronjob Runs');
+      await clearData(ctx, MATCHES); await clearData(ctx, 'Cronjob Runs');
       // The candidate's compensation is known, not whatever the wizard's AI drafted from the CV ("CHF 180,000 (estimate)"): target 170k, minimum 140k.
     if (!persona) {   // a persona states its own compensation in its Profile file
     const set = [await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Target:/, 'Target: CHF 170,000 per year in Switzerland'),

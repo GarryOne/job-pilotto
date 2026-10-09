@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {pickFile} from '../lib/app.mjs';
 import {TRANSCRIPT, addDays, interviewProps, newestFirst, trackerProps, transcriptBlocks} from '../lib/interview-data.mjs';
-import {createRow, emptyDatabase, pageBlocks, plainOf, rows} from '../lib/notion.mjs';
+import {createRow, pageBlocks, plainOf, rows} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {paragraph} from '../lib/notion.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {pickJob} from '../lib/picker.mjs';
@@ -58,7 +59,7 @@ export async function run(ctx) {
 
   // Dummy rows, written once: three jobs in the tracker, four interviews (three reviewed with different outcomes and one not).
   await ctx.run('this suite starts from its own dummy jobs and interviews in Notion', async () => {
-    const cleared = [await emptyDatabase(NOTION, 'Interviews'), await emptyDatabase(NOTION, 'Job Tracker'), await emptyDatabase(NOTION, 'Insights')];
+    const cleared = [await clearData(ctx, 'Interviews'), await clearData(ctx, 'Job Tracker'), await clearData(ctx, 'Insights')];
     console.log(`  cleared ${cleared.join('/')} interview, job and insight row(s)`);
     for (const [key, role, company, n] of [['acme', 'Senior Site Reliability Engineer', 'E2E Acme', 9001], ['beta', 'Platform Engineer', 'E2E Beta', 9002], ['gamma', 'Senior Site Reliability Engineer', 'E2E Gamma', 9003]]) {
       const url = `https://boards.e2e.test/job/${n}`;

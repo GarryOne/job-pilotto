@@ -10,7 +10,8 @@ import {collect, judge as fitJudge, toFindings as fitFindings} from '../lib/fit.
 import {duplicates, EXPECTED, parseRunLine, rowProblems} from '../lib/employers.mjs';
 import {judge, problems as judgeProblems} from '../lib/judge.mjs';
 import {finish, visit} from '../lib/layout.mjs';
-import {emptyDatabase, readRows} from '../lib/notion.mjs';
+import {readRows} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {appLogLines} from '../lib/app-log.mjs';
 
@@ -105,7 +106,7 @@ export async function run(ctx) {
   const state = {};
 
   await ctx.run('this suite starts with no employers and no runs in its Notion page, and a candidate list of every kind', async () => {
-    const cleared = [await emptyDatabase(NOTION, 'Employers & Sources'), await emptyDatabase(NOTION, 'Cronjob Runs')];
+    const cleared = [await clearData(ctx, 'Employers & Sources'), await clearData(ctx, 'Cronjob Runs')];
     console.log(`  cleared ${cleared[0]} employer row(s) and ${cleared[1]} run row(s)`);
     // Nimbus' postings are three days old whenever the suite runs (freshness is part of the quality score); Orbit's stay old on purpose.
     if (persona.dir !== 'employers') {   // the persona's boards replace the SRE ones of the same names
