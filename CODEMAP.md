@@ -441,7 +441,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/inbox_dates.py` — 📥 Log anything, part 2: dates as a chat writes them ("MONDAY 12:33 AM", "Sep 21") resolved against the day it is
 - `src/ai/inbox_events.py` — 📥 Log anything, part 5: the last message of a conversation as an event on the job, and the note an event carries.
 - `src/ai/inbox_fields.py` — 📥 Log anything, part 4: the confirmation step's questions (fields: ok / check / ask), the agreement to talk, and what an
-- `src/ai/inbox_notion.py` — 📥 Log anything, part 3: what a log writes in Notion: the job's page entry with its screenshots, a new Applications row,
+- `src/ai/inbox_notion.py` — 📥 Log anything, part 3: what a log writes through the active store (src/stores): the job's logged entry (base.LOGGED) with
 - `src/ai/inbox_reading.py` — 📥 Log anything, part 1: what Claude is told and how its reading is asked for (the kinds, the schema, the prompt,
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 - `src/ai/insights_data.py` — The daily insight and weekly report, what they read: the owner's applications with their outcomes, the funnel, the
