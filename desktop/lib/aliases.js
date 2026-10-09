@@ -5,7 +5,7 @@ import {cleanLabel, validateBundle} from '../shared/alias-schema.js';
 import {installId} from './app-feedback.js';
 import * as benchmarks from './benchmarks.js';
 import {log} from './log.js';
-import {SITE, token} from './recipes.js';
+import {SITE, enabled, siteIsOff, token} from './recipes.js';
 
 const CACHE = 'aliases-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
@@ -35,7 +35,6 @@ async function sendMeanings(storage, id, fetcher, base) {
 
 export const cleanHints = list => (Array.isArray(list) ? list : []).filter(item => HINT_REASONS.includes(item?.reason) && Number(item.share) > 0 && Number(item.share) <= 1)
   .slice(0, 3).map(item => ({reason: item.reason, share: Math.round(Number(item.share) * 100) / 100}));
-const enabled = storage => storage.settings().telemetry !== false;
 
 // What the extension fills by: the shared meanings, then what Claude decided on this Mac (lib/contact-keys.js) for wordings the pack
 // doesn't have yet, so this Mac's next form fills them at once while they wait to be shared. Same schema check as the pack's.
@@ -49,10 +48,11 @@ export async function forExtension(storage, options = {}) {
 }
 // -> [{key, phrase}] for this install. Never throws: no meanings is a normal answer.
 export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, now = Date.now(), onSent = null} = {}) {
-  if (!enabled(storage)) return [];
+  if (storage.settings().telemetry === false) return [];
   let kept = null;
   try { kept = JSON.parse(storage.readText(CACHE) || 'null'); } catch { kept = null; }
   if (kept && now - kept.at < TTL_MS && Array.isArray(kept.aliases)) return kept.aliases;
+  if (!enabled(storage)) return siteIsOff() ? (kept?.aliases || []) : [];   // not a real install (twin, CI, dev): the cached pack if any, never a request
   try {
     const id = installId(storage);
     const ask = async bearer => fetcher(`${base}/api/packs/aliases`, {headers: {Authorization: `Bearer ${bearer}`, 'X-Install-Id': id}});

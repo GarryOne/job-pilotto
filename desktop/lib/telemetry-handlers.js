@@ -6,6 +6,7 @@ import * as analyticsLib from './analytics.js';
 import * as engineLog from './engine-log.js';
 import * as installSource from './install-source.js';
 import * as pipeline from './pipeline.js';
+import * as recipesLib from './recipes.js';
 import * as sentryLib from './sentry.js';
 import * as server from './server.js';
 import * as telemetryLib from './telemetry.js';
@@ -18,6 +19,7 @@ export function registerTelemetryHandlers(ctx) {
   let telemetry = null, analytics = null, staleWarned = '';   // main.js keeps telemetry, trail and analytics too (track() reads them): set through the setters
   let trail = null;
   const quiet = DEMO ? 'demo mode' : telemetryLib.reportingOff(process.env, {packaged: app.isPackaged});
+  recipesLib.setSiteOff(quiet);   // the same reason switches off the recipe/meanings requests (lib/recipes.js)
   const sentryOnly = telemetryLib.sentryOnly(process.env);   // the journey on CI: Sentry (environment e2e, id "e2e") yes; the store and PostHog never
   telemetry = quiet && !sentryOnly ? null : telemetryLib.create(storage, {version: app.getVersion(), silent: sentryOnly});
   setTelemetry(telemetry);

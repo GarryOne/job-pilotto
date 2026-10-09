@@ -23,10 +23,17 @@ const JOB_STATES = ['new', 'saved', 'dismissed', 'applying', 'applied', 'screeni
 const OUTCOME_IDS = ['reply', 'screening', 'offer', 'rejected', 'no_response'];
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply', ...RESULT_STATES];   // the last ones: how an application ended (application-result.js)
 
-const enabled = storage => storage.settings().telemetry !== false;
+// One switch for everything that asks the site (recipes, label meanings, install tokens): off when this run is not a real install (the live-test twin,
+// CI, smoke tests, a development build, demo: lib/telemetry.js reportingOff, set from lib/telemetry-handlers.js). 9 Oct 2026: such runs asked the
+// site for a pack and a token each, 260 throwaway installs a day, half of Cloudflare KV's free writes. They work from the cached pack or the built-in words.
+let siteOff = '';
+export const setSiteOff = reason => { siteOff = reason || ''; };
+export const siteIsOff = () => !!siteOff;
+export const enabled = storage => !siteOff && storage.settings().telemetry !== false;
 const readCache = storage => { try { return JSON.parse(storage.readText(CACHE) || '{}'); } catch { return {}; } };
 
 export async function token(storage, fetcher, base) {
+  if (siteOff) throw new Error(`the site is not asked: ${siteOff}`);
   const id = installId(storage);
   const kept = storage.settings().recipesToken;
   if (kept?.install === id && kept.value) return kept.value;
