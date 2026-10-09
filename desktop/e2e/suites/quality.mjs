@@ -10,7 +10,8 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
-import {databaseRows, profileText, rewriteLines} from '../lib/notion.mjs';
+import {rewriteTextLines, textOf} from '../lib/seed-texts.mjs';
+import {MATCHES, matchRowsOf, notKeptNote} from '../lib/quality-rows.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -35,10 +36,9 @@ const PERSONA = process.env.E2E_QUALITY_PERSONA || '';
 const GOLDEN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', PERSONA ? `golden-${PERSONA}` : 'golden');
 const persona = PERSONA ? JSON.parse(fs.readFileSync(path.join(GOLDEN, 'persona.json'), 'utf8')) : null;
 const read = file => JSON.parse(fs.readFileSync(path.join(GOLDEN, file), 'utf8'));
-const MATCHES = 'Job Matches — AI Scored';
 
 export async function run(ctx) {
-  const {page, token: NOTION} = ctx;
+  const {page} = ctx;
   const truth = process.env.E2E_QUALITY_TRUTH ? JSON.parse(fs.readFileSync(process.env.E2E_QUALITY_TRUTH, 'utf8')) : read('truth.json');   // a different truth: to prove the suite fails
   const candidate = fs.readFileSync(path.join(GOLDEN, 'candidate.txt'), 'utf8');
   const postings = truth.filter(item => !item.duplicateOf);
@@ -77,7 +77,7 @@ export async function run(ctx) {
   const read2 = async () => {
     const expected = postings.filter(item => !item.filterMayDrop).length;
     for (let waited = 0; waited < 90000; waited += 5000) {   // Notion's query can trail a write by a few seconds: wait for every posting that must be there
-      rows = await databaseRows(NOTION, MATCHES);
+      rows = await matchRowsOf(ctx);   // the store's matches: Notion's rows, or this Mac's records (lib/quality-rows.mjs)
       if (Object.keys(matchRows(truth, rows).byId).length >= expected) break;
       await page.waitForTimeout(5000);
     }
@@ -92,9 +92,10 @@ export async function run(ctx) {
       await clearData(ctx, MATCHES); await clearData(ctx, 'Cronjob Runs');
       // The candidate's compensation is known, not whatever the wizard's AI drafted from the CV ("CHF 180,000 (estimate)"): target 170k, minimum 140k.
     if (!persona) {   // a persona states its own compensation in its Profile file
-    const set = [await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Target:/, 'Target: CHF 170,000 per year in Switzerland'),
-      await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Minimum acceptable:/, 'Minimum acceptable: CHF 140,000 per year in Switzerland')];
-    if (set.some(count => count !== 1)) throw new Error(`the Profile page should have one Target line and one Minimum acceptable line, found ${set.join(' and ')}`);
+    // The Profile through the store the app uses (this Mac's profile.md or Notion's Profile page).
+    const set = [await rewriteTextLines(ctx, 'profile', /^\s*(?:[-*]\s*)?(?:\*\*)?Target:/, 'Target: CHF 170,000 per year in Switzerland'),
+      await rewriteTextLines(ctx, 'profile', /^\s*(?:[-*]\s*)?(?:\*\*)?Minimum acceptable:/, 'Minimum acceptable: CHF 140,000 per year in Switzerland')];
+    if (set.some(count => count !== 1)) throw new Error(`the Profile should have one Target line and one Minimum acceptable line, found ${set.join(' and ')}`);
     }
     // The golden postings replace the shared fixture feeds: one board, twelve postings (one is a duplicate).
       for (const file of fs.readdirSync(ctx.feeds)) fs.rmSync(path.join(ctx.feeds, file), {force: true, recursive: true});
@@ -136,7 +137,7 @@ export async function run(ctx) {
           if (result.ok) summary.facts.exact++; else problems.push(`"${result.posting}": ${result.fact} should be ${JSON.stringify(result.expected)}, the app wrote ${JSON.stringify(result.actual)}`);
         }
       }
-      console.log(`  ${summary.facts.exact}/${summary.facts.total} facts exact`);
+      console.log(`  ${summary.facts.exact}/${summary.facts.total} facts exact${notKeptNote(rows) ? `; ${notKeptNote(rows)}` : ''}`);
       if (problems.length) throw new Error(`${problems.length} wrong or missing fact(s):\n    ${problems.join('\n    ')}`);
     }, {needs: ctx.needs});
 
@@ -169,6 +170,7 @@ export async function run(ctx) {
       const problems = [];
       for (const row of rows) { const item = matchRows(truth, [row]).byId; const posting = truth.find(entry => item[entry.id]); const missing = missingColumns(row, posting?.mayBeEmpty); if (missing.length) problems.push(`${row.props.Job}: empty ${missing.join(', ')}`); }
       for (const dirty of dirtyRows(rows)) problems.push(`${dirty.where} shows ${dirty.problems.join(', ')}`);
+      if (notKeptNote(rows)) console.log(`  ${notKeptNote(rows)}`);
       // What a person reads: the Jobs page and the app's own list.
       const visible = await page.evaluate(() => document.querySelector('.view[data-view="jobs"]')?.innerText || '');
       for (const found of dirtyText(visible)) problems.push(`the Jobs page shows ${found}`);
@@ -216,7 +218,7 @@ export async function run(ctx) {
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
       const {byId} = matchRows(truth, rows);
       // The candidate as the app knows them: the CV text plus the Profile page the scoring read (figures such as a salary minimum may come from there).
-      const profile = `${candidate}\n\nPROFILE PAGE IN NOTION\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await profileText(NOTION, 'Profile — CV and Preferences').catch(() => '')}`.slice(0, 30000);
+      const profile = `${candidate}\n\nTHE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await textOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {

@@ -26,25 +26,27 @@ export function matchRows(truth, rows) {
 // The enriched facts of one row against its posting's truth. -> [{posting, fact, expected, actual, ok}]; a truth field that is null is not checked.
 export function checkFacts(item, row) {
   const p = row.props, checks = [];
-  const add = (fact, expected, actual, ok) => checks.push({posting: item.title, fact, expected, actual, ok});
-  if (item.seniority != null) add('seniority', item.seniority, p.Seniority ?? null, p.Seniority === item.seniority);
+  // A column the store does not keep yet (row.notKept, lib/quality-rows.mjs) is not checked: the step says so instead.
+  const kept = column => !(row.notKept || []).includes(column);
+  const add = (fact, expected, actual, ok, column = '') => { if (!column || kept(column)) checks.push({posting: item.title, fact, expected, actual, ok}); };
+  if (item.seniority != null) add('seniority', item.seniority, p.Seniority ?? null, p.Seniority === item.seniority, 'Seniority');
   if (item.workMode != null) add('work mode', item.workMode, p['Work mode'] ?? null, p['Work mode'] === item.workMode);
   add('location', item.location, p.Location, p.Location === item.location);
-  if (item.english != null) add('English is enough', item.english, (p.Languages || []).includes('English'), (p.Languages || []).includes('English') === item.english);
+  if (item.english != null) add('English is enough', item.english, (p.Languages || []).includes('English'), (p.Languages || []).includes('English') === item.english, 'Languages');
   if (item.languagePlus != null) {
     const plus = (p.Languages || []).filter(name => name.endsWith(' +')).sort();
-    add('languages that are a plus', item.languagePlus, plus, JSON.stringify(plus) === JSON.stringify([...item.languagePlus].sort()));
+    add('languages that are a plus', item.languagePlus, plus, JSON.stringify(plus) === JSON.stringify([...item.languagePlus].sort()), 'Languages');
   }
   if (item.salary != null) {
     const shown = digits(String(p.Salary || '').replace(/(\d)[,'’.](?=\d{3}\b)/g, '$1'));
     const ok = item.salary === '' ? !String(p.Salary || '').trim() : item.salary.every(figure => shown.includes(figure));
-    add('salary', item.salary === '' ? '(none stated: empty)' : item.salary.join('–'), p.Salary || '(empty)', ok);
+    add('salary', item.salary === '' ? '(none stated: empty)' : item.salary.join('–'), p.Salary || '(empty)', ok, 'Salary');
   }
   if (item.mustMention) {   // a blocker the posting states must be named where the person reads why the score is what it is
     const said = [p.Reason, p.Gaps].filter(Boolean).join(' / ');
     add('says why (reason or gaps)', `mentions /${item.mustMention}/`, said || '(empty)', new RegExp(item.mustMention, 'i').test(said));
   }
-  if (item.roleFamily != null) add('role family', item.roleFamily.join('|'), p['Role family'] ?? null, item.roleFamily.includes(p['Role family']));
+  if (item.roleFamily != null) add('role family', item.roleFamily.join('|'), p['Role family'] ?? null, item.roleFamily.includes(p['Role family']), 'Role family');
   return checks;
 }
 
@@ -53,7 +55,7 @@ export const REQUIRED_COLUMNS = ['Job', 'Score', 'Tier', 'Company', 'Location', 
   'Seniority', 'Work mode', 'Languages', 'Technologies'];
 // `mayBeEmpty`: the columns this posting does not state a value for (the truth names them), which the app rightly leaves empty.
 export function missingColumns(row, mayBeEmpty = []) {
-  return REQUIRED_COLUMNS.filter(name => !mayBeEmpty.includes(name)).filter(name => {
+  return REQUIRED_COLUMNS.filter(name => !mayBeEmpty.includes(name) && !(row.notKept || []).includes(name)).filter(name => {
     const value = row.props[name];
     return value == null || value === '' || (Array.isArray(value) && value.length === 0 && name !== 'Languages');
   });

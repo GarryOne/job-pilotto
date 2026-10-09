@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {DESKTOP} from '../lib/app.mjs';
-import {databaseText, findPage, pageText} from '../lib/notion.mjs';
+import {pageText} from '../lib/notion.mjs';
+import {storeText} from '../lib/seed-texts.mjs';
 import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
@@ -107,9 +108,10 @@ export async function run(ctx) {
       const prefs = JSON.parse(fs.readFileSync(path.join(config, 'preferences.json'), 'utf8'));
       if (JSON.stringify(search.locations) !== JSON.stringify(profile.places)) throw new Error(`the places were not kept: ${JSON.stringify(search.locations)}`);
       if (JSON.stringify(prefs.work_rights) !== JSON.stringify(profile.work_rights)) throw new Error(`citizenship / work rights were not kept: ${JSON.stringify(prefs.work_rights)}`);
-      const settingsPage = await pageText(NOTION, 'Search settings');
-      if (!/Where you can work without a visa/i.test(settingsPage)) throw new Error('⚙️ Search settings in Notion has no "Where you can work without a visa" section');
-      if (!new RegExp(profile.work_rights[0], 'i').test(settingsPage.split(/Where you can work without a visa/i)[1] || '')) throw new Error(`Notion's work-rights section does not list ${profile.work_rights[0]}`);
+      // ⚙️ Search settings is a Notion page on the Notion store; on this Mac's store the settings are the files just read (config/*.json).
+      const settingsPage = ctx.store === 'sqlite' ? null : await pageText(NOTION, 'Search settings');
+      if (settingsPage !== null && !/Where you can work without a visa/i.test(settingsPage)) throw new Error('⚙️ Search settings in Notion has no "Where you can work without a visa" section');
+      if (settingsPage !== null && !new RegExp(profile.work_rights[0], 'i').test(settingsPage.split(/Where you can work without a visa/i)[1] || '')) throw new Error(`Notion's work-rights section does not list ${profile.work_rights[0]}`);
     }, {needs: ctx.needs});
     await ctx.run(`${label}: a jobs check keeps the roles in their places and drops the wrong ones`, async () => {
       await page.click('.nav[data-view="jobs"]');
@@ -128,8 +130,8 @@ export async function run(ctx) {
       await page.click('[data-command="scout"]');
       const started = Date.now();
       let listed = null;
-      while (!listed && Date.now() - started < 240000) { listed = await findPage(NOTION, 'E2E Gamma').catch(() => null); if (!listed) await page.waitForTimeout(4000); }
-      if (!listed) throw new Error('"E2E Gamma" was not listed in Notion (Employers & Sources) within 4 minutes');
+      while (!listed && Date.now() - started < 240000) { listed = ((await ctx.data('employers', 'list', {active: null}).catch(() => [])) || []).find(item => item.name === 'E2E Gamma') || null; if (!listed) await page.waitForTimeout(4000); }
+      if (!listed) throw new Error('"E2E Gamma" was not listed in the store\'s employers (Employers & Sources) within 4 minutes');
       const output = engine(ctx, 'import subprocess, sys; print(subprocess.run([sys.executable, "-m", "src", "discover"], capture_output=True, text=True).stdout)');
       // TechTree lists all of Europe and is searched for any place; jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c).
       const boards = (output.match(/^Job boards: (.*)$/m) || [])[1] || '';
@@ -166,11 +168,11 @@ export async function run(ctx) {
       }
       // The window says which time zone it shows: this machine's own, whatever it is (a Mac in Zurich is not a hard-coded Zurich).
       read.ui = texts.join('\n').replace(/Times shown in [\w/+-]+\./g, '');
-      read.notion = [await databaseText(NOTION, 'Job Matches — AI Scored'), await databaseText(NOTION, 'Job Tracker'), await databaseText(NOTION, 'Employers & Sources'),
-        await databaseText(NOTION, 'Cronjob Runs'), await pageText(NOTION, 'Search settings'), await pageText(NOTION, 'Profile — CV and Preferences')].join('\n');
+      // Everything the store holds (this Mac's or Notion), plus ⚙️ Search settings where it is a Notion page (on this Mac's store: the cached settings below).
+      read.notion = [await storeText(ctx), ctx.store === 'sqlite' ? '' : await pageText(NOTION, 'Search settings')].join('\n');
       const config = ['search.json', 'preferences.json'].map(file => fs.readFileSync(path.join(ctx.profile, 'config', file), 'utf8')).join('\n');
       const hits = [];
-      for (const [where, text] of Object.entries({'the window': read.ui, 'the digest': read.digest, 'Notion': read.notion, 'the cached settings': config})) {
+      for (const [where, text] of Object.entries({'the window': read.ui, 'the digest': read.digest, 'the store': read.notion, 'the cached settings': config})) {
         const found = [...new Set(text.match(new RegExp(FORBIDDEN.source, 'gi')) || [])];
         if (found.length) hits.push(`${where}: ${found.join(', ')}${(text.match(new RegExp(`.{0,50}(?:${FORBIDDEN.source}).{0,50}`, 'i')) || [''])[0] ? ` (… ${text.match(new RegExp(`.{0,50}(?:${FORBIDDEN.source}).{0,50}`, 'i'))[0].replace(/\s+/g, ' ')} …)` : ''}`);
       }
