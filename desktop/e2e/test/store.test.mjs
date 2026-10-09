@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {pickFamily} from '../lib/engine.mjs';
-import {pickStore, STORES, storeSettings} from '../lib/store.mjs';
+import {notionFarSide, pickStore, STORES, storeSettings} from '../lib/store.mjs';
 import {E2E} from '../lib/app.mjs';
 import {SUITES} from '../lib/context.mjs';
 
@@ -44,4 +44,11 @@ test('every suite that pins a store names a known one, and only notion-real uses
     assert.ok(STORES.includes(pinned), `${name}: store '${pinned}'`);
     if (pinned === 'notion') assert.equal(name, 'notion-real', `${name} pins the real Notion workspace: only notion-real may (P7: every suite runs token-free)`);
   }
+});
+
+test('Notion\'s far side is real only on the real workspace: the stand-in, or a dead local port on this Mac\'s store', () => {
+  assert.equal(notionFarSide({store: 'standin', standIn: 'http://127.0.0.1:5000'}), 'http://127.0.0.1:5000');
+  assert.equal(notionFarSide({store: 'sqlite'}), 'http://127.0.0.1:9');
+  assert.equal(notionFarSide({store: 'notion'}), 'https://api.notion.com');
+  for (const store of ['standin', 'sqlite']) assert.doesNotMatch(notionFarSide({store, standIn: store === 'standin' ? 'http://127.0.0.1:1' : ''}), /notion\.com/);
 });

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {startAiProxy} from './ai-proxy.mjs';
-import {farSide, startNotionProxy} from './notion-proxy.mjs';
+import {startNotionProxy} from './notion-proxy.mjs';
 import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
 import {startReleasesFake} from './releases-fake.mjs';
@@ -18,7 +18,7 @@ import {createVariation, placeOf} from './variation.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
-import {pickStore, storeSettings} from './store.mjs';
+import {notionFarSide, pickStore, storeSettings} from './store.mjs';
 import {tally} from './faults.mjs';
 
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
@@ -72,7 +72,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   // ctx.proxy's controls: a suite's stand-ins (setCanned), faults (setMode) and delay apply on an OpenAI turn too, in OpenAI's own shapes (lib/ai-proxy.mjs).
   ctx.openaiProxy = ctx.family === 'openai' ? await startAiProxy({target: 'https://api.openai.com', kind: 'app-openai', metered: /\/responses(\?|$)/, shape: 'openai', follow: ctx.proxy}) : null;
   // A suite that breaks Notion on purpose (`export const notionProxy = true`) gets the Notion stand-in between the app and Notion (lib/notion-proxy.mjs).
-  if (notionProxy) ctx.notion = await startNotionProxy({target: farSide(standIn)});
+  // Its far side is the stand-in, never real Notion, unless the suite pins the real workspace; on this Mac's store a dead port (the app has no business with Notion there).
+  if (notionProxy) ctx.notion = await startNotionProxy({target: notionFarSide({store, standIn: standIn?.url})});
   // A suite that reads what Telegram would receive (`export const telegram = true`) gets the fake Bot API (lib/telegram-fake.mjs); nothing reaches Telegram.
   if (telegram) ctx.telegram = await startTelegramFake();
   // A suite that runs the Gmail check (`export const google = true`) gets a fake Google with three of the mailreading eval's invented emails and a fake sign-in (lib/google-fake.mjs).
@@ -96,6 +97,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   }
   const env = {...appModelEnv(), JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...(ctx.openaiProxy ? {JOB_PILOTTO_E2E_OPENAI_BASE_URL: `${ctx.openaiProxy.url}/v1`} : {}), ...(ctx.notion ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.notion.url} : ctx.standIn ? {JOB_PILOTTO_E2E_NOTION_BASE_URL: ctx.standIn.url} : {}), ...(ctx.telegram ? {JOB_PILOTTO_E2E_TELEGRAM_BASE_URL: ctx.telegram.url} : {}),
     ...(ctx.releases ? {JOB_PILOTTO_E2E_UPDATES_URL: ctx.releases.url} : {}), ...(ctx.google ? {JOB_PILOTTO_E2E_GOOGLE_BASE_URL: ctx.google.url, GOOGLE_CLIENT_ID: 'e2e-client', GOOGLE_CLIENT_SECRET: 'e2e-secret', GOOGLE_REFRESH_TOKEN: 'e2e-refresh'} : {}), ...browserEnv, ...suiteEnv};
+  // P7: a run off the real workspace reaches no Notion but a local one (the stand-in, or the fault proxy in front of it). Fails the run before the app starts.
+  if (store && store !== 'notion' && env.JOB_PILOTTO_E2E_NOTION_BASE_URL && !/^http:\/\/127\.0\.0\.1[:/]/.test(env.JOB_PILOTTO_E2E_NOTION_BASE_URL)) throw new Error(`the ${store} store must not reach real Notion, and the app was given ${env.JOB_PILOTTO_E2E_NOTION_BASE_URL}`);
   // The environment the app was started with: a second app a step opens (another time zone, a fresh install) starts from it, so it talks to the same Notion
   // (real or the stand-in), AI proxy and fixtures (6 Oct 2026: calendar's second app had its own list and reached real Notion with the stand-in's token).
   ctx.appEnv = env;
