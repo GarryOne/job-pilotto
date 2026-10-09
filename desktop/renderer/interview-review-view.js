@@ -1,7 +1,7 @@
 // An interview's review in the app (Interviews → Open review), for a store with no page to open (the data on this Mac): the same content as
 // the Notion page (src/ai/interviews.py): round, overall, the counts, the next step, answers and topics to work on, the review, the transcript.
 // reviewParts() is pure (test/interview-review-view.test.js); showReview() draws it in #review-dialog with the moments dialog's parts
-// (`el`, `pill` and `$` from the page, so this file loads without a window). markdownGroups keeps its name and shape: pages/job-panel.js uses it.
+// (`el`, `pill` and `$` from the page, so this file loads without a window).
 const list = value => (Array.isArray(value) ? value : String(value || '').split('\n')).map(line => String(line).replace(/^\s*[-*•]\s+/, '').trim()).filter(Boolean);
 
 // Markdown the review is kept in → groups: a heading starts one, bullets and paragraphs are its lines. Text only, never HTML.
