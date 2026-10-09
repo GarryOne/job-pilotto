@@ -5,13 +5,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
+import {fileURLToPath} from 'node:url';
 
 const RENDERER = new URL('../renderer/', import.meta.url);
 const files = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => entry.isDirectory() ? files(path.join(dir, entry.name)) : entry.name.endsWith('.js') ? [path.join(dir, entry.name)] : []);
 const ENTRY = /['"`](▶ )?(Resume Claude|Apply with Claude|Tell Claude…)['"`]/;
 
 test('every renderer file that draws a Claude entry point asks the one switch', () => {
-  const drawing = files(RENDERER.pathname).filter(file => ENTRY.test(fs.readFileSync(file, 'utf8')));
+  const drawing = files(fileURLToPath(RENDERER)).filter(file => ENTRY.test(fs.readFileSync(file, 'utf8')));
   assert.ok(drawing.length >= 3, `found ${drawing.length} files`);
   for (const file of drawing) assert.match(fs.readFileSync(file, 'utf8'), /claudeHelp\(\)/, `${path.basename(file)} draws a Claude button without claudeHelp()`);
   const sessions = fs.readFileSync(new URL('pages/sessions.js', RENDERER), 'utf8');
