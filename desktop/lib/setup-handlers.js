@@ -6,7 +6,7 @@ import * as claudeCode from './claude-code.js';
 import * as cvChange from './cv-change.js';
 import * as cvlib from './cv.js';
 import * as notionGate from './notion-gate.js';
-import * as notionOAuth from './notion-oauth.js';
+import * as notionOAuth from './notion-oauth.js';   // Notion-only: connecting Notion (sign in with Notion), the person's own choice
 import {forWindow} from './site-accounts.js';
 import fs from 'node:fs';
 import path from 'node:path';

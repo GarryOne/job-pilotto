@@ -3,7 +3,8 @@
 // import tests in desktop/test.
 import * as backup from './backup.js';
 import * as contactDetails from './contact.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: archives the Notion workspace on a reset with a fresh workspace
+import * as notionGate from './notion-gate.js';
 import * as reset from './reset.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,7 +33,7 @@ export function registerSystemHandlers(ctx) {
         : 'Your Notion workspace, Gmail sign-in and GitHub repo are not changed.'}`});
     if (answer !== 1) return {ok: false};
     let archived = null;
-    if (freshNotion) {
+    if (freshNotion && notionGate.notionInUse(storage)) {   // a Notion that isn't the store holds none of this data: left alone
       const when = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}).replace('Sept', 'Sep');
       try { archived = await notion.archiveWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, when); }
       catch (error) { return {ok: false, error: `Notion: ${error.message}. Nothing was reset.`}; }

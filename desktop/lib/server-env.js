@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import * as claudeCode from './claude-code.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: the extension's Notion calls only when Notion is the store (notionTexts); this Mac's go through env.store
 import * as notionGate from './notion-gate.js';
 import {openStore} from './store/index.js';
 import {extensionStore} from './store/extension-store.js';

@@ -4,7 +4,7 @@
 import {aiNameOf, aiText} from './ai/names.js';
 import * as claudeCode from './claude-code.js';
 import * as contactDetails from './contact.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: an accepted strategy written to the Notion Profile/answers/settings pages when Notion is the store
 import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';

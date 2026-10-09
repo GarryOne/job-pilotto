@@ -6,7 +6,8 @@ import path from 'node:path';
 import * as contact from './contact.js';
 import * as knowledge from './knowledge.js';
 import {log} from './log.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: moves this Mac's data into a connected Notion that is the store
+import * as notionGate from './notion-gate.js';
 import * as questions from './questions.js';
 import * as runHistory from './run-history.js';
 import * as schema from './schema.js';
@@ -186,6 +187,7 @@ export async function run(storage, onLine = () => {}, steps = STEPS, fetcher) {
   if (openPoolShare(storage)) log('pool', 'Help the pool grow turned on (opt-out since 7 Oct 2026)', {decidedBy: 'migrate.openPoolShare'});
   const settings = storage.settings();
   if (!settings.setupDone || !storage.secret('NOTION_TOKEN') || !settings.notionIds?.NOTION_PROFILE_PAGE_ID) return [];
+  if (!notionGate.notionInUse(storage)) return [];   // the data lives on this Mac (lib/store): nothing moves into a Notion left connected
   const moved = [];
   for (const step of steps) {
     try {

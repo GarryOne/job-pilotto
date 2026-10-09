@@ -1,9 +1,12 @@
 // The setup goals (level, work mode, minimum salary, languages), corrected on the Strategy page as the setup review does (owner, 7 Oct 2026:
 // the page lacked them). Each one is its own place in the Profile: a table row ("Work mode | …") or a line ("Minimum acceptable: …"), the
 // rows renderer/markdown-edit.js GOAL_ROWS names. Only that block is written; a Profile without it gets the value under "Confirmed during
-// setup", as the review does. Without Notion ("Trying"), the Profile is profile.md on this Mac.
+// setup", as the review does. When Notion isn't the store (trying, or the data on this Mac: lib/store), the Profile is profile.md on
+// this Mac, the store's own file there (lib/store/text-files.js).
 import {GOAL_ROWS, applyGoal} from '../renderer/markdown-edit.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: a goal's own table row or line on the Notion Profile page
+import {notionInUse} from './notion-gate.js';
+import {TEXT_FILES} from './store/text-files.js';
 
 export const GOALS = Object.keys(GOAL_ROWS);
 const HEADING = 'Confirmed during setup';
@@ -35,8 +38,8 @@ export async function setGoal(storage, key, value, {fetcher, lib = notion} = {})
   const text = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   if (!text) throw new Error('Write a value first');
   const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  if (!token || !page) {   // Trying: the Profile is kept on this Mac
-    storage.writeText('profile.md', applyGoal(storage.readText('profile.md') || '', key, text));
+  if (!notionInUse(storage) || !token || !page) {   // the Profile is kept on this Mac (trying, or the store there)
+    storage.writeText(TEXT_FILES.profile, applyGoal(storage.readText(TEXT_FILES.profile) || '', key, text));
     return {ok: true, where: 'local'};
   }
   const tree = await lib.pageTree(token, page, fetcher, {cache: false});

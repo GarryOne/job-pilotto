@@ -5,7 +5,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: the CV and cover letter uploaded to the Notion Profile, only when Notion is the store (notionInUse)
 import {notionInUse} from './notion-gate.js';
 
 export const MAX_BYTES = 5 * 1024 * 1024;

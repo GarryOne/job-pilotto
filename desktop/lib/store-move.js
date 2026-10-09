@@ -4,7 +4,7 @@
 // (one copy in use). A copy that stops changes nothing: the next try goes on where it stopped. Guarded by test/store-move.test.js.
 import fs from 'node:fs';
 import path from 'node:path';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: the move's Notion side (Move my data to Notion)
 import * as notionGate from './notion-gate.js';
 import * as pipelineRun from './pipeline-run.js';
 import * as strategy from './strategy-settings.js';

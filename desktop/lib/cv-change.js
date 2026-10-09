@@ -8,7 +8,7 @@ import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
-import * as notion from './notion.js';
+import * as store from './store/index.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
 const PRICE = {input: 2, output: 10};  // USD per million tokens
@@ -44,10 +44,10 @@ changed in the CV. why: a few words, quoting the CV.`;
 
 // -> {summary, suggestions: [{kind, line, text, why, block: {id, type, text, parent}}], usd}
 export async function review(storage, apiKey, {client = null, fetcher} = {}) {
-  const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  if (!token || !page) throw new Error('Connect Notion first: the Profile is compared with your CV there');
+  if (store.trying(storage)) throw new Error('Connect Notion first: the Profile is compared with your CV there');
   if (!fs.existsSync(storage.path(PREVIOUS))) throw new Error('The previous CV is not on this computer, so there is nothing to compare');
-  const lines = (await notion.textBlocks(token, page, fetcher)).filter(block => block.text.trim());
+  // The Profile's lines in the active store (lib/store: Notion's page, or profile.md on this Mac).
+  const lines = (await store.openStore(storage, {fetcher}).page('profile').blocks()).filter(block => block.text.trim());
   const pdf = name => ({type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: fs.readFileSync(storage.path(name)).toString('base64')}});
   const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
@@ -64,16 +64,17 @@ export async function review(storage, apiKey, {client = null, fetcher} = {}) {
   return {summary: result.summary, suggestions, usd: usd(response.usage)};
 }
 
-// The accepted suggestions, written to the Profile in Notion (only those lines). -> {applied, failed: [why]}
+// The accepted suggestions, written to the Profile in the active store (only those lines). -> {applied, failed: [why]}
+// Bottom-up (the last line first): on this Mac a line's id is its line number, so an earlier edit never moves a later one.
 export async function apply(storage, accepted, fetcher) {
-  const token = storage.secret('NOTION_TOKEN');
+  const page = store.openStore(storage, {fetcher}).page('profile');
   let applied = 0;
   const failed = [];
-  for (const s of accepted) {
+  for (const s of [...accepted].sort((a, b) => (b.line ?? 0) - (a.line ?? 0))) {
     try {
-      if (s.kind === 'update') await notion.setBlockText(token, s.block, s.text, fetcher);
-      else if (s.kind === 'remove') await notion.deleteBlock(token, s.block.id, fetcher);
-      else await notion.insertBulletsAfter(token, s.block.parent, s.block.id, [s.text], fetcher);
+      if (s.kind === 'update') await page.setText(s.block, s.text);
+      else if (s.kind === 'remove') await page.remove(s.block);
+      else await page.insertAfter(s.block.id, [s.text], {parent: s.block.parent});
       applied += 1;
     } catch (error) { failed.push(`${s.text || s.block.text}: ${error.message}`); }
   }

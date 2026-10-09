@@ -93,9 +93,10 @@ export function open(storage, {fetcher} = {}) {
       const t = await writable(name);
       return notion.appendBullets(t.token, t.page, values, fetcher);
     },
-    async insertAfter(blockId, values) {
+    // parent: the block that holds blockId when it sits in a nested list (default: the page itself).
+    async insertAfter(blockId, values, {parent} = {}) {
       const t = await writable(name);
-      return notion.insertBulletsAfter(t.token, t.page, blockId, values, fetcher);
+      return notion.insertBulletsAfter(t.token, parent || t.page, blockId, values, fetcher);
     },
     async appendHeading(value) {
       const t = await writable(name);

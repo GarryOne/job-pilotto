@@ -3,7 +3,7 @@
 // strategy-remote.test.js, notion-trying.test.js and tune.test.js.
 import fs from 'node:fs';
 import path from 'node:path';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: the Profile/answers texts and ⚙️ Search settings page when Notion is the store
 import * as notionGate from './notion-gate.js';
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
@@ -43,7 +43,7 @@ export function dropLocalCopies(storage) {
 // rewritten from the cached settings (e.g. after a strategy is rebuilt from the CV).
 export async function publishSearchSettings(storage, {run, ensurePage, writePage}) {
   const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-  if (!token || !ids.NOTION_PROFILE_PAGE_ID) return null;
+  if (!notionGate.notionInUse(storage) || !token || !ids.NOTION_PROFILE_PAGE_ID) return null;   // the settings' page only in a Notion store
   let page = ids.NOTION_SEARCH_SETTINGS_PAGE;
   if (!page) {
     page = await ensurePage(token, ids.NOTION_PROFILE_PAGE_ID, SEARCH_SETTINGS_TITLE, '');

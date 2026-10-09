@@ -2,7 +2,7 @@
 // its record there, wherever it ran (this Mac, the user's GitHub repo, a Telegram button), from the start (Running, with a ⏳ progress
 // line) to the end (report, result, technical log). So the app shows the same history as the store and Telegram, and a job running
 // elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a record isn't there yet.
-import {call} from './notion.js';
+import {call} from './notion.js';   // Notion-only: copyLocal() writes this Mac's earlier runs into a connected Notion (migrate.js); the run list is the store's
 import {openStore} from './store/index.js';
 import {jobFrom} from './job-line.js';
 import {runWarned} from '../renderer/run-status.js';   // pure (no DOM): the Actions page and this pop-up must call a run "with warnings" by the same rule

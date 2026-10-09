@@ -3,7 +3,7 @@
 // it as page text: a recorded terminal screen is wrapped at the width it had and can't reflow to the log's width.
 import fs from 'node:fs';
 import path from 'node:path';
-import {markdownBlocks} from './notion.js';
+import {markdownBlocks} from './notion.js';   // Notion-only: the 💬 Conversation toggle's blocks on a Notion Agent Runs row (session-runs.js); the format only, no call
 
 const MAX_ENTRIES = 400;
 const cut = (text, limit = 140) => { const one = String(text || '').replace(/\s+/g, ' ').trim(); return one.length > limit ? `${one.slice(0, limit - 1)}…` : one; };
