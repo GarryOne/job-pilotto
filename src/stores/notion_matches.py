@@ -43,7 +43,7 @@ class NotionMatches:
         self.tracker, self.database_id = tracker, database_id
 
     def _record(self, page):
-        found = rows.to_record(page, COLUMNS, [f for f in self.fields if f not in ('fit_detail', 'last_update')])
+        found = rows.to_record(page, COLUMNS, [f for f in self.fields if f not in ('fit_detail', 'last_update')])   # id: the page's
         found['first_seen'] = found['first_seen'] or page.get('created_time', '')
         found['last_update'] = page.get('last_edited_time', '')   # Notion's own Last update: read, never written
         return {**base.record(self.fields, found), 'fit_detail': _detail_of(page.get('properties') or {})}
@@ -61,7 +61,7 @@ class NotionMatches:
         unknown = set(values) - set(self.fields)
         if unknown:
             raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
-        props = rows.to_properties({k: v for k, v in values.items() if k not in ('fit_detail', 'last_update')}, COLUMNS)
+        props = rows.to_properties({k: v for k, v in values.items() if k not in ('id', 'fit_detail', 'last_update')}, COLUMNS)
         return {**props, **(_detail_props(values['fit_detail']) if 'fit_detail' in values else {})}
 
     def list(self, status=None):

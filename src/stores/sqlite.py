@@ -266,9 +266,17 @@ class Matches:
     def __init__(self, db):
         self.db = db
 
+    # A match's id: stable, from its job's key (base.url_key), so a row written before matches had ids reads with the same one.
+    @staticmethod
+    def _id(key):
+        return uuid.uuid5(uuid.NAMESPACE_URL, key).hex
+
+    def _row(self, key, data):
+        return base.record(self.fields, {**json.loads(data), 'id': self._id(key)})
+
     def _one(self, key):
-        found = self.db.execute('SELECT data FROM matches WHERE url_key = ?', (key,)).fetchone()
-        return base.record(self.fields, json.loads(found['data'])) if found else None
+        found = self.db.execute('SELECT url_key, data FROM matches WHERE url_key = ?', (key,)).fetchone()
+        return self._row(found['url_key'], found['data']) if found else None
 
     def _write(self, key, row):
         with self.db:
@@ -278,17 +286,17 @@ class Matches:
         return dict(row)
 
     def list(self, status=None):
-        sql, args = ('SELECT data FROM matches ORDER BY seq', ()) if status is None else \
-            ('SELECT data FROM matches WHERE status = ? ORDER BY seq', (status,))
-        return [base.record(self.fields, json.loads(r['data'])) for r in self.db.execute(sql, args)]
+        sql, args = ('SELECT url_key, data FROM matches ORDER BY seq', ()) if status is None else \
+            ('SELECT url_key, data FROM matches WHERE status = ? ORDER BY seq', (status,))
+        return [self._row(r['url_key'], r['data']) for r in self.db.execute(sql, args)]
 
     def get(self, url):
         return self._one(base.url_key(url))
 
     def upsert(self, job):
         key = base.url_key(job['url'])
-        row = self._one(key) or base.record(self.fields, {'first_seen': _now()})
-        row.update(_known(self.fields, {k: v for k, v in job.items() if k != 'last_update'}), last_update=_now())
+        row = self._one(key) or base.record(self.fields, {'id': self._id(key), 'first_seen': _now()})
+        row.update(_known(self.fields, {k: v for k, v in job.items() if k not in ('id', 'last_update')}), last_update=_now())
         return self._write(key, row)
 
     def set_status(self, url, status):

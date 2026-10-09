@@ -39,7 +39,8 @@ EVENT_FIELDS = ('id', 'app_id', 'kind', 'at', 'source', 'note', 'source_id', 'in
 # An event's `changes` (a dict) says what the item moved and where it came from: {'fields': {name: [before, after]},
 # 'from', 'subject', 'feedback'} (src/ai/mail_record.py writes it). `needs_you` + `suggested_job` (a job URL) mark a
 # question on no job (app_id ''): "Which job is this email about?", answered in Focus (src/ai/reassign.py).
-MATCH_FIELDS = ('url', 'title', 'company', 'location', 'work_mode', 'fit', 'reason', 'fit_detail', 'status',
+MATCH_FIELDS = ('id',   # the store's own: Notion's 🎯 Job Matches page id, a stable row id elsewhere (a link to the job)
+                'url', 'title', 'company', 'location', 'work_mode', 'fit', 'reason', 'fit_detail', 'status',
                 'first_seen',
                 # Every other 🎯 Job Matches column, with the column's own value (src/notion/matches.py properties writes them): what a
                 # Notion user reads there, and what the application record freezes (src/notion/ledger_record.match_for).

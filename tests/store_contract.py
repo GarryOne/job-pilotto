@@ -221,6 +221,10 @@ class StoreContract:
         self.s.matches.upsert({**JOB, 'url': JOB['url'] + '/', 'fit': 85})
         self.assertEqual([(m['fit'], m['status']) for m in self.s.matches.list()], [(85, 'New')])
         self.assertEqual(self.s.matches.get(JOB['url'] + '/')['fit'], 85)   # by its key, whatever the slash
+        self.assertTrue(row['id'])
+        self.assertEqual([m['id'] for m in self.s.matches.list()], [row['id']], 'one id, kept by an update')
+        self.assertEqual(self.s.matches.get(JOB['url'])['id'], row['id'])
+        self.assertEqual(self.s.matches.upsert({**JOB, 'id': 'from-another-store', 'fit': 86})['id'], row['id'], 'a store keeps its own ids')
         self.assertIsNone(self.s.matches.get('https://jobs.example/never-found'))
         self.s.matches.set_status(JOB['url'], 'Dismissed')
         self.assertEqual(len(self.s.matches.list(status='Dismissed')), 1)
@@ -259,6 +263,7 @@ class StoreContract:
                           'salary': 'CHF 140-160k', 'recruiter': True, 'technologies': 'Kubernetes; Terraform', 'role_family': 'SRE',
                           'scoring_method': 'Current', 'work_mode': 'Hybrid'})
         self.assertEqual(len(row['code']), 8)
+        self.assertTrue(row['id'])
         self.assertTrue(row['scored'] and row['last_update'])
 
     # Interviews, insights, employers

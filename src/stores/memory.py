@@ -172,8 +172,8 @@ class Matches:
 
     def upsert(self, job):
         key = base.url_key(job['url'])
-        row = self.rows.get(key) or base.record(base.MATCH_FIELDS, {'first_seen': _now()})
-        row.update(_known(base.MATCH_FIELDS, {k: v for k, v in job.items() if k != 'last_update'}), last_update=_now())
+        row = self.rows.get(key) or base.record(base.MATCH_FIELDS, {'id': f'm{next(_ids)}', 'first_seen': _now()})
+        row.update(_known(base.MATCH_FIELDS, {k: v for k, v in job.items() if k not in ('id', 'last_update')}), last_update=_now())
         self.rows[key] = row
         return dict(row)
 
