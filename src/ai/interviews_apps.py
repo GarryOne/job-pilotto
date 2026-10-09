@@ -2,11 +2,10 @@
 names that isn't tracked yet, and adding its 📈 event. Application records (src/stores/base.py), never Notion pages.
 Re-exported by src/ai/interviews.py. Tests: tests/test_interviews_store.py.
 
-Events go through src/stores/rules.add_event (the ledger's rules on any store). Adding an untracked job is a bridge until
-rules.add_application lands: with Notion today's src/notion/ledger.py through the tracker; elsewhere a plain store write.
+Events go through src/stores/rules.add_event and an untracked job is added by src/ledger_store.add_application: the ledger's
+rules, on any store.
 """
 import os
-from datetime import datetime, timezone
 
 from ..notion import titles
 from ..stores import rules
@@ -37,22 +36,17 @@ def by_url(stores, apps, job_url):
     return next((r for r in apps if url_key(r.get('url')) == wanted), None) or stores.applications.get(job_url.strip())
 
 
-def application_for(stores, job_url, tracker=None):
+def application_for(stores, job_url, tracker=None):  # tracker: kept for callers, unused
     """The application for a job the owner picked; a job not tracked yet is added (an interview means they applied;
     the date is marked approximate)."""
     found = by_url(stores, [], job_url)
     if found:
         return found
-    source = os.getenv('JOB_PILOTTO_SOURCE') or 'Manual'
-    # BRIDGE(focus): remove when rules.add_application lands
-    if stores.name == 'notion' and tracker is not None:
-        from ..notion.ledger import add_application
-        add_application(tracker, job_url.strip(), approx=True, source=source)
-    else:
-        today = datetime.now(timezone.utc).date().isoformat()
-        app, _ = stores.applications.set_stage({'url': job_url.strip(), 'date_approximate': True, 'source': source,
-                                                'applied_on': today}, 'Applied', today=today)
-        rules.add_event(stores, app, 'Applied', source, at=today, note='Added with an interview')
+    from ..ledger_store import add_application
+    added = {}
+    add_application(stores, job_url.strip(), approx=True, source=os.getenv('JOB_PILOTTO_SOURCE') or 'Manual', found=added)
+    if added.get('row'):
+        return added['row']
     found = by_url(stores, [], job_url)
     if not found:
         raise ValueError(f'Could not add {job_url} to your Applications')
