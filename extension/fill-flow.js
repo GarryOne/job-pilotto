@@ -11,9 +11,9 @@ import {applyPressed} from './tabs.js';
 import {sessionGet} from './tab-memory.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
 
-let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {};
+let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
-  ({started, fillOpenedTab, reportFlow, onPage, fillsNow = new Set(), arm = async () => {}} = shared);
+  ({started, fillOpenedTab, reportFlow, onPage, fillsNow = new Set(), arm = async () => {}, progress = async () => {}} = shared);
   chrome.runtime.onMessage.addListener(onFillOne);
 }
 
@@ -296,6 +296,7 @@ export async function consider(tab, jobUrl) {
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
   if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   if (role !== 'form') {
+    await progress(tab.id, '');   // no fill here: the panel's "Starting…" ends now, not after its 20 s (owner, 9 Oct 2026: it spun on a sign-in page left to them)
     if (role === 'no-form' && counts && emptyShape(counts)) watchForFields(tab, jobUrl).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
