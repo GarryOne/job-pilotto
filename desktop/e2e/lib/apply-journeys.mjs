@@ -184,7 +184,9 @@ export async function runJourneys(ctx, h) {
     for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await sessionOf(SIGNIN); await pause(1000); }
     if (at?.stage !== 'form') problems.push(`after signing in the session did not move to the form step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
     const log = appLogText(ctx.profile);
-    for (const [line, why] of [[/sign_in page: filled with your details/, 'the sign-in page was not filled with your details'], [/site password given for a sign-in page/, 'the app did not give the saved password as a sign-in'],
+    // Either path may fill the email first (beta 9 Oct 2026: the account step, 864b279, pressed ~1 s after the load, before the fill's line): the site's own
+    // record above (`presses[0].email`) is the proof the right email arrived; this line only says which part of the extension did it.
+    for (const [line, why] of [[/sign_in page: filled with your details|sign-in page: email filled/, 'the sign-in page was not filled with your details (neither the fill nor the account step says so)'], [/site password given for a sign-in page/, 'the app did not give the saved password as a sign-in'],
       [/account button: pressed/, 'no "account button: pressed" decision in the app log'], [/account result: created/, 'the account AI\'s word after the press ("created") is not in the app log']]) if (!line.test(log)) problems.push(why);
     const rows = await page.evaluate(() => window.pilot.credentials());
     const row = (rows?.rows || []).find(item => item.host === SIGNIN.accountHost);
