@@ -139,3 +139,23 @@ test('Claude taking a job over closes its form tab only when nothing was filled 
   assert.deepEqual(formTabsAtHandOver(sessions, `${URL1}#jobpilotto-fill`), [{id: 'f1', close: true, why: 'nothing filled'}]);   // Coop's sign-in tab
   assert.deepEqual(formTabsAtHandOver(sessions, URL1, id => (id === 'f1' ? 4 : 0)), [{id: 'f1', close: false, why: 'answers filled there'}]);
 });
+
+// SmartRecruiters (twin, 9 Oct 2026): a robot check stood in front of the form; the card said only "No application form found on the page yet".
+test('a page with a bot check in front says what the person must do, on the card and in its steps', async () => {
+  terminals._reset();
+  terminals.startForm({id: 'f1', url: URL1, company: 'H&M'});
+  terminals.noteStuck('f1', 'no-form', 'jobs.smartrecruiters.com', 'Solve the robot check in this tab; the form fills after it');
+  assert.equal(terminals.get('f1').stuck, 'no-form');
+  assert.equal(terminals.get('f1').note, 'Needs you: Solve the robot check in this tab; the form fills after it');
+  const {sessionSteps} = await import('../renderer/session-steps-list.js');
+  assert.ok(sessionSteps(terminals.get('f1')).some(step => step.text === 'Needs you: Solve the robot check in this tab; the form fills after it'));
+  terminals._reset();
+  terminals.startForm({id: 'f2', url: URL1, company: 'Plain'});
+  terminals.noteStuck('f2', 'no-form');
+  assert.ok(sessionSteps(terminals.get('f2')).some(step => step.text === 'No application form found on the page yet'), 'no need: the old wording');
+  const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+  assert.match(flow, /const botCheck = role === 'no-form' && kind\?\.botCheck === true;/);
+  assert.match(flow, /watchForFields\(tab, jobUrl, undefined, botCheck \? 60 : 10\)/);
+  assert.match(flow, /tab\.url, botCheck \? BOT_CHECK_NEED : ''\);/);
+  assert.match(flow, /frames: \[\.\.\.new Set\(frames\)\]\.slice\(0, 5\)/, 'the sketch carries the visible frames\' hosts');
+});

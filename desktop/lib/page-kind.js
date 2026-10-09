@@ -18,7 +18,7 @@ export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
 export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', posting: 'no-form', other: 'no-form'};
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'account_step', 'register_control', 'signin_control', 'account_button'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
   account_step: {type: 'string', enum: ['sign_in', 'sign_up', 'choose', ''], description: 'For an account page: sign_in = logs in to an EXISTING account; sign_up = creates a new account; choose = a notice with no form of its own that offers to sign in to the existing account (and maybe to reset its password); else ""'},
@@ -26,6 +26,7 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 
   signin_control: {type: 'string', description: 'For a sign_up or choose page: the exact text of the listed control that leads to signing in to an existing account, else ""'},
   account_button: {type: 'string', description: 'For an account page: the exact text of the listed button that submits this sign-in or sign-up form, else ""'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
+  bot_check: {type: 'boolean', description: 'true when a check that the visitor is human (a captcha, a verification step, a challenge in a frame) stands in front of the page'},
 }};
 
 const INSTRUCTIONS = `You classify one page of a job application journey on any employer or job-board site, in any language.
@@ -37,6 +38,8 @@ Answer one kind:
 - posting: a job description or a step that leads on to the application (an Apply button or link, a "continue to apply" page).
 - other: anything else (an error, a list of jobs, a cookie or consent wall, a page that needs nothing from the candidate).
 Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.
+bot_check: true when a check that the visitor is human stands in front of what the page would show (a captcha, a "verify you are human" step, a
+challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
 there is none or for any other kind.
@@ -56,7 +59,7 @@ export function pageShape(url) {
 }
 
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
-export function pageSketch({url, title, headings, controls, buttons} = {}) {
+export function pageSketch({url, title, headings, controls, buttons, frames} = {}) {
   let path = '';
   try { path = new URL(String(url)).pathname.slice(0, 120); } catch { /* not a url */ }
   return {
@@ -65,6 +68,7 @@ export function pageSketch({url, title, headings, controls, buttons} = {}) {
     controls: (Array.isArray(controls) ? controls : []).slice(0, 50).map(item => ({type: clean(item?.type, 20), label: clean(item?.label, 80), required: !!item?.required}))
       .filter(item => item.type),
     buttons: (Array.isArray(buttons) ? buttons : []).map(text => clean(text, 40)).filter(Boolean).slice(0, 20),
+    frames: (Array.isArray(frames) ? frames : []).map(host => clean(host, 80)).filter(Boolean).slice(0, 5),   // visible frames' hosts: a check drawn in a frame
   };
 }
 
@@ -116,7 +120,7 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
   if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
-  if (!page.controls.length && !page.buttons.length && !page.headings.length) return {error: 'empty page', shape};
+  if (!page.controls.length && !page.buttons.length && !page.headings.length && !page.frames.length) return {error: 'empty page', shape};
   try {
     const response = await client.messages.create({
       // 1000, low effort: Haiku 5.5 may think first, and its thinking counts here (as in confirmation.js).
@@ -127,6 +131,7 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
         `Headings: ${page.headings.join(' | ') || '(none)'}`,
         `Controls (type · label · required):\n${page.controls.map(item => `- ${item.type} · ${item.label || '(no label)'}${item.required ? ' · required' : ''}`).join('\n') || '(none)'}`,
         `Buttons: ${page.buttons.join(' | ') || '(none)'}`,
+        `Frames: ${page.frames.join(' | ') || '(none)'}`,
       ].join('\n')}],
       output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
     });
@@ -146,6 +151,8 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
     const registerControl = accountStep === 'sign_in' ? listedControl(answer.register_control, page.buttons) : '';
     const signinControl = ['sign_up', 'choose'].includes(accountStep) ? listedControl(answer.signin_control, page.buttons) : '';
     const accountButton = onAccount ? listedControl(answer.account_button, page.buttons) : '';
+    // A check in front of the page is a passing state, not its kind: never kept for the shape (the form behind it is judged fresh once solved).
+    if (answer.bot_check === true) return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, botCheck: true, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: ''};
     cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
       ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
     return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, accountStep, registerControl, signinControl, accountButton};

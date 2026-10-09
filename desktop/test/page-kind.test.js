@@ -146,3 +146,19 @@ test('a remembered page kind is logged once per page shape every 10 minutes; an 
   assert.equal(kindWorthSaying({...kept, by: 'ai'}, said, at + 31_000), true);  // an AI answer (it may have cost): always
   assert.equal(kindWorthSaying({...kept, kind: 'form'}, said, at + 30_000 + KIND_SAID_MS + 1), true);   // after 10 minutes: said again
 });
+
+// SmartRecruiters (twin, 9 Oct 2026): after "Jetzt bewerben" the page was web components (text in shadow roots) and a frame from a bot-check service.
+// The sketch was empty, the AI was never asked ("empty page"), and the person was never told a check stood in front of the form.
+test('a page with only a frame is still asked; a bot check in front of it is the AI\'s word, said, and never kept for the shape', async () => {
+  const check = {url: 'https://jobs.smartrecruiters.com/oneclick-ui/company/x/publication/123', title: 'Einfach Bewerben', headings: [], controls: [], buttons: [],
+    frames: ['geo.captcha-delivery.com']};
+  const calls = [], cache = cacheIn();
+  const first = await pageKind(fake({kind: 'other', confidence: 0.9, apply_button: '', account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: true}, calls), check, cache);
+  assert.equal(calls.length, 1, 'asked, not "empty page"');
+  assert.match(JSON.stringify(calls[0].messages), /Frames: geo\.captcha-delivery\.com/);
+  assert.deepEqual([first.kind, first.role, first.botCheck], ['other', 'no-form', true]);
+  const second = await pageKind(fake({kind: 'form', confidence: 0.95, apply_button: '', account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false}, calls), check, cache);
+  assert.deepEqual([second.kind, second.by, calls.length], ['form', 'ai', 2], 'the form behind the solved check is judged fresh, not remembered as other');
+  assert.equal((await pageKind(fake({kind: 'other', confidence: 1}), {...check, frames: []}, cacheIn())).error, 'empty page', 'nothing at all: still not asked');
+  assert.deepEqual(pageSketch({...check, frames: ['a.example', '', 'b.example']}).frames, ['a.example', 'b.example']);
+});
