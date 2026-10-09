@@ -63,6 +63,9 @@ function pageShape(tabId) {
       textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
       nodes: document.getElementsByTagName('*').length,   // still growing: a page that renders its form after the load
       frames: [...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; }).length,   // a check drawn in a frame, often seconds after the load
+      // Their hosts, as the page-kind sketch gives them: a frame is often there before its address (about:blank first), so a host that shows up later counts as new.
+      frameHosts: [...new Set([...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; })
+        .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean))],
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
@@ -211,12 +214,12 @@ export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // again; once it has fields the panel is put back (a page that replaced its document lost it) and the page is judged again (a new shape for
 // the page-kind AI), then filled. Once per tab and page. Guard: desktop/test/extension-look-again.test.js.
 const lookedAgain = new Set();
-async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms)), looks = 10, seenFrames = null) {
+async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms)), looks = 10, seenHosts = null) {
   const key = fillKey(tab.id, tab.url);
   if (lookedAgain.has(key)) return false;
-  // The frames the judgment saw (its page shape); a frame drawn since, even before this watch started, makes the page be judged again (twin, 9 Oct 2026:
-  // the check's frame came between the judgment and the watch, and counted as already seen).
-  const hadFrames = seenFrames === null ? !!(await pageShape(tab.id))?.frames : seenFrames > 0;
+  // The frame hosts the judgment saw (its page shape); one that shows up since, even before this watch started, makes the page be judged again (twin, 9 Oct 2026:
+  // the check's frame was there at the judgment with no address yet, so the sketch read nothing and the frame count never changed).
+  const hadHosts = seenHosts === null ? (await pageShape(tab.id))?.frameHosts || [] : seenHosts, hadFrames = hadHosts.length > 0;
   const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
   decide('fill', 'watching a page judged without a form', {host: hostOf(tab.url), looks, frames: hadFrames});   // why a late form or check was (not) seen: twin, 9 Oct 2026
   for (let i = 0; i < looks; i++) {
@@ -228,7 +231,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     const shape = await pageShape(tab.id);
     // Fields came (the form drew late), or a frame did on a page that had none (a bot check injected seconds after the load: SmartRecruiters,
     // 9 Oct 2026): the page is judged again, now with what it shows (page-kind AI: bot_check).
-    const framed = !!shape?.frames && !hadFrames;
+    const framed = (shape?.frameHosts || []).some(host => !hadHosts.includes(host));
     if (!shape || (shape.fields + shape.textareas + shape.files < 2 && !framed)) continue;
     lookedAgain.add(key);
     started.delete(key);
@@ -334,7 +337,7 @@ export async function consider(tab, jobUrl) {
     // A check that the visitor is human in front of the page (the page-kind AI's bot_check): the person solves it in this tab; the form is watched for two
     // minutes and filled once it shows (SmartRecruiters, 9 Oct 2026: the check was read as an empty page, "no form", and nobody was told).
     const botCheck = role === 'no-form' && kind?.botCheck === true;
-    if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frames ?? 0).catch(() => {});   // judged while still empty: look again if fields come
+    if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frameHosts || []).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : 'no form on this page', {host, role});
     if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url, botCheck ? BOT_CHECK_NEED : '');   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
