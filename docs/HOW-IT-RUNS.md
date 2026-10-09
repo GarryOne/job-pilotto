@@ -14,7 +14,7 @@ money on AI; every manual fix becomes an app step (CLAUDE.md → Working rules).
 ```mermaid
 flowchart LR
   apps[Users' apps] -- scrubbed reports --> tel[/telemetry + /api/signals/]
-  apps -- form structure --> lab[form lab: private repo] -- recipes --> apps
+  apps -- failing controls --> prop[recipe proposer: private repo] -- recipes --> apps
   tel -- recurring problems --> triage[triage: private repo] --> issues[(private issues)]
   issues -- owner fixes by hand or PR --> main[(main)]
   main --> ci[build: tests] & desktop[desktop: pre-release] & site[site: deploy]
@@ -53,7 +53,6 @@ flowchart LR
 | `beta-approve.yml` · CI · Release to beta | called by a gate by hand (`e2e.yml -f gate_tag`, `e2e-windows.yml -f tag`) | the release step of that gate: no real high-severity finding, the shared release checks, then that platform's `Beta-approved` line (the release run does the same in its own Release · Mac/Windows beta jobs) | | | |
 | `site.yml` · Release · Website | push touching `site/` | deploys the website worker | the live site | jobpilotto.workers.dev | — |
 | `site-next.yml` · Release · Website preview (next) | push touching `site-next/` | deploys the preview worker | the website preview (no data of its own) | next.jobpilotto.workers.dev | — |
-| Form lab · private repo `GarryOne/job-pilotto-internal` (`form-lab.yml`, daily 04:17 UTC) | headless browser on public application forms with a test applicant (never submits), aimed by the site's plan → success per board and control; tries candidate recipes | the site's recipe and lab tables (`/api/lab`, `/api/recipes`) | a recipe gets a 5% canary when it works on enough pages | disable any recipe on the site |
 | Triage · private repo `GarryOne/job-pilotto-internal` (`triage.yml`, daily 05:47 UTC) | pulls recurring problems from the site's queue (several installs, or very often) → one issue per problem in the private repo | issues (private) | `telemetry` / `fill-failure` issues there | act on the issue |
 | `weekly-self-review.yml` | Sunday 18:00 UTC | reads the week's rework → ≤ 3 rule/skill edits | CLAUDE.md, AGENTS.md, skills (PR) | `self-review/<date>` PR | merge the PR |
 | `product-brain.yml` · Product brain | daily 05:00 UTC; Sunday 16:00 strategy review | reads the owner's 📍 Product Compass, numbers, the website (screenshots), GitHub → ONE action serving the phase; Sunday: proposes Compass changes (Opus, web) | Notion Decisions (+ Compass on ✅) | Brain bot card | ✅ Explore, ✅ Approve, ✅ Update the compass |

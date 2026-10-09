@@ -1,6 +1,6 @@
 // Who may open the owner's admin pages and APIs. Two keys, one session, and invited guests:
 //   STATS_KEY      the owner's login: ?key= once in a browser; it is swapped at once for a session cookie, never kept
-//   STATS_API_KEY  the scripts' key (`Authorization: Bearer`): the form lab, triage, proposer, canary promote, product brain
+//   STATS_API_KEY  the scripts' key (`Authorization: Bearer`): triage, proposer, canary promote, product brain
 //   jp_admin       the session: an expiry signed with STATS_KEY (HMAC-SHA256), 30 days. Rotating STATS_KEY ends every session.
 // Until STATS_API_KEY is set, the old ways still work (STATS_KEY as Bearer, the old cookie that held the raw key), so nothing
 // breaks before the scripts have moved to the new key. Every ?key= login, good or bad, is logged (admin_logins): when, where

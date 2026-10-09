@@ -18,7 +18,6 @@ export async function appTrends(db, now = new Date()) {
   const setup = (await rows(db, "SELECT day, install, data FROM telemetry WHERE kind = 'setup' AND day >= ?", from)).map(row => ({...row, data: json(row.data)}));
   const firsts = await rows(db, 'SELECT install, MIN(day) AS day FROM telemetry GROUP BY install HAVING MIN(day) >= ?', from);
   const problems = await rows(db, `SELECT day FROM telemetry WHERE kind IN ${PROBLEMS} AND day >= ?`, from);
-  const lab = await rows(db, "SELECT day, ok, 1 AS n FROM lab_runs WHERE kind != 'question' AND day >= ?", from);
   const fills = await rows(db, 'SELECT day, SUM(n) AS n FROM form_exposure WHERE day >= ? GROUP BY day', from);
   const guard = await rows(db, 'SELECT day, n FROM anomalies WHERE day >= ?', from);
   const feedback = await rows(db, 'SELECT day FROM feedback WHERE day >= ?', from);
@@ -32,7 +31,6 @@ export async function appTrends(db, now = new Date()) {
     setup: {label: 'setups finished', values: byWeek(setup.filter(row => row.data.step === 'done'), now, distinct('install'))},
     notion: {label: 'connected when asked', values: byWeek(gate, now, ratio('connected', 'shown')), format: pct},
     problems: {label: 'problem reports', values: byWeek(problems, now, count), higherIsBetter: false},
-    lab: {label: 'widgets set (lab)', values: byWeek(lab, now, ratio('ok', 'n')), format: pct},
     asks: {label: 'forms filled', values: byWeek(fills, now, sum('n'))},
     guard: {label: 'access anomalies', values: byWeek(guard, now, sum('n')), higherIsBetter: false},
     feedback: {label: 'messages', values: byWeek(feedback, now, count)},

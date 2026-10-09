@@ -24,8 +24,6 @@ test('efficiency per day and per release, and weaknesses ranked by impact with t
   // Last week, 0.8.95: two required questions never read per form. This week, 0.8.97: fixed, but no data for "notice period".
   for (let i = 0; i < 3; i++) card(db, `old-card-${i}`, '2026-10-03', '0.8.95', {filled: 6, causes: {unread: 2, no_data: 2}, unread: 2});
   for (let i = 0; i < 4; i++) card(db, `new-card-${i}`, '2026-10-10', '0.8.97', {filled: i === 0 ? 10 : 9, causes: i === 0 ? {} : {no_data: 1}, by_you: i === 0 ? 0 : 1});
-  db.db.prepare("INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES ('2026-10-11', 'lever', 'lev123abc', 'question', 0, 0, 'question on the page not read', 'https://jobs.lever.co/x/1/apply')").run();
-  db.db.prepare("INSERT INTO control_samples (fingerprint, kind, skeleton, question, seen_at) VALUES ('lev123abc', 'question', '{}', 'Pronouns', 'x')").run();
   const d = await digest(db, now);
   assert.deepEqual([d.thisWeek.forms, d.thisWeek.filledShare, d.thisWeek.formsNeedingNothing, d.lastWeek.filledShare, d.lastWeek.unreadPer100], [4, 0.925, 0.25, 0.6, 20]);
   assert.deepEqual(d.versions.map(v => [v.version, v.filledShare]), [['0.8.95', 0.6], ['0.8.97', 0.925]]);
@@ -33,10 +31,10 @@ test('efficiency per day and per release, and weaknesses ranked by impact with t
   assert.equal(top.id, 'cause:no_data:ashby');
   assert.match(top.area, /^data:/);
   assert.deepEqual(top.byVersion.map(v => [v.version, v.per100]), [['0.8.95', 20], ['0.8.97', 7.5]]);
-  assert.ok(d.weaknesses.some(w => w.id === 'lab:lev123abc' && w.evidence.question === 'Pronouns' && w.evidence.page.includes('lever')));
+  assert.ok(!d.weaknesses.some(w => w.id.startsWith('lab:')), 'the form lab was retired 9 Oct 2026');
   assert.ok(!d.weaknesses.some(w => w.id === 'cause:unread:ashby'), 'fixed by 0.8.97: not a weakness this week');
   const md = markdown(d);
-  for (const text of ['# Form-filling learning digest', 'no_data on ashby', '| 0.8.97 | 4 | 93% |', 'Pronouns']) assert.ok(md.includes(text), text);
+  for (const text of ['# Form-filling learning digest', 'no_data on ashby', '| 0.8.97 | 4 | 93% |']) assert.ok(md.includes(text), text);
   assert.ok(byVersion('0.8.100', '0.8.97') > 0);
 });
 
@@ -83,4 +81,14 @@ test('fill records and their Submit arrive through /api/controls; the digest is 
   assert.equal((await get('/admin/form-filling/digest.json')).status, 404);
   assert.equal((await get('/admin/form-filling/digest.json', {Authorization: 'Bearer api'})).status, 200);
   assert.match(await (await get('/admin/form-filling/digest.md', {Authorization: 'Bearer api'})).text(), /^# Form-filling learning digest/);
+});
+
+// The form lab was retired 9 Oct 2026 (owner): its endpoint (runs in, plan out) is gone.
+test('the form lab\'s endpoint is gone', async () => {
+  const e = {STATS: d1(), STATS_KEY: 'k', STATS_API_KEY: 'api', WAITLIST: {get: async () => null, put: async () => {}},
+    ASSETS: {fetch: async () => new Response('Not found', {status: 404})}};   // an unknown path falls through to the static site
+  for (const method of ['GET', 'POST']) {
+    const response = await worker.fetch(new Request('https://w.dev/api/lab', {method, headers: {Authorization: 'Bearer api'}, ...(method === 'POST' ? {body: '{"runs":[]}'} : {})}), e, {});
+    assert.notEqual(response.status, 200, method);
+  }
 });

@@ -116,7 +116,6 @@ export default {
     if (pathname === '/api/playbook') return playbook(request, env);
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
-    if (pathname === '/api/lab') return recipeLibrary.lab(request, env);
     if (pathname === '/api/triage') return triageQueue.triage(request, env);
     if (pathname === '/api/contribute') return pool.contribute(request, env);
     if (pathname === '/api/contributions') return pool.aggregate(request, env);

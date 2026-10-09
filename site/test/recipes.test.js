@@ -5,7 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
 import {flags, guard} from '../src/guard.js';
-import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labPlan, labReport, lookup, publicUrl, recipes, targets} from '../src/recipes.js';
+import {cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lookup, recipes, targets} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -141,46 +141,6 @@ test('minting tokens is limited per network address; lookups are limited per ins
   assert.equal(last, 429);
 });
 
-test('only the owner posts what the lab saw; candidates can be fetched by the owner to try; the report sums per site and kind', async () => {
-  const e = env();
-  const post = (body, key = 'secret') => lab(new Request('https://x/api/lab', {method: 'POST', headers: {Authorization: `Bearer ${key}`}, body: JSON.stringify(body)}), e, now);
-  assert.equal((await post({}, 'wrong')).status, 404);
-  const skeleton = {t: 'div', a: {role: 'radiogroup'}, c: ['yesno'], text: 'nope', k: []};
-  const result = await (await post({runs: [
-    {site: 'Ashby', fingerprint: '1d2pcapx18', kind: 'toggle-group', ok: true}, {site: 'ashby', fingerprint: '1d2pcapx18', kind: 'toggle-group', ok: false, why: 'x'},
-    {site: 'lever', fingerprint: 'bad fp', ok: true}], samples: [{fingerprint: '1d2pcapx18', kind: 'toggle-group', skeleton, question: 'Remote?'}]})).json();
-  assert.deepEqual([result.runs, result.samples], [2, 1]);
-  assert.doesNotMatch(e.STATS.db.prepare('SELECT skeleton FROM control_samples').get().skeleton, /nope/);
-  const report = await labReport(e.STATS, 7, now);
-  assert.deepEqual(report.map(r => [r.site, r.kind, r.ok, r.failed]), [['ashby', 'toggle-group', 1, 1]]);
-  await put(e, {recipe: recipe({fingerprint: 'cand0001'}), status: 'candidate'});
-  const candidates = await (await recipes(new Request('https://x/api/recipes?status=candidate', {headers: {Authorization: 'Bearer secret'}}), e)).json();
-  assert.deepEqual(candidates.recipes.map(r => [r.fingerprint, r.status]), [['cand0001', 'candidate']]);
-});
-
-test('the lab plan follows real use: busy boards by fills, the head is what fails or is unproven, coverage is exposure-weighted', async () => {
-  const e = env();
-  const send = body => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body})}), e, now);
-  // too little real use: the prior decides which boards
-  assert.deepEqual((await labPlan(e.STATS, now)).boards.map(b => [b.board, b.source]).slice(0, 2), [['greenhouse', 'prior'], ['lever', 'prior']]);
-  await send({exposure: [{board: 'ashby', n: 80}, {board: 'greenhouse', n: 20}, {board: 'h:0123456789', n: 500}, {board: 'bad board!', n: 5}],
-    outcomes: [{fp: 'busy0001', recipe: 0, ok: 90, failed: 10}, {fp: 'rare0001', recipe: 0, ok: 2, failed: 0}, {fp: 'okok0001', recipe: 0, ok: 60, failed: 0}]});
-  const run = (fp, ok, url) => e.STATS.db.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES (?, ?, ?, ?, 0, ?, ?, ?)').run('2026-10-02', 'ashby', fp, 'toggle-group', ok, '', url);
-  for (let i = 0; i < 6; i++) { run('okok0001', 1, `https://jobs.ashbyhq.com/a/${i}/application`); run('busy0001', i < 3 ? 1 : 0, 'https://jobs.ashbyhq.com/b/1/application'); }
-  const plan = await labPlan(e.STATS, now);
-  assert.deepEqual(plan.boards.map(b => [b.board, b.weight, b.source]), [['ashby', 80, 'usage'], ['greenhouse', 20, 'usage']]);   // hashed and invalid boards are not named
-  assert.deepEqual(plan.head.map(item => item.fingerprint), ['busy0001', 'rare0001']);   // failing first; the healthy one rests
-  assert.deepEqual(plan.head[0].urls, ['https://jobs.ashbyhq.com/b/1/application']);
-  assert.equal(plan.head[1].labRuns, 0);   // never tried by the lab: unproven
-  assert.equal(Math.round(plan.coverage * 100), Math.round(60 / 162 * 100));   // only okok0001 (60 of 162 meetings) is healthy
-  assert.equal(publicUrl('https://jobs.ashbyhq.com/a/1/application?token=secret#x'), 'https://jobs.ashbyhq.com/a/1/application');
-  assert.equal(publicUrl('http://insecure.example/x'), '');
-  const asked = await lab(new Request('https://x/api/lab', {headers: {Authorization: 'Bearer secret'}}), e, now);
-  assert.equal((await asked.json()).boards[0].board, 'ashby');
-  assert.equal((await lab(new Request('https://x/api/lab'), e, now)).status, 404);
-  assert.ok(PRIOR_BOARDS.greenhouse > PRIOR_BOARDS.lever);
-});
-
 test('the proposer\'s targets: failing controls without a recipe being tried, worst first, with samples; owner only', async () => {
   const e = env();
   const send = body => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body})}), e, now);
@@ -189,14 +149,13 @@ test('the proposer\'s targets: failing controls without a recipe being tried, wo
     {fp: 'nosample1', recipe: 0, ok: 0, failed: 99}, {fp: 'again001', recipe: 0, ok: 0, failed: 5}],
     samples: [{fingerprint: 'worst001', kind: 'toggle-group', skeleton, question: 'Are you based in the US?'}, {fingerprint: 'tried001', kind: 'select', skeleton, question: 'Country'},
       {fingerprint: 'again001', kind: 'date', skeleton, question: 'Start date'}]});
-  e.STATS.db.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES (?, ?, ?, ?, 0, 0, ?, ?)').run('2026-10-02', 'ashby', 'worst001', 'toggle-group', 'no option found', '');
   await put(e, {recipe: recipe({fingerprint: 'tried001'}), status: 'candidate'});
   for (const version of [1, 2, 3]) await put(e, {recipe: recipe({fingerprint: 'again001', version}), status: 'disabled'});
   const ask = (headers = {Authorization: 'Bearer secret'}, query = '') => targets(new Request(`https://x/api/recipes/targets${query}`, {headers}), e, now);
   assert.equal((await ask({})).status, 404);
   const { targets: list } = await (await ask()).json();
   assert.deepEqual(list.map(item => item.fingerprint), ['worst001']);   // tried001 has a candidate, again001 rests after 3 tries, nosample1 has nothing to show, fine0001 does not fail
-  assert.deepEqual([list[0].kind, list[0].question, list[0].version, list[0].whys, list[0].userFailed, list[0].labFailed], ['toggle-group', 'Are you based in the US?', 1, ['no option found'], 40, 1]);
+  assert.deepEqual([list[0].kind, list[0].question, list[0].version, list[0].whys, list[0].userFailed], ['toggle-group', 'Are you based in the US?', 1, [], 40]);
   assert.deepEqual(list[0].samples[0], {t: 'div', a: {role: 'radiogroup'}, c: ['yesno'], k: []});
   assert.equal((await targets(new Request('https://x/api/recipes/targets', {method: 'POST', headers: {Authorization: 'Bearer secret'}}), e, now)).status, 405);
 });

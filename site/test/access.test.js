@@ -53,7 +53,7 @@ test('an invite link gives the admin role: every page, the menu without Access, 
   }
   assert.equal((await get(e, '/admin/access', {Cookie: session})).status, 404);
   assert.equal((await post(e, {action: 'invite', name: 'Eve', days: '90'}, {Cookie: session})).status, 404);
-  assert.equal((await get(e, '/api/lab', {Cookie: session})).status, 404);   // APIs stay the super admin's
+  assert.equal((await get(e, '/api/recipes/targets', {Cookie: session})).status, 404);   // APIs stay the super admin's
   assert.equal((await get(e, path)).status, 302);   // reusable: a link preview must not spend it
   assert.equal((await get(e, path + 'x')).status, 404);   // an unknown link
   const logins = e.STATS.db.prepare('SELECT ok, person FROM admin_logins ORDER BY at').all().map(r => [r.ok, r.person]);

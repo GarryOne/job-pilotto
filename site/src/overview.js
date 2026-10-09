@@ -17,7 +17,7 @@ export async function report(db, now = new Date()) {
   const [app, insights] = await Promise.all([appTrends(db, now), insightTrends(db, now)]);
   const visits = await rows(db, 'SELECT day, visitor FROM visits WHERE day >= ?', from);
   const downloads = await rows(db, 'SELECT day FROM downloads WHERE day >= ?', from);
-  const reading = await rows(db, "SELECT day, ok, 1 AS n FROM lab_runs WHERE kind = 'question' AND day >= ?", from);
+  const filled = await rows(db, 'SELECT day, filled AS ok, required AS n FROM fill_cards WHERE day >= ?', from);   // real fills (the form lab was retired 9 Oct 2026)
   const blind = await rows(db, "SELECT day, SUM(n) AS blind FROM fill_reasons WHERE reason IN ('unread', 'by_you_unread') AND day >= ? GROUP BY day", from);
   const exposure = (await rows(db, 'SELECT day, SUM(n) AS n, SUM(required) AS required FROM form_exposure WHERE day >= ? GROUP BY day', from)).map(row => ({day: row.day, base: row.required || row.n}));
   const jobCost = await rows(db, 'SELECT day, usd FROM ai_cost_runs WHERE day >= ?', from);
@@ -36,7 +36,7 @@ export async function report(db, now = new Date()) {
     insights: [insights.replies, insights.scores],
     'self-healing': [{label: 'precision', values: byWeek(weekly(snaps), now, latest(snaps, 'precision')), format: pct}],
     'ai-cost': [{label: 'scheduled jobs + relay', values: byWeek([...jobCost, ...relay], now, sum('usd')), format: usd, higherIsBetter: false}],
-    'form-filling': [{label: 'reading (lab)', values: byWeek(reading, now, ratio('ok', 'n')), format: pct},
+    'form-filling': [{label: 'required questions filled', values: byWeek(filled, now, ratio('ok', 'n')), format: pct},
       {label: 'blind spots per 100', values: byWeek([...blind, ...exposure], now, list => { const base = sum('base')(list); return base ? (100 * sum('blind')(list)) / base : null; }),
         format: v => v.toFixed(1), higherIsBetter: false}],
     feedback: [app.feedback],
@@ -50,10 +50,8 @@ export async function report(db, now = new Date()) {
   const last = values => values.at(-1), prev = values => values.at(-2);
   const fresh = await rows(db, `SELECT COUNT(*) AS n FROM (SELECT fingerprint FROM telemetry WHERE kind IN ${PROBLEMS} GROUP BY fingerprint HAVING MIN(day) >= ?)`, weekAgo);
   if (fresh[0]?.n) attention.push({page: '/admin/app', text: `${fresh[0].n} new problem${fresh[0].n === 1 ? '' : 's'} reported by the apps this week`, tone: 'bad'});
-  const unread = await rows(db, "SELECT COUNT(DISTINCT fingerprint) AS n FROM lab_runs WHERE kind = 'question' AND ok = 0 AND day >= ?", weekAgo);
-  if (unread[0]?.n) attention.push({page: '/admin/form-filling', text: `${unread[0].n} required question${unread[0].n === 1 ? '' : 's'} the form lab could not read`, tone: 'bad'});
   const r = cards['form-filling'][0].values;
-  if (last(r) != null && prev(r) != null && last(r) < prev(r)) attention.push({page: '/admin/form-filling', text: `Form reading fell from ${pct(prev(r))} to ${pct(last(r))}`, tone: 'bad'});
+  if (last(r) != null && prev(r) != null && last(r) < prev(r)) attention.push({page: '/admin/form-filling', text: `Required questions filled fell from ${pct(prev(r))} to ${pct(last(r))}`, tone: 'bad'});
   if (recall && recall.planted && recall.caught < recall.planted) attention.push({page: '/admin/self-healing', text: `Self-healing missed ${recall.planted - recall.caught} of ${recall.planted} planted bugs`, tone: 'bad'});
   const c = cards['ai-cost'][0].values;
   if (last(c) != null && prev(c) && last(c) > 1.5 * prev(c) && last(c) - prev(c) > 1) attention.push({page: '/admin/ai-cost', text: `AI cost up from ${usd(prev(c))} to ${usd(last(c))} this week`, tone: 'warn'});

@@ -3,9 +3,9 @@
 //   POST /api/recipes/lookup  the app lists the fingerprints of the controls on the form in front of it and gets back only the
 //                       recipes for those (running ones, honouring the canary share). Nobody can download the library whole: a
 //                       recipe can only be asked for by presenting the structure it fits, and the hash space cannot be walked.
-//   GET  /api/recipes   the owner's key only: the whole running set, for the lab and the dashboard.
+//   GET  /api/recipes   the owner's key only: the whole running set, for the dashboard.
 //   GET  /api/recipes/targets  the owner's key only: the failing controls that have no recipe yet, with samples, for the private proposer.
-//   PUT  /api/recipes   the owner's key (same as /stats): the form lab or the owner adds a recipe, or changes its status.
+//   PUT  /api/recipes   the owner's key (same as /stats): the proposer or the owner adds a recipe, or changes its status.
 //   POST /api/controls  from apps: scrubbed control structures (to propose recipes from) and how the operators fared (the canary's
 //                       evidence). Product data only: no user data, no text, no answers.
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
@@ -203,91 +203,11 @@ export async function controls(request, env, now = new Date()) {
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned});
 }
 
-// A public page address for revisiting: https only, no query or fragment, bounded.
-export const publicUrl = value => { try { const url = new URL(String(value)); return url.protocol === 'https:' ? `${url.origin}${url.pathname}`.slice(0, 200) : ''; } catch { return ''; } };
-
-// ---- POST /api/lab (owner): what the form lab saw on public forms ----
-// {runs: [{site, fingerprint, kind, recipe, ok, why}], samples: [{fingerprint, kind, skeleton, question}]}
-export async function lab(request, env, now = new Date()) {
-  if (request.method === 'GET') {
-    if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
-    return Response.json(await labPlan(env.STATS, now), {headers: {'Cache-Control': 'private, no-store'}});
-  }
-  if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
-  if (!await isOwner(request, env) || !env.STATS) return new Response('Not found', {status: 404});
-  const body = await request.json().catch(() => ({}));
-  let runs = 0, samples = 0;
-  for (const item of (Array.isArray(body.runs) ? body.runs : []).slice(0, 500)) {
-    const fingerprint = String(item?.fingerprint || '');
-    if (!/^[a-z0-9]{6,16}$/.test(fingerprint)) continue;
-    await env.STATS.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(day(now), text(item.site, 60).toLowerCase(), fingerprint, text(item.kind, 24), Math.min(9999, Math.max(0, Math.round(Number(item.recipe)) || 0)), item.ok ? 1 : 0, text(item.why, 80), publicUrl(item.url)).run();
-    runs++;
-  }
-  for (const item of (Array.isArray(body.samples) ? body.samples : []).slice(0, 50)) {
-    const fingerprint = String(item?.fingerprint || ''), skeleton = cleanSkeleton(item?.skeleton);
-    if (!/^[a-z0-9]{6,16}$/.test(fingerprint) || !skeleton) continue;
-    const json = JSON.stringify(skeleton);
-    const have = (await env.STATS.prepare('SELECT COUNT(*) AS n FROM control_samples WHERE fingerprint = ?').bind(fingerprint).first())?.n || 0;
-    if (json.length > MAX_SKELETON || have >= SAMPLES_PER_FINGERPRINT) continue;
-    await env.STATS.prepare('INSERT INTO control_samples (fingerprint, kind, skeleton, question, seen_at) VALUES (?, ?, ?, ?, ?)')
-      .bind(fingerprint, text(item.kind, 24), json, text(item.question, 120), now.toISOString()).run();
-    samples++;
-  }
-  return Response.json({ok: true, runs, samples});
-}
-
-// How the lab fared per control kind and site over the last days: the success rate before any user hits a failure.
-export async function labReport(db, days = 7, now = new Date()) {
-  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
-  return (await db.prepare(`SELECT site, kind, fingerprint, SUM(ok) AS ok, COUNT(*) - SUM(ok) AS failed, COUNT(DISTINCT day) AS days
-    FROM lab_runs WHERE day >= ? GROUP BY site, kind, fingerprint ORDER BY failed DESC, ok DESC LIMIT 60`).bind(from).all()).results || [];
-}
-
-// ---- GET /api/lab/plan (owner): where the lab should spend its visits ----
-// What the board mix looks like before real usage exists (rough market share of the boards the lab can open).
-export const PRIOR_BOARDS = {greenhouse: 40, lever: 15, ashby: 15, workable: 8, smartrecruiters: 7, recruitee: 5, personio: 5, teamtailor: 5};
-const HEALTHY = 0.95, MIN_RUNS = 5;
-
-// By real exposure: boards (fills per board) and controls (how often operators met each fingerprint), with how the lab fares on
-// each and the public pages to revisit. coverage = the share of all exposure that lands on controls the lab passes at 95%+.
-export async function labPlan(db, now = new Date(), days = 30) {
-  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
-  const boardRows = (await db.prepare('SELECT board, SUM(n) AS n FROM form_exposure WHERE day >= ? GROUP BY board ORDER BY n DESC LIMIT 40').bind(from).all()).results || [];
-  const named = boardRows.filter(row => !row.board.startsWith('h:'));
-  const total = named.reduce((sum, row) => sum + row.n, 0);
-  const boards = total >= 20 ? named.map(row => ({board: row.board, weight: row.n, source: 'usage'}))
-    : Object.entries(PRIOR_BOARDS).map(([board, weight]) => ({board, weight, source: 'prior'}));   // too little real use to trust
-  const exposure = (await db.prepare(`SELECT fingerprint, SUM(ok + failed) AS n, SUM(failed) AS failed FROM control_outcomes WHERE day >= ?
-    GROUP BY fingerprint ORDER BY n DESC LIMIT 100`).bind(from).all()).results || [];
-  const lab = Object.fromEntries(((await db.prepare(`SELECT fingerprint, COUNT(*) AS runs, SUM(ok) AS ok FROM lab_runs WHERE day >= ? GROUP BY fingerprint`).bind(from).all()).results || [])
-    .map(row => [row.fingerprint, row]));
-  const urls = {};
-  for (const row of (await db.prepare(`SELECT fingerprint, url FROM lab_runs WHERE url != '' AND day >= ? ORDER BY day DESC LIMIT 400`).bind(from).all()).results || []) {
-    const list = urls[row.fingerprint] ||= [];
-    if (list.length < 3 && !list.includes(row.url)) list.push(row.url);
-  }
-  const candidates = new Set(((await db.prepare("SELECT fingerprint FROM recipes WHERE status = 'candidate'").all()).results || []).map(row => row.fingerprint));
-  const running = new Set(((await db.prepare("SELECT fingerprint FROM recipes WHERE status IN ('canary', 'verified')").all()).results || []).map(row => row.fingerprint));
-  let covered = 0, all = 0;
-  const controls = exposure.map(row => {
-    const seen = lab[row.fingerprint], rate = seen && seen.runs >= MIN_RUNS ? seen.ok / seen.runs : null;
-    const healthy = rate !== null && rate >= HEALTHY;
-    all += row.n;
-    if (healthy) covered += row.n;
-    return {fingerprint: row.fingerprint, exposure: row.n, userFailRate: row.n ? row.failed / row.n : 0, labRuns: seen?.runs || 0, labRate: rate,
-      healthy, candidate: candidates.has(row.fingerprint), recipe: running.has(row.fingerprint), urls: urls[row.fingerprint] || []};
-  });
-  // Visited every day: failing or unproven, with a candidate to try, or simply the most met. Healthy tail items rest.
-  const head = controls.filter(item => !item.healthy || item.candidate).slice(0, 20);
-  return {generated: now.toISOString(), boards, head, controls: controls.slice(0, 30), coverage: all ? covered / all : null, exposureTotal: all};
-}
-
 // ---- GET /api/recipes/targets (owner): what the private recipe proposer should work on ----
-// Controls that fail for users or in the lab and have no recipe being tried (candidate, canary or verified), worst first. Each comes with
-// what the proposer needs and nothing else: the scrubbed skeleton samples, the form's question, the failure counts and the lab's reasons,
+// Controls that fail for users and have no recipe being tried (candidate, canary or verified), worst first. Each comes with
+// what the proposer needs and nothing else: the scrubbed skeleton samples, the form's question, the failure counts (the form lab, retired 9 Oct 2026, gave reasons too),
 // and any earlier recipes (disabled ones) so it does not propose the same thing twice. A control already tried 3 times rests.
-const MAX_ATTEMPTS = 3, USER_WEIGHT = 3;
+const MAX_ATTEMPTS = 3;
 export async function targets(request, env, now = new Date(), limit = 20, days = 30) {
   if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
   if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
@@ -296,15 +216,12 @@ export async function targets(request, env, now = new Date(), limit = 20, days =
   const asked = Number(new URL(request.url).searchParams.get('limit'));
   const max = Math.max(1, Math.min(50, Number.isFinite(asked) && asked > 0 ? Math.round(asked) : limit));
   const found = new Map();
-  const entry = fingerprint => { if (!found.has(fingerprint)) found.set(fingerprint, {fingerprint, userFailed: 0, userAttempts: 0, labFailed: 0, labAttempts: 0}); return found.get(fingerprint); };
+  const entry = fingerprint => { if (!found.has(fingerprint)) found.set(fingerprint, {fingerprint, userFailed: 0, userAttempts: 0}); return found.get(fingerprint); };
   for (const row of (await db.prepare('SELECT fingerprint, SUM(failed) AS failed, SUM(ok + failed) AS n FROM control_outcomes WHERE day >= ? GROUP BY fingerprint HAVING SUM(failed) > 0').bind(from).all()).results || []) {
     Object.assign(entry(row.fingerprint), {userFailed: row.failed, userAttempts: row.n});
   }
-  for (const row of (await db.prepare('SELECT fingerprint, COUNT(*) - SUM(ok) AS failed, COUNT(*) AS n FROM lab_runs WHERE day >= ? GROUP BY fingerprint HAVING COUNT(*) - SUM(ok) > 0').bind(from).all()).results || []) {
-    Object.assign(entry(row.fingerprint), {labFailed: row.failed, labAttempts: row.n});
-  }
   const out = [];
-  const ranked = [...found.values()].sort((a, b) => (b.userFailed * USER_WEIGHT + b.labFailed) - (a.userFailed * USER_WEIGHT + a.labFailed));
+  const ranked = [...found.values()].sort((a, b) => b.userFailed - a.userFailed);
   for (const item of ranked) {
     if (out.length >= max) break;
     const tried = (await db.prepare('SELECT version, status, note, body FROM recipes WHERE fingerprint = ? ORDER BY version').bind(item.fingerprint).all()).results || [];
@@ -312,9 +229,7 @@ export async function targets(request, env, now = new Date(), limit = 20, days =
     const samples = ((await db.prepare('SELECT kind, skeleton, question FROM control_samples WHERE fingerprint = ? ORDER BY seen_at DESC LIMIT 3').bind(item.fingerprint).all()).results || [])
       .map(row => { try { return {kind: row.kind, question: row.question, skeleton: JSON.parse(row.skeleton)}; } catch { return null; } }).filter(Boolean);
     if (!samples.length) continue;   // nothing to show the proposer
-    const whys = ((await db.prepare("SELECT why, COUNT(*) AS n FROM lab_runs WHERE fingerprint = ? AND ok = 0 AND why != '' AND day >= ? GROUP BY why ORDER BY n DESC LIMIT 3").bind(item.fingerprint, from).all()).results || [])
-      .map(row => text(row.why, 120));
-    out.push({...item, kind: samples[0].kind, question: samples[0].question, samples: samples.map(sample => sample.skeleton), whys,
+    out.push({...item, kind: samples[0].kind, question: samples[0].question, samples: samples.map(sample => sample.skeleton), whys: [],
       version: (tried.length ? Math.max(...tried.map(row => row.version)) : 0) + 1,
       previous: tried.map(row => ({version: row.version, status: row.status, note: row.note, recipe: (() => { try { return JSON.parse(row.body); } catch { return null; } })()}))});
   }

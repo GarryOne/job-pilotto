@@ -68,7 +68,7 @@ test('each section of /admin/app and /admin/insights has its weeks, from the tab
   assert.deepEqual(insights.fixes.values.slice(-2), [0.5, 0.2]);
   for (const series of [...Object.values(app), ...Object.values(insights)]) assert.equal(series.values.length, 8, series.label);
   const html = await (await get(e, '/admin/app?days=30', owner)).text();
-  assert.equal((html.match(/class="trend"/g) || []).length, 10);
+  assert.equal((html.match(/class="trend"/g) || []).length, 9);   // the form lab's trend was retired 9 Oct 2026
   const intel = await (await get(e, '/admin/insights', owner)).text();
   assert.equal((intel.match(/class="trend"/g) || []).length, 9);
 });
@@ -76,12 +76,14 @@ test('each section of /admin/app and /admin/insights has its weeks, from the tab
 test('the overview: a card per page and what needs attention, pulled from their numbers', async () => {
   const e = env(), db = e.STATS.db;
   db.prepare("INSERT INTO telemetry VALUES ('2026-10-11', 'x', 'crash', 'i1', '0.8', 'mac', 'newbug', 'Boom', '{}')").run();
-  db.prepare("INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES ('2026-10-11', 'ashby', 'abc123def', 'question', 0, 0, 'question on the page not read', ''), ('2026-10-04', 'ashby', 'abc123def', 'question', 0, 1, '', '')").run();
+  // Real fills (the form lab was retired 9 Oct 2026): last week 9 of 10 required questions filled, this week 5 of 10.
+  db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds) VALUES
+    ('card-before-1', '2026-10-04', 'ashby', '0.9.1', 10, 9, 1, 0, '{}', '{}', 0, 0, 20), ('card-now-0001', '2026-10-11', 'ashby', '0.9.1', 10, 5, 5, 0, '{}', '{}', 0, 0, 20)`).run();
   db.prepare("INSERT INTO selfheal_snapshots VALUES ('2026-10-11', 'x', '{\"totals\":{\"precision\":0.6},\"recall\":{\"caught\":14,\"planted\":15,\"missed\":[\"x\"]}}')").run();
   db.prepare("INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES ('2026-10-11T10:00:00Z', '2026-10-11', 'i1', '0.8', 'mac', 'hello', '')").run();
   const data = await report(e.STATS, now);
   const texts = data.attention.map(item => `${item.page} ${item.text}`);
-  for (const want of ['/admin/app 1 new problem', '/admin/form-filling 1 required question', 'Form reading fell from 100% to 0%', '/admin/self-healing Self-healing missed 1 of 15', '/admin/feedback 1 feedback message'])
+  for (const want of ['/admin/app 1 new problem', 'Required questions filled fell from 90% to 50%', '/admin/self-healing Self-healing missed 1 of 15', '/admin/feedback 1 feedback message'])
     assert.ok(texts.some(text => text.includes(want)), want);
   const html = await (await get(e, '/admin', owner)).text();
   for (const page of PAGES.filter(p => p.path !== '/admin' && !p.superadmin)) assert.ok(html.includes(`class="card dash" href="${page.path}"`), page.path);

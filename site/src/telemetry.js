@@ -12,7 +12,6 @@ const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].lab
 import {feedbackList} from './feedback.js';
 import {flags} from './guard.js';
 import {report as knowledgeReport} from './knowledge.js';
-import {labPlan, labReport} from './recipes.js';
 import {isOwner, esc, remember} from './stats.js';
 
 export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice'];
@@ -256,14 +255,6 @@ ${data.gate?.installs ? `<p style="margin:8px 0"><b>${data.gate.installs}</b> as
 ${Object.keys(data.gate.whys).length ? `<p class="muted" style="margin-top:8px">Why not: ${Object.entries(data.gate.whys).sort((a, b) => b[1] - a[1]).map(([why, n]) => `${esc(GATE_WHY[why] || why)} <b>×${n}</b>`).join(' · ')}</p>` : ''}
 <small class="muted" style="display:block;margin-top:6px">Revisit local tracking without Notion when, over ${GATE_REVISIT_INSTALLS}+ installs asked, more than ${Math.round(GATE_REVISIT_RATE * 100)}% never connect and "I don't use Notion" is the top reason. ${data.gate.revisit ? '<b style="color:var(--red)">That is the case now.</b>' : 'Not yet.'}</small>`
   : '<p class="muted">Nobody has been asked yet.</p>'}</section>
-<section class="card" style="margin-top:12px"><h2>🧪 Form lab &amp; coverage${chip(data, 'lab')}</h2>
-<small class="muted">Share of all real exposure that falls on controls the lab passes at 95% or more: <b>${data.plan?.coverage == null ? '–' : Math.round(data.plan.coverage * 100) + '%'}</b>
- · target 90% · ${data.plan?.exposureTotal || 0} control meetings counted · boards by ${data.plan?.boards?.[0]?.source || 'prior'}</small>
-<table style="margin-top:8px"><tr><th>Control</th><th>Met</th><th>Users fail</th><th>Lab</th><th>Recipe</th></tr>
-${(data.plan?.head || []).map(item => `<tr><td><code>${esc(item.fingerprint)}</code></td><td>${item.exposure}</td><td>${Math.round(item.userFailRate * 100)}%</td>
-  <td>${item.labRate == null ? `untested (${item.labRuns})` : Math.round(item.labRate * 100) + '%'}</td><td>${item.recipe ? 'running' : item.candidate ? 'candidate' : '–'}</td></tr>`).join('')
-  || '<tr><td colspan="5" class="muted">Nothing failing or unproven: nothing to chase.</td></tr>'}</table>
-<small class="muted">Lab by board (last 7 days): ${(data.lab || []).slice(0, 8).map(row => `${esc(row.site)} ${esc(row.kind)} ${row.ok}/${row.ok + row.failed}`).join(' · ') || 'no runs yet'}</small></section>
 <section class="card" style="margin-top:12px"><h2>🧬 What installs ask and where they stall${chip(data, 'asks')}</h2>
 <small class="muted">Questions no answer matched, reported by ${3} or more installs (the form's own wording), and where applications got to per board (last 7 days).</small>
 <table style="margin-top:8px"><tr><th>Question</th><th>Kind</th><th>Times</th><th>Installs</th><th>Boards</th></tr>
@@ -297,8 +288,8 @@ export async function view(request, env, now = new Date()) {
     const [data, feedback, setup, byChannel, gate] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
       funnel(env.STATS, Math.max(days, 30), now).catch(() => null), channels(env.STATS, Math.max(days, 30), now).catch(() => []),
       gateStats(env.STATS, Math.max(days, 30), now).catch(() => null)]);
-    const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []), guardData = await flags(env.STATS, 7, now).catch(() => null), learned = await knowledgeReport(env.STATS, 7, now).catch(() => null), trends = await appTrends(env.STATS, now).catch(() => null);
-    return new Response(page({...data, feedback, funnel: setup, gate, channels: byChannel, plan, lab, guard: guardData, knowledge: learned, trends}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    const guardData = await flags(env.STATS, 7, now).catch(() => null), learned = await knowledgeReport(env.STATS, 7, now).catch(() => null), trends = await appTrends(env.STATS, now).catch(() => null);
+    return new Response(page({...data, feedback, funnel: setup, gate, channels: byChannel, guard: guardData, knowledge: learned, trends}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

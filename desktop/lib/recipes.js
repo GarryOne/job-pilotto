@@ -99,7 +99,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       }
       schedule();
     },
-    // One form filled on this board (lib/control-events.js boardName): how often users meet each board, to aim the form lab.
+    // One form filled on this board (lib/control-events.js boardName): how often users meet each board.
     // `required`: how many required questions it had, the denominator of the real-use rates on /smart-form-filling.
     fill(board, required = 0) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;

@@ -1,5 +1,5 @@
 // The form-filling learning digest: how well the filling does, day by day and per release, and its weaknesses ranked by impact,
-// each with its evidence and the area a fix belongs to. Built from what the site keeps (fill_cards, lab_runs, control_outcomes,
+// each with its evidence and the area a fix belongs to. Built from what the site keeps (fill_cards, control_outcomes,
 // control_samples, question_labels): counts, fixed words and the forms' own public wording only. Served as JSON and Markdown on
 // /admin/form-filling/digest.json|.md (any admin; the scripts' key too), read by the weekly LLM pass in the private repo
 // (digest/propose.mjs) that turns the top weaknesses into proposals. Design: Notion "The self-learning loop".
@@ -31,7 +31,7 @@ export const AREA = {
   by_you: 'gap: people answered questions the fill left (any of the above)',
   page_error: 'validation: the page refused the answers after Submit (formats, required checks)',
   other: 'unknown: an unclassified reason (add a cause in extension/fill-card.js)',
-  widget: 'operator: a widget the operators could not set (recipes: the proposer and the lab)',
+  widget: 'operator: a widget the operators could not set (recipes: the proposer)',
   wording: 'data: a question no answer matched, in its own words (profile fields, aliases)',
 };
 
@@ -75,16 +75,7 @@ export async function digest(db, now = new Date()) {
           .map(([version, vl]) => ({version, forms: vl.length, per100: round(vl.reduce((s, c) => s + c.required, 0) ? (100 * lost(vl, cause)) / vl.reduce((s, c) => s + c.required, 0) : null, 1)}))});
     }
   }
-  // 2. Required questions the form lab could not read on public forms: wording and a page to open.
-  for (const row of await rows(db, `SELECT r.fingerprint, r.site, COUNT(*) AS n, COUNT(DISTINCT r.url) AS pages, MAX(r.url) AS url, MAX(r.day) AS last,
-      (SELECT question FROM control_samples s WHERE s.fingerprint = r.fingerprint LIMIT 1) AS question,
-      (SELECT COUNT(*) FROM lab_runs b WHERE b.fingerprint = r.fingerprint AND b.kind = 'question' AND b.ok = 0 AND b.day >= ? AND b.day < ?) AS before
-    FROM lab_runs r WHERE r.kind = 'question' AND r.ok = 0 AND r.day >= ? GROUP BY r.fingerprint, r.site ORDER BY n DESC LIMIT 20`, twoWeeks, weekAgo, weekAgo)) {
-    weaknesses.push({id: `lab:${row.fingerprint}`, kind: 'lab-unread', cause: 'unread', board: row.site, area: AREA.unread, impact: Math.max(1, row.pages) * row.n,
-      title: `The lab could not read "${row.question || row.fingerprint}" on ${row.site}`, now: {runs: row.n, pages: row.pages}, before: {runs: row.before},
-      evidence: {question: row.question || '', fingerprint: row.fingerprint, page: row.url, last: row.last}});
-  }
-  // 3. Widgets the operators could not set, for users and in the lab (a recipe's job).
+  // 2. Widgets the operators could not set for users (a recipe's job). The form lab was retired 9 Oct 2026.
   for (const row of await rows(db, `SELECT o.fingerprint, SUM(o.failed) AS failed, SUM(o.ok) AS ok,
       (SELECT kind FROM control_samples s WHERE s.fingerprint = o.fingerprint LIMIT 1) AS kind,
       (SELECT question FROM control_samples s WHERE s.fingerprint = o.fingerprint LIMIT 1) AS question
@@ -93,7 +84,7 @@ export async function digest(db, now = new Date()) {
       title: `A ${row.kind || 'widget'} failed ${row.failed} time${row.failed === 1 ? '' : 's'} (${row.ok} worked)`, now: {failed: row.failed, ok: row.ok},
       evidence: {fingerprint: row.fingerprint, kind: row.kind || '', question: row.question || ''}});
   }
-  // 4. Questions no answer matched, in the forms' own words, once 3+ installs met them (question_labels keeps only those).
+  // 3. Questions no answer matched, in the forms' own words, once 3+ installs met them (question_labels keeps only those).
   for (const row of await rows(db, 'SELECT label, kind, n, boards FROM question_labels WHERE last_day >= ? ORDER BY n DESC LIMIT 15', weekAgo)) {
     weaknesses.push({id: `wording:${row.label}`, kind: 'wording', cause: 'no_data', area: AREA.wording, impact: row.n,
       title: `No answer matched "${row.label}"`, now: {times: row.n}, evidence: {label: row.label, kind: row.kind, boards: json(row.boards)}});
@@ -103,7 +94,7 @@ export async function digest(db, now = new Date()) {
   return {generated: now.toISOString(), period: {from: weekAgo, to: today, compare: twoWeeks}, thisWeek: summarize(thisWeek), lastWeek: summarize(lastWeek),
     daily, versions, boards, proposals, weaknesses: weaknesses.slice(0, 25),
     notes: ['Counts and fixed words only; question wording is the forms\' own, kept once 3+ installs reported it.',
-      'impact = forms affected x required questions lost (lab: pages x runs; widgets: failures; wording: times met).',
+      'impact = forms affected x required questions lost (widgets: failures; wording: times met).',
       'filledShare = required questions the fill answered / required questions; formsNeedingNothing = forms left complete with nothing answered by hand.']};
 }
 
