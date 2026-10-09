@@ -36,7 +36,7 @@ export function notionToken(suite) {
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
 // engine: a suite whose steps the AI proxy answers pins 'api' (a placeholder key on a Mac); otherwise a Mac uses Claude Code, CI the API key (lib/engine.mjs).
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, store: suiteStore = '', notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}, report = null} = {}) {
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, store: suiteStore = '', standInFromWizard = false, notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}, report = null} = {}) {
   // Where the app keeps the person's data (lib/store.mjs): this Mac (sqlite, no Notion at all), the in-memory Notion (fresh and private for this run, no
   // token, no shared page: lib/notion-fake.mjs), or the real test workspace for a suite that pins it. A suite with no Notion part keeps its own setup.
   const store = light || !usesNotion ? '' : pickStore({suiteStore: suiteStore || (notionStandIn ? 'standin' : '')});
@@ -65,8 +65,9 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   if (engine === 'cli') console.log('  AI engine: the Claude Code on this Mac (your plan): no Anthropic key is read or used on a Mac.');
   if (onNotion) ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
   if (fresh && ctx.root) console.log(`Notion test page "${ctx.root.title}": ${await clearRoot(token, ctx.root.id)} item(s) moved to the trash`);
-  // The stand-in starts empty: built once here unless the suite tests a fresh setup (the wizard), like the real test page that is built already.
-  if (store === 'standin' && !fresh) await buildStandIn(standIn);
+  // The stand-in starts empty: built once here unless the suite tests a fresh setup (the wizard), like the real test page that is built already. A suite that
+  // reads what the setup drafted from the CV (the Profile: `standInFromWizard = true`, quality) builds it through the wizard, as a first real run did.
+  if (store === 'standin' && !fresh && !standInFromWizard) await buildStandIn(standIn);
   ctx.built = onNotion && !fresh && await workspaceReady(token);
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
