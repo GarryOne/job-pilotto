@@ -117,6 +117,16 @@ class CodecTests(unittest.TestCase):
         self.assertEqual((callout['type'], callout['callout']['icon']), ('callout', {'type': 'emoji', 'emoji': '📝'}))
         self.assertEqual((todo['type'], todo['to_do']['checked']), ('to_do', True))
 
+    def test_a_plain_toggle_folds_its_children(self):
+        """An interview prep keeps the earlier kit folded in a plain toggle (9 Oct 2026, mac-4a)."""
+        from src.stores.notion_blocks import to_blocks, to_markdown
+        prep = ('## 🎤 Interview prep\n\nNew kit text.\n\n▸ Earlier kit · built 3 Oct 2026\n  ### Questions\n\n  - Why SRE?\n  - On-call?\n\n'
+                '  An old paragraph.\n\nAfter the toggle')
+        for md in (prep, '▸ Folded', '\\▸ not a toggle', '- a bullet\n\n▸ then a toggle\n  - inside'):
+            self.assertEqual(to_markdown(to_blocks(md)), md)
+        toggle = next(b for b in to_blocks(prep) if b['type'] == 'toggle')
+        self.assertEqual([child['type'] for child in toggle['toggle']['children']], ['heading_3', 'bulleted_list_item', 'bulleted_list_item', 'paragraph'])
+
     def test_todays_interview_page_comes_back_as_the_same_blocks(self):
         merged = {'filled': [], 'differs': [], 'changes': {}}
         page = interviews_blocks.page_blocks(RESULT, SPOKEN + '\n' + 'y' * 5000, merged)

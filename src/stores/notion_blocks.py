@@ -5,7 +5,8 @@ The one codec of the Notion adapter (src/stores/notion*.py import it; never a se
   paragraphs, `#`/`##`/`###` headings, `- ` and `1. ` lists, ``` code (with a language), `> ` quotes,
   **bold**, *italic*, `code` and [links](url) inside text, `| a | b |` tables (a `| --- |` line after the first row
   when it is a header row; a Profile's experience table), `- [ ]` / `- [x]` to-dos, `> [!📝] text` callouts (the icon in
-  the brackets, `> [!] text` without one; any other `> ` is a quote; a rejection review uses both), and children: any block's children follow it indented by
+  the brackets, `> [!] text` without one; any other `> ` is a quote; a rejection review uses both), `▸ text` plain
+  toggles (an interview prep's folded earlier kit), and children: any block's children follow it indented by
   two spaces. A toggleable heading is written `## ▸ Title` with its body indented below it.
 A character that would start one of these is escaped with a backslash, so text read from Notion comes back as written.
 Rich text is cut into parts of at most 1900 characters (Notion allows 2000), 100 parts a block; a longer paragraph
@@ -162,6 +163,8 @@ def to_markdown(blocks, children=None):
         elif kind == 'numbered_list_item':
             first, *rest = _lines(text)
             lines = [f'{number}. {first}', *rest]
+        elif kind == 'toggle':
+            lines = [f'{TOGGLE}{text}']
         elif kind == 'quote':
             first, *rest = text.split('\n')
             lines = [f"> {'\\' if first.startswith('[!') else ''}{first}", *(f'> {line}' for line in rest)]
@@ -232,7 +235,7 @@ def _code(lines, language):
 
 
 def _starts_block(line):
-    return bool(re.match(r'(#{1,3} |- |\d+\. |> |```|---$|\|)', line))
+    return bool(re.match(r'(#{1,3} |- |\d+\. |> |```|---$|\||▸ )', line))
 
 
 def to_blocks(markdown):
@@ -261,6 +264,8 @@ def to_blocks(markdown):
             while i < len(lines) and lines[i].startswith('|'):
                 i += 1
             made = _table(lines[start:i])
+        elif line.startswith(TOGGLE):
+            made, i = _block('toggle', line[len(TOGGLE):]), i + 1
         elif line == '---':
             made, i = [{'object': 'block', 'type': 'divider', 'divider': {}}], i + 1
         elif re.match(r'> \[!([^\]]*)\] ?', line):
