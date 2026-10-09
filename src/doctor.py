@@ -32,7 +32,7 @@ from . import features, secret_store
 from .ai import apply_batch
 from .notion import client as notion
 from .paths import CONFIG
-from .stores import open_stores
+from .stores import chosen, open_stores
 
 OK, WARN, FAIL, INFO = 'ok', 'warn', 'fail', 'info'
 ICONS = {OK: '✅', WARN: '⚠️ ', FAIL: '❌', INFO: 'ℹ️ '}
@@ -85,7 +85,10 @@ def _hours_ago(iso, now):
 
 # ---------- Setup ----------
 
-def check_notion(tracker):
+def check_notion(tracker, store=None):
+    """The Notion line. store: the active store's name; on another one Notion holds none of the data, so it is not asked."""
+    if store not in (None, 'notion'):
+        return Check('Setup', 'Notion', INFO, 'not used — your data is on this Mac; Always on needs it')
     if tracker is None:
         # Optional: the core crawl and digest work without it; tracking, scoring and kits need it.
         state = 'switched off (JOB_PILOTTO_DISABLE)' if features.disabled('notion') else 'not set up'
@@ -398,7 +401,7 @@ def run_checks(tracker=None, now=None, stores=None):
              lambda: check_google(now), lambda: check_mail_workflow(now)]
     remote = [check_profile, check_answers, check_sources, lambda s: check_last_crawl(s, now),
               check_matches, check_kits, check_in_progress, lambda s: check_budget(s, now), check_feeds]
-    first = [check_notion(tracker)]
+    first = [check_notion(tracker, stores.name if stores is not None else None)]
     if stores is not None and (stores.name != 'notion' or first[0].state == OK):
         first.append(_safe(check_store, stores))
     jobs = [(fn, ()) for fn in local]
@@ -460,8 +463,10 @@ def main():
                         help='health checks only, and send one Telegram line if something is wrong')
     args = parser.parse_args()
     token = notion_token()
+    # A Notion client only when Notion holds the data (a token can outlive a move to this Mac's store).
+    on_notion = token and chosen({**os.environ, 'NOTION_TOKEN': token}) == 'notion'
     tracker = notion.Tracker(token, os.getenv('NOTION_APPLICATIONS_DB') or notion.DEFAULT_DATABASE_ID) \
-        if token else None
+        if on_notion else None
     if args.alert:
         from . import telegram
         try:

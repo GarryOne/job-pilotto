@@ -76,6 +76,26 @@ class ChecksTest(unittest.TestCase):
 
     def test_rejected_token(self):
         self.assertEqual(doctor.check_notion(FakeTracker(fail=True)).state, FAIL)
+        self.assertEqual(doctor.check_notion(FakeTracker(fail=True), 'notion').state, FAIL)
+
+    def test_notion_is_checked_only_when_it_holds_the_data(self):
+        # A token left from before a move to this Mac: Notion is not asked, and its state never fails the checklist.
+        line = doctor.check_notion(FakeTracker(fail=True), 'sqlite')
+        self.assertEqual((line.state, line.fix), (INFO, ''))
+        self.assertIn('this Mac', line.detail)
+        with mock.patch.dict(doctor.os.environ, {'JOB_PILOTTO_STORE': 'sqlite', 'NOTION_TOKEN': 'secret_x'}), \
+                mock.patch.object(doctor.notion, 'Tracker', side_effect=AssertionError('no Notion client on this Mac\'s store')), \
+                mock.patch.object(doctor, 'active_store', return_value=memory.open_store()) as opened, \
+                mock.patch.object(doctor, 'run_checks', return_value=[]) as ran, mock.patch('sys.argv', ['doctor', '--json']), \
+                mock.patch('builtins.print'):
+            doctor.main()
+        self.assertEqual((opened.call_args.args, ran.call_args.args), ((None,), (None,)))
+        with mock.patch.dict(doctor.os.environ, {'NOTION_TOKEN': 'secret_x'}), mock.patch.object(doctor.notion, 'Tracker') as made, \
+                mock.patch.object(doctor, 'active_store', return_value=memory.open_store()), \
+                mock.patch.object(doctor, 'run_checks', return_value=[]) as ran, mock.patch('sys.argv', ['doctor', '--json']), \
+                mock.patch('builtins.print'):
+            doctor.main()
+        self.assertIs(ran.call_args.args[0], made.return_value, 'Notion holds the data: checked as today')
 
     def test_last_crawl_states(self):
         stores = memory.open_store()
