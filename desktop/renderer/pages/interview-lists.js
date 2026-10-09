@@ -10,12 +10,14 @@ const iv = window.pilot.interviews;
 export const plainId = id => String(id || '').replace(/-/g, '');
 export const jobList = () => (Array.isArray(shared.allJobs) ? shared.allJobs : []);  // unset while the job list loads
 export const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
-export const jobForPage = pageId => jobList().find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
+// An interview's job: by its Notion page, or by the store's id on a store without pages (job.page_id, src/desktop_store_jobs.py).
+export const jobForPage = pageId => jobList().find(job => (job.page_id && plainId(job.page_id) === plainId(pageId))
+  || (job.notion_url && plainId(job.notion_url).includes(plainId(pageId))));
 
 // Every job in the list (applied and tracked ones first); one not in Applications yet is added there on save.
 export const PASTE = '__paste__';
 export function jobOptions(select, chosenUrl, emptyLabel) {
-  const rank = job => (job.status === 'applied' ? 0 : job.notion_url ? 1 : 2);
+  const rank = job => (job.status === 'applied' ? 0 : job.notion_url || job.page_id ? 1 : 2);   // tracked first, on any store
   const jobs = jobList().filter(job => job.url && job.status !== 'dismissed')
     .sort((a, b) => rank(a) - rank(b) || a.company.localeCompare(b.company));
   select.replaceChildren(new Option(emptyLabel, ''), ...jobs.map(job => new Option(jobName(job), job.url, false, job.url === chosenUrl)));

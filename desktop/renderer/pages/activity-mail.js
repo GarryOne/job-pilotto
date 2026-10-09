@@ -9,6 +9,7 @@ import {shared} from './shared.js';
 import {$} from './core.js';
 import {prepAction} from './focus.js';
 import {openView} from './nav.js';
+import {openJobPanel} from './job-panel.js';
 import {whichJob} from './reassign.js';
 import {openPrep, prepRunning} from './prep.js';
 // A Gmail check's own lines about the emails: the update it recorded — with what moved on the job — and every email
@@ -292,7 +293,8 @@ function jobPrep(company, title) {
   if (!found?.page_id) return null;
   const id = found.page_id;
   if (kitBuilding.has(id)) return {label: 'Building…', busy: true, run: () => {}};
-  if (kitReady.has(id) && found.notion_url) return {label: 'Open prep kit', run: event => window.pilot.openNotion(found.notion_url, event?.metaKey)};
+  // A ready kit opens where it is: its Notion page, else the job's page here on its Prep tab (never offered as a new build, $0.04).
+  if (kitReady.has(id)) return {label: 'Open prep kit', run: event => (found.notion_url ? window.pilot.openNotion(found.notion_url, event?.metaKey) : (openView('jobs'), openJobPanel(found, 'prep')))};
   return {label: 'Build prep kit', title: ai('{AI:main} builds it from the job, your Profile and your earlier interviews'), run: () => {
     openPrep({page_id: id, company: found.company || found.via, job: found.title, notion_url: found.notion_url, badge: ''});
     kitBuilding.add(id);
@@ -327,8 +329,8 @@ function jobLink(job, tagName = 'p') {
   const found = (shared.allJobs || []).find(one => jobKey(one.company || one.via) === jobKey(company) && jobKey(one.title).startsWith(jobKey(title.join(' — ')).slice(0, 40)));
   if (!found || (!found.notion_url && !found.url)) return el(tagName, 'mail-ask-answer', job);
   const link = Object.assign(el('a', 'link mail-ask-answer', `${job} ↗`), {href: '#'});
-  link.title = found.notion_url ? 'Open the job in Notion' : 'Open the posting';
-  link.addEventListener('click', event => { event.preventDefault(); if (found.notion_url) window.pilot.openNotion(found.notion_url, event.metaKey); else window.pilot.openExternal(found.url); });
+  link.title = found.notion_url ? 'Open the job in Notion' : found.page_id ? 'Open the job\'s page' : 'Open the posting';
+  link.addEventListener('click', event => { event.preventDefault(); if (found.notion_url) window.pilot.openNotion(found.notion_url, event.metaKey); else if (found.page_id) { openView('jobs'); openJobPanel(found); } else window.pilot.openExternal(found.url); });
   return link;
 }
 function questionPanel(state, key, subject = '', {noun = 'email', company = ''} = {}) {

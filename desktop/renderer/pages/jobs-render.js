@@ -56,7 +56,7 @@ function renderTalking(narrowed = false) {
   $('jobs-talking-count').textContent = `${talking.length} active · ${found} inbound · ${talking.length - found} outbound`;
   $('jobs-talking-list').replaceChildren(...talking.map(job => {
     const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
-      title: job.notion_url ? 'Open in Notion' : 'Open the link'});
+      title: job.notion_url ? 'Open in Notion' : 'Open its page'});
     const round = el('span', 'focus-round');
     round.append(icon('chat'));
     const top = el('div', 'focus-top');
@@ -70,7 +70,8 @@ function renderTalking(narrowed = false) {
     const body = el('div', 'focus-body');
     body.append(top, meta);
     li.append(round, body);
-    const open = event => (job.notion_url ? window.pilot.openNotion(job.notion_url, event.metaKey) : window.pilot.openExternal(job.url));
+    // Its Notion page when the store has one, else the job's page here (pages/job-panel.js): the conversation, its messages and history.
+    const open = event => (job.notion_url ? window.pilot.openNotion(job.notion_url, event.metaKey) : openJobPanel(job));
     li.addEventListener('click', open);
     li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(event); } });
     return li;

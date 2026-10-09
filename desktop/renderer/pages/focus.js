@@ -209,7 +209,9 @@ function focusCard(item) {
   }
   // The prep kit: built on the job's page (a button press: it costs about $0.04), then opened there. A kit from an
   // earlier call offers the new one first; the earlier kit stays on the page, in the ⋯ menu.
-  const prepRun = run => (run === 'open' ? event => openLink(item.notion_url, event) : () => {
+  // A ready kit: its Notion page, else the job's page here on its Prep tab (the 'open' state had no target on a store without pages).
+  const jobOf = () => ({url: item.job_url, title: item.job, company: item.company});
+  const prepRun = run => (run === 'open' ? event => (item.notion_url ? openLink(item.notion_url, event) : (openView('jobs'), openJobPanel(jobOf(), 'prep'))) : () => {
     markPrep(item.page_id, 'building');  // the row says "Building…" before the dialog, not after Notion
     openPrep(item);
   });
@@ -219,8 +221,8 @@ function focusCard(item) {
     if (prep.primary.run === 'join') main.prepend(el('span', 'spinner small'));
     actions.append(main);
   }
-  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting', 'follow_up'].includes(item.kind) && item.notion_url) {
-    actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
+  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting', 'follow_up'].includes(item.kind) && (item.notion_url || item.job_url)) {
+    actions.append(focusButton('Open', 'primary', event => (item.notion_url ? openLink(item.notion_url, event) : (openView('jobs'), openJobPanel(jobOf())))));
   }
   if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', () => finishItem(item,
     () => window.pilot.focusDone(item.page_id, item.kind === 'follow_up' ? 'followed_up' : 'replied'))));
@@ -304,7 +306,8 @@ export function prepAction(company) {
   const item = key && (lastFocus?.items || []).find(one => one.kind === 'prepare' && one.page_id && String(one.company || '').toLowerCase().trim() === key);
   if (!item) return null;
   const {primary} = prepCard(item);
-  const run = primary.run === 'open' ? event => window.pilot.openNotion(item.notion_url, event?.metaKey)
+  const run = primary.run === 'open' ? event => (item.notion_url ? window.pilot.openNotion(item.notion_url, event?.metaKey)
+      : (openView('jobs'), openJobPanel({url: item.job_url, title: item.job, company: item.company}, 'prep')))
     : primary.run === 'join' ? () => openView('focus') : () => { markPrep(item.page_id, 'building'); openPrep(item); };
   return {label: primary.label, title: primary.title || '', busy: primary.run === 'join', run};
 }
