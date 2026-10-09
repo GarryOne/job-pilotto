@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from src import scout, scout_notion
-from src.stores import memory, notion, stores_of
+from src.stores import memory, notion
 
 PAGES = json.loads((Path(__file__).parent / 'fixtures' / 'scout_employer_pages.json').read_text())
 
@@ -79,11 +79,6 @@ class OwnFeedsFromTheStore(unittest.TestCase):
         stores.employers.add({'name': 'No slug', 'ats': 'greenhouse'})
         stores.employers.add({'name': 'Custom', 'ats': 'taleo', 'slug': 'x'})
         self.assertEqual(scout.own_feeds(stores), [('Mine', 'greenhouse', 'mine')])
-
-    def test_a_notion_tracker_still_works_as_the_store(self):
-        """BRIDGE(G): daily_search still hands over its Tracker; it means the notion store."""
-        self.assertEqual(stores_of(Tracker()).name, 'notion')
-        self.assertIsNone(stores_of(None))
 
 
 if __name__ == '__main__':

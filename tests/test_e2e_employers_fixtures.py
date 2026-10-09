@@ -22,10 +22,12 @@ class Tracker:
     def update_page(self, *a): pass
 db = sqlite3.connect(':memory:'); db.row_factory = sqlite3.Row
 tracker = Tracker()
+from src.stores import notion
+stores = notion.open_store({'NOTION_TOKEN': 't'}, tracker=tracker)   # a user on Notion: its rows are what the fake records
 seeds = json.load(open('desktop/e2e/fixtures/feeds/employers/scout_seeds.json'))
 starter = json.load(open('desktop/e2e/fixtures/feeds/sources.json'))
-summary, results = scout.run(db, 15, tracker, seeds, static=starter)
-again, again_results = scout.run(db, 15, tracker, seeds, static=starter)
+summary, results = scout.run(db, 15, stores, seeds, static=starter)
+again, again_results = scout.run(db, 15, stores, seeds, static=starter)
 plain = lambda p: {k: (v.get('title') or v.get('rich_text') or v.get('select') or v.get('number', v.get('checkbox', v.get('url'))) ) for k, v in p.items()}
 print(json.dumps({'summary': summary, 'again': again, 'again_checked': len(again_results),
     'results': [[c['name'], o['status'], o.get('quality'), o.get('stats')] for c, o in results],

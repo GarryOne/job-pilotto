@@ -34,10 +34,3 @@ def open_stores(env=None, tracker=None) -> Stores:
     module = importlib.import_module(ADAPTERS[name])
     return module.open_store(env, tracker=tracker) if tracker is not None and name == 'notion' else module.open_store(env)
 
-
-def stores_of(source):
-    """The store a caller handed over: a Stores as it is, None as None, a Notion Tracker as the notion store it stands for."""
-    if source is None or isinstance(source, Stores):
-        return source
-    # BRIDGE(G): remove when daily_search and apply_batch pass stores (they still hand over their Notion Tracker).
-    return open_stores(tracker=source)

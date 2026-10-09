@@ -34,7 +34,6 @@ from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reache
 from .scout_candidates import harvest, skipped_origins, starter_list
 from .scout_core import DEFAULT_BATCH, IDEAS_PAUSE, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, key_for, now, pending_count
 from .scout_index import board_stats, build_index, central_stats, dead_ends, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
-from .stores import stores_of
 from .scout_notion import active_sources, export_sources, mark_synced, not_updated, sync_employers, synced_key, write_employer
 from .scout_probe import READERS, find_feed, next_batch, quality, skipping
 from .scout_core import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
@@ -87,7 +86,6 @@ def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harve
     """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes).
     A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the store's
     active employers. stores: where each checked employer is written (None: only this computer's scout table)."""
-    stores = stores_of(stores)
     seeds = seeds or json.loads(SEEDS.read_text())
     if static is None:
         static = starter_list()

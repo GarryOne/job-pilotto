@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.sources import ats
 from src import store as job_store
 from src import scout, scout_candidates, scout_core
-from src.stores import memory
+from src.stores import memory, notion
 
 SEEDS = {'excluded': ['Acme'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
          'tier1': ['Farco'], 'manual_watch': [{'name': 'Walledco', 'careers': 'https://walled.test/jobs'}],
@@ -47,9 +47,14 @@ class FakeTracker:
         self.updated.append(properties)
 
 
+def on_notion(tracker):
+    """The notion store over this fake client: what a user on Notion has (Employers & Sources rows are what it records)."""
+    return notion.open_store({'NOTION_TOKEN': 't', 'NOTION_EMPLOYERS_DB': scout_core.EMPLOYERS_DB}, tracker=tracker)
+
+
 class ScoutTests(unittest.TestCase):
     def run_scout(self, db, tracker=None, batch=10):
-        return scout.run(db, batch, tracker, SEEDS, fake_probe, harvest_sources=[lambda: scout.seed_candidates(SEEDS)])
+        return scout.run(db, batch, tracker and on_notion(tracker), SEEDS, fake_probe, harvest_sources=[lambda: scout.seed_candidates(SEEDS)])
 
     def test_every_tech_only_list_is_marked_and_the_trade_agnostic_ones_are_not(self):
         """The class, not one case: each source of software employers yields origins a non-IT search skips, so a new one cannot slip past."""
@@ -206,7 +211,7 @@ class ScoutTests(unittest.TestCase):
             (Path(tmp) / 'sources.json').write_text(json.dumps([{'company': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}]))
             with mock.patch.object(scout_candidates, 'CONFIG', Path(tmp)), job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 tracker = FakeTracker()
-                summary, results = scout.run(db, 10, tracker, seeds, fake_probe, harvest_sources=[lambda: scout.seed_candidates(seeds)])
+                summary, results = scout.run(db, 10, on_notion(tracker), seeds, fake_probe, harvest_sources=[lambda: scout.seed_candidates(seeds)])
                 self.assertEqual([o['status'] for _, o in results], ['duplicate'])
                 self.assertEqual(summary['total_feeds'], 0)
                 self.assertEqual(tracker.created, [])

@@ -15,7 +15,6 @@ import urllib.request
 
 from .paths import DATA, load_search_config
 from .sources import ats
-from .stores import stores_of
 
 URL = 'https://www.jobpilotto.workers.dev/api/contribute'
 STAMP = DATA / 'contribution_sent.json'
@@ -261,7 +260,7 @@ def payload(feed_list, report, stores=None, install=None, search=None, db=None, 
     matched = {s['company'] for s in report.get('sources', []) if s.get('ok') and s.get('matches')}
     read = {s['company']: s for s in report.get('sources', [])}
     found = found_here(db)
-    own, stores = set(), stores_of(stores)
+    own = set()
     if stores:
         try:
             own = {(system, slug) for _, system, slug in scout.own_feeds(stores)}

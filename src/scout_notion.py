@@ -14,7 +14,6 @@ from .paths import CONFIG
 from .sources import ats, careers
 from .scout_core import TABLES, key_for, now
 from .scout_probe import board_url
-from .stores import stores_of
 
 
 def excluded_companies(seeds=None):
@@ -32,7 +31,6 @@ def active_sources(db, stores=None, static=(), index=()):
                for s in employer_index.merge(static, index, lambda company: key_for(company) in skip)}
     for row in db.execute('SELECT ats, slug, company FROM feed_sources WHERE active = 1'):
         sources.setdefault((row['ats'], row['slug']), {'company': row['company'], 'ats': row['ats'], 'slug': row['slug']})
-    stores = stores_of(stores)
     if stores:
         try:
             for name, system, slug in own_feeds(stores):
@@ -44,7 +42,7 @@ def active_sources(db, stores=None, static=(), index=()):
 
 def own_feeds(stores):
     """[(company, ats, slug)] for every active employer of the store with a crawlable feed."""
-    return [(row['name'], row['ats'], row['slug']) for row in stores_of(stores).employers.list(active=True)
+    return [(row['name'], row['ats'], row['slug']) for row in stores.employers.list(active=True)
             if row['ats'] in ats.FETCHERS and row['slug']]
 
 
@@ -119,7 +117,7 @@ def write_employer(stores, candidate, outcome):
     """One employer per candidate worth keeping, created or updated by name (stores.employers.upsert)."""
     record = employer_record(candidate, outcome, now().date().isoformat())
     if record:
-        stores_of(stores).employers.upsert(record)
+        stores.employers.upsert(record)
 
 
 def not_updated(stores, name):
@@ -146,7 +144,6 @@ def sync_employers(db, stores, limit=200):
     connecting Notion), a write that failed, or a workspace connected later. Before 6 Oct 2026 they stayed only in this computer's scout
     table: three Find new employers runs (45 employers, Breitling's feed among them) never reached the user's Notion. Safe to repeat:
     write_employer matches employers by name. Returns (written, failed)."""
-    stores = stores_of(stores)
     where = synced_key(stores)
     if not where:
         return 0, 0

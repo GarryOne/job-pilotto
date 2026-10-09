@@ -20,7 +20,6 @@ import urllib.parse
 import urllib.request
 
 from .. import secret_store
-from ..stores import stores_of
 
 WARN_AT, PAUSE_AT = 0.70, 0.90
 COST_REPORT = 'https://api.anthropic.com/v1/organizations/cost_report'
@@ -84,7 +83,7 @@ def status(stores, now=None, opener=urllib.request.urlopen):
         except Exception as error:  # noqa: BLE001 — fall back to the log rather than fail the run
             print(f'Warning: Anthropic cost report unavailable ({type(error).__name__}); using the run log')
     if spent is None:
-        spent = ledger_spend(stores_of(stores), now)
+        spent = ledger_spend(stores, now)
     pct = spent / budget if budget else 0.0
     level = 'pause' if pct >= PAUSE_AT else 'warn' if pct >= WARN_AT else 'ok'
     return {'spent': round(spent, 2), 'budget': budget, 'pct': pct, 'level': level, 'source': source}

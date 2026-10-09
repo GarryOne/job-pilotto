@@ -11,7 +11,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import doctor
 from src.ai import budget
-from src.stores import memory
+from src.stores import memory, notion
 
 NOW = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
 
@@ -52,10 +52,9 @@ class BudgetTests(unittest.TestCase):
         stores = run_history((4.0, '2026-08-31T23:00:00+00:00'), (1.5, '2026-09-01T00:30:00+00:00'))
         self.assertEqual(budget.ledger_spend(stores, NOW), 1.5)
 
-    def test_a_notion_tracker_reads_search_runs_from_the_first_of_the_month(self):
-        """BRIDGE(G): daily_search still passes its Tracker; the notion store's run history asks Notion for this month only."""
+    def test_on_notion_only_this_months_search_runs_are_asked_for(self):
         tracker = FakeTracker([])
-        budget.ledger_spend(budget.stores_of(tracker), NOW)
+        budget.ledger_spend(notion.open_store({'NOTION_TOKEN': 't'}, tracker=tracker), NOW)
         self.assertEqual(tracker.filters[0], {'property': 'Started', 'date': {'on_or_after': '2026-09-01'}})
 
     def test_admin_cost_report_is_summed_in_cents_across_pages(self):

@@ -32,7 +32,7 @@ from . import features, secret_store
 from .ai import apply_batch
 from .notion import client as notion
 from .paths import CONFIG
-from .stores import open_stores, stores_of
+from .stores import open_stores
 
 OK, WARN, FAIL, INFO = 'ok', 'warn', 'fail', 'info'
 ICONS = {OK: '✅', WARN: '⚠️ ', FAIL: '❌', INFO: 'ℹ️ '}
@@ -337,8 +337,7 @@ HEALTH_CHECKS = (check_google, check_mail_workflow)
 
 
 def health_checks(stores, now=None):
-    """The checks that matter for the unattended pipeline (no local tools, no CV file). stores: the active store (or a Tracker)."""
-    stores = stores_of(stores)
+    """The checks that matter for the unattended pipeline (no local tools, no CV file). stores: the active store (src/stores)."""
     checks = [_safe(fn, now) for fn in HEALTH_CHECKS]
     if stores:
         checks += [_safe(check_budget, stores, now), _safe(check_feeds, stores)]
@@ -392,10 +391,9 @@ def check_mac_tools():
 # ---------- Running and reporting ----------
 
 def run_checks(tracker=None, now=None, stores=None):
-    """tracker: the Notion client when a token is set (the Notion line). stores: where the user's data lives (src/stores; default:
-    the notion store the tracker stands for, none without one). The data checks run when that store answers."""
+    """tracker: the Notion client when a token is set (the Notion line). stores: where the user's data lives (src/stores; none: only
+    the local checks). The data checks run when that store answers."""
     now = now or datetime.now(timezone.utc)
-    stores = stores if stores is not None else stores_of(tracker)
     local = [check_cv, check_workflow, check_features, check_mac_tools,
              lambda: check_google(now), lambda: check_mail_workflow(now)]
     remote = [check_profile, check_answers, check_sources, lambda s: check_last_crawl(s, now),
