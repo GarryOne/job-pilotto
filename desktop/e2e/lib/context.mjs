@@ -18,7 +18,7 @@ import {createVariation, placeOf} from './variation.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
-import {notionFarSide, pickStore, storeSettings} from './store.mjs';
+import {notionFarSide, pickStore, runToken, storeSettings} from './store.mjs';
 import {storeCall} from './store-call.mjs';
 import {tally} from './faults.mjs';
 
@@ -49,7 +49,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   if (store && store !== 'notion') useNotionAt(notionFarSide({store, standIn: standIn?.url}));
   const engine = pickEngine({suiteEngine});
   // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
-  const key = light ? KEY() : testKey(process.env, engine), token = light ? '' : standIn ? standIn.token : notionToken(notionTokenOf || suite);
+  const key = light ? KEY() : testKey(process.env, engine), token = runToken({store, standIn, light, fromEnv: () => notionToken(notionTokenOf || suite)});
   if (!light) console.log(`  AI family under test: ${familyOf(engine) === 'openai' ? 'OpenAI' : 'Claude'} (engine ${engine}${isCi() ? `, CI run ${process.env.GITHUB_RUN_NUMBER || '?'}: odd runs OpenAI, even runs Claude` : ''})`);
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, report, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});

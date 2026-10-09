@@ -31,3 +31,12 @@ export function notionFarSide({store, standIn = ''}) {
   if (store === 'notion' || !store) return 'https://api.notion.com';
   return 'http://127.0.0.1:9';
 }
+
+// The Notion token a run uses: the stand-in's own, none on this Mac's store, and one from the environment only on the real workspace (or a suite with no store).
+// A real token in the environment (the Keychain's, run-all.mjs) never reaches a run off the real workspace (9 Oct 2026: on SQLite it did, and the setup tried to connect).
+export function runToken({store, standIn = null, light = false, fromEnv = () => ''}) {
+  if (light) return '';
+  if (standIn) return standIn.token;
+  if (store && store !== 'notion') return '';
+  return fromEnv();
+}

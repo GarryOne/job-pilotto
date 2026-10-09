@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {pickFamily} from '../lib/engine.mjs';
-import {notionFarSide, pickStore, STORES, storeSettings} from '../lib/store.mjs';
+import {notionFarSide, pickStore, runToken, STORES, storeSettings} from '../lib/store.mjs';
 import {E2E} from '../lib/app.mjs';
 import {SUITES} from '../lib/context.mjs';
 
@@ -51,4 +51,13 @@ test('Notion\'s far side is real only on the real workspace: the stand-in, or a 
   assert.equal(notionFarSide({store: 'sqlite'}), 'http://127.0.0.1:9');
   assert.equal(notionFarSide({store: 'notion'}), 'https://api.notion.com');
   for (const store of ['standin', 'sqlite']) assert.doesNotMatch(notionFarSide({store, standIn: store === 'standin' ? 'http://127.0.0.1:1' : ''}), /notion\.com/);
+});
+
+test('a real token in the environment reaches a run only on the real workspace', () => {
+  const fromEnv = () => 'ntn_real_from_the_keychain';
+  assert.equal(runToken({store: 'sqlite', fromEnv}), '');
+  assert.equal(runToken({store: 'standin', standIn: {token: 'ntn_e2e_x'}, fromEnv}), 'ntn_e2e_x');
+  assert.equal(runToken({store: 'sqlite', standIn: {token: 'ntn_e2e_y'}, fromEnv}), 'ntn_e2e_y', 'a SQLite suite with a stand-in to move into');
+  assert.equal(runToken({store: 'notion', fromEnv}), 'ntn_real_from_the_keychain');
+  assert.equal(runToken({store: 'sqlite', light: true, fromEnv}), '');
 });
