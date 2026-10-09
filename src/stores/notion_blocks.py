@@ -9,7 +9,6 @@ A character that would start one of these is escaped with a backslash, so text r
 Rich text is cut into parts of at most 1900 characters (Notion allows 2000), 100 parts a block; a longer paragraph
 goes on in further blocks. Not kept: blank lines inside one paragraph (Markdown makes two paragraphs of them) and
 leading spaces on a paragraph's later lines. Other Notion blocks (callouts, to-dos) come back as their text.
-Also the columns: value(property, kind) and column(kind, value) for title, text, select, date, number and checkbox.
 Guarded by tests/test_store_notion_blocks.py (round trips, and today's interview page blocks).
 """
 import re
@@ -230,36 +229,3 @@ def to_blocks(markdown):
         blocks += made
     return blocks
 
-
-# ---------- columns: a record's value ↔ a Notion property (plain text, never Markdown) ----------
-
-def value(prop, kind):
-    if kind == 'number':
-        return (prop or {}).get('number')
-    if kind in ('title', 'text'):
-        return plain_text((prop or {}).get('title' if kind == 'title' else 'rich_text'))
-    if kind == 'checkbox':
-        return bool((prop or {}).get('checkbox'))
-    from ..notion.ledger import plain
-    return plain(prop) or ''
-
-
-def _plain_parts(text):
-    """A column's text as rich text, as written (a column is plain text, not Markdown)."""
-    return [{'type': 'text', 'text': {'content': text[i:i + PART]}}
-            for i in range(0, len(text), PART)][:PARTS]
-
-
-def column(kind, raw):
-    """A record value as a Notion property."""
-    if kind == 'title':
-        return {'title': _plain_parts(str(raw or ''))}
-    if kind == 'text':
-        return {'rich_text': _plain_parts(str(raw or ''))}
-    if kind == 'select':
-        return {'select': {'name': str(raw)} if raw else None}
-    if kind == 'date':
-        return {'date': {'start': raw} if raw else None}
-    if kind == 'checkbox':
-        return {'checkbox': bool(raw)}
-    return {'number': raw if raw not in ('', None) else None}

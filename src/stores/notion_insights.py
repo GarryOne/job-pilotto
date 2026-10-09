@@ -10,12 +10,14 @@ import os
 from ..notion.cron_runs import _without_missing
 from . import base
 from . import notion_blocks
+from . import notion_rows
 
 # fields key → (Notion column, kind)
 EXTRAS = {'basis': ('Basis', 'select'), 'confidence': ('Confidence', 'select'), 'sample_size': ('Sample size', 'number'),
-          'evidence': ('Evidence', 'text'), 'action': ('Action', 'text'), 'feedback': ('Feedback', 'select'),
-          'issue_detected': ('Issue detected', 'checkbox'), 'cost': ('Cost (USD)', 'number'), 'model': ('Model', 'text'),
-          'input_hash': ('Input hash', 'text'), 'data': ('Data', 'text')}
+          'evidence': ('Evidence', 'rich_text'), 'action': ('Action', 'rich_text'), 'feedback': ('Feedback', 'select'),
+          'issue_detected': ('Issue detected', 'checkbox'), 'cost': ('Cost (USD)', 'number'), 'model': ('Model', 'rich_text'),
+          'input_hash': ('Input hash', 'rich_text'), 'data': ('Data', 'rich_text')}
+MAIN = (('title', 'Insight', 'title'), ('day', 'Date', 'date'), ('category', 'Category', 'select'))
 EMPTY = ('', None, False)
 
 
@@ -26,24 +28,18 @@ class NotionInsights:
 
     def _record(self, page, body=''):
         props = page.get('properties') or {}
-        fields = {key: notion_blocks.value(props.get(col), kind) for key, (col, kind) in EXTRAS.items()}
-        return base.record(base.INSIGHT_FIELDS, {
-            'id': page['id'], 'title': notion_blocks.value(props.get('Insight'), 'title'),
-            'day': (notion_blocks.value(props.get('Date'), 'date') or '')[:10],
-            'category': notion_blocks.value(props.get('Category'), 'select'), 'body': body,
-            'fields': {k: v for k, v in fields.items() if v not in EMPTY}, 'created_at': page.get('created_time', '')})
+        fields = {key: notion_rows.read(props.get(col), kind) for key, (col, kind) in EXTRAS.items()}
+        row = notion_rows.to_record(page, MAIN, base.INSIGHT_FIELDS)
+        return {**row, 'day': row['day'][:10], 'body': body, 'fields': {k: v for k, v in fields.items() if v not in EMPTY}}
 
     def _properties(self, values):
         unknown = set(values) - set(base.INSIGHT_FIELDS)
         extra = set((values.get('fields') or {})) - set(EXTRAS)
         if unknown or extra:
             raise KeyError(f'not a field: {", ".join(sorted(unknown | extra))}')
-        props = {}
-        for key, (col, kind) in (('title', ('Insight', 'title')), ('day', ('Date', 'date')), ('category', ('Category', 'select'))):
-            if key in values:
-                props[col] = notion_blocks.column(kind, values[key])
+        props = notion_rows.to_properties(values, MAIN)
         for key, raw in (values.get('fields') or {}).items():
-            props[EXTRAS[key][0]] = notion_blocks.column(EXTRAS[key][1], raw)
+            props[EXTRAS[key][0]] = notion_rows.write(raw, EXTRAS[key][1])
         return props
 
     def _rows(self):

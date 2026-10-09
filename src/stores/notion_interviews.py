@@ -11,14 +11,16 @@ from ..ai import interviews_blocks as layout
 from ..ai import interviews_review as review_blocks
 from . import base
 from . import notion_blocks
+from . import notion_rows
 
-# record field → (Notion column, kind)
-COLUMNS = {'title': ('Interview', 'title'), 'at': ('Date', 'date'), 'input': ('Input', 'select'),
-           'round': ('Round', 'text'), 'overall': ('Overall', 'select'), 'questions': ('Questions', 'number'),
-           'weak_answers': ('Weak answers', 'number'), 'topics': ('Topics', 'text'), 'weak_topics': ('Weak topics', 'text'),
-           'next_step': ('Next step', 'text'), 'cost': ('Cost (USD)', 'number'), 'model': ('Model', 'text')}
+# (record field, Notion column, kind): kinds are src/stores/notion_rows.py's
+COLUMNS = (
+    ('title', 'Interview', 'title'), ('at', 'Date', 'date'), ('input', 'Input', 'select'), ('round', 'Round', 'rich_text'),
+    ('overall', 'Overall', 'select'), ('questions', 'Questions', 'number'), ('weak_answers', 'Weak answers', 'number'),
+    ('topics', 'Topics', 'rich_text'), ('weak_topics', 'Weak topics', 'rich_text'), ('next_step', 'Next step', 'rich_text'),
+    ('cost', 'Cost (USD)', 'number'), ('model', 'Model', 'rich_text'), ('app_id', 'Application', 'relation1'),
+)
 BODY = ('transcript', 'review')
-NOT_KEPT = ()
 
 
 def _same(a, b):
@@ -31,18 +33,10 @@ class NotionInterviews:
         self.database_id = database_id if database_id is not None else os.getenv('NOTION_INTERVIEWS_DB', '')
 
     def _record(self, page, body=None):
-        props = page.get('properties') or {}
-        values = {name: notion_blocks.value(props.get(col), kind) for name, (col, kind) in COLUMNS.items()}
-        links = (props.get('Application') or {}).get('relation') or []
-        values.update(id=page['id'], app_id=links[0]['id'] if links else '', created_at=page.get('created_time', ''),
-                      **(body or {}))
-        return base.record(base.INTERVIEW_FIELDS, values)
+        return {**notion_rows.to_record(page, COLUMNS, base.INTERVIEW_FIELDS), **(body or {})}
 
     def _properties(self, fields):
-        props = {COLUMNS[k][0]: notion_blocks.column(COLUMNS[k][1], v) for k, v in fields.items() if k in COLUMNS}
-        if 'app_id' in fields:
-            props['Application'] = {'relation': [{'id': fields['app_id']}] if fields['app_id'] else []}
-        return props
+        return notion_rows.to_properties(fields, COLUMNS)
 
     def _app(self, app_id):
         return self.tracker._request('GET', f'pages/{app_id}') if app_id else None
@@ -83,7 +77,7 @@ class NotionInterviews:
         unknown = set(fields) - set(base.INTERVIEW_FIELDS)
         if unknown:
             raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
-        fields = {k: v for k, v in fields.items() if k not in ('id', 'created_at', *NOT_KEPT)}
+        fields = {k: v for k, v in fields.items() if k not in ('id', 'created_at')}
         if not interview_id:
             app = self._app(fields.get('app_id'))
             review = notion_blocks.to_blocks(fields['review']) if fields.get('review') else \
