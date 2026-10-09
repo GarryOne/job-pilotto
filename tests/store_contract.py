@@ -12,6 +12,14 @@ from src.stores import base
 JOB = {'url': 'https://jobs.example.com/sre-1', 'title': 'Senior SRE', 'company': 'Acme', 'location': 'Zurich'}
 
 
+def scored(url, score):
+    """A job as the search scores it (src/ai/score.py): what every store's Matches.sync takes."""
+    return {'url': url, 'title': 'SRE', 'company': 'Example', 'location': 'Zurich', 'first_seen_at': '2026-10-01T08:00:00+00:00',
+            'fit': {'score': score, 'tier': 'Strong', 'confidence': 'High', 'reason': 'Kubernetes on call',
+                    'strengths': ['Kubernetes', 'on call'], 'gaps': ['Go'],
+                    'components': {'role_fit': 30, 'location': 20, 'compensation': 10, 'growth': 10, 'risk': 10}}}
+
+
 class StoreContract:
     def make(self):
         raise NotImplementedError
@@ -177,6 +185,24 @@ class StoreContract:
         self.assertEqual(len(self.s.matches.list(status='Dismissed')), 1)
         self.s.matches.remove(JOB['url'])
         self.assertEqual(self.s.matches.list(), [])
+
+    def test_a_searchs_scored_jobs_sync_into_matches_with_their_statuses(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row   # the search's job cache, where an adapter may keep its own sync state
+        a, b, c = (scored(f'https://jobs.example/{n}', score) for n, score in (('a', 80), ('b', 60), ('c', 70)))
+        copy_of_a = {**a, 'url': a['url'] + '/', 'fit': {**a['fit'], 'score': 50}}
+        self.assertEqual(self.s.matches.sync(db, [a, copy_of_a, b], applied_urls={b['url']}), 'Job Matches: 2 created, 0 updated')
+        got = {m['url'].rstrip('/'): m for m in self.s.matches.list()}
+        self.assertEqual({u: (m['fit'], m['status']) for u, m in got.items()},
+                         {a['url']: (80, 'Open'), b['url']: (60, 'Applied')})   # one row per job, its best copy
+        self.assertEqual(got[a['url']]['fit_detail']['strengths'], 'Kubernetes; on call')
+        self.assertEqual(self.s.matches.sync(db, [a, b], applied_urls={b['url']}), 'Job Matches: 0 created, 0 updated')
+        self.s.matches.sync(db, [c], partial=True)              # while scoring: the others keep their status
+        self.assertEqual(len(self.s.matches.list(status='Open')), 2)
+        self.s.matches.sync(db, [c], open_urls={c['url']}, dismissed_urls={a['url']})
+        self.assertEqual({m['url'].rstrip('/'): m['status'] for m in self.s.matches.list()},
+                         {a['url']: 'Dismissed', b['url']: 'Not seen', c['url']: 'Open'})
 
     # Interviews, insights, employers
 

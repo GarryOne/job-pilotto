@@ -1,7 +1,7 @@
 """The notion store's Matches: 🎯 Job Matches rows as store records, one per job (found by its URL, src/stores/base.url_key).
 
-The record holds what the app shows (fit, reason, why: strengths, gaps and the score's parts); the search's own sync
-(src/notion/matches.py) still writes the scoring columns it alone knows (tier, confidence, languages...).
+The record holds what the app shows (fit, reason, why: strengths, gaps and the score's parts); sync() is the search's own sync
+(src/notion/matches.py), which also writes the scoring columns it alone knows (tier, confidence, languages...).
 Guarded by tests/test_store_notion.py (the store contract on the Notion stand-in).
 """
 from datetime import datetime, timezone
@@ -82,3 +82,26 @@ class NotionMatches:
         page = self._find(url)
         if page:
             self.tracker.trash_page(page['id'])
+
+    def sync(self, db, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
+        """Today's 🎯 Job Matches sync (src/notion/matches.py), unchanged: every scoring column, its page-id and hash cache in
+        `db`, adopting rows it doesn't know by URL (a workspace a move filled through upsert gets no second row)."""
+        from ..notion import matches as job_matches
+        return job_matches.sync(db, _Bound(self.tracker, self.database_id), scored_jobs, applied_urls, open_urls,
+                                dismissed_urls, partial)
+
+
+class _Bound:
+    """The tracker with Job Matches pinned to this store's database: the search's sync reads the id from its module, set
+    from the same NOTION_MATCHES_DB at import; this keeps a store opened with other ids (a test's) on its own database."""
+    def __init__(self, tracker, database_id):
+        self._tracker, self._database_id = tracker, database_id
+
+    def query_database(self, database_id, filter_=None):
+        return self._tracker.query_database(self._database_id, filter_)
+
+    def upsert_match(self, properties, page_id=None, database_id=None):
+        return self._tracker.upsert_match(properties, page_id, database_id=self._database_id)
+
+    def __getattr__(self, name):
+        return getattr(self._tracker, name)

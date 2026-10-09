@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import base
+from . import base, matches_sync
 
 # PRAGMA user_version: add a step to MIGRATIONS (never edit a shipped one) when the layout changes.
 MIGRATIONS = (
@@ -290,6 +290,9 @@ class Matches:
     def remove(self, url):
         with self.db:
             self.db.execute('DELETE FROM matches WHERE url_key = ?', (base.url_key(url),))
+
+    def sync(self, db, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
+        return matches_sync.sync(self, scored_jobs, applied_urls, open_urls, dismissed_urls, partial)
 
 
 class Interviews(_Table):

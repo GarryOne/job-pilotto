@@ -575,6 +575,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/__main__.py` — `python -m src.stores call <entity> <method> '<json kwargs>'`: one store method, JSON out on stdout.
 - `src/stores/base.py` — The store interface: one Protocol per entity of the user's data, plain dicts in and out (never Notion JSON).
 - `src/stores/copy.py` — Move the user's data from one store to another ("Move my data to Notion"): every entity, through the interface.
+- `src/stores/matches_sync.py` — A search's scored jobs into a store's Matches, for the stores without a sync of their own (memory, sqlite): the same rows
 - `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
 - `src/stores/notion_agent_runs.py` — The notion store's AgentRuns: 🤖 Agent Runs rows (form fills and Apply sessions) as store records.
 - `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)

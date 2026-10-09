@@ -5,7 +5,7 @@ Nothing is kept after the process ends. Guarded by tests/test_store_memory.py (t
 import itertools
 from datetime import datetime, timezone
 
-from . import base
+from . import base, matches_sync
 
 _ids = itertools.count(1)
 
@@ -169,6 +169,9 @@ class Matches:
 
     def remove(self, url):
         self.rows.pop(base.url_key(url), None)
+
+    def sync(self, db, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset(), partial=False):
+        return matches_sync.sync(self, scored_jobs, applied_urls, open_urls, dismissed_urls, partial)
 
 
 class Interviews(_Table):
