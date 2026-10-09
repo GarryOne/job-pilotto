@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import unittest
 import urllib.request
+from types import SimpleNamespace
 from pathlib import Path
 from unittest import mock
 
@@ -113,6 +114,36 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         self.assertEqual(self.s.applications.sections(app['id']), {'🎤 Interview prep': 'New line', 'Notes': 'Keep me'})
         kinds = [block['type'] for block in self.tracker._children(app['id']) if not block.get('archived')]
         self.assertEqual(kinds, ['heading_2', 'paragraph', 'heading_2', 'paragraph'], 'the page keeps its shape')
+
+    def test_a_new_section_has_the_shape_it_always_had_on_a_page(self):
+        """Notion users see no change: the kit is a toggle heading with the body inside; prep, a description or a review is a
+        plain heading with its blocks after it (as replace_after_heading wrote them)."""
+        app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Kit ready')
+        self.s.applications.set_section(app['id'], '🎤 Interview prep', 'Recruiter screen\n\n- Motivation')
+        self.s.applications.set_section(app['id'], base.KIT_SECTION, 'Drafted\n\n```json\n{"version": 1}\n```')
+        top = [b for b in self.tracker._children(app['id']) if not b.get('archived')]
+        shape = [(b['type'], bool((b.get(b['type']) or {}).get('is_toggleable'))) for b in top]
+        self.assertEqual(shape, [('heading_2', False), ('paragraph', False), ('bulleted_list_item', False), ('heading_2', True)])
+        self.assertEqual(self.s.applications.section(app['id'], '🎤 Interview prep'), 'Recruiter screen\n\n- Motivation')
+        self.assertEqual(base.kit_from(self.s.applications.section(app['id'], base.KIT_SECTION)), {'version': 1})
+
+    def test_files_are_found_inside_folded_log_entries_too(self):
+        """Screenshots logged inside a folded entry (src/ai/prep.py read them that deep) are the job's files too."""
+        app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Saved')
+        image = lambda name: {'object': 'block', 'type': 'image', 'image': {'type': 'external', 'external': {'url': f'https://files.test/{name}'}}}
+        self.tracker.append_blocks(app['id'], [image('top.png'), {'object': 'block', 'type': 'toggle', 'toggle': {
+            'rich_text': [{'type': 'text', 'text': {'content': '📥 Logged · chat'}}], 'children': [image('inside.png')]}}])
+
+        class Picture:
+            def __init__(self, url):
+                self.url = url
+                self.headers = SimpleNamespace(get_content_type=lambda: 'image/png')
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return self.url.encode()
+        with mock.patch.object(notion, 'urllib', SimpleNamespace(request=SimpleNamespace(urlopen=lambda url, timeout=60: Picture(url)))):
+            files = self.s.applications.files(app['id'])
+        self.assertEqual([data for _, data, _ in files], [b'https://files.test/top.png', b'https://files.test/inside.png'])
 
     def test_every_application_field_has_its_own_column_in_the_schema(self):
         """A field without a column would be lost on Notion: each maps to a Job Tracker column the schema has."""

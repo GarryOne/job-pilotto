@@ -25,6 +25,12 @@ DATABASES = {'applications': 'NOTION_APPLICATIONS_DB', 'events': 'NOTION_EVENTS_
              'interviews': 'NOTION_INTERVIEWS_DB', 'insights': 'NOTION_INSIGHTS_DB', 'employers': 'NOTION_EMPLOYERS_DB',
              'agent_runs': 'NOTION_AGENT_RUNS_DB', 'cron_runs': 'NOTION_CRON_RUNS_DB'}
 FILE_BLOCKS = ('file', 'pdf', 'image')
+# Sections a job's page has always had as a plain heading with their blocks after it (Tracker.replace_after_heading: prep, the
+# job description, the rejection review, the recruiter's message, the log): a new one is made the same way, so Notion users see
+# no change. Any other section (the kit, the application record, a new one) is a toggle heading with its body inside, which
+# also keeps a body's own ## headings in it.
+PLAIN_SECTIONS = {'🎤 Interview prep', '🧾 Job description', '🔎 Why it was rejected', '🤝 Recruiter message', '📥 Logged'}
+FILE_DEPTH = 3  # files inside folded log entries and their columns (src/ai/prep.py screenshots read this deep)
 
 
 def _now():
@@ -217,11 +223,15 @@ class Applications(_Database):
         self._page(app_id)
         blocks = to_blocks(markdown)
         found = next(((heading, body) for title, heading, body in self._sections(app_id) if title == name), None)
-        if found is None:
+        if found is None:  # a new section, in the shape it always had on a Notion page (PLAIN_SECTIONS)
+            folded = name not in PLAIN_SECTIONS
             heading = {'object': 'block', 'type': 'heading_2', 'heading_2': {
-                'rich_text': [{'type': 'text', 'text': {'content': name}}], 'is_toggleable': True}}
+                'rich_text': [{'type': 'text', 'text': {'content': name}}], **({'is_toggleable': True} if folded else {})}}
             created = self.tracker._request('PATCH', f'blocks/{app_id}/children', {'children': [heading]})['results'][0]
-            self._append(created['id'], blocks)
+            if folded:
+                self._append(created['id'], blocks)
+            else:  # a plain heading with its blocks after it, as replace_after_heading wrote prep, a description, a review
+                self._append(app_id, blocks, after=created['id'])
             return
         heading, body = found
         old = body if body is not None else self._children(heading['id'])
@@ -242,6 +252,14 @@ class Applications(_Database):
     def sections(self, app_id):
         return {name: self._body(heading, body) for name, heading, body in self._sections(app_id)}
 
+    def _file_blocks(self, block_id, depth=0):
+        """The page's file, PDF and image blocks in page order, also inside folded blocks (a log entry, its columns)."""
+        for block in self._children(block_id):
+            if block['type'] in FILE_BLOCKS:
+                yield block
+            elif block.get('has_children') and depth < FILE_DEPTH and block['type'] not in ('child_page', 'child_database'):
+                yield from self._file_blocks(block['id'], depth + 1)
+
     def attach(self, app_id, name, data, content_type):
         """Uploads the bytes to Notion and adds them to the job's page as a file block; returns the upload's id."""
         self._page(app_id)
@@ -253,9 +271,7 @@ class Applications(_Database):
     def files(self, app_id):
         """[(name, bytes, content_type)] of the files on the job's page (downloaded from Notion's storage)."""
         found = []
-        for block in self._children(app_id):
-            if block['type'] not in FILE_BLOCKS:
-                continue
+        for block in self._file_blocks(app_id):
             body = block[block['type']]
             url = (body.get(body.get('type')) or {}).get('url')
             if not url:
