@@ -32,10 +32,11 @@ export function fillAccountEmail(email) {
   return 1;
 }
 
-// Press the account form's own button, once (the caller asks the AI first: account-step.js): a password box we filled is on the page, no required control is empty
-// (a second floor: the AI's "ready" is the first), no frame inside the form (a bot check, whoever makes it). Returns a short reason code for the log.
+// Press the account form's own button, once (the caller asks the AI first: account-step.js): a box we filled is on the page (a password, else, on an
+// email-first page with no password yet (jobs.ch, 9 Oct 2026), the email the fill typed), no required control is empty (a second floor: the AI's "ready"
+// is the first), no frame inside the form (a bot check, whoever makes it). Returns a short reason code for the log.
 export function pressAccountButton(named = '') {
-  const box = document.querySelector('input[type=password][data-jobpilotto-filled]');
+  const box = document.querySelector('input[type=password][data-jobpilotto-filled]') || document.querySelector('input[data-jobpilotto-filled]:not([type=hidden]):not([type=checkbox]):not([type=radio])');
   if (!box) return 'not-filled';
   if (document.documentElement.hasAttribute('data-jobpilotto-account-pressed')) return 'already-pressed';
   const scope = box.form || document;

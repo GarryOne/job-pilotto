@@ -56,6 +56,20 @@ test('not pressed: a required box or consent still empty, a frame in the form (a
   assert.equal(pressAccountButton(), 'not-filled');
 });
 
+// jobs.ch, 9 Oct 2026: an email-first sign-up (no password box until the next step); the fill typed the email, the AI said ready, the press refused ("not-filled").
+test('an email-first account page: pressed when the fill typed its email, never when we filled nothing', () => {
+  const page = mark => new JSDOM(`<body><form><input type="email" id="e" value="a@b.c" ${mark}><button type="submit">Continue</button></form></body>`).window;
+  for (const [mark, want] of [['data-jobpilotto-filled', 'pressed'], ['', 'not-filled']]) {
+    const win = page(mark);
+    win.HTMLElement.prototype.getClientRects = function () { return [{}]; };
+    let clicks = 0;
+    win.document.querySelector('button').addEventListener('click', event => { clicks++; event.preventDefault(); });
+    Object.assign(globalThis, {document: win.document, Node: win.Node});
+    assert.equal(pressAccountButton(), want);   // the form's one submit button (jsdom has no innerText to match a name by)
+    assert.equal(clicks, want === 'pressed' ? 1 : 0);
+  }
+});
+
 import {passwordWork} from '../../extension/account-fill.js';
 
 test('the cheap look before anything is asked of the app: how many password boxes, how many empty, whether a press of ours is still waiting', () => {
