@@ -32,16 +32,7 @@ def _kit(stage, step):
     return stage == 'Kit ready' or step.startswith(('📝 Kit ready', NOT_ELIGIBLE))
 
 
-def _kit_state(recorded, current, notion_current=None):
-    """provenance.kit_state, plus on Notion a kit recorded before the store adapters: its Profile was read by Tracker.page_text
-    (another rendering than the store's text), so that reading of today's pages counts as current too (D7: no change for Notion users)."""
-    state = provenance.kit_state(recorded, current)
-    if state != 'current' and notion_current and provenance.kit_state(recorded, notion_current) == 'current':
-        return 'current'
-    return state
-
-
-def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None, hide_unscored=False, notion_kit_inputs=None):
+def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None, hide_unscored=False):
     """The Jobs list, best fit first (unscored after scored, then the rule-based rank).
 
     notion_jobs (Tracker.notion_jobs): the list itself, from Notion (the source of truth), with Notion's fields only;
@@ -94,7 +85,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
             job = {'url': url, 'title': item.get('title'), 'company': item.get('company'), 'location': item.get('location'),
                    'work_mode': item.get('work_mode'), 'first_seen_at': item.get('first_seen', '')}
             # A kit's inputs vs today's: current, earlier (drafted before the CV, Profile or answers changed), unknown.
-            kit_state = _kit_state(item.get('kit_inputs'), kit_inputs, notion_kit_inputs) if _kit(stage, item.get('next_step') or '') else ''
+            kit_state = provenance.kit_state(item.get('kit_inputs'), kit_inputs) if _kit(stage, item.get('next_step') or '') else ''
             rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url'),
                             rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or '',
                             feedback_status=item.get('feedback_status') or '', employer_feedback=item.get('employer_feedback') or '',

@@ -130,8 +130,7 @@ class KitOnNotionTests(unittest.TestCase):
                 mock.patch('src.stores.open_stores', return_value=stores), mock.patch.object(desktop, 'jobs', side_effect=jobs), \
                 mock.patch.object(desktop.store, 'connect', create=True), redirect_stdout(out):
             desktop.main(['jobs'])
-        kw = {name: seen[name] for name in ('kit_inputs', 'notion_kit_inputs') if name in seen}
-        return listed_kit_state(listed, **kw)
+        return listed_kit_state(listed, kit_inputs=seen.get('kit_inputs'))
 
     def test_a_kit_drafted_on_notion_lists_as_current(self):
         """The Jobs list's "current inputs" and the kit's recorded ones are the same reading of the same pages (D7): a kit just

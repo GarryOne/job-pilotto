@@ -313,21 +313,19 @@ def main(argv=None):
                 from .desktop_store_jobs import store_jobs
                 stores = open_stores()
                 found = store_jobs(stores)
-            current = before = None  # the inputs a kit would be drafted from now: to tell current kits from earlier ones
+            current = None  # the inputs a kit would be drafted from now: to tell current kits from earlier ones
             if found and any(_kit(job.get('stage'), job.get('next_step') or '') for job in found):
                 try:
                     from .ai import kit
-                    # Read exactly as the kit records them (src/daily_helpers.py prepare_kit), on every store: Notion's page_text renders
-                    # the Profile differently from the store's text, so every Notion kit showed "drafted with earlier inputs" (D7).
+                    # Read exactly as the kit records them (src/daily_helpers.py prepare_kit), on every store (D7): on Notion the Profile as
+                    # Tracker.page_text reads it, as kits recorded it before the store adapters, so those kits stay current too.
                     stores = stores or open_stores(tracker=notion)
                     answers = kit.standard_answers(stores)
                     current = provenance.kit_inputs(stores.texts.plain('profile'), answers)   # as kits read it (texts.plain)
-                    if notion:  # a kit drafted before the store adapters recorded Tracker.page_text's reading: still current
-                        before = provenance.kit_inputs(notion.page_text(), answers)
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
                     pass
             from .ai import engine as ai_engine
-            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready(), notion_kit_inputs=before)
+            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready())
             fresh = found is not None
             if notion and not fresh:
                 result['stale'] = True
