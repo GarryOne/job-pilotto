@@ -13,6 +13,7 @@ from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
 from .store_access import url_stages
 from . import ledger_store
+from .stores import open_stores
 from .daily_helpers import log_store_job
 
 
@@ -111,7 +112,9 @@ def kits_mode(args, tracker, stores=None):
 def add_message_mode(args, tracker, stores=None):
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
-    _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=False)   # src/ai/inbox.py: Notion only yet
+    _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=True)
+    # The inbox reads and writes the store (src/ai/inbox.py): Notion's over the tracker as before, else this Mac's.
+    stores = open_stores(tracker=tracker) if tracker else stores
     run = new_cron_run('add')
     run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
     found = {}  # the job it created or updated (inbox.log fills it)
@@ -128,7 +131,7 @@ def add_message_mode(args, tracker, stores=None):
         if args.propose:  # the app's step 1: nothing written; the proposal comes back to be confirmed
             # With --reading: the job you picked in the confirmation step (--target), for the same reading (no AI).
             earlier = json.loads(Path(args.reading).read_text(encoding='utf-8')) if args.reading else None
-            proposal = inbox.propose(tracker, text=args.note or '', image=image, stats=run['mail'], target=args.target,
+            proposal = inbox.propose(stores, text=args.note or '', image=image, stats=run['mail'], target=args.target,
                                      item=earlier['item'] if earlier else None)
             print(json.dumps({'ok': True, **proposal, 'stats': (earlier.get('stats') or {}) if earlier else run['mail']}, default=str))
             return 0
@@ -142,17 +145,22 @@ def add_message_mode(args, tracker, stores=None):
                                      agency=args.agency, last_at=args.last_at,
                                      first_contact=None if args.first_contact is None else args.first_contact == 'yes',
                                      agreed=None if args.agreed is None else args.agreed == 'yes', origin=args.origin)
-        reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
+        reply = escape(inbox.log(stores, text=args.note or '', image=image, source=source,
                                  event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',
                                  talking=args.action == 'talking', stats=run['mail'], target=args.target,
-                                 on_new=added.hook(tracker, args.db, run), proposal=proposal, found=found))
+                                 on_new=added.hook(tracker, args.db, run, stores=stores), proposal=proposal, found=found))
         run['mail'].update(pending=1, done=1)
         queue_mail_check()
     except ValueError as error:
         reply = f'⚠️ {escape(str(error))}'
     failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
     if found.get('row') and not reply.startswith(('⚠️', 'ℹ️')):  # a job created or updated: the run links to it
-        cron_runs.log_job(run, found['row'], found['created'])
+        # found['row'] is the job's record (src/ai/inbox.py). On Notion the run's "Job logged:" line stays the one it always was: the
+        # page's own title ("Principal SRE · via Huxley") and its page URL, read from the page; another store links its record.
+        if tracker:
+            cron_runs.log_job(run, tracker._request('GET', f"pages/{found['row']['id']}"), found['created'])
+        else:
+            log_store_job(stores, run, found['row'], found['created'])
     run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
     # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
     if not (failed and not cron_runs.total_usd(run)):
