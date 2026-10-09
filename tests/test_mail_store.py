@@ -63,3 +63,11 @@ class MailOnTheMemoryStoreTests(MailCase):
         self.assertEqual((job['stage'], job['next_interview']), ('Interview scheduled', start.isoformat()))
         [scheduled] = self.s.events.list(source_id='cal:c1')
         self.assertEqual(scheduled['interview_at'], start.isoformat())
+
+    def test_the_employers_own_words_are_kept_on_the_job(self):
+        quote = 'We went with a candidate who had more Postgres internals experience.'
+        google = FakeGoogle([email('m3', 'Your application at Acme', body=f'Hi Sam, thank you. {quote} Best, Ana')])
+        self.run_check(google, [[{**result(0, 0, 'Rejected'), 'feedback': quote}]])
+        job = self.s.applications.get('https://x.test/acme')
+        self.assertEqual((job['stage'], job['feedback_status']), ('Rejected', 'Received feedback'))
+        self.assertIn(quote, job['employer_feedback'])

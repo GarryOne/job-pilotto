@@ -27,8 +27,7 @@ from datetime import datetime, timezone
 from html import escape
 import sys
 
-from .. import telegram, tgcard
-from ..notion import cron_runs
+from .. import run_log, telegram, tgcard
 from ..sources.google import Google
 from ..stores import open_stores
 from . import cost
@@ -131,7 +130,7 @@ def main(argv=None):
               'See README → Gmail and Calendar.')
         return 0
     stores = open_stores()  # the active store: this Mac's (sqlite) or Notion; JOB_PILOTTO_STORE picks it
-    # BRIDGE(mac-ab runs, mac-4a added): remove when cron_runs and added.hook on the store lands
+    # BRIDGE(mac-4a added): remove when added.hook on the store lands
     tracker = getattr(stores.applications, 'tracker', None) if stores.name == 'notion' else None
     sender = None
     from ..features import disabled
@@ -140,9 +139,9 @@ def main(argv=None):
         sender = lambda text: telegram.send(text, token, chat_id)
     stats = {}
     logged = (args.send or args.log_run) and not args.dry_run
-    if logged and tracker is not None:
-        cron_runs.auto_begin(tracker)  # the check's ⏱️ Search runs row opens when it starts
-    log = cron_runs.new_run('mail')
+    if logged:
+        run_log.auto_begin(stores)  # the check's run row opens when it starts, on any store
+    log = run_log.new_run('mail')
 
     def log_check(warning=None):  # one ⏰ Search runs row per check: what it read, what it recorded, the cost
         log['mail'] = {key: value for key, value in stats.items() if key not in ('updates', 'emails')}
@@ -151,7 +150,7 @@ def main(argv=None):
         log['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(log['started_at'])).total_seconds())
         if warning:
             log['warnings'].append(warning)
-        url = cron_runs.log_run(tracker, log) if tracker is not None else None
+        url = run_log.log_run(stores, log)
         if url:
             print(f'Cronjob run logged: {url}')
 
