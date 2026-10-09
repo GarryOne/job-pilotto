@@ -217,10 +217,14 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
   // The frames the judgment saw (its page shape); a frame drawn since, even before this watch started, makes the page be judged again (twin, 9 Oct 2026:
   // the check's frame came between the judgment and the watch, and counted as already seen).
   const hadFrames = seenFrames === null ? !!(await pageShape(tab.id))?.frames : seenFrames > 0;
+  const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+  decide('fill', 'watching a page judged without a form', {host: hostOf(tab.url), looks, frames: hadFrames});   // why a late form or check was (not) seen: twin, 9 Oct 2026
   for (let i = 0; i < looks; i++) {
     await wait(2000);
     const live = await chrome.tabs.get(tab.id).catch(() => null);
-    if (!live || pageKey(live.url) !== pageKey(tab.url)) return false;   // moved on: the next page decides for itself
+    // The same page when only its query string changed (a bot-check service appends its own parameter after the load: SmartRecruiters, 9 Oct 2026).
+    const samePage = url => { try { const a = new URL(url), b = new URL(tab.url); return a.origin === b.origin && a.pathname.replace(/\/+$/, '') === b.pathname.replace(/\/+$/, ''); } catch { return false; } };
+    if (!live || !samePage(live.url)) { decide('fill', 'watch ended: the tab moved on', {host: hostOf(tab.url), after: (i + 1) * 2, closed: !live, sameHost: !!live && hostOf(live.url) === hostOf(tab.url)}); return false; }   // the next page decides for itself
     const shape = await pageShape(tab.id);
     // Fields came (the form drew late), or a frame did on a page that had none (a bot check injected seconds after the load: SmartRecruiters,
     // 9 Oct 2026): the page is judged again, now with what it shows (page-kind AI: bot_check).
@@ -234,6 +238,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     await consider(live, jobUrl);
     return true;
   }
+  decide('fill', 'watch ended: no form and no new frame', {host: hostOf(tab.url), after: looks * 2});
   return false;
 }
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,

@@ -15,3 +15,10 @@ test('the page shape counts visible frames, and a frame that appears later makes
   const watch = flow.slice(flow.indexOf('async function watchForFields'), flow.indexOf('export async function consider'));
   assert.ok(watch.indexOf('const framed') < watch.indexOf('await consider(live, jobUrl)'), 'judged again after the frame');
 });
+
+test('the watch keeps a page whose only change is its query string, and logs why it ends', () => {
+  const watch = flow.slice(flow.indexOf('async function watchForFields'), flow.indexOf('export async function consider'));
+  assert.match(watch, /a\.origin === b\.origin && a\.pathname\.replace\(\/\\\/\+\$\/, ''\) === b\.pathname\.replace/);
+  assert.match(watch, /if \(!live \|\| !samePage\(live\.url\)\)/);
+  for (const line of ['watching a page judged without a form', 'watch ended: the tab moved on', 'watch ended: no form and no new frame']) assert.ok(watch.includes(line), line);
+});
