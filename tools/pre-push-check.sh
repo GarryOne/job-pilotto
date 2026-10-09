@@ -160,7 +160,7 @@ else
       desktop/*|extension/*) want_desktop=1 ;;
       requirements*|pyproject.toml) want_python=1; want_desktop=1; clean_install=--clean-install ;;
       src/*|tests/*) want_python=1; want_desktop=1 ;;
-      .github/*) want_workflows=1 ;;
+      .github/*) want_workflows=1; want_python=1 ;;   # tests/test_desktop_workflow.py and others read the workflow files (10 Oct 2026: 02021ae went red on one)
       *) want_python=1; want_worker=1; want_site=1; want_desktop=1; want_workflows=1 ;;
     esac
   done <<<"$changed"
