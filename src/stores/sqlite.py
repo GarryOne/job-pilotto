@@ -341,6 +341,12 @@ class Employers(_Table):
             return self._get(same['id'])
         return self._new({'active': True, **_known(self.fields, employer)})
 
+    def upsert(self, employer):
+        same = self.db.execute('SELECT id FROM employers WHERE name_key = ?', (employer['name'].casefold(),)).fetchone()
+        if same:
+            return self._update(same['id'], {k: v for k, v in employer.items() if k != 'name'})
+        return self.add(employer)
+
 
 class AgentRuns(_Table):
     table, fields = 'agent_runs', base.AGENT_RUN_FIELDS

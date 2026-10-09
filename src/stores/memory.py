@@ -220,6 +220,12 @@ class Employers(_Table):
         self.rows[row['id']] = row
         return dict(row)
 
+    def upsert(self, employer):
+        same = next((r for r in self.rows.values() if r['name'].casefold() == employer['name'].casefold()), None)
+        if same:
+            return self._update(same['id'], {k: v for k, v in employer.items() if k != 'name'})
+        return self.add(employer)
+
 
 class AgentRuns(_Table):
     fields = base.AGENT_RUN_FIELDS

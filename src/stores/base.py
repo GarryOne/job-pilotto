@@ -40,7 +40,11 @@ INSIGHT_FIELDS = ('id', 'day', 'category', 'title', 'body', 'fields', 'created_a
 # The keys an insight's `fields` may hold (each a column in Notion); any other key is refused, as an unknown field is.
 INSIGHT_EXTRAS = ('basis', 'confidence', 'sample_size', 'evidence', 'action', 'feedback', 'issue_detected', 'cost', 'model',
                   'input_hash', 'data')
-EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at')
+EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at',
+                   # What Find employers learns about one (🏢 Employers & Sources columns): its kind and tier, the job feed it found
+                   # (ats + slug), how good it is, where it hires, research links and when it was checked.
+                   'kind', 'tier', 'ats', 'slug', 'feed_status', 'integration', 'quality', 'origin', 'cities', 'relevant_roles',
+                   'in_preferred_places', 'notes', 'size', 'verification', 'glassdoor', 'levels_fyi', 'checked', 'added')
 AGENT_RUN_FIELDS = ('id', 'url', 'ats', 'outcome', 'fields', 'learnings', 'transcript', 'created_at')
 # An agent run's `fields` (a dict) holds only these keys: each is an 🤖 Agent Runs column, so a move to Notion loses nothing (one
 # copy). `data` is the catch-all (JSON). Every adapter raises KeyError on any other key (check_extras).
@@ -183,7 +187,8 @@ class Insights(Protocol):
 
 class Employers(Protocol):
     def list(self, active=True) -> list: ...
-    def add(self, employer: dict) -> dict: ...  # one per name
+    def add(self, employer: dict) -> dict: ...     # one per name: an existing one is returned unchanged
+    def upsert(self, employer: dict) -> dict: ...  # one per name: an existing one gets these fields (Find employers' re-check)
     def put(self, record: dict) -> dict: ...
 
 

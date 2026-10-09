@@ -184,6 +184,15 @@ class StoreContract:
         self.s.employers.add({'name': 'ACME'})
         self.assertEqual([e['name'] for e in self.s.employers.list()], ['Acme'])
 
+    def test_find_employers_re_check_updates_the_one_row_by_name(self):
+        first = self.s.employers.upsert({'name': 'Acme', 'tier': 'Tier 2', 'feed_status': 'Not checked'})
+        again = self.s.employers.upsert({'name': 'ACME', 'ats': 'greenhouse', 'slug': 'acme', 'feed_status': 'Feed found', 'quality': 71})
+        self.assertEqual(first['id'], again['id'])
+        self.assertEqual((again['name'], again['tier'], again['ats'], again['quality']), ('Acme', 'Tier 2', 'greenhouse', 71))
+        self.assertEqual(len(self.s.employers.list(active=None)), 1)
+        with self.assertRaises(KeyError):
+            self.s.employers.upsert({'name': 'Acme', 'not a field': 1})
+
     # Runs
 
     def test_an_agent_run_is_added_updated_and_listed_newest_first(self):
