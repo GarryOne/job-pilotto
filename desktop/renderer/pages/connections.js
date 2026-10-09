@@ -271,7 +271,7 @@ function alertLine(name, text) { const line = document.querySelector(`[data-secr
 export async function init() {
   // No "Check again": the checklist refreshes by itself when you come back to the window (e.g. after installing
   // Claude Code or the Chrome extension), while the extras step is open.
-  window.addEventListener('focus', () => { if (!document.querySelector('.step[data-step="extras"]')?.hidden) showClaudePrereqs(); });
+  window.addEventListener('focus', () => { if (!document.querySelector('.step[data-step="extras"]')?.hidden || document.getElementById('claude-prereqs-settings')?.hidden === false) showClaudePrereqs(); });   // back from installing: checked again
   showClaudePrereqs();
   setInterval(() => {
     if (document.querySelector('.view[data-view="settings"]').hidden) return;

@@ -200,7 +200,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/calendar.js` — Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
-- `desktop/renderer/pages/claude-prereqs.js` — Apply with Claude prerequisites checklist (wizard, Optional extras): what only the user can install.
+- `desktop/renderer/pages/claude-prereqs.js` — Apply with Claude prerequisites checklist: what only the user can install. Drawn in the wizard's Optional extras card and under Settings' "Show Claude help" switch
 - `desktop/renderer/pages/connections.js` — Settings → connections: Apply with Claude, the extension, how often, Always on.
 - `desktop/renderer/pages/contact-proposals.js` — "Your details from your CV" in the window: the values Claude proposed from the CV (lib/contact-from-cv.js) go into the empty boxes of
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
