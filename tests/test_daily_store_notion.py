@@ -135,6 +135,30 @@ class ProfileForTheAIOnNotionTests(unittest.TestCase):
             prep.build(self.s, record, client=client)
         self.assertIn(json.dumps(self.page_text[:200], ensure_ascii=False)[1:-1], sent['content'])
 
+    def test_an_interview_review_reads_it(self):
+        from src.ai import interviews
+        self.s.applications.create({'url': 'https://x.test/i', 'title': 'SRE', 'company': 'Acme'}, 'Interview scheduled')
+        seen = {}
+        def analyse(client, model, profile, apps, caption, transcript):
+            seen['profile'] = profile
+            raise RuntimeError('stop here')
+        with mock.patch.object(interviews, 'analyse', analyse), self.assertRaises(RuntimeError):
+            interviews.run(note='/interview Acme\n' + 'Notes about the call. ' * 5, client=object(), stores=self.s)
+        self.assertEqual(seen['profile'], self.page_text)
+
+    def test_the_daily_insight_and_the_weekly_report_read_it(self):
+        from datetime import datetime, timezone
+        from src.ai import insights
+        seen = {}
+        def generate(client, model, profile, stats):
+            seen['profile'] = profile
+            raise RuntimeError('stop here')
+        with mock.patch.object(insights, 'market_stats', lambda db, profile, now: {}), \
+                mock.patch.object(insights, 'generate', generate), self.assertRaises(RuntimeError):
+            insights.run(None, self.s, now=datetime(2026, 10, 8, 12, tzinfo=timezone.utc), force=True, client=object())
+        self.assertEqual(seen['profile'], self.page_text)
+        self.assertEqual(insights.profile_of(self.s), self.page_text)   # the weekly report's system prompt reads the same
+
 
 @unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
 class JobLoggedOnNotionTests(unittest.TestCase):

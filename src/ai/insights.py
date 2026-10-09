@@ -268,8 +268,8 @@ def record(insight, today, model, usd):
 
 
 def profile_of(stores):
-    """The Profile's text, from the active store."""
-    return stores.texts.get('profile')
+    """The Profile as the AI reads it, from the active store (texts.plain: on Notion the page as Tracker.page_text reads it, as before)."""
+    return stores.texts.plain('profile')
 
 
 SENT = 'Insight sent: '

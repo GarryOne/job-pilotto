@@ -145,7 +145,7 @@ def run(*, file_id=None, note='', token=None, send=None, model=DEFAULT_MODEL, cl
         apps = [chosen_app] + apps
     if client is None:
         client = engine.client(action='interview')
-    result, usage, model = analyse(client, model, stores.texts.get('profile'), apps, caption, transcript)
+    result, usage, model = analyse(client, model, stores.texts.plain('profile'), apps, caption, transcript)
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
     app = chosen_app or (apps[result['application']] if 0 <= result['application'] < len(apps) else None)

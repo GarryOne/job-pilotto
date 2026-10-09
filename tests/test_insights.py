@@ -70,7 +70,7 @@ class FakeTracker:
             return self.past
         return self.apps
 
-    def page_text(self):
+    def page_text(self, page_id=None):
         return PROFILE
 
     def _children(self, page_id):  # the Profile page, as the notion store's texts read it
