@@ -22,7 +22,7 @@ export const NOTION_PARITY = {
   'pages/activity-mail.js interviewPanel': JOB,
   'pages/activity-mail.js jobPrep': PREP,
   'pages/activity-mail.js jobLink': JOB,
-  'pages/activity-run-card.js renderRunCard': {pending: 'unassigned (P8 F: Employers & Sources list)'},
+  'pages/activity-run-card.js renderRunCard': {pending: 'mac-cd (P8 F: Employers & Sources list)'},
   'pages/activity.js init': REPORTS,                             // links inside a run's result: the weekly report in full, an insight
   'pages/focus.js openLink': {none: 'helper: its callers are rows of their own (focusCard)'},
   'pages/focus.js focusCard': JOB,
