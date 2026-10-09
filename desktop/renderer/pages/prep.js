@@ -3,6 +3,7 @@
 import {$, message, show} from './core.js';
 import {loadFocus, markPrep} from './focus.js';
 import {toastMessage} from './startup.js';
+import {byStore} from '../store-words.js';
 
 let current = null;   // the Focus item the dialog is for
 let step = '';        // the engine's current step (onPrepStep)
@@ -58,7 +59,7 @@ async function build() {
   if (result.ok) {
     show($('prep-open'), !!current.notion_url);
     $('prep-go').textContent = 'Build again';
-    toastMessage('Prep kit ready ✓', `${current.company || current.via || ''} · ${current.job}: on the job's Notion page.`);
+    toastMessage('Prep kit ready ✓', `${current.company || current.via || ''} · ${current.job}: on the job's ${byStore('Notion page', 'page')}.`);
     loadFocus();
   }
 }

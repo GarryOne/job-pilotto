@@ -28,7 +28,7 @@ export function onboarding({runs = [], settings = {}, notionConnected = false, k
     apply: applied > 0,
   };
   const steps = STEPS.map(step => ({...step, done: !!(saved[step.key] || now[step.key]),
-    ...(step.key === 'notion' && keptOnMac && !notionConnected ? {label: 'Keep your data on this Mac', hint: 'Notion later, for Always on'} : {})}));
+    ...(step.key === 'notion' && keptOnMac && !notionConnected ? {label: 'Keep your data on this Mac', hint: 'Notion later, for Always on'} : {})}));   // about Notion
   const next = steps.find(step => !step.done) || null;
   const doneCount = steps.filter(step => step.done).length;
   const remember = Object.fromEntries(steps.filter(step => step.done && !saved[step.key]).map(step => [step.key, true]));

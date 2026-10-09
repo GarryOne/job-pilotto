@@ -103,7 +103,7 @@ export async function init() {
     shared.selectedRun = null;
     try {
       const result = await window.pilot.checkMail();
-      if (result.cloud) toastMessage('Gmail check started in your GitHub repo', 'Results arrive in Notion and Telegram in a few minutes.');
+      if (result.cloud) toastMessage('Gmail check started in your GitHub repo', 'Results arrive in Notion and Telegram in a few minutes.');   // about Notion
     } finally {
       $('check-mail').disabled = false;
       refreshActivity();

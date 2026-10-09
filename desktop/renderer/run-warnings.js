@@ -69,7 +69,7 @@ export function humanError(text, limit = false) {
 const PLAIN = [
   [/^candidate source skipped: (?:[\w.]+\.)?\w*Timeout\w*\b/i, () => 'One source could not be checked because it timed out.'],
   [/^candidate source skipped: /i, () => 'One source could not be checked.'],
-  [/^Notion not updated for (.+?): /i, m => `The Notion update for ${m[1]} failed.`],
+  [/^Notion not updated for (.+?): /i, m => `The Notion update for ${m[1]} failed.`],   // about Notion
 ];
 // A line that still ends in a raw exception ("<what>: KeyError: 'watch'"): what failed, and where its details are.
 const RAW_EXCEPTION = /^(.{3,80}?):\s*(?:[\w.]+\.)?\w+(?:Error|Exception)\b.*$/;

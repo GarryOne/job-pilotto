@@ -2,6 +2,7 @@
 import {$, message} from './core.js';
 import {loadFocus} from './focus.js';
 import {loadJobs} from './jobs.js';
+import {storeName} from '../store-words.js';
 
 let current = null;
 export function openFeedback(item, mode = 'receive') {
@@ -29,7 +30,7 @@ export async function saveFeedbackAction(item, action, text = '') {
     if (!result.ok) return result;
     await Promise.all([loadFocus(), loadJobs()]);
     return result;
-  } catch (error) { return {ok: false, error: error.message || 'Could not save to Notion.'}; }
+  } catch (error) { return {ok: false, error: error.message || `Could not save to ${storeName()}.`}; }
 }
 export function init() {
   $('feedback-copy').addEventListener('click', async () => {
@@ -46,6 +47,6 @@ export function init() {
     const result = await saveFeedbackAction(current, action, text);
     $('feedback-save').disabled = false;
     if (result.ok) $('feedback-dialog').close();
-    else message('feedback-message', result.error || 'Notion could not save it. Try again.', 'warn');
+    else message('feedback-message', result.error || `${storeName()} could not save it. Try again.`, 'warn');
   });
 }

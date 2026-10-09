@@ -9,6 +9,7 @@ import {extensionState} from '../service-status.js';
 import {openView, remembered} from './nav.js';
 import {contactDirty} from './contact-proposals.js';
 import {profileTab, showContact} from './profile.js';
+import {byStore} from '../store-words.js';
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 export function settingsPage(name) {
@@ -65,7 +66,7 @@ async function openProfile() {
 const SERVICES = [
   {id: 'ai', name: 'AI', icon: 'bot', what: 'Claude or OpenAI: an API key, Claude Code or Codex', required: true,
     why: 'Reading jobs, fit scores and application kits need AI: choose Claude Code, Codex or an API key.'},
-  {id: 'notion', name: 'Notion', icon: 'layers', what: 'Job search workspace', required: false,
+  {id: 'notion', name: 'Notion', icon: 'layers', what: 'Job search workspace', required: false,   // about Notion
     why: 'Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail.'},
   {id: 'google', name: 'Gmail & Calendar', icon: 'mail', what: 'Read-only access', required: true,
     why: 'Replies, interviews and recruiter emails are tracked from Gmail.'},
@@ -262,7 +263,7 @@ function renderKnown() {
 function renderContact(contact) {
   if (!contact) {
     const line = el('span', 'service-state');
-    line.append(icon('info'), el('span', 'service-state-text', 'Couldn\'t read Notion just now'));
+    line.append(icon('info'), el('span', 'service-state-text', byStore('Couldn\'t read Notion just now', 'Couldn\'t read your contact details just now')));
     $('ov-contact').replaceChildren(line);
     return;
   }

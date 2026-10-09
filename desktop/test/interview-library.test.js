@@ -13,7 +13,7 @@ globalThis.Node ??= FakeNode;
 globalThis.document ??= {createElement: () => new FakeNode(), createElementNS: () => new FakeNode(), body: new FakeNode(),
   addEventListener() {}, querySelector: () => null};
 globalThis.window ??= {addEventListener() {}};
-const {afterLoad, LIBRARY_ERROR} = await import('../renderer/interview-library.js');
+const {afterLoad, libraryError} = await import('../renderer/interview-library.js');
 const {insightView} = await import('../renderer/interview-insight.js');
 const interviews = await import('../lib/interviews.js');
 const page = fs.readFileSync(new URL('../renderer/pages/interviews.js', import.meta.url), 'utf8');
@@ -34,8 +34,8 @@ test('a read that fails says why, and keeps the rows already shown', () => {
   assert.equal(failed.rows, rows);
   assert.equal(failed.error, 'Notion said 502');
   assert.match(failed.stats, /Couldn't refresh from Notion.*5 min ago/);
-  assert.deepEqual(afterLoad({ok: false}, {rows: []}).error, LIBRARY_ERROR, 'never an empty message');
-  assert.deepEqual(afterLoad(undefined, {rows: []}).error, LIBRARY_ERROR);
+  assert.deepEqual(afterLoad({ok: false}, {rows: []}).error, libraryError(), 'never an empty message');
+  assert.deepEqual(afterLoad(undefined, {rows: []}).error, libraryError());
   assert.equal(afterLoad({ok: true}, {rows: []}).ok, false, 'a list without its interviews is a failure, not "no interviews"');
   assert.equal(afterLoad({ok: true, interviews: rows, insight_error: 'HTTPError: 400'}, {rows: []}).insightError, 'HTTPError: 400');
 });

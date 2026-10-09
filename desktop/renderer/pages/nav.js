@@ -151,7 +151,7 @@ function paletteCommands() {
       add('Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, () => { open(); if (danger) node.focus(); else node.click(); });
     });
   });
-  document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));
+  document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));   // about Notion
   return commands;
 }
 

@@ -310,7 +310,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/kits-ready.js` — The "Prepare top matches" message as the card's parts. src/daily.py (--mode kits) writes it as:
 - `desktop/renderer/knockout.js` — Questions a hiring system can be set to reject on by itself (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
-- `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
+- `desktop/renderer/lead-confirm.js` — (no header comment: add one)
 - `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 28 of 40 applications left"): which plan this is and what the number counts, at a glance
 - `desktop/renderer/live-log.js` — The running task's live log in the window: the app (lib/pipeline.js current.log, its last 300 lines) is the copy that lasts; the window's own
 - `desktop/renderer/mail-report.js` — A Gmail check's message as the parts of it the owner reads. src/ai/mail.py writes the lines (prep_message and the
@@ -347,6 +347,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/sidebar-rail.js` — The sidebar as an icon rail: automatically in a narrow window (under 1180 px, where there is no room for labels), or when the person
 - `desktop/renderer/stop-task.js` — Stop on a running task (owner, 7 Oct 2026: a search ran for an hour with no way to stop it): the Actions banner and Recent activity's
 - `desktop/renderer/store-move-text.js` — What Settings → Your data says while the data moves to Notion and after (lib/store-move.js): pure, so its wording is tested
+- `desktop/renderer/store-name.js` — The store's name for modules that run without the window's state (their node tests import them): renderer/store-words.js sets it
 - `desktop/renderer/store-words.js` — Where the person's data is kept, in the words the window says (lib/store: Notion, or Job Pilotto on this Mac). A page says
 - `desktop/renderer/strategy-parts.js` — The Strategy page's pure parts (owner mockup, 7 Oct 2026): role families, goal notes (estimated salary, language levels not set), the
 - `desktop/renderer/targets.js` — Where a click on a notification (macOS / Windows) or an in-window pop-up leads (pure, no DOM: main.js checks a target, the window follows it). A target is plain data with fixed keys, checked here befo

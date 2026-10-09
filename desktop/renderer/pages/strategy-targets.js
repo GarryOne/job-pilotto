@@ -13,6 +13,7 @@ import {dirtyLists, exclusionGroups, roleFamilies, withTyped} from '../strategy-
 import {strategyState} from './strategy-state.js';
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
+import {byStore} from '../store-words.js';
 
 // ---------- Your goals and the setup review's cards, with your live settings (owner, 7 Oct 2026: the page lacked work mode, salary,
 // languages, search terms, excluded languages and work rights, which the setup review shows). Lists: Edit → Save (lib/strategy.js editLists,
@@ -346,7 +347,7 @@ export async function saveTargets() {
   strategyState.targetEdits = null;
   typed = {};
   // Saved to Search settings; when Notion is connected, editLists has published it there before answering ok (lib/strategy.js).
-  toastMessage({title: 'Strategy saved ✓', body: `${shared.state?.notionConnected ? 'Synced to Notion. ' : ''}Refresh your jobs to search with it.`, action: refreshAction});
+  toastMessage({title: 'Strategy saved ✓', body: `${shared.state?.notionConnected ? byStore('Synced to Notion. ', '') : ''}Refresh your jobs to search with it.`, action: refreshAction});
   await loadStrategy();
   renderTargets();
   return true;

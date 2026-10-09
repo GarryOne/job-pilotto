@@ -64,7 +64,7 @@ section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, ambe
 })());
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
 
-section('Notion advantages', 'notionBenefits(count): why connect Notion (the connect dialog, Settings, Optional extras)', notionBenefits());
+section('Notion advantages', 'notionBenefits(count): why connect Notion (the connect dialog, Settings, Optional extras)', notionBenefits());   // about Notion
 section('Locked page', 'notionGate({reasonText, onConnect}): a page that needs Notion, until it is connected', notionGate({reasonText: 'Connect Notion to see what to do next.'}));
 
 section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few options (Settings → AI engine, the setup wizard)',

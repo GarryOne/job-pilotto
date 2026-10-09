@@ -154,7 +154,7 @@ export const notionPageUrl = id => (id ? `https://www.notion.so/${String(id).rep
 export function interviewJob(row, job) {
   const page = row.application?.[0] || '';
   if (job) return {kind: 'job', name: job.company || job.title, role: job.company ? job.title : '', notion: job.notion_url || notionPageUrl(page)};
-  if (page) return {kind: 'notion', name: 'Linked in Notion', role: '', notion: notionPageUrl(page)};
+  if (page) return {kind: 'notion', name: 'Linked in Notion', role: '', notion: notionPageUrl(page)};   // about Notion
   return {kind: 'none', name: 'No job linked', role: '', notion: ''};
 }
 

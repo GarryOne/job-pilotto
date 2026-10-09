@@ -20,6 +20,7 @@ import {lastActivity, renderActivity} from './activity-render.js';
 import {renderRunCard} from './activity-run-card.js';
 import {renderMailCard} from './activity-mail.js';
 import {renderInsightCard, renderInterviewCard, renderKitsCard, renderWeeklyCard} from './activity-cards.js';
+import {storeName} from '../store-words.js';
 
 // ---------- runs ----------
 export const clockTime = iso => new Date(iso).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'});
@@ -65,7 +66,7 @@ export function searchPhase(step = '') {
   if ((m = step.match(/^Scored (\d+) of (\d+)/))) return `Scored ${m[1]} of ${m[2]} jobs`;
   if ((m = step.match(/^Enriched (\d+) of (\d+)/))) return `Read ${m[1]} of ${m[2]} new jobs with AI`;
   if (/^Checked: /.test(step)) return 'Employer career pages';
-  if (/^Job Matches:/.test(step)) return 'Saving to Notion';
+  if (/^Job Matches:/.test(step)) return `Saving to ${storeName()}`;
   if (/digest|telegram/i.test(step)) return 'Sending your digest';
   return step.length > 60 ? `${step.slice(0, 57)}…` : step;
 }
@@ -102,7 +103,7 @@ export function warningSummary(warnings) {
     return 'The AI service is busy (rate limit), so some jobs may not be scored yet. Try again in a few minutes.';
   }
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
-    return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';
+    return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';   // about Notion
   }
   // Otherwise the warnings in plain words (run-warnings.js groupWarnings): one or two said here, more under "View N details".
   const plain = groupWarnings(warnings);

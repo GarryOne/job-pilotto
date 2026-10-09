@@ -13,6 +13,7 @@ import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, st
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
 import {showClaudePrereqs} from './claude-prereqs.js';
+import {storeName} from '../store-words.js';
 
 function showStray(entry) {
   const box = $('ext-stray');
@@ -133,7 +134,7 @@ async function saveReminders() {
 async function saveTarget() {
   const input = $('set-target');
   if (!input.value || input.value === input.dataset.saved) return;
-  saveState('Saving the daily target to Notion…');
+  saveState(`Saving the daily target to ${storeName()}…`);
   const ok = await saveDailyTarget(input);
   saveState('');
   if (!ok) { input.value = input.dataset.saved || ''; return; }
@@ -178,7 +179,7 @@ function showCloudNeeds() {
   message('cloud-message', done ? 'Ready ✓ Press Turn on to connect GitHub.' : '', done ? 'ok' : '');
   const title = document.createElement('b');
   title.textContent = done ? 'Everything is ready' : `Before it can run (${2 - missing.length} of 2 done)`;
-  const rows = [['notion', 'Notion connected'], ['ai', `${aiKey().provider} API key`]].map(([id, label]) => {
+  const rows = [['notion', 'Notion connected'], ['ai', `${aiKey().provider} API key`]].map(([id, label]) => {   // about Notion
     const need = missing.find(m => m.id === id);
     const row = document.createElement('div');
     row.className = 'aon-need';

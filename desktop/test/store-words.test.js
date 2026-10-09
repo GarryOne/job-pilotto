@@ -1,5 +1,7 @@
-// The window says "Notion" only while Notion holds the data (renderer/store-words.js). A ratchet: each file's hard-coded "Notion"
-// sentences (in quotes, not a comment, a link label or the connect prompt) may only go down; new ones go through storeName()/byStore().
+// The window says "Notion" only while Notion holds the data (renderer/store-words.js; window-free modules: renderer/store-name.js). Target
+// reached 9 Oct 2026: no hard-coded Notion sentence left. A new one goes through storeName()/byStore() (where()/byWhere() without the
+// window), or, when it is about Notion itself (connecting it, a Notion page link, Always on, a Notion error), is marked: `// about Notion`
+// at the end of its JS line, `data-about-notion` on its element in index.html (`data-notion-only` when it shows only with Notion).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,4 +24,13 @@ test('index.html counts too: visible words and titles, not what the page already
   assert.equal(countHtml('<p class="muted">Saved to Notion 🎤 Interviews</p>'), 1, 'visible text');
   assert.equal(countHtml('<button data-notion-only>Edit in your Notion</button>\n<b data-store-saved>Saved in Notion</b>'), 0, 'handled by the page');
   assert.equal(countHtml('<button id="notion-go" data-x="notion">Connect with Notion</button>\n<!-- Notion here -->'), 0, 'about Notion itself, ids, comments');
+});
+
+test('store-name.js follows the store for the window-free modules', async () => {
+  const {byWhere, setWhere, where} = await import('../renderer/store-name.js');
+  assert.equal(where(), 'Notion', 'before the state is read');
+  setWhere('Job Pilotto');
+  assert.equal(byWhere('in Notion', 'here'), 'here');
+  setWhere('Notion');
+  assert.equal(byWhere('in Notion', 'here'), 'in Notion');
 });

@@ -6,6 +6,7 @@ import {renderJobs} from './jobs.js';
 import {openSession} from './session-log.js';
 import {toastMessage} from './startup.js';
 import {logChoice, refreshSessions, sessionJob} from './sessions.js';  // cycle by design: used inside functions only
+import {storeName} from '../store-words.js';
 
 // Removing a session whose job is still Applying asks whether it was submitted (Applied, or back to Kit ready), so
 // a job never stays stuck as Applying; any other job's session just goes.
@@ -13,7 +14,7 @@ export async function removeSession(item) {
   if (sessionJob(item).stage === 'Applying') {
     const result = await window.pilot.sessionFinish(item.id);
     if (result?.cancelled) return;
-    if (!result?.ok) { toastMessage('Not removed', result?.error || 'Notion could not be updated. Try again.'); return; }
+    if (!result?.ok) { toastMessage('Not removed', result?.error || `${storeName()} could not be updated. Try again.`); return; }
     const job = sessionJob(item);
     job.stage = result.submitted ? 'Applied' : 'Kit ready';
     if (result.submitted) job.status = 'applied';

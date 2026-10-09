@@ -23,9 +23,9 @@ async function showStore() {
   pill.textContent = store.trying ? 'Not chosen' : store.label;
   pill.className = `ui-pill ${store.trying ? 'tone-warn' : 'tone-good'}`;
   $('store-lead').textContent = store.trying
-    ? `Job Pilotto is only trying until your jobs and applications have a home: ${store.choice ? 'this Mac, or your Notion' : 'your Notion'}.`
+    ? `Job Pilotto is only trying until your jobs and applications have a home: ${store.choice ? 'this Mac, or your Notion' : 'your Notion'}.`   // about Notion
     : cloud ? 'Your jobs, applications and answers are in your Notion workspace: open and edit them there too.'
-      : 'Your jobs, applications and answers are kept on this Mac, in one place, and in its backups. Move them to Notion to use Always on.';
+      : 'Your jobs, applications and answers are kept on this Mac, in one place, and in its backups. Move them to Notion to use Always on.';   // about Notion
   $('store-where').textContent = store.trying ? 'Not chosen yet' : store.label;
   $('store-cloud').textContent = cloud && !store.trying ? 'Available' : 'Needs Notion';
   show($('store-keep'), store.trying && store.choice);
@@ -68,7 +68,7 @@ export async function init() {
   $('store-open').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   // An action that runs off this Mac (Always on) while the data is here (preload.cjs): say so, and open this card.
   window.addEventListener('pilot-needs-move', event => toastMessage({title: 'Move your data to Notion first',
-    body: event.detail?.text || 'This needs your data in Notion.', target: {view: 'settings', section: 'data'}}));
+    body: event.detail?.text || 'This needs your data in Notion.', target: {view: 'settings', section: 'data'}}));   // about Notion
 
   // ---------- your data: export / import ----------
   $('export-data').addEventListener('click', async () => {
@@ -114,6 +114,6 @@ export async function init() {
         + 'a new workspace starts with an empty Profile.', target: {view: 'settings', section: 'connections'}});
     else if (done?.backup) toastMessage('Job Pilotto was reset', `Your previous data is in ${done.backup}.`);
     else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted.');
-    if (done?.archived) toastMessage('Old Notion workspace archived', `"${done.archived.title}" is kept in Notion. The setup builds a new workspace: share a new, empty page with Job Pilotto.`);
+    if (done?.archived) toastMessage('Old Notion workspace archived', `"${done.archived.title}" is kept in Notion. The setup builds a new workspace: share a new, empty page with Job Pilotto.`);   // about Notion
   });
 }

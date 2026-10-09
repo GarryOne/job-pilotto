@@ -31,6 +31,7 @@ import {showJumpToLatest, showRunJob, linked, refreshActivity, renderRunCard, re
 import {renderMailCard} from './activity-mail.js';
 import {renderInsightCard, renderInterviewCard, renderKitsCard, renderWeeklyCard} from './activity-cards.js';
 import {kindFilter, barLabel, PANEL_KEY, panelMemory} from './activity-panel.js';
+import {byStore} from '../store-words.js';
 export let lastActivity = null;
 const RUNS_PAGE = 8;
 let shownRuns = RUNS_PAGE;
@@ -225,18 +226,18 @@ export function renderActivity(fresh) {
   if (needsPage(picked) && !runDetails.has(picked.pageId)) {
     const pageId = picked.pageId, hasLog = !!picked.log;
     readingPages.add(pageId);   // the card's skeleton bars show while the page is read, also for a local run that has its own log: the read waits its turn behind the app's other Notion calls (25 s+ right after a start) and the pane was empty meanwhile
-    runDetails.set(pageId, hasLog ? {} : {log: ['Reading from Notion…']});
+    runDetails.set(pageId, hasLog ? {} : {log: [byStore('Reading from Notion…', 'Reading…')]});
     // A run that just finished may not have its log on its page yet (it's written a moment after the status):
     // an empty answer is read again a few times before it's kept.
     const read = (tries = 0) => (readTrace.push(`${pageId} read #${tries} asked`), window.pilot.runDetail(pageId)).then(detail => {
       readTrace.push(`${pageId} read #${tries} gave message=${!!detail?.message} log=${(detail?.log || []).length}`);
       const empty = !detail?.message && !(detail?.log || []).length;
       if (empty && tries < 4 && !hasLog) {
-        runDetails.set(pageId, {log: ['Waiting for the log from Notion…']});
+        runDetails.set(pageId, {log: [byStore('Waiting for the log from Notion…', 'Waiting for the log…')]});
         setTimeout(() => read(tries + 1), 5000);
       } else {
         readingPages.delete(pageId);
-        runDetails.set(pageId, empty ? (hasLog ? {} : {log: ['This run left no log on its Notion page.']}) : detail);
+        runDetails.set(pageId, empty ? (hasLog ? {} : {log: [byStore('This run left no log on its Notion page.', 'This run left no log.')]}) : detail);
       }
       renderActivity(lastActivity);
     }).catch(error => { readTrace.push(`${pageId} read failed: ${error?.message || error}`); console.error('activity: a run page was not shown', pageId, error); readingPages.delete(pageId); renderActivity(lastActivity); });

@@ -30,7 +30,7 @@
     <div class="steps-foot">
       <button class="nav wizard-exit" id="wizard-exit" type="button" hidden><i data-icon="undo"></i>Back to the app</button>
       <button class="nav wizard-stuck" id="wizard-stuck" type="button"><i data-icon="help"></i>Stuck? Tell us</button>
-      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Data: <strong>this Mac</strong> &amp; connected Notion.<br>Keys: encrypted in Keychain.</span></p>
+      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Data: <strong>this Mac</strong><span data-notion-only> &amp; connected Notion</span>.<br>Keys: encrypted in Keychain.</span></p>
       <p class="fine steps-version"><i data-icon="info"></i><span data-version></span></p>
     </div>
   </aside>
@@ -1108,7 +1108,7 @@
                 <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
                 <details class="troubleshoot" id="cloud-howto"><summary>How it works</summary>
                   <p class="muted small">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
-                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and Notion, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
+                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and <span data-about-notion>Notion</span>, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
                     Your keys are stored there as encrypted secrets.</p>
                 </details>
               </div>
@@ -1166,8 +1166,8 @@
         </div>
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>
-        <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small">Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+        <div><h3 data-about-notion>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
+          <p class="muted small" data-about-notion>Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
         <ul class="ui-benefits" id="set-notion-benefits" hidden></ul>
         <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
         
@@ -1298,7 +1298,7 @@
               <div class="summary-head"><i data-icon="database"></i><h3>Automatic backup</h3><span class="ui-pill tone-good" id="backup-on">On</span></div>
               <div class="panel-actions"><button class="secondary" id="backup-now">Back up now</button><button class="arrow-link" id="backup-show">View backups</button></div>
             </div>
-            <p class="muted panel-lead"><span id="backup-notion-line">Your CV and tailored CVs are also kept in Notion. </span>Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
+            <p class="muted panel-lead"><span id="backup-notion-line" data-notion-only>Your CV and tailored CVs are also kept in Notion. </span>Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
             <div class="fact-row"><div><span class="muted">Last backup</span><b id="backup-last">None yet</b></div>
               <div><span class="muted">Location</span><b id="backup-where"></b></div></div>
           </div>
@@ -1314,7 +1314,7 @@
                   <button class="secondary" id="import-data" data-import>Import data</button></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
-              <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, Notion, Telegram, GitHub)</span>
+              <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>
                 <span class="muted small">For another computer. On this one your keys always come back; ticked, they're in the file in plain text: keep it private.</span></span></label>
             </details>
             <p class="message" id="data-message"></p>
@@ -1386,7 +1386,7 @@
               <label class="switch-row"><input type="checkbox" id="pool-share-on"><span>Share</span></label></div>
             <p class="muted panel-lead">Share which employer career pages and job boards your searches read, with how many jobs they listed, matched and led to an application or interview, and labels from fixed lists: your kind of role and your region
               (your kind of role and role family, your country, region and city area: for example "Photography, Switzerland, Geneva area"), so the shared pool grows and can suggest better employers to people like you.
-              Only public company career pages, board names, counts and those two labels. Never your jobs, applications, CV, answers, e-mail or Notion.
+              Only public company career pages, board names, counts and those two labels. Never your jobs, applications, CV, answers, e-mail or <span data-about-notion>Notion</span>.
               On by default; turn it off here any time.</p>
             <details class="pool-share-shown"><summary>See what would be sent</summary><pre class="log" id="pool-share-text">Nothing is sent while this is off.</pre></details>
           </div>
@@ -1411,7 +1411,7 @@
               <button class="danger-outline" id="reset-review">Review reset options</button></div>
             <p class="small">Removes local settings and files. Your Notion workspace is kept unless you choose to start fresh.</p>
             <div id="reset-options" hidden>
-              <p class="small"><b>Removed from this computer:</b> your AI, Notion, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
+              <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
                 interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
               <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your Gmail sign-in, your GitHub repo.
                 The Chrome extension has to be connected again.</p>
@@ -1446,7 +1446,7 @@
               <div class="tabs" role="tablist" aria-label="Log">
                 <button type="button" role="tab" class="is-active" aria-selected="true" data-log="app">App</button>
                 <button type="button" role="tab" aria-selected="false" data-log="engine">Engine runs</button>
-                <button type="button" role="tab" aria-selected="false" data-log="notion">Notion requests</button></div>
+                <button type="button" role="tab" aria-selected="false" data-log="notion" data-about-notion>Notion requests</button></div>
               <div class="panel-actions"><button class="secondary with-icon" data-copy="logs-lines"><i data-icon="copy"></i>Copy</button><button class="arrow-link" id="logs-show">Show in Finder</button></div>
             </div>
             <div class="toolbar">
@@ -1656,7 +1656,7 @@
 
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->
 <dialog id="save-dialog" class="save-dialog panel-dialog">
-  <div class="dialog-head"><span class="dialog-icon"><i data-icon="upload"></i></span><h2 id="save-title">Saving your strategy to Notion</h2></div>
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="upload"></i></span><h2 id="save-title">Saving your strategy<span data-notion-only> to Notion</span></h2></div>
   <p class="dialog-lead" data-notion-only>Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
   <ol class="save-steps" id="save-steps">
     <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy<span data-notion-only> in Notion</span></li>
@@ -1679,7 +1679,7 @@
     <ul class="ui-benefits" id="notion-connect-benefits"></ul>
     <p class="muted small" id="notion-connect-note"></p>
     <p class="message" id="notion-connect-message"></p>
-    <p class="muted small" id="notion-connect-token" hidden>Or paste a token: Settings → Connections → Notion.</p>
+    <p class="muted small" id="notion-connect-token" data-about-notion hidden>Or paste a token: Settings → Connections → Notion.</p>
     <div class="actions">
       <button class="secondary" id="notion-connect-later" type="button">Not now</button>
       <button class="primary" id="notion-connect-go" type="button">Connect with Notion</button>
@@ -1836,7 +1836,7 @@
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
     <p class="dialog-lead" id="allowance-lead">You have used your free allowance. Ask Igor for a founder key to keep starting new applications.
-      <span class="small">Your jobs, tracking, Notion, export and data all keep working.</span></p>
+      <span class="small">Your jobs, tracking, <span data-notion-only>Notion, </span>export and data all keep working.</span></p>
     <div class="inline"><input type="text" id="allowance-input" placeholder="Paste your license key (JP1.…)" autocomplete="off" spellcheck="false"><button id="allowance-unlock" type="button" class="secondary">Unlock</button></div>
     <p class="message" id="allowance-message"></p>
     <div class="dialog-foot">
@@ -1852,7 +1852,7 @@
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
     <p class="dialog-lead" id="why-lead">One tap helps make setup easier for the next person. Optional.</p>
     <div class="why-options" id="why-options">
-      <label><input type="radio" name="why" value="notion"> I don't use Notion</label>
+      <label data-about-notion><input type="radio" name="why" value="notion"> I don't use Notion</label>
       <label><input type="radio" name="why" value="ai"> The AI key or its cost</label>
       <label><input type="radio" name="why" value="time"> Setup takes too long</label>
       <label><input type="radio" name="why" value="privacy"> Privacy concerns</label>
@@ -1876,7 +1876,7 @@
     <p class="dialog-lead">What works, what's confusing, what's missing? It goes straight to the maker, Igor. Your job data isn't sent: only
       what you write here, the app version and a random install id.</p>
     <label for="app-feedback-text">Your feedback</label>
-    <textarea id="app-feedback-text" rows="7" maxlength="2000" placeholder="e.g. Setup took 20 minutes; the Notion step was unclear…"></textarea>
+    <textarea id="app-feedback-text" data-about-notion rows="7" maxlength="2000" placeholder="e.g. Setup took 20 minutes; the Notion step was unclear…"></textarea>
     <label for="app-feedback-contact">Email or handle, if you'd like a reply <span class="muted">(optional)</span></label>
     <input id="app-feedback-contact" type="text" maxlength="200" autocomplete="email">
     <p id="app-feedback-message" class="message"></p>
@@ -2079,7 +2079,7 @@
     <fieldset>
       <legend>How to fill them</legend>
       <label class="radio"><input type="radio" name="apply-mode" value="agents">
-        <span><b>Apply with Claude</b><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
+        <span><b>Apply with Claude</b><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and <span data-about-notion>Notion</span>.</span></span></label>
       <label class="radio"><input type="radio" name="apply-mode" value="chrome">
         <span><b>Fill in Chrome with the extension</b> <span class="badge-recommended">Recommended</span><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
     </fieldset>

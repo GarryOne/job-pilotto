@@ -6,13 +6,14 @@
 import {el} from '../components.js';
 import {message, show} from './core.js';
 import {openInNotion} from './notion-connect.js';
-import {inNotion, storeName} from '../store-words.js';
+import {inNotion, storeName, syncStoreName} from '../store-words.js';
 
 export const NOTION_PAGES = {profile: 'NOTION_PROFILE_PAGE_ID', answers: 'NOTION_ANSWERS_PAGE_ID', knowledge: 'NOTION_KNOWLEDGE_PAGE'};
 const saved = {};   // name → the text as stored: Save and Revert follow what differs from it
 
 // Every control that opens the store's own page shown or hidden, and every "Saved in …" said, from where the data is (store-words.js).
 export function showStoreParts() {
+  syncStoreName();
   const links = inNotion();
   document.querySelectorAll('[data-notion-only]').forEach(node => show(node, links));
   document.querySelectorAll('[data-store-saved]').forEach(node => { node.textContent = `Saved in ${storeName()}`; });

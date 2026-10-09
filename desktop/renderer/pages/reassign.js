@@ -9,6 +9,7 @@ import {toastMessage} from './startup.js';
 import {searchSelect} from '../search-select.js';
 import {CHOICES, emailNoun, questionWhy} from '../question-words.js';
 import {el} from '../components.js';
+import {storeName} from '../store-words.js';
 
 const option = (value, text) => Object.assign(document.createElement('option'), {value, textContent: text});
 const labelOf = job => `${job.company || job.via || '—'} · ${job.title}${job.stage ? ` (${job.stage})` : ''}`;
@@ -75,7 +76,7 @@ export async function init() {
     event.preventDefault();
     if (!pending) return;
     $('reassign-save').disabled = true;
-    message('reassign-message', 'Saving to Notion…', 'waiting');
+    message('reassign-message', `Saving to ${storeName()}…`, 'waiting');
     const ok = await pending();
     $('reassign-save').disabled = false;
     if (ok) $('reassign-dialog').close(); else message('reassign-message', 'Not saved. Try again.', 'error');

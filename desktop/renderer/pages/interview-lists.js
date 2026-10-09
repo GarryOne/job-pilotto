@@ -39,7 +39,7 @@ export function renderDrafts(drafts, env) {
     const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
     const meta = el('div', 'muted small');
     const parts = [when, draft.seconds ? `${Math.max(1, Math.round(draft.seconds / 60))} min` : '', STATUS[draft.status] || draft.status,
-      draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);
+      draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);   // about Notion
     meta.textContent = parts.join('  ·  ');
     text.append(el('b', '', draft.title), meta);
     const [tone, label] = PILL[draft.status] || ['neutral', STATUS[draft.status] || draft.status];

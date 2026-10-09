@@ -5,6 +5,7 @@ import {ai} from './ai-name.js';
 import {el, pill} from './components.js';
 import {icon} from './icons.js';
 import {minutes} from './practice-session.js';
+import {where} from './store-name.js';
 
 const CONFIDENCE = {high: ['good', 'High confidence'], medium: ['info', 'Medium confidence'], low: ['neutral', 'Low confidence']};
 const CONFIDENCE_TIP = {low: 'Based on a limited number of interviews: it may change as you add more.',
@@ -106,7 +107,7 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
   if (note) side.append(el('span', 'muted small', note));
   if (updating) {  // this Mac's saved copy is on screen while Notion is read: a small spinner, explained on hover
     const sync = el('span', 'spinner small iv-insight-sync');
-    sync.title = 'Checking Notion for a newer version';
+    sync.title = `Checking ${where()} for a newer version`;
     side.append(sync);
   }
   if (view.chip) {  // a ring that fills with the confidence, the words, and what the words mean on hover

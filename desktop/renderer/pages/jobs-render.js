@@ -276,7 +276,7 @@ export function renderJobs() {
     menu.push({icon: 'file', label: 'Open job page', run: () => openJobPanel(job),
       title: 'Its kit, prep, reviews, record, messages, description and history, here beside the list'});
     if (job.notion_url) menu.push({icon: job.kit ? 'file-text' : 'layers', label: job.kit ? 'Open kit in Notion' : 'Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
-      title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});
+      title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});   // about Notion
     menu.push({icon: 'external', label: isInbound(job) ? 'Open the message' : 'Open posting', run: () => window.pilot.openExternal(job.url), title: isInbound(job) ? 'The email or chat it came from' : 'The job posting'});
     if (job.kit && job.code) {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
