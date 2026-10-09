@@ -94,9 +94,18 @@ export const answerImport = (app, file) => app.evaluate(({app: electron, dialog}
 
 // The move's Python process (python -m src.stores.copy), found among this app's own descendants only (the engine may start under a wrapper):
 // never a pattern kill, other sessions run copies too.
+export function processRows(text, platform = process.platform) {
+  if (platform === 'win32') {   // PowerShell's Get-CimInstance as JSON (there is no `ps -A` on Windows: 10 Oct 2026, the storemove suite failed there); one process is an object, not a list
+    const list = [].concat(text.trim() ? JSON.parse(text) : []);
+    return list.map(row => ({pid: Number(row.ProcessId), ppid: Number(row.ParentProcessId), command: row.CommandLine || ''}));
+  }
+  return text.split('\n').map(line => line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/)).filter(Boolean).map(([, pid, ppid, command]) => ({pid: Number(pid), ppid: Number(ppid), command}));
+}
+const processTable = () => processRows(process.platform === 'win32'
+  ? execFileSync('powershell', ['-NoProfile', '-Command', 'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress'], {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024})
+  : execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], {encoding: 'utf8'}));
 export function copyProcess(appPid) {
-  const rows = execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], {encoding: 'utf8'}).split('\n').map(line => line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/)).filter(Boolean)
-    .map(([, pid, ppid, command]) => ({pid: Number(pid), ppid: Number(ppid), command}));
+  const rows = processTable();
   const mine = new Set([appPid]);
   for (let grew = true; grew;) { grew = false; for (const row of rows) if (mine.has(row.ppid) && !mine.has(row.pid)) { mine.add(row.pid); grew = true; } }
   return rows.filter(row => row.pid !== appPid && mine.has(row.pid) && /-m src\.stores\.copy\b/.test(row.command)).map(row => row.pid);
