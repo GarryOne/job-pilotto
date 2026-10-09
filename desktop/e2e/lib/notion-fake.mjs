@@ -277,3 +277,17 @@ export async function startNotionFake() {
   fake.setBase(`http://127.0.0.1:${server.address().port}`);
   return {...fake, url: `http://127.0.0.1:${server.address().port}`, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }
+
+// The workspace built once in a fresh stand-in, by the app's own code (desktop/lib/notion-workspace.js), as the real test page already holds it: a suite then
+// seeds in seconds (lib/seed.mjs fastSeed) instead of the wizard's 2-3 minutes. Every request goes to the stand-in; anything else fails. -> the app's ids.
+export async function buildStandIn(standIn) {
+  const {connectWorkspace} = await import('../../lib/notion-workspace.js');
+  const fetcher = (url, options) => {
+    const local = String(url).replace(/^https:\/\/api\.notion\.com/, standIn.url);
+    if (!local.startsWith(standIn.url)) throw new Error(`the stand-in's build reached ${url}`);
+    return fetch(local, options);
+  };
+  const built = await connectWorkspace('stand-in', {sleep: async () => {}, fetcher});
+  if (!built.ok) throw new Error(`the stand-in's workspace was not built: ${built.error || JSON.stringify({missing: built.missing, problems: built.problems})}`);
+  return built.ids;
+}

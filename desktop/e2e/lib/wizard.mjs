@@ -122,5 +122,10 @@ export async function runWizard(ctx) {
     const state = await page.evaluate(() => window.pilot.state());
     if (!state.notion) throw new Error('the app does not know it is connected');
     if (fs.existsSync(path.join(ctx.profile, 'profile.md'))) throw new Error('profile.md is still on this Mac after it moved to Notion');
+    // The connect was the app's call, not the window's prompt (which refreshes the window and reopens the page): reload, as lib/seed.mjs fastSeed does, so the
+    // window knows. Without it a page that needs Notion stayed on its gate (9 Oct 2026, the stand-in: every suite builds its workspace through here).
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    if (!await page.evaluate(() => !!window.__jp?.shared?.state?.notion?.NOTION_PROFILE_PAGE_ID)) throw new Error('the window does not know Notion is connected after a reload');
   }, {needs: ctx.needs});
 }

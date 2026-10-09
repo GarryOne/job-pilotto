@@ -27,7 +27,13 @@ export async function run(ctx) {
   const openInterviews = async expected => {
     await page.click('.nav[data-view="focus"]');
     await page.click('.nav[data-view="interviews"]');
-    if (expected != null) await page.waitForFunction(n => document.querySelectorAll('#iv-saved tr[data-id]').length === n, expected, {timeout: 90000});
+    // A timeout says what the page was showing (the gate, the lock, the window's Notion ids, the stats line): 9 Oct 2026 it said only "Timeout 90000ms".
+    if (expected != null) await page.waitForFunction(n => document.querySelectorAll('#iv-saved tr[data-id]').length === n, expected, {timeout: 90000}).catch(async error => {
+      const seen = await page.evaluate(() => { const view = document.querySelector('.view[data-view="interviews"]'); return {rows: document.querySelectorAll('#iv-saved tr[data-id]').length,
+        hidden: !!view?.hidden, locked: !!view?.classList.contains('notion-locked'), gate: !!view?.querySelector(':scope > .notion-gate-host')?.children.length,
+        stats: document.getElementById('iv-lib-stats')?.textContent.trim(), notionIds: Object.keys(window.__jp?.shared?.state?.notion || {}).length, store: window.__jp?.shared?.state?.store || null}; }).catch(() => ({}));
+      throw new Error(`${error.message.split('\n')[0]}; expected ${expected} rows, the page shows ${JSON.stringify(seen)}`);
+    });
     // The library paints its saved copy first and re-draws when Notion answers: act only once that is done, or a menu opened on the first draw is closed under the click.
     await page.waitForFunction(() => document.getElementById('iv-lib-stats').textContent.trim() === 'Saved to Notion 🎤 Interviews', null, {timeout: 120000});
     await page.waitForTimeout(500);

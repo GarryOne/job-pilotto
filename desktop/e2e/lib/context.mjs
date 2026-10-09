@@ -9,7 +9,7 @@ import {startNotionProxy} from './notion-proxy.mjs';
 import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
 import {startReleasesFake} from './releases-fake.mjs';
-import {startNotionFake} from './notion-fake.mjs';
+import {buildStandIn, startNotionFake} from './notion-fake.mjs';
 import {useNotionAt} from './notion.mjs';
 import {appKey, appModelEnv, DUMMY_KEY, familyOf, isCi, keySecret, pickEngine, testKey} from './engine.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
@@ -64,6 +64,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   if (engine === 'cli') console.log('  AI engine: the Claude Code on this Mac (your plan): no Anthropic key is read or used on a Mac.');
   if (onNotion) ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
   if (fresh && ctx.root) console.log(`Notion test page "${ctx.root.title}": ${await clearRoot(token, ctx.root.id)} item(s) moved to the trash`);
+  // The stand-in starts empty: built once here unless the suite tests a fresh setup (the wizard), like the real test page that is built already.
+  if (standIn && !fresh) await buildStandIn(standIn);
   ctx.built = onNotion && !fresh && await workspaceReady(token);
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
