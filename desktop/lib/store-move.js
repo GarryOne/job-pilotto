@@ -31,7 +31,9 @@ export async function moveToNotion(storage, {run = pipelineRun.run, publish = st
   if (fixed?.ids) storage.saveSettings({notionIds: fixed.ids});
   // The Knowledge page is made on its first write; the copy writes texts whole into existing pages, so it must be there first.
   if (storage.readText('knowledge.md').trim()) await knowledgePage(storage);
-  const {code, stdout} = await run(storage, ['src.stores.copy', '--from', 'sqlite', '--to', 'notion'], line => {
+  // A workspace the connect just built holds only the template's text on its Profile and answers pages: this Mac's are written over it.
+  const texts = storage.settings().storeTextsWin ? ['--source-texts-win'] : [];
+  const {code, stdout} = await run(storage, ['src.stores.copy', '--from', 'sqlite', '--to', 'notion', ...texts], line => {
     const step = PROGRESS.exec(String(line).trim());
     if (step) onProgress({entity: step[1], done: Number(step[2]), total: Number(step[3])});
   });
@@ -50,7 +52,7 @@ export async function moveToNotion(storage, {run = pipelineRun.run, publish = st
     fs.mkdirSync(path.dirname(path.join(archive, name)), {recursive: true});
     fs.renameSync(from, path.join(archive, name));
   }
-  storage.saveSettings({store: 'notion', storeMovedAt: now.toISOString(), storeArchive: archive});
+  storage.saveSettings({store: 'notion', storeMovedAt: now.toISOString(), storeArchive: archive, storeTextsWin: undefined});
   const {kept = [], ...counts} = moved;
   log('store', 'moved', {to: 'notion', ...counts, kept: kept.length});
   return {ok: true, moved: counts, kept, archive};

@@ -223,8 +223,7 @@ function handlers() {
         // app just built (or Notion just copied the template into) is empty, so this Mac's strategy wins; any other workspace
         // already had data, and Notion wins. Saved first, so a step that fails retries next start with the same answer.
         const hadLocal = !!(storage.readText('profile.md').trim() || storage.readText('answers.md').trim());
-        const moveIn = migrate.moveInMode(storage.settings(), {hadLocal, fresh: !!(result.built?.length || templateRoot)});
-        if (moveIn) storage.saveSettings({notionMoveIn: moveIn});
+        storage.saveSettings(migrate.connectSettings(storage.settings(), {hadLocal, fresh: !!(result.built?.length || templateRoot)}));
         if (!DEMO) {
           if (hadLocal) send({moving: true});
           const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now

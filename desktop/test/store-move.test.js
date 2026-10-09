@@ -89,3 +89,13 @@ test('the workspace is repaired before the copy, and its ids are kept (migrate r
   assert.deepEqual(order, [['repair', 'ntn_test', 'profile-page'], ['copy']]);
   assert.equal(storage.settings().notionIds.NOTION_EVENTS_DB, 'events-db');
 });
+
+test('a workspace the connect just built: the copy writes this Mac\'s texts over its template text; the flag goes after the move', async () => {
+  const storage = connected({store: 'sqlite', storeTextsWin: true}), {run, asked} = engine(['{"moved": {}}']);
+  await moveToNotion(storage, {run, repair: kept, publish: async () => {}});
+  assert.deepEqual(asked[0], ['src.stores.copy', '--from', 'sqlite', '--to', 'notion', '--source-texts-win']);
+  assert.equal(storage.settings().storeTextsWin, undefined);
+  const before = connected({store: 'sqlite', storeTextsWin: false}), other = engine(['{"moved": {}}']);
+  await moveToNotion(before, {run: other.run, repair: kept, publish: async () => {}});
+  assert.deepEqual(other.asked[0], ['src.stores.copy', '--from', 'sqlite', '--to', 'notion']);
+});

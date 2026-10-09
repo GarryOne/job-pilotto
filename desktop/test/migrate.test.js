@@ -227,12 +227,12 @@ test('runs from this Mac: a row Notion refuses is retried next start, and the on
 
 // On this Mac's store its data is the store's own: the move (lib/store-move.js) takes it whole. 9 Oct 2026, the storemove e2e: a connect before
 // the move deleted profile.md and answers.md while the store was still this Mac's.
-test('a connect on this Mac\'s store moves no Profile in; elsewhere a fresh workspace takes it and an existing one wins', () => {
-  assert.equal(migrate.moveInMode({store: 'sqlite'}, {hadLocal: true, fresh: true}), null);
-  assert.equal(migrate.moveInMode({store: 'sqlite'}, {hadLocal: true, fresh: false}), null);
-  assert.equal(migrate.moveInMode({}, {hadLocal: true, fresh: true}), 'fresh');
-  assert.equal(migrate.moveInMode({store: 'notion'}, {hadLocal: true, fresh: false}), 'existing');
-  assert.equal(migrate.moveInMode({}, {hadLocal: false, fresh: true}), null);
+test('a connect on this Mac\'s store moves no Profile in, and remembers whether the workspace was just built; elsewhere as before', () => {
+  assert.deepEqual(migrate.connectSettings({store: 'sqlite'}, {hadLocal: true, fresh: true}), {storeTextsWin: true});
+  assert.deepEqual(migrate.connectSettings({store: 'sqlite'}, {hadLocal: true, fresh: false}), {storeTextsWin: false});
+  assert.deepEqual(migrate.connectSettings({}, {hadLocal: true, fresh: true}), {notionMoveIn: 'fresh'});
+  assert.deepEqual(migrate.connectSettings({store: 'notion'}, {hadLocal: true, fresh: false}), {notionMoveIn: 'existing'});
+  assert.deepEqual(migrate.connectSettings({}, {hadLocal: false, fresh: true}), {});
 });
 
 test('the real strategy step keeps profile.md and answers.md on this Mac\'s store, even with a move-in flag left over', async () => {

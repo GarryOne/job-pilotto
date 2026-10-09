@@ -165,11 +165,12 @@ export const STEPS = [
   }},
 ];
 
-// At a Notion connect: whether this Mac's Profile and answers move into the workspace ('fresh': a workspace just built, they win; 'existing':
-// Notion wins, they are backed up), for 'strategy from this Mac'. None on this Mac's store: there they are its texts, and the move takes them.
-export function moveInMode(settings, {hadLocal, fresh}) {
-  if (!hadLocal || settings?.store === 'sqlite') return null;
-  return fresh ? 'fresh' : 'existing';
+// At a Notion connect, what to remember about this Mac's Profile and answers. Elsewhere: whether they move into the workspace ('fresh': a
+// workspace just built, they win; 'existing': Notion wins, they are backed up), for 'strategy from this Mac'. On this Mac's store they are its
+// texts and the move takes them: only whether the workspace was just built (its pages hold the template's text), so the move writes them over it.
+export function connectSettings(settings, {hadLocal, fresh}) {
+  if (settings?.store === 'sqlite') return {storeTextsWin: !!fresh};
+  return hadLocal ? {notionMoveIn: fresh ? 'fresh' : 'existing'} : {};
 }
 
 // Once, at the first start of the version whose default is "no own scout": an install that is already set up keeps

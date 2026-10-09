@@ -91,6 +91,27 @@ class CopyTests(unittest.TestCase):
         self.assertEqual(target.texts.get('knowledge'), '- Workday wants a phone')
         self.assertEqual(counts['kept'], ['profile'])
 
+    def test_a_kept_text_is_still_named_after_a_move_cut_off_and_resumed(self):
+        source, target = filled(), memory.open_store()
+        target.texts.set('profile', '# Written in Notion before')
+        real_put = target.events.put
+        target.events.put = lambda record: (_ for _ in ()).throw(ConnectionError('Notion went away'))
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'move.json'
+            with self.assertRaises(ConnectionError):
+                copy.copy(source, target, copy.Journal(path))
+            target.events.put = real_put
+            counts = copy.copy(source, target, copy.Journal(path))
+        self.assertEqual(counts['kept'], ['profile'])
+        self.assertEqual(target.texts.get('profile'), '# Written in Notion before')
+
+    def test_a_workspace_just_built_takes_the_source_texts_over_its_placeholder(self):
+        source, target = filled(), memory.open_store()
+        target.texts.set('profile', 'Filled in by Job Pilotto.')
+        counts = copy.copy(source, target, source_texts_win=True)
+        self.assertEqual(target.texts.get('profile'), '# Me')
+        self.assertNotIn('kept', counts)
+
     def test_progress_is_reported_per_entity(self):
         seen = []
         copy.copy(filled(), memory.open_store(), progress=lambda entity, done, total: seen.append((entity, done, total)))
