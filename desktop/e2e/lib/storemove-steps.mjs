@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {openPanel, panelRows} from './activity-steps.mjs';
+import {appLogLines} from './app-log.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // The seeded jobs and the match (lib/store_seed.py): every screen is read for these names only, so the app's own rows (a hint, an empty state) never count.
@@ -83,9 +84,10 @@ export function copyProcess(appPid) {
   for (let grew = true; grew;) { grew = false; for (const row of rows) if (mine.has(row.ppid) && !mine.has(row.pid)) { mine.add(row.pid); grew = true; } }
   return rows.filter(row => row.pid !== appPid && mine.has(row.pid) && /-m src\.stores\.copy\b/.test(row.command)).map(row => row.pid);
 }
-// A second install's own log (its profile's logs/app.log), the lines about data and restarts: evidence when its import does not go as planned.
+// A second install's own log (lib/app-log.mjs: app.log and the day files it rolled into), the lines about data and restarts: evidence when its
+// import does not go as planned.
 export const logLines = (profile, pattern = /\[(data|window|store)\]|import/i) => {
-  try { return fs.readFileSync(path.join(profile, 'logs', 'app.log'), 'utf8').split('\n').filter(line => pattern.test(line)).slice(-12); } catch { return []; }
+  try { return appLogLines(profile).filter(line => pattern.test(line)).slice(-12); } catch { return []; }
 };
 export const journalOf = profile => { try { return JSON.parse(fs.readFileSync(path.join(profile, 'data', 'move-sqlite-to-notion.json'), 'utf8')); } catch { return {}; } };
 
