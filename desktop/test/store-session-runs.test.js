@@ -23,7 +23,7 @@ function fakeEngine() {
     calls.push([entity, method]);
     if (method === 'add') { const made = {id: `a${records.length + 1}`, transcript: '', ...kwargs.run}; records.push(made); return made; }
     if (method === 'update') { const record = records.find(r => r.id === kwargs.run_id); Object.assign(record, kwargs.fields); return record; }
-    if (method === 'list') return records;
+    if (method === 'get') return records.find(r => r.id === kwargs.run_id) || null;
     throw new Error(method);
   };
   return {call, records, calls};

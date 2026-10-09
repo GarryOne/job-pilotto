@@ -60,7 +60,7 @@ export async function saveConversation(storage, session, talk, {call = engine.ca
 export async function loadConversation(storage, runPage, {call = engine.call} = {}) {
   const options = optionsFor(storage, {call});
   if (options.agentRuns) {
-    const record = (await options.agentRuns('list', {ats: AGENT}) || []).find(run => run.id === runPage);
+    const record = await options.agentRuns('get', {run_id: runPage});
     try { return record?.transcript ? JSON.parse(record.transcript) : null; } catch { return null; }
   }
   return options.call ? transcript.load(options.call, runPage) : null;
