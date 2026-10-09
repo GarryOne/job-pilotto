@@ -107,6 +107,19 @@ class StoreContract:
         self.assertIsNone(self.s.applications.get(JOB['url']))
         self.assertIsNone(self.s.applications.section(row['id'], 'Kit'))
 
+    def test_logged_entries_grow_one_section_in_order(self):
+        """append_entry (src/ai/inbox.py's log): each entry is a '### {title}' in base.LOGGED, oldest first, beside the other sections."""
+        row, _ = self.s.applications.set_stage(JOB, 'Applied')
+        self.s.applications.set_section(row['id'], '🧾 Job description', 'Kubernetes on call.')
+        self.s.applications.append_entry(row['id'], base.LOGGED, '📥 29 Sep 2026 · LinkedIn · They asked for a call', '> Are you free Monday?')
+        self.s.applications.append_entry(row['id'], base.LOGGED, '📥 30 Sep 2026 · Email · Interview booked', '> Monday 10:00 works.')
+        logged = self.s.applications.sections(row['id'])[base.LOGGED]
+        self.assertEqual([line for line in logged.splitlines() if line.startswith('### ')],
+                         ['### 📥 29 Sep 2026 · LinkedIn · They asked for a call', '### 📥 30 Sep 2026 · Email · Interview booked'])
+        self.assertIn('Are you free Monday?', logged)
+        self.assertEqual(self.s.applications.section(row['id'], base.LOGGED), logged)
+        self.assertEqual(self.s.applications.section(row['id'], '🧾 Job description'), 'Kubernetes on call.')   # untouched by the log
+
     def test_sections_and_files_are_listed_for_a_move(self):
         row = self.s.applications.create(JOB, 'Saved')
         self.s.applications.set_section(row['id'], 'Kit', 'k')

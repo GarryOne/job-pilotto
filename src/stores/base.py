@@ -75,6 +75,16 @@ RUN_STATS = ('new_jobs', 'changed_jobs', 'scored', 'kits', 'emails', 'updates', 
 # caller maps ids that point at other records (app_id).
 
 
+# The section a job's logged messages are kept in (src/ai/inbox.py; the job panel and prep read it).
+LOGGED = '📥 Logged messages'
+
+
+def entry_appended(section, title, markdown):
+    """A section with one more entry at its end: '### {title}' and its Markdown (append_entry on this Mac's stores)."""
+    entry = f'### {title}\n\n{markdown}'.rstrip() if (markdown or '').strip() else f'### {title}'
+    return f'{section.rstrip()}\n\n{entry}' if (section or '').strip() else entry
+
+
 def ref(entity, record_id):
     """How a record is named outside the store when the adapter has no LINKS (the engine's `Cronjob run logged: <link>`
     line, the desktop's run list): `store:<entity>/<id>`. `Stores.link_or_ref` gives the link when there is one."""
@@ -153,6 +163,10 @@ class Applications(Protocol):
     def set_section(self, app_id: str, name: str, markdown: str) -> None: ...
     def attach(self, app_id: str, name: str, data: bytes, content_type: str) -> str: ...
     def sections(self, app_id: str) -> dict: ...  # {name: markdown}
+    def append_entry(self, app_id: str, section: str, title: str, markdown: str) -> None: ...
+    # One more dated entry in a section that only grows (LOGGED: a pasted message or screenshot, "📥 29 Sep 2026 · …"). This Mac's
+    # stores append "### {title}" and its Markdown to the section; Notion appends the page's folded toggle as it always has, and its
+    # sections() reads those toggles back as this section, so every store returns the same shape.
     def files(self, app_id: str) -> list: ...     # [(name, bytes, content_type)]
     def put(self, record: dict) -> dict: ...
 

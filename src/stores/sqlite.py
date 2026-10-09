@@ -215,6 +215,9 @@ class Applications(_Table):
                             'DO UPDATE SET content_type = excluded.content_type', (app_id, path.name, content_type or ''))
         return str(path)
 
+    def append_entry(self, app_id, section, title, markdown):
+        self.set_section(app_id, section, base.entry_appended(self.section(app_id, section), title, markdown))
+
     def sections(self, app_id):
         return {r['name']: r['markdown'] for r in
                 self.db.execute('SELECT name, markdown FROM sections WHERE app_id = ? ORDER BY rowid', (app_id,))}

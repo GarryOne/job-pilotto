@@ -117,6 +117,20 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         self.assertEqual(self.s.applications.section(app['id'], '🎤 Interview prep'), 'Recruiter screen\n\n- Motivation')
         self.assertEqual(base.kit_from(self.s.applications.section(app['id'], base.KIT_SECTION)), {'version': 1})
 
+    def test_a_logged_entry_is_the_pages_folded_toggle_as_before_and_stays_out_of_other_sections(self):
+        """Notion users see their page as before (src/ai/inbox.py logged messages): a top-level bold toggle per entry, its
+        Markdown inside; a plain section before it (the job description) does not swallow it."""
+        app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Applied')
+        self.s.applications.set_section(app['id'], '🧾 Job description', 'Kubernetes on call.')
+        self.s.applications.append_entry(app['id'], base.LOGGED, '📥 29 Sep 2026 · LinkedIn · A call?', '> Free Monday?')
+        top = [b for b in self.tracker._children(app['id']) if not b.get('archived')]
+        fold = top[-1]
+        self.assertEqual(fold['type'], 'toggle')
+        self.assertEqual(fold['toggle']['rich_text'][0]['text']['content'], '📥 29 Sep 2026 · LinkedIn · A call?')
+        self.assertTrue(fold['toggle']['rich_text'][0]['annotations']['bold'])
+        self.assertEqual([b['type'] for b in top if b['type'].startswith('heading')], ['heading_2'])   # no new heading on the page
+        self.assertEqual(self.s.applications.section(app['id'], '🧾 Job description'), 'Kubernetes on call.')
+
     def test_files_are_found_inside_folded_log_entries_too(self):
         """Screenshots logged inside a folded entry (src/ai/prep.py read them that deep) are the job's files too."""
         app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Saved')

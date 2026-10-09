@@ -120,6 +120,10 @@ class Applications(_Table):
     def sections(self, app_id):
         return {name: md for (row_id, name), md in self.sections_by_key.items() if row_id == app_id}
 
+    def append_entry(self, app_id, section, title, markdown):
+        self._get(app_id)
+        self.sections_by_key[(app_id, section)] = base.entry_appended(self.sections_by_key.get((app_id, section)), title, markdown)
+
     def files(self, app_id):
         return [(name, data, kind) for (row_id, name), (data, kind) in self.files_by_key.items() if row_id == app_id]
 

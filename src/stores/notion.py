@@ -46,6 +46,11 @@ def _known(fields, values):
     return values
 
 
+def _logged(block):
+    """A logged message's fold on a job's page: a top-level toggle whose title starts with 📥."""
+    return block.get('type') == 'toggle' and _text_of(block).startswith('📥 ')
+
+
 def _text_of(block):
     return _rich((block.get(block['type']) or {}).get('rich_text'))
 
@@ -192,6 +197,8 @@ class Applications(_Database):
         found, current = [], None
         for block in self._children(app_id):
             kind = block['type']
+            if _logged(block):  # a logged message's own fold, wherever it sits: read as base.LOGGED, never inside another section
+                continue
             level = int(kind[-1]) if kind.startswith('heading_') else None
             if level and level <= 2:
                 current = None
@@ -217,6 +224,8 @@ class Applications(_Database):
             self._page(app_id)  # a trashed job's page keeps its blocks: its sections are gone with it
         except KeyError:
             return None
+        if name == base.LOGGED:
+            return self._logged_markdown(app_id) or None
         found = next(((heading, body) for title, heading, body in self._sections(app_id) if title == name), None)
         return self._body(*found) if found else None
 
@@ -252,7 +261,27 @@ class Applications(_Database):
             after = made[-1]['id'] if after and made else after
 
     def sections(self, app_id):
-        return {name: self._body(heading, body) for name, heading, body in self._sections(app_id)}
+        found = {name: self._body(heading, body) for name, heading, body in self._sections(app_id)}
+        logged = self._logged_markdown(app_id)
+        return {**found, base.LOGGED: logged} if logged else found
+
+    # Logged messages (base.LOGGED): one top-level folded toggle per entry ("📥 29 Sep 2026 · LinkedIn · …"), its Markdown inside,
+    # as the page has had them since the paste log began (src/ai/inbox.py). Read back as one section of '### {title}' entries.
+    def _logged_markdown(self, app_id):
+        return '\n\n'.join(base.entry_appended('', _text_of(block), self._body(block, None))
+                             for block in self._children(app_id) if _logged(block))
+
+    def append_entry(self, app_id, section, title, markdown):
+        from .notion_blocks import to_blocks
+        self._page(app_id)
+        if section != base.LOGGED:  # only the log has a fold per entry on Notion; any other grows as its section
+            self.set_section(app_id, section, base.entry_appended(self.section(app_id, section), title, markdown))
+            return
+        inside = to_blocks(markdown) if (markdown or '').strip() else []
+        self.tracker.append_blocks(app_id, [{'object': 'block', 'type': 'toggle', 'toggle': {
+            'rich_text': [{'type': 'text', 'text': {'content': title[:1900]}, 'annotations': {'bold': True}}],
+            'children': inside or [{'object': 'block', 'type': 'paragraph', 'paragraph': {
+                'rich_text': [{'type': 'text', 'text': {'content': title[:1900]}}]}}]}}])
 
     def _file_blocks(self, block_id, depth=0):
         """The page's file, PDF and image blocks in page order, also inside folded blocks (a log entry, its columns)."""
