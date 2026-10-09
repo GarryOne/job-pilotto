@@ -7,7 +7,7 @@
 import { handleReport } from './report.js';
 import { handleExtension } from './extension.js';
 import { runScheduled } from './scheduler.js';
-import { STAGE_EMOJI, escapeHtml, formatRuns, formatNotionRuns, formatApplied, formatSaved } from './format.js';
+import { STAGE_EMOJI, escapeHtml, formatRuns, formatNotionRuns, formatApplied, formatSaved, formatAppliedItems, formatSavedItems, formatRunItems } from './format.js';
 export { escapeHtml, formatRuns, formatNotionRuns, formatApplied, formatSaved };
 import { LABEL as WATCHDOG_LABEL, TITLE as WATCHDOG_TITLE } from './watchdog.js';
 
@@ -166,13 +166,21 @@ async function queryApplications(env, filter, sorts) {
   return (await response.json()).results;
 }
 
+// With the data on the desktop's Mac (desktop/lib/store/telegram-store.js) env.store answers instead of Notion: saved(), applied(),
+// runs(), recordOutcome(id, stage), insightFeedback(id, feedback). The Cloudflare worker is Notion only (spec D5).
 async function saved(env) {
+  if (env.store) return formatSavedItems(await env.store.saved(), '');
   const results = await queryApplications(env, { property: 'Stage', select: { equals: 'Saved' } },
     [{ timestamp: 'created_time', direction: 'descending' }]);
   return formatSaved(results, `https://www.notion.so/${env.NOTION_APPLICATIONS_DB}`);
 }
 
 async function applied(env) {
+  if (env.store) {
+    const items = await env.store.applied(), keyboard = appliedKeyboard(items);
+    const text = formatAppliedItems(items, '');
+    return keyboard ? { text: `${text}\n\n<b>Next step</b>\nTap a number when you hear back.`, keyboard } : text;
+  }
   const response = await fetch(`https://api.notion.com/v1/databases/${env.NOTION_APPLICATIONS_DB}/query`, {
     method: 'POST',
     headers: {
@@ -228,6 +236,7 @@ export async function handleCommand(env, command) {
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';
     case 'status': {
       // Notion ⏱️ Search runs is the one history, the same from the app, this bot and Notion.
+      if (env.store) return formatRunItems(await env.store.runs(6));
       if (env.NOTION_TOKEN && env.NOTION_CRON_RUNS_DB) {
         const response = await notion(env, `databases/${env.NOTION_CRON_RUNS_DB}/query`, 'POST',
           { sorts: [{ property: 'Started', direction: 'descending' }], page_size: 6 });
@@ -313,13 +322,16 @@ async function handleButton(env, query) {
       await answer(`Application ${opick[1]}: what happened?`);
     } else if (out) {
       const stage = OUTCOMES[out[1]];
-      const title = await recordOutcome(env, out[2], stage);
+      const title = env.store ? await env.store.recordOutcome(out[2], stage) : await recordOutcome(env, out[2], stage);
       await editButtons(env, query, afterOutcome(query.message.reply_markup, out[3], STAGE_EMOJI[stage] || '•'));
-      await answer(`${title}: ${stage}. Saved in Notion.`);
+      await answer(`${title}: ${stage}. Saved${env.store ? '' : ' in Notion'}.`);
     } else if (ins) {
       const [feedback, label] = INSIGHT_FEEDBACK[ins[1]];
-      const patched = await notion(env, `pages/${ins[2]}`, 'PATCH', { properties: { Feedback: { select: { name: feedback } } } });
-      if (!patched.ok) throw new Error(`Notion feedback not saved: ${patched.status}`);
+      if (env.store) await env.store.insightFeedback(ins[2], feedback);
+      else {
+        const patched = await notion(env, `pages/${ins[2]}`, 'PATCH', { properties: { Feedback: { select: { name: feedback } } } });
+        if (!patched.ok) throw new Error(`Notion feedback not saved: ${patched.status}`);
+      }
       await editButtons(env, query, { inline_keyboard: [[{ text: label, callback_data: 'noop' }]] });
       await answer('Thanks — future insights take this into account.');
     } else if (data === 'noop') {

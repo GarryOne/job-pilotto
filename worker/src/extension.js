@@ -61,6 +61,9 @@ export function jobKey(url) {
   return /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(parsed.pathname)?.[0] || null;
 }
 
+// The desktop app with the data on its Mac (desktop/lib/server-env.js) hands a store instead of Notion: env.store {findJob(url) -> job
+// summary with its id, kit(id) -> kit JSON, logRun(run) -> {ok}}. The Cloudflare worker is Notion only (Always on needs Notion, spec D5).
+// One answer per route either way: test/extension-store.test.js feeds each route from both.
 async function findRow(env, url) {
   if (!env.NOTION_TOKEN || !env.NOTION_APPLICATIONS_DB) return null; // desktop app without Notion
   const query = (filter) => notion(env, `databases/${env.NOTION_APPLICATIONS_DB}/query`, 'POST', { filter, page_size: 5 });
@@ -283,33 +286,47 @@ function runBlocks(run, minutes) {
 }
 
 // A form fill by the extension, as a row in 🎏 Job Apply — Agent Runs (same columns as the agent runs).
+// One fill run's values, whichever store keeps them (src/stores AGENT_RUN_FIELDS + AGENT_RUN_EXTRAS): logRun() writes them as Notion's
+// 🤖 Agent Runs columns, the desktop's store on this Mac as an agent_runs record. `job`: the tracked job's summary, if any.
+export function runRecord(run, job = {}) {
+  const host = (() => { try { return new URL(run.url).hostname; } catch { return ''; } })();
+  const minutes = Math.round((Date.parse(run.ended) - Date.parse(run.started)) / 600) / 100;
+  const status = run.unfilled ? 'Needs input' : 'Ready';
+  return {url: run.url, ats: (ATS.find(([key]) => host.includes(key)) || [null, 'Other'])[1], outcome: status,
+    learnings: learnings(run).join(' · ') || (run.todo || []).join(' · '),
+    fields: {job: job.title || '', company: job.company || '', agent: 'Extension', status, started: run.started, ended: run.ended, minutes,
+      field_count: Number(run.fields) || 0, unfilled_required: Number(run.unfilled) || 0, tokens_total: 0,
+      billed_to: BILLED.includes(run.billed_to) ? run.billed_to : run.usd ? 'Anthropic API credits' : 'Unknown',   // an older extension sends no billed_to
+      reason: `${run.kit ? 'Filled from the kit' : 'The AI answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`}};
+}
+
 export async function logRun(env, run) {
   const row = await findRow(env, run.url).catch(() => null);
   const job = row ? summary(row) : { title: '', company: '' };
+  const record = runRecord(run, job), f = record.fields;
   const host = (() => { try { return new URL(run.url).hostname; } catch { return ''; } })();
-  const minutes = Math.round((Date.parse(run.ended) - Date.parse(run.started)) / 600) / 100;
   const text = (value) => ({ rich_text: [{ text: { content: String(value).slice(0, 1900) } }] });
   const properties = {
     Run: { title: [{ text: { content: `${job.company || host} · ${job.title || 'form'} · Extension` } }] },
-    Agent: { select: { name: 'Extension' } },
-    ATS: { select: { name: (ATS.find(([key]) => host.includes(key)) || [null, 'Other'])[1] } },
-    Status: { select: { name: run.unfilled ? 'Needs input' : 'Ready' } },
-    Started: { date: { start: run.started } }, Ended: { date: { start: run.ended } },
-    Minutes: { number: minutes }, Fields: { number: Number(run.fields) || 0 },
-    'Unfilled required': { number: Number(run.unfilled) || 0 },
-    'Tokens (total)': { number: 0 },
-    'Job URL': { url: run.url },
-    'Billed to': { select: { name: BILLED.includes(run.billed_to) ? run.billed_to : run.usd ? 'Anthropic API credits' : 'Unknown' } },   // an older extension sends no billed_to
-    Reason: text(`${run.kit ? 'Filled from the kit' : 'The AI answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`),
-    Learnings: text(learnings(run).join(' · ') || (run.todo || []).join(' · ')),
+    Agent: { select: { name: f.agent } },
+    ATS: { select: { name: record.ats } },
+    Status: { select: { name: f.status } },
+    Started: { date: { start: f.started } }, Ended: { date: { start: f.ended } },
+    Minutes: { number: f.minutes }, Fields: { number: f.field_count },
+    'Unfilled required': { number: f.unfilled_required },
+    'Tokens (total)': { number: f.tokens_total },
+    'Job URL': { url: record.url },
+    'Billed to': { select: { name: f.billed_to } },
+    Reason: text(f.reason),
+    Learnings: text(record.learnings),
     ...(row ? { Job: { relation: [{ id: row.id }] } } : {}),
   };
   const page = await notion(env, 'pages', 'POST', { parent: { database_id: env.NOTION_AGENT_RUNS_DB }, properties,
-    children: runBlocks(run, minutes) });
+    children: runBlocks(run, f.minutes) });
   return { ok: true, url: page.url };
 }
 
-function summary(row) {
+export function summary(row) {
   const props = row.properties;
   return {
     title: plain(props.Job?.title), company: plain(props.Company?.rich_text),
@@ -336,6 +353,17 @@ export async function handleExtension(request, env) {
     if (request.method === 'GET' && url.pathname === '/extension/kit') {
       const job = url.searchParams.get('url');
       if (!job) return json({ error: 'url is required' }, 400);
+      if (env.store) {
+        const found = await env.store.findJob(job);
+        if (!found && env.localJob) {
+          const local = await env.localJob(job);
+          if (local) return json({ job: local, kit: null });
+        }
+        if (!found) return json({ error: 'not tracked', hint: 'Prepare a kit for this job first (📝 Prepare in Telegram).' }, 404);
+        const { id, ...summaryOnly } = found;
+        const kit = await env.store.kit(id);
+        return json({ job: summaryOnly, kit: kit ? kitForForm(kit) : null });
+      }
       const row = await findRow(env, job);
       if (!row && env.localJob) {
         const local = await env.localJob(job);
@@ -368,6 +396,7 @@ export async function handleExtension(request, env) {
     if (request.method === 'POST' && url.pathname === '/extension/run') {
       const run = await request.json().catch(() => ({}));
       await env.onRun?.(run);  // desktop app: collects the questions nothing could answer
+      if (run.url && env.store) return json(await env.store.logRun(run).catch((error) => ({ ok: false, error: error.message })));
       if (!run.url || !env.NOTION_TOKEN || !env.NOTION_AGENT_RUNS_DB) return json({ ok: false, skipped: true });
       return json(await logRun(env, run).catch((error) => ({ ok: false, error: error.message })));
     }

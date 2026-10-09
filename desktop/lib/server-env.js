@@ -9,6 +9,7 @@ import * as learn from './learn.js';
 import * as notion from './notion.js';
 import * as notionGate from './notion-gate.js';
 import {openStore} from './store/index.js';
+import {extensionStore} from './store/extension-store.js';
 import * as questions from './questions.js';
 import * as terminals from './terminals.js';
 import * as strategy from './strategy.js';
@@ -78,6 +79,8 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
   const text = name => openStore(storage).page(name).text();
   const kept = (name, id) => (!notionTexts ? text(name) : id ? notion.pageText(notionToken, id) : Promise.resolve(''));
   return {
+    // With the data on this Mac: the job, its kit and the fill's record from the store (worker/src/extension.js env.store).
+    ...(!notionTexts && notionGate.tracking(storage) ? {store: extensionStore(storage)} : {}),
     notionCall: (route, method = 'GET', body) => notion.call(notionToken, method, route, body),
     get PROFILE_TEXT() { return kept('profile', ids.NOTION_PROFILE_PAGE_ID); },
     get ANSWERS_TEXT() { return kept('answers', ids.NOTION_ANSWERS_PAGE_ID); },
