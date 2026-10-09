@@ -39,7 +39,7 @@ export function fromRow(page, now = Date.now()) {
   // The Interviews page's insights share the daily insight's mode; their result line tells them apart.
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
   const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind, mode,
-    runId: text(p['Run id']) || null,
+    runId: text(p['Run id']) || null, startedBy: trigger,   // the Trigger as written (Schedule, Manual, Telegram…), for the run's detail
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
   // A crash line is not a step (7 Oct 2026: a run killed mid-way left "⏳ Traceback (most recent call last):" on its row, and Recent activity showed it).
   const step = summary.replace(/^⏳\s*/, '');
@@ -47,7 +47,7 @@ export function fromRow(page, now = Date.now()) {
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
   const job = ok ? rowJob(p, mode, summary) : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, feeds: p.Feeds?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
-    billing: p['Billed to']?.select?.name || null,
+    billing: p['Billed to']?.select?.name || null, telegram: !!text(p.Telegram),   // its message also went to Telegram
     result: result(summary, status, p['New jobs']?.number, mode), ...(job ? {job} : {})};
 }
 
@@ -74,7 +74,7 @@ export function fromRecord(row, now = Date.now()) {
   const ended = running ? undefined : row.finished_at || (seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : startedAt);
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
   const where = row.run_url ? 'github' : /^Mac/.test(trigger) || (!trigger && row.where === 'mac') ? 'mac' : row.where === 'github' ? 'github' : 'elsewhere';
-  const record = {id: Date.parse(startedAt), pageId: row.id, notionUrl: recordLink(row.id), url: row.run_url || null, kind, mode, runId: null,
+  const record = {id: Date.parse(startedAt), pageId: row.id, notionUrl: recordLink(row.id), url: row.run_url || null, kind, mode, runId: null, startedBy: trigger,
     trigger: TRIGGER[trigger] || 'you', where, startedAt};
   if (running) {
     const step = String(progress[progress.length - 1] || summary).replace(/^⏳\s*/, '');
@@ -83,5 +83,5 @@ export function fromRecord(row, now = Date.now()) {
   const ok = status !== 'Failed' && status !== 'Running';
   const job = ok && mode === 'add' && row.application ? {pageId: row.application, url: null, title: '', jobUrl: '', created: /^\W*Tracked\b/.test(summary)} : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: stats.new_jobs ?? null, feeds: stats.feeds ?? null, usd: stats.ai_cost_usd || 0,
-    billing: stats.billed_to || null, result: result(summary, status, stats.new_jobs, mode), ...(job ? {job} : {})};
+    billing: stats.billed_to || null, telegram: !!stats.telegram, result: result(summary, status, stats.new_jobs, mode), ...(job ? {job} : {})};
 }

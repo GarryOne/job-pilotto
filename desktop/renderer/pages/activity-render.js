@@ -278,6 +278,9 @@ export function renderActivity(fresh) {
     !run.live && seconds > 0 && (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`),
     cost,
     run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : '',
+    // What the run's record says beyond its result (P8 D): who started it, and whether its message also went to Telegram.
+    !run.live && run.startedBy && `Started: ${run.startedBy}`,
+    !run.live && run.telegram && 'Sent to Telegram',
   ].filter(Boolean).join(' · ');
   // A search that found new jobs: straight to them (newest first).
   const found = !run?.live && kindOf(run) === 'search' ? newJobsShown(run, shownText) : 0;   // the card's own count (run-cards.js)
