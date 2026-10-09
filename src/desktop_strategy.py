@@ -140,10 +140,17 @@ def strategy(db, tracker=None):
                          for item in items or [] if _readable(item)]
                   for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
                                       ('country', places.get('country_wide')), ('abroad', places.get('abroad')),
-                                      ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')))},
+                                      ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')),
+                                      ('remoteSkip', search.get('remote_excluded_regions')), ('titleSkip', search.get('title_exclude_keywords')), ('finders', search.get('board_discovery_keywords')))},
         # Plain lists, shown as written: board search phrases and the languages that hide a job.
         'texts': {'queries': [str(q) for q in search.get('jobs_board_search_queries') or []],
-                  'languages': [str(q) for q in prefs.get('disqualifying_languages') or []]},
+                  'languages': [str(q) for q in prefs.get('disqualifying_languages') or []],
+                  # What only the ⚙️ Search settings page showed (desktop/lib/strategy-edit.js edits them): a Google Jobs place as the page writes it.
+                  'skip': [str(q) for q in prefs.get('excluded_companies') or []],
+                  'gqueries': [str(q) for q in (search.get('google_jobs') or {}).get('queries') or []],
+                  'gplaces': [' · '.join(filter(None, (p.get('location'), p.get('language')))) for p in (search.get('google_jobs') or {}).get('locations') or []
+                              if isinstance(p, dict) and p.get('location')]},
+        'digest_min_score': prefs.get('digest_min_score'),
         'remote_jobs': feeds_remote_wanted(search),
         'goals': goals,
         'level': levels.level_of(search.get('level')),

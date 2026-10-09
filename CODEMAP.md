@@ -181,6 +181,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/telemetry-handlers.js` — The app's reports at start-up (moved out of main.js's start, 8 Oct 2026): technical reports, crash reports (Sentry) and usage events (PostHog): only an installed
 - `desktop/lib/telemetry.js` — Technical reports (on by default; Settings → Advanced turns them off): crashes, failed runs, form issues and a
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
+- `desktop/lib/text-handlers.js` — Settings → Profile: the user's whole texts (the Profile, standard answers, Form knowledge) read and edited in the app, through the store
 - `desktop/lib/tracker-snapshot.js` — A consistent copy of data/tracker.sqlite (the SQLite store's records, a user's only copy) for an export or backup.
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/twin.js` — Twin mode (JOB_PILOTTO_TWIN=1): a second copy of the app for live tests on the owner's real state (owner, 8 Oct 2026), started by
@@ -262,6 +263,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/strategy-targets.js` — Strategy page, goals and targets: the four target cards, their lists (chips, Edit, Save, remote choice), goals, renderStrategy. Guarded by: test/save-progress.test.js (and test/strategy-targets.test.j
 - `desktop/renderer/pages/strategy.js` — Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there. Entry: loadStrategy and init; the cards are strategy-targets.js and strategy-suggestions.js, shared
 - `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
+- `desktop/renderer/pages/text-editors.js` — Settings → Profile: the whole Profile text, the standard answers and Form knowledge, read and edited in the app (IPC textGet/textSave,
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
 - `desktop/renderer/pages/tune.js` — Tune my strategy (Actions page): the changes your own results support (src/tune.py, no AI), each one ticked or not;
 - `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads

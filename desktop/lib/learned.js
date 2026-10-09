@@ -54,7 +54,7 @@ export async function save(storage, payload, {notify = () => {}, contactSaved = 
     // Decisions, not content: how many, and which kind, never the values (lib/log.js).
     log('learned', `kept ${count} answer(s) you entered yourself: ${Object.keys(details).length} to your details, ${notes.length} to Form knowledge`,
       {host: String(payload?.host || '').slice(0, 80), details: Object.keys(details)});
-    if (count) notify(`Remembered ${count} answer${count === 1 ? '' : 's'}`, `Next forms that ask the same will be filled for you. Read or fix them in Settings → Profile${notionGate.notionInUse(storage) ? ' and your Notion Form knowledge' : ''}.`, {view: 'settings', section: 'profile'});
+    if (count) notify(`Remembered ${count} answer${count === 1 ? '' : 's'}`, `Next forms that ask the same will be filled for you. Read or fix them in Settings → Profile → Form knowledge${notionGate.notionInUse(storage) ? ' and your Notion Form knowledge' : ''}.`, {view: 'settings', section: 'profile'});
     return {ok: true, count};
   } catch (error) {
     log('learned', `could not keep the answers: ${error.message}`);

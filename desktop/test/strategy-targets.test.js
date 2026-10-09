@@ -36,7 +36,7 @@ test('Notion refusing leaves the cached settings as they were', async () => {
 });
 
 test('only the fixed lists, sane words, escaped as text', () => {
-  assert.deepEqual(Object.keys(EDITABLE_LISTS).sort(), ['abroad', 'country', 'languages', 'places', 'queries', 'rights', 'roles', 'stack']);
+  assert.deepEqual(Object.keys(EDITABLE_LISTS).sort(), ['abroad', 'country', 'finders', 'gplaces', 'gqueries', 'languages', 'places', 'queries', 'remoteSkip', 'rights', 'roles', 'skip', 'stack', 'titleSkip']);
   assert.deepEqual(cleanEdits({title_exclude_keywords: {add: ['x y']}, roles: {add: ['a', 'c++ dev', 'x'.repeat(61), 'two\nlines']}}),
     {roles: {add: ['c\\+\\+ dev'], remove: []}});
   assert.deepEqual(cleanEdits({roles: {add: [], remove: []}}), {});

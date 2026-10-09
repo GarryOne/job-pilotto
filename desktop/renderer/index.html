@@ -869,7 +869,9 @@
 
           <div class="tabs" role="tablist">
             <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
+            <button role="tab" data-profile-tab="profiletext">Profile text</button>
             <button role="tab" data-profile-tab="answers">Standard answers</button>
+            <button role="tab" data-profile-tab="knowledge">Form knowledge</button>
             <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
           <div class="setting cv-card" id="setting-cv" data-profile-panel="details">
@@ -906,7 +908,7 @@
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">
             <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
-              <div class="panel-actions"><span class="synced is-on">Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details">Open profile in Notion</button></div></div>
+              <div class="panel-actions"><span class="synced is-on" data-store-saved>Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details" data-notion-only>Open profile in Notion</button></div></div>
             <p class="muted panel-lead">Your personal details for application forms. Empty ones are filled in from your CV for you to check.</p>
             <div class="form-grid cols-2">
               <label>First name<input data-contact="first_name" type="text"></label>
@@ -984,13 +986,28 @@
             </div>
           </div>
           <div class="setting info-bar" id="setting-answers-note" data-profile-panel="answers" hidden><i data-icon="info"></i>
-            <span><b>Saved in Notion</b> · Updated answers are used for future application kits.</span>
-            <button class="link" id="open-answers">Open answers in Notion</button></div>
+            <span><b data-store-saved>Saved in Notion</b> · Updated answers are used for future application kits.</span>
+            <button class="link" id="open-answers" data-notion-only>Open answers in Notion</button></div>
           <div class="setting panel" id="setting-answers" data-profile-panel="answers" hidden>
             <div class="summary-head"><i data-icon="file"></i><h3>Reusable answers</h3></div>
             <p class="muted panel-lead">The answers Job Pilotto adapts for each application form and kit.</p>
-            <div class="answer-list" id="answers-list"><p class="muted">Loading from Notion…</p></div>
-            <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review">Review all in Notion</button></div>
+            <div class="answer-list" id="answers-list"><p class="muted">Loading…</p></div>
+            <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review" data-notion-only>Review all in Notion</button></div>
+          </div>
+          <div class="setting panel" id="setting-text-answers" data-profile-panel="answers" data-text-editor="answers" hidden>
+            <div class="summary-head"><i data-icon="file"></i><h3>All standard answers</h3></div>
+            <p class="muted panel-lead">The whole page of answers as text: add, fix or remove any of them.</p>
+            <div class="text-editor-body"></div>
+          </div>
+          <div class="setting panel" id="setting-text-profile" data-profile-panel="profiletext" data-text-editor="profile" hidden>
+            <div class="summary-head"><i data-icon="user"></i><h3>Profile text</h3></div>
+            <p class="muted panel-lead">What kits, scores and tailored CVs read about you: hard constraints, pay, summary, skills and experience.</p>
+            <div class="text-editor-body"></div>
+          </div>
+          <div class="setting panel" id="setting-text-knowledge" data-profile-panel="knowledge" data-text-editor="knowledge" hidden>
+            <div class="summary-head"><i data-icon="bookmark"></i><h3>Form knowledge</h3></div>
+            <p class="muted panel-lead">Answers Job Pilotto remembered from forms you filled yourself, used on the next forms that ask the same.</p>
+            <div class="text-editor-body"></div>
           </div>
         </div>
         <div class="settings-page" data-settings-page="automation" hidden>
