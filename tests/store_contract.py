@@ -5,7 +5,9 @@ An adapter's own test file subclasses it with `make()` returning a fresh, empty 
         def make(self): return sqlite.open_store({...a temp folder...})
 Spec: docs/superpowers/specs/2026-10-09-store-adapters.md. Not a test file itself (no test_ prefix).
 """
+import datetime
 import inspect
+from unittest import mock
 
 from src.stores import base
 
@@ -72,6 +74,16 @@ class StoreContract:
         self.s.applications.create(JOB, 'Saved')
         self.s.applications.create({**JOB, 'url': JOB['url'] + '/'}, 'Saved')
         self.assertEqual(len(self.s.applications.list()), 1)
+
+    def test_applied_on_is_the_local_day_after_midnight(self):
+        # 00:12 in Zurich is still yesterday in UTC: Applied on is the person's day (base.local_today), as the Notion tracker always wrote it.
+        class Local(datetime.date):
+            @classmethod
+            def today(cls): return cls(2026, 10, 10)
+        self.s.applications.set_stage(JOB, 'Saved')
+        with mock.patch.object(base, 'date', Local):
+            row, _ = self.s.applications.set_stage(JOB, 'Applied')
+        self.assertEqual(row['applied_on'], '2026-10-10')
 
     def test_set_stage_creates_changes_then_writes_nothing(self):
         row, outcome = self.s.applications.set_stage(JOB, 'Saved')
