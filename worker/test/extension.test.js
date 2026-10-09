@@ -159,7 +159,8 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
     { url: JOB, fields: [{ field: 'q1', label: 'Notice period', type: 'text' }, { field: 'q2', label: 'Other', type: 'text' }], page_text: 'About the role' }, client);
   assert.deepEqual(result.answers.map((a) => a.field), ['q1']);
   // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
-  const { ms, ...trace } = traces[0];
+  const { ms, engine, provider, billing, model, ...trace } = traces[0];
+  assert.deepEqual([engine, provider], ['api', 'anthropic']);   // a client with no .engine is the raw Anthropic SDK
   assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0 });
   assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
   assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
@@ -276,6 +277,17 @@ test('a likely answer the profile does not state comes back as a proposal (a kno
     { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
   assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['email', 'fill']]);
   assert.equal(traces[0].proposed, 2);
+});
+
+test('the log says which engine answered the form (Codex here), never only "the AI"', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  const client = { engine: 'codex', messages: { create: async () => ({ stop_reason: 'end_turn', model: 'gpt-6-luna',
+    usage: { billing: 'subscription', provider: 'openai', model: 'gpt-6-luna' },
+    content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [] }) }] }) } };
+  const traces = [];
+  await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
+    { url: 'https://forms.example.com/apply', fields: [{ field: 'x', label: 'x', type: 'text' }], page_text: '' }, client);
+  assert.deepEqual([traces[0].engine, traces[0].provider, traces[0].billing, traces[0].model], ['codex', 'openai', 'subscription', 'gpt-6-luna']);
 });
 
 test('the strategy\'s search settings go to the AI beside the profile', async () => {

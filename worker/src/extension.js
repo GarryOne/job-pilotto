@@ -210,7 +210,11 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     unknownIds: raw.filter((a) => !known.has(a.field)).map((a) => String(a.field).slice(0, 60)).slice(0, 10),
     empty: raw.filter((a) => known.has(a.field) && a.value === '').length, profileChars: String(profile || '').length,
     answersChars: String(standard || '').length, kit: !!kit, stop: response.stop_reason || '', ms: Date.now() - startedAt,
-    proposed: raw.filter((a) => known.has(a.field) && a.value !== '' && a.use === 'propose').length });
+    proposed: raw.filter((a) => known.has(a.field) && a.value !== '' && a.use === 'propose').length,
+    // Who answered (9 Oct 2026: "The AI answered" could not say whether Codex or Claude did): the adapter's engine, the provider and billing
+    // of its usage, the model that replied. The raw Anthropic SDK (the Cloudflare deploy) has no .engine: 'api'.
+    engine: anthropic.engine || 'api', provider: response.usage?.provider || 'anthropic', billing: response.usage?.billing || 'api',
+    model: String(response.model || '').slice(0, 40) });
   return {
     job: row ? summary(row) : null,
     eligible: result.eligible, eligibility_note: result.eligibility_note,

@@ -71,7 +71,7 @@ The twin is for looking at the REAL app on a REAL site while you build. The loop
    the twin is for the pushed one, on the real site.
 4. **Drive it visibly:** `npm run twin:drive -- press "<text>"`, never `window.pilot` calls behind the screen. The driver cannot click native macOS dialogs (the app's "still working, quit?" prompt):
    refresh stops the app's whole process group itself. A bot check is solved by the owner by hand, never by us.
-5. **Wait with Monitor, not sleep:** `tail -n 0 -F "<Job Pilotto (live test)>/home/logs/app.log" | grep --line-buffered -E "<the lines that matter>"` (`[fill] Claude answered`, `opened collapsed`,
+5. **Wait with Monitor, not sleep:** `tail -n 0 -F "<Job Pilotto (live test)>/home/logs/app.log" | grep --line-buffered -E "<the lines that matter>"` (`[fill] \S+ answered` (the engine that answered: Claude, OpenAI, Codex), `opened collapsed`,
    `stage .*: the application form`, `account judgment`). At each event say in one line what it shows and decide: progressing, done or stuck. First sign of life is expected within ~20 s.
 6. **Read the log before guessing:** timings are in `app.log` (`[extension]`, `[fill]`, `[review]`). A page that looks stale is first a missed redraw (leave the page and come back), then a bug.
 7. **After the run:** report what showed, with numbers. Leave the twin running if the owner is still looking; stop it (and remove its worktree) only when asked or when done for good.
