@@ -31,7 +31,13 @@ def docstrings(tree):
 def bare_claude(root=ROOT):
     """[(file:line, text)] of string literals in src/ that say "Claude" where the chosen engine's name belongs."""
     hits = []
-    for path in sorted((root / 'src').rglob('*.py')):
+    # The files git tracks (a plain rglob raced with test_affected_tests' temporary src/zz_orphan_... in a parallel shard: red main,
+    # run 37930560651); a folder that is not a git checkout (the positive control below) is read whole.
+    import subprocess
+    listed = subprocess.run(['git', 'ls-files', 'src'], cwd=root, capture_output=True, text=True)
+    paths = [root / name for name in listed.stdout.split() if name.endswith('.py')] if listed.returncode == 0 and listed.stdout else \
+        list((root / 'src').rglob('*.py'))
+    for path in sorted(paths):
         name = str(path.relative_to(root))
         if name in CLAUDE_ONLY:
             continue
