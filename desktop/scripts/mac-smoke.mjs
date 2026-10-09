@@ -27,8 +27,9 @@ if (!fs.existsSync(python)) throw new Error(`the bundled Python is missing: ${py
 say(`unpacked: ${app}`);
 
 const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000, env: {...process.env, PYTHONUTF8: '1', ...env}}).trim();
-say(py(['-c', 'import anthropic, keyring, sqlite3, ssl, sys; from importlib.metadata import version; ' +
-  "print('Python', sys.version.split()[0], 'anthropic', version('anthropic'), 'keyring', version('keyring'))"]));
+// no keyring here: on the Mac src/secret_store.py talks to the Keychain through the `security` tool (keyring is the Windows Credential Manager's)
+say(py(['-c', 'import anthropic, sqlite3, ssl, sys; from importlib.metadata import version; ' +
+  "print('Python', sys.version.split()[0], 'anthropic', version('anthropic'))"]));
 say(py(['-c', "from src import secret_store as s; s.put('job-pilotto.smoke.test', 'ok', 'ci'); " +
   "v = s.get('job-pilotto.smoke.test', 'ci'); s.delete('job-pilotto.smoke.test', 'ci'); " +
   "assert v == 'ok', v; assert s.get('job-pilotto.smoke.test', 'ci') is None; print('Keychain round-trip ok')"]));
