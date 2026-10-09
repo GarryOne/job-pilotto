@@ -138,37 +138,38 @@ class LeadTracker:
         pass
 
 
-class Updates:
-    def __init__(self):
-        self.updates = []
-
-    def update_page(self, page_id, properties):
-        self.updates.append((page_id, properties))
-
-
 class LaterUpdateTests(unittest.TestCase):
+    """What a later message learns about the job keeps the title's form (on the store: src/ai/inbox._fill_gaps)."""
+
+    @staticmethod
+    def job(title, company='', via='', origin_value='Inbound', stage='Screening'):
+        from src.stores import memory
+        stores = memory.open_store()
+        return stores, stores.applications.put({'url': 'https://x.test/r1', 'title': title, 'company': company, 'via': via,
+                                                'origin': origin_value, 'stage': stage})
+
     def test_the_employer_learned_later_replaces_the_agency_in_the_title(self):
-        tracker, job = Updates(), row('Principal SRE · via Huxley', via='Huxley')
-        inbox._fill_gaps(tracker, job, {'company': 'Acme'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE · Acme')
-        self.assertEqual(ledger.plain(job['properties']['Company']), 'Acme')
+        stores, app = self.job('Principal SRE · via Huxley', via='Huxley')
+        inbox._fill_gaps(stores, app, {'company': 'Acme'})
+        now = stores.applications.get(app['url'])
+        self.assertEqual((now['title'], now['company']), ('Principal SRE · Acme', 'Acme'))
 
     def test_a_bare_inbound_title_gets_the_suffix_with_the_fuller_role(self):
-        tracker, job = Updates(), row('SRE', via='Huxley')
-        filled = inbox._fill_gaps(tracker, job, {'role': 'Principal SRE'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE · via Huxley')
+        stores, app = self.job('SRE', via='Huxley')
+        filled = inbox._fill_gaps(stores, app, {'role': 'Principal SRE'})
+        self.assertEqual(stores.applications.get(app['url'])['title'], 'Principal SRE · via Huxley')
         self.assertEqual(filled, ['the title "Principal SRE"'])
 
     def test_a_title_you_edited_is_never_replaced(self):
-        tracker, job = Updates(), row('Principal SRE · Zurich team', via='Huxley')
-        inbox._fill_gaps(tracker, job, {'company': 'Acme'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE · Zurich team')
-        self.assertNotIn('Job', tracker.updates[0][1])
+        stores, app = self.job('Principal SRE · Zurich team', via='Huxley')
+        inbox._fill_gaps(stores, app, {'company': 'Acme'})
+        now = stores.applications.get(app['url'])
+        self.assertEqual((now['title'], now['company']), ('Principal SRE · Zurich team', 'Acme'))
 
     def test_an_outbound_title_stays_the_role(self):
-        tracker, job = Updates(), row('Principal SRE', origin_value='Outbound', stage='Applied')
-        inbox._fill_gaps(tracker, job, {'company': 'Acme'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE')
+        stores, app = self.job('Principal SRE', origin_value='Outbound', stage='Applied')
+        inbox._fill_gaps(stores, app, {'company': 'Acme'})
+        self.assertEqual(stores.applications.get(app['url'])['title'], 'Principal SRE')
 
 
 class MatchingTests(unittest.TestCase):
