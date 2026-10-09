@@ -136,11 +136,8 @@ if command -v node >/dev/null && [ -f "$repo/tools/file-size.mjs" ]; then
   sizes="$(cd "$repo" && node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
 $sizes" >&2; exit 2; }
 fi
-# A push that changes Applying flow code (desktop/e2e/flows.mjs FLOW_FILES) passed the whole scenario matrix on that exact code, or says why
-# not (tools/flows-gate.mjs; owner, 8 Oct 2026: a fix for account creation must never quietly break the application form). No node: skipped.
-if command -v node >/dev/null && [ -f "$repo/tools/flows-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  flows="$(cd "$repo" && node tools/flows-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $flows" >&2; exit 2; }
-fi
+# The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applycv: schedule and beta gate);
+# `cd desktop && npm run flows` stays an on-demand check. (8 Oct-9 Oct it blocked pushes that touched FLOW_CORE: one recorded catch in 186 commits, 28 skips.)
 # A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,
 # and were diagnosed again from scratch): "Fixes #N", "Refs #N" or "E2E-issue: none <why>" (tools/e2e-issue-links.mjs). `E2E_ISSUE_OK=1` on the push skips it.
 case "$command" in *E2E_ISSUE_OK=1*) ;; *)

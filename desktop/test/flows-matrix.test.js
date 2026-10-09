@@ -30,10 +30,13 @@ test('the digest is of the flow files\' content: any change to one changes it', 
   assert.notEqual(flowDigest(file => (file === FLOW_FILES[0] ? 'changed' : `content of ${file}`)), base);
 });
 
-test('the push gate asks for the matrix only for the flows\' decision core (owner, 8 Oct 2026: not on nearly every push)', () => {
+test('the decision core is a subset of the flow files, without the panel and handlers', () => {
   const core = FLOW_CORE.filter(file => FLOW_FILES.includes(file));
   assert.deepEqual(core, FLOW_CORE, 'every core file is a flow file');
   assert.ok(FLOW_CORE.length < FLOW_FILES.length && !FLOW_CORE.includes('extension/review.js'), 'the panel and handlers are not core');
-  const gate = fs.readFileSync(path.join(root, 'tools/flows-gate.mjs'), 'utf8');
-  assert.match(gate, /changed\.filter\(file => FLOW_CORE\.includes\(file\)\)/);
+});
+
+test('the matrix is not a push gate (owner, 9 Oct 2026): its steps run with every other e2e on CI', () => {
+  assert.ok(!fs.existsSync(path.join(root, 'tools/flows-gate.mjs')));
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'tools/pre-push-check.sh'), 'utf8'), /flows-gate/);
 });

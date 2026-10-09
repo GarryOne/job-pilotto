@@ -1,5 +1,5 @@
 // npm run flows (in desktop/): the whole Applying scenario matrix (e2e/flows.mjs), unit rows then e2e rows, and on a full pass the record
-// tools/flows-gate.mjs asks for before a push that changes a flow file: artifacts/flows-pass.json with the flow files' digest.
+// of a pass (artifacts/flows-pass.json with the flow files' digest). On demand: since 9 Oct 2026 no push gate reads it; CI runs the steps with every e2e.
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

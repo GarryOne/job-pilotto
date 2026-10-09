@@ -163,7 +163,7 @@ The tier says how much to check; this says **how**. Pick the cheapest method tha
 | Does this screen/state look right? | `npm run shot -- <page> --js "<force it>"` | ~5 s |
 | Does a page script handle this control's **shape**? | fixture shape test (`e2e/test/upload-slot.test.mjs` style) | seconds |
 | Does the real extension work on a real site, without the app's flow? | `cd desktop/e2e && npm run real-extension` (isolated Chromium, stand-in app); a case is added there | ~1 min |
-| Does a change to the flows' **decision core** break another flow? | `npm run flows` (the matrix; the push gate asks for it only for `FLOW_CORE`) | ~5 min |
+| Does a change to the flows' **decision core** break another flow? | `npm run flows` (the matrix, on demand; on CI its steps run with every e2e, no push gate since 9 Oct 2026) | ~5 min |
 | Does a new producer feed an existing screen with all its features? | parity test (one test, every producer) | seconds |
 | Does the whole journey still work on fixtures? | the area's e2e step (`E2E_STEPS=…`), when the change breaks it or at Tier 2 | minutes |
 | **Does it work on the owner's real state and real sites?** | **the twin** (`npm run twin`, [docs/live-test.md](docs/live-test.md)) | minutes, real AI |

@@ -1,9 +1,8 @@
 # Applying flows: the scenario matrix
 
-> **Rule:** a change to the flows' **decision core** (`FLOW_CORE` in `desktop/e2e/flows.mjs`: which page is what, which tab is whose) runs the **whole** matrix,
-> `cd desktop && npm run flows` (~5 min). The push is blocked until it passes on exactly that code (`tools/flows-gate.mjs`), or the commit says `Flows-unverified: <why>`.
-> Any other flow file (the panel, handlers, form-tab, messages): its area's suites plus the best-fit method (AGENTS.md "Which test for which question"), no matrix.
-> The matrix as a regular check: before a release, and on demand (owner, 8 Oct 2026: it ran on nearly every push).
+> **Rule (owner, 9 Oct 2026):** every row's e2e step runs with all the other e2e on CI (`apply`, `applycv`: the schedule and the beta gate). There is no push gate any more
+> (8–9 Oct it blocked pushes touching `FLOW_CORE`: one recorded catch in 186 commits, which CI's `applycv` also runs). `cd desktop && npm run flows` (~5 min) runs the whole
+> matrix on demand, e.g. after a big change to the decision core. Any other flow file: its area's suites plus the best-fit method (AGENTS.md "Which test for which question").
 > Why: a fix for one flow (account creation) must never quietly break another (the application form). Owner, 8 Oct 2026.
 
 **Flow files** (the list is `FLOW_FILES` in `desktop/e2e/flows.mjs`), one concern each:
@@ -70,7 +69,7 @@ forgotten` in the log).
 
 1. Find its row above. If the scenario is new, add a row here **and** in `desktop/e2e/flows.mjs` `MATRIX`, with an e2e step or unit test that fails before your change.
 2. Change the code; keep the decision in `pageRole()` (no second classifier).
-3. `cd desktop && npm run flows`. All rows must pass, not just yours.
+3. Run your row's step (E2E_STEPS) or test; for a big change to the decision core, `cd desktop && npm run flows` (all rows). CI runs every row with the other e2e.
 4. Logs to read first: `logs/app.log` areas `review` (which tab is which session's, stages, tab gone), `extension` (page roles, presses, account skips).
 
 <details><summary>Self-checks</summary>

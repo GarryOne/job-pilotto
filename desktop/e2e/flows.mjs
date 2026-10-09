@@ -1,9 +1,9 @@
 // The Applying flows' scenario matrix (docs/flows/applying.md): every scenario a session and the Chrome extension handle, and the e2e
 // step or unit tests that guard it. A change to any FLOW_FILES file runs the WHOLE matrix (npm run flows), not only its own row, so a
-// fix for one flow (account creation) can't land while it breaks another (the application form): tools/flows-gate.mjs blocks the push.
+// fix for one flow (account creation) can't quietly break another (the application form). On CI the steps run with every e2e (no push gate since 9 Oct 2026).
 import crypto from 'node:crypto';
 
-// The code the flows run on. A file added for a flow goes here too (tools/flows-gate.mjs checks it is listed when it is a flow file).
+// The code the flows run on. A file added for a flow goes here too (test/flows-matrix.test.js).
 export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
   'extension/tabs.js', 'extension/account.js', 'extension/account-step.js', 'extension/form-ready.js', 'extension/next-step.js', 'extension/escalate.js', 'extension/account-fill.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
@@ -13,7 +13,7 @@ export const FLOW_FILES = [
 ];
 
 // The flows' decision core: which page is what and which tab belongs to which application. A change here can break another flow, so
-// the push gate asks for the whole matrix (tools/flows-gate.mjs). Any other flow file is checked with the best-fit method (owner, 8 Oct
+// a big change here deserves the whole matrix (npm run flows, on demand). Any other flow file is checked with the best-fit method (owner, 8 Oct
 // 2026: "let's not run it so often… the best fit one for every case"; AGENTS.md "Which test for which question").
 export const FLOW_CORE = ['extension/tab-pages.js', 'extension/tabs.js', 'extension/same-tab.js', 'extension/account.js', 'extension/fill-flow.js',
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/review.js'];
