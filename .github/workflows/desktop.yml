@@ -2,9 +2,6 @@ name: Release · Build, test, beta
 # ONE RUN PER RELEASE, ONE LANE PER PLATFORM (owner, 7 Oct 2026: three runs chained by triggers were hard to follow; then "2 parallel pipelines"):
 #   Anything new? -+- Build · Mac     -> E2E · Mac + Linux -> Release · Mac beta     -+- Clean up old builds
 #                  +- Build · Windows -> E2E · Windows     -> Release · Windows beta -+
-#                                         + Packaging · Windows (the slow installed-app checks)
-# Build · <platform> (10 Oct 2026) is the publish step of three parallel jobs, the same on both platforms: Compile (the binary exists), Unit tests, Smoke (a very small,
-# fast check of the installed/unpacked app: bundled Python, secret store, the Jobs screen). The boxes of the graph show them; Build · <platform> adds the files to the release when all three are green.
 # One box per step (owner, 7 Oct 2026: "I want it to literally look that clean"): Anything new? also plans the suites, each E2E is one matrix box (the suite jobs of
 # e2e.yml / e2e-windows.yml, copied with the gate's settings), each Release also merges its lane's HTML report.
 # Three distinct steps per lane (owner, 7 Oct 2026): Build publishes the files to the one pre-release (offered to nobody), E2E runs the gate suites on it, Release
@@ -208,11 +205,10 @@ jobs:
           echo "windows_matrix=$(node -e 'console.log(JSON.stringify({suite: process.argv[1] ? process.argv[1].split(",") : []}))' "$suites")" >> "$GITHUB_OUTPUT"
           echo "gate=true" >> "$GITHUB_OUTPUT"
 
-  # BUILD STAGE, the same on both platforms (owner, 10 Oct 2026: "a build is a buildable binary, that compiles, that passes the unit tests", plus a very small, fast smoke):
-  # Compile, Unit tests and Smoke run side by side; the publish job (`build` / `windows`, the ids the E2E and release jobs wait for) adds the files to the release only when all
-  # three are green. A "Build only" run stops here; a beta by hand or the nightly goes on to the E2E stage (the slow Windows packaging checks are part of that one).
-  compile-mac:
-    name: Compile · Mac
+  # One box per lane step (owner, 10 Oct 2026: "Put Compile, Smoke inside the Build"). A build is: it compiles, the unit tests pass, and a very small, fast smoke test of the
+  # built app passes; they are NAMED STEPS of the one Build box (Unit tests · …, Compile · …, Smoke test · …), never boxes of their own.
+  build:
+    name: Build · Mac
     needs: changes   # the version and the draft release exist
     if: needs.changes.outputs.released == 'true'
     runs-on: macos-14   # Apple Silicon
@@ -224,24 +220,32 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+      - uses: actions/setup-python@v6   # only runs the pipeline tests; the app bundles its own Python
+        with:
+          python-version: '3.12'
+      - name: Unit tests · pipeline (Python)
+        run: python -m unittest discover -s tests
       - name: Install
         working-directory: desktop
         run: npm ci
+      - name: Unit tests · app
+        working-directory: desktop
+        run: npm test
       - name: Add the shared Google app client
         env:
           CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}
         run: |
           if [ -n "$CLIENT" ]; then printf '%s' "$CLIENT" > config/google_oauth_client.json
           else echo "::notice::GOOGLE_SHARED_CLIENT_JSON is not set; the app will ask users for their own Google app."; fi
-      - name: Build AudioTee (the call's audio, Core Audio taps)
+      - name: Compile · AudioTee (the call's audio, Core Audio taps)
         working-directory: desktop
         run: scripts/audiotee.sh && test -x build/bin/audiotee
-      - name: Bundle Python
+      - name: Compile · bundle Python
         working-directory: desktop
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/stage.mjs --app && scripts/python.sh
-      - name: Build
+      - name: Compile · build and sign the app
         working-directory: desktop
         env:
           # The release certificate (scripts/sign.cjs): every build carries the same self-made signature.
@@ -252,55 +256,7 @@ jobs:
           npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
           codesign -dvv dist/mac-arm64/*.app 2>&1 | grep -q "Authority=Job Pilotto Self-Signed" \
             || { echo "::error::The app isn't signed with the release certificate"; exit 1; }
-      - uses: actions/upload-artifact@v6
-        with:
-          name: mac-build
-          path: |
-            desktop/dist/Job-Pilotto-*-arm64.dmg
-            desktop/dist/Job-Pilotto-*-arm64.zip
-          if-no-files-found: error
-          retention-days: 3
-
-  unit-mac:
-    name: Unit tests · Mac
-    needs: changes
-    if: needs.changes.outputs.released == 'true'
-    runs-on: macos-14
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - uses: actions/setup-python@v6   # only runs the pipeline tests; the app bundles its own Python
-        with:
-          python-version: '3.12'
-      - name: Pipeline tests
-        run: python -m unittest discover -s tests
-      - name: Install
-        working-directory: desktop
-        run: npm ci
-      - name: App tests
-        working-directory: desktop
-        run: npm test
-
-  smoke-mac:
-    name: Smoke · Mac
-    needs: [changes, compile-mac]
-    runs-on: macos-14
-    timeout-minutes: 15
-    env:
-      VERSION: ${{ needs.changes.outputs.version }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - uses: actions/download-artifact@v7
-        with:
-          name: mac-build
-          path: desktop/dist
-      - name: Smoke test the built app (bundled Python, Keychain, the Jobs screen)
+      - name: Smoke test · the built app (bundled Python, Keychain, the Jobs screen)
         working-directory: desktop
         run: node scripts/mac-smoke.mjs "dist/Job-Pilotto-${VERSION}-arm64.zip" smoke
       - name: Keep the Mac screenshot
@@ -311,36 +267,23 @@ jobs:
           path: desktop/smoke
           if-no-files-found: ignore
           retention-days: 14
-
-  build:
-    name: Build · Mac
-    needs: [changes, compile-mac, unit-mac, smoke-mac]   # compiled, unit tests green, smoke green: only then is it added to the release
-    if: needs.changes.outputs.released == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    env:
-      VERSION: ${{ needs.changes.outputs.version }}
-    steps:
-      - uses: actions/download-artifact@v7
-        with:
-          name: mac-build
-          path: dist
       - name: Build provenance (anyone can verify the download was built here, from this commit)
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: dist/Job-Pilotto-*-arm64.*
+          subject-path: desktop/dist/Job-Pilotto-*-arm64.*
       - name: Add to the release, and publish it (the first lane done publishes; the other adds its files to the published pre-release)
+        working-directory: desktop
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Stable names too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${VERSION}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
           cp "dist/Job-Pilotto-${VERSION}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
-          gh release upload "desktop-v${VERSION}" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip --repo "$GITHUB_REPOSITORY"
-          gh release edit "desktop-v${VERSION}" --draft=false --prerelease --repo "$GITHUB_REPOSITORY"
+          gh release upload "desktop-v${VERSION}" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip
+          gh release edit "desktop-v${VERSION}" --draft=false --prerelease
 
-  compile-windows:
-    name: Compile · Windows
+  windows:
+    name: Build · Windows
     needs: changes   # the version and the draft release exist: no wait for the Mac build
     if: needs.changes.outputs.released == 'true'
     runs-on: windows-latest
@@ -361,71 +304,38 @@ jobs:
       - name: Install
         working-directory: desktop
         run: npm ci
+      - name: Unit tests · app (on Windows)
+        working-directory: desktop
+        run: npm test
       - name: Add the shared Google app client
         env:
           CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}
         run: if [ -n "$CLIENT" ]; then printf '%s' "$CLIENT" > config/google_oauth_client.json; fi
-      - name: Bundle Python
+      - name: Compile · bundle Python
         working-directory: desktop
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PYTHON_ARCH: x86_64-pc-windows-msvc
         run: node scripts/stage.mjs --app && scripts/python.sh
-      - name: Build
+      - name: Compile · build the installer
         working-directory: desktop
         run: |
           npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null
           npm run build:win -- -c.buildVersion="${{ github.run_number }}"
-      - uses: actions/upload-artifact@v6
-        with:
-          name: windows-build
-          path: desktop/dist/Job-Pilotto-*-x64.exe
-          if-no-files-found: error
-          retention-days: 3
-
-  unit-windows:
-    name: Unit tests · Windows
-    needs: changes
-    if: needs.changes.outputs.released == 'true'
-    runs-on: windows-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - name: Install
-        working-directory: desktop
-        run: npm ci
-      - name: App tests (on Windows)
-        working-directory: desktop
-        run: npm test
-
-  smoke-windows:
-    name: Smoke · Windows
-    needs: [changes, compile-windows]
-    runs-on: windows-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        shell: bash
-    env:
-      VERSION: ${{ needs.changes.outputs.version }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - uses: actions/download-artifact@v7
-        with:
-          name: windows-build
-          path: desktop/dist
-      - name: Smoke test the installed app (install, bundled Python, Credential Manager, the Jobs screen)
+      - name: Smoke test · the installed app (install, bundled Python, Credential Manager, the Jobs screen)
         working-directory: desktop
         run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke smoke
+      # The slow checks of the installed app that the e2e cannot see because it runs from source (the transcription add-on's pip install and PyAV, the installer updating
+      # the app over itself, the in-app terminal): only when e2e follows (a nightly or a beta by hand), so a "Build only" run stays fast. Before the publish step: a failure
+      # here leaves the release without this Windows installer, like any failed build step (owner, 10 Oct 2026).
+      - name: Smoke test · packaging checks (only when e2e follows)
+        if: needs.changes.outputs.gate == 'true'
+        working-directory: desktop
+        run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke-packaging packaging
+      - name: Build provenance (anyone can verify the download was built here, from this commit)
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: desktop/dist/Job-Pilotto-*-x64.exe
       - name: Keep the Windows screenshots
         if: always()
         uses: actions/upload-artifact@v6
@@ -434,41 +344,19 @@ jobs:
           path: desktop/smoke
           if-no-files-found: ignore
           retention-days: 14
-
-  windows:
-    name: Build · Windows
-    needs: [changes, compile-windows, unit-windows, smoke-windows]   # compiled, unit tests green, smoke green: only then is it added to the release
-    # always(): when a part failed this job still runs, to carry the last working installer over (below), and then fails itself.
-    if: always() && needs.changes.outputs.released == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    env:
-      VERSION: ${{ needs.changes.outputs.version }}
-      PARTS: ${{ needs.compile-windows.result == 'success' && needs.unit-windows.result == 'success' && needs.smoke-windows.result == 'success' }}
-    steps:
-      - uses: actions/download-artifact@v7
-        if: env.PARTS == 'true'
-        with:
-          name: windows-build
-          path: dist
-      - name: Build provenance (anyone can verify the download was built here, from this commit)
-        if: env.PARTS == 'true'
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: dist/Job-Pilotto-*-x64.exe
       - name: Add to the release, and publish it (as Build · Mac, whichever lane is done first publishes)
-        if: env.PARTS == 'true'
+        working-directory: desktop
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # A stable name too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
-          gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe --repo "$GITHUB_REPOSITORY"
-          gh release edit "desktop-v${VERSION}" --draft=false --prerelease --repo "$GITHUB_REPOSITORY"
-      # A part failed: the release carries the last working Windows installer, so the Windows download link of a release that becomes stable keeps working until a
+          gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
+          gh release edit "desktop-v${VERSION}" --draft=false --prerelease
+      # Build · Windows failed: the release carries the last working Windows installer, so the Windows download link of a release that becomes stable keeps working until a
       # Windows build passes again. It is never approved for Windows (E2E · Windows needs this build to pass). A step, not a job: no box of its own in the graph.
-      - name: A part failed, so carry over the last working Windows installer
-        if: env.PARTS != 'true'
+      - name: Build failed, so carry over the last working Windows installer
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -481,8 +369,6 @@ jobs:
           else
             echo "::warning::Windows build failed and no earlier release has a Windows installer."
           fi
-          echo "### ❌ Build · Windows: compile ${{ needs.compile-windows.result }}, unit tests ${{ needs.unit-windows.result }}, smoke ${{ needs.smoke-windows.result }}" >> "$GITHUB_STEP_SUMMARY"
-          exit 1
 
   # E2E: the gate suites on this build, one box (a matrix) per lane. The suite job of e2e.yml with the gate's settings (fixed path, replayed AI answers, paid judge);
   # a copy so the graph shows one box, not e2e.yml's plan/report/approve jobs (owner, 7 Oct 2026: "I want it to literally look that clean"). Keep the two in step.
@@ -864,32 +750,6 @@ jobs:
 
   # RELEASE: the lane's HTML report (always), then, only when every E2E suite of the lane passed: no real high-severity finding, the shared release checks, and the
   # "Beta-approved:" line that offers the build to Mac beta testers (desktop/lib/updater.js). Red = not released on Mac.
-  # GATE STAGE, Windows packaging (owner, 10 Oct 2026): the slow checks of the installed app that the e2e cannot see because it runs from source (the transcription add-on's
-  # pip install and PyAV, the installer updating the app over itself, the in-app terminal). Only when e2e follows; a "Build only" run never pays for them.
-  packaging-windows:
-    name: Packaging · Windows
-    needs: [changes, windows]
-    if: needs.windows.result == 'success' && needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0'
-    runs-on: windows-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash
-    env:
-      VERSION: ${{ needs.changes.outputs.version }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-      - uses: actions/download-artifact@v7
-        with:
-          name: windows-build
-          path: desktop/dist
-      - name: Packaging checks on the installed app (add-on, PyAV, update in place, in-app terminal)
-        working-directory: desktop
-        run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke-packaging packaging
-
   release-mac:
     name: Release · Mac beta
     needs: [changes, test-mac]
@@ -966,7 +826,7 @@ jobs:
   # "Beta-approved (Windows):" line that offers the build to Windows beta testers (desktop/lib/updater.js). Red = not released on Windows.
   release-windows:
     name: Release · Windows beta
-    needs: [changes, test-windows, packaging-windows]
+    needs: [changes, test-windows]
     if: always() && needs.changes.outputs.gate == 'true' && needs.test-windows.result != 'skipped' && needs.test-windows.result != 'cancelled'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1009,11 +869,6 @@ jobs:
         run: |
           echo "### ❌ $TAG is not offered to Windows beta testers: an E2E suite failed (see the report above)." >> "$GITHUB_STEP_SUMMARY"
           exit 1
-      - name: Not released on Windows, a packaging check failed
-        if: needs.packaging-windows.result != 'success'
-        run: |
-          echo "### ❌ $TAG is not offered to Windows beta testers: Packaging · Windows (add-on, update in place, in-app terminal) did not pass." >> "$GITHUB_STEP_SUMMARY"
-          exit 1
       - name: No real high-severity finding in the Windows suites
         working-directory: desktop/e2e
         run: |
@@ -1039,7 +894,7 @@ jobs:
   # tonight's approvals are already written when it decides what to keep.
   prune:
     name: Clean up old builds
-    needs: [changes, build, windows, packaging-windows, test-mac, test-windows, release-mac, release-windows]
+    needs: [changes, build, windows, test-mac, test-windows, release-mac, release-windows]
     if: always() && needs.changes.outputs.released == 'true'
     runs-on: ubuntu-24.04
     permissions:
