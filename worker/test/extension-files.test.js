@@ -163,3 +163,10 @@ test('the form panel\'s tip line draws from the same pool as the app (run extens
   assert.match(readBackground(), /message\?\.type === 'panelTip'/);
   assert.match(read('extension/review.js'), /type: 'panelTip'/);
 });
+
+test('the form report sends the AI-read knockouts: its key is code, not the tail of a // comment', () => {
+  const line = read('extension/review.js').split('\n').find(text => text.includes('knockouts: state.list'));
+  assert.ok(line, 'the report has a knockouts key');
+  assert.doesNotMatch(line.slice(0, line.indexOf('knockouts: state.list')), /\/\//);   // 9 Oct 2026: a comment on the same line swallowed it, the app never got the list
+  assert.match(line, /f\.category === 'knockout'/);
+});
