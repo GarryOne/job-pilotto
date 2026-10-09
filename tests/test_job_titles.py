@@ -203,13 +203,14 @@ class DisplayTests(unittest.TestCase):
         self.assertEqual((job['title'], job['via']), ('Principal SRE', 'Huxley'))  # In conversation: role, then "via Huxley"
 
     def test_focus_items_and_labels(self):
-        job = row('Principal SRE · via Huxley', via='Huxley')
+        from tests.test_focus import from_notion
+        job = from_notion(row('Principal SRE · via Huxley', via='Huxley'))
         item = focus.present(focus._item(1, 'reply', '💬', 'Reply', '', job, lead=True))
         self.assertEqual((item['job'], item['via']), ('Principal SRE', 'Huxley'))
         self.assertEqual((item['headline'], item['meta']), ('Reply to Huxley recruiter', ['Principal SRE']))
         event = {'id': 'e1', 'properties': {'Needs you': {'checkbox': True}, 'Application': {'relation': []},
                                             'Suggested job': {'url': 'https://x/r1'}, 'Note': text('Hi'), 'Kind': select('Reply')}}
-        asked, = focus.questions([job], [event])
+        asked, = focus.questions([job], [from_notion(event, 'events')])
         self.assertEqual(asked['suggested_label'], 'Huxley — Principal SRE')
 
     def test_mail_lines_and_interview_pages(self):

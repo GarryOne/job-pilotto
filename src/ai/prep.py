@@ -193,7 +193,9 @@ def earlier_interviews(tracker, row):
     except Exception as error:  # noqa: BLE001 — the kit is still useful without them
         print(f'Warning: interviews of this job unreadable: {type(error).__name__}: {error}', file=sys.stderr)
         return []
-    found = focus.reviewed_interviews(rows, row['id'])[:MAX_EARLIER]
+    from ..stores import base, notion_interviews, notion_rows  # Focus reads store records: these rows, as the notion store reads them
+    records = [{**notion_rows.to_record(r, notion_interviews.COLUMNS, base.INTERVIEW_FIELDS), 'link': r.get('url', '')} for r in rows]
+    found = focus.reviewed_interviews(records, row['id'])[:MAX_EARLIER]
     for one in found:
         try:
             one['review'] = review_of(tracker, one['id'])

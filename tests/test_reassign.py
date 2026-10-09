@@ -67,12 +67,14 @@ class MoveTests(unittest.TestCase):
 
 class FocusQuestionTests(unittest.TestCase):
     def test_an_open_question_is_asked_with_the_likeliest_job(self):
-        hux = job('hux', '', 'Principal SRE', via='Huxley')
-        items = focus.build([hux], [event('q', 'Interview scheduled', suggested='https://x.test/hux')], target=0, now=NOW)['items']
+        from tests.test_focus import from_notion  # the rows the Gmail check writes, as the notion store reads them
+        hux = from_notion(job('hux', '', 'Principal SRE', via='Huxley'))
+        asked = from_notion(event('q', 'Interview scheduled', suggested='https://x.test/hux'), 'events')
+        items = focus.build([hux], [asked], target=0, now=NOW)['items']
         [ask] = [i for i in items if i['kind'] == 'which_job']
         self.assertEqual(ask['title'], 'Is this email about Huxley — Principal SRE?')
         self.assertEqual((ask['event_id'], ask['suggested_url'], ask['badge']), ('q', 'https://x.test/hux', 'Which job?'))
-        answered = event('q', 'Interview scheduled', application='hux')
+        answered = from_notion(event('q', 'Interview scheduled', application='hux'), 'events')
         self.assertFalse([i for i in focus.build([hux], [answered], target=0, now=NOW)['items'] if i['kind'] == 'which_job'])
 
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Focus, part 1: the constants (time zone, targets, who-wrote-last sets) and the small helpers every Focus item is
-made from: reading a row field, a time or "N days ago", an item dict, the presented item, the list's summary line,
-and the questions the app already asked. No I/O. src/focus.py re-exports every name here.
+made from: reading a field, a time or "N days ago", an item dict, the presented item, the list's summary line,
+and the questions the app already asked. Rows are store records (src/stores/base.py), events and interviews too;
+an application's record carries 'link' (its page, when the store has one). No I/O. src/focus.py re-exports every
+name here.
 
 Guarded by tests/test_focus.py, tests/test_follow_up.py and tests/test_job_titles.py.
 """
@@ -9,8 +11,7 @@ import re
 from datetime import datetime, timezone
 
 from . import tz
-from .notion import titles
-from .notion.ledger import REPLY, plain
+from .notion.ledger import REPLY
 
 TZ = tz.local_zone()
 
@@ -43,37 +44,34 @@ def _ago(moment, now):
 
 
 def _field(row, name):
-    return plain(row['properties'].get(name)) or ''
+    """A record's field as text-ish ('' when empty or no record)."""
+    value = (row or {}).get(name)
+    return '' if value is None else value
 
 
 def _role(row):
-    """The job's role, without the " · Acme" / " · via Huxley" its title carries (src/notion/titles.py): every Focus
-    line names the employer or agency itself."""
-    return titles.row_role(row) if row else ''
-
-
-ASKED_TITLE = '❓ Which job? · '  # src/ai/mail.py ask(): the question's event is titled with the email's subject
+    """The job's role: a record's title is the role alone (the notion store drops the " · via Huxley" a page title
+    carries, src/notion/titles.py): every Focus line names the employer or agency itself."""
+    return _field(row, 'title') if row else ''
 
 
 def _asked_subject(event):
-    title = plain((event.get('properties') or {}).get('Event')) or ''
-    return title[len(ASKED_TITLE):] if title.startswith(ASKED_TITLE) else ''
+    """The email subject of a "which job?" question (src/ai/mail.py ask: the event's changes['subject'])."""
+    return str((event.get('changes') or {}).get('subject') or '')
 
 
 def answered_questions(rows, events):
     """The "which job?" questions you have answered, newest first: the email's subject and the job it went to ('' = not
     about a job). The Gmail check's run page shows the question next to its answer from this."""
-    by_id = {r['id']: r for r in rows}
+    by_id = {r['id'].replace('-', ''): r for r in rows}
     out = []
     for event in events:
-        props = event.get('properties', {})
         subject = _asked_subject(event)
-        if not subject or (props.get('Needs you') or {}).get('checkbox'):
+        if not subject or event.get('needs_you'):
             continue
-        relation = (props.get('Application') or {}).get('relation') or []
-        row = by_id.get(relation[0]['id']) if relation else None
-        job = f"{_field(row, 'Company') or _field(row, 'Via') or '?'} — {_role(row)[:60]}" if row else ''
-        out.append({'subject': subject, 'job': job, 'at': ((props.get('At') or {}).get('date') or {}).get('start') or ''})
+        row = by_id.get(event['app_id'].replace('-', '')) if event.get('app_id') else None
+        job = f"{_field(row, 'company') or _field(row, 'via') or '?'} — {_role(row)[:60]}" if row else ''
+        out.append({'subject': subject, 'job': job, 'at': event.get('at') or ''})
     return sorted(out, key=lambda a: a['at'], reverse=True)[:60]
 
 
@@ -92,10 +90,10 @@ def _booking_link(note):
 def _item(priority, kind, emoji, title, detail, row=None, link='', link_label='', done=False, **extra):
     field = lambda name: _field(row, name) if row else ''
     return {'priority': priority, 'kind': kind, 'emoji': emoji, 'title': title, 'detail': detail,
-            'company': field('Company'), 'job': _role(row), 'via': field('Via'), 'stage': field('Stage'),
-            'salary': field('Salary'), 'location': field('Location'), 'reached': field('Reached via'),
-            'job_url': field('Job URL'), 'page_id': row['id'] if row else '',
-            'notion_url': (row or {}).get('url', ''), 'link': link, 'link_label': link_label, 'done': done, **extra}
+            'company': field('company'), 'job': _role(row), 'via': field('via'), 'stage': field('stage'),
+            'salary': field('salary'), 'location': field('location'), 'reached': field('reached_via'),
+            'job_url': field('url'), 'page_id': row['id'] if row else '',
+            'notion_url': (row or {}).get('link', ''), 'link': link, 'link_label': link_label, 'done': done, **extra}
 
 
 def _short(text, limit=28):

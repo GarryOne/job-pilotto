@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Focus, part 2: reading the application's history into a state: the app's own bookkeeping events, the interview
 review and prep state, today's applications, the questions asked, the skipped-details token, the follow-up rule and
-the funnel card. Pure functions of the rows and events passed in. src/focus.py re-exports every name here.
+the funnel card. Pure functions of the store records passed in (applications, events, interviews: an event's and an
+interview's job is its app_id). src/focus.py re-exports every name here.
 
 Guarded by tests/test_focus.py, tests/test_follow_up.py and tests/test_focus_history.py.
 """
@@ -9,7 +10,8 @@ import re
 from datetime import date, datetime, timedelta, timezone
 
 from .notion import funnel as funnel_steps
-from .notion.ledger import OUTCOME_STAGES, plain
+from .notion import origin as origin_rule
+from .notion.ledger import OUTCOME_STAGES
 from .focus_items import (TZ, FOLLOW_UP_HOURS, STALE_DAYS, THEIRS, YOURS, _field, _gmail, _item, _asked_subject,
                           _role, _when, _days_ago)  # noqa: F401
 
@@ -19,54 +21,58 @@ from .focus_items import (TZ, FOLLOW_UP_HOURS, STALE_DAYS, THEIRS, YOURS, _field
 BOOKKEEPING = re.compile(r'First event for an application tracked before the ledger|Already talking to the recruiter when tracked', re.I)
 
 
+def _key(record_id):
+    """An id as Focus compares it: Notion gives a page's id with and without dashes."""
+    return (record_id or '').replace('-', '')
+
+
 def _bookkeeping(event):
     return event.get('source') in ('Backfill', 'Notion edit') or bool(BOOKKEEPING.search(event.get('note') or ''))
 
 
 def _events_by_app(events):
+    """app id → its events, oldest first, as {'kind', 'at' (a datetime), 'note', 'source_id', 'source'}."""
     by_app = {}
     for event in events:
-        props = event['properties']
-        for link in (props.get('Application') or {}).get('relation', []):
-            by_app.setdefault(link['id'].replace('-', ''), []).append(
-                {'kind': plain(props.get('Kind')), 'at': _when(plain(props.get('At')) or ''), 'note': plain(props.get('Note')) or '',
-                 'source_id': plain(props.get('Source ID')) or '', 'source': plain(props.get('Source')) or ''})
+        if event.get('app_id'):
+            by_app.setdefault(_key(event['app_id']), []).append(
+                {'kind': event.get('kind') or '', 'at': _when(event.get('at') or ''), 'note': event.get('note') or '',
+                 'source_id': event.get('source_id') or '', 'source': event.get('source') or ''})
     for items in by_app.values():
         items.sort(key=lambda e: e['at'] or datetime.min.replace(tzinfo=timezone.utc))
     return by_app
 
 
 def _interviewed(interviews):
-    """Application page id -> {'day': the latest day an interview of it was saved in 🎤 Interviews, 'reviewed': the
-    latest reviewed one's day (Overall set), 'next_step': that review's next step}."""
+    """Application id -> {'day': the latest day an interview of it was saved in 🎤 Interviews, 'reviewed': the
+    latest reviewed one's day (overall set), 'next_step': that review's next step}."""
     seen = {}
     for row in interviews:
-        props = row['properties']
-        day = (plain(props.get('Date')) or '')[:10]
-        reviewed = bool(plain(props.get('Overall')))
-        for link in (props.get('Application') or {}).get('relation', []):
-            info = seen.setdefault(link['id'].replace('-', ''), {'day': '', 'reviewed': '', 'next_step': ''})
-            info['day'] = max(info['day'], day)
-            if reviewed and day >= info['reviewed']:
-                info.update(reviewed=day, next_step=plain(props.get('Next step')) or '')
+        if not row.get('app_id'):
+            continue
+        day = (row.get('at') or '')[:10]
+        info = seen.setdefault(_key(row['app_id']), {'day': '', 'reviewed': '', 'next_step': ''})
+        info['day'] = max(info['day'], day)
+        if row.get('overall') and day >= info['reviewed']:
+            info.update(reviewed=day, next_step=row.get('next_step') or '')
     return seen
 
 
 def reviewed_interviews(interviews, app_id):
-    """The reviewed 🎤 Interviews rows of one application (Overall set), newest first, as {'id', 'url', 'day', 'moment',
+    """The reviewed interviews of one application (overall set), newest first, as {'id', 'url', 'day', 'moment',
     'round', 'next_step', 'overall', 'weak_topics'}. moment: when the call was over for Job Pilotto, the later of the
-    day it was held (Date) and when its row was saved (created_time, after the call)."""
-    key, found = app_id.replace('-', ''), []
+    day it was held (at) and when its record was saved (created_at, after the call). url: its page (link), if any."""
+    found = []
     for row in interviews:
-        props = row['properties']
-        if not plain(props.get('Overall')) or key not in {l['id'].replace('-', '') for l in (props.get('Application') or {}).get('relation', [])}:
+        if not row.get('overall') or _key(row.get('app_id')) != _key(app_id):
             continue
-        day = (plain(props.get('Date')) or row.get('created_time', ''))[:10]
+        day = (row.get('at') or row.get('created_at') or '')[:10]
         held = datetime.combine(date.fromisoformat(day), datetime.min.time(), TZ) if day else None
-        moment = max([m for m in (held, _when(row.get('created_time', ''))) if m], default=None)
-        found.append({'id': row['id'], 'url': row.get('url', ''), 'day': day, 'moment': moment,
-                      'round': plain(props.get('Round')) or '', 'next_step': plain(props.get('Next step')) or '',
-                      'overall': plain(props.get('Overall')) or '', 'weak_topics': plain(props.get('Weak topics')) or ''})
+        moment = max([m for m in (held, _when(row.get('created_at') or '')) if m], default=None)
+        weak = row.get('weak_topics') or ''
+        found.append({'id': row['id'], 'url': row.get('link') or '', 'day': day, 'moment': moment,
+                      'round': row.get('round') or '', 'next_step': row.get('next_step') or '',
+                      'overall': row.get('overall') or '', 'weak_topics': ', '.join(weak) if isinstance(weak, list) else weak})
     found.sort(key=lambda r: (r['day'], r['moment'] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
     return found
 
@@ -108,13 +114,13 @@ def _applied_by_day(rows, by_app, today, days=14):
     first = today - timedelta(days=days - 1)
     seen = {}
     for row in rows:
-        day = _field(row, 'Applied on')[:10]
+        day = _field(row, 'applied_on')[:10]
         if day:
-            seen.setdefault(row['id'].replace('-', ''), set()).add(day)
+            seen.setdefault(_key(row['id']), set()).add(day)
     for key, events in by_app.items():
         for event in events:
             if event['kind'] == 'Applied' and event['at']:
-                seen.setdefault(key.replace('-', ''), set()).add(event['at'].astimezone(TZ).date().isoformat())
+                seen.setdefault(key, set()).add(event['at'].astimezone(TZ).date().isoformat())
     counts = {}
     for days_seen in seen.values():
         for day in days_seen:
@@ -130,30 +136,29 @@ PLACEHOLDER_URL = re.compile(r'mail\.google\.com|linkedin\.com/messaging|jobpilo
 def thin(row):
     """What an interviewing job still lacks that you'd want before the call ([] when it's known well enough):
     the employer, or both the pay and the posting (only the meeting or the message is known)."""
-    missing = [] if _field(row, 'Company') else ['company']
-    if not _field(row, 'Salary') and PLACEHOLDER_URL.search(_field(row, 'Job URL')):
+    missing = [] if _field(row, 'company') else ['company']
+    if not _field(row, 'salary') and PLACEHOLDER_URL.search(_field(row, 'url')):
         missing += ['salary', 'job description']
     return missing
 
 
 def questions(rows, events):
-    """Emails the Gmail check wasn't sure about (events on no job with Needs you, src/ai/mail.py ask): "Is this
+    """Emails the Gmail check wasn't sure about (events on no job with needs_you, src/ai/mail.py ask): "Is this
     about …?" with the likeliest job, or "Which job is this email about?". src/ai/reassign.py applies the answer."""
-    by_url = {_field(r, 'Job URL'): r for r in rows if _field(r, 'Job URL')}
+    by_url = {_field(r, 'url'): r for r in rows if _field(r, 'url')}
     asked = []
     for event in events:
-        props = event.get('properties', {})
-        if not (props.get('Needs you') or {}).get('checkbox') or (props.get('Application') or {}).get('relation'):
+        if not event.get('needs_you') or event.get('app_id'):
             continue
-        suggested = by_url.get((props.get('Suggested job') or {}).get('url') or '')
-        note, kind = plain(props.get('Note')), plain(props.get('Kind'))
-        at = _when(((props.get('At') or {}).get('date') or {}).get('start') or '')
-        label = f"{_field(suggested, 'Company') or _field(suggested, 'Via') or '?'} — {_role(suggested)[:60]}" if suggested else ''
+        suggested = by_url.get(event.get('suggested_job') or '')
+        note, kind = event.get('note') or '', event.get('kind') or ''
+        at = _when(event.get('at') or '')
+        label = f"{_field(suggested, 'company') or _field(suggested, 'via') or '?'} — {_role(suggested)[:60]}" if suggested else ''
         title = f'Is this email about {label}?' if suggested else 'Which job is this email about?'
         detail = f"{kind}{f', {at.astimezone(TZ):%a %d %b %H:%M}' if at else ''}: {note[:220]}"
         asked.append(_item(1, 'which_job', '❓', title, detail, suggested, event_id=event['id'], event_kind=kind, note=note,
                            subject=_asked_subject(event),
-                           suggested_url=_field(suggested, 'Job URL') if suggested else '', suggested_label=label))
+                           suggested_url=_field(suggested, 'url') if suggested else '', suggested_label=label))
     return asked
 
 
@@ -210,14 +215,20 @@ def follow_up(row, history, now, interviewed=None):
     if not FOLLOW_UP_HOURS <= hours <= STALE_DAYS * 24:
         return None
     days = int(hours // 24)  # whole days since; 1 for the first 24-48 hours
-    job_url = _field(row, 'Job URL')
+    job_url = _field(row, 'url')
     link = _gmail(last['source_id']) if last['source'] == 'Gmail' else ''
     link = link or (job_url if re.search(r'mail\.google\.com|linkedin\.com/messaging', job_url) else '')
-    who = _field(row, 'Company') or _field(row, 'Via') or _field(row, 'Contact').split(' · ')[0] or 'the recruiter'
+    who = _field(row, 'company') or _field(row, 'via') or _field(row, 'contact').split(' · ')[0] or 'the recruiter'
     said = f"{last['at'].astimezone(TZ):%a} {last['at'].astimezone(TZ).day} {last['at'].astimezone(TZ):%b}"
     return _item(2, 'follow_up', '📨', f'Follow up with {who}', f'You wrote {said} ({_days_ago(days)}), no reply yet.', row,
                  link, 'Open email' if 'mail.google' in link else 'Open chat' if 'linkedin' in link else '', done=True,
                  at=last['at'].isoformat(), quiet=days)
+
+
+def origin_of(app, kinds=()):
+    """'inbound' or 'outbound' for an application record (src/notion/origin.py: its Origin, else derived)."""
+    return origin_rule.origin(source=app.get('source') or '', stage=app.get('stage') or '', notes=app.get('notes') or '',
+                              kinds=kinds, origin=app.get('origin') or '')
 
 
 def funnel(rows, events):
@@ -227,16 +238,14 @@ def funnel(rows, events):
     found you are counted apart, in 'inbound': how many contacted you, reached a screening, interviews, an offer, and
     those steps with their links (the Inbound funnel card)."""
     kinds = {}  # oldest first: the first contact decides inbound or outbound (src/notion/origin.py)
-    at = lambda event: ((event['properties'].get('At') or {}).get('date') or {}).get('start') or ''
-    for event in sorted(events, key=at):
-        kind = plain(event['properties'].get('Kind'))
-        for link in (event['properties'].get('Application') or {}).get('relation', []):
-            kinds.setdefault(link['id'].replace('-', ''), []).append(kind)
+    for event in sorted(events, key=lambda event: event.get('at') or ''):
+        if event.get('app_id'):
+            kinds.setdefault(_key(event['app_id']), []).append(event.get('kind') or '')
     apps, inbound = [], []
     for r in rows:
-        stage, ordered = _field(r, 'Stage'), kinds.get(r['id'].replace('-', ''), [])
-        app = {'stage': stage, 'seen': set(ordered) | {stage}, 'url': _field(r, 'Job URL')}
-        if funnel_steps.row_origin(r, ordered) == 'inbound':
+        stage, ordered = _field(r, 'stage'), kinds.get(_key(r['id']), [])
+        app = {'stage': stage, 'seen': set(ordered) | {stage}, 'url': _field(r, 'url')}
+        if origin_of(r, ordered) == 'inbound':
             inbound.append(app)
         elif stage in OUTCOME_STAGES + funnel_steps.PREPARED_STAGES:
             apps.append(app)

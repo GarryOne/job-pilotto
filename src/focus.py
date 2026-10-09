@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
 
-Read from Notion (Applications, 📈 Application Events, 🎤 Interviews), in this order:
+Read from the active store (src/stores: applications, events, interviews, insights; Notion or this Mac), in this order:
 1. 💬 Reply: a person wrote (a reply, a recruiter's pitch, an offer) and nothing was done since.
    📅 Book the call: the reply invites you to pick a slot.
 2. 🎤 Prepare: an interview is coming (within 48 h first); ❓ did it happen? once its time passed and nothing was
@@ -13,7 +13,7 @@ Read from Notion (Applications, 📈 Application Events, 🎤 Interviews), in th
 3. 📨 Apply: today's applications against the daily target, with the jobs whose kit is ready.
 4. 🔎 Learn: the latest rejection lesson; ⏳ applications waiting 7+ days without a human reply.
 
-"Done" on a reply item logs a "Replied" event (Notion keeps it; the item then goes away). The Desktop App shows
+"Done" on a reply item logs a "Replied" event (the store keeps it; the item then goes away). The Desktop App shows
 the list (Focus) and, at 11:00, 15:00 and 19:00, reminds you (notification, and Telegram with --send) when
 you're behind the daily target or someone waits for an answer.
 
@@ -22,14 +22,13 @@ Usage:
                                                # "Daily applications target" on ⚙️ Search settings
   python -m src.focus done <page id> replied   # you answered: log it
   python -m src.focus done <page id> details_skipped  # you don't know the employer yet: it stays skipped
-  python -m src.focus history                   # what you resolved from Focus (Notion), newest first
+  python -m src.focus history                   # what you resolved from Focus, newest first
   python -m src.focus remind [--target 30] [--send]
 """
 import argparse
 from datetime import date, datetime, timedelta, timezone
 from html import escape
 import json
-import os
 import re
 import sys
 from zoneinfo import ZoneInfo
@@ -38,34 +37,32 @@ from . import telegram, tgcard, tz
 from .ai import meanings
 from . import feedback
 from .features import disabled
-from .notion import client as notion, titles
+from .notion import client as notion
 from .notion import funnel as funnel_steps
-from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
+from .notion.ledger import OUTCOME_STAGES, REPLY
 # The helpers live in focus_items.py and focus_state.py; every name stays importable from here.
 from .focus_items import (  # noqa: F401
     TZ, DEFAULT_TARGET, REPLIED, ENDED, NEEDS_ANSWER, WAITING_DAYS, QUIET_DAYS, SOON_HOURS, STALE_DAYS,
-    FOLLOW_UP_HOURS, YOURS, THEIRS, _when, _ago, _field, _role, ASKED_TITLE, _asked_subject,
+    FOLLOW_UP_HOURS, YOURS, THEIRS, _when, _ago, _field, _role, _asked_subject,
     answered_questions, _gmail, _booking_link, _item, _short, present, summary, _days_ago)
 from .focus_state import (  # noqa: F401
     BOOKKEEPING, _bookkeeping, _events_by_app, _interviewed, reviewed_interviews, _day, prep_state,
     _applied_today, _applied_by_day, PLACEHOLDER_URL, thin, questions, details_token, _same_interview,
-    _skipped_details, follow_up, funnel)
-
-INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
-INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
+    _skipped_details, follow_up, funnel, origin_of, _key)
 
 
 def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insights=(), gmail=True):
-    """{'items': [...], 'today': {...}}: the focus list, most important first. Pure: no I/O."""
+    """{'items': [...], 'today': {...}}: the focus list, most important first. Pure: no I/O. rows, events, interviews,
+    insights: store records (an application's or insight's 'link' is its page, when the store has one)."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(TZ).date()
     by_app, interviewed, items = _events_by_app(events), _interviewed(interviews), []
     for row in rows:
-        stage, key = _field(row, 'Stage'), row['id'].replace('-', '')
+        stage, key = _field(row, 'stage'), _key(row['id'])
         history = by_app.get(key, [])
-        status = _field(row, 'Feedback status')
+        status = _field(row, 'feedback_status')
         kinds = {e['kind'] for e in history}
-        received = _field(row, 'Employer feedback')
+        received = _field(row, 'employer_feedback')
         last_received = max((e['at'] for e in history if e['kind'] == feedback.RECEIVED and e['at']), default=None)
         last_reviewed = max((e['at'] for e in history if e['kind'] == feedback.REVIEWED and e['at']), default=None)
         if not disabled('feedback') and received and (not last_reviewed or (last_received and last_received > last_reviewed)):
@@ -77,7 +74,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             if feedback.REQUESTED in kinds or status == 'Asked for feedback':
                 kind, detail = 'feedback_wait', ('Your request is sent. Gmail checks will collect their reply; you can also paste feedback here.' if gmail else
                                                  'Your request is sent. Connect Gmail to collect their reply, or paste feedback here.')
-            elif feedback.eligible(row, history):
+            elif feedback.eligible_status(_field(row, 'feedback_status'), history):
                 kind, detail = 'feedback', 'You reached Screening or later. Ask for one or two concrete points: real feedback helps improve your next interview.'
             else:
                 continue
@@ -95,31 +92,31 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         missing = [] if told else thin(row)
         # An agency keeping its client hidden after you already had the call (a reviewed interview): the employer isn't
         # something pasting more messages will fill in, so it is not a to-do (it shows on the job once they name it).
-        if 'company' in missing and _field(row, 'Via') and interviewed.get(key, {}).get('reviewed'):
+        if 'company' in missing and _field(row, 'via') and interviewed.get(key, {}).get('reviewed'):
             missing = [m for m in missing if m != 'company']
         # Only once an interview is booked: an agency keeping the employer hidden while you're only talking is normal.
         if stage in ('Interview scheduled', 'Interviewing') and missing:
-            coming_at = _when(_field(row, 'Next interview'))
+            coming_at = _when(_field(row, 'next_interview'))
             # Skip means "I don't know yet" for this interview. A later date asks again; the same one stays quiet.
             if _skipped_details(history, coming_at, stage):
                 missing = []
             else:
                 when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
-                who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
+                who = _field(row, 'company') or _field(row, 'via') or 'a recruiter'
                 items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_role(row)[:70]}",
                                    f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
                                    "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
                                    row, missing=missing))
         last = next((e for e in reversed(history) if not _bookkeeping(e)), None)
-        company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
+        company = _field(row, 'company') or _field(row, 'via') or 'A recruiter'
         label = f"{company} — {_role(row)[:70]}"
         if last and last['kind'] in NEEDS_ANSWER:
-            job_url = _field(row, 'Job URL')
+            job_url = _field(row, 'url')
             link = _gmail(last['source_id']) or (job_url if re.search(r'mail\.google\.com|linkedin\.com/messaging', job_url) else '')
-            reached = _field(row, 'Reached via') or ('LinkedIn' if 'linkedin' in link else 'Email' if 'mail.google' in link else '')
+            reached = _field(row, 'reached_via') or ('LinkedIn' if 'linkedin' in link else 'Email' if 'mail.google' in link else '')
             where = {'Email': 'by email', 'LinkedIn': 'on LinkedIn', 'Phone': 'by phone'}.get(reached, '')
             when = _ago(last['at'], now) if last['at'] else ''
-            upcoming = _when(_field(row, 'Next interview'))
+            upcoming = _when(_field(row, 'next_interview'))
             if last['kind'] == 'Offer':
                 items.append(_item(1, 'offer', '🎉', f'Answer the offer: {label}', f'Offer {when}. {last["note"][:140]}', row,
                                    link, 'Open email' if link else '', done=True))
@@ -133,7 +130,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                        done=True))
             else:
                 if last['kind'] == 'Recruiter lead':  # the facts that decide the answer, not the event's note
-                    facts = ' · '.join(p for p in (_field(row, 'Salary'), _field(row, 'Location'), _field(row, 'Contact').split(' · ')[0]) if p)
+                    facts = ' · '.join(p for p in (_field(row, 'salary'), _field(row, 'location'), _field(row, 'contact').split(' · ')[0]) if p)
                     detail = f'Recruiter pitch {when}{f" ({reached})" if reached else ""}. {facts}'
                 else:
                     detail = f'They wrote {when}. {last["note"][:140]}'
@@ -145,11 +142,11 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             # asking you to confirm the time must not hide the preparation for it).
             if not (upcoming and upcoming > now and last['kind'] != 'Offer'):
                 continue
-        coming = _when(_field(row, 'Next interview'))
+        coming = _when(_field(row, 'next_interview'))
         if coming and coming > now:
             hours = (coming - now).total_seconds() / 3600
             if hours <= 14 * 24:
-                prep_at = _field(row, 'Interview prep')
+                prep_at = _field(row, 'interview_prep')
                 kit = prep_state(prep_at, reviewed_interviews(interviews, row['id']), history)
                 detail = (f"Interview {coming.astimezone(TZ):%a %d %b, %H:%M}. Read the posting and your kit, "
                           'and practise the topics you answered weakly before.')
@@ -202,38 +199,39 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    'Propose times for the next call, or ask where things stand.', row, quiet=quiet))
     items += questions(rows, events)
     done_today = _applied_today(rows, by_app, today)
-    kits = sorted((r for r in rows if _field(r, 'Stage') == 'Kit ready'),
-                  key=lambda r: -((r['properties'].get('Fit score') or {}).get('number') or 0))
+    kits = sorted((r for r in rows if _field(r, 'stage') == 'Kit ready'),
+                  key=lambda r: -(r.get('fit') or 0))
     left = max(target - done_today, 0)
     if left:
-        names = ', '.join(f"{_field(r, 'Company')}" for r in kits[:3])
+        names = ', '.join(f"{_field(r, 'company')}" for r in kits[:3])
         items.append(_item(3, 'apply', '📨', f'Apply to {left} more job{"s" if left != 1 else ""} today',
                            f'{done_today} of {target} today.' + (f' {len(kits)} kit{"s" if len(kits) != 1 else ""} ready'
                                                                   f'{f" ({names}…)" if names else ""}.' if kits else
                                                                   ' Prepare kits from your best matches (Jobs).'),
                            applied=done_today, left=left, kits=len(kits), target=target))
     # The latest rejection lesson (last 3 days) is the page's Insight, not a to-do.
-    reviewed = [r for r in rows if _field(r, 'Stage') == 'Rejected' and _field(r, 'Rejection lesson')]
-    recent = [r for r in reviewed if (_when(r.get('last_edited_time', '')) or now) > now - timedelta(days=3)]
+    reviewed = [r for r in rows if _field(r, 'stage') == 'Rejected' and _field(r, 'rejection_lesson')]
+    recent = [r for r in reviewed if (_when(r.get('updated_at') or '') or now) > now - timedelta(days=3)]
     insight = None
     if recent:
-        row = max(recent, key=lambda r: r.get('last_edited_time', ''))
-        lesson = _field(row, 'Rejection lesson')
+        row = max(recent, key=lambda r: r.get('updated_at') or '')
+        lesson = _field(row, 'rejection_lesson')
         first = re.split(r'(?<=[.;])\s', lesson, maxsplit=1)[0].rstrip('.;')
-        insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 220),
-                   'detail': f"{_field(row, 'Company')} — {_role(row)}", 'lesson': lesson,
-                   'notion_url': row.get('url', ''), 'page_id': row['id']}
-    fresh = [r for r in insights if _field(r, 'Date')[:10] >= (now - timedelta(days=7)).date().isoformat()
-             and _field(r, 'Category') != 'Interview patterns']  # that one is shown on the Interviews page
+        insight = {'reason': _field(row, 'rejection'), 'headline': _short(first, 220),
+                   'detail': f"{_field(row, 'company')} — {_role(row)}", 'lesson': lesson,
+                   'notion_url': row.get('link') or '', 'page_id': row['id']}
+    fresh = [r for r in insights if _field(r, 'day')[:10] >= (now - timedelta(days=7)).date().isoformat()
+             and _field(r, 'category') != 'Interview patterns']  # that one is shown on the Interviews page
     if fresh:
-        row = max(fresh, key=lambda r: (bool(plain(r['properties'].get('Issue detected'))), _field(r, 'Date'), r.get('created_time', '')))
-        issue = bool(plain(row['properties'].get('Issue detected')))
-        action, evidence = _field(row, 'Action'), _field(row, 'Evidence')
-        insight = {'reason': 'Issue detected' if issue else _field(row, 'Category') or 'Insight',
-                   'headline': _field(row, 'Insight'), 'detail': action,
-                   'lesson': evidence, 'notion_url': row.get('url', ''), 'page_id': row['id'], 'issue': issue, 'report': True}
-    waiting = [r for r in rows if _field(r, 'Stage') in ('Applied', 'Confirmation received')
-               and (applied := _when(_field(r, 'Applied on'))) and (now - applied).days >= WAITING_DAYS]
+        extra = lambda r, name: (r.get('fields') or {}).get(name)  # noqa: E731
+        row = max(fresh, key=lambda r: (bool(extra(r, 'issue_detected')), _field(r, 'day'), r.get('created_at') or ''))
+        issue = bool(extra(row, 'issue_detected'))
+        action, evidence = extra(row, 'action') or '', extra(row, 'evidence') or ''
+        insight = {'reason': 'Issue detected' if issue else _field(row, 'category') or 'Insight',
+                   'headline': _field(row, 'title'), 'detail': action,
+                   'lesson': evidence, 'notion_url': row.get('link') or '', 'page_id': row['id'], 'issue': issue, 'report': True}
+    waiting = [r for r in rows if _field(r, 'stage') in ('Applied', 'Confirmation received')
+               and (applied := _when(_field(r, 'applied_on'))) and (now - applied).days >= WAITING_DAYS]
     if waiting:
         items.append(_item(4, 'waiting', '⏳', f'{len(waiting)} application{"s" if len(waiting) != 1 else ""} waiting {WAITING_DAYS}+ days',
                            'No human reply yet. For the ones you care most about, message the recruiter or a team member '
@@ -269,15 +267,20 @@ def gmail_connected():
         return True
 
 
-def load(tracker, *, target=None, now=None, gmail=None):
-    """Applications, events, interviews and (without a target given) the Search settings target, read at once."""
+def _linked(stores, records):
+    """Records with their page's link ('' when the store has no pages)."""
+    return [{**r, 'link': stores.link(r['id']) or ''} for r in records]
+
+
+def load(stores, *, target=None, now=None, gmail=None):
+    """Applications, events, interviews, the last week's insights and (without a target given) the Search settings
+    target, read at once from the store."""
+    since = ((now or datetime.now(timezone.utc)) - timedelta(days=8)).date().isoformat()
     rows, events, interviews, target, insights = notion.together(
-        lambda: tracker.query_database(tracker.database_id),
-        lambda: tracker.query_database(EVENTS_DATABASE_ID) if EVENTS_DATABASE_ID else [],
-        lambda: tracker.query_database(INTERVIEWS_DATABASE_ID) if INTERVIEWS_DATABASE_ID else [],
-        lambda: target or settings_target(),
-        lambda: tracker.query_database(INSIGHTS_DATABASE_ID) if INSIGHTS_DATABASE_ID else [])
-    return build(rows, events, interviews, target=target, now=now, insights=insights, gmail=gmail_connected() if gmail is None else gmail)
+        stores.applications.list, stores.events.list, stores.interviews.list,
+        lambda: target or settings_target(), lambda: stores.insights.list(since=since))
+    return build(_linked(stores, rows), events, _linked(stores, interviews), target=target, now=now,
+                 insights=_linked(stores, insights), gmail=gmail_connected() if gmail is None else gmail)
 
 
 def reminder(focus, now=None):
@@ -345,44 +348,35 @@ HISTORY_TITLES = {
 }
 
 
-def history(tracker, days=90):
+def history(stores, days=90):
     """Newest first: [{at, kind, emoji, title, note, url}] for the last `days` days."""
     since = (date.today() - timedelta(days=days)).isoformat()
+    apps = {app['id']: app for app in stores.applications.list()}
     items = []
-    if EVENTS_DATABASE_ID:
-        rows = tracker.query_database(EVENTS_DATABASE_ID, {'and': [
-            {'property': 'At', 'date': {'on_or_after': since}},
-            {'property': 'Source', 'select': {'equals': 'Job Pilotto app'}}]})
-        for row in rows:
-            props = row['properties']
-            kind = plain(props.get('Kind')) or ''
-            company = (plain(props.get('Event')) or '').split(' · ', 1)[-1] or 'an employer'
-            emoji, title = HISTORY_TITLES.get(kind, ('✓', f'{kind} · {{company}}'))
-            items.append({'at': plain(props.get('At')) or '', 'kind': kind, 'emoji': emoji, 'title': title.format(company=company),
-                          'note': (plain(props.get('Note')) or '')[:240], 'url': row.get('url', '')})
-    from .ai.insights import INSIGHTS_DATABASE_ID
-    if INSIGHTS_DATABASE_ID:
-        rows = tracker.query_database(INSIGHTS_DATABASE_ID, {'property': 'Date', 'date': {'on_or_after': since}})
-        for row in rows:
-            props = row['properties']
-            rated = plain(props.get('Feedback'))
-            if not rated:
-                continue
-            items.append({'at': plain(props.get('Date')) or '', 'kind': 'insight', 'emoji': '💡', 'title': f'Insight: {rated}',
-                          'note': (plain(props.get('Insight')) or '')[:240], 'url': row.get('url', '')})
-    # Interviews reviewed (their "Review the interview" step leaves Up next once the review is in Notion).
-    from .ai.interviews import INTERVIEWS_DATABASE_ID
-    if INTERVIEWS_DATABASE_ID:
-        rows = tracker.query_database(INTERVIEWS_DATABASE_ID, {'property': 'Overall', 'select': {'is_not_empty': True}})
-        for row in rows:
-            at = row.get('last_edited_time', '')
-            if at[:10] < since:
-                continue
-            props = row['properties']
-            title = plain(props.get('Interview')) or 'an interview'
-            overall = (plain(props.get('Overall')) or '').capitalize()
-            items.append({'at': at, 'kind': 'interview_review', 'emoji': '🎤', 'title': f'Reviewed the interview: {title}',
-                          'note': f'Outcome: {overall}' if overall else '', 'url': row.get('url', '')})
+    for event in stores.events.list():
+        if event['source'] != 'Job Pilotto app' or (event['at'] or '')[:10] < since:
+            continue
+        kind, app = event['kind'] or '', apps.get(event['app_id']) or {}
+        company = app.get('company') or app.get('title') or 'an employer'
+        emoji, title = HISTORY_TITLES.get(kind, ('✓', f'{kind} · {{company}}'))
+        items.append({'at': event['at'] or '', 'kind': kind, 'emoji': emoji, 'title': title.format(company=company),
+                      'note': (event['note'] or '')[:240], 'url': stores.link(event['id']) or ''})
+    for insight in stores.insights.list(since=since):
+        rated = (insight['fields'] or {}).get('feedback')
+        if not rated:
+            continue
+        items.append({'at': insight['day'] or '', 'kind': 'insight', 'emoji': '💡', 'title': f'Insight: {rated}',
+                      'note': (insight['title'] or '')[:240], 'url': stores.link(insight['id']) or ''})
+    # Interviews reviewed (their "Review the interview" step leaves Up next once the review is saved). When: the
+    # record's creation (the store keeps no last-edit time for an interview).
+    for interview in stores.interviews.list():
+        at = interview['created_at'] or ''
+        if not interview['overall'] or at[:10] < since:
+            continue
+        overall = (interview['overall'] or '').capitalize()
+        items.append({'at': at, 'kind': 'interview_review', 'emoji': '🎤',
+                      'title': f"Reviewed the interview: {interview['title'] or 'an interview'}",
+                      'note': f'Outcome: {overall}' if overall else '', 'url': stores.link(interview['id']) or ''})
     return sorted(items, key=lambda item: item['at'], reverse=True)
 
 
@@ -394,26 +388,28 @@ def main(argv=None):
     parser.add_argument('--target', type=int, help='default: "Daily applications target" on ⚙️ Search settings')
     parser.add_argument('--send', action='store_true', help='remind: also send it to Telegram')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if not tracker:
-        raise SystemExit('NOTION_TOKEN is required')
+    from . import ledger_store
+    from .stores import open_stores
+    stores = open_stores()
     if args.command == 'history':
-        print(json.dumps({'items': history(tracker)}, ensure_ascii=False))
+        print(json.dumps({'items': history(stores)}, ensure_ascii=False))
         return 0
     if args.command == 'done':
         if not args.page_id:
             raise SystemExit('done needs the application page id')
-        row = tracker._request('GET', f'pages/{args.page_id}')
+        row = stores.applications.by_id(args.page_id)
+        if not row:
+            raise SystemExit(f'No application {args.page_id}')
         if args.what == 'details_skipped':
-            token = details_token(_when(_field(row, 'Next interview')), _field(row, 'Stage'))
-            add_event(tracker, row, 'Details skipped', 'Job Pilotto app', note="You don't know the employer yet",
-                      source_id=f'skip-details:{token}')
+            token = details_token(_when(_field(row, 'next_interview')), _field(row, 'stage'))
+            ledger_store.add_event(stores, row, 'Details skipped', 'Job Pilotto app', note="You don't know the employer yet",
+                                   source_id=f'skip-details:{token}')
         else:
-            add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You followed up (marked done in Focus)'
-                      if args.what == 'followed_up' else 'You answered (marked done in Focus)')
+            ledger_store.add_event(stores, row, REPLIED, 'Job Pilotto app', note='You followed up (marked done in Focus)'
+                                   if args.what == 'followed_up' else 'You answered (marked done in Focus)')
         print(json.dumps({'ok': True}))
         return 0
-    focus = load(tracker, target=args.target)
+    focus = load(stores, target=args.target)
     if args.command == 'remind':
         text = reminder(focus)
         if text and args.send:

@@ -15,7 +15,7 @@ from unittest import mock
 from src import focus
 from src.ai import inbox, mail
 from src.notion import cron_runs
-from tests.test_focus import event as focus_event, row as focus_row
+from tests.test_focus import event as focus_event, reviewed_interview, row as focus_row
 from tests.test_inbox import Inbox, SHOT, job, reading, row
 from tests.test_mail import FakeGoogle, FakeTracker, app
 from tests.test_opportunity import Client
@@ -227,17 +227,12 @@ class FollowUpFocusTest(unittest.TestCase):
         # You wrote Wednesday. Thursday the call happened and you saved the review. "No reply yet" would
         # chase a message the meeting already answered.
         rows, events = self.duvo(stage='Interviewing')
-        review = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-10-01'}},
-                                 'Overall': {'type': 'select', 'select': {'name': 'positive'}},
-                                 'Next step': {'type': 'rich_text', 'rich_text': [{'plain_text': 'Recruiter will pass the details on'}]},
-                                 'Application': {'type': 'relation', 'relation': [{'id': 'd1'}]}}}
+        review = reviewed_interview('d1', '2026-10-01', next_step='Recruiter will pass the details on')
         kinds = [i['kind'] for i in self.items(rows, events, datetime(2026, 10, 1, 14, 0, tzinfo=timezone.utc), [review])]
         self.assertNotIn('follow_up', kinds)
         self.assertIn('waiting', kinds)
         # A review from before that message does not settle it: you wrote again and they still haven't answered.
-        older = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-27'}},
-                                'Overall': {'type': 'select', 'select': {'name': 'positive'}},
-                                'Application': {'type': 'relation', 'relation': [{'id': 'd1'}]}}}
+        older = reviewed_interview('d1', '2026-09-27')
         self.assertEqual(self.items(rows, events, NOW, [older])[0]['kind'], 'follow_up')
 
     def test_their_later_message_means_no_follow_up(self):
@@ -272,13 +267,18 @@ class FollowUpFocusTest(unittest.TestCase):
         self.assertEqual((item['link'], item['link_label']), ('https://mail.google.com/mail/u/0/#all/msg1', 'Open email'))
 
     def test_done_from_focus_logs_a_followed_up_reply(self):
-        tracker = mock.Mock()
-        tracker._request.return_value = {'id': 'd1', 'properties': {}}
-        with mock.patch.object(focus.notion.Tracker, 'from_env', return_value=tracker), \
-                mock.patch.object(focus, 'add_event') as add, redirect_stdout(io.StringIO()):
-            focus.main(['done', 'd1', 'followed_up'])
-        self.assertEqual(add.call_args.args[2], 'Replied')
-        self.assertEqual(add.call_args.kwargs['note'], 'You followed up (marked done in Focus)')
+        from src.stores import memory
+        stores = memory.open_store()
+        app = stores.applications.create({'url': 'https://x.test/d1', 'company': 'Duvo.ai'}, 'Screening')
+        out = io.StringIO()
+        with mock.patch('src.stores.open_stores', return_value=stores), redirect_stdout(out):
+            focus.main(['done', app['id'], 'followed_up'])
+            focus.main(['done', app['id'], 'details_skipped'])
+        self.assertEqual(out.getvalue().splitlines(), ['{"ok": true}'] * 2)
+        [replied, skipped] = stores.events.list(app_id=app['id'])
+        self.assertEqual((replied['kind'], replied['note'], replied['source']),
+                         ('Replied', 'You followed up (marked done in Focus)', 'Job Pilotto app'))
+        self.assertEqual((skipped['kind'], skipped['source_id']), ('Details skipped', 'skip-details:Screening'))
 
 
 class ProposeIsNoRunTest(unittest.TestCase):

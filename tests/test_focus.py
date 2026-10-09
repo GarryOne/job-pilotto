@@ -5,6 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import focus
+from src.notion.ledger import plain
+from src.stores.base import APPLICATION_FIELDS, EVENT_FIELDS, INTERVIEW_FIELDS, record
 from tests import zone
 from tests.model_stand_ins import booking  # the model's answer (src/ai/meanings.py)
 
@@ -18,20 +20,40 @@ def text(value):
     return {'type': 'rich_text', 'rich_text': [{'plain_text': value}]}
 
 
+# Store records (src/stores/base.py). An extra is named as its Notion column with "_" for spaces (Fit_score, Via): it
+# becomes that field; a Notion-shaped value is read as plain.
+FIELDS = {'Fit score': 'fit', 'Rejection reason': 'rejection', 'Job URL': 'url'}
+
+
+def _value(value):
+    return plain(value) if isinstance(value, dict) else value
+
+
 def row(page_id, company, job, stage='Applied', applied='2026-09-26', interview=None, **extra):
-    props = {'Company': text(company), 'Job': {'type': 'title', 'title': [{'plain_text': job}]},
-             'Stage': {'type': 'select', 'select': {'name': stage}}, 'Applied on': {'type': 'date', 'date': {'start': applied} if applied else None},
-             'Next interview': {'type': 'date', 'date': {'start': interview} if interview else None},
-             'Job URL': {'type': 'url', 'url': f'https://x.test/{page_id}'}}
+    fields = {'company': company, 'title': job, 'stage': stage, 'applied_on': applied or '', 'next_interview': interview or '',
+              'url': f'https://x.test/{page_id}'}
     for name, value in extra.items():
-        props[name.replace('_', ' ')] = text(value) if isinstance(value, str) else value
-    return {'id': page_id, 'url': f'https://notion.test/{page_id}', 'last_edited_time': '2026-09-28T14:00:00Z', 'properties': props}
+        column = name.replace('_', ' ')
+        fields[FIELDS.get(column, column.lower().replace(' ', '_'))] = _value(value)
+    return {**record(APPLICATION_FIELDS, {'id': page_id, 'updated_at': '2026-09-28T14:00:00Z', **fields}),
+            'link': f'https://notion.test/{page_id}'}
 
 
 def event(page_id, kind, at, note='', source_id='', source=''):
-    return {'properties': {'Kind': {'type': 'select', 'select': {'name': kind}}, 'At': {'type': 'date', 'date': {'start': at}},
-                           'Note': text(note), 'Source ID': text(source_id), 'Source': {'type': 'select', 'select': {'name': source} if source else None},
-                           'Application': {'type': 'relation', 'relation': [{'id': page_id}]}}}
+    return record(EVENT_FIELDS, {'id': f'e-{page_id}-{kind}-{at}', 'app_id': page_id, 'kind': kind, 'at': at, 'note': note,
+                                 'source_id': source_id, 'source': source})
+
+
+def from_notion(page, entity='applications'):
+    """A Notion row (as the engine wrote it) as the notion store reads it: the record Focus gets on Notion."""
+    from src.stores import notion
+    adapter = {'applications': notion.Applications, 'events': notion.Events}[entity]
+    return {**adapter.__new__(adapter)._record(page), 'link': page.get('url', '')}
+
+
+def reviewed_interview(app_id, day, overall='positive', next_step='', **extra):
+    return record(INTERVIEW_FIELDS, {'id': f'iv-{app_id}-{day}', 'app_id': app_id, 'at': day, 'overall': overall,
+                                     'next_step': next_step, **extra})
 
 
 
@@ -70,7 +92,7 @@ class FocusTests(unittest.TestCase):
         lead = row('a', '', 'Senior DevOps Engineer', stage='Recruiter lead', applied=None, Via='AG Talent',
                    Salary='€70–90k + equity', Location='Remote (Europe)', Contact='Arjun Gillard · a@agtalent.co.uk',
                    Reached_via={'type': 'select', 'select': {'name': 'Email'}})
-        lead['properties']['Job URL']['url'] = 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5'
+        lead['url'] = 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5'
         item = focus.build([lead], [event('a', 'Recruiter lead', '2026-09-28T14:17:00Z', 'Recruiter message: …')], now=NOW)['items'][0]
         self.assertEqual(item['title'], 'Reply by email: AG Talent — Senior DevOps Engineer')
         self.assertEqual(item['link'], 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5')
@@ -101,12 +123,11 @@ class FocusTests(unittest.TestCase):
         events = [event('b', 'Screening', '2026-09-22T10:00:00Z')]
         kinds = [i['kind'] for i in focus.build(rows, events, now=NOW)['items']]
         self.assertEqual(kinds[:2], ['happened', 'nudge'])  # nothing recorded: did it happen?
-        saved = [{'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-27'}},
-                                 'Application': {'type': 'relation', 'relation': [{'id': 'a'}]}}}]
+        saved = [reviewed_interview('a', '2026-09-27', overall='')]
         kinds = [i['kind'] for i in focus.build(rows, events, saved, now=NOW)['items']]
         self.assertIn('review', kinds)  # recorded, not reviewed: one item, review it
         self.assertNotIn('happened', kinds)
-        saved[0]['properties']['Overall'] = {'type': 'select', 'select': {'name': 'positive'}}
+        saved[0]['overall'] = 'positive'
         self.assertNotIn('review', [i['kind'] for i in focus.build(rows, events, saved, now=NOW)['items']])
 
     def test_rejected_jobs_leave_the_list_but_their_lesson_is_shown(self):
@@ -188,13 +209,20 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class NotionIdTests(unittest.TestCase):
+    def test_an_event_finds_its_job_with_or_without_the_ids_dashes(self):
+        rows = [row('aaaa-bbbb', 'Acme', 'SRE', stage='Screening')]
+        events = [event('aaaabbbb', 'Reply received', '2026-09-28T08:00:00Z', 'Can we talk?', 'gm1')]
+        items = focus.build(rows, events, target=0, now=NOW)['items']
+        self.assertEqual([(i['kind'], i['company']) for i in items], [('reply', 'Acme')])
+
+
 class AfterInterviewTests(unittest.TestCase):
     """The owner's Huxley case (30 Sep 2026): after the call, Focus said "Move Huxley forward · nothing booked"."""
 
     @staticmethod
     def reviewed(page_id, day, next_step='Call with the CTO next week'):
-        return {'properties': {'Date': {'type': 'date', 'date': {'start': day}}, 'Overall': {'type': 'select', 'select': {'name': 'positive'}},
-                               'Next step': text(next_step), 'Application': {'type': 'relation', 'relation': [{'id': page_id}]}}}
+        return reviewed_interview(page_id, day, next_step=next_step)
 
     def test_nothing_recorded_after_the_time_asks_if_it_happened_one_item_per_interview(self):
         rows = [row('h', 'Huxley', 'Principal SRE', stage='Interview scheduled', interview='2026-09-20T08:30:00+02:00')]
@@ -231,10 +259,8 @@ class AfterInterviewTests(unittest.TestCase):
 
 
 def interview(page_id, app_id, day, round_='Recruiter screen', overall='positive', created=None):
-    return {'id': page_id, 'created_time': created or f'{day}T12:00:00.000Z',
-            'properties': {'Date': {'type': 'date', 'date': {'start': day}}, 'Round': text(round_),
-                           'Overall': {'type': 'select', 'select': {'name': overall} if overall else None},
-                           'Application': {'type': 'relation', 'relation': [{'id': app_id}]}}}
+    return record(INTERVIEW_FIELDS, {'id': page_id, 'app_id': app_id, 'at': day, 'round': round_, 'overall': overall or '',
+                                     'created_at': created or f'{day}T12:00:00.000Z'})
 
 
 class PrepKitStaleTests(unittest.TestCase):
@@ -291,7 +317,7 @@ class AddDetailsTests(unittest.TestCase):
     def test_an_interview_known_only_from_the_invitation_asks_for_the_details(self):
         invite = row('h1', '', 'Connect Igor / Jaya - SRE', stage='Interview scheduled', applied=None,
                      interview='2026-09-30T08:30:00+02:00', Via='Huxley')
-        invite['properties']['Job URL'] = {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}
+        invite['url'] = 'https://mail.google.com/mail/u/0/#all/h1'
         known = row('k1', 'Acme', 'SRE', stage='Interview scheduled', interview='2026-10-02T10:00:00+02:00', Salary='CHF 150k')
         items = focus.build([invite, known], [], target=0, now=NOW)['items']
         asks = [i for i in items if i['kind'] == 'details']
@@ -303,13 +329,13 @@ class AddDetailsTests(unittest.TestCase):
 
     def test_a_named_employer_without_pay_or_posting_still_asks(self):
         lead = row('l1', 'Acme', 'SRE', stage='Interview scheduled')
-        lead['properties']['Job URL'] = {'type': 'url', 'url': 'https://www.linkedin.com/messaging/#jp-abc'}
+        lead['url'] = 'https://www.linkedin.com/messaging/#jp-abc'
         asks = [i for i in focus.build([lead], [], target=0, now=NOW)['items'] if i['kind'] == 'details']
         self.assertEqual(asks[0]['missing'], ['salary', 'job description'])
 
     def test_once_you_logged_details_it_stops_asking(self):
         invite = row('h1', '', 'Principal SRE', stage='Interview scheduled', interview='2026-09-30T08:30:00+02:00', Via='Huxley')
-        invite['properties']['Job URL'] = {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}
+        invite['url'] = 'https://mail.google.com/mail/u/0/#all/h1'
         logged = event('h1', 'Interview scheduled', '2026-09-29T13:23:00Z', source_id='paste:abc')
         kinds = [i['kind'] for i in focus.build([invite], [logged], target=0, now=NOW)['items']]
         self.assertNotIn('details', kinds)
@@ -317,7 +343,7 @@ class AddDetailsTests(unittest.TestCase):
 
     def test_the_hidden_client_is_not_asked_once_the_call_was_reviewed_and_the_headline_names_the_gap(self):
         invite = row('h1', '', 'Principal SRE', stage='Interview scheduled', interview='2026-10-01T08:30:00+02:00', Via='Huxley')
-        invite['properties']['Job URL'] = {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}
+        invite['url'] = 'https://mail.google.com/mail/u/0/#all/h1'
         ask = [i for i in focus.build([invite], [], target=0, now=NOW)['items'] if i['kind'] == 'details'][0]
         self.assertEqual(focus.present(ask)['headline'], 'Who is the employer behind Huxley?')
         reviewed = [interview('iv1', 'h1', '2026-09-30')]
@@ -451,36 +477,24 @@ class ParallelReadsTests(unittest.TestCase):
 class HistoryInterviewTest(unittest.TestCase):
     def test_reviewed_interviews_show_in_history(self):
         from datetime import date as _date
-        from unittest import mock
-        from src import focus
-        from src.ai import interviews
+        from src.stores import memory
+        stores = memory.open_store()
         today = _date.today().isoformat()
-        rows = [{'url': 'https://notion.so/i1', 'last_edited_time': f'{today}T08:00:00.000Z',
-                 'properties': {'Interview': {'type': 'title', 'title': [{'plain_text': 'Unframe · Recruiter screen'}]},
-                                'Overall': {'type': 'select', 'select': {'name': 'neutral'}}}},
-                {'url': 'https://notion.so/old', 'last_edited_time': '2000-01-01T08:00:00.000Z',
-                 'properties': {'Interview': {'type': 'title', 'title': [{'plain_text': 'Old'}]},
-                                'Overall': {'type': 'select', 'select': {'name': 'positive'}}}}]
-
-        class Tracker:
-            def query_database(self, db, filt=None):
-                return rows if db == 'IV' else []
-        with mock.patch.object(focus, 'EVENTS_DATABASE_ID', ''), mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'IV'), \
-                mock.patch('src.ai.insights.INSIGHTS_DATABASE_ID', ''):
-            items = focus.history(Tracker())
+        stores.interviews.put({'title': 'Unframe · Recruiter screen', 'overall': 'neutral', 'created_at': f'{today}T08:00:00+00:00'})
+        stores.interviews.put({'title': 'Old', 'overall': 'positive', 'created_at': '2000-01-01T08:00:00+00:00'})
+        stores.interviews.put({'title': 'Not reviewed', 'created_at': f'{today}T08:00:00+00:00'})
+        items = focus.history(stores)
         self.assertEqual([i['title'] for i in items], ['Reviewed the interview: Unframe · Recruiter screen'])
         self.assertEqual(items[0]['note'], 'Outcome: Neutral')
 
 
 class AnsweredQuestionsTest(unittest.TestCase):
     def test_the_answer_sits_next_to_the_email_that_asked(self):
-        row = {'id': 'job1', 'properties': {'Company': {'title': [{'plain_text': 'Blockdaemon'}]}}}
-        asked = lambda needs, relation: {'id': 'e', 'properties': {
-            'Event': {'title': [{'plain_text': '❓ Which job? · Meeting invitation: Igor and Blockdaemon DM'}]},
-            'Needs you': {'checkbox': needs}, 'Application': {'relation': relation},
-            'At': {'date': {'start': '2026-10-02T21:30:00+02:00'}}}}
-        self.assertEqual(focus.answered_questions([row], [asked(True, [])]), [])   # still open: Focus asks it
-        done = focus.answered_questions([row], [asked(False, [{'id': 'job1'}])])
+        job = row('job1', 'Blockdaemon', 'SRE')
+        asked = lambda needs, app_id: {**event(app_id, 'Reply received', '2026-10-02T21:30:00+02:00'), 'needs_you': needs,  # noqa: E731
+                                       'changes': {'subject': 'Meeting invitation: Igor and Blockdaemon DM'}}
+        self.assertEqual(focus.answered_questions([job], [asked(True, '')]), [])   # still open: Focus asks it
+        done = focus.answered_questions([job], [asked(False, 'job1')])
         self.assertEqual(done[0]['subject'], 'Meeting invitation: Igor and Blockdaemon DM')
         self.assertTrue(done[0]['job'].startswith('Blockdaemon'))
-        self.assertEqual(focus.answered_questions([row], [asked(False, [])])[0]['job'], '')   # "not about a job"
+        self.assertEqual(focus.answered_questions([job], [asked(False, '')])[0]['job'], '')   # "not about a job"
