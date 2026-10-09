@@ -536,7 +536,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/matches.py` — Mirror AI-scored jobs into the Notion database "Job Matches — AI Scored".
 - `src/notion/origin.py` — Outbound or inbound: did you go after this opportunity, or did it find you? The Applications row's own Origin column
 - `src/notion/pace.py` — One Notion pace shared with the desktop app and every other process on this computer using the same connection.
-- `src/notion/runs.py` — Notion "🤖 Agent Runs": one row per form-filling session, and the learnings read back from it.
+- `src/notion/runs.py` — The names a form fill's run is recorded with: its job board from the URL, its agent and its status.
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
 - `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
