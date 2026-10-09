@@ -21,7 +21,7 @@ import {registerAppMetaHandlers} from './lib/app-meta-handlers.js';
 import {registerInterviewHandlers} from './lib/interview-handlers.js';
 import {registerCvAndLettersHandlers} from './lib/cv-handlers.js';
 import {registerContactHandlers} from './lib/contact-handlers.js';
-import {registerStoreHandlers, storeState} from './lib/store-handlers.js';
+import {registerStoreHandlers, settleStore, storeState} from './lib/store-handlers.js';
 import {registerJobPageHandlers} from './lib/job-page-handlers.js';
 import {registerTextHandlers} from './lib/text-handlers.js';
 import {registerReportsHandlers} from './lib/reports-handlers.js';
@@ -247,6 +247,7 @@ function handlers() {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
   }
+  if (!DEMO) settleStore(storage, {log: appLog});   // a new install's data on this Mac, a connected Notion stays Notion (D7)
   registerStoreHandlers({ipcMain, storage, DEMO, log: appLog, toWindow});   // lib/store-handlers.js: Settings → Your data
   registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.tracking(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
     contactSaved: saved => server.contactSaved(storage, saved)});

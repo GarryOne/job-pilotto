@@ -5,9 +5,20 @@ import * as notionGate from './notion-gate.js';
 import * as store from './store/index.js';
 import {moveToNotion} from './store-move.js';
 
-// Whether a person may choose where the data lives (here: "Keep it on this Mac"). Off until the engine's store callers are done
-// (spec P1/P2); mac-e4 flips it then. The e2e sets JOB_PILOTTO_STORE_CHOICE=1; the card's states render either way (shot --settings).
-export const STORE_CHOICE = process.env.JOB_PILOTTO_STORE_CHOICE === '1';
+// Whether the data may live on this Mac. On since the engine's store callers are done (bridges 0, test/bridge-registry.test.js and
+// tests/test_store_readiness.py); JOB_PILOTTO_STORE_CHOICE=0 turns it off (the old "Notion only" app, for a bisect).
+export const STORE_CHOICE = process.env.JOB_PILOTTO_STORE_CHOICE !== '0';
+
+// At start, an install with no store yet gets its home once (spec D2, D7): a connected Notion stays Notion, with no change for the
+// person; anything else (a new install) is this Mac, with nothing to set up. Written, never re-derived: connecting Notion later
+// (for Always on) does not move the data; "Move my data to Notion" does (D3). Returns the store chosen now, or null.
+export function settleStore(storage, {choice = STORE_CHOICE, log = () => {}} = {}) {
+  if (!choice || storage.settings().store) return null;
+  const home = notionGate.connected(storage) ? 'notion' : 'sqlite';
+  storage.saveSettings({store: home});
+  log('store', 'chosen', {store: home, from: home === 'notion' ? 'Notion already connected' : 'new install', decidedBy: 'first start'});
+  return home;
+}
 
 // {label, caps, trying, choice}: what the card shows.
 export function storeState(storage, {choice = STORE_CHOICE} = {}) {
