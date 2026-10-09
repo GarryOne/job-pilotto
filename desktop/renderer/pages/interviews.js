@@ -60,7 +60,7 @@ function failed(part, error) {
     message: `${part}: ${error?.message || String(error)}`, stack: error?.stack}).catch(() => {});
 }
 
-const renderDrafts = drafts => renderDraftList(drafts, {openId: () => ivOpen, openDraft, closeEditor: () => { ivOpen = null; show($('iv-editor'), false); }});
+const renderDrafts = drafts => renderDraftList(drafts, {openId: () => ivOpen, openDraft, openReview: id => openReview(id), closeEditor: () => { ivOpen = null; show($('iv-editor'), false); }});
 const renderSpeakers = () => renderSpeakerFields(saveOpenDraft);
 async function openDraft(id) {
   const draft = (await iv.drafts()).find(d => d.id === id);

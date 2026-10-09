@@ -50,6 +50,8 @@ export function renderDrafts(drafts, env) {
     main.addEventListener('click', () => env.openDraft(draft.id));
     const menu = [{label: 'Open', run: () => env.openDraft(draft.id)}];
     if (draft.pageUrl) menu.push({label: '↗ Transcript in Notion', run: () => window.pilot.openExternal(draft.pageUrl)});
+    // Saved with the data on this Mac (no page to open): the saved transcript and its review in the app (interview-review-view.js).
+    else if (draft.pageId && env.openReview) menu.push({label: 'Transcript and review', run: () => env.openReview(draft.pageId)});
     menu.push({label: osText('Show in Finder'), run: () => iv.recordings(), title: 'The recordings kept on this Mac'});
     if (!busy) {
       menu.push('-', {label: draft.pageId ? 'Delete here and in Notion' : 'Delete recording', danger: true, run: async () => {
