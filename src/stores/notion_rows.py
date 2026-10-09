@@ -14,6 +14,7 @@ from .notion_blocks import plain_text
 #   'created'    a settable date column holding the record's created_at; a row without it falls back to created_time
 #   'json:<key>' one key of a JSON object kept in a text column (several fields may share the column)
 #   'jsonrest:<key>,…'  the rest of that JSON object as a dict: every key but the listed ones (their json:<key> fields')
+#   'edited'     the row's last edit (a last_edited_time column, else the page's own); never written
 APPLICATION_COLUMNS = (
     ('url', 'Job URL', 'url'), ('title', 'Job', 'title'), ('company', 'Company', 'rich_text'),
     ('location', 'Location', 'rich_text'), ('work_mode', 'Work mode', 'select'), ('stage', 'Stage', 'select'),
@@ -24,6 +25,7 @@ APPLICATION_COLUMNS = (
     ('rejection_lesson', 'Rejection lesson', 'rich_text'), ('feedback_status', 'Feedback status', 'select'),
     ('employer_feedback', 'Employer feedback', 'rich_text'), ('salary', 'Salary', 'rich_text'),
     ('contract', 'Contract', 'select'), ('call_facts', 'Call facts', 'rich_text'), ('created_at', 'Created', 'created'),
+    ('updated_at', 'Last update', 'edited'),
     # The frozen record (src/notion/ledger_record.py) and what the engine stamps on a job.
     ('ats', 'ATS', 'select'), ('posted', 'Posted', 'date'), ('recorded', 'Recorded', 'date'), ('tier', 'Tier', 'select'),
     ('seniority', 'Seniority', 'select'), ('days_to_apply', 'Days to apply', 'number'),
@@ -75,6 +77,8 @@ def read(prop, kind):
         return (prop.get('select') or {}).get('name') or ''
     if kind in ('date', 'created'):
         return (prop.get('date') or {}).get('start') or ''
+    if kind == 'edited':
+        return prop.get('last_edited_time') or ''
     if kind == 'relation1':
         return ((prop.get('relation') or [{}])[0] or {}).get('id', '')
     if kind == 'relation':
@@ -121,6 +125,8 @@ def to_record(page, columns, fields):
         values[field] = read(props.get(column), kind)
     if 'created_at' in fields and not values.get('created_at'):
         values['created_at'] = page.get('created_time', '')
+    if 'updated_at' in fields and not values.get('updated_at'):
+        values['updated_at'] = page.get('last_edited_time', '')
     return {name: values.get(name, '') for name in fields}
 
 
@@ -129,7 +135,7 @@ def to_properties(values, columns, current=None):
     unknown fields first). JSON columns merge into the row's current JSON (`current`: its properties)."""
     props, merged = {}, {}
     for field, column, kind in columns:
-        if field not in values:
+        if field not in values or kind == 'edited':
             continue
         if kind.startswith('json:') or kind.startswith('jsonrest:'):
             data = merged.setdefault(column, _json_of((current or {}).get(column)))

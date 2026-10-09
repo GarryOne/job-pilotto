@@ -27,6 +27,9 @@ APPLICATION_FIELDS = ('id', 'url', 'title', 'company', 'location', 'work_mode', 
                       'next_interview', 'applied_on', 'via', 'contact', 'origin', 'source', 'notes', 'kit_inputs',
                       'rejection', 'rejection_lesson', 'feedback_status', 'employer_feedback', 'salary', 'contract',
                       'call_facts', 'created_at',
+                      # When the row last changed, by anyone (Notion: the page's last edit, a hand edit too). Read-only:
+                      # every adapter stamps it on create/update/set_stage and ignores a value the caller passes.
+                      'updated_at',
                       # The frozen record and what the engine stamps on a job (Job Tracker columns in Notion).
                       'ats', 'posted', 'recorded', 'tier', 'seniority', 'days_to_apply', 'cover_letter', 'questions',
                       'answers_captured', 'cv_version', 'kit_variant', 'agent', 'channel', 'date_approximate', 'reached_via',

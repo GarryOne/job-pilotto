@@ -71,6 +71,14 @@ class StoreContract:
         with self.assertRaises(KeyError):
             self.s.applications.update('missing', {'notes': 'x'})
 
+    def test_updated_at_is_stamped_on_every_change_and_never_taken_from_the_caller(self):
+        row = self.s.applications.create(JOB, 'Saved')
+        self.assertTrue(row['updated_at'] >= row['created_at'][:19], row)
+        for changed in (self.s.applications.update(row['id'], {'notes': 'x', 'updated_at': '2001-01-01T00:00:00+00:00'}),
+                        self.s.applications.set_stage(JOB, 'Applied')[0], self.s.applications.get(JOB['url'])):
+            self.assertTrue(changed['updated_at'] >= row['updated_at'][:19], changed)
+            self.assertNotEqual(changed['updated_at'][:4], '2001')
+
     def test_sections_and_files_belong_to_their_job_and_go_with_it(self):
         row = self.s.applications.create(JOB, 'Saved')
         self.assertIsNone(self.s.applications.section(row['id'], 'Kit'))

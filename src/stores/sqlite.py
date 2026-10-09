@@ -147,6 +147,9 @@ class Applications(_Table):
     def update(self, app_id, fields):
         return self._update(app_id, fields)
 
+    def _update(self, row_id, fields):  # every change stamps updated_at; a caller's own value is ignored
+        return super()._update(row_id, {**{k: v for k, v in fields.items() if k != 'updated_at'}, 'updated_at': _now()})
+
     def list(self, stages=None):
         if stages is None:
             return self._rows()
@@ -164,7 +167,7 @@ class Applications(_Table):
         found = self.get(job.get('url'))
         if found:
             return self._update(found['id'], {'stage': stage})
-        return self._new({**_known(self.fields, job), 'stage': stage})
+        return self._new({**_known(self.fields, job), 'stage': stage, 'updated_at': _now()})
 
     def set_stage(self, job, stage, today=None):
         found = self.get(job.get('url'))
