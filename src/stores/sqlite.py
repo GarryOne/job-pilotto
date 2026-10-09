@@ -54,6 +54,10 @@ MIGRATIONS = (
 )
 
 
+def _version(db):
+    return db.execute('PRAGMA user_version').fetchone()[0]
+
+
 def connect(path):
     """The tracker database at `path`, created or migrated to the latest layout."""
     path = Path(path)
@@ -62,10 +66,16 @@ def connect(path):
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute('PRAGMA journal_mode=WAL')
-    version = db.execute('PRAGMA user_version').fetchone()[0]
-    for number, script in enumerate(MIGRATIONS[version:], start=version + 1):
-        with db:
-            db.executescript(f'BEGIN; {script}; PRAGMA user_version = {number}; COMMIT;')
+    # Two processes can open a new file at the same moment (the app and a call of the engine): both read version 0, the first
+    # creates the tables, and the second's CREATE TABLE would fail. IMMEDIATE makes it wait for the first; when the first has
+    # done the step, the version has moved: carry on from there instead of failing (10 Oct 2026: Windows e2e, "table applications already exists").
+    while (version := _version(db)) < len(MIGRATIONS):
+        try:
+            with db:
+                db.executescript(f'BEGIN IMMEDIATE; {MIGRATIONS[version]}; PRAGMA user_version = {version + 1}; COMMIT;')
+        except sqlite3.OperationalError as error:
+            if 'already exists' not in str(error) or _version(db) <= version:
+                raise
     return db
 
 

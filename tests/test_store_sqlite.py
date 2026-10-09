@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from src import stores
 from src.stores import sqlite
@@ -76,6 +77,20 @@ class SqliteOwnTests(_Folder, unittest.TestCase):
         tables = {r[0] for r in sqlite3.connect(self.folder / 'tracker.sqlite').execute("SELECT name FROM sqlite_master")}
         self.assertIn('applications', tables)
         self.assertFalse((self.folder / 'jobs.sqlite').exists())
+
+    def test_a_second_process_opening_a_new_file_at_the_same_moment_does_not_fail(self):
+        # 10 Oct 2026, Windows e2e: the app and a call of the engine opened a new tracker together; both read version 0 and the
+        # second's CREATE TABLE failed with "table applications already exists". Here the first has finished, the second read is stale.
+        path = self.folder / 'tracker.sqlite'
+        sqlite.connect(path).close()
+        real, reads = sqlite._version, []
+        def stale_first(db):
+            reads.append(1)
+            return 0 if len(reads) == 1 else real(db)
+        with mock.patch.object(sqlite, '_version', stale_first):
+            db = sqlite.connect(path)
+        self.assertEqual(real(db), len(sqlite.MIGRATIONS))
+        self.assertIn('applications', {r[0] for r in db.execute("SELECT name FROM sqlite_master")})
 
     def test_open_stores_picks_it_by_default(self):
         self.assertEqual(stores.open_stores(self.env).name, 'sqlite')
