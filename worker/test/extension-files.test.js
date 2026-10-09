@@ -170,3 +170,11 @@ test('the form report sends the AI-read knockouts: its key is code, not the tail
   assert.doesNotMatch(line.slice(0, line.indexOf('knockouts: state.list')), /\/\//);   // 9 Oct 2026: a comment on the same line swallowed it, the app never got the list
   assert.match(line, /f\.category === 'knockout'/);
 });
+
+test('the panel\'s "Take over with Claude" shows only with Claude help on and the extension stuck; the app sends both', () => {
+  const panel = read('extension/review.js');
+  assert.match(panel, /\$\('\.take-over'\)\.hidden = [^;]*!claudeHelp \|\| !session\?\.stuck/);
+  assert.match(panel, /claudeHelp = !!reply\?\.claudeHelp;/);
+  assert.match(read('desktop/lib/review.js'), /kind: session\.kind \|\| 'claude', stuck: session\.stuck \|\| ''\}/);
+  assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: !!storage\.settings\(\)\.claudeConsent/);
+});

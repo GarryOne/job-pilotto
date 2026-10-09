@@ -295,7 +295,7 @@
   </div>`;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
-  let moved = false, open = false, shown = [], job = null, session = null, connection = null, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  let moved = false, open = false, shown = [], job = null, session = null, connection = null, claudeHelp = false, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -382,7 +382,7 @@
     // actions + connection
     $('.open-app').hidden = !session;
     // Offered whenever the app is connected and Claude is not already on this form; the person's click, never automatic (it uses Claude).
-    $('.take-over').hidden = !connection?.connected || !connection.app || !!(session?.live && ['running', 'input'].includes(session.status));
+    $('.take-over').hidden = !connection?.connected || !connection.app || !claudeHelp || !session?.stuck || !!(session?.live && ['running', 'input'].includes(session.status));   // only with Claude help on and the extension stuck (owner, 9 Oct 2026)
     const foot = $('.foot');
     foot.classList.toggle('on', !!connection?.connected);
     foot.textContent = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
@@ -516,7 +516,7 @@
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});
       moved = !!reply?.moved;
-      session = reply?.session || null;
+      session = reply?.session || null; claudeHelp = !!reply?.claudeHelp;   // the app's one Claude switch (Settings → Application assistant)
       cv = reply?.cv || null;
       const before = JSON.stringify(watch);
       watch = Array.isArray(reply?.watch) ? reply.watch : [];

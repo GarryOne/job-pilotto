@@ -258,7 +258,7 @@ export function report(sessions, payload, now = Date.now()) {
   if (due.length) { for (const done of waiting.get(session.id) || []) done(); waiting.delete(session.id); }
   // The panel's header: which job this is and what Claude is doing on it (no answers, no personal data).
   const about = {id: session.id, url: session.url, title: session.title || '', company: session.company || '', status: session.status,
-    note: session.note || '', live: session.live ?? !session.endedAt};
+    note: session.note || '', live: session.live ?? !session.endedAt, kind: session.kind || 'claude', stuck: session.stuck || ''};   // kind + stuck: the panel's Take over shows only when stuck (claude-help.js)
   return {matched: session.id, session: about, watch: watches.get(session.id) || [],
     commands: due.map(({focus, close, reload, fill}) => (close ? {close: true} : reload ? {reload: true} : fill ? {fill} : {focus}))};
 }

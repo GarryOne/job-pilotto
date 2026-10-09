@@ -74,7 +74,7 @@ export function registerExtServerHandlers(ctx) {
   server.setReviewHandler(payload => {
     const report = review.report(terminals.list(), payload);
     if (report.matched && report.session) formSeen(report.matched);
-    return report.session ? {...report, cv: cvOf(report.session.url)} : report;
+    return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: !!storage.settings().claudeConsent} : report;   // the one Claude switch (renderer/claude-help.js)
   });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   setRecipeReporter(recipeReporter);   // main.js keeps it: the other handler groups reach it through a getter
