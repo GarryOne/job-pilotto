@@ -1,6 +1,7 @@
 // Form-fill history, without a window (pages/form-fills.js draws it): one agent run (src/stores/base.py AGENT_RUN_FIELDS + EXTRAS) as
 // the list row and the detail, read from the shapes in the store spec's "Agent run shapes": fields.data = {fields, left_for_you,
 // attachments, steps}; fields.timeline = a Claude session's status line. Guarded by test/form-fills-view.test.js.
+import {shortDay} from './date.js';
 
 // Outcome → tone: done good, waiting for you warn, still going info, failed bad, the rest (not submitted, cancelled…) neutral.
 const TONES = {Ready: 'good', Submitted: 'good', 'Needs input': 'warn', Open: 'info', Running: 'info', Failed: 'bad', Error: 'bad'};
@@ -63,6 +64,15 @@ export function metaLine(run, {when = iso => iso} = {}) {
   const s = summary(run), f = run?.fields || {};
   return [s.at && when(s.at), s.minutes !== null && `${s.minutes} min`, s.fields !== null && `${s.fields} fields`, f.billed_to, f.reason]
     .filter(Boolean).join(' · ');
+}
+
+// The tab's meta line, as Weekly's ("9 Oct · Medium confidence"): how many, how many wait for you, the latest one's day;
+// "2 of 3 form fills" while a filter narrows the list.
+export function listLine(runs = [], shown = runs) {
+  const all = runs || [], waiting = all.filter(run => summary(run).outcome === 'Needs input').length;
+  const latest = all.map(run => summary(run).at).filter(Boolean).sort().at(-1);
+  const count = `${shown.length === all.length ? '' : `${shown.length} of `}${all.length} form fill${all.length === 1 ? '' : 's'}`;
+  return [count, waiting && `${waiting} need${waiting === 1 ? 's' : ''} input`, latest && `latest ${shortDay(latest)}`].filter(Boolean).join(' · ');
 }
 
 // The list's filter: free text over job, company, host, agent and outcome; outcome '' = all.

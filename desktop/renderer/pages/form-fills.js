@@ -7,7 +7,7 @@ import {cardHead, el, numberStrip, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {byStore, storeName} from '../store-words.js';
 import {runWhen} from './core.js';
-import {attachments, fieldRows, filterRuns, isSession, leftForYou, learnings, sessionNumbers, steps, summary, timeline} from '../form-fills-view.js';
+import {attachments, fieldRows, filterRuns, isSession, learnings, leftForYou, listLine, sessionNumbers, steps, summary, timeline} from '../form-fills-view.js';
 
 const state = {runs: null, open: null, text: '', outcome: ''};
 let host = null;
@@ -57,7 +57,7 @@ function listView() {
   const keep = () => { const at = input.selectionStart; draw(); const again = host.querySelector('input[type=search]'); again?.focus(); again?.setSelectionRange(at, at); };
   input.addEventListener('input', () => { state.text = input.value; keep(); });
   select.addEventListener('change', () => { state.outcome = select.value; draw(); });
-  box.append(bar);
+  box.append(el('p', 'muted small', listLine(state.runs, shown)), bar);   // the tab's meta line, as Weekly's
   if (rows.length) box.append(table(['When', 'Job', 'By', 'Outcome', 'Fields', 'Time'], rows));
   else box.append(el('p', 'empty', state.runs.length ? 'No form fill matches this filter.'
     : 'No form fills yet. Apply on a job (the extension fills the form) and each fill is listed here with what it did, field by field.'));

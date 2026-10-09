@@ -3,9 +3,10 @@
 // side fails here, so both paths keep the screen's features (the field table, Left for you, steps / timeline, numbers, outcome).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {shortDay} from '../renderer/date.js';
 import * as stats from '../lib/session-stats.js';
 import {runRecord} from '../shared/worker/extension.js';
-import {agentOf, fieldRows, filterRuns, learnings, leftForYou, outcomeTone, sessionNumbers, steps, summary, timeline} from '../renderer/form-fills-view.js';
+import {agentOf, fieldRows, filterRuns, learnings, leftForYou, listLine, outcomeTone, sessionNumbers, steps, summary, timeline} from '../renderer/form-fills-view.js';
 
 const fill = {url: 'https://boards.greenhouse.io/acme/jobs/1', started: '2026-10-09T10:00:00Z', ended: '2026-10-09T10:03:00Z', fields: 2, unfilled: 1, kit: true,
   todo: ['Portfolio'], trace: [{label: 'Email', required: true, source: 'your details', outcome: 'filled', reason: 'typed'},
@@ -46,4 +47,12 @@ test('the list filter and the tones', () => {
   assert.equal(outcomeTone('Cancelled'), 'neutral');
   assert.equal(agentOf({ats: 'Claude', fields: {}}), 'Claude session');
   assert.equal(summary({url: 'https://www.acme.example/x', fields: {}}).title, 'acme.example');   // a fill of an untracked job
+});
+
+test('the tab\'s meta line: how many, how many wait for you, the latest day; "N of M" while filtered', () => {
+  const runs = [{outcome: 'Ready', created_at: '2026-10-09T11:12:00Z'}, {outcome: 'Needs input', created_at: '2026-10-08T17:40:00Z'},
+    {outcome: 'Submitted', created_at: '2026-10-07T13:02:00Z'}];
+  assert.equal(listLine(runs), `3 form fills · 1 needs input · latest ${shortDay('2026-10-09T11:12:00Z')}`);
+  assert.equal(listLine(runs, runs.slice(0, 1)), `1 of 3 form fills · 1 needs input · latest ${shortDay('2026-10-09T11:12:00Z')}`);
+  assert.equal(listLine([]), '0 form fills');
 });
