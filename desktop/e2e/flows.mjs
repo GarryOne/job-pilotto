@@ -24,7 +24,7 @@ export const MATRIX = [
   {scenario: 'Direct application form (Greenhouse, Workday, Lever, multi-step)', e2e: ['Greenhouse-like form', 'Workday-shaped form', 'Lever-like form', 'multi-step form'], unit: ['test/extension-tab-pages.test.js']},
   {scenario: 'Upload slots of any shape (input, hidden input, drop zone, + that creates the input): CV and cover letter by meaning, a miss reported by fingerprint', e2e: ['appears only when + is pressed'], unit: ['e2e/test/upload-slot.test.mjs']},
   {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
-  {scenario: 'Apply opens its form from the page\'s script: followed, posting closed', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
+  {scenario: 'Apply opens its form from the page\'s script (`window.open`): opened in the same tab', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Two applications side by side: one tab and its own kit each', e2e: ['side by side'], unit: ['test/review.test.js']},
   {scenario: 'Sign-up page before the form: account step kept apart', e2e: ['sign-up page'], unit: ['test/extension-tab-pages.test.js', 'test/review.test.js', 'test/session-flow.test.js']},
   {scenario: 'Sign-in page before the form with a saved password: filled, pressed once, the form behind it filled; a refused sign-in never retried', e2e: ['sign-in page'], unit: []},

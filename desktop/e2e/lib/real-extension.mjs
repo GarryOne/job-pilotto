@@ -43,7 +43,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
   await new Promise(resolve => stub.listen(port, '127.0.0.1', resolve));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-real-ext-'));
   const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions'],
+    ...browserChannel(), headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
     args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${copy}`, `--load-extension=${copy}`, '--no-first-run', '--no-default-browser-check'],
   });
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});

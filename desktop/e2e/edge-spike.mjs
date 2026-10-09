@@ -16,7 +16,7 @@ if (!command || !/msedge(\.exe)?$|open$/.test(command[0]) && !command[1].include
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-edge-'));
 const context = await chromium.launchPersistentContext(profile, {
-  channel: 'msedge', headless: false, ignoreDefaultArgs: ['--disable-extensions'],
+  channel: 'msedge', headless: false, ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
   args: ['--headless=new', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`, '--no-first-run'],
 });
 console.log('Edge version:', context.browser()?.version());

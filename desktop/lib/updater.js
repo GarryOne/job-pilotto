@@ -57,11 +57,47 @@ const offerOf = (release, platform, extra = {}) => {
 };
 // Where the releases are read: GitHub, or the e2e's fake release server (JOB_PILOTTO_E2E_UPDATES_URL), only under the e2e (JOB_PILOTTO_E2E), never for a person.
 export const apiBase = (env = process.env) => (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_UPDATES_URL) || 'https://api.github.com';
-const getJson = async (fetcher, url) => {
-  const response = await fetcher(url, {headers: {Accept: 'application/vnd.github+json'}});
+// A person's app reads our website first (site/src/releases.js: GitHub read with the site's token, kept 5 minutes for every install), then
+// GitHub itself. 9 Oct 2026: unsigned GitHub calls are 60 an hour per IP, and an office network shares one: "GitHub answered 403".
+export const SITE = process.env.JOB_PILOTTO_SITE || 'https://www.jobpilotto.workers.dev';
+const HEADERS = {Accept: 'application/vnd.github+json'};
+const kept = new Map();   // GitHub url -> {etag, data}: an unchanged answer (304) doesn't count against GitHub's limit
+let limitedUntil = 0;     // GitHub said this network used its hour: no call before then
+export const resetLimit = () => { limitedUntil = 0; kept.clear(); };   // tests
+const at = ms => new Date(ms).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+const limitError = () => new Error(`GitHub is limiting update checks from this network; trying again at ${at(limitedUntil)}`);
+
+async function fromGithub(fetcher, url, now) {
+  if (now < limitedUntil) throw limitError();
+  const before = kept.get(url);
+  const response = await fetcher(url, {headers: {...HEADERS, ...(before ? {'If-None-Match': before.etag} : {})}});
+  if (response.status === 304 && before) return before.data;
+  if (response.status === 429 || (response.status === 403 && response.headers?.get?.('x-ratelimit-remaining') === '0')) {
+    const reset = Number(response.headers?.get?.('x-ratelimit-reset')) * 1000, retry = Number(response.headers?.get?.('retry-after')) * 1000;
+    limitedUntil = reset > now ? reset : now + (retry > 0 ? retry : 60 * 60 * 1000);
+    throw limitError();
+  }
   if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-  return response.json();
-};
+  const data = await response.json();
+  const etag = response.headers?.get?.('etag');
+  if (etag) kept.set(url, {etag, data});
+  return data;
+}
+
+// path: 'releases/latest' or 'releases?per_page=30'
+async function getJson(fetcher, path, now = Date.now()) {
+  const e2e = apiBase();
+  if (e2e !== 'https://api.github.com') {
+    const response = await fetcher(`${e2e}/repos/${REPO}/${path}`, {headers: HEADERS});
+    if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+    return response.json();
+  }
+  try {
+    const response = await fetcher(`${SITE}/api/${path.startsWith('releases/latest') ? 'releases/latest' : 'releases'}`, {headers: HEADERS});
+    if (response.ok) return await response.json();
+  } catch { /* the site is down or unreachable: GitHub itself below */ }
+  return fromGithub(fetcher, `https://api.github.com/repos/${REPO}/${path}`, now);
+}
 
 // -> {version, name, notes, url} when a newer release is on offer, else null. Stable (the default): the latest stable release, if newer than `current`.
 // channel 'beta' (the person switched it on, Settings → Diagnostics → Beta): also pre-releases carrying the beta-approved line; the newest of them all wins.
@@ -69,19 +105,19 @@ const getJson = async (fetcher, url) => {
 // who asked for it gets a fix in the time of a build instead of a gated beta. Nothing has checked it: that is the person's choice, and the label says so.
 export async function check(current, {channel = 'stable', fetcher = globalThis.fetch, platform = process.platform} = {}) {
   if (channel === 'beta' || channel === 'test') {
-    const list = await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases?per_page=30`);
+    const list = await getJson(fetcher, 'releases?per_page=30');
     const open = (Array.isArray(list) ? list : []).filter(release => !release.draft && (!release.prerelease || channel === 'test' || approvedFor(release.body, platform)))
       .map(release => offerOf(release, platform, {beta: !!release.prerelease})).filter(Boolean);
     const best = open.reduce((top, offer) => (!top || newer(offer.version, top.version) ? offer : top), null);
     return best && newer(best.version, current) ? best : null;
   }
-  const offer = offerOf(await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases/latest`), platform);
+  const offer = offerOf(await getJson(fetcher, 'releases/latest'), platform);
   return offer && newer(offer.version, current) ? offer : null;
 }
 
 // -> the latest stable release as an offer even when it is OLDER than `current` ("Back to stable"), or null. `ahead`: this install is newer than it.
 export async function stableRelease(current, {fetcher = globalThis.fetch, platform = process.platform} = {}) {
-  const offer = offerOf(await getJson(fetcher, `${apiBase()}/repos/${REPO}/releases/latest`), platform, {rollback: true});
+  const offer = offerOf(await getJson(fetcher, 'releases/latest'), platform, {rollback: true});
   return offer && {...offer, ahead: newer(current, offer.version)};
 }
 
@@ -102,14 +138,22 @@ export function macSwapScript(pid, oldApp, newApp, logFile = '') {
 }
 
 // The Windows update: the downloaded installer itself, started before the app quits, the way electron-updater does it. --updated
-// makes it wait for this app to close (and end it if it lingers), /S installs quietly with no wizard, --force-run opens the
-// new version when done (electron-builder's NSIS templates). No script: a PowerShell file in %TEMP% never ran on a managed PC
-// (Group Policy and AppLocker outrank -ExecutionPolicy Bypass), so the app closed and nothing came back (9 Oct 2026).
-export const WINDOWS_INSTALLER_ARGS = ['--updated', '/S', '--force-run'];
+// makes it wait for this app to close (and end it if it lingers) without asking, --force-run opens the new version when done
+// (electron-builder's NSIS templates). No script: a PowerShell file in %TEMP% never ran on a managed PC (Group Policy and AppLocker
+// outrank -ExecutionPolicy Bypass), so the app closed and nothing came back (9 Oct 2026). And not silent (no /S, no hidden window):
+// the person saw the app close and nothing for a minute, and could not tell an update from a crash (owner, 9 Oct 2026: "the user
+// doesn't understand what's happening"). The one-click installer asks nothing; it only shows its progress bar.
+export const WINDOWS_INSTALLER_ARGS = ['--updated', '--force-run'];
 
 // Downloads and installs `update`; calls quit() when the app should close. onStep(text) for progress.
+// What a Windows person reads before the app closes for an update (lib/app-updates.js shows it as a dialog).
+export const windowsExplanation = update => ({type: 'info', buttons: ['Install now'], defaultId: 0, title: 'Job Pilotto update',
+  message: `Installing Job Pilotto ${update.version}`,
+  detail: 'Job Pilotto closes now. A small installer window shows the progress (about a minute), then Job Pilotto opens again by itself. Your data stays as it is.'});
+// explain(update): Windows only, awaited after the download and before the installer starts: says what happens next (the app
+// closes, the installer shows its progress, the app opens again), so the closing window is never a surprise.
 export async function install(update, {exe, pid = process.pid, quit, onStep = () => {}, logFile = '', fetcher = globalThis.fetch,
-  platform = process.platform, spawn: run = spawn}) {
+  platform = process.platform, spawn: run = spawn, explain = async () => {}}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-update-'));
   onStep('Downloading…');
   const response = await fetcher(update.download);
@@ -117,8 +161,10 @@ export async function install(update, {exe, pid = process.pid, quit, onStep = ()
   const file = path.join(dir, platform === 'win32' ? 'Job-Pilotto-Setup.exe' : 'update.zip');
   fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
   if (platform === 'win32') {
+    onStep('Ready to install…');
+    await explain(update);
     onStep('Installing and restarting…');
-    const child = run(file, WINDOWS_INSTALLER_ARGS, {detached: true, stdio: 'ignore', windowsHide: true});
+    const child = run(file, WINDOWS_INSTALLER_ARGS, {detached: true, stdio: 'ignore'});   // its window shown: the progress is the feedback
     await new Promise((resolve, reject) => {   // a blocked installer (antivirus, AppLocker) says so here, and the app stays open
       child.once('error', error => reject(new Error(`The installer couldn't start: ${error.message}`)));
       child.once('spawn', resolve);
