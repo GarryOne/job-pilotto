@@ -190,7 +190,8 @@ class NotionCronRuns:
         values.pop('id', None)
         stats = values.pop('stats', None) or {}
         values['started_at'] = values.get('started_at') or _now()
-        props = {**self._properties(values, stats), **self._title(values.get('kind', ''), values['started_at'], values.get('summary', ''))}
+        props = {**self._title(values.get('kind', ''), values['started_at'], values.get('summary', '')),
+                 **self._properties(values, stats)}  # the engine's title, when given
         page = self.tracker.create_page(self.database_id, self._writable(props))
         blocks = _body(**body)
         for start in range(0, len(blocks), 100):

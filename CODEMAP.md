@@ -533,6 +533,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/progress.py` — Live progress for a long step: "⏳ Reading new jobs with AI: 12 of 26", printed at the start, then at most every few seconds and at the end.
 - `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
 - `src/role_kinds.py` — Kinds of role (software, retail, logistics, …): what an employer or a job board mostly hires for, and what a search looks for.
+- `src/run_log.py` — The run history on the store: a run's row in stores.cron_runs (⏱️ Search runs in Notion, data/tracker.sqlite on this Mac),
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout_candidates.py` — Source scout, harvest: where candidate employers come from (seed lists, Hacker News "Who is hiring?", hiring-without-whiteboards,
 - `src/scout_core.py` — Shared base of the source scout (src/scout.py and its scout_*.py pieces): paths, tuning numbers, the candidate table's SQL,
