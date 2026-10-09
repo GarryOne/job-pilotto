@@ -37,16 +37,19 @@ export const LIMITS = {idleMs: E2E_IDLE || 15 * 60 * 1000, totalMs: 45 * 60 * 10
 export const stoppedReason = timedOut => `Stopped by Job Pilotto: ${timedOut}. The run went quiet, so it was stopped. Run it again; if it keeps stopping, check your AI key or plan in Settings.`;
 // `stopAfterMs`: a run whose answer is no use after that long is stopped then (7 Oct 2026: Claude's filter choices went on for 130 s after
 // the page had been read without them, slowing every other Claude call of a Find jobs using your browser run).
-export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterMs = 0} = {}) {
+// `logArgs`: what the logs and the run-end listeners see instead of `args` (a store call's arguments are the person's data). `privateOutput`:
+// stdout is the caller's alone, never written to engine.log, onLine, the tail or a report (a store call's answer is the person's records;
+// logs say identities, never content). stderr is still logged: it is the engine's own words.
+export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterMs = 0, logArgs = null, privateOutput = false} = {}) {
   if (isDemo() && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
-  const started = Date.now(), tail = [];
+  const started = Date.now(), tail = [], shown = logArgs || args;
   const told = onLine;
   // The run's output is written down as it comes (logs/engine.log) and its two markers go to the app log, so a run
   // that went wrong can be read back afterwards instead of being lost with the window (1 Oct 2026).
   const runId = extraEnv.JOB_PILOTTO_RUN_ID || randomBytes(6).toString('hex');
   const resultFile = path.join(os.tmpdir(), `jp-result-${runId}.json`);
-  engineLog.start(args, new Date(), runId);
-  appLog('run', `start: python -m ${args.join(' ')}`, {run_id: runId});
+  engineLog.start(shown, new Date(), runId);
+  appLog('run', `start: python -m ${shown.join(' ')}`, {run_id: runId});
   onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };
   // The task this command belongs to (its output goes to the task's own log): Stop ends it, and a stopped task starts no next step.
   const ticket = ticketRunning();
@@ -59,7 +62,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
     owner?.children.add(child);
     child.on('exit', () => { children.delete(child); owner?.children.delete(child); });
     const stopper = stopAfterMs ? setTimeout(() => {
-      appLog('run', `stopped after ${Math.round(stopAfterMs / 1000)} s: python -m ${args.join(' ')} (its answer is no longer used)`, {run_id: runId});
+      appLog('run', `stopped after ${Math.round(stopAfterMs / 1000)} s: python -m ${shown.join(' ')} (its answer is no longer used)`, {run_id: runId});
       child.kill('SIGTERM');
     }, stopAfterMs) : null;
     child.on('exit', () => clearTimeout(stopper));
@@ -70,7 +73,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       const quiet = awakeNow() - lastOutputAt, total = awakeNow() - startedAwake;
       timedOut = quiet > LIMITS.idleMs ? `no output for ${quietText(quiet)}` : total > LIMITS.totalMs ? `still running after ${Math.round(total / 60000)} min` : '';
       if (!timedOut) return;
-      appLog('run', `watchdog: python -m ${args.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
+      appLog('run', `watchdog: python -m ${shown.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
       onLine(`⚠️ ${stoppedReason(timedOut)} The last thing it did: ${tail.at(-1) || 'nothing yet'}`);
       child.kill('SIGTERM');
       killTimer = setTimeout(() => child.kill('SIGKILL'), LIMITS.killAfterMs);
@@ -81,7 +84,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       buffer = parts.pop();
       parts.filter(Boolean).forEach(raw => { engineLog.line(raw); onLine(readable(raw)); rowUrl = /^Cronjob run logged: (\S+)/.exec(raw)?.[1] || rowUrl; });
     };
-    child.stdout.on('data', data => { lastOutputAt = awakeNow(); stdout += data; lines(String(data)); });
+    child.stdout.on('data', data => { lastOutputAt = awakeNow(); stdout += data; if (!privateOutput) lines(String(data)); });
     child.stderr.on('data', data => { lastOutputAt = awakeNow(); lines(String(data)); });
     child.on('error', reject);
     child.on('close', async exitCode => {
@@ -94,8 +97,8 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       try { fs.unlinkSync(resultFile); } catch {}
       if (result && code !== 0) result.ok = false;
       engineLog.end({code, seconds, runId});
-      appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
-      for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId, timedOut, result}); } catch {} }
+      appLog('run', `end: python -m ${shown.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
+      for (const listener of runEnd) { try { listener({args: shown, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId, timedOut, result}); } catch {} }
       // Killed (by the watchdog, or from outside: no exit code), so it could not close its own row.
       if ((timedOut || exitCode === null) && rowUrl) {
         const reason = timedOut ? stoppedReason(timedOut) : 'Stopped before it finished. What it saved is kept; the next run continues.';
