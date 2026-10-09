@@ -16,11 +16,7 @@ export async function rewriteTextLines(ctx, name, pattern, line) {
 export const textOf = (ctx, name) => ctx.data('texts', 'get', {name});
 
 // The text as the engine's AI reads it (texts.plain: Notion's page text, this Mac's file), for a judge that must see what the scoring saw.
-// BRIDGE(lane S): remove when 082d079 (texts.plain on every adapter) lands: until then the store has no `plain` and the Markdown stands in.
-export async function plainTextOf(ctx, name) {
-  try { return await ctx.data('texts', 'plain', {name}); }
-  catch (error) { if (/not callable: texts\.plain/.test(error.message)) return textOf(ctx, name); throw error; }
-}
+export const plainTextOf = (ctx, name) => ctx.data('texts', 'plain', {name});
 
 // All the person's data as one text, for a check that greps what features stored (no field may carry another user's words). Read-only.
 const ENTITIES = [['matches', {}], ['applications', {}], ['employers', {active: null}], ['cron_runs', {}], ['events', {}], ['interviews', {}]];
