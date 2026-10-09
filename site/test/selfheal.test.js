@@ -159,3 +159,10 @@ test('the page lays what changed in the Finder each day beside what it filed, wi
   assert.equal(changesSection({history, changes: []}), '', 'an old snapshot without changes shows no section');
   assert.match(liveSection({...snapshot('2026-10-05T04:00:00Z', 26), history, changes}, history), /What we changed in the Finder/);
 });
+
+test('the Filed tile says how many were filed as issues and how many were judged noise before filing (9 Oct 2026: 120 "filed", 31 never were)', () => {
+  const totals = {filed: 120, prejudged: 31, unjudged: 8, real: 44, judged: 103};
+  const html = periodsSection({periods: {all: {totals}}, history: []});
+  assert.match(html, /89 as issues · 31 judged noise before filing · 8 not judged yet/);
+  assert.doesNotMatch(periodsSection({periods: {all: {totals: {filed: 5, unjudged: 1}}}, history: []}), /judged noise/);
+});

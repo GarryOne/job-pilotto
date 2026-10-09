@@ -66,6 +66,7 @@ export function summarize(list = []) {
   for (const issue of list) {
     const kind = classify(issue), source = detectorOf(issue);
     totals.filed++; totals[kind]++;
+    if (issue.prejudged) totals.prejudged = (totals.prejudged || 0) + 1;   // judged noise before filing (the noise register): counted, never an issue on GitHub
     const row = (by[source] ??= {detector: DETECTORS[source] || source, filed: 0, ...empty()});
     row.filed++; row[kind]++;
   }
@@ -79,6 +80,7 @@ export function build({issues: all = [], prs = [], costs = [], recall = null, ru
   for (const issue of issues) {
     const kind = classify(issue), source = detectorOf(issue);
     totals.filed++; totals[kind]++;
+    if (issue.prejudged) totals.prejudged = (totals.prejudged || 0) + 1;   // judged noise before filing (the noise register): counted, never an issue on GitHub
     const row = (by[source] ??= {detector: DETECTORS[source] || source, filed: 0, ...empty()});
     row.filed++; row[kind]++;
   }

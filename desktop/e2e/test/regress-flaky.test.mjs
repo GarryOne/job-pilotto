@@ -30,3 +30,10 @@ test('flaky: the step failed on this very commit (body or a Seen again), and onl
   assert.ok(!flakyOn(failed, '9999999'), 'a pass on a newer commit is a fix, not a flake');
   assert.ok(!flakyOn({...failed, body: failed.body.replace('test-failure', 'layout')}, 'abc1234'));
 });
+
+test('an issue closed with resolution:fixed counts as closed by a fix, whatever its comment says; one closed as not planned never does', () => {
+  const issue = (stateReason, labels) => ({state: 'CLOSED', stateReason, labels: labels.map(name => ({name})), comments: [{body: '<!-- ui-loop-verdict:fixed -->'}]});
+  assert.ok(closedByFix(issue('COMPLETED', ['auto-ui', 'resolution:fixed'])));
+  assert.ok(!closedByFix(issue('COMPLETED', ['auto-ui'])));
+  assert.ok(!closedByFix(issue('NOT_PLANNED', ['resolution:fixed'])));
+});

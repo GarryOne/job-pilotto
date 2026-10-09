@@ -10,6 +10,8 @@ const BANNER = {
     next: 'Closed as not planned and marked `wontfix-auto`, so the Finder does not file it again. Reopen it if you disagree.'},
   harness: {alert: 'NOTE', icon: '🧪', title: 'Test problem — closed', line: 'The finding comes from the test (its data, environment or wait), not from the product.',
     next: 'Closed with the `harness` label. The weekly Finder self-review reads these and fixes the test.'},
+  fixed: {alert: 'TIP', icon: '🛠️', title: 'Real — fixed', line: 'A person\'s triage session confirmed this and landed a fix (the commit is named under "Why").',
+    next: 'Closed as completed with `resolution:fixed`. If it is seen again on a build with the fix, the Finder reopens it.'},
   'needs-human': {alert: 'WARNING', icon: '🙋', title: 'Needs a person', line: 'The verdict pass could not decide this one alone.',
     next: 'Check the point under "Why", then label it `confirmed` (to fix it) or close it. It stays on the Top issues list, marked.'},
 };
@@ -46,7 +48,8 @@ export function checkEvidence(raw, lines) {
   return {word: 'needs-human', note: refs.length ? `Its cited code (${refs.join(', ')}) does not exist, so the verdict was not trusted.` : 'It cited no file and line, so the verdict was not trusted.'};
 }
 
-export function verdictComment(raw, {number = 0} = {}) {
+// by: who judged. The CI verdict pass is read-only; a triage session (the triage-issues skill) may also have fixed it.
+export function verdictComment(raw, {number = 0, by = 'verdict pass'} = {}) {
   const {word, why, check} = parse(raw);
   const key = BANNER[word] ? word : 'needs-human';
   const b = BANNER[key];
@@ -65,7 +68,7 @@ export function verdictComment(raw, {number = 0} = {}) {
     '### ➡️ What happens next',
     b.next,
     '',
-    `<sub>UI loop · verdict pass · read-only, it changed no code${number ? ` · #${number}` : ''}</sub>`,
+    `<sub>UI loop · ${by === 'verdict pass' ? 'verdict pass · read-only, it changed no code' : by}${number ? ` · #${number}` : ''}</sub>`,
   ].join('\n');
 }
 

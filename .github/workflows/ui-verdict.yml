@@ -91,32 +91,5 @@ jobs:
         if: steps.claude.outcome == 'success'
         run: |
           set -euo pipefail
-          # The comment: banner, why, evidence, next step (desktop/e2e/lib/verdict-comment.mjs). Its first line is a hidden marker the loop reads back.
-          node desktop/e2e/verdict-comment.mjs --file .heal/verdict.md --number "$NUMBER" --out .heal/comment.md
-          # After the check: a `real` that cites code which does not exist has become `needs-human` in the file.
-          verdict=$(head -1 .heal/verdict.md 2>/dev/null | tr -d '[:space:]' || true)
-          # The judge's level replaces the detector's (desktop/e2e/lib/severity.mjs): a real or parked finding keeps the level a person would meet.
-          case "$verdict" in real|needs-human) node desktop/e2e/severity.mjs --file .heal/verdict.md --number "$NUMBER" --repo "$REPO" >> "$GITHUB_STEP_SUMMARY" || true ;; esac
-          case "$verdict" in
-            real)
-              gh label create confirmed --repo "$REPO" --force --color 0E8A16 --description 'A person or the verdict pass says this is real: ready to fix'
-              gh issue edit "$NUMBER" --repo "$REPO" --add-label confirmed
-              gh issue comment "$NUMBER" --repo "$REPO" --body-file .heal/comment.md ;;
-            false-positive)
-              gh label create wontfix-auto --repo "$REPO" --force --color CCCCCC --description 'A false positive of the UI loop: never retried'
-              gh issue edit "$NUMBER" --repo "$REPO" --add-label wontfix-auto
-              resolution=$(node desktop/e2e/resolution.mjs --file .heal/verdict.md || true)
-              if [ -n "$resolution" ]; then gh label create "$resolution" --repo "$REPO" --force --color F9D0C4 --description 'Why this issue was closed (desktop/e2e/lib/resolution.mjs)'; gh issue edit "$NUMBER" --repo "$REPO" --add-label "$resolution"; fi
-              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)" ;;
-            harness)
-              gh label create harness --repo "$REPO" --force --color BFD4F2 --description 'The test was wrong, not the product: the Finder self-review fixes the test'
-              gh issue edit "$NUMBER" --repo "$REPO" --add-label harness --add-label wontfix-auto
-              resolution=$(node desktop/e2e/resolution.mjs --file .heal/verdict.md || true)
-              if [ -n "$resolution" ]; then gh label create "$resolution" --repo "$REPO" --force --color F9D0C4 --description 'Why this issue was closed (desktop/e2e/lib/resolution.mjs)'; gh issue edit "$NUMBER" --repo "$REPO" --add-label "$resolution"; fi
-              gh issue close "$NUMBER" --repo "$REPO" --reason "not planned" --comment "$(cat .heal/comment.md)" ;;
-            *)
-              gh label create needs-human --repo "$REPO" --force --color D93F0B --description 'The UI loop could not fix this by itself'
-              gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-human
-              gh issue comment "$NUMBER" --repo "$REPO" --body-file .heal/comment.md ;;
-          esac
-          echo "#$NUMBER: ${verdict:-none}" >> "$GITHUB_STEP_SUMMARY"
+          # Comment, severity, labels, close: one script, shared with the triage-issues skill (desktop/e2e/apply-verdict.sh).
+          desktop/e2e/apply-verdict.sh "$NUMBER" .heal/verdict.md "$REPO" >> "$GITHUB_STEP_SUMMARY"

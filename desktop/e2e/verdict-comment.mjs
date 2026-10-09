@@ -12,5 +12,5 @@ if (note) {
   fs.writeFileSync(at('--file'), raw);
   console.log(note);
 }
-fs.writeFileSync(at('--out'), verdictComment(raw, {number: Number(at('--number')) || 0}));
+fs.writeFileSync(at('--out'), verdictComment(raw, {number: Number(at('--number')) || 0, ...(args.includes('--by') ? {by: at('--by')} : {})}));
 console.log(`${at('--out')} written`);

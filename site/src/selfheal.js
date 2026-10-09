@@ -82,7 +82,7 @@ export function periodsSection(live) {
     if (!p) return '';
     const t = p.totals || {}, wrong = (t.falsePositive || 0) + (t.harness || 0), cost = p.cost || {};
     const tiles = [
-      ['📥 Filed', num(t.filed), `${num(t.unjudged)} not judged yet`],
+      ['📥 Filed', num(t.filed), `${t.prejudged ? `${num(t.filed - t.prejudged)} as issues · ${num(t.prejudged)} judged noise before filing · ` : ''}${num(t.unjudged)} not judged yet`],
       ['🐞 Real bugs caught', num(t.real), `${num(t.fixed)} fixed · ${num(t.queued)} queued for the fixer`],
       ['❌ False positives', num(wrong), `${num(t.falsePositive)} false · ${num(t.harness)} test mistakes`],
       ['♻️ Stale or duplicate', num((t.stale || 0) + (t.duplicate || 0)), `${num(t.stale)} stale · ${num(t.duplicate)} duplicate`],
