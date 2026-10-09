@@ -12,6 +12,8 @@ from .ai import added, cost, inbox, insights, interview_insights, interviews, ki
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
 from .store_access import url_stages
+from . import ledger_store
+from .daily_helpers import log_store_job
 
 
 
@@ -163,7 +165,8 @@ def add_message_mode(args, tracker, stores=None):
 
 def add_link_mode(args, tracker, stores=None):
     # /add <job URL> [date]: track an application made outside Job Pilotto.
-    _gate(tracker, stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=False)   # ledger.company_for: Notion only yet
+    _gate(tracker, stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=True)
+    on_store = {} if tracker else {'stores': stores}   # Notion: through the tracker as before; another store: src/ledger_store.py
     run = new_cron_run('add')
     found = {}  # the job it created or updated (ledger.add_application fills it)
     try:
@@ -171,18 +174,19 @@ def add_link_mode(args, tracker, stores=None):
         meta = ledger.page_meta(args.job)
         given = {'title': args.job_title, 'company': args.job_company, 'description': args.job_text}
         meta.update({key: value.strip() for key, value in given.items() if value and value.strip()})
-        meta['company'] = ledger.company_for(tracker, args.job, meta)
+        meta['company'] = ledger.company_for(tracker, args.job, meta) if tracker else ledger_store.company_for(stores, args.job, meta)
         with store.connect(args.db) as db:
             # The same AI stages as a found job (facts, fit score) before the record is frozen: the fit columns
             # go on its Applications row (meta['application_columns'], no Job Matches row), so the application
             # record carries them too. AI trouble never blocks tracking it.
             fit = None
             try:
-                fit = added.process(db, tracker, args.job, meta, stats=run)
+                fit = added.process(db, tracker, args.job, meta, stats=run, **on_store)
             except Exception as error:  # noqa: BLE001
                 print(f'Warning: AI stages skipped: {type(error).__name__}: {error}')
-            reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
-                                                          source='Telegram', meta=meta, found=found, origin=args.origin))
+            add = (lambda **kw: ledger.add_application(tracker, args.job, **kw)) if tracker else \
+                (lambda **kw: ledger_store.add_application(stores, args.job, **kw))
+            reply = '📥 ' + escape(add(applied=applied, approx=approx, source='Telegram', meta=meta, found=found, origin=args.origin))
             if fit:
                 reply += f' · {escape(fit)}'
             if ledger.walled(args.job) and not meta.get('description'):
@@ -195,7 +199,7 @@ def add_link_mode(args, tracker, stores=None):
         reply = f'⚠️ {escape(str(error))}'
     failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
     if found.get('row') and not reply.startswith(('⚠️', 'ℹ️')):  # a job created or updated: the run links to it
-        cron_runs.log_job(run, found['row'], found['created'])
+        (cron_runs.log_job(run, found['row'], found['created']) if tracker else log_store_job(stores, run, found['row'], found['created']))
     run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
     # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
     if not (failed and not cron_runs.total_usd(run)):

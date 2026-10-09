@@ -296,6 +296,20 @@ def save_run(run):
     (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
 
 
+def log_store_job(stores, run, app, created):
+    """cron_runs.log_job for a store's application record (no Notion page): the run's Application, its subject and the
+    "Job logged: {…}" line the app links the run's result to that job by."""
+    from .notion import cron_report
+    job = {'page_id': app['id'], 'url': stores.link(app['id']) or '', 'title': app.get('title') or '',
+           'job_url': app.get('url') or '', 'created': bool(created)}
+    run['application'] = app['id']
+    run['subject'] = cron_report.job_subject(company=app.get('company') or '', role=app.get('title') or '', via=app.get('via') or '')
+    from . import run_result
+    run_result.note_job(job)
+    print(cron_report.JOB_LINE + json.dumps(job, ensure_ascii=False))
+    return job
+
+
 def log_crawl(stores, run):
     url = run_log.log_run(stores, run)
     if url:

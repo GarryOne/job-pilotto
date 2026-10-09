@@ -5,6 +5,7 @@ store; a Notion token beside another store never brings a second copy into Notio
 Guards src/daily.py, src/daily_search.py and the run_stores / url_stages / profile_source helpers in src/store_access.py.
 """
 import contextlib
+import json
 import dataclasses
 import io
 import pathlib
@@ -153,6 +154,34 @@ class ModesOnTheStoreTests(unittest.TestCase):
         app = stores.applications.list()[0]
         self.assertEqual([e['kind'] for e in stores.events.list(app['id'])], ['Applied'])
         recorded.assert_called_once()
+
+    def test_an_application_made_elsewhere_is_tracked_in_this_macs_store(self):
+        """/add <job URL> (or the app's "Add a job" as applied) without Notion: Applied, its event, and the run linked to the job."""
+        stores = memory.open_store()
+        url = 'https://jobs.example/platform-7'
+        out = io.StringIO()
+        argv = ['daily', '--mode', 'add', '--job', url, '--note', '', '--log-run', '--job-title', 'Platform Engineer',
+                '--job-company', 'Acme', '--db', str(pathlib.Path(tempfile.mkdtemp()) / 'jobs.sqlite')]
+        with mock.patch.object(sys, 'argv', argv), mock.patch.dict('os.environ', {'JOB_PILOTTO_STORE': 'memory'}), \
+                mock.patch.object(socket.socket, 'connect', side_effect=AssertionError('the run reached the network')), \
+                mock.patch.object(daily.notion.Tracker, 'from_env', return_value=None), \
+                mock.patch.object(store_access, 'open_stores', lambda tracker=None: stores), \
+                mock.patch('src.notion.ledger.page_meta', return_value={}), \
+                mock.patch('src.ai.added.process', return_value=None), \
+                mock.patch('src.ledger_store.record', return_value=(None, 'recorded')), \
+                mock.patch.object(daily_helpers, 'queue_mail_check'), mock.patch('src.daily_modes.queue_mail_check'), \
+                mock.patch.object(run_log, '_install', lambda: None), mock.patch.object(run_log, 'capture', lambda: None), \
+                mock.patch.object(run_log, '_heartbeat', lambda run: None), contextlib.redirect_stdout(out):
+            self.addCleanup(run_log._auto.clear)
+            self.addCleanup(run_log._open.clear)
+            code = daily.main()
+        self.assertEqual(code, 0, out.getvalue())
+        app = stores.applications.get(url)
+        self.assertEqual((app['stage'], app['company'], app['title']), ('Applied', 'Acme', 'Platform Engineer'))
+        self.assertEqual([e['kind'] for e in stores.events.list(app['id'])], ['Applied'])
+        logged = [line for line in out.getvalue().splitlines() if line.startswith('Job logged: ')]
+        self.assertEqual(json.loads(logged[0][len('Job logged: '):])['page_id'], app['id'])   # the app links the run to this job
+        self.assertEqual(stores.cron_runs.list()[0]['mode'], 'add')
 
 if __name__ == '__main__':
     unittest.main()

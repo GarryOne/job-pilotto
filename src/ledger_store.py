@@ -165,6 +165,15 @@ def _fields_of(props):
             if column in props}
 
 
+def company_for(stores, url, meta):
+    """The employer of a job page, as src/notion/ledger.py company_for: its metadata, else the scored job's (job board APIs often
+    omit it), else the board's slug in the URL."""
+    if meta.get('company'):
+        return meta['company']
+    found = ats.detect(url)
+    return match_of(stores, url, None).get('Company') or (found[1].replace('-', ' ').title() if found else '')
+
+
 def add_application(stores, url, *, applied=None, approx=False, channel=None, via=None, source='CLI', meta=None,
                     today=None, origin=None, found=None):
     """Track an application made outside Job Pilotto (or before it): the application at Applied, an Applied event on
