@@ -49,9 +49,14 @@ export async function loadTextEditor(name) {
     });
     buttons.append(save, revert);
   } else {
-    const edit = Object.assign(el('button', 'secondary', `Edit in ${storeName()}`), {type: 'button'});
+    // Read-only here, said first, with its link (the panel's lead and a link button, as "Open answers in Notion"): a read-only box looks like the
+    // editor (mac-48's audit, 9 Oct 2026), and its button sat below the fold.
+    const edit = Object.assign(el('button', 'link', `Edit in ${storeName()}`), {type: 'button'});
     edit.addEventListener('click', event => openInNotion(NOTION_PAGES[name], event));
-    buttons.append(edit);
+    const lead = el('p', 'muted panel-lead', `Shown as it is on its ${storeName()} page. `);
+    lead.append(edit);
+    box.replaceChildren(lead, area, note);
+    return;
   }
   box.replaceChildren(area, note, buttons);
 }
