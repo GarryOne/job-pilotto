@@ -25,7 +25,7 @@ Every round should leave more forms closer to that point than the last one.
 4. **Tell the owner in one line** what the window will do: open postings, fill forms, maybe create site accounts.
    And what it never does: **Submit, a bot check, a password value, an email code**.
 5. Arm one Monitor for the whole loop (re-arm it when it expires):
-   `tail -n 0 -F "$HOME/Library/Application Support/Job Pilotto (live test)/home/logs/app.log" | grep --line-buffered -E "page kind|fill: (filling|filled the form)|fields: [0-9]+ filled|account (judgment|button|result|step)|consent accepted|could not|picked for you|stage .*: the|bot"`
+   `tail -n 0 -F "$HOME/Library/Application Support/Job Pilotto (live test)/home/logs/app.log" | grep --line-buffered -E "page kind|fill: (filling|filled the form)|fields: [0-9]+ filled|account (judgment|button|result|step)|consent accepted|could not|picked for you|stage .*: the|bot|proposed answer (used|edited)|application ended|dropdown (not clicked|clicked, but|option clicked|selected, but)"`
 
 ## One round
 For each target, one at a time (only one fill at a time, so the log lines stay readable):
@@ -63,11 +63,19 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
    K=$(security find-generic-password -s job-pilotto.site.api_key -w); curl -s -H "Authorization: Bearer $K" https://www.jobpilotto.workers.dev/admin/form-filling/digest.json
    ```
 
+   Save each read as `<scratchpad>/twin-loop/digest-r<N>.json` (round 0 = before the first round) and diff it against round 0: the weekly
+   windows barely move inside one loop, the diff and the recent vs earlier window do. The fleet numbers include the twin's fills (since d8cbe63
+   it reports under the owner's install id, so it is never counted as another install): a jump after a round is the twin, not new users.
    Read these, and keep them in the scorecard's **Mechanism** table with the round they were read in, so a trend shows:
    - `thisWeek`: `filledShare`, `proposedShare`, `formsNeedingNothing`, `unreadPer100`, `medianSeconds`, `forms`.
    - The `versions` row of every version shipped in this loop: did it move the shares?
    - The top 5 `weaknesses`: `cause`, `title`, `now` vs `before`.
-   - `proposals` (`bySource`, `byFamily`).
+   - `proposals` (`bySource`, `byFamily`): what the person did with proposed answers. **Never press Use in the twin** to make this move:
+     used / edited / ignored is the owner's judgment, and Use saves the answer for every later form.
+   - **What was learned, as data** (owner key as above, never print it):
+     - recipes: `GET /api/recipes?status=candidate`, `?status=canary` (and the "Recipe funnel" card on `/admin/form-filling`);
+     - wording meanings: `GET /api/knowledge` (question wordings 3+ installs met, alias proposals and how they fared);
+     - what the proposer should work on next: `GET /api/recipes/targets`.
 2. **The live signals from this round's runs** (in `app.log` and the trace). Did the learned layer act? Count per run:
    - page kind `by: remembered` vs `by: ai` (a shape learned once, reused for free);
    - trace rows with an `alias` (a meaning from the pack placed the field);
@@ -76,7 +84,11 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
    - misses reported with a fingerprint (menu reasons, unread questions, unknown uploads);
    - did this fill's record reach the site? (`forms` in the digest went up after the run).
 3. **Judge it. Each check below is a yes or no, with its evidence:**
-   - **Learns:** a miss in round N became data (a recipe, a meaning, a remembered kind) by round N+1, without code.
+   - **Learns:** a miss in round N became data (a recipe, a meaning, a remembered kind) by round N+1, without code. The learning jobs run once a
+     day in the private repo (`proposer.yml` recipes, `aliases.yml` meanings, `form-learning.yml`; the site's canary judge daily), so within one
+     loop: when a round produced new misses with a fingerprint, run them by hand (`gh workflow run proposer.yml -R GarryOne/job-pilotto-internal`,
+     the same for `aliases.yml`; each is capped at cents, say the cost in one line), wait for them with a Monitor on `gh run view`, then read the
+     data above. A valid candidate starts at 5% canary by itself at the next judge (2b5eba9).
    - **Uses:** what was learned is applied on the next form with that shape.
    - **Helps:** `filledShare`/`formsNeedingNothing` went up, and `missingShare`/`medianSeconds` went down, for the versions shipped.
    - **Sees:** every left field has a reason the digest can group (not "unknown").
