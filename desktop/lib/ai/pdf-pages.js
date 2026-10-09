@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {probeWindow} from '../cv-look.js';
+import {AiError} from './contract.js';
 
 export const MAX_PAGES = 6;   // a CV or a letter; a longer PDF sends its first pages as pictures and all its text
 
@@ -22,20 +23,35 @@ export function pageText(items = []) {
   return lines.map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
 }
 
-// (base64 PDF) -> {pages: [base64 PNG], text}: the reader main.js gives the Codex engine.
-export const electronPdfReader = (BrowserWindow, {maxPages = MAX_PAGES} = {}) => async base64 => {
+export const TIMEOUT_MS = 30 * 1000;   // a PDF that cannot be read in this time fails the call, never hangs it
+export const TIMEOUT_TEXT = 'Codex: could not read the PDF (it took over 30 s). Try again, or use another AI engine for this step.';
+
+// ([base64 PDF]) -> [{pages: [base64 PNG], text}]: the reader main.js gives the Codex engine. ONE hidden window per call reads every PDF
+// of the request (cv-change.js sends two) and is closed once at the end, whatever happened (mac-3f's live check, 9 Oct 2026).
+export const electronPdfReader = (BrowserWindow, {maxPages = MAX_PAGES, timeoutMs = TIMEOUT_MS, probe: open = probeWindow} = {}) => async list => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-pdf-'));
-  let probe = null;
-  try {
-    const file = path.join(folder, 'document.pdf');
-    fs.writeFileSync(file, Buffer.from(base64, 'base64'));
-    probe = await probeWindow(BrowserWindow, file);
-    const scanned = await probe.scan();
-    const pages = [];
-    for (const page of scanned.slice(0, maxPages)) pages.push(await probe.page(page.n));
-    return {pages, text: scanned.map(page => pageText(page.text)).join('\n\n')};
-  } finally {
-    probe?.close();
+  let probe = null, timer = null;
+  const work = (async () => {
+    const out = [];
+    for (const [i, base64] of list.entries()) {
+      if (i === 0) {
+        const file = path.join(folder, 'document.pdf');
+        fs.writeFileSync(file, Buffer.from(base64, 'base64'));
+        probe = await open(BrowserWindow, file);
+      } else await probe.open(base64);
+      const scanned = await probe.scan();
+      const pages = [];
+      for (const page of scanned.slice(0, maxPages)) pages.push(await probe.page(page.n));
+      out.push({pages, text: scanned.map(page => pageText(page.text)).join('\n\n')});
+    }
+    return out;
+  })();
+  const late = new Promise((_, reject) => { timer = setTimeout(() => reject(new AiError(TIMEOUT_TEXT)), timeoutMs); });
+  try { return await Promise.race([work, late]); }
+  finally {
+    clearTimeout(timer);
+    work.catch(() => {});   // after a timeout the abandoned read may still fail: already reported
+    try { probe?.close(); } catch {}
     fs.rmSync(folder, {recursive: true, force: true});
   }
 };

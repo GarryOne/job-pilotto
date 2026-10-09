@@ -13,7 +13,7 @@ import {AiError, AiLimit, AiUnavailable, requestFrom} from '../lib/ai/contract.j
 import {AnthropicApi} from '../lib/ai/anthropic-api.js';
 import {ClaudeCode} from '../lib/ai/claude-code-cli.js';
 import {Codex, OFF, PDF_TEXT, SHELL} from '../lib/ai/codex-cli.js';
-import {pageText} from '../lib/ai/pdf-pages.js';
+import {TIMEOUT_TEXT, electronPdfReader, pageText} from '../lib/ai/pdf-pages.js';
 import {OpenAiApi, body} from '../lib/ai/openai-api.js';
 import * as ai from '../lib/ai/index.js';
 import {OPENAI_PRICES, model, openaiModel, priceOf} from '../lib/ai/models.js';
@@ -52,7 +52,7 @@ const codexEvents = (text, usage = {input_tokens: 120, cached_input_tokens: 20, 
     .map(event => JSON.stringify(event)).join('\n');
 
 // The app's PDF reader (ai/pdf-pages.js renders in a window): here two pages and the text.
-const readPdf = async () => ({pages: [Buffer.from('page1').toString('base64'), Buffer.from('page2').toString('base64')], text: 'Nine years at Acme'});
+const readPdf = async list => list.map(() => ({pages: [Buffer.from('page1').toString('base64'), Buffer.from('page2').toString('base64')], text: 'Nine years at Acme'}));
 
 // The four engines, each answering {"summary":"done"} the way its provider does.
 function engines() {
@@ -296,4 +296,31 @@ test('an OpenAI-family limit reads as OpenAI\'s and links OpenAI\'s page, never 
   const anthropic = aiLimitHead({ok: false, kind: 'search', log: ['Your credit balance is too low to access the Anthropic API.']}, 'Jobs check');
   assert.match(anthropic.fix.url, /console\.anthropic\.com/);
   assert.equal(billingLabel({billing: 'ChatGPT plan'}), 'Codex · your plan');
+});
+
+test('two PDFs in one call: one read, one window, both as pages + text; a stuck read fails in time and still closes the window', async () => {
+  const reads = [];
+  const spawned = fakeSpawn(() => ({stdout: codexEvents('ok')}));
+  const codex = new Codex({binary: '/fake/codex', run: codexFeatures, env: {}, spawnFn: spawned.spawnFn,
+    pdfReader: async list => { reads.push(list.length); return list.map((_, i) => ({pages: [Buffer.from(`p${i}`).toString('base64')], text: `CV ${i + 1}`})); }});
+  await codex.messages.create({model: 'claude-haiku-5-5', messages: [{role: 'user', content: [PDF, {type: 'text', text: 'Compare.'}, PDF]}]});
+  assert.deepEqual(reads, [2]);
+  const [call] = spawned.calls;
+  assert.match(call.prompt, /\[attached PDF \.\/document-1\.pdf, its text:\]\nCV 1[\s\S]*\[attached PDF \.\/document-2\.pdf, its text:\]\nCV 2/);
+  assert.deepEqual(call.files, ['image-1.png', 'image-2.png']);
+  // The window side, with a fake probe: one window for both PDFs, the second opened in it, closed once.
+  const events = [];
+  const probe = async () => { events.push('window'); return {open: async () => events.push('open'), scan: async () => [{n: 1, text: [{str: 'Hi', x: 0, y: 0, h: 10}]}],
+    page: async () => 'cG5n', close: () => events.push('close')}; };
+  const read = electronPdfReader(null, {probe});
+  const out = await read(['QQ==', 'Qg==']);
+  assert.deepEqual(events, ['window', 'open', 'close']);
+  assert.deepEqual(out.map(one => one.text), ['Hi', 'Hi']);
+  // Stuck: an AiError within the limit, and the window is still closed.
+  const stuckEvents = [];
+  const stuck = async () => ({open: async () => {}, scan: () => new Promise(() => {}), page: async () => '', close: () => stuckEvents.push('close')});
+  const began = Date.now();
+  await assert.rejects(electronPdfReader(null, {probe: stuck, timeoutMs: 50})(['QQ==']), error => error instanceof AiError && error.message === TIMEOUT_TEXT);
+  assert.ok(Date.now() - began < 2000);
+  assert.deepEqual(stuckEvents, ['close']);
 });

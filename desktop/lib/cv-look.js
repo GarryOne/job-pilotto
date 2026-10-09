@@ -141,5 +141,5 @@ export async function probeWindow(BrowserWindow, pdfPath) {
   for (let i = 0; i < 100 && !(await win.webContents.executeJavaScript('window.cvProbeReady === true')); i++) await new Promise(resolve => setTimeout(resolve, 100));
   const call = (name, ...args) => win.webContents.executeJavaScript(`window.cvProbe.${name}(...${JSON.stringify(args)})`);
   await call('open', fs.readFileSync(pdfPath).toString('base64'));
-  return {scan: () => call('scan'), crop: (...args) => call('crop', ...args), image: (...args) => call('image', ...args), page: (...args) => call('page', ...args), close: () => win.destroy()};
+  return {open: base64 => call('open', base64), scan: () => call('scan'), crop: (...args) => call('crop', ...args), image: (...args) => call('image', ...args), page: (...args) => call('page', ...args), close: () => win.destroy()};
 }

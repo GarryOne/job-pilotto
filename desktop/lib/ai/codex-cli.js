@@ -66,26 +66,25 @@ export function features(binary, run = execFile) {
   return featureCache.get(binary);
 }
 
-// (base64 PDF) -> {pages: [base64 PNG], text}: set by main.js (ai/pdf-pages.js electronPdfReader); none in a process without windows.
+// ([base64 PDF]) -> [{pages: [base64 PNG], text}]: set by main.js (ai/pdf-pages.js electronPdfReader, one window per call for all the
+// call's PDFs); none in a process without windows.
 let pdfReader = null;
 export const setPdfReader = read => { pdfReader = read; };
 
 // The request with each PDF replaced by its text (as `[attached PDF ./document-N.pdf, its text:]`) and its pages as PNG images.
 export async function withPdfsAsPages(request, read = pdfReader) {
+  const pdfs = request.messages.flatMap(message => message.parts.filter(part => typeof part !== 'string' && part.kind === 'pdf'));
+  if (!pdfs.length) return request;
+  if (!read) throw new AiError(PDF_TEXT);
+  const done = await read(pdfs.map(part => part.data));   // every PDF of the call at once
   let n = 0;
-  const messages = [];
-  for (const message of request.messages) {
-    const parts = [];
-    for (const part of message.parts) {
-      if (typeof part === 'string' || part.kind !== 'pdf') { parts.push(part); continue; }
-      if (!read) throw new AiError(PDF_TEXT);
-      n += 1;
-      const {pages, text} = await read(part.data);
-      parts.push(`[attached PDF ./document-${n}.pdf, its text:]\n${text}`, ...pages.map(png => ({kind: 'image', mediaType: 'image/png', data: png})));
-    }
-    messages.push({...message, parts});
-  }
-  return n ? {...request, messages} : request;
+  const messages = request.messages.map(message => ({...message, parts: message.parts.flatMap(part => {
+    if (typeof part === 'string' || part.kind !== 'pdf') return [part];
+    const {pages, text} = done[n];
+    n += 1;
+    return [`[attached PDF ./document-${n}.pdf, its text:]\n${text}`, ...pages.map(png => ({kind: 'image', mediaType: 'image/png', data: png}))];
+  })}));
+  return {...request, messages};
 }
 
 // What a failed `codex exec` said, as {kind, text} (the CLI's own error output, never page or mail content).
