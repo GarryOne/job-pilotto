@@ -552,6 +552,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/stores/__main__.py` — `python -m src.stores call <entity> <method> '<json kwargs>'`: one store method, JSON out on stdout.
 - `src/stores/base.py` — The store interface: one Protocol per entity of the user's data, plain dicts in and out (never Notion JSON).
+- `src/stores/copy.py` — Move the user's data from one store to another ("Move my data to Notion"): every entity, through the interface.
 - `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
 - `src/tgcard.py` — One look for every Telegram message Job Pilotto sends (Telegram HTML).
