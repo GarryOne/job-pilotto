@@ -1325,6 +1325,9 @@ main { min-width: 0; }
 .ss-need.is-ask .ss-ask-line { flex-wrap: nowrap; }
 .ss-need.is-ask .ss-ask-input { max-width: none; min-width: 0; }
 .ss-need.is-ask .ss-need-actions { flex: none; }
+/* A knockout question's row (need-knockout.js): a warning edge and a bold line, the same edge as the other warning cards. */
+.ss-need.is-knockout { padding-left: calc(var(--sp-3) - 3px); border-left: 4px solid var(--warn); border-color: var(--warn-line); border-left-color: var(--warn); }
+.ss-need-knock { color: var(--warn); font-size: var(--fs-sm); }
 .ss-ask-save { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); white-space: nowrap; margin: 0; }
 .ss-ask-save input { width: auto; margin: 0; }
 .ss-ask-save.is-saved { color: var(--good); }

@@ -54,7 +54,7 @@ test('Claude reads which detail a label asks for, once per label, in any languag
 test('every way the card is fed shows proposals: Claude\'s message (askRow) and the form\'s report (emptyRow)', () => {
   const needs = fs.readFileSync(new URL('../renderer/pages/session-needs.js', import.meta.url), 'utf8');
   assert.match(needs, /export function askRow[\s\S]*?input\.value = saved \|\| need\.suggested/);
-  assert.match(needs, /export function emptyRow\(label, item\) \{\n  const proposal = proposalFor\(item, label\); if \(proposal\) return proposedRow/);
+  assert.match(needs, /export function emptyRow\(label, item\) \{\n  const proposal = proposalFor\(item, label\); if \(proposal\) return markKnockout\(proposedRow/);
 });
 
 test('Enter in an answer box presses its button, for every row with one (Use, Fill it in, Send to Claude)', () => {
@@ -97,4 +97,15 @@ test('the session page redraws when proposals arrive after its rows were drawn; 
   assert.match(needs, /JSON\.stringify\(before\?\.proposals \|\| \[\]\) !== JSON\.stringify\(state\.proposals \|\| \[\]\)/);   // 9 Oct 2026: 5 of 7 stayed bare "still empty"
   const css = fs.readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8');
   assert.match(css, /\.ss-need\.is-ask \.ss-ask-input \{ max-width: none/);   // "Use" ends at the right edge, where "Open in form" does
+});
+
+test('a knockout question\'s row is marked in every row kind: proposed, empty and asked (the AI\'s list or the shared pattern)', () => {
+  const src = f => fs.readFileSync(new URL(f, import.meta.url), 'utf8');
+  const needs = src('../renderer/pages/session-needs.js');
+  assert.match(needs, /markKnockout\(proposedRow\(item, label, proposal\), item, label\)/);
+  assert.match(needs, /return markKnockout\(li, item, label\)/);
+  assert.match(needs, /return markKnockout\(li, item, need\.question\)/);
+  const mark = src('../renderer/pages/need-knockout.js');
+  assert.match(mark, /KNOCKOUT\.test\(label\) \|\| \(reviewStates\.get\(item\.id\)\?\.knockouts \|\| \[\]\)\.includes\(label\)/);   // the same test as "Before you submit"
+  assert.match(src('../renderer/style.css'), /\.ss-need\.is-knockout \{ border-left: 4px solid var\(--warn\)/);
 });

@@ -4,7 +4,7 @@ import {replyOf, splitLabel, unbold} from '../session-message.js';
 import {checkingTabs, chromeSilent, tabClosed} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
-import {answerOptions} from '../answer-options.js'; import {proposalFor, proposedRow} from './need-proposal.js';
+import {answerOptions} from '../answer-options.js'; import {proposalFor, proposedRow} from './need-proposal.js'; import {markKnockout} from './need-knockout.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openView} from './nav.js';
@@ -169,7 +169,7 @@ export function emptyFields(item, needs) {
   return left;
 }
 export function emptyRow(label, item) {
-  const proposal = proposalFor(item, label); if (proposal) return proposedRow(item, label, proposal);   // its answer, back (need-proposal.js)
+  const proposal = proposalFor(item, label); if (proposal) return markKnockout(proposedRow(item, label, proposal), item, label);   // its answer, back (need-proposal.js)
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
   const more = /^\d+ more fields?$/.test(label), name = label.replace(/\s*\*\s*$/, '');
@@ -179,7 +179,7 @@ export function emptyRow(label, item) {
   actions.append(more ? smallButton('Open the form', 'primary', event => openForm(item, event.currentTarget))
     : smallButton('Open in form', 'secondary is-signal', event => showInForm(item, label, event.currentTarget)));
   li.append(badge(), body, actions);
-  return li;
+  return markKnockout(li, item, label);
 }
 // A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to
 // fix it. The sentence comes from the app (server.staleExtension), so it is the same one a failed fill records.
@@ -402,7 +402,7 @@ export function askRow(need, item) {
   body.append(line);
   li.append(badge(), body);
   if (handled.has(key)) { li.classList.add('is-done'); actions.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${handled.get(key)}`)); }
-  return li;
+  return markKnockout(li, item, need.question);
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
