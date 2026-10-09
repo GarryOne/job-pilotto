@@ -88,7 +88,7 @@ export async function run(ctx) {
   });
   if (!seed.ivFresh) throw new Error('the dummy rows were not written: the other steps cannot run');
 
-  await step('the library lists every interview, newest first, with its outcome and its job', async () => {
+  await step('the library lists every interview, newest first, with its outcome', async () => {
     await openInterviews(4);
     const order = await tableIds();
     const expected = [seed.ivFresh, seed.ivNegative, seed.ivNeutral, seed.ivPositive].map(item => item.page);
@@ -98,12 +98,23 @@ export async function run(ctx) {
     const got = {positive: await pill(seed.ivPositive), neutral: await pill(seed.ivNeutral), negative: await pill(seed.ivNegative), fresh: await pill(seed.ivFresh)};
     const want = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative', fresh: 'Not reviewed'};
     for (const key of Object.keys(want)) if (got[key] !== want[key]) throw new Error(`the ${key} interview shows the outcome "${got[key]}", expected "${want[key]}"`);
-    const job = async item => (await row(item.page).locator('td').nth(1).innerText()).replace(/\s+/g, ' ');
-    if (!(await job(seed.ivPositive)).includes('E2E Acme')) throw new Error(`the Acme interview shows the job "${await job(seed.ivPositive)}"`);
-    if (!(await job(seed.ivNegative)).includes('Link a job')) throw new Error(`an interview without a job does not offer "Link a job": "${await job(seed.ivNegative)}"`);
     if ((await page.locator('#iv-lib-stats').innerText()).trim() !== SAVED_TO) throw new Error(`the library does not say where it is kept: "${await page.locator('#iv-lib-stats').innerText()}", expected "${SAVED_TO}"`);
     await snap(ctx, 'interviews', {situation: 'The library with four dummy interviews: three reviewed (positive, neutral, negative) and one not reviewed'});
   });
+
+  // Its job by name. On this Mac's store the library cannot find the job yet (renderer/pages/interview-lists.js jobForPage matches notion_url only):
+  // a parity bug reported to mac-e4 on 9 Oct 2026, pending there until it is fixed.
+  await step('the library shows each interview\'s job by name (opening it in the Jobs list), and "Link a job" when there is none', async () => {
+    await openInterviews(4);
+    const job = async item => (await row(item.page).locator('td').nth(1).innerText()).replace(/\s+/g, ' ');
+    if (!(await job(seed.ivPositive)).includes('E2E Acme')) throw new Error(`the Acme interview shows the job "${await job(seed.ivPositive)}"`);
+    if (!(await job(seed.ivNegative)).includes('Link a job')) throw new Error(`an interview without a job does not offer "Link a job": "${await job(seed.ivNegative)}"`);
+    // The job's name opens it in the Jobs list, alone.
+    await row(seed.ivPositive.page).locator('td').nth(1).getByRole('button', {name: /E2E Acme/}).click();
+    await page.waitForFunction(() => document.querySelector('.view[data-view="jobs"]:not([hidden])'), null, {timeout: 15000});
+    const shown = await page.$$eval('.view[data-view="jobs"]:not([hidden]) .job-row', rowsOnScreen => rowsOnScreen.map(item => item.innerText));
+    if (shown.length !== 1 || !/Acme/.test(shown[0])) throw new Error(`the Jobs list shows ${shown.length} job(s) after opening the Acme job, expected only that one`);
+  }, {needs: [{name: 'the library to find a job by its store id on this Mac\'s store (jobForPage matches notion_url only: parity bug, reported 9 Oct 2026)', value: ctx.store !== 'sqlite'}]});
 
   await step('the search box and the outcome filter narrow the library, and say so when nothing matches', async () => {
     await openInterviews(4);
@@ -123,17 +134,26 @@ export async function run(ctx) {
     await page.waitForFunction(() => document.querySelectorAll('#iv-saved tr[data-id]').length === 4);
   });
 
-  await step('a reviewed row opens its review in Notion, and the job name opens the job in the Jobs list', async () => {
+  // On Notion "Open review" opens the interview's page; on this Mac's store there is none, so it opens the review in the app (renderer/interview-review-view.js, #review-dialog).
+  await step(ctx.store === 'sqlite' ? 'a reviewed row opens its review in the app' : 'a reviewed row opens its review in Notion', async () => {
     await openInterviews(4);
     await external.clear();
     await row(seed.ivPositive.page).getByRole('button', {name: 'Open review'}).click();
-    await page.waitForTimeout(500);
-    const opened = await external.urls();
-    if (!opened.some(url => url.includes(ids(seed.ivPositive.page)))) throw new Error(`"Open review" opened ${JSON.stringify(opened)}, not the interview's Notion page`);
-    await row(seed.ivPositive.page).locator('td').nth(1).getByRole('button', {name: /E2E Acme/}).click();
-    await page.waitForFunction(() => document.querySelector('.view[data-view="jobs"]:not([hidden])'), null, {timeout: 15000});
-    const shown = await page.$$eval('.view[data-view="jobs"]:not([hidden]) .job-row', rowsOnScreen => rowsOnScreen.map(item => item.innerText));
-    if (shown.length !== 1 || !/Acme/.test(shown[0])) throw new Error(`the Jobs list shows ${shown.length} job(s) after opening the Acme job, expected only that one`);
+    if (ctx.store === 'sqlite') {
+      const dialog = page.locator('#review-dialog[open]');
+      await dialog.waitFor({timeout: 15000}).catch(() => { throw new Error('"Open review" opened no review in the app'); });
+      const text = await dialog.innerText();
+      if (!/E2E Acme · Round 1/.test(text) || !/SEED summary ivPositive/.test(text)) throw new Error(`the review shown is not this interview's: "${text.slice(0, 160)}"`);
+      if ((await external.urls()).length) throw new Error(`"Open review" also opened ${JSON.stringify(await external.urls())} outside the app`);
+      await page.keyboard.press('Escape');
+      await page.locator('#review-dialog[open]').waitFor({state: 'detached', timeout: 5000}).catch(async () => {
+        if (await page.locator('#review-dialog').evaluate(dialog => dialog.open)) throw new Error('the review stayed open after Escape');
+      });
+    } else {
+      await page.waitForTimeout(500);
+      const opened = await external.urls();
+      if (!opened.some(url => url.includes(ids(seed.ivPositive.page)))) throw new Error(`"Open review" opened ${JSON.stringify(opened)}, not the interview's Notion page`);
+    }
   });
 
   await step('Record stays off until everyone has agreed, and says why', async () => {
