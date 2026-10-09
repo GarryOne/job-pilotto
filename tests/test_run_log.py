@@ -40,6 +40,7 @@ def value(prop):
 class Quiet(unittest.TestCase):
     def setUp(self):
         run_log._open.clear()
+        run_log._auto.clear()   # a test that runs a logged command (--log-run) switches logging on for the whole process
         run_log._output.clear()
         run_log._last_step['at'] = 0.0
         for target, new in ((run_log, {'_install': lambda: None, '_heartbeat': lambda run: None, 'STEP_EVERY': 0}),):
@@ -50,6 +51,7 @@ class Quiet(unittest.TestCase):
         messages.start()
         self.addCleanup(messages.stop)
         self.addCleanup(run_log._open.clear)
+        self.addCleanup(run_log._auto.clear)
 
 
 class StoreRunTests(Quiet):
@@ -171,6 +173,16 @@ class NotionRowTests(Quiet):
             for column, prop in today['properties'].items():
                 self.assertEqual(value(row['properties'].get(column)), value(prop), f"{today['properties']['Mode']}: {column}")
             self.assertEqual(shown(fake.blocks[row['id']]), shown(today['children']), str(today['properties']['Mode']))
+
+
+def tearDownModule():
+    """Nothing here leaves run logging switched on for the next test module (9 Oct 2026: the scout's --log-run test left
+    run_log._auto set, so a later module's logged run opened a run_log row and cron_runs raised BothLogs, in one CI shard only)."""
+    left = {name: dict(state) for name, state in (('_auto', run_log._auto), ('_open', run_log._open)) if state}
+    run_log._auto.clear()
+    run_log._open.clear()
+    if left:
+        raise AssertionError(f'run_log state left set by tests/test_run_log.py: {sorted(left)}')
 
 
 if __name__ == '__main__':
