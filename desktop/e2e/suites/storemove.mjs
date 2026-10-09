@@ -11,7 +11,7 @@ import {launch} from '../lib/app.mjs';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
 import {NOTION_PROFILE, TEXTS, answerImport, answerSave, copyProcess, fileBlocks, journalOf, pageText, rowsIn, sameScreens, screens, seedStore,
-  logLines, settingsOf, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
+  afterFirstSearch, logLines, searches, settingsOf, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
 
 export const name = 'storemove';
 export const store = 'sqlite';
@@ -56,7 +56,7 @@ function oncePerRecord(standIn, label) {
 
 export async function run(ctx) {
   const {page} = ctx;
-  let before = null, exportFile = '', profileId = '';
+  let before = null, afterConnect = null, exportFile = '', profileId = '';   // afterConnect: what the move must keep (the store after the connect's search)
 
   await ctx.run('an app on this Mac\'s store holds real-shaped data on every screen', async () => {
     if (!ctx.standIn || ctx.root) throw new Error('the suite needs the stand-in and no real workspace');   // isolation: no token, no real Notion
@@ -84,7 +84,10 @@ export async function run(ctx) {
     const ids = await buildStandIn(ctx.standIn);   // a workspace from before, as a person who used Notion earlier has
     profileId = ids.NOTION_PROFILE_PAGE_ID;
     writeProfile(ctx.standIn, profileId, NOTION_PROFILE);
+    const mark = searches(ctx.profile);
     await connect(page, ctx.token);
+    // The screens the move must keep are the store's once the search the connect starts has ended (lib/storemove-steps.mjs afterFirstSearch).
+    afterConnect = await afterFirstSearch(ctx.profile, mark, before, () => ctx.data('matches', 'list'));
     const settings = settingsOf(ctx.profile);
     if (settings.store !== 'sqlite') throw new Error(`connecting changed the store to ${settings.store}`);
     const gone = Object.keys(TEXTS).filter(name => !fs.existsSync(path.join(ctx.profile, `${name}.md`)));
@@ -126,7 +129,7 @@ export async function run(ctx) {
   await ctx.run('Jobs, Focus, Interviews and Recent activity show the same items from Notion', async () => {
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-    sameScreens(before, await screens(page));
+    sameScreens(afterConnect || before, await screens(page));
   });
 
   // A second install: the export, imported into a fresh profile, then moved into its own empty Notion.
@@ -158,7 +161,9 @@ export async function run(ctx) {
 
     await ctx.run('the imported install moves into an empty Notion: its Profile and every record arrive once', async () => {
       if (!second) throw new Error('no second install');
+      const mark = searches(second.profile);
       await connect(second.page, standIn2.token);
+      const expected = await afterFirstSearch(second.profile, mark, before, () => ctx.data('matches', 'list', {}, {profile: second.profile}));
       const done = await pressMove(second.page);
       if (!/Moved to Notion ✓/.test(done) || /already had/.test(done)) throw new Error(`the move says "${done}"`);
       oncePerRecord(standIn2, 'the imported install');
@@ -166,7 +171,7 @@ export async function run(ctx) {
       if (!pageText(standIn2, ids.NOTION_PROFILE_PAGE_ID).includes('ten years')) throw new Error('this Mac\'s Profile did not reach the empty Notion');
       await second.page.reload();
       await second.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-      sameScreens(before, await screens(second.page));
+      sameScreens(expected, await screens(second.page));
       if (standIn2.stats.unknown.length) throw new Error(`the second stand-in met requests it does not know: ${standIn2.stats.unknown.join('; ')}`);
     });
   } finally {

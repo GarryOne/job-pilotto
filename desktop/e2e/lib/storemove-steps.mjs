@@ -102,3 +102,30 @@ export function writeProfile(standIn, pageId, text) {
   const {status} = standIn.handle('PATCH', `blocks/${pageId}/children`, {children: [{object: 'block', type: 'paragraph', paragraph: {rich_text: [{type: 'text', text: {content: text}}]}}]}, new URLSearchParams());
   if (status !== 200) throw new Error(`the stand-in did not take the Profile text (${status})`);
 }
+
+// The engine searches the app started and ended (its app.log, as suites/notion-real.mjs reads them).
+export function searches(profile) {
+  let lines = [];
+  try { lines = appLogLines(profile).filter(line => /\[run\] (start|end): python -m src daily/.test(line)); } catch { /* no log yet */ }
+  return {started: lines.filter(line => /\[run\] start:/.test(line)).length, ended: lines.filter(line => /\[run\] end:/.test(line)).length};
+}
+
+// Connecting Notion starts the app's first search on this Mac's store; its full sync may mark a seeded match not seen, and the Jobs list then hides it
+// (owner's rule, 7 Oct 2026). Not the move's doing: wait for that search (started after `mark`, a searches() taken before the connect) to end, then
+// expect the jobs the store still shows: a match it marked not seen or dismissed leaves `before.jobs` (CI, 9 Oct 2026: Orrin AG, both stores; as mac-48's
+// notion-real does). A search that never starts within startMs changes nothing. matches: the store's match list (ctx.data('matches', 'list')).
+export async function afterFirstSearch(profile, mark, before, matches, {startMs = 60000, endMs = 240000, sleep = ms => new Promise(r => setTimeout(r, ms))} = {}) {
+  const begun = Date.now();
+  while (searches(profile).started <= mark.started) {
+    if (Date.now() - begun > startMs) { console.log('  no search started after the connect: the expected screens stay as they were'); return before; }
+    await sleep(1000);
+  }
+  while (searches(profile).ended < searches(profile).started) {
+    if (Date.now() - begun > endMs) throw new Error(`the first search after the connect did not end within ${endMs / 1000} s`);
+    await sleep(2000);
+  }
+  const list = await matches();
+  const hidden = list.filter(match => /not seen|dismissed/i.test(match.status || '')).map(match => match.company);
+  if (hidden.length) console.log(`  the first search marked ${JSON.stringify(hidden)} not seen: the Jobs list hides them, as it should`);
+  return {...before, jobs: before.jobs.filter(company => !hidden.includes(company))};
+}
