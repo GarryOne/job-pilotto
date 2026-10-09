@@ -60,7 +60,10 @@ AGENT_RUN_EXTRAS = ('job', 'company', 'job_stage', 'agent', 'status', 'reason', 
                     'output_tokens', 'working_min', 'waiting_min', 'times_asked', 'reply_median_s', 'ready_to_decided_min', 'turns',
                     'tool_calls', 'tools_used', 'tokens_in', 'tokens_out', 'cache_read', 'model', 'timeline', 'data')
 CRON_RUN_FIELDS = ('id', 'kind', 'where', 'status', 'started_at', 'finished_at', 'summary', 'report', 'result',
-                   'log', 'progress', 'trigger', 'mode', 'run_url', 'application', 'stats')
+                   'log', 'progress', 'trigger', 'mode', 'run_url', 'application', 'stats',
+                   # title: the row's name, the engine's ("2026-09-29 16:02 · Interview prep · Huxley — Principal SRE"); log_id: the
+                   # id that joins the row to logs/app.log, logs/engine.log and the Actions log (Notion's "Run id").
+                   'title', 'log_id')
 # A run's numbers (`stats`, a dict): what Recent activity and Telegram /status show. Keys are these; the Notion adapter maps each to its
 # ⏱️ Search runs column (New jobs, Scored, AI cost (USD)…). A key not set is absent from the dict.
 RUN_STATS = ('new_jobs', 'changed_jobs', 'scored', 'kits', 'emails', 'updates', 'closed_stale', 'feeds', 'feed_errors',
@@ -213,9 +216,12 @@ class AgentRuns(Protocol):
 
 class CronRuns(Protocol):
     """Every run's row (⏱️ Search runs): the one run history."""
-    def begin(self, kind: str, where: str, fields=None) -> dict: ...  # fields: trigger, mode, run_url, application
+    def begin(self, kind: str, where: str, fields=None) -> dict: ...  # fields: trigger, mode, run_url, application, title, log_id
     def progress(self, run_id: str, line: str) -> None: ...
-    def finish(self, run_id: str, status: str, summary='', report='', result='', log='', stats=None) -> dict: ...
+    # The heartbeat of a long quiet step: its numbers so far (duration_s…) merged in, nothing else changed.
+    def touch(self, run_id: str, stats=None) -> None: ...
+    # title: the row's final name, when the run knows what it was about by the end.
+    def finish(self, run_id: str, status: str, summary='', report='', result='', log='', stats=None, title='') -> dict: ...
     def get(self, run_id: str) -> Optional[dict]: ...
     def list(self, since=None, kind=None) -> list: ...
     def put(self, record: dict) -> dict: ...

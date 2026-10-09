@@ -275,9 +275,13 @@ class CronRuns(_Table):
     def progress(self, run_id, line):
         self._get(run_id)['progress'].append(line)
 
-    def finish(self, run_id, status, summary='', report='', result='', log='', stats=None):
+    def touch(self, run_id, stats=None):
+        row = self._get(run_id)
+        row['stats'] = {**(row.get('stats') or {}), **_stats(stats or {})}
+
+    def finish(self, run_id, status, summary='', report='', result='', log='', stats=None, title=''):
         return self._update(run_id, {'status': status, 'summary': summary, 'report': report, 'result': result,
-                                    'log': log, 'finished_at': _now(),
+                                    'log': log, 'finished_at': _now(), **({'title': title} if title else {}),
                                     **({'stats': {**(self._get(run_id).get('stats') or {}), **_stats(stats)}} if stats else {})})
 
     def get(self, run_id):

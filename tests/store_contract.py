@@ -271,6 +271,19 @@ class StoreContract:
         with self.assertRaises(KeyError):
             self.s.cron_runs.finish(other['id'], 'Done', stats={'not a stat': 1})
 
+    def test_a_run_keeps_the_engines_title_and_log_id_and_a_heartbeat_touches_only_its_numbers(self):
+        run = self.s.cron_runs.begin('insight', 'mac', {'title': '2026-10-09 09:00 · Insight', 'log_id': 'r-42'})
+        self.assertEqual((run['title'], run['log_id']), ('2026-10-09 09:00 · Insight', 'r-42'))
+        self.s.cron_runs.touch(run['id'], {'duration_s': 300})
+        self.s.cron_runs.touch(run['id'], {'duration_s': 600})
+        busy = self.s.cron_runs.get(run['id'])
+        self.assertEqual((busy['status'], busy['stats'].get('duration_s'), busy['title']), ('Running', 600, '2026-10-09 09:00 · Insight'))
+        with self.assertRaises(KeyError):
+            self.s.cron_runs.touch(run['id'], {'not a stat': 1})
+        done = self.s.cron_runs.finish(run['id'], 'Done', summary='Skills', title='2026-10-09 09:00 · Insight · Skills')
+        self.assertEqual(self.s.cron_runs.get(run['id'])['title'], '2026-10-09 09:00 · Insight · Skills')
+        self.assertEqual(done['stats'].get('duration_s'), 600)
+
     def test_a_record_is_named_by_its_link_or_a_store_ref(self):
         run = self.s.cron_runs.begin('search', 'mac')
         named = self.s.link_or_ref('cron_runs', run['id'])

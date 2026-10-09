@@ -14,7 +14,7 @@ from . import notion_rows as rows
 COLUMNS = (('kind', 'Kind', 'select'), ('where', 'Where', 'select'), ('status', 'Status', 'select'),
            ('started_at', 'Started', 'date'), ('finished_at', 'Finished', 'date'), ('summary', 'Summary', 'rich_text'),
            ('trigger', 'Trigger', 'select'), ('mode', 'Mode', 'select'), ('run_url', 'Run URL', 'url'),
-           ('application', 'Application', 'relation1'))
+           ('application', 'Application', 'relation1'), ('title', 'Run', 'title'), ('log_id', 'Run id', 'rich_text'))
 STATS = {'new_jobs': ('New jobs', 'number'), 'changed_jobs': ('Changed jobs', 'number'), 'scored': ('Scored', 'number'),
          'kits': ('Kits', 'number'), 'emails': ('Emails', 'number'), 'updates': ('Updates', 'number'),
          'closed_stale': ('Closed stale', 'number'), 'feeds': ('Feeds', 'number'), 'feed_errors': ('Feed errors', 'number'),
@@ -110,11 +110,11 @@ class NotionCronRuns:
 
     def begin(self, kind, where, fields=None):
         fields = dict(fields or {})
-        unknown = set(fields) - {'trigger', 'mode', 'run_url', 'application'}
+        unknown = set(fields) - {'trigger', 'mode', 'run_url', 'application', 'title', 'log_id'}
         if unknown:
             raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
         values = {'kind': kind, 'where': where, 'status': 'Running', 'started_at': _now(), 'progress': [], **fields}
-        props = {**self._properties(values), **self._title(kind, values['started_at'])}
+        props = {**self._title(kind, values['started_at']), **self._properties(values)}  # the engine's title, when given
         return self._record(self.tracker.create_page(self.database_id, props))
 
     def progress(self, run_id, line):
@@ -124,10 +124,16 @@ class NotionCronRuns:
             props['Summary'] = rows.write(f'⏳ {line}', 'rich_text')
         self.tracker.update_page(run_id, props)
 
-    def finish(self, run_id, status, summary='', report='', result='', log='', stats=None):
+    def touch(self, run_id, stats=None):
+        self._page(run_id)
+        props = self._properties({}, stats)
+        if props:
+            self.tracker.update_page(run_id, props)
+
+    def finish(self, run_id, status, summary='', report='', result='', log='', stats=None, title=''):
         record = self._record(self._page(run_id))
         props = {**self._properties({'status': status, 'summary': summary, 'finished_at': _now()}, stats),
-                 **self._title(record['kind'], record['started_at'], summary)}
+                 **(self._properties({'title': title}) if title else self._title(record['kind'], record['started_at'], summary))}
         page = self.tracker.update_page(run_id, props)
         blocks = _body(report, result, log)
         for start in range(0, len(blocks), 100):
