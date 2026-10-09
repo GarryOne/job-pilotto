@@ -18,7 +18,13 @@ export async function openerOf(tab, waitMs = 250) {
 export const applyPressed = new Map();   // tab id → {at, url}: when and on which page the extension pressed its Apply button
 
 // A tab opened by an armed tab (Apply in a new tab) is the same session. A tab the user opened is not.
+// The mark the app puts on a tab it opens for a job (background.js FILL_MARK; a test keeps the two equal).
+export const APP_TAB_MARK = 'jobpilotto-fill';
 export async function followOpener(tab) {
+  // A tab the app opened for a job carries its mark from the start (url or pendingUrl): it is that job's, never the tab that happened to be in front.
+  // The from: key below is set a moment later, too late: on 9 Oct 2026 Nahrin's jobs.ch tab, opened while Coop's tab was in front, inherited Coop's
+  // session and its first tab report bound it to Coop (found by mac-1a).
+  if ([tab.url, tab.pendingUrl].some(address => String(address || '').includes(`#${APP_TAB_MARK}`))) return false;
   const opener = await openerOf(tab);
   if (opener == null) return false;
   if ((await sessionGet(`from:${tab.id}`))[`from:${tab.id}`]) return false;   // a tab the app opened for a job already has its own: the tab that was in front is not its parent (8 Oct 2026, side by side)

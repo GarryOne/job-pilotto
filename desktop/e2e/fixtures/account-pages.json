@@ -979,6 +979,41 @@
    "expect": {
     "answer": "already_exists"
    }
+  },
+  {
+   "id": "ready-en-implied-consent",
+   "phase": "ready",
+   "note": "sign-up where pressing the form's own button accepts the terms (jobs.ch): no checkbox, no link to open; the consent is the button itself",
+   "page": {
+    "url": "https://auth.jobs.ch/u/signup/identifier",
+    "title": "Create an account",
+    "headings": [
+     "Create an account"
+    ],
+    "controls": [
+     {
+      "type": "email",
+      "label": "Email address",
+      "required": true,
+      "state": "filled"
+     }
+    ],
+    "buttons": [
+     "Continue",
+     "Log in",
+     "Continue with Google",
+     "Continue with Apple"
+    ],
+    "texts": [
+     "By clicking, I accept the JobCloud Terms of Use and confirm I have read the Data Privacy Notice."
+    ],
+    "frames": []
+   },
+   "expect": {
+    "answer": "needs_person",
+    "needs": "Continue",
+    "needs_kind": "consent"
+   }
   }
  ]
 }

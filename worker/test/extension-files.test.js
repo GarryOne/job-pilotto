@@ -178,3 +178,11 @@ test('the panel\'s "Take over with Claude" shows only with Claude help on and th
   assert.match(read('desktop/lib/review.js'), /kind: session\.kind \|\| 'claude', stuck: session\.stuck \|\| ''\}/);
   assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: !!storage\.settings\(\)\.claudeConsent/);
 });
+
+test('a tab the app opened for a job never inherits the session of the tab that was in front (its mark is seen at once)', async () => {
+  const tabs = read('extension/tabs.js'), background = read('extension/background.js');
+  assert.equal(tabs.match(/export const APP_TAB_MARK = '([^']+)'/)[1], background.match(/export const FILL_MARK = '([^']+)'/)[1]);   // the same mark
+  const follow = tabs.slice(tabs.indexOf('export async function followOpener'));
+  assert.ok(follow.indexOf('APP_TAB_MARK') < follow.indexOf('await openerOf(tab)'), 'the mark is checked before anything is inherited from the opener');
+  assert.match(follow, /\[tab\.url, tab\.pendingUrl\]\.some\(address => String\(address \|\| ''\)\.includes\(`#\$\{APP_TAB_MARK\}`\)\)\) return false;/);
+});
