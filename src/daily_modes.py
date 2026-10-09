@@ -13,7 +13,7 @@ from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
 
 
-def import_mode(args, tracker):
+def import_mode(args, tracker, stores=None):
     # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
     if not args.job or not tracker:
         raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
@@ -31,12 +31,12 @@ def import_mode(args, tracker):
     failed = reply.startswith('⚠️')
     run['headline'] = log_text(reply).split('\n')[0][:300]
     if not (failed and not cron_runs.total_usd(run)):
-        log_ai_run(tracker, run, args, failed=failed)
+        log_ai_run(stores, run, args, failed=failed)
     print(log_text(reply))
     return 1 if failed else 0
 
 
-def apply_mode(args, tracker):
+def apply_mode(args, tracker, stores=None):
     if not args.job or not tracker:
         raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
     with store.connect(args.db) as db:
@@ -48,7 +48,7 @@ def apply_mode(args, tracker):
     return 0
 
 
-def prepare_mode(args, tracker):
+def prepare_mode(args, tracker, stores=None):
     if not args.job or not tracker:
         raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
     run = new_cron_run('prepare')
@@ -57,14 +57,14 @@ def prepare_mode(args, tracker):
     with store.connect(args.db) as db:
         messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run, drafted_out=drafted)
     print(log)
-    log_ai_run(tracker, run, args)
+    log_ai_run(stores, run, args)
     print('\n\n'.join(messages))  # the kit is saved in Notion; no Telegram message (owner, 5 Oct 2026: not relevant)
     if drafted:  # the run's card in the app: the job and "nothing sent", on the kits card's shape
         telegram.to_app(kits_message(drafted, 'Drafted for this job · nothing sent'))
     return 0
 
 
-def kits_mode(args, tracker):
+def kits_mode(args, tracker, stores=None):
     # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
     # scores already stored. No crawl, no scoring: the same step a search runs after scoring (auto-kit), on demand.
     if not tracker:
@@ -87,12 +87,12 @@ def kits_mode(args, tracker):
     run['headline'] = f'Kits ready: {len(drafted)}' if drafted else 'Kits ready: 0, no new top match'
     run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted]
     print(run['headline'])
-    log_ai_run(tracker, run, args)
+    log_ai_run(stores, run, args)
     telegram.to_app(message)  # shown in the app only; kits get no Telegram message (owner, 5 Oct 2026)
     return 0
 
 
-def add_message_mode(args, tracker):
+def add_message_mode(args, tracker, stores=None):
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
     if not tracker:
@@ -141,14 +141,14 @@ def add_message_mode(args, tracker):
     run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
     # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
     if not (failed and not cron_runs.total_usd(run)):
-        log_ai_run(tracker, run, args, failed=failed)
+        log_ai_run(stores, run, args, failed=failed)
     print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
     if args.send:
         telegram.send(reply, *telegram.credentials())
     return 1 if failed else 0
 
 
-def add_link_mode(args, tracker):
+def add_link_mode(args, tracker, stores=None):
     # /add <job URL> [date]: track an application made outside Job Pilotto.
     if not tracker:
         raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
@@ -187,14 +187,14 @@ def add_link_mode(args, tracker):
     run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
     # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
     if not (failed and not cron_runs.total_usd(run)):
-        log_ai_run(tracker, run, args, failed=failed)
+        log_ai_run(stores, run, args, failed=failed)
     print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
     if args.send:
         telegram.send(reply, *telegram.credentials())
     return 1 if failed else 0
 
 
-def interview_mode(args, tracker):
+def interview_mode(args, tracker, stores=None):
     from .stores import chosen
     if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit('--mode interview requires NOTION_TOKEN')
@@ -221,7 +221,7 @@ def interview_mode(args, tracker):
             print('Interview insights: not refreshed after a review again (Refresh on the Interviews page)')
         else:
             print(interview_insights.after_review(tracker, stats=run['insight']))
-        log_ai_run(tracker, run, args)
+        log_ai_run(stores, run, args)
     except ValueError as error:  # the owner sent something that can't be analysed: say why
         print(error)
         if sender:
@@ -239,7 +239,7 @@ def interview_mode(args, tracker):
     return 0
 
 
-def insight_mode(args, tracker):
+def insight_mode(args, tracker, stores=None):
     from .stores import chosen
     if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')
@@ -254,7 +254,7 @@ def insight_mode(args, tracker):
                 ('No new insight: nothing worth saying today' if args.mode == 'insight' else 'Weekly report: nothing to report')
             run['subject'] = insights.category_of(run['headline']) if args.mode == 'insight' else ''
             print(run['headline'])
-            log_ai_run(tracker, run, args)
+            log_ai_run(stores, run, args)
         except Exception as error:
             if not cost.limit_reached(error):
                 raise
@@ -269,5 +269,5 @@ def insight_mode(args, tracker):
             print(reason)
             run['warnings'].append(reason)
             run['headline'] = f"{'Insight' if args.mode == 'insight' else 'Weekly report'} paused"
-            log_ai_run(tracker, run, args)
+            log_ai_run(stores, run, args)
     return 0

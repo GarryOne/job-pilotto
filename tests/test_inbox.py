@@ -175,8 +175,8 @@ class DailyAddTests(unittest.TestCase):
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.object(inbox, 'read', lambda *a, **k: answer), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
                 mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
-                mock.patch.object(daily.cron_runs, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
-                mock.patch.dict(daily.cron_runs._auto, {}), mock.patch.dict(daily.cron_runs._open, {}), \
+                mock.patch.object(daily.run_log, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
+                mock.patch.dict(daily.run_log._auto, {}), mock.patch.dict(daily.run_log._open, {}), \
                 mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             daily.main()
         return logged.get('run') or {}, [str(c.args[0]) for c in printed.call_args_list if c.args]
@@ -219,7 +219,7 @@ class DailyAddTests(unittest.TestCase):
         from unittest import mock
         from src import daily, daily_modes
         run = daily.new_cron_run('insight')
-        with mock.patch.object(daily.cron_runs, 'log_run', lambda tracker, r, failed=False: 'https://notion.test/run-1'), \
+        with mock.patch.object(daily.run_log, 'log_run', lambda tracker, r, failed=False: 'https://notion.test/run-1'), \
                 mock.patch('builtins.print') as printed:
             daily.log_ai_run(object(), run, SimpleNamespace(send=False, log_run=True))
         printed.assert_called_with('Cronjob run logged: https://notion.test/run-1')

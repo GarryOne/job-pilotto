@@ -8,15 +8,15 @@ import re
 from collections import Counter
 from datetime import datetime, timezone
 from html import escape
-from . import digest, employer_index, features, role_kinds, scout, store, telegram, tgcard
+from . import digest, employer_index, features, role_kinds, run_log, scout, store, telegram, tgcard
 from .ai import cost, enrich, kit, provenance, score
 from .notion import client as notion, cron_runs, ledger, matches
-from .paths import JOBS_DB, REPORTS, load_search_config
+from .paths import JOBS_DB, REPORTS, load_search_config, local_profile
 from .sources import ats, feeds
 from .stores import open_stores, rules
 
 
-new_cron_run = cron_runs.new_run  # kept for callers and tests
+new_cron_run = run_log.new_run  # kept for callers and tests
 
 
 def left_out(stats, what):
@@ -197,12 +197,12 @@ def kits_message(drafted, subtitle=None):
         for job, _ in drafted], emoji='📝')
 
 
-def log_ai_run(tracker, run, args, failed=False):
-    """⏰ Cronjob Runs row for an on-demand AI job (kit, interview, insight, weekly), so the month's rows add
-    up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
-    if tracker and (args.send or args.log_run):
+def log_ai_run(stores, run, args, failed=False):
+    """The run's row in the active store (⏱️ Search runs on Notion) for an on-demand AI job (kit, interview, insight, weekly), so the
+    month's rows add up to the AI spend the budget guard reads, on every store. Sending runs and the app's runs (--log-run) are logged."""
+    if args.send or args.log_run:
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        url = cron_runs.log_run(tracker, run, failed=failed)
+        url = run_log.log_run(stores, run, failed=failed)
         if url:
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
@@ -275,8 +275,34 @@ def save_run(run):
     (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
 
 
-def log_crawl(tracker, run):
-    url = cron_runs.log_run(tracker, run)
+def run_stores(tracker):
+    """The run's one store: the tracker's Notion when the engine holds one (JOB_PILOTTO_STORE may still choose another), else the
+    store the environment picks. And the Notion tracker for the steps only Notion has yet, None on any other store, so a person on
+    this Mac's store never gets a second copy of their data in Notion."""
+    stores = open_stores(tracker=tracker) if tracker else open_stores()
+    return stores, (tracker if stores.name == 'notion' else None)
+
+
+def url_stages(stores, notion):
+    """Job URL (as stored) -> Stage of every application. Notion: the tracker's own read, unchanged; any other store: its records."""
+    if notion:
+        return notion.url_stages()
+    return {record['url'].strip(): record['stage'] for record in stores.applications.list() if record.get('url')}
+
+
+def profile_source(stores, notion):
+    """What reads the Profile for scoring, or None when there is none: this Mac's profile.md, else the Notion page (read when used,
+    as before), else the store's Profile text."""
+    if local_profile():
+        return local_profile
+    if notion:
+        return notion.page_text
+    text = stores.texts.get('profile') or ''
+    return (lambda: text) if text.strip() else None
+
+
+def log_crawl(stores, run):
+    url = run_log.log_run(stores, run)
     if url:
         print(f'Cronjob run logged: {url}')  # the desktop app links its activity row to this
 
