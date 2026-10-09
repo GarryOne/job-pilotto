@@ -21,7 +21,7 @@ export const NOTION_PARITY = {
   'pages/activity-mail.js interviewPanel': JOB,
   'pages/activity-mail.js jobPrep': PREP,
   'pages/activity-mail.js jobLink': JOB,
-  'pages/activity-run-card.js renderRunCard': {pending: 'mac-cd (P8 F: Employers & Sources list)'},
+  'pages/activity-run-card.js renderRunCard': {view: 'pages/employers.js loadEmployers'},   // Find employers' card → All employers
   'pages/activity.js init': {view: 'pages/activity-panel.js openActivity'},                             // links inside a run's result: the weekly report in full, an insight
   'pages/focus.js openLink': {none: 'helper: its callers are rows of their own (focusCard)'},
   'pages/focus.js focusCard': JOB,
