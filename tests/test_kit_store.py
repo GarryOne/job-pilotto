@@ -5,6 +5,7 @@ the Notion stand-in (desktop/e2e/lib/notion-fake.mjs, node; skipped without it).
 import io
 import json
 import shutil
+import sqlite3
 import tempfile
 import unittest
 import urllib.request
@@ -12,7 +13,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from src import daily, desktop, store as job_store
+from src import daily, desktop, desktop_jobs, store as job_store
 from src.ai import kit, provenance
 from src.notion import client as notion
 from src.notion.client import Tracker
@@ -94,9 +95,8 @@ class KitOnNotionTests(unittest.TestCase):
         self.assertEqual(shape(on_page), shape(today))
         self.assertEqual(shape(on_page)[-1][3], 'json')
 
-    def test_a_kit_drafted_on_notion_lists_as_current(self):
-        """The Jobs list's "current inputs" and the kit's recorded ones are the same reading of the same pages (D7): a kit just
-        drafted is never "drafted with earlier inputs". The Profile is the real template (headings, a table, bullets)."""
+    def drafted(self):
+        """A Notion workspace on the stand-in with the real Profile template (headings, a table, bullets) and a kit drafted for URL."""
         tracker = Tracker(self.token, opener=_direct)
         env = {'NOTION_TOKEN': self.token}
         for variable, spec in SCHEMA['databases'].items():
@@ -114,19 +114,49 @@ class KitOnNotionTests(unittest.TestCase):
             job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
                                                          'url': URL, 'description': 'Kubernetes.'}]})
             daily.prepare_kit(db, notion.job_code(URL), tracker, FakeClient(), 'claude-sonnet-5-5', opener, stores=stores)
-        recorded = stores.applications.get(URL)['kit_inputs']
+        # Tracker.page_text reads the Profile page the environment names, as on a real install (its default is bound at import).
+        tracker.page_text = lambda page_id=env['NOTION_PROFILE_PAGE_ID']: Tracker.page_text(tracker, page_id)
+        return tracker, env, stores
+
+    def listed_state(self, tracker, env, stores, recorded):
+        """The kit state the Jobs list shows for a Kit ready job whose kit recorded `recorded`: `desktop jobs` run on the stand-in."""
         seen, out = {}, io.StringIO()
-        def jobs(db, limit, notion_jobs=None, kit_inputs=None, **kw):
-            seen['inputs'] = kit_inputs
+        listed = [{'url': URL, 'title': 'SRE', 'company': 'Acme', 'stage': 'Kit ready', 'next_step': '', 'kit_inputs': recorded}]
+        def jobs(db, limit, notion_jobs=None, **kw):
+            seen.update(kw)
             return {'jobs': notion_jobs}
-        listed = [{'url': URL, 'title': 'SRE', 'company': 'Acme', 'stage': 'Kit ready', 'next_step': ''}]
         with mock.patch.dict('os.environ', env), mock.patch.object(Tracker, 'from_env', return_value=tracker), \
                 mock.patch.object(tracker, 'notion_jobs', return_value=listed), \
-                mock.patch.object(tracker, 'page_text', lambda page_id=env['NOTION_PROFILE_PAGE_ID']: Tracker.page_text(tracker, page_id)), \
                 mock.patch('src.stores.open_stores', return_value=stores), mock.patch.object(desktop, 'jobs', side_effect=jobs), \
                 mock.patch.object(desktop.store, 'connect', create=True), redirect_stdout(out):
             desktop.main(['jobs'])
-        self.assertEqual(provenance.kit_state(recorded, seen['inputs']), 'current', (recorded, seen['inputs']))
+        kw = {name: seen[name] for name in ('kit_inputs', 'notion_kit_inputs') if name in seen}
+        return listed_kit_state(listed, **kw)
+
+    def test_a_kit_drafted_on_notion_lists_as_current(self):
+        """The Jobs list's "current inputs" and the kit's recorded ones are the same reading of the same pages (D7): a kit just
+        drafted is never "drafted with earlier inputs"."""
+        tracker, env, stores = self.drafted()
+        self.assertEqual(self.listed_state(tracker, env, stores, stores.applications.get(URL)['kit_inputs']), 'current')
+
+    def test_a_kit_recorded_before_the_stores_still_lists_as_current(self):
+        """A kit drafted before the store adapters recorded the Profile as Tracker.page_text read it: on Notion it stays current
+        (Notion users see no change, D7); a changed Profile still shows, and the old digest is never accepted off Notion."""
+        tracker, env, stores = self.drafted()
+        answers = kit.standard_answers(tracker, stores)
+        before, today = provenance.kit_inputs(tracker.page_text(), answers), provenance.kit_inputs(stores.texts.get('profile'), answers)
+        self.assertNotEqual(before, stores.applications.get(URL)['kit_inputs'], 'the two readings differ, or this test proves nothing')
+        self.assertEqual(self.listed_state(tracker, env, stores, before), 'current')
+        stores.texts.set('profile', 'A new Profile.')
+        tracker.__dict__.pop('_page_texts', None)
+        self.assertEqual(self.listed_state(tracker, env, stores, before), 'earlier:profile')
+        self.assertEqual(listed_kit_state([{'url': URL, 'stage': 'Kit ready', 'kit_inputs': before}], kit_inputs=today),
+                         'earlier:profile', 'off Notion only the store\'s own reading counts')
+
+def listed_kit_state(listed, **kw):
+    """The kit state desktop_jobs.jobs() gives the first of `listed` (Notion's rows), with no cached search results."""
+    with mock.patch.object(desktop_jobs.digest, 'eligible_jobs', lambda db: ([], [])):
+        return desktop_jobs.jobs(sqlite3.connect(':memory:'), notion_jobs=listed, **kw)['jobs'][0]['kit_state']
 
 
 def plain(block):
