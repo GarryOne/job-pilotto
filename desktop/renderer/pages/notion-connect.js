@@ -36,7 +36,8 @@ function progressLine({found, total, building, waitingPage, template, moving}) {
 
 // The prompt's words for its mode (rules connectMode): "Connect and move" with the move said up front, "Move to Notion" when connected already.
 function setMode(box) {
-  box.mode = connectMode({store: shared.state?.store, connected: notionConnected()});
+  // Connected is read from the store's own answer: state.notion holds Notion's pages only while Notion holds the data (main.js state).
+  box.mode = connectMode({store: shared.state?.store, connected: !!shared.state?.store?.notionConnected || notionConnected()});
   box.sent = box.mode === 'move';   // a move-only prompt is no connect to report
   const why = shared.state?.notionReasons?.[box.reason];
   const words = box.mode !== 'move' ? reasonText(box.reason) : why && box.reason !== 'move' ? `Move your data to Notion ${why}.` : '';
