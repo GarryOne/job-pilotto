@@ -28,8 +28,9 @@ export async function freePort() {
 
 // A copy of the extension folder whose built-in app address is `port` (extension/ itself is never edited). Throws when the address is not found in the
 // source: a rewrite that silently did nothing would leave the extension talking to the live app on 47111.
-export function copyExtension(port, from = EXTENSION_DIR) {
-  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-ext-')), 'extension');
+// `into`: rewrite an existing copy in place (a twin's browser has it loaded: twin-refresh.mjs); otherwise a fresh temp folder.
+export function copyExtension(port, from = EXTENSION_DIR, into = '') {
+  const dir = into || path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-ext-')), 'extension');
   fs.cpSync(from, dir, {recursive: true});
   const flow = path.join(dir, 'flow.js');
   const source = fs.readFileSync(flow, 'utf8');

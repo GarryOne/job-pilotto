@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {copyExtension, freePort, launchBrowser, makeOpenShim} from './lib/extension.mjs';
+import {grantAllSites, killGroup, portsFree, refresh, reloadExtension} from './lib/twin-refresh.mjs';
 import {realFolder} from '../lib/twin.js';
 
 const DESKTOP = path.resolve(import.meta.dirname, '..'), REPO = path.resolve(DESKTOP, '..');
@@ -67,13 +68,13 @@ async function main() {
   const port = await freePort(), cdp = await freePort(), browserCdp = await freePort(), shim = makeOpenShim(), extensionDir = copyExtension(port);
   // The owner's Chrome has the extension's "all sites" access granted (optional_host_permissions, one click there); the twin's copy has it
   // built in, so it reads any employer site as the owner's does (8 Oct 2026: on jobs.coop.ch the twin's extension saw no tab at all).
-  const manifest = JSON.parse(fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8'));
-  manifest.host_permissions = [...new Set([...(manifest.host_permissions || []), ...(manifest.optional_host_permissions || [])])];
-  fs.writeFileSync(path.join(extensionDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  grantAllSites(extensionDir);
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('JOB_PILOTTO_')));
-  const app = spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'],
+  // The app is started by a function: a refresh that touches its main process restarts it alone (same ports, same folder, same environment), the browser stays.
+  const startApp = () => spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'], detached: true,   // its own process group: lib/twin-refresh.mjs killGroup
     env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_TWIN_BROWSER_CDP: `http://127.0.0.1:${browserCdp}`,
       PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool}});
+  let app = startApp(), restarting = false;
   // A fresh browser profile at each start, with only the site sign-ins carried over (cookies, local storage) and saved back at stop.
   // A whole kept profile also kept the extension's worker state: once it ran stale background code, once (after clearing that) no worker
   // at all (8 Oct 2026). Nothing of the extension survives a restart now.
@@ -88,15 +89,15 @@ async function main() {
   // The dialog is dismissed here, a failure is ignored, and nothing a stray rejection raises stops the twin.
   browser.context.on('dialog', dialog => { dialog.dismiss().catch(() => {}); });
   process.on('unhandledRejection', error => say(`ignored (the twin stays up): ${String(error?.message || error).split('\n')[0].slice(0, 160)}`));
-  fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, browser: `http://127.0.0.1:${browserCdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
-  say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both.`);
+  fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, browser: `http://127.0.0.1:${browserCdp}`, port, app: app.pid, launcher: process.pid, repo: REPO, home: HOME, at: new Date().toISOString()}, null, 1));
+  say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both. npm run twin:drive -- refresh brings it to origin/main without a restart.`);
   // Stopping always stops the app first (8 Oct 2026: a stop that awaited the browser first left the twin's app running on its ports),
   // and an exit by any path kills it as a last resort.
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
     stopping = true;
-    app.kill();
+    await killGroup(app);
     fs.rmSync(path.join(LIVE, 'twin.json'), {force: true});
     await browser.close().catch(() => {});
     fs.rmSync(path.join(LIVE, 'browser'), {recursive: true, force: true});   // the sign-ins kept for next time, nothing else
@@ -113,8 +114,38 @@ async function main() {
     process.exit(0);
   };
   process.on('SIGINT', stop); process.on('SIGTERM', stop); process.on('SIGHUP', stop);
-  process.on('exit', () => { try { app.kill(); } catch { /* already gone */ } });
-  app.on('exit', code => { say(`app exited (${code})`); stop(); });
+  process.on('exit', () => { try { process.kill(-app.pid, 'SIGKILL'); } catch { /* already gone */ } });
+  const watch = child => child.on('exit', code => { if (restarting) return; say(`app exited (${code})`); stop(); });
+  watch(app);
+  // A live update (twin:drive refresh sends SIGUSR1; lib/twin-refresh.mjs): the worktree goes to origin/main, the extension copy the browser has loaded is
+  // rewritten and reloaded in place (its tabs stay), and only a change to the app's main process restarts the app, alone. The result is left in refresh.json.
+  const restartApp = async () => {
+    restarting = true;
+    const old = app;
+    await killGroup(old);
+    if (!(await portsFree([port, cdp]))) throw new Error(`the app's ports ${port}/${cdp} are still taken: the app was not restarted`);
+    execFileSync(process.execPath, ['scripts/stage.mjs'], {cwd: DESKTOP, stdio: 'ignore'});
+    app = startApp(); watch(app); restarting = false;
+    const file = path.join(LIVE, 'twin.json');
+    fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), app: app.pid}, null, 1));
+  };
+  let refreshing = false;
+  process.on('SIGUSR1', async () => {
+    if (refreshing) return;
+    refreshing = true;
+    let result;
+    try {
+      result = refresh({repo: REPO, extensionDir, port});
+      if (!result.error && result.kinds.extension) {
+        const loaded = await reloadExtension(browser.context).catch(error => ({state: `reload failed: ${String(error.message).split('\n')[0].slice(0, 100)}`}));
+        result.extension = loaded.state === 'ENABLED' && loaded.running ? `reloaded (${loaded.version})` : `NOT running: ${loaded.state}`;
+      }
+      if (!result.error && result.kinds.app) { await restartApp(); result.app = 'restarted'; }
+    } catch (error) { result = {error: String(error.message).split('\n')[0].slice(0, 200)}; }
+    fs.writeFileSync(path.join(LIVE, 'refresh.json'), JSON.stringify({at: Date.now(), ...result}));
+    say(`refresh: ${JSON.stringify(result)}`);
+    refreshing = false;
+  });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main().catch(error => { console.error(`twin: ${error.message}`); process.exit(1); });

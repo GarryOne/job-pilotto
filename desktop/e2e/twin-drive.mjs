@@ -10,6 +10,7 @@
 //   type <row title> <text>        types into a Needs your attention row of the app and presses Enter
 //   app "<js>" | page <tab> "<js>" evaluates in the app window | in a tab, prints the JSON result
 //   shot app|<tab> <file.png>      a screenshot of the app window or a tab
+//   refresh [--tabs]               live update to origin/main without closing the twin: extension reloaded, app window reloaded or the app alone restarted, the browser kept
 //   arrange                        both twin windows to the front, the browser on the right half
 import fs from 'node:fs';
 import os from 'node:os';
@@ -146,6 +147,43 @@ const commands = {
     await target.screenshot({path: file});
     await conn.close();
     return file;
+  },
+  // A live update without a restart (twin.mjs SIGUSR1; lib/twin-refresh.mjs): the twin's worktree goes to origin/main; a change to the extension is reloaded in
+  // the browser (its tabs stay; `--tabs` also reloads them so the page's panel gets the new script, which loses that page's fill state); a change to the app's
+  // main process restarts the app alone; otherwise the app window is reloaded. The browser, its tabs and sign-ins are never closed.
+  async refresh(flag = '') {
+    const info = twin(), file = path.join(path.dirname(TWIN_JSON), 'refresh.json'), asked = Date.now();
+    if (!info.launcher) throw new Error('this twin was started before refresh existed: restart it once (cd desktop && npm run twin)');
+    process.kill(info.launcher, 'SIGUSR1');
+    let result = null;
+    for (let waited = 0; waited < 90000 && !result; waited += 500) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      try { const found = JSON.parse(fs.readFileSync(file, 'utf8')); if (found.at >= asked) result = found; } catch { /* not written yet */ }
+    }
+    if (!result) throw new Error('the twin did not answer the refresh within 90 s');
+    if (result.error) throw new Error(`refresh stopped, nothing changed: ${result.error}`);
+    const done = [`${result.from} -> ${result.to}, ${result.files} file(s)`];
+    if (result.extension) done.push(`extension ${result.extension}`);
+    if (result.extension?.startsWith('reloaded') && flag === '--tabs') {
+      const browser = await connect('browser');
+      for (const tab of browser.pages.filter(page => page.url().startsWith('http'))) await tab.reload().catch(() => {});
+      await browser.close();
+      done.push('tabs reloaded');
+    }
+    if (result.app) {
+      for (let waited = 0; waited < 40000; waited += 1000) {   // the restarted app: its window answers on the same debugging port
+        const app = await connect('cdp').catch(() => null);
+        if (app && appWindow(app.pages)) { await app.close(); break; }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      done.push('app restarted (browser kept)');
+    } else {
+      const app = await connect('cdp');
+      await appWindow(app.pages).reload();
+      await app.close();
+      done.push('app window reloaded');
+    }
+    return done.join(' · ');
   },
   async arrange() {
     const browser = await connect('browser');
