@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window */
 // Every Recent activity state, checked in the real window on fictional data (fixtures/activity-states.json, the state viewer's): what a person
 // reads, the actions each state offers, the technical log's defaults, and a live run from Queued to Running to Completed or Failed, driven by
 // mocked activity data (no engine, no Notion, no AI). Owner, 6 Oct 2026: the redesigns of that day, kept from drifting back.
