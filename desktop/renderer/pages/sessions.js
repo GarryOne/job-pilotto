@@ -244,8 +244,8 @@ export function renderNextStep(item) {
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask && !isDevTalk(line));
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
-      ? 'The form is behind a sign-in or sign-up. Claude can create the account, read the confirmation email and fill the form; you still submit it.'
-      : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Claude can find the form, follow the links and fill it; you still submit it.')]
+      ? 'The form is behind a sign-in or sign-up. The extension fills it in Chrome; a robot check or a choice there is yours. If it stays stuck, Claude can take over; you still submit the application.'
+      : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Open it in Chrome to go on; if it stays stuck, Claude can find the form and fill it; you still submit it.')]
     : gone && asking ? [el('p', 'rich-p', 'Claude was working in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over); then Resume Claude carries on there.')]
     : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', item.kind === 'form' || item.inChrome ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
@@ -267,14 +267,15 @@ export function renderNextStep(item) {
   toggle.onclick = () => { full.hidden = !full.hidden; label(); };
   const actions = [], live = isLive(item);
   if (stuck) {
-    // Tier 3: the cheap ways ran out (the direct form link, then the Apply button); Claude is the one that can go further.
-    actions.push(sessionButton('Apply with Claude', 'primary', async event => {
+    // Tier 3: the cheap ways ran out. Chrome first, Claude the safety net (owner, 9 Oct 2026: "remove the 'Apply with Claude' from being orange";
+    // the panel's "Take over with Claude" is there while the form tab is open, this one when it isn't).
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => { await openForm(item, event.currentTarget); }, 'link'));
+    actions.push(sessionButton('Apply with Claude', 'secondary', async event => {
       const result = await opening(event.currentTarget, () => window.pilot.applyWithClaude(item.url, {title: item.title, company: item.company, location: item.location, workMode: item.workMode}));
       if (result?.ok === false) { toastMessage('Claude could not start', result.error || 'Try again.'); return; }
       await refreshSessions();
       if (result?.session?.id) openSession(result.session.id);
     }, 'bot'));
-    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => { await openForm(item, event.currentTarget); }, 'link'));
   }
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (gone) {
