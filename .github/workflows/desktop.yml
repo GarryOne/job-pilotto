@@ -223,14 +223,21 @@ jobs:
       - uses: actions/setup-python@v6   # only runs the pipeline tests; the app bundles its own Python
         with:
           python-version: '3.12'
-      - name: Unit tests · pipeline (Python)
-        run: python -m unittest discover -s tests
-      - name: Install
-        working-directory: desktop
-        run: npm ci
-      - name: Unit tests · app
-        working-directory: desktop
-        run: npm test
+      - name: Install (app, Worker, site)
+        run: |
+          for area in desktop worker site; do (cd "$area" && npm ci > "../install-$area.log" 2>&1) & done
+          wait -n || true; wait   # a failed install is caught by its tests below, with the log
+          for area in desktop worker site; do echo "::group::npm ci in $area"; cat "install-$area.log"; echo "::endgroup::"; done
+      # EXACTLY what CI · Tests runs on every push (build.yml: python, worker, site, desktop; `tools/check.sh --area …`), side by side so the step takes the longest one
+      # (about 45 s) instead of their sum. A build is "compiles, the unit tests pass, a small smoke passes" (owner, 10 Oct 2026); each log is shown in its own group.
+      - name: Unit tests · Python, Worker, site and app (the suites of CI · Tests), side by side
+        run: |
+          pids=""
+          for area in python worker site desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
+          status=0
+          for entry in $pids; do wait "${entry#*:}" || { status=1; echo "::error::The ${entry%%:*} unit tests failed"; }; done
+          for area in python worker site desktop; do echo "::group::unit tests · $area"; cat "unit-$area.log"; echo "::endgroup::"; done
+          exit $status
       - name: Add the shared Google app client
         env:
           CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}
@@ -256,11 +263,13 @@ jobs:
           npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
           codesign -dvv dist/mac-arm64/*.app 2>&1 | grep -q "Authority=Job Pilotto Self-Signed" \
             || { echo "::error::The app isn't signed with the release certificate"; exit 1; }
-      - name: Smoke test · the built app (bundled Python, Keychain, the Jobs screen)
+      # Smoke tests only in beta mode (the nightly, a beta by hand: owner, 10 Oct 2026); a "Build only" run is compile + unit tests.
+      - name: Smoke test · the built app (bundled Python, Keychain, signature, the binary, the Jobs screen)
+        if: needs.changes.outputs.gate == 'true'
         working-directory: desktop
         run: node scripts/mac-smoke.mjs "dist/Job-Pilotto-${VERSION}-arm64.zip" smoke
       - name: Keep the Mac screenshot
-        if: always()
+        if: always() && needs.changes.outputs.gate == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: mac-screens-${{ needs.changes.outputs.version }}
@@ -294,6 +303,12 @@ jobs:
     env:
       VERSION: ${{ needs.changes.outputs.version }}
     steps:
+      # Windows Defender scans every file the install and the build write; excluding the working folders takes the installer from ~75 s down (owner, 10 Oct 2026:
+      # "no build over 3-4 minutes"). Never fails the build: without it the build is only slower.
+      - name: Speed · leave the build folders out of Windows Defender
+        continue-on-error: true
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:LOCALAPPDATA\Programs", "$env:TEMP", "$env:RUNNER_TEMP"
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
@@ -323,6 +338,7 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null
           npm run build:win -- -c.buildVersion="${{ github.run_number }}"
       - name: Smoke test · the installed app (install, bundled Python, Credential Manager, the Jobs screen)
+        if: needs.changes.outputs.gate == 'true'
         working-directory: desktop
         run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke smoke
       # The slow checks of the installed app that the e2e cannot see because it runs from source (the transcription add-on's pip install and PyAV, the installer updating
@@ -337,7 +353,7 @@ jobs:
         with:
           subject-path: desktop/dist/Job-Pilotto-*-x64.exe
       - name: Keep the Windows screenshots
-        if: always()
+        if: always() && needs.changes.outputs.gate == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: windows-screens-${{ needs.changes.outputs.version }}

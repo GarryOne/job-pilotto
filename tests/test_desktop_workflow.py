@@ -84,12 +84,16 @@ class DesktopWorkflowTest(unittest.TestCase):
         # ("Put Compile, Smoke inside the Build"): the graph stays Anything new? -> Build -> E2E -> Release.
         for box in ('compile-mac', 'unit-mac', 'smoke-mac', 'compile-windows', 'unit-windows', 'smoke-windows', 'packaging-windows'):
             self.assertNotIn(f'\n  {box}:\n', WORKFLOW, f'{box} would be a box of its own in the graph')
-        for name, steps in (('build', ('Unit tests · pipeline (Python)', 'Unit tests · app', 'Compile · build and sign the app', 'Smoke test · the built app', 'mac-smoke.mjs')),
+        for name, steps in (('build', ('Unit tests · Python, Worker, site and app (the suites of CI · Tests), side by side', 'tools/check.sh --area "$area"', 'Compile · build and sign the app', 'Smoke test · the built app', 'mac-smoke.mjs')),
                             ('windows', ('Unit tests · app (on Windows)', 'Compile · build the installer', 'Smoke test · the installed app', 'windows-smoke.mjs'))):
             for step in steps:
                 self.assertIn(step, job(name))
             self.assertLess(job(name).index('Compile ·'), job(name).index('Smoke test ·'), 'the smoke test runs on what was compiled')
             self.assertLess(job(name).index('Smoke test ·'), job(name).index('Add to the release'), 'a build that fails its smoke test is not added to the release')
+        # Smoke tests only in beta mode (a nightly or a beta by hand), never on a "Build only" run (owner, 10 Oct 2026)
+        for name in ('build', 'windows'):
+            smoke = job(name).split('Smoke test ·')[1].split('- name:')[0]
+            self.assertIn("if: needs.changes.outputs.gate == 'true'", smoke)
         # the slow packaging checks only when e2e follows, and before the publish step
         packaging = job('windows').split('Smoke test · packaging checks')[1]
         self.assertIn("if: needs.changes.outputs.gate == 'true'", packaging.split('- name:')[0])

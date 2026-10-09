@@ -16,10 +16,12 @@ export function jobsScreen({exe, out, prefix, say}) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
   fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify(DONE));
   const png = path.join(out, `${prefix}-${name}.png`);
-  const result = spawnSync(exe, [], {timeout: 90000, stdio: 'inherit',
-    env: {...process.env, JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: WAIT_FOR_JOBS, JOB_PILOTTO_SMOKE_EVAL: REPORT}});
+  // A hard limit (SIGKILL: a quitting app can hang too) and the app's own output, shown when it fails: on a bare CI Mac the window once never came (10 Oct 2026).
+  const result = spawnSync(exe, [], {timeout: 60000, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 20 * 1024 * 1024,
+    env: {...process.env, ELECTRON_ENABLE_LOGGING: '1', JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: WAIT_FOR_JOBS, JOB_PILOTTO_SMOKE_EVAL: REPORT}});
+  const output = `${result.stdout || ''}${result.stderr || ''}`.trim().split('\n').slice(-25).join('\n');
   if (!fs.existsSync(png) || fs.statSync(png).size < 10000) {
-    throw new Error(`${name}: the installed app saved no screenshot (exit ${result.status}${result.error ? `, ${result.error.message}` : ''})`);
+    throw new Error(`${name}: the installed app saved no screenshot (exit ${result.status}, signal ${result.signal}${result.error ? `, ${result.error.message}` : ''}); its last output:\n${output || '(none)'}`);
   }
   const reported = fs.existsSync(`${png}.json`) ? JSON.parse(fs.readFileSync(`${png}.json`, 'utf8')) : null;
   if (!reported || reported.error) throw new Error(`${name}: the window answered nothing (${reported ? reported.error : `no ${path.basename(png)}.json`})`);
