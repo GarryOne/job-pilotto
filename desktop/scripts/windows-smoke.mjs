@@ -100,7 +100,11 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
   execFileSync(path.resolve(installer), WINDOWS_INSTALLER_ARGS, {stdio: 'inherit', timeout: 5 * 60 * 1000});
   if (running().includes(app.pid)) throw new Error('update: the installer finished while the old app was still running');
   if (!(await wait(() => running().length > 0, 60))) throw new Error(`update: the app was not opened again after installing (${WINDOWS_INSTALLER_ARGS.join(' ')})`);
-  say(`update ok on Windows: the installer (${WINDOWS_INSTALLER_ARGS.join(' ')}) closed the open app, installed and reopened it in ${Date.now() - started} ms`);
+  // Installed over what was there (a fresh runner never tried "replace in place" before this): the files and the bundled Python survive it.
+  // That the reinstalled app starts and draws its screens is what every screen check below runs on.
+  if (!fs.existsSync(exe)) throw new Error(`update: the app is gone after installing over itself: ${exe}`);
+  py(['-c', 'import anthropic, keyring']);
+  say(`update ok on Windows: the installer (${WINDOWS_INSTALLER_ARGS.join(' ')}) closed the open app, installed over it and reopened it in ${Date.now() - started} ms; the bundled Python still runs`);
   spawnSync('taskkill', ['/F', '/T', '/IM', 'Job Pilotto.exe'], {stdio: 'ignore'});   // the next checks start the app themselves
   if (!(await wait(() => running().length === 0, 30))) throw new Error('update: the reopened app could not be closed');
 }
@@ -147,21 +151,5 @@ for (const [name, js, settings, evalJs, ok] of SCREENS) {
   const [passed, what] = ok(reported);
   if (!passed) throw new Error(`${name}: expected ${what}, the window reported ${JSON.stringify(reported)}`);
   say(`screen ${name}: ${what} · ${path.basename(png)} (${Math.round(fs.statSync(png).size / 1024)} KB)`);
-}
-// Installing over an install, which is what an update really is: the app quits and /S replaces it where it stands.
-// Every check above ran against a fresh install on a bare runner, so "replace what is there" was never tried — and
-// that is the half of the update this machine can prove without a second release.
-{
-  execFileSync(path.resolve(installer), ['/S'], {stdio: 'inherit', timeout: 5 * 60 * 1000});
-  if (!fs.existsSync(exe)) throw new Error(`the app is gone after installing over itself: ${exe}`);
-  say(py(['-c', "print('the bundled Python still runs after installing over it')"]));
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-over-'));
-  const png = path.join(out, 'windows-install-over.png');
-  spawnSync(exe, [], {timeout: 90000, stdio: 'inherit',
-    env: {...process.env, JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: '',
-      JOB_PILOTTO_SMOKE_EVAL: `({wizard: !document.getElementById('wizard').hidden})`}});
-  const reported = fs.existsSync(`${png}.json`) ? JSON.parse(fs.readFileSync(`${png}.json`, 'utf8')) : null;
-  if (!reported?.wizard) throw new Error(`the app did not start after installing over it (${reported ? JSON.stringify(reported) : 'no answer'})`);
-  say('installing over an existing install ok: replaced quietly, and the app still starts');
 }
 say('Windows smoke test passed');
