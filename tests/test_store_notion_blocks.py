@@ -75,10 +75,13 @@ class CodecTests(unittest.TestCase):
 
     def test_text_that_looks_like_markdown_comes_back_as_written(self):
         tricky = ['# not a heading', '- not a list', '1. not a list', '> not a quote', '```', '---', '▸ not a toggle',
-                  'stars *x* and `ticks` and [x](y) and back\\slash', '  leading spaces', 'a\n- b\n  c']
+                  'stars *x* and `ticks` and [x](y) and back\\slash', '  leading spaces', 'a\n- b\n  c', 'a ] lone bracket']
         for text in tricky:
             blocks = [{'type': 'paragraph', 'paragraph': {'rich_text': [{'type': 'text', 'text': {'content': text}}]}}]
             self.assertEqual(runs(nb.to_blocks(nb.to_markdown(blocks))), runs(blocks), text)
+        linked = [{'type': 'bulleted_list_item', 'bulleted_list_item': {'rich_text': [{'type': 'text', 'text': {
+            'content': 'Your application — [Recorded] · Rejection', 'link': {'url': 'https://mail.google.com/mail/u/0/#all/1'}}}]}}]
+        self.assertEqual(runs(nb.to_blocks(nb.to_markdown(linked))), runs(linked))  # a link whose words hold brackets
         heading = [{'type': 'heading_2', 'heading_2': {'rich_text': [{'type': 'text', 'text': {'content': '▸ arrow'}}]}}]
         self.assertEqual(runs(nb.to_blocks(nb.to_markdown(heading))), runs(heading))
 
@@ -110,8 +113,8 @@ class CodecTests(unittest.TestCase):
         from src.stores.notion_blocks import to_blocks, to_markdown
         review = ('## 🔎 Why it was rejected\n\n> [!📝] They wanted more Go.\n> And on-call depth.\n\n### What to improve next time\n\n'
                   '- [ ] Learn Go basics\n- [x] Rewrite the CV summary\n- A plain bullet')
-        for md in (review, '> [!] A callout without an icon', '> A quote\n> two lines', '> \\[!not a callout] quoted',
-                   '- \\[ ] a bullet that only looks like a box', '- [ ] parent\n  - child', '- a\n- b\n\n1. one\n2. two'):
+        for md in (review, '> [!] A callout without an icon', '> A quote\n> two lines', '> \\[!not a callout\\] quoted',
+                   '- \\[ \\] a bullet that only looks like a box', '- [ ] parent\n  - child', '- a\n- b\n\n1. one\n2. two'):
             self.assertEqual(to_markdown(to_blocks(md)), md)
         callout, todo = to_blocks('> [!📝] x')[0], to_blocks('- [x] done')[0]
         self.assertEqual((callout['type'], callout['callout']['icon']), ('callout', {'type': 'emoji', 'emoji': '📝'}))

@@ -7,8 +7,11 @@ Finished: kind is then its Mode, where comes from its Run URL and Trigger. `list
 and log come with `get()`). Guarded by tests/test_store_notion.py (the store contract on the Notion stand-in).
 """
 from datetime import datetime, timezone
+import re
 
+from ..notion.cron_report import _para, _result_paras
 from . import base
+from . import notion_blocks
 from . import notion_rows as rows
 
 COLUMNS = (('kind', 'Kind', 'select'), ('where', 'Where', 'select'), ('status', 'Status', 'select'),
@@ -36,15 +39,23 @@ def _text(content, kind='paragraph'):
             [rows.write(content, 'rich_text')['rich_text']]]
 
 
+SECTIONS = re.compile(r'^#{1,3} ', re.M)
+
+
 def _body(report='', result='', log=''):
-    """The page blocks of a finished run, in today's shapes."""
+    """The page blocks of a finished run, in today's shapes: the report (Markdown with its sections, "### Report",
+    "### Emails read", "### Stages", rendered by notion_blocks; or bare "- line" bullets), "Result" with the message (one
+    paragraph a line, the end merged past RESULT_PARAS as src/notion/cron_report.py writes it), the Technical log toggle."""
     blocks = []
-    for line in (report or '').split('\n'):
-        if line.strip():
-            blocks += _text(line[2:] if line.startswith('- ') else line, 'bulleted_list_item')
+    if SECTIONS.search(report or ''):
+        blocks += notion_blocks.to_blocks(report)
+    else:
+        for line in (report or '').split('\n'):
+            if line.strip():
+                blocks += _text(line[2:] if line.startswith('- ') else line, 'bulleted_list_item')
     if (result or '').strip():
-        blocks += _text(RESULT, 'heading_3')
-        blocks += [block for line in result.split('\n') if line.strip() for block in _text(line)]
+        blocks.append(_para(RESULT, 'heading_3'))
+        blocks += _result_paras([line for line in result.split('\n') if line.strip()])
     lines = (log or '').split('\n') if (log or '').strip() else []
     if lines:
         chunks = ['\n'.join(lines[i:i + LOG_CHUNK]) for i in range(0, len(lines), LOG_CHUNK)]
@@ -60,6 +71,14 @@ class NotionCronRuns:
 
     def __init__(self, tracker, database_id):
         self.tracker, self.database_id = tracker, database_id
+        self._have = None
+
+    def _writable(self, props):
+        """The properties this workspace has: an older one (before the app repaired its schema) lacks Kind, Where, Progress,
+        Finished…, and Notion would refuse the whole row; read once per process, as src/stores/notion.py does."""
+        if self._have is None:
+            self._have = set((self.tracker._request('GET', f'databases/{self.database_id}').get('properties') or {}))
+        return {name: value for name, value in props.items() if name in self._have}
 
     def _record(self, page, body=None):
         props = page.get('properties') or {}
@@ -90,14 +109,19 @@ class NotionCronRuns:
 
     def _body_of(self, run_id):
         blocks = [block for block in self.tracker._children(run_id) if not block.get('archived')]
-        report = [rows.plain_text(b['bulleted_list_item']['rich_text']) for b in blocks if b['type'] == 'bulleted_list_item']
         at = next((i for i, b in enumerate(blocks) if b['type'] == 'heading_3'
                    and rows.plain_text(b['heading_3']['rich_text']) == RESULT), None)
+        head = [b for b in (blocks if at is None else blocks[:at]) if b['type'] != 'toggle']
+        if any(b['type'].startswith('heading_') for b in head):  # a report with its sections: as Markdown
+            report_md = notion_blocks.to_markdown(head, self.tracker._children)
+        else:
+            report_md = '\n'.join(f"- {rows.plain_text(b['bulleted_list_item']['rich_text'])}" for b in head
+                                  if b['type'] == 'bulleted_list_item')
         result = [] if at is None else [rows.plain_text(b['paragraph']['rich_text']) for b in blocks[at + 1:] if b['type'] == 'paragraph']
         toggle = next((b for b in blocks if b['type'] == 'toggle' and rows.plain_text(b['toggle']['rich_text']).startswith(LOG)), None)
         log = [] if not toggle else [rows.plain_text(code['code']['rich_text']) for code in self.tracker._children(toggle['id'])
                                      if code['type'] == 'code']
-        return {'report': '\n'.join(f'- {line}' for line in report), 'result': '\n'.join(result), 'log': '\n'.join(log)}
+        return {'report': report_md, 'result': '\n'.join(result), 'log': '\n'.join(log)}
 
     def _page(self, run_id):
         try:
@@ -115,26 +139,26 @@ class NotionCronRuns:
             raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
         values = {'kind': kind, 'where': where, 'status': 'Running', 'started_at': _now(), 'progress': [], **fields}
         props = {**self._title(kind, values['started_at']), **self._properties(values)}  # the engine's title, when given
-        return self._record(self.tracker.create_page(self.database_id, props))
+        return self._record(self.tracker.create_page(self.database_id, self._writable(props)))
 
     def progress(self, run_id, line):
         record = self._record(self._page(run_id))
         props = self._properties({'progress': [*record['progress'], line]})
         if record['status'] == 'Running':  # the app's ⏳ line while it runs (CLAUDE.md: Summary is the report's first line)
             props['Summary'] = rows.write(f'⏳ {line}', 'rich_text')
-        self.tracker.update_page(run_id, props)
+        self.tracker.update_page(run_id, self._writable(props))
 
     def touch(self, run_id, stats=None):
         self._page(run_id)
         props = self._properties({}, stats)
         if props:
-            self.tracker.update_page(run_id, props)
+            self.tracker.update_page(run_id, self._writable(props))
 
     def finish(self, run_id, status, summary='', report='', result='', log='', stats=None, title=''):
         record = self._record(self._page(run_id))
         props = {**self._properties({'status': status, 'summary': summary, 'finished_at': _now()}, stats),
                  **(self._properties({'title': title}) if title else self._title(record['kind'], record['started_at'], summary))}
-        page = self.tracker.update_page(run_id, props)
+        page = self.tracker.update_page(run_id, self._writable(props))
         blocks = _body(report, result, log)
         for start in range(0, len(blocks), 100):
             self.tracker.append_blocks(run_id, blocks[start:start + 100])
@@ -167,7 +191,7 @@ class NotionCronRuns:
         stats = values.pop('stats', None) or {}
         values['started_at'] = values.get('started_at') or _now()
         props = {**self._properties(values, stats), **self._title(values.get('kind', ''), values['started_at'], values.get('summary', ''))}
-        page = self.tracker.create_page(self.database_id, props)
+        page = self.tracker.create_page(self.database_id, self._writable(props))
         blocks = _body(**body)
         for start in range(0, len(blocks), 100):
             self.tracker.append_blocks(page['id'], blocks[start:start + 100])

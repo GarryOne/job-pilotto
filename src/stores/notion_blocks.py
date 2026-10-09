@@ -24,7 +24,7 @@ HEADINGS = {'heading_1': '#', 'heading_2': '##', 'heading_3': '###'}
 
 # ---------- inline: rich text ↔ Markdown ----------
 
-INLINE = re.compile(r'\\(.)|`([^`]*)`|\*\*(.+?)\*\*|\*(.+?)\*|\[([^\]]*)\]\(([^)\s]*)\)', re.S)
+INLINE = re.compile(r'\\(.)|`([^`]*)`|\*\*(.+?)\*\*|\*(.+?)\*|\[((?:\\.|[^\]\\])*)\]\(([^)\s]*)\)', re.S)
 
 
 def _runs(text, marks=frozenset(), link=None):
@@ -75,7 +75,7 @@ def rich_text(text):
 
 
 def _escape(text):
-    return re.sub(r'([\\*`])', r'\\\1', text).replace('[', '\\[')
+    return re.sub(r'([\\*`\[\]])', r'\\\1', text)  # ] too: a link's own text may hold brackets ("[Recorded]")
 
 
 def _content(part):
