@@ -2,6 +2,7 @@
 import {ai} from '../ai-name.js';
 import {closeMenu, el, isInteractiveTarget, moreButton, pill, tag} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
+import {columnOf} from '../jobs-board-rules.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
@@ -433,7 +434,7 @@ export function renderJobs() {
     : !text && !jobsState.statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || jobsState.statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
   // The board shows applications only (rows with a Stage), whatever the menu says; a view or counter and the words narrow it.
-  paintViews((counted || shared.allJobs).filter(job => job.stage && matches(job, text)));
+  paintViews((counted || shared.allJobs).filter(job => columnOf(job) && matches(job, text)));   // a job the board has a column for (jobs-board-rules.js)
 }
 
 // While the list loads from Notion (a few seconds): a spinner in the empty list the first time; afterwards the

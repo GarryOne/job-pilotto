@@ -356,7 +356,7 @@
         </div>
       </div>
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span>Actions</span></div>
-      <div class="board" id="jobs-board" hidden></div>
+      <div class="board shows-scrollbar" id="jobs-board" hidden></div>
       <div class="job-split" id="jobs-split">
         <div class="job-list" id="jobs-body"></div>
         <aside class="card job-panel" id="job-panel" aria-label="Job page" hidden></aside>
@@ -1651,8 +1651,8 @@
     <button type="button" role="tab" class="is-active" aria-selected="true" aria-controls="visits-sites" data-tab="visits-sites">Sites<span class="ui-pill tab-count" id="visits-sites-count"></span></button>
     <button type="button" role="tab" aria-selected="false" aria-controls="visits-unread" data-tab="visits-unread">Jobs we couldn't read<span class="ui-pill tone-warn tab-count" id="visits-unread-count"></span></button></div>
   <p class="inline small visits-pick"><button type="button" class="link" id="visits-all">Select all</button><span class="muted">·</span><button type="button" class="link" id="visits-none">Select none</button></p>
-  <ul class="item-rows" id="visits-sites" role="tabpanel"></ul>
-  <ul class="item-rows" id="visits-unread" role="tabpanel" hidden></ul>
+  <ul class="item-rows shows-scrollbar" id="visits-sites" role="tabpanel"></ul>
+  <ul class="item-rows shows-scrollbar" id="visits-unread" role="tabpanel" hidden></ul>
   <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
   <label class="task-count-field"><input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once"><span class="task-count-unit">at a time</span></label>
   <div class="dialog-foot"><span class="muted small">Each site opens in Chrome, where the extension reads it.</span>

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {boardColumns, dropFor, fresh, inView, OUTCOME_STAGES, STAGES, takesDrop, VIEWS} from '../renderer/jobs-board-rules.js';
+import {boardColumns, columnOf, dropFor, fresh, inView, OUTCOME_STAGES, STAGES, takesDrop, VIEWS} from '../renderer/jobs-board-rules.js';
 
 const schema = JSON.parse(fs.readFileSync(new URL('../../config/notion_schema.json', import.meta.url), 'utf8'));
 // The Applications database: the one whose Stage select has the most options (Application Events has a Kind, not a Stage).
@@ -61,4 +61,21 @@ test('setStage accepts only the outcome stages the engine logs as events (src/no
   const ledger = fs.readFileSync(new URL('../../src/notion/ledger.py', import.meta.url), 'utf8');
   const engine = ledger.match(/OUTCOME_STAGES = \(([^)]*)\)/s)[1].match(/'([^']+)'/g).map(word => word.slice(1, -1));
   assert.deepEqual([...OUTCOME_STAGES].sort(), engine.filter(stage => stage !== 'Applied').sort());
+});
+
+// A job marked Applied or Dismissed only on its Job Matches row has no Stage (src/desktop_jobs.py), and the list counts and labels it: the
+// board shows it in that column too (9 Oct 2026, the UI audit: Applied read 0 while the list had an Applied job). Its Stage, when it has one, wins.
+test('a job with no Stage sits in the column its status stands for; one nobody acted on has none', () => {
+  const jobs = [{url: 'a', status: 'applied'}, {url: 'd', status: 'dismissed'}, {url: 's', status: 'saved'}, {url: 'u', status: 'unreviewed'},
+    {url: 'i', status: 'applied', stage: 'Interview scheduled'}];
+  const at = Object.fromEntries(boardColumns(jobs).map(column => [column.stage, column.jobs.map(job => job.url)]));
+  assert.deepEqual([at.Applied, at.Dismissed, at.Saved, at['Interview scheduled']], [['a'], ['d'], ['s'], ['i']]);
+  assert.equal(columnOf({status: 'unreviewed'}), '');
+  assert.equal(boardColumns(jobs).reduce((n, column) => n + column.jobs.length, 0), 4, 'the unreviewed job is on no column');
+});
+
+test('the saved views count a job by the same column as the board: a stageless Applied job is in All applications and All', () => {
+  const applied = {url: 'a', status: 'applied'}, dismissed = {url: 'd', status: 'dismissed'}, fresh = {url: 'u', status: 'unreviewed'};
+  assert.deepEqual(['all-applications', 'all', 'dismissed', 'saved'].map(id => [applied, dismissed, fresh].filter(job => inView(job, id, NOW)).map(job => job.url)),
+    [['a'], ['a', 'd'], ['d'], []]);
 });

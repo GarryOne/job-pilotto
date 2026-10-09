@@ -19,8 +19,14 @@ export function fresh(job, now = Date.now()) {
   const applied = Date.parse(String(job.applied_on || '').slice(0, 10));
   return Number.isFinite(applied) && Math.floor((now - applied) / DAY) <= 7;
 }
-const hasStage = job => !!job.stage;   // an Applications row: the database's views only ever list those
-const among = stages => job => stages.includes(job.stage);
+// A job's column: its Applications Stage, else the stage its list status stands for. A job marked Applied or Dismissed only on its Job
+// Matches row has no Stage (src/desktop_jobs.py: status from match_status), and the list counts and labels it Applied; the board must
+// show it there too, not leave the column at 0 (9 Oct 2026, the UI audit). A job nobody acted on (unreviewed) has no column.
+const STATUS_STAGE = {saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'};
+export const columnOf = job => job?.stage || STATUS_STAGE[job?.status] || '';
+// The saved views count by the same column as the board (9 Oct 2026: the chips said "All 3", "Dismissed 0" beside a board of 5 with a Dismissed card).
+const hasStage = job => !!columnOf(job);
+const among = stages => job => stages.includes(columnOf(job));
 export const VIEWS = [
   {id: 'all-applications', label: 'All applications', title: 'Every job you applied to or are applying to, whatever became of it', test: among(['Applying', ...SENT, ...CLOSED_OUT])},
   {id: 'active', label: 'Active', title: 'Sent and still open: waiting for a reply, screening, interviews, an offer', test: among(SENT)},
@@ -36,11 +42,12 @@ export const VIEWS = [
 export const viewOf = id => VIEWS.find(view => view.id === id) || null;
 export const inView = (job, id, now = Date.now()) => !!viewOf(id)?.test(job, now);
 
-// The board: one column per stage, jobs that are Applications rows only, each column in the list's own order.
+
+// The board: one column per stage (columnOf), each column in the list's own order.
 export function boardColumns(jobs) {
   const columns = STAGES.map(stage => ({stage, tone: stageTone(stage), jobs: []}));
   const at = new Map(columns.map(column => [column.stage, column]));
-  for (const job of jobs) at.get(job.stage)?.jobs.push(job);
+  for (const job of jobs) at.get(columnOf(job))?.jobs.push(job);
   return columns;
 }
 

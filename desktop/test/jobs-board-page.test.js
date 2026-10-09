@@ -20,7 +20,7 @@ test('a drop goes through the app\'s own stage paths (setStatus, setStage → th
 test('renderJobs narrows by the saved view and ends by painting the chips and the board', () => {
   const render = read('renderer/pages/jobs-render.js');
   assert.match(render, /jobsState\.view \? shared\.allJobs\.filter\(job => inView\(job, jobsState\.view\)\)/);
-  assert.match(render, /paintViews\(\(counted \|\| shared\.allJobs\)\.filter\(job => job\.stage && matches\(job, text\)\)\);\n\}/);
+  assert.match(render, /paintViews\(\(counted \|\| shared\.allJobs\)\.filter\(job => columnOf\(job\) && matches\(job, text\)\)\);[^\n]*\n\}/);
   assert.match(read('renderer/pages/jobs.js'), /if \(next\.stat\) jobsState\.view = null;/, 'a counter replaces a view');
 });
 
@@ -30,10 +30,21 @@ test('the markup: chips above the list, the List | Board toggle, the board above
   for (const id of ['jobs-views', 'jobs-mode', 'jobs-board', 'jobs-split']) assert.ok(at(id) > 0, id);
   assert.ok(at('jobs-board') < at('jobs-split'), 'the board is not inside the list and job panel');
   assert.match(html, /data-mode="list"[^>]*>List<\/button><button data-mode="board"[^>]*>Board<\/button>/);
+  // 15 columns scroll sideways: the scrollbar is always shown (components.css .shows-scrollbar), or the last column reads as cut off.
+  assert.match(html, /class="board shows-scrollbar" id="jobs-board"/);
+  assert.match(read('renderer/components.css'), /\.shows-scrollbar::-webkit-scrollbar \{ width: 8px; height: 8px; \}/);
 });
 
 test('⌘K lists both modes and every saved view chip from the page', () => {
   const nav = read('renderer/pages/nav.js');
   assert.match(nav, /querySelectorAll\('\[data-mode\]'\)\.forEach/);
   assert.match(nav, /querySelectorAll\('#jobs-views \[data-view\]'\)\.forEach/);
+});
+
+// The board's jobs and its columns follow one rule (jobs-board-rules.js columnOf): a job marked Applied only on its Job Matches row was dropped by
+// a second `job.stage` filter before the columns ever saw it (9 Oct 2026, the UI audit).
+test('the jobs the board is given are the ones it has a column for, not only those with a Stage', () => {
+  const render = read('renderer/pages/jobs-render.js');
+  assert.match(render, /paintViews\(\(counted \|\| shared\.allJobs\)\.filter\(job => columnOf\(job\) && matches\(job, text\)\)\)/);
+  assert.doesNotMatch(render, /paintViews\([^)]*job\.stage &&/);
 });

@@ -633,3 +633,8 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
 .lib-who { display: flex; align-items: center; gap: 10px; }
 .lib-who b { font-size: var(--fs-md); }
 .lib-who .muted { font-size: var(--fs-sm); line-height: 1.35; }
+
+/* .shows-scrollbar: a scroll box whose scrollbar is always there, not the overlay one that hides until you scroll, so a person sees there
+   is more (the Sites to visit list below, the Jobs board's columns to the right: 9 Oct 2026, its last column read as cut off). */
+.shows-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.shows-scrollbar::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
