@@ -83,6 +83,27 @@ def check_extras(values, allowed):
     return values
 
 
+# A job's application kit: the section of its Applications record that holds it (Notion: the toggle heading on the job's
+# page, as src/ai/kit.py has always written it). Its Markdown is the readable kit, then '### Machine-readable kit' and the
+# kit as a ```json fence; readers take the last ```json fence (kit_from; the extension's reader the same way). The sample
+# both sides test against: tests/fixtures/stores/kit-section.md.
+KIT_SECTION = '📝 Application kit'
+
+
+def kit_from(markdown):
+    """The machine-readable kit (a dict) in a kit section's Markdown, or None."""
+    import json
+    import re
+    fences = re.findall(r'^```json[ \t]*\n(.*?)^```[ \t]*$', markdown or '', re.M | re.S)
+    if not fences:
+        return None
+    try:
+        found = json.loads(fences[-1])
+    except ValueError:
+        return None
+    return found if isinstance(found, dict) else None
+
+
 def url_key(url):
     """The one key a job is matched by in every adapter."""
     return normalize_url((url or '').strip())
