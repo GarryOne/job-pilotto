@@ -72,3 +72,12 @@ test('the kit in its section: a fenced JSON block; anything else is no kit', () 
   assert.equal(kitOf('no kit here'), null);
   assert.equal(kitOf('```json\n{broken\n```'), null);
 });
+
+test('the shared kit sample reads the same in JS as in Python (tests/fixtures/stores/kit-section.md, base.kit_from)', async () => {
+  const fs = await import('node:fs');
+  const sample = fs.readFileSync(new URL('../../tests/fixtures/stores/kit-section.md', import.meta.url), 'utf8');
+  const kit = kitOf(sample);
+  assert.equal(kit.version, 1);
+  assert.equal(kit.url, 'https://jobs.example.com/sre-1');
+  assert.equal(kit.answers[1].needs_review, true);
+});

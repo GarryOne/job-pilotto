@@ -29,10 +29,10 @@ def kit_inputs(profile, answers, cv_path=None):
     return f'cv:{cv} profile:{fingerprint(score.scoring_profile(profile))} answers:{fingerprint(answers or "")}'
 
 
-def record_kit(tracker, page, profile, answers, cv_path=None):
-    """Write the kit's inputs on its Applications row; never fails a kit."""
+def record_kit(stores, page, profile, answers, cv_path=None):
+    """Write the kit's inputs on the job in the active store (Notion: "Kit inputs"); never fails a kit."""
     try:
-        tracker.update_page(page['id'], {COLUMN: {'rich_text': [{'text': {'content': kit_inputs(profile, answers, cv_path)}}]}})
+        stores.applications.update(page['id'], {'kit_inputs': kit_inputs(profile, answers, cv_path)})
     except Exception as error:  # noqa: BLE001
         print(f'Warning: kit inputs not recorded: {type(error).__name__}: {error}')
 

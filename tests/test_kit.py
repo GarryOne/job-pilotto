@@ -1,5 +1,6 @@
 import io
 import json
+from src.stores import base
 import tempfile
 import unittest
 from pathlib import Path
@@ -45,6 +46,15 @@ class FakeClient:
         return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(KIT))],
                                usage=SimpleNamespace(input_tokens=1000, output_tokens=500,
                                                      cache_read_input_tokens=0, cache_creation_input_tokens=0))
+
+
+def memory_stores():
+    """The store a kit is saved in (src/stores memory adapter: the same contract as sqlite and notion), with the texts the AI reads."""
+    from src.stores import memory
+    stores = memory.open_store()
+    stores.texts.set('profile', 'Profile text')
+    stores.texts.set('answers', 'Answers text')
+    return stores
 
 
 class FakeTracker:
@@ -111,18 +121,20 @@ class KitTests(unittest.TestCase):
                 job_store.import_watch_report(db, {'jobs': [
                     {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
                      'description': 'Kubernetes.'}]})
-                tracker, client = FakeTracker(), FakeClient()
+                stores, client = memory_stores(), FakeClient()
                 drafted = []
-                messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5-5', opener, drafted_out=drafted)
+                messages, log = daily.prepare_kit(db, notion.job_code(URL), None, client, 'claude-sonnet-5-5', opener, drafted_out=drafted,
+                                                  stores=stores)
         self.assertEqual([job['title'] for job, _ in drafted], ['SRE'])  # the app's card for the run
         self.assertIn('Drafted for this job', daily.kits_message(drafted, 'Drafted for this job · nothing sent'))
-        self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
-        self.assertIn('Kit cost (USD)', tracker.updates[0][1])
-        page_id, heading, block = tracker.sections[0]
-        self.assertEqual((page_id, heading), ('page-1', kit.KIT_HEADING))
-        self.assertTrue(block['heading_2']['is_toggleable'])
-        payload = block['heading_2']['children'][-1]['code']['rich_text'][0]['text']['content']
-        self.assertEqual(json.loads(payload)['answers'][0]['field'], 'question_1')
+        record = stores.applications.get(URL)
+        self.assertEqual(record['stage'], 'Kit ready')
+        self.assertGreater(record['kit_cost'], 0)
+        self.assertTrue(record['kit_inputs'])
+        self.assertEqual(record['next_step'], '📝 Kit ready: review it, then Apply')
+        section = stores.applications.section(record['id'], kit.KIT_SECTION)
+        self.assertIn('### ✉️ Cover letter', section)
+        self.assertEqual(base.kit_from(section)['answers'][0]['field'], 'question_1')
         system = client.requests[0]['system'][0]
         self.assertIn('Profile text', system['text'])
         self.assertIn('Answers text', system['text'])
@@ -136,9 +148,10 @@ class KitTests(unittest.TestCase):
                 job_store.import_watch_report(db, {'jobs': [
                     {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
                      'description': 'Kubernetes.'}]})
-                run = {'mode': 'prepare'}
-                daily.prepare_kit(db, notion.job_code(URL), FakeTracker(), FakeClient(), 'claude-sonnet-5-5', opener, run=run)
-        self.assertEqual(run['application'], 'page-1')  # its ⏱️ Search runs row shows on the job's page (Runs)
+                run, stores = {'mode': 'prepare'}, memory_stores()
+                daily.prepare_kit(db, notion.job_code(URL), None, FakeClient(), 'claude-sonnet-5-5', opener, run=run, stores=stores)
+        self.assertEqual(run['application'], stores.applications.get(URL)['id'])  # its run row shows on the job's page (Runs)
+        self.assertEqual(run['subject'], 'Acme — SRE')
 
     def test_find_job_by_page_url(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -177,15 +190,15 @@ class AutoKitTests(unittest.TestCase):
                      'description': 'd'}]})
                 jobs = [{'id': 1, 'title': 'SRE', 'company': 'Acme', 'url': URL, 'description': 'd',
                         'fit': {'score': 80}}]
-                tracker, client = FakeTracker(), FakeClient()
-                summary, drafted = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
-                                                client=client, opener=opener)
+                stores, client = memory_stores(), FakeClient()
+                summary, drafted = kit.auto_run(db, jobs, None, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
+                                                client=client, opener=opener, stores=stores)
                 self.assertIn('Auto-drafted 1 of 1', summary)
                 self.assertEqual(len(drafted), 1)
-                self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
+                self.assertEqual(stores.applications.get(URL)['stage'], 'Kit ready')
                 # A second run must skip the same job (already recorded).
-                summary2, drafted2 = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
-                                                  client=client, opener=opener)
+                summary2, drafted2 = kit.auto_run(db, jobs, None, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
+                                                  client=client, opener=opener, stores=stores)
                 self.assertIn('0 kit(s)', summary2)
                 self.assertEqual(drafted2, [])
 
