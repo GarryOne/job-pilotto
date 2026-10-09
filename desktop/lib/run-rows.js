@@ -74,7 +74,7 @@ export function fromRecord(row, now = Date.now()) {
   const ended = running ? undefined : row.finished_at || (seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : startedAt);
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
   const where = row.run_url ? 'github' : /^Mac/.test(trigger) || (!trigger && row.where === 'mac') ? 'mac' : row.where === 'github' ? 'github' : 'elsewhere';
-  const record = {id: Date.parse(startedAt), pageId: row.id, notionUrl: recordLink(row.id), url: row.run_url || null, kind, mode, runId: null, startedBy: trigger,
+  const record = {id: Date.parse(startedAt), pageId: row.id, notionUrl: recordLink(row.id), url: row.run_url || null, kind, mode, runId: row.log_id || null, startedBy: trigger,
     trigger: TRIGGER[trigger] || 'you', where, startedAt};
   if (running) {
     const step = String(progress[progress.length - 1] || summary).replace(/^⏳\s*/, '');
