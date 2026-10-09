@@ -498,7 +498,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/daily_modes.py` — The jobs check's single-purpose modes, one function each (src/daily.py main() picks one): import, apply, prepare, kits, add (a pasted
 - `src/daily_search.py` — The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
-- `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), notion_posting() (a pure move out of desktop.py).
+- `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), store_posting() (a pure move out of desktop.py).
 - `src/desktop_status.py` — The desktop app's application status writes: set_status() through the store (src/stores: the job's Stage, any store), and
 - `src/desktop_store_jobs.py` — The desktop Jobs list from a store that is not Notion: Tracker.notion_jobs()'s list, in exactly its shape, built from
 - `src/desktop_strategy.py` — The Strategy page's data (strategy()), the Calendar's jobs and the sites-to-visit list (a pure move out of desktop.py).
