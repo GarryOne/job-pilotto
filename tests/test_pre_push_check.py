@@ -145,8 +145,11 @@ class PrePushCheckTest(unittest.TestCase):
         self.needed_committed()
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
         self.commit('Docs', {'README.md': 'x', 'docs/a.md': 'y'})
-        self.assertEqual(self.areas_run()[:2], (0, []))
-        self.assertEqual(self.areas_run('PUSH_FULL=1 git push origin HEAD:main')[:2], (0, ['desktop', 'python', 'site', 'worker']))
+        code, areas, err = self.areas_run()
+        self.assertEqual((code, areas), (0, []), err)
+        # The hook's own output on failure (9 Oct 2026: a Mac CI run got (2, no desktop) once, with nothing saying why).
+        code, areas, err = self.areas_run('PUSH_FULL=1 git push origin HEAD:main')
+        self.assertEqual((code, areas), (0, ['desktop', 'python', 'site', 'worker']), err)
 
     def test_a_red_main_with_no_failed_job_is_rerun_not_blocking(self):
         self.needed_committed()

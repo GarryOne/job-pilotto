@@ -12,7 +12,7 @@ import {execFileSync, spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {windowsUpdateScript} from '../lib/updater.js';
+import {WINDOWS_INSTALLER_ARGS} from '../lib/updater.js';
 
 const [installer, out] = process.argv.slice(2);
 if (!installer || !out) throw new Error('usage: node scripts/windows-smoke.mjs <installer.exe> <output folder>');
@@ -85,30 +85,24 @@ const openConnections = `(async () => {
 })()`;
 const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
   notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
-// Updating itself: the app hands a PowerShell script the job of waiting for it to exit, installing quietly and
-// reopening it. That script is the one part of the update that cannot be exercised from a Mac, so it is run here —
-// with stubs standing in for the installer and the app, since a run can only install itself once.
+// Updating itself (lib/updater.js, since 9 Oct 2026): the app starts the downloaded installer with WINDOWS_INSTALLER_ARGS and quits;
+// the installer waits for the app to close (ends it if it lingers), installs quietly and opens the new version. Run for real here:
+// the installed app is open, this same installer runs with those arguments, the old process must be gone and the app open again.
 {
-  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-update-'));
-  const flag = path.join(folder, 'flag.txt'), reopened = path.join(folder, 'reopened.txt');
-  const stubInstaller = path.join(folder, 'stub-installer.cmd'), stubApp = path.join(folder, 'stub-app.cmd');
-  fs.writeFileSync(stubInstaller, `@echo off\r\necho %1> "${flag}"\r\n`);
-  fs.writeFileSync(stubApp, `@echo off\r\necho reopened> "${reopened}"\r\n`);
-  // Something to wait for that is still running when the script starts: a ping that takes about three seconds.
-  const sleeper = spawn('cmd.exe', ['/c', 'ping -n 4 127.0.0.1 >nul'], {stdio: 'ignore'});
-  const script = path.join(folder, 'update.ps1');
-  fs.writeFileSync(script, windowsUpdateScript(sleeper.pid, stubInstaller, stubApp));
+  const running = () => execFileSync('tasklist', ['/FI', 'IMAGENAME eq Job Pilotto.exe', '/FO', 'CSV', '/NH'], {encoding: 'utf8'})
+    .split(/\r?\n/).map(line => line.split('","')[1]).filter(Boolean).map(Number);
+  const wait = async (check, seconds) => { for (let i = 0; i < seconds * 4; i++) { if (check()) return true; await new Promise(resolve => setTimeout(resolve, 250)); } return false; };
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-update-'));
+  const app = spawn(exe, [], {detached: true, stdio: 'ignore', env: {...process.env, JOB_PILOTTO_USER_DATA: userData}});
+  app.unref();
+  if (!(await wait(() => running().includes(app.pid), 60))) throw new Error('update: the installed app did not start');
   const started = Date.now();
-  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {stdio: 'inherit', timeout: 60000});
-  const took = Date.now() - started;
-  // The script opens the app without waiting for it — right for the real one, which must not outlive its job — so a
-  // stub may write its file a moment after PowerShell has exited.
-  for (let i = 0; i < 40 && !fs.existsSync(reopened); i++) await new Promise(resolve => setTimeout(resolve, 250));
-  const passed = fs.existsSync(flag) ? fs.readFileSync(flag, 'utf8').trim() : '';
-  if (passed !== '/S') throw new Error(`the update ran the installer without /S (argument was "${passed}")`);
-  if (!fs.existsSync(reopened)) throw new Error('the update did not reopen the app after installing');
-  if (took < 1500) throw new Error(`the update did not wait for the app to exit (finished in ${took} ms)`);
-  say(`update ok on Windows: waited ${took} ms for the app, installed with /S, reopened it`);
+  execFileSync(path.resolve(installer), WINDOWS_INSTALLER_ARGS, {stdio: 'inherit', timeout: 5 * 60 * 1000});
+  if (running().includes(app.pid)) throw new Error('update: the installer finished while the old app was still running');
+  if (!(await wait(() => running().length > 0, 60))) throw new Error(`update: the app was not opened again after installing (${WINDOWS_INSTALLER_ARGS.join(' ')})`);
+  say(`update ok on Windows: the installer (${WINDOWS_INSTALLER_ARGS.join(' ')}) closed the open app, installed and reopened it in ${Date.now() - started} ms`);
+  spawnSync('taskkill', ['/F', '/T', '/IM', 'Job Pilotto.exe'], {stdio: 'ignore'});   // the next checks start the app themselves
+  if (!(await wait(() => running().length === 0, 30))) throw new Error('update: the reopened app could not be closed');
 }
 // The in-app terminal (Apply with Claude sessions): node-pty loads in the installed app and runs a command.
 {
