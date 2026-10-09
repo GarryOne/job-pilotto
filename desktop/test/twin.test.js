@@ -86,3 +86,10 @@ test('a twin\'s Claude sessions drive the twin\'s own browser through Playwright
   assert.equal(twinNote({}), '');
   assert.equal((fs.readFileSync(new URL('../lib/claude-session.js', import.meta.url), 'utf8').match(/twinNote\(\) \+ /g) || []).length, 2);   // first in both in-app prompts (apply, read)
 });
+
+test('the twin keeps what it learned across starts: the job-site passwords it made and the site accounts it learned', () => {
+  const source = fs.readFileSync(new URL('../e2e/twin.mjs', import.meta.url), 'utf8');
+  assert.match(source, /path\.join\(LIVE, 'isolated-secrets\.json'\)/);
+  assert.match(source, /path\.join\(LIVE, 'site-accounts\.json'\)/);
+  assert.match(source, /settings\.siteAccounts = \{\.\.\.\(settings\.siteAccounts \|\| \{\}\), \.\.\./);   // added to the real ones, never replacing them
+});

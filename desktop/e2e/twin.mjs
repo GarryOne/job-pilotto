@@ -5,7 +5,7 @@
 //   3. a fresh copy of the real app folder (APFS clone) without the real Notion token, Always on or Telegram, pointed at the mirror
 //   4. the app in twin mode (desktop/lib/twin.js) on its own port + a debugging port; its own visible Chromium with an extension copy on that port
 // Everything live-test lives in ~/Library/Application Support/Job Pilotto (live test)/: ids.env (the mirror's ids), notion-copy/ (sync map),
-// home/ (the twin's folder, replaced at each start), browser/ (only its site sign-ins: cookies, local storage), isolated-secrets.json (the job-site passwords it made), twin.json (ports, for a script that drives the window). Ctrl-C stops both.
+// home/ (the twin's folder, replaced at each start), browser/ (only its site sign-ins: cookies, local storage), isolated-secrets.json (the job-site passwords it made), site-accounts.json (the site accounts it learned), twin.json (ports, for a script that drives the window). Ctrl-C stops both.
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -57,6 +57,10 @@ async function main() {
   delete settings.cloud; delete settings.telegramChatId; delete settings.telegramCloud;
   settings.notionIds = mirror;
   if (settings.employersSyncedTo) settings.employersSyncedTo = mirror.NOTION_EMPLOYERS_DB;
+  // The site accounts the twin made or learned (desktop/lib/site-accounts.js) outlive home/ too, added to the real ones: an account a twin
+  // created must be signed in to at the next start, not signed up for again (9 Oct 2026, Migros: "Créer un compte" a second time).
+  const ACCOUNTS = path.join(LIVE, 'site-accounts.json');
+  if (fs.existsSync(ACCOUNTS)) settings.siteAccounts = {...(settings.siteAccounts || {}), ...JSON.parse(fs.readFileSync(ACCOUNTS, 'utf8'))};
   fs.writeFileSync(path.join(HOME, 'settings.json'), JSON.stringify(settings, null, 2));
   say(`folder: a fresh copy of the real one at ${HOME} (no real Notion token, Always on or Telegram)`);
   // 4. The app and its own browser.
@@ -93,6 +97,12 @@ async function main() {
     fs.rmSync(path.join(LIVE, 'browser'), {recursive: true, force: true});   // the sign-ins kept for next time, nothing else
     fs.mkdirSync(path.join(LIVE, 'browser', 'Default'), {recursive: true});
     carry(profile, path.join(LIVE, 'browser'));
+    try {
+      const real = JSON.parse(fs.readFileSync(path.join(REAL, 'settings.json'), 'utf8')).siteAccounts || {};
+      const now = JSON.parse(fs.readFileSync(path.join(HOME, 'settings.json'), 'utf8')).siteAccounts || {};
+      const learned = Object.fromEntries(Object.entries(now).filter(([host, value]) => JSON.stringify(real[host]) !== JSON.stringify(value)));
+      fs.writeFileSync(ACCOUNTS, JSON.stringify(learned, null, 2));   // only what the twin learned, not a copy of the real ones
+    } catch { /* no settings: nothing learned */ }
     if (fs.existsSync(path.join(HOME, 'isolated-secrets.json'))) { fs.copyFileSync(path.join(HOME, 'isolated-secrets.json'), KEPT); fs.chmodSync(KEPT, 0o600); }
     fs.rmSync(profile, {recursive: true, force: true});
     process.exit(0);
