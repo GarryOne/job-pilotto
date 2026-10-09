@@ -6,11 +6,11 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
-// The app's own code, loaded once. It imports desktop/shared/ (made by desktop/scripts/stage.mjs before the app's own tests and start): staged here when missing.
+// The app's own code, loaded once. It imports desktop/shared/ (made by desktop/scripts/stage.mjs before the app's own tests and start): staged here when missing, files only (CI's plan job has no desktop dependencies: the bot bundle's esbuild failed there, 9 Oct 2026).
 let app = null;
 export async function appCode() {
   if (app) return app;
-  if (!fs.existsSync(new URL('../../shared/alias-schema.js', import.meta.url))) execFileSync(process.execPath, [fileURLToPath(new URL('../../scripts/stage.mjs', import.meta.url))], {stdio: 'ignore'});
+  if (!fs.existsSync(new URL('../../shared/alias-schema.js', import.meta.url))) execFileSync(process.execPath, [fileURLToPath(new URL('../../scripts/stage.mjs', import.meta.url)), '--files-only'], {stdio: 'ignore'});
   const [kind, judge] = await Promise.all([import('../../lib/page-kind.js'), import('../../lib/account-judge.js')]);
   app = {pageKind: kind.pageKind, KINDS: kind.KINDS, judgeAccount: judge.judgeAccount, READY: judge.READY, RESULT: judge.RESULT};
   return app;
