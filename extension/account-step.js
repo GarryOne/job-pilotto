@@ -9,7 +9,7 @@ import {decide} from './log.js';
 import {askKind, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {tabArmed} from './tab-pages.js';
-import {accountSketch, fillAccountBoxes, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
+import {accountSketch, fillAccountBoxes, fillAccountEmail, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
 import {closerLook, unsureTwice} from './escalate.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
@@ -171,6 +171,7 @@ async function accountStepOnce(tab, frameId) {
     }
     return {filled: 0};
   }
+  if (step === 'sign_in' && answer.mode === 'sign-in' && answer.email && await run(tab, frameId, fillAccountEmail, [answer.email])) sayOnce(tab, 'email', 'sign-in page: email filled', {host});   // the normal fill does not run again on a same-address page
   const filled = await run(tab, frameId, fillAccountBoxes, [answer.password]) || 0;
   if ((step === 'sign_up' && answer.mode === 'sign-up') || (step === 'sign_in' && answer.mode === 'sign-in')) await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), signin: step === 'sign_in'}}).catch(() => {});   // a sign-up (or a sign-in we expect to work) form is open in this tab: what becomes of it is the account AI's word
   if (filled) decide('fill', 'password filled from the Keychain', {host, boxes: filled});

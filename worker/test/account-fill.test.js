@@ -93,3 +93,26 @@ test('the AI\'s page step is left on the page for the panel, and removed when th
   markAccountStep('');
   assert.equal(window.document.documentElement.hasAttribute('data-jobpilotto-account-step'), false);
 });
+
+import {fillAccountEmail} from '../../extension/account-fill.js';
+function signIn(html) {
+  const {window} = new JSDOM(`<body>${html}</body>`);
+  window.HTMLElement.prototype.getClientRects = function () { return this.hasAttribute('hidden') ? [] : [{}]; };
+  Object.assign(globalThis, {document: window.document, HTMLInputElement: window.HTMLInputElement, Event: window.Event, Node: window.Node});
+  return window.document;
+}
+test('a sign-in page: the one empty text or email box ahead of the password box gets the email, once; anything less certain is left alone', () => {
+  let doc = signIn('<form><input id="e" type="text"><input id="p" type="password"></form>');
+  assert.equal(fillAccountEmail('me@example.test'), 1);
+  assert.deepEqual([doc.getElementById('e').value, doc.getElementById('e').hasAttribute('data-jobpilotto-filled')], ['me@example.test', true]);
+  doc = signIn('<form><input id="e" type="email" value="other@example.test"><input id="p" type="password"></form>');
+  assert.equal(fillAccountEmail('me@example.test'), 0);   // a box that holds something is never overwritten
+  assert.equal(doc.getElementById('e').value, 'other@example.test');
+  signIn('<form><input id="a" type="text"><input id="b" type="text"><input id="p" type="password"></form>');
+  assert.equal(fillAccountEmail('me@example.test'), 0);   // two candidates: not a sign-in's lone username box
+  signIn('<form><input id="p" type="password"><input id="after" type="text"></form>');
+  assert.equal(fillAccountEmail('me@example.test'), 0);   // a box AFTER the password is not the username
+  signIn('<form><input id="e" type="text"></form>');
+  assert.equal(fillAccountEmail('me@example.test'), 0);   // no password box: not a sign-in
+  assert.equal(fillAccountEmail(''), 0);
+});

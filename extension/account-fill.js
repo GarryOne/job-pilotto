@@ -16,6 +16,22 @@ export function fillAccountBoxes(password) {
   return filled;
 }
 
+// A sign-in page's one empty text or email box ahead of its password box gets the person's email. The normal fill runs once per address, and a site that keeps one address for
+// sign-up and sign-in (SuccessFactors) never fills the sign-in page after the sign-up page. By structure only: exactly one such box in the password box's form, empty; marked ours.
+export function fillAccountEmail(email) {
+  if (!String(email || '').trim()) return 0;
+  const password = [...document.querySelectorAll('input[type=password]')].find(box => box.getClientRects().length && !box.disabled);
+  if (!password) return 0;
+  const boxes = [...(password.form || document).querySelectorAll('input')].filter(el => el.getClientRects().length && !el.disabled && !el.readOnly
+    && ['text', 'email'].includes(el.type) && (el.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING));
+  if (boxes.length !== 1 || String(boxes[0].value || '').trim()) return 0;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(boxes[0], String(email));   // React/Vue see the change too
+  boxes[0].dispatchEvent(new Event('input', {bubbles: true}));
+  boxes[0].dispatchEvent(new Event('change', {bubbles: true}));
+  boxes[0].setAttribute('data-jobpilotto-filled', '1');
+  return 1;
+}
+
 // Press the account form's own button, once (the caller asks the AI first: account-step.js): a password box we filled is on the page, no required control is empty
 // (a second floor: the AI's "ready" is the first), no frame inside the form (a bot check, whoever makes it). Returns a short reason code for the log.
 export function pressAccountButton(named = '') {
