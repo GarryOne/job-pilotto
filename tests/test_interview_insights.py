@@ -9,6 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interview_insights as ii
+from src.stores import open_stores
 from src.ai import insights, interviews
 from tests.model_stand_ins import rounds as setUpModule  # noqa: F401 (the model's answer)
 from tests.interview_insights_fakes import NOW, text, select, interview, FakeNotion, FakeClient, ONE, PAGES, RESULT, env, of, recs
@@ -89,7 +90,7 @@ class Update(unittest.TestCase):
     def run_update(self, fake, client, **kw):
         a, b = env()
         with a, b:
-            return ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'}, **kw)
+            return ii.update(stores=open_stores(tracker=fake), client=client, now=NOW, budget_status=lambda t: {'level': 'ok'}, **kw)
 
     def test_first_run_creates_the_row_then_an_unchanged_set_never_spends_again(self):
         rows = [ONE[0], interview('iv-2', 'Technical 2', 'negative', '2026-09-25', app='app-1')]
@@ -125,7 +126,7 @@ class Update(unittest.TestCase):
         self.assertEqual(self.run_update(FakeNotion([interview('iv-x', 'Screen', '', '2026-09-21')], PAGES), client)['status'], 'none')
         a, b = env()
         with a, b:
-            out = ii.update(FakeNotion(list(ONE), PAGES), client=client, now=NOW, budget_status=lambda t: {'level': 'pause', 'pct': 0.93})
+            out = ii.update(stores=open_stores(tracker=FakeNotion(list(ONE), PAGES)), client=client, now=NOW, budget_status=lambda t: {'level': 'pause', 'pct': 0.93})
         self.assertEqual(out['status'], 'paused')
         self.assertEqual(client.calls, [])
 
@@ -134,7 +135,7 @@ class Update(unittest.TestCase):
         broken.create = mock.Mock(side_effect=RuntimeError('boom'))
         a, b = env()
         with a, b, mock.patch.object(ii.budget, 'status', return_value={'level': 'ok'}):
-            line = ii.after_review(FakeNotion(list(ONE), PAGES), client=broken)
+            line = ii.after_review(stores=open_stores(tracker=FakeNotion(list(ONE), PAGES)), client=broken)
         self.assertIn('skipped', line)
 
     def test_saved_reads_the_row_for_the_app(self):
@@ -163,7 +164,7 @@ class CardWords(unittest.TestCase):
         fake = FakeNotion(list(ONE), PAGES)
         a, b = env()
         with a, b:
-            ii.update(fake, client=FakeClient(result), now=NOW, budget_status=lambda t: {'level': 'ok'})
+            ii.update(stores=open_stores(tracker=fake), client=FakeClient(result), now=NOW, budget_status=lambda t: {'level': 'ok'})
             return ii.saved(of(fake))
 
     def test_the_new_words_are_stored_and_read_back(self):
@@ -197,7 +198,7 @@ class OlderRows(unittest.TestCase):
         fake, client = FakeNotion(list(ONE), PAGES), FakeClient(RESULT)
         a, b = env()
         with a, b:
-            ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+            ii.update(stores=open_stores(tracker=fake), client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
             self.assertEqual(ii.saved(of(fake))['version'], ii.DATA_VERSION)
             data = json.loads(''.join(t['plain_text'] for t in fake.insights[0]['properties']['Data']['rich_text']))
             del data['v']
@@ -208,14 +209,14 @@ class OlderRows(unittest.TestCase):
         fake, client = FakeNotion(list(ONE), PAGES), FakeClient(RESULT)
         a, b = env()
         with a, b:
-            ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+            ii.update(stores=open_stores(tracker=fake), client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
             data = json.loads(''.join(t['plain_text'] for t in fake.insights[0]['properties']['Data']['rich_text']))
             self.assertEqual(data['v'], ii.DATA_VERSION)
             del data['v']  # as saved before the card was redesigned
             fake.insights[0]['properties']['Data'] = {'type': 'rich_text', 'rich_text': [{'plain_text': json.dumps(data)}]}
-            again = ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+            again = ii.update(stores=open_stores(tracker=fake), client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
             self.assertEqual((again['status'], len(client.calls)), ('updated', 2))
-            self.assertEqual(ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})['status'], 'unchanged')
+            self.assertEqual(ii.update(stores=open_stores(tracker=fake), client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})['status'], 'unchanged')
             self.assertEqual(len(client.calls), 2)  # no third call
 
 

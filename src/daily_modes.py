@@ -234,8 +234,8 @@ def interview_mode(args, stores=None):
     run['interview'] = {}
     reviewed = {}  # the job the interview is linked to, once known (interviews.run fills it)
     try:
-        result = interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender,
-                                stats=run['interview'], job_url=args.job, page_id=args.interview, found=reviewed)
+        result = interviews.run(file_id=args.file, note=args.note, token=token, send=sender,
+                                stats=run['interview'], job_url=args.job, page_id=args.interview, found=reviewed, stores=stores)
         if reviewed.get('application'):
             run['application'] = reviewed['application']  # the run links to the job it was for
         run['subject'] = reviewed.get('title', '')  # the run's title names the interview ("Huxley · Recruiter screen")
@@ -248,7 +248,7 @@ def interview_mode(args, stores=None):
         if result.startswith('Interview analysed again'):  # "Review again" is one AI call; Refresh updates insights
             print('Interview insights: not refreshed after a review again (Refresh on the Interviews page)')
         else:
-            print(interview_insights.after_review(tracker, stats=run['insight']))
+            print(interview_insights.after_review(stats=run['insight'], stores=stores))
         log_ai_run(stores, run, args)
     except ValueError as error:  # the owner sent something that can't be analysed: say why
         print(error)

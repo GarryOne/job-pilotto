@@ -6,6 +6,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interview_insights as ii
+from src.stores import open_stores
 from src.ai import interviews
 from tests.model_stand_ins import rounds as setUpModule  # noqa: F401 (the model's answer)
 from tests.interview_insights_fakes import NOW, interview, block, FakeNotion, FakeClient, ONE, PAGES, RESULT, env, of, recs
@@ -126,7 +127,7 @@ class Staleness(unittest.TestCase):
         fake = FakeNotion(list(ONE), PAGES)
         a, b = env()
         with a, b:
-            ii.update(fake, client=FakeClient(RESULT), now=NOW, budget_status=lambda t: {'level': 'ok'})
+            ii.update(stores=open_stores(tracker=fake), client=FakeClient(RESULT), now=NOW, budget_status=lambda t: {'level': 'ok'})
             self.assertFalse(ii.saved(of(fake))['outdated'])
             fake.rows[0]['properties']['Questions'] = {'type': 'number', 'number': 13}  # reviewed again: 13 questions now
             self.assertTrue(ii.saved(of(fake))['outdated'])

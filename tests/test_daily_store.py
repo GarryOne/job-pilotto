@@ -85,8 +85,7 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
         self.assertIn('Job Matches:', out)                      # the search's matches: synced into this store
         self.assertIs(by_name['contribute'][0][2], self.stores)
         self.assertIs(by_name['budget'][0][0], self.stores)     # the AI budget: this store's run rows
-        self.assertIs(by_name['insight'][1]['stores'], self.stores)   # the daily insight runs without Notion
-        self.assertIsNone(by_name['insight'][0][1])            # and is handed no Notion tracker
+        self.assertIs(by_name['insight'][0][1], self.stores)   # the daily insight runs on this store alone, without Notion
         self.assertIs(by_name['doctor'][0][0], self.stores)     # the daily health alert: this store's checks
         self.assertIs(by_name['ledger'][0][0], self.stores)     # the ledger sync and the taken-down check: this store's applications
         self.assertIs(by_name['gone'][0][0], self.stores)

@@ -298,20 +298,20 @@ def set_step_done(stores, text, done):
     return {'done_steps': data['done_steps']}
 
 
-def update(tracker=None, *, client=None, model_=None, stats=None, now=None, force=False, budget_status=None, stores=None):
+def update(*, client=None, model_=None, stats=None, now=None, force=False, budget_status=None, stores=None):
     """Bring the Interview patterns row up to date with the reviews. Returns {'status', 'text', ...}: status is
     'updated', 'unchanged' (no AI call), 'none' (no reviewed interview), 'paused' (AI budget) or 'off' (no Insights
     database). force: call even when the input is unchanged (never used by the app: it would spend twice). stores: the active
-    store (else open_stores: the tracker's Notion when one is given); the tracker also reads the AI budget."""
-    stores = stores or open_stores(tracker=tracker)
+    store (else open_stores())."""
+    stores = stores or open_stores()
     # One refresh at a time on this Mac (the app, the terminal, a review's own refresh): the second one waits, then finds
     # the row current and makes no AI call (two paid Opus refreshes at 14:09 on 30 Sep 2026).
     from ..paths import run_lock
     with run_lock(name='insights', on_wait=lambda: print('Another interview-insights refresh is running: waiting for it…', file=sys.stderr)):
-        return _update(stores, tracker, client=client, model_=model_, stats=stats, now=now, force=force, budget_status=budget_status)
+        return _update(stores, client=client, model_=model_, stats=stats, now=now, force=force, budget_status=budget_status)
 
 
-def _update(stores, tracker, *, client, model_, stats, now, force, budget_status):
+def _update(stores, *, client, model_, stats, now, force, budget_status):
     now = now or datetime.now(timezone.utc)
     if stores.name == 'notion' and (not insights_db() or not interviews.INTERVIEWS_DATABASE_ID):
         return {'status': 'off', 'text': 'Interview insights: no 💡 Insights or 🎤 Interviews database'}
@@ -345,10 +345,10 @@ def _update(stores, tracker, *, client, model_, stats, now, force, budget_status
             'text': f"Interview insights updated from {len(items)} interview(s): {stored['headline']} ({usd:.3f} USD)"}
 
 
-def after_review(tracker=None, stats=None, client=None, stores=None):
+def after_review(stats=None, client=None, stores=None):
     """Called at the end of a saved review: never fails the review. Returns the one-line result, or ''."""
     try:
-        return update(tracker, stats=stats, client=client, stores=stores)['text']
+        return update(stats=stats, client=client, stores=stores)['text']
     except Exception as error:  # noqa: BLE001 - the review is saved; insights catch up on the next review or Refresh
         if cost.limit_reached(error):
             from . import providers

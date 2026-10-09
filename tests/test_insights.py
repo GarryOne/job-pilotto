@@ -8,6 +8,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import insights, insights_data
+from src.stores import open_stores
 from src.stores import memory, notion_blocks
 from src.notion import ledger
 
@@ -200,10 +201,10 @@ class RunTests(unittest.TestCase):
         # a 3000 cap cut both answers off (stop_reason 'max_tokens') and failed the whole scheduled run.
         daily = FakeClient()
         with patched():
-            insights.run(None, FakeTracker(), 'claude-sonnet-5-5', now=NOW, client=daily)
+            insights.run(None, open_stores(tracker=FakeTracker()), 'claude-sonnet-5-5', now=NOW, client=daily)
         monday, weekly = datetime(2026, 9, 28, 5, 0, tzinfo=timezone.utc), FakeClient(WEEKLY)
         with patched():
-            insights.run(None, FakeTracker(), 'claude-sonnet-5-5', now=monday, client=weekly)
+            insights.run(None, open_stores(tracker=FakeTracker()), 'claude-sonnet-5-5', now=monday, client=weekly)
         self.assertEqual(len(daily.calls), len(weekly.calls))  # one call each: the daily insight, the weekly report
         for call in (daily.calls[0], weekly.calls[0]):
             self.assertEqual(call['output_config']['effort'], 'medium')
@@ -213,7 +214,7 @@ class RunTests(unittest.TestCase):
     def test_sends_one_insight_with_feedback_buttons_and_records_cost(self):
         tracker, client, sent, stats = FakeTracker(), FakeClient(), [], {}
         with patched(), mock.patch.dict('os.environ', {'NOTION_PROFILE_PAGE_ID': 'profile-page'}):
-            summary = insights.run(None, tracker, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
+            summary = insights.run(None, open_stores(tracker=tracker), 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
                                    now=NOW, client=client, stats=stats)
         self.assertIn('Insight sent: Skills', summary)
         text, keyboard = sent[0]
@@ -232,15 +233,15 @@ class RunTests(unittest.TestCase):
     def test_not_due_before_the_hour_or_twice_a_day(self):
         early = datetime(2026, 9, 26, 2, 30, tzinfo=timezone.utc)
         client = FakeClient()
-        self.assertEqual(insights.run(None, None, now=early, client=client, stores=memory_store()), 'Insight: not due')
+        self.assertEqual(insights.run(None, memory_store(), now=early, client=client), 'Insight: not due')
         sent = memory_store(insights_=[{'day': '2026-09-26', 'category': 'Skills', 'title': 'today'}])
-        self.assertEqual(insights.run(None, None, now=NOW, client=client, stores=sent), 'Insight: not due')
+        self.assertEqual(insights.run(None, sent, now=NOW, client=client), 'Insight: not due')
         self.assertEqual(client.calls, [])
 
     def test_force_and_skip(self):
         stores, sent = memory_store(), []
         with patched():
-            summary = insights.run(None, None, now=datetime(2026, 9, 26, 1, tzinfo=timezone.utc), force=True, stores=stores,
+            summary = insights.run(None, stores, now=datetime(2026, 9, 26, 1, tzinfo=timezone.utc), force=True,
                                    client=FakeClient(dict(INSIGHT, skip=True)), send=lambda t, k: sent.append(t))
         self.assertIn('nothing new today', summary)
         self.assertEqual((stores.insights.list(), sent), ([], []))
@@ -259,8 +260,8 @@ class WeeklyTests(unittest.TestCase):
             {'ref': 'p1', 'kind': 'Applied', 'at': '2026-09-26', 'source': 'Backfill'}])
         client, sent, stats = FakeClient(WEEKLY), [], {}
         with patched():
-            summary = insights.run(None, None, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
-                                   now=monday, client=client, stats=stats, stores=stores, )
+            summary = insights.run(None, stores, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
+                                   now=monday, client=client, stats=stats)
         self.assertIn('Weekly report sent', summary)
         [row] = stores.insights.list()
         self.assertEqual((row['category'], row['day'], row['fields']['basis']), ('Weekly report', '2026-09-28', 'Both'))

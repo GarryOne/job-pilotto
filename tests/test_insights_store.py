@@ -42,7 +42,7 @@ class SqliteRunTests(unittest.TestCase):
         for stores in (sqlite.open_store(self.env), memory.open_store()):
             sent = []
             with patched():
-                insights.run(None, None, now=NOW, client=FakeClient(), stores=stores, send=lambda t, k: sent.append(k))
+                insights.run(None, stores, now=NOW, client=FakeClient(), send=lambda t, k: sent.append(k))
             data = sent[0]['inline_keyboard'][0][0]['callback_data']
             self.assertTrue(data.startswith('ins:u:') and len(data.encode()) <= 64, data)
             stores.insights.update(data.split(':')[2], {'fields': {'feedback': 'Useful'}})

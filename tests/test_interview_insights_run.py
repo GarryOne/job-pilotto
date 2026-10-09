@@ -10,6 +10,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interview_insights as ii
+from src.stores import open_stores
 from src.ai import insights, interviews
 from tests.model_stand_ins import rounds as setUpModule  # noqa: F401 (the model's answer)
 from tests.interview_insights_fakes import NOW, text, select, interview, FakeNotion, FakeClient, ONE, PAGES, RESULT, env, of, recs
@@ -58,7 +59,7 @@ class Ticks(unittest.TestCase):
         self.enter = (a, b)
         a.start(), b.start()
         self.addCleanup(a.stop), self.addCleanup(b.stop)
-        ii.update(self.fake, client=self.client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+        ii.update(stores=open_stores(tracker=self.fake), client=self.client, now=NOW, budget_status=lambda t: {'level': 'ok'})
 
     def data(self):
         return json.loads(''.join(t['plain_text'] for t in self.fake.insights[0]['properties']['Data']['rich_text']))
@@ -91,11 +92,11 @@ class Ticks(unittest.TestCase):
         ii.set_step_done(of(self.fake), self.STEP, True)
         self.fake.rows.append(interview('iv-2', 'Technical 2', 'negative', '2026-09-25'))
         again = dict(RESULT, next_steps=[RESULT['next_steps'][0], {'action': 'A brand new step', 'interviews': ['I1']}])
-        ii.update(self.fake, client=FakeClient(again), now=NOW, budget_status=lambda t: {'level': 'ok'})
+        ii.update(stores=open_stores(tracker=self.fake), client=FakeClient(again), now=NOW, budget_status=lambda t: {'level': 'ok'})
         self.assertEqual(self.data()['done_steps'], [ii.step_key(self.STEP)])
         gone = dict(RESULT, next_steps=[{'action': 'Only this now', 'interviews': ['I1']}])
         self.fake.rows.append(interview('iv-3', 'Screen', 'positive', '2026-09-26'))
-        ii.update(self.fake, client=FakeClient(gone), now=NOW, budget_status=lambda t: {'level': 'ok'})
+        ii.update(stores=open_stores(tracker=self.fake), client=FakeClient(gone), now=NOW, budget_status=lambda t: {'level': 'ok'})
         self.assertEqual(self.data()['done_steps'], [])
 
 
@@ -123,7 +124,7 @@ class Neighbours(unittest.TestCase):
         argv = ['daily', '--mode', 'interview', '--interview', 'iv-1']
         env_ = {k: v for k, v in daily.os.environ.items() if k not in ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')}
 
-        def after(tracker, stats=None):
+        def after(stats=None, stores=None):
             stats.update(usd=0.04, pending=1, done=1)
             return 'Interview insights updated'
         with mock.patch.object(sys, 'argv', argv), mock.patch.dict(daily.os.environ, env_, clear=True), \

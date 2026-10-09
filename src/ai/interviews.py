@@ -104,15 +104,14 @@ def _url(stores, record_id):
     return stores.link(record_id) or ''
 
 
-def run(tracker=None, *, file_id=None, note='', token=None, send=None, model=DEFAULT_MODEL, client=None,
+def run(*, file_id=None, note='', token=None, send=None, model=DEFAULT_MODEL, client=None,
         now=None, opener=urllib.request.urlopen, stats=None, job_url=None, page_id=None, found=None, stores=None):
     """Analyse one interview (a recording, a transcript file, or notes text) and record it. Returns a log line ending
     with the interview's link (when the store has links). job_url links it to that application instead of guessing.
     page_id reviews an interview saved earlier (save()): its transcript is read from the store, the review added to it
     and its job kept unless job_url changes it. One already reviewed is reviewed again (review_again). found (a dict)
-    gets the reviewed job's application id as 'application', once known. stores: the active store (else open_stores:
-    the tracker's Notion when one is given)."""
-    stores = stores or open_stores(tracker=tracker)
+    gets the reviewed job's application id as 'application', once known. stores: the active store (else open_stores())."""
+    stores = stores or open_stores()
     now = now or datetime.now(timezone.utc)
     caption, transcript, recorded = note, '', False
     saved = stores.interviews.get(page_id) if page_id else None
@@ -139,7 +138,7 @@ def run(tracker=None, *, file_id=None, note='', token=None, send=None, model=DEF
     truncated = len(transcript) > MAX_CHARS
     transcript = transcript[:MAX_CHARS]
     apps = candidates(stores)
-    chosen_app = (by_url(stores, apps, job_url) or application_for(stores, job_url, tracker)) if job_url else None
+    chosen_app = (by_url(stores, apps, job_url) or application_for(stores, job_url)) if job_url else None
     if saved and not chosen_app and saved.get('app_id'):
         chosen_app = app_by_id(stores, saved['app_id'], apps) or app_by_id(stores, saved['app_id'])
     if chosen_app and chosen_app not in apps:

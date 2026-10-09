@@ -313,8 +313,8 @@ def search(args, stores=None):
         try:
             run['insight'] = {}
             with store.connect(args.db) as db:
-                print(insights.run(db, notion, send=lambda text, markup: telegram.send(text, token, chat_id, markup),
-                                   stats=run['insight'], stores=stores))
+                print(insights.run(db, stores, send=lambda text, markup: telegram.send(text, token, chat_id, markup),
+                                   stats=run['insight']))
         except Exception as error:
             print(f'Warning: insight skipped: {type(error).__name__}: {error}')
             run['warnings'].append(f'insight skipped: {type(error).__name__}')

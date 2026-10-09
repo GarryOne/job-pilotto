@@ -204,10 +204,10 @@ def generate(client, model, profile, stats):
     return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage
 
 
-def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None, stats=None, stores=None):
+def weekly(db, stores=None, model=DEFAULT_MODEL, *, send=None, now=None, client=None, stats=None):
     """Make, save and send the weekly report; returns a one-line summary."""
     now = now or datetime.now(timezone.utc)
-    stores = stores or open_stores(tracker=tracker)
+    stores = stores or open_stores()
     print('Search analysis: reading your numbers…')   # each step says so: the app shows the latest line while the run works
     profile = profile_of(stores)
     data = {'market': market_stats(db, profile, now), 'applications': data_of.application_stats(stores, now),
@@ -280,16 +280,16 @@ def category_of(summary):
     return summary[len(SENT):].split(' — ')[0].strip() if (summary or '').startswith(SENT) and ' — ' in summary else ''
 
 
-def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, client=None, stats=None, stores=None):
+def run(db, stores=None, model=DEFAULT_MODEL, *, send=None, now=None, force=False, client=None, stats=None):
     """Make and send today's insight unless one exists already (or it's before SEND_HOUR_UTC).
     send(text, keyboard) delivers it; returns a one-line summary. The data comes from the active store (stores, else
-    open_stores: the tracker's Notion when one is given)."""
+    open_stores())."""
     now = now or datetime.now(timezone.utc)
-    stores = stores or open_stores(tracker=tracker)
+    stores = stores or open_stores()
     if not force and (now.hour < SEND_HOUR_UTC or data_of.sent_today(stores, now.date())):
         return 'Insight: not due'
     if not force and now.weekday() == WEEKLY_DAY:
-        return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats, stores=stores)
+        return weekly(db, stores, model, send=send, now=now, client=client, stats=stats)
     print('Insight: reading your numbers…')
     profile = profile_of(stores)
     data = {'market': market_stats(db, profile, now), 'applications': data_of.application_stats(stores, now),
