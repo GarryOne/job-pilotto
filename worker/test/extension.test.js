@@ -288,3 +288,13 @@ test('the strategy\'s search settings go to the AI beside the profile', async ()
   assert.match(system, /<search_preferences>/);
   assert.match(system, /cashier/);
 });
+
+test('a fill row says who paid for its answer: the engine and its billing, a value from the fixed list only', async () => {
+  const { billedTo, BILLED } = await import('../src/extension.js');
+  assert.equal(billedTo({ billing: 'api', provider: 'anthropic' }), 'Anthropic API credits');
+  assert.equal(billedTo({ billing: 'api', provider: 'openai' }), 'OpenAI API credits');
+  assert.equal(billedTo({ billing: 'subscription', provider: 'anthropic' }), 'Claude subscription');
+  assert.equal(billedTo({ billing: 'subscription', provider: 'openai' }), 'ChatGPT plan');
+  assert.equal(billedTo({}), 'Anthropic API credits', 'the Worker\'s own SDK answer: no provider, Anthropic');
+  for (const usage of [{ billing: 'api', provider: 'openai' }, { billing: 'subscription', provider: 'openai' }]) assert.ok(BILLED.includes(billedTo(usage)));
+});

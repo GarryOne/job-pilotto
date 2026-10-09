@@ -341,7 +341,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: job, started: startedAt.toISOString(),
-    ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,
+    ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0, billed_to: ai?.billed_to || '',
     kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], snapshots: snapshots || {}, debug: {...debug, aiUsd: ai?.usd || 0}})})
     .then(logged => logged?.url && chrome.storage.session.set({[`run:${tab.id}`]: logged.url})).catch(() => {});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};

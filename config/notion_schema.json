@@ -831,6 +831,10 @@
               "color": "red"
             },
             {
+              "name": "OpenAI API credits",
+              "color": "blue"
+            },
+            {
               "name": "Unknown",
               "color": "gray"
             }

@@ -217,7 +217,16 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     answers: raw.filter((a) => known.has(a.field) && a.value !== ''),
     cover_letter: kit?.cover_letter || '',
     usd: Math.round(usd * 10000) / 10000,
+    billed_to: billedTo(usage),   // who paid for the answer: the fill row's "Billed to" (the extension passes it back with the run)
   };
+}
+
+// "Billed to" in 🎏 Agent Runs, from the answer's own usage (the desktop app's client may be any engine; the Worker's own is Anthropic's).
+export const BILLED = ['Anthropic API credits', 'OpenAI API credits', 'Claude subscription', 'ChatGPT plan'];
+export function billedTo(usage = {}) {
+  const openai = usage.provider === 'openai';
+  if (usage.billing === 'subscription') return openai ? 'ChatGPT plan' : 'Claude subscription';
+  return openai ? 'OpenAI API credits' : 'Anthropic API credits';
 }
 
 const ATS = [['greenhouse', 'Greenhouse'], ['ashbyhq', 'Ashby'], ['lever.co', 'Lever'], ['workable', 'Workable']];
@@ -281,8 +290,8 @@ export async function logRun(env, run) {
     'Unfilled required': { number: Number(run.unfilled) || 0 },
     'Tokens (total)': { number: 0 },
     'Job URL': { url: run.url },
-    'Billed to': { select: { name: run.usd ? 'Anthropic API credits' : 'Unknown' } },
-    Reason: text(`${run.kit ? 'Filled from the kit' : 'Claude answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`),
+    'Billed to': { select: { name: BILLED.includes(run.billed_to) ? run.billed_to : run.usd ? 'Anthropic API credits' : 'Unknown' } },   // an older extension sends no billed_to
+    Reason: text(`${run.kit ? 'Filled from the kit' : 'The AI answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`),
     Learnings: text(learnings(run).join(' · ') || (run.todo || []).join(' · ')),
     ...(row ? { Job: { relation: [{ id: row.id }] } } : {}),
   };
