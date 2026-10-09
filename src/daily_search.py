@@ -22,7 +22,7 @@ from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_in
 
 def search(args, stores=None):
     stores = stores or open_run()
-    # BRIDGE(mac-e3): remove when insights.run takes the store alone
+    # BRIDGE(mac-67): remove when url_stages and profile_source ask the store alone (082d079)
     notion = notion_of(stores)
     run = new_cron_run(args.mode)
     spend = None

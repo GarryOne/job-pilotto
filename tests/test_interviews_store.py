@@ -91,7 +91,30 @@ class SqliteCommandTests(OnThisMac):
                 daily_modes.insight_mode(args, None)
             except SystemExit as stop:
                 self.fail(f'the insight command needs Notion: {stop}')
-        self.assertIsNone(run.call_args.args[1])  # no tracker: the store is this Mac's
+        self.assertEqual(run.call_args.args[1].name, 'sqlite')  # the store is this Mac's, no Notion
+
+
+class RunStoreGateTests(unittest.TestCase):
+    def test_a_mode_stops_exactly_when_the_engine_had_no_notion_client_on_a_notion_store(self):
+        """The interview and insight modes' gate, on the store alone: the four cases of the old `not tracker and chosen() == 'notion'`."""
+        from src import daily_modes
+        cases = [({}, 'sqlite'),                                                                     # no token: this Mac's store, runs
+                 ({'JOB_PILOTTO_STORE': 'notion'}, None),                                          # Notion chosen, no token: stops
+                 ({'NOTION_TOKEN': 'secret_x', 'JOB_PILOTTO_DISABLE': 'notion'}, None),           # Notion switched off: stops
+                 ({'NOTION_TOKEN': 'secret_x', 'JOB_PILOTTO_DISABLE': 'notion', 'JOB_PILOTTO_STORE': 'sqlite'}, 'sqlite'),
+                 ({'NOTION_TOKEN': 'secret_x'}, 'notion')]                                        # Notion connected: runs
+        for env, expected in cases:
+            with tempfile.TemporaryDirectory() as folder, \
+                    mock.patch.dict(os.environ, {'JOB_PILOTTO_DATA_DIR': folder, **env}), self.subTest(env=env):
+                for name in ('NOTION_TOKEN', 'JOB_PILOTTO_STORE', 'JOB_PILOTTO_DISABLE'):
+                    if name not in env:
+                        os.environ.pop(name, None)
+                if expected is None:
+                    with self.assertRaises(SystemExit) as stop:
+                        daily_modes._run_store(None, '--mode insight requires NOTION_TOKEN')
+                    self.assertEqual(str(stop.exception), '--mode insight requires NOTION_TOKEN')
+                else:
+                    self.assertEqual(daily_modes._run_store(None, 'x').name, expected)
 
 
 class ReviewCommandTests(OnThisMac):

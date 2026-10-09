@@ -12,11 +12,26 @@ from . import import_url, store, telegram
 from .ai import added, cost, inbox, insights, interview_insights, interviews, kit
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
-from .store_access import notion_of, profile_source, url_stages
+from .store_access import notion_of, open_run, profile_source, url_stages
 from . import ledger_store
 from .stores import open_stores
 from .daily_helpers import log_store_job
 
+
+
+def _run_store(stores, message):
+    """The run's store (opened here when the caller passed none), or SystemExit(message) when the data is in Notion but Notion can't be
+    used: Notion chosen without a token (the store can't open), or a Notion store the engine got no client for (Tracker.from_env:
+    JOB_PILOTTO_DISABLE=notion). Exactly the old `not tracker and chosen() == 'notion'`; this Mac's store runs without Notion.
+    notion_of is only asked here, its client is handed to nothing."""
+    if stores is None:
+        try:
+            stores = open_run()
+        except LookupError:
+            raise SystemExit(message) from None
+    if stores.name == 'notion' and notion_of(stores) is None:
+        raise SystemExit(message)
+    return stores
 
 
 def _gate(tracker, stores, message, on_store):
@@ -222,10 +237,7 @@ def add_link_mode(args, stores=None):
 
 
 def interview_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-e3): remove when interviews.run and interview_insights.after_review take the store alone
-    from .stores import chosen
-    if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
-        raise SystemExit('--mode interview requires NOTION_TOKEN')
+    stores = _run_store(stores, '--mode interview requires NOTION_TOKEN')
     # Telegram only to send the summary or fetch a file sent to the bot; the app's reviews work without it.
     from_bot = bool(args.file) and not Path(args.file).is_file()
     token, chat_id = telegram.credentials() if args.send or from_bot else (None, None)
@@ -268,17 +280,14 @@ def interview_mode(args, stores=None):
 
 
 def insight_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-e3): remove when insights.run/weekly take the store alone
-    from .stores import chosen
-    if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
-        raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')
+    stores = _run_store(stores, f'--mode {args.mode} requires NOTION_TOKEN')
     sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else telegram.to_app
     with store.connect(args.db) as db:
         make = insights.run if args.mode == 'insight' else insights.weekly
         run = new_cron_run(args.mode)
         run['insight'] = {}
         try:
-            run['headline'] = make(db, tracker, send=sender, stats=run['insight'],
+            run['headline'] = make(db, stores, send=sender, stats=run['insight'],
                                    **({'force': True} if args.mode == 'insight' else {})) or \
                 ('No new insight: nothing worth saying today' if args.mode == 'insight' else 'Weekly report: nothing to report')
             run['subject'] = insights.category_of(run['headline']) if args.mode == 'insight' else ''
