@@ -266,9 +266,8 @@ def main():
         if not pairs:
             print('No job has a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
                   '`gh workflow run daily.yml -f mode=prepare -f job=<job URL>`.')
-            if tracker:   # the setup checklist reads Notion
-                from .. import doctor  # lazy: the full checklist is only needed on this empty path
-                print(f'👉 Next step — {doctor.next_step(doctor.run_checks(tracker))}')
+            from .. import doctor  # lazy: the full checklist is only needed on this empty path
+            print(f'👉 Next step — {doctor.next_step(doctor.run_checks(tracker, stores=stores))}')   # the store's checks too
             return 0
 
     for record, kit_data in pairs:

@@ -95,6 +95,19 @@ class MarkApplyingTests(unittest.TestCase):
         self.assertEqual([e['kind'] for e in stores.events.list(app_id=record['id'])], ['Applied'])
 
 
+class NothingReadyTests(unittest.TestCase):
+    def test_with_no_kit_ready_it_says_the_next_step_from_the_stores_checks_without_notion(self):
+        seen = []
+        with mock.patch('src.doctor.run_checks', lambda tracker=None, now=None, stores=None: seen.append((tracker, stores)) or []), \
+                mock.patch('src.doctor.next_step', lambda checks: 'draft a kit first'):
+            stores = stores_with()
+            code, text = run_main(stores)
+        self.assertEqual(code, 0)
+        self.assertIn('No job has a kit ready', text)
+        self.assertIn('Next step — draft a kit first', text)
+        self.assertEqual(seen, [(None, stores)])   # the checklist reads this Mac's store, no Notion needed
+
+
 class NextJobsTests(unittest.TestCase):
     """Apply to N with Claude: the best N jobs with a kit, picked from the records (no kit is opened), fast."""
 
