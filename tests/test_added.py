@@ -9,6 +9,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import store
 from src.ai import added
+from src.stores import memory
 from src.notion import ledger
 
 FACTS = {'languages': [], 'english_is_enough': {'value': 'yes', 'evidence': ''},
@@ -63,41 +64,44 @@ class AddedTests(unittest.TestCase):
         self.db.close()
         self.tmp.cleanup()
 
-    def process(self, tracker, client, job=None, row=None, env=AI_ON):
+    def process(self, tracker, client, job=None, row=None, env=AI_ON, stores=None):
         stats = {}
+        if stores is None:
+            stores = memory.open_store()
+            stores.texts.set('profile', 'Profile: SRE in Zurich')
         with mock.patch.dict('os.environ', env, clear=False), mock.patch.object(added, 'local_profile', lambda: None):
             line = added.process(self.db, tracker, 'https://x.test/job/1',
                                  job or {'title': 'Senior DevOps Engineer', 'company': 'Acme', 'description': POSTING},
-                                 row=row, client=client, stats=stats)
+                                 row=row, client=client, stats=stats, stores=stores)
         return line, stats
 
+    def stores_with_job(self, **fields):
+        """The memory store (any adapter: sqlite on this Mac, Notion) holding the job you added."""
+        stores = memory.open_store()
+        stores.texts.set('profile', 'Profile: SRE in Zurich')
+        stores.applications.create({'url': 'https://x.test/job/1', 'title': 'Senior DevOps Engineer', **fields}, 'Applied')
+        return stores
+
     def test_a_job_you_add_gets_facts_and_a_fit_score_on_its_application_but_no_job_matches_row(self):
-        tracker, client = Tracker(), Client(FACTS, FIT)
-        row = {'id': 'app-1', 'properties': {'Salary': {'type': 'rich_text', 'rich_text': []}}}
-        line, stats = self.process(tracker, client, row=row)
+        tracker, client, stores = Tracker(), Client(FACTS, FIT), self.stores_with_job()
+        line, stats = self.process(tracker, client, row={'id': 'app-1'}, stores=stores)
         self.assertEqual(line, 'fit 81/100, tier A')
         self.assertEqual(client.calls, ['claude-haiku-5-5', 'claude-sonnet-5-5'])
-        self.assertEqual(tracker.matches, [])  # Job Matches = what a search found (owner's decision, 30 Sep 2026)
-        page, changes = tracker.updates[0]
-        self.assertEqual(page, 'app-1')
-        self.assertEqual(changes['Fit score'], {'number': 81})
-        self.assertEqual(changes['Tier'], {'select': {'name': 'A'}})
-        self.assertEqual((changes['Seniority'], changes['Work mode'], changes['Recruiter']),
-                         ({'select': {'name': 'Senior'}}, {'select': {'name': 'Remote'}}, {'checkbox': True}))
-        self.assertEqual(changes['Salary']['rich_text'][0]['text']['content'], '€70k–90k')
+        self.assertEqual((tracker.matches, stores.matches.list()), ([], []))  # Job Matches = what a search found (owner, 30 Sep 2026)
+        self.assertEqual(tracker.updates, [])   # the job is filled through the store
+        record = stores.applications.get('https://x.test/job/1')
+        self.assertEqual((record['fit'], record['tier'], record['seniority'], record['work_mode'], record['recruiter'], record['salary']),
+                         (81, 'A', 'Senior', 'Remote', True, '€70k–90k'))
         self.assertGreater(stats['enrich']['usd'] + stats['score']['usd'], 0)
         self.assertEqual(self.db.execute("SELECT count(*) n FROM sqlite_master WHERE name='notion_matches'").fetchone()['n'], 0)
         # the facts and the score stay in the job cache, like a found job's
         self.assertEqual(len(added.score.load(self.db)), 1)
 
     def test_what_you_set_on_the_application_stays(self):
-        tracker = Tracker()
-        row = {'id': 'app-1', 'properties': {'Tier': {'type': 'select', 'select': {'name': 'C'}},
-                                             'Salary': {'type': 'rich_text', 'rich_text': [{'plain_text': 'CHF 150k'}]}}}
-        self.process(tracker, Client(FACTS, FIT), row=row)
-        changes = tracker.updates[0][1]
-        self.assertNotIn('Tier', changes)
-        self.assertNotIn('Salary', changes)
+        stores = self.stores_with_job(tier='C', salary='CHF 150k')
+        self.process(Tracker(), Client(FACTS, FIT), row={'id': 'app-1'}, stores=stores)
+        record = stores.applications.get('https://x.test/job/1')
+        self.assertEqual((record['tier'], record['salary'], record['fit']), ('C', 'CHF 150k', 81))
 
     def test_with_no_applications_row_yet_the_columns_wait_on_the_job_for_add_application(self):
         tracker = Tracker()
@@ -105,6 +109,7 @@ class AddedTests(unittest.TestCase):
         self.process(tracker, Client(FACTS, FIT), job=job)
         self.assertEqual((tracker.updates, tracker.matches), ([], []))
         self.assertEqual(job['application_columns']['Fit score'], {'number': 81})
+        self.assertEqual(job['application_fields']['fit'], 81)   # the same values as store fields
 
     def test_nothing_runs_without_the_ai_stages_or_a_description_or_for_a_job_already_scored(self):
         env_off = {'JOB_PILOTTO_DISABLE': 'score'}
