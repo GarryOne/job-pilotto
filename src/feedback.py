@@ -18,11 +18,17 @@ def _moment(value):
 
 
 def eligible(row, history=()):
-    """A recorded Screening or later, before rejection. Replies/assessments alone are not proof."""
+    """A recorded Screening or later, before rejection, for a Notion row (eligible_status)."""
+    return eligible_status(plain(row['properties'].get('Feedback status')), history)
+
+
+def eligible_status(status, history=()):
+    """A recorded Screening or later, before rejection. Replies/assessments alone are not proof. history: events with
+    'kind' and 'at' (store records, or history_for's)."""
     from .features import disabled
     if disabled('feedback'):
         return False
-    if plain(row['properties'].get('Feedback status')) == 'Not asked':
+    if status == 'Not asked':
         return True  # the prior stage was captured when the rejection arrived
     rejected = [_moment(e.get('at')) for e in history if e.get('kind') == 'Rejected']
     cutoff = min(rejected) if rejected else datetime.max.replace(tzinfo=timezone.utc)

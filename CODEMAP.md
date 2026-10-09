@@ -503,6 +503,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/focus_state.py` — Focus, part 2: reading the application's history into a state: the app's own bookkeeping events, the interview
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
 - `src/import_url.py` — One job link, put through the same path as a job a search found.
+- `src/ledger_store.py` — The application ledger on the store (src/stores): stage events, the Applied mark and the frozen record, for every
 - `src/legacy_lists.py` — The starter feeds and seed names the app shipped before 6 Oct 2026, when every install copied them into its own config folder. They now
 - `src/levels.py` — The level a person is looking for ("junior", "mid", "senior", "lead") as title words to skip, before any AI is spent on a posting.
 - `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.

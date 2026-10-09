@@ -88,47 +88,63 @@ def channel_for(url, match=None):
     return 'Direct', ''
 
 
-def build(url, row, kit, match, posting, form, run, cv, now):
-    """(Applications properties, record dict) for one application. Pure: no I/O."""
-    props = row['properties']
+# A frozen record's columns: store field → (Notion column, kind). build() writes them as Notion properties exactly as
+# before the stores; the store path (src/ledger_store.py) writes the fields.
+RECORD_COLUMNS = {'recorded': ('Recorded', 'date'), 'ats': ('ATS', 'select'), 'cover_letter': ('Cover letter', 'checkbox'),
+                  'questions': ('Questions', 'number'), 'answers_captured': ('Answers captured', 'select'),
+                  'cv_version': ('CV version', 'text'), 'kit_variant': ('Kit variant', 'text'), 'fit': ('Fit score', 'number'),
+                  'seniority': ('Seniority', 'select'), 'work_mode': ('Work mode', 'select'), 'tier': ('Tier', 'select'),
+                  'recruiter': ('Recruiter', 'checkbox'), 'days_to_apply': ('Days to apply', 'number'),
+                  'agent': ('Agent', 'select'), 'channel': ('Channel', 'select'), 'via': ('Via', 'text')}
+SELECT_FIELDS = {'Seniority': 'seniority', 'Work mode': 'work_mode', 'Tier': 'tier'}
+
+
+def _property(kind, value):
+    if kind == 'date':
+        return {'date': {'start': value}}
+    if kind == 'select':
+        return {'select': {'name': value}}
+    if kind == 'checkbox':
+        return {'checkbox': bool(value)}
+    if kind == 'number':
+        return {'number': value}
+    return _text(value)
+
+
+def build_fields(url, app, kit, match, posting, form, run, cv, now):
+    """(application fields, record dict) for one application; `app` is its store record. Pure: no I/O."""
     answers, captured = answers_for(kit, form)
     found = ats.detect(url)
-    posted, applied = _day(plain(props.get('Posted'))), _day(plain(props.get('Applied on'))) or now.date()
+    posted, applied = _day(app.get('posted')), _day(app.get('applied_on')) or now.date()
     agent = AGENTS.get(((run or {}).get('agent') or '').lower())
     kit = kit or {}
     variant = kit.get('variant') or (f"v{kit['version']}" if kit.get('version') else '')
     cover = kit.get('cover_letter', '')
     if form and not any(re.search(r'cover', a['question'], re.I) and a['answer'] for a in answers):
         cover = form.get('cover_letter', cover)
-    properties = {
-        'Recorded': {'date': {'start': now.isoformat(timespec='seconds')}},
-        'ATS': {'select': {'name': ATS_NAMES.get(found[0], 'Other') if found else 'Other'}},
-        'Cover letter': {'checkbox': bool(cover)},
-        'Questions': {'number': len(answers)},
-        'Answers captured': {'select': {'name': captured}},
-        'CV version': _text(cv),
-        'Kit variant': _text(variant),
-    }
+    fields = {'recorded': now.isoformat(timespec='seconds'),
+              'ats': ATS_NAMES.get(found[0], 'Other') if found else 'Other', 'cover_letter': bool(cover),
+              'questions': len(answers), 'answers_captured': captured, 'cv_version': cv, 'kit_variant': variant}
     if match.get('Score') is not None:
-        properties['Fit score'] = {'number': match['Score']}
+        fields['fit'] = match['Score']
     for name in SELECTS:
         if match.get(name) in SELECTS[name]:
-            properties[name] = {'select': {'name': match[name]}}
+            fields[SELECT_FIELDS[name]] = match[name]
     if match.get('Recruiter') is not None:
-        properties['Recruiter'] = {'checkbox': bool(match['Recruiter'])}
+        fields['recruiter'] = bool(match['Recruiter'])
     if posted:
-        properties['Days to apply'] = {'number': max((applied - posted).days, 0)}
+        fields['days_to_apply'] = max((applied - posted).days, 0)
     if agent:
-        properties['Agent'] = {'select': {'name': agent}}
-    if not plain(props.get('Channel')):  # never overwrite what the owner set
+        fields['agent'] = agent
+    if not app.get('channel'):  # never overwrite what the owner set
         channel, via = channel_for(url, match)
-        properties['Channel'] = {'select': {'name': channel}}
-        if via and not plain(props.get('Via')):
-            properties['Via'] = _text(via)
+        fields['channel'] = channel
+        if via and not app.get('via'):
+            fields['via'] = via
     record = {
         'version': RECORD_VERSION, 'recorded_at': now.isoformat(timespec='seconds'), 'url': url,
-        'job': {'title': plain(props.get('Job')), 'company': plain(props.get('Company')),
-                'location': plain(props.get('Location')), 'posted': plain(props.get('Posted')),
+        'job': {'title': app.get('title'), 'company': app.get('company'),
+                'location': app.get('location'), 'posted': app.get('posted'),
                 'applied_on': applied.isoformat(), 'ats': found[0] if found else None,
                 'description': (posting or {}).get('description', '')},
         'match': match, 'answers_captured': captured, 'answers': answers, 'cover_letter': cover,
@@ -138,7 +154,17 @@ def build(url, row, kit, match, posting, form, run, cv, now):
         'run': {k: run.get(k) for k in ('agent', 'minutes', 'field_count', 'status')} if run else None,
         'cv': cv,
     }
-    return properties, record
+    return fields, record
+
+
+def build(url, row, kit, match, posting, form, run, cv, now):
+    """(Applications properties, record dict) for one application's Notion row. Pure: no I/O."""
+    props = row['properties']
+    app = {'posted': plain(props.get('Posted')), 'applied_on': plain(props.get('Applied on')),
+           'title': plain(props.get('Job')), 'company': plain(props.get('Company')),
+           'location': plain(props.get('Location')), 'channel': plain(props.get('Channel')), 'via': plain(props.get('Via'))}
+    fields, record = build_fields(url, app, kit, match, posting, form, run, cv, now)
+    return {RECORD_COLUMNS[name][0]: _property(RECORD_COLUMNS[name][1], value) for name, value in fields.items()}, record
 
 
 def _fitted_json(record, limit=100 * 1900):
@@ -157,6 +183,13 @@ def _fitted_json(record, limit=100 * 1900):
                                        for a in record['answers']])
         payload = json.dumps(record, ensure_ascii=False)
     return payload
+
+
+def record_markdown(record):
+    """The frozen record as the store's Markdown section: record_blocks' children through the store's codec, so a
+    Notion page shows today's blocks and SQLite keeps the same text."""
+    from ..stores.notion_blocks import to_markdown
+    return to_markdown(record_blocks(record)['heading_2']['children'])
 
 
 def record_blocks(record):
