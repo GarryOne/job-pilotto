@@ -64,6 +64,11 @@ test('a fill run is logged with the same values in either store', async () => {
 
 test('the kit in its section: a fenced JSON block; anything else is no kit', () => {
   assert.deepEqual(kitOf('intro\n```json\n{"a":1}\n```\n'), {a: 1});
+  assert.deepEqual(kitOf('### ✉️ Cover letter\n```json\n{"example":true}\n```\n### Machine-readable kit\n```json\n{"kit":2}\n```\n'), {kit: 2});   // the last fence
+  assert.equal(kitOf('```\n{"a":1}\n```'), null);   // only a json fence is the kit
+  assert.equal(kitOf('```json\n[1, 2]\n```'), null);   // not an object
+  assert.equal(kitOf('text ```json\n{"a":1}\n```'), null);   // a fence opens on its own line
+  assert.deepEqual(kitOf('```json  \n{"a":1}\n```'), {a: 1});   // trailing spaces after json are fine
   assert.equal(kitOf('no kit here'), null);
   assert.equal(kitOf('```json\n{broken\n```'), null);
 });

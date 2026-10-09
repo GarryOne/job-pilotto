@@ -4,11 +4,15 @@
 import * as engine from './engine.js';
 import {jobKey, runRecord} from '../../shared/worker/extension.js';
 
-export const KIT_SECTION = '📝 Application kit';   // src/ai/kit.py KIT_HEADING: the section the kit is kept in
-// The kit's JSON in its section: a fenced block (```json … ```), as Notion keeps it in a code block.
+export const KIT_SECTION = '📝 Application kit';   // src/stores base.KIT_SECTION: the section the kit is kept in, on every store
+// The kit's JSON in its section (base.kit_from): the readable kit, then '### Machine-readable kit' and the kit as a ```json fence. The LAST
+// ```json fence is the kit (the whole fence body); null if there is none or it is not JSON.
 export function kitOf(markdown) {
-  const fenced = /```(?:json)?\s*\n([\s\S]*?)\n```/.exec(String(markdown || ''))?.[1];
-  try { return fenced ? JSON.parse(fenced) : null; } catch { return null; }
+  // A fence opens on a line that is exactly ```json (trailing spaces allowed) and closes on a ``` line; the kit is a JSON object.
+  const fences = [...String(markdown || '').matchAll(/^```json[ \t]*\n([\s\S]*?)\n```[ \t]*$/gm)];
+  let kit = null;
+  try { kit = fences.length ? JSON.parse(fences.at(-1)[1]) : null; } catch { return null; }
+  return kit && typeof kit === 'object' && !Array.isArray(kit) ? kit : null;
 }
 
 export function extensionStore(storage, {call = engine.call} = {}) {
