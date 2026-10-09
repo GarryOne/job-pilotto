@@ -18,11 +18,6 @@ from .sources import ats
 from .stores import base, rules
 
 
-def _tracker(stores):
-    """The Notion client behind a notion store, for what its adapter doesn't serve yet (Job Matches, Agent Runs)."""
-    return getattr(stores.applications, 'tracker', None)
-
-
 def find(stores, url):
     app = stores.applications.get(url)
     if not app:
@@ -60,20 +55,11 @@ def _kit(stores, app_id):
 def match_of(stores, url, app):
     """The job's scores as src/notion/ledger_record.py match_for gives them ({'Score', 'Seniority', ...}): the 🎯 match
     when there is one, else the application's own fit columns (a job you added has no match)."""
-    tracker = _tracker(stores)
-    try:
-        found = next((m for m in stores.matches.list() if base.url_key(m['url']) == base.url_key(url)), None)
-        if found:
-            return {k: v for k, v in {'Score': found['fit'], 'Work mode': found['work_mode'], 'Job': found['title'],
-                                       'Company': found['company'], 'Location': found['location']}.items()
-                    if v not in (None, '')}
-    except NotImplementedError:  # the notion store serves no matches yet: its Job Matches row, as before
-        from .notion import client as notion
-        if tracker is not None and notion.MATCHES_DATABASE_ID:
-            from .notion.ledger_blocks import plain
-            rows = tracker.query_database(notion.MATCHES_DATABASE_ID, {'property': 'Job URL', 'url': {'equals': url}})
-            if rows:
-                return {name: plain(prop) for name, prop in rows[0]['properties'].items()}
+    found = next((m for m in stores.matches.list() if base.url_key(m['url']) == base.url_key(url)), None)
+    if found:
+        return {k: v for k, v in {'Score': found['fit'], 'Work mode': found['work_mode'], 'Job': found['title'],
+                                   'Company': found['company'], 'Location': found['location']}.items()
+                if v not in (None, '')}
     own = {'Score': app.get('fit'), 'Seniority': app.get('seniority'), 'Work mode': app.get('work_mode'),
            'Tier': app.get('tier'), 'Salary': app.get('salary')}
     if app.get('recruiter'):
@@ -86,13 +72,7 @@ def run_of(stores, url, app, run_dir=None):
     run = ledger.run_state(url, run_dir)
     if run is not None:
         return run
-    try:
-        runs = [r for r in stores.agent_runs.list() if base.url_key(r['url']) == base.url_key(url)]
-    except NotImplementedError:  # the notion store serves no agent runs yet: the row's 🤖 Agent runs links, as before
-        tracker = _tracker(stores)
-        if tracker is None or not hasattr(tracker, '_request'):
-            return None
-        return ledger.run_from_notion(tracker, tracker._request('GET', f"pages/{app['id']}"))
+    runs = [r for r in stores.agent_runs.list() if base.url_key(r['url']) == base.url_key(url)]
     fields = [r.get('fields') or {} for r in runs]
     latest = max(fields, key=lambda f: f.get('started') or '', default=None)
     if not latest or not latest.get('agent'):
