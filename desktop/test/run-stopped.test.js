@@ -37,10 +37,13 @@ test('a run stopped by the watchdog has its Notion row closed', async () => {
   fs.writeFileSync(path.join(dir, 'quietrun.py'), `print('Cronjob run logged: ${URL}', flush=True)\nimport time\ntime.sleep(60)\n`);
   const storage = {settings: () => ({}), secret: name => (name === 'NOTION_TOKEN' ? 'token' : ''), saveSettings: () => {}, path: (...parts) => path.join(dir, ...parts)};
   const saved = {...pipeline.LIMITS}, realFetch = globalThis.fetch, calls = [];
-  Object.assign(pipeline.LIMITS, {idleMs: 600, totalMs: 60000, checkMs: 100, killAfterMs: 500, watchAll: true});
+  // The quiet limit applies once the run has said where its row is: a Python slow to start on a loaded machine (9 Oct 2026, load ~430) was
+  // killed before it printed the row's URL, so there was no row to close and the test failed. The watchdog reads LIMITS at every check.
+  Object.assign(pipeline.LIMITS, {idleMs: 60000, totalMs: 60000, checkMs: 100, killAfterMs: 500, watchAll: true});
+  const onLine = line => { if (/Cronjob run logged/.test(line)) pipeline.LIMITS.idleMs = 300; };
   globalThis.fetch = async (url, init) => { calls.push([init?.method, String(url), init?.body]); return json({id: PAGE, properties: {Status: {select: {name: 'Running'}}}}); };
   try {
-    const {timedOut} = await pipeline.run(storage, ['quietrun'], () => {}, {PYTHONPATH: dir});
+    const {timedOut} = await pipeline.run(storage, ['quietrun'], onLine, {PYTHONPATH: dir});
     assert.match(timedOut, /no output for/);
   } finally { Object.assign(pipeline.LIMITS, saved); globalThis.fetch = realFetch; }
   const patch = calls.find(call => call[0] === 'PATCH');
