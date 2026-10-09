@@ -490,7 +490,7 @@ const {watchSubmission, onTabSettled} = createSubmitWatch({note});   // submit-w
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'complete') onTabSettled(tabId, tab); });
 
 // The fill flow (fill-flow.js) gets what lives on with this worker: the tabs a fill started on, the fill, its report, onPage.
-initFillFlow({started, fillOpenedTab, reportFlow, onPage, fillsNow});
+initFillFlow({started, fillOpenedTab, reportFlow, onPage, fillsNow, arm});
 
 // Message groups: registered here, after everything they use exists, in the order the messages were answered before.
 messageHandlers.push(createLearningMessages({FILL_MARK, arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission}));   // messages-learning.js

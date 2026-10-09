@@ -84,6 +84,16 @@ export const SCRIPTED = {
 };
 SCRIPTED.url = `https://${SCRIPTED.host}${SCRIPTED.path}`;
 SCRIPTED.formUrl = `https://${SCRIPTED.formHost}${SCRIPTED.formPath}`;
+// A form drawn late (9 Oct 2026, SuccessFactors after a sign-in): the page first shows a spinner and the form's own submit control (a span the site's
+// code names "_submitBtn", text "Postuler", not a type=submit), and draws its fields 3 s later. Judged while empty it reads as a posting: its
+// "Postuler" must never be pressed as Apply, and once the fields come the page is looked at again and filled.
+export const LATE = {
+  title: 'Store Assistant, Late Form', company: 'E2E Late Form Careers', host: 'jobs.lever.co', path: '/e2e-late/4001007',
+  formHost: 'e2e.wd3.myworkdayjobs.com', formPath: '/e2e/late-form',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '5', needs_review: false}],
+};
+LATE.url = `https://${LATE.host}${LATE.path}`;
+LATE.formUrl = `https://${LATE.formHost}${LATE.formPath}`;
 // A sign-up page in front of the form (8 Oct 2026, Manor/Migros on SuccessFactors): the posting's Apply leads to "Create an account" (email,
 // password, "not a robot"), which really posts; the account then leads to the application form. The extension must leave the sign-up
 // alone (an account page), the session must show the account step with no form progress, and nothing typed there may be learned.
@@ -212,6 +222,12 @@ const SIGNUP_PAGES = {
 const SCRIPTED_PAGES = {
   posting: () => page(SCRIPTED, `<p>Join the platform team.</p><button id="apply_now" type="button" onclick="window.open('${SCRIPTED.formUrl}', '_blank')" style="padding:12px 28px;background:#222;color:#fff;font-size:18px;border:0">Apply now</button>`, '', {realSubmit: true}),
   form: () => page(SCRIPTED, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`),
+};
+const LATE_PAGES = {
+  posting: () => page(LATE, `<p>Join the store team.</p><a id="apply_link" href="${LATE.formUrl}" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a>`),
+  form: () => page(LATE, `<p id="loading">Chargement en cours…</p><div id="late"></div><p><span id="357:_submitBtn" class="rcmSaveButton" role="button" tabindex="0" style="display:inline-block;padding:10px 22px;background:#555;color:#fff">Postuler</span></p>`,
+    `document.getElementById('357:_submitBtn').addEventListener('click', () => fired('click'));
+setTimeout(() => { document.getElementById('loading').remove(); document.getElementById('late').innerHTML = ${JSON.stringify(`<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}</form>`)}; }, 3000);`),
 };
 const CHAIN_PAGES = {
   posting: () => page(CHAIN, `<p>Join the team. <a id="apply_link" href="${CHAIN.stepUrl}" target="_blank" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a></p>`),
@@ -354,6 +370,8 @@ export async function startForms({vary = null} = {}) {
     const scripted = host === SCRIPTED.host && url.pathname.replace(/(.)\/$/, '$1') === SCRIPTED.path ? 'posting'
       : host === SCRIPTED.formHost && url.pathname.replace(/(.)\/$/, '$1') === SCRIPTED.formPath ? 'form' : '';
     if (scripted) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SCRIPTED_PAGES[scripted]()); return; }
+    const late = host === LATE.host && url.pathname.replace(/(.)\/$/, '$1') === LATE.path ? 'posting' : host === LATE.formHost && url.pathname.replace(/(.)\/$/, '$1') === LATE.formPath ? 'form' : '';
+    if (late) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(LATE_PAGES[late]()); return; }
     if (chain === 'form') {   // only the step's POST opens the form
       let body = '';
       req.on('data', chunk => { body += chunk; });

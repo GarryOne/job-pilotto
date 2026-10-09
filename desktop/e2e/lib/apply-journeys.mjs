@@ -1,6 +1,6 @@
 /* global document, window */
 // The apply suite's journey steps (moved out of suites/apply.mjs, 8 Oct 2026): a posting that opens a tab, side-by-side applications, sign-up, one page, a closed form tab, a wrong page kind. Guards the flows in docs/flows/applying.md.
-import {CHAIN, MISLABELLED, ONEPAGE, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
+import {CHAIN, LATE, MISLABELLED, ONEPAGE, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
 import {CONTACT, pause} from './apply-fixtures.mjs';
 import {appLogText} from './app-log.mjs';
 import {cvProblems, fillProblems, submitProblems} from './applycheck.mjs';
@@ -82,6 +82,27 @@ export async function runJourneys(ctx, h) {
       const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? "");
       if (value !== answer) problems.push(`${job.company}: Kubernetes years "${value}", its own kit says ${answer}${value === (answer === '9' ? '7' : '9') ? ' (the other job\'s kit)' : ''}`);
     }
+    fail(problems);
+  }, {needs: ctx.needs});
+
+  // A form drawn late (9 Oct 2026, SuccessFactors after a sign-in): judged while empty it reads as a posting whose "Apply" is the form's own submit span.
+  // That is never pressed; once the fields come the page is looked at again (fill-flow.js watchForFields) and filled, with the panel on it.
+  await ctx.run('a form drawn after a spinner: its submit is never pressed as Apply, and it is filled once its fields come', async () => {
+    for (const item of ctx.browser.context.pages()) if ([LATE.url, LATE.formUrl].some(url => item.url().startsWith(url))) await item.close();
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [LATE.url, {title: LATE.title, company: LATE.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(LATE.formUrl)) || null; await pause(1000); }
+    if (!tab) { await dumpExtension(); throw new Error(`the late form was never reached. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`); }
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
+    const problems = [...submitProblems(forms.fired, LATE.formPath)];
+    if (state?.state !== 'done') problems.push(`the form was not filled once its fields came (state: ${JSON.stringify(state)})`);
+    else {
+      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
+      if (value !== '5') problems.push(`Kubernetes years "${value}", the kit says 5`);
+    }
+    if (!(await tab.evaluate(() => !!document.getElementById('jobpilotto-review-host')).catch(() => false))) problems.push('no panel on the form once its fields came');
+    if (problems.length) await dumpExtension();
     fail(problems);
   }, {needs: ctx.needs});
 

@@ -11,9 +11,9 @@ import {applyPressed} from './tabs.js';
 import {sessionGet} from './tab-memory.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
 
-let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set();
+let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {};
 export function initFillFlow(shared) {
-  ({started, fillOpenedTab, reportFlow, onPage, fillsNow = new Set()} = shared);
+  ({started, fillOpenedTab, reportFlow, onPage, fillsNow = new Set(), arm = async () => {}} = shared);
   chrome.runtime.onMessage.addListener(onFillOne);
 }
 
@@ -196,6 +196,30 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
 }
 const triedApply = new Set();
 export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
+// A page judged "no form" while it had no field at all may still be drawing its form (a spinner first, or a sign-in that redirects to it:
+// SuccessFactors, 9 Oct 2026, where the form came after the judgment and neither the fill nor the panel ever came back). For 20 s it is read
+// again; once it has fields the panel is put back (a page that replaced its document lost it) and the page is judged again (a new shape for
+// the page-kind AI), then filled. Once per tab and page. Guard: desktop/test/extension-look-again.test.js.
+const lookedAgain = new Set();
+async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  const key = fillKey(tab.id, tab.url);
+  if (lookedAgain.has(key)) return false;
+  for (let i = 0; i < 10; i++) {
+    await wait(2000);
+    const live = await chrome.tabs.get(tab.id).catch(() => null);
+    if (!live || pageKey(live.url) !== pageKey(tab.url)) return false;   // moved on: the next page decides for itself
+    const shape = await pageShape(tab.id);
+    if (!shape || shape.fields + shape.textareas + shape.files < 2) continue;
+    lookedAgain.add(key);
+    started.delete(key);
+    let host = ''; try { host = new URL(live.url).hostname; } catch { /* no address */ }
+    decide('fill', 'fields appeared on a page judged without a form: looking again', {host, fields: shape.fields + shape.textareas + shape.files, after: (i + 1) * 2});
+    await arm(tab.id, 'fields appeared');
+    await consider(live, jobUrl);
+    return true;
+  }
+  return false;
+}
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
 export async function consider(tab, jobUrl) {
@@ -272,6 +296,7 @@ export async function consider(tab, jobUrl) {
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
   if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
   if (role !== 'form') {
+    if (role === 'no-form' && counts && emptyShape(counts)) watchForFields(tab, jobUrl).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
     if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url);   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)

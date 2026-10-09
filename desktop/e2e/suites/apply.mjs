@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -34,7 +34,7 @@ export const name = 'apply';
 // (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.
 // The setup step and the final "Submit was never clicked" check run in all of them; each run seeds only the fixture jobs its steps use.
 const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
-const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a sign-up page before the form', 'a sign-in page before the form', 'the account and the application on one page',
+const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a form drawn after a spinner', 'a sign-up page before the form', 'a sign-in page before the form', 'the account and the application on one page',
   'the form tab is closed', 'a second browser with the extension', 'the AI gave a page the wrong kind', '"I submitted it"'];
 const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
 const LIVE_STEPS = ['a real posting, watched live'];
@@ -52,7 +52,7 @@ export async function runApply(ctx, parts) {
   const live = parts.includes('live') ? livePosting() : null;   // the live run: one real posting, read from this Mac's job list; the fixture checks do not apply to it
   ctx.run = (name, fn, options) => ((partOf(name) === 'both' && !(live && name.startsWith('through all of it'))) || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
   // The jobs this part seeds: the journeys use their own fixtures, the forms and the CV steps the form fixtures.
-  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, SIGNUP, SIGNIN, SIGNIN_REFUSED, ONEPAGE, MISLABELLED] : [])];
+  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, LATE, SIGNUP, SIGNIN, SIGNIN_REFUSED, ONEPAGE, MISLABELLED] : [])];
   const urls = fixtures.map(form => form.url);
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
@@ -79,10 +79,12 @@ export async function runApply(ctx, parts) {
       // What kind of page (lib/page-kind.js): the stand-in answers with each fixture's true kind, so every flow row runs on the AI's word, as in use.
       if (/^Address path:/m.test(text) && /^Controls/m.test(text)) {
         const where = /^Address path: (.*)$/m.exec(text)?.[1] || '';
-        const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form',
+        const kinds = {[CHAIN.path]: 'posting', [CHAIN.stepPath]: 'posting', [CHAIN.formPath]: 'form', [SCRIPTED.path]: 'posting', [SCRIPTED.formPath]: 'form', [LATE.path]: 'posting',
           [SIGNUP.path]: 'posting', [SIGNUP.accountPath]: 'account', [SIGNUP.formPath]: 'form', [ONEPAGE.path]: 'account-form',
           [MISLABELLED.path]: 'posting', [SIGNIN.path]: 'posting', [SIGNIN.formPath]: 'form', [SIGNIN_REFUSED.path]: 'posting'};   // MISLABELLED: deliberately wrong, the self-correction row
         if (live) return realKind(body);   // a real site: a real model answers (this Mac's Claude Code, lib/model.mjs), the way the app's own AI would
+        // LATE: as the live AI did on SuccessFactors, an empty page still loading reads as a posting whose Apply is its "Postuler" (the form's own submit).
+        if (where.replace(/\/$/, '') === LATE.formPath) return JSON.stringify(/Years of experience/.test(text) ? {kind: 'form', confidence: 0.95} : {kind: 'posting', confidence: 0.85, apply_button: 'Postuler'});
         if ([SIGNIN.accountPath, SIGNIN_REFUSED.accountPath].includes(where.replace(/\/$/, ''))) return JSON.stringify({kind: 'account', confidence: 0.95, apply_button: '', account_step: 'sign_in', register_control: 'Create an account', signin_control: '', account_button: 'Sign in'});
         return JSON.stringify({kind: kinds[where.replace(/\/$/, '')] || 'form', confidence: 0.95});
       }
